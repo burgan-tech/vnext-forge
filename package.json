@@ -1,0 +1,17 @@
+{
+  "name": "vnext-flow-studio-web",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Standalone workflow design platform for vnext-runtime",
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "clean": "turbo clean"
+  },
+  "devDependencies": {
+    "turbo": "^2.4.0",
+    "typescript": "^5.7.0"
+  },
+  "packageManager": "pnpm@9.15.0"
+}

@@ -1,0 +1,98 @@
+import { useState, useRef, useEffect } from 'react';
+import {
+  Plus, Wand2, Play, Square, CheckCircle2, XCircle,
+  StopCircle, PauseCircle, Repeat2, ChevronDown,
+} from 'lucide-react';
+
+interface CanvasToolbarProps {
+  onAddState: (stateType: number, subType: number) => void;
+  onAutoLayout: () => void;
+}
+
+export function CanvasToolbar({ onAddState, onAutoLayout }: CanvasToolbarProps) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  const add = (stateType: number, subType = 0) => {
+    onAddState(stateType, subType);
+    setOpen(false);
+  };
+
+  return (
+    <div
+      ref={ref}
+      className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1.5 px-2.5 py-2 rounded-2xl bg-white/90 backdrop-blur-xl border border-slate-200/60 shadow-[0_8px_40px_rgba(0,0,0,0.08),0_2px_4px_rgba(0,0,0,0.04)]"
+    >
+      {/* Add State */}
+      <div className="relative">
+        <button
+          onClick={() => setOpen(!open)}
+          className={`flex items-center gap-2 px-4 py-2.5 text-[13px] font-semibold rounded-xl transition-all duration-150 ${
+            open
+              ? 'bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-lg shadow-indigo-500/30'
+              : 'bg-gradient-to-r from-indigo-500 to-indigo-600 text-white hover:from-indigo-600 hover:to-indigo-700 shadow-md shadow-indigo-500/20 hover:shadow-lg hover:shadow-indigo-500/30'
+          } active:scale-[0.97]`}
+        >
+          <Plus size={15} strokeWidth={2.5} />
+          <span>Add State</span>
+          <ChevronDown size={13} className={`transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+        </button>
+
+        {open && (
+          <div className="absolute bottom-full mb-2.5 left-0 bg-white/95 backdrop-blur-xl rounded-2xl border border-slate-200/60 shadow-[0_20px_60px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.05)] py-2 min-w-[220px] animate-scale-in">
+            <DropdownItem label="Initial State" icon={<Play size={14} />} color="text-emerald-500" bg="bg-emerald-500/10" onClick={() => add(1)} />
+            <DropdownItem label="Intermediate" icon={<Square size={14} />} color="text-indigo-500" bg="bg-indigo-500/10" onClick={() => add(2)} />
+            <div className="h-px bg-slate-100 my-1.5 mx-3" />
+            <div className="px-3.5 py-1 text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Final States</div>
+            <DropdownItem label="Success" icon={<CheckCircle2 size={14} />} color="text-emerald-500" bg="bg-emerald-500/10" onClick={() => add(3, 1)} indent />
+            <DropdownItem label="Error" icon={<XCircle size={14} />} color="text-rose-500" bg="bg-rose-500/10" onClick={() => add(3, 2)} indent />
+            <DropdownItem label="Terminated" icon={<StopCircle size={14} />} color="text-slate-500" bg="bg-slate-500/10" onClick={() => add(3, 3)} indent />
+            <DropdownItem label="Suspended" icon={<PauseCircle size={14} />} color="text-amber-500" bg="bg-amber-500/10" onClick={() => add(3, 4)} indent />
+            <div className="h-px bg-slate-100 my-1.5 mx-3" />
+            <DropdownItem label="SubFlow" icon={<Repeat2 size={14} />} color="text-violet-500" bg="bg-violet-500/10" onClick={() => add(4)} />
+          </div>
+        )}
+      </div>
+
+      <div className="w-px h-6 bg-slate-200/60" />
+
+      <button
+        onClick={onAutoLayout}
+        className="flex items-center gap-2 px-4 py-2.5 text-[13px] font-medium text-slate-600 rounded-xl hover:bg-slate-100/80 transition-all duration-150 active:scale-[0.97]"
+      >
+        <Wand2 size={15} className="text-slate-400" />
+        <span>Layout</span>
+      </button>
+    </div>
+  );
+}
+
+function DropdownItem({ label, icon, color, bg, indent, onClick }: {
+  label: string;
+  icon: React.ReactNode;
+  color: string;
+  bg: string;
+  indent?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full text-left px-3 py-1.5 text-[13px] flex items-center gap-2.5 text-slate-700 hover:bg-slate-50 transition-colors ${indent ? 'pl-7' : ''}`}
+    >
+      <span className={`size-7 rounded-lg ${bg} flex items-center justify-center shrink-0`}>
+        <span className={color}>{icon}</span>
+      </span>
+      <span className="font-medium">{label}</span>
+    </button>
+  );
+}

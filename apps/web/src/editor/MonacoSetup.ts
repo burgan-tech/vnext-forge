@@ -1,0 +1,141 @@
+import type { Monaco } from '@monaco-editor/react';
+import { registerContextAwareCompletions } from './csx-completions';
+
+export function registerCSharpSnippets(monaco: Monaco) {
+  monaco.languages.registerCompletionItemProvider('csharp', {
+    triggerCharacters: [':'],
+    provideCompletionItems: (model: any, position: any) => {
+      const word = model.getWordUntilPosition(position);
+      const range = {
+        startLineNumber: position.lineNumber,
+        endLineNumber: position.lineNumber,
+        startColumn: word.startColumn,
+        endColumn: word.endColumn,
+      };
+
+      return {
+        suggestions: [
+          {
+            label: 'IMapping template',
+            kind: monaco.languages.CompletionItemKind.Snippet,
+            insertText: [
+              'public class ${1:MappingName} : ScriptBase, IMapping',
+              '{',
+              '    public async Task<ScriptResponse> InputHandler(WorkflowTask task, ScriptContext context)',
+              '    {',
+              '        $2',
+              '        return new ScriptResponse();',
+              '    }',
+              '',
+              '    public async Task<ScriptResponse> OutputHandler(ScriptContext context)',
+              '    {',
+              '        $3',
+              '        return new ScriptResponse();',
+              '    }',
+              '}',
+            ].join('\n'),
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            detail: 'IMapping (Input + Output)',
+            range,
+          },
+          {
+            label: 'IConditionMapping template',
+            kind: monaco.languages.CompletionItemKind.Snippet,
+            insertText: [
+              'public class ${1:ConditionName} : ScriptBase, IConditionMapping',
+              '{',
+              '    public async Task<bool> Handler(ScriptContext context)',
+              '    {',
+              '        $2',
+              '        return true;',
+              '    }',
+              '}',
+            ].join('\n'),
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            detail: 'IConditionMapping (bool)',
+            range,
+          },
+          {
+            label: 'ITimerMapping template',
+            kind: monaco.languages.CompletionItemKind.Snippet,
+            insertText: [
+              'public class ${1:TimerName} : ScriptBase, ITimerMapping',
+              '{',
+              '    public async Task<TimerSchedule> Handler(ScriptContext context)',
+              '    {',
+              '        $2',
+              '        return TimerSchedule.FromDuration(TimeSpan.FromMinutes(5));',
+              '    }',
+              '}',
+            ].join('\n'),
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            detail: 'ITimerMapping (TimerSchedule)',
+            range,
+          },
+          {
+            label: 'ITransitionMapping template',
+            kind: monaco.languages.CompletionItemKind.Snippet,
+            insertText: [
+              'public class ${1:TransitionName} : ScriptBase, ITransitionMapping',
+              '{',
+              '    public async Task<ScriptResponse> Handler(ScriptContext context)',
+              '    {',
+              '        $2',
+              '        return new ScriptResponse();',
+              '    }',
+              '}',
+            ].join('\n'),
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            detail: 'ITransitionMapping',
+            range,
+          },
+          {
+            label: 'ISubFlowMapping template',
+            kind: monaco.languages.CompletionItemKind.Snippet,
+            insertText: [
+              'public class ${1:SubFlowName} : ScriptBase, ISubFlowMapping',
+              '{',
+              '    public async Task<ScriptResponse> InputHandler(WorkflowTask task, ScriptContext context)',
+              '    {',
+              '        $2',
+              '        return new ScriptResponse();',
+              '    }',
+              '',
+              '    public async Task<ScriptResponse> OutputHandler(ScriptContext context)',
+              '    {',
+              '        $3',
+              '        return new ScriptResponse();',
+              '    }',
+              '}',
+            ].join('\n'),
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            detail: 'ISubFlowMapping (Input + Output)',
+            range,
+          },
+          {
+            label: 'ISubProcessMapping template',
+            kind: monaco.languages.CompletionItemKind.Snippet,
+            insertText: [
+              'public class ${1:SubProcessName} : ScriptBase, ISubProcessMapping',
+              '{',
+              '    public async Task<ScriptResponse> InputHandler(WorkflowTask task, ScriptContext context)',
+              '    {',
+              '        $2',
+              '        return new ScriptResponse();',
+              '    }',
+              '}',
+            ].join('\n'),
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            detail: 'ISubProcessMapping (Input only)',
+            range,
+          },
+        ],
+      };
+    },
+  });
+}
+
+export function setupMonaco(monaco: Monaco) {
+  registerContextAwareCompletions(monaco);
+  registerCSharpSnippets(monaco);
+}

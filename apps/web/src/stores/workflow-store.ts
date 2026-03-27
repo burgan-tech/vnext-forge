@@ -1,0 +1,248 @@
+import { create } from 'zustand';
+import { enableMapSet, produce } from 'immer';
+
+enableMapSet();
+
+export interface WorkflowState {
+  workflowJson: Record<string, unknown> | null;
+  diagramJson: Record<string, unknown> | null;
+  isDirty: boolean;
+  selectedNodeId: string | null;
+  selectedEdgeId: string | null;
+  undoStack: Array<{ workflow: Record<string, unknown>; diagram: Record<string, unknown> }>;
+  redoStack: Array<{ workflow: Record<string, unknown>; diagram: Record<string, unknown> }>;
+
+  setWorkflow: (json: Record<string, unknown>, diagram: Record<string, unknown>) => void;
+  updateWorkflow: (updater: (draft: Record<string, unknown>) => void) => void;
+  updateDiagram: (updater: (draft: Record<string, unknown>) => void) => void;
+  setSelectedNode: (id: string | null) => void;
+  setSelectedEdge: (id: string | null) => void;
+  undo: () => void;
+  redo: () => void;
+  markClean: () => void;
+
+  addState: (stateType: number, subType: number, position: { x: number; y: number }) => string;
+  removeState: (key: string) => void;
+  duplicateState: (key: string, position: { x: number; y: number }) => string | null;
+  changeStateType: (key: string, stateType: number, subType?: number) => void;
+  addTransition: (sourceKey: string, targetKey: string, triggerType?: number) => void;
+  removeTransition: (sourceStateKey: string, transitionKey: string) => void;
+  changeTransitionTrigger: (sourceStateKey: string, transitionKey: string, triggerType: number) => void;
+}
+
+let stateCounter = 0;
+
+function nextStateKey(): string {
+  stateCounter++;
+  return `new-state-${stateCounter}`;
+}
+
+export const useWorkflowStore = create<WorkflowState>((set, get) => ({
+  workflowJson: null,
+  diagramJson: null,
+  isDirty: false,
+  selectedNodeId: null,
+  selectedEdgeId: null,
+  undoStack: [],
+  redoStack: [],
+
+  setWorkflow: (workflowJson, diagramJson) =>
+    set({ workflowJson, diagramJson, isDirty: false, undoStack: [], redoStack: [] }),
+
+  updateWorkflow: (updater) => {
+    const { workflowJson, diagramJson, undoStack } = get();
+    if (!workflowJson || !diagramJson) return;
+    const next = produce(workflowJson, updater);
+    set({
+      workflowJson: next,
+      isDirty: true,
+      undoStack: [...undoStack.slice(-49), { workflow: workflowJson, diagram: diagramJson }],
+      redoStack: [],
+    });
+  },
+
+  updateDiagram: (updater) => {
+    const { workflowJson, diagramJson, undoStack } = get();
+    if (!workflowJson || !diagramJson) return;
+    const next = produce(diagramJson, updater);
+    set({
+      diagramJson: next,
+      isDirty: true,
+      undoStack: [...undoStack.slice(-49), { workflow: workflowJson, diagram: diagramJson }],
+      redoStack: [],
+    });
+  },
+
+  setSelectedNode: (selectedNodeId) => set({ selectedNodeId, selectedEdgeId: null }),
+  setSelectedEdge: (selectedEdgeId) => set({ selectedEdgeId, selectedNodeId: null }),
+
+  undo: () => {
+    const { undoStack, workflowJson, diagramJson, redoStack } = get();
+    if (undoStack.length === 0 || !workflowJson || !diagramJson) return;
+    const prev = undoStack[undoStack.length - 1];
+    set({
+      workflowJson: prev.workflow,
+      diagramJson: prev.diagram,
+      undoStack: undoStack.slice(0, -1),
+      redoStack: [...redoStack, { workflow: workflowJson, diagram: diagramJson }],
+      isDirty: true,
+    });
+  },
+
+  redo: () => {
+    const { redoStack, workflowJson, diagramJson, undoStack } = get();
+    if (redoStack.length === 0 || !workflowJson || !diagramJson) return;
+    const next = redoStack[redoStack.length - 1];
+    set({
+      workflowJson: next.workflow,
+      diagramJson: next.diagram,
+      redoStack: redoStack.slice(0, -1),
+      undoStack: [...undoStack, { workflow: workflowJson, diagram: diagramJson }],
+      isDirty: true,
+    });
+  },
+
+  markClean: () => set({ isDirty: false }),
+
+  // ─── CRUD Helpers ───
+
+  addState: (stateType, subType, position) => {
+    const key = nextStateKey();
+    const typeLabels: Record<number, string> = { 1: 'Initial', 2: 'State', 3: 'Final', 4: 'SubFlow', 5: 'Wizard' };
+    const subTypeLabels: Record<number, string> = { 1: 'Success', 2: 'Error', 3: 'Terminated', 4: 'Suspended', 5: 'Busy', 6: 'Human' };
+    const label = subType > 0 ? `New ${subTypeLabels[subType] || 'Final'}` : `New ${typeLabels[stateType] || 'State'}`;
+
+    get().updateWorkflow((draft: any) => {
+      if (!draft.attributes) draft.attributes = {};
+      if (!draft.attributes.states) draft.attributes.states = [];
+      const newState: any = {
+        key,
+        stateType,
+        versionStrategy: 'Minor',
+        labels: [{ label, language: 'en' }],
+        onEntries: [],
+        transitions: [],
+      };
+      if (subType > 0) newState.subType = subType;
+      draft.attributes.states.push(newState);
+    });
+
+    get().updateDiagram((draft: any) => {
+      if (!draft.nodePos) draft.nodePos = {};
+      draft.nodePos[key] = { x: Math.round(position.x), y: Math.round(position.y) };
+    });
+
+    set({ selectedNodeId: key, selectedEdgeId: null });
+    return key;
+  },
+
+  removeState: (key) => {
+    get().updateWorkflow((draft: any) => {
+      const attrs = draft.attributes;
+      if (!attrs?.states) return;
+      attrs.states = attrs.states.filter((s: any) => s.key !== key);
+      for (const s of attrs.states) {
+        if (s.transitions) {
+          s.transitions = s.transitions.filter((t: any) => (t.target || t.to) !== key);
+        }
+      }
+      const st = attrs.startTransition || attrs.start;
+      if (st && (st.target === key || st.to === key)) {
+        if (st.target !== undefined) st.target = '';
+        if (st.to !== undefined) st.to = '';
+      }
+    });
+
+    get().updateDiagram((draft: any) => {
+      if (draft.nodePos) delete draft.nodePos[key];
+    });
+
+    const { selectedNodeId } = get();
+    if (selectedNodeId === key) set({ selectedNodeId: null });
+  },
+
+  duplicateState: (key, position) => {
+    const { workflowJson } = get();
+    if (!workflowJson) return null;
+    const attrs = (workflowJson as any).attributes;
+    const state = attrs?.states?.find((s: any) => s.key === key);
+    if (!state) return null;
+
+    const newKey = nextStateKey();
+
+    get().updateWorkflow((draft: any) => {
+      const clone = JSON.parse(JSON.stringify(state));
+      clone.key = newKey;
+      if (clone.labels) {
+        clone.labels = clone.labels.map((l: any) => ({ ...l, label: `${l.label} (copy)` }));
+      }
+      clone.transitions = [];
+      draft.attributes.states.push(clone);
+    });
+
+    get().updateDiagram((draft: any) => {
+      if (!draft.nodePos) draft.nodePos = {};
+      draft.nodePos[newKey] = { x: Math.round(position.x + 40), y: Math.round(position.y + 40) };
+    });
+
+    set({ selectedNodeId: newKey, selectedEdgeId: null });
+    return newKey;
+  },
+
+  changeStateType: (key, stateType, subType) => {
+    get().updateWorkflow((draft: any) => {
+      const state = draft.attributes?.states?.find((s: any) => s.key === key);
+      if (!state) return;
+      state.stateType = stateType;
+      if (subType !== undefined) state.subType = subType;
+      else if (stateType !== 3) delete state.subType;
+    });
+  },
+
+  addTransition: (sourceKey, targetKey, triggerType = 0) => {
+    const transitionKey = `${sourceKey}-to-${targetKey}`;
+    if (sourceKey === '__start__') {
+      get().updateWorkflow((draft: any) => {
+        const st = draft.attributes?.startTransition || draft.attributes?.start;
+        if (st) st.target = targetKey;
+      });
+    } else {
+      get().updateWorkflow((draft: any) => {
+        const state = draft.attributes?.states?.find((s: any) => s.key === sourceKey);
+        if (!state) return;
+        if (!state.transitions) state.transitions = [];
+        const newTransition: any = {
+          key: transitionKey,
+          target: targetKey,
+          triggerType,
+          versionStrategy: 'Minor',
+          labels: [{ label: transitionKey, language: 'en' }],
+        };
+        // Add timer scaffold for scheduled transitions
+        if (triggerType === 2) {
+          newTransition.timer = { location: '', code: '', encoding: 'B64' };
+        }
+        state.transitions.push(newTransition);
+      });
+    }
+  },
+
+  removeTransition: (sourceStateKey, transitionKey) => {
+    get().updateWorkflow((draft: any) => {
+      const state = draft.attributes?.states?.find((s: any) => s.key === sourceStateKey);
+      if (!state?.transitions) return;
+      state.transitions = state.transitions.filter((t: any) => t.key !== transitionKey);
+    });
+    const { selectedEdgeId } = get();
+    if (selectedEdgeId?.includes(transitionKey)) set({ selectedEdgeId: null });
+  },
+
+  changeTransitionTrigger: (sourceStateKey, transitionKey, triggerType) => {
+    get().updateWorkflow((draft: any) => {
+      const state = draft.attributes?.states?.find((s: any) => s.key === sourceStateKey);
+      if (!state?.transitions) return;
+      const t = state.transitions.find((t: any) => t.key === transitionKey);
+      if (t) t.triggerType = triggerType;
+    });
+  },
+}));
