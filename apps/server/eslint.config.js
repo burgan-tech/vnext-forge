@@ -6,9 +6,7 @@ import { createWorkspaceConfig } from '../../eslint.config.mjs';
 export default createWorkspaceConfig({
   tsconfigRootDir: import.meta.dirname,
   runtime: 'node',
-  // IMPORTANT: Keep this TODO until the central logger file exists.
-  // TODO(logger): add the server logger file path here and nowhere else.
-  loggerConsoleFiles: [],
+  loggerConsoleFiles: ['src/shared/lib/logger.ts'],
   overrides: [
     importPlugin.flatConfigs.recommended,
     importPlugin.flatConfigs.typescript,

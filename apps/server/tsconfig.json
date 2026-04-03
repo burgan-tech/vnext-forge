@@ -7,26 +7,13 @@
     "types": [
       "node"
     ],
-    "baseUrl": ".",
     "paths": {
-      "@controllers/*": [
-        "./src/controllers/*"
-      ],
-      "@lib/*": [
-        "./src/lib/*"
-      ],
-      "@middleware/*": [
-        "./src/middleware/*"
-      ],
-      "@routes/*": [
-        "./src/routes/*"
-      ],
-      "@services/*": [
-        "./src/services/*"
-      ],
-      "@server-types/*": [
-        "./src/types/*"
-      ]
+      "@project/*": ["./src/slices/project/*"],
+      "@workspace/*": ["./src/slices/workspace/*"],
+      "@validate/*": ["./src/slices/validate/*"],
+      "@runtime-proxy/*": ["./src/slices/runtime-proxy/*"],
+      "@template/*": ["./src/slices/template/*"],
+      "@shared/*": ["./src/shared/*"]
     }
   },
   "include": [

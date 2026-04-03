@@ -5,6 +5,10 @@
 #
 # Usage: bash scripts/link-codex-skills.sh
 
+
+# Bu olmadan codex ve claude aynı anda skilleri bulamıyor.
+# Script skilleri tarayıp home dizinine kopyalıyor. 
+
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 CODEX_SKILLS_DIR="$(cygpath "$USERPROFILE")/.codex/skills/vnext-forge-skills"
 

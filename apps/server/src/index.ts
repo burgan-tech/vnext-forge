@@ -1,32 +1,33 @@
 import { serve } from '@hono/node-server'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
-import { logger } from 'hono/logger'
 import { ERROR_CODES, VnextForgeError } from '@vnext-studio/app-contracts'
-import { baseController } from '@controllers/base/index.js'
-import { errorHandler, jsonErrorResponse } from '@middleware/error-handler.js'
-import { traceIdMiddleware } from '@middleware/trace-id.js'
-import { fileRoutes } from '@routes/files.js'
-import { projectRoutes } from '@routes/projects.js'
-import { runtimeProxyRoutes } from '@routes/runtime-proxy.js'
-import { templateRoutes } from '@routes/templates.js'
-import { validateRoutes } from '@routes/validate.js'
-import '@server-types/hono.js'
+import { errorHandler, jsonErrorResponse } from '@shared/middleware/error-handler.js'
+import { baseLogger } from '@shared/lib/logger.js'
+import { requestLoggerMiddleware } from '@shared/middleware/logger.js'
+import { traceIdMiddleware } from '@shared/middleware/trace-id.js'
+import { ok } from '@shared/lib/response.js'
+import { projectRouter } from '@project/router.js'
+import { workspaceRouter } from '@workspace/router.js'
+import { validateRouter } from '@validate/router.js'
+import { runtimeProxyRouter } from '@runtime-proxy/router.js'
+import { templateRouter } from '@template/router.js'
+import '@shared/types/hono.js'
 
 const app = new Hono()
 
 app.use('*', traceIdMiddleware)
-app.use('*', logger())
+app.use('*', requestLoggerMiddleware)
 app.use('*', cors())
 
-app.route('/api/projects', projectRoutes)
-app.route('/api/files', fileRoutes)
-app.route('/api/runtime', runtimeProxyRoutes)
-app.route('/api/validate', validateRoutes)
-app.route('/api/templates', templateRoutes)
+app.route('/api/projects', projectRouter)
+app.route('/api/files', workspaceRouter)
+app.route('/api/validate', validateRouter)
+app.route('/api/runtime', runtimeProxyRouter)
+app.route('/api/templates', templateRouter)
 
 app.get('/api/health', (c) =>
-  baseController.ok(c, { status: 'ok', traceId: c.get('traceId') }),
+  ok(c, { status: 'ok', traceId: c.get('traceId') }),
 )
 
 app.onError(errorHandler)
@@ -43,7 +44,7 @@ app.notFound((c) =>
 )
 
 const port = Number(process.env.PORT) || 3001
-console.log(`vnext-forge BFF running on port ${port}`)
+baseLogger.info({ port }, 'vnext-forge BFF running')
 
 serve({ fetch: app.fetch, port })
 

@@ -1,3 +1,4 @@
+import importFsdPlugin from 'eslint-plugin-import-fsd';
 import reactDom from 'eslint-plugin-react-dom';
 import reactHooks from 'eslint-plugin-react-hooks';
 import reactRefresh from 'eslint-plugin-react-refresh';
@@ -8,14 +9,28 @@ import { createWorkspaceConfig } from '../../eslint.config.mjs';
 export default createWorkspaceConfig({
   tsconfigRootDir: import.meta.dirname,
   runtime: 'browser',
-  // IMPORTANT: Keep this TODO until the central logger file exists.
-  // TODO(logger): add the web logger file path here and nowhere else, for
-  // example `src/shared/lib/logger/index.ts`.
-  loggerConsoleFiles: [],
+  loggerConsoleFiles: ['src/shared/lib/logger/createLogger.ts'],
   extraRules: {
     '@typescript-eslint/no-floating-promises': 'off',
   },
   overrides: [
+    {
+      files: ['src/**/*.{ts,tsx,js,jsx,mts,cts,mjs,cjs}'],
+      ...importFsdPlugin.configs.recommended,
+      settings: {
+        fsd: {
+          rootDir: `${import.meta.dirname}/src`,
+          aliases: {
+            '@app/*': './src/app/*',
+            '@pages/*': './src/pages/*',
+            '@widgets/*': './src/widgets/*',
+            '@features/*': './src/features/*',
+            '@entities/*': './src/entities/*',
+            '@shared/*': './src/shared/*',
+          },
+        },
+      },
+    },
     {
       files: ['src/**/*.{ts,tsx}'],
       ...reactX.configs['recommended-type-checked'],

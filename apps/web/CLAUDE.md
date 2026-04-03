@@ -17,3 +17,10 @@ When working in `apps/web`, optimize for a maintainable product-facing web clien
 ## Rules
 
 Detailed implementation rules, slice constraints, and architecture-specific conventions should be referenced from dedicated rule documents once finalized.
+
+## Logging
+
+- In `apps/web`, do not use raw `console.log`, `console.info`, `console.warn`, or `console.error` in application code.
+- Use the shared logger under `@shared/lib/logger` instead.
+- Create a scoped logger with `createLogger('ScopeName')` and log through that instance.
+- Direct `console.*` usage is reserved for the shared logger implementation only.

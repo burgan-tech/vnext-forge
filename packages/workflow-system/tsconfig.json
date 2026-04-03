@@ -4,35 +4,16 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "composite": true,
-    "types": [
-      "node"
-    ],
-    "baseUrl": ".",
+    "types": ["node"],
     "paths": {
-      "@connection/*": [
-        "./src/connection/*"
-      ],
-      "@health/*": [
-        "./src/health/*"
-      ],
-      "@schema/*": [
-        "./src/schema/*"
-      ],
-      "@simulation/*": [
-        "./src/simulation/*"
-      ],
-      "@templates/*": [
-        "./src/templates/*"
-      ],
-      "@workflow-utils/*": [
-        "./src/utils/*"
-      ],
-      "@validation/*": [
-        "./src/validation/*"
-      ]
+      "@connection/*": ["./src/connection/*"],
+      "@health/*": ["./src/health/*"],
+      "@schema/*": ["./src/schema/*"],
+      "@simulation/*": ["./src/simulation/*"],
+      "@templates/*": ["./src/templates/*"],
+      "@workflow-utils/*": ["./src/utils/*"],
+      "@validation/*": ["./src/validation/*"]
     }
   },
-  "include": [
-    "src"
-  ]
+  "include": ["src"]
 }

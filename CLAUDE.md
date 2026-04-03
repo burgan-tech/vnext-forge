@@ -218,7 +218,7 @@ shared/
   config/             -> env.ts, constants.ts
   lib/
     error-handler.ts  -> `VnextForgeError` -> user-friendly message mapping
-    logger.ts         -> Logger that uses `VnextForgeError.toLogEntry()`
+    logger/           -> Central web logger utilities (`createLogger`)
 ```
 
 ---
@@ -264,3 +264,10 @@ The server exports `AppType`. The web layer creates a fully typed client with `h
 Existing flat `fetch('/api/...')` calls will be migrated to this client (Phase 1.6).
 
 ---
+
+### Web Logging
+
+- In `apps/web`, do not add raw `console.log`, `console.info`, `console.warn`, or `console.error` calls in feature code.
+- Route logs through the shared logger in `@shared/lib/logger`.
+- Create scoped loggers with `createLogger('FeatureName')` so log output stays attributable.
+- The shared logger is the only place allowed to talk directly to `console.*`.
