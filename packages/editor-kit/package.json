@@ -1,0 +1,16 @@
+{
+  "name": "@vnext-studio/editor-kit",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Editor language tooling and Monaco integrations.",
+  "scripts": {
+    "build": "tsc",
+    "lint": "eslint .",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
+  }
+}
