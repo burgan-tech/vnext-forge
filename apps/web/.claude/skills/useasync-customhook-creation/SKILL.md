@@ -12,16 +12,16 @@ Use this skill to design async UI flows around the shared `useAsync` abstraction
 ## Repo Rules
 
 - Use the shared `useAsync` primitive when a reusable async UI contract improves clarity.
-- Route async work through the shared API client and the owning FSD slice.
-- Normalize failures before they reach UI code.
+- Route async work through the shared API client (`shared/api/client.ts`) and the owning FSD slice.
+- Normalize failures into `VnextForgeError` before they reach UI code.
 - Use a hook only when the screen benefits from a reusable UI-facing contract.
 
 ## Preferred Flow
 
 1. shared API client
-2. slice service or action
+2. slice service or action — converts `ApiResponse<T>` using `fold` / `isSuccess` / `unwrap`
 3. optional `useAsync`-based hook
-4. UI
+4. UI — receives `VnextForgeError`, calls `error.toUserMessage().message` for display
 
 ## Use a Hook When
 
@@ -44,13 +44,14 @@ Use this skill to design async UI flows around the shared `useAsync` abstraction
 - Keep UI declarative.
 - Handle success and failure meaning in the feature boundary.
 - Expose only the state the UI actually needs.
+- Surface errors as `VnextForgeError`; use `toUserMessage()` at the render edge.
 
 ## Do Not Do
 
 - Do not introduce a second async primitive next to `useAsync`.
 - Do not use `useAsync` just to standardize loading state where local state is simpler.
-- Do not let components inspect raw response envelopes.
-- Do not return low-level transport details from a hook.
+- Do not let components inspect raw `ApiResponse<T>` envelopes.
+- Do not return `ApiFailure` or raw `Error` from a hook — normalize first.
 - Do not put notifications or navigation in services.
 
 ## Review Standard
@@ -62,3 +63,4 @@ Flag the implementation if:
 - `useAsync` is used where no meaningful reuse or UI contract exists
 - JSX branches on backend or transport details
 - feature async logic leaks into pages or widgets
+- `error.message` is rendered directly instead of `error.toUserMessage().message`

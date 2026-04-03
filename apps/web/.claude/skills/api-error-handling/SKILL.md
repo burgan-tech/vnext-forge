@@ -1,6 +1,6 @@
 ---
 name: api-error-handling
-description: Use when implementing or reviewing web error handling in this repo. The web app must normalize failures into the shared repo contract built around `VnextError`, `ErrorCode`, `ErrorCategory`, `traceId`, and `ApiResponse<T>`.
+description: Use when implementing or reviewing web error handling in this repo. The web app must normalize failures into the shared repo contract built around `VnextForgeError`, `ErrorCode`, `ErrorLayer`, `traceId`, and `ApiResponse<T>`.
 ---
 
 # API Error Handling
@@ -11,56 +11,73 @@ Use this skill to keep every web error flow aligned with the target architecture
 
 The goal is simple:
 
-- one shared error contract
+- one shared error contract (`VnextForgeError` from `@vnext-forge/app-contracts`)
 - no raw transport errors in UI
 - no ad hoc feature-specific error shapes
 - deterministic branching based on structured fields
 
-## Repo Rules
+## Repo Contract
 
-- Use the shared repo error contract, not a local app-specific model.
-- Normalize failures into `VnextError`.
-- Preserve `traceId` whenever the backend or transport gives one.
-- Branch on `error.code` and `error.category`, not on message text.
-- Treat `ApiResponse<T>` as the transport contract and convert failure states before they reach rendering code.
+The shared error type is `VnextForgeError` from `@vnext-forge/app-contracts`.
+
+Key fields:
+
+- `code: ErrorCode` — machine-readable, stable identifier (e.g. `FILE_NOT_FOUND`, `WORKFLOW_INVALID`)
+- `context.layer: ErrorLayer` — where the error originated (`transport | presentation | feature | entity | application | domain | infrastructure`)
+- `context.source` — which function threw (`"FileService.readWorkflow"`)
+- `traceId` — correlation ID from the backend, preserve it always
+- `toUserMessage()` — safe string to show the user; never use raw `.message` in UI
+- `toLogEntry()` — structured log payload for server-side logging only
+
+Failure responses from the server arrive as `ApiFailure` inside `ApiResponse<T>`:
+
+```ts
+import { isFailure, fold, getError } from '@vnext-forge/app-contracts';
+```
+
+Use `isSuccess` / `isFailure` for branching, `fold` for exhaustive handling, `unwrap` / `unwrapOr` when a default fallback is acceptable.
 
 ## Where Errors Belong
 
-Use these boundaries:
-
-1. `shared/api` owns transport concerns and first-pass normalization.
-2. Services or adapters own response mapping and contract validation.
-3. Feature or entity actions may translate a normalized error into scenario meaning.
-4. UI renders user-facing states and messages, but does not invent a second error model.
+1. `shared/api` — transport normalization and first-pass `VnextForgeError` construction
+2. Services or adapters — response mapping, contract validation
+3. Feature or entity actions — translate normalized error into scenario meaning
+4. UI — renders `error.toUserMessage().message`; never inspects `.code` to build message strings
 
 ## Do
 
-- Convert unknown transport failures into `VnextError`.
-- Preserve backend error codes when they map cleanly to `ErrorCode`.
-- Attach or preserve `traceId` for diagnostics.
-- Keep technical diagnostics in structured metadata, not JSX conditionals.
-- Use the repo's user-facing conversion such as `toUserMessage()` at the presentation edge.
-- Keep the same failure shape across pages, widgets, features, and entities.
+- Normalize unknown transport failures into `VnextForgeError`.
+- Preserve `traceId` whenever the backend provides one.
+- Use `error.code` to branch behavior (retry, redirect, show specific UI state).
+- Use `error.toUserMessage().message` at the presentation edge — never raw `.message`.
+- Keep the same `VnextForgeError` shape across pages, widgets, features, and entities.
 
 ## Do Not Do
 
 - Do not return raw `Error`, raw HTTP responses, or raw backend payloads to components.
 - Do not branch on `message.includes(...)`.
 - Do not create per-feature error classes for ordinary API failures.
-- Do not store a second UI-only error object when `VnextError` already exists.
+- Do not store a second UI-only error object when `VnextForgeError` already exists.
 - Do not make components aware of status codes, fetch exceptions, or RPC internals.
+- Do not show `error.message` directly in UI — always use `toUserMessage()`.
+
+## Adding A New Error Type
+
+When a new failure scenario needs a dedicated error code:
+
+1. Add the code to the correct category in `packages/app-contracts/src/error/error-codes.ts`
+2. Add a safe user-facing message in `packages/app-contracts/src/error/user-messages.ts`
+3. Both server and web immediately gain the new code — no local additions needed
+
+Never add a local error code or message string in the web app. If the needed `ErrorCode` does not exist in `@vnext-forge/app-contracts`, extend `error-codes.ts` and `user-messages.ts` first.
 
 ## Review Standard
 
 Flag the implementation if:
 
 - UI code catches and interprets transport errors directly.
-- A service invents a custom error shape that bypasses `VnextError`.
+- A service invents a custom error shape that bypasses `VnextForgeError`.
 - A page decides behavior from string messages.
 - `traceId` is dropped even though it exists upstream.
-- A failure path cannot be traced to `ErrorCode` and `ErrorCategory`.
-
-## Migration Notes
-
-- Prefer target naming such as `@vnext-forge/*` in new docs and code.
-- Do not preserve legacy conventions just because the repo still contains migration debt.
+- A failure path cannot be traced to a specific `ErrorCode`.
+- `error.message` is rendered in JSX instead of `error.toUserMessage().message`.

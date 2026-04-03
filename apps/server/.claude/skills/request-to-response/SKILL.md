@@ -1,177 +1,98 @@
 ---
 name: request-to-response-process
-description: Compact guide for designing, reviewing, or debugging the full HTTP request-to-response lifecycle in backend applications. Use when deciding middleware order, route flow, request enrichment, authentication and authorization placement, controller boundaries, standardized success or error responses, fallback handling, or where a concern should live in the request pipeline.
+description: Compact guide for designing, reviewing, or debugging the full HTTP request-to-response lifecycle in this backend. Use when deciding middleware order, route flow, controller boundaries, standardized success or error responses using `ApiResponse<T>`, or where a concern should live in the request pipeline.
 ---
 
 # Request To Response Process
 
 ## Purpose
 
-Use this skill to reason about how a request enters a backend system, passes through middleware and route logic, reaches application code, and leaves as a success or error response.
-
-The goal is to keep request flow explicit, predictable, and easy to debug.
-
-## What This Skill Says
-
-- Treat request flow as a contract, not as incidental wiring.
-- Keep cross-cutting concerns in middleware.
-- Keep business rules out of routing glue.
-- Keep response shape consistent.
-- Keep failure paths as intentional as success paths.
-
-## How To Use This Skill
-
-Use it when you need to:
-
-- add or change middleware
-- decide whether logic belongs in middleware, controller, or application layer
-- protect endpoints with authentication and authorization
-- standardize success and error responses
-- debug why a request does not reach the expected handler
-- debug why metadata, identity, headers, or error envelopes are missing
-- review whether request flow has become implicit, duplicated, or brittle
+Use this skill to reason about how a request enters the backend, passes through middleware and route logic, reaches application code, and leaves as `ApiResponse<T>`.
 
 ## Default Lifecycle
 
-The default lifecycle should remain simple:
+1. request enters global middleware (logging, CORS, body parsing, `traceId` injection)
+2. request is routed
+3. route-level guards run (auth, rate limiting)
+4. controller validates boundary input
+5. application logic executes (services, domain)
+6. handler returns `ApiSuccess<T>` — `{ success: true, data, error: null }`
+7. error-handler middleware catches any `VnextForgeError` → returns `ApiFailure`
+8. fallback handles unmatched routes
 
-1. request enters global middleware
-2. request is normalized and parsed
-3. request is routed
-4. route-level guards run
-5. controller validates boundary input
-6. application logic executes
-7. response is mapped to a standard envelope
-8. fallback or error handling runs if needed
-9. response is finalized and sent
+## Response Contract
+
+All responses use `ApiResponse<T>` from `@vnext-forge/app-contracts`.
+
+- success: handler returns `{ success: true, data: T, error: null, meta?: ResponseMeta }`
+- failure: handler throws `VnextForgeError` → error-handler formats `ApiFailure` via `toUserMessage()`
+
+**Never construct `ApiFailure` inline in a handler.** Throw `VnextForgeError` and let the middleware format it.
+
+## Error Flow
+
+```
+service throws new VnextForgeError(ERROR_CODES.X, msg, { source, layer })
+  → error-handler middleware catches
+  → error.toLogEntry()     → logger (server-side only)
+  → error.toUserMessage()  → ApiFailure sent to client
+```
+
+`traceId` must be attached to `VnextForgeError` when it is available on the request context.
 
 ## Placement Rules
 
-Put logic in the narrowest correct place.
-
 ### Global Middleware
 
-Use for concerns that apply broadly across requests.
-
-Examples of responsibility type:
-
-- request identification
-- logging
-- security headers
-- CORS
-- body parsing
-- response metadata finalization
+- request identification and `traceId` generation
+- logging, CORS, security headers, body parsing
 
 ### Route-Level Middleware
 
-Use for concerns that apply only to selected endpoints.
+- authentication, authorization, rate limiting for a route group
 
-Examples of responsibility type:
+### Controller / Handler
 
-- authentication
-- authorization
-- rate limiting for a route group
-- feature-specific boundary guards
+- parse and validate input
+- call application service
+- return `ApiSuccess<T>` on success
+- **throw `VnextForgeError` on failure** — never return `ApiFailure` manually
 
-### Controller Boundary
+### Application Service (`services/*`)
 
-Use for:
+- business orchestration
+- throws `VnextForgeError` with `layer: 'application'`
 
-- parsing input
-- calling application logic
-- mapping output to the response contract
+### Domain / Infrastructure
 
-Controllers should coordinate, not decide business policy.
-
-### Application Logic
-
-Use for:
-
-- business decisions
-- orchestration
-- state changes
-- domain validation that depends on business meaning
+- `domain` throws with `layer: 'domain'`
+- `infrastructure` translates provider failures into `VnextForgeError` with `layer: 'infrastructure'`
 
 ## To Do
 
 - keep middleware order explicit and stable
-- validate external input at the boundary
-- normalize request metadata before business logic runs
+- validate external input at the controller boundary
 - run authentication before authorization
-- make protected and public routes clearly distinguishable
-- keep success responses structurally consistent
-- centralize error normalization
-- preserve a single clear fallback path for unmatched routes
-- make exceptional raw responses deliberate and rare
-- keep request enrichment minimal and predictable
-- inject long-lived dependencies from composition roots, not inline
-- ensure logs and errors can be correlated by request identity
+- construct `traceId` once in global middleware; pass it down
+- attach `traceId` to every `VnextForgeError`
+- keep `ApiSuccess<T>` construction in handlers
+- keep `ApiFailure` construction in error-handler middleware only
 
 ## Not To Do
 
-- do not create business dependencies inside route files or middleware without a strong reason
-- do not hide critical request behavior in scattered helpers
-- do not put business rules in controllers just because the data entered through HTTP
-- do not mix authentication and authorization into one opaque step
-- do not return ad hoc response shapes from normal endpoints
-- do not duplicate response metadata logic across controllers
-- do not let unmatched-route behavior compete with matched-route error behavior
-- do not attach large business objects to the request object
-- do not bypass the standard response path unless the exception is intentional
-- do not treat middleware order as cosmetic
+- do not construct `ApiFailure` inside handlers or services
+- do not throw raw `Error` or strings — always `VnextForgeError`
+- do not put business rules in controllers
+- do not duplicate error-formatting logic outside the error-handler
+- do not let unmatched-route behavior compete with handled-error behavior
+- do not bypass the standard response path without a deliberate contract reason
 
-## Success And Failure Rules
+## Review Checklist
 
-### Success Path
-
-- validate input
-- execute application logic
-- map result to the standard success shape
-- finalize metadata once, centrally
-
-### Error Path
-
-- throw structured errors from the appropriate layer
-- normalize errors in one place
-- return a predictable error envelope
-- keep validation failures distinct from internal failures
-- keep authorization failures distinct from authentication failures
-
-### Fallback Path
-
-- keep unmatched routes on a dedicated fallback path
-- do not confuse a missing route with a business-level not-found condition
-
-## Response Contract Rules
-
-- use one standard envelope for normal API responses
-- add request-scoped metadata centrally
-- pass pagination only when pagination exists
-- document and isolate endpoints that must return raw responses
-
-## Compact Review Checklist
-
-- Is this concern global, route-specific, controller-level, or application-level?
+- Does this concern belong in global middleware, route middleware, handler, or service?
 - Is middleware order still intentional after the change?
-- Does boundary validation happen before business execution?
-- Does authentication run before authorization?
-- Does the endpoint return through the standard response contract?
-- Will thrown errors reach one central normalizer?
-- Is the fallback path still singular and unambiguous?
-- Are dependencies created in the right place?
-- If the response bypasses the standard envelope, is that deliberate?
-
-## General Addendum
-
-Use this general model when adapting the skill to any backend stack, framework, or project:
-
-- define one canonical request path
-- define one canonical success shape
-- define one canonical error shape
-- define one canonical fallback behavior
-- keep cross-cutting concerns centralized
-- keep business concerns out of transport glue
-- make request identity, authorization state, and response metadata explicit
-- prefer a small number of obvious extension points over many implicit ones
-
-If a team cannot explain where a concern belongs in less than a few sentences, the request pipeline is probably too fragmented.
+- Does boundary validation happen before business logic?
+- Does the handler return `ApiSuccess<T>` and throw `VnextForgeError` for failures?
+- Does every `VnextForgeError` carry `ErrorCode`, `ErrorLayer`, `source`, and `traceId`?
+- Is error-handler middleware the only place `ApiFailure` is constructed?
+- Is the fallback path singular and unambiguous?

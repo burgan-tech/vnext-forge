@@ -36,8 +36,8 @@ ApiFailure     -> { success: false; error: { code, message, traceId } }
 
 All server endpoints are wrapped in this envelope. The web layer performs a discriminated union check via `response.success`.
 
-**2. VnextError** (`error/vnext-error.ts`):
-The shared error type used across all application layers. Every `throw` should be a `VnextError`.
+**2. VnextForgeError** (`error/vnext-error.ts`):
+The shared error type used across all application layers. Every `throw` should be a `VnextForgeError`.
 
 - `code: ErrorCode` - `FILE_*`, `PROJECT_*`, `WORKFLOW_*`, `RUNTIME_*`, `SIMULATION_*`, `GIT_*`, `API_*`, `INTERNAL_*`
 - `context.source` - which function threw the error, for example `"FileService.writeFile"`
@@ -216,8 +216,8 @@ shared/
     client.ts         -> Hono RPC typed client: `hc<AppType>('/')`
   config/             -> env.ts, constants.ts
   lib/
-    error-handler.ts  -> `VnextError` -> user-friendly message mapping
-    logger.ts         -> Logger that uses `VnextError.toLogEntry()`
+    error-handler.ts  -> `VnextForgeError` -> user-friendly message mapping
+    logger.ts         -> Logger that uses `VnextForgeError.toLogEntry()`
 ```
 
 ---
@@ -245,14 +245,14 @@ services/
   validation.service.ts -> (NEW) Service using the `workflow-system` package
 
 middleware/
-  error-handler.ts      -> `VnextError` -> `ApiResponse<never>` mapping (including HTTP status mapping)
+  error-handler.ts      -> `VnextForgeError` -> `ApiResponse<never>` mapping (including HTTP status mapping)
   logger.ts             -> Central logger
 
 lib/
   response.ts           -> `ApiResponse` helpers
 ```
 
-**Error flow:** service throws `new VnextError(...)` -> `error-handler.ts` catches it -> logs with `toLogEntry()` -> returns `toUserMessage()` + `traceId` to the client.
+**Error flow:** service throws `new VnextForgeError(...)` -> `error-handler.ts` catches it -> logs with `toLogEntry()` -> returns `toUserMessage()` + `traceId` to the client.
 
 ---
 

@@ -1,158 +1,91 @@
 ---
 name: response-standardization
-description: Standardize API and HTTP response design with a compact, reusable contract. Use when creating, reviewing, or refactoring success/error envelopes, status code semantics, pagination metadata, response helper behavior, or middleware-owned response shaping. Prefer this skill when a task requires consistent response structure, clear ownership of response fields, and rejection of ad hoc JSON patterns.
+description: Use when creating, reviewing, or refactoring API responses in this backend. All responses must use `ApiResponse<T>` from `@vnext-forge/app-contracts`. Success responses are `ApiSuccess<T>`, failures are `ApiFailure`. The error-handler middleware owns failure formatting; route handlers own success formatting.
 ---
 
 # Response Standardization
 
 ## Purpose
 
-Keep responses predictable, compact, and easy to maintain.
+Keep all API responses predictable and consistent using the shared `ApiResponse<T>` contract from `@vnext-forge/app-contracts`.
 
-This skill defines how to design or review a shared response contract without relying on project-specific classes, file structures, or framework details.
+## Repo Contract
 
-Use it to prevent ad hoc response shapes, duplicated metadata logic, inconsistent status codes, and one-off error formats.
+```ts
+// From @vnext-forge/app-contracts
+type ApiSuccess<T, M extends ResponseMeta = ResponseMeta> = {
+  success: true;
+  data: T;
+  error: null;
+  meta?: M;            // populated only for paginated responses
+};
 
-## What This Skill Tells You
+type ApiFailure = {
+  success: false;
+  data: null;
+  error: ResponseError; // { code: ErrorCode; message: string; traceId?: string }
+  meta?: never;
+};
 
-- keep one shared outer response contract
-- separate success and error concerns clearly
-- centralize metadata ownership
-- keep controllers or handlers thin
-- keep pagination in one place
-- align documentation with runtime behavior
-- reject custom per-endpoint response inventions
+type ApiResponse<T> = ApiSuccess<T> | ApiFailure;
+```
 
-## How To Use This Skill
+The web layer discriminates on `response.success`. Do not change this shape.
 
-Use this skill in three modes:
+## Ownership
 
-1. Design: define a shared response contract before adding endpoints
-2. Review: check whether an existing endpoint breaks the standard
-3. Refactor: replace local response patterns with one consistent contract
+- **Route handlers** — construct `ApiSuccess<T>` for normal results
+- **Error-handler middleware** — constructs `ApiFailure` from `VnextForgeError.toUserMessage()`; owns all failure formatting
+- **`ResponseMeta`** — used only for paginated collection responses; contains `total`, `page`, `pageSize`, `totalPages`
 
-When applying it:
+Route handlers must never format `ApiFailure` manually. Throw `VnextForgeError` and let the middleware handle it.
 
-1. identify the current response shape
-2. decide whether the flow is success, creation, empty success, paginated success, or error
-3. map the endpoint to the shared contract
-4. remove local formatting logic that should be centralized
-5. verify that docs and runtime match
+## Response Rules
 
-## Core Contract
+### Success
 
-Every response should follow one stable outer shape.
+- always set `success: true`
+- put business payload inside `data`
+- include `meta` only for paginated collections
+- use `error: null` — never omit it
 
-Recommended structure:
+### Failure
 
-- success responses contain `success`, `data`, `error`, and `meta`
-- error responses contain `success`, `data`, `error`, and `meta`
-- `success` changes meaning, not the envelope shape
-- `data` is present only for successful business output
-- `error` is present only for failure details
-- `meta` carries cross-cutting metadata, not business payload
+- never format `ApiFailure` in a route handler — throw `VnextForgeError` instead
+- the `error.code` field must be a typed `ErrorCode` value
+- `error.message` must come from `VnextForgeError.toUserMessage()` — never raw `.message`
+- include `traceId` when available
 
-Do not create multiple top-level response styles for different endpoints.
+### Pagination
+
+- use `ResponseMeta` for collection responses that page
+- place pagination in `meta` only — never in `data`
+- return paginated shape only when the endpoint actually pages
 
 ## To Do
 
-- define one response envelope and reuse it everywhere
-- keep success and error shapes symmetrical at the top level
-- centralize shared metadata injection
-- use one consistent place for pagination metadata
-- keep status code meaning stable across endpoints
-- let centralized error handling format failures
-- keep response documentation synchronized with runtime behavior
-- treat response helpers as transport utilities, not business logic containers
-- keep endpoint-specific data inside `data`, not beside it
-- preserve backward compatibility unless the task explicitly allows contract changes
+- import `ApiResponse`, `ApiSuccess`, `ApiFailure`, `ResponseMeta` from `@vnext-forge/app-contracts`
+- construct success responses as `{ success: true, data, error: null }`
+- include `meta` only when the response is paginated
+- throw `VnextForgeError` for all failure cases; never construct `ApiFailure` inline
+- keep `data` typed — use `ApiResponse<T>` with a concrete `T`
 
 ## Not To Do
 
-- do not handcraft response JSON per endpoint
-- do not invent new top-level keys for isolated routes
-- do not duplicate pagination fields in multiple places
-- do not mix business payload with transport metadata
-- do not let each controller or handler decide its own error shape
-- do not expose internal exception details directly to clients
-- do not use different success shapes for similar operations without a strong contract reason
-- do not document one contract and return another at runtime
-- do not change status code semantics casually
-- do not add response wrappers that force clients to guess where data lives
-
-## Ownership Rules
-
-Keep ownership explicit.
-
-- endpoint logic owns business data mapping
-- shared response utilities own envelope formatting
-- shared middleware or equivalent cross-cutting layer owns common metadata
-- centralized error flow owns failure formatting
-- pagination contract owns pagination placement and field naming
-
-If ownership is blurred, response drift follows.
-
-## Status Rules
-
-Use status codes as stable semantics, not stylistic choices.
-
-- use one normal success status for standard successful reads or updates
-- use one creation status for creation flows
-- use one consistent rule for empty successful responses
-- derive error statuses from structured error types or a centralized mapping strategy
-
-Avoid status choices that imply a different transport contract than the body actually returns.
-
-## Pagination Rules
-
-Pagination should be standardized, not negotiated per endpoint.
-
-- place pagination only in the shared metadata area
-- keep pagination field names stable
-- return paginated shape only for collection responses that actually page
-- avoid mixing cursor, page, count, and summary data in arbitrary locations
-
-## Error Rules
-
-Errors should be normalized by one shared mechanism.
-
-- throw or return structured errors internally
-- translate them once at the boundary
-- keep client-facing error payloads consistent
-- expose safe, intentional error information only
-
-Do not let local endpoint code format failure payloads unless that exception is itself a defined contract rule.
+- do not handcraft `ApiFailure` objects inside route handlers or services
+- do not invent new top-level keys beside `success`, `data`, `error`, `meta`
+- do not add pagination fields to `data`
+- do not use `success: false` with a non-null `data`
+- do not send raw exception messages in `error.message`
+- do not omit `error: null` from success responses
+- do not return untyped `ApiResponse<unknown>` when a concrete type is available
 
 ## Review Checklist
 
-Check these points when reviewing a response design:
-
-1. Does the endpoint use the shared outer envelope?
+1. Does the response use `ApiResponse<T>` from `@vnext-forge/app-contracts`?
 2. Is business payload inside `data` only?
-3. Is `meta` reserved for cross-cutting metadata?
-4. Is pagination placed only in the standard pagination area?
-5. Is error formatting centralized?
-6. Do status codes match the response semantics?
-7. Does the documentation match the actual runtime response?
-8. Has the change avoided introducing a breaking contract unintentionally?
-
-## Compact Skill Pattern
-
-Use this pattern when refactoring other skills for low context cost:
-
-- start with `Purpose`
-- state `What This Skill Tells You`
-- explain `How To Use This Skill`
-- define the non-negotiable rules
-- separate `To Do` and `Not To Do`
-- add a short review checklist
-- keep everything in one file unless a separate resource is truly unavoidable
-
-For compactness:
-
-- avoid repeated explanations
-- avoid project-local names unless absolutely required
-- avoid code samples unless the task cannot be understood without them
-- avoid references to external files for core guidance
-- prefer concrete rules over long narratives
-- prefer reusable wording over repository-specific phrasing
+3. Is `meta` present only for paginated responses and typed as `ResponseMeta`?
+4. Are all failures routed through `VnextForgeError` → error-handler middleware?
+5. Is `error.code` a typed `ErrorCode` value?
+6. Does `error.message` come from `toUserMessage()`, not raw `.message`?
+7. Is `traceId` preserved when available?

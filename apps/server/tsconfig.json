@@ -3,10 +3,10 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src",
-    "noEmit": true
+    "noEmit": true,
+    "composite": true,
+    "types": ["node"]
   },
   "include": ["src"],
-  "references": [
-    { "path": "../../packages/vnext-types" }
-  ]
+  "references": [{ "path": "../../packages/vnext-types" }]
 }
