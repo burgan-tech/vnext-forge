@@ -1,12 +1,9 @@
 import { useCallback, useRef, useState } from 'react';
-import { useDispatch } from 'react-redux';
 import {
   showNotification,
   type NotificationModalType,
   type NotificationType,
 } from '@shared/notification/model/notificationSlice';
-import { toApplicationError, type ApplicationError } from '@shared/lib/errors/appError';
-import type { ApiResponse } from '@shared/types/api';
 import { createLogger } from '@shared/lib/logger/createLogger';
 
 const logger = createLogger('useAsync');
