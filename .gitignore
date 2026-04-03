@@ -7,8 +7,6 @@ dist/
 build/
 .turbo/
 vnext-flow-studio-web/node_modules
-# Claude
-.claude/
 
 # Environment
 .env
@@ -30,3 +28,6 @@ pnpm-debug.log*
 # Cache
 .cache/
 *.tsbuildinfo
+
+
+# CLAUDE
