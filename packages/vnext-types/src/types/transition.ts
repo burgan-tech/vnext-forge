@@ -1,1 +1,1 @@
-export type { Transition, SharedTransition } from './state';
+export type { Transition, SharedTransition } from '@vnext-types-internal/state';

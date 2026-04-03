@@ -3,10 +3,50 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src",
-    "noEmit": true,
     "composite": true,
-    "types": ["node"]
+    "types": [
+      "node"
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "@controllers/*": [
+        "./src/controllers/*"
+      ],
+      "@lib/*": [
+        "./src/lib/*"
+      ],
+      "@middleware/*": [
+        "./src/middleware/*"
+      ],
+      "@routes/*": [
+        "./src/routes/*"
+      ],
+      "@services/*": [
+        "./src/services/*"
+      ],
+      "@server-types/*": [
+        "./src/types/*"
+      ]
+    }
   },
-  "include": ["src"],
-  "references": [{ "path": "../../packages/vnext-types" }]
+  "include": [
+    "src"
+  ],
+  "exclude": [
+    "src/**/*.test.ts"
+  ],
+  "references": [
+    {
+      "path": "../../packages/vnext-types"
+    },
+    {
+      "path": "../../packages/app-contracts"
+    },
+    {
+      "path": "../../packages/workflow-system"
+    },
+    {
+      "path": "../../packages/workspace-service"
+    }
+  ]
 }

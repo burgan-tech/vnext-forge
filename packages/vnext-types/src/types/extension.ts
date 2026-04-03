@@ -1,5 +1,5 @@
-import { Label } from './label';
-import { TaskExecution } from './state';
+import { Label } from '@vnext-types-internal/label';
+import { TaskExecution } from '@vnext-types-internal/state';
 
 export enum ExtensionType {
   Global = 1,

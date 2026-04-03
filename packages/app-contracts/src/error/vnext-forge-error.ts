@@ -1,5 +1,6 @@
-import type { ErrorCode } from './error-codes.js';
-import { USER_MESSAGES, DEFAULT_USER_MESSAGE } from './user-messages.js';
+import type { ApiFailure } from '@response/envelope.js';
+import type { ErrorCode } from '@error/error-codes.js';
+import { USER_MESSAGES, DEFAULT_USER_MESSAGE } from '@error/user-messages.js';
 
 // ── Context ───────────────────────────────────────────────────────────────────
 
@@ -114,5 +115,12 @@ export class VnextForgeError extends Error {
       traceId: this.traceId,
     };
   }
-}
 
+  toFailure(): ApiFailure {
+    return {
+      success: false,
+      data: null,
+      error: this.toUserMessage(),
+    };
+  }
+}

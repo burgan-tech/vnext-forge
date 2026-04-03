@@ -170,6 +170,7 @@ React 19 + Vite 6. Organized with FSD (Feature-Sliced Design).
 - Upper layers may import lower layers; the reverse is forbidden
 - `entities` cannot import each other, and `features` cannot import each other
 - `packages/*` may be imported from any layer
+- Use path aliases/path mappings instead of deep relative imports; in `apps/web` only use the FSD aliases (`@app`, `@pages`, `@widgets`, `@features`, `@entities`, `@shared`), and in other apps/packages prefer the aliases defined in that project's `tsconfig.json`
 - Enforced by ESLint: `@feature-sliced/eslint-config`
 
 ```text

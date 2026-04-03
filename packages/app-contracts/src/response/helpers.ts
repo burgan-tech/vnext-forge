@@ -1,6 +1,57 @@
-import type { ApiResponse, ApiSuccess, ApiFailure, ResponseMeta } from './envelope.js';
+import { ERROR_CODES } from '@error/error-codes.js';
+import type { ErrorCode } from '@error/error-codes.js';
+import { VnextForgeError } from '@error/vnext-forge-error.js';
+import type {
+  ApiFailure,
+  ApiResponse,
+  ApiSuccess,
+  ResponseError,
+  ResponseMeta,
+} from '@response/envelope.js';
 
-// ── Type Guards ──────────────────────────────────────────────────────────────
+export function success<T, M extends ResponseMeta = ResponseMeta>(
+  data: T,
+  meta?: M,
+): ApiSuccess<T, M> {
+  return {
+    success: true,
+    data,
+    error: null,
+    ...(meta ? { meta } : {}),
+  };
+}
+
+export function failure(error: ResponseError): ApiFailure {
+  return {
+    success: false,
+    data: null,
+    error,
+  };
+}
+
+export function failureFromCode(
+  code: ErrorCode,
+  message: string,
+  traceId?: string,
+): ApiFailure {
+  return failure({
+    code,
+    message,
+    ...(traceId ? { traceId } : {}),
+  });
+}
+
+export function failureFromError(error: VnextForgeError): ApiFailure {
+  return failure(error.toUserMessage());
+}
+
+export function internalFailure(traceId?: string): ApiFailure {
+  return failureFromCode(
+    ERROR_CODES.INTERNAL_UNEXPECTED,
+    'An unexpected error occurred.',
+    traceId,
+  );
+}
 
 export function isSuccess<T, M extends ResponseMeta = ResponseMeta>(
   response: ApiResponse<T, M>,
@@ -13,8 +64,6 @@ export function isFailure<T, M extends ResponseMeta = ResponseMeta>(
 ): response is ApiFailure {
   return response.success === false;
 }
-
-// ── Data Accessors ───────────────────────────────────────────────────────────
 
 export function getData<T, M extends ResponseMeta = ResponseMeta>(
   response: ApiResponse<T, M>,
@@ -34,15 +83,6 @@ export function getMeta<T, M extends ResponseMeta = ResponseMeta>(
   return isSuccess(response) ? response.meta : undefined;
 }
 
-// ── Unwrap / Fold ────────────────────────────────────────────────────────────
-
-/**
- * Unwraps the data from a successful response.
- * Throws if the response is a failure.
- *
- * @example
- * const users = unwrap(await fetchUsers());
- */
 export function unwrap<T, M extends ResponseMeta = ResponseMeta>(
   response: ApiResponse<T, M>,
 ): T {
@@ -50,12 +90,6 @@ export function unwrap<T, M extends ResponseMeta = ResponseMeta>(
   throw new Error(response.error.message);
 }
 
-/**
- * Returns `data` on success or a fallback value on failure.
- *
- * @example
- * const users = unwrapOr(await fetchUsers(), []);
- */
 export function unwrapOr<T, M extends ResponseMeta = ResponseMeta>(
   response: ApiResponse<T, M>,
   fallback: T,
@@ -63,12 +97,6 @@ export function unwrapOr<T, M extends ResponseMeta = ResponseMeta>(
   return isSuccess(response) ? response.data : fallback;
 }
 
-/**
- * Maps over a successful response, leaving failures untouched.
- *
- * @example
- * const names = mapResponse(await fetchUsers(), (users) => users.map(u => u.name));
- */
 export function mapResponse<T, U, M extends ResponseMeta = ResponseMeta>(
   response: ApiResponse<T, M>,
   fn: (data: T) => U,
@@ -76,19 +104,10 @@ export function mapResponse<T, U, M extends ResponseMeta = ResponseMeta>(
   if (isSuccess(response)) {
     return { ...response, data: fn(response.data) };
   }
+
   return response;
 }
 
-/**
- * Executes `onSuccess` or `onFailure` based on the response variant.
- *
- * @example
- * fold(
- *   response,
- *   (data) => setUsers(data),
- *   (error) => toast.error(error.message),
- * );
- */
 export function fold<T, U, M extends ResponseMeta = ResponseMeta>(
   response: ApiResponse<T, M>,
   onSuccess: (data: T, meta: M | undefined) => U,

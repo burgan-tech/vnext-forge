@@ -4,7 +4,26 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "composite": true,
-    "types": ["node"]
+    "types": [
+      "node"
+    ],
+    "baseUrl": ".",
+    "paths": {
+      "@csx/*": [
+        "./src/csx/*"
+      ],
+      "@setup/*": [
+        "./src/setup/*"
+      ],
+      "@editor-kit-types/*": [
+        "./src/types/*"
+      ],
+      "@workflow/*": [
+        "./src/workflow/*"
+      ]
+    }
   },
-  "include": ["src"]
+  "include": [
+    "src"
+  ]
 }

@@ -1,4 +1,4 @@
-import type { ErrorCode } from '../error/error-codes.js';
+import type { ErrorCode } from '@error/error-codes.js';
 
 export interface ResponseMeta {
   total: number;

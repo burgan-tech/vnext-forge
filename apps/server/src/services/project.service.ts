@@ -1,301 +1,327 @@
 import fs from 'node:fs/promises'
+import { homedir } from 'node:os'
 import path from 'node:path'
+import { ERROR_CODES, VnextForgeError } from '@vnext-studio/app-contracts'
+import { CONFIG_FILE } from '@vnext-studio/workspace-service'
+import type { WorkspaceConfig, WorkspaceStructure } from '@vnext-studio/workspace-service'
+import { ExportService } from '@services/export.service.js'
+import { WorkspaceService } from '@services/workspace.service.js'
 
-const PROJECTS_DIR = path.join(process.env.HOME || '~', 'vnext-projects')
+const PROJECTS_DIR = path.join(homedir(), 'vnext-projects')
 
-export interface ProjectInfo {
-  id: string;
-  domain: string;
-  description?: string;
-  path: string;
-  version?: string;
-  workflowCount?: number;
-  linked?: boolean;
+export interface ProjectEntry {
+  id: string
+  domain: string
+  description?: string
+  rootPath: string
+  version?: string
+  workflowCount?: number
+  linked?: boolean
 }
 
 export interface LinkFile {
-  sourcePath: string;
-  domain: string;
-  importedAt: string;
-}
-
-export interface FileTreeNode {
-  name: string;
-  path: string;
-  type: 'file' | 'directory';
-  children?: FileTreeNode[];
+  sourcePath: string
+  domain: string
+  importedAt: string
 }
 
 export class ProjectService {
-  async ensureProjectsDir() {
+  constructor(
+    private readonly workspaceService = new WorkspaceService(),
+    private readonly exportService = new ExportService(),
+  ) {}
+
+  async ensureProjectsDir(): Promise<void> {
     await fs.mkdir(PROJECTS_DIR, { recursive: true })
   }
 
-  /**
-   * Resolve the actual filesystem path for a project.
-   * If a .link.json file exists, read sourcePath from it.
-   * Otherwise, use the direct directory path.
-   */
-  async resolveProjectPath(id: string): Promise<{ projectPath: string; linked: boolean }> {
-    // Check for link file first
+  async resolveProjectPath(
+    id: string,
+    traceId?: string,
+  ): Promise<{ projectPath: string; linked: boolean }> {
     const linkPath = path.join(PROJECTS_DIR, `${id}.link.json`)
+
     try {
       const linkRaw = await fs.readFile(linkPath, 'utf-8')
-      const link: LinkFile = JSON.parse(linkRaw)
+      const link = JSON.parse(linkRaw) as LinkFile
+
       return { projectPath: link.sourcePath, linked: true }
-    } catch {
-      // No link file, use direct path
-      const directPath = path.join(PROJECTS_DIR, id)
-      return { projectPath: directPath, linked: false }
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException | undefined)?.code
+      if (code && code !== 'ENOENT') {
+        throw this.toProjectError(error, 'ProjectService.resolveProjectPath', traceId, { id, linkPath })
+      }
     }
+
+    return { projectPath: path.join(PROJECTS_DIR, id), linked: false }
   }
 
-  async listProjects(): Promise<ProjectInfo[]> {
+  async listProjects(traceId?: string): Promise<ProjectEntry[]> {
     await this.ensureProjectsDir()
-    const entries = await fs.readdir(PROJECTS_DIR, { withFileTypes: true })
-    const projects: ProjectInfo[] = []
-    const seenIds = new Set<string>()
 
-    // Scan .link.json files (referenced/imported projects)
-    for (const entry of entries) {
-      if (!entry.isFile() || !entry.name.endsWith('.link.json')) continue
-      const id = entry.name.replace('.link.json', '')
-      seenIds.add(id)
-
-      try {
-        const linkRaw = await fs.readFile(path.join(PROJECTS_DIR, entry.name), 'utf-8')
-        const link: LinkFile = JSON.parse(linkRaw)
-        const configPath = path.join(link.sourcePath, 'vnext.config.json')
-        try {
-          const configRaw = await fs.readFile(configPath, 'utf-8')
-          const config = JSON.parse(configRaw)
-          projects.push({
-            id,
-            domain: config.domain || id,
-            description: config.description,
-            path: link.sourcePath,
-            version: config.version,
-            linked: true,
-          })
-        } catch {
-          projects.push({
-            id,
-            domain: link.domain || id,
-            path: link.sourcePath,
-            linked: true,
-          })
-        }
-      } catch {
-        // Invalid link file, skip
-      }
-    }
-
-    // Scan direct directories
-    for (const entry of entries) {
-      if (!entry.isDirectory()) continue
-      if (seenIds.has(entry.name)) continue
-      const projectPath = path.join(PROJECTS_DIR, entry.name)
-      const configPath = path.join(projectPath, 'vnext.config.json')
-      try {
-        const configRaw = await fs.readFile(configPath, 'utf-8')
-        const config = JSON.parse(configRaw)
-        projects.push({
-          id: entry.name,
-          domain: config.domain || entry.name,
-          description: config.description,
-          path: projectPath,
-          version: config.version,
-          linked: false,
-        })
-      } catch {
-        projects.push({
-          id: entry.name,
-          domain: entry.name,
-          path: projectPath,
-          linked: false,
-        })
-      }
-    }
-
-    return projects
-  }
-
-  async getProject(id: string): Promise<ProjectInfo> {
-    const { projectPath, linked } = await this.resolveProjectPath(id)
-    const stat = await fs.stat(projectPath)
-    if (!stat.isDirectory()) throw new Error('Project not found')
-
-    const configPath = path.join(projectPath, 'vnext.config.json')
     try {
-      const configRaw = await fs.readFile(configPath, 'utf-8')
-      const config = JSON.parse(configRaw)
-      return {
-        id,
-        domain: config.domain || id,
-        description: config.description,
-        path: projectPath,
-        version: config.version,
-        linked,
+      const entries = await fs.readdir(PROJECTS_DIR, { withFileTypes: true })
+      const projects: ProjectEntry[] = []
+      const seenIds = new Set<string>()
+
+      for (const entry of entries) {
+        if (!entry.isFile() || !entry.name.endsWith('.link.json')) {
+          continue
+        }
+
+        const id = entry.name.replace('.link.json', '')
+        seenIds.add(id)
+
+        try {
+          const linkRaw = await fs.readFile(path.join(PROJECTS_DIR, entry.name), 'utf-8')
+          const link = JSON.parse(linkRaw) as LinkFile
+          projects.push(await this.toProjectEntry(id, link.sourcePath, true, traceId, link.domain))
+        } catch {
+          // Ignore invalid link files while listing the rest.
+        }
       }
-    } catch {
-      return { id, domain: id, path: projectPath, linked }
+
+      for (const entry of entries) {
+        if (!entry.isDirectory() || seenIds.has(entry.name)) {
+          continue
+        }
+
+        const rootPath = path.join(PROJECTS_DIR, entry.name)
+        projects.push(await this.toProjectEntry(entry.name, rootPath, false, traceId))
+      }
+
+      return projects
+    } catch (error) {
+      throw this.toProjectError(error, 'ProjectService.listProjects', traceId)
     }
   }
 
-  async createProject(domain: string, description?: string, targetPath?: string): Promise<ProjectInfo> {
+  async getProject(id: string, traceId?: string): Promise<ProjectEntry> {
+    const { projectPath, linked } = await this.resolveProjectPath(id, traceId)
+
+    try {
+      const stat = await fs.stat(projectPath)
+      if (!stat.isDirectory()) {
+        throw new VnextForgeError(
+          ERROR_CODES.PROJECT_NOT_FOUND,
+          'Project directory was not found',
+          { source: 'ProjectService.getProject', layer: 'application', details: { id, projectPath } },
+          traceId,
+        )
+      }
+    } catch (error) {
+      if (error instanceof VnextForgeError) {
+        throw error
+      }
+
+      throw this.toProjectError(error, 'ProjectService.getProject', traceId, { id, projectPath })
+    }
+
+    return this.toProjectEntry(id, projectPath, linked, traceId)
+  }
+
+  async createProject(
+    domain: string,
+    description?: string,
+    targetPath?: string,
+    traceId?: string,
+  ): Promise<ProjectEntry> {
     await this.ensureProjectsDir()
-    // If targetPath provided, create there and link back; otherwise use default dir
-    const projectPath = targetPath ? path.resolve(targetPath, domain) : path.join(PROJECTS_DIR, domain)
-    await fs.mkdir(projectPath, { recursive: true })
 
-    const componentsDirs = ['Workflows', 'Mappings', 'Schemas', 'Tasks', 'Views', 'Functions', 'Extensions']
-    for (const dir of componentsDirs) {
-      await fs.mkdir(path.join(projectPath, domain, dir), { recursive: true })
-    }
+    const rootPath = targetPath ? path.resolve(targetPath, domain) : path.join(PROJECTS_DIR, domain)
 
-    const config = {
-      version: '1.0.0',
-      description: description || '',
-      domain,
-      runtimeVersion: '0.0.33',
-      schemaVersion: '0.0.33',
-      paths: {
-        componentsRoot: domain,
-        tasks: 'Tasks',
-        views: 'Views',
-        functions: 'Functions',
-        extensions: 'Extensions',
-        workflows: 'Workflows',
-        schemas: 'Schemas',
-        mappings: 'Mappings',
-      },
-      exports: {
-        functions: [],
-        workflows: [],
-        tasks: [],
-        views: [],
-        schemas: [],
-        extensions: [],
-        visibility: 'private',
-        metadata: {},
-      },
-      dependencies: {
-        domains: [],
-        npm: [],
-      },
-      referenceResolution: {
-        enabled: true,
-        validateOnBuild: true,
-        strictMode: false,
-      },
-    }
-
-    await fs.writeFile(
-      path.join(projectPath, 'vnext.config.json'),
-      JSON.stringify(config, null, 2)
-    )
-
-    // If created outside default dir, create a link file so it appears in project list
-    if (targetPath) {
-      const linkFile: LinkFile = {
-        sourcePath: projectPath,
-        domain,
-        importedAt: new Date().toISOString(),
+    try {
+      await fs.access(rootPath)
+      throw new VnextForgeError(
+        ERROR_CODES.PROJECT_ALREADY_EXISTS,
+        'Project already exists',
+        { source: 'ProjectService.createProject', layer: 'application', details: { domain, rootPath } },
+        traceId,
+      )
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException | undefined)?.code
+      if (error instanceof VnextForgeError) {
+        throw error
       }
-      const linkPath = path.join(PROJECTS_DIR, `${domain}.link.json`)
-      await fs.writeFile(linkPath, JSON.stringify(linkFile, null, 2))
-      return { id: domain, domain, description, path: projectPath, version: '1.0.0', linked: true }
+
+      if (code && code !== 'ENOENT') {
+        throw this.toProjectError(error, 'ProjectService.createProject', traceId, { domain, rootPath })
+      }
     }
 
-    return { id: domain, domain, description, path: projectPath, version: '1.0.0', linked: false }
+    try {
+      await fs.mkdir(rootPath, { recursive: true })
+
+      for (const componentPath of this.workspaceService.getComponentPaths(rootPath, domain)) {
+        await fs.mkdir(componentPath, { recursive: true })
+      }
+
+      const config = this.workspaceService.createDefaultConfig(domain, description)
+      await fs.writeFile(
+        this.workspaceService.getConfigPath(rootPath),
+        JSON.stringify(config, null, 2),
+        'utf-8',
+      )
+
+      if (targetPath) {
+        await this.writeLinkFile(domain, rootPath)
+        return this.toProjectEntry(domain, rootPath, true, traceId)
+      }
+
+      return this.toProjectEntry(domain, rootPath, false, traceId)
+    } catch (error) {
+      throw this.toProjectError(error, 'ProjectService.createProject', traceId, { domain, rootPath })
+    }
   }
 
-  async importProject(sourcePath: string): Promise<ProjectInfo> {
+  async importProject(sourcePath: string, traceId?: string): Promise<ProjectEntry> {
     const resolvedSource = path.resolve(sourcePath)
-    const configPath = path.join(resolvedSource, 'vnext.config.json')
-    const configRaw = await fs.readFile(configPath, 'utf-8')
-    const config = JSON.parse(configRaw)
-    const domain = config.domain
 
-    if (!domain) {
-      throw new Error('vnext.config.json must have a "domain" field')
+    let config: WorkspaceConfig
+    try {
+      config = await this.workspaceService.getConfig(resolvedSource, traceId)
+    } catch (error) {
+      throw this.toProjectError(error, 'ProjectService.importProject', traceId, { sourcePath: resolvedSource })
+    }
+
+    if (!config.domain) {
+      throw new VnextForgeError(
+        ERROR_CODES.PROJECT_INVALID_CONFIG,
+        'Workspace config must define a domain',
+        {
+          source: 'ProjectService.importProject',
+          layer: 'application',
+          details: { sourcePath: resolvedSource, configPath: path.join(resolvedSource, CONFIG_FILE) },
+        },
+        traceId,
+      )
     }
 
     await this.ensureProjectsDir()
+    await this.writeLinkFile(config.domain, resolvedSource)
 
-    // Write a link file instead of copying the project
-    const linkFile: LinkFile = {
-      sourcePath: resolvedSource,
-      domain,
-      importedAt: new Date().toISOString(),
-    }
-
-    const linkPath = path.join(PROJECTS_DIR, `${domain}.link.json`)
-    await fs.writeFile(linkPath, JSON.stringify(linkFile, null, 2))
-
-    return {
-      id: domain,
-      domain,
-      description: config.description,
-      path: resolvedSource,
-      version: config.version,
-      linked: true,
-    }
+    return this.toProjectEntry(config.domain, resolvedSource, true, traceId)
   }
 
-  async getFileTree(id: string): Promise<FileTreeNode> {
-    const { projectPath } = await this.resolveProjectPath(id)
-    return this.buildTree(projectPath, id)
+  async getFileTree(id: string, traceId?: string): Promise<WorkspaceStructure> {
+    const { projectPath } = await this.resolveProjectPath(id, traceId)
+    return this.workspaceService.getFileTree(projectPath, traceId)
   }
 
-  private async buildTree(dirPath: string, name: string): Promise<FileTreeNode> {
-    const entries = await fs.readdir(dirPath, { withFileTypes: true })
-    const children: FileTreeNode[] = []
-
-    for (const entry of entries) {
-      if (entry.name.startsWith('.') || entry.name === 'node_modules') continue
-      const fullPath = path.join(dirPath, entry.name)
-
-      if (entry.isDirectory()) {
-        children.push(await this.buildTree(fullPath, entry.name))
-      } else {
-        children.push({ name: entry.name, path: fullPath, type: 'file' })
-      }
-    }
-
-    children.sort((a, b) => {
-      if (a.type !== b.type) return a.type === 'directory' ? -1 : 1
-      return a.name.localeCompare(b.name)
-    })
-
-    return { name, path: dirPath, type: 'directory', children }
+  async getConfig(id: string, traceId?: string): Promise<WorkspaceConfig> {
+    const { projectPath } = await this.resolveProjectPath(id, traceId)
+    return this.workspaceService.getConfig(projectPath, traceId)
   }
 
-  async getConfig(id: string) {
-    const { projectPath } = await this.resolveProjectPath(id)
-    const configPath = path.join(projectPath, 'vnext.config.json')
-    const raw = await fs.readFile(configPath, 'utf-8')
-    return JSON.parse(raw)
-  }
-
-  async exportProject(id: string, targetPath: string) {
-    const { projectPath } = await this.resolveProjectPath(id)
-    await fs.cp(projectPath, targetPath, { recursive: true })
+  async exportProject(
+    id: string,
+    targetPath: string,
+    traceId?: string,
+  ): Promise<{ success: true; exportPath: string }> {
+    const { projectPath } = await this.resolveProjectPath(id, traceId)
+    await this.exportService.exportAsVnext(projectPath, targetPath, traceId)
     return { success: true, exportPath: targetPath }
   }
 
-  async removeProject(id: string): Promise<{ success: boolean }> {
+  async removeProject(id: string, traceId?: string): Promise<{ success: boolean }> {
     await this.ensureProjectsDir()
-    // Only remove the link file, never delete the actual project files
+
     const linkPath = path.join(PROJECTS_DIR, `${id}.link.json`)
     try {
       await fs.unlink(linkPath)
       return { success: true }
-    } catch {
-      // Try removing direct directory
-      const dirPath = path.join(PROJECTS_DIR, id)
-      await fs.rm(dirPath, { recursive: true })
-      return { success: true }
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException | undefined)?.code
+      if (code && code !== 'ENOENT') {
+        throw this.toProjectError(error, 'ProjectService.removeProject', traceId, { id, linkPath })
+      }
     }
+
+    const directPath = path.join(PROJECTS_DIR, id)
+    try {
+      await fs.rm(directPath, { recursive: true })
+      return { success: true }
+    } catch (error) {
+      throw this.toProjectError(error, 'ProjectService.removeProject', traceId, { id, directPath })
+    }
+  }
+
+  private async writeLinkFile(domain: string, sourcePath: string): Promise<void> {
+    const linkFile: LinkFile = {
+      sourcePath,
+      domain,
+      importedAt: new Date().toISOString(),
+    }
+
+    await fs.writeFile(
+      path.join(PROJECTS_DIR, `${domain}.link.json`),
+      JSON.stringify(linkFile, null, 2),
+      'utf-8',
+    )
+  }
+
+  private async toProjectEntry(
+    id: string,
+    rootPath: string,
+    linked: boolean,
+    traceId?: string,
+    fallbackDomain?: string,
+  ): Promise<ProjectEntry> {
+    try {
+      const config = await this.workspaceService.getConfig(rootPath, traceId)
+      return {
+        id,
+        domain: config.domain || fallbackDomain || id,
+        description: config.description,
+        rootPath,
+        version: config.version,
+        linked,
+      }
+    } catch {
+      return {
+        id,
+        domain: fallbackDomain || id,
+        rootPath,
+        linked,
+      }
+    }
+  }
+
+  private toProjectError(
+    error: unknown,
+    source: string,
+    traceId?: string,
+    details?: Record<string, unknown>,
+  ): VnextForgeError {
+    if (error instanceof VnextForgeError) {
+      return error
+    }
+
+    const code = (error as NodeJS.ErrnoException | undefined)?.code
+
+    if (code === 'ENOENT') {
+      return new VnextForgeError(
+        ERROR_CODES.PROJECT_NOT_FOUND,
+        'Project was not found',
+        { source, layer: 'application', details },
+        traceId,
+      )
+    }
+
+    if (code === 'EEXIST') {
+      return new VnextForgeError(
+        ERROR_CODES.PROJECT_ALREADY_EXISTS,
+        'Project already exists',
+        { source, layer: 'application', details },
+        traceId,
+      )
+    }
+
+    return new VnextForgeError(
+      ERROR_CODES.PROJECT_LOAD_ERROR,
+      error instanceof Error ? error.message : 'Project operation failed',
+      { source, layer: 'application', details },
+      traceId,
+    )
   }
 }

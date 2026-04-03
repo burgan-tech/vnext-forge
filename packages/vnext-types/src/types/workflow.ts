@@ -1,7 +1,7 @@
-import { Label } from './label';
-import { State, SharedTransition, ResourceReference } from './state';
-import { ErrorBoundary } from './error-boundary';
-import { MappingCode } from './mapping';
+import { ErrorBoundary } from '@vnext-types-internal/error-boundary';
+import { Label } from '@vnext-types-internal/label';
+import { MappingCode } from '@vnext-types-internal/mapping';
+import { State, SharedTransition, ResourceReference } from '@vnext-types-internal/state';
 
 export type WorkflowType = 'F' | 'S' | 'P' | 'C';
 

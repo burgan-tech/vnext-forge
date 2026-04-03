@@ -5,15 +5,21 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc",
+    "build": "tsc -b",
     "lint": "eslint .",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "start": "node dist/index.js",
     "clean": "rm -rf dist"
   },
   "dependencies": {
     "@hono/node-server": "^1.14.0",
+    "@vnext-studio/app-contracts": "workspace:*",
     "@vnext-studio/types": "workspace:*",
-    "hono": "^4.6.0"
+    "@vnext-studio/workflow-system": "workspace:*",
+    "@vnext-studio/workspace-service": "workspace:*",
+    "hono": "^4.6.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
@@ -22,6 +28,7 @@
     "eslint-plugin-promise": "^7.2.1",
     "eslint-plugin-unused-imports": "^4.3.0",
     "tsx": "^4.19.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "^3.2.4"
   }
 }
