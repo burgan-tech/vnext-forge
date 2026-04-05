@@ -2,20 +2,11 @@ import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useProjectStore, type ProjectInfo } from '../stores/project-store';
 import { ImportDialog } from '../project/ImportDialog';
-import {
-  FolderOpen,
-  Plus,
-  Link,
-  Trash2,
-  ArrowRight,
-  MapPin,
-  ChevronRight,
-} from 'lucide-react';
+import { FolderOpen, Plus, Link, Trash2, ArrowRight, MapPin, ChevronRight } from 'lucide-react';
 
 export function ProjectListPage() {
   const navigate = useNavigate();
-  const { projects, setProjects, setActiveProject, setLoading, loading } =
-    useProjectStore();
+  const { projects, setProjects, setActiveProject, setLoading, loading } = useProjectStore();
   const [newDomain, setNewDomain] = useState('');
   const [creating, setCreating] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
@@ -111,48 +102,47 @@ export function ProjectListPage() {
 
   return (
     <div className="h-full overflow-auto bg-gradient-to-br from-slate-50 via-white to-indigo-50/30">
-      <div className="min-h-full flex flex-col items-center justify-center px-6 py-20">
+      <div className="flex min-h-full flex-col items-center justify-center px-6 py-20">
         <div className="w-full max-w-md">
-
           {/* Hero */}
-          <div className="text-center mb-14">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-500/25 mb-6">
-              <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="5" cy="6" r="2" />
-                <circle cx="19" cy="6" r="2" />
-                <circle cx="12" cy="18" r="2" />
-                <path d="M5 8v2a4 4 0 0 0 4 4h6a4 4 0 0 0 4-4V8" />
-                <path d="M12 14v4" />
-              </svg>
+          <div className="mb-14 text-center">
+            <div className="mb-6 inline-flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-br from-indigo-500 to-violet-600 shadow-lg shadow-indigo-500/25">
+              <img src="/icon.svg" alt="vNext Forge" className="h-8 w-8" />
             </div>
-            <h1 className="text-3xl font-bold text-slate-900 mb-2 tracking-tight">Flow Studio</h1>
+            <h1 className="mb-2 text-3xl font-bold tracking-tight text-slate-900">Flow Studio</h1>
             <p className="text-slate-500">Visual workflow development platform</p>
           </div>
 
           {/* Actions */}
-          <div className="space-y-3 mb-14">
+          <div className="mb-14 space-y-3">
             <button
               onClick={() => setImportOpen(true)}
-              className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl bg-white border border-slate-200/80 hover:border-indigo-300 hover:shadow-lg hover:shadow-indigo-500/5 text-left transition-all duration-200 group"
-            >
-              <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-500 flex items-center justify-center shrink-0 group-hover:bg-indigo-100 transition-colors">
+              className="group flex w-full items-center gap-4 rounded-2xl border border-slate-200/80 bg-white px-5 py-4 text-left transition-all duration-200 hover:border-indigo-300 hover:shadow-lg hover:shadow-indigo-500/5">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-500 transition-colors group-hover:bg-indigo-100">
                 <FolderOpen size={20} />
               </div>
               <div className="flex-1">
                 <div className="text-sm font-semibold text-slate-900">Import Project</div>
-                <div className="text-xs text-slate-500">Browse and link an existing vnext project</div>
+                <div className="text-xs text-slate-500">
+                  Browse and link an existing vnext project
+                </div>
               </div>
-              <ArrowRight size={16} className="text-slate-300 group-hover:text-indigo-400 group-hover:translate-x-0.5 transition-all shrink-0" />
+              <ArrowRight
+                size={16}
+                className="shrink-0 text-slate-300 transition-all group-hover:translate-x-0.5 group-hover:text-indigo-400"
+              />
             </button>
 
-            <div className="w-full px-5 py-4 rounded-2xl bg-white border border-slate-200/80">
-              <div className="flex items-center gap-4 mb-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-500 flex items-center justify-center shrink-0">
+            <div className="w-full rounded-2xl border border-slate-200/80 bg-white px-5 py-4">
+              <div className="mb-3 flex items-center gap-4">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-50 text-emerald-500">
                   <Plus size={20} />
                 </div>
                 <div>
                   <div className="text-sm font-semibold text-slate-900">Create Project</div>
-                  <div className="text-xs text-slate-500">Start a new vnext domain from scratch</div>
+                  <div className="text-xs text-slate-500">
+                    Start a new vnext domain from scratch
+                  </div>
                 </div>
               </div>
               <div className="space-y-2 pl-14">
@@ -162,40 +152,50 @@ export function ProjectListPage() {
                   value={newDomain}
                   onChange={(e) => setNewDomain(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
-                  className="w-full h-10 px-3.5 rounded-xl border border-slate-200 bg-slate-50/50 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 focus:bg-white transition-all"
+                  className="h-10 w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 text-sm text-slate-900 transition-all placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:outline-none"
                 />
                 {/* Location picker */}
                 <div className="relative" ref={pathPickerRef}>
                   <button
-                    onClick={() => showPathPicker ? setShowPathPicker(false) : browseForCreate()}
-                    className="w-full h-10 px-3.5 rounded-xl border border-slate-200 bg-slate-50/50 text-sm text-left flex items-center gap-2 hover:border-slate-300 transition-colors"
-                  >
-                    <MapPin size={14} className="text-slate-400 shrink-0" />
+                    onClick={() => (showPathPicker ? setShowPathPicker(false) : browseForCreate())}
+                    className="flex h-10 w-full items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/50 px-3.5 text-left text-sm transition-colors hover:border-slate-300">
+                    <MapPin size={14} className="shrink-0 text-slate-400" />
                     {createPath ? (
-                      <span className="text-slate-700 truncate text-xs font-mono">{createPath}</span>
+                      <span className="truncate font-mono text-xs text-slate-700">
+                        {createPath}
+                      </span>
                     ) : (
                       <span className="text-slate-400">Location (default: ~/vnext-projects)</span>
                     )}
                   </button>
                   {showPathPicker && (
-                    <div className="absolute left-0 right-0 top-11 z-50 bg-white rounded-xl border border-slate-200 shadow-xl shadow-slate-900/5 max-h-60 overflow-y-auto animate-scale-in">
+                    <div className="animate-scale-in absolute top-11 right-0 left-0 z-50 max-h-60 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl shadow-slate-900/5">
                       {/* Breadcrumb */}
-                      <div className="px-3 py-2 border-b border-slate-100 flex items-center gap-1 text-xs text-slate-500 overflow-x-auto">
-                        {browsePath.split('/').filter(Boolean).map((seg, i, arr) => {
-                          const fullPath = '/' + arr.slice(0, i + 1).join('/');
-                          return (
-                            <span key={i} className="flex items-center gap-1 shrink-0">
-                              {i > 0 && <ChevronRight size={10} className="text-slate-300" />}
-                              <button onClick={() => browseForCreate(fullPath)} className="hover:text-indigo-500">{seg}</button>
-                            </span>
-                          );
-                        })}
+                      <div className="flex items-center gap-1 overflow-x-auto border-b border-slate-100 px-3 py-2 text-xs text-slate-500">
+                        {browsePath
+                          .split('/')
+                          .filter(Boolean)
+                          .map((seg, i, arr) => {
+                            const fullPath = '/' + arr.slice(0, i + 1).join('/');
+                            return (
+                              <span key={i} className="flex shrink-0 items-center gap-1">
+                                {i > 0 && <ChevronRight size={10} className="text-slate-300" />}
+                                <button
+                                  onClick={() => browseForCreate(fullPath)}
+                                  className="hover:text-indigo-500">
+                                  {seg}
+                                </button>
+                              </span>
+                            );
+                          })}
                       </div>
                       {/* Select this folder */}
                       <button
-                        onClick={() => { setCreatePath(browsePath); setShowPathPicker(false); }}
-                        className="w-full px-3 py-2 text-xs text-left text-indigo-600 font-semibold hover:bg-indigo-50 border-b border-slate-100"
-                      >
+                        onClick={() => {
+                          setCreatePath(browsePath);
+                          setShowPathPicker(false);
+                        }}
+                        className="w-full border-b border-slate-100 px-3 py-2 text-left text-xs font-semibold text-indigo-600 hover:bg-indigo-50">
                         Select this folder
                       </button>
                       {/* Folders */}
@@ -203,10 +203,12 @@ export function ProjectListPage() {
                         <button
                           key={f.path}
                           onClick={() => browseForCreate(f.path)}
-                          onDoubleClick={() => { setCreatePath(f.path); setShowPathPicker(false); }}
-                          className="w-full px-3 py-1.5 text-xs text-left text-slate-700 hover:bg-slate-50 flex items-center gap-2"
-                        >
-                          <FolderOpen size={13} className="text-slate-400 shrink-0" />
+                          onDoubleClick={() => {
+                            setCreatePath(f.path);
+                            setShowPathPicker(false);
+                          }}
+                          className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-slate-700 hover:bg-slate-50">
+                          <FolderOpen size={13} className="shrink-0 text-slate-400" />
                           <span className="truncate">{f.name}</span>
                         </button>
                       ))}
@@ -219,8 +221,7 @@ export function ProjectListPage() {
                 <button
                   onClick={handleCreate}
                   disabled={creating || !newDomain.trim()}
-                  className="w-full h-10 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white text-sm font-semibold rounded-xl hover:from-emerald-600 hover:to-emerald-700 disabled:opacity-30 transition-all shadow-sm shadow-emerald-500/20 hover:shadow-md hover:shadow-emerald-500/25 active:scale-[0.98]"
-                >
+                  className="h-10 w-full rounded-xl bg-gradient-to-r from-emerald-500 to-emerald-600 text-sm font-semibold text-white shadow-sm shadow-emerald-500/20 transition-all hover:from-emerald-600 hover:to-emerald-700 hover:shadow-md hover:shadow-emerald-500/25 active:scale-[0.98] disabled:opacity-30">
                   {creating ? 'Creating...' : 'Create'}
                 </button>
               </div>
@@ -230,7 +231,7 @@ export function ProjectListPage() {
           {/* Projects */}
           {hasProjects && (
             <div>
-              <h2 className="text-[11px] font-semibold uppercase tracking-widest text-slate-400 mb-3">
+              <h2 className="mb-3 text-[11px] font-semibold tracking-widest text-slate-400 uppercase">
                 Recent Projects
               </h2>
               <div className="space-y-2">
@@ -238,29 +239,32 @@ export function ProjectListPage() {
                   <button
                     key={p.id}
                     onClick={() => openProject(p)}
-                    className="w-full flex items-center gap-3.5 px-4 py-3.5 rounded-2xl bg-white border border-slate-200/80 hover:border-indigo-200 hover:shadow-md hover:shadow-indigo-500/5 text-left transition-all duration-200 group"
-                  >
-                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-50 to-violet-50 text-indigo-500 flex items-center justify-center font-bold text-sm shrink-0 border border-indigo-100/80">
+                    className="group flex w-full items-center gap-3.5 rounded-2xl border border-slate-200/80 bg-white px-4 py-3.5 text-left transition-all duration-200 hover:border-indigo-200 hover:shadow-md hover:shadow-indigo-500/5">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-indigo-100/80 bg-gradient-to-br from-indigo-50 to-violet-50 text-sm font-bold text-indigo-500">
                       {p.domain[0].toUpperCase()}
                     </div>
-                    <div className="flex-1 min-w-0">
+                    <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-semibold text-slate-900 truncate">{p.domain}</span>
+                        <span className="truncate text-sm font-semibold text-slate-900">
+                          {p.domain}
+                        </span>
                         {p.linked && (
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-px rounded-md text-[9px] font-semibold bg-indigo-50 text-indigo-500">
+                          <span className="inline-flex items-center gap-0.5 rounded-md bg-indigo-50 px-1.5 py-px text-[9px] font-semibold text-indigo-500">
                             <Link size={7} />
                             linked
                           </span>
                         )}
                         {p.version && (
-                          <span className="text-[10px] text-slate-400 font-mono">v{p.version}</span>
+                          <span className="font-mono text-[10px] text-slate-400">v{p.version}</span>
                         )}
                       </div>
                       {p.description && (
-                        <div className="text-xs text-slate-400 truncate mt-0.5">{p.description}</div>
+                        <div className="mt-0.5 truncate text-xs text-slate-400">
+                          {p.description}
+                        </div>
                       )}
                     </div>
-                    <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex shrink-0 items-center gap-1">
                       <div
                         role="button"
                         tabIndex={0}
@@ -268,15 +272,17 @@ export function ProjectListPage() {
                         onKeyDown={(e) => {
                           if (e.key === 'Enter') handleDelete(e as unknown as React.MouseEvent, p);
                         }}
-                        className="p-1.5 rounded-lg text-slate-300 hover:text-rose-500 hover:bg-rose-50 opacity-0 group-hover:opacity-100 transition-all"
-                      >
+                        className="rounded-lg p-1.5 text-slate-300 opacity-0 transition-all group-hover:opacity-100 hover:bg-rose-50 hover:text-rose-500">
                         {deletingId === p.id ? (
-                          <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                          <div className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
                         ) : (
                           <Trash2 size={13} />
                         )}
                       </div>
-                      <ArrowRight size={14} className="text-slate-200 group-hover:text-indigo-400 transition-colors" />
+                      <ArrowRight
+                        size={14}
+                        className="text-slate-200 transition-colors group-hover:text-indigo-400"
+                      />
                     </div>
                   </button>
                 ))}
@@ -284,18 +290,11 @@ export function ProjectListPage() {
             </div>
           )}
 
-          {loading && (
-            <div className="text-center text-sm text-slate-400">Loading...</div>
-          )}
-
+          {loading && <div className="text-center text-sm text-slate-400">Loading...</div>}
         </div>
       </div>
 
-      <ImportDialog
-        open={importOpen}
-        onOpenChange={setImportOpen}
-        onImported={fetchProjects}
-      />
+      <ImportDialog open={importOpen} onOpenChange={setImportOpen} onImported={fetchProjects} />
     </div>
   );
 }
