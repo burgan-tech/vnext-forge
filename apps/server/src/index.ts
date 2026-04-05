@@ -14,19 +14,16 @@ import { runtimeProxyRouter } from '@runtime-proxy/router.js';
 import { templateRouter } from '@template/router.js';
 import '@shared/types/hono.js';
 
-const app = new Hono();
-
-app.use('*', traceIdMiddleware);
-app.use('*', requestLoggerMiddleware);
-app.use('*', cors());
-
-app.route('/api/projects', projectRouter);
-app.route('/api/files', workspaceRouter);
-app.route('/api/validate', validateRouter);
-app.route('/api/runtime', runtimeProxyRouter);
-app.route('/api/templates', templateRouter);
-
-app.get('/api/health', (c) => ok(c, { status: 'ok', traceId: c.get('traceId') }));
+const app = new Hono()
+  .use('*', traceIdMiddleware)
+  .use('*', requestLoggerMiddleware)
+  .use('*', cors())
+  .route('/api/projects', projectRouter)
+  .route('/api/files', workspaceRouter)
+  .route('/api/validate', validateRouter)
+  .route('/api/runtime', runtimeProxyRouter)
+  .route('/api/templates', templateRouter)
+  .get('/api/health', (c) => ok(c, { status: 'ok', traceId: c.get('traceId') }));
 
 app.onError(errorHandler);
 app.notFound((c) =>

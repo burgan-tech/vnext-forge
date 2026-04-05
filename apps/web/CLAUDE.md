@@ -20,6 +20,40 @@ Detailed implementation rules, slice constraints, and architecture-specific conv
 
 - If a component is needed, check `shared/ui` first and use it from there when it already exists.
 
+## API Access
+
+All server communication goes through the Hono RPC client in `shared/api/client.ts`.
+
+**The intended call chain is:**
+
+```
+shared/api/client.ts  (apiClient, callApi, unwrapApi)
+  → entities/*/api.ts (entity service — callApi wraps the RPC call, returns Promise<ApiResponse<T>>)
+  → features/* or hooks (useAsync(() => entityApi.method()))
+  → UI (data, loading, error)
+```
+
+- `callApi<T>(response)` — converts Hono RPC `Response` to `Promise<ApiResponse<T>>`. Use as the async function passed to `useAsync`.
+- `unwrapApi<T>(response)` — throws `VnextForgeError` on failure, returns `T` directly. For imperative use outside `useAsync`.
+- Do not call `apiClient` directly from features, hooks, widgets, pages, or components. Place all `apiClient` calls in `entities/*/api.ts`.
+- Do not use raw `fetch` anywhere in the web app.
+
+## Async UI Flows
+
+Use the shared `useAsync` hook (`shared/hooks/useAsync.ts`) for reusable async UI contracts.
+
+- Pass entity service functions into `useAsync` — they return `Promise<ApiResponse<T>>` which is the expected signature.
+- `useAsync` normalizes failures to `VnextForgeError` automatically.
+- Use `options.onSuccess` / `options.onError` for side effects like navigation or notifications — keep these out of services.
+- Do not invent a second async primitive alongside `useAsync`.
+
+## Error Handling
+
+- All errors are `VnextForgeError` from `@vnext-forge/app-contracts`.
+- Use `error.toUserMessage().message` in UI — never raw `error.message`.
+- Use `error.code` to branch behavior; never branch on message strings.
+- `traceId` must be preserved when present.
+
 ## Logging
 
 - In `apps/web`, do not use raw `console.log`, `console.info`, `console.warn`, or `console.error` in application code.

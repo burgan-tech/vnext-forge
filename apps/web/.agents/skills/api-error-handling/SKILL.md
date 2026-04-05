@@ -37,11 +37,25 @@ import { isFailure, fold, getError } from '@vnext-forge/app-contracts';
 
 Use `isSuccess` / `isFailure` for branching, `fold` for exhaustive handling, `unwrap` / `unwrapOr` when a default fallback is acceptable.
 
+## Error Flow
+
+```
+Hono RPC Response
+  → callApi<T>()           (shared/api/client.ts) — parse JSON, throw on network/parse error
+  → entity service api.ts  — returns ApiResponse<T>, no throw
+  → useAsync               — calls isFailure, converts to VnextForgeError, sets error state
+  → UI                     — renders error.toUserMessage().message
+```
+
+`callApi` handles network and parse-level failures, converting them to `VnextForgeError` immediately.
+Entity services do not throw — they return `ApiResponse<T>` and let `useAsync` handle the failure branch.
+`unwrapApi` is for imperative paths (outside `useAsync`) and throws `VnextForgeError` directly on failure.
+
 ## Where Errors Belong
 
-1. `shared/api` — transport normalization and first-pass `VnextForgeError` construction
-2. Services or adapters — response mapping, contract validation
-3. Feature or entity actions — translate normalized error into scenario meaning
+1. `shared/api/client.ts` — `callApi` / `unwrapApi`: transport normalization and first-pass `VnextForgeError` construction
+2. `entities/*/api.ts` — entity services: return `ApiResponse<T>`, no error interpretation
+3. Features / `useAsync` — translate normalized error into scenario meaning, set error state
 4. UI — renders `error.toUserMessage().message`; never inspects `.code` to build message strings
 
 ## Do
@@ -81,3 +95,4 @@ Flag the implementation if:
 - `traceId` is dropped even though it exists upstream.
 - A failure path cannot be traced to a specific `ErrorCode`.
 - `error.message` is rendered in JSX instead of `error.toUserMessage().message`.
+- An entity service throws instead of returning `ApiResponse<T>`.

@@ -21,6 +21,9 @@
     },
     {
       "path": "../../packages/app-contracts"
+    },
+    {
+      "path": "../server"
     }
   ]
 }

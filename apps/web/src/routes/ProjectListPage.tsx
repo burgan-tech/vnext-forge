@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useProjectStore, type ProjectInfo } from '../stores/project-store';
 import { ImportDialog } from '../project/ImportDialog';
 import { FolderOpen, Plus, Link, Trash2, ArrowRight, MapPin, ChevronRight } from 'lucide-react';
+import { apiClient, unwrapApi } from '@shared/api/client';
 
 export function ProjectListPage() {
   const navigate = useNavigate();
@@ -36,8 +37,10 @@ export function ProjectListPage() {
   async function fetchProjects() {
     setLoading(true);
     try {
-      const res = await fetch('/api/projects');
-      const data = await res.json();
+      const data = await unwrapApi<ProjectInfo[]>(
+        await apiClient.api.projects.$get(),
+        'Projects could not be loaded.',
+      );
       setProjects(data);
     } catch {
       setProjects([]);
@@ -52,12 +55,12 @@ export function ProjectListPage() {
     try {
       const body: Record<string, string> = { domain: newDomain.trim() };
       if (createPath) body.targetPath = createPath;
-      const res = await fetch('/api/projects', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-      const project = await res.json();
+      const project = await unwrapApi<ProjectInfo>(
+        await apiClient.api.projects.$post({
+          json: body,
+        }),
+        'Project could not be created.',
+      );
       await fetchProjects();
       openProject(project);
     } finally {
@@ -69,11 +72,18 @@ export function ProjectListPage() {
 
   async function browseForCreate(dirPath?: string) {
     try {
-      const url = dirPath
-        ? `/api/files/browse?path=${encodeURIComponent(dirPath)}`
-        : '/api/files/browse';
-      const res = await fetch(url);
-      const data = await res.json();
+      const response =
+        dirPath === undefined
+          ? await apiClient.api.files.browse.$get({})
+          : await apiClient.api.files.browse.$get({
+              query: {
+                path: dirPath,
+              },
+            });
+      const data = await unwrapApi<{
+        path: string;
+        folders: Array<{ name: string; path: string }>;
+      }>(response, 'Folders could not be loaded.');
       setBrowsePath(data.path ?? '');
       setBrowseFolders(data.folders);
       setShowPathPicker(true);
@@ -86,7 +96,12 @@ export function ProjectListPage() {
     e.stopPropagation();
     setDeletingId(project.id);
     try {
-      await fetch(`/api/projects/${project.id}`, { method: 'DELETE' });
+      await unwrapApi(
+        await apiClient.api.projects[':id'].$delete({
+          param: { id: project.id },
+        }),
+        'Project could not be deleted.',
+      );
       await fetchProjects();
     } finally {
       setDeletingId(null);
