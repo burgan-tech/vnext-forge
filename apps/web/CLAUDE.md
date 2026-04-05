@@ -18,9 +18,12 @@ When working in `apps/web`, optimize for a maintainable product-facing web clien
 
 Detailed implementation rules, slice constraints, and architecture-specific conventions should be referenced from dedicated rule documents once finalized.
 
+- If a component is needed, check `shared/ui` first and use it from there when it already exists.
+
 ## Logging
 
 - In `apps/web`, do not use raw `console.log`, `console.info`, `console.warn`, or `console.error` in application code.
 - Use the shared logger under `@shared/lib/logger` instead.
-- Create a scoped logger with `createLogger('ScopeName')` and log through that instance.
+- Create a scoped logger with `createLogger('ScopeName')` once per module/component boundary and reuse that instance for all log calls.
+- Do not call `createLogger(...)` inside hot paths or before every `debug/info/warn/error` call.
 - Direct `console.*` usage is reserved for the shared logger implementation only.

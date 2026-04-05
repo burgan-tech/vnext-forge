@@ -1,73 +1,76 @@
-import { useCallback, useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { toast, Toaster, type ToastT } from 'sonner';
+import { useCallback, useEffect, useRef } from 'react';
+import { toast } from 'sonner';
 import {
   dismissNotification,
   nextNotification,
-  type NotificationOptions,
-} from '@shared/notification/model/notificationSlice';
+  useNotificationStore,
+} from '@shared/notification/model/notificationStore';
 import { createLogger } from '@shared/lib/logger/createLogger';
+import { Toaster } from '@shared/ui/sonner';
 
 const logger = createLogger('NotificationContainer');
 
-interface NotificationStoreState {
-  notification: {
-    current: NotificationOptions | null;
-    visible: boolean;
-    queue: NotificationOptions[];
-  };
-}
-
 export const NotificationContainer = () => {
-  const dispatch = useDispatch();
-  const { current, visible, queue } = useSelector(
-    (state: NotificationStoreState) => state.notification,
-  );
+  const current = useNotificationStore((state) => state.current);
+  const visible = useNotificationStore((state) => state.visible);
+  const queueLength = useNotificationStore((state) => state.queue.length);
+  const lastShownNotificationIdRef = useRef<number | null>(null);
 
   const handleDismiss = useCallback(() => {
-    dispatch(dismissNotification());
-    logger.debug('Dismiss notification', current);
-  }, [current, dispatch]);
+    dismissNotification();
+
+    if (current) {
+      logger.debug('Dismiss notification', current);
+    }
+  }, [current]);
 
   useEffect(() => {
-    if (!current && queue.length > 0) {
+    if (!current && queueLength > 0) {
       const timer = window.setTimeout(() => {
-        dispatch(nextNotification());
+        nextNotification();
       }, 250);
 
       return () => window.clearTimeout(timer);
     }
-  }, [current, queue.length, dispatch]);
+  }, [current, queueLength]);
 
   useEffect(() => {
-    if (current?.message && visible) {
-      const toastOptions: ToastT = {
-        id: current.id ?? '',
-        duration: current.duration ?? 2000,
-        onAutoClose: handleDismiss,
-      };
+    if (!current?.message || !visible) {
+      return;
+    }
 
-      if (current.actionLabel && current.onActionPress) {
-        toastOptions.action = {
-          label: current.actionLabel,
-          onClick: () => {
-            current.onActionPress?.();
-          },
-        };
-      }
+    if (lastShownNotificationIdRef.current === current.id) {
+      return;
+    }
 
-      switch (current.type) {
-        case 'success':
-          toast.success(current.message, toastOptions);
-          break;
-        case 'error':
-          toast.error(current.message, toastOptions);
-          break;
-        case 'info':
-        default:
-          toast.info(current.message, toastOptions);
-          break;
-      }
+    lastShownNotificationIdRef.current = current.id ?? null;
+
+    const toastOptions = {
+      id: current.id,
+      duration: current.duration ?? 2000,
+      onAutoClose: handleDismiss,
+      action:
+        current.actionLabel && current.onActionPress
+          ? {
+              label: current.actionLabel,
+              onClick: () => {
+                current.onActionPress?.();
+              },
+            }
+          : undefined,
+    };
+
+    switch (current.type) {
+      case 'success':
+        toast.success(current.message, toastOptions);
+        break;
+      case 'error':
+        toast.error(current.message, toastOptions);
+        break;
+      case 'info':
+      default:
+        toast.info(current.message, toastOptions);
+        break;
     }
   }, [current, handleDismiss, visible]);
 

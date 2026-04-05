@@ -3,7 +3,7 @@ import {
   showNotification,
   type NotificationModalType,
   type NotificationType,
-} from '@shared/notification/model/notificationSlice';
+} from '@shared/notification/model/notificationStore';
 import { createLogger } from '@shared/lib/logger/createLogger';
 
 const logger = createLogger('useAsync');
@@ -40,78 +40,66 @@ export function useAsync<T, TArgs extends unknown[]>(
 
   asyncFunctionRef.current = asyncFunction;
   optionsRef.current = options;
-  const dispatch = useDispatch();
 
-  const execute = useCallback(
-    async (...args: TArgs): Promise<void> => {
-      if (isExecutingRef.current) {
-        logger.debug('Async operation ignored because another execution is in progress.');
-        return;
+  const execute = useCallback(async (...args: TArgs): Promise<void> => {
+    if (isExecutingRef.current) {
+      logger.debug('Async operation ignored because another execution is in progress.');
+      return;
+    }
+
+    isExecutingRef.current = true;
+    setLoading(true);
+    lastArgsRef.current = args;
+    setError(null);
+    setSuccess(false);
+
+    const currentOptions = optionsRef.current;
+
+    try {
+      const result = await asyncFunctionRef.current(...args);
+
+      setData(result.data);
+      setSuccess(true);
+
+      await currentOptions?.onSuccess?.(result);
+
+      if (currentOptions?.showNotificationOnSuccess && currentOptions.successMessage) {
+        showNotification({
+          message: currentOptions.successMessage,
+          type:
+            currentOptions.successNotificationType ?? currentOptions.notificationType ?? 'success',
+          modalType: currentOptions.modalType ?? 'toast',
+          duration: currentOptions.duration ?? 3000,
+        });
       }
+    } catch (value) {
+      // apiClient rejects normalized failures. This hook owns the UI-side handling.
+      const applicationError = toApplicationError(value, currentOptions?.errorMessage);
+      logger.error('Async operation failed', applicationError.toJSON());
 
-      isExecutingRef.current = true;
-      setLoading(true);
-      lastArgsRef.current = args;
-      setError(null);
+      setError(applicationError);
       setSuccess(false);
 
-      const currentOptions = optionsRef.current;
+      if (currentOptions?.showNotificationOnError !== false) {
+        showNotification({
+          message: applicationError.message,
+          type:
+            currentOptions?.errorNotificationType ?? currentOptions?.notificationType ?? 'error',
+          modalType: currentOptions?.modalType ?? 'toast',
+          duration: currentOptions?.duration ?? 3000,
+        });
+      }
 
       try {
-        const result = await asyncFunctionRef.current(...args);
-
-        setData(result.data);
-        setSuccess(true);
-
-        await currentOptions?.onSuccess?.(result);
-
-        if (currentOptions?.showNotificationOnSuccess && currentOptions.successMessage) {
-          dispatch(
-            showNotification({
-              message: currentOptions.successMessage,
-              type:
-                currentOptions.successNotificationType ??
-                currentOptions.notificationType ??
-                'success',
-              modalType: currentOptions.modalType ?? 'toast',
-              duration: currentOptions.duration ?? 3000,
-            }),
-          );
-        }
-      } catch (value) {
-        // apiClient rejects normalized failures. This hook owns the UI-side handling.
-        const applicationError = toApplicationError(value, currentOptions?.errorMessage);
-        logger.error('Async operation failed', applicationError.toJSON());
-
-        setError(applicationError);
-        setSuccess(false);
-
-        if (currentOptions?.showNotificationOnError !== false) {
-          dispatch(
-            showNotification({
-              message: applicationError.message,
-              type:
-                currentOptions?.errorNotificationType ??
-                currentOptions?.notificationType ??
-                'error',
-              modalType: currentOptions?.modalType ?? 'toast',
-              duration: currentOptions?.duration ?? 3000,
-            }),
-          );
-        }
-
-        try {
-          await currentOptions?.onError?.(applicationError);
-        } catch (callbackError) {
-          logger.error('onError callback execution failed', callbackError);
-        }
-      } finally {
-        isExecutingRef.current = false;
-        setLoading(false);
+        await currentOptions?.onError?.(applicationError);
+      } catch (callbackError) {
+        logger.error('onError callback execution failed', callbackError);
       }
-    },
-    [dispatch],
-  );
+    } finally {
+      isExecutingRef.current = false;
+      setLoading(false);
+    }
+  }, []);
 
   const retry = useCallback(async (): Promise<void> => {
     if (lastArgsRef.current) {

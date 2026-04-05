@@ -9,8 +9,10 @@ import { ViewEditorPage } from './routes/project.$id.view.$group.$name';
 import { FunctionEditorPage } from './routes/project.$id.function.$group.$name';
 import { ExtensionEditorPage } from './routes/project.$id.extension.$group.$name';
 import { CodeEditorPage } from './routes/project.$id.code';
+import { TestPage } from './pages/test/test-page';
+import { NotificationContainer } from '@shared/notification/ui/NotificationContainer';
 
-export function App() {
+export function AppRouter() {
   return (
     <BrowserRouter>
       <Routes>
@@ -24,6 +26,7 @@ export function App() {
           <Route path="project/:id/function/:group/:name" element={<FunctionEditorPage />} />
           <Route path="project/:id/extension/:group/:name" element={<ExtensionEditorPage />} />
           <Route path="project/:id/code/*" element={<CodeEditorPage />} />
+          <Route path="/test" element={<TestPage />} />
         </Route>
       </Routes>
     </BrowserRouter>

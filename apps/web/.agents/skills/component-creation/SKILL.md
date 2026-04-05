@@ -33,6 +33,8 @@ Place new UI in the narrowest FSD layer that fully owns it:
 ## Do
 
 - Reuse an existing component before creating a new one.
+- If a component is needed, check `shared/ui` first.
+- If the component already exists in `shared/ui`, use that implementation instead of creating a duplicate elsewhere.
 - Move new work toward the target FSD tree even if nearby legacy code still lives elsewhere.
 - Keep presentational primitives in `shared/ui`.
 - Keep business-concept UI in the owning `entities/*/ui`.
@@ -49,10 +51,11 @@ Place new UI in the narrowest FSD layer that fully owns it:
 
 ## Decision Order
 
-1. Check whether the UI already exists.
-2. Decide whether the responsibility is shared, entity, feature, widget, page, or app.
-3. Create the narrowest possible component in that layer.
-4. Keep state and side effects out of lower presentation layers unless the layer truly owns them.
+1. Check `shared/ui` first to see whether the component already exists.
+2. If it exists in `shared/ui`, use it from there.
+3. If it does not exist, decide whether the responsibility is shared, entity, feature, widget, page, or app.
+4. Create the narrowest possible component in that layer.
+5. Keep state and side effects out of lower presentation layers unless the layer truly owns them.
 
 ## Review Standard
 

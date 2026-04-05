@@ -1,21 +1,39 @@
-import type { CSSProperties } from 'react';
-import { useTheme } from 'next-themes';
+import type { ComponentProps } from 'react';
 import { Toaster as Sonner, type ToasterProps } from 'sonner';
 
-const Toaster = ({ ...props }: ToasterProps) => {
-  const { theme = 'system' } = useTheme();
+import { cn } from '@shared/lib/utils/cn';
 
+type SharedToasterProps = ComponentProps<typeof Sonner> & ToasterProps;
+
+const Toaster = ({ className, toastOptions, ...props }: SharedToasterProps) => {
   return (
     <Sonner
-      theme={theme as ToasterProps['theme']}
-      className="toaster group"
-      style={
-        {
-          '--normal-bg': 'var(--popover)',
-          '--normal-text': 'var(--popover-foreground)',
-          '--normal-border': 'var(--border)',
-        } as CSSProperties
-      }
+      className={cn('toaster group', className)}
+      toastOptions={{
+        ...toastOptions,
+        classNames: {
+          toast: cn(
+            'group toast border-border bg-card text-card-foreground shadow-lg',
+            toastOptions?.classNames?.toast,
+          ),
+          description: cn('text-muted-foreground', toastOptions?.classNames?.description),
+          actionButton: cn(
+            'bg-primary text-primary-foreground hover:bg-primary/90',
+            toastOptions?.classNames?.actionButton,
+          ),
+          cancelButton: cn(
+            'bg-muted text-muted-foreground hover:bg-muted/80',
+            toastOptions?.classNames?.cancelButton,
+          ),
+          error: cn(
+            'border-destructive/30 text-destructive',
+            toastOptions?.classNames?.error,
+          ),
+          success: cn('border-green-500/30', toastOptions?.classNames?.success),
+          info: cn('border-border', toastOptions?.classNames?.info),
+          warning: cn('border-amber-500/30', toastOptions?.classNames?.warning),
+        },
+      }}
       {...props}
     />
   );

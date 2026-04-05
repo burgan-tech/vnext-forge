@@ -25,6 +25,19 @@ const LOG_LEVEL_PRIORITY: Record<LogLevel, number> = {
 
 const SENSITIVE_KEYWORDS = ['authorization', 'token', 'password', 'secret', 'cookie'];
 const MAX_SANITIZE_DEPTH = 4;
+const DEFAULT_MIN_LEVEL = getDefaultMinLevel();
+const CONSOLE_METHODS: Record<LogLevel, ConsoleMethod> = {
+  debug: console.debug.bind(console),
+  info: console.info.bind(console),
+  warn: console.warn.bind(console),
+  error: console.error.bind(console),
+};
+const LEVEL_LABELS: Record<LogLevel, string> = {
+  debug: 'DEBUG',
+  info: 'INFO',
+  warn: 'WARN',
+  error: 'ERROR',
+};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -87,10 +100,6 @@ function getDefaultMinLevel(): LogLevel {
   const fallbackLevel: LogLevel = isProduction ? 'warn' : 'debug';
 
   return toLevel(env.VITE_LOG_LEVEL, fallbackLevel);
-}
-
-function shouldLog(level: LogLevel, minLevel: LogLevel): boolean {
-  return LOG_LEVEL_PRIORITY[level] >= LOG_LEVEL_PRIORITY[minLevel];
 }
 
 function isSensitiveKey(key: string): boolean {
@@ -160,54 +169,44 @@ function sanitize(payload: unknown, depth = 0): LoggerPayload {
   return sanitizedObject;
 }
 
-function getConsoleMethod(level: LogLevel): ConsoleMethod {
-  switch (level) {
-    case 'debug':
-      return console.debug.bind(console);
-    case 'info':
-      return console.info.bind(console);
-    case 'warn':
-      return console.warn.bind(console);
-    case 'error':
-      return console.error.bind(console);
-  }
-}
-
 function createPrefix(scope: string, level: LogLevel): string {
-  return `[${new Date().toISOString()}] [${level.toUpperCase()}] [${scope}]`;
+  return `[${new Date().toISOString()}] [${LEVEL_LABELS[level]}] [${scope}]`;
 }
 
-function print(
+function createLogMethod(
   level: LogLevel,
   scope: string,
-  minLevel: LogLevel,
-  message: string,
-  payload?: LoggerPayload,
-): void {
-  if (!shouldLog(level, minLevel)) {
-    return;
+  minLevelPriority: number,
+): (message: string, payload?: LoggerPayload) => void {
+  const levelPriority = LOG_LEVEL_PRIORITY[level];
+  const consoleMethod = CONSOLE_METHODS[level];
+
+  if (levelPriority < minLevelPriority) {
+    return () => undefined;
   }
 
-  const consoleMethod = getConsoleMethod(level);
-  const prefix = createPrefix(scope, level);
+  return (message, payload) => {
+    const prefix = createPrefix(scope, level);
 
-  if (payload === undefined) {
-    consoleMethod(prefix, message);
-    return;
-  }
+    if (payload === undefined) {
+      consoleMethod(prefix, message);
+      return;
+    }
 
-  consoleMethod(prefix, message, sanitize(payload));
+    consoleMethod(prefix, message, sanitize(payload));
+  };
 }
 
 export function createLogger(scope: string, options?: CreateLoggerOptions): Logger {
-  const minLevel = options?.minLevel ?? getDefaultMinLevel();
+  const minLevel = options?.minLevel ?? DEFAULT_MIN_LEVEL;
+  const minLevelPriority = LOG_LEVEL_PRIORITY[minLevel];
 
   return {
     scope,
-    debug: (message, payload) => print('debug', scope, minLevel, message, payload),
-    info: (message, payload) => print('info', scope, minLevel, message, payload),
-    warn: (message, payload) => print('warn', scope, minLevel, message, payload),
-    error: (message, payload) => print('error', scope, minLevel, message, payload),
+    debug: createLogMethod('debug', scope, minLevelPriority),
+    info: createLogMethod('info', scope, minLevelPriority),
+    warn: createLogMethod('warn', scope, minLevelPriority),
+    error: createLogMethod('error', scope, minLevelPriority),
     child: (childScope, childOptions) =>
       createLogger(`${scope}:${childScope}`, {
         minLevel: childOptions?.minLevel ?? minLevel,
