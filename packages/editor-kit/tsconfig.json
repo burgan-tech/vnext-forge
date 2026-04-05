@@ -6,21 +6,7 @@
     "composite": true,
     "types": [
       "node"
-    ],
-    "paths": {
-      "@csx/*": [
-        "./src/csx/*"
-      ],
-      "@setup/*": [
-        "./src/setup/*"
-      ],
-      "@editor-kit-types/*": [
-        "./src/types/*"
-      ],
-      "@workflow/*": [
-        "./src/workflow/*"
-      ]
-    }
+    ]
   },
   "include": [
     "src"

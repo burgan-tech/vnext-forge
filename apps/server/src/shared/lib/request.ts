@@ -3,7 +3,7 @@ import {
   ERROR_CODES,
   VnextForgeError,
   type VnextForgeErrorContext,
-} from '@vnext-studio/app-contracts'
+} from '@vnext-forge/app-contracts'
 import type { ZodTypeAny } from 'zod'
 
 export interface RequestSchemas {

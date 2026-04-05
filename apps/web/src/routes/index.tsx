@@ -83,7 +83,7 @@ export function ProjectListPage() {
         : '/api/files/browse';
       const res = await fetch(url);
       const data = await res.json();
-      setBrowsePath(data.path);
+      setBrowsePath(data.path ?? '');
       setBrowseFolders(data.folders);
       setShowPathPicker(true);
     } catch {

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { APP_CONFIG } from '@shared/config/appConfig';
+import { APP_CONFIG } from '@shared/config/config';
 import { createLogger } from '@shared/lib/logger/createLogger';
 
 const logger = createLogger('useRuntimeRevalidator');

@@ -1,10 +1,10 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { ERROR_CODES, VnextForgeError } from '@vnext-studio/app-contracts'
-import type { WorkspaceAnalysisResult } from '@analyzer/types.js'
-import type { WorkspaceConfig } from '@interfaces/workspace.js'
-import type { FileTreeNode } from '@interfaces/workspace-tree.js'
-import { resolveConfigPath } from '@paths/resolver.js'
+import { ERROR_CODES, VnextForgeError } from '@vnext-forge/app-contracts'
+import type { WorkspaceAnalysisResult } from './types.js'
+import type { WorkspaceConfig } from '../interfaces/workspace.js'
+import type { FileTreeNode } from '../interfaces/workspace-tree.js'
+import { resolveConfigPath } from '../paths/resolver.js'
 
 function getErrorCode(error: unknown): string | undefined {
   return typeof error === 'object' &&

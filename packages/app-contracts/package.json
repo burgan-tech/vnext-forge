@@ -1,5 +1,5 @@
 {
-  "name": "@vnext-studio/app-contracts",
+  "name": "@vnext-forge/app-contracts",
   "version": "0.1.0",
   "private": true,
   "type": "module",

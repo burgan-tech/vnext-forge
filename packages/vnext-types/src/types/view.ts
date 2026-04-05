@@ -1,5 +1,5 @@
-import { Label } from '@vnext-types-internal/label';
-import { ResourceReference } from '@vnext-types-internal/state';
+import { Label } from './label';
+import { ResourceReference } from './state';
 
 export type DisplayStrategy = 'full-page' | 'popup' | 'bottom-sheet' | 'top-sheet' | 'drawer' | 'inline';
 

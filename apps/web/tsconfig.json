@@ -18,6 +18,9 @@
   "references": [
     {
       "path": "../../packages/vnext-types"
+    },
+    {
+      "path": "../../packages/app-contracts"
     }
   ]
 }

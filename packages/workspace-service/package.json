@@ -1,5 +1,5 @@
 {
-  "name": "@vnext-studio/workspace-service",
+  "name": "@vnext-forge/workspace-service",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -17,7 +17,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@vnext-studio/app-contracts": "workspace:*"
+    "@vnext-forge/app-contracts": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

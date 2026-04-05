@@ -1,13 +1,13 @@
-import { ERROR_CODES } from '@error/error-codes.js';
-import type { ErrorCode } from '@error/error-codes.js';
-import { VnextForgeError } from '@error/vnext-forge-error.js';
+import { ERROR_CODES } from '../error/error-codes.js';
+import type { ErrorCode } from '../error/error-codes.js';
+import { VnextForgeError } from '../error/vnext-forge-error.js';
 import type {
   ApiFailure,
   ApiResponse,
   ApiSuccess,
   ResponseError,
   ResponseMeta,
-} from '@response/envelope.js';
+} from './envelope.js';
 
 export function success<T, M extends ResponseMeta = ResponseMeta>(
   data: T,

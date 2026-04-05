@@ -4,11 +4,7 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "composite": true,
-    "types": ["node"],
-    "paths": {
-      "@error/*": ["./src/error/*"],
-      "@response/*": ["./src/response/*"]
-    }
+    "types": ["node"]
   },
   "include": ["src"]
 }

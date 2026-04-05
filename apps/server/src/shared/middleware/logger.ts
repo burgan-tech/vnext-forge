@@ -1,5 +1,5 @@
 import type { MiddlewareHandler } from 'hono'
-import { baseLogger } from '@shared/lib/logger.js'
+import { baseLogger, formatBytes, formatDuration } from '@shared/lib/logger.js'
 
 export const requestLoggerMiddleware: MiddlewareHandler = async (c, next) => {
   const startedAt = performance.now()
@@ -25,14 +25,17 @@ export const requestLoggerMiddleware: MiddlewareHandler = async (c, next) => {
       const contentLengthHeader = c.res.headers.get('content-length')
       const contentLength = contentLengthHeader ? Number(contentLengthHeader) : undefined
 
-      logger.info(
-        {
-          status: c.res.status,
-          durationMs,
-          ...(Number.isFinite(contentLength) ? { contentLength } : {}),
-        },
-        'request completed',
-      )
+      const parts = [
+        c.req.method,
+        c.req.path,
+        String(c.res.status),
+        formatDuration(durationMs),
+        typeof contentLength === 'number' && Number.isFinite(contentLength)
+          ? formatBytes(contentLength)
+          : undefined,
+      ].filter((part): part is string => Boolean(part))
+
+      logger.info(parts.join(' '))
     }
   }
 }

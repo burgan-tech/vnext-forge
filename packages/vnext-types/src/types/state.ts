@@ -1,8 +1,8 @@
-import { StateType, StateSubType } from '@constants/state-types';
-import { TriggerType, TriggerKind } from '@constants/trigger-types';
-import { ErrorBoundary } from '@vnext-types-internal/error-boundary';
-import { Label } from '@vnext-types-internal/label';
-import { MappingCode } from '@vnext-types-internal/mapping';
+import { StateType, StateSubType } from '../constants/state-types';
+import { TriggerType, TriggerKind } from '../constants/trigger-types';
+import { ErrorBoundary } from './error-boundary';
+import { Label } from './label';
+import { MappingCode } from './mapping';
 
 export interface ResourceReference {
   key: string;

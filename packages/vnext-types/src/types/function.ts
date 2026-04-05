@@ -1,6 +1,6 @@
-import { Label } from '@vnext-types-internal/label';
-import { MappingCode } from '@vnext-types-internal/mapping';
-import { ResourceReference, TaskExecution } from '@vnext-types-internal/state';
+import { Label } from './label';
+import { MappingCode } from './mapping';
+import { ResourceReference, TaskExecution } from './state';
 
 export type FunctionScope = 'I' | 'F' | 'D';
 

@@ -6,21 +6,7 @@
     "composite": true,
     "types": [
       "node"
-    ],
-    "paths": {
-      "@analyzer/*": [
-        "./src/analyzer/*"
-      ],
-      "@interfaces/*": [
-        "./src/interfaces/*"
-      ],
-      "@paths/*": [
-        "./src/paths/*"
-      ],
-      "@rules/*": [
-        "./src/rules/*"
-      ]
-    }
+    ]
   },
   "include": [
     "src"

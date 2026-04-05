@@ -1,4 +1,4 @@
-import { Label } from '@vnext-types-internal/label';
+import { Label } from './label';
 
 export interface TaskDefinition {
   key: string;

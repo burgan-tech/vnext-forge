@@ -1,5 +1,5 @@
 import type { Context } from 'hono'
-import { ERROR_CODES, VnextForgeError } from '@vnext-studio/app-contracts'
+import { ERROR_CODES, VnextForgeError } from '@vnext-forge/app-contracts'
 import { getRequestLogger } from '@shared/lib/logger.js'
 import { parseRequest } from '@shared/lib/request.js'
 import { runtimeProxyRequestSchema } from './schema.js'

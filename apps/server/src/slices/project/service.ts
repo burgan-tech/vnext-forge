@@ -1,8 +1,8 @@
 import fs from 'node:fs/promises'
 import { homedir } from 'node:os'
 import path from 'node:path'
-import { ERROR_CODES, VnextForgeError } from '@vnext-studio/app-contracts'
-import { CONFIG_FILE } from '@vnext-studio/workspace-service'
+import { ERROR_CODES, VnextForgeError } from '@vnext-forge/app-contracts'
+import { CONFIG_FILE } from '@vnext-forge/workspace-service'
 import { WorkspaceService } from '@workspace/service.js'
 import type { ProjectEntry, LinkFile } from './types.js'
 

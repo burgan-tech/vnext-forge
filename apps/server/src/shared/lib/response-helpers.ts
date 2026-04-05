@@ -1,6 +1,6 @@
 import type { Context } from 'hono';
-import { success } from '@vnext-studio/app-contracts';
-import type { ResponseMeta } from '@vnext-studio/app-contracts';
+import { success } from '@vnext-forge/app-contracts';
+import type { ResponseMeta } from '@vnext-forge/app-contracts';
 
 export function ok<T>(c: Context, data: T, meta?: ResponseMeta): Response {
   return c.json(success(data, meta));

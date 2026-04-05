@@ -1,5 +1,5 @@
 import type { Context } from 'hono';
-import { workflowTemplateCatalog } from '@vnext-studio/workflow-system';
+import { workflowTemplateCatalog } from '@vnext-forge/workflow-system';
 import { getRequestLogger } from '@shared/lib/logger.js';
 import { parseRequest } from '@shared/lib/request.js';
 import { ok } from '@shared/lib/response-helpers.js';

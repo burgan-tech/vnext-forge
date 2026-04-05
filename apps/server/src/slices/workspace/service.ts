@@ -1,17 +1,17 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import type { Dirent } from 'node:fs'
-import { ERROR_CODES, VnextForgeError } from '@vnext-studio/app-contracts'
+import { ERROR_CODES, VnextForgeError } from '@vnext-forge/app-contracts'
 import {
   CONFIG_FILE,
   WorkspaceAnalyzer,
   resolveComponentPath,
-} from '@vnext-studio/workspace-service'
+} from '@vnext-forge/workspace-service'
 import type {
   WorkspaceAnalysisResult,
   WorkspaceConfig,
   WorkspaceStructure,
-} from '@vnext-studio/workspace-service'
+} from '@vnext-forge/workspace-service'
 import type { SearchResult, DirectoryEntry } from './types.js'
 
 function toDirectoryEntry(dirPath: string, entry: Dirent): DirectoryEntry {

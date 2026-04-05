@@ -1,4 +1,4 @@
-import type { ErrorCode } from '@error/error-codes.js';
+import type { ErrorCode } from './error-codes.js';
 
 export const DEFAULT_USER_MESSAGE =
   'An unexpected error occurred. Please try again or contact support.';

@@ -1,7 +1,7 @@
 import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { ERROR_CODES, VnextForgeError } from '@vnext-studio/app-contracts';
+import { ERROR_CODES, VnextForgeError } from '@vnext-forge/app-contracts';
 import { errorHandler, jsonErrorResponse } from '@shared/middleware/error-handler.js';
 import { baseLogger } from '@shared/lib/logger.js';
 import { requestLoggerMiddleware } from '@shared/middleware/logger.js';
@@ -42,7 +42,7 @@ app.notFound((c) =>
 );
 
 const port = Number(process.env.PORT) || 3001;
-baseLogger.info({ port }, 'vnext-forge BFF running');
+baseLogger.info(`vnext-forge BFF running on port ${port}`);
 
 serve({ fetch: app.fetch, port });
 

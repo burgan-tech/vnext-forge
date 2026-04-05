@@ -1,4 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
+import { isFailure, type ApiResponse, VnextForgeError } from '@vnext-forge/app-contracts';
+import { toVnextError } from '@shared/lib/error/vnextError-helpers';
 import {
   showNotification,
   type NotificationModalType,
@@ -10,7 +12,7 @@ const logger = createLogger('useAsync');
 
 interface UseAsyncOptions<T> {
   onSuccess?: (result: ApiResponse<T>) => void | Promise<void>;
-  onError?: (error: ApplicationError) => void | Promise<void>;
+  onError?: (error: VnextForgeError) => void | Promise<void>;
   showNotificationOnError?: boolean;
   showNotificationOnSuccess?: boolean;
   successMessage?: string;
@@ -29,7 +31,7 @@ export function useAsync<T, TArgs extends unknown[]>(
   options?: UseAsyncOptions<T>,
 ) {
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<ApplicationError | null>(null);
+  const [error, setError] = useState<VnextForgeError | null>(null);
   const [data, setData] = useState<T | null>(null);
   const [success, setSuccess] = useState(false);
 
@@ -58,6 +60,10 @@ export function useAsync<T, TArgs extends unknown[]>(
     try {
       const result = await asyncFunctionRef.current(...args);
 
+      if (isFailure(result)) {
+        throw result;
+      }
+
       setData(result.data);
       setSuccess(true);
 
@@ -73,16 +79,15 @@ export function useAsync<T, TArgs extends unknown[]>(
         });
       }
     } catch (value) {
-      // apiClient rejects normalized failures. This hook owns the UI-side handling.
-      const applicationError = toApplicationError(value, currentOptions?.errorMessage);
-      logger.error('Async operation failed', applicationError.toJSON());
+      const error = toVnextError(value, currentOptions?.errorMessage);
+      logger.error('Async operation failed', error);
 
-      setError(applicationError);
+      setError(error);
       setSuccess(false);
 
       if (currentOptions?.showNotificationOnError !== false) {
         showNotification({
-          message: applicationError.message,
+          message: error.toUserMessage().message,
           type:
             currentOptions?.errorNotificationType ?? currentOptions?.notificationType ?? 'error',
           modalType: currentOptions?.modalType ?? 'toast',
@@ -91,7 +96,7 @@ export function useAsync<T, TArgs extends unknown[]>(
       }
 
       try {
-        await currentOptions?.onError?.(applicationError);
+        await currentOptions?.onError?.(error);
       } catch (callbackError) {
         logger.error('onError callback execution failed', callbackError);
       }
