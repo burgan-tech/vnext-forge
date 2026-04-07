@@ -22,25 +22,52 @@
   --color-muted-foreground: #64748b;
   --color-border: #e2e8f0;
   --color-border-subtle: #f1f5f9;
-  --color-ring: #6366f1;
+  --color-ring: #0284c7; /* sky-600 — matches primary */
 
-  /* ── Primary — Deep Indigo ── */
-  --color-primary: #6366f1;
-  --color-primary-hover: #4f46e5;
+  /* ── Primary ── */
+  --color-primary: #0284c7; /* sky-600 */
+  --color-primary-hover: #0369a1; /* sky-700 */
   --color-primary-foreground: #ffffff;
-  --color-primary-muted: #eef2ff;
+  --color-primary-muted: #f0f9ff; /* sky-50 */
+  --color-primary-muted-hover: #e0f2fe; /* sky-100 */
+  --color-primary-border-hover: #7dd3fc; /* sky-300 */
+  --color-primary-text: #000000;
 
-  /* ── Semantic ── */
+  /* ── Secondary ── */
+  --color-secondary: var(--color-green-300); /* slate-500 */
+  --color-secondary-hover: var(--color-green-600); /* slate-700 */
+  --color-secondary-foreground: var(--color-green-700); /* slate-900 */
+  --color-secondary-muted: var(--color-green-100); /* slate-300 */
+  --color-secondary-muted-hover: var(--color-green-200); /* slate-400 */
+  --color-secondary-border-hover: var(--color-green-300); /* slate-400 */
+  --color-secondary-text: #000000;
+
+  /* ── Success ── */
+  --color-success: #10b981; /* emerald-500 */
+
+  /* ── Destructive ── */
   --color-destructive: #ef4444;
   --color-destructive-foreground: #ffffff;
+  --color-destructive-surface: #fff1f2; /* rose-50 */
+  --color-destructive-border: #fecdd3; /* rose-200 */
+  --color-destructive-text: #be123c; /* rose-700 */
+
+  /* ── Semantic ── */
   --color-card: #ffffff;
   --color-card-foreground: #0f172a;
-  --color-secondary: #f1f5f9;
-  --color-secondary-foreground: #0f172a;
   --color-accent: #f1f5f9;
   --color-accent-foreground: #0f172a;
-  --color-success: #10b981;
   --color-warning: #f59e0b;
+
+  /* ── Subtle text ── */
+  --color-subtle: #94a3b8; /* slate-400 */
+
+  /* ── Brand gradient ── */
+  --color-brand-from: #38bdf8; /* sky-400 */
+  --color-brand-via: #06b6d4; /* cyan-500 */
+  --color-brand-to: #34d399; /* emerald-400 */
+  --color-brand-glow: #0ea5e9; /* sky-500 */
+  --color-brand-ring: #e0f2fe; /* sky-100 */
 
   /* ── Node state colors ── */
   --color-initial: #10b981;
@@ -61,8 +88,6 @@
 
 * {
   box-sizing: border-box;
-  margin: 0;
-  padding: 0;
 }
 
 html,
@@ -70,7 +95,6 @@ body,
 #root {
   height: 100%;
   width: 100%;
-  overflow: hidden;
 }
 
 body {

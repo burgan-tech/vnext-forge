@@ -8,7 +8,7 @@ import { ExtensionEditorPage } from '../../routes/ExtensionEditorPage';
 import { FlowEditorPage } from '../../routes/FlowEditorPage';
 import { FunctionEditorPage } from '../../routes/FunctionEditorPage';
 import { ProjectWorkspacePage } from '../../routes/ProjectWorkspacePage';
-import { ProjectListPage } from '../../routes/ProjectListPage';
+import { ProjectListPage } from '@pages/project-list/ui/project-list-page';
 import { SchemaEditorPage } from '../../routes/SchemaEditorPage';
 import { TaskEditorPage } from '../../routes/TaskEditorPage';
 import { ViewEditorPage } from '../../routes/ViewEditorPage';

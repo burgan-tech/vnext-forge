@@ -9,6 +9,8 @@ description: Use when placing or designing UI in the web app during the architec
 
 Use this skill to decide both what to build and where it belongs in the target web structure.
 
+All new UI implementation in the web app must use Tailwind CSS utilities. Do not introduce or prefer plain CSS, SCSS, CSS modules, styled-components, or other component-local styling systems for new component work unless the task explicitly requires working within an existing non-Tailwind surface.
+
 ## Target Layers
 
 Place new UI in the narrowest FSD layer that fully owns it:
@@ -28,9 +30,9 @@ Each entity slice owns both its UI and its data access:
 
 ```
 entities/project/
-  api.ts        ← all apiClient calls for this entity, using callApi
-  model/        ← store, types, mappers
-  ui/           ← entity-specific components
+  api.ts        <- all apiClient calls for this entity, using callApi
+  model/        <- store, types, mappers
+  ui/           <- entity-specific components
   index.ts
 ```
 
@@ -42,8 +44,8 @@ Feature slices orchestrate entity services and `useAsync` for one user-action fl
 
 ```
 features/project-management/
-  hooks/        ← useAsync-based hooks consuming entity services
-  ui/           ← feature-specific components
+  hooks/        <- useAsync-based hooks consuming entity services
+  ui/           <- feature-specific components
   index.ts
 ```
 
@@ -66,6 +68,7 @@ Transport-only: `apiClient`, `callApi`, `unwrapApi`. No business logic here.
 - Reuse an existing component before creating a new one.
 - If a component is needed, check `shared/ui` first.
 - If the component already exists in `shared/ui`, use that implementation instead of creating a duplicate elsewhere.
+- Build new component styling with Tailwind utility classes.
 - Move new work toward the target FSD tree even if nearby legacy code still lives elsewhere.
 - Keep presentational primitives in `shared/ui`.
 - Keep business-concept UI and API access in the owning `entities/*/`.
@@ -79,7 +82,8 @@ Transport-only: `apiClient`, `callApi`, `unwrapApi`. No business logic here.
 - Do not make a widget own transport or domain rules.
 - Do not place page-specific markup in a global component layer.
 - Do not create cross-feature or cross-entity dependencies.
-- Do not call `apiClient` from widgets, pages, features, or hooks — that belongs in `entities/*/api.ts`.
+- Do not call `apiClient` from widgets, pages, features, or hooks; that belongs in `entities/*/api.ts`.
+- Do not add new component styling through plain CSS files, SCSS modules, CSS-in-JS, or inline style objects when Tailwind can express the UI.
 
 ## Decision Order
 
@@ -88,7 +92,7 @@ Transport-only: `apiClient`, `callApi`, `unwrapApi`. No business logic here.
 3. If it does not exist, decide whether the responsibility is shared, entity, feature, widget, page, or app.
 4. Create the narrowest possible component in that layer.
 5. Keep state and side effects out of lower presentation layers unless the layer truly owns them.
-6. If the component needs data, wire it through the entity `api.ts` → `useAsync` chain — not directly through `apiClient`.
+6. If the component needs data, wire it through the entity `api.ts` -> `useAsync` chain, not directly through `apiClient`.
 
 ## Review Standard
 
@@ -100,6 +104,7 @@ Flag the implementation if:
 - `entities` depend on other `entities`
 - a page or widget owns logic that should live in a lower slice
 - `apiClient` is called outside `entities/*/api.ts` or `features/*/api.ts`
+- new UI is implemented without Tailwind despite no explicit constraint requiring an existing styling system
 
 ## Component Creation Notes
 

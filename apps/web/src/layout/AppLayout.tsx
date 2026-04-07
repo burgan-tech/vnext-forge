@@ -6,12 +6,6 @@ import { useUIStore } from '../stores/ui-store';
 
 export function AppLayout() {
   const { sidebarOpen, sidebarWidth } = useUIStore();
-  const location = useLocation();
-  const isLanding = location.pathname === '/';
-
-  if (isLanding) {
-    return <Outlet />;
-  }
 
   return (
     <div className="flex h-screen w-screen flex-col overflow-hidden bg-slate-50 text-slate-900">
