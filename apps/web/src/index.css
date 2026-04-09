@@ -111,6 +111,19 @@
   --color-brand-glow: #10b981; /* emerald-500 */
   --color-brand-ring: #d1fae5; /* emerald-100 */
 
+  /* ── File type indicator colors ── */
+  --color-filetype-json: #f59e0b;     /* amber-500 */
+  --color-filetype-csharp: #8b5cf6;   /* violet-500 */
+  --color-filetype-js: #eab308;       /* yellow-500 */
+  --color-filetype-ts: #3b82f6;       /* blue-500 */
+  --color-filetype-sql: #f97316;      /* orange-500 */
+  --color-filetype-shell: #10b981;    /* emerald-500 */
+  --color-filetype-yaml: #fb7185;     /* rose-400 */
+  --color-filetype-xml: #fb923c;      /* orange-400 */
+  --color-filetype-html: #f43f5e;     /* rose-500 */
+  --color-filetype-css: #60a5fa;      /* blue-400 */
+  --color-filetype-python: #2563eb;   /* blue-600 */
+
   /* ── Node state colors ── */
   --color-initial: #10b981;
   --color-intermediate: #6366f1;

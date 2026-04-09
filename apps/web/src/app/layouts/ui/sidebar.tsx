@@ -6,10 +6,21 @@ import { Input } from '@shared/ui/input';
 
 import { useUIStore } from '@app/store/ui-store';
 
+import { useProjectStore } from '@entities/project/model/project-store';
+import { FileTree } from '@widgets/file-tree/ui/file-tree';
+import type { FileTreeNode } from '@widgets/file-tree/ui/file-tree';
+
 import { resolveFileRoute } from '../../../lib/file-router';
-import { FileTree, type FileTreeNode } from '../../../project/FileTree';
 import { useEditorStore } from '../../../stores/editor-store';
-import { useProjectStore } from '../../../stores/project-store';
+import {
+  createDirectory,
+  deleteFile,
+  renameFile,
+  writeFile,
+} from '@entities/workspace/api/workspace-api';
+import { createLogger } from '@shared/lib/logger/createLogger';
+
+const logger = createLogger('Sidebar');
 
 export function Sidebar() {
   const { sidebarView } = useUIStore();
@@ -41,44 +52,36 @@ export function Sidebar() {
 
   const handleCreateFile = useCallback(
     async (parentPath: string, name: string) => {
-      try {
-        await fetch('/api/files', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ path: `${parentPath}/${name}`, content: '' }),
-        });
-        refreshFileTree();
-      } catch (err) {
-        console.error('Create file failed:', err);
+      const res = await writeFile(`${parentPath}/${name}`, '');
+      if (!res.success) {
+        logger.error('Create file failed', { path: `${parentPath}/${name}` });
+        return;
       }
+      refreshFileTree();
     },
     [refreshFileTree],
   );
 
   const handleCreateFolder = useCallback(
     async (parentPath: string, name: string) => {
-      try {
-        await fetch('/api/files/mkdir', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ path: `${parentPath}/${name}` }),
-        });
-        refreshFileTree();
-      } catch (err) {
-        console.error('Create folder failed:', err);
+      const res = await createDirectory(`${parentPath}/${name}`);
+      if (!res.success) {
+        logger.error('Create folder failed', { path: `${parentPath}/${name}` });
+        return;
       }
+      refreshFileTree();
     },
     [refreshFileTree],
   );
 
   const handleDeleteFile = useCallback(
     async (path: string) => {
-      try {
-        await fetch(`/api/files?path=${encodeURIComponent(path)}`, { method: 'DELETE' });
-        refreshFileTree();
-      } catch (err) {
-        console.error('Delete failed:', err);
+      const res = await deleteFile(path);
+      if (!res.success) {
+        logger.error('Delete failed', { path });
+        return;
       }
+      refreshFileTree();
     },
     [refreshFileTree],
   );
@@ -87,17 +90,12 @@ export function Sidebar() {
     async (oldPath: string, newName: string) => {
       const dir = oldPath.replace(/\/[^/]+$/, '');
       const newPath = `${dir}/${newName}`;
-
-      try {
-        await fetch('/api/files/rename', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ oldPath, newPath }),
-        });
-        refreshFileTree();
-      } catch (err) {
-        console.error('Rename failed:', err);
+      const res = await renameFile(oldPath, newPath);
+      if (!res.success) {
+        logger.error('Rename failed', { oldPath, newPath });
+        return;
       }
+      refreshFileTree();
     },
     [refreshFileTree],
   );
@@ -105,7 +103,7 @@ export function Sidebar() {
   const handleCreateWorkflow = useCallback(
     async (parentPath: string, name: string) => {
       if (!activeProject || !vnextConfig) {
-        console.error('[CreateWorkflow] No active project or vnextConfig');
+        logger.error('No active project or vnextConfig');
         return;
       }
 
@@ -115,7 +113,7 @@ export function Sidebar() {
 
       const wfName = name.replace(/\.json$/, '').trim();
       if (!wfName) {
-        console.error('[CreateWorkflow] Empty workflow name');
+        logger.error('Empty workflow name');
         return;
       }
 
@@ -125,92 +123,61 @@ export function Sidebar() {
       const groupPath = isWorkflowsRoot ? `${parentPath}/${wfName}` : parentPath;
       const groupName = groupPath.split('/').pop() || wfName;
 
-      console.log('[CreateWorkflow]', {
-        groupName,
-        groupPath,
-        isWorkflowsRoot,
-        parentPath,
-        wfName,
-        workflowsFullPath,
-      });
+      logger.info('Creating workflow', { groupName, groupPath, isWorkflowsRoot, parentPath, wfName });
 
-      try {
-        const mkdirRes = await fetch('/api/files/mkdir', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ path: groupPath }),
-        });
-        if (!mkdirRes.ok) {
-          console.error('[CreateWorkflow] mkdir group failed:', await mkdirRes.text());
-        }
-
-        const metaRes = await fetch('/api/files/mkdir', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ path: `${groupPath}/.meta` }),
-        });
-        if (!metaRes.ok) {
-          console.error('[CreateWorkflow] mkdir .meta failed:', await metaRes.text());
-        }
-
-        const workflowTemplate = {
-          $type: 'workflow',
-          key: wfName,
-          domain: vnextConfig.domain || activeProject.domain,
-          version: '1.0.0',
-          flow: 'sys-flows',
-          tags: [],
-          attributes: {
-            type: 'F',
-            labels: [{ label: wfName, language: 'en' }],
-            startTransition: {
-              key: 'start',
-              target: '',
-              versionStrategy: 'Minor',
-              labels: [{ label: 'Start', language: 'en' }],
-            },
-            states: [],
-            functions: [],
-            features: [],
-            extensions: [],
-          },
-        };
-
-        const workflowRes = await fetch('/api/files', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            path: `${groupPath}/${wfName}.json`,
-            content: JSON.stringify(workflowTemplate, null, 2),
-          }),
-        });
-        if (!workflowRes.ok) {
-          console.error('[CreateWorkflow] write workflow JSON failed:', await workflowRes.text());
-          return;
-        }
-
-        const diagramTemplate = { nodePos: {} };
-        const diagramRes = await fetch('/api/files', {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            path: `${groupPath}/.meta/${wfName}.diagram.json`,
-            content: JSON.stringify(diagramTemplate, null, 2),
-          }),
-        });
-        if (!diagramRes.ok) {
-          console.error('[CreateWorkflow] write diagram JSON failed:', await diagramRes.text());
-        }
-
-        console.log(
-          '[CreateWorkflow] Success! Navigating to:',
-          `/project/${activeProject.id}/flow/${groupName}/${wfName}`,
-        );
-        await refreshFileTree();
-        navigate(`/project/${activeProject.id}/flow/${groupName}/${wfName}`);
-      } catch (err) {
-        console.error('[CreateWorkflow] Exception:', err);
+      const mkdirRes = await createDirectory(groupPath);
+      if (!mkdirRes.success) {
+        logger.error('mkdir group failed', { path: groupPath });
       }
+
+      const metaRes = await createDirectory(`${groupPath}/.meta`);
+      if (!metaRes.success) {
+        logger.error('mkdir .meta failed', { path: `${groupPath}/.meta` });
+      }
+
+      const workflowTemplate = {
+        $type: 'workflow',
+        key: wfName,
+        domain: vnextConfig.domain || activeProject.domain,
+        version: '1.0.0',
+        flow: 'sys-flows',
+        tags: [],
+        attributes: {
+          type: 'F',
+          labels: [{ label: wfName, language: 'en' }],
+          startTransition: {
+            key: 'start',
+            target: '',
+            versionStrategy: 'Minor',
+            labels: [{ label: 'Start', language: 'en' }],
+          },
+          states: [],
+          functions: [],
+          features: [],
+          extensions: [],
+        },
+      };
+
+      const workflowRes = await writeFile(
+        `${groupPath}/${wfName}.json`,
+        JSON.stringify(workflowTemplate, null, 2),
+      );
+      if (!workflowRes.success) {
+        logger.error(`Write workflow JSON failed: ${groupPath}/${wfName}.json`);
+        return;
+      }
+
+      const diagramRes = await writeFile(
+        `${groupPath}/.meta/${wfName}.diagram.json`,
+        JSON.stringify({ nodePos: {} }, null, 2),
+      );
+      if (!diagramRes.success) {
+        logger.error(`Write diagram JSON failed: ${groupPath}/.meta/${wfName}.diagram.json`);
+      }
+
+      logger.info(`Workflow created, navigating to /project/${activeProject.id}/flow/${groupName}/${wfName}`);
+      await refreshFileTree();
+      navigate(`/project/${activeProject.id}/flow/${groupName}/${wfName}`);
     },
     [activeProject, navigate, refreshFileTree, vnextConfig],
   );

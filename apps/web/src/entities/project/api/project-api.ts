@@ -1,5 +1,6 @@
 import type { FileTreeNode, ProjectInfo, VnextConfig } from '@entities/project/model/types';
 import { apiClient, callApi } from '@shared/api/client';
+import type { ApiResponse } from '@vnext-forge/app-contracts';
 
 export function listProjects() {
   return callApi<ProjectInfo[]>(apiClient.api.projects.$get());
@@ -37,12 +38,14 @@ export function getProject(projectId: string) {
   );
 }
 
-export function getProjectTree(projectId: string) {
-  return callApi<FileTreeNode>(
+export async function getProjectTree(projectId: string): Promise<ApiResponse<FileTreeNode>> {
+  const res = await callApi<{ root: FileTreeNode }>(
     apiClient.api.projects[':id'].tree.$get({
       param: { id: projectId },
     }),
   );
+  if (!res.success) return res;
+  return { success: true, data: res.data.root, error: null };
 }
 
 export function getProjectConfig(projectId: string) {

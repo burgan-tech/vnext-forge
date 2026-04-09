@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-import { apiClient, unwrapApi } from '@shared/api/client';
+import { getProjectTree } from '@entities/project/api/project-api';
 
 import type { FileTreeNode, ProjectInfo, VnextConfig } from './types';
 
@@ -42,14 +42,13 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
     }
 
     try {
-      const tree = await unwrapApi<FileTreeNode>(
-        await apiClient.api.projects[':id'].tree.$get({
-          param: { id: activeProject.id },
-        }),
-        'Project tree could not be loaded.',
-      );
+      const treeResponse = await getProjectTree(activeProject.id);
 
-      set({ fileTree: tree });
+      if (!treeResponse.success) {
+        throw new Error(treeResponse.error.message);
+      }
+
+      set({ fileTree: treeResponse.data });
     } catch {
       set({ fileTree: null });
     }
