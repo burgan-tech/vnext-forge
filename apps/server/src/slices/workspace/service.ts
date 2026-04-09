@@ -2,17 +2,15 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import type { Dirent } from 'node:fs'
 import { ERROR_CODES, VnextForgeError } from '@vnext-forge/app-contracts'
-import {
-  CONFIG_FILE,
-  WorkspaceAnalyzer,
-  resolveComponentPath,
-} from '@vnext-forge/workspace-service'
+import { COMPONENT_DIRS, CONFIG_FILE } from './constants.js'
 import type {
+  DirectoryEntry,
+  SearchResult,
   WorkspaceAnalysisResult,
   WorkspaceConfig,
   WorkspaceStructure,
-} from '@vnext-forge/workspace-service'
-import type { SearchResult, DirectoryEntry } from './types.js'
+} from './types.js'
+import { WorkspaceAnalyzer } from './workspace-analyzer.js'
 
 function toDirectoryEntry(dirPath: string, entry: Dirent): DirectoryEntry {
   return {
@@ -145,9 +143,7 @@ export class WorkspaceService {
   }
 
   getComponentPaths(rootPath: string, domain: string): string[] {
-    return ['Workflows', 'Mappings', 'Schemas', 'Tasks', 'Views', 'Functions', 'Extensions'].map(
-      (component) => resolveComponentPath(rootPath, domain, component),
-    )
+    return COMPONENT_DIRS.map((component) => path.join(rootPath, domain, component))
   }
 
   // ── Private helpers ───────────────────────────────────────────────────────────

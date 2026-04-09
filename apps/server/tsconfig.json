@@ -28,12 +28,6 @@
     },
     {
       "path": "../../packages/app-contracts"
-    },
-    {
-      "path": "../../packages/workflow-system"
-    },
-    {
-      "path": "../../packages/workspace-service"
     }
   ]
 }

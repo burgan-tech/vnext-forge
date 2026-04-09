@@ -1,8 +1,8 @@
 export interface WorkflowTemplateSummary {
-  id: string
-  name: string
-  type: string
-  description: string
+  id: string;
+  name: string;
+  type: string;
+  description: string;
 }
 
 export const workflowTemplateCatalog: readonly WorkflowTemplateSummary[] = [
@@ -78,4 +78,4 @@ export const workflowTemplateCatalog: readonly WorkflowTemplateSummary[] = [
     type: 'F',
     description: 'Authorization -> Capture pattern',
   },
-] as const
+] as const;

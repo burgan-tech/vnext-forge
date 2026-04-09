@@ -1,0 +1,7 @@
+interface:
+  display_name: "Architectural Pattern"
+  short_description: "Common React vertical-slice web architecture"
+  default_prompt: "Use $architectural-pattern-web to propose or review a module-based React web architecture with shared and clear state ownership."
+
+policy:
+  allow_implicit_invocation: true

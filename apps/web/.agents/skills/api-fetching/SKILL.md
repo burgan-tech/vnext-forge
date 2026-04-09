@@ -1,116 +1,107 @@
 ---
 name: api-fetching
-description: Use when implementing or refactoring web API access in this repo. Web code must route requests through the shared Hono RPC client and entity-level service functions; raw `fetch` and direct `apiClient` calls are forbidden outside `entities/*/api.ts`.
+description: Use when implementing or refactoring web API access in this repo. Web code must route requests through the shared Hono RPC client and an owning service module; raw `fetch` and direct `apiClient` calls are forbidden in UI code.
 ---
 
 # API Fetching Web
 
 ## Purpose
 
-Use this skill to keep data access aligned with the target web architecture.
+Use this skill to keep data access aligned with the simplified web architecture.
 
 The intended flow is:
 
-1. `shared/api/client.ts` — Hono RPC client (`hc<AppType>('/')`) + `callApi` / `unwrapApi` helpers
-2. `entities/*/api.ts` — entity-level service: wraps `callApi`, returns `Promise<ApiResponse<T>>`
-3. `features/*/` — user-action flows that call entity services, use `useAsync`
-4. UI — consumes scenario-named actions and derived state
+1. `shared/api/client.ts` -> Hono RPC client (`hc<AppType>('/')`) plus `callApi` and `unwrapApi`
+2. owning service module -> usually module-local, wraps `callApi`, returns `Promise<ApiResponse<T>>`
+3. `modules/*` hooks or actions -> orchestrate the user flow
+4. UI -> consumes scenario-named actions and derived state
 
 ## Repo Rules
 
 - Use the shared Hono RPC client for all web API access.
-- Do not call `apiClient` directly from pages, widgets, components, or hooks.
-- All direct `apiClient` calls live in `entities/*/api.ts` or `features/*/api.ts`.
-  - Use `entities/*/api.ts` for calls that belong to a single business concept.
-  - Use `features/*/api.ts` for calls that span multiple entities or are tightly tied to one user-action flow.
-- Keep transport details (Hono RPC, `callApi`, `unwrapApi`) inside `shared/api`, entity service files, and feature service files.
-- Return `ApiResponse<T>` from entity and feature service functions so `useAsync` can consume them without extra wrapping.
+- Do not call `apiClient` directly from pages, components, or hooks.
+- Keep direct `apiClient` calls in the owning service module, usually inside the module that owns the workflow.
+- Lift service code into `shared/*` only when the same logic is truly generic and stable across multiple modules.
+- Keep transport details (Hono RPC, `callApi`, `unwrapApi`) inside `shared/api` and owning service modules.
+- Return `ApiResponse<T>` from service functions so `useAsync` can consume them without extra wrapping.
 - All server responses are wrapped in `ApiResponse<T>` from `@vnext-forge/app-contracts`.
+- Do not use raw `fetch` anywhere in the web app.
 
 ## Helpers in `shared/api/client.ts`
 
 ```ts
-// For use with useAsync — returns ApiResponse<T>
+// For use with useAsync; returns ApiResponse<T>
 callApi<T>(response: Response | Promise<Response>): Promise<ApiResponse<T>>
 
-// For imperative use outside useAsync — throws VnextForgeError on failure, returns T
+// For imperative use outside useAsync; throws VnextForgeError on failure, returns T
 unwrapApi<T>(response: Response | Promise<Response>, fallbackMessage?: string): Promise<T>
 ```
 
-## Entity Service Pattern
+## Default Service Pattern
 
-Each business concept owns an `api.ts` file in its entity slice:
+Keep the service close to the owning module unless it is clearly shared:
 
 ```ts
-// entities/project/api.ts
+// modules/project-list/project-list.api.ts
 import { apiClient, callApi } from '@shared/api/client';
 
-export const projectApi = {
+export const projectListApi = {
   list: () => callApi<ProjectInfo[]>(apiClient.api.projects.$get()),
-  getById: (id: string) => callApi<ProjectInfo>(apiClient.api.projects[':id'].$get({ param: { id } })),
-  create: (body: CreateProjectDto) => callApi<ProjectInfo>(apiClient.api.projects.$post({ json: body })),
-  remove: (id: string) => callApi<void>(apiClient.api.projects[':id'].$delete({ param: { id } })),
+  remove: (id: string) =>
+    callApi<void>(apiClient.api.projects[':id'].$delete({ param: { id } })),
 };
 ```
 
-Features and hooks then consume the entity service. The `callApi` wrapping stays inside the service — the hook never touches `apiClient` or `callApi` directly:
+Hooks and actions consume the service. The `callApi` wrapping stays inside the service; the hook never touches `apiClient` or `callApi` directly:
 
 ```ts
-// features/project-management/hooks/useProjectList.ts
-// CORRECT — service owns the callApi wrapping
-const { execute, data, loading, error } = useAsync(() => projectApi.list());
+// modules/project-list/use-project-list.ts
+const { execute, data, loading, error } = useAsync(() => projectListApi.list());
 
-// WRONG — callApi/apiClient must not appear at the call site
+// Wrong: transport helpers must not appear at the call site
 // const { execute } = useAsync(() => callApi(apiClient.api.projects.$get()));
 ```
+
+If the same logic becomes truly generic across modules, move it into `shared/*` and keep the same contract.
 
 ## Response Handling
 
 Every `callApi` call returns `ApiResponse<T>`. Use helpers from `@vnext-forge/app-contracts`:
 
-- `isSuccess(res)` / `isFailure(res)` — type-narrowing guards
-- `fold(res, onSuccess, onFailure)` — exhaustive two-branch handling
-- `getData(res)` / `getError(res)` — safe field accessors
-- `unwrap(res)` — throws `VnextForgeError` on failure
-- `unwrapOr(res, fallback)` — returns fallback on failure
+- `isSuccess(res)` and `isFailure(res)` for type-safe branching
+- `fold(res, onSuccess, onFailure)` for exhaustive handling
+- `getData(res)` and `getError(res)` for safe field access
+- `unwrap(res)` to throw `VnextForgeError` on failure
+- `unwrapOr(res, fallback)` to return a fallback on failure
 
 Failure branches must produce a `VnextForgeError`. Do not pass raw `ApiFailure` objects to UI.
 
 ## Placement Rules
 
-- `shared/api`: RPC client, `callApi`, `unwrapApi`, transport normalization only.
-- `entities/*/api.ts`: endpoint calls that belong to one business concept.
-- `features/*/api.ts`: endpoint calls that span entities or are owned by one user-action flow.
-- `features/*`: user-action flows that consume entity or feature services via `useAsync`.
-- `widgets/*`: page-section composition only, not transport orchestration.
-- `pages/*`: route assembly only, not endpoint logic.
+- A module-owned request stays in that module by default.
+- Shared transport stays in `shared/api/client.ts`.
+- Only promote a service to `shared/*` when reuse is real and stable.
+- Pages compose module APIs; they do not own transport code.
 
 ## Do
 
-- Place all `apiClient` calls inside `entities/*/api.ts` or `features/*/api.ts`.
-- Return `Promise<ApiResponse<T>>` from entity and feature service functions so they plug directly into `useAsync`.
-- Use `unwrapApi` only in imperative contexts outside `useAsync` (e.g. init scripts, event handlers that don't need loading state).
-- Convert `ApiResponse<T>` into feature-meaningful results using the provided helpers.
-- Reuse shared package helpers where they already exist.
+- Keep request code close to the module that owns the scenario.
+- Name service functions by business intent, not HTTP verbs alone.
+- Use `unwrapApi` for imperative flows that should throw on failure.
+- Keep response-envelope knowledge out of presentational components.
 
 ## Do Not Do
 
-- Do not call `apiClient` or `callApi` directly from JSX, hooks, widgets, or pages — these belong exclusively in service files (`entities/*/api.ts` or `features/*/api.ts`).
-- Do not inline `callApi(apiClient.xxx)` at the `useAsync` call site; move it into the service layer first.
-- Do not use raw `fetch` anywhere in the web app.
-- Do not leak RPC or HTTP vocabulary into presentational props.
-- Do not make widgets or pages decode raw `ApiResponse<T>` envelopes.
-- Do not scatter endpoint definitions across the app — one entity, one `api.ts`.
-- Do not manually check `res.success` when a helper covers the pattern.
+- Do not centralize every request under `shared/*` by default.
+- Do not place `apiClient` calls directly in JSX, page files, or ad hoc hooks.
+- Do not create a second wrapper layer if one owning service file already keeps the code readable.
+- Do not return raw `Response`, raw `fetch`, or raw backend payloads to UI code.
 
 ## Review Standard
 
-Flag the implementation if:
+Raise a concern when:
 
-- `apiClient` is called outside `entities/*/api.ts` or `features/*/api.ts` (pages, widgets, hooks, components — all forbidden)
-- a component or page calls `fetch` directly
-- request code lives in `pages` or `widgets` without a migration-only reason
-- the UI must understand transport failures to render
-- one feature invents a local response envelope that bypasses `ApiResponse<T>`
-- services perform UI effects such as notifications or navigation
-- `ApiFailure` reaches JSX without being normalized into `VnextForgeError`
+- a request was lifted into a separate layer without clear reuse
+- UI code calls `apiClient`, `callApi`, or `fetch` directly
+- service placement follows folder ideology instead of actual ownership
+- a module-local API was spread across multiple files without improving clarity

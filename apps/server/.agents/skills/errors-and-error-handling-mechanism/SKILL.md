@@ -52,7 +52,7 @@ service/domain throws VnextForgeError
 
 - `infrastructure` - detects fs, HTTP, provider, and integration failures; translates third-party errors into `VnextForgeError`
 - `application` - rejects impossible or disallowed actions; orchestrates domain + infrastructure
-- `domain` - protects business invariants (`packages/workflow-system`)
+- `domain` - protects business invariants in the owning server slice or shared contract module
 - `transport` - request parsing and error-handler middleware; request shape is validated with Zod here; `ZodError` is converted to `VnextForgeError`; transport remains the single formatting boundary
 
 ## What This Skill Says

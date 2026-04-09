@@ -22,12 +22,12 @@ The shared error type is `VnextForgeError` from `@vnext-forge/app-contracts`.
 
 Key fields:
 
-- `code: ErrorCode` — machine-readable, stable identifier (e.g. `FILE_NOT_FOUND`, `WORKFLOW_INVALID`)
-- `context.layer: ErrorLayer` — where the error originated (`transport | presentation | feature | entity | application | domain | infrastructure`)
-- `context.source` — which function threw (`"FileService.readWorkflow"`)
-- `traceId` — correlation ID from the backend, preserve it always
-- `toUserMessage()` — safe string to show the user; never use raw `.message` in UI
-- `toLogEntry()` — structured log payload for server-side logging only
+- `code: ErrorCode` - machine-readable, stable identifier such as `FILE_NOT_FOUND` or `WORKFLOW_INVALID`
+- `context.layer: ErrorLayer` - where the error originated
+- `context.source` - which function threw
+- `traceId` - correlation ID from the backend; preserve it always
+- `toUserMessage()` - safe string to show the user; never use raw `.message` in UI
+- `toLogEntry()` - structured log payload for server-side logging only
 
 Failure responses from the server arrive as `ApiFailure` inside `ApiResponse<T>`:
 
@@ -35,36 +35,36 @@ Failure responses from the server arrive as `ApiFailure` inside `ApiResponse<T>`
 import { isFailure, fold, getError } from '@vnext-forge/app-contracts';
 ```
 
-Use `isSuccess` / `isFailure` for branching, `fold` for exhaustive handling, `unwrap` / `unwrapOr` when a default fallback is acceptable.
+Use `isSuccess` and `isFailure` for branching, `fold` for exhaustive handling, and `unwrap` or `unwrapOr` when a default fallback is acceptable.
 
 ## Error Flow
 
-```
+```text
 Hono RPC Response
-  → callApi<T>()           (shared/api/client.ts) — parse JSON, throw on network/parse error
-  → entity service api.ts  — returns ApiResponse<T>, no throw
-  → useAsync               — calls isFailure, converts to VnextForgeError, sets error state
-  → UI                     — renders error.toUserMessage().message
+  -> callApi<T>()         (shared/api/client.ts) parses JSON and normalizes network or parse failures
+  -> owning service module returns ApiResponse<T>, no throw on normal failure branch
+  -> useAsync             converts ApiFailure into VnextForgeError and sets error state
+  -> UI                   renders error.toUserMessage().message
 ```
 
 `callApi` handles network and parse-level failures, converting them to `VnextForgeError` immediately.
-Entity services do not throw — they return `ApiResponse<T>` and let `useAsync` handle the failure branch.
-`unwrapApi` is for imperative paths (outside `useAsync`) and throws `VnextForgeError` directly on failure.
+Owning service modules do not reinterpret the error; they return `ApiResponse<T>` and let `useAsync` handle the failure branch.
+`unwrapApi` is for imperative paths outside `useAsync` and throws `VnextForgeError` directly on failure.
 
 ## Where Errors Belong
 
-1. `shared/api/client.ts` — `callApi` / `unwrapApi`: transport normalization and first-pass `VnextForgeError` construction
-2. `entities/*/api.ts` — entity services: return `ApiResponse<T>`, no error interpretation
-3. Features / `useAsync` — translate normalized error into scenario meaning, set error state
-4. UI — renders `error.toUserMessage().message`; never inspects `.code` to build message strings
+1. `shared/api/client.ts` - `callApi` and `unwrapApi`: transport normalization and first-pass `VnextForgeError` construction
+2. Owning service module - return `ApiResponse<T>`, no UI-specific error interpretation
+3. Modules and `useAsync` - translate normalized error into scenario meaning and set error state
+4. UI - render `error.toUserMessage().message`; never inspect transport details to build message strings
 
 ## Do
 
 - Normalize unknown transport failures into `VnextForgeError`.
 - Preserve `traceId` whenever the backend provides one.
-- Use `error.code` to branch behavior (retry, redirect, show specific UI state).
-- Use `error.toUserMessage().message` at the presentation edge — never raw `.message`.
-- Keep the same `VnextForgeError` shape across pages, widgets, features, and entities.
+- Use `error.code` to branch behavior such as retry, redirect, or specific empty states.
+- Use `error.toUserMessage().message` at the presentation edge; never raw `error.message`.
+- Keep the same `VnextForgeError` shape across pages, modules, and shared modules.
 
 ## Do Not Do
 
@@ -73,26 +73,22 @@ Entity services do not throw — they return `ApiResponse<T>` and let `useAsync`
 - Do not create per-feature error classes for ordinary API failures.
 - Do not store a second UI-only error object when `VnextForgeError` already exists.
 - Do not make components aware of status codes, fetch exceptions, or RPC internals.
-- Do not show `error.message` directly in UI — always use `toUserMessage()`.
+- Do not show `error.message` directly in UI; always use `toUserMessage()`.
 
 ## Adding A New Error Type
 
 When a new failure scenario needs a dedicated error code:
 
-1. Add the code to the correct category in `packages/app-contracts/src/error/error-codes.ts`
-2. Add a safe user-facing message in `packages/app-contracts/src/error/user-messages.ts`
-3. Both server and web immediately gain the new code — no local additions needed
-
-Never add a local error code or message string in the web app. If the needed `ErrorCode` does not exist in `@vnext-forge/app-contracts`, extend `error-codes.ts` and `user-messages.ts` first.
+1. add the code to `@vnext-forge/app-contracts`
+2. normalize it in the server or transport boundary where the failure is first understood
+3. branch on `error.code` in the module only if behavior must differ
+4. keep presentation text flowing through `toUserMessage()`
 
 ## Review Standard
 
-Flag the implementation if:
+Raise a concern when:
 
-- UI code catches and interprets transport errors directly.
-- A service invents a custom error shape that bypasses `VnextForgeError`.
-- A page decides behavior from string messages.
-- `traceId` is dropped even though it exists upstream.
-- A failure path cannot be traced to a specific `ErrorCode`.
-- `error.message` is rendered in JSX instead of `error.toUserMessage().message`.
-- An entity service throws instead of returning `ApiResponse<T>`.
+- UI code sees raw transport errors or backend payloads
+- a service layer invents a second error contract
+- components branch on message text instead of `error.code`
+- error handling assumes every request must live in a shared layer by default

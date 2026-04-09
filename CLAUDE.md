@@ -12,7 +12,7 @@ In short, the product is meant to be a standalone design and management interfac
 
 ---
 
-### Packages
+### Shared Packages
 
 #### `packages/vnext-types` -> `@vnext-forge/types`
 
@@ -49,177 +49,71 @@ The shared error type used across all application layers. Every `throw` should b
 
 ---
 
-#### `packages/workflow-system` -> `@vnext-forge/workflow-system`
+### Current Ownership
 
-Workflow domain logic. No UI, isomorphic (browser + Node.js).
+Several formerly shared workspace, workflow-domain, and editor-language modules are now owned directly by app-local code:
 
-```text
-schema/
-  workflow-schema.ts      -> Full workflow JSON schema with Zod
-  component-schema.ts     -> Zod schemas for Task, Schema, View, Function, Extension
-  version-compat.ts       -> Runtime version compatibility matrix + checks
+- `apps/server/src/slices/workspace/*` owns workspace contracts, path resolution, config handling, file tree analysis, and workspace inspection endpoints.
+- `apps/server/src/slices/template/*` owns the template catalog and template list endpoints.
+- `apps/server/src/slices/validate/*` is the server-side validation integration boundary.
+- `apps/web/src/editor/*` owns Monaco setup, CSX completions, diagnostics, snippets, and editor-side context handling.
+- `apps/web/src/validation/*` and `apps/web/src/stores/validation-store.ts` own client-side validation UX and editor feedback.
 
-validation/
-  rules/
-    structural-rules.ts   -> Content moved from ValidationEngine.ts (15+ rules)
-    semantic-rules.ts     -> Cross-reference, reachability, cycle detection
-    schema-rules.ts       -> Zod schema conformity checks
-  validate.ts             -> Engine that runs all validation rules
-  types.ts                -> ValidationResult, Severity
-
-connection/
-  connection-rules.ts     -> Which stateType can connect to which stateType
-  connection-validator.ts -> Connection validity checks
-
-health/
-  project-health.ts       -> Project file structure analysis
-  health-rules.ts         -> Checks for missing files, wrong types, broken references
-  types.ts                -> HealthCheckResult, HealthIssue
-
-simulation/
-  simulator.ts            -> Step-by-step state machine execution
-  step-evaluator.ts       -> Single step: transition selection + next state
-  execution-context.ts    -> SimulationState, test data
-  types.ts                -> SimulationResult, StepResult
-
-utils/
-  graph.ts                -> Reachability, cycle detection
-```
-
-- Dependencies: `@vnext-forge/types`, `@vnext-forge/app-contracts`, `zod`
-- Used by `apps/server` for save-time validation and by `apps/web` for realtime validation
-
----
-
-#### `packages/workspace-service` -> `@vnext-forge/workspace-service`
-
-Defines workspace (project directory) rules and interfaces.
-
-```text
-interfaces/
-  workspace.ts            -> IWorkspace, WorkspaceConfig, WorkspaceMetadata
-  workspace-tree.ts       -> FileTreeNode, WorkspaceStructure
-  workspace-paths.ts      -> Standard file paths
-
-rules/
-  structure-rules.ts      -> Required file/directory structure rules
-  naming-rules.ts         -> File naming standards
-  config-rules.ts         -> `vnext.config.json` format rules
-
-analyzer/
-  workspace-analyzer.ts   -> Analyzes the directory and returns WorkspaceAnalysisResult
-  types.ts                -> WorkspaceAnalysisResult, WorkspaceIssue
-
-paths/
-  resolver.ts             -> Resolves standard paths inside a workspace
-  constants.ts            -> `WORKFLOW_FILE`, `DIAGRAM_FILE`, `CONFIG_FILE` constants
-```
-
-- `rules/` and `analyzer/` run only on `apps/server` (they use Node.js `fs` APIs)
-- `interfaces/` and `paths/` are imported by both web and server; no Node.js APIs are used on the web
-- Dependencies: `@vnext-forge/types`, `@vnext-forge/app-contracts`
-
----
-
-#### `packages/editor-kit` -> `@vnext-forge/editor-kit`
-
-Monaco Editor language support. Completions, diagnostics, snippets, and hover support for CSX (C# Script) and Workflow JSON.
-
-```text
-csx/
-  completions/
-    csx-completions.ts      -> CSX completions (handler scope, interface types)
-    csx-api-reference.ts    -> API reference database
-    context-detector.ts     -> Detects the active handler scope
-  diagnostics/
-    csx-diagnostics.ts      -> CSX linter markers
-    rules/
-      condition-rules.ts    -> Rules such as enforcing `return true/false`
-      mapping-rules.ts      -> Rules such as InputHandler cast requirements
-  snippets/
-    csx-snippets.ts
-    csx-templates.ts
-  hover/
-    csx-hover.ts            -> Hover doc provider
-
-workflow/
-  completions/
-    workflow-completions.ts -> Context-aware workflow intellisense
-  diagnostics/
-    workflow-diagnostics.ts -> Workflow JSON linter markers
-
-setup/
-  monaco-setup.ts           -> Monaco setup (to be moved into MonacoSetup.ts)
-  language-registry.ts      -> Facade that registers all languages to Monaco
-```
-
-Main API: `setupEditorLanguages(monaco, context)` + `updateLanguageContext(context)`.
-`EditorLanguageContext` - active workflow, active state key, accessible components.
-
-- Dependencies: `@vnext-forge/types`, `monaco-editor` (peer dependency)
-- Currently only used by `apps/web`; a desktop app may consume it later
+Only `packages/vnext-types` and `packages/app-contracts` remain as shared packages in this repo.
 
 ---
 
 ### apps/web
 
-React 19 + Vite 6. Organized with FSD (Feature-Sliced Design).
+React 19 + Vite 6. The web app uses a simple module-based vertical slice structure, not FSD. Keep the structure shallow and owner-based.
 
-**Layer import rule:** `app -> pages -> widgets -> features -> entities -> shared`
+The target structure is `app / pages / modules / shared`. Some existing app-local areas still live under `src/editor`, `src/validation`, and `src/stores` and should be treated as explicit local owners rather than pattern exceptions.
 
-- Upper layers may import lower layers; the reverse is forbidden
-- `entities` cannot import each other, and `features` cannot import each other
-- `packages/*` may be imported from any layer
-- Use path aliases/path mappings instead of deep relative imports; in `apps/web` only use the FSD aliases (`@app`, `@pages`, `@widgets`, `@features`, `@entities`, `@shared`), and in other apps/packages prefer the aliases defined in that project's `tsconfig.json`
-- Enforced by ESLint: `@feature-sliced/eslint-config`
+The main architecture rules live in `apps/web/.agents/skills/architectural-pattern/SKILL.md`. Keep this top-level guide shorter than that skill.
+
+- Start with the narrowest owner and the shallowest folder that keeps the code understandable.
+- Default structure: `app -> pages -> modules -> shared`.
+- `pages` owns route entry and route composition.
+- `modules` owns business UI, module state, and module-local services.
+- `shared` stays narrow and generic.
+- If unsure, choose `modules`.
+- Do not create `model`, `ui`, `hooks`, or `types` subfolders by reflex. Colocate files in the owning folder until extra structure is justified.
+- `packages/*` may be imported from any layer.
+- Use path aliases/path mappings instead of deep relative imports.
 
 ```text
 app/
   providers/          -> ReactFlowProvider, QueryClientProvider
   routes/             -> Route definitions
 
-pages/               -> project-list, project-workspace, flow-editor, task-editor,
-                        schema-editor, view-editor, function-editor, extension-editor, code-editor
-                        (each page is thin composition; business logic lives in features/entities)
+pages/                -> route entry and page composition only
 
-widgets/             -> Large, independent UI blocks
-  flow-canvas/        -> FlowCanvas, CanvasToolbar, CanvasContextMenu
-  property-panel/     -> StatePropertyPanel, TransitionPropertyPanel, WorkflowMetadataPanel
-  script-editor-panel/-> ScriptEditorPanel, CodeEditorPanel
-  sidebar/            -> Sidebar, FileTree
-  validation-panel/   -> Validation results
-  execution-overlay/  -> (Phase 4) Highlight active nodes on the canvas
-  health-check-panel/ -> (Phase 3) Workspace issues
-
-features/            -> User scenarios
-  canvas-interaction/ -> Custom nodes/edges, EdgeHoverToolbar, NodeHoverActions,
-                         connection-rules-adapter, auto-layout, canvas-persistence
-  workflow-validation/-> ValidationStore, ValidationBadge, realtime-validator (debounced)
-  project-health/     -> HealthStore, health-check-runner (calls workspace-service)
-  workflow-execution/ -> ExecutionStore, ExecutionControlBar, ExecutionDataInput,
-                         ExecutionTimeline, local-simulator, remote-executor
-  engine-integration/ -> (Phase 5) engine-client, polling-manager
-  code-editor/        -> EditorStore, ResizableLayout, editor-setup (boots editor-kit),
-                         workflow-context-bridge
-  save-workflow/      -> useSaveWorkflow hook
-  save-component/     -> useSaveComponent hook
-  ai-assistant/       -> SLOT ONLY - interface definitions, no implementation
-
-entities/            -> Domain stores
-  workflow/           -> workflow-store, conversion utilities
-  project/            -> project-store, file-router
-  component/          -> component-store
-  runtime/            -> runtime-store
+modules/              -> user-facing business modules with local UI/state/services
+  canvas-interaction/ -> custom nodes/edges, edge actions, auto-layout, canvas persistence
+  workflow-validation/-> validation flows, badges, realtime validation, validation adapters
+  project-health/     -> health checks, state, workspace health runners
+  workflow-execution/ -> execution controls, timelines, simulator/executor flows
+  code-editor/        -> editor-facing flows and workflow context bridges
+  save-workflow/      -> save workflow behavior
+  save-component/     -> save component behavior
+  ai-assistant/       -> slot only, interface definitions
 
 shared/
-  ui/                 -> Field, KVEditor, LabelEditor, TagEditor, JsonCodeField and other primitives
-  api/
-    client.ts         -> Hono RPC typed client: `hc<AppType>('/')`
+  ui/                 -> generic primitives
+  api/                -> Hono RPC client helpers
   config/             -> env.ts, constants.ts
-  lib/
-    error-handler.ts  -> `VnextForgeError` -> user-friendly message mapping
-    logger/           -> Central web logger utilities (`createLogger`)
+  lib/                -> logger, error helpers, utility modules
 ```
+
+Pages should stay thin. Business logic should usually live in the owning module. Route files may compose module views, but they should not become a second business owner.
+
+Current app-owned areas outside the target tree:
+
+- `src/editor/*` -> Monaco editor language tooling and script editor UI
+- `src/validation/*` -> validation engine and validation panel
+- `src/stores/validation-store.ts` -> validation state
+- `src/entities/workspace/api/workspace-api.ts` -> legacy endpoint access location; do not treat this as the default target pattern for new work
+- `src/features/create-project/*` and `src/features/import-project/*` -> legacy directories from the previous structure
 
 ---
 
@@ -227,30 +121,37 @@ shared/
 
 Hono BFF (Node.js). All file system and external service access lives here.
 
+The server is organized by slices. Each slice owns its router, controller, schema, and service-level collaborators.
+
 ```text
-index.ts                -> Hono app + AppType export (for Hono RPC)
+src/
+  index.ts                       -> Hono app + AppType export (for Hono RPC)
 
-routes/
-  files.ts              -> File CRUD
-  projects.ts           -> Project management
-  validate.ts           -> Workflow validation (`workflow-system` integration)
-  runtime-proxy.ts      -> Engine API proxy
-  workspace.ts          -> (NEW) Workspace analysis endpoints
-  templates.ts          -> Template list
+  slices/
+    project/                     -> Project routes, controller, schema, service, types
+    runtime-proxy/               -> Engine API proxy routes
+    template/
+      catalog.ts                 -> Template catalog now owned by server
+      controller.ts              -> Template list endpoint orchestration
+    validate/
+      controller.ts              -> Validation endpoint orchestration
+      service.ts                 -> Server-side validation integration boundary
+    workspace/
+      workspace-contracts.ts     -> Workspace contracts and structure types
+      constants.ts               -> Standard workspace file and directory names
+      resolver.ts                -> Workspace path resolution helpers
+      workspace-analyzer.ts      -> Workspace analysis and config reading
+      service.ts                 -> File and workspace operations
+      controller.ts              -> Workspace endpoint orchestration
 
-services/
-  file.service.ts       -> `fs` operations
-  project.service.ts    -> Project read/write
-  export.service.ts     -> Export operations
-  workspace.service.ts  -> (NEW) Service using the `workspace-service` package
-  validation.service.ts -> (NEW) Service using the `workflow-system` package
-
-middleware/
-  error-handler.ts      -> `VnextForgeError` -> `ApiResponse<never>` mapping (including HTTP status mapping)
-  logger.ts             -> Central logger
-
-lib/
-  response.ts           -> `ApiResponse` helpers
+  shared/
+    middleware/
+      error-handler.ts           -> `VnextForgeError` -> `ApiResponse<never>` mapping
+      logger.ts                  -> Central logger middleware
+      trace-id.ts                -> Request trace identifier middleware
+    lib/
+      request.ts                 -> Request parsing helpers
+      response-helpers.ts        -> `ApiResponse` success helpers
 ```
 
 **Error flow:** service throws `new VnextForgeError(...)` -> `error-handler.ts` catches it -> logs with `toLogEntry()` -> returns `toUserMessage()` + `traceId` to the client.
@@ -261,13 +162,13 @@ lib/
 
 The server exports `AppType`. The web layer creates a fully typed client with `hc<AppType>('/')` (`shared/api/client.ts`). The response envelope is always `ApiResponse<T>`.
 
-Existing flat `fetch('/api/...')` calls will be migrated to this client (Phase 1.6).
+New endpoint access should be colocated with the owning module unless there is a clear, stable shared abstraction that justifies lifting it elsewhere.
 
 ---
 
 ### Web Logging
 
-- In `apps/web`, do not add raw `console.log`, `console.info`, `console.warn`, or `console.error` calls in feature code.
+- In `apps/web`, do not add raw `console.log`, `console.info`, `console.warn`, or `console.error` calls in application code.
 - Route logs through the shared logger in `@shared/lib/logger`.
-- Create scoped loggers with `createLogger('FeatureName')` so log output stays attributable.
+- Create scoped loggers with `createLogger('ModuleName')` so log output stays attributable.
 - The shared logger is the only place allowed to talk directly to `console.*`.

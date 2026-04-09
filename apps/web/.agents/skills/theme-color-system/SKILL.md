@@ -47,7 +47,7 @@ If no existing family maps to the element's semantic role, add a new token famil
 - Treat spacing as part of the visual system. Repeated spacing patterns should be standardized through Tailwind scale choices and shared composition rules, not recreated ad hoc in each slice.
 - Treat clickable surface borders as part of the interaction system. If a control is visually clickable and uses a border, that border should come from the `primary` token family unless the component is intentionally communicating another semantic state such as destructive or success.
 - For reusable primitives under `apps/web/src/shared/ui`, prefer a variant-first API before introducing custom Tailwind props, local color overrides, or one-off style booleans.
-- Keep visual-system implementation details such as variant mapping, hover rules, border behavior, muted surfaces, and icon wrappers inside `shared/ui` primitives. Callers in `pages`, `widgets`, `features`, and `entities` should consume the primitive API, not reimplement each variant manually.
+- Keep visual-system implementation details such as variant mapping, hover rules, border behavior, muted surfaces, and icon wrappers inside `shared/ui` primitives. Callers in `pages` and `modules` should consume the primitive API, not reimplement each variant manually.
 - Interactive affordances in `shared/ui` must read as interactive in their base state too. Hover should strengthen discoverability, not create it from nothing.
 - Destructive token families are reserved for destructive actions. `cancel`, `close`, `dismiss`, and similar routine dismissal actions should generally stay in neutral, `default`, `secondary`, or `tertiary` families unless the action itself is destructive.
 - Unless the task explicitly asks for a different theme, `default` should remain the first-choice variant for the app's general UI. Treat `default` as the baseline primary family and opt into other families only for clear semantic reasons.
@@ -107,19 +107,17 @@ If no existing family maps to the element's semantic role, add a new token famil
 - Do not map dismissive actions to destructive surface, border, hover, or icon tokens unless the action itself is destructive.
 - Passive shells such as `no data`, `empty`, `no project`, and read-only support regions should generally be quieter than primary action surfaces. Keep them in muted families unless the task explicitly asks for stronger emphasis.
 
-## FSD Ownership Boundary
+## Ownership Boundary
 
 - These variant and token rules are primarily for `apps/web/src/shared/ui` and other library-like reusable primitive layers.
-- `entities`, `features`, `widgets`, and `pages` may choose which variant to use, but they should not become the home of per-variant implementation logic.
-- If multiple consuming slices need the same visual behavior, move that behavior into the primitive or a shared wrapper under `shared`, not into repeated feature-level class strings.
+- `modules` and `pages` may choose which variant to use, but they should not become the home of per-variant implementation logic.
+- If multiple consuming modules need the same visual behavior, move that behavior into the primitive or a shared wrapper under `shared`, not into repeated module-level class strings.
 - A consuming slice may compose primitives and choose semantics such as `variant="secondary"` or `hoverable={false}`, but the slice should not define what `secondary` means in raw Tailwind terms.
 
-## FSD Spacing Ownership
+## Spacing Ownership
 
 - `shared` owns reusable spacing primitives, layout wrappers, container widths, stack patterns, and the default spacing rhythm used across the app.
-- `entities` may apply spacing that is intrinsic to one domain concept, but should not define app-wide layout rhythm.
-- `features` may compose shared spacing primitives for one user flow, but should not create competing global spacing conventions.
-- `widgets` may control section-level spacing between the blocks they compose, while still aligning to the shared spacing scale.
+- `modules` may apply spacing that is intrinsic to one business area, but should not define app-wide layout rhythm.
 - `pages` may decide overall page composition and vertical section rhythm, but should not introduce one-off spacing values that bypass the shared system.
 - If a spacing rule is reused across slices, move it down to the narrowest shared owner instead of duplicating utility combinations.
 
@@ -145,7 +143,7 @@ If no existing family maps to the element's semantic role, add a new token famil
 - Use existing muted token families for empty-state and passive support UIs so they remain visually subordinate to primary/default controls.
 - Use the Tailwind spacing scale consistently for padding, margin, gap, and section rhythm.
 - Prefer a small, repeatable set of spacing steps for similar UI patterns so cards, forms, lists, and panels feel related.
-- Promote repeated spacing combinations into shared primitives or wrapper components when the same layout rhythm appears in multiple FSD slices.
+- Promote repeated spacing combinations into shared primitives or wrapper components when the same layout rhythm appears in multiple modules or pages.
 - Let lower layers solve local internal spacing, and let upper layers control composition spacing between larger blocks.
 
 ## Do Not Do
@@ -163,7 +161,7 @@ If no existing family maps to the element's semantic role, add a new token famil
 - Do not style clickable bordered surfaces with unrelated neutral border tokens by default when the interaction language is supposed to be anchored to `primary`.
 - Do not bypass an existing primitive variant system by manually restyling the component from consuming slices.
 - Do not add one boolean per screen for visual tweaks when the real problem is that the primitive is missing a reusable semantic variant or opt-out.
-- Do not implement the same `default/secondary/tertiary` mapping separately in feature, widget, entity, or page code.
+- Do not implement the same `default/secondary/tertiary` mapping separately in module or page code.
 - Do not let `hoverable={false}` disable only the root hover while nested hover-coupled visuals still react.
 - Do not enable hover on non-clickable surfaces just to make them feel active. Hover is an interaction signal first, not ambient decoration.
 - Do not use raw icon color overrides in consumers when the primitive already owns semantic icon coloring.
@@ -171,8 +169,8 @@ If no existing family maps to the element's semantic role, add a new token famil
 - Do not style `cancel`, `close`, or `dismiss` controls with destructive token families unless they actually perform a destructive action.
 - Do not let passive empty-state or no-data surfaces share the same visual weight as `default` interactive controls.
 - Do not shift routine page chrome to `secondary`, `tertiary`, or other families when `default` should remain the baseline theme.
-- Do not sprinkle arbitrary spacing values across `pages`, `widgets`, `features`, and `entities` when the same rhythm can come from the shared spacing scale.
-- Do not let lower FSD layers encode page-level outer spacing that should be decided by widgets or pages.
+- Do not sprinkle arbitrary spacing values across `pages` and `modules` when the same rhythm can come from the shared spacing scale.
+- Do not let modules encode page-level outer spacing that should be decided by pages.
 - Do not use one-off Tailwind arbitrary spacing values unless there is a clear design constraint that the standard scale cannot satisfy.
 - Do not duplicate the same spacing utility groups in multiple slices when a shared wrapper or primitive is the real owner.
 
@@ -199,6 +197,6 @@ Flag the implementation if:
 - destructive tokens are used for `cancel`, `close`, `dismiss`, or similar non-destructive actions
 - general app UI defaults to non-`default` variants without an explicit semantic reason
 - passive empty-state or no-data regions are styled with the same emphasis as primary interactive controls instead of the muted family
-- repeated spacing patterns are copied across FSD slices instead of being centralized at the right owner
-- lower layers define outer layout spacing that should belong to widgets or pages
+- repeated spacing patterns are copied across modules and pages instead of being centralized at the right owner
+- modules define outer layout spacing that should belong to pages
 - arbitrary spacing values are used without a clear design reason

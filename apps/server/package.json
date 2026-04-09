@@ -23,8 +23,6 @@
     "@hono/node-server": "^1.14.0",
     "@vnext-forge/app-contracts": "workspace:*",
     "@vnext-forge/vnext-types": "workspace:*",
-    "@vnext-forge/workflow-system": "workspace:*",
-    "@vnext-forge/workspace-service": "workspace:*",
     "hono": "^4.6.0",
     "pino": "^10.3.1",
     "pino-pretty": "^13.1.3",
