@@ -1,4 +1,5 @@
-import { ChevronRight, FolderOpen, FolderSearch, MapPin } from 'lucide-react';
+import { useEffect, useRef } from 'react';
+import { ChevronRight, FolderOpen, FolderSearch } from 'lucide-react';
 
 import type { WorkspaceFolder } from '@entities/workspace/model/types';
 import { Button } from '@shared/ui/button';
@@ -28,6 +29,7 @@ export function FolderBrowser({
   onNavigate,
   onSelect,
 }: FolderBrowserProps) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
   const isWindowsPath = /^[A-Za-z]:[\\/]/.test(currentPath);
   const separator = isWindowsPath ? '\\' : '/';
   const normalizedSegments = currentPath.split(/[\\/]+/).filter(Boolean);
@@ -54,8 +56,31 @@ export function FolderBrowser({
     };
   });
 
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    function handlePointerDown(event: PointerEvent) {
+      if (!containerRef.current) {
+        return;
+      }
+
+      const target = event.target;
+      if (target instanceof Node && !containerRef.current.contains(target)) {
+        onToggle();
+      }
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown);
+
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+    };
+  }, [open, onToggle]);
+
   return (
-    <div className={inline ? 'space-y-3' : 'relative'}>
+    <div ref={containerRef} className={inline ? 'space-y-3' : 'relative'}>
       {!inline ? (
         <Button
           onClick={onToggle}
@@ -85,20 +110,30 @@ export function FolderBrowser({
               ? 'max-h-72 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-sm shadow-slate-900/5'
               : 'absolute top-11 right-0 left-0 z-50 max-h-60 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl shadow-slate-900/5'
           }>
-          <div className="flex items-center gap-1 overflow-x-auto border-b border-slate-100 px-3 py-2 text-xs text-slate-500">
+          <div className="flex items-center gap-0.5 overflow-x-auto border-b border-slate-100 px-2 py-1.5 text-[11px] text-slate-500">
             {breadcrumbItems.length > 0 ? (
               breadcrumbItems.map((item, index) => {
                 return (
-                  <span key={item.path} className="flex shrink-0 items-center gap-1">
-                    {index > 0 ? <ChevronRight size={10} className="text-slate-300" /> : null}
-                    <Button onClick={() => onNavigate(item.path)} className="hover:text-sky-600">
-                      {item.label}
+                  <span key={item.path} className="flex shrink-0 items-center gap-0.5">
+                    {index > 0 ? <ChevronRight size={8} className="text-slate-300" /> : null}
+                    <Button
+                      onClick={() => onNavigate(item.path)}
+                      size="sm"
+                      noBorder
+                      noIconHover
+                      className="hover:text-sky-600 h-5 min-h-0 max-w-[84px] rounded-md px-1 text-[10px] font-medium leading-none">
+                      <span className="truncate">{item.label}</span>
                     </Button>
                   </span>
                 );
               })
             ) : (
-              <Button onClick={() => onNavigate()} className="hover:text-sky-600">
+              <Button
+                onClick={() => onNavigate()}
+                size="sm"
+                noBorder
+                noIconHover
+                className="hover:text-sky-600 h-5 min-h-0 rounded-md px-1 text-[10px] font-medium leading-none">
                 Root
               </Button>
             )}

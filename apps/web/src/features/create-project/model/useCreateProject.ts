@@ -31,7 +31,8 @@ export function useCreateProject(options?: UseCreateProjectOptions) {
   });
 
   async function openPicker(path?: string) {
-    await browseFolders.execute(path);
+    const targetPath = path ?? (selectedPath || browseFolders.data?.path || undefined);
+    await browseFolders.execute(targetPath);
     setPickerOpen(true);
   }
 
