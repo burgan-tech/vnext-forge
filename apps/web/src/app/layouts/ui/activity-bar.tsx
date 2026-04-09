@@ -48,7 +48,7 @@ export function ActivityBar() {
   }
 
   return (
-    <div className="flex w-[52px] shrink-0 flex-col items-center bg-slate-900 py-2">
+    <div className="bg-chrome flex w-[52px] shrink-0 flex-col items-center py-2">
       <div className="flex flex-1 flex-col items-center gap-1">
         {topItems.map((item) => (
           <button
@@ -57,11 +57,11 @@ export function ActivityBar() {
             title={item.title}
             className={`relative flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-150 ${
               isActive(item)
-                ? 'bg-white/15 text-white'
-                : 'text-slate-400 hover:bg-white/10 hover:text-slate-200'
+                ? 'bg-chrome-item text-chrome-foreground'
+                : 'text-chrome-muted hover:bg-chrome-item-hover hover:text-chrome-foreground'
             }`}>
             {isActive(item) && (
-              <span className="absolute top-1/2 left-0 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-indigo-400" />
+              <span className="bg-chrome-accent absolute top-1/2 left-0 h-5 w-0.75 -translate-y-1/2 rounded-r-full" />
             )}
             {item.icon}
           </button>
@@ -76,8 +76,8 @@ export function ActivityBar() {
             title={item.title}
             className={`flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-150 ${
               isActive(item)
-                ? 'bg-white/15 text-white'
-                : 'text-slate-400 hover:bg-white/10 hover:text-slate-200'
+                ? 'bg-chrome-item text-chrome-foreground'
+                : 'text-chrome-muted hover:bg-chrome-item-hover hover:text-chrome-foreground'
             }`}>
             {item.icon}
           </button>

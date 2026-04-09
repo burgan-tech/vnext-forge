@@ -14,6 +14,27 @@ This skill is optional. It is not a blocking rule for the structural architectur
 When theme work is in scope for the web app, apply it through Tailwind-based styling. Tailwind is the required styling path for new visual system work unless the task is explicitly constrained by an existing non-Tailwind surface.
 All reusable color decisions must come from the shared token source in `apps/web/src/index.css`. Do not treat Tailwind's built-in raw palette utilities as the source of truth for app colors.
 
+## ⚠️ Semantic Color Usage — Non-Negotiable Rule
+
+**A token that fits visually is not enough. Every token used must be semantically justified.**
+
+Before applying any color token, you must answer: *"Why does this UI element deserve this semantic role?"* If the answer is "it looks good" or "the color matches", stop — that is the wrong reason.
+
+Concrete examples of what this rule forbids:
+
+- Using `text-destructive-border` for an error indicator on a dark surface because `#fecdd3` happens to be light rose — the `-border` suffix is a structural token for bordered surfaces, not a text-on-dark token.
+- Using `from-secondary-icon to-tertiary-icon` for a gradient because the colors look nice together — `secondary-icon` and `tertiary-icon` are icon foreground tokens, not gradient palette values.
+- Using `text-success-border` for a success check icon because `#86efac` is a light green — `-border` is a border token, not an icon color token.
+- Using `bg-secondary` for a badge because sky-blue happens to match the brand — only use `secondary` if the element semantically belongs to the secondary interaction family.
+
+**The correct mental model:**
+
+1. What is this UI element communicating? (state, role, hierarchy, intent)
+2. Which token family represents that communication? (`muted` for passive, `success` for positive outcome, `destructive` for irreversible actions, `chrome` for app shell, `brand-surface` for branded panels, etc.)
+3. Within that family, which slot is appropriate? (`-foreground` for text on the family's surface, `-icon` for icon color, `-border` for border, `-text` for standalone text)
+
+If no existing family maps to the element's semantic role, add a new token family with a stable semantic name — do not borrow a structurally mismatched token just because it produces the right hex value.
+
 ## Repo Rules
 
 - Do not force a full token or dark-mode migration as part of unrelated architecture work.
@@ -137,6 +158,8 @@ All reusable color decisions must come from the shared token source in `apps/web
 - Do not add a new reusable app color directly inside a component before defining it in `apps/web/src/index.css`.
 - Do not create highly specialized tokens tied to a single feature, CTA, or screen language such as `create-accent`, `import-accent`, `project-list-blue`, `error-surface`, or similar usage-specific names when a broader semantic token should exist instead.
 - Do not encode one component mood, one page headline, or one action label into the token name. If the name stops making sense outside that one UI context, it is the wrong token.
+- **Do not pick a token because its resolved hex value looks correct.** Visual match is not semantic correctness. A `-border` token on text, an `-icon` token as a gradient stop, or a `secondary` family applied to something unrelated to the secondary interaction concept are all wrong regardless of how they render.
+- Do not use structural token slots (`-border`, `-icon`, `-muted`) in roles they were not designed for just to reach a target color. If the right color does not exist under the right semantic slot, define it properly.
 - Do not style clickable bordered surfaces with unrelated neutral border tokens by default when the interaction language is supposed to be anchored to `primary`.
 - Do not bypass an existing primitive variant system by manually restyling the component from consuming slices.
 - Do not add one boolean per screen for visual tweaks when the real problem is that the primitive is missing a reusable semantic variant or opt-out.
@@ -163,6 +186,8 @@ Flag the implementation if:
 - new theme work bypasses Tailwind without an explicit compatibility reason
 - reusable color work bypasses `apps/web/src/index.css`
 - raw Tailwind palette colors are used as app-level color decisions instead of semantic token-backed utilities
+- a token is chosen because its resolved color value visually matches, not because its semantic role matches
+- a structural token slot (`-border`, `-icon`, `-muted`) is applied in a role it was not designed for (e.g. `-border` used as text color, `-icon` used as gradient stop)
 - token names are scoped to one feature, one page, or one action instead of a stable cross-app semantic role
 - clickable bordered surfaces use non-semantic or non-primary border colors without a clear semantic exception
 - a reusable primitive is being extended with ad hoc custom classes when the need should be covered by a stable variant or primitive-owned boolean such as `hoverable` or `noBorder`

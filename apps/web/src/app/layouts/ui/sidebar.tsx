@@ -1,6 +1,9 @@
 import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+import { Badge } from '@shared/ui/badge';
+import { Input } from '@shared/ui/input';
+
 import { useUIStore } from '@app/store/ui-store';
 
 import { resolveFileRoute } from '../../../lib/file-router';
@@ -214,7 +217,7 @@ export function Sidebar() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="px-4 py-3 text-[11px] font-semibold tracking-widest text-slate-400 uppercase">
+      <div className="px-4 py-3 text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">
         {sidebarView === 'project' && 'Explorer'}
         {sidebarView === 'search' && 'Search'}
         {sidebarView === 'validation' && 'Problems'}
@@ -227,18 +230,18 @@ export function Sidebar() {
             {activeProject ? (
               <div>
                 <div className="mt-2 flex items-center gap-2.5 px-4 pb-3">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-500 text-[11px] font-bold text-white shadow-sm shadow-indigo-500/20">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-brand-from to-brand-to text-[11px] font-bold text-white shadow-sm shadow-brand-glow/20">
                     {activeProject.domain[0].toUpperCase()}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <span className="block truncate text-[13px] font-semibold text-slate-800">
+                    <span className="block truncate text-[13px] font-semibold text-foreground">
                       {activeProject.domain}
                     </span>
                   </div>
                   {activeProject.linked && (
-                    <span className="rounded-md bg-indigo-50 px-1.5 py-0.5 text-[9px] font-semibold text-indigo-500">
+                    <Badge variant="secondary" noBorder={false}>
                       linked
-                    </span>
+                    </Badge>
                   )}
                 </div>
                 <div className="mt-1">
@@ -258,10 +261,10 @@ export function Sidebar() {
                 </div>
               </div>
             ) : (
-              <div className="mt-12 px-4 text-center text-xs text-slate-400">
+              <div className="mt-12 px-4 text-center text-xs text-muted-foreground">
                 No project selected.
                 <br />
-                <span className="text-[10px] text-slate-300">
+                <span className="text-[10px] text-subtle">
                   Open a project from the home page.
                 </span>
               </div>
@@ -271,23 +274,19 @@ export function Sidebar() {
 
         {sidebarView === 'search' && (
           <div className="mt-2 px-3">
-            <input
-              type="text"
-              placeholder="Search files..."
-              className="w-full rounded-xl border border-slate-200 bg-slate-50/50 px-3 py-2 text-xs text-slate-900 transition-all placeholder:text-slate-400 focus:border-indigo-400 focus:bg-white focus:ring-2 focus:ring-indigo-500/20 focus:outline-none"
-            />
-            <div className="mt-6 text-center text-[10px] text-slate-400">
+            <Input size="sm" placeholder="Search files..." />
+            <div className="mt-6 text-center text-[10px] text-muted-foreground">
               Type to search across project files
             </div>
           </div>
         )}
 
         {sidebarView === 'validation' && (
-          <div className="mt-12 px-4 text-center text-xs text-slate-400">No problems detected</div>
+          <div className="mt-12 px-4 text-center text-xs text-muted-foreground">No problems detected</div>
         )}
 
         {sidebarView === 'templates' && (
-          <div className="mt-12 px-4 text-center text-xs text-slate-400">Settings coming soon</div>
+          <div className="mt-12 px-4 text-center text-xs text-muted-foreground">Settings coming soon</div>
         )}
       </div>
     </div>

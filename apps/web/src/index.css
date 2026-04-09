@@ -105,11 +105,11 @@
   --color-subtle: #94a3b8; /* slate-400 */
 
   /* ── Brand gradient ── */
-  --color-brand-from: #38bdf8; /* sky-400 */
-  --color-brand-via: #06b6d4; /* cyan-500 */
-  --color-brand-to: #34d399; /* emerald-400 */
-  --color-brand-glow: #0ea5e9; /* sky-500 */
-  --color-brand-ring: #e0f2fe; /* sky-100 */
+  --color-brand-from: #34d399; /* emerald-400 */
+  --color-brand-via: #14b8a6; /* teal-500 */
+  --color-brand-to: #059669;  /* emerald-600 */
+  --color-brand-glow: #10b981; /* emerald-500 */
+  --color-brand-ring: #d1fae5; /* emerald-100 */
 
   /* ── Node state colors ── */
   --color-initial: #10b981;
@@ -126,6 +126,26 @@
   --color-trigger-auto: #10b981;
   --color-trigger-scheduled: #f59e0b;
   --color-trigger-event: #8b5cf6;
+
+  /* ── App chrome (persistent dark shell — activity bar, dark panels) ── */
+  --color-chrome: #0f172a;
+  --color-chrome-item: #1e293b;
+  --color-chrome-item-hover: #1a2433;
+  --color-chrome-foreground: #f1f5f9;   /* primary text/icon on chrome shell */
+  --color-chrome-muted: #64748b;        /* inactive/secondary text/icon on chrome shell */
+  --color-chrome-accent: #818cf8;       /* active state accent mark on chrome shell */
+
+  /* ── Brand surface (status bar, branded header panels) ── */
+  --color-brand-surface: #0f766e;              /* teal-700 — dark green surface */
+  --color-brand-surface-strong: #ffffff;       /* primary/title text on brand surface */
+  --color-brand-surface-foreground: #ccfbf1;   /* teal-100 — body text on brand surface */
+  --color-brand-surface-muted: #5eead4;        /* teal-300 — secondary/label text on brand surface */
+  --color-brand-surface-error: #fca5a5;        /* red-300 — error indicator on brand surface */
+  --color-brand-surface-warning: #fcd34d;      /* yellow-300 — warning indicator on brand surface */
+  --color-brand-surface-success: #6ee7b7;      /* emerald-300 — success indicator on brand surface */
+  --color-brand-surface-dot-success: #6ee7b7;  /* emerald-300 — connected/healthy status dot */
+  --color-brand-surface-dot-warning: #fcd34d;  /* yellow-300 — degraded status dot */
+  --color-brand-surface-dot-idle: #2dd4bf;     /* teal-400 — disconnected/idle status dot */
 }
 
 * {
