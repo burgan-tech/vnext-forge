@@ -43,21 +43,20 @@ export function ActivityBar() {
   }
 
   return (
-    <div className="w-[52px] bg-slate-900 flex flex-col items-center py-2 shrink-0">
-      <div className="flex-1 flex flex-col items-center gap-1">
+    <div className="flex w-[52px] shrink-0 flex-col items-center bg-slate-900 py-2">
+      <div className="flex flex-1 flex-col items-center gap-1">
         {topItems.map((item) => (
           <button
             key={item.id}
             onClick={() => handleClick(item)}
             title={item.title}
-            className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all duration-150 relative ${
+            className={`relative flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-150 ${
               isActive(item)
-                ? 'text-white bg-white/15'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-white/10'
-            }`}
-          >
+                ? 'bg-white/15 text-white'
+                : 'text-slate-400 hover:bg-white/10 hover:text-slate-200'
+            }`}>
             {isActive(item) && (
-              <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-5 bg-indigo-400 rounded-r-full" />
+              <span className="absolute top-1/2 left-0 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-indigo-400" />
             )}
             {item.icon}
           </button>
@@ -70,12 +69,11 @@ export function ActivityBar() {
             key={item.id}
             onClick={() => handleClick(item)}
             title={item.title}
-            className={`w-10 h-10 flex items-center justify-center rounded-xl transition-all duration-150 ${
+            className={`flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-150 ${
               isActive(item)
-                ? 'text-white bg-white/15'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-white/10'
-            }`}
-          >
+                ? 'bg-white/15 text-white'
+                : 'text-slate-400 hover:bg-white/10 hover:text-slate-200'
+            }`}>
             {item.icon}
           </button>
         ))}

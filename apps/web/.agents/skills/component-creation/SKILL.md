@@ -68,6 +68,7 @@ Transport-only: `apiClient`, `callApi`, `unwrapApi`. No business logic here.
 - Reuse an existing component before creating a new one.
 - If a component is needed, check `shared/ui` first.
 - If the component already exists in `shared/ui`, use that implementation instead of creating a duplicate elsewhere.
+- Do not create `index.ts` files just to re-export a single directly usable file. If the concrete file path is already clear and stable, import it from that file instead of adding an export barrel.
 - In `shared/ui`, default hover behavior must follow interactivity ownership. Passive containers and static surfaces should default to `hoverable={false}`; clickable descendants may keep their own hover behavior.
 - In `shared/ui`, clickable descendants must also be visually separable in their resting state. Do not rely on hover as the first or only affordance; use semantic surface, border, spacing, radius, and when appropriate subtle elevation so users can read the element as interactive before hovering it.
 - Unless the task explicitly asks for a different visual language, prefer the primitive `default` variant. Treat `default` as the repo's baseline primary theme for most shared and composed UI.
@@ -75,6 +76,7 @@ Transport-only: `apiClient`, `callApi`, `unwrapApi`. No business logic here.
 - Treat `muted` as the reusable passive-semantic family for empty states, no-data shells, non-clickable support regions, and other low-emphasis UI that should sit behind the mostly-`default` interface.
 - Build new component styling with Tailwind utility classes.
 - Move new work toward the target FSD tree even if nearby legacy code still lives elsewhere.
+- During FSD migration, move callers to the new slice directly instead of leaving backward-compat wrapper or re-export bridge files in `routes/` or elsewhere. Keep old wrappers only if the task explicitly requires a staged migration boundary.
 - Keep presentational primitives in `shared/ui`.
 - Keep business-concept UI and API access in the owning `entities/*/`.
 - Keep user-flow UI and `useAsync` hooks in the owning `features/*/`.
@@ -86,10 +88,12 @@ Transport-only: `apiClient`, `callApi`, `unwrapApi`. No business logic here.
 ## Do Not Do
 
 - Do not add new reusable UI to legacy buckets such as `components`, `layout`, or route files when a target FSD destination is clear.
+- Do not add `index.ts` barrel files when they exist only to mirror a single export file.
 - Do not place feature logic inside `shared`.
 - Do not make a widget own transport or domain rules.
 - Do not place page-specific markup in a global component layer.
 - Do not create cross-feature or cross-entity dependencies.
+- Do not keep route-level or legacy wrapper files around for backward compatibility during FSD migration unless there is an explicit technical need.
 - Do not call `apiClient` from widgets, pages, features, or hooks; that belongs in `entities/*/api.ts`.
 - Do not add new component styling through plain CSS files, SCSS modules, CSS-in-JS, or inline style objects when Tailwind can express the UI.
 - Do not add decorative hover to non-clickable `shared/ui` surfaces by default. Hover should usually communicate interaction.
@@ -142,6 +146,7 @@ Choose the narrowest `shared/ui` primitive that already matches the interaction 
 Flag the implementation if:
 
 - a new component extends the legacy folder structure without a migration reason
+- a new `index.ts` exists only to forward a single file export with no real composition value
 - `shared` code imports business concepts
 - `features` depend on other `features`
 - `entities` depend on other `entities`
@@ -152,6 +157,7 @@ Flag the implementation if:
 - destructive styling is applied to routine dismissal actions such as `cancel` or `close` without destructive behavior
 - broad UI defaults to non-`default` variants without an explicit semantic or product reason
 - passive empty, no-data, or no-project regions visually compete with primary interactive surfaces instead of reading as muted support states
+- FSD migration leaves wrapper, bridge, or compatibility re-export files in place without an explicit reason
 
 ## Component Creation Notes
 

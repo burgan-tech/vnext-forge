@@ -14,7 +14,7 @@ export function StatusBar() {
   const warnings = issues.filter((i) => i.severity === 'warning').length;
 
   return (
-    <div className="h-7 bg-indigo-600 flex items-center px-4 text-[11px] gap-3 shrink-0 select-none text-indigo-100">
+    <div className="flex h-7 shrink-0 items-center gap-3 bg-indigo-600 px-4 text-[11px] text-indigo-100 select-none">
       <span className="font-semibold text-white">
         {activeProject ? activeProject.domain : 'Flow Studio'}
       </span>
@@ -23,7 +23,7 @@ export function StatusBar() {
 
       {isDirty && (
         <span className="flex items-center gap-1.5 text-amber-200">
-          <span className="w-1.5 h-1.5 rounded-full bg-amber-300 animate-pulse" />
+          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-300" />
           Modified
         </span>
       )}
@@ -50,7 +50,7 @@ export function StatusBar() {
 
       <span className="flex items-center gap-1.5">
         <span
-          className={`w-2 h-2 rounded-full ${
+          className={`h-2 w-2 rounded-full ${
             connected
               ? healthStatus === 'healthy'
                 ? 'bg-emerald-300'

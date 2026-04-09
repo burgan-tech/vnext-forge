@@ -12,6 +12,7 @@ const DEFAULTS = {
   API_URL: 'https://api.example.com/api',
   API_URL_DEVELOPMENT: 'http://localhost:8080/api',
   ENVIRONMENT: 'DEVELOPMENT' as AppEnvironment,
+  RUNTIME_REVALIDATION_MIN_INTERVAL_SECONDS: 30,
 } as const;
 
 const rawStringSchema = z.string().trim().min(1);
@@ -23,6 +24,7 @@ const appConfigSchema = z.object({
   API_URL: urlSchema,
   API_URL_DEVELOPMENT: urlSchema,
   API_BASE_URL: urlSchema,
+  RUNTIME_REVALIDATION_MIN_INTERVAL_SECONDS: positiveIntegerSchema,
 });
 
 export type AppConfig = z.infer<typeof appConfigSchema>;
@@ -105,11 +107,19 @@ const apiUrlDevelopment = parseEnvField(
   normalizeString,
 );
 
+const runtimeRevalidationMinIntervalSeconds = parseEnvField(
+  'VITE_RUNTIME_REVALIDATION_MIN_INTERVAL_SECONDS',
+  env.VITE_RUNTIME_REVALIDATION_MIN_INTERVAL_SECONDS,
+  positiveIntegerSchema,
+  DEFAULTS.RUNTIME_REVALIDATION_MIN_INTERVAL_SECONDS,
+);
+
 export const APP_CONFIG = Object.freeze(
   appConfigSchema.parse({
     ENVIRONMENT: environment,
     API_URL: apiUrl,
     API_URL_DEVELOPMENT: apiUrlDevelopment,
     API_BASE_URL: environment === 'DEVELOPMENT' ? apiUrlDevelopment : apiUrl,
+    RUNTIME_REVALIDATION_MIN_INTERVAL_SECONDS: runtimeRevalidationMinIntervalSeconds,
   }),
 );

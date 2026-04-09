@@ -1,5 +1,6 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 
+import { ProjectWorkspacePage } from '@pages/project-workspace/ui/project-workspace-page';
 import { TestPage } from '@pages/test/test-page';
 
 import { AppLayout } from '../../layout/AppLayout';
@@ -7,7 +8,6 @@ import { CodeEditorPage } from '../../routes/CodeEditorPage';
 import { ExtensionEditorPage } from '../../routes/ExtensionEditorPage';
 import { FlowEditorPage } from '../../routes/FlowEditorPage';
 import { FunctionEditorPage } from '../../routes/FunctionEditorPage';
-import { ProjectWorkspacePage } from '../../routes/ProjectWorkspacePage';
 import { ProjectListPage } from '@pages/project-list/ui/project-list-page';
 import { SchemaEditorPage } from '../../routes/SchemaEditorPage';
 import { TaskEditorPage } from '../../routes/TaskEditorPage';

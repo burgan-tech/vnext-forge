@@ -20,6 +20,8 @@ Detailed implementation rules, slice constraints, and architecture-specific conv
 
 - If a component is needed, check `shared/ui` first and use it from there when it already exists.
 - In `shared/ui`, hover should follow interactivity. Non-clickable surfaces default to `hoverable={false}` unless explicitly requested; clickable descendants such as buttons, triggers, menu items, links, and checkbox controls may keep hover enabled.
+- Do not create `index.ts` files only to forward a single direct export. Prefer importing the concrete file when the path is already clear.
+- During FSD migration, do not keep route-level or legacy wrapper/re-export files for backward compatibility unless there is an explicit technical requirement for a staged migration.
 
 ## API Access
 
