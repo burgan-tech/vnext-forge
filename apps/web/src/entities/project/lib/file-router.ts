@@ -1,4 +1,4 @@
-import type { VnextConfig } from '../stores/project-store';
+import type { VnextConfig } from '../model/types';
 
 export type FileRouteType =
   | 'workflow'
@@ -15,9 +15,7 @@ export interface FileRoute {
   type: FileRouteType;
   group: string;
   name: string;
-  /** Route path for react-router navigation */
   navigateTo?: string;
-  /** For code editor tab opening */
   editorTab?: {
     filePath: string;
     language: string;
@@ -25,33 +23,26 @@ export interface FileRoute {
   };
 }
 
-/**
- * Resolve a file path to a route destination.
- *
- * Given an absolute file path and the vnext config, determines:
- * - Which editor to open (flow canvas, task editor, code editor, etc.)
- * - The group and name for sub-routes
- * - Or a code editor tab config for raw file editing
- */
 export function resolveFileRoute(
   filePath: string,
   config: VnextConfig | null,
   projectId: string,
   projectPath: string,
 ): FileRoute {
-  // Compute relative path from project root
-  const relativePath = filePath.startsWith(projectPath)
-    ? filePath.slice(projectPath.length).replace(/^\//, '')
-    : filePath;
+  const normalizedFilePath = normalizePath(filePath);
+  const normalizedProjectPath = normalizePath(projectPath);
 
-  // Check if it's vnext.config.json
+  const relativePath = normalizedFilePath.startsWith(normalizedProjectPath)
+    ? normalizedFilePath.slice(normalizedProjectPath.length).replace(/^\/+/, '')
+    : normalizedFilePath;
+
   if (relativePath === 'vnext.config.json') {
     return {
       type: 'config',
       group: '',
       name: 'vnext.config.json',
       editorTab: {
-        filePath,
+        filePath: normalizedFilePath,
         language: 'json',
         title: 'vnext.config.json',
       },
@@ -59,27 +50,32 @@ export function resolveFileRoute(
   }
 
   if (!config) {
-    return unknownFile(filePath, relativePath);
+    return unknownFile(normalizedFilePath, relativePath);
   }
 
-  const componentsRoot = config.paths.componentsRoot;
-  // Check if file is under componentsRoot
+  const componentsRoot = normalizeConfigPath(config.paths?.componentsRoot);
+  if (!componentsRoot) {
+    return unknownFile(normalizedFilePath, relativePath);
+  }
+
   if (!relativePath.startsWith(componentsRoot + '/')) {
-    return unknownFile(filePath, relativePath);
+    return unknownFile(normalizedFilePath, relativePath);
   }
 
-  // Strip componentsRoot prefix: "vnext-messaging-gateway/Workflows/otp/otp-sms.json" → "Workflows/otp/otp-sms.json"
   const componentRelative = relativePath.slice(componentsRoot.length + 1);
 
-  // Try to match each component type
-  const { workflows, tasks, schemas, mappings, views, functions, extensions } = config.paths;
+  const workflows = normalizeConfigPath(config.paths.workflows);
+  const tasks = normalizeConfigPath(config.paths.tasks);
+  const schemas = normalizeConfigPath(config.paths.schemas);
+  const mappings = normalizeConfigPath(config.paths.mappings);
+  const views = normalizeConfigPath(config.paths.views);
+  const functions = normalizeConfigPath(config.paths.functions);
+  const extensions = normalizeConfigPath(config.paths.extensions);
 
-  // Workflows: {workflows}/{group}/{name}.json
-  if (componentRelative.startsWith(workflows + '/')) {
+  if (workflows && componentRelative.startsWith(workflows + '/')) {
     const rest = componentRelative.slice(workflows.length + 1);
-    // Skip .meta directories and non-json files for workflow routing
     if (rest.startsWith('.meta/') || rest.includes('/.meta/')) {
-      return unknownFile(filePath, relativePath);
+      return unknownFile(normalizedFilePath, relativePath);
     }
     const parsed = parseGroupName(rest, '.json');
     if (parsed) {
@@ -92,8 +88,7 @@ export function resolveFileRoute(
     }
   }
 
-  // Tasks: {tasks}/{group}/{name}.json
-  if (componentRelative.startsWith(tasks + '/')) {
+  if (tasks && componentRelative.startsWith(tasks + '/')) {
     const rest = componentRelative.slice(tasks.length + 1);
     const parsed = parseGroupName(rest, '.json');
     if (parsed) {
@@ -106,8 +101,7 @@ export function resolveFileRoute(
     }
   }
 
-  // Schemas: {schemas}/{group}/{name}.json
-  if (componentRelative.startsWith(schemas + '/')) {
+  if (schemas && componentRelative.startsWith(schemas + '/')) {
     const rest = componentRelative.slice(schemas.length + 1);
     const parsed = parseGroupName(rest, '.json');
     if (parsed) {
@@ -120,8 +114,7 @@ export function resolveFileRoute(
     }
   }
 
-  // Views: {views}/{group}/{name}.json
-  if (componentRelative.startsWith(views + '/')) {
+  if (views && componentRelative.startsWith(views + '/')) {
     const rest = componentRelative.slice(views.length + 1);
     const parsed = parseGroupName(rest, '.json');
     if (parsed) {
@@ -134,8 +127,7 @@ export function resolveFileRoute(
     }
   }
 
-  // Functions: {functions}/{group}/{name}.json
-  if (componentRelative.startsWith(functions + '/')) {
+  if (functions && componentRelative.startsWith(functions + '/')) {
     const rest = componentRelative.slice(functions.length + 1);
     const parsed = parseGroupName(rest, '.json');
     if (parsed) {
@@ -148,8 +140,7 @@ export function resolveFileRoute(
     }
   }
 
-  // Extensions: {extensions}/{group}/{name}.json
-  if (componentRelative.startsWith(extensions + '/')) {
+  if (extensions && componentRelative.startsWith(extensions + '/')) {
     const rest = componentRelative.slice(extensions.length + 1);
     const parsed = parseGroupName(rest, '.json');
     if (parsed) {
@@ -162,8 +153,7 @@ export function resolveFileRoute(
     }
   }
 
-  // Mappings: {mappings}/**/*.csx → code editor
-  if (componentRelative.startsWith(mappings + '/')) {
+  if (mappings && componentRelative.startsWith(mappings + '/')) {
     const rest = componentRelative.slice(mappings.length + 1);
     const parts = rest.split('/');
     const fileName = parts[parts.length - 1];
@@ -174,17 +164,16 @@ export function resolveFileRoute(
       group,
       name: nameWithoutExt,
       editorTab: {
-        filePath,
+        filePath: normalizedFilePath,
         language: fileName.endsWith('.csx') ? 'csharp' : detectLanguage(fileName),
         title: fileName,
       },
     };
   }
 
-  return unknownFile(filePath, relativePath);
+  return unknownFile(normalizedFilePath, relativePath);
 }
 
-/** Parse "group/name.ext" from a relative path. Handles nested groups. */
 function parseGroupName(rest: string, expectedExt: string): { group: string; name: string } | null {
   if (!rest.endsWith(expectedExt)) return null;
   const parts = rest.split('/');
@@ -226,10 +215,20 @@ function detectLanguage(fileName: string): string {
     case 'css': return 'css';
     case 'http': return 'http';
     case 'sql': return 'sql';
-    case 'sh': case 'bash': return 'shell';
+    case 'sh':
+    case 'bash': return 'shell';
     case 'py': return 'python';
     case 'go': return 'go';
     case 'rs': return 'rust';
     default: return 'plaintext';
   }
+}
+
+function normalizePath(path?: string | null): string {
+  if (!path) return '';
+  return path.replace(/\\/g, '/');
+}
+
+function normalizeConfigPath(path?: string | null): string {
+  return normalizePath(path).replace(/^\/+|\/+$/g, '');
 }

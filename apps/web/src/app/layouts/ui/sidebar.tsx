@@ -7,10 +7,9 @@ import { Input } from '@shared/ui/input';
 import { useUIStore } from '@app/store/ui-store';
 
 import { useProjectStore } from '@entities/project/model/project-store';
+import { resolveFileRoute } from '@entities/project/lib/file-router';
 import { FileTree } from '@widgets/file-tree/ui/file-tree';
 import type { FileTreeNode } from '@widgets/file-tree/ui/file-tree';
-
-import { resolveFileRoute } from '../../../lib/file-router';
 import { useEditorStore } from '../../../stores/editor-store';
 import {
   createDirectory,
@@ -32,7 +31,7 @@ export function Sidebar() {
     (node: FileTreeNode) => {
       if (!activeProject) return;
       const route = resolveFileRoute(node.path, vnextConfig, activeProject.id, activeProject.path);
-
+      logger.info('File clicked', { path: node.path, resolvedRoute: route });
       if (route.navigateTo) {
         navigate(route.navigateTo);
       } else if (route.editorTab) {
@@ -123,7 +122,13 @@ export function Sidebar() {
       const groupPath = isWorkflowsRoot ? `${parentPath}/${wfName}` : parentPath;
       const groupName = groupPath.split('/').pop() || wfName;
 
-      logger.info('Creating workflow', { groupName, groupPath, isWorkflowsRoot, parentPath, wfName });
+      logger.info('Creating workflow', {
+        groupName,
+        groupPath,
+        isWorkflowsRoot,
+        parentPath,
+        wfName,
+      });
 
       const mkdirRes = await createDirectory(groupPath);
       if (!mkdirRes.success) {
@@ -175,7 +180,9 @@ export function Sidebar() {
         logger.error(`Write diagram JSON failed: ${groupPath}/.meta/${wfName}.diagram.json`);
       }
 
-      logger.info(`Workflow created, navigating to /project/${activeProject.id}/flow/${groupName}/${wfName}`);
+      logger.info(
+        `Workflow created, navigating to /project/${activeProject.id}/flow/${groupName}/${wfName}`,
+      );
       await refreshFileTree();
       navigate(`/project/${activeProject.id}/flow/${groupName}/${wfName}`);
     },
@@ -184,7 +191,7 @@ export function Sidebar() {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="px-4 py-3 text-[11px] font-semibold tracking-widest text-muted-foreground uppercase">
+      <div className="text-muted-foreground px-4 py-3 text-[11px] font-semibold tracking-widest uppercase">
         {sidebarView === 'project' && 'Explorer'}
         {sidebarView === 'search' && 'Search'}
         {sidebarView === 'validation' && 'Problems'}
@@ -197,11 +204,11 @@ export function Sidebar() {
             {activeProject ? (
               <div>
                 <div className="mt-2 flex items-center gap-2.5 px-4 pb-3">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-brand-from to-brand-to text-[11px] font-bold text-white shadow-sm shadow-brand-glow/20">
+                  <div className="from-brand-from to-brand-to shadow-brand-glow/20 flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br text-[11px] font-bold text-white shadow-sm">
                     {activeProject.domain[0].toUpperCase()}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <span className="block truncate text-[13px] font-semibold text-foreground">
+                    <span className="text-foreground block truncate text-[13px] font-semibold">
                       {activeProject.domain}
                     </span>
                   </div>
@@ -228,12 +235,10 @@ export function Sidebar() {
                 </div>
               </div>
             ) : (
-              <div className="mt-12 px-4 text-center text-xs text-muted-foreground">
+              <div className="text-muted-foreground mt-12 px-4 text-center text-xs">
                 No project selected.
                 <br />
-                <span className="text-[10px] text-subtle">
-                  Open a project from the home page.
-                </span>
+                <span className="text-subtle text-[10px]">Open a project from the home page.</span>
               </div>
             )}
           </>
@@ -242,18 +247,22 @@ export function Sidebar() {
         {sidebarView === 'search' && (
           <div className="mt-2 px-3">
             <Input size="sm" placeholder="Search files..." />
-            <div className="mt-6 text-center text-[10px] text-muted-foreground">
+            <div className="text-muted-foreground mt-6 text-center text-[10px]">
               Type to search across project files
             </div>
           </div>
         )}
 
         {sidebarView === 'validation' && (
-          <div className="mt-12 px-4 text-center text-xs text-muted-foreground">No problems detected</div>
+          <div className="text-muted-foreground mt-12 px-4 text-center text-xs">
+            No problems detected
+          </div>
         )}
 
         {sidebarView === 'templates' && (
-          <div className="mt-12 px-4 text-center text-xs text-muted-foreground">Settings coming soon</div>
+          <div className="text-muted-foreground mt-12 px-4 text-center text-xs">
+            Settings coming soon
+          </div>
         )}
       </div>
     </div>
