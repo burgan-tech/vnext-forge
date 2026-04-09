@@ -1,36 +1,113 @@
 import * as React from 'react';
+import { cva, type VariantProps } from 'class-variance-authority';
 
 import { cn } from '@shared/lib/utils/cn';
 
-function Field({ className, ...props }: React.ComponentProps<'div'>) {
-  return <div data-slot="field" className={cn('space-y-1', className)} {...props} />;
+const fieldVariants = cva('space-y-1', {
+  variants: {
+    variant: {
+      default: '',
+      secondary: '',
+      tertiary: '',
+    },
+  },
+  defaultVariants: {
+    variant: 'default',
+  },
+});
+
+const fieldLabelVariants = cva('block text-[10px] font-medium transition-colors duration-200 ease-out', {
+  variants: {
+    variant: {
+      default: 'text-primary-text/75',
+      secondary: 'text-secondary-text/75',
+      tertiary: 'text-tertiary-text/75',
+    },
+    interactive: {
+      true: 'inline-flex w-fit items-center rounded-md px-1.5 py-1 shadow-sm',
+      false: '',
+    },
+  },
+  compoundVariants: [
+    {
+      variant: 'default',
+      interactive: true,
+      className: 'border border-primary-border/60 bg-primary-muted/80 text-primary-text',
+    },
+    {
+      variant: 'secondary',
+      interactive: true,
+      className: 'border border-secondary-border/60 bg-secondary-muted/80 text-secondary-text',
+    },
+    {
+      variant: 'tertiary',
+      interactive: true,
+      className: 'border border-tertiary-border/60 bg-tertiary-muted/80 text-tertiary-text',
+    },
+  ],
+  defaultVariants: {
+    variant: 'default',
+    interactive: false,
+  },
+});
+
+const fieldHintVariants = cva('text-[10px]', {
+  variants: {
+    variant: {
+      default: 'text-primary-text/65',
+      secondary: 'text-secondary-text/65',
+      tertiary: 'text-tertiary-text/65',
+    },
+  },
+  defaultVariants: {
+    variant: 'default',
+  },
+});
+
+function Field({
+  className,
+  variant,
+  ...props
+}: React.ComponentProps<'div'> & VariantProps<typeof fieldVariants>) {
+  return <div data-slot="field" className={cn(fieldVariants({ variant }), className)} {...props} />;
 }
 
-function FieldLabel({ className, ...props }: React.ComponentProps<'label'>) {
+function FieldLabel({
+  className,
+  interactive,
+  variant,
+  ...props
+}: React.ComponentProps<'label'> & VariantProps<typeof fieldLabelVariants>) {
   return (
     <label
       data-slot="field-label"
-      className={cn('text-muted-foreground block text-[10px] font-medium', className)}
+      className={cn(fieldLabelVariants({ variant, interactive }), className)}
       {...props}
     />
   );
 }
 
-function FieldHint({ className, ...props }: React.ComponentProps<'p'>) {
+function FieldHint({
+  className,
+  variant,
+  ...props
+}: React.ComponentProps<'p'> & VariantProps<typeof fieldHintVariants>) {
   return (
     <p
       data-slot="field-hint"
-      className={cn('text-muted-foreground text-[10px]', className)}
+      className={cn(fieldHintVariants({ variant }), className)}
       {...props}
     />
   );
 }
 
-interface FieldRootProps extends React.ComponentProps<'div'> {
+interface FieldRootProps
+  extends React.ComponentProps<'div'>,
+    VariantProps<typeof fieldVariants> {
   label: React.ReactNode;
   hint?: React.ReactNode;
-  labelProps?: React.ComponentProps<'label'>;
-  hintProps?: React.ComponentProps<'p'>;
+  labelProps?: React.ComponentProps<typeof FieldLabel>;
+  hintProps?: React.ComponentProps<typeof FieldHint>;
 }
 
 function FieldRoot({
@@ -40,15 +117,22 @@ function FieldRoot({
   hintProps,
   label,
   labelProps,
+  variant,
   ...props
 }: FieldRootProps) {
   return (
-    <Field className={className} {...props}>
-      <FieldLabel {...labelProps}>{label}</FieldLabel>
+    <Field className={className} variant={variant} {...props}>
+      <FieldLabel variant={variant} {...labelProps}>
+        {label}
+      </FieldLabel>
       {children}
-      {hint ? <FieldHint {...hintProps}>{hint}</FieldHint> : null}
+      {hint ? (
+        <FieldHint variant={variant} {...hintProps}>
+          {hint}
+        </FieldHint>
+      ) : null}
     </Field>
   );
 }
 
-export { Field, FieldHint, FieldLabel, FieldRoot };
+export { Field, FieldHint, FieldLabel, FieldRoot, fieldVariants };

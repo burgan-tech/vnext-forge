@@ -4,14 +4,16 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@shared/lib/utils/cn';
 
 const inputRootVariants = cva(
-  'group/input relative isolate flex w-full items-center overflow-hidden rounded-2xl border-2 shadow-xs transition-[border-color,background-color,box-shadow,transform] outline-none',
+  'group/input relative isolate flex w-full items-center overflow-hidden rounded-2xl border shadow-xs transition-all duration-200 ease-out outline-none',
   {
     variants: {
       variant: {
         default:
-          'border-primary/35 bg-surface/95 cursor-text hover:-translate-y-px hover:border-primary/55 hover:bg-surface hover:shadow-sm focus-within:border-primary focus-within:bg-surface focus-within:shadow-md focus-within:ring-4 focus-within:ring-ring/12',
-        subtle:
-          'border-primary/25 bg-muted/80 cursor-text hover:-translate-y-px hover:border-primary/45 hover:bg-surface-raised hover:shadow-sm focus-within:border-primary/75 focus-within:bg-surface focus-within:shadow-md focus-within:ring-4 focus-within:ring-ring/12',
+          'cursor-text border-primary-border bg-primary text-primary-foreground focus-within:border-primary-border-hover focus-within:bg-primary-hover focus-within:ring-[3px] focus-within:ring-ring/50',
+        secondary:
+          'cursor-text border-secondary-border bg-secondary text-secondary-foreground focus-within:border-secondary-border-hover focus-within:bg-secondary-hover focus-within:ring-[3px] focus-within:ring-ring/50',
+        tertiary:
+          'cursor-text border-tertiary-border bg-tertiary text-tertiary-foreground focus-within:border-tertiary-border-hover focus-within:bg-tertiary-hover focus-within:ring-[3px] focus-within:ring-ring/50',
       },
       size: {
         sm: 'min-h-9 gap-2 px-3',
@@ -19,15 +21,23 @@ const inputRootVariants = cva(
         lg: 'min-h-12 gap-3 px-4',
       },
       invalid: {
-        true: 'border-destructive/60 ring-4 ring-destructive/10',
+        true: 'border-destructive-border bg-destructive/5 ring-[3px] ring-destructive/10',
         false: '',
       },
-      disabled: {
+      disabledState: {
         true: 'cursor-not-allowed opacity-60',
         false: '',
       },
-      readOnly: {
-        true: 'cursor-default bg-muted/60 hover:translate-y-0 hover:shadow-xs',
+      readOnlyState: {
+        true: 'cursor-default',
+        false: '',
+      },
+      hoverable: {
+        true: '',
+        false: '',
+      },
+      noBorder: {
+        true: 'border-0',
         false: '',
       },
     },
@@ -35,31 +45,56 @@ const inputRootVariants = cva(
       {
         invalid: true,
         variant: 'default',
-        className: 'focus-within:border-destructive/70 focus-within:ring-destructive/12',
+        className: 'focus-within:border-destructive-border-hover focus-within:ring-destructive/12',
       },
       {
         invalid: true,
-        variant: 'subtle',
-        className:
-          'border-destructive/50 bg-destructive/5 focus-within:border-destructive/70 focus-within:ring-destructive/12',
+        variant: 'secondary',
+        className: 'focus-within:border-destructive-border-hover focus-within:ring-destructive/12',
       },
       {
-        disabled: true,
-        className: 'hover:translate-y-0 hover:shadow-xs',
+        invalid: true,
+        variant: 'tertiary',
+        className: 'focus-within:border-destructive-border-hover focus-within:ring-destructive/12',
+      },
+      {
+        variant: 'default',
+        hoverable: true,
+        className: 'hover:border-primary-border-hover hover:bg-primary-hover',
+      },
+      {
+        variant: 'secondary',
+        hoverable: true,
+        className: 'hover:border-secondary-border-hover hover:bg-secondary-hover',
+      },
+      {
+        variant: 'tertiary',
+        hoverable: true,
+        className: 'hover:border-tertiary-border-hover hover:bg-tertiary-hover',
+      },
+      {
+        disabledState: true,
+        className: 'hover:translate-y-0',
+      },
+      {
+        readOnlyState: true,
+        className: 'hover:translate-y-0',
       },
     ],
     defaultVariants: {
       variant: 'default',
       size: 'default',
       invalid: false,
-      disabled: false,
-      readOnly: false,
+      disabledState: false,
+      readOnlyState: false,
+      hoverable: true,
+      noBorder: false,
     },
   },
 );
 
 const inputElementVariants = cva(
-  'placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground flex-1 border-0 bg-transparent text-sm text-foreground outline-none file:mr-3 file:rounded-md file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground disabled:cursor-not-allowed',
+  'placeholder:text-current/50 selection:bg-primary-muted selection:text-primary-foreground flex-1 border-0 bg-transparent text-sm text-current outline-none file:mr-3 file:rounded-md file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-current disabled:cursor-not-allowed',
   {
     variants: {
       size: {
@@ -85,26 +120,59 @@ const inputElementVariants = cva(
 );
 
 const inputAdornmentVariants = cva(
-  'text-muted-foreground flex shrink-0 items-center justify-center transition-colors group-hover/input:text-foreground/80 ',
+  'flex shrink-0 items-center justify-center rounded-lg border shadow-sm transition-all duration-200 ease-out',
   {
     variants: {
+      variant: {
+        default: 'border-primary-border bg-primary-muted text-primary-icon',
+        secondary: 'border-secondary-border bg-secondary-muted text-secondary-icon',
+        tertiary: 'border-tertiary-border bg-tertiary-muted text-tertiary-icon',
+      },
       size: {
-        sm: 'text-xs',
-        default: 'text-sm',
-        lg: 'text-sm',
+        sm: 'size-7 text-xs',
+        default: 'size-8 text-sm',
+        lg: 'size-9 text-sm',
+      },
+      hoverable: {
+        true: '',
+        false: '',
       },
     },
+    compoundVariants: [
+      {
+        variant: 'default',
+        hoverable: true,
+        className: 'group-hover/input:border-primary-border-hover group-hover/input:bg-primary-muted-hover',
+      },
+      {
+        variant: 'secondary',
+        hoverable: true,
+        className: 'group-hover/input:border-secondary-border-hover group-hover/input:bg-secondary-muted-hover',
+      },
+      {
+        variant: 'tertiary',
+        hoverable: true,
+        className: 'group-hover/input:border-tertiary-border-hover group-hover/input:bg-tertiary-muted-hover',
+      },
+    ],
     defaultVariants: {
+      variant: 'default',
       size: 'default',
+      hoverable: true,
     },
   },
 );
 
 type NativeInputProps = Omit<React.ComponentProps<'input'>, 'size'>;
 
-interface InputProps extends NativeInputProps, VariantProps<typeof inputRootVariants> {
+interface InputProps
+  extends NativeInputProps,
+    Omit<VariantProps<typeof inputRootVariants>, 'disabledState' | 'readOnlyState'>,
+    Omit<VariantProps<typeof inputAdornmentVariants>, 'size' | 'hoverable'> {
+  hoverable?: boolean;
   inputClassName?: string;
   leading?: React.ReactNode;
+  noAdornmentHover?: boolean;
   trailing?: React.ReactNode;
 }
 
@@ -113,8 +181,11 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     {
       className,
       disabled = false,
+      hoverable = true,
       inputClassName,
       leading,
+      noAdornmentHover = false,
+      noBorder = false,
       readOnly = false,
       size,
       trailing,
@@ -131,7 +202,18 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     return (
       <div
         data-slot="input-root"
-        className={cn(inputRootVariants({ variant, size, invalid, disabled, readOnly }), className)}
+        className={cn(
+          inputRootVariants({
+            variant,
+            size,
+            invalid,
+            disabledState: disabled,
+            readOnlyState: readOnly,
+            hoverable,
+            noBorder,
+          }),
+          className,
+        )}
         onMouseDown={(event) => {
           if (disabled || readOnly) {
             return;
@@ -148,7 +230,14 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         {leading ? (
           <span
             data-slot="input-leading"
-            className={cn(inputAdornmentVariants({ size }), 'relative z-10')}>
+            className={cn(
+              inputAdornmentVariants({
+                variant,
+                size,
+                hoverable: hoverable && !noAdornmentHover && !disabled && !readOnly,
+              }),
+              'relative z-10',
+            )}>
             {leading}
           </span>
         ) : null}
@@ -171,7 +260,14 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         {trailing ? (
           <span
             data-slot="input-trailing"
-            className={cn(inputAdornmentVariants({ size }), 'relative z-10')}>
+            className={cn(
+              inputAdornmentVariants({
+                variant,
+                size,
+                hoverable: hoverable && !noAdornmentHover && !disabled && !readOnly,
+              }),
+              'relative z-10',
+            )}>
             {trailing}
           </span>
         ) : null}

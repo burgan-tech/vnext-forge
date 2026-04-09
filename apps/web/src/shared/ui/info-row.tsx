@@ -1,10 +1,72 @@
 import * as React from 'react';
+import { cva, type VariantProps } from 'class-variance-authority';
 import { Copy } from 'lucide-react';
 
 import { Button } from '@shared/ui/button';
 import { cn } from '@shared/lib/utils/cn';
 
-interface InfoRowProps extends React.ComponentProps<'div'> {
+const infoRowVariants = cva('flex items-start gap-3 py-1.5', {
+  variants: {
+    variant: {
+      default: '',
+      secondary: '',
+      tertiary: '',
+    },
+  },
+  defaultVariants: {
+    variant: 'default',
+  },
+});
+
+const infoRowLabelVariants = cva('w-24 shrink-0 text-xs font-medium', {
+  variants: {
+    variant: {
+      default: 'text-primary-text/70',
+      secondary: 'text-secondary-text/70',
+      tertiary: 'text-tertiary-text/70',
+    },
+  },
+  defaultVariants: {
+    variant: 'default',
+  },
+});
+
+const infoRowValueVariants = cva('min-w-0 flex-1 break-all text-sm', {
+  variants: {
+    variant: {
+      default: 'text-primary-text',
+      secondary: 'text-secondary-text',
+      tertiary: 'text-tertiary-text',
+    },
+    mono: {
+      true: '',
+      false: '',
+    },
+  },
+  compoundVariants: [
+    {
+      variant: 'default',
+      mono: true,
+      className: 'rounded-md bg-primary-muted/70 px-2 py-1 font-mono text-xs',
+    },
+    {
+      variant: 'secondary',
+      mono: true,
+      className: 'rounded-md bg-secondary-muted/70 px-2 py-1 font-mono text-xs',
+    },
+    {
+      variant: 'tertiary',
+      mono: true,
+      className: 'rounded-md bg-tertiary-muted/70 px-2 py-1 font-mono text-xs',
+    },
+  ],
+  defaultVariants: {
+    variant: 'default',
+    mono: false,
+  },
+});
+
+interface InfoRowProps extends React.ComponentProps<'div'>, VariantProps<typeof infoRowVariants> {
   copyable?: boolean;
   label?: React.ReactNode;
   mono?: boolean;
@@ -16,6 +78,7 @@ function InfoRow({
   copyable = false,
   label,
   mono = false,
+  variant,
   value,
   ...props
 }: InfoRowProps) {
@@ -34,26 +97,23 @@ function InfoRow({
   return (
     <div
       data-slot="info-row"
-      className={cn('flex items-start gap-3 py-1.5', className)}
+      className={cn(infoRowVariants({ variant }), className)}
       {...props}
     >
       {label ? (
-        <div className="text-muted-foreground w-24 shrink-0 text-xs font-medium">{label}</div>
+        <div className={cn(infoRowLabelVariants({ variant }))}>{label}</div>
       ) : null}
-      <div
-        className={cn(
-          'min-w-0 flex-1 break-all text-sm',
-          mono && 'bg-muted rounded-md px-2 py-1 font-mono text-xs',
-        )}
-      >
+      <div className={cn(infoRowValueVariants({ variant, mono }))}>
         {value}
       </div>
       {copyable && typeof value === 'string' ? (
         <Button
           type="button"
-          variant="ghost"
+          variant={variant ?? 'default'}
           size="icon"
           onClick={copyValue}
+          noBorder
+          noIconHover
           className="size-7 shrink-0"
           aria-label="Copy value"
         >
@@ -64,4 +124,4 @@ function InfoRow({
   );
 }
 
-export { InfoRow };
+export { InfoRow, infoRowVariants };

@@ -19,6 +19,7 @@ When working in `apps/web`, optimize for a maintainable product-facing web clien
 Detailed implementation rules, slice constraints, and architecture-specific conventions should be referenced from dedicated rule documents once finalized.
 
 - If a component is needed, check `shared/ui` first and use it from there when it already exists.
+- In `shared/ui`, hover should follow interactivity. Non-clickable surfaces default to `hoverable={false}` unless explicitly requested; clickable descendants such as buttons, triggers, menu items, links, and checkbox controls may keep hover enabled.
 
 ## API Access
 

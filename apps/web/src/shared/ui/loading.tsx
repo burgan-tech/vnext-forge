@@ -1,10 +1,17 @@
 import { motion } from 'framer-motion';
 import { Loader2, Zap } from 'lucide-react';
 import type { ComponentType } from 'react';
+import { cn } from '@shared/lib/utils/cn';
 
 export type LoadingVariant = 'spinner' | 'dots' | 'pulse' | 'bounce' | 'wave' | 'custom';
 export type LoadingSize = 'sm' | 'md' | 'lg' | 'xl';
-export type LoadingColor = 'primary' | 'secondary' | 'white' | 'muted';
+export type LoadingColor =
+  | 'primary'
+  | 'secondary'
+  | 'tertiary'
+  | 'destructive'
+  | 'white'
+  | 'muted';
 
 export interface LoadingConfig {
   variant?: LoadingVariant;
@@ -66,6 +73,8 @@ const animatedSizeConfig: Record<
 const colorConfig: Record<LoadingColor, string> = {
   primary: 'text-primary',
   secondary: 'text-secondary',
+  tertiary: 'text-tertiary',
+  destructive: 'text-destructive',
   white: 'text-white',
   muted: 'text-muted-foreground',
 };
@@ -181,8 +190,7 @@ const Loading = ({ config, className = '' }: LoadingProps) => {
   };
 
   const loadingContent = (
-    <div
-      className={`flex flex-col items-center justify-center ${currentSize.container} ${className}`}>
+    <div className={cn('flex flex-col items-center justify-center', currentSize.container, className)}>
       {renderLoadingAnimation()}
       {mergedConfig.showText && mergedConfig.text && (
         <motion.p
@@ -198,7 +206,7 @@ const Loading = ({ config, className = '' }: LoadingProps) => {
 
   if (mergedConfig.fullScreen) {
     return (
-      <div className="bg-background/80 fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm">
+      <div className="bg-primary/65 fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm">
         {loadingContent}
       </div>
     );
@@ -206,7 +214,7 @@ const Loading = ({ config, className = '' }: LoadingProps) => {
 
   if (mergedConfig.overlay) {
     return (
-      <div className="bg-background/50 absolute inset-0 z-40 flex items-center justify-center backdrop-blur-sm">
+      <div className="bg-primary/45 absolute inset-0 z-40 flex items-center justify-center rounded-[inherit] backdrop-blur-sm">
         {loadingContent}
       </div>
     );

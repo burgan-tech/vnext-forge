@@ -4,17 +4,53 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@shared/lib/utils/cn';
 
 const alertVariants = cva(
-  'relative w-full rounded-lg border px-4 py-3 text-sm grid has-[>svg]:grid-cols-[calc(var(--spacing)*4)_1fr] grid-cols-[0_1fr] has-[>svg]:gap-x-3 gap-y-0.5 items-start [&>svg]:size-4 [&>svg]:translate-y-0.5 [&>svg]:text-current',
+  'relative w-full rounded-lg border px-4 py-3 text-sm grid has-[>svg]:grid-cols-[calc(var(--spacing)*4)_1fr] grid-cols-[0_1fr] has-[>svg]:gap-x-3 gap-y-0.5 items-start transition-all duration-200 ease-out [&>svg]:size-4 [&>svg]:translate-y-0.5 [&>svg]:text-current',
   {
     variants: {
       variant: {
-        default: 'bg-card text-card-foreground',
+        default: 'border-primary-border bg-primary text-primary-foreground [&>svg]:text-primary-icon',
+        secondary:
+          'border-secondary-border bg-secondary text-secondary-foreground [&>svg]:text-secondary-icon',
+        tertiary:
+          'border-tertiary-border bg-tertiary text-tertiary-foreground [&>svg]:text-tertiary-icon',
         destructive:
-          'text-destructive bg-card [&>svg]:text-current *:data-[slot=alert-description]:text-destructive/90',
+          'border-destructive-border bg-destructive text-white [&>svg]:text-white *:data-[slot=alert-description]:text-white/90',
+      },
+      hoverable: {
+        true: '',
+        false: '',
+      },
+      noBorder: {
+        true: 'border-0',
+        false: '',
       },
     },
+    compoundVariants: [
+      {
+        variant: 'default',
+        hoverable: true,
+        className: 'hover:border-primary-border-hover hover:bg-primary-hover',
+      },
+      {
+        variant: 'secondary',
+        hoverable: true,
+        className: 'hover:border-secondary-border-hover hover:bg-secondary-hover',
+      },
+      {
+        variant: 'tertiary',
+        hoverable: true,
+        className: 'hover:border-tertiary-border-hover hover:bg-tertiary-hover',
+      },
+      {
+        variant: 'destructive',
+        hoverable: true,
+        className: 'hover:border-destructive-border-hover hover:bg-destructive-hover',
+      },
+    ],
     defaultVariants: {
       variant: 'default',
+      hoverable: false,
+      noBorder: false,
     },
   },
 );
@@ -22,13 +58,15 @@ const alertVariants = cva(
 function Alert({
   className,
   variant,
+  hoverable,
+  noBorder,
   ...props
 }: React.ComponentProps<'div'> & VariantProps<typeof alertVariants>) {
   return (
     <div
       data-slot="alert"
       role="alert"
-      className={cn(alertVariants({ variant }), className)}
+      className={cn(alertVariants({ variant, hoverable, noBorder }), className)}
       {...props}
     />
   );
@@ -49,7 +87,7 @@ function AlertDescription({ className, ...props }: React.ComponentProps<'div'>) 
     <div
       data-slot="alert-description"
       className={cn(
-        'text-muted-foreground col-start-2 grid justify-items-start gap-1 text-sm [&_p]:leading-relaxed',
+        'col-start-2 grid justify-items-start gap-1 text-sm text-current/80 [&_p]:leading-relaxed',
         className,
       )}
       {...props}
@@ -57,4 +95,70 @@ function AlertDescription({ className, ...props }: React.ComponentProps<'div'>) 
   );
 }
 
-export { Alert, AlertTitle, AlertDescription };
+const alertActionVariants = cva(
+  'inline-flex items-center justify-center rounded-xl border px-3 py-2 text-sm font-medium shadow-sm transition-all duration-200 ease-out focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none',
+  {
+    variants: {
+      variant: {
+        default: 'border-primary-border bg-primary-surface text-primary-text',
+        secondary: 'border-secondary-border bg-secondary-surface text-secondary-text',
+        tertiary: 'border-tertiary-border bg-tertiary-surface text-tertiary-text',
+        destructive: 'border-destructive-border bg-destructive-surface text-destructive-text',
+      },
+      hoverable: {
+        true: 'cursor-pointer',
+        false: '',
+      },
+      noBorder: {
+        true: 'border-0',
+        false: '',
+      },
+    },
+    compoundVariants: [
+      {
+        variant: 'default',
+        hoverable: true,
+        className: 'hover:-translate-y-px hover:border-primary-border-hover hover:bg-primary-hover',
+      },
+      {
+        variant: 'secondary',
+        hoverable: true,
+        className: 'hover:-translate-y-px hover:border-secondary-border-hover hover:bg-secondary-hover',
+      },
+      {
+        variant: 'tertiary',
+        hoverable: true,
+        className: 'hover:-translate-y-px hover:border-tertiary-border-hover hover:bg-tertiary-hover',
+      },
+      {
+        variant: 'destructive',
+        hoverable: true,
+        className: 'hover:-translate-y-px hover:border-destructive-border-hover hover:bg-destructive-hover hover:text-white',
+      },
+    ],
+    defaultVariants: {
+      variant: 'default',
+      hoverable: true,
+      noBorder: false,
+    },
+  },
+);
+
+function AlertAction({
+  className,
+  variant,
+  hoverable,
+  noBorder,
+  ...props
+}: React.ComponentProps<'button'> & VariantProps<typeof alertActionVariants>) {
+  return (
+    <button
+      data-slot="alert-action"
+      type="button"
+      className={cn(alertActionVariants({ variant, hoverable, noBorder }), className)}
+      {...props}
+    />
+  );
+}
+
+export { Alert, AlertTitle, AlertDescription, AlertAction };

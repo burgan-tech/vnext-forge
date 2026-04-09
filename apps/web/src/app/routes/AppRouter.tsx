@@ -31,9 +31,9 @@ export function AppRouter() {
             <Route path=":id/extension/:group/:name" element={<ExtensionEditorPage />} />
             <Route path=":id/code/*" element={<CodeEditorPage />} />
           </Route>
-          <Route path="/test" element={<TestPage />} />
         </Route>
         // test page
+        <Route path="/test" element={<TestPage />} />
       </Routes>
     </BrowserRouter>
   );

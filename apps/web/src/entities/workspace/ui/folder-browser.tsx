@@ -28,7 +28,31 @@ export function FolderBrowser({
   onNavigate,
   onSelect,
 }: FolderBrowserProps) {
-  const segments = currentPath.split('/').filter(Boolean);
+  const isWindowsPath = /^[A-Za-z]:[\\/]/.test(currentPath);
+  const separator = isWindowsPath ? '\\' : '/';
+  const normalizedSegments = currentPath.split(/[\\/]+/).filter(Boolean);
+  const breadcrumbItems = normalizedSegments.map((segment, index) => {
+    if (isWindowsPath) {
+      const drive = normalizedSegments[0];
+
+      if (index === 0) {
+        return {
+          label: segment,
+          path: drive.endsWith('\\') ? drive : `${drive}\\`,
+        };
+      }
+
+      return {
+        label: segment,
+        path: `${drive}\\${normalizedSegments.slice(1, index + 1).join('\\')}`,
+      };
+    }
+
+    return {
+      label: segment,
+      path: `${separator}${normalizedSegments.slice(0, index + 1).join(separator)}`,
+    };
+  });
 
   return (
     <div className={inline ? 'space-y-3' : 'relative'}>
@@ -62,15 +86,13 @@ export function FolderBrowser({
               : 'absolute top-11 right-0 left-0 z-50 max-h-60 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-xl shadow-slate-900/5'
           }>
           <div className="flex items-center gap-1 overflow-x-auto border-b border-slate-100 px-3 py-2 text-xs text-slate-500">
-            {segments.length > 0 ? (
-              segments.map((segment, index) => {
-                const path = `/${segments.slice(0, index + 1).join('/')}`;
-
+            {breadcrumbItems.length > 0 ? (
+              breadcrumbItems.map((item, index) => {
                 return (
-                  <span key={path} className="flex shrink-0 items-center gap-1">
+                  <span key={item.path} className="flex shrink-0 items-center gap-1">
                     {index > 0 ? <ChevronRight size={10} className="text-slate-300" /> : null}
-                    <Button onClick={() => onNavigate(path)} className="hover:text-sky-600">
-                      {segment}
+                    <Button onClick={() => onNavigate(item.path)} className="hover:text-sky-600">
+                      {item.label}
                     </Button>
                   </span>
                 );

@@ -1,15 +1,62 @@
 import * as React from 'react';
+import { cva, type VariantProps } from 'class-variance-authority';
 
 import { cn } from '@shared/lib/utils/cn';
 
-function Card({ className, ...props }: React.ComponentProps<'div'>) {
+const cardVariants = cva(
+  'flex flex-col gap-6 rounded-xl border py-6 shadow-sm transition-all duration-200 ease-out',
+  {
+    variants: {
+      variant: {
+        default: 'border-primary-border bg-primary text-primary-foreground',
+        secondary: 'border-secondary-border bg-secondary text-secondary-foreground',
+        tertiary: 'border-tertiary-border bg-tertiary text-tertiary-foreground',
+      },
+      hoverable: {
+        true: '',
+        false: '',
+      },
+      noBorder: {
+        true: 'border-0',
+        false: '',
+      },
+    },
+    compoundVariants: [
+      {
+        variant: 'default',
+        hoverable: true,
+        className: 'hover:border-primary-border-hover hover:bg-primary-hover',
+      },
+      {
+        variant: 'secondary',
+        hoverable: true,
+        className: 'hover:border-secondary-border-hover hover:bg-secondary-hover',
+      },
+      {
+        variant: 'tertiary',
+        hoverable: true,
+        className: 'hover:border-tertiary-border-hover hover:bg-tertiary-hover',
+      },
+    ],
+    defaultVariants: {
+      variant: 'default',
+      hoverable: false,
+      noBorder: false,
+    },
+  },
+);
+
+function Card({
+  className,
+  variant,
+  hoverable,
+  noBorder,
+  ...props
+}: React.ComponentProps<'div'> & VariantProps<typeof cardVariants>) {
   return (
     <div
       data-slot="card"
-      className={cn(
-        'bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-sm',
-        className,
-      )}
+      className={cn(cardVariants({ variant, hoverable, noBorder }), className)}
       {...props}
     />
   );
@@ -42,17 +89,93 @@ function CardDescription({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
       data-slot="card-description"
-      className={cn('text-muted-foreground text-sm', className)}
+      className={cn('text-sm text-current/70', className)}
       {...props}
     />
   );
 }
 
-function CardAction({ className, ...props }: React.ComponentProps<'div'>) {
+const cardActionVariants = cva(
+  'col-start-2 row-span-2 row-start-1 self-start justify-self-end rounded-xl transition-all duration-200 ease-out',
+  {
+    variants: {
+      variant: {
+        default: '',
+        secondary: '',
+        tertiary: '',
+      },
+      interactive: {
+        true: 'border px-3 py-2 shadow-sm',
+        false: '',
+      },
+      hoverable: {
+        true: '',
+        false: '',
+      },
+      noBorder: {
+        true: 'border-0',
+        false: '',
+      },
+    },
+    compoundVariants: [
+      {
+        variant: 'default',
+        interactive: true,
+        className: 'border-primary-border bg-primary-surface text-primary-text',
+      },
+      {
+        variant: 'secondary',
+        interactive: true,
+        className: 'border-secondary-border bg-secondary-surface text-secondary-text',
+      },
+      {
+        variant: 'tertiary',
+        interactive: true,
+        className: 'border-tertiary-border bg-tertiary-surface text-tertiary-text',
+      },
+      {
+        variant: 'default',
+        interactive: true,
+        hoverable: true,
+        className: 'hover:-translate-y-px hover:border-primary-border-hover hover:bg-primary-hover',
+      },
+      {
+        variant: 'secondary',
+        interactive: true,
+        hoverable: true,
+        className: 'hover:-translate-y-px hover:border-secondary-border-hover hover:bg-secondary-hover',
+      },
+      {
+        variant: 'tertiary',
+        interactive: true,
+        hoverable: true,
+        className: 'hover:-translate-y-px hover:border-tertiary-border-hover hover:bg-tertiary-hover',
+      },
+    ],
+    defaultVariants: {
+      variant: 'default',
+      interactive: false,
+      hoverable: true,
+      noBorder: false,
+    },
+  },
+);
+
+function CardAction({
+  className,
+  variant,
+  interactive,
+  hoverable,
+  noBorder,
+  ...props
+}: React.ComponentProps<'div'> & VariantProps<typeof cardActionVariants>) {
   return (
     <div
       data-slot="card-action"
-      className={cn('col-start-2 row-span-2 row-start-1 self-start justify-self-end', className)}
+      className={cn(
+        cardActionVariants({ variant, interactive, hoverable, noBorder }),
+        className,
+      )}
       {...props}
     />
   );
@@ -72,4 +195,13 @@ function CardFooter({ className, ...props }: React.ComponentProps<'div'>) {
   );
 }
 
-export { Card, CardHeader, CardFooter, CardTitle, CardAction, CardDescription, CardContent };
+export {
+  Card,
+  CardHeader,
+  CardFooter,
+  CardTitle,
+  CardAction,
+  CardDescription,
+  CardContent,
+  cardVariants,
+};

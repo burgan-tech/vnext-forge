@@ -1,17 +1,70 @@
 import * as React from 'react';
 import * as CheckboxPrimitive from '@radix-ui/react-checkbox';
+import { cva, type VariantProps } from 'class-variance-authority';
 import { CheckIcon } from 'lucide-react';
 
 import { cn } from '@shared/lib/utils/cn';
 
-function Checkbox({ className, ...props }: React.ComponentProps<typeof CheckboxPrimitive.Root>) {
+const checkboxVariants = cva(
+  'peer size-4 shrink-0 rounded-[4px] border shadow-xs transition-all duration-200 ease-out outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive disabled:cursor-not-allowed disabled:opacity-50 data-[state=checked]:text-current',
+  {
+    variants: {
+      variant: {
+        default:
+          'border-primary-border bg-primary text-primary-icon data-[state=checked]:border-primary-border data-[state=checked]:bg-primary-muted',
+        secondary:
+          'border-secondary-border bg-secondary text-secondary-icon data-[state=checked]:border-secondary-border data-[state=checked]:bg-secondary-muted',
+        tertiary:
+          'border-tertiary-border bg-tertiary text-tertiary-icon data-[state=checked]:border-tertiary-border data-[state=checked]:bg-tertiary-muted',
+      },
+      hoverable: {
+        true: '',
+        false: '',
+      },
+      noBorder: {
+        true: 'border-0',
+        false: '',
+      },
+    },
+    compoundVariants: [
+      {
+        variant: 'default',
+        hoverable: true,
+        className:
+          'hover:border-primary-border-hover hover:bg-primary-hover data-[state=checked]:hover:border-primary-border-hover data-[state=checked]:hover:bg-primary-muted-hover',
+      },
+      {
+        variant: 'secondary',
+        hoverable: true,
+        className:
+          'hover:border-secondary-border-hover hover:bg-secondary-hover data-[state=checked]:hover:border-secondary-border-hover data-[state=checked]:hover:bg-secondary-muted-hover',
+      },
+      {
+        variant: 'tertiary',
+        hoverable: true,
+        className:
+          'hover:border-tertiary-border-hover hover:bg-tertiary-hover data-[state=checked]:hover:border-tertiary-border-hover data-[state=checked]:hover:bg-tertiary-muted-hover',
+      },
+    ],
+    defaultVariants: {
+      variant: 'default',
+      hoverable: true,
+      noBorder: false,
+    },
+  },
+);
+
+function Checkbox({
+  className,
+  variant,
+  hoverable,
+  noBorder,
+  ...props
+}: React.ComponentProps<typeof CheckboxPrimitive.Root> & VariantProps<typeof checkboxVariants>) {
   return (
     <CheckboxPrimitive.Root
       data-slot="checkbox"
-      className={cn(
-        'peer border-input dark:bg-input/30 data-[state=checked]:bg-primary data-[state=checked]:text-primary-foreground dark:data-[state=checked]:bg-primary data-[state=checked]:border-primary focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive size-4 shrink-0 rounded-[4px] border shadow-xs transition-shadow outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50',
-        className,
-      )}
+      className={cn(checkboxVariants({ variant, hoverable, noBorder }), className)}
       {...props}>
       <CheckboxPrimitive.Indicator
         data-slot="checkbox-indicator"
@@ -22,4 +75,4 @@ function Checkbox({ className, ...props }: React.ComponentProps<typeof CheckboxP
   );
 }
 
-export { Checkbox };
+export { Checkbox, checkboxVariants };

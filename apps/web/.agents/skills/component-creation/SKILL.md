@@ -68,12 +68,15 @@ Transport-only: `apiClient`, `callApi`, `unwrapApi`. No business logic here.
 - Reuse an existing component before creating a new one.
 - If a component is needed, check `shared/ui` first.
 - If the component already exists in `shared/ui`, use that implementation instead of creating a duplicate elsewhere.
+- In `shared/ui`, default hover behavior must follow interactivity ownership. Passive containers and static surfaces should default to `hoverable={false}`; clickable descendants may keep their own hover behavior.
+- In `shared/ui`, clickable descendants must also be visually separable in their resting state. Do not rely on hover as the first or only affordance; use semantic surface, border, spacing, radius, and when appropriate subtle elevation so users can read the element as interactive before hovering it.
 - Build new component styling with Tailwind utility classes.
 - Move new work toward the target FSD tree even if nearby legacy code still lives elsewhere.
 - Keep presentational primitives in `shared/ui`.
 - Keep business-concept UI and API access in the owning `entities/*/`.
 - Keep user-flow UI and `useAsync` hooks in the owning `features/*/`.
 - Use `widgets` for composition, not for hidden business rules.
+- Keep destructive semantics tied to actual destructive behavior. `cancel`, `close`, `dismiss`, and `back` style actions should default to neutral or secondary semantics unless the action itself deletes, resets, removes, or irreversibly changes user data.
 
 ## Do Not Do
 
@@ -84,6 +87,9 @@ Transport-only: `apiClient`, `callApi`, `unwrapApi`. No business logic here.
 - Do not create cross-feature or cross-entity dependencies.
 - Do not call `apiClient` from widgets, pages, features, or hooks; that belongs in `entities/*/api.ts`.
 - Do not add new component styling through plain CSS files, SCSS modules, CSS-in-JS, or inline style objects when Tailwind can express the UI.
+- Do not add decorative hover to non-clickable `shared/ui` surfaces by default. Hover should usually communicate interaction.
+- Do not make hover the only signal that an element is clickable.
+- Do not style `cancel`, `close`, `dismiss`, or `back` actions with destructive variants unless the underlying action is genuinely destructive.
 
 ## Decision Order
 
@@ -93,6 +99,36 @@ Transport-only: `apiClient`, `callApi`, `unwrapApi`. No business logic here.
 4. Create the narrowest possible component in that layer.
 5. Keep state and side effects out of lower presentation layers unless the layer truly owns them.
 6. If the component needs data, wire it through the entity `api.ts` -> `useAsync` chain, not directly through `apiClient`.
+
+## Shared UI Quick Map
+
+- `button`: primary actions, inline actions, icon actions, submit/reset triggers
+- `input`: short free-text, search, simple controlled text entry
+- `textarea`: long-form text, notes, descriptions, multi-line editing
+- `select`: constrained single selection from a known option list
+- `checkbox`: boolean choice or multi-select option toggles
+- `label`: field captions, helper labels, compact form semantics
+- `field`: form row shell that groups label, control, hint, and validation text
+- `section`: titled content grouping, collapsible content blocks, page subsections
+- `card`: generic content surface for grouped information or actions
+- `summary-card`: compact metric, status, or highlight summary surfaces
+- `alert`: inline status, warning, info, or error messaging blocks
+- `badge`: compact status, count, tag, or state indicators
+- `accordion`: expandable content when multiple stacked disclosures are needed
+- `dialog`: blocking confirmation, focused form flows, modal detail views
+- `dropdown-menu`: compact action lists and contextual command menus
+- `navigation-menu`: navigational action groups and menu-driven section switching
+- `tabs`: peer views within the same context, not route-level navigation
+- `tooltip`: short supplemental hints, not primary content delivery
+- `separator`: low-emphasis visual separation between related regions
+- `loading`: inline or section-level loading feedback and busy states
+- `info-row`: labeled read-only values, metadata rows, copyable facts
+- `json-code-field`: JSON/code preview or lightweight structured text editing
+- `key-value-editor`: structured pair editing for maps, headers, params, metadata
+- `tag-editor`: lightweight tag/chip creation and removal flows
+- `sonner`: transient toast feedback for completed actions or async outcomes
+
+Choose the narrowest `shared/ui` primitive that already matches the interaction before composing a new wrapper. If multiple primitives could work, prefer the one that preserves semantics and reduces custom state handling.
 
 ## Review Standard
 
@@ -105,6 +141,8 @@ Flag the implementation if:
 - a page or widget owns logic that should live in a lower slice
 - `apiClient` is called outside `entities/*/api.ts` or `features/*/api.ts`
 - new UI is implemented without Tailwind despite no explicit constraint requiring an existing styling system
+- interactive affordances only become discoverable on hover and are not visually separated from their parent surface at rest
+- destructive styling is applied to routine dismissal actions such as `cancel` or `close` without destructive behavior
 
 ## Component Creation Notes
 

@@ -40,7 +40,6 @@ export function CreateProjectCard({ onCreated }: CreateProjectCardProps) {
               void createProject.submit();
             }
           }}
-          className=""
         />
 
         <FolderBrowser

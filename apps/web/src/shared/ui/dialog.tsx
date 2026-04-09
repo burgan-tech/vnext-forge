@@ -1,8 +1,96 @@
 import * as React from 'react';
 import * as DialogPrimitive from '@radix-ui/react-dialog';
+import { cva, type VariantProps } from 'class-variance-authority';
 import { XIcon } from 'lucide-react';
 
 import { cn } from '@shared/lib/utils/cn';
+import { Button } from '@shared/ui/button';
+
+const dialogContentVariants = cva(
+  'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-[calc(100%-2rem)] max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 rounded-xl border p-6 shadow-lg duration-200 sm:w-full',
+  {
+    variants: {
+      variant: {
+        default: 'border-primary-border bg-primary text-primary-foreground',
+        secondary: 'border-secondary-border bg-secondary text-secondary-foreground',
+        tertiary: 'border-tertiary-border bg-tertiary text-tertiary-foreground',
+      },
+      hoverable: {
+        true: '',
+        false: '',
+      },
+      noBorder: {
+        true: 'border-0',
+        false: '',
+      },
+    },
+    compoundVariants: [
+      {
+        variant: 'default',
+        hoverable: true,
+        className: 'hover:border-primary-border-hover hover:bg-primary-hover',
+      },
+      {
+        variant: 'secondary',
+        hoverable: true,
+        className: 'hover:border-secondary-border-hover hover:bg-secondary-hover',
+      },
+      {
+        variant: 'tertiary',
+        hoverable: true,
+        className: 'hover:border-tertiary-border-hover hover:bg-tertiary-hover',
+      },
+    ],
+    defaultVariants: {
+      variant: 'default',
+      hoverable: false,
+      noBorder: false,
+    },
+  },
+);
+
+const dialogCloseVariants = cva(
+  'absolute top-4 right-4 flex size-9 items-center justify-center rounded-xl border shadow-sm transition-all duration-200 ease-out focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:pointer-events-none',
+  {
+    variants: {
+      variant: {
+        default: 'border-primary-border bg-primary-muted text-primary-icon',
+        secondary: 'border-secondary-border bg-secondary-muted text-secondary-icon',
+        tertiary: 'border-tertiary-border bg-tertiary-muted text-tertiary-icon',
+      },
+      hoverable: {
+        true: '',
+        false: '',
+      },
+      noBorder: {
+        true: 'border-0',
+        false: '',
+      },
+    },
+    compoundVariants: [
+      {
+        variant: 'default',
+        hoverable: true,
+        className: 'hover:-translate-y-px hover:border-primary-border-hover hover:bg-primary-muted-hover hover:shadow-sm',
+      },
+      {
+        variant: 'secondary',
+        hoverable: true,
+        className: 'hover:-translate-y-px hover:border-secondary-border-hover hover:bg-secondary-muted-hover hover:shadow-sm',
+      },
+      {
+        variant: 'tertiary',
+        hoverable: true,
+        className: 'hover:-translate-y-px hover:border-tertiary-border-hover hover:bg-tertiary-muted-hover hover:shadow-sm',
+      },
+    ],
+    defaultVariants: {
+      variant: 'default',
+      hoverable: true,
+      noBorder: false,
+    },
+  },
+);
 
 function Dialog({ ...props }: React.ComponentProps<typeof DialogPrimitive.Root>) {
   return <DialogPrimitive.Root data-slot="dialog" {...props} />;
@@ -40,24 +128,29 @@ function DialogContent({
   className,
   children,
   showCloseButton = true,
+  variant,
+  hoverable = false,
+  closeButtonHoverable = true,
+  noBorder,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean;
-}) {
+  closeButtonHoverable?: boolean;
+} & VariantProps<typeof dialogContentVariants>) {
   return (
     <DialogPortal>
       <DialogOverlay />
       <DialogPrimitive.Content
         data-slot="dialog-content"
-        className={cn(
-          'bg-background data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-[calc(100%-2rem)] max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 rounded-xl border p-6 shadow-lg duration-200 sm:w-full',
-          className,
-        )}
+        className={cn(dialogContentVariants({ variant, hoverable, noBorder }), className)}
         {...props}>
         {children}
         {showCloseButton ? (
           <DialogPrimitive.Close
-            className="ring-offset-background focus-visible:ring-ring absolute top-4 right-4 rounded-sm opacity-70 transition-opacity hover:opacity-100 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:pointer-events-none">
+            className={cn(
+              dialogCloseVariants({ variant, hoverable: closeButtonHoverable, noBorder }),
+              'ring-offset-background focus-visible:ring-ring',
+            )}>
             <XIcon className="size-4" />
             <span className="sr-only">Close</span>
           </DialogPrimitive.Close>
@@ -104,9 +197,23 @@ function DialogDescription({
   return (
     <DialogPrimitive.Description
       data-slot="dialog-description"
-      className={cn('text-muted-foreground text-sm', className)}
+      className={cn('text-sm text-current/70', className)}
       {...props}
     />
+  );
+}
+
+function DialogCancelButton({
+  className,
+  variant = 'secondary',
+  ...props
+}: React.ComponentProps<typeof Button> & {
+  variant?: 'default' | 'secondary' | 'tertiary';
+}) {
+  return (
+    <DialogPrimitive.Close asChild>
+      <Button className={className} type="button" variant={variant} {...props} />
+    </DialogPrimitive.Close>
   );
 }
 
@@ -119,6 +226,8 @@ export {
   DialogContent,
   DialogHeader,
   DialogFooter,
+  DialogCancelButton,
   DialogTitle,
   DialogDescription,
+  dialogContentVariants,
 };

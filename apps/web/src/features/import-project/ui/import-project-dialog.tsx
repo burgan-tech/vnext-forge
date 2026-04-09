@@ -27,23 +27,21 @@ export function ImportProjectDialog({ onImported }: ImportProjectDialogProps) {
   return (
     <>
       <Button
-        leftIcon={
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary-muted text-primary transition-colors group-hover:bg-primary-muted-hover">
-            <FolderOpen size={20} />
-          </div>
-        }
+        leftIcon={<FolderOpen size={20} />}
         onClick={() => {
           void importProject.openDialog();
         }}
-        className="group flex w-full justify-start gap-4 rounded-[28px] border border-border/80 bg-surface text-left transition-all duration-200 hover:border-primary-border-hover hover:shadow-lg hover:shadow-primary/5">
+        className="group border-border/80 bg-surface hover:border-primary-border-hover hover:shadow-primary/5 flex w-full justify-start gap-4 rounded-[28px] border text-left transition-all duration-200 hover:shadow-lg">
         <div className="flex-1">
-          <div className="text-sm font-semibold text-foreground">Import Project</div>
-          <div className="text-xs text-muted-foreground">Browse and link an existing vnext project</div>
+          <div className="text-foreground text-sm font-semibold">Import Project</div>
+          <div className="text-muted-foreground text-xs">
+            Browse and link an existing vnext project
+          </div>
         </div>
       </Button>
 
       <Dialog open={importProject.open} onOpenChange={importProject.setOpen}>
-        <DialogContent className="max-w-xl rounded-[28px] border-border bg-surface p-0">
+        <DialogContent className="border-border bg-surface max-w-xl rounded-[28px] p-0">
           <div className="space-y-5 p-6">
             <DialogHeader className="space-y-1 text-left">
               <DialogTitle>Import Project</DialogTitle>
@@ -71,13 +69,13 @@ export function ImportProjectDialog({ onImported }: ImportProjectDialogProps) {
             />
 
             {importProject.browseError ? (
-              <p className="text-xs text-error-foreground">
+              <p className="text-error-foreground text-xs">
                 {importProject.browseError.toUserMessage().message}
               </p>
             ) : null}
 
             {importProject.importError ? (
-              <p className="text-xs text-error-foreground">
+              <p className="text-error-foreground text-xs">
                 {importProject.importError.toUserMessage().message}
               </p>
             ) : null}
@@ -95,7 +93,7 @@ export function ImportProjectDialog({ onImported }: ImportProjectDialogProps) {
                 }}
                 loading={importProject.importing}
                 disabled={!importProject.selectedPath}
-                className="rounded-xl bg-primary text-primary-foreground hover:bg-primary-hover">
+                className="bg-primary text-primary-foreground hover:bg-primary-hover rounded-xl">
                 Import
               </Button>
             </DialogFooter>

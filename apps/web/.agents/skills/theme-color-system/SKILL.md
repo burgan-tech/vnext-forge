@@ -25,6 +25,66 @@ All reusable color decisions must come from the shared token source in `apps/web
 - Treat `apps/web/src/index.css` as the mandatory source for reusable app colors. Tailwind classes should reference the app token system, not bypass it with built-in raw palette colors.
 - Treat spacing as part of the visual system. Repeated spacing patterns should be standardized through Tailwind scale choices and shared composition rules, not recreated ad hoc in each slice.
 - Treat clickable surface borders as part of the interaction system. If a control is visually clickable and uses a border, that border should come from the `primary` token family unless the component is intentionally communicating another semantic state such as destructive or success.
+- For reusable primitives under `apps/web/src/shared/ui`, prefer a variant-first API before introducing custom Tailwind props, local color overrides, or one-off style booleans.
+- Keep visual-system implementation details such as variant mapping, hover rules, border behavior, muted surfaces, and icon wrappers inside `shared/ui` primitives. Callers in `pages`, `widgets`, `features`, and `entities` should consume the primitive API, not reimplement each variant manually.
+- Interactive affordances in `shared/ui` must read as interactive in their base state too. Hover should strengthen discoverability, not create it from nothing.
+- Destructive token families are reserved for destructive actions. `cancel`, `close`, `dismiss`, and similar routine dismissal actions should generally stay in neutral, `default`, `secondary`, or `tertiary` families unless the action itself is destructive.
+
+## Primitive Variant Rules
+
+- Treat `shared/ui` as the UI library layer. Cross-app visual variants belong here, not in feature-level wrappers.
+- Prefer a stable variant vocabulary for reusable controls. For button-like primitives, `default`, `secondary`, and `tertiary` should be the first-choice semantic action variants before introducing new visual families.
+- Interpret `default` as the primary action family. If design discussions say "primary button", that should usually map to the `default` variant in the primitive API unless the component already exposes a different established contract.
+- Add destructive, outline, ghost, or link-like variants only when the component actually needs those semantics. Do not copy the full variant matrix into every primitive by default.
+- When a primitive exposes variants, each variant should own its background, foreground, border, icon surface, icon color, and hover state through the shared token system.
+- If the primitive supports icons, prefer a single internal rendering path per side. For example, a wrapped semantic icon path and an escape hatch component path can coexist, but they should be mutually exclusive on the same side to keep behavior deterministic.
+- If a primitive needs an opt-out such as `hoverable={false}` or `noBorder`, encode that behavior once in the primitive and keep consuming slices free from repeated conditional Tailwind logic.
+- Default `hoverable={false}` on non-clickable primitive surfaces. Keep hover enabled by default only for interactive affordances such as buttons, triggers, menu items, links, and checkbox controls.
+- If a primitive contains clickable subparts such as triggers, row actions, close buttons, menu items, add/remove controls, or inline action chips, those subparts should own a semantic resting surface so they remain identifiable before hover.
+
+## Variant-First Before Custom Tailwind
+
+- When extending a reusable primitive, first check whether the need fits an existing variant such as `default`, `secondary`, or `tertiary`.
+- If the need is still part of the primitive's reusable visual language, add or refine a variant instead of requiring consumers to pass raw class overrides.
+- Only fall back to custom `className` styling for truly local layout adjustments or one-off composition details.
+- Do not solve a missing semantic state by telling consumers to stack raw classes like `bg-*`, `hover:bg-*`, `border-*`, and `text-*` on top of a primitive. Add or correct the primitive contract instead.
+
+## Token Mapping Guidance
+
+- Define reusable color families in `apps/web/src/index.css` with a consistent semantic structure.
+- For action-oriented variants, prefer a token family shape like:
+- `--color-<variant>`
+- `--color-<variant>-hover`
+- `--color-<variant>-foreground`
+- `--color-<variant>-border`
+- `--color-<variant>-border-hover`
+- `--color-<variant>-muted`
+- `--color-<variant>-muted-hover`
+- `--color-<variant>-icon`
+- `--color-<variant>-text`
+- Use the base token for the control surface, the `foreground` token for text on that surface, the `border` tokens for outlined or bordered interaction states, and the `muted` tokens for softer internal surfaces such as icon containers.
+- Use the `icon` token for icon color when the icon should follow the variant semantics. This is especially useful for Lucide icons because they follow `currentColor`.
+- Keep hover tokens separate from base tokens. Do not assume hover can always be derived by opacity tricks or raw palette adjustments inside the component.
+- If a variant family exists in `index.css`, consume it from the primitive rather than recreating equivalent Tailwind arbitrary values.
+
+## Hover And Border Semantics
+
+- `hoverable`-style flags should disable both the primitive's own hover styles and any internal hover-coupled visuals such as icon wrapper hover backgrounds.
+- Hover behavior should remain semantic. Root hover states should come from `--color-<variant>-hover` and related border hover tokens when those states are part of the design language.
+- Distinguish between the main control surface and internal decorative or supportive surfaces. For example, a button root may use `--color-primary-hover` while an internal icon wrapper uses `--color-primary-muted-hover`.
+- In mixed primitives, apply hover tokens only to interactive subparts by default. Shells like card bodies, alert surfaces, dialog containers, accordion shells, and dropdown content wrappers should not inherit hover just because they contain an action inside.
+- `noBorder`-style flags should be treated as structural opt-outs from the primitive's border system. When active, the primitive should suppress variant border rendering rather than asking consumers to patch over borders manually.
+- Borderless mode should not force consumers to re-specify hover, background, or icon behavior. The primitive should remain visually coherent when the border is removed.
+- For clickable descendants, the base state should usually provide enough contrast to separate the control from its background through semantic surface, semantic border, and when appropriate subtle elevation such as `shadow-sm`.
+- Hover is a reinforcement layer. It may intensify surface, border, icon, or motion, but it should not be the only reason a control becomes discoverable.
+- Do not map dismissive actions to destructive surface, border, hover, or icon tokens unless the action itself is destructive.
+
+## FSD Ownership Boundary
+
+- These variant and token rules are primarily for `apps/web/src/shared/ui` and other library-like reusable primitive layers.
+- `entities`, `features`, `widgets`, and `pages` may choose which variant to use, but they should not become the home of per-variant implementation logic.
+- If multiple consuming slices need the same visual behavior, move that behavior into the primitive or a shared wrapper under `shared`, not into repeated feature-level class strings.
+- A consuming slice may compose primitives and choose semantics such as `variant="secondary"` or `hoverable={false}`, but the slice should not define what `secondary` means in raw Tailwind terms.
 
 ## FSD Spacing Ownership
 
@@ -46,6 +106,13 @@ All reusable color decisions must come from the shared token source in `apps/web
 - Add or update reusable color tokens in `apps/web/src/index.css` before using them in components.
 - Use semantic Tailwind color utilities backed by the shared token system instead of raw palette utilities such as `bg-red-500`, `text-blue-600`, or `border-zinc-200`.
 - Use `primary`-backed border utilities for interactive controls such as inputs, outlined buttons, selectable cards, and other clickable bordered surfaces unless a different semantic state is explicitly required.
+- Prefer implementing reusable variant families such as `default`, `secondary`, and `tertiary` in the primitive instead of expecting consumers to recreate them.
+- Keep per-variant hover, border, foreground, and icon-color logic colocated with the primitive that owns the variant API.
+- Use `hoverable`-style flags to disable all related hover visuals consistently, including nested icon or badge surfaces that react to parent hover.
+- Use `noBorder`-style flags as primitive-owned switches for border suppression when the component needs a reusable borderless mode.
+- For icon-supporting primitives, provide semantic icon coloring through token-backed `text-*` classes when the icon should inherit variant meaning.
+- Make clickable controls visually discoverable at rest through semantic contrast, not only through hover.
+- Keep destructive semantics tied to destructive outcomes, not to generic dismissal labels.
 - Use the Tailwind spacing scale consistently for padding, margin, gap, and section rhythm.
 - Prefer a small, repeatable set of spacing steps for similar UI patterns so cards, forms, lists, and panels feel related.
 - Promote repeated spacing combinations into shared primitives or wrapper components when the same layout rhythm appears in multiple FSD slices.
@@ -62,6 +129,14 @@ All reusable color decisions must come from the shared token source in `apps/web
 - Do not create highly specialized tokens tied to a single feature, CTA, or screen language such as `create-accent`, `import-accent`, `project-list-blue`, `error-surface`, or similar usage-specific names when a broader semantic token should exist instead.
 - Do not encode one component mood, one page headline, or one action label into the token name. If the name stops making sense outside that one UI context, it is the wrong token.
 - Do not style clickable bordered surfaces with unrelated neutral border tokens by default when the interaction language is supposed to be anchored to `primary`.
+- Do not bypass an existing primitive variant system by manually restyling the component from consuming slices.
+- Do not add one boolean per screen for visual tweaks when the real problem is that the primitive is missing a reusable semantic variant or opt-out.
+- Do not implement the same `default/secondary/tertiary` mapping separately in feature, widget, entity, or page code.
+- Do not let `hoverable={false}` disable only the root hover while nested hover-coupled visuals still react.
+- Do not enable hover on non-clickable surfaces just to make them feel active. Hover is an interaction signal first, not ambient decoration.
+- Do not use raw icon color overrides in consumers when the primitive already owns semantic icon coloring.
+- Do not hide interactive affordances inside flat passive surfaces until the user happens to hover them.
+- Do not style `cancel`, `close`, or `dismiss` controls with destructive token families unless they actually perform a destructive action.
 - Do not sprinkle arbitrary spacing values across `pages`, `widgets`, `features`, and `entities` when the same rhythm can come from the shared spacing scale.
 - Do not let lower FSD layers encode page-level outer spacing that should be decided by widgets or pages.
 - Do not use one-off Tailwind arbitrary spacing values unless there is a clear design constraint that the standard scale cannot satisfy.
@@ -79,6 +154,13 @@ Flag the implementation if:
 - raw Tailwind palette colors are used as app-level color decisions instead of semantic token-backed utilities
 - token names are scoped to one feature, one page, or one action instead of a stable cross-app semantic role
 - clickable bordered surfaces use non-semantic or non-primary border colors without a clear semantic exception
+- a reusable primitive is being extended with ad hoc custom classes when the need should be covered by a stable variant or primitive-owned boolean such as `hoverable` or `noBorder`
+- consuming slices reimplement primitive variant meanings instead of using the shared variant API
+- hover disabling is partial and internal hover-linked visuals still change when the primitive claims hover is off
+- variant families exist in `index.css` but the primitive bypasses them with local hard-coded Tailwind palette values
+- icon-supporting primitives rely on manual consumer icon coloring instead of semantic token-backed inheritance where appropriate
+- interactive affordances are not visually separable from their background until hover occurs
+- destructive tokens are used for `cancel`, `close`, `dismiss`, or similar non-destructive actions
 - repeated spacing patterns are copied across FSD slices instead of being centralized at the right owner
 - lower layers define outer layout spacing that should belong to widgets or pages
 - arbitrary spacing values are used without a clear design reason

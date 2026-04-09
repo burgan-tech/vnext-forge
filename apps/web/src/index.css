@@ -24,32 +24,53 @@
   --color-border-subtle: #f1f5f9;
   --color-ring: #0284c7; /* sky-600 — matches primary */
 
-  /* ── Primary ── */
-  --color-primary: #0284c7; /* sky-600 */
-  --color-primary-hover: #0369a1; /* sky-700 */
-  --color-primary-foreground: #ffffff;
-  --color-primary-muted: #f0f9ff; /* sky-50 */
-  --color-primary-muted-hover: #e0f2fe; /* sky-100 */
-  --color-primary-border-hover: #7dd3fc; /* sky-300 */
-  --color-primary-text: #000000;
+  /* ── Default ── */
+  --color-primary: #ffffff;
+  --color-primary-hover: #f1f5f9;
+  --color-primary-border: #cbd5e1;
+  --color-primary-foreground: #0f172a;
+  --color-primary-surface: #f1f5f9;
+  --color-primary-muted: #e2e8f0;
+  --color-primary-muted-hover: #cbd5e1;
+  --color-primary-border-hover: #94a3b8;
+  --color-primary-icon: #334155;
+  --color-primary-text: #0f172a;
 
   /* ── Secondary ── */
-  --color-secondary: var(--color-green-300); /* slate-500 */
-  --color-secondary-hover: var(--color-green-600); /* slate-700 */
-  --color-secondary-foreground: var(--color-green-700); /* slate-900 */
-  --color-secondary-muted: var(--color-green-100); /* slate-300 */
-  --color-secondary-muted-hover: var(--color-green-200); /* slate-400 */
-  --color-secondary-border-hover: var(--color-green-300); /* slate-400 */
-  --color-secondary-text: #000000;
+  --color-secondary: #e0f2fe;
+  --color-secondary-hover: #bae6fd;
+  --color-secondary-border: #7dd3fc;
+  --color-secondary-foreground: #0c4a6e;
+  --color-secondary-surface: #e0f2fe;
+  --color-secondary-muted: #bae6fd;
+  --color-secondary-muted-hover: #7dd3fc;
+  --color-secondary-border-hover: #38bdf8;
+  --color-secondary-icon: #0284c7;
+  --color-secondary-text: #0c4a6e;
+
+  /* ── Tertiary ── */
+  --color-tertiary: #dcfce7;
+  --color-tertiary-hover: #bbf7d0;
+  --color-tertiary-border: #86efac;
+  --color-tertiary-surface: #dcfce7;
+  --color-tertiary-foreground: #14532d;
+  --color-tertiary-muted: #bbf7d0;
+  --color-tertiary-muted-hover: #86efac;
+  --color-tertiary-border-hover: #4ade80;
+  --color-tertiary-icon: #16a34a;
+  --color-tertiary-text: #14532d;
 
   /* ── Success ── */
   --color-success: #10b981; /* emerald-500 */
 
   /* ── Destructive ── */
   --color-destructive: #ef4444;
+  --color-destructive-hover: #dc2626;
   --color-destructive-foreground: #ffffff;
   --color-destructive-surface: #fff1f2; /* rose-50 */
   --color-destructive-border: #fecdd3; /* rose-200 */
+  --color-destructive-border-hover: #fda4af; /* rose-300 */
+  --color-destructive-icon: #be123c; /* rose-700 */
   --color-destructive-text: #be123c; /* rose-700 */
 
   /* ── Semantic ── */
@@ -57,6 +78,12 @@
   --color-card-foreground: #0f172a;
   --color-accent: #f1f5f9;
   --color-accent-foreground: #0f172a;
+  --color-outline-hover: #f1f5f9;
+  --color-outline-icon: #0f172a;
+  --color-ghost-hover: #f1f5f9;
+  --color-ghost-icon: #0f172a;
+  --color-link-hover: var(--color-primary-hover);
+  --color-link-icon: var(--color-primary-icon);
   --color-warning: #f59e0b;
 
   /* ── Subtle text ── */
