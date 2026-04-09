@@ -17,6 +17,12 @@ Default to:
 - `modules` for user-facing business behavior, UI, state, and service modules
 - `shared` for generic UI primitives and cross-cutting helpers
 
+The current migration target is already active:
+
+- `src/app`, `src/pages`, `src/modules`, and `src/shared` are the only intended top-level owners
+- do not add new `src/entities`, `src/features`, `src/widgets`, `src/routes`, `src/stores`, `src/hooks`, or `src/components` owners
+- if a boundary is unclear, prefer `modules/*`
+
 Keep the pattern simple:
 
 - `pages` is the route boundary; it wires the route and composes modules
@@ -27,7 +33,8 @@ Keep the pattern simple:
 
 The detailed architecture rules live in `apps/web/.agents/skills/architectural-pattern/SKILL.md`. Keep this file shorter and more operational.
 
-Prefer extracting durable logic either into the remaining shared packages (`@vnext-forge/types`, `@vnext-forge/app-contracts`) or into well-bounded local modules such as `src/editor/*`, `src/validation/*`, and module-owned code instead of expanding page-level or route-level coupling.
+Prefer extracting durable logic either into the remaining shared packages (`@vnext-forge/types`, `@vnext-forge/app-contracts`) or into well-bounded local module owners under `src/modules/*` instead of expanding page-level or route-level coupling.
+Prefer extracting durable logic into the active module owners instead of reviving legacy top-level areas. Current primary owners include `project-management`, `project-workspace`, `canvas-interaction`, `code-editor`, `workflow-validation`, `workflow-execution`, `save-workflow`, `save-component`, `task-editor`, `function-editor`, `extension-editor`, `schema-editor`, and `view-editor`.
 
 ## Expectation
 
@@ -41,7 +48,8 @@ Detailed implementation rules, slice constraints, and architecture-specific conv
 - In `shared/ui`, hover should follow interactivity. Non-clickable surfaces default to `hoverable={false}` unless explicitly requested; clickable descendants such as buttons, triggers, menu items, links, and checkbox controls may keep hover enabled.
 - Do not create `index.ts` files only to forward a single direct export. Prefer importing the concrete file when the path is already clear.
 - During migration, do not keep route-level or legacy wrapper and re-export files for backward compatibility unless there is an explicit technical requirement for a staged migration.
-- Do not create a second business owner under `pages`. A route entry may compose `modules/project-list/*`, but it should not duplicate that module with another `project-list.page.tsx`.
+- Do not create a second business owner under `pages`. A route entry may compose `modules/project-management/*`, but it should not duplicate that module with another business owner.
+- Route entries should compose current owners such as `modules/project-management/*` or `modules/project-workspace/*`; pages should not own transport, store, or workflow orchestration directly.
 - Use page naming only in `pages/*`. Inside `modules/*`, prefer names such as `*.view.tsx`, `*.panel.tsx`, or `*.section.tsx`.
 
 ## API Access
@@ -63,6 +71,7 @@ shared/api/client.ts
 - Keep direct `apiClient` calls in the owning service module, usually inside the module that owns the workflow.
 - Only lift service code into `shared/*` when that logic is truly generic and stable across modules.
 - Do not use raw `fetch` anywhere in the web app.
+- Legacy `entities/*/api` placement is obsolete; keep project and workspace endpoint access in module-owned service files.
 
 ## Async UI Flows
 

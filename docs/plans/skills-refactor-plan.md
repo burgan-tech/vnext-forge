@@ -126,3 +126,5 @@ The skill refactor is complete when:
 - Core skills explicitly reference the shared error and API contracts.
 - Optional skills are marked optional instead of pretending to be mandatory repo rules.
 - The skills teach the target architecture rather than today's migration debt.
+> Obsolete: This document is no longer the active web architecture plan.
+> Current reference: [web-vertical-slice-migration-plan.md](./web-vertical-slice-migration-plan.md)

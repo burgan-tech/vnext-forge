@@ -910,3 +910,5 @@ Response'lar `ApiResponse<T>` envelope'una sarılır. Web tarafı `app-contracts
 | `packages/editor-kit`        | `@vnext-forge/editor-kit`        |
 | `apps/web`                   | `@vnext-forge/web`               |
 | `apps/server`                | `@vnext-forge/server`            |
+> Obsolete: This document is no longer the active web architecture plan.
+> Current reference: [web-vertical-slice-migration-plan.md](./web-vertical-slice-migration-plan.md)

@@ -1,14 +1,14 @@
 import { useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import type { ProjectInfo } from '@entities/project/model/types';
-import { useDeleteProject } from '@features/delete-project/model/useDeleteProject';
-import { ProjectListActions } from '@widgets/project-list-actions/ui/project-list-actions';
-import { ProjectListHero } from '@widgets/project-list-hero/ui/project-list-hero';
+import { useDeleteProject } from '@modules/project-management/features/delete-project/model/useDeleteProject';
+import { ProjectListActions } from '@modules/project-management/project-list-actions/ui/project-list-actions';
+import { ProjectListHero } from '@modules/project-management/project-list-hero/ui/project-list-hero';
 import {
   ProjectListOverview,
   type ProjectListOverviewApi,
-} from '@widgets/project-list-overview/ui/project-list-overview';
+} from '@modules/project-management/project-list-overview/ui/project-list-overview';
+import type { ProjectInfo } from '@modules/project-management/project-types';
 
 export function ProjectListPage() {
   const navigate = useNavigate();

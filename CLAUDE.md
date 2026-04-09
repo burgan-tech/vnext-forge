@@ -56,8 +56,11 @@ Several formerly shared workspace, workflow-domain, and editor-language modules 
 - `apps/server/src/slices/workspace/*` owns workspace contracts, path resolution, config handling, file tree analysis, and workspace inspection endpoints.
 - `apps/server/src/slices/template/*` owns the template catalog and template list endpoints.
 - `apps/server/src/slices/validate/*` is the server-side validation integration boundary.
-- `apps/web/src/editor/*` owns Monaco setup, CSX completions, diagnostics, snippets, and editor-side context handling.
-- `apps/web/src/validation/*` and `apps/web/src/stores/validation-store.ts` own client-side validation UX and editor feedback.
+- `apps/web/src/modules/project-management/*` owns project list, create, import, delete, and project-facing API/state flows.
+- `apps/web/src/modules/project-workspace/*` owns active workspace, file tree, workspace orchestration, and sidebar-facing state.
+- `apps/web/src/modules/code-editor/*` owns Monaco setup, editor-side context handling, and editor-facing workflow bridges.
+- `apps/web/src/modules/workflow-validation/*` owns client-side validation UX and editor feedback.
+- `apps/web/src/modules/canvas-interaction/*`, `apps/web/src/modules/workflow-execution/*`, `apps/web/src/modules/save-workflow/*`, and `apps/web/src/modules/save-component/*` own the remaining workflow editing and execution flows.
 
 Only `packages/vnext-types` and `packages/app-contracts` remain as shared packages in this repo.
 
@@ -67,7 +70,7 @@ Only `packages/vnext-types` and `packages/app-contracts` remain as shared packag
 
 React 19 + Vite 6. The web app uses a simple module-based vertical slice structure, not FSD. Keep the structure shallow and owner-based.
 
-The target structure is `app / pages / modules / shared`. Some existing app-local areas still live under `src/editor`, `src/validation`, and `src/stores` and should be treated as explicit local owners rather than pattern exceptions.
+The active structure is `app / pages / modules / shared`. `entities / features / widgets / routes / stores / components / hooks` are no longer target top-level owners for web code.
 
 The main architecture rules live in `apps/web/.agents/skills/architectural-pattern/SKILL.md`. Keep this top-level guide shorter than that skill.
 
@@ -89,14 +92,19 @@ app/
 pages/                -> route entry and page composition only
 
 modules/              -> user-facing business modules with local UI/state/services
+  project-management/ -> project list, create/import/delete, project-facing services
+  project-workspace/  -> workspace shell data, file tree, active file coordination
   canvas-interaction/ -> custom nodes/edges, edge actions, auto-layout, canvas persistence
   workflow-validation/-> validation flows, badges, realtime validation, validation adapters
-  project-health/     -> health checks, state, workspace health runners
   workflow-execution/ -> execution controls, timelines, simulator/executor flows
   code-editor/        -> editor-facing flows and workflow context bridges
   save-workflow/      -> save workflow behavior
   save-component/     -> save component behavior
-  ai-assistant/       -> slot only, interface definitions
+  task-editor/        -> task editor behavior and UI ownership
+  function-editor/    -> function editor behavior and UI ownership
+  extension-editor/   -> extension editor behavior and UI ownership
+  schema-editor/      -> schema editor behavior and UI ownership
+  view-editor/        -> view editor behavior and UI ownership
 
 shared/
   ui/                 -> generic primitives
@@ -107,13 +115,13 @@ shared/
 
 Pages should stay thin. Business logic should usually live in the owning module. Route files may compose module views, but they should not become a second business owner.
 
-Current app-owned areas outside the target tree:
+Current migration guidance:
 
-- `src/editor/*` -> Monaco editor language tooling and script editor UI
-- `src/validation/*` -> validation engine and validation panel
-- `src/stores/validation-store.ts` -> validation state
-- `src/entities/workspace/api/workspace-api.ts` -> legacy endpoint access location; do not treat this as the default target pattern for new work
-- `src/features/create-project/*` and `src/features/import-project/*` -> legacy directories from the previous structure
+- keep new business code in `src/modules/*` and route entry in `src/pages/*`
+- keep `shared` narrow; do not move project/workspace/editor business logic into `shared`
+- do not reintroduce FSD aliases such as `@entities`, `@features`, or `@widgets`
+- do not add new top-level `src/stores/*`, `src/hooks/*`, or `src/components/*` owners
+- treat any remaining `legacy-*` module area as temporary migration quarantine, not as a destination pattern
 
 ---
 

@@ -5,23 +5,27 @@ description: Use when defining or refactoring web architecture in this repo with
 
 # Architectural Pattern Web
 
-## Purpose
+Use this skill for web structure decisions and architecture reviews.
 
-Use this skill when deciding the target web architecture or reviewing whether a proposed structure is too layered, too global, or too FSD-shaped.
+Related skills:
+- `api-fetching` for transport details
+- `api-error-handling` for failure normalization
+- `state-store-handling` for state placement nuance
+- `async-feature-flow` for `useAsync`
+- `validation-zod` for form/runtime validation
+- `notification-feedback` for optional transient feedback
+- `theme-color-system` for token and primitive ownership
 
-The default target is a common React architecture built around vertical slices and shared infrastructure:
+## Core Rule
 
-- `app` for startup, providers, router, and truly global wiring
-- `pages` for route entry and composition
-- `modules` for business-owned vertical slices
-- `shared` for generic cross-cutting building blocks
+Use the narrowest owner that matches the concern:
 
-Simplicity is the main rule:
+1. `app` for startup, providers, router, shell wiring
+2. `pages` for route entry and route composition
+3. `modules` for business UI, state, services, async flows
+4. `shared` for generic, stable, cross-module infrastructure
 
-- default to one obvious owner
-- keep folders shallow
-- add structure only after a real navigation problem appears
-- if two modules are tightly coupled all the time, they are probably one module
+If unsure, choose `modules`.
 
 ## Target Shape
 
@@ -29,59 +33,60 @@ Simplicity is the main rule:
 src/
   app/
     providers/
-    router/
+    routes/
+    layouts/
   pages/
     project-list/
       index.tsx
-    workflow-editor/
+    project-workspace/
       index.tsx
-    settings/
+    flow-editor/
+      index.tsx
+    code-editor/
+      index.tsx
+    task-editor/
+      index.tsx
+    function-editor/
+      index.tsx
+    extension-editor/
+      index.tsx
+    schema-editor/
+      index.tsx
+    view-editor/
       index.tsx
   modules/
-    project-list/
-      project-list.view.tsx
-      project-list.api.ts
-      use-project-list.ts
-      project-list.store.ts
-      project-list.types.ts
-    workflow-editor/
-      workflow-editor.view.tsx
-      workflow-editor-toolbar.tsx
-      workflow-editor.api.ts
-      workflow-editor.store.ts
-      use-workflow-editor.ts
+    project-management/
+      project-management.view.tsx
+      project-api.ts
+      use-project-management.ts
+    project-workspace/
+      project-workspace.view.tsx
+      workspace-api.ts
+      use-project-workspace.ts
+    canvas-interaction/
+    code-editor/
+    workflow-validation/
+    workflow-execution/
+    save-workflow/
+    save-component/
+    task-editor/
+    function-editor/
+    extension-editor/
+    schema-editor/
+    view-editor/
   shared/
     api/
     ui/
-    hooks/
     lib/
     config/
-    types/
 ```
 
-Start shallow. Add subfolders only after a module becomes hard to scan.
-
-## Default Decision Order
-
-When placing code, decide in this order:
-
-1. If it is app startup, provider wiring, routing, or shell-level coordination, put it in `app`.
-2. If it is route entry and composition, put it in `pages`.
-3. If it belongs to one business area, put it in `modules`.
-4. If it is truly generic and stable across modules, put it in `shared`.
-
-If you are unsure, choose `modules`.
+Active target owners are `src/app`, `src/pages`, `src/modules`, `src/shared`.
+Do not extend legacy top-level owners such as `entities`, `features`, `widgets`, `routes`, `stores`, `components`, or `hooks`.
 
 ## Pages vs Modules
 
-`pages` and `modules` may share the same business name such as `project-list`, but they do not play the same role.
-
-- `pages/project-list/` is the route boundary
-- `modules/project-list/` is the business module
-
-This is allowed and expected. The important rule is that only `pages` owns page files.
-
-Use this pattern:
+`pages` and `modules` may reference the same business area, but only `pages` owns route files.
 
 ```text
 pages/
@@ -89,18 +94,15 @@ pages/
     index.tsx
 
 modules/
-  project-list/
-    project-list.view.tsx
-    use-project-list.ts
-    project-list.api.ts
+  project-management/
+    project-management.view.tsx
+    use-project-management.ts
+    project-api.ts
 ```
 
-Meaning:
-
-- `pages/project-list/index.tsx` is the route entry
-- `modules/project-list/*` contains the actual business UI, state, and API logic
-
-Do not create a second page component inside the module.
+- `pages/project-list/index.tsx` is the route boundary
+- `modules/project-management/*` owns business UI, state, API calls, and orchestration
+- Reserve `*.page.tsx` for `pages/*` only
 
 ## Ownership Rules
 
@@ -108,204 +110,160 @@ Do not create a second page component inside the module.
 - `pages` may import `modules` and `shared`.
 - `modules` may import `shared`.
 - `shared` imports only other `shared` code and package-level dependencies.
-- Do not shape code around FSD layer completion. Shape it around ownership and change boundaries.
-- A module should not import another module by default. If coordination is needed, compose them from a page or move the stable contract into `shared`.
-
-If one module keeps needing internals from another module, merge them or redefine the boundary. Do not patch a bad boundary with extra abstractions.
+- Avoid module-to-module imports by default. Compose from `pages` or extract a stable generic contract into `shared`.
+- If one module keeps reaching into another, merge them or redefine the boundary.
+- Shape code around ownership, not around FSD-like layer completion.
 
 ## Module Design
 
-A module is the default owner for:
+Default module contents:
 
-- UI that belongs to one business area
-- module-local hooks
-- module-local API/service files
-- state used across multiple components in the same area
-- module-specific types, mappers, and validation helpers
+- `code-editor.api.ts`
+- `code-editor.store.ts`
+- `use-code-editor.ts`
+- `code-editor.types.ts`
+- `workflow-validation.panel.tsx`
+- `project-management.view.tsx`
 
-Prefer colocated files such as:
+Prefer flat colocated files first. Add one-level subfolders only when scanning the module becomes genuinely hard.
 
-- `workflow-editor.api.ts`
-- `workflow-editor.store.ts`
-- `use-workflow-editor.ts`
-- `workflow-editor.types.ts`
-
-Naming rule:
-
-- reserve `*.page.tsx` for `pages/*` only
-- inside `modules/*`, prefer names such as `*.view.tsx`, `*.panel.tsx`, `*.section.tsx`, or a plain feature-specific file name
-
-Do not split small modules into `model`, `ui`, `hooks`, `types`, or `services` folders by reflex.
-
-## Module Growth Rule
-
-Keep a module as flat files by default.
-
-Split into one-level subfolders only when one of these is true:
-
-- the module is hard to scan because it has grown past a small, readable file set
-- there are two clearly different concerns inside the same module, such as `components` and `api`
-- multiple developers regularly touch different areas of the same module
-
-Even then, keep the split minimal:
+Allowed minimal split:
 
 ```text
-modules/workflow-editor/
+modules/code-editor/
   components/
   api/
-  workflow-editor.store.ts
-  use-workflow-editor.ts
+  code-editor.store.ts
+  use-code-editor.ts
 ```
 
-Do not create deep trees inside a module unless the module is genuinely large.
-
-## Public Surface
-
-Each module should have one obvious entry point for outside consumers.
-
-- outside callers should import the module's page/view/hook contract, not random internal files
-- use `index.ts` only when it clarifies the module boundary
-- do not build barrel files for every folder by default
+- Do not create `model`, `ui`, `hooks`, `types`, or `services` folders by reflex.
+- Do not create deep trees unless the module is genuinely large.
+- Expose one obvious outside entry point. Use `index.ts` only when it clarifies the boundary.
 
 ## Shared Layer
 
-`shared` exists, but it must stay intentionally small.
-
-Put code in `shared` only when it is:
-
-- generic and domain-agnostic
-- stable across several modules
-- unlikely to change because one module changes
+Put code in `shared` only when it is generic, stable, and useful across multiple modules.
 
 Good fits:
 
 - transport client and HTTP helpers in `shared/api`
 - design-system primitives in `shared/ui`
-- generic hooks in `shared/hooks`
 - pure helpers in `shared/lib`
 - app-wide config and constants in `shared/config`
-- durable cross-module types in `shared/types`
+- optional notification infrastructure that stays generic and ephemeral
+- durable cross-module contracts already shared through `packages/*`
 
 Bad fits:
 
-- business workflows
 - module-specific API calls
-- feature flags or state owned by one module
-- helpers that exist only because two nearby files were not colocated
+- business workflows
+- module-owned state
+- nearby helpers that should stay colocated
+- business-specific notification logic
+- page- or module-specific visual mappings
 
-When shared code becomes shaped by one module's business rules, move it back out of `shared`.
+If `shared` starts changing because one module changed, it probably is not shared.
+
+## Shared UI Ownership
+
+- `shared/ui` owns reusable primitives, semantic variants, and token-backed interaction behavior.
+- `pages` and `modules` may choose variants and layout, but should not keep redefining the same primitive contract with raw Tailwind mappings.
+- If a visual rule is reused across distant modules, move it to `shared/ui` or the shared token layer.
+- Do not turn a structural refactor into a forced theme redesign unless the task is explicitly visual-system work.
 
 ## State Placement
 
-Choose the narrowest owner that matches lifetime and reach.
+- Local state: drafts, modal flags, active tab, hover, one-view loading, one-off async flows.
+- Server state: fetched backend data. Keep query keys and request functions near the owning module. Do not mirror query cache into a global store without a concrete reason.
+- Module state: shared client state used by several components in one business area. Prefer plain state, then custom hook, then module store.
+- App-wide state: auth/session, active workspace reused across shell, theme/layout preferences, optional notification center, feature flags.
+- Global state should stay rare and boring.
+- Do not use global stores for route-local async state, request cache, or raw API failures.
+- Use `useAsync` only when a module needs a reusable async contract such as `loading`, `error`, `retry`, or scenario-shaped actions.
 
-## Local State
+## API and Error Boundaries
 
-Keep in component state when it is:
+- `shared/api/client.ts` owns transport setup and the typed Hono RPC client.
+- Normal flow: `shared/api/client.ts -> module service -> module hook/action -> UI`
+- `apiClient`, `callApi`, and `unwrapApi` should appear only in `shared/api` or in the owning module service boundary.
+- `pages`, JSX, presentational components, and ad hoc hooks must not own transport.
+- Module-local endpoint access is the default. Do not add new `entities/*/api` style placement.
+- Services should return `Promise<ApiResponse<T>>` for normal async flows.
+- `unwrapApi` is the imperative path and returns `T` or throws `VnextForgeError`.
+- `VnextForgeError` is the shared web failure contract.
+- Do not invent a second error shape for normal failures.
+- Branch on `error.code`, never on `message.includes(...)`.
+- UI must not see raw transport errors, raw backend payloads, raw `ApiFailure`, or raw `error.message`.
+- Render `error.toUserMessage().message` in UI.
 
-- form input draft
-- modal open state
-- active tab
-- hover, selection, and temporary UI flags
-- one-view loading indicators
+## Validation Placement
 
-## Server State
+- Use `React Hook Form` + `Zod` for form-facing validation in the owning page or module.
+- Keep form schemas outside JSX and near the owner.
+- Runtime trust checks belong to the package, API, adapter, or boundary that owns the contract.
+- Reuse shared package schemas only for real cross-app contracts.
+- Do not duplicate durable contract schemas across multiple screens.
+- Resolve validation failures into the shared error contract before they affect broader flows.
 
-Treat fetched backend data as server state, not global app state.
+## Notification Placement
 
-- Use a server-state tool such as TanStack Query for caching, invalidation, and request lifecycle.
-- Keep query keys and request functions near the owning module.
-- Do not mirror query results into a global store unless there is a real offline or editing reason.
-
-## Module State
-
-Use a module store or module hook when several components in the same area need shared client state.
-
-Good fits:
-
-- editor sidebar and canvas coordination
-- filter state reused across a module section
-- long-lived draft state inside one workflow area
-- UI actions that several sibling components trigger
-
-Prefer the lightest workable option:
-
-- start with plain React state
-- move to a custom hook when several components in the same module need the same logic
-- use a module store when coordination becomes awkward with props or local hooks
-
-If you choose a store library, keep it scoped to the owning module.
-
-## App-Wide State
-
-Use global app state only for concerns that truly cross distant routes or shell boundaries:
-
-- auth or session
-- active workspace or tenant reused across the shell
-- theme and layout preferences
-- notification center
-- feature flags
-
-If the state is mostly useful inside one route or module cluster, it is not app-wide state.
-
-Default global-state stance:
-
-- app-wide state should be rare
-- global store files should stay few and boring
-- do not use the global store as a cache for everything
-
-## API Placement
-
-- `shared/api` owns transport setup, interceptors, and generic request helpers.
-- Each module owns its own API entry points such as `module-name.api.ts`.
-- Keep request mapping, response normalization, and query integration near the module that uses them.
-- Do not call transport helpers directly inside JSX.
+- Notifications are optional and transient.
+- Prefer inline validation or inline error UI when the issue belongs to the current screen.
+- Services do not emit notifications.
+- Triggering belongs to module or page orchestration.
+- Rendering belongs to shared notification infrastructure if such infrastructure exists.
+- Keep notification payloads user-facing and minimal. Do not store raw errors or domain objects in them.
 
 ## Routing
 
-- Keep `pages` thin.
-- A page should mostly compose one or more modules, pass route params, and define layout.
-- Do not let pages become hidden business layers.
-- The route entry can be `index.tsx` or `project-list.page.tsx`, but keep page naming inside `pages` only.
-
-## Recommended Working Model
-
-For most modules, this is enough:
-
-- UI and small interaction state in the module
-- server data via TanStack Query near the module
-- route wiring in the page
-- generic building blocks in `shared`
-- only a few app-global stores for shell concerns
-
-This model is intentionally boring. That is a strength.
+- Keep pages thin: route params, composition, layout.
+- Business logic, transport, validation orchestration, and module state stay in `modules`.
+- Route entries may be `index.tsx` or `*.page.tsx`, but page files stay inside `pages`.
 
 ## Do
 
 - Prefer `modules` as the default business boundary.
-- Start with colocated files and split only when navigation gets worse.
+- Start flat and colocated; split only when navigation gets worse.
 - Keep `shared` generic and small.
-- Keep server state and client state separate in design discussions and code.
-- Promote state upward only when multiple real consumers require it.
-- Let pages compose modules instead of duplicating module logic.
+- Keep request code in the owning module service.
+- Expose scenario-named actions to UI instead of transport primitives.
+- Keep server state, module state, and app-wide state separate.
+- Promote state only when multiple real consumers require it.
+- Use `useAsync` when reusable async lifecycle behavior is the point.
+- Keep form schemas near the owner and runtime validation at the contract boundary.
+- Keep reusable visual behavior in shared primitives and token sources.
+- Keep notification infrastructure generic and notification decisions outside services.
 
 ## Do Not Do
 
 - Do not reintroduce FSD layers under different names.
-- Do not create `entities`, `features`, `widgets`, `model`, or `services` folders just to make the tree look architectural.
+- Do not create `entities`, `features`, `widgets`, `routes`, `stores`, `components`, or `hooks` as new top-level owners.
 - Do not move module-specific code into `shared` for convenience.
-- Do not create app-global stores for route-local async state.
-- Do not mirror backend cache into a store without a concrete reason.
-- Do not split one small module into many directories before there is a real scale problem.
-- Do not add event buses, mediator layers, or orchestration abstractions unless the app has a demonstrated coordination problem that simpler composition cannot solve.
+- Do not let pages become transport owners or hidden business layers.
+- Do not use raw `fetch`, raw `Response`, raw backend payloads, or raw `ApiFailure` in UI code.
+- Do not show raw `error.message` in UI.
+- Do not invent ad hoc error contracts for normal API failures.
+- Do not mirror query cache into a global store without a concrete reason.
+- Do not create global stores for route-local async or view state.
+- Do not call `apiClient` or `callApi` directly inside JSX, `useAsync`, or ad hoc hooks.
+- Do not define inline Zod schemas inside JSX by default.
+- Do not use notifications instead of proper inline screen state.
+- Do not bypass shared primitives with repeated slice-local Tailwind mappings when the rule is reusable.
 
 ## Review Standard
 
 Raise a concern when:
 
-- a module was fragmented into several artificial layers without ownership gain
-- `shared` contains business logic that clearly belongs to one module
-- app-wide state was introduced for a page-local or module-local concern
-- pages started owning workflows that should live inside modules
-- server state and client state were mixed into one broad global store
-- there are too many valid ways to do the same simple thing inside the same codebase
+- a module was split into artificial layers without ownership gain
+- `shared` contains business logic or business-shaped API wrappers
+- a page owns transport, validation orchestration, or module workflow logic
+- UI code calls `apiClient`, `callApi`, `unwrapApi`, or `fetch` directly
+- a service invents a second error contract instead of `ApiResponse<T>` plus `VnextForgeError`
+- branching depends on message text instead of `error.code`
+- app-wide state was introduced for route-local state, request cache, or transient async flags
+- `useAsync` was added where a simple local flow would be clearer
+- transport wrapping lives inside `useAsync` or an ad hoc hook instead of the owning service
+- schemas are buried in JSX or durable validation rules are duplicated across screens
+- services dispatch notifications or notifications store raw errors/domain objects
+- shared primitives are bypassed with repeated local visual mappings that should be reusable

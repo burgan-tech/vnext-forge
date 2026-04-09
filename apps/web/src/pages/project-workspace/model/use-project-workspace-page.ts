@@ -4,8 +4,8 @@ import {
   getProject,
   getProjectConfig,
   getProjectTree,
-} from '@entities/project/api/project-api';
-import { useProjectStore } from '@entities/project/model/project-store';
+} from '@modules/project-management/project-api';
+import { useProjectStore } from '@modules/project-management/project-store';
 import { createLogger } from '@shared/lib/logger/createLogger';
 
 const logger = createLogger('ProjectWorkspacePage');

@@ -26,6 +26,7 @@ The intended flow is:
 - Return `ApiResponse<T>` from service functions so `useAsync` can consume them without extra wrapping.
 - All server responses are wrapped in `ApiResponse<T>` from `@vnext-forge/app-contracts`.
 - Do not use raw `fetch` anywhere in the web app.
+- Legacy `entities/*/api` locations are obsolete; new endpoint access belongs in the owning module service file.
 
 ## Helpers in `shared/api/client.ts`
 
@@ -42,10 +43,10 @@ unwrapApi<T>(response: Response | Promise<Response>, fallbackMessage?: string): 
 Keep the service close to the owning module unless it is clearly shared:
 
 ```ts
-// modules/project-list/project-list.api.ts
+// modules/project-management/project-api.ts
 import { apiClient, callApi } from '@shared/api/client';
 
-export const projectListApi = {
+export const projectApi = {
   list: () => callApi<ProjectInfo[]>(apiClient.api.projects.$get()),
   remove: (id: string) =>
     callApi<void>(apiClient.api.projects[':id'].$delete({ param: { id } })),
@@ -55,14 +56,20 @@ export const projectListApi = {
 Hooks and actions consume the service. The `callApi` wrapping stays inside the service; the hook never touches `apiClient` or `callApi` directly:
 
 ```ts
-// modules/project-list/use-project-list.ts
-const { execute, data, loading, error } = useAsync(() => projectListApi.list());
+// modules/project-management/use-project-management.ts
+const { execute, data, loading, error } = useAsync(() => projectApi.list());
 
 // Wrong: transport helpers must not appear at the call site
 // const { execute } = useAsync(() => callApi(apiClient.api.projects.$get()));
 ```
 
 If the same logic becomes truly generic across modules, move it into `shared/*` and keep the same contract.
+
+Current owner examples:
+
+- project CRUD, import, and listing -> `modules/project-management/project-api.ts`
+- workspace tree and file operations -> `modules/project-workspace/workspace-api.ts`
+- editor save or workflow save flows -> owning module service such as `modules/save-workflow/*` or `modules/code-editor/*`
 
 ## Response Handling
 
@@ -82,6 +89,7 @@ Failure branches must produce a `VnextForgeError`. Do not pass raw `ApiFailure` 
 - Shared transport stays in `shared/api/client.ts`.
 - Only promote a service to `shared/*` when reuse is real and stable.
 - Pages compose module APIs; they do not own transport code.
+- `pages/*` route files should not become transport owners just because a request is route-scoped.
 
 ## Do
 

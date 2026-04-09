@@ -26,11 +26,23 @@ Use this skill to place state by ownership, lifetime, and slice responsibility w
 ## Repo Rules
 
 - Use `useAsync` when multiple screens or components benefit from the same async lifecycle contract.
-- Keep shared state in the owning folder by default; a file such as `project-list.store.ts` or `use-project-list.ts` is enough.
+- Keep shared state in the owning folder by default; a file such as `project-management.store.ts` or `use-project-management.ts` is enough.
 - Do not create a `model/` folder by reflex.
 - Keep request lifecycle state local unless multiple screens truly need it.
 - Move only durable results upward, not transient loading or error flags.
 - Keep app-wide stores narrow and intentional.
+- In the current web structure, state should usually live under `modules/*`, not under a top-level `src/stores/*`.
+- Treat legacy `legacy-stores` or migration shims as temporary quarantine only, not as a target pattern.
+
+## Repo-Specific Owners
+
+- `modules/project-management/*` owns project list, create, import, delete, and related selection state.
+- `modules/project-workspace/*` owns active workspace, file tree, active file, and workspace coordination state.
+- `modules/code-editor/*` owns editor-facing file content, editor bridge state, and save-related editor coordination.
+- `modules/canvas-interaction/*` owns workflow canvas, selection, and diagram interaction state.
+- `modules/workflow-validation/*` owns diagnostics, validation feedback, and validation panel state.
+- `modules/workflow-execution/*` owns runtime execution and simulator-facing state.
+- `app/*` should keep only true shell-wide state such as providers, route wiring, or rare cross-route preferences.
 
 ## Good Fits For Shared Store State
 
@@ -77,6 +89,8 @@ Use this skill to place state by ownership, lifetime, and slice responsibility w
 - Do not use a store only to avoid shallow prop passing.
 - Do not mix unrelated concerns in one large store.
 - Do not split a small module into `model`, `hooks`, and `types` folders unless navigation has actually become hard.
+- Do not recreate top-level `src/stores/*` for new web state.
+- Do not keep long-term module state behind compatibility re-export files once the owning module is known.
 
 ## Review Standard
 

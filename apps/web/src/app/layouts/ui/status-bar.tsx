@@ -1,9 +1,9 @@
 import { AlertCircle, AlertTriangle, CheckCircle2 } from 'lucide-react';
 
-import { useProjectStore } from '../../../stores/project-store';
-import { useRuntimeStore } from '../../../stores/runtime-store';
-import { useValidationStore } from '../../../stores/validation-store';
-import { useWorkflowStore } from '../../../stores/workflow-store';
+import { useProjectStore } from '@modules/project-management/project-store-legacy';
+import { useRuntimeStore } from '@modules/workflow-execution/runtime-store';
+import { useValidationStore } from '@modules/workflow-validation/validation-store';
+import { useWorkflowStore } from '@modules/canvas-interaction/workflow-store';
 
 export function StatusBar() {
   const { activeProject } = useProjectStore();
