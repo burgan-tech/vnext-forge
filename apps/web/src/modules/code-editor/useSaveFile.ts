@@ -1,6 +1,6 @@
 import { useEffect, useCallback } from 'react';
-import { createLogger } from '@shared/lib/logger/createLogger';
-import { writeFile } from '@modules/project-workspace/workspace-api';
+import { createLogger } from '@shared/lib/logger/CreateLogger';
+import { writeFile } from '@modules/project-workspace/WorkspaceApi';
 
 const logger = createLogger('code-editor/useSaveFile');
 

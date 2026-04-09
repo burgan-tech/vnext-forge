@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { useWorkflowStore } from '@modules/canvas-interaction/workflow-store';
+import { useWorkflowStore } from '@modules/canvas-interaction/WorkflowStore';
 import { CsxEditorField, type ScriptCode } from '@modules/save-component/components/CsxEditorField';
-import { Section, EditableInput, IconTask, IconPlus, IconTrash, IconUp, IconDown } from './shared';
+import { Section, EditableInput, IconTask, IconPlus, IconTrash, IconUp, IconDown } from './Shared';
 import { Pencil } from 'lucide-react';
 
 /* ────────────── TASKS TAB ────────────── */

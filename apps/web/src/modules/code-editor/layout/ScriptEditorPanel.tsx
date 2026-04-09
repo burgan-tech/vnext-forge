@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import MonacoEditor, { type OnMount } from '@monaco-editor/react';
 import { X, Code2, BookOpen, Maximize2, Minimize2 } from 'lucide-react';
-import { useScriptPanelStore } from '@modules/code-editor/script-panel-store';
-import { useUIStore } from '@app/store/ui-store';
-import { useWorkflowStore } from '@modules/canvas-interaction/workflow-store';
+import { useScriptPanelStore } from '@modules/code-editor/ScriptPanelStore';
+import { useUIStore } from '@app/store/UiStore';
+import { useWorkflowStore } from '@modules/canvas-interaction/WorkflowStore';
 import { encodeToBase64, decodeFromBase64 } from '@modules/code-editor/editor/Base64Handler';
 import { CsxSnippetToolbar } from '@modules/code-editor/editor/CsxSnippetToolbar';
 import { CsxReferencePanel } from '@modules/code-editor/editor/CsxReferencePanel';
-import { applyDiagnostics } from '@modules/code-editor/editor/csx-diagnostics';
+import { applyDiagnostics } from '@modules/code-editor/editor/CsxDiagnostics';
 
 const MIN_HEIGHT = 200;
 const MAX_HEIGHT = 700;

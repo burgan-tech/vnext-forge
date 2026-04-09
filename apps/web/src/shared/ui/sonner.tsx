@@ -2,7 +2,7 @@ import type { ComponentProps } from 'react';
 import { Toaster as Sonner, type ToasterProps } from 'sonner';
 import { cva, type VariantProps } from 'class-variance-authority';
 
-import { cn } from '@shared/lib/utils/cn';
+import { cn } from '@shared/lib/utils/Cn';
 
 const toasterSurfaceVariants = cva('border shadow-lg', {
   variants: {

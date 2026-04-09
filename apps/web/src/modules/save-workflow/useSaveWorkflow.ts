@@ -1,9 +1,9 @@
 import { useEffect, useCallback } from 'react';
-import { createLogger } from '@shared/lib/logger/createLogger';
-import { useWorkflowStore } from '@modules/canvas-interaction/workflow-store';
+import { createLogger } from '@shared/lib/logger/CreateLogger';
+import { useWorkflowStore } from '@modules/canvas-interaction/WorkflowStore';
 import { decodeFromBase64 } from '@modules/code-editor/editor/Base64Handler';
-import { useProjectStore } from '@modules/project-management/project-store-legacy';
-import { writeFile } from '@modules/project-workspace/workspace-api';
+import { useProjectStore } from '@modules/project-management/ProjectStore';
+import { writeFile } from '@modules/project-workspace/WorkspaceApi';
 
 const logger = createLogger('save-workflow/useSaveWorkflow');
 

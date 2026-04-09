@@ -1,12 +1,12 @@
 import { useCallback, useRef, useState } from 'react';
 import { isFailure, type ApiResponse, VnextForgeError } from '@vnext-forge/app-contracts';
-import { toVnextError } from '@shared/lib/error/vnextError-helpers';
+import { toVnextError } from '@shared/lib/error/VnextErrorHelpers';
 import {
   showNotification,
   type NotificationModalType,
   type NotificationType,
-} from '@shared/notification/model/notificationStore';
-import { createLogger } from '@shared/lib/logger/createLogger';
+} from '@shared/notification/model/NotificationStore';
+import { createLogger } from '@shared/lib/logger/CreateLogger';
 
 const logger = createLogger('useAsync');
 

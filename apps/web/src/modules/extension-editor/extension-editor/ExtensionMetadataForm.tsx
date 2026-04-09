@@ -1,5 +1,5 @@
-import { Field } from '../components/Field';
-import { TagEditor } from '../components/TagEditor';
+import { Field } from '@modules/save-component/components/Field';
+import { TagEditor } from '@modules/save-component/components/TagEditor';
 import { ExtensionTypePicker } from './ExtensionTypePicker';
 import { ExtensionScopePicker } from './ExtensionScopePicker';
 import { DefinedFlowsSelector } from './DefinedFlowsSelector';

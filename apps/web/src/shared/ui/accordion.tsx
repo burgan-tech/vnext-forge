@@ -1,9 +1,9 @@
 import { useState, type ReactNode } from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { ChevronDownIcon } from 'lucide-react';
-import { cn } from '@shared/lib/utils/cn';
-import { Card, CardContent } from '@shared/ui/card';
-import { Badge } from '@shared/ui/badge';
+import { cn } from '@shared/lib/utils/Cn';
+import { Card, CardContent } from '@shared/ui/Card';
+import { Badge } from '@shared/ui/Badge';
 
 export interface AccordionItem {
   id: string;

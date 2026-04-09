@@ -1,9 +1,9 @@
 import { useState, useMemo } from 'react';
-import { useWorkflowStore } from '@modules/canvas-interaction/workflow-store';
+import { useWorkflowStore } from '@modules/canvas-interaction/WorkflowStore';
 import { CsxEditorField, type ScriptCode } from '@modules/save-component/components/CsxEditorField';
 import { SchemaReferenceField, type SchemaReference } from '@modules/save-component/components/SchemaReferenceField';
-import { getLabels, getTriggerKindLabel } from './helpers';
-import { Badge, IconTransition, IconPlus, IconTrash } from './shared';
+import { getLabels, getTriggerKindLabel } from './Helpers';
+import { Badge, IconTransition, IconPlus, IconTrash } from './Shared';
 import { ArrowRight } from 'lucide-react';
 
 /* ────────────── TRANSITIONS TAB ────────────── */

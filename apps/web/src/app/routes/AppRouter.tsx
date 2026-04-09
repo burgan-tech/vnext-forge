@@ -1,16 +1,16 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 
-import { AppLayout } from '@app/layouts/app-layout';
-import { CodeEditorPage } from '@pages/code-editor';
-import { ExtensionEditorPage } from '@pages/extension-editor';
-import { FlowEditorPage } from '@pages/flow-editor';
-import { FunctionEditorPage } from '@pages/function-editor';
-import { ProjectListPage } from '@pages/project-list';
-import { ProjectWorkspacePage } from '@pages/project-workspace';
-import { SchemaEditorPage } from '@pages/schema-editor';
-import { TaskEditorPage } from '@pages/task-editor';
-import { TestPage } from '@pages/test';
-import { ViewEditorPage } from '@pages/view-editor';
+import { AppLayout } from '@app/layouts/AppLayout';
+import { CodeEditorPage } from '@pages/code-editor/CodeEditorPage';
+import { ExtensionEditorPage } from '@pages/extension-editor/ExtensionEditorPage';
+import { FlowEditorPage } from '@pages/flow-editor/FlowEditorPage';
+import { FunctionEditorPage } from '@pages/function-editor/FunctionEditorPage';
+import { ProjectListPage } from '@pages/project-list/ProjectListPage';
+import { ProjectWorkspacePage } from '@pages/project-workspace/ProjectWorkspacePage';
+import { SchemaEditorPage } from '@pages/schema-editor/SchemaEditorPage';
+import { TaskEditorPage } from '@pages/task-editor/TaskEditorPage';
+import { TestPage } from '@pages/test/TestPage';
+import { ViewEditorPage } from '@pages/view-editor/ViewEditorPage';
 
 export function AppRouter() {
   return (

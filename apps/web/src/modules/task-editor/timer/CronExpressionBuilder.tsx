@@ -1,5 +1,5 @@
-import { Field } from '../components/Field';
-import { parseCron, formatCron } from './cron-utils';
+import { Field } from '@modules/save-component/components/Field';
+import { parseCron, formatCron } from './CronUtils';
 
 interface CronExpressionBuilderProps {
   value: string;

@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 
-import { cn } from '@shared/lib/utils/cn';
+import { cn } from '@shared/lib/utils/Cn';
 
 const selectVariants = cva(
   'flex h-10 w-full rounded-md border px-3 text-sm shadow-xs transition-all duration-200 ease-out outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50',

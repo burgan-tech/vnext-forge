@@ -1,9 +1,9 @@
 import { useMemo, useState } from 'react';
-import { useWorkflowStore } from '@modules/canvas-interaction/workflow-store';
+import { useWorkflowStore } from '@modules/canvas-interaction/WorkflowStore';
 import { CsxEditorField, type ScriptCode } from '@modules/save-component/components/CsxEditorField';
 import { SchemaReferenceField, type SchemaReference } from '@modules/save-component/components/SchemaReferenceField';
-import { getLabels, getLabel, getTriggerLabel, getTriggerColor, getTriggerKindLabel } from './property-panel/helpers';
-import { Badge, SelectField, Section, InfoRow, IconPlus, IconTrash } from './property-panel/shared';
+import { getLabels, getLabel, getTriggerLabel, getTriggerColor, getTriggerKindLabel } from './property-panel/Helpers';
+import { Badge, SelectField, Section, InfoRow, IconPlus, IconTrash } from './property-panel/Shared';
 import { ArrowRight, MousePointer2 } from 'lucide-react';
 
 /* ────────────── Parse Edge ID ────────────── */

@@ -48,6 +48,8 @@ Detailed implementation rules, slice constraints, and architecture-specific conv
 - In `shared/ui`, hover should follow interactivity. Non-clickable surfaces default to `hoverable={false}` unless explicitly requested; clickable descendants such as buttons, triggers, menu items, links, and checkbox controls may keep hover enabled.
 - Do not create `index.ts` files only to forward a single direct export. Prefer importing the concrete file when the path is already clear.
 - During migration, do not keep route-level or legacy wrapper and re-export files for backward compatibility unless there is an explicit technical requirement for a staged migration.
+- When updating a structure, complete the migration fully. Do not leave backward-looking files behind after the new owner is in place.
+- Do not keep wrapper files whose only job is to re-export another file, such as `export { ProjectListHero } from './project-list-hero/ui/project-list-hero';`.
 - Do not create a second business owner under `pages`. A route entry may compose `modules/project-management/*`, but it should not duplicate that module with another business owner.
 - Route entries should compose current owners such as `modules/project-management/*` or `modules/project-workspace/*`; pages should not own transport, store, or workflow orchestration directly.
 - Use page naming only in `pages/*`. Inside `modules/*`, prefer names such as `*.view.tsx`, `*.panel.tsx`, or `*.section.tsx`.

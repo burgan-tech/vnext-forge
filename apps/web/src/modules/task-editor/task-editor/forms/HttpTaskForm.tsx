@@ -1,5 +1,5 @@
-import { Field } from '../../components/Field';
-import { KVEditor } from '../../components/KVEditor';
+import { Field } from '@modules/save-component/components/Field';
+import { KVEditor } from '@modules/save-component/components/KVEditor';
 
 interface HttpTaskFormProps {
   config: Record<string, unknown>;

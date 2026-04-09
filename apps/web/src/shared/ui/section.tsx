@@ -2,7 +2,7 @@ import * as React from 'react';
 import { ChevronRight } from 'lucide-react';
 import { cva, type VariantProps } from 'class-variance-authority';
 
-import { cn } from '@shared/lib/utils/cn';
+import { cn } from '@shared/lib/utils/Cn';
 
 const sectionVariants = cva('rounded-xl border shadow-sm transition-all duration-200 ease-out', {
   variants: {

@@ -1,5 +1,5 @@
-import { getLabels } from './helpers';
-import { SelectField, Section, InfoRow, SummaryCard } from './shared';
+import { getLabels } from './Helpers';
+import { SelectField, Section, InfoRow, SummaryCard } from './Shared';
 import { Trash2, Plus } from 'lucide-react';
 
 export function GeneralTab({ state, updateWorkflow }: { state: any; updateWorkflow: any }) {

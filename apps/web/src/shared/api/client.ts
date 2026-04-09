@@ -1,7 +1,7 @@
 import { hc } from 'hono/client';
 import type { AppType } from '@vnext-forge/server';
 import { isFailure, type ApiResponse } from '@vnext-forge/app-contracts';
-import { toVnextError } from '@shared/lib/error/vnextError-helpers';
+import { toVnextError } from '@shared/lib/error/VnextErrorHelpers';
 
 export const apiClient = hc<AppType>('/');
 export type ApiClient = typeof apiClient;

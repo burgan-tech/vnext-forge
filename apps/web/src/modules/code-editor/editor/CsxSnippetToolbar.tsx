@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
-import { getSnippetsForType, type CsxSnippet } from './csx-snippets';
-import type { TemplateType } from './csx-templates';
+import { getSnippetsForType, type CsxSnippet } from './CsxSnippets';
+import type { TemplateType } from './CsxTemplates';
 import {
   Globe, FileOutput, ShieldAlert, Settings, Lock, List,
   MessageSquare, Radio, Server, CornerDownLeft, Database,

@@ -4,9 +4,9 @@ import {
   dismissNotification,
   nextNotification,
   useNotificationStore,
-} from '@shared/notification/model/notificationStore';
-import { createLogger } from '@shared/lib/logger/createLogger';
-import { Toaster } from '@shared/ui/sonner';
+} from '@shared/notification/model/NotificationStore';
+import { createLogger } from '@shared/lib/logger/CreateLogger';
+import { Toaster } from '@shared/ui/Sonner';
 
 const logger = createLogger('NotificationContainer');
 

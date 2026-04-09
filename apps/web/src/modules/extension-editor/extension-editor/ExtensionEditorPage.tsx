@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { useProjectStore } from '@modules/project-management/project-store-legacy';
-import { useComponentStore } from '@modules/save-component/component-store';
-import { useSaveComponent } from '@modules/save-component/useSaveComponent';
+import { useProjectStore } from '@modules/project-management/ProjectStore';
+import { useComponentStore } from '@modules/save-component/ComponentStore';
+import { useSaveComponent } from '@modules/save-component/UseSaveComponent';
 import { ComponentEditorLayout } from '@modules/save-component/components/ComponentEditorLayout';
-import { readFile } from '@modules/project-workspace/workspace-api';
+import { readFile } from '@modules/project-workspace/WorkspaceApi';
 import { ExtensionEditorPanel } from './ExtensionEditorPanel';
 
 export function ExtensionEditorPage() {

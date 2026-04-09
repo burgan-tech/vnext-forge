@@ -1,4 +1,4 @@
-import { Field } from '../components/Field';
+import { Field } from '@modules/save-component/components/Field';
 
 const SCOPES = [
   { value: 'I', label: 'Instance', desc: 'Per workflow instance' },

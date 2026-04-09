@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { CSX_API_REFERENCE, type ApiSection, type ApiEntry } from './csx-api-reference';
+import { CSX_API_REFERENCE, type ApiSection, type ApiEntry } from './CsxApiReference';
 import { ChevronRight, Copy, X, Search } from 'lucide-react';
 
 /* ────────────── Props ────────────── */

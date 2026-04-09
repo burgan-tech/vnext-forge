@@ -1,5 +1,5 @@
-import { Field } from '../components/Field';
-import { TagEditor } from '../components/TagEditor';
+import { Field } from '@modules/save-component/components/Field';
+import { TagEditor } from '@modules/save-component/components/TagEditor';
 
 interface SchemaMetadataFormProps {
   json: Record<string, unknown>;

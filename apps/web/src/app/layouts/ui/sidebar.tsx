@@ -1,7 +1,7 @@
-import { Input } from '@shared/ui/input';
+import { Input } from '@shared/ui/Input';
 
-import { useUIStore } from '@app/store/ui-store';
-import { ProjectWorkspaceSidebarPanel } from '@modules/project-workspace/sidebar-panel';
+import { useUIStore } from '@app/store/UiStore';
+import { ProjectWorkspaceSidebarPanel } from '@modules/project-workspace/SidebarPanel';
 
 export function Sidebar() {
   const { sidebarView } = useUIStore();

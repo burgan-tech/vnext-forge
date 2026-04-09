@@ -1,4 +1,4 @@
-import { Section, ResourceRef } from './shared';
+import { Section, ResourceRef } from './Shared';
 
 export function SubFlowTab({ state }: { state: any }) {
   const sf = state.subFlow;

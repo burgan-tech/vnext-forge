@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Field } from '../components/Field';
-import { TagEditor } from '../components/TagEditor';
-import { LabelEditor } from '../components/LabelEditor';
-import { JsonCodeField } from '../components/JsonCodeField';
+import { Field } from '@modules/save-component/components/Field';
+import { TagEditor } from '@modules/save-component/components/TagEditor';
+import { LabelEditor } from '@modules/save-component/components/LabelEditor';
+import { JsonCodeField } from '@modules/save-component/components/JsonCodeField';
 
 interface ViewEditorPanelProps {
   json: Record<string, unknown>;

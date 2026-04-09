@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
-import { useWorkflowStore } from '@modules/canvas-interaction/workflow-store';
+import { useWorkflowStore } from '@modules/canvas-interaction/WorkflowStore';
 import { SchemaReferenceField, type SchemaReference } from '@modules/save-component/components/SchemaReferenceField';
-import { getLabels, getLabel, getTriggerLabel } from './helpers';
-import { Badge, Section, InfoRow, SelectField } from './shared';
+import { getLabels, getLabel, getTriggerLabel } from './Helpers';
+import { Badge, Section, InfoRow, SelectField } from './Shared';
 import { Play, Plus, Trash2 } from 'lucide-react';
 
 export function StartNodePanel({ startTransition }: { startTransition: any }) {

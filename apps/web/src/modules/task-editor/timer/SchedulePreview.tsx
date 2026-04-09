@@ -1,4 +1,4 @@
-import { describeCron } from './cron-utils';
+import { describeCron } from './CronUtils';
 
 interface SchedulePreviewProps {
   expression: string;

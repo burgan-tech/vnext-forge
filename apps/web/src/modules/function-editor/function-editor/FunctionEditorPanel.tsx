@@ -1,5 +1,5 @@
 import { FunctionMetadataForm } from './FunctionMetadataForm';
-import { TaskExecutionList } from '../components/TaskExecutionList';
+import { TaskExecutionList } from '@modules/save-component/components/TaskExecutionList';
 
 interface FunctionEditorPanelProps {
   json: Record<string, unknown>;

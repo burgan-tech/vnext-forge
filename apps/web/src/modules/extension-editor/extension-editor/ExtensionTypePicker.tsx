@@ -1,4 +1,4 @@
-import { Field } from '../components/Field';
+import { Field } from '@modules/save-component/components/Field';
 
 const TYPES = [
   { value: 1, label: 'Global', desc: 'Runs on all flows' },

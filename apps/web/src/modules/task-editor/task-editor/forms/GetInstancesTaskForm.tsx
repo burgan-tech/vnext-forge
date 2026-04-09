@@ -1,4 +1,4 @@
-import { Field } from '../../components/Field';
+import { Field } from '@modules/save-component/components/Field';
 
 interface Props { config: Record<string, unknown>; onChange: (updater: (draft: any) => void) => void; }
 

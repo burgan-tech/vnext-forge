@@ -1,5 +1,5 @@
 import type { Monaco } from '@monaco-editor/react';
-import { registerContextAwareCompletions } from './csx-completions';
+import { registerContextAwareCompletions } from './CsxCompletions';
 
 export function registerCSharpSnippets(monaco: Monaco) {
   monaco.languages.registerCompletionItemProvider('csharp', {

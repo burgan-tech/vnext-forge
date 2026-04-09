@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { createLogger } from '@shared/lib/logger/createLogger';
+import { createLogger } from '@shared/lib/logger/CreateLogger';
 
 const logger = createLogger('config');
 
@@ -123,3 +123,4 @@ export const APP_CONFIG = Object.freeze(
     RUNTIME_REVALIDATION_MIN_INTERVAL_SECONDS: runtimeRevalidationMinIntervalSeconds,
   }),
 );
+

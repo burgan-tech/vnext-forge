@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useWorkflowStore } from '@modules/canvas-interaction/workflow-store';
+import { useWorkflowStore } from '@modules/canvas-interaction/WorkflowStore';
 import { SchemaReferenceField, type SchemaReference } from '@modules/save-component/components/SchemaReferenceField';
 import { X, ChevronRight, Plus, Trash2, Info, Tag, Globe, Share2, Boxes, Puzzle, Zap } from 'lucide-react';
 

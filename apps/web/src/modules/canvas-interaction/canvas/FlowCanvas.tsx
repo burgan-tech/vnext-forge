@@ -17,9 +17,9 @@ import '@xyflow/react/dist/style.css';
 
 import { nodeTypes } from './nodes';
 import { edgeTypes } from './edges';
-import { useWorkflowStore } from '@modules/canvas-interaction/workflow-store';
-import { workflowToReactFlow, reactFlowToPositions } from './utils/conversion';
-import { autoLayout } from './utils/layout';
+import { useWorkflowStore } from '@modules/canvas-interaction/WorkflowStore';
+import { workflowToReactFlow, reactFlowToPositions } from './utils/Conversion';
+import { autoLayout } from './utils/Layout';
 import { CanvasToolbar } from './panels/CanvasToolbar';
 import { CanvasContextMenu, NodeContextMenu, EdgeContextMenu } from './menus/CanvasContextMenu';
 

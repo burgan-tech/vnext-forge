@@ -3,7 +3,7 @@ import {
   ChevronRight, CheckSquare, ArrowRight, Code2, FileText,
   Copy, Plus, Trash2, ArrowUp, ArrowDown,
 } from 'lucide-react';
-import { copyToClipboard, decodeBase64 } from './helpers';
+import { copyToClipboard, decodeBase64 } from './Helpers';
 
 /* ────────────── Editable Fields ────────────── */
 

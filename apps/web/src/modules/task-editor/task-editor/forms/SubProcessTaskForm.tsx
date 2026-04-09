@@ -1,5 +1,5 @@
-import { Field } from '../../components/Field';
-import { JsonCodeField } from '../../components/JsonCodeField';
+import { Field } from '@modules/save-component/components/Field';
+import { JsonCodeField } from '@modules/save-component/components/JsonCodeField';
 
 interface Props { config: Record<string, unknown>; onChange: (updater: (draft: any) => void) => void; }
 

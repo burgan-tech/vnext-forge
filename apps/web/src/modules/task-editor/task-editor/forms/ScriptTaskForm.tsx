@@ -1,4 +1,4 @@
-import { JsonCodeField } from '../../components/JsonCodeField';
+import { JsonCodeField } from '@modules/save-component/components/JsonCodeField';
 
 interface Props { config: Record<string, unknown>; onChange: (updater: (draft: any) => void) => void; }
 

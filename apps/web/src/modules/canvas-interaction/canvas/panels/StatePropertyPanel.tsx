@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
-import { useWorkflowStore } from '@modules/canvas-interaction/workflow-store';
-import { getStateTypeLabel, getStateTypeColor, getSubTypeLabel, getSubTypeBadge, getLabel } from './property-panel/helpers';
-import { Badge } from './property-panel/shared';
+import { useWorkflowStore } from '@modules/canvas-interaction/WorkflowStore';
+import { getStateTypeLabel, getStateTypeColor, getSubTypeLabel, getSubTypeBadge, getLabel } from './property-panel/Helpers';
+import { Badge } from './property-panel/Shared';
 import { GeneralTab } from './property-panel/GeneralTab';
 import { TasksTab } from './property-panel/TasksTab';
 import { TransitionsTab } from './property-panel/TransitionsTab';

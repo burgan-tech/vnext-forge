@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import Editor, { type OnMount } from '@monaco-editor/react';
-import { useEditorStore } from '@modules/code-editor/editor-store';
-import { useUIStore } from '@app/store/ui-store';
+import { useEditorStore } from '@modules/code-editor/EditorStore';
+import { useUIStore } from '@app/store/UiStore';
 import { setupMonaco } from './MonacoSetup';
 
 let monacoInitialized = false;

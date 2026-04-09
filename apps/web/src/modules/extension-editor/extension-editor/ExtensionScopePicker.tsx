@@ -1,4 +1,4 @@
-import { Field } from '../components/Field';
+import { Field } from '@modules/save-component/components/Field';
 
 const SCOPES = [
   { value: 1, label: 'Get Instance', desc: 'Single instance retrieval' },

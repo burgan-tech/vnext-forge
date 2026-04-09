@@ -1,6 +1,6 @@
 ---
 name: architectural-pattern-web
-description: Use when defining or refactoring web architecture in this repo without FSD. Prefer a common React module-based vertical slice structure with shallow ownership, a narrow `shared` layer, and explicit rules for local, module, server, and app-wide state.
+description: Use when defining or refactoring web architecture in this repo without FSD. Prefer a common React module-based vertical slice structure with shallow ownership, a narrow `shared` layer, explicit rules for local, module, server, and app-wide state, and a single `app/store` home for zustand global stores.
 ---
 
 # Architectural Pattern Web
@@ -20,7 +20,7 @@ Related skills:
 
 Use the narrowest owner that matches the concern:
 
-1. `app` for startup, providers, router, shell wiring
+1. `app` for startup, providers, router, shell wiring, and app-wide zustand stores
 2. `pages` for route entry and route composition
 3. `modules` for business UI, state, services, async flows
 4. `shared` for generic, stable, cross-module infrastructure
@@ -35,34 +35,35 @@ src/
     providers/
     routes/
     layouts/
+    store/
   pages/
     project-list/
-      index.tsx
+      ProjectListPage.tsx
     project-workspace/
-      index.tsx
+      ProjectWorkspacePage.tsx
     flow-editor/
-      index.tsx
+      FlowEditorPage.tsx
     code-editor/
-      index.tsx
+      CodeEditorPage.tsx
     task-editor/
-      index.tsx
+      TaskEditorPage.tsx
     function-editor/
-      index.tsx
+      FunctionEditorPage.tsx
     extension-editor/
-      index.tsx
+      ExtensionEditorPage.tsx
     schema-editor/
-      index.tsx
+      SchemaEditorPage.tsx
     view-editor/
-      index.tsx
+      ViewEditorPage.tsx
   modules/
     project-management/
-      project-management.view.tsx
-      project-api.ts
-      use-project-management.ts
+      ProjectManagementView.tsx
+      ProjectApi.ts
+      UseProjectManagement.ts
     project-workspace/
-      project-workspace.view.tsx
-      workspace-api.ts
-      use-project-workspace.ts
+      ProjectWorkspaceView.tsx
+      WorkspaceApi.ts
+      UseProjectWorkspace.ts
     canvas-interaction/
     code-editor/
     workflow-validation/
@@ -83,6 +84,7 @@ src/
 
 Active target owners are `src/app`, `src/pages`, `src/modules`, `src/shared`.
 Do not extend legacy top-level owners such as `entities`, `features`, `widgets`, `routes`, `stores`, `components`, or `hooks`.
+If a store is truly global and implemented with `zustand`, place it in `src/app/store`, not in a top-level `src/stores` area.
 
 ## Pages vs Modules
 
@@ -91,18 +93,36 @@ Do not extend legacy top-level owners such as `entities`, `features`, `widgets`,
 ```text
 pages/
   project-list/
-    index.tsx
+    ProjectListPage.tsx
 
 modules/
   project-management/
-    project-management.view.tsx
-    use-project-management.ts
-    project-api.ts
+    ProjectManagementView.tsx
+    UseProjectManagement.ts
+    ProjectApi.ts
 ```
 
-- `pages/project-list/index.tsx` is the route boundary
+- `pages/project-list/ProjectListPage.tsx` is the route boundary
 - `modules/project-management/*` owns business UI, state, API calls, and orchestration
-- Reserve `*.page.tsx` for `pages/*` only
+- Prefer a single explicit `PascalCase` page file such as `ProjectListPage.tsx` as the route entry inside each `pages/*` folder
+- Do not add `pages/*/index.tsx` re-export wrappers just to shorten imports
+- Import pages directly from their page file, for example `@pages/project-list/ProjectListPage`
+
+## File Naming
+
+Use one naming rule across `app`, `pages`, `modules`, and `shared`:
+
+- Folders use `kebab-case`
+- Files use `PascalCase`
+
+- Name files like exported React components or owned module contracts: `ProjectListActions.tsx`, `ProjectApi.ts`, `ProjectStore.ts`, `UseProjectList.ts`, `Button.tsx`
+- Keep the file name and the primary exported symbol aligned when practical
+- Use the same rule for hooks in this repo. Prefer `UseProjectList.ts` instead of `use-project-list.ts` or `useProjectList.ts`
+- Keep folders descriptive and in `kebab-case`, such as `project-management`, `project-list`, `shared`, `ui`, or `code-editor`
+- Keep framework exceptions as they are when required by tooling, for example `index.ts`, `main.tsx`, or `vite-env.d.ts`
+- Do not use `camelCase` or `PascalCase` for folder names unless tooling forces it
+- Do not mix `kebab-case`, `camelCase`, and `PascalCase` file names inside the same owner
+- When renaming a file, update all import paths in the same change so ownership stays obvious and search remains reliable
 
 ## Ownership Rules
 
@@ -110,6 +130,7 @@ modules/
 - `pages` may import `modules` and `shared`.
 - `modules` may import `shared`.
 - `shared` imports only other `shared` code and package-level dependencies.
+- `app/store` is the only valid home for app-wide `zustand` stores.
 - Avoid module-to-module imports by default. Compose from `pages` or extract a stable generic contract into `shared`.
 - If one module keeps reaching into another, merge them or redefine the boundary.
 - Shape code around ownership, not around FSD-like layer completion.
@@ -118,14 +139,25 @@ modules/
 
 Default module contents:
 
-- `code-editor.api.ts`
-- `code-editor.store.ts`
-- `use-code-editor.ts`
-- `code-editor.types.ts`
-- `workflow-validation.panel.tsx`
-- `project-management.view.tsx`
+- `CodeEditorApi.ts`
+- `CodeEditorStore.ts`
+- `UseCodeEditor.ts`
+- `CodeEditorTypes.ts`
+- `WorkflowValidationPanel.tsx`
+- `ProjectManagementView.tsx`
 
-Prefer flat colocated files first. Add one-level subfolders only when scanning the module becomes genuinely hard.
+Prefer flat colocated files first.
+When the same kind of file grows past `3` inside one vertical slice, group that kind under a one-level folder.
+
+Examples:
+
+- If a module has more than `3` React components, move them under `components/`.
+- If a module has more than `3` hooks, move them under `hooks/`.
+- If a module has more than `3` API/service boundary files, move them under `api/`.
+- If a module has more than `3` type-only files, move them under `types/`.
+- Apply the same rule to other repeated file kinds only when the grouping improves scanning.
+
+Keep the split shallow. The goal is easier scanning inside the owning vertical slice, not recreating FSD.
 
 Allowed minimal split:
 
@@ -133,11 +165,12 @@ Allowed minimal split:
 modules/code-editor/
   components/
   api/
-  code-editor.store.ts
-  use-code-editor.ts
+  CodeEditorStore.ts
+  UseCodeEditor.ts
 ```
 
 - Do not create `model`, `ui`, `hooks`, `types`, or `services` folders by reflex.
+- Create folders like `components`, `hooks`, `api`, or `types` only when the slice has more than `3` files of that kind or when a clear scanning problem already exists.
 - Do not create deep trees unless the module is genuinely large.
 - Expose one obvious outside entry point. Use `index.ts` only when it clarifies the boundary.
 
@@ -178,7 +211,9 @@ If `shared` starts changing because one module changed, it probably is not share
 - Server state: fetched backend data. Keep query keys and request functions near the owning module. Do not mirror query cache into a global store without a concrete reason.
 - Module state: shared client state used by several components in one business area. Prefer plain state, then custom hook, then module store.
 - App-wide state: auth/session, active workspace reused across shell, theme/layout preferences, optional notification center, feature flags.
+- All app-wide stores written with `zustand` live under `src/app/store`.
 - Global state should stay rare and boring.
+- `zustand` is for app-wide global state in this repo, not the default state tool for every module.
 - Do not use global stores for route-local async state, request cache, or raw API failures.
 - Use `useAsync` only when a module needs a reusable async contract such as `loading`, `error`, `retry`, or scenario-shaped actions.
 
@@ -219,17 +254,19 @@ If `shared` starts changing because one module changed, it probably is not share
 
 - Keep pages thin: route params, composition, layout.
 - Business logic, transport, validation orchestration, and module state stay in `modules`.
-- Route entries may be `index.tsx` or `*.page.tsx`, but page files stay inside `pages`.
+- Route entries should be explicit `PascalCase` page files such as `ProjectListPage.tsx` inside `pages/*`.
+- Avoid `index.tsx` files in `pages/*` when they only re-export the real page component.
 
 ## Do
 
 - Prefer `modules` as the default business boundary.
-- Start flat and colocated; split only when navigation gets worse.
+- Start flat and colocated; when one file kind grows past `3` in a slice, split it into a shallow folder for that kind.
 - Keep `shared` generic and small.
 - Keep request code in the owning module service.
 - Expose scenario-named actions to UI instead of transport primitives.
 - Keep server state, module state, and app-wide state separate.
 - Promote state only when multiple real consumers require it.
+- When state is promoted to a global `zustand` store, move it into `src/app/store` instead of leaving it under a module or creating `src/stores`.
 - Use `useAsync` when reusable async lifecycle behavior is the point.
 - Keep form schemas near the owner and runtime validation at the contract boundary.
 - Keep reusable visual behavior in shared primitives and token sources.
@@ -239,6 +276,8 @@ If `shared` starts changing because one module changed, it probably is not share
 
 - Do not reintroduce FSD layers under different names.
 - Do not create `entities`, `features`, `widgets`, `routes`, `stores`, `components`, or `hooks` as new top-level owners.
+- Do not create slice-local subfolders too early; use them when repeated file kinds exceed `3`, not by reflex.
+- Do not place `zustand` global stores inside modules or in a top-level `src/stores`; use `src/app/store`.
 - Do not move module-specific code into `shared` for convenience.
 - Do not let pages become transport owners or hidden business layers.
 - Do not use raw `fetch`, raw `Response`, raw backend payloads, or raw `ApiFailure` in UI code.
@@ -256,12 +295,16 @@ If `shared` starts changing because one module changed, it probably is not share
 Raise a concern when:
 
 - a module was split into artificial layers without ownership gain
+- a vertical slice has more than `3` files of one kind but still keeps them scattered at the slice root without a good reason
 - `shared` contains business logic or business-shaped API wrappers
 - a page owns transport, validation orchestration, or module workflow logic
+- a `pages/*/index.tsx` file exists only to re-export a sibling page component
+- a module or page mixes multiple file naming conventions without a tooling reason
 - UI code calls `apiClient`, `callApi`, `unwrapApi`, or `fetch` directly
 - a service invents a second error contract instead of `ApiResponse<T>` plus `VnextForgeError`
 - branching depends on message text instead of `error.code`
 - app-wide state was introduced for route-local state, request cache, or transient async flags
+- a `zustand` global store lives outside `src/app/store`
 - `useAsync` was added where a simple local flow would be clearer
 - transport wrapping lives inside `useAsync` or an ad hoc hook instead of the owning service
 - schemas are buried in JSX or durable validation rules are duplicated across screens

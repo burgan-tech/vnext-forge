@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { SchemaMetadataForm } from './SchemaMetadataForm';
 import { SchemaTree } from './SchemaTree';
-import { JsonCodeField } from '../components/JsonCodeField';
+import { JsonCodeField } from '@modules/save-component/components/JsonCodeField';
 
 interface SchemaEditorPanelProps {
   json: Record<string, unknown>;

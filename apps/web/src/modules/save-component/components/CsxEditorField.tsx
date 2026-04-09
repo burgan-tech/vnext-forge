@@ -1,9 +1,9 @@
 import { useCallback, useMemo } from 'react';
 import { encodeToBase64, decodeFromBase64 } from '@modules/code-editor/editor/Base64Handler';
-import { generateTemplate, type TemplateType } from '@modules/code-editor/editor/csx-templates';
-import { useScriptPanelStore, type ActiveScript } from '@modules/code-editor/script-panel-store';
-import { useUIStore } from '@app/store/ui-store';
-import type { CsxTaskType } from '@modules/code-editor/editor/csx-context';
+import { generateTemplate, type TemplateType } from '@modules/code-editor/editor/CsxTemplates';
+import { useScriptPanelStore, type ActiveScript } from '@modules/code-editor/ScriptPanelStore';
+import { useUIStore } from '@app/store/UiStore';
+import type { CsxTaskType } from '@modules/code-editor/editor/CsxContext';
 import { Code2, Plus, Trash2, ExternalLink } from 'lucide-react';
 
 /* ────────────── Types ────────────── */

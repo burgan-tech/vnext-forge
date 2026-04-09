@@ -1,5 +1,5 @@
-import { getErrorActionLabel, getErrorActionColor } from './helpers';
-import { Badge, InfoRow } from './shared';
+import { getErrorActionLabel, getErrorActionColor } from './Helpers';
+import { Badge, InfoRow } from './Shared';
 
 export function ErrorBoundaryTab({ state }: { state: any }) {
   const eb = state.errorBoundary;

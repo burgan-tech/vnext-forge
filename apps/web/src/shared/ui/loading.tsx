@@ -1,7 +1,7 @@
 import { motion } from 'framer-motion';
 import { Loader2, Zap } from 'lucide-react';
 import type { ComponentType } from 'react';
-import { cn } from '@shared/lib/utils/cn';
+import { cn } from '@shared/lib/utils/Cn';
 
 export type LoadingVariant = 'spinner' | 'dots' | 'pulse' | 'bounce' | 'wave' | 'custom';
 export type LoadingSize = 'sm' | 'md' | 'lg' | 'xl';
