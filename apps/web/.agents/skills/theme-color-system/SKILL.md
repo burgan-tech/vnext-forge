@@ -49,6 +49,7 @@ If no existing family maps to the element's semantic role, add a new token famil
 - For reusable primitives under `apps/web/src/shared/ui`, prefer a variant-first API before introducing custom Tailwind props, local color overrides, or one-off style booleans.
 - Keep visual-system implementation details such as variant mapping, hover rules, border behavior, muted surfaces, and icon wrappers inside `shared/ui` primitives. Callers in `pages` and `modules` should consume the primitive API, not reimplement each variant manually.
 - Interactive affordances in `shared/ui` must read as interactive in their base state too. Hover should strengthen discoverability, not create it from nothing.
+- Clickable primitives and clickable subparts must also communicate interactivity through cursor semantics. Use pointer-style cursor behavior for interactive affordances, and ensure disabled states do not keep the interactive cursor.
 - Destructive token families are reserved for destructive actions. `cancel`, `close`, `dismiss`, and similar routine dismissal actions should generally stay in neutral, `default`, `secondary`, or `tertiary` families unless the action itself is destructive.
 - Unless the task explicitly asks for a different theme, `default` should remain the first-choice variant for the app's general UI. Treat `default` as the baseline primary family and opt into other families only for clear semantic reasons.
 
@@ -104,6 +105,7 @@ If no existing family maps to the element's semantic role, add a new token famil
 - Borderless mode should not force consumers to re-specify hover, background, or icon behavior. The primitive should remain visually coherent when the border is removed.
 - For clickable descendants, the base state should usually provide enough contrast to separate the control from its background through semantic surface, semantic border, and when appropriate subtle elevation such as `shadow-sm`.
 - Hover is a reinforcement layer. It may intensify surface, border, icon, or motion, but it should not be the only reason a control becomes discoverable.
+- Cursor feedback is part of hover semantics for interactive controls. Clickable roots and clickable descendants should switch to an interactive cursor on hover, while disabled or non-clickable surfaces should keep non-interactive cursor behavior.
 - Do not map dismissive actions to destructive surface, border, hover, or icon tokens unless the action itself is destructive.
 - Passive shells such as `no data`, `empty`, `no project`, and read-only support regions should generally be quieter than primary action surfaces. Keep them in muted families unless the task explicitly asks for stronger emphasis.
 
@@ -138,6 +140,7 @@ If no existing family maps to the element's semantic role, add a new token famil
 - Use `noBorder`-style flags as primitive-owned switches for border suppression when the component needs a reusable borderless mode.
 - For icon-supporting primitives, provide semantic icon coloring through token-backed `text-*` classes when the icon should inherit variant meaning.
 - Make clickable controls visually discoverable at rest through semantic contrast, not only through hover.
+- Make clickable controls cursor-discoverable as well. Interactive controls should expose pointer-style cursor behavior, and disabled controls should suppress that affordance.
 - Keep destructive semantics tied to destructive outcomes, not to generic dismissal labels.
 - Keep the broad application theme anchored to `default` unless the screen or task explicitly calls for another semantic family.
 - Use existing muted token families for empty-state and passive support UIs so they remain visually subordinate to primary/default controls.
@@ -163,6 +166,7 @@ If no existing family maps to the element's semantic role, add a new token famil
 - Do not add one boolean per screen for visual tweaks when the real problem is that the primitive is missing a reusable semantic variant or opt-out.
 - Do not implement the same `default/secondary/tertiary` mapping separately in module or page code.
 - Do not let `hoverable={false}` disable only the root hover while nested hover-coupled visuals still react.
+- Do not leave clickable controls or clickable descendants on default text cursor behavior when they are intended to be interactive, and do not keep pointer cursor semantics on disabled controls.
 - Do not enable hover on non-clickable surfaces just to make them feel active. Hover is an interaction signal first, not ambient decoration.
 - Do not use raw icon color overrides in consumers when the primitive already owns semantic icon coloring.
 - Do not hide interactive affordances inside flat passive surfaces until the user happens to hover them.
@@ -191,6 +195,7 @@ Flag the implementation if:
 - a reusable primitive is being extended with ad hoc custom classes when the need should be covered by a stable variant or primitive-owned boolean such as `hoverable` or `noBorder`
 - consuming slices reimplement primitive variant meanings instead of using the shared variant API
 - hover disabling is partial and internal hover-linked visuals still change when the primitive claims hover is off
+- interactive controls lack pointer-style cursor feedback, or disabled controls still present interactive cursor affordance
 - variant families exist in `index.css` but the primitive bypasses them with local hard-coded Tailwind palette values
 - icon-supporting primitives rely on manual consumer icon coloring instead of semantic token-backed inheritance where appropriate
 - interactive affordances are not visually separable from their background until hover occurs
