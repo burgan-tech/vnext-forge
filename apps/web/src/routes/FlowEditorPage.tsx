@@ -9,7 +9,7 @@ import { WorkflowMetadataPanel } from '../canvas/panels/WorkflowMetadataPanel';
 import { ScriptEditorPanel } from '../layout/ScriptEditorPanel';
 import { useWorkflowStore } from '../stores/workflow-store';
 import { useProjectStore } from '../stores/project-store';
-import { useUIStore } from '../stores/ui-store';
+import { useUIStore } from '@app/store/ui-store';
 import { useScriptPanelStore } from '../stores/script-panel-store';
 import { useSaveWorkflow } from '../hooks/useSaveWorkflow';
 

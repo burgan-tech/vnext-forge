@@ -14,7 +14,6 @@ interface UIState {
   propertiesPanelWidth: number;
   scriptPanelOpen: boolean;
   scriptPanelHeight: number;
-
   setTheme: (theme: Theme) => void;
   toggleSidebar: () => void;
   setSidebarView: (view: SidebarView) => void;
@@ -38,12 +37,12 @@ export const useUIStore = create<UIState>((set) => ({
   propertiesPanelWidth: 320,
   scriptPanelOpen: false,
   scriptPanelHeight: 350,
-
   setTheme: (theme) => set({ theme }),
-  toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
+  toggleSidebar: () => set((state) => ({ sidebarOpen: !state.sidebarOpen })),
   setSidebarView: (sidebarView) => set({ sidebarView, sidebarOpen: true }),
-  togglePropertiesPanel: () => set((s) => ({ propertiesPanelOpen: !s.propertiesPanelOpen })),
-  toggleBottomPanel: () => set((s) => ({ bottomPanelOpen: !s.bottomPanelOpen })),
+  togglePropertiesPanel: () =>
+    set((state) => ({ propertiesPanelOpen: !state.propertiesPanelOpen })),
+  toggleBottomPanel: () => set((state) => ({ bottomPanelOpen: !state.bottomPanelOpen })),
   setBottomPanelHeight: (bottomPanelHeight) => set({ bottomPanelHeight }),
   setSidebarWidth: (sidebarWidth) => set({ sidebarWidth }),
   setPropertiesPanelWidth: (propertiesPanelWidth) => set({ propertiesPanelWidth }),

@@ -1,8 +1,9 @@
-import { useProjectStore } from '../stores/project-store';
-import { useRuntimeStore } from '../stores/runtime-store';
-import { useWorkflowStore } from '../stores/workflow-store';
-import { useValidationStore } from '../stores/validation-store';
-import { AlertTriangle, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { AlertCircle, AlertTriangle, CheckCircle2 } from 'lucide-react';
+
+import { useProjectStore } from '../../../stores/project-store';
+import { useRuntimeStore } from '../../../stores/runtime-store';
+import { useValidationStore } from '../../../stores/validation-store';
+import { useWorkflowStore } from '../../../stores/workflow-store';
 
 export function StatusBar() {
   const { activeProject } = useProjectStore();
@@ -10,11 +11,11 @@ export function StatusBar() {
   const { isDirty } = useWorkflowStore();
   const { issues } = useValidationStore();
 
-  const errors = issues.filter((i) => i.severity === 'error').length;
-  const warnings = issues.filter((i) => i.severity === 'warning').length;
+  const errors = issues.filter((issue) => issue.severity === 'error').length;
+  const warnings = issues.filter((issue) => issue.severity === 'warning').length;
 
   return (
-    <div className="flex h-7 shrink-0 items-center gap-3 bg-indigo-600 px-4 text-[11px] text-indigo-100 select-none">
+    <div className="flex h-7 shrink-0 select-none items-center gap-3 bg-indigo-600 px-4 text-[11px] text-indigo-100">
       <span className="font-semibold text-white">
         {activeProject ? activeProject.domain : 'Flow Studio'}
       </span>

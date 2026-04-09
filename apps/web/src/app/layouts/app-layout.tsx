@@ -1,8 +1,10 @@
-import { Outlet, useLocation } from 'react-router-dom';
-import { Sidebar } from './Sidebar';
-import { ActivityBar } from './ActivityBar';
-import { StatusBar } from './StatusBar';
-import { useUIStore } from '../stores/ui-store';
+import { Outlet } from 'react-router-dom';
+
+import { useUIStore } from '@app/store/ui-store';
+
+import { ActivityBar } from './ui/activity-bar';
+import { Sidebar } from './ui/sidebar';
+import { StatusBar } from './ui/status-bar';
 
 export function AppLayout() {
   const { sidebarOpen, sidebarWidth } = useUIStore();

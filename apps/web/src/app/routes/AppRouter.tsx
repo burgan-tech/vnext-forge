@@ -1,14 +1,14 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 
+import { AppLayout } from '@app/layouts/app-layout';
 import { ProjectWorkspacePage } from '@pages/project-workspace/ui/project-workspace-page';
+import { ProjectListPage } from '@pages/project-list/ui/project-list-page';
 import { TestPage } from '@pages/test/test-page';
 
-import { AppLayout } from '../../layout/AppLayout';
 import { CodeEditorPage } from '../../routes/CodeEditorPage';
 import { ExtensionEditorPage } from '../../routes/ExtensionEditorPage';
 import { FlowEditorPage } from '../../routes/FlowEditorPage';
 import { FunctionEditorPage } from '../../routes/FunctionEditorPage';
-import { ProjectListPage } from '@pages/project-list/ui/project-list-page';
 import { SchemaEditorPage } from '../../routes/SchemaEditorPage';
 import { TaskEditorPage } from '../../routes/TaskEditorPage';
 import { ViewEditorPage } from '../../routes/ViewEditorPage';
@@ -17,9 +17,7 @@ export function AppRouter() {
   return (
     <BrowserRouter>
       <Routes>
-        // Landing page
         <Route index element={<ProjectListPage />} />
-        /* Project */
         <Route element={<AppLayout />}>
           <Route path="project">
             <Route path=":id" element={<ProjectWorkspacePage />} />
@@ -32,7 +30,6 @@ export function AppRouter() {
             <Route path=":id/code/*" element={<CodeEditorPage />} />
           </Route>
         </Route>
-        // test page
         <Route path="/test" element={<TestPage />} />
       </Routes>
     </BrowserRouter>

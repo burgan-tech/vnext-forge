@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 import { encodeToBase64, decodeFromBase64 } from '../editor/Base64Handler';
 import { generateTemplate, type TemplateType } from '../editor/csx-templates';
 import { useScriptPanelStore, type ActiveScript } from '../stores/script-panel-store';
-import { useUIStore } from '../stores/ui-store';
+import { useUIStore } from '@app/store/ui-store';
 import type { CsxTaskType } from '../editor/csx-context';
 import { Code2, Plus, Trash2, ExternalLink } from 'lucide-react';
 

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import MonacoEditor, { type OnMount } from '@monaco-editor/react';
 import { X, Code2, BookOpen, Maximize2, Minimize2 } from 'lucide-react';
 import { useScriptPanelStore } from '../stores/script-panel-store';
-import { useUIStore } from '../stores/ui-store';
+import { useUIStore } from '@app/store/ui-store';
 import { useWorkflowStore } from '../stores/workflow-store';
 import { encodeToBase64, decodeFromBase64 } from '../editor/Base64Handler';
 import { CsxSnippetToolbar } from '../editor/CsxSnippetToolbar';

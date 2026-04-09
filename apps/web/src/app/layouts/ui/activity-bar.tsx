@@ -1,6 +1,7 @@
-import { FolderTree, Search, AlertTriangle, Settings, Home } from 'lucide-react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { useUIStore, type SidebarView } from '../stores/ui-store';
+import { AlertTriangle, FolderTree, Home, Search, Settings } from 'lucide-react';
+import { useLocation, useNavigate } from 'react-router-dom';
+
+import { useUIStore, type SidebarView } from '@app/store/ui-store';
 
 interface ActivityItem {
   id: SidebarView | 'home';
@@ -20,7 +21,7 @@ const bottomItems: ActivityItem[] = [
 ];
 
 export function ActivityBar() {
-  const { sidebarView, setSidebarView, sidebarOpen, toggleSidebar } = useUIStore();
+  const { sidebarOpen, sidebarView, setSidebarView, toggleSidebar } = useUIStore();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -29,6 +30,7 @@ export function ActivityBar() {
       navigate('/');
       return;
     }
+
     const view = item.id as SidebarView;
     if (sidebarView === view && sidebarOpen) {
       toggleSidebar();
@@ -38,7 +40,10 @@ export function ActivityBar() {
   }
 
   function isActive(item: ActivityItem) {
-    if (item.id === 'home') return location.pathname === '/';
+    if (item.id === 'home') {
+      return location.pathname === '/';
+    }
+
     return sidebarOpen && sidebarView === item.id;
   }
 
