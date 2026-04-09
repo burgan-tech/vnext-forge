@@ -9,8 +9,10 @@ const summaryCardVariants = cva(
     variants: {
       variant: {
         default: 'border-primary-border bg-primary text-primary-foreground',
+        success: 'border-success-border bg-success text-success-foreground',
         secondary: 'border-secondary-border bg-secondary text-secondary-foreground',
         tertiary: 'border-tertiary-border bg-tertiary text-tertiary-foreground',
+        muted: 'border-muted-border bg-muted text-muted-foreground',
       },
       hoverable: {
         true: '',
@@ -28,6 +30,11 @@ const summaryCardVariants = cva(
         className: 'hover:border-primary-border-hover hover:bg-primary-hover',
       },
       {
+        variant: 'success',
+        hoverable: true,
+        className: 'hover:border-success-border-hover hover:bg-success-hover',
+      },
+      {
         variant: 'secondary',
         hoverable: true,
         className: 'hover:border-secondary-border-hover hover:bg-secondary-hover',
@@ -36,6 +43,11 @@ const summaryCardVariants = cva(
         variant: 'tertiary',
         hoverable: true,
         className: 'hover:border-tertiary-border-hover hover:bg-tertiary-hover',
+      },
+      {
+        variant: 'muted',
+        hoverable: true,
+        className: 'hover:border-muted-border-hover hover:bg-muted-hover',
       },
     ],
     defaultVariants: {

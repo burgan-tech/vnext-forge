@@ -70,13 +70,18 @@ Transport-only: `apiClient`, `callApi`, `unwrapApi`. No business logic here.
 - If the component already exists in `shared/ui`, use that implementation instead of creating a duplicate elsewhere.
 - In `shared/ui`, default hover behavior must follow interactivity ownership. Passive containers and static surfaces should default to `hoverable={false}`; clickable descendants may keep their own hover behavior.
 - In `shared/ui`, clickable descendants must also be visually separable in their resting state. Do not rely on hover as the first or only affordance; use semantic surface, border, spacing, radius, and when appropriate subtle elevation so users can read the element as interactive before hovering it.
+- Unless the task explicitly asks for a different visual language, prefer the primitive `default` variant. Treat `default` as the repo's baseline primary theme for most shared and composed UI.
+- Treat `success` as the reusable positive-semantic family for clearly affirmative states, successful outcomes, and positive actions.
+- Treat `muted` as the reusable passive-semantic family for empty states, no-data shells, non-clickable support regions, and other low-emphasis UI that should sit behind the mostly-`default` interface.
 - Build new component styling with Tailwind utility classes.
 - Move new work toward the target FSD tree even if nearby legacy code still lives elsewhere.
 - Keep presentational primitives in `shared/ui`.
 - Keep business-concept UI and API access in the owning `entities/*/`.
 - Keep user-flow UI and `useAsync` hooks in the owning `features/*/`.
 - Use `widgets` for composition, not for hidden business rules.
-- Keep destructive semantics tied to actual destructive behavior. `cancel`, `close`, `dismiss`, and `back` style actions should default to neutral or secondary semantics unless the action itself deletes, resets, removes, or irreversibly changes user data.
+- If a `shared/ui` primitive already exposes `success` or `muted`, use that variant before reaching for custom Tailwind color overrides in `pages`, `widgets`, `features`, or `entities`.
+- Keep semantic action styling tied to actual behavior. `create`, `add`, `confirm`, and other positive forward actions may use the repo's success-aligned family such as `tertiary` or `success` when that semantic distinction materially helps. `delete`, `remove`, `reset`, and other irreversible actions should use destructive semantics. `cancel`, `close`, `dismiss`, and `back` style actions should default to neutral, `default`, or `secondary` semantics unless the action itself deletes, resets, removes, or irreversibly changes user data.
+- Empty states, no-data surfaces, no-project shells, and other intentionally non-clickable passive regions should read quieter than the mostly-`default` interactive UI. Prefer `muted`, `muted-foreground`, `border-subtle`, or the primitive's muted surface variant instead of letting passive states compete with `default` interactive controls.
 
 ## Do Not Do
 
@@ -90,6 +95,8 @@ Transport-only: `apiClient`, `callApi`, `unwrapApi`. No business logic here.
 - Do not add decorative hover to non-clickable `shared/ui` surfaces by default. Hover should usually communicate interaction.
 - Do not make hover the only signal that an element is clickable.
 - Do not style `cancel`, `close`, `dismiss`, or `back` actions with destructive variants unless the underlying action is genuinely destructive.
+- Do not switch broad page or feature theming away from `default` without an explicit product or task reason.
+- Do not style passive empty-state shells with the same visual weight as primary interactive controls.
 
 ## Decision Order
 
@@ -143,6 +150,8 @@ Flag the implementation if:
 - new UI is implemented without Tailwind despite no explicit constraint requiring an existing styling system
 - interactive affordances only become discoverable on hover and are not visually separated from their parent surface at rest
 - destructive styling is applied to routine dismissal actions such as `cancel` or `close` without destructive behavior
+- broad UI defaults to non-`default` variants without an explicit semantic or product reason
+- passive empty, no-data, or no-project regions visually compete with primary interactive surfaces instead of reading as muted support states
 
 ## Component Creation Notes
 

@@ -1,5 +1,6 @@
 import type { ProjectInfo } from '@entities/project/model/types';
 import { ProjectList } from '@entities/project/ui/project-list';
+import { Section } from '@shared/ui/section';
 
 interface ProjectListSectionProps {
   projects: ProjectInfo[];
@@ -19,16 +20,20 @@ export function ProjectListSection({
   }
 
   return (
-    <section>
-      <h2 className="mb-3 flex justify-center pt-2 text-[11px] font-semibold tracking-[0.24em] text-slate-400 uppercase">
-        Recent Projects
-      </h2>
+    <Section
+      noBorder
+      title="Recent Projects"
+      description="Continue from an existing vnext workspace."
+      count={projects.length}
+      variant="default"
+      hoverable={false}
+      className="rounded-[28px] p-4 sm:p-5">
       <ProjectList
         projects={projects}
         deletingProjectId={deletingProjectId}
         onOpen={onOpen}
         onDelete={onDelete}
       />
-    </section>
+    </Section>
   );
 }

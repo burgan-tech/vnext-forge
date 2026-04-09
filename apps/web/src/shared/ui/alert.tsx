@@ -13,6 +13,9 @@ const alertVariants = cva(
           'border-secondary-border bg-secondary text-secondary-foreground [&>svg]:text-secondary-icon',
         tertiary:
           'border-tertiary-border bg-tertiary text-tertiary-foreground [&>svg]:text-tertiary-icon',
+        success:
+          'border-success-border bg-success text-success-foreground [&>svg]:text-success-icon',
+        muted: 'border-muted-border bg-muted text-muted-foreground [&>svg]:text-muted-icon',
         destructive:
           'border-destructive-border bg-destructive text-white [&>svg]:text-white *:data-[slot=alert-description]:text-white/90',
       },
@@ -40,6 +43,16 @@ const alertVariants = cva(
         variant: 'tertiary',
         hoverable: true,
         className: 'hover:border-tertiary-border-hover hover:bg-tertiary-hover',
+      },
+      {
+        variant: 'success',
+        hoverable: true,
+        className: 'hover:border-success-border-hover hover:bg-success-hover',
+      },
+      {
+        variant: 'muted',
+        hoverable: true,
+        className: 'hover:border-muted-border-hover hover:bg-muted-hover',
       },
       {
         variant: 'destructive',
@@ -103,6 +116,8 @@ const alertActionVariants = cva(
         default: 'border-primary-border bg-primary-surface text-primary-text',
         secondary: 'border-secondary-border bg-secondary-surface text-secondary-text',
         tertiary: 'border-tertiary-border bg-tertiary-surface text-tertiary-text',
+        success: 'border-success-border bg-success-surface text-success-text',
+        muted: 'border-muted-border bg-muted-surface text-muted-text',
         destructive: 'border-destructive-border bg-destructive-surface text-destructive-text',
       },
       hoverable: {
@@ -129,6 +144,16 @@ const alertActionVariants = cva(
         variant: 'tertiary',
         hoverable: true,
         className: 'hover:-translate-y-px hover:border-tertiary-border-hover hover:bg-tertiary-hover',
+      },
+      {
+        variant: 'success',
+        hoverable: true,
+        className: 'hover:-translate-y-px hover:border-success-border-hover hover:bg-success-hover',
+      },
+      {
+        variant: 'muted',
+        hoverable: true,
+        className: 'hover:-translate-y-px hover:border-muted-border-hover hover:bg-muted-hover',
       },
       {
         variant: 'destructive',

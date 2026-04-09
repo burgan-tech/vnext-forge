@@ -5,6 +5,8 @@ import { Link2 } from 'lucide-react';
 import type { ProjectInfo } from '@entities/project/model/types';
 import { useProjectList } from '@features/project-list/model/useProjectList';
 import { ProjectListSection } from '@features/project-list/ui/project-list-section';
+import { Alert, AlertDescription, AlertTitle } from '@shared/ui/alert';
+import { Card, CardContent } from '@shared/ui/card';
 import type { VnextForgeError } from '@vnext-forge/app-contracts';
 
 export interface ProjectListOverviewApi {
@@ -22,26 +24,28 @@ interface ProjectListOverviewProps {
 
 function ErrorBanner({ error, className = '' }: { error: VnextForgeError; className?: string }) {
   return (
-    <div className={`rounded-xl border border-error-border bg-error-surface px-4 py-3 text-sm text-error-foreground ${className}`}>
-      {error.toUserMessage().message}
-    </div>
+    <Alert variant="destructive" className={`rounded-2xl ${className}`}>
+      <AlertTitle>Could not load projects</AlertTitle>
+      <AlertDescription>{error.toUserMessage().message}</AlertDescription>
+    </Alert>
   );
 }
 
 function EmptyState() {
   return (
-    <section className="relative overflow-hidden rounded-2xl border border-dashed border-border bg-surface/60 px-6 py-8 text-center">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_0%,rgba(14,165,233,0.04),transparent_60%)]" />
-      <div className="relative">
-        <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-muted text-subtle">
-          <Link2 size={18} />
+    <Card variant="muted" hoverable={false} className="rounded-2xl border-dashed text-center">
+      <CardContent className="px-6 py-8">
+        <div>
+          <div className="bg-muted-surface text-muted-icon border-muted-border mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl border shadow-sm">
+            <Link2 size={18} />
+          </div>
+          <p className="text-muted-text text-sm font-semibold">No projects yet</p>
+          <p className="text-muted-foreground mt-1.5 text-[13px]">
+            Create a new domain or import an existing workspace to get started.
+          </p>
         </div>
-        <p className="text-sm font-semibold text-foreground">No projects yet</p>
-        <p className="mt-1.5 text-[13px] text-muted-foreground">
-          Create a new domain or import an existing workspace to get started.
-        </p>
-      </div>
-    </section>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -64,7 +68,7 @@ export function ProjectListOverview({
   };
 
   return (
-    <section>
+    <section className="mt-2">
       {error ? <ErrorBanner error={error} className="mb-5" /> : null}
 
       {!loading && projects.length === 0 ? <EmptyState /> : null}

@@ -1,5 +1,7 @@
 import { Layers, Link2 } from 'lucide-react';
 
+import { Badge } from '@shared/ui/badge';
+
 export function ProjectListHero() {
   return (
     <section className="mb-8 flex flex-col items-center text-center">
@@ -17,16 +19,15 @@ export function ProjectListHero() {
       </h1>
 
       {/* Subtitle badges */}
-      <div className="text-subtle flex items-center gap-4 text-[10.5px] font-semibold tracking-[0.18em] uppercase">
-        <span className="flex items-center gap-1.5">
-          <Layers size={11} />
+      <div className="flex items-center gap-2">
+        <Badge variant="default" className="gap-1.5 rounded-full px-2.5 py-1 text-[10.5px] uppercase">
+          <Layers size={11} className="text-secondary-icon" />
           Workflow Design
-        </span>
-        <span className="bg-border h-3 w-px" />
-        <span className="flex items-center gap-1.5">
-          <Link2 size={11} />
+        </Badge>
+        <Badge variant="default" className="gap-1.5 rounded-full px-2.5 py-1 text-[10.5px] uppercase">
+          <Link2 size={11} className="text-secondary-icon" />
           Workspace
-        </span>
+        </Badge>
       </div>
     </section>
   );

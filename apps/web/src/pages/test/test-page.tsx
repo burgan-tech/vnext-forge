@@ -59,7 +59,7 @@ export function TestPage() {
     <div className="bg-background text-foreground min-h-screen px-6 py-10">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-10">
         <header className="space-y-3">
-          <Badge variant="secondary">Shared UI Test Surface</Badge>
+            <Badge variant="muted">Shared UI Test Surface</Badge>
           <div className="space-y-2">
             <h1 className="text-3xl font-semibold tracking-tight">Primitive Variant Showcase</h1>
             <p className="text-muted-foreground max-w-3xl text-sm">

@@ -1,9 +1,11 @@
 import { FolderOpen } from 'lucide-react';
 
 import { FolderBrowser } from '@entities/workspace/ui/folder-browser';
+import { Alert, AlertDescription } from '@shared/ui/alert';
 import { Button } from '@shared/ui/button';
 import {
   Dialog,
+  DialogCancelButton,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -27,11 +29,13 @@ export function ImportProjectDialog({ onImported }: ImportProjectDialogProps) {
   return (
     <>
       <Button
+        variant="default"
+        leftIconVariant="secondary"
         leftIcon={<FolderOpen size={20} />}
         onClick={() => {
           void importProject.openDialog();
         }}
-        className="group border-border/80 bg-surface hover:border-primary-border-hover hover:shadow-primary/5 flex w-full justify-start gap-4 rounded-[28px] border text-left transition-all duration-200 hover:shadow-lg">
+        className="w-full justify-start gap-4 rounded-[28px] text-left shadow-sm">
         <div className="flex-1">
           <div className="text-foreground text-sm font-semibold">Import Project</div>
           <div className="text-muted-foreground text-xs">
@@ -69,31 +73,36 @@ export function ImportProjectDialog({ onImported }: ImportProjectDialogProps) {
             />
 
             {importProject.browseError ? (
-              <p className="text-error-foreground text-xs">
-                {importProject.browseError.toUserMessage().message}
-              </p>
+              <Alert variant="destructive" className="rounded-xl px-3 py-2 text-xs">
+                <AlertDescription>
+                  {importProject.browseError.toUserMessage().message}
+                </AlertDescription>
+              </Alert>
             ) : null}
 
             {importProject.importError ? (
-              <p className="text-error-foreground text-xs">
-                {importProject.importError.toUserMessage().message}
-              </p>
+              <Alert variant="destructive" className="rounded-xl px-3 py-2 text-xs">
+                <AlertDescription>
+                  {importProject.importError.toUserMessage().message}
+                </AlertDescription>
+              </Alert>
             ) : null}
 
             <DialogFooter>
-              <Button
-                variant="outline"
+              <DialogCancelButton
+                variant="destructive"
                 onClick={() => importProject.setOpen(false)}
                 className="rounded-xl">
                 Cancel
-              </Button>
+              </DialogCancelButton>
               <Button
+                variant="default"
                 onClick={() => {
                   void importProject.submit();
                 }}
                 loading={importProject.importing}
                 disabled={!importProject.selectedPath}
-                className="bg-primary text-primary-foreground hover:bg-primary-hover rounded-xl">
+                className="rounded-xl">
                 Import
               </Button>
             </DialogFooter>

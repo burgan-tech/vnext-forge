@@ -10,10 +10,14 @@ const inputRootVariants = cva(
       variant: {
         default:
           'cursor-text border-primary-border bg-primary text-primary-foreground focus-within:border-primary-border-hover focus-within:bg-primary-hover focus-within:ring-[3px] focus-within:ring-ring/50',
+        success:
+          'cursor-text border-success-border bg-success text-success-foreground focus-within:border-success-border-hover focus-within:bg-success-hover focus-within:ring-[3px] focus-within:ring-ring/50',
         secondary:
           'cursor-text border-secondary-border bg-secondary text-secondary-foreground focus-within:border-secondary-border-hover focus-within:bg-secondary-hover focus-within:ring-[3px] focus-within:ring-ring/50',
         tertiary:
           'cursor-text border-tertiary-border bg-tertiary text-tertiary-foreground focus-within:border-tertiary-border-hover focus-within:bg-tertiary-hover focus-within:ring-[3px] focus-within:ring-ring/50',
+        muted:
+          'cursor-default border-muted-border bg-muted text-muted-foreground focus-within:border-muted-border-hover focus-within:bg-muted-hover focus-within:ring-[3px] focus-within:ring-ring/40',
       },
       size: {
         sm: 'min-h-9 gap-2 px-3',
@@ -49,6 +53,11 @@ const inputRootVariants = cva(
       },
       {
         invalid: true,
+        variant: 'success',
+        className: 'focus-within:border-destructive-border-hover focus-within:ring-destructive/12',
+      },
+      {
+        invalid: true,
         variant: 'secondary',
         className: 'focus-within:border-destructive-border-hover focus-within:ring-destructive/12',
       },
@@ -63,6 +72,11 @@ const inputRootVariants = cva(
         className: 'hover:border-primary-border-hover hover:bg-primary-hover',
       },
       {
+        variant: 'success',
+        hoverable: true,
+        className: 'hover:border-success-border-hover hover:bg-success-hover',
+      },
+      {
         variant: 'secondary',
         hoverable: true,
         className: 'hover:border-secondary-border-hover hover:bg-secondary-hover',
@@ -71,6 +85,11 @@ const inputRootVariants = cva(
         variant: 'tertiary',
         hoverable: true,
         className: 'hover:border-tertiary-border-hover hover:bg-tertiary-hover',
+      },
+      {
+        variant: 'muted',
+        hoverable: true,
+        className: 'hover:border-muted-border-hover hover:bg-muted-hover',
       },
       {
         disabledState: true,
@@ -125,8 +144,10 @@ const inputAdornmentVariants = cva(
     variants: {
       variant: {
         default: 'border-primary-border bg-primary-muted text-primary-icon',
+        success: 'border-success-border bg-success-surface text-success-icon',
         secondary: 'border-secondary-border bg-secondary-muted text-secondary-icon',
         tertiary: 'border-tertiary-border bg-tertiary-muted text-tertiary-icon',
+        muted: 'border-muted-border bg-muted-surface text-muted-icon',
       },
       size: {
         sm: 'size-7 text-xs',
@@ -145,6 +166,11 @@ const inputAdornmentVariants = cva(
         className: 'group-hover/input:border-primary-border-hover group-hover/input:bg-primary-muted-hover',
       },
       {
+        variant: 'success',
+        hoverable: true,
+        className: 'group-hover/input:border-success-border-hover group-hover/input:bg-success-hover',
+      },
+      {
         variant: 'secondary',
         hoverable: true,
         className: 'group-hover/input:border-secondary-border-hover group-hover/input:bg-secondary-muted-hover',
@@ -153,6 +179,11 @@ const inputAdornmentVariants = cva(
         variant: 'tertiary',
         hoverable: true,
         className: 'group-hover/input:border-tertiary-border-hover group-hover/input:bg-tertiary-muted-hover',
+      },
+      {
+        variant: 'muted',
+        hoverable: true,
+        className: 'group-hover/input:border-muted-border-hover group-hover/input:bg-muted-hover',
       },
     ],
     defaultVariants: {

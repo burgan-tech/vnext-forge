@@ -11,6 +11,8 @@ const cardVariants = cva(
         default: 'border-primary-border bg-primary text-primary-foreground',
         secondary: 'border-secondary-border bg-secondary text-secondary-foreground',
         tertiary: 'border-tertiary-border bg-tertiary text-tertiary-foreground',
+        success: 'border-success-border bg-success text-success-foreground',
+        muted: 'border-muted-border bg-muted text-muted-foreground',
       },
       hoverable: {
         true: '',
@@ -36,6 +38,16 @@ const cardVariants = cva(
         variant: 'tertiary',
         hoverable: true,
         className: 'hover:border-tertiary-border-hover hover:bg-tertiary-hover',
+      },
+      {
+        variant: 'success',
+        hoverable: true,
+        className: 'hover:border-success-border-hover hover:bg-success-hover',
+      },
+      {
+        variant: 'muted',
+        hoverable: true,
+        className: 'hover:border-muted-border-hover hover:bg-muted-hover',
       },
     ],
     defaultVariants: {
@@ -103,6 +115,8 @@ const cardActionVariants = cva(
         default: '',
         secondary: '',
         tertiary: '',
+        success: '',
+        muted: '',
       },
       interactive: {
         true: 'border px-3 py-2 shadow-sm',
@@ -134,6 +148,16 @@ const cardActionVariants = cva(
         className: 'border-tertiary-border bg-tertiary-surface text-tertiary-text',
       },
       {
+        variant: 'success',
+        interactive: true,
+        className: 'border-success-border bg-success-surface text-success-text',
+      },
+      {
+        variant: 'muted',
+        interactive: true,
+        className: 'border-muted-border bg-muted-surface text-muted-text',
+      },
+      {
         variant: 'default',
         interactive: true,
         hoverable: true,
@@ -150,6 +174,18 @@ const cardActionVariants = cva(
         interactive: true,
         hoverable: true,
         className: 'hover:-translate-y-px hover:border-tertiary-border-hover hover:bg-tertiary-hover',
+      },
+      {
+        variant: 'success',
+        interactive: true,
+        hoverable: true,
+        className: 'hover:-translate-y-px hover:border-success-border-hover hover:bg-success-hover',
+      },
+      {
+        variant: 'muted',
+        interactive: true,
+        hoverable: true,
+        className: 'hover:-translate-y-px hover:border-muted-border-hover hover:bg-muted-hover',
       },
     ],
     defaultVariants: {

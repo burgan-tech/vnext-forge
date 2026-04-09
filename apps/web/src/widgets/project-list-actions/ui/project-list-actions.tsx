@@ -1,6 +1,7 @@
 import type { ProjectInfo } from '@entities/project/model/types';
 import { CreateProjectCard } from '@features/create-project/ui/create-project-card';
 import { ImportProjectDialog } from '@features/import-project/ui/import-project-dialog';
+import { Separator } from '@shared/ui/separator';
 
 interface ProjectListActionsProps {
   onProjectReady: (project: ProjectInfo) => Promise<void> | void;
@@ -11,9 +12,9 @@ export function ProjectListActions({ onProjectReady }: ProjectListActionsProps) 
     <section>
       <ImportProjectDialog onImported={onProjectReady} />
       <div className="my-4 flex items-center gap-3">
-        <div className="h-px flex-1 bg-border" />
+        <Separator decorative className="flex-1" />
         <span className="text-[11px] font-medium text-subtle">or</span>
-        <div className="h-px flex-1 bg-border" />
+        <Separator decorative className="flex-1" />
       </div>
       <CreateProjectCard onCreated={onProjectReady} />
     </section>

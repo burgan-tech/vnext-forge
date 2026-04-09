@@ -10,6 +10,8 @@ const sectionVariants = cva('rounded-xl border shadow-sm transition-all duration
       default: 'border-primary-border bg-primary text-primary-foreground',
       secondary: 'border-secondary-border bg-secondary text-secondary-foreground',
       tertiary: 'border-tertiary-border bg-tertiary text-tertiary-foreground',
+      success: 'border-success-border bg-success text-success-foreground',
+      muted: 'border-muted-border bg-muted text-muted-foreground',
     },
     hoverable: {
       true: '',
@@ -36,6 +38,16 @@ const sectionVariants = cva('rounded-xl border shadow-sm transition-all duration
       hoverable: true,
       className: 'hover:border-tertiary-border-hover hover:bg-tertiary-hover',
     },
+    {
+      variant: 'success',
+      hoverable: true,
+      className: 'hover:border-success-border-hover hover:bg-success-hover',
+    },
+    {
+      variant: 'muted',
+      hoverable: true,
+      className: 'hover:border-muted-border-hover hover:bg-muted-hover',
+    },
   ],
   defaultVariants: {
     variant: 'default',
@@ -50,6 +62,8 @@ const sectionIconVariants = cva('mt-0.5 shrink-0 transition-colors', {
       default: 'text-primary-icon',
       secondary: 'text-secondary-icon',
       tertiary: 'text-tertiary-icon',
+      success: 'text-success-icon',
+      muted: 'text-muted-icon',
     },
   },
   defaultVariants: {
@@ -65,6 +79,8 @@ const sectionToggleButtonVariants = cva(
         default: 'border-primary-border bg-primary-muted text-primary-icon',
         secondary: 'border-secondary-border bg-secondary-muted text-secondary-icon',
         tertiary: 'border-tertiary-border bg-tertiary-muted text-tertiary-icon',
+        success: 'border-success-border bg-success-surface text-success-icon',
+        muted: 'border-muted-border bg-muted-surface text-muted-icon',
       },
       hoverable: {
         true: '',
@@ -87,6 +103,16 @@ const sectionToggleButtonVariants = cva(
         hoverable: true,
         className: 'hover:border-tertiary-border-hover hover:bg-tertiary-muted-hover',
       },
+      {
+        variant: 'success',
+        hoverable: true,
+        className: 'hover:border-success-border-hover hover:bg-success-hover',
+      },
+      {
+        variant: 'muted',
+        hoverable: true,
+        className: 'hover:border-muted-border-hover hover:bg-muted-hover',
+      },
     ],
     defaultVariants: {
       variant: 'default',
@@ -101,6 +127,8 @@ const sectionCountVariants = cva('rounded-md border px-1.5 py-0.5 text-[10px] ta
       default: 'border-primary-border bg-primary-muted text-primary-icon',
       secondary: 'border-secondary-border bg-secondary-muted text-secondary-icon',
       tertiary: 'border-tertiary-border bg-tertiary-muted text-tertiary-icon',
+      success: 'border-success-border bg-success-surface text-success-icon',
+      muted: 'border-muted-border bg-muted-surface text-muted-icon',
     },
   },
   defaultVariants: {

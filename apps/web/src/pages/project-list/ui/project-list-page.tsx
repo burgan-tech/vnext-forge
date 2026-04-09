@@ -32,7 +32,7 @@ export function ProjectListPage() {
 
   return (
     <div className="flex min-h-full w-full items-start justify-center overflow-y-auto py-8">
-      <div className="w-full max-w-lg px-6">
+      <div className="w-full max-w-xl px-4 sm:px-6">
         <ProjectListHero />
         <ProjectListActions onProjectReady={handleProjectReady} />
         <ProjectListOverview

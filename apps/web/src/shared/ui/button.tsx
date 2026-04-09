@@ -11,6 +11,7 @@ const buttonVariants = cva(
     variants: {
       variant: {
         default: 'border border-primary-border bg-primary text-primary-foreground shadow-xs',
+        success: 'border border-success-border bg-success text-success-foreground shadow-xs',
         destructive:
           'border border-destructive-border bg-destructive text-white shadow-xs focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60',
         outline: 'border border-border bg-background shadow-xs',
@@ -18,6 +19,7 @@ const buttonVariants = cva(
           'border border-secondary-border bg-secondary text-secondary-foreground shadow-xs',
         tertiary:
           'border border-tertiary-border bg-tertiary text-tertiary-foreground shadow-xs',
+        muted: 'border border-muted-border bg-muted text-muted-foreground shadow-xs',
         ghost: 'border border-transparent',
         link: 'text-primary underline-offset-4',
       },
@@ -39,6 +41,11 @@ const buttonVariants = cva(
         className: 'hover:border-primary-border-hover hover:bg-primary-hover',
       },
       {
+        variant: 'success',
+        hoverable: true,
+        className: 'hover:border-success-border-hover hover:bg-success-hover',
+      },
+      {
         variant: 'destructive',
         hoverable: true,
         className: 'hover:border-destructive-border-hover hover:bg-destructive-hover',
@@ -57,6 +64,11 @@ const buttonVariants = cva(
         variant: 'tertiary',
         hoverable: true,
         className: 'hover:border-tertiary-border-hover hover:bg-tertiary-hover',
+      },
+      {
+        variant: 'muted',
+        hoverable: true,
+        className: 'hover:border-muted-border-hover hover:bg-muted-hover',
       },
       {
         variant: 'ghost',
@@ -127,10 +139,12 @@ const buttonIconVariants = cva(buttonIconWrapperClassName, {
   variants: {
     variant: {
       default: 'bg-primary-muted text-primary-icon',
+      success: 'bg-success-surface text-success-icon',
       destructive: 'bg-destructive/10 text-destructive-icon',
       outline: 'bg-accent text-outline-icon',
       secondary: 'bg-secondary-muted text-secondary-icon',
       tertiary: 'bg-tertiary-muted text-tertiary-icon',
+      muted: 'bg-muted-surface text-muted-icon',
       ghost: 'bg-accent text-ghost-icon',
       link: 'bg-transparent text-link-icon',
     },
@@ -144,6 +158,11 @@ const buttonIconVariants = cva(buttonIconWrapperClassName, {
       variant: 'default',
       hoverable: true,
       className: 'group-hover/button:bg-primary-muted-hover',
+    },
+    {
+      variant: 'success',
+      hoverable: true,
+      className: 'group-hover/button:bg-success-hover',
     },
     {
       variant: 'destructive',
@@ -164,6 +183,11 @@ const buttonIconVariants = cva(buttonIconWrapperClassName, {
       variant: 'tertiary',
       hoverable: true,
       className: 'group-hover/button:bg-tertiary-muted-hover',
+    },
+    {
+      variant: 'muted',
+      hoverable: true,
+      className: 'group-hover/button:bg-muted-hover',
     },
     {
       variant: 'ghost',

@@ -19,10 +19,16 @@
   --color-surface: #ffffff;
   --color-surface-raised: #f8fafc;
   --color-muted: #f1f5f9;
+  --color-muted-hover: #e2e8f0;
   --color-muted-foreground: #64748b;
   --color-border: #e2e8f0;
   --color-border-subtle: #f1f5f9;
   --color-ring: #0284c7; /* sky-600 — matches primary */
+  --color-muted-border: #e2e8f0;
+  --color-muted-border-hover: #cbd5e1;
+  --color-muted-surface: #f8fafc;
+  --color-muted-icon: #94a3b8;
+  --color-muted-text: #64748b;
 
   /* ── Default ── */
   --color-primary: #ffffff;
@@ -61,13 +67,22 @@
   --color-tertiary-text: #14532d;
 
   /* ── Success ── */
-  --color-success: #10b981; /* emerald-500 */
+  --color-success: #dcfce7;
+  --color-success-hover: #bbf7d0;
+  --color-success-foreground: #14532d;
+  --color-success-surface: #f0fdf4; /* green-50 */
+  --color-success-border: #86efac; /* green-300 */
+  --color-success-border-hover: #4ade80; /* green-400 */
+  --color-success-icon: #15803d; /* green-700 */
+  --color-success-text: #166534; /* green-800 */
 
   /* ── Destructive ── */
   --color-destructive: #ef4444;
   --color-destructive-hover: #dc2626;
   --color-destructive-foreground: #ffffff;
   --color-destructive-surface: #fff1f2; /* rose-50 */
+  --color-destructive-muted: #ffe4e6; /* rose-100 */
+  --color-destructive-muted-hover: #fecdd3; /* rose-200 */
   --color-destructive-border: #fecdd3; /* rose-200 */
   --color-destructive-border-hover: #fda4af; /* rose-300 */
   --color-destructive-icon: #be123c; /* rose-700 */

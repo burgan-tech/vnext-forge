@@ -12,6 +12,8 @@ const badgeVariants = cva(
         default: 'border-primary-border bg-primary text-primary-foreground',
         secondary: 'border-secondary-border bg-secondary text-secondary-foreground',
         tertiary: 'border-tertiary-border bg-tertiary text-tertiary-foreground',
+        success: 'border-success-border bg-success text-success-foreground',
+        muted: 'border-muted-border bg-muted text-muted-foreground',
         destructive:
           'border-destructive-border bg-destructive text-white focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60',
         outline: 'border-border bg-background text-foreground',
@@ -46,6 +48,16 @@ const badgeVariants = cva(
         className: 'bg-tertiary-surface text-tertiary-text',
       },
       {
+        variant: 'success',
+        interactive: true,
+        className: 'border-success-border bg-success-surface text-success-text',
+      },
+      {
+        variant: 'muted',
+        interactive: true,
+        className: 'border-muted-border bg-muted-surface text-muted-text',
+      },
+      {
         variant: 'destructive',
         interactive: true,
         className: 'bg-destructive-surface text-destructive-text',
@@ -72,6 +84,18 @@ const badgeVariants = cva(
         hoverable: true,
         className:
           'hover:-translate-y-px [a&]:hover:border-tertiary-border-hover [a&]:hover:bg-tertiary-hover hover:border-tertiary-border-hover hover:bg-tertiary-hover',
+      },
+      {
+        variant: 'success',
+        hoverable: true,
+        className:
+          'hover:-translate-y-px [a&]:hover:border-success-border-hover [a&]:hover:bg-success-hover hover:border-success-border-hover hover:bg-success-hover',
+      },
+      {
+        variant: 'muted',
+        hoverable: true,
+        className:
+          'hover:-translate-y-px [a&]:hover:border-muted-border-hover [a&]:hover:bg-muted-hover hover:border-muted-border-hover hover:bg-muted-hover',
       },
       {
         variant: 'destructive',

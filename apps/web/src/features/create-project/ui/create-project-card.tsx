@@ -1,7 +1,9 @@
 import { AlertCircle, Plus } from 'lucide-react';
 
 import { FolderBrowser } from '@entities/workspace/ui/folder-browser';
+import { Alert, AlertDescription } from '@shared/ui/alert';
 import { Button } from '@shared/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@shared/ui/card';
 import { Input } from '@shared/ui/input';
 
 import { useCreateProject } from '../model/useCreateProject';
@@ -18,18 +20,20 @@ export function CreateProjectCard({ onCreated }: CreateProjectCardProps) {
   const createProject = useCreateProject({ onCreated });
 
   return (
-    <section className="bg-card w-full rounded-2xl px-6 py-5">
-      <div className="mb-4 flex items-center gap-3 rounded-2xl p-3">
-        <div className="bg-secondary-muted text-secondary flex h-9 w-9 shrink-0 items-center justify-center rounded-xl">
-          <Plus size={18} />
+    <Card noBorder variant="default" hoverable={false} className="w-full rounded-[28px]">
+      <CardHeader className="gap-3">
+        <div className="flex items-center gap-3">
+          <div className="bg-tertiary-muted text-tertiary-icon border-tertiary-border flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border">
+            <Plus size={18} />
+          </div>
+          <div>
+            <CardTitle className="text-sm">Create Project</CardTitle>
+            <CardDescription>Start a new vnext domain from scratch</CardDescription>
+          </div>
         </div>
-        <div>
-          <div className="text-foreground text-sm font-semibold">Create Project</div>
-          <div className="text-muted-foreground text-xs">Start a new vnext domain from scratch</div>
-        </div>
-      </div>
+      </CardHeader>
 
-      <div className="space-y-2">
+      <CardContent className="space-y-2">
         <Input
           type="text"
           placeholder="my-domain"
@@ -66,28 +70,29 @@ export function CreateProjectCard({ onCreated }: CreateProjectCardProps) {
         />
 
         {createProject.browseError ? (
-          <p className="text-destructive-text flex items-center gap-2 text-xs">
+          <Alert variant="destructive" className="rounded-xl px-3 py-2 text-xs">
             <AlertCircle size={12} />
-            {createProject.browseError.toUserMessage().message}
-          </p>
+            <AlertDescription>{createProject.browseError.toUserMessage().message}</AlertDescription>
+          </Alert>
         ) : null}
 
         {createProject.createError ? (
-          <p className="text-destructive-text text-xs">
-            {createProject.createError.toUserMessage().message}
-          </p>
+          <Alert variant="destructive" className="rounded-xl px-3 py-2 text-xs">
+            <AlertDescription>{createProject.createError.toUserMessage().message}</AlertDescription>
+          </Alert>
         ) : null}
 
         <Button
+          variant="tertiary"
           onClick={() => {
             void createProject.submit();
           }}
           loading={createProject.creating}
           disabled={!createProject.canSubmit}
-          className="bg-secondary text-secondary-foreground shadow-secondary/20 hover:bg-secondary-hover h-10 w-full rounded-xl shadow-sm">
-          <p className="text-secondary-text">Create</p>
+          className="h-10 w-full rounded-xl shadow-sm">
+          Create
         </Button>
-      </div>
-    </section>
+      </CardContent>
+    </Card>
   );
 }

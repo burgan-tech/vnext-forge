@@ -54,9 +54,9 @@ const dialogCloseVariants = cva(
   {
     variants: {
       variant: {
-        default: 'border-primary-border bg-primary-muted text-primary-icon',
-        secondary: 'border-secondary-border bg-secondary-muted text-secondary-icon',
-        tertiary: 'border-tertiary-border bg-tertiary-muted text-tertiary-icon',
+        default: 'border-destructive-border bg-destructive-muted text-destructive-icon',
+        secondary: 'border-destructive-border bg-destructive-muted text-destructive-icon',
+        tertiary: 'border-destructive-border bg-destructive-muted text-destructive-icon',
       },
       hoverable: {
         true: '',
@@ -71,17 +71,20 @@ const dialogCloseVariants = cva(
       {
         variant: 'default',
         hoverable: true,
-        className: 'hover:-translate-y-px hover:border-primary-border-hover hover:bg-primary-muted-hover hover:shadow-sm',
+        className:
+          'hover:-translate-y-px hover:border-destructive-border-hover hover:bg-destructive-muted-hover hover:shadow-sm',
       },
       {
         variant: 'secondary',
         hoverable: true,
-        className: 'hover:-translate-y-px hover:border-secondary-border-hover hover:bg-secondary-muted-hover hover:shadow-sm',
+        className:
+          'hover:-translate-y-px hover:border-destructive-border-hover hover:bg-destructive-muted-hover hover:shadow-sm',
       },
       {
         variant: 'tertiary',
         hoverable: true,
-        className: 'hover:-translate-y-px hover:border-tertiary-border-hover hover:bg-tertiary-muted-hover hover:shadow-sm',
+        className:
+          'hover:-translate-y-px hover:border-destructive-border-hover hover:bg-destructive-muted-hover hover:shadow-sm',
       },
     ],
     defaultVariants: {
@@ -208,7 +211,7 @@ function DialogCancelButton({
   variant = 'secondary',
   ...props
 }: React.ComponentProps<typeof Button> & {
-  variant?: 'default' | 'secondary' | 'tertiary';
+  variant?: 'default' | 'secondary' | 'tertiary' | 'destructive';
 }) {
   return (
     <DialogPrimitive.Close asChild>

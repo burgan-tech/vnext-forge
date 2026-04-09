@@ -84,21 +84,21 @@ export function FolderBrowser({
       {!inline ? (
         <Button
           onClick={onToggle}
-          className="flex h-10 w-full items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 text-left text-sm transition-colors hover:border-slate-300">
-          <FolderSearch size={16} className="shrink-0 text-slate-400" />
+          className="flex h-11 w-full items-center gap-2 rounded-xl border border-slate-300 bg-slate-50 px-3.5 text-left text-sm shadow-sm transition-colors hover:border-slate-400">
+          <FolderSearch size={16} className="shrink-0 text-slate-500" />
           {selectedPath ? (
             <span className="truncate font-mono text-xs text-slate-700">{selectedPath}</span>
           ) : (
-            <span className="text-slate-400">{placeholder}</span>
+            <span className="text-sm font-semibold text-slate-700">{placeholder}</span>
           )}
         </Button>
       ) : (
-        <div className="flex h-10 w-full items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/60 px-3.5 text-left text-sm">
-          <FolderSearch size={16} className="shrink-0 text-slate-400" />
+        <div className="flex h-11 w-full items-center gap-2 rounded-xl border border-slate-300 bg-slate-50 px-3.5 text-left text-sm shadow-sm">
+          <FolderSearch size={16} className="shrink-0 text-slate-500" />
           {selectedPath ? (
             <span className="truncate font-mono text-xs text-slate-700">{selectedPath}</span>
           ) : (
-            <span className="text-slate-400">{placeholder}</span>
+            <span className="text-sm font-semibold text-slate-700">{placeholder}</span>
           )}
         </div>
       )}
@@ -119,9 +119,8 @@ export function FolderBrowser({
                     <Button
                       onClick={() => onNavigate(item.path)}
                       size="sm"
-                      noBorder
                       noIconHover
-                      className="hover:text-sky-600 h-5 min-h-0 max-w-[84px] rounded-md px-1 text-[10px] font-medium leading-none">
+                      className="h-5 min-h-0 max-w-[84px] rounded-md px-1 text-[10px] leading-none font-medium shadow-none hover:text-sky-600">
                       <span className="truncate">{item.label}</span>
                     </Button>
                   </span>
@@ -131,9 +130,8 @@ export function FolderBrowser({
               <Button
                 onClick={() => onNavigate()}
                 size="sm"
-                noBorder
                 noIconHover
-                className="hover:text-sky-600 h-5 min-h-0 rounded-md px-1 text-[10px] font-medium leading-none">
+                className="border-border-subtle h-5 min-h-0 rounded-md px-1 text-[10px] leading-none font-medium shadow-none hover:text-sky-600">
                 Root
               </Button>
             )}

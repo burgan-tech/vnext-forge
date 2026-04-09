@@ -29,12 +29,16 @@ All reusable color decisions must come from the shared token source in `apps/web
 - Keep visual-system implementation details such as variant mapping, hover rules, border behavior, muted surfaces, and icon wrappers inside `shared/ui` primitives. Callers in `pages`, `widgets`, `features`, and `entities` should consume the primitive API, not reimplement each variant manually.
 - Interactive affordances in `shared/ui` must read as interactive in their base state too. Hover should strengthen discoverability, not create it from nothing.
 - Destructive token families are reserved for destructive actions. `cancel`, `close`, `dismiss`, and similar routine dismissal actions should generally stay in neutral, `default`, `secondary`, or `tertiary` families unless the action itself is destructive.
+- Unless the task explicitly asks for a different theme, `default` should remain the first-choice variant for the app's general UI. Treat `default` as the baseline primary family and opt into other families only for clear semantic reasons.
 
 ## Primitive Variant Rules
 
 - Treat `shared/ui` as the UI library layer. Cross-app visual variants belong here, not in feature-level wrappers.
 - Prefer a stable variant vocabulary for reusable controls. For button-like primitives, `default`, `secondary`, and `tertiary` should be the first-choice semantic action variants before introducing new visual families.
 - Interpret `default` as the primary action family. If design discussions say "primary button", that should usually map to the `default` variant in the primitive API unless the component already exposes a different established contract.
+- Use semantic variants intentionally. Positive forward actions such as `create`, `add`, `save new`, or `confirm` may map to `tertiary` or `success` when that semantic emphasis improves clarity. Routine neutral actions such as `cancel`, `close`, `dismiss`, and `back` should usually stay in `default` or `secondary`. Destructive actions such as `delete`, `remove`, or irreversible `reset` should use `destructive`.
+- Treat `success` as the reusable positive-semantic family for clearly affirmative states, outcomes, or forward actions. Use it when the UI should read as intentionally positive, not merely different.
+- Treat `muted` as the reusable passive-semantic family for empty states, no-data shells, read-only support regions, and other intentionally low-emphasis UI. Use it when the surface should recede behind the app's mostly-`default` interactive controls.
 - Add destructive, outline, ghost, or link-like variants only when the component actually needs those semantics. Do not copy the full variant matrix into every primitive by default.
 - When a primitive exposes variants, each variant should own its background, foreground, border, icon surface, icon color, and hover state through the shared token system.
 - If the primitive supports icons, prefer a single internal rendering path per side. For example, a wrapped semantic icon path and an escape hatch component path can coexist, but they should be mutually exclusive on the same side to keep behavior deterministic.
@@ -45,6 +49,7 @@ All reusable color decisions must come from the shared token source in `apps/web
 ## Variant-First Before Custom Tailwind
 
 - When extending a reusable primitive, first check whether the need fits an existing variant such as `default`, `secondary`, or `tertiary`.
+- If the primitive already exposes `success` or `muted`, prefer those variants over custom Tailwind color overrides when the UI need is positive-semantic or passive-semantic.
 - If the need is still part of the primitive's reusable visual language, add or refine a variant instead of requiring consumers to pass raw class overrides.
 - Only fall back to custom `className` styling for truly local layout adjustments or one-off composition details.
 - Do not solve a missing semantic state by telling consumers to stack raw classes like `bg-*`, `hover:bg-*`, `border-*`, and `text-*` on top of a primitive. Add or correct the primitive contract instead.
@@ -66,6 +71,7 @@ All reusable color decisions must come from the shared token source in `apps/web
 - Use the `icon` token for icon color when the icon should follow the variant semantics. This is especially useful for Lucide icons because they follow `currentColor`.
 - Keep hover tokens separate from base tokens. Do not assume hover can always be derived by opacity tricks or raw palette adjustments inside the component.
 - If a variant family exists in `index.css`, consume it from the primitive rather than recreating equivalent Tailwind arbitrary values.
+- For passive empty states and non-clickable support regions, prefer the existing muted family before inventing a page-specific neutral tone. Start with `--color-muted`, `--color-muted-foreground`, and `--color-border-subtle`, or the primitive's `*-muted` family, so empty shells read softer than the app's mostly-`default` interactive controls.
 
 ## Hover And Border Semantics
 
@@ -78,6 +84,7 @@ All reusable color decisions must come from the shared token source in `apps/web
 - For clickable descendants, the base state should usually provide enough contrast to separate the control from its background through semantic surface, semantic border, and when appropriate subtle elevation such as `shadow-sm`.
 - Hover is a reinforcement layer. It may intensify surface, border, icon, or motion, but it should not be the only reason a control becomes discoverable.
 - Do not map dismissive actions to destructive surface, border, hover, or icon tokens unless the action itself is destructive.
+- Passive shells such as `no data`, `empty`, `no project`, and read-only support regions should generally be quieter than primary action surfaces. Keep them in muted families unless the task explicitly asks for stronger emphasis.
 
 ## FSD Ownership Boundary
 
@@ -113,6 +120,8 @@ All reusable color decisions must come from the shared token source in `apps/web
 - For icon-supporting primitives, provide semantic icon coloring through token-backed `text-*` classes when the icon should inherit variant meaning.
 - Make clickable controls visually discoverable at rest through semantic contrast, not only through hover.
 - Keep destructive semantics tied to destructive outcomes, not to generic dismissal labels.
+- Keep the broad application theme anchored to `default` unless the screen or task explicitly calls for another semantic family.
+- Use existing muted token families for empty-state and passive support UIs so they remain visually subordinate to primary/default controls.
 - Use the Tailwind spacing scale consistently for padding, margin, gap, and section rhythm.
 - Prefer a small, repeatable set of spacing steps for similar UI patterns so cards, forms, lists, and panels feel related.
 - Promote repeated spacing combinations into shared primitives or wrapper components when the same layout rhythm appears in multiple FSD slices.
@@ -137,6 +146,8 @@ All reusable color decisions must come from the shared token source in `apps/web
 - Do not use raw icon color overrides in consumers when the primitive already owns semantic icon coloring.
 - Do not hide interactive affordances inside flat passive surfaces until the user happens to hover them.
 - Do not style `cancel`, `close`, or `dismiss` controls with destructive token families unless they actually perform a destructive action.
+- Do not let passive empty-state or no-data surfaces share the same visual weight as `default` interactive controls.
+- Do not shift routine page chrome to `secondary`, `tertiary`, or other families when `default` should remain the baseline theme.
 - Do not sprinkle arbitrary spacing values across `pages`, `widgets`, `features`, and `entities` when the same rhythm can come from the shared spacing scale.
 - Do not let lower FSD layers encode page-level outer spacing that should be decided by widgets or pages.
 - Do not use one-off Tailwind arbitrary spacing values unless there is a clear design constraint that the standard scale cannot satisfy.
@@ -161,6 +172,8 @@ Flag the implementation if:
 - icon-supporting primitives rely on manual consumer icon coloring instead of semantic token-backed inheritance where appropriate
 - interactive affordances are not visually separable from their background until hover occurs
 - destructive tokens are used for `cancel`, `close`, `dismiss`, or similar non-destructive actions
+- general app UI defaults to non-`default` variants without an explicit semantic reason
+- passive empty-state or no-data regions are styled with the same emphasis as primary interactive controls instead of the muted family
 - repeated spacing patterns are copied across FSD slices instead of being centralized at the right owner
 - lower layers define outer layout spacing that should belong to widgets or pages
 - arbitrary spacing values are used without a clear design reason

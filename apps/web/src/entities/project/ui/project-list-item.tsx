@@ -1,6 +1,7 @@
 import { ArrowRight, Folder, Trash2 } from 'lucide-react';
 
 import type { ProjectInfo } from '@entities/project/model/types';
+import { Button } from '@shared/ui/button';
 
 interface ProjectListItemProps {
   project: ProjectInfo;
@@ -34,16 +35,21 @@ export function ProjectListItem({
         <div className="truncate text-[13.5px] font-semibold text-slate-900">{project.domain}</div>
         <div className="mt-0.5 truncate text-[11.5px] text-slate-400">{project.path}</div>
       </div>
-      <button
+      <Button
+        type="button"
+        variant="destructive"
+        size="icon"
+        noBorder
+        noIconHover
         onClick={(event) => {
           event.stopPropagation();
           onDelete(project);
         }}
         disabled={deleting}
-        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-300 opacity-0 transition-all group-hover:opacity-100 hover:bg-rose-50 hover:text-rose-500 disabled:cursor-not-allowed disabled:opacity-40"
+        className="h-8 w-8 shrink-0 rounded-lg opacity-0 shadow-none transition-all group-hover:opacity-100 hover:text-rose-500 disabled:cursor-not-allowed disabled:opacity-40"
         aria-label={`Delete ${project.domain}`}>
         <Trash2 size={14} />
-      </button>
+      </Button>
       <ArrowRight
         size={14}
         className="shrink-0 text-slate-300 transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-sky-400"
