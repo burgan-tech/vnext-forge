@@ -14,6 +14,7 @@ const badgeVariants = cva(
         tertiary: 'border-tertiary-border bg-tertiary text-tertiary-foreground',
         success: 'border-success-border bg-success text-success-foreground',
         muted: 'border-muted-border bg-muted text-muted-foreground',
+        warning: 'border-warning-border bg-warning text-warning-foreground',
         destructive:
           'border-destructive-border bg-destructive text-white focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60',
         outline: 'border-border bg-background text-foreground',
@@ -58,6 +59,11 @@ const badgeVariants = cva(
         className: 'border-muted-border bg-muted-surface text-muted-text',
       },
       {
+        variant: 'warning',
+        interactive: true,
+        className: 'border-warning-border bg-warning-surface text-warning-text',
+      },
+      {
         variant: 'destructive',
         interactive: true,
         className: 'bg-destructive-surface text-destructive-text',
@@ -96,6 +102,12 @@ const badgeVariants = cva(
         hoverable: true,
         className:
           'hover:-translate-y-px [a&]:hover:border-muted-border-hover [a&]:hover:bg-muted-hover hover:border-muted-border-hover hover:bg-muted-hover',
+      },
+      {
+        variant: 'warning',
+        hoverable: true,
+        className:
+          'hover:-translate-y-px [a&]:hover:border-warning-border-hover [a&]:hover:bg-warning-hover hover:border-warning-border-hover hover:bg-warning-hover',
       },
       {
         variant: 'destructive',

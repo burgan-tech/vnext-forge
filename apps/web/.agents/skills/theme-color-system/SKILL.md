@@ -60,7 +60,7 @@ If no existing family maps to the element's semantic role, add a new token famil
 - Prefer a stable variant vocabulary for reusable controls. For button-like primitives, `default`, `secondary`, and `tertiary` should be the first-choice semantic action variants before introducing new visual families.
 - Interpret `default` as the primary action family. If design discussions say "primary button", that should usually map to the `default` variant in the primitive API unless the component already exposes a different established contract.
 - Use semantic variants intentionally. Positive forward actions such as `create`, `add`, `save new`, or `confirm` may map to `tertiary` or `success` when that semantic emphasis improves clarity. Routine neutral actions such as `cancel`, `close`, `dismiss`, and `back` should usually stay in `default` or `secondary`. Destructive actions such as `delete`, `remove`, or irreversible `reset` should use `destructive`.
-- Treat `success` as the reusable positive-semantic family for clearly affirmative states, outcomes, or forward actions. Use it when the UI should read as intentionally positive, not merely different.
+- Treat `success` as the reusable positive-semantic family for clearly affirmative states, outcomes, or forward actions. Use it when the UI should read as intentionally positive, not merely different. Selected states in option pickers — such as scope selectors, type pickers, or any toggle-button group where one option is actively chosen — are a canonical use case for `variant="success"`. Do not reach for manual token stacks like `border-primary-border-hover bg-primary-muted text-primary-text` to express selection; use the `success` variant on the shared `Button` primitive instead.
 - Treat `muted` as the reusable passive-semantic family for empty states, no-data shells, read-only support regions, and other intentionally low-emphasis UI. Use it when the surface should recede behind the app's mostly-`default` interactive controls.
 - Add destructive, outline, ghost, or link-like variants only when the component actually needs those semantics. Do not copy the full variant matrix into every primitive by default.
 - When a primitive exposes variants, each variant should own its background, foreground, border, icon surface, icon color, and hover state through the shared token system.
@@ -145,6 +145,9 @@ If no existing family maps to the element's semantic role, add a new token famil
 - Make clickable controls cursor-discoverable as well. Interactive controls should expose pointer-style cursor behavior, and disabled controls should suppress that affordance.
 - Keep destructive semantics tied to destructive outcomes, not to generic dismissal labels.
 - Keep the broad application theme anchored to `default` unless the screen or task explicitly calls for another semantic family.
+- Use `variant="success"` on `Button` for the selected state in option picker groups (scope selectors, type pickers, toggle-button sets). Unselected options stay on `variant="default"`.
+- Use `shared/ui/Input` instead of raw `<input>` in module and page code. Pass `inputClassName` for font or sizing overrides and set `aria-invalid` for validation state.
+- Use `Card/CardHeader/CardTitle/CardDescription/CardContent` to wrap titled, sectioned panels inside editor modules. This is the established container structure across editor modules in this app.
 - Use existing muted token families for empty-state and passive support UIs so they remain visually subordinate to primary/default controls.
 - Use the Tailwind spacing scale consistently for padding, margin, gap, and section rhythm.
 - Prefer a small, repeatable set of spacing steps for similar UI patterns so cards, forms, lists, and panels feel related.
@@ -165,7 +168,9 @@ If no existing family maps to the element's semantic role, add a new token famil
 - **Do not pick a token because its resolved hex value looks correct.** Visual match is not semantic correctness. A `-border` token on text, an `-icon` token as a gradient stop, or a `secondary` family applied to something unrelated to the secondary interaction concept are all wrong regardless of how they render.
 - Do not use structural token slots (`-border`, `-icon`, `-muted`) in roles they were not designed for just to reach a target color. If the right color does not exist under the right semantic slot, define it properly.
 - Do not style clickable bordered surfaces with unrelated neutral border tokens by default when the interaction language is supposed to be anchored to `primary`.
-- Do not bypass an existing primitive variant system by manually restyling the component from consuming slices.
+- Do not bypass an existing primitive variant system by manually restyling the component from consuming slices. Selected-state pickers that conditionally apply raw token classes (`bg-primary-muted`, `border-primary-border-hover`, etc.) instead of `variant="success"` are a direct violation of this rule.
+- Do not use raw `<input>` elements in module or page code when `shared/ui/Input` exists. The shared `Input` component owns semantic border coloring, validation state (`aria-invalid`), and font styling through `inputClassName`. Reaching past it with `px-2 py-1 text-xs border border-border rounded bg-background font-mono` recreates primitive responsibility in consumer code.
+- Do not structure module editor panels as plain divs with `border-t` dividers when the same content calls for the `Card/CardHeader/CardTitle/CardDescription/CardContent` structure used consistently across editor modules. Card structure is the established visual container for titled, sectioned editor panels in this app; bypassing it with ad hoc divs creates visual inconsistency without semantic justification.
 - Do not add one boolean per screen for visual tweaks when the real problem is that the primitive is missing a reusable semantic variant or opt-out.
 - Do not implement the same `default/secondary/tertiary` mapping separately in module or page code.
 - Do not let `hoverable={false}` disable only the root hover while nested hover-coupled visuals still react.
@@ -198,6 +203,9 @@ Flag the implementation if:
 - clickable bordered surfaces use non-semantic or non-primary border colors without a clear semantic exception
 - a reusable primitive is being extended with ad hoc custom classes when the need should be covered by a stable variant or primitive-owned boolean such as `hoverable` or `noBorder`
 - consuming slices reimplement primitive variant meanings instead of using the shared variant API
+- a selected-state picker uses raw token classes (`bg-primary-muted`, `border-primary-border-hover`) instead of `variant="success"` on the `Button` primitive
+- raw `<input>` elements are used in module or page code when `shared/ui/Input` already exists and covers the need
+- titled, sectioned editor panels are structured as plain divs with `border-t` dividers instead of the `Card/CardHeader/CardContent` pattern used across editor modules
 - hover disabling is partial and internal hover-linked visuals still change when the primitive claims hover is off
 - interactive controls lack pointer-style cursor feedback, or disabled controls still present interactive cursor affordance
 - variant families exist in `index.css` but the primitive bypasses them with local hard-coded Tailwind palette values

@@ -11,6 +11,7 @@ interface ComponentEditorLayoutProps {
   group: string;
   name: string;
   isDirty: boolean;
+  hasSaved?: boolean;
   saving?: boolean;
   saveErrorMessage?: string | null;
   onSave: () => void;
@@ -28,6 +29,7 @@ export function ComponentEditorLayout({
   group,
   name,
   isDirty,
+  hasSaved = false,
   saving = false,
   saveErrorMessage = null,
   onSave,
@@ -61,12 +63,16 @@ export function ComponentEditorLayout({
             {group}/{name}
           </span>
           {isDirty ? (
-            <span className="rounded-full border border-success-border bg-success-surface px-3 py-1 font-medium text-success-text">
+            <span className="rounded-full border border-warning-border bg-warning-surface px-3 py-1 font-medium text-warning-text">
               Modified
+            </span>
+          ) : hasSaved ? (
+            <span className="rounded-full border border-success-border bg-success-surface px-3 py-1 font-medium text-success-text">
+              Saved
             </span>
           ) : (
             <span className="rounded-full border border-border bg-muted/40 px-3 py-1 font-medium text-muted-foreground">
-              Saved
+              No change
             </span>
           )}
           <div className="ml-auto flex items-center gap-2">

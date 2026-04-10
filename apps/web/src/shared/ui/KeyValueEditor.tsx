@@ -126,14 +126,13 @@ function KeyValueEditor({
             {!readOnly ? (
               <Button
                 type="button"
-                variant={variant ?? 'default'}
+                variant="outline"
                 size="icon"
                 onClick={() => removePair(index)}
-                noBorder
-                noIconHover
                 aria-label={`Remove row ${index + 1}`}
+                className="border-destructive-border hover:border-destructive-border-hover hover:bg-destructive-hover"
               >
-                <X className="size-4" />
+                <X className="size-4 text-destructive-icon" />
               </Button>
             ) : null}
           </div>
@@ -142,7 +141,7 @@ function KeyValueEditor({
       {!readOnly ? (
         <Button
           type="button"
-          variant={variant ?? 'default'}
+          variant="ghost"
           size="sm"
           onClick={addPair}
           noBorder

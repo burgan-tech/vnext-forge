@@ -17,7 +17,7 @@ const fieldVariants = cva('space-y-1', {
 });
 
 const fieldLabelVariants = cva(
-  'block text-[10px] font-semibold transition-colors duration-200 ease-out',
+  'block text-xs font-semibold transition-colors duration-200 ease-out',
   {
     variants: {
       variant: {

@@ -12,12 +12,12 @@ const tagEditorVariants = cva(
   {
     variants: {
       variant: {
-        default: 'border-primary-border bg-primary text-primary-foreground focus-within:border-primary-border-hover focus-within:ring-ring/50 focus-within:ring-[3px]',
-        success: 'border-success-border bg-success text-success-foreground focus-within:border-success-border-hover focus-within:ring-ring/50 focus-within:ring-[3px]',
+        default: 'border-primary-border bg-primary text-primary-foreground focus-within:border-primary-border-hover focus-within:ring-[3px] focus-within:ring-ring/50',
+        success: 'border-success-border bg-success text-success-foreground focus-within:border-success-border-hover focus-within:ring-[3px] focus-within:ring-ring/50',
         secondary:
-          'border-secondary-border bg-secondary text-secondary-foreground focus-within:border-secondary-border-hover focus-within:ring-ring/50 focus-within:ring-[3px]',
+          'border-secondary-border bg-secondary text-secondary-foreground focus-within:border-secondary-border-hover focus-within:ring-[3px] focus-within:ring-ring/50',
         tertiary:
-          'border-tertiary-border bg-tertiary text-tertiary-foreground focus-within:border-tertiary-border-hover focus-within:ring-ring/50 focus-within:ring-[3px]',
+          'border-tertiary-border bg-tertiary text-tertiary-foreground focus-within:border-tertiary-border-hover focus-within:ring-[3px] focus-within:ring-ring/50',
       },
       hoverable: {
         true: '',

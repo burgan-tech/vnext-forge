@@ -42,6 +42,7 @@ export function ViewEditorView() {
       group={group || ''}
       name={name || ''}
       isDirty={isDirty}
+      hasSaved={!isDirty && undoStack.length > 0}
       saving={saving}
       saveErrorMessage={saveError?.toUserMessage().message ?? null}
       onSave={save}

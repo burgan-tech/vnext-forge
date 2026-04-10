@@ -1,3 +1,4 @@
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@shared/ui/Card';
 import { TaskMetadataForm } from './TaskMetadataForm';
 import { taskFormMap } from './forms';
 
@@ -23,22 +24,34 @@ export function TaskEditorPanel({ json, onChange }: TaskEditorPanelProps) {
   }
 
   return (
-    <div className="p-4 space-y-4">
-      <TaskMetadataForm json={json} onChange={onChange} />
+    <div className="space-y-4 p-4">
+      <Card variant="default" className="gap-3">
+        <CardHeader className="border-border border-b">
+          <CardTitle className="text-base">Task Metadata</CardTitle>
+          <CardDescription className="text-xs">Identity and flow bindings.</CardDescription>
+        </CardHeader>
+        <CardContent className="px-4 sm:px-6">
+          <TaskMetadataForm json={json} onChange={onChange} />
+        </CardContent>
+      </Card>
 
-      <div className="border-t border-border pt-4">
-        <div className="text-xs font-medium mb-2">
-          Task Configuration
-          <span className="text-muted-foreground ml-2">(Type: {getTaskTypeName(taskType)})</span>
-        </div>
-        {FormComponent ? (
-          <FormComponent config={config} onChange={onConfigChange} />
-        ) : (
-          <div className="text-xs text-muted-foreground">
-            No form available for task type &quot;{taskType}&quot;. Edit as JSON.
-          </div>
-        )}
-      </div>
+      <Card variant="default" className="gap-3">
+        <CardHeader className="border-border border-b">
+          <CardTitle className="text-base">Task Configuration</CardTitle>
+          <CardDescription className="text-xs">
+            {getTaskTypeName(taskType)} task settings.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="px-4 sm:px-6">
+          {FormComponent ? (
+            <FormComponent config={config} onChange={onConfigChange} />
+          ) : (
+            <div className="text-xs text-muted-foreground">
+              No form available for task type &quot;{taskType}&quot;. Edit as JSON.
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

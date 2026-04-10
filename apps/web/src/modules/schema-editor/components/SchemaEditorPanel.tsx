@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Tabs, TabsList, TabsTrigger } from '@shared/ui/Tabs';
 import { Field } from '@shared/ui/Field';
 import { JsonCodeField } from '@shared/ui/JsonCodeField';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@shared/ui/Card';
 import { SchemaMetadataForm } from './SchemaMetadataForm';
 import { SchemaTree } from './SchemaTree';
 import { getSchemaSource } from '../SchemaEditorSchema';
@@ -35,11 +36,22 @@ export function SchemaEditorPanel({ json, onChange }: SchemaEditorPanelProps) {
 
   return (
     <div className="space-y-4 p-4">
-      <SchemaMetadataForm json={json} onChange={onChange} />
+      <Card variant="default" className="gap-3">
+        <CardHeader className="border-border border-b">
+          <CardTitle className="text-base">Schema Metadata</CardTitle>
+          <CardDescription className="text-xs">Identity and flow bindings.</CardDescription>
+        </CardHeader>
+        <CardContent className="px-4 sm:px-6">
+          <SchemaMetadataForm json={json} onChange={onChange} />
+        </CardContent>
+      </Card>
 
-      <div className="border-t border-border pt-4">
-        <div className="mb-3 flex items-center gap-2">
-          <div className="text-xs font-medium">JSON Schema</div>
+      <Card variant="default" className="gap-3">
+        <CardHeader className="border-border border-b flex-row items-center">
+          <div>
+            <CardTitle className="text-base">JSON Schema</CardTitle>
+            <CardDescription className="text-xs">Visual or source editing.</CardDescription>
+          </div>
           <Tabs
             value={view}
             onValueChange={(nextView) => setView(nextView as 'visual' | 'source')}
@@ -53,45 +65,46 @@ export function SchemaEditorPanel({ json, onChange }: SchemaEditorPanelProps) {
               </TabsTrigger>
             </TabsList>
           </Tabs>
-        </div>
+        </CardHeader>
+        <CardContent className="px-4 sm:px-6">
+          {view === 'visual' ? (
+            <SchemaTree schema={schema} onChange={onSchemaChange} />
+          ) : (
+            <Field
+              label="Schema Source"
+              hint="Inline validation keeps invalid JSON in the editor until it becomes valid."
+              errorMsg={sourceError}>
+              <JsonCodeField
+                value={sourceValue}
+                onChange={(value) => {
+                  setSourceValue(value);
 
-        {view === 'visual' ? (
-          <SchemaTree schema={schema} onChange={onSchemaChange} />
-        ) : (
-          <Field
-            label="Schema Source"
-            hint="Inline validation keeps invalid JSON in the editor until it becomes valid."
-            errorMsg={sourceError}>
-            <JsonCodeField
-              value={sourceValue}
-              onChange={(value) => {
-                setSourceValue(value);
+                  try {
+                    const parsed = JSON.parse(value);
 
-                try {
-                  const parsed = JSON.parse(value);
-
-                  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
-                    setSourceError('Schema source must be a JSON object.');
-                    return;
-                  }
-
-                  setSourceError(null);
-                  onChange((draft) => {
-                    if (!draft.attributes) {
-                      draft.attributes = {};
+                    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+                      setSourceError('Schema source must be a JSON object.');
+                      return;
                     }
 
-                    (draft.attributes as Record<string, unknown>).schema = parsed;
-                  });
-                } catch {
-                  setSourceError('Schema source must be valid JSON.');
-                }
-              }}
-              height={400}
-            />
-          </Field>
-        )}
-      </div>
+                    setSourceError(null);
+                    onChange((draft) => {
+                      if (!draft.attributes) {
+                        draft.attributes = {};
+                      }
+
+                      (draft.attributes as Record<string, unknown>).schema = parsed;
+                    });
+                  } catch {
+                    setSourceError('Schema source must be valid JSON.');
+                  }
+                }}
+                height={400}
+              />
+            </Field>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

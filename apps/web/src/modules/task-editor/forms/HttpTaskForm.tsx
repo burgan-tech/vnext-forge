@@ -37,7 +37,7 @@ export function HttpTaskForm({ config, onChange }: HttpTaskFormProps) {
       <Field label="Headers">
         <KVEditor pairs={headerPairs}
           onChange={(pairs) => onChange((d: any) => {
-            d.headers = Object.fromEntries(pairs.filter((p) => p.key).map((p) => [p.key, p.value]));
+            d.headers = Object.fromEntries(pairs.map((p) => [p.key, p.value]));
           })} />
       </Field>
       <div className="grid grid-cols-2 gap-3">

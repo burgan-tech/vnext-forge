@@ -2,9 +2,27 @@ import { useState } from 'react';
 import { ChevronDown, ChevronRight, Plus, Trash2 } from 'lucide-react';
 import { Badge } from '@shared/ui/Badge';
 import { Button } from '@shared/ui/Button';
+import { Input } from '@shared/ui/Input';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@shared/ui/DropdownMenu';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+  DialogCancelButton,
+} from '@shared/ui/Dialog';
 
 type SchemaNode = Record<string, unknown>;
 type SchemaUpdater = (draft: SchemaNode) => void;
+
+const SCHEMA_TYPES = ['string', 'number', 'integer', 'boolean', 'object', 'array', 'null'] as const;
 
 interface SchemaTreeProps {
   schema: SchemaNode;
@@ -14,15 +32,20 @@ interface SchemaTreeProps {
 export function SchemaTree({ schema, onChange }: SchemaTreeProps) {
   const properties = (schema.properties || {}) as Record<string, SchemaNode>;
   const required = (schema.required || []) as string[];
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [newPropertyName, setNewPropertyName] = useState('');
 
-  function addProperty() {
-    const name = prompt('Property name:');
+  function confirmAddProperty() {
+    const name = newPropertyName.trim();
     if (!name) return;
 
     onChange((draft) => {
       const propertiesDraft = ensureProperties(draft);
       propertiesDraft[name] = { type: 'string' };
     });
+
+    setNewPropertyName('');
+    setDialogOpen(false);
   }
 
   function removeProperty(propertyName: string) {
@@ -68,7 +91,9 @@ export function SchemaTree({ schema, onChange }: SchemaTreeProps) {
 
   return (
     <div className="space-y-0.5">
-      {typeof schema.title === 'string' && <div className="mb-2 text-xs font-medium">{schema.title}</div>}
+      {typeof schema.title === 'string' && (
+        <div className="mb-2 text-xs font-medium">{schema.title}</div>
+      )}
       {typeof schema.description === 'string' && (
         <div className="mb-2 text-[10px] text-muted-foreground">{schema.description}</div>
       )}
@@ -91,13 +116,55 @@ export function SchemaTree({ schema, onChange }: SchemaTreeProps) {
             });
           }}
           depth={0}
+          typeAlign="end"
         />
       ))}
 
-      <Button onClick={addProperty} variant="outline" size="sm" className="mt-2 text-[10px]">
+      <Button
+        onClick={() => setDialogOpen(true)}
+        variant="success"
+        size="sm"
+        className="mt-2 text-[10px]">
         <Plus size={10} />
         Add property
       </Button>
+
+      <Dialog
+        open={dialogOpen}
+        onOpenChange={(open) => {
+          setDialogOpen(open);
+          if (!open) setNewPropertyName('');
+        }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Property</DialogTitle>
+            <DialogDescription>Enter a name for the new schema property.</DialogDescription>
+          </DialogHeader>
+
+          <Input
+            type="text"
+            value={newPropertyName}
+            onChange={(e) => setNewPropertyName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') confirmAddProperty();
+            }}
+            placeholder="property_name"
+            inputClassName="font-mono text-sm"
+            autoFocus
+          />
+
+          <DialogFooter>
+            <DialogCancelButton variant="destructive">Cancel</DialogCancelButton>
+            <Button
+              type="button"
+              variant="success"
+              disabled={!newPropertyName.trim()}
+              onClick={confirmAddProperty}>
+              Add
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -111,6 +178,7 @@ interface SchemaPropertyRowProps {
   onRemove: () => void;
   onChange: (updater: SchemaUpdater) => void;
   depth: number;
+  typeAlign?: 'start' | 'end';
 }
 
 function SchemaPropertyRow({
@@ -122,11 +190,12 @@ function SchemaPropertyRow({
   onRemove,
   onChange,
   depth,
+  typeAlign = 'end',
 }: SchemaPropertyRowProps) {
   const [expanded, setExpanded] = useState(false);
   const childProperties = (schema.properties as Record<string, SchemaNode> | undefined) ?? {};
   const hasChildren = schema.type === 'object' && Object.keys(childProperties).length > 0;
-  const schemaType = Array.isArray(schema.type) ? schema.type[0] : schema.type || 'string';
+  const schemaType = String(Array.isArray(schema.type) ? schema.type[0] : schema.type || 'string');
   const requiredChildren = Array.isArray(schema.required) ? (schema.required as string[]) : [];
 
   return (
@@ -146,36 +215,44 @@ function SchemaPropertyRow({
           <span className="w-4" />
         )}
 
-        <span className="min-w-[80px] font-mono text-[11px]">{name}</span>
+        <span className="min-w-20 font-mono text-[11px]">{name}</span>
         {isRequired && (
-          <Badge variant="secondary" className="px-1 py-0 text-[9px] leading-4">
+          <Badge variant="warning" className="px-1.5 py-0.5 text-[9px]">
             Required
           </Badge>
         )}
 
-        <select
-          value={String(schemaType)}
-          onChange={(event) => onTypeChange(event.target.value)}
-          className="ml-auto rounded-md border border-primary-border bg-background px-1.5 py-1 text-[10px] text-foreground outline-none transition-colors hover:border-primary-border-hover focus-visible:border-primary-border-hover">
-          <option value="string">string</option>
-          <option value="number">number</option>
-          <option value="integer">integer</option>
-          <option value="boolean">boolean</option>
-          <option value="object">object</option>
-          <option value="array">array</option>
-          <option value="null">null</option>
-        </select>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="default"
+              size="sm"
+              className="ml-auto h-6 w-28 justify-end gap-1.5 px-2 text-[10px]">
+              {schemaType}
+              <ChevronDown size={10} />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align={typeAlign} className="w-28 min-w-0">
+            {SCHEMA_TYPES.map((type) => (
+              <DropdownMenuItem
+                key={type}
+                className="text-xs"
+                onSelect={() => onTypeChange(type)}>
+                {type}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         <Badge
           asChild
-          variant={isRequired ? 'secondary' : 'muted'}
+          variant={isRequired ? 'warning' : 'muted'}
           interactive
           hoverable
           className="px-1.5 py-0.5 text-[9px]"
           title="Toggle required">
-          <button
-          onClick={onToggleRequired}
-          type="button">
+          <button onClick={onToggleRequired} type="button">
             req
           </button>
         </Badge>
@@ -218,7 +295,9 @@ function SchemaPropertyRow({
               }
               onRemove={() =>
                 onChange((draft) => {
-                  const propertiesDraft = draft.properties as Record<string, SchemaNode> | undefined;
+                  const propertiesDraft = draft.properties as
+                    | Record<string, SchemaNode>
+                    | undefined;
                   if (propertiesDraft) delete propertiesDraft[childName];
                 })
               }
@@ -229,6 +308,7 @@ function SchemaPropertyRow({
                 })
               }
               depth={depth + 1}
+              typeAlign={typeAlign}
             />
           ))}
         </div>

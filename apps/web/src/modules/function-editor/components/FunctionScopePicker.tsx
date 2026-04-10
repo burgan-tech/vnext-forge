@@ -1,3 +1,4 @@
+import { Button } from '@shared/ui/Button';
 import { Field } from '@shared/ui/Field';
 
 const SCOPES = [
@@ -17,19 +18,19 @@ export function FunctionScopePicker({ value, onChange, hint }: FunctionScopePick
     <Field label="Scope" hint={hint}>
       <div className="flex gap-1">
         {SCOPES.map((s) => (
-          <button
-            type="button"
+          <Button
             key={s.value}
+            type="button"
             onClick={() => onChange(s.value)}
-            className={`flex-1 cursor-pointer rounded border px-2 py-1.5 text-xs transition-colors ${
-              value === s.value
-                ? 'border-primary-border-hover bg-primary-muted text-primary-text'
-                : 'border-primary-border bg-primary text-primary-icon hover:border-primary-border-hover hover:bg-primary-hover hover:text-primary-text'
-            }`}
+            variant={value === s.value ? 'success' : 'default'}
+            aria-pressed={value === s.value}
+            className="h-auto flex-1 rounded-xl px-3 py-2 text-xs"
           >
-            <div className="font-medium">{s.label}</div>
-            <div className="text-[10px] opacity-70">{s.desc}</div>
-          </button>
+            <span className="flex flex-col items-start gap-0.5 text-left">
+              <span className="font-medium">{s.label}</span>
+              <span className="text-[10px] opacity-70">{s.desc}</span>
+            </span>
+          </Button>
         ))}
       </div>
     </Field>

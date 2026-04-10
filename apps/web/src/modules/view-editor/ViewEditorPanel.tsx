@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import { LabelEditor } from '@modules/save-component/components/LabelEditor';
 import { getViewEditorFieldError } from '@modules/view-editor/ViewEditorSchema';
+import { Button } from '@shared/ui/Button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@shared/ui/Card';
 import { Field } from '@shared/ui/Field';
+import { Input } from '@shared/ui/Input';
 import { JsonCodeField } from '@shared/ui/JsonCodeField';
 import { TagEditor } from '@shared/ui/TagEditor';
 
@@ -19,22 +22,7 @@ const DISPLAY_STRATEGIES = [
   { value: 'inline', label: 'Inline', desc: 'Embedded in page' },
 ];
 
-const INPUT_CLASS_NAME =
-  'w-full rounded border border-border bg-background px-2 py-1 font-mono text-xs text-foreground';
-const READONLY_INPUT_CLASS_NAME =
-  'w-full rounded border border-muted-border bg-muted-surface px-2 py-1 font-mono text-xs text-muted-foreground';
-const SELECTABLE_BUTTON_BASE_CLASS_NAME =
-  'cursor-pointer rounded border p-2 text-left text-xs transition-colors';
-const SELECTABLE_BUTTON_IDLE_CLASS_NAME =
-  'border-primary-border bg-primary text-primary-text hover:border-primary-border-hover hover:bg-primary-hover';
-const SELECTABLE_BUTTON_ACTIVE_CLASS_NAME =
-  'border-primary-border bg-primary-muted text-primary-text';
-const PLATFORM_BUTTON_BASE_CLASS_NAME =
-  'cursor-pointer rounded border px-2 py-0.5 text-[10px] transition-colors';
-const PLATFORM_BUTTON_IDLE_CLASS_NAME =
-  'border-primary-border bg-primary text-muted-foreground hover:border-primary-border-hover hover:bg-primary-hover hover:text-primary-text';
-const PLATFORM_BUTTON_ACTIVE_CLASS_NAME =
-  'border-primary-border bg-primary-muted text-primary-text';
+const PLATFORMS = ['default', 'web', 'ios', 'android'] as const;
 
 export function ViewEditorPanel({ json, onChange }: ViewEditorPanelProps) {
   const [platform, setPlatform] = useState<'default' | 'web' | 'ios' | 'android'>('default');
@@ -48,141 +36,136 @@ export function ViewEditorPanel({ json, onChange }: ViewEditorPanelProps) {
 
   return (
     <div className="space-y-4 p-4">
-      <div className="space-y-3">
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="Key">
-            <input
-              type="text"
-              value={String(json.key || '')}
-              readOnly
-              className={READONLY_INPUT_CLASS_NAME}
-            />
-          </Field>
-          <Field label="Version" errorMsg={versionError}>
-            <input
-              type="text"
-              value={version}
-              onChange={(e) =>
-                onChange((draft) => {
-                  draft.version = e.target.value;
-                })
-              }
-              className={INPUT_CLASS_NAME}
-            />
-          </Field>
-          <Field label="Domain" errorMsg={domainError}>
-            <input
-              type="text"
-              value={domain}
-              onChange={(e) =>
-                onChange((draft) => {
-                  draft.domain = e.target.value;
-                })
-              }
-              className={INPUT_CLASS_NAME}
-            />
-          </Field>
-          <Field label="Flow" errorMsg={flowError}>
-            <input
-              type="text"
-              value={flow}
-              onChange={(e) =>
-                onChange((draft) => {
-                  draft.flow = e.target.value;
-                })
-              }
-              className={INPUT_CLASS_NAME}
-            />
-          </Field>
-        </div>
-        <Field label="Labels">
-          <LabelEditor
-            labels={(json.label as unknown[]) || []}
-            onChange={(labels) =>
-              onChange((draft) => {
-                draft.label = labels;
-              })
-            }
-          />
-        </Field>
-        <Field label="Tags">
-          <TagEditor
-            tags={(json.tags as string[]) || []}
-            onChange={(tags) =>
-              onChange((draft) => {
-                draft.tags = tags;
-              })
-            }
-          />
-        </Field>
-      </div>
+      <Card variant="default" className="gap-3">
+        <CardHeader className="border-border border-b">
+          <CardTitle className="text-base">View Metadata</CardTitle>
+          <CardDescription className="text-xs">Identity and flow bindings.</CardDescription>
+        </CardHeader>
+        <CardContent className="px-4 sm:px-6">
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Key">
+                <Input
+                  type="text"
+                  value={String(json.key || '')}
+                  readOnly
+                  variant="muted"
+                  className="w-full"
+                  inputClassName="font-mono text-xs"
+                />
+              </Field>
+              <Field label="Version" errorMsg={versionError}>
+                <Input
+                  type="text"
+                  value={version}
+                  onChange={(e) => onChange((draft) => { draft.version = e.target.value; })}
+                  className="w-full"
+                  inputClassName="font-mono text-xs"
+                  aria-invalid={Boolean(versionError)}
+                />
+              </Field>
+              <Field label="Domain" errorMsg={domainError}>
+                <Input
+                  type="text"
+                  value={domain}
+                  onChange={(e) => onChange((draft) => { draft.domain = e.target.value; })}
+                  className="w-full"
+                  inputClassName="font-mono text-xs"
+                  aria-invalid={Boolean(domainError)}
+                />
+              </Field>
+              <Field label="Flow" errorMsg={flowError}>
+                <Input
+                  type="text"
+                  value={flow}
+                  onChange={(e) => onChange((draft) => { draft.flow = e.target.value; })}
+                  className="w-full"
+                  inputClassName="font-mono text-xs"
+                  aria-invalid={Boolean(flowError)}
+                />
+              </Field>
+            </div>
+            <Field label="Labels">
+              <LabelEditor
+                labels={(json.label as any[]) || []}
+                onChange={(labels) => onChange((draft) => { draft.label = labels; })}
+              />
+            </Field>
+            <Field label="Tags">
+              <TagEditor
+                tags={(json.tags as string[]) || []}
+                onChange={(tags) => onChange((draft) => { draft.tags = tags; })}
+              />
+            </Field>
+          </div>
+        </CardContent>
+      </Card>
 
-      <div className="border-t border-border pt-4">
-        <div className="mb-2 text-xs font-medium">Display Strategy</div>
-        <div className="grid grid-cols-3 gap-1">
-          {DISPLAY_STRATEGIES.map((strategy) => (
-            <button
-              key={strategy.value}
-              onClick={() =>
-                onChange((draft) => {
-                  if (!draft.attributes) {
-                    draft.attributes = {};
-                  }
-
-                  (draft.attributes as Record<string, unknown>).displayStrategy = strategy.value;
-                })
-              }
-              className={`${SELECTABLE_BUTTON_BASE_CLASS_NAME} ${
-                String(attrs.displayStrategy) === strategy.value
-                  ? SELECTABLE_BUTTON_ACTIVE_CLASS_NAME
-                  : SELECTABLE_BUTTON_IDLE_CLASS_NAME
-              }`}
-            >
-              <div className="font-medium">{strategy.label}</div>
-              <div className="text-[10px] text-muted-foreground">{strategy.desc}</div>
-            </button>
-          ))}
-        </div>
-      </div>
-
-      <div className="border-t border-border pt-4">
-        <div className="mb-2 flex items-center gap-2">
-          <div className="text-xs font-medium">Content</div>
-          <div className="ml-auto flex gap-1">
-            {(['default', 'web', 'ios', 'android'] as const).map((nextPlatform) => (
-              <button
-                key={nextPlatform}
-                onClick={() => setPlatform(nextPlatform)}
-                className={`${PLATFORM_BUTTON_BASE_CLASS_NAME} ${
-                  platform === nextPlatform
-                    ? PLATFORM_BUTTON_ACTIVE_CLASS_NAME
-                    : PLATFORM_BUTTON_IDLE_CLASS_NAME
-                }`}
-              >
-                {nextPlatform}
-              </button>
+      <Card variant="default" className="gap-3">
+        <CardHeader className="border-border border-b">
+          <CardTitle className="text-base">Display Strategy</CardTitle>
+          <CardDescription className="text-xs">How the view is presented.</CardDescription>
+        </CardHeader>
+        <CardContent className="px-4 sm:px-6">
+          <div className="grid grid-cols-3 gap-1">
+            {DISPLAY_STRATEGIES.map((strategy) => (
+              <Button
+                key={strategy.value}
+                type="button"
+                variant={String(attrs.displayStrategy) === strategy.value ? 'success' : 'default'}
+                aria-pressed={String(attrs.displayStrategy) === strategy.value}
+                onClick={() =>
+                  onChange((draft) => {
+                    if (!draft.attributes) draft.attributes = {};
+                    (draft.attributes as Record<string, unknown>).displayStrategy = strategy.value;
+                  })
+                }
+                className="h-auto flex-1 rounded-xl px-3 py-2 text-xs">
+                <span className="flex flex-col items-start gap-0.5 text-left">
+                  <span className="font-medium">{strategy.label}</span>
+                  <span className="text-[10px] opacity-70">{strategy.desc}</span>
+                </span>
+              </Button>
             ))}
           </div>
-        </div>
-        <JsonCodeField
-          value={getContentForPlatform(attrs, platform)}
-          onChange={(value) =>
-            onChange((draft) => {
-              if (!draft.attributes) {
-                draft.attributes = {};
-              }
+        </CardContent>
+      </Card>
 
-              setContentForPlatform(
-                draft.attributes as Record<string, unknown>,
-                platform,
-                value,
-              );
-            })
-          }
-          language="html"
-          height={300}
-        />
-      </div>
+      <Card variant="default" className="gap-3">
+        <CardHeader className="border-border border-b flex-row items-center">
+          <div>
+            <CardTitle className="text-base">Content</CardTitle>
+            <CardDescription className="text-xs">Platform-specific HTML content.</CardDescription>
+          </div>
+          <div className="ml-auto flex gap-1">
+            {PLATFORMS.map((p) => (
+              <Button
+                key={p}
+                type="button"
+                variant={platform === p ? 'success' : 'default'}
+                size="sm"
+                aria-pressed={platform === p}
+                onClick={() => setPlatform(p)}
+                className="h-6 px-2 text-[10px]">
+                {p}
+              </Button>
+            ))}
+          </div>
+        </CardHeader>
+        <CardContent className="px-4 sm:px-6">
+          <JsonCodeField
+            value={getContentForPlatform(attrs, platform)}
+            onChange={(value) =>
+              onChange((draft) => {
+                if (!draft.attributes) draft.attributes = {};
+                setContentForPlatform(draft.attributes as Record<string, unknown>, platform, value);
+              })
+            }
+            language="json"
+            height={300}
+          />
+        </CardContent>
+      </Card>
     </div>
   );
 }
