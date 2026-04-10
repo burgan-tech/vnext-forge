@@ -31,16 +31,29 @@ export function browseWorkspace(path?: string) {
 export function readFile(path: string) {
   return unwrapApi<{ content: string }>(
     apiClient.api.files.$get({
-      query: { path },
+      query: { path: normalizeFilePath(path) },
     }),
     'Failed to read file',
   );
 }
 
+export async function readOptionalFile(path: string): Promise<{ content: string } | null> {
+  try {
+    return await readFile(path);
+  } catch (value) {
+    const error = toVnextError(value);
+    if (error.code === ERROR_CODES.FILE_NOT_FOUND) {
+      return null;
+    }
+
+    throw error;
+  }
+}
+
 export function writeFile(path: string, content: string) {
   return callApi<void>(
     apiClient.api.files.$put({
-      json: { path, content },
+      json: { path: normalizeFilePath(path), content },
     }),
   );
 }
@@ -48,7 +61,7 @@ export function writeFile(path: string, content: string) {
 export function deleteFile(path: string) {
   return callApi<void>(
     apiClient.api.files.$delete({
-      query: { path },
+      query: { path: normalizeFilePath(path) },
     }),
   );
 }
@@ -56,7 +69,7 @@ export function deleteFile(path: string) {
 export function createDirectory(path: string) {
   return callApi<void>(
     apiClient.api.files.mkdir.$post({
-      json: { path },
+      json: { path: normalizeFilePath(path) },
     }),
   );
 }
@@ -64,7 +77,10 @@ export function createDirectory(path: string) {
 export function renameFile(oldPath: string, newPath: string) {
   return callApi<void>(
     apiClient.api.files.rename.$post({
-      json: { oldPath, newPath },
+      json: {
+        oldPath: normalizeFilePath(oldPath),
+        newPath: normalizeFilePath(newPath),
+      },
     }),
   );
 }
@@ -160,4 +176,8 @@ export async function scaffoldWorkflow(
   );
 
   return success({ groupName, workflowName });
+}
+
+function normalizeFilePath(path: string): string {
+  return path.replace(/\\/g, '/').replace(/\/{2,}/g, '/');
 }

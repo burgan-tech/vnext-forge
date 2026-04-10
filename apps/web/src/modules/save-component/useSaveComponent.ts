@@ -2,7 +2,7 @@ import { useCallback, useEffect } from 'react';
 import { createLogger } from '@shared/lib/logger/CreateLogger';
 import { useAsync } from '@shared/hooks/UseAsync';
 import { saveComponentFile } from './SaveComponentApi';
-import { useComponentStore } from './useComponentStore';
+import { useComponentStore } from '../../app/store/useComponentStore';
 
 const logger = createLogger('save-component/useSaveComponent');
 

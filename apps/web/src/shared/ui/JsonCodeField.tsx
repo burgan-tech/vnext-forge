@@ -71,7 +71,8 @@ const jsonCodeFieldVariants = cva(
 );
 
 interface JsonCodeFieldProps
-  extends Omit<React.ComponentProps<'div'>, 'onChange'>,
+  extends
+    Omit<React.ComponentProps<'div'>, 'onChange'>,
     VariantProps<typeof jsonCodeFieldVariants> {
   height?: number;
   language?: string;
@@ -97,8 +98,7 @@ function JsonCodeField({
       data-slot="json-code-field"
       className={cn(jsonCodeFieldVariants({ variant, hoverable, noBorder, readOnly }), className)}
       style={{ height }}
-      {...props}
-    >
+      {...props}>
       <MonacoEditor
         height={height}
         language={language}
@@ -106,9 +106,10 @@ function JsonCodeField({
         onChange={(nextValue) => onChange(nextValue ?? '')}
         theme="vs"
         options={{
+          padding: { top: 4, bottom: 10 },
           folding: false,
-          fontSize: 11,
-          glyphMargin: false,
+          fontSize: 14,
+          glyphMargin: true,
           lineDecorationsWidth: 0,
           lineNumbers: 'off',
           lineNumbersMinChars: 0,

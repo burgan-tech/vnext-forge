@@ -1,7 +1,7 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import type { ApiResponse } from '@vnext-forge/app-contracts';
 import { useAsync } from '@shared/hooks/UseAsync';
-import { useComponentStore } from './useComponentStore';
+import { useComponentStore } from '../../app/store/useComponentStore';
 import type { ComponentFileDocument } from './SaveComponentApi';
 
 interface UseLoadComponentParams<TArgs> {
@@ -23,6 +23,9 @@ export function useLoadComponent<TArgs>({
   const clear = useComponentStore((state) => state.clear);
   const componentJson = useComponentStore((state) => state.componentJson);
   const componentFilePath = useComponentStore((state) => state.filePath);
+  const createArgsRef = useRef(createArgs);
+
+  createArgsRef.current = createArgs;
 
   const { execute, loading, error, data, reset } = useAsync(loadComponent, {
     showNotificationOnError: false,
@@ -44,8 +47,8 @@ export function useLoadComponent<TArgs>({
     }
 
     clear();
-    void execute(createArgs(filePath));
-  }, [clear, createArgs, execute, filePath, reset]);
+    void execute(createArgsRef.current(filePath));
+  }, [clear, execute, filePath, reset]);
 
   return {
     loading,

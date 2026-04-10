@@ -25,6 +25,6 @@ export async function loadFunctionEditor({
       json,
     });
   } catch (value) {
-    return failureFromError(toVnextError(value, 'Function could not be loaded.'));
+    return failureFromError(toVnextError(value));
   }
 }

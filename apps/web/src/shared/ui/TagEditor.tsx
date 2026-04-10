@@ -3,6 +3,9 @@ import { X } from 'lucide-react';
 import { cva, type VariantProps } from 'class-variance-authority';
 
 import { cn } from '@shared/lib/utils/Cn';
+import { Badge } from '@shared/ui/Badge';
+import { Button } from '@shared/ui/Button';
+import { Input } from '@shared/ui/Input';
 
 const tagEditorVariants = cva(
   'flex min-h-9 flex-wrap gap-1 rounded-md border px-2 py-1.5 shadow-xs transition-all duration-200 ease-out',
@@ -10,6 +13,7 @@ const tagEditorVariants = cva(
     variants: {
       variant: {
         default: 'border-primary-border bg-primary text-primary-foreground focus-within:border-primary-border-hover focus-within:ring-ring/50 focus-within:ring-[3px]',
+        success: 'border-success-border bg-success text-success-foreground focus-within:border-success-border-hover focus-within:ring-ring/50 focus-within:ring-[3px]',
         secondary:
           'border-secondary-border bg-secondary text-secondary-foreground focus-within:border-secondary-border-hover focus-within:ring-ring/50 focus-within:ring-[3px]',
         tertiary:
@@ -31,6 +35,11 @@ const tagEditorVariants = cva(
         className: 'hover:border-primary-border-hover hover:bg-primary-hover',
       },
       {
+        variant: 'success',
+        hoverable: true,
+        className: 'hover:border-success-border-hover hover:bg-success-hover',
+      },
+      {
         variant: 'secondary',
         hoverable: true,
         className: 'hover:border-secondary-border-hover hover:bg-secondary-hover',
@@ -45,49 +54,6 @@ const tagEditorVariants = cva(
       variant: 'default',
       hoverable: true,
       noBorder: false,
-    },
-  },
-);
-
-const tagChipVariants = cva('inline-flex items-center gap-1 rounded-md border px-2 py-0.5 text-xs font-medium', {
-  variants: {
-    variant: {
-      default: 'border-primary-border bg-primary-muted text-primary-icon',
-      secondary: 'border-secondary-border bg-secondary-muted text-secondary-icon',
-      tertiary: 'border-tertiary-border bg-tertiary-muted text-tertiary-icon',
-    },
-  },
-  defaultVariants: {
-    variant: 'default',
-  },
-});
-
-const tagRemoveButtonVariants = cva(
-  'inline-flex size-5 items-center justify-center rounded-sm border shadow-sm transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
-  {
-    variants: {
-      variant: {
-        default: 'border-primary-border bg-primary text-primary-icon',
-        secondary: 'border-secondary-border bg-secondary text-secondary-icon',
-        tertiary: 'border-tertiary-border bg-tertiary text-tertiary-icon',
-      },
-    },
-    compoundVariants: [
-      {
-        variant: 'default',
-        className: 'hover:border-primary-border-hover hover:bg-primary-hover hover:text-destructive',
-      },
-      {
-        variant: 'secondary',
-        className: 'hover:border-secondary-border-hover hover:bg-secondary-hover hover:text-destructive',
-      },
-      {
-        variant: 'tertiary',
-        className: 'hover:border-tertiary-border-hover hover:bg-tertiary-hover hover:text-destructive',
-      },
-    ],
-    defaultVariants: {
-      variant: 'default',
     },
   },
 );
@@ -113,7 +79,6 @@ function TagEditor({
   ...props
 }: TagEditorProps) {
   const [input, setInput] = React.useState('');
-  const resolvedVariant = variant ?? 'default';
 
   function addTag(value: string) {
     const nextValue = value.trim();
@@ -147,32 +112,39 @@ function TagEditor({
       {...props}
     >
       {tags.map((tag, index) => (
-        <span
+        <Badge
           key={`${tag}-${index}`}
-          className={tagChipVariants({ variant: resolvedVariant })}
+          variant={variant === 'success' ? 'success' : 'default'}
+          className="tag-editor-chip gap-1 pr-0.5 text-xs"
         >
           {tag}
           {!readOnly ? (
-            <button
+            <Button
               type="button"
               onClick={() => removeTag(index)}
-              className={tagRemoveButtonVariants({ variant: resolvedVariant })}
+              variant="ghost"
+              size="icon"
+              className="tag-editor-chip-remove size-5 min-h-5 border-0 text-current shadow-none hover:bg-destructive/12 hover:text-destructive"
               aria-label={`Remove ${tag}`}
             >
               <X className="size-3" />
-            </button>
+            </Button>
           ) : null}
-        </span>
+        </Badge>
       ))}
       {!readOnly ? (
-        <input
-          type="text"
+        <Input
           value={input}
+          type="text"
           onChange={(event) => setInput(event.target.value)}
           onKeyDown={handleKeyDown}
           onBlur={() => addTag(input)}
           placeholder={tags.length === 0 ? placeholder : ''}
-          className="placeholder:text-current/50 min-w-20 flex-1 bg-transparent text-sm outline-none"
+          variant={variant === 'success' ? 'success' : 'default'}
+          size="sm"
+          noBorder
+          className="min-w-24 flex-1 bg-transparent shadow-none"
+          inputClassName="min-w-20 py-1 text-sm"
         />
       ) : null}
     </div>

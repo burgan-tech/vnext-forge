@@ -1,6 +1,9 @@
-import { useState, type KeyboardEvent } from 'react';
+import { useState, type ChangeEvent, type KeyboardEvent } from 'react';
 import { X } from 'lucide-react';
+import { Badge } from '@shared/ui/Badge';
+import { Button } from '@shared/ui/Button';
 import { Field } from '@shared/ui/Field';
+import { Input } from '@shared/ui/Input';
 
 interface DefinedFlowsSelectorProps {
   flows: string[];
@@ -29,25 +32,38 @@ export function DefinedFlowsSelector({ flows, onChange }: DefinedFlowsSelectorPr
 
   return (
     <Field label="Defined Flows" hint="Press Enter to add a flow name">
-      <div className="flex flex-wrap gap-1 p-1.5 border border-border rounded bg-background min-h-[28px]">
-        {flows.map((flow, i) => (
-          <span
-            key={`${flow}-${i}`}
-            className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] bg-primary/10 text-primary rounded"
-          >
-            {flow}
-            <button onClick={() => removeFlow(i)} className="hover:text-destructive">
-              <X size={10} />
-            </button>
-          </span>
-        ))}
-        <input
+      <div className="rounded-xl border border-border bg-background p-2">
+        <div className="mb-2 flex flex-wrap gap-1.5">
+          {flows.map((flow, i) => (
+            <Badge
+              key={`${flow}-${i}`}
+              variant="success"
+              className="gap-1 pr-1 text-[10px]"
+            >
+              <span>{flow}</span>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                onClick={() => removeFlow(i)}
+                className="size-4 min-h-4 rounded-md text-current shadow-none hover:bg-destructive/12 hover:text-destructive"
+                aria-label={`Remove ${flow} flow`}
+              >
+                <X size={10} />
+              </Button>
+            </Badge>
+          ))}
+        </div>
+        <Input
           type="text"
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={(e: ChangeEvent<HTMLInputElement>) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={flows.length === 0 ? 'Type flow name...' : ''}
-          className="flex-1 min-w-[80px] text-xs bg-transparent outline-none"
+          placeholder={flows.length === 0 ? 'Type flow name...' : 'Add another flow'}
+          variant="default"
+          size="sm"
+          className="min-w-[80px]"
+          inputClassName="text-xs"
         />
       </div>
     </Field>

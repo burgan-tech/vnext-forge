@@ -1,5 +1,7 @@
 import { Field } from '@shared/ui/Field';
 import { TagEditor } from '@shared/ui/TagEditor';
+import { Badge } from '@shared/ui/Badge';
+import { cn } from '@shared/lib/utils/Cn';
 import { RetryPolicyEditor } from './RetryPolicyEditor';
 
 interface ErrorHandlerFormProps {
@@ -8,12 +10,12 @@ interface ErrorHandlerFormProps {
 }
 
 const ERROR_ACTIONS = [
-  { value: 0, label: 'Abort' },
-  { value: 1, label: 'Retry' },
-  { value: 2, label: 'Rollback' },
-  { value: 3, label: 'Ignore' },
-  { value: 4, label: 'Notify' },
-  { value: 5, label: 'Log' },
+  { value: 0, label: 'Abort', variant: 'destructive' as const },
+  { value: 1, label: 'Retry', variant: 'success' as const },
+  { value: 2, label: 'Rollback', variant: 'destructive' as const },
+  { value: 3, label: 'Ignore', variant: 'muted' as const },
+  { value: 4, label: 'Notify', variant: 'tertiary' as const },
+  { value: 5, label: 'Log', variant: 'secondary' as const },
 ];
 
 export function ErrorHandlerForm({ handler, onChange }: ErrorHandlerFormProps) {
@@ -26,14 +28,24 @@ export function ErrorHandlerForm({ handler, onChange }: ErrorHandlerFormProps) {
           {ERROR_ACTIONS.map((action) => (
             <button
               key={action.value}
+              type="button"
               onClick={() => onChange((d) => { d.action = action.value; })}
-              className={`px-2 py-0.5 text-[10px] rounded border ${
-                handler.action === action.value
-                  ? 'border-primary bg-primary/10 text-primary'
-                  : 'border-border hover:bg-muted text-muted-foreground'
-              }`}
+              className="rounded-md transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
             >
-              {action.label}
+              <Badge
+                variant={handler.action === action.value ? action.variant : 'muted'}
+                interactive
+                hoverable
+                className={cn(
+                  'px-2 py-1 text-[10px] font-semibold',
+                  handler.action === action.value &&
+                    action.variant === 'muted' &&
+                    'border-foreground/20 bg-muted text-foreground ring-1 ring-foreground/10',
+                  handler.action !== action.value && 'border-muted-border bg-muted-surface text-muted-text',
+                )}
+              >
+                {action.label}
+              </Badge>
             </button>
           ))}
         </div>

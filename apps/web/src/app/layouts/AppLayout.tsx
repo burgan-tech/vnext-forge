@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom';
 
 import { useUIStore } from '@app/store/useUiStore';
+import { RuntimeHealthSync } from '@modules/workflow-execution/RuntimeHealthSync';
 
 import { ActivityBar } from './ui/ActivityBar';
 import { Sidebar } from './ui/Sidebar';
@@ -11,6 +12,7 @@ export function AppLayout() {
 
   return (
     <div className="bg-background text-foreground flex h-screen w-screen flex-col overflow-hidden">
+      <RuntimeHealthSync />
       <div className="flex flex-1 overflow-hidden">
         <ActivityBar />
 

@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useComponentStore } from '@modules/save-component/useComponentStore';
+import { useComponentStore } from '@app/store/useComponentStore';
 import { useAsync } from '@shared/hooks/UseAsync';
 import { loadFunctionEditor } from './FunctionEditorApi';
 
@@ -13,7 +13,6 @@ export function useFunctionEditor({ filePath }: UseFunctionEditorParams) {
 
   const { execute, loading, error, data, reset } = useAsync(loadFunctionEditor, {
     showNotificationOnError: false,
-    errorMessage: 'Function could not be loaded.',
     onSuccess: async (result) => {
       if (!result.success) {
         return;

@@ -18,6 +18,7 @@ export function RetryPolicyEditor({ policy, onChange }: RetryPolicyEditorProps) 
     defaultValues: toRetryPolicyFormValues(policy),
   });
   const values = useWatch({ control: form.control });
+  const currentPolicyValues = toRetryPolicyFormValues(policy);
 
   useEffect(() => {
     const nextValues = toRetryPolicyFormValues(policy);
@@ -34,6 +35,10 @@ export function RetryPolicyEditor({ policy, onChange }: RetryPolicyEditorProps) 
       return;
     }
 
+    if (JSON.stringify(parsed.data) === JSON.stringify(currentPolicyValues)) {
+      return;
+    }
+
     onChange((draft) => {
       draft.maxRetries = parsed.data.maxRetries;
       draft.initialDelay = parsed.data.initialDelay;
@@ -42,7 +47,7 @@ export function RetryPolicyEditor({ policy, onChange }: RetryPolicyEditorProps) 
       draft.maxDelay = parsed.data.maxDelay;
       draft.useJitter = parsed.data.useJitter;
     });
-  }, [onChange, values]);
+  }, [currentPolicyValues, onChange, values]);
 
   const maxRetriesValidation = form.register('maxRetries', {
     validate: (value) => {

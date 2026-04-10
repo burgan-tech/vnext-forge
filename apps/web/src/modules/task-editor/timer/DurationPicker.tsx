@@ -1,4 +1,5 @@
 import { Field } from '@shared/ui/Field';
+import { Input } from '@shared/ui/Input';
 
 interface DurationPickerProps {
   value: string;
@@ -16,42 +17,46 @@ export function DurationPicker({ value, onChange }: DurationPickerProps) {
   return (
     <div className="grid grid-cols-4 gap-2">
       <Field label="Days">
-        <input
+        <Input
           type="number"
           value={parsed.days}
           onChange={(e) => update('days', Number(e.target.value))}
           min={0}
-          className="w-full px-2 py-1 text-xs border border-border rounded bg-background text-center"
+          size="sm"
+          inputClassName="text-center text-xs"
         />
       </Field>
       <Field label="Hours">
-        <input
+        <Input
           type="number"
           value={parsed.hours}
           onChange={(e) => update('hours', Number(e.target.value))}
           min={0}
           max={23}
-          className="w-full px-2 py-1 text-xs border border-border rounded bg-background text-center"
+          size="sm"
+          inputClassName="text-center text-xs"
         />
       </Field>
       <Field label="Minutes">
-        <input
+        <Input
           type="number"
           value={parsed.minutes}
           onChange={(e) => update('minutes', Number(e.target.value))}
           min={0}
           max={59}
-          className="w-full px-2 py-1 text-xs border border-border rounded bg-background text-center"
+          size="sm"
+          inputClassName="text-center text-xs"
         />
       </Field>
       <Field label="Seconds">
-        <input
+        <Input
           type="number"
           value={parsed.seconds}
           onChange={(e) => update('seconds', Number(e.target.value))}
           min={0}
           max={59}
-          className="w-full px-2 py-1 text-xs border border-border rounded bg-background text-center"
+          size="sm"
+          inputClassName="text-center text-xs"
         />
       </Field>
     </div>

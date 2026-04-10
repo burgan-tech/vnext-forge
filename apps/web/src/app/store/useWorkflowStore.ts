@@ -20,6 +20,7 @@ export interface WorkflowState {
   undo: () => void;
   redo: () => void;
   markClean: () => void;
+  clearWorkflow: () => void;
 
   addState: (stateType: number, subType: number, position: { x: number; y: number }) => string;
   removeState: (key: string) => void;
@@ -103,6 +104,17 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   markClean: () => set({ isDirty: false }),
+
+  clearWorkflow: () =>
+    set({
+      workflowJson: null,
+      diagramJson: null,
+      isDirty: false,
+      selectedNodeId: null,
+      selectedEdgeId: null,
+      undoStack: [],
+      redoStack: [],
+    }),
 
   // ─── CRUD Helpers ───
 

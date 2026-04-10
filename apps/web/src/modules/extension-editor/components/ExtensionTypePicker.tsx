@@ -1,3 +1,4 @@
+import { Button } from '@shared/ui/Button';
 import { Field } from '@shared/ui/Field';
 
 const TYPES = [
@@ -18,19 +19,19 @@ export function ExtensionTypePicker({ value, onChange, hint }: ExtensionTypePick
     <Field label="Extension Type" hint={hint}>
       <div className="grid grid-cols-2 gap-1">
         {TYPES.map((t) => (
-          <button
-            type="button"
+          <Button
             key={t.value}
+            type="button"
             onClick={() => onChange(t.value)}
-            className={`cursor-pointer px-2 py-1.5 text-xs rounded border text-left transition-colors ${
-              value === t.value
-                ? 'border-primary-border-hover bg-primary-muted text-primary-text'
-                : 'border-primary-border bg-primary text-primary-icon hover:border-primary-border-hover hover:bg-primary-hover hover:text-primary-text'
-            }`}
+            variant={value === t.value ? 'success' : 'default'}
+            aria-pressed={value === t.value}
+            className="h-auto justify-start rounded-xl px-3 py-2 text-left text-xs"
           >
-            <div className="font-medium">{t.label}</div>
-            <div className="text-[10px] opacity-70">{t.desc}</div>
-          </button>
+            <span className="flex flex-col items-start gap-0.5">
+              <span className="font-medium">{t.label}</span>
+              <span className="text-[10px] opacity-70">{t.desc}</span>
+            </span>
+          </Button>
         ))}
       </div>
     </Field>

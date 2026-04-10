@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { Button } from '@shared/ui/Button';
+import { Input } from '@shared/ui/Input';
 import { CronExpressionBuilder } from './CronExpressionBuilder';
 import { DurationPicker } from './DurationPicker';
 import { SchedulePreview } from './SchedulePreview';
@@ -18,18 +20,24 @@ export function TimerPanel({ value, onChange }: TimerPanelProps) {
   return (
     <div className="space-y-3 p-3">
       <div className="flex items-center gap-1">
-        <button
+        <Button
+          type="button"
+          size="sm"
+          variant={mode === 'cron' ? 'default' : 'muted'}
           onClick={() => setMode('cron')}
-          className={`px-2 py-0.5 text-[10px] rounded ${mode === 'cron' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}
+          className="h-6 px-2 text-[10px]"
         >
           Cron
-        </button>
-        <button
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant={mode === 'duration' ? 'default' : 'muted'}
           onClick={() => setMode('duration')}
-          className={`px-2 py-0.5 text-[10px] rounded ${mode === 'duration' ? 'bg-primary text-primary-foreground' : 'hover:bg-muted'}`}
+          className="h-6 px-2 text-[10px]"
         >
           Duration
-        </button>
+        </Button>
       </div>
 
       {mode === 'cron' ? (
@@ -43,11 +51,13 @@ export function TimerPanel({ value, onChange }: TimerPanelProps) {
 
       <div className="border-t border-border pt-2">
         <div className="text-[10px] text-muted-foreground">Raw value</div>
-        <input
+        <Input
           type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full px-2 py-1 text-xs border border-border rounded bg-background font-mono mt-1"
+          size="sm"
+          className="mt-1"
+          inputClassName="font-mono text-xs"
         />
       </div>
     </div>

@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
 import { Field } from '@shared/ui/Field';
+import { Input } from '@shared/ui/Input';
 import { TagEditor } from '@shared/ui/TagEditor';
 import {
   extensionMetadataFormSchema,
@@ -77,36 +78,42 @@ export function ExtensionMetadataForm({ json, onChange }: ExtensionMetadataFormP
 
   return (
     <div className="space-y-3">
-      <div className="text-xs font-medium">Extension Metadata</div>
-
       <div className="grid grid-cols-2 gap-3">
         <Field label="Key" hint={form.formState.errors.key?.message}>
-          <input
+          <Input
             type="text"
             {...keyValidation}
-            className="w-full px-2 py-1 text-xs border border-primary-border rounded bg-primary font-mono"
+            className="w-full"
+            inputClassName="font-mono text-xs"
+            aria-invalid={Boolean(form.formState.errors.key)}
           />
         </Field>
         <Field label="Version" hint={form.formState.errors.version?.message}>
-          <input
+          <Input
             type="text"
             {...versionValidation}
-            className="w-full px-2 py-1 text-xs border border-primary-border rounded bg-primary font-mono"
+            className="w-full"
+            inputClassName="font-mono text-xs"
+            aria-invalid={Boolean(form.formState.errors.version)}
           />
         </Field>
         <Field label="Domain" hint={form.formState.errors.domain?.message}>
-          <input
+          <Input
             type="text"
             {...domainValidation}
-            className="w-full px-2 py-1 text-xs border border-primary-border rounded bg-primary font-mono"
+            className="w-full"
+            inputClassName="font-mono text-xs"
+            aria-invalid={Boolean(form.formState.errors.domain)}
           />
         </Field>
         <Field label="Flow" hint={form.formState.errors.flow?.message}>
-          <input
+          <Input
             type="text"
             {...flowValidation}
             placeholder="(optional)"
-            className="w-full px-2 py-1 text-xs border border-primary-border rounded bg-primary font-mono"
+            className="w-full"
+            inputClassName="font-mono text-xs"
+            aria-invalid={Boolean(form.formState.errors.flow)}
           />
         </Field>
       </div>
@@ -158,10 +165,7 @@ export function ExtensionMetadataForm({ json, onChange }: ExtensionMetadataFormP
           control={form.control}
           name="definedFlows"
           render={({ field }) => (
-            <DefinedFlowsSelector
-              flows={field.value}
-              onChange={(flows) => field.onChange(flows)}
-            />
+            <DefinedFlowsSelector flows={field.value} onChange={(flows) => field.onChange(flows)} />
           )}
         />
       )}
@@ -184,4 +188,3 @@ export function ExtensionMetadataForm({ json, onChange }: ExtensionMetadataFormP
     </div>
   );
 }
-

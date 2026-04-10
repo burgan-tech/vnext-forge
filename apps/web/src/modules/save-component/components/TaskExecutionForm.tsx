@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { Field } from '@shared/ui/Field';
+import { Button } from '@shared/ui/Button';
+import { Badge } from '@shared/ui/Badge';
 import { ErrorBoundaryPanel } from '../error-boundary/ErrorBoundaryPanel';
 import {
   taskExecutionFormSchema,
@@ -22,7 +24,7 @@ export function TaskExecutionForm({ execution, onChange }: TaskExecutionFormProp
     mode: 'onChange',
     defaultValues: toTaskExecutionFormValues(execution),
   });
-  const values = useWatch({ control: form.control });
+  const order = useWatch({ control: form.control, name: 'order' });
 
   useEffect(() => {
     const nextValues = toTaskExecutionFormValues(execution);
@@ -34,15 +36,19 @@ export function TaskExecutionForm({ execution, onChange }: TaskExecutionFormProp
   }, [execution, form]);
 
   useEffect(() => {
-    const parsed = taskExecutionFormSchema.safeParse(values);
+    const parsed = taskExecutionFormSchema.shape.order.safeParse(order);
     if (!parsed.success) {
       return;
     }
 
+    if (execution.order === parsed.data) {
+      return;
+    }
+
     onChange((draft) => {
-      draft.order = parsed.data.order;
+      draft.order = parsed.data;
     });
-  }, [onChange, values]);
+  }, [execution.order, onChange, order]);
 
   const orderValidation = form.register('order', {
     validate: (value) => {
@@ -58,7 +64,7 @@ export function TaskExecutionForm({ execution, onChange }: TaskExecutionFormProp
           <input
             type="number"
             {...orderValidation}
-            className="w-16 px-2 py-1 text-xs border border-border rounded bg-background font-mono"
+            className="w-16 rounded-md border border-primary-border bg-background px-2 py-1 text-xs font-mono text-foreground shadow-sm outline-none transition-colors focus:border-primary-border-hover"
           />
         </Field>
       </div>
@@ -70,13 +76,20 @@ export function TaskExecutionForm({ execution, onChange }: TaskExecutionFormProp
         showFlow
       />
 
-      <button
+      <Button
         onClick={() => setShowMapping(!showMapping)}
-        className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground"
+        type="button"
+        variant="default"
+        size="sm"
+        leftIconComponent={
+          <span className="bg-muted-surface text-muted-text group-hover/button:bg-muted-hover flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors duration-200">
+            {showMapping ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+          </span>
+        }
+        className="w-fit"
       >
-        {showMapping ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
         Mapping
-      </button>
+      </Button>
       {showMapping && (
         <Field label="Mapping (C# Expression)">
           <textarea
@@ -89,18 +102,30 @@ export function TaskExecutionForm({ execution, onChange }: TaskExecutionFormProp
             }
             placeholder="return input;"
             rows={3}
-            className="w-full px-2 py-1 text-xs border border-border rounded bg-background font-mono resize-y"
+            className="w-full resize-y rounded-md border border-tertiary-border bg-background px-2 py-1 text-xs font-mono text-foreground shadow-sm outline-none transition-colors focus:border-tertiary-border-hover"
           />
         </Field>
       )}
 
-      <button
-        onClick={() => setShowErrorBoundary(!showErrorBoundary)}
-        className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground"
-      >
-        {showErrorBoundary ? <ChevronDown size={10} /> : <ChevronRight size={10} />}
-        Error Boundary
-      </button>
+      <div className="flex items-center gap-2">
+        <Button
+          onClick={() => setShowErrorBoundary(!showErrorBoundary)}
+          type="button"
+          variant="default"
+          size="sm"
+          leftIconComponent={
+            <span className="bg-destructive-surface text-destructive-icon group-hover/button:bg-destructive-hover flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors duration-200">
+              {showErrorBoundary ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+            </span>
+          }
+          className="w-fit"
+        >
+          Error Boundary
+        </Button>
+        {execution.errorBoundary?.handlers?.length ? (
+          <Badge variant="destructive">{execution.errorBoundary.handlers.length} handlers</Badge>
+        ) : null}
+      </div>
       {showErrorBoundary && (
         <ErrorBoundaryPanel
           errorBoundary={execution.errorBoundary || {}}

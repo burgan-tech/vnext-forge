@@ -1,1 +1,5 @@
-export { ViewEditorPage } from '@modules/view-editor/view-builder/ViewEditorPage';
+import { ViewEditorView } from '@modules/view-editor/ViewEditorView';
+
+export function ViewEditorPage() {
+  return <ViewEditorView />;
+}
