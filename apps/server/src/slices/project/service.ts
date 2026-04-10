@@ -233,12 +233,12 @@ export class ProjectService {
         id,
         domain: config.domain || fallbackDomain || id,
         description: config.description,
-        rootPath,
+        path: rootPath,
         version: config.version,
         linked,
       }
     } catch {
-      return { id, domain: fallbackDomain || id, rootPath, linked }
+      return { id, domain: fallbackDomain || id, path: rootPath, linked }
     }
   }
 

@@ -15,13 +15,13 @@ import {
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 
-import { nodeTypes } from './nodes';
-import { edgeTypes } from './edges';
-import { useWorkflowStore } from '@modules/canvas-interaction/WorkflowStore';
+import { nodeTypes } from './components/nodes';
+import { edgeTypes } from './components/edges';
+import { useWorkflowStore } from '@app/store/WorkflowStore';
 import { workflowToReactFlow, reactFlowToPositions } from './utils/Conversion';
 import { autoLayout } from './utils/Layout';
-import { CanvasToolbar } from './panels/CanvasToolbar';
-import { CanvasContextMenu, NodeContextMenu, EdgeContextMenu } from './menus/CanvasContextMenu';
+import { CanvasToolbar } from './components/panels/CanvasToolbar';
+import { CanvasContextMenu, NodeContextMenu, EdgeContextMenu } from './components/menus/CanvasContextMenu';
 
 interface FlowCanvasProps {
   workflowJson: Record<string, unknown>;

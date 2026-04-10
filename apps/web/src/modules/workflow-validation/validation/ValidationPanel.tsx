@@ -1,5 +1,5 @@
 import { useValidationStore } from '@modules/workflow-validation/ValidationStore';
-import { useWorkflowStore } from '@modules/canvas-interaction/WorkflowStore';
+import { useWorkflowStore } from '@app/store/WorkflowStore';
 import { validateWorkflow } from './ValidationEngine';
 import { useEffect } from 'react';
 

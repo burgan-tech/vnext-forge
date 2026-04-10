@@ -1,4 +1,6 @@
 import type { VnextConfig } from '@modules/project-management/ProjectTypes';
+import { createLogger } from '@shared/lib/logger/CreateLogger';
+import { create } from 'zustand';
 
 export type FileRouteType =
   | 'workflow'
@@ -23,6 +25,7 @@ export interface FileRoute {
   };
 }
 
+const logger = createLogger('FileRouter');
 export function resolveFileRoute(
   filePath: string,
   config: VnextConfig | null,
@@ -32,11 +35,9 @@ export function resolveFileRoute(
   const normalizedFilePath = normalizePath(filePath);
   const normalizedProjectPath = normalizePath(projectPath);
 
-  const relativePath = normalizedFilePath.startsWith(normalizedProjectPath)
-    ? normalizedFilePath.slice(normalizedProjectPath.length).replace(/^\/+/, '')
-    : normalizedFilePath;
+  const relativePath = stripPrefix(normalizedFilePath, normalizedProjectPath) ?? normalizedFilePath;
 
-  if (relativePath === 'vnext.config.json') {
+  if (relativePath.toLowerCase() === 'vnext.config.json') {
     return {
       type: 'config',
       group: '',
@@ -58,11 +59,13 @@ export function resolveFileRoute(
     return unknownFile(normalizedFilePath, relativePath);
   }
 
-  if (!relativePath.startsWith(componentsRoot + '/')) {
-    return unknownFile(normalizedFilePath, relativePath);
-  }
-
-  const componentRelative = relativePath.slice(componentsRoot.length + 1);
+  const componentRelative = stripPrefix(relativePath, componentsRoot) ?? relativePath;
+  logger.info('Resolving file route', {
+    filePath,
+    normalizedFilePath,
+    relativePath,
+    componentRelative,
+  });
 
   const workflows = normalizeConfigPath(config.paths.workflows);
   const tasks = normalizeConfigPath(config.paths.tasks);
@@ -202,25 +205,41 @@ function unknownFile(filePath: string, relativePath: string): FileRoute {
 function detectLanguage(fileName: string): string {
   const ext = fileName.split('.').pop()?.toLowerCase();
   switch (ext) {
-    case 'json': return 'json';
+    case 'json':
+      return 'json';
     case 'csx':
-    case 'cs': return 'csharp';
-    case 'js': return 'javascript';
-    case 'ts': return 'typescript';
-    case 'xml': return 'xml';
+    case 'cs':
+      return 'csharp';
+    case 'js':
+      return 'javascript';
+    case 'ts':
+      return 'typescript';
+    case 'xml':
+      return 'xml';
     case 'yaml':
-    case 'yml': return 'yaml';
-    case 'md': return 'markdown';
-    case 'html': return 'html';
-    case 'css': return 'css';
-    case 'http': return 'http';
-    case 'sql': return 'sql';
+    case 'yml':
+      return 'yaml';
+    case 'md':
+      return 'markdown';
+    case 'html':
+      return 'html';
+    case 'css':
+      return 'css';
+    case 'http':
+      return 'http';
+    case 'sql':
+      return 'sql';
     case 'sh':
-    case 'bash': return 'shell';
-    case 'py': return 'python';
-    case 'go': return 'go';
-    case 'rs': return 'rust';
-    default: return 'plaintext';
+    case 'bash':
+      return 'shell';
+    case 'py':
+      return 'python';
+    case 'go':
+      return 'go';
+    case 'rs':
+      return 'rust';
+    default:
+      return 'plaintext';
   }
 }
 
@@ -231,4 +250,23 @@ function normalizePath(path?: string | null): string {
 
 function normalizeConfigPath(path?: string | null): string {
   return normalizePath(path).replace(/^\/+|\/+$/g, '');
+}
+
+function stripPrefix(path: string, prefix: string): string | null {
+  const normalizedPath = normalizeConfigPath(path);
+  const normalizedPrefix = normalizeConfigPath(prefix);
+
+  if (!normalizedPrefix) {
+    return normalizedPath;
+  }
+
+  if (normalizedPath.toLowerCase() === normalizedPrefix.toLowerCase()) {
+    return '';
+  }
+
+  if (normalizedPath.toLowerCase().startsWith(`${normalizedPrefix.toLowerCase()}/`)) {
+    return normalizedPath.slice(normalizedPrefix.length + 1);
+  }
+
+  return null;
 }

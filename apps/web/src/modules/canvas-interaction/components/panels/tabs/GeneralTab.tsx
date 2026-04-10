@@ -1,5 +1,5 @@
-import { getLabels } from './Helpers';
-import { SelectField, Section, InfoRow, SummaryCard } from './Shared';
+import { getLabels } from './PropertyPanelHelpers';
+import { SelectField, Section, InfoRow, SummaryCard } from './PropertyPanelShared';
 import { Trash2, Plus } from 'lucide-react';
 
 export function GeneralTab({ state, updateWorkflow }: { state: any; updateWorkflow: any }) {
@@ -43,12 +43,12 @@ export function GeneralTab({ state, updateWorkflow }: { state: any; updateWorkfl
   return (
     <div className="space-y-4">
       <div>
-        <label className="text-[10px] text-slate-400 block mb-1 font-semibold tracking-wide">Key</label>
+        <label className="text-[10px] text-muted-foreground block mb-1 font-semibold tracking-wide">Key</label>
         <InfoRow label="" value={state.key} mono copyable />
       </div>
 
       <div>
-        <label className="text-[10px] text-slate-400 block mb-1 font-semibold tracking-wide">State Type</label>
+        <label className="text-[10px] text-muted-foreground block mb-1 font-semibold tracking-wide">State Type</label>
         <SelectField
           value={state.stateType || 2}
           onChange={(v) => {
@@ -65,7 +65,7 @@ export function GeneralTab({ state, updateWorkflow }: { state: any; updateWorkfl
 
       {(state.stateType === 3) && (
         <div>
-          <label className="text-[10px] text-slate-400 block mb-1 font-semibold tracking-wide">Sub Type</label>
+          <label className="text-[10px] text-muted-foreground block mb-1 font-semibold tracking-wide">Sub Type</label>
           <SelectField
             value={state.subType || 0}
             onChange={(v) => updateField('subType', Number(v))}
@@ -79,7 +79,7 @@ export function GeneralTab({ state, updateWorkflow }: { state: any; updateWorkfl
       )}
 
       <div>
-        <label className="text-[10px] text-slate-400 block mb-1 font-semibold tracking-wide">Version Strategy</label>
+        <label className="text-[10px] text-muted-foreground block mb-1 font-semibold tracking-wide">Version Strategy</label>
         <SelectField
           value={state.versionStrategy || 'Minor'}
           onChange={(v) => updateField('versionStrategy', v)}
@@ -103,32 +103,32 @@ export function GeneralTab({ state, updateWorkflow }: { state: any; updateWorkfl
                     if (lbls?.[i]) lbls[i].language = e.target.value;
                   });
                 }}
-                className="w-10 px-2 py-1.5 text-[11px] font-mono text-slate-500 border border-slate-200/80 rounded-lg bg-slate-100/80 text-center shrink-0 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                className="w-10 px-2 py-1.5 text-[11px] font-mono text-muted-foreground border border-border rounded-lg bg-muted text-center shrink-0 focus:outline-none focus:ring-2 focus:ring-ring/20"
               />
               <input
                 type="text"
                 value={l.label}
                 onChange={(e) => updateLabel(i, e.target.value)}
-                className="flex-1 px-2.5 py-1.5 text-xs border border-slate-200/80 rounded-lg bg-slate-50/50 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 focus:bg-white transition-all"
+                className="flex-1 px-2.5 py-1.5 text-xs border border-border rounded-lg bg-muted-surface text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary-border focus:bg-surface transition-all"
               />
-              <button onClick={() => removeLabel(i)} className="p-1 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all">
+              <button onClick={() => removeLabel(i)} className="p-1 text-subtle hover:text-destructive-text hover:bg-destructive-surface rounded-lg transition-all cursor-pointer">
                 <Trash2 size={13} />
               </button>
             </div>
           ))}
-          <button onClick={addLabel} className="flex items-center gap-1.5 text-[11px] text-indigo-500 hover:text-indigo-600 font-semibold mt-1">
+          <button onClick={addLabel} className="flex items-center gap-1.5 text-[11px] text-secondary-icon hover:text-secondary-foreground font-semibold mt-1 cursor-pointer">
             <Plus size={13} /> Add Label
           </button>
         </div>
       </Section>
 
       {/* Quick summary */}
-      <div className="mt-4 pt-4 border-t border-slate-100">
-        <div className="text-[10px] font-bold text-slate-400 mb-3 tracking-widest uppercase">Summary</div>
+      <div className="mt-4 pt-4 border-t border-border-subtle">
+        <div className="text-[10px] font-bold text-muted-foreground mb-3 tracking-widest uppercase">Summary</div>
         <div className="grid grid-cols-3 gap-2">
-          <SummaryCard label="Entry Tasks" value={state.onEntries?.length || 0} color="text-indigo-600 bg-indigo-500/10" />
-          <SummaryCard label="Exit Tasks" value={state.onExits?.length || 0} color="text-violet-600 bg-violet-500/10" />
-          <SummaryCard label="Transitions" value={state.transitions?.length || 0} color="text-emerald-600 bg-emerald-500/10" />
+          <SummaryCard label="Entry Tasks" value={state.onEntries?.length || 0} color="text-intermediate bg-intermediate/10" />
+          <SummaryCard label="Exit Tasks" value={state.onExits?.length || 0} color="text-subflow bg-subflow/10" />
+          <SummaryCard label="Transitions" value={state.transitions?.length || 0} color="text-initial bg-initial/10" />
         </div>
       </div>
     </div>

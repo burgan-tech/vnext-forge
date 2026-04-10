@@ -1,9 +1,9 @@
 import { useState, useMemo } from 'react';
-import { useWorkflowStore } from '@modules/canvas-interaction/WorkflowStore';
+import { useWorkflowStore } from '@app/store/WorkflowStore';
 import { CsxEditorField, type ScriptCode } from '@modules/save-component/components/CsxEditorField';
 import { SchemaReferenceField, type SchemaReference } from '@modules/save-component/components/SchemaReferenceField';
-import { getLabels, getTriggerKindLabel } from './Helpers';
-import { Badge, IconTransition, IconPlus, IconTrash } from './Shared';
+import { getLabels, getTriggerKindLabel } from './PropertyPanelHelpers';
+import { Badge, IconPlus, IconTrash } from './PropertyPanelShared';
 import { ArrowRight } from 'lucide-react';
 
 /* ────────────── TRANSITIONS TAB ────────────── */
@@ -87,7 +87,7 @@ export function TransitionsTab({ state }: { state: any }) {
   return (
     <div className="space-y-2">
       {transitions.length === 0 ? (
-        <div className="text-[12px] text-slate-400 py-6 text-center">No transitions defined</div>
+        <div className="text-[12px] text-muted-foreground py-6 text-center">No transitions defined</div>
       ) : (
         transitions.map((t: any, i: number) => (
           <EditableTransitionCard
@@ -104,7 +104,7 @@ export function TransitionsTab({ state }: { state: any }) {
           />
         ))
       )}
-      <button onClick={addTransition} className="flex items-center gap-1.5 text-[11px] text-indigo-500 hover:text-indigo-600 mt-1 font-semibold">
+      <button onClick={addTransition} className="flex items-center gap-1.5 text-[11px] text-secondary-icon hover:text-secondary-foreground mt-1 font-semibold cursor-pointer">
         <IconPlus /> Add Transition
       </button>
     </div>
@@ -130,34 +130,34 @@ function EditableTransitionCard({ transition, index, currentStateKey, allStateKe
   const triggerKindLabel = getTriggerKindLabel(triggerKind);
 
   return (
-    <div className="rounded-xl overflow-hidden bg-white border border-slate-200/80 hover:border-slate-300/80 transition-all shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
+    <div className="rounded-xl overflow-hidden bg-surface border border-border hover:border-muted-border-hover transition-all shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
       <div className="px-3 py-2.5">
         {/* Header: key + badges + delete */}
         <div className="flex items-center gap-2 mb-2">
-          <div className="size-6 rounded-lg bg-emerald-500/10 flex items-center justify-center shrink-0">
-            <ArrowRight size={12} className="text-emerald-500" />
+          <div className="size-6 rounded-lg bg-initial/10 flex items-center justify-center shrink-0">
+            <ArrowRight size={12} className="text-initial" />
           </div>
           <input
             type="text"
             value={transition.key}
             onChange={(e) => onUpdate(index, 'key', e.target.value)}
-            className="text-[12px] font-semibold text-slate-900 font-mono flex-1 min-w-0 bg-transparent border-none p-0 focus:outline-none focus:ring-0 tracking-tight"
+            className="text-[12px] font-semibold text-foreground font-mono flex-1 min-w-0 bg-transparent border-none p-0 focus:outline-none focus:ring-0 tracking-tight"
           />
           {triggerKindLabel && (
-            <Badge className="bg-slate-100 text-slate-500">{triggerKindLabel}</Badge>
+            <Badge className="bg-muted text-muted-foreground">{triggerKindLabel}</Badge>
           )}
-          <button onClick={() => onRemove(index)} className="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg shrink-0 transition-all">
+          <button onClick={() => onRemove(index)} className="p-1.5 text-subtle hover:text-destructive-text hover:bg-destructive-surface rounded-lg shrink-0 transition-all cursor-pointer">
             <IconTrash />
           </button>
         </div>
 
         {/* Target select */}
         <div className="flex items-center gap-2 ml-8 mb-2">
-          <ArrowRight size={12} className="text-slate-300 shrink-0" />
+          <ArrowRight size={12} className="text-subtle shrink-0" />
           <select
             value={target}
             onChange={(e) => onUpdate(index, 'target', e.target.value)}
-            className="text-xs text-indigo-600 font-mono bg-transparent border border-slate-200/80 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 flex-1 cursor-pointer transition-all"
+            className="text-xs text-secondary-icon font-mono bg-transparent border border-border rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary-border flex-1 cursor-pointer transition-all"
           >
             <option value="$self">$self (current state)</option>
             {!allStateKeys.includes(target) && target && target !== '$self' && (
@@ -169,11 +169,11 @@ function EditableTransitionCard({ transition, index, currentStateKey, allStateKe
 
         {/* Trigger type */}
         <div className="flex items-center gap-2 ml-8 mb-2">
-          <span className="text-[10px] text-slate-400 shrink-0 font-semibold">Trigger:</span>
+          <span className="text-[10px] text-muted-foreground shrink-0 font-semibold">Trigger:</span>
           <select
             value={transition.triggerType ?? 0}
             onChange={(e) => onUpdate(index, 'triggerType', Number(e.target.value))}
-            className="text-xs bg-transparent border border-slate-200/80 rounded-lg px-2 py-1.5 text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 cursor-pointer transition-all"
+            className="text-xs bg-transparent border border-border rounded-lg px-2 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary-border cursor-pointer transition-all"
           >
             <option value={0}>Manual</option>
             <option value={1}>Auto</option>
@@ -184,14 +184,14 @@ function EditableTransitionCard({ transition, index, currentStateKey, allStateKe
 
         {/* Trigger Kind */}
         <div className="flex items-center gap-2 ml-8 mb-1.5">
-          <span className="text-[10px] text-slate-400 shrink-0 font-semibold">Kind:</span>
+          <span className="text-[10px] text-muted-foreground shrink-0 font-semibold">Kind:</span>
           <select
             value={transition.triggerKind ?? 0}
             onChange={(e) => {
               const v = Number(e.target.value);
               onUpdate(index, 'triggerKind', v === 0 ? undefined : v);
             }}
-            className="text-xs bg-transparent border border-slate-200/80 rounded-lg px-2 py-1.5 text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 cursor-pointer transition-all"
+            className="text-xs bg-transparent border border-border rounded-lg px-2 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary-border cursor-pointer transition-all"
           >
             <option value={0}>Standard</option>
             <option value={10}>Default / Fallback</option>
@@ -202,7 +202,7 @@ function EditableTransitionCard({ transition, index, currentStateKey, allStateKe
         <div className="ml-8 mt-2">
           <button
             onClick={() => setShowSchema(!showSchema)}
-            className="text-[10px] text-slate-400 hover:text-slate-600 font-semibold transition-colors"
+            className="text-[10px] text-muted-foreground hover:text-primary-icon font-semibold transition-colors cursor-pointer"
           >
             {showSchema ? '▾ Schema' : '▸ Schema'}
           </button>
@@ -221,8 +221,8 @@ function EditableTransitionCard({ transition, index, currentStateKey, allStateKe
           <div className="ml-8 mt-2 space-y-1">
             {labels.map((l: any, i: number) => (
               <div key={i} className="flex items-center gap-2">
-                <span className="text-[10px] text-slate-300 w-4 shrink-0 font-mono text-center font-semibold">{l.language}</span>
-                <span className="text-[11px] text-slate-500">{l.label}</span>
+                <span className="text-[10px] text-subtle w-4 shrink-0 font-mono text-center font-semibold">{l.language}</span>
+                <span className="text-[11px] text-muted-foreground">{l.label}</span>
               </div>
             ))}
           </div>

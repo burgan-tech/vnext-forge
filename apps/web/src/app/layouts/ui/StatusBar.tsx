@@ -3,7 +3,7 @@ import { AlertCircle, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { useProjectStore } from '@modules/project-management/ProjectStore';
 import { useRuntimeStore } from '@modules/workflow-execution/RuntimeStore';
 import { useValidationStore } from '@modules/workflow-validation/ValidationStore';
-import { useWorkflowStore } from '@modules/canvas-interaction/WorkflowStore';
+import { useWorkflowStore } from '@app/store/WorkflowStore';
 
 export function StatusBar() {
   const { activeProject } = useProjectStore();

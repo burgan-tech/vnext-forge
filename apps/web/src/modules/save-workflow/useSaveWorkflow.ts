@@ -1,6 +1,6 @@
 import { useEffect, useCallback } from 'react';
 import { createLogger } from '@shared/lib/logger/CreateLogger';
-import { useWorkflowStore } from '@modules/canvas-interaction/WorkflowStore';
+import { useWorkflowStore } from '@app/store/WorkflowStore';
 import { decodeFromBase64 } from '@modules/code-editor/editor/Base64Handler';
 import { useProjectStore } from '@modules/project-management/ProjectStore';
 import { writeFile } from '@modules/project-workspace/WorkspaceApi';

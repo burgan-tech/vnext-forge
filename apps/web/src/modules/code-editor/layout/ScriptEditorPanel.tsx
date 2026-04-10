@@ -3,7 +3,7 @@ import MonacoEditor, { type OnMount } from '@monaco-editor/react';
 import { X, Code2, BookOpen, Maximize2, Minimize2 } from 'lucide-react';
 import { useScriptPanelStore } from '@modules/code-editor/ScriptPanelStore';
 import { useUIStore } from '@app/store/UiStore';
-import { useWorkflowStore } from '@modules/canvas-interaction/WorkflowStore';
+import { useWorkflowStore } from '@app/store/WorkflowStore';
 import { encodeToBase64, decodeFromBase64 } from '@modules/code-editor/editor/Base64Handler';
 import { CsxSnippetToolbar } from '@modules/code-editor/editor/CsxSnippetToolbar';
 import { CsxReferencePanel } from '@modules/code-editor/editor/CsxReferencePanel';

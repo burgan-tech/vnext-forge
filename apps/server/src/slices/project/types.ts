@@ -2,7 +2,7 @@ export interface ProjectEntry {
   id: string
   domain: string
   description?: string
-  rootPath: string
+  path: string
   version?: string
   workflowCount?: number
   linked?: boolean

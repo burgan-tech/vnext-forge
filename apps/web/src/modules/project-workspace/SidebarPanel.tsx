@@ -6,18 +6,10 @@ import { createLogger } from '@shared/lib/logger/CreateLogger';
 
 import { useProjectStore } from '@modules/project-management/ProjectStore';
 import { useEditorStore } from '@modules/code-editor/EditorStore';
-import {
-  FileTree,
-  type FileTreeNode,
-} from '@modules/project-workspace/FileTree';
+import { FileTree, type FileTreeNode } from '@modules/project-workspace/FileTree';
 
 import { resolveFileRoute } from './FileRouter';
-import {
-  createDirectory,
-  deleteFile,
-  renameFile,
-  writeFile,
-} from './WorkspaceApi';
+import { createDirectory, deleteFile, renameFile, writeFile } from './WorkspaceApi';
 
 const logger = createLogger('ProjectWorkspaceSidebarPanel');
 
@@ -31,6 +23,7 @@ export function ProjectWorkspaceSidebarPanel() {
       if (!activeProject) return;
       const route = resolveFileRoute(node.path, vnextConfig, activeProject.id, activeProject.path);
       logger.info('File clicked', { path: node.path, resolvedRoute: route });
+      logger.info('File clicked', { activeprojectpath: activeProject.path });
       if (route.navigateTo) {
         navigate(route.navigateTo);
         return;

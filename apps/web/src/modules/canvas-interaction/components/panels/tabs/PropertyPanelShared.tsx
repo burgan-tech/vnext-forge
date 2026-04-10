@@ -3,7 +3,7 @@ import {
   ChevronRight, CheckSquare, ArrowRight, Code2, FileText,
   Copy, Plus, Trash2, ArrowUp, ArrowDown,
 } from 'lucide-react';
-import { copyToClipboard, decodeBase64 } from './Helpers';
+import { copyToClipboard, decodeBase64 } from './PropertyPanelHelpers';
 
 /* ────────────── Editable Fields ────────────── */
 
@@ -16,7 +16,7 @@ export function EditableInput({ value, onChange, mono = false, placeholder = '' 
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
-      className={`w-full px-3 py-2 text-xs border border-slate-200/80 rounded-xl bg-slate-50/30 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 focus:bg-white transition-all placeholder:text-slate-300 ${mono ? 'font-mono' : ''}`}
+      className={`w-full px-3 py-2 text-xs border border-border rounded-xl bg-muted-surface text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary-border focus:bg-surface transition-all placeholder:text-subtle ${mono ? 'font-mono' : ''}`}
     />
   );
 }
@@ -28,7 +28,7 @@ export function SelectField({ value, onChange, options }: {
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full px-3 py-2 text-xs border border-slate-200/80 rounded-xl bg-slate-50/30 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 focus:bg-white transition-all cursor-pointer"
+      className="w-full px-3 py-2 text-xs border border-border rounded-xl bg-muted-surface text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary-border focus:bg-surface transition-all cursor-pointer"
     >
       {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
     </select>
@@ -81,20 +81,20 @@ export function Section({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="rounded-xl overflow-hidden bg-slate-50/50">
+    <div className="rounded-xl overflow-hidden bg-muted-surface">
       <button
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center gap-2 px-3 py-2.5 text-left group hover:bg-slate-100/80 transition-colors"
+        className="w-full flex items-center gap-2 px-3 py-2.5 text-left group hover:bg-muted transition-colors cursor-pointer"
       >
-        <span className="text-slate-400 group-hover:text-slate-600 transition-colors">
+        <span className="text-muted-foreground group-hover:text-primary-icon transition-colors">
           <IconChevron open={open} />
         </span>
-        {icon && <span className="text-slate-400">{icon}</span>}
-        <span className="text-[12px] font-semibold text-slate-600 tracking-tight flex-1">
+        {icon && <span className="text-muted-foreground">{icon}</span>}
+        <span className="text-[12px] font-semibold text-muted-foreground tracking-tight flex-1">
           {title}
         </span>
         {count !== undefined && (
-          <span className="text-[10px] text-slate-400 font-mono tabular-nums bg-white px-1.5 py-0.5 rounded-md border border-slate-100 font-semibold">{count}</span>
+          <span className="text-[10px] text-muted-foreground font-mono tabular-nums bg-surface px-1.5 py-0.5 rounded-md border border-border-subtle font-semibold">{count}</span>
         )}
       </button>
       {open && <div className="px-3 pb-3 pt-1">{children}</div>}
@@ -106,14 +106,14 @@ export function InfoRow({ label, value, mono = false, copyable = false }: { labe
   if (!value) return null;
   return (
     <div className="flex items-center gap-3 py-1.5">
-      {label && <span className="text-[11px] text-slate-400 shrink-0 w-20 font-medium">{label}</span>}
-      <span className={`text-xs text-slate-800 break-all flex-1 ${mono ? 'font-mono bg-slate-100/80 px-2 py-1 rounded-lg' : ''}`}>
+      {label && <span className="text-[11px] text-muted-foreground shrink-0 w-20 font-medium">{label}</span>}
+      <span className={`text-xs text-foreground break-all flex-1 ${mono ? 'font-mono bg-muted px-2 py-1 rounded-lg' : ''}`}>
         {value}
       </span>
       {copyable && (
         <button
           onClick={() => copyToClipboard(value)}
-          className="shrink-0 p-1.5 text-slate-300 hover:text-indigo-500 hover:bg-indigo-50 rounded-lg transition-all"
+          className="shrink-0 p-1.5 text-subtle hover:text-secondary-icon hover:bg-secondary rounded-lg transition-all cursor-pointer"
           title="Copy"
         >
           <IconCopy />
@@ -133,23 +133,23 @@ export function CodePreview({ code, location }: { code: string; location?: strin
   return (
     <div className="mt-2">
       {location && (
-        <div className="flex items-center gap-1.5 mb-1.5 text-[11px] text-slate-400">
+        <div className="flex items-center gap-1.5 mb-1.5 text-[11px] text-muted-foreground">
           <IconFile />
           <span className="font-mono">{location}</span>
         </div>
       )}
       <div className="relative">
-        <pre className="text-[11px] leading-relaxed font-mono text-slate-700 bg-slate-900/[0.03] rounded-xl p-3 overflow-x-auto max-h-[300px] overflow-y-auto">
+        <pre className="text-[11px] leading-relaxed font-mono text-foreground bg-muted-surface rounded-xl p-3 overflow-x-auto max-h-75 overflow-y-auto">
           {preview}
         </pre>
         {hasMore && !expanded && (
-          <div className="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-white to-transparent rounded-b-xl" />
+          <div className="absolute bottom-0 left-0 right-0 h-10 bg-gradient-to-t from-surface to-transparent rounded-b-xl" />
         )}
       </div>
       {hasMore && (
         <button
           onClick={() => setExpanded(!expanded)}
-          className="text-[11px] text-indigo-500 hover:text-indigo-700 mt-1.5 font-medium"
+          className="text-[11px] text-secondary-icon hover:text-secondary-foreground mt-1.5 font-medium cursor-pointer"
         >
           {expanded ? 'Show less' : `Show all ${lines.length} lines`}
         </button>
@@ -174,10 +174,10 @@ export function LabelList({ labels }: { labels: any[] }) {
     <div className="space-y-1.5 mt-1">
       {labels.map((l: any, i: number) => (
         <div key={i} className="flex items-center gap-2 py-0.5">
-          <span className="w-6 h-6 rounded-lg bg-slate-100 text-slate-500 flex items-center justify-center text-[10px] font-mono shrink-0 uppercase font-bold">
+          <span className="w-6 h-6 rounded-lg bg-muted text-muted-foreground flex items-center justify-center text-[10px] font-mono shrink-0 uppercase font-bold">
             {l.language || '?'}
           </span>
-          <span className="text-xs text-slate-700">{l.label || '(empty)'}</span>
+          <span className="text-xs text-foreground">{l.label || '(empty)'}</span>
         </div>
       ))}
     </div>

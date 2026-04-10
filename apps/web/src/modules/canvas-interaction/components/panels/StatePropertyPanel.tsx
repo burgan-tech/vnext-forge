@@ -1,13 +1,13 @@
 import { useMemo, useState } from 'react';
-import { useWorkflowStore } from '@modules/canvas-interaction/WorkflowStore';
-import { getStateTypeLabel, getStateTypeColor, getSubTypeLabel, getSubTypeBadge, getLabel } from './property-panel/Helpers';
-import { Badge } from './property-panel/Shared';
-import { GeneralTab } from './property-panel/GeneralTab';
-import { TasksTab } from './property-panel/TasksTab';
-import { TransitionsTab } from './property-panel/TransitionsTab';
-import { SubFlowTab } from './property-panel/SubFlowTab';
-import { ErrorBoundaryTab } from './property-panel/ErrorBoundaryTab';
-import { StartNodePanel } from './property-panel/StartNodePanel';
+import { useWorkflowStore } from '@app/store/WorkflowStore';
+import { getStateTypeLabel, getStateTypeColor, getSubTypeLabel, getSubTypeBadge, getLabel } from './tabs/PropertyPanelHelpers';
+import { Badge } from './tabs/PropertyPanelShared';
+import { GeneralTab } from './tabs/GeneralTab';
+import { TasksTab } from './tabs/TasksTab';
+import { TransitionsTab } from './tabs/TransitionsTab';
+import { SubFlowTab } from './tabs/SubFlowTab';
+import { ErrorBoundaryTab } from './tabs/ErrorBoundaryTab';
+import { StartNodePanel } from './tabs/StartNodePanel';
 import { MousePointer2 } from 'lucide-react';
 
 type Tab = 'general' | 'tasks' | 'transitions' | 'subflow' | 'error-boundary';
@@ -37,11 +37,11 @@ export function StatePropertyPanel() {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center px-6">
-          <div className="size-14 mx-auto mb-3 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-300">
+          <div className="size-14 mx-auto mb-3 rounded-2xl bg-muted flex items-center justify-center text-subtle">
             <MousePointer2 size={24} />
           </div>
-          <div className="text-[13px] text-slate-400 font-semibold">Select a state</div>
-          <div className="text-[11px] text-slate-300 mt-1">Click on a node in the canvas</div>
+          <div className="text-[13px] text-muted-foreground font-semibold">Select a state</div>
+          <div className="text-[11px] text-subtle mt-1">Click on a node in the canvas</div>
         </div>
       </div>
     );
@@ -64,35 +64,35 @@ export function StatePropertyPanel() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="px-4 py-3.5 border-b border-slate-100 bg-white">
+      <div className="px-4 py-3.5 border-b border-border-subtle bg-surface">
         <div className="flex items-center gap-2 mb-1">
-          <span className="text-[14px] font-bold text-slate-900 truncate tracking-tight">{state.key}</span>
+          <span className="text-[14px] font-bold text-foreground truncate tracking-tight">{state.key}</span>
           <Badge className={getStateTypeColor(stateType)}>{getStateTypeLabel(stateType)}</Badge>
           {subType > 0 && (
             <Badge className={getSubTypeBadge(subType)}>{getSubTypeLabel(subType)}</Badge>
           )}
         </div>
         {getLabel(state) && (
-          <div className="text-[12px] text-slate-500 truncate">{getLabel(state)}</div>
+          <div className="text-[12px] text-muted-foreground truncate">{getLabel(state)}</div>
         )}
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-slate-100 bg-slate-50/50 px-1">
+      <div className="flex border-b border-border-subtle bg-muted-surface px-1">
         {tabs.filter((t) => t.show).map((tab) => (
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key)}
-            className={`px-3 py-2.5 text-[12px] whitespace-nowrap border-b-2 transition-all font-semibold tracking-tight ${
+            className={`px-3 py-2.5 text-[12px] whitespace-nowrap border-b-2 transition-all font-semibold tracking-tight cursor-pointer ${
               activeTab === tab.key
-                ? 'border-indigo-500 text-indigo-600'
-                : 'border-transparent text-slate-400 hover:text-slate-600 hover:border-slate-300'
+                ? 'border-secondary-border text-secondary-icon'
+                : 'border-transparent text-muted-foreground hover:text-primary-icon hover:border-muted-border-hover'
             }`}
           >
             {tab.label}
             {tab.count !== undefined && tab.count > 0 && (
               <span className={`ml-1.5 text-[10px] tabular-nums px-1.5 py-0.5 rounded-md font-semibold ${
-                activeTab === tab.key ? 'bg-indigo-500/10 text-indigo-500' : 'bg-slate-100 text-slate-400'
+                activeTab === tab.key ? 'bg-secondary-muted text-secondary-icon' : 'bg-muted text-muted-foreground'
               }`}>
                 {tab.count}
               </span>

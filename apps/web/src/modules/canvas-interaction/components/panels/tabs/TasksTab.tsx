@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { useWorkflowStore } from '@modules/canvas-interaction/WorkflowStore';
+import { useWorkflowStore } from '@app/store/WorkflowStore';
 import { CsxEditorField, type ScriptCode } from '@modules/save-component/components/CsxEditorField';
-import { Section, EditableInput, IconTask, IconPlus, IconTrash, IconUp, IconDown } from './Shared';
+import { Section, EditableInput, IconTask, IconPlus, IconTrash, IconUp, IconDown } from './PropertyPanelShared';
 import { Pencil } from 'lucide-react';
 
 /* ────────────── TASKS TAB ────────────── */
@@ -77,7 +77,7 @@ export function TasksTab({ state }: { state: any }) {
     <div className="space-y-4">
       <Section title="OnEntry" count={entries.length} icon={<IconTask />} defaultOpen>
         {entries.length === 0 ? (
-          <div className="text-[12px] text-slate-400 py-4 text-center">No entry tasks defined</div>
+          <div className="text-[12px] text-muted-foreground py-4 text-center">No entry tasks defined</div>
         ) : (
           <div className="space-y-2">
             {entries.map((t: any, i: number) => (
@@ -97,14 +97,14 @@ export function TasksTab({ state }: { state: any }) {
             ))}
           </div>
         )}
-        <button onClick={() => addTask('onEntries')} className="flex items-center gap-1.5 text-[11px] text-indigo-500 hover:text-indigo-600 mt-2 font-semibold">
+        <button onClick={() => addTask('onEntries')} className="flex items-center gap-1.5 text-[11px] text-secondary-icon hover:text-secondary-foreground mt-2 font-semibold cursor-pointer">
           <IconPlus /> Add Entry Task
         </button>
       </Section>
 
       <Section title="OnExit" count={exits.length} icon={<IconTask />} defaultOpen>
         {exits.length === 0 ? (
-          <div className="text-[12px] text-slate-400 py-4 text-center">No exit tasks defined</div>
+          <div className="text-[12px] text-muted-foreground py-4 text-center">No exit tasks defined</div>
         ) : (
           <div className="space-y-2">
             {exits.map((t: any, i: number) => (
@@ -124,7 +124,7 @@ export function TasksTab({ state }: { state: any }) {
             ))}
           </div>
         )}
-        <button onClick={() => addTask('onExits')} className="flex items-center gap-1.5 text-[11px] text-indigo-500 hover:text-indigo-600 mt-2 font-semibold">
+        <button onClick={() => addTask('onExits')} className="flex items-center gap-1.5 text-[11px] text-secondary-icon hover:text-secondary-foreground mt-2 font-semibold cursor-pointer">
           <IconPlus /> Add Exit Task
         </button>
       </Section>
@@ -148,25 +148,25 @@ function EditableTaskCard({ entry, index, total, listField, stateKey, onRemove, 
   const order = entry.order ?? index + 1;
 
   return (
-    <div className="rounded-xl overflow-hidden bg-white border border-slate-200/80 hover:border-slate-300/80 transition-all shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
+    <div className="rounded-xl overflow-hidden bg-surface border border-border hover:border-muted-border-hover transition-all shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
       <div className="px-3 py-2.5 flex items-start gap-2.5">
         {/* Order + Move buttons */}
         <div className="flex flex-col items-center gap-0.5 shrink-0 mt-0.5">
           <button
             onClick={() => onMove(listField, index, index - 1)}
             disabled={index === 0}
-            className="p-0.5 text-slate-300 hover:text-indigo-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            className="p-0.5 text-subtle hover:text-secondary-icon disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
             title="Move up"
           >
             <IconUp />
           </button>
-          <span className="size-6 rounded-lg bg-indigo-500/10 text-indigo-600 flex items-center justify-center text-[11px] font-bold tabular-nums">
+          <span className="size-6 rounded-lg bg-intermediate/10 text-intermediate flex items-center justify-center text-[11px] font-bold tabular-nums">
             {order}
           </span>
           <button
             onClick={() => onMove(listField, index, index + 1)}
             disabled={index === total - 1}
-            className="p-0.5 text-slate-300 hover:text-indigo-500 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+            className="p-0.5 text-subtle hover:text-secondary-icon disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
             title="Move down"
           >
             <IconDown />
@@ -175,43 +175,43 @@ function EditableTaskCard({ entry, index, total, listField, stateKey, onRemove, 
 
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[12px] font-semibold text-slate-900 font-mono tracking-tight">{ref.key || '?'}</span>
-            {ref.domain && <span className="text-[11px] text-slate-400">@{ref.domain}</span>}
+            <span className="text-[12px] font-semibold text-foreground font-mono tracking-tight">{ref.key || '?'}</span>
+            {ref.domain && <span className="text-[11px] text-muted-foreground">@{ref.domain}</span>}
           </div>
           <div className="flex items-center gap-2 mt-0.5">
-            {ref.version && <span className="text-[10px] text-slate-400 font-mono">v{ref.version}</span>}
-            {ref.flow && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100/80 text-slate-500 font-mono">{ref.flow}</span>}
+            {ref.version && <span className="text-[10px] text-muted-foreground font-mono">v{ref.version}</span>}
+            {ref.flow && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-mono">{ref.flow}</span>}
           </div>
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          <button onClick={() => setShowEdit(!showEdit)} className={`p-1.5 rounded-lg transition-all ${showEdit ? 'text-indigo-500 bg-indigo-50' : 'text-slate-300 hover:text-indigo-500 hover:bg-indigo-50'}`}>
+          <button onClick={() => setShowEdit(!showEdit)} className={`p-1.5 rounded-lg transition-all cursor-pointer ${showEdit ? 'text-secondary-icon bg-secondary' : 'text-subtle hover:text-secondary-icon hover:bg-secondary'}`}>
             <Pencil size={12} />
           </button>
-          <button onClick={() => onRemove(listField, index)} className="p-1.5 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all">
+          <button onClick={() => onRemove(listField, index)} className="p-1.5 text-subtle hover:text-destructive-text hover:bg-destructive-surface rounded-lg transition-all cursor-pointer">
             <IconTrash />
           </button>
         </div>
       </div>
 
       {showEdit && (
-        <div className="px-3 pb-3 space-y-2 border-t border-slate-100 pt-2.5">
+        <div className="px-3 pb-3 space-y-2 border-t border-border-subtle pt-2.5">
           <div className="flex gap-2">
             <div className="flex-1">
-              <label className="text-[10px] text-slate-400 font-semibold">Key</label>
+              <label className="text-[10px] text-muted-foreground font-semibold">Key</label>
               <EditableInput value={ref.key || ''} onChange={(v) => onUpdate(listField, index, 'key', v)} mono />
             </div>
             <div className="flex-1">
-              <label className="text-[10px] text-slate-400 font-semibold">Domain</label>
+              <label className="text-[10px] text-muted-foreground font-semibold">Domain</label>
               <EditableInput value={ref.domain || ''} onChange={(v) => onUpdate(listField, index, 'domain', v)} mono />
             </div>
           </div>
           <div className="flex gap-2">
             <div className="flex-1">
-              <label className="text-[10px] text-slate-400 font-semibold">Version</label>
+              <label className="text-[10px] text-muted-foreground font-semibold">Version</label>
               <EditableInput value={ref.version || ''} onChange={(v) => onUpdate(listField, index, 'version', v)} mono />
             </div>
             <div className="flex-1">
-              <label className="text-[10px] text-slate-400 font-semibold">Flow</label>
+              <label className="text-[10px] text-muted-foreground font-semibold">Flow</label>
               <EditableInput value={ref.flow || ''} onChange={(v) => onUpdate(listField, index, 'flow', v)} mono />
             </div>
           </div>

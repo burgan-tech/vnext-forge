@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react';
-import { useWorkflowStore } from '@modules/canvas-interaction/WorkflowStore';
+import { useMemo } from 'react';
+import { useWorkflowStore } from '@app/store/WorkflowStore';
 import { CsxEditorField, type ScriptCode } from '@modules/save-component/components/CsxEditorField';
-import { SchemaReferenceField, type SchemaReference } from '@modules/save-component/components/SchemaReferenceField';
-import { getLabels, getLabel, getTriggerLabel, getTriggerColor, getTriggerKindLabel } from './property-panel/Helpers';
-import { Badge, SelectField, Section, InfoRow, IconPlus, IconTrash } from './property-panel/Shared';
+import { SchemaReferenceField } from '@modules/save-component/components/SchemaReferenceField';
+import { getLabels, getTriggerLabel, getTriggerColor, getTriggerKindLabel } from './tabs/PropertyPanelHelpers';
+import { Badge, SelectField, Section, IconPlus, IconTrash } from './tabs/PropertyPanelShared';
 import { ArrowRight, MousePointer2 } from 'lucide-react';
 
 /* ────────────── Parse Edge ID ────────────── */
@@ -40,9 +40,9 @@ export function TransitionPropertyPanel() {
     }
 
     const s = attrs.states.find((s: any) => s.key === parsed.sourceKey);
-    if (!s?.transitions) return { state: s, transition: null, transitionIndex: -1 };
+    if (!s?.transitions) return { state: null, transition: null, transitionIndex: -1 };
     const idx = s.transitions.findIndex((t: any) => t.key === parsed.transitionKey);
-    return { state: s, transition: idx >= 0 ? s.transitions[idx] : null, transitionIndex: idx };
+    return { state: null, transition: idx >= 0 ? s.transitions[idx] : null, transitionIndex: idx };
   }, [workflowJson, parsed]);
 
   const allStateKeys = useMemo(() => {
@@ -54,11 +54,11 @@ export function TransitionPropertyPanel() {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="text-center px-6">
-          <div className="size-14 mx-auto mb-3 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-300">
+          <div className="size-14 mx-auto mb-3 rounded-2xl bg-muted flex items-center justify-center text-subtle">
             <MousePointer2 size={24} />
           </div>
-          <div className="text-[13px] text-slate-400 font-semibold">Select a transition</div>
-          <div className="text-[11px] text-slate-300 mt-1">Click on an edge in the canvas</div>
+          <div className="text-[13px] text-muted-foreground font-semibold">Select a transition</div>
+          <div className="text-[11px] text-subtle mt-1">Click on an edge in the canvas</div>
         </div>
       </div>
     );
@@ -135,17 +135,17 @@ export function TransitionPropertyPanel() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="px-4 py-3.5 border-b border-slate-100 bg-white">
+      <div className="px-4 py-3.5 border-b border-border-subtle bg-surface">
         <div className="flex items-center gap-2 mb-1">
-          <div className="size-8 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0">
-            <ArrowRight size={14} className="text-emerald-500" />
+          <div className="size-8 rounded-xl bg-initial/10 flex items-center justify-center shrink-0">
+            <ArrowRight size={14} className="text-initial" />
           </div>
-          <span className="text-[14px] font-bold text-slate-900 truncate font-mono tracking-tight">{transition.key || 'transition'}</span>
+          <span className="text-[14px] font-bold text-foreground truncate font-mono tracking-tight">{transition.key || 'transition'}</span>
         </div>
         <div className="flex items-center gap-2 ml-10">
           <Badge className={getTriggerColor(transition.triggerType ?? 0)}>{getTriggerLabel(transition.triggerType ?? 0)}</Badge>
-          {triggerKindLabel && <Badge className="bg-slate-100 text-slate-500">{triggerKindLabel}</Badge>}
-          <span className="text-[11px] text-slate-400">from <span className="font-mono font-semibold">{parsed.sourceKey}</span></span>
+          {triggerKindLabel && <Badge className="bg-muted text-muted-foreground">{triggerKindLabel}</Badge>}
+          <span className="text-[11px] text-muted-foreground">from <span className="font-mono font-semibold">{parsed.sourceKey}</span></span>
         </div>
       </div>
 
@@ -154,23 +154,23 @@ export function TransitionPropertyPanel() {
         {/* Key */}
         {!isStartTransition && (
           <div>
-            <label className="text-[10px] text-slate-400 block mb-1 font-semibold tracking-wide">Key</label>
+            <label className="text-[10px] text-muted-foreground block mb-1 font-semibold tracking-wide">Key</label>
             <input
               type="text"
               value={transition.key || ''}
               onChange={(e) => updateField('key', e.target.value)}
-              className="w-full px-2.5 py-1.5 text-xs font-mono border border-slate-200/80 rounded-lg bg-slate-50/50 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 focus:bg-white transition-all"
+              className="w-full px-2.5 py-1.5 text-xs font-mono border border-border rounded-lg bg-muted-surface text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary-border focus:bg-surface transition-all"
             />
           </div>
         )}
 
         {/* Target */}
         <div>
-          <label className="text-[10px] text-slate-400 block mb-1 font-semibold tracking-wide">Target</label>
+          <label className="text-[10px] text-muted-foreground block mb-1 font-semibold tracking-wide">Target</label>
           <select
             value={target}
             onChange={(e) => updateField('target', e.target.value)}
-            className="w-full px-2.5 py-1.5 text-xs font-mono border border-slate-200/80 rounded-lg bg-slate-50/50 text-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 focus:bg-white transition-all cursor-pointer"
+            className="w-full px-2.5 py-1.5 text-xs font-mono border border-border rounded-lg bg-muted-surface text-secondary-icon focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary-border focus:bg-surface transition-all cursor-pointer"
           >
             <option value="$self">$self (current state)</option>
             {!allStateKeys.includes(target) && target && target !== '$self' && <option value={target}>{target}</option>}
@@ -182,7 +182,7 @@ export function TransitionPropertyPanel() {
         {!isStartTransition && (
           <>
             <div>
-              <label className="text-[10px] text-slate-400 block mb-1 font-semibold tracking-wide">Trigger Type</label>
+              <label className="text-[10px] text-muted-foreground block mb-1 font-semibold tracking-wide">Trigger Type</label>
               <SelectField
                 value={transition.triggerType ?? 0}
                 onChange={(v) => updateField('triggerType', Number(v))}
@@ -194,7 +194,7 @@ export function TransitionPropertyPanel() {
             </div>
 
             <div>
-              <label className="text-[10px] text-slate-400 block mb-1 font-semibold tracking-wide">Trigger Kind</label>
+              <label className="text-[10px] text-muted-foreground block mb-1 font-semibold tracking-wide">Trigger Kind</label>
               <SelectField
                 value={transition.triggerKind ?? 0}
                 onChange={(v) => {
@@ -211,7 +211,7 @@ export function TransitionPropertyPanel() {
 
         {/* Version Strategy */}
         <div>
-          <label className="text-[10px] text-slate-400 block mb-1 font-semibold tracking-wide">Version Strategy</label>
+          <label className="text-[10px] text-muted-foreground block mb-1 font-semibold tracking-wide">Version Strategy</label>
           <SelectField
             value={transition.versionStrategy || 'Minor'}
             onChange={(v) => updateField('versionStrategy', v)}
@@ -241,20 +241,20 @@ export function TransitionPropertyPanel() {
                     type="text"
                     value={l.language}
                     onChange={(e) => updateLabelField(i, 'language', e.target.value)}
-                    className="w-10 px-2 py-1.5 text-[11px] font-mono text-slate-500 border border-slate-200/80 rounded-lg bg-slate-100/80 text-center shrink-0 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                    className="w-10 px-2 py-1.5 text-[11px] font-mono text-muted-foreground border border-border rounded-lg bg-muted text-center shrink-0 focus:outline-none focus:ring-2 focus:ring-ring/20"
                   />
                   <input
                     type="text"
                     value={l.label}
                     onChange={(e) => updateLabelField(i, 'label', e.target.value)}
-                    className="flex-1 px-2.5 py-1.5 text-xs border border-slate-200/80 rounded-lg bg-slate-50/50 text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 focus:bg-white transition-all"
+                    className="flex-1 px-2.5 py-1.5 text-xs border border-border rounded-lg bg-muted-surface text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary-border focus:bg-surface transition-all"
                   />
-                  <button onClick={() => removeLabel(i)} className="p-1 text-slate-300 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all">
+                  <button onClick={() => removeLabel(i)} className="p-1 text-subtle hover:text-destructive-text hover:bg-destructive-surface rounded-lg transition-all cursor-pointer">
                     <IconTrash />
                   </button>
                 </div>
               ))}
-              <button onClick={addLabel} className="flex items-center gap-1.5 text-[11px] text-indigo-500 hover:text-indigo-600 font-semibold mt-1">
+              <button onClick={addLabel} className="flex items-center gap-1.5 text-[11px] text-secondary-icon hover:text-secondary-foreground font-semibold mt-1 cursor-pointer">
                 <IconPlus /> Add Label
               </button>
             </div>

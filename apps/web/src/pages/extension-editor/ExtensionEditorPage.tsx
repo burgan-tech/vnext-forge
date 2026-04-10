@@ -1,1 +1,5 @@
-export { ExtensionEditorPage } from '@modules/extension-editor/extension-editor/ExtensionEditorPage';
+import { ExtensionEditorView } from '@modules/extension-editor/ExtensionEditorView';
+
+export function ExtensionEditorPage() {
+  return <ExtensionEditorView />;
+}

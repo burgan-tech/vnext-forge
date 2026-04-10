@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { VnextForgeError } from '@vnext-forge/app-contracts';
 import { useProjectStore } from '@modules/project-management/ProjectStore';
 import { useComponentStore } from '@modules/save-component/ComponentStore';
 import { useSaveComponent } from '@modules/save-component/UseSaveComponent';
 import { ComponentEditorLayout } from '@modules/save-component/components/ComponentEditorLayout';
 import { readFile } from '@modules/project-workspace/WorkspaceApi';
-import { ExtensionEditorPanel } from './ExtensionEditorPanel';
+import { FunctionEditorPanel } from './FunctionEditorPanel';
 
-export function ExtensionEditorPage() {
+export function FunctionEditorView() {
   const { id, group, name } = useParams<{ id: string; group: string; name: string }>();
   const { activeProject, vnextConfig } = useProjectStore();
   const { componentJson, setComponent, isDirty, updateComponent, undo, redo, undoStack, redoStack } = useComponentStore();
@@ -17,20 +18,23 @@ export function ExtensionEditorPage() {
 
   useEffect(() => {
     if (!id || !group || !name || !activeProject || !vnextConfig) return;
-    loadExtension();
+    loadFunction();
   }, [id, group, name, activeProject, vnextConfig]);
 
-  async function loadExtension() {
+  async function loadFunction() {
     if (!activeProject || !vnextConfig) return;
     setLoading(true);
     setError(null);
     try {
-      const filePath = `${activeProject.path}/${vnextConfig.paths.componentsRoot}/${vnextConfig.paths.extensions}/${group}/${name}.json`;
+      const filePath = `${activeProject.path}/${vnextConfig.paths.componentsRoot}/${vnextConfig.paths.functions}/${group}/${name}.json`;
       const data = await readFile(filePath);
       const json = typeof data.content === 'string' ? JSON.parse(data.content) : data.content;
-      setComponent(json, 'extension', filePath);
+      setComponent(json, 'function', filePath);
     } catch (err) {
-      setError(String(err));
+      const message = err instanceof VnextForgeError
+        ? err.toUserMessage().message
+        : 'Failed to load function';
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -39,7 +43,7 @@ export function ExtensionEditorPage() {
   if (loading || !componentJson) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-        {error || 'Loading extension...'}
+        {error || 'Loading function...'}
       </div>
     );
   }
@@ -48,7 +52,7 @@ export function ExtensionEditorPage() {
     <ComponentEditorLayout
       projectId={id || ''}
       projectDomain={activeProject?.domain}
-      typeName="Extensions"
+      typeName="Functions"
       group={group || ''}
       name={name || ''}
       isDirty={isDirty}
@@ -58,7 +62,7 @@ export function ExtensionEditorPage() {
       canUndo={undoStack.length > 0}
       canRedo={redoStack.length > 0}
     >
-      <ExtensionEditorPanel json={componentJson} onChange={updateComponent} />
+      <FunctionEditorPanel json={componentJson} onChange={updateComponent} />
     </ComponentEditorLayout>
   );
 }

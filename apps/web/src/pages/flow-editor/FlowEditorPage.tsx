@@ -4,16 +4,16 @@ import { ReactFlowProvider } from '@xyflow/react';
 import { AlertCircle, ArrowLeft, ChevronRight, Loader2, Settings2 } from 'lucide-react';
 
 import { useUIStore } from '@app/store/UiStore';
-import { FlowCanvas } from '@modules/canvas-interaction/canvas/FlowCanvas';
-import { StatePropertyPanel } from '@modules/canvas-interaction/canvas/panels/StatePropertyPanel';
-import { TransitionPropertyPanel } from '@modules/canvas-interaction/canvas/panels/TransitionPropertyPanel';
-import { WorkflowMetadataPanel } from '@modules/canvas-interaction/canvas/panels/WorkflowMetadataPanel';
+import { FlowCanvas } from '@modules/canvas-interaction/FlowCanvas';
+import { StatePropertyPanel } from '@modules/canvas-interaction/components/panels/StatePropertyPanel';
+import { TransitionPropertyPanel } from '@modules/canvas-interaction/components/panels/TransitionPropertyPanel';
+import { WorkflowMetadataPanel } from '@modules/canvas-interaction/components/panels/WorkflowMetadataPanel';
 import { ScriptEditorPanel } from '@modules/code-editor/layout/ScriptEditorPanel';
 import { useScriptPanelStore } from '@modules/code-editor/ScriptPanelStore';
 import { useProjectStore } from '@modules/project-management/ProjectStore';
 import { readFile } from '@modules/project-workspace/WorkspaceApi';
 import { useSaveWorkflow } from '@modules/save-workflow/UseSaveWorkflow';
-import { useWorkflowStore } from '@modules/canvas-interaction/WorkflowStore';
+import { useWorkflowStore } from '@app/store/WorkflowStore';
 
 export function FlowEditorPage() {
   const { id, group, name } = useParams<{ id: string; group: string; name: string }>();
