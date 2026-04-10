@@ -1,10 +1,10 @@
 import { useState } from 'react';
 
-import { importProject } from './ProjectApi';
+import { importProject } from '../ProjectApi';
 
 import { browseWorkspace } from '@modules/project-workspace/WorkspaceApi';
-import type { WorkspaceFolder } from '@modules/project-workspace/WorkspaceTypes';
-import type { ProjectInfo } from './ProjectTypes';
+import type { WorkspaceFolder } from '@shared/ui/FolderBrowser';
+import type { ProjectInfo } from '../ProjectTypes';
 import type { VnextForgeError } from '@vnext-forge/app-contracts';
 import { toVnextError } from '@shared/lib/error/VnextErrorHelpers';
 

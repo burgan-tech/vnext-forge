@@ -1,7 +1,10 @@
 import { useState, useMemo } from 'react';
-import { useWorkflowStore } from '@app/store/WorkflowStore';
+import { useWorkflowStore } from '@app/store/useWorkflowStore';
 import { CsxEditorField, type ScriptCode } from '@modules/save-component/components/CsxEditorField';
-import { SchemaReferenceField, type SchemaReference } from '@modules/save-component/components/SchemaReferenceField';
+import {
+  SchemaReferenceField,
+  type SchemaReference,
+} from '@modules/save-component/components/SchemaReferenceField';
 import { getLabels, getTriggerKindLabel } from './PropertyPanelHelpers';
 import { Badge, IconPlus, IconTrash } from './PropertyPanelShared';
 import { ArrowRight } from 'lucide-react';
@@ -52,7 +55,11 @@ export function TransitionsTab({ state }: { state: any }) {
     });
   };
 
-  const updateTransitionScript = (index: number, scriptField: 'rule' | 'condition' | 'timer', script: ScriptCode) => {
+  const updateTransitionScript = (
+    index: number,
+    scriptField: 'rule' | 'condition' | 'timer',
+    script: ScriptCode,
+  ) => {
     updateWorkflow((draft: any) => {
       const s = draft.attributes?.states?.find((s: any) => s.key === stateKey);
       if (!s?.transitions?.[index]) return;
@@ -87,7 +94,9 @@ export function TransitionsTab({ state }: { state: any }) {
   return (
     <div className="space-y-2">
       {transitions.length === 0 ? (
-        <div className="text-[12px] text-muted-foreground py-6 text-center">No transitions defined</div>
+        <div className="text-muted-foreground py-6 text-center text-[12px]">
+          No transitions defined
+        </div>
       ) : (
         transitions.map((t: any, i: number) => (
           <EditableTransitionCard
@@ -104,7 +113,9 @@ export function TransitionsTab({ state }: { state: any }) {
           />
         ))
       )}
-      <button onClick={addTransition} className="flex items-center gap-1.5 text-[11px] text-secondary-icon hover:text-secondary-foreground mt-1 font-semibold cursor-pointer">
+      <button
+        onClick={addTransition}
+        className="text-secondary-icon hover:text-secondary-foreground mt-1 flex cursor-pointer items-center gap-1.5 text-[11px] font-semibold">
         <IconPlus /> Add Transition
       </button>
     </div>
@@ -113,11 +124,28 @@ export function TransitionsTab({ state }: { state: any }) {
 
 /* ────────────── EDITABLE TRANSITION CARD ────────────── */
 
-function EditableTransitionCard({ transition, index, currentStateKey, allStateKeys, onUpdate, onRemove, onUpdateScript, onRemoveScript, onUpdateSchema }: {
-  transition: any; index: number; currentStateKey: string; allStateKeys: string[];
+function EditableTransitionCard({
+  transition,
+  index,
+  currentStateKey,
+  allStateKeys,
+  onUpdate,
+  onRemove,
+  onUpdateScript,
+  onRemoveScript,
+  onUpdateSchema,
+}: {
+  transition: any;
+  index: number;
+  currentStateKey: string;
+  allStateKeys: string[];
   onUpdate: (index: number, field: string, value: any) => void;
   onRemove: (index: number) => void;
-  onUpdateScript: (index: number, scriptField: 'rule' | 'condition' | 'timer', script: ScriptCode) => void;
+  onUpdateScript: (
+    index: number,
+    scriptField: 'rule' | 'condition' | 'timer',
+    script: ScriptCode,
+  ) => void;
   onRemoveScript: (index: number, scriptField: 'rule' | 'condition' | 'timer') => void;
   onUpdateSchema: (index: number, schema: SchemaReference | null) => void;
 }) {
@@ -130,51 +158,56 @@ function EditableTransitionCard({ transition, index, currentStateKey, allStateKe
   const triggerKindLabel = getTriggerKindLabel(triggerKind);
 
   return (
-    <div className="rounded-xl overflow-hidden bg-surface border border-border hover:border-muted-border-hover transition-all shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
+    <div className="bg-surface border-border hover:border-muted-border-hover overflow-hidden rounded-xl border shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-all hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
       <div className="px-3 py-2.5">
         {/* Header: key + badges + delete */}
-        <div className="flex items-center gap-2 mb-2">
-          <div className="size-6 rounded-lg bg-initial/10 flex items-center justify-center shrink-0">
+        <div className="mb-2 flex items-center gap-2">
+          <div className="bg-initial/10 flex size-6 shrink-0 items-center justify-center rounded-lg">
             <ArrowRight size={12} className="text-initial" />
           </div>
           <input
             type="text"
             value={transition.key}
             onChange={(e) => onUpdate(index, 'key', e.target.value)}
-            className="text-[12px] font-semibold text-foreground font-mono flex-1 min-w-0 bg-transparent border-none p-0 focus:outline-none focus:ring-0 tracking-tight"
+            className="text-foreground min-w-0 flex-1 border-none bg-transparent p-0 font-mono text-[12px] font-semibold tracking-tight focus:ring-0 focus:outline-none"
           />
           {triggerKindLabel && (
             <Badge className="bg-muted text-muted-foreground">{triggerKindLabel}</Badge>
           )}
-          <button onClick={() => onRemove(index)} className="p-1.5 text-subtle hover:text-destructive-text hover:bg-destructive-surface rounded-lg shrink-0 transition-all cursor-pointer">
+          <button
+            onClick={() => onRemove(index)}
+            className="text-subtle hover:text-destructive-text hover:bg-destructive-surface shrink-0 cursor-pointer rounded-lg p-1.5 transition-all">
             <IconTrash />
           </button>
         </div>
 
         {/* Target select */}
-        <div className="flex items-center gap-2 ml-8 mb-2">
+        <div className="mb-2 ml-8 flex items-center gap-2">
           <ArrowRight size={12} className="text-subtle shrink-0" />
           <select
             value={target}
             onChange={(e) => onUpdate(index, 'target', e.target.value)}
-            className="text-xs text-secondary-icon font-mono bg-transparent border border-border rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary-border flex-1 cursor-pointer transition-all"
-          >
+            className="text-secondary-icon border-border focus:ring-ring/20 focus:border-primary-border flex-1 cursor-pointer rounded-lg border bg-transparent px-2 py-1.5 font-mono text-xs transition-all focus:ring-2 focus:outline-none">
             <option value="$self">$self (current state)</option>
             {!allStateKeys.includes(target) && target && target !== '$self' && (
               <option value={target}>{target}</option>
             )}
-            {allStateKeys.map((k) => <option key={k} value={k}>{k}{k === currentStateKey ? ' (self)' : ''}</option>)}
+            {allStateKeys.map((k) => (
+              <option key={k} value={k}>
+                {k}
+                {k === currentStateKey ? ' (self)' : ''}
+              </option>
+            ))}
           </select>
         </div>
 
         {/* Trigger type */}
-        <div className="flex items-center gap-2 ml-8 mb-2">
-          <span className="text-[10px] text-muted-foreground shrink-0 font-semibold">Trigger:</span>
+        <div className="mb-2 ml-8 flex items-center gap-2">
+          <span className="text-muted-foreground shrink-0 text-[10px] font-semibold">Trigger:</span>
           <select
             value={transition.triggerType ?? 0}
             onChange={(e) => onUpdate(index, 'triggerType', Number(e.target.value))}
-            className="text-xs bg-transparent border border-border rounded-lg px-2 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary-border cursor-pointer transition-all"
-          >
+            className="border-border text-foreground focus:ring-ring/20 focus:border-primary-border cursor-pointer rounded-lg border bg-transparent px-2 py-1.5 text-xs transition-all focus:ring-2 focus:outline-none">
             <option value={0}>Manual</option>
             <option value={1}>Auto</option>
             <option value={2}>Scheduled</option>
@@ -183,27 +216,25 @@ function EditableTransitionCard({ transition, index, currentStateKey, allStateKe
         </div>
 
         {/* Trigger Kind */}
-        <div className="flex items-center gap-2 ml-8 mb-1.5">
-          <span className="text-[10px] text-muted-foreground shrink-0 font-semibold">Kind:</span>
+        <div className="mb-1.5 ml-8 flex items-center gap-2">
+          <span className="text-muted-foreground shrink-0 text-[10px] font-semibold">Kind:</span>
           <select
             value={transition.triggerKind ?? 0}
             onChange={(e) => {
               const v = Number(e.target.value);
               onUpdate(index, 'triggerKind', v === 0 ? undefined : v);
             }}
-            className="text-xs bg-transparent border border-border rounded-lg px-2 py-1.5 text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary-border cursor-pointer transition-all"
-          >
+            className="border-border text-foreground focus:ring-ring/20 focus:border-primary-border cursor-pointer rounded-lg border bg-transparent px-2 py-1.5 text-xs transition-all focus:ring-2 focus:outline-none">
             <option value={0}>Standard</option>
             <option value={10}>Default / Fallback</option>
           </select>
         </div>
 
         {/* Schema toggle */}
-        <div className="ml-8 mt-2">
+        <div className="mt-2 ml-8">
           <button
             onClick={() => setShowSchema(!showSchema)}
-            className="text-[10px] text-muted-foreground hover:text-primary-icon font-semibold transition-colors cursor-pointer"
-          >
+            className="text-muted-foreground hover:text-primary-icon cursor-pointer text-[10px] font-semibold transition-colors">
             {showSchema ? '▾ Schema' : '▸ Schema'}
           </button>
           {showSchema && (
@@ -218,11 +249,13 @@ function EditableTransitionCard({ transition, index, currentStateKey, allStateKe
 
         {/* Labels */}
         {labels.length > 0 && (
-          <div className="ml-8 mt-2 space-y-1">
+          <div className="mt-2 ml-8 space-y-1">
             {labels.map((l: any, i: number) => (
               <div key={i} className="flex items-center gap-2">
-                <span className="text-[10px] text-subtle w-4 shrink-0 font-mono text-center font-semibold">{l.language}</span>
-                <span className="text-[11px] text-muted-foreground">{l.label}</span>
+                <span className="text-subtle w-4 shrink-0 text-center font-mono text-[10px] font-semibold">
+                  {l.language}
+                </span>
+                <span className="text-muted-foreground text-[11px]">{l.label}</span>
               </div>
             ))}
           </div>

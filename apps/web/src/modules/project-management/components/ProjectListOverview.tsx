@@ -8,7 +8,7 @@ import { Card, CardContent } from '@shared/ui/Card';
 import type { VnextForgeError } from '@vnext-forge/app-contracts';
 
 import { ProjectListSection } from './ProjectListSection';
-import { useProjectList } from './UseProjectList';
+import { useProjectList } from '../hooks/useProjectList';
 
 export interface ProjectListOverviewApi {
   refreshProjects: () => Promise<void>;

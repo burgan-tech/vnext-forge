@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useComponentStore } from '@modules/save-component/ComponentStore';
+import { useComponentStore } from '@modules/save-component/useComponentStore';
 import { useAsync } from '@shared/hooks/UseAsync';
 import { loadFunctionEditor } from './FunctionEditorApi';
 

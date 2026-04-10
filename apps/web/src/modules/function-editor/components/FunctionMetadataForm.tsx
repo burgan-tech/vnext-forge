@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
-import { Field } from '@modules/save-component/components/Field';
-import { TagEditor } from '@modules/save-component/components/TagEditor';
+import { Field } from '@shared/ui/Field';
+import { TagEditor } from '@shared/ui/TagEditor';
 import {
   functionMetadataFormSchema,
   type FunctionMetadataFormValues,
@@ -147,3 +147,4 @@ export function FunctionMetadataForm({ json, onChange }: FunctionMetadataFormPro
     </div>
   );
 }
+

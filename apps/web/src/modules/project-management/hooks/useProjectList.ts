@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { listProjects } from './ProjectApi';
-import { useProjectStore } from './ProjectStore';
+import { useProjectStore } from '@app/store/useProjectStore';
+import { listProjects } from '../ProjectApi';
 
-import type { ProjectInfo } from './ProjectTypes';
+import type { ProjectInfo } from '../ProjectTypes';
 import type { VnextForgeError } from '@vnext-forge/app-contracts';
 import { toVnextError } from '@shared/lib/error/VnextErrorHelpers';
 

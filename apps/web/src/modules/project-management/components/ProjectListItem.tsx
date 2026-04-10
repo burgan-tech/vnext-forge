@@ -1,6 +1,6 @@
 import { ArrowRight, Folder, Trash2 } from 'lucide-react';
 
-import type { ProjectInfo } from './ProjectTypes';
+import type { ProjectInfo } from '../ProjectTypes';
 import { Button } from '@shared/ui/Button';
 
 interface ProjectListItemProps {
@@ -27,13 +27,13 @@ export function ProjectListItem({
           onOpen(project);
         }
       }}
-      className="group flex w-full cursor-pointer items-center gap-3.5 rounded-2xl border border-slate-200/80 bg-white px-4 py-3.5 text-left shadow-sm shadow-slate-900/[0.03] transition-all duration-200 hover:border-sky-200 hover:shadow-md hover:shadow-sky-500/8 focus-visible:ring-2 focus-visible:ring-sky-400 focus-visible:outline-none">
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-sky-100 bg-sky-50 text-sky-500 transition-colors group-hover:border-sky-200 group-hover:bg-sky-100">
+      className="group border-primary-border bg-primary hover:border-primary-border-hover hover:bg-primary-hover focus-visible:ring-ring/50 flex w-full cursor-pointer items-center gap-3.5 rounded-2xl border px-4 py-3.5 text-left shadow-sm transition-all duration-200 hover:shadow-md focus-visible:ring-2 focus-visible:outline-none">
+      <div className="border-secondary-border bg-secondary-surface text-secondary-icon group-hover:border-secondary-border-hover group-hover:bg-secondary-hover flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition-colors">
         <Folder size={16} />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[13.5px] font-semibold text-slate-900">{project.domain}</div>
-        <div className="mt-0.5 truncate text-[11.5px] text-slate-400">{project.path}</div>
+        <div className="text-primary-text truncate text-[13.5px] font-semibold">{project.domain}</div>
+        <div className="text-muted-foreground mt-0.5 truncate text-[11.5px]">{project.path}</div>
       </div>
       <Button
         type="button"
@@ -46,13 +46,13 @@ export function ProjectListItem({
           onDelete(project);
         }}
         disabled={deleting}
-        className="h-8 w-8 shrink-0 rounded-lg opacity-0 shadow-none transition-all group-hover:opacity-100 hover:text-rose-500 disabled:cursor-not-allowed disabled:opacity-40"
+        className="h-8 w-8 shrink-0 rounded-lg opacity-0 shadow-none transition-all group-hover:opacity-100 disabled:cursor-not-allowed disabled:opacity-40"
         aria-label={`Delete ${project.domain}`}>
         <Trash2 size={14} />
       </Button>
       <ArrowRight
         size={14}
-        className="shrink-0 text-slate-300 transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-sky-400"
+        className="text-muted-foreground shrink-0 transition-all duration-200 group-hover:translate-x-0.5 group-hover:text-secondary-icon"
       />
     </div>
   );

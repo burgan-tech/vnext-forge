@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Field } from '@modules/save-component/components/Field';
-import { TagEditor } from '@modules/save-component/components/TagEditor';
+import { Field } from '@shared/ui/Field';
+import { TagEditor } from '@shared/ui/TagEditor';
 import { LabelEditor } from '@modules/save-component/components/LabelEditor';
-import { JsonCodeField } from '@modules/save-component/components/JsonCodeField';
+import { JsonCodeField } from '@shared/ui/JsonCodeField';
 
 interface ViewEditorPanelProps {
   json: Record<string, unknown>;
@@ -131,3 +131,4 @@ function setContentForPlatform(attrs: Record<string, unknown>, platform: string,
     overrides[platform].content = content;
   }
 }
+

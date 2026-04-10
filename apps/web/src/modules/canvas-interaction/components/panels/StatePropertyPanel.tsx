@@ -1,6 +1,12 @@
 import { useMemo, useState } from 'react';
-import { useWorkflowStore } from '@app/store/WorkflowStore';
-import { getStateTypeLabel, getStateTypeColor, getSubTypeLabel, getSubTypeBadge, getLabel } from './tabs/PropertyPanelHelpers';
+import { useWorkflowStore } from '@app/store/useWorkflowStore';
+import {
+  getStateTypeLabel,
+  getStateTypeColor,
+  getSubTypeLabel,
+  getSubTypeBadge,
+  getLabel,
+} from './tabs/PropertyPanelHelpers';
 import { Badge } from './tabs/PropertyPanelShared';
 import { GeneralTab } from './tabs/GeneralTab';
 import { TasksTab } from './tabs/TasksTab';
@@ -35,13 +41,13 @@ export function StatePropertyPanel() {
 
   if (!state) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center px-6">
-          <div className="size-14 mx-auto mb-3 rounded-2xl bg-muted flex items-center justify-center text-subtle">
+      <div className="flex h-full items-center justify-center">
+        <div className="px-6 text-center">
+          <div className="bg-muted text-subtle mx-auto mb-3 flex size-14 items-center justify-center rounded-2xl">
             <MousePointer2 size={24} />
           </div>
-          <div className="text-[13px] text-muted-foreground font-semibold">Select a state</div>
-          <div className="text-[11px] text-subtle mt-1">Click on a node in the canvas</div>
+          <div className="text-muted-foreground text-[13px] font-semibold">Select a state</div>
+          <div className="text-subtle mt-1 text-[11px]">Click on a node in the canvas</div>
         </div>
       </div>
     );
@@ -62,47 +68,53 @@ export function StatePropertyPanel() {
   ];
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="px-4 py-3.5 border-b border-border-subtle bg-surface">
-        <div className="flex items-center gap-2 mb-1">
-          <span className="text-[14px] font-bold text-foreground truncate tracking-tight">{state.key}</span>
+      <div className="border-border-subtle bg-surface border-b px-4 py-3.5">
+        <div className="mb-1 flex items-center gap-2">
+          <span className="text-foreground truncate text-[14px] font-bold tracking-tight">
+            {state.key}
+          </span>
           <Badge className={getStateTypeColor(stateType)}>{getStateTypeLabel(stateType)}</Badge>
           {subType > 0 && (
             <Badge className={getSubTypeBadge(subType)}>{getSubTypeLabel(subType)}</Badge>
           )}
         </div>
         {getLabel(state) && (
-          <div className="text-[12px] text-muted-foreground truncate">{getLabel(state)}</div>
+          <div className="text-muted-foreground truncate text-[12px]">{getLabel(state)}</div>
         )}
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-border-subtle bg-muted-surface px-1">
-        {tabs.filter((t) => t.show).map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`px-3 py-2.5 text-[12px] whitespace-nowrap border-b-2 transition-all font-semibold tracking-tight cursor-pointer ${
-              activeTab === tab.key
-                ? 'border-secondary-border text-secondary-icon'
-                : 'border-transparent text-muted-foreground hover:text-primary-icon hover:border-muted-border-hover'
-            }`}
-          >
-            {tab.label}
-            {tab.count !== undefined && tab.count > 0 && (
-              <span className={`ml-1.5 text-[10px] tabular-nums px-1.5 py-0.5 rounded-md font-semibold ${
-                activeTab === tab.key ? 'bg-secondary-muted text-secondary-icon' : 'bg-muted text-muted-foreground'
+      <div className="border-border-subtle bg-muted-surface flex border-b px-1">
+        {tabs
+          .filter((t) => t.show)
+          .map((tab) => (
+            <button
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              className={`cursor-pointer border-b-2 px-3 py-2.5 text-[12px] font-semibold tracking-tight whitespace-nowrap transition-all ${
+                activeTab === tab.key
+                  ? 'border-secondary-border text-secondary-icon'
+                  : 'text-muted-foreground hover:text-primary-icon hover:border-muted-border-hover border-transparent'
               }`}>
-                {tab.count}
-              </span>
-            )}
-          </button>
-        ))}
+              {tab.label}
+              {tab.count !== undefined && tab.count > 0 && (
+                <span
+                  className={`ml-1.5 rounded-md px-1.5 py-0.5 text-[10px] font-semibold tabular-nums ${
+                    activeTab === tab.key
+                      ? 'bg-secondary-muted text-secondary-icon'
+                      : 'bg-muted text-muted-foreground'
+                  }`}>
+                  {tab.count}
+                </span>
+              )}
+            </button>
+          ))}
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      <div className="flex-1 space-y-3 overflow-y-auto p-4">
         {activeTab === 'general' && <GeneralTab state={state} updateWorkflow={updateWorkflow} />}
         {activeTab === 'tasks' && <TasksTab state={state} />}
         {activeTab === 'transitions' && <TransitionsTab state={state} />}

@@ -1,4 +1,4 @@
-import { Field } from '@modules/save-component/components/Field';
+import { Field } from '@shared/ui/Field';
 
 const TYPES = [
   { value: 1, label: 'Global', desc: 'Runs on all flows' },
@@ -36,3 +36,4 @@ export function ExtensionTypePicker({ value, onChange, hint }: ExtensionTypePick
     </Field>
   );
 }
+

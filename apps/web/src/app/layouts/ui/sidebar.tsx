@@ -1,6 +1,6 @@
 import { Input } from '@shared/ui/Input';
 
-import { useUIStore } from '@app/store/UiStore';
+import { useUIStore } from '@app/store/useUiStore';
 import { ProjectWorkspaceSidebarPanel } from '@modules/project-workspace/SidebarPanel';
 
 export function Sidebar() {

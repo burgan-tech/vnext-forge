@@ -1,8 +1,12 @@
 import { create } from 'zustand';
 
-import { getProjectTree } from './ProjectApi';
+import { getProjectTree } from '@modules/project-management/ProjectApi';
 
-import type { FileTreeNode, ProjectInfo, VnextConfig } from './ProjectTypes';
+import type {
+  FileTreeNode,
+  ProjectInfo,
+  VnextConfig,
+} from '@modules/project-management/ProjectTypes';
 
 interface ProjectState {
   projects: ProjectInfo[];

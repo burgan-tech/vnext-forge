@@ -1,5 +1,5 @@
-import { Field } from '@modules/save-component/components/Field';
-import { TagEditor } from '@modules/save-component/components/TagEditor';
+import { Field } from '@shared/ui/Field';
+import { TagEditor } from '@shared/ui/TagEditor';
 
 interface TaskMetadataFormProps {
   json: Record<string, unknown>;
@@ -60,3 +60,4 @@ export function TaskMetadataForm({ json, onChange }: TaskMetadataFormProps) {
     </div>
   );
 }
+

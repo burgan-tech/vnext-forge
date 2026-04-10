@@ -110,6 +110,23 @@ interface FieldRootProps
   hintProps?: React.ComponentProps<typeof FieldHint>;
 }
 
+interface LegacyFieldProps
+  extends React.ComponentProps<'div'>,
+    VariantProps<typeof fieldVariants> {
+  label?: React.ReactNode;
+  hint?: React.ReactNode;
+}
+
+type FieldCompatProps =
+  | (React.ComponentProps<'div'> & VariantProps<typeof fieldVariants>)
+  | LegacyFieldProps;
+
+function hasLegacyFieldProps(
+  props: React.ComponentProps<'div'> & VariantProps<typeof fieldVariants>,
+): props is LegacyFieldProps {
+  return 'label' in props || 'hint' in props;
+}
+
 function FieldRoot({
   className,
   children,
@@ -135,4 +152,18 @@ function FieldRoot({
   );
 }
 
-export { Field, FieldHint, FieldLabel, FieldRoot, fieldVariants };
+function FieldCompat(
+  props: FieldCompatProps,
+) {
+  if (hasLegacyFieldProps(props)) {
+    const { hint, label, ...restProps } = props;
+
+    if (label !== undefined) {
+      return <FieldRoot label={label} hint={hint} {...restProps} />;
+    }
+  }
+
+  return <Field {...props} />;
+}
+
+export { FieldCompat as Field, FieldHint, FieldLabel, FieldRoot, fieldVariants };

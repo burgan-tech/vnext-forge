@@ -1,8 +1,12 @@
 import { useEffect, useRef } from 'react';
 import { ChevronRight, FolderOpen, FolderSearch } from 'lucide-react';
 
-import type { WorkspaceFolder } from './WorkspaceTypes';
 import { Button } from '@shared/ui/Button';
+
+export interface WorkspaceFolder {
+  name: string;
+  path: string;
+}
 
 interface FolderBrowserProps {
   currentPath: string;

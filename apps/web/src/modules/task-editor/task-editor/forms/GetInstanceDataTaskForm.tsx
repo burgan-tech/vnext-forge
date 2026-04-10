@@ -1,4 +1,4 @@
-import { Field } from '@modules/save-component/components/Field';
+import { Field } from '@shared/ui/Field';
 
 interface Props { config: Record<string, unknown>; onChange: (updater: (draft: any) => void) => void; }
 
@@ -23,3 +23,4 @@ export function GetInstanceDataTaskForm({ config, onChange }: Props) {
     </div>
   );
 }
+

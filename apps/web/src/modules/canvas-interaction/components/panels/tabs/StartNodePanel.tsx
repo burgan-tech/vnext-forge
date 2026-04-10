@@ -1,6 +1,9 @@
 import { useMemo } from 'react';
-import { useWorkflowStore } from '@app/store/WorkflowStore';
-import { SchemaReferenceField, type SchemaReference } from '@modules/save-component/components/SchemaReferenceField';
+import { useWorkflowStore } from '@app/store/useWorkflowStore';
+import {
+  SchemaReferenceField,
+  type SchemaReference,
+} from '@modules/save-component/components/SchemaReferenceField';
 import { getLabels, getLabel, getTriggerLabel } from './PropertyPanelHelpers';
 import { Badge, Section, InfoRow, SelectField } from './PropertyPanelShared';
 import { Play, Plus, Trash2 } from 'lucide-react';
@@ -57,32 +60,39 @@ export function StartNodePanel({ startTransition }: { startTransition: any }) {
   };
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="px-4 py-3.5 border-b border-border-subtle bg-surface">
-        <div className="flex items-center gap-2 mb-1">
-          <div className="size-8 rounded-xl bg-initial/10 flex items-center justify-center">
+    <div className="flex h-full flex-col">
+      <div className="border-border-subtle bg-surface border-b px-4 py-3.5">
+        <div className="mb-1 flex items-center gap-2">
+          <div className="bg-initial/10 flex size-8 items-center justify-center rounded-xl">
             <Play size={14} className="text-initial" />
           </div>
-          <span className="text-[14px] font-bold text-foreground tracking-tight">Start Transition</span>
+          <span className="text-foreground text-[14px] font-bold tracking-tight">
+            Start Transition
+          </span>
           <Badge className="bg-initial/10 text-initial">Entry Point</Badge>
         </div>
         {getLabel(startTransition) && (
-          <div className="text-[12px] text-muted-foreground ml-10">{getLabel(startTransition)}</div>
+          <div className="text-muted-foreground ml-10 text-[12px]">{getLabel(startTransition)}</div>
         )}
       </div>
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 space-y-4 overflow-y-auto p-4">
         <InfoRow label="Key" value={startTransition.key || 'start'} mono copyable />
 
         {/* Editable target */}
         <div>
-          <label className="text-[10px] text-muted-foreground block mb-1 font-semibold tracking-wide">Target</label>
+          <label className="text-muted-foreground mb-1 block text-[10px] font-semibold tracking-wide">
+            Target
+          </label>
           <select
             value={target}
             onChange={(e) => updateStartField('target', e.target.value)}
-            className="w-full px-2.5 py-1.5 text-xs font-mono border border-border rounded-lg bg-muted-surface text-secondary-icon focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary-border focus:bg-surface transition-all cursor-pointer"
-          >
+            className="border-border bg-muted-surface text-secondary-icon focus:ring-ring/20 focus:border-primary-border focus:bg-surface w-full cursor-pointer rounded-lg border px-2.5 py-1.5 font-mono text-xs transition-all focus:ring-2 focus:outline-none">
             {!allStateKeys.includes(target) && target && <option value={target}>{target}</option>}
-            {allStateKeys.map((k) => <option key={k} value={k}>{k}</option>)}
+            {allStateKeys.map((k) => (
+              <option key={k} value={k}>
+                {k}
+              </option>
+            ))}
           </select>
         </div>
 
@@ -90,22 +100,22 @@ export function StartNodePanel({ startTransition }: { startTransition: any }) {
 
         {/* Editable version strategy */}
         <div>
-          <label className="text-[10px] text-muted-foreground block mb-1 font-semibold tracking-wide">Version Strategy</label>
+          <label className="text-muted-foreground mb-1 block text-[10px] font-semibold tracking-wide">
+            Version Strategy
+          </label>
           <SelectField
             value={startTransition.versionStrategy || 'Minor'}
             onChange={(v) => updateStartField('versionStrategy', v)}
             options={[
-              { value: 'Minor', label: 'Minor' }, { value: 'Major', label: 'Major' },
+              { value: 'Minor', label: 'Minor' },
+              { value: 'Major', label: 'Major' },
             ]}
           />
         </div>
 
         {/* Editable schema */}
         <Section title="Schema" defaultOpen>
-          <SchemaReferenceField
-            value={schema}
-            onChange={updateSchema}
-          />
+          <SchemaReferenceField value={schema} onChange={updateSchema} />
         </Section>
 
         {/* Editable labels */}
@@ -117,20 +127,24 @@ export function StartNodePanel({ startTransition }: { startTransition: any }) {
                   type="text"
                   value={l.language}
                   onChange={(e) => updateLabel(i, 'language', e.target.value)}
-                  className="w-10 px-2 py-1.5 text-[11px] font-mono text-muted-foreground border border-border rounded-lg bg-muted text-center shrink-0 focus:outline-none focus:ring-2 focus:ring-ring/20"
+                  className="text-muted-foreground border-border bg-muted focus:ring-ring/20 w-10 shrink-0 rounded-lg border px-2 py-1.5 text-center font-mono text-[11px] focus:ring-2 focus:outline-none"
                 />
                 <input
                   type="text"
                   value={l.label}
                   onChange={(e) => updateLabel(i, 'label', e.target.value)}
-                  className="flex-1 px-2.5 py-1.5 text-xs border border-border rounded-lg bg-muted-surface text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary-border focus:bg-surface transition-all"
+                  className="border-border bg-muted-surface text-foreground focus:ring-ring/20 focus:border-primary-border focus:bg-surface flex-1 rounded-lg border px-2.5 py-1.5 text-xs transition-all focus:ring-2 focus:outline-none"
                 />
-                <button onClick={() => removeLabel(i)} className="p-1 text-subtle hover:text-destructive-text hover:bg-destructive-surface rounded-lg transition-all cursor-pointer">
+                <button
+                  onClick={() => removeLabel(i)}
+                  className="text-subtle hover:text-destructive-text hover:bg-destructive-surface cursor-pointer rounded-lg p-1 transition-all">
                   <Trash2 size={13} />
                 </button>
               </div>
             ))}
-            <button onClick={addLabel} className="flex items-center gap-1.5 text-[11px] text-secondary-icon hover:text-secondary-foreground font-semibold mt-1 cursor-pointer">
+            <button
+              onClick={addLabel}
+              className="text-secondary-icon hover:text-secondary-foreground mt-1 flex cursor-pointer items-center gap-1.5 text-[11px] font-semibold">
               <Plus size={13} /> Add Label
             </button>
           </div>

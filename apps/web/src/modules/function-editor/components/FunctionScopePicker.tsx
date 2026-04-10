@@ -1,4 +1,4 @@
-import { Field } from '@modules/save-component/components/Field';
+import { Field } from '@shared/ui/Field';
 
 const SCOPES = [
   { value: 'I', label: 'Instance', desc: 'Per workflow instance' },
@@ -35,3 +35,4 @@ export function FunctionScopePicker({ value, onChange, hint }: FunctionScopePick
     </Field>
   );
 }
+

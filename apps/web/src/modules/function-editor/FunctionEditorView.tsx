@@ -1,7 +1,7 @@
 import { useParams } from 'react-router-dom';
-import { useProjectStore } from '@modules/project-management/ProjectStore';
-import { useComponentStore } from '@modules/save-component/ComponentStore';
-import { useSaveComponent } from '@modules/save-component/UseSaveComponent';
+import { useProjectStore } from '@app/store/useProjectStore';
+import { useComponentStore } from '@modules/save-component/useComponentStore';
+import { useSaveComponent } from '@modules/save-component/useSaveComponent';
 import { ComponentEditorLayout } from '@modules/save-component/components/ComponentEditorLayout';
 import { useFunctionEditor } from './UseFunctionEditor';
 import { FunctionEditorPanel } from './components/FunctionEditorPanel';
@@ -19,7 +19,7 @@ export function FunctionEditorView() {
     undoStack,
     redoStack,
   } = useComponentStore();
-  const { save } = useSaveComponent();
+  const { save, saving, saveError } = useSaveComponent();
   const filePath = id && group && name && activeProject && vnextConfig
     ? `${activeProject.path}/${vnextConfig.paths.componentsRoot}/${vnextConfig.paths.functions}/${group}/${name}.json`
     : null;
@@ -42,6 +42,8 @@ export function FunctionEditorView() {
       group={group || ''}
       name={name || ''}
       isDirty={isDirty}
+      saving={saving}
+      saveErrorMessage={saveError?.toUserMessage().message ?? null}
       onSave={save}
       onUndo={undo}
       onRedo={redo}

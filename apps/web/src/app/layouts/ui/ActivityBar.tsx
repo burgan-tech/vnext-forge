@@ -1,7 +1,7 @@
 import { AlertTriangle, FolderTree, Home, Search, Settings } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
-import { useUIStore, type SidebarView } from '@app/store/UiStore';
+import { useUIStore, type SidebarView } from '@app/store/useUiStore';
 
 interface ActivityItem {
   id: SidebarView | 'home';

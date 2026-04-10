@@ -1,9 +1,9 @@
 import { AlertCircle, AlertTriangle, CheckCircle2 } from 'lucide-react';
 
-import { useProjectStore } from '@modules/project-management/ProjectStore';
+import { useProjectStore } from '@app/store/useProjectStore';
 import { useRuntimeStore } from '@modules/workflow-execution/RuntimeStore';
 import { useValidationStore } from '@modules/workflow-validation/ValidationStore';
-import { useWorkflowStore } from '@app/store/WorkflowStore';
+import { useWorkflowStore } from '@app/store/useWorkflowStore';
 
 export function StatusBar() {
   const { activeProject } = useProjectStore();
@@ -15,36 +15,36 @@ export function StatusBar() {
   const warnings = issues.filter((issue) => issue.severity === 'warning').length;
 
   return (
-    <div className="flex h-7 shrink-0 select-none items-center gap-3 bg-brand-surface px-4 text-[11px] text-brand-surface-foreground">
-      <span className="font-semibold text-brand-surface-strong">
+    <div className="bg-brand-surface text-brand-surface-foreground flex h-7 shrink-0 items-center gap-3 px-4 text-[11px] select-none">
+      <span className="text-brand-surface-strong font-semibold">
         {activeProject ? activeProject.domain : 'Flow Studio'}
       </span>
 
       <span className="flex-1" />
 
       {isDirty && (
-        <span className="flex items-center gap-1.5 text-brand-surface-warning">
-          <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brand-surface-dot-warning" />
+        <span className="text-brand-surface-warning flex items-center gap-1.5">
+          <span className="bg-brand-surface-dot-warning h-1.5 w-1.5 animate-pulse rounded-full" />
           Modified
         </span>
       )}
 
       {errors > 0 && (
-        <span className="flex items-center gap-1 text-brand-surface-error">
+        <span className="text-brand-surface-error flex items-center gap-1">
           <AlertCircle size={12} />
           {errors}
         </span>
       )}
 
       {warnings > 0 && (
-        <span className="flex items-center gap-1 text-brand-surface-warning">
+        <span className="text-brand-surface-warning flex items-center gap-1">
           <AlertTriangle size={12} />
           {warnings}
         </span>
       )}
 
       {errors === 0 && warnings === 0 && activeProject && (
-        <span className="flex items-center gap-1 text-brand-surface-success">
+        <span className="text-brand-surface-success flex items-center gap-1">
           <CheckCircle2 size={12} />
         </span>
       )}

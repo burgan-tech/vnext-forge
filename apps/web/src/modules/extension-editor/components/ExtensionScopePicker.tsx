@@ -1,4 +1,4 @@
-import { Field } from '@modules/save-component/components/Field';
+import { Field } from '@shared/ui/Field';
 
 const SCOPES = [
   { value: 1, label: 'Get Instance', desc: 'Single instance retrieval' },
@@ -35,3 +35,4 @@ export function ExtensionScopePicker({ value, onChange, hint }: ExtensionScopePi
     </Field>
   );
 }
+

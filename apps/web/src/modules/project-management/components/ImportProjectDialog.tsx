@@ -1,6 +1,6 @@
 import { FolderOpen } from 'lucide-react';
 
-import { FolderBrowser } from '@modules/project-workspace/FolderBrowser';
+import { FolderBrowser } from '@shared/ui/FolderBrowser';
 import { Alert, AlertDescription } from '@shared/ui/Alert';
 import { Button } from '@shared/ui/Button';
 import {
@@ -13,7 +13,7 @@ import {
   DialogTitle,
 } from '@shared/ui/Dialog';
 
-import { useImportProject } from './UseImportProject';
+import { useImportProject } from '../hooks/useImportProject';
 
 type ImportProjectCallback = (
   project: import('@modules/project-management/ProjectTypes').ProjectInfo,
@@ -90,7 +90,7 @@ export function ImportProjectDialog({ onImported }: ImportProjectDialogProps) {
 
             <DialogFooter>
               <DialogCancelButton
-                variant="destructive"
+                variant="secondary"
                 onClick={() => importProject.setOpen(false)}
                 className="rounded-xl">
                 Cancel

@@ -1,31 +1,28 @@
-import { readFile } from '@modules/project-workspace/WorkspaceApi';
+import { failureFromError, success, type ApiResponse } from '@vnext-forge/app-contracts';
+import { loadComponentFile, type ComponentFileDocument } from '@modules/save-component/SaveComponentApi';
 import { toVnextError } from '@shared/lib/error/VnextErrorHelpers';
+import { extensionEditorDocumentSchema } from './ExtensionEditorSchema';
 
 interface LoadExtensionEditorParams {
   filePath: string;
 }
 
-interface LoadExtensionEditorResult {
-  filePath: string;
-  json: Record<string, unknown>;
-}
-
 export async function loadExtensionEditor({
   filePath,
-}: LoadExtensionEditorParams): Promise<LoadExtensionEditorResult> {
+}: LoadExtensionEditorParams): Promise<ApiResponse<ComponentFileDocument>> {
   try {
-    const data = await readFile(filePath);
-    const json = typeof data.content === 'string' ? JSON.parse(data.content) : data.content;
+    const result = await loadComponentFile({
+      filePath,
+      errorMessage: 'Extension could not be loaded.',
+      parse: (content) => extensionEditorDocumentSchema.parse(content),
+    });
 
-    if (!json || typeof json !== 'object' || Array.isArray(json)) {
-      throw new Error('Extension file must contain a JSON object.');
+    if (!result.success) {
+      return result;
     }
 
-    return {
-      filePath,
-      json,
-    };
+    return success(result.data);
   } catch (value) {
-    throw toVnextError(value, 'Extension could not be loaded.');
+    return failureFromError(toVnextError(value, 'Extension could not be loaded.'));
   }
 }

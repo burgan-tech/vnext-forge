@@ -1,45 +1,35 @@
-import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { useProjectStore } from '@modules/project-management/ProjectStore';
-import { useComponentStore } from '@modules/save-component/ComponentStore';
-import { useSaveComponent } from '@modules/save-component/UseSaveComponent';
+import { useProjectStore } from '@app/store/useProjectStore';
+import { loadComponentFile } from '@modules/save-component/SaveComponentApi';
+import { useComponentStore } from '@modules/save-component/useComponentStore';
+import { useLoadComponent } from '@modules/save-component/useLoadComponent';
+import { useSaveComponent } from '@modules/save-component/useSaveComponent';
 import { ComponentEditorLayout } from '@modules/save-component/components/ComponentEditorLayout';
-import { readFile } from '@modules/project-workspace/WorkspaceApi';
 import { SchemaEditorPanel } from './SchemaEditorPanel';
 
 export function SchemaEditorPage() {
   const { id, group, name } = useParams<{ id: string; group: string; name: string }>();
   const { activeProject, vnextConfig } = useProjectStore();
-  const { componentJson, setComponent, isDirty, updateComponent, undo, redo, undoStack, redoStack } = useComponentStore();
-  const { save } = useSaveComponent();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { componentJson, isDirty, updateComponent, undo, redo, undoStack, redoStack } = useComponentStore();
+  const { save, saving, saveError } = useSaveComponent();
+  const filePath = id && group && name && activeProject && vnextConfig
+    ? `${activeProject.path}/${vnextConfig.paths.componentsRoot}/${vnextConfig.paths.schemas}/${group}/${name}.json`
+    : null;
+  const { loading, error, isReady } = useLoadComponent({
+    filePath,
+    componentType: 'schema',
+    loadComponent: loadComponentFile,
+    createArgs: (nextFilePath) => ({
+      filePath: nextFilePath,
+      errorMessage: 'Schema could not be loaded.',
+    }),
+    errorMessage: 'Schema could not be loaded.',
+  });
 
-  useEffect(() => {
-    if (!id || !group || !name || !activeProject || !vnextConfig) return;
-    loadSchema();
-  }, [id, group, name, activeProject, vnextConfig]);
-
-  async function loadSchema() {
-    if (!activeProject || !vnextConfig) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const filePath = `${activeProject.path}/${vnextConfig.paths.componentsRoot}/${vnextConfig.paths.schemas}/${group}/${name}.json`;
-      const data = await readFile(filePath);
-      const json = typeof data.content === 'string' ? JSON.parse(data.content) : data.content;
-      setComponent(json, 'schema', filePath);
-    } catch (err) {
-      setError(String(err));
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  if (loading || !componentJson) {
+  if (loading || !isReady || !componentJson) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-        {error || 'Loading schema...'}
+        {error?.toUserMessage().message || 'Loading schema...'}
       </div>
     );
   }
@@ -52,6 +42,8 @@ export function SchemaEditorPage() {
       group={group || ''}
       name={name || ''}
       isDirty={isDirty}
+      saving={saving}
+      saveErrorMessage={saveError?.toUserMessage().message ?? null}
       onSave={save}
       onUndo={undo}
       onRedo={redo}

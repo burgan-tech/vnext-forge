@@ -2,7 +2,7 @@ import { useRef } from 'react';
 import Editor, { type OnMount } from '@monaco-editor/react';
 import { useEditorStore } from '@modules/code-editor/EditorStore';
 import { useSaveFile } from '@modules/code-editor/useSaveFile';
-import { useUIStore } from '@app/store/UiStore';
+import { useUIStore } from '@app/store/useUiStore';
 import { Alert, AlertDescription } from '@shared/ui/Alert';
 import { setupMonaco } from './MonacoSetup';
 
@@ -36,54 +36,59 @@ export function CodeEditorPanel() {
 
   const getLanguage = (lang: string) => {
     switch (lang) {
-      case 'csharp': return 'csharp';
-      case 'json': return 'json';
-      case 'markdown': return 'markdown';
-      default: return 'plaintext';
+      case 'csharp':
+        return 'csharp';
+      case 'json':
+        return 'json';
+      case 'markdown':
+        return 'markdown';
+      default:
+        return 'plaintext';
     }
   };
 
   if (tabs.length === 0) {
     return (
-      <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
+      <div className="text-muted-foreground flex h-full items-center justify-center text-sm">
         No files open. Select a file from the sidebar.
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex border-b border-border bg-muted/30 overflow-x-auto shrink-0">
+    <div className="flex h-full flex-col">
+      <div className="border-border bg-muted/30 flex shrink-0 overflow-x-auto border-b">
         {tabs.map((tab) => (
           <div
             key={tab.id}
-            className={`flex items-center gap-1 px-3 py-1.5 text-xs cursor-pointer border-r border-border ${
+            className={`border-border flex cursor-pointer items-center gap-1 border-r px-3 py-1.5 text-xs ${
               tab.id === activeTabId
                 ? 'bg-background text-foreground'
                 : 'text-muted-foreground hover:bg-muted/50'
             }`}
-            onClick={() => setActiveTab(tab.id)}
-          >
-            <span className="truncate max-w-[120px]">{tab.title}</span>
+            onClick={() => setActiveTab(tab.id)}>
+            <span className="max-w-[120px] truncate">{tab.title}</span>
             {tab.isDirty && <span className="text-primary">●</span>}
             <button
-              onClick={(e) => { e.stopPropagation(); closeTab(tab.id); }}
-              className="ml-1 hover:text-foreground"
-            >
+              onClick={(e) => {
+                e.stopPropagation();
+                closeTab(tab.id);
+              }}
+              className="hover:text-foreground ml-1">
               ×
             </button>
           </div>
         ))}
 
         {saving && (
-          <div className="ml-auto flex items-center px-3 text-xs text-muted-foreground">
+          <div className="text-muted-foreground ml-auto flex items-center px-3 text-xs">
             Saving...
           </div>
         )}
       </div>
 
       {saveError && (
-        <div className="p-3 pb-0 shrink-0">
+        <div className="shrink-0 p-3 pb-0">
           <Alert variant="destructive" className="px-3 py-2 text-xs">
             <AlertDescription>{saveError.toUserMessage().message}</AlertDescription>
           </Alert>

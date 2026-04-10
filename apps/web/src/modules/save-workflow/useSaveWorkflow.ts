@@ -1,8 +1,8 @@
 import { useEffect, useCallback } from 'react';
 import { createLogger } from '@shared/lib/logger/CreateLogger';
-import { useWorkflowStore } from '@app/store/WorkflowStore';
+import { useWorkflowStore } from '@app/store/useWorkflowStore';
 import { decodeFromBase64 } from '@modules/code-editor/editor/Base64Handler';
-import { useProjectStore } from '@modules/project-management/ProjectStore';
+import { useProjectStore } from '@app/store/useProjectStore';
 import { writeFile } from '@modules/project-workspace/WorkspaceApi';
 
 const logger = createLogger('save-workflow/useSaveWorkflow');
@@ -32,24 +32,29 @@ function extractScripts(workflow: any): ScriptEntry[] {
   function collect(script: any) {
     if (!script?.location || !script?.code) return;
     // Skip generic/placeholder locations
-    if (script.location === './NewMapping.csx' || script.location === './NewCondition.csx' || script.location === './NewTimer.csx') return;
+    if (
+      script.location === './NewMapping.csx' ||
+      script.location === './NewCondition.csx' ||
+      script.location === './NewTimer.csx'
+    )
+      return;
     if (seen.has(script.location)) return;
     seen.add(script.location);
     scripts.push({ location: script.location, code: script.code });
   }
 
   // States
-  for (const state of (attrs.states || [])) {
+  for (const state of attrs.states || []) {
     // onEntries mappings
-    for (const entry of (state.onEntries || [])) {
+    for (const entry of state.onEntries || []) {
       collect(entry.mapping);
     }
     // onExits mappings
-    for (const entry of (state.onExits || [])) {
+    for (const entry of state.onExits || []) {
       collect(entry.mapping);
     }
     // transitions: rule, condition, timer
-    for (const t of (state.transitions || [])) {
+    for (const t of state.transitions || []) {
       collect(t.rule);
       // Only collect condition if it's a separate object from rule
       if (t.condition && t.condition !== t.rule && t.condition.location !== t.rule?.location) {
@@ -60,7 +65,7 @@ function extractScripts(workflow: any): ScriptEntry[] {
   }
 
   // sharedTransitions
-  for (const st of (attrs.sharedTransitions || [])) {
+  for (const st of attrs.sharedTransitions || []) {
     collect(st.mapping);
   }
 

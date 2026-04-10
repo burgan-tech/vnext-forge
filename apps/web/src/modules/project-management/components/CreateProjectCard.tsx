@@ -1,12 +1,12 @@
 import { AlertCircle, Plus } from 'lucide-react';
 
-import { FolderBrowser } from '@modules/project-workspace/FolderBrowser';
+import { FolderBrowser } from '@shared/ui/FolderBrowser';
 import { Alert, AlertDescription } from '@shared/ui/Alert';
 import { Button } from '@shared/ui/Button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@shared/ui/Card';
 import { Input } from '@shared/ui/Input';
 
-import { useCreateProject } from './UseCreateProject';
+import { useCreateProject } from '../hooks/useCreateProject';
 
 type CreateProjectCallback = (
   project: import('@modules/project-management/ProjectTypes').ProjectInfo,

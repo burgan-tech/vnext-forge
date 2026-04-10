@@ -1,6 +1,6 @@
 import { useState, type KeyboardEvent } from 'react';
 import { X } from 'lucide-react';
-import { Field } from '@modules/save-component/components/Field';
+import { Field } from '@shared/ui/Field';
 
 interface DefinedFlowsSelectorProps {
   flows: string[];
@@ -53,3 +53,4 @@ export function DefinedFlowsSelector({ flows, onChange }: DefinedFlowsSelectorPr
     </Field>
   );
 }
+

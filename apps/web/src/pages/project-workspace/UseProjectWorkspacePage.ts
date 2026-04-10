@@ -5,19 +5,13 @@ import {
   getProjectConfig,
   getProjectTree,
 } from '@modules/project-management/ProjectApi';
-import { useProjectStore } from '@modules/project-management/ProjectStore';
+import { useProjectStore } from '@app/store/useProjectStore';
 import { createLogger } from '@shared/lib/logger/CreateLogger';
 
 const logger = createLogger('ProjectWorkspacePage');
 
 export function useProjectWorkspacePage(projectId?: string) {
-  const {
-    setActiveProject,
-    setError,
-    setFileTree,
-    setLoading,
-    setVnextConfig,
-  } = useProjectStore();
+  const { setActiveProject, setError, setFileTree, setLoading, setVnextConfig } = useProjectStore();
 
   useEffect(() => {
     if (!projectId) {

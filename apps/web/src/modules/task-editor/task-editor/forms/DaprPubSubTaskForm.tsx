@@ -1,5 +1,5 @@
-import { Field } from '@modules/save-component/components/Field';
-import { JsonCodeField } from '@modules/save-component/components/JsonCodeField';
+import { Field } from '@shared/ui/Field';
+import { JsonCodeField } from '@shared/ui/JsonCodeField';
 
 interface Props { config: Record<string, unknown>; onChange: (updater: (draft: any) => void) => void; }
 
@@ -27,3 +27,4 @@ export function DaprPubSubTaskForm({ config, onChange }: Props) {
     </div>
   );
 }
+

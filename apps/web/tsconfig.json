@@ -6,6 +6,7 @@
     "rootDir": "./src",
     "paths": {
       "@app/*": ["./src/app/*"],
+      "@store/*": ["./src/app/store/*"],
       "@pages/*": ["./src/pages/*"],
       "@modules/*": ["./src/modules/*"],
       "@shared/*": ["./src/shared/*"]

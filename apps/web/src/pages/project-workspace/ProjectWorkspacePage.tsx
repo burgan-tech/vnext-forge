@@ -1,6 +1,6 @@
 import { useNavigate, useParams } from 'react-router-dom';
 
-import { useProjectStore } from '@modules/project-management/ProjectStore';
+import { useProjectStore } from '@app/store/useProjectStore';
 import { Badge } from '@shared/ui/Badge';
 import { Button } from '@shared/ui/Button';
 

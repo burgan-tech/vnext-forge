@@ -1,7 +1,15 @@
 import { useState } from 'react';
-import { useWorkflowStore } from '@app/store/WorkflowStore';
+import { useWorkflowStore } from '@app/store/useWorkflowStore';
 import { CsxEditorField, type ScriptCode } from '@modules/save-component/components/CsxEditorField';
-import { Section, EditableInput, IconTask, IconPlus, IconTrash, IconUp, IconDown } from './PropertyPanelShared';
+import {
+  Section,
+  EditableInput,
+  IconTask,
+  IconPlus,
+  IconTrash,
+  IconUp,
+  IconDown,
+} from './PropertyPanelShared';
 import { Pencil } from 'lucide-react';
 
 /* ────────────── TASKS TAB ────────────── */
@@ -29,11 +37,18 @@ export function TasksTab({ state }: { state: any }) {
       const s = draft.attributes?.states?.find((s: any) => s.key === stateKey);
       if (!s?.[listField]) return;
       s[listField].splice(index, 1);
-      s[listField].forEach((t: any, i: number) => { t.order = i + 1; });
+      s[listField].forEach((t: any, i: number) => {
+        t.order = i + 1;
+      });
     });
   };
 
-  const updateTask = (listField: 'onEntries' | 'onExits', index: number, field: string, value: string) => {
+  const updateTask = (
+    listField: 'onEntries' | 'onExits',
+    index: number,
+    field: string,
+    value: string,
+  ) => {
     updateWorkflow((draft: any) => {
       const s = draft.attributes?.states?.find((s: any) => s.key === stateKey);
       const entry = s?.[listField]?.[index];
@@ -51,11 +66,17 @@ export function TasksTab({ state }: { state: any }) {
       if (toIndex < 0 || toIndex >= arr.length) return;
       const [item] = arr.splice(fromIndex, 1);
       arr.splice(toIndex, 0, item);
-      arr.forEach((t: any, i: number) => { t.order = i + 1; });
+      arr.forEach((t: any, i: number) => {
+        t.order = i + 1;
+      });
     });
   };
 
-  const updateMapping = (listField: 'onEntries' | 'onExits', index: number, mapping: ScriptCode) => {
+  const updateMapping = (
+    listField: 'onEntries' | 'onExits',
+    index: number,
+    mapping: ScriptCode,
+  ) => {
     updateWorkflow((draft: any) => {
       const s = draft.attributes?.states?.find((s: any) => s.key === stateKey);
       const entry = s?.[listField]?.[index];
@@ -77,7 +98,9 @@ export function TasksTab({ state }: { state: any }) {
     <div className="space-y-4">
       <Section title="OnEntry" count={entries.length} icon={<IconTask />} defaultOpen>
         {entries.length === 0 ? (
-          <div className="text-[12px] text-muted-foreground py-4 text-center">No entry tasks defined</div>
+          <div className="text-muted-foreground py-4 text-center text-[12px]">
+            No entry tasks defined
+          </div>
         ) : (
           <div className="space-y-2">
             {entries.map((t: any, i: number) => (
@@ -97,14 +120,18 @@ export function TasksTab({ state }: { state: any }) {
             ))}
           </div>
         )}
-        <button onClick={() => addTask('onEntries')} className="flex items-center gap-1.5 text-[11px] text-secondary-icon hover:text-secondary-foreground mt-2 font-semibold cursor-pointer">
+        <button
+          onClick={() => addTask('onEntries')}
+          className="text-secondary-icon hover:text-secondary-foreground mt-2 flex cursor-pointer items-center gap-1.5 text-[11px] font-semibold">
           <IconPlus /> Add Entry Task
         </button>
       </Section>
 
       <Section title="OnExit" count={exits.length} icon={<IconTask />} defaultOpen>
         {exits.length === 0 ? (
-          <div className="text-[12px] text-muted-foreground py-4 text-center">No exit tasks defined</div>
+          <div className="text-muted-foreground py-4 text-center text-[12px]">
+            No exit tasks defined
+          </div>
         ) : (
           <div className="space-y-2">
             {exits.map((t: any, i: number) => (
@@ -124,7 +151,9 @@ export function TasksTab({ state }: { state: any }) {
             ))}
           </div>
         )}
-        <button onClick={() => addTask('onExits')} className="flex items-center gap-1.5 text-[11px] text-secondary-icon hover:text-secondary-foreground mt-2 font-semibold cursor-pointer">
+        <button
+          onClick={() => addTask('onExits')}
+          className="text-secondary-icon hover:text-secondary-foreground mt-2 flex cursor-pointer items-center gap-1.5 text-[11px] font-semibold">
           <IconPlus /> Add Exit Task
         </button>
       </Section>
@@ -134,10 +163,30 @@ export function TasksTab({ state }: { state: any }) {
 
 /* ────────────── EDITABLE TASK CARD ────────────── */
 
-function EditableTaskCard({ entry, index, total, listField, stateKey, onRemove, onUpdate, onMove, onUpdateMapping, onRemoveMapping }: {
-  entry: any; index: number; total: number; listField: 'onEntries' | 'onExits'; stateKey: string;
+function EditableTaskCard({
+  entry,
+  index,
+  total,
+  listField,
+  stateKey,
+  onRemove,
+  onUpdate,
+  onMove,
+  onUpdateMapping,
+  onRemoveMapping,
+}: {
+  entry: any;
+  index: number;
+  total: number;
+  listField: 'onEntries' | 'onExits';
+  stateKey: string;
   onRemove: (listField: 'onEntries' | 'onExits', index: number) => void;
-  onUpdate: (listField: 'onEntries' | 'onExits', index: number, field: string, value: string) => void;
+  onUpdate: (
+    listField: 'onEntries' | 'onExits',
+    index: number,
+    field: string,
+    value: string,
+  ) => void;
   onMove: (listField: 'onEntries' | 'onExits', fromIndex: number, toIndex: number) => void;
   onUpdateMapping: (listField: 'onEntries' | 'onExits', index: number, mapping: ScriptCode) => void;
   onRemoveMapping: (listField: 'onEntries' | 'onExits', index: number) => void;
@@ -148,71 +197,97 @@ function EditableTaskCard({ entry, index, total, listField, stateKey, onRemove, 
   const order = entry.order ?? index + 1;
 
   return (
-    <div className="rounded-xl overflow-hidden bg-surface border border-border hover:border-muted-border-hover transition-all shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
-      <div className="px-3 py-2.5 flex items-start gap-2.5">
+    <div className="bg-surface border-border hover:border-muted-border-hover overflow-hidden rounded-xl border shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-all hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
+      <div className="flex items-start gap-2.5 px-3 py-2.5">
         {/* Order + Move buttons */}
-        <div className="flex flex-col items-center gap-0.5 shrink-0 mt-0.5">
+        <div className="mt-0.5 flex shrink-0 flex-col items-center gap-0.5">
           <button
             onClick={() => onMove(listField, index, index - 1)}
             disabled={index === 0}
-            className="p-0.5 text-subtle hover:text-secondary-icon disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
-            title="Move up"
-          >
+            className="text-subtle hover:text-secondary-icon cursor-pointer p-0.5 transition-colors disabled:cursor-not-allowed disabled:opacity-30"
+            title="Move up">
             <IconUp />
           </button>
-          <span className="size-6 rounded-lg bg-intermediate/10 text-intermediate flex items-center justify-center text-[11px] font-bold tabular-nums">
+          <span className="bg-intermediate/10 text-intermediate flex size-6 items-center justify-center rounded-lg text-[11px] font-bold tabular-nums">
             {order}
           </span>
           <button
             onClick={() => onMove(listField, index, index + 1)}
             disabled={index === total - 1}
-            className="p-0.5 text-subtle hover:text-secondary-icon disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
-            title="Move down"
-          >
+            className="text-subtle hover:text-secondary-icon cursor-pointer p-0.5 transition-colors disabled:cursor-not-allowed disabled:opacity-30"
+            title="Move down">
             <IconDown />
           </button>
         </div>
 
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-[12px] font-semibold text-foreground font-mono tracking-tight">{ref.key || '?'}</span>
-            {ref.domain && <span className="text-[11px] text-muted-foreground">@{ref.domain}</span>}
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-foreground font-mono text-[12px] font-semibold tracking-tight">
+              {ref.key || '?'}
+            </span>
+            {ref.domain && <span className="text-muted-foreground text-[11px]">@{ref.domain}</span>}
           </div>
-          <div className="flex items-center gap-2 mt-0.5">
-            {ref.version && <span className="text-[10px] text-muted-foreground font-mono">v{ref.version}</span>}
-            {ref.flow && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground font-mono">{ref.flow}</span>}
+          <div className="mt-0.5 flex items-center gap-2">
+            {ref.version && (
+              <span className="text-muted-foreground font-mono text-[10px]">v{ref.version}</span>
+            )}
+            {ref.flow && (
+              <span className="bg-muted text-muted-foreground rounded-full px-1.5 py-0.5 font-mono text-[10px]">
+                {ref.flow}
+              </span>
+            )}
           </div>
         </div>
-        <div className="flex items-center gap-1 shrink-0">
-          <button onClick={() => setShowEdit(!showEdit)} className={`p-1.5 rounded-lg transition-all cursor-pointer ${showEdit ? 'text-secondary-icon bg-secondary' : 'text-subtle hover:text-secondary-icon hover:bg-secondary'}`}>
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            onClick={() => setShowEdit(!showEdit)}
+            className={`cursor-pointer rounded-lg p-1.5 transition-all ${showEdit ? 'text-secondary-icon bg-secondary' : 'text-subtle hover:text-secondary-icon hover:bg-secondary'}`}>
             <Pencil size={12} />
           </button>
-          <button onClick={() => onRemove(listField, index)} className="p-1.5 text-subtle hover:text-destructive-text hover:bg-destructive-surface rounded-lg transition-all cursor-pointer">
+          <button
+            onClick={() => onRemove(listField, index)}
+            className="text-subtle hover:text-destructive-text hover:bg-destructive-surface cursor-pointer rounded-lg p-1.5 transition-all">
             <IconTrash />
           </button>
         </div>
       </div>
 
       {showEdit && (
-        <div className="px-3 pb-3 space-y-2 border-t border-border-subtle pt-2.5">
+        <div className="border-border-subtle space-y-2 border-t px-3 pt-2.5 pb-3">
           <div className="flex gap-2">
             <div className="flex-1">
-              <label className="text-[10px] text-muted-foreground font-semibold">Key</label>
-              <EditableInput value={ref.key || ''} onChange={(v) => onUpdate(listField, index, 'key', v)} mono />
+              <label className="text-muted-foreground text-[10px] font-semibold">Key</label>
+              <EditableInput
+                value={ref.key || ''}
+                onChange={(v) => onUpdate(listField, index, 'key', v)}
+                mono
+              />
             </div>
             <div className="flex-1">
-              <label className="text-[10px] text-muted-foreground font-semibold">Domain</label>
-              <EditableInput value={ref.domain || ''} onChange={(v) => onUpdate(listField, index, 'domain', v)} mono />
+              <label className="text-muted-foreground text-[10px] font-semibold">Domain</label>
+              <EditableInput
+                value={ref.domain || ''}
+                onChange={(v) => onUpdate(listField, index, 'domain', v)}
+                mono
+              />
             </div>
           </div>
           <div className="flex gap-2">
             <div className="flex-1">
-              <label className="text-[10px] text-muted-foreground font-semibold">Version</label>
-              <EditableInput value={ref.version || ''} onChange={(v) => onUpdate(listField, index, 'version', v)} mono />
+              <label className="text-muted-foreground text-[10px] font-semibold">Version</label>
+              <EditableInput
+                value={ref.version || ''}
+                onChange={(v) => onUpdate(listField, index, 'version', v)}
+                mono
+              />
             </div>
             <div className="flex-1">
-              <label className="text-[10px] text-muted-foreground font-semibold">Flow</label>
-              <EditableInput value={ref.flow || ''} onChange={(v) => onUpdate(listField, index, 'flow', v)} mono />
+              <label className="text-muted-foreground text-[10px] font-semibold">Flow</label>
+              <EditableInput
+                value={ref.flow || ''}
+                onChange={(v) => onUpdate(listField, index, 'flow', v)}
+                mono
+              />
             </div>
           </div>
         </div>

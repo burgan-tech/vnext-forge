@@ -1,4 +1,4 @@
-import { Field } from './Field';
+import { Field } from '@shared/ui/Field';
 
 interface ResourceReference {
   key?: string;

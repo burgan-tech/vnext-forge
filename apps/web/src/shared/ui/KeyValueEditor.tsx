@@ -11,6 +11,8 @@ export interface KeyValuePair {
   value: string;
 }
 
+export type KVPair = KeyValuePair;
+
 const keyValueEditorRowVariants = cva(
   'flex items-center gap-2 rounded-xl border p-2 transition-all duration-200 ease-out',
   {
@@ -155,4 +157,6 @@ function KeyValueEditor({
   );
 }
 
-export { KeyValueEditor, keyValueEditorRowVariants };
+const KVEditor = KeyValueEditor;
+
+export { KeyValueEditor, KVEditor, keyValueEditorRowVariants };

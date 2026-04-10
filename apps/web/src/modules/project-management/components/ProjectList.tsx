@@ -1,4 +1,4 @@
-import type { ProjectInfo } from './ProjectTypes';
+import type { ProjectInfo } from '../ProjectTypes';
 import { ProjectListItem } from './ProjectListItem';
 
 interface ProjectListProps {

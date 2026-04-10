@@ -9,6 +9,8 @@ interface ComponentEditorLayoutProps {
   group: string;
   name: string;
   isDirty: boolean;
+  saving?: boolean;
+  saveErrorMessage?: string | null;
   onSave: () => void;
   onUndo?: () => void;
   onRedo?: () => void;
@@ -24,6 +26,8 @@ export function ComponentEditorLayout({
   group,
   name,
   isDirty,
+  saving = false,
+  saveErrorMessage = null,
   onSave,
   onUndo,
   onRedo,
@@ -47,6 +51,7 @@ export function ComponentEditorLayout({
         <span className="text-muted-foreground">/</span>
         <span className="font-medium">{group}/{name}</span>
         {isDirty && <span className="text-muted-foreground ml-1">(modified)</span>}
+        {saveErrorMessage && <span className="text-destructive ml-1 truncate">{saveErrorMessage}</span>}
 
         <div className="ml-auto flex items-center gap-1">
           {onUndo && (
@@ -71,7 +76,7 @@ export function ComponentEditorLayout({
           )}
           <button
             onClick={onSave}
-            disabled={!isDirty}
+            disabled={!isDirty || saving}
             className="p-1 rounded hover:bg-muted disabled:opacity-30"
             title="Save (Cmd+S)"
           >

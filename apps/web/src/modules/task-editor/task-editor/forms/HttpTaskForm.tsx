@@ -1,5 +1,5 @@
-import { Field } from '@modules/save-component/components/Field';
-import { KVEditor } from '@modules/save-component/components/KVEditor';
+import { Field } from '@shared/ui/Field';
+import { KVEditor } from '@shared/ui/KeyValueEditor';
 
 interface HttpTaskFormProps {
   config: Record<string, unknown>;
@@ -55,3 +55,4 @@ export function HttpTaskForm({ config, onChange }: HttpTaskFormProps) {
     </div>
   );
 }
+

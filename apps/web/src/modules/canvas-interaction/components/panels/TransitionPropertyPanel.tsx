@@ -1,8 +1,13 @@
 import { useMemo } from 'react';
-import { useWorkflowStore } from '@app/store/WorkflowStore';
+import { useWorkflowStore } from '@app/store/useWorkflowStore';
 import { CsxEditorField, type ScriptCode } from '@modules/save-component/components/CsxEditorField';
 import { SchemaReferenceField } from '@modules/save-component/components/SchemaReferenceField';
-import { getLabels, getTriggerLabel, getTriggerColor, getTriggerKindLabel } from './tabs/PropertyPanelHelpers';
+import {
+  getLabels,
+  getTriggerLabel,
+  getTriggerColor,
+  getTriggerKindLabel,
+} from './tabs/PropertyPanelHelpers';
 import { Badge, SelectField, Section, IconPlus, IconTrash } from './tabs/PropertyPanelShared';
 import { ArrowRight, MousePointer2 } from 'lucide-react';
 
@@ -52,13 +57,13 @@ export function TransitionPropertyPanel() {
 
   if (!transition || !parsed) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center px-6">
-          <div className="size-14 mx-auto mb-3 rounded-2xl bg-muted flex items-center justify-center text-subtle">
+      <div className="flex h-full items-center justify-center">
+        <div className="px-6 text-center">
+          <div className="bg-muted text-subtle mx-auto mb-3 flex size-14 items-center justify-center rounded-2xl">
             <MousePointer2 size={24} />
           </div>
-          <div className="text-[13px] text-muted-foreground font-semibold">Select a transition</div>
-          <div className="text-[11px] text-subtle mt-1">Click on an edge in the canvas</div>
+          <div className="text-muted-foreground text-[13px] font-semibold">Select a transition</div>
+          <div className="text-subtle mt-1 text-[11px]">Click on an edge in the canvas</div>
         </div>
       </div>
     );
@@ -133,48 +138,65 @@ export function TransitionPropertyPanel() {
   };
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="px-4 py-3.5 border-b border-border-subtle bg-surface">
-        <div className="flex items-center gap-2 mb-1">
-          <div className="size-8 rounded-xl bg-initial/10 flex items-center justify-center shrink-0">
+      <div className="border-border-subtle bg-surface border-b px-4 py-3.5">
+        <div className="mb-1 flex items-center gap-2">
+          <div className="bg-initial/10 flex size-8 shrink-0 items-center justify-center rounded-xl">
             <ArrowRight size={14} className="text-initial" />
           </div>
-          <span className="text-[14px] font-bold text-foreground truncate font-mono tracking-tight">{transition.key || 'transition'}</span>
+          <span className="text-foreground truncate font-mono text-[14px] font-bold tracking-tight">
+            {transition.key || 'transition'}
+          </span>
         </div>
-        <div className="flex items-center gap-2 ml-10">
-          <Badge className={getTriggerColor(transition.triggerType ?? 0)}>{getTriggerLabel(transition.triggerType ?? 0)}</Badge>
-          {triggerKindLabel && <Badge className="bg-muted text-muted-foreground">{triggerKindLabel}</Badge>}
-          <span className="text-[11px] text-muted-foreground">from <span className="font-mono font-semibold">{parsed.sourceKey}</span></span>
+        <div className="ml-10 flex items-center gap-2">
+          <Badge className={getTriggerColor(transition.triggerType ?? 0)}>
+            {getTriggerLabel(transition.triggerType ?? 0)}
+          </Badge>
+          {triggerKindLabel && (
+            <Badge className="bg-muted text-muted-foreground">{triggerKindLabel}</Badge>
+          )}
+          <span className="text-muted-foreground text-[11px]">
+            from <span className="font-mono font-semibold">{parsed.sourceKey}</span>
+          </span>
         </div>
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 space-y-4 overflow-y-auto p-4">
         {/* Key */}
         {!isStartTransition && (
           <div>
-            <label className="text-[10px] text-muted-foreground block mb-1 font-semibold tracking-wide">Key</label>
+            <label className="text-muted-foreground mb-1 block text-[10px] font-semibold tracking-wide">
+              Key
+            </label>
             <input
               type="text"
               value={transition.key || ''}
               onChange={(e) => updateField('key', e.target.value)}
-              className="w-full px-2.5 py-1.5 text-xs font-mono border border-border rounded-lg bg-muted-surface text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary-border focus:bg-surface transition-all"
+              className="border-border bg-muted-surface text-foreground focus:ring-ring/20 focus:border-primary-border focus:bg-surface w-full rounded-lg border px-2.5 py-1.5 font-mono text-xs transition-all focus:ring-2 focus:outline-none"
             />
           </div>
         )}
 
         {/* Target */}
         <div>
-          <label className="text-[10px] text-muted-foreground block mb-1 font-semibold tracking-wide">Target</label>
+          <label className="text-muted-foreground mb-1 block text-[10px] font-semibold tracking-wide">
+            Target
+          </label>
           <select
             value={target}
             onChange={(e) => updateField('target', e.target.value)}
-            className="w-full px-2.5 py-1.5 text-xs font-mono border border-border rounded-lg bg-muted-surface text-secondary-icon focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary-border focus:bg-surface transition-all cursor-pointer"
-          >
+            className="border-border bg-muted-surface text-secondary-icon focus:ring-ring/20 focus:border-primary-border focus:bg-surface w-full cursor-pointer rounded-lg border px-2.5 py-1.5 font-mono text-xs transition-all focus:ring-2 focus:outline-none">
             <option value="$self">$self (current state)</option>
-            {!allStateKeys.includes(target) && target && target !== '$self' && <option value={target}>{target}</option>}
-            {allStateKeys.map((k) => <option key={k} value={k}>{k}</option>)}
+            {!allStateKeys.includes(target) && target && target !== '$self' && (
+              <option value={target}>{target}</option>
+            )}
+            {allStateKeys.map((k) => (
+              <option key={k} value={k}>
+                {k}
+              </option>
+            ))}
           </select>
         </div>
 
@@ -182,19 +204,25 @@ export function TransitionPropertyPanel() {
         {!isStartTransition && (
           <>
             <div>
-              <label className="text-[10px] text-muted-foreground block mb-1 font-semibold tracking-wide">Trigger Type</label>
+              <label className="text-muted-foreground mb-1 block text-[10px] font-semibold tracking-wide">
+                Trigger Type
+              </label>
               <SelectField
                 value={transition.triggerType ?? 0}
                 onChange={(v) => updateField('triggerType', Number(v))}
                 options={[
-                  { value: 0, label: 'Manual' }, { value: 1, label: 'Auto' },
-                  { value: 2, label: 'Scheduled' }, { value: 3, label: 'Event' },
+                  { value: 0, label: 'Manual' },
+                  { value: 1, label: 'Auto' },
+                  { value: 2, label: 'Scheduled' },
+                  { value: 3, label: 'Event' },
                 ]}
               />
             </div>
 
             <div>
-              <label className="text-[10px] text-muted-foreground block mb-1 font-semibold tracking-wide">Trigger Kind</label>
+              <label className="text-muted-foreground mb-1 block text-[10px] font-semibold tracking-wide">
+                Trigger Kind
+              </label>
               <SelectField
                 value={transition.triggerKind ?? 0}
                 onChange={(v) => {
@@ -202,7 +230,8 @@ export function TransitionPropertyPanel() {
                   updateField('triggerKind', val === 0 ? undefined : val);
                 }}
                 options={[
-                  { value: 0, label: 'Standard' }, { value: 10, label: 'Default / Fallback' },
+                  { value: 0, label: 'Standard' },
+                  { value: 10, label: 'Default / Fallback' },
                 ]}
               />
             </div>
@@ -211,12 +240,15 @@ export function TransitionPropertyPanel() {
 
         {/* Version Strategy */}
         <div>
-          <label className="text-[10px] text-muted-foreground block mb-1 font-semibold tracking-wide">Version Strategy</label>
+          <label className="text-muted-foreground mb-1 block text-[10px] font-semibold tracking-wide">
+            Version Strategy
+          </label>
           <SelectField
             value={transition.versionStrategy || 'Minor'}
             onChange={(v) => updateField('versionStrategy', v)}
             options={[
-              { value: 'Minor', label: 'Minor' }, { value: 'Major', label: 'Major' },
+              { value: 'Minor', label: 'Minor' },
+              { value: 'Major', label: 'Major' },
             ]}
           />
         </div>
@@ -241,20 +273,24 @@ export function TransitionPropertyPanel() {
                     type="text"
                     value={l.language}
                     onChange={(e) => updateLabelField(i, 'language', e.target.value)}
-                    className="w-10 px-2 py-1.5 text-[11px] font-mono text-muted-foreground border border-border rounded-lg bg-muted text-center shrink-0 focus:outline-none focus:ring-2 focus:ring-ring/20"
+                    className="text-muted-foreground border-border bg-muted focus:ring-ring/20 w-10 shrink-0 rounded-lg border px-2 py-1.5 text-center font-mono text-[11px] focus:ring-2 focus:outline-none"
                   />
                   <input
                     type="text"
                     value={l.label}
                     onChange={(e) => updateLabelField(i, 'label', e.target.value)}
-                    className="flex-1 px-2.5 py-1.5 text-xs border border-border rounded-lg bg-muted-surface text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary-border focus:bg-surface transition-all"
+                    className="border-border bg-muted-surface text-foreground focus:ring-ring/20 focus:border-primary-border focus:bg-surface flex-1 rounded-lg border px-2.5 py-1.5 text-xs transition-all focus:ring-2 focus:outline-none"
                   />
-                  <button onClick={() => removeLabel(i)} className="p-1 text-subtle hover:text-destructive-text hover:bg-destructive-surface rounded-lg transition-all cursor-pointer">
+                  <button
+                    onClick={() => removeLabel(i)}
+                    className="text-subtle hover:text-destructive-text hover:bg-destructive-surface cursor-pointer rounded-lg p-1 transition-all">
                     <IconTrash />
                   </button>
                 </div>
               ))}
-              <button onClick={addLabel} className="flex items-center gap-1.5 text-[11px] text-secondary-icon hover:text-secondary-foreground font-semibold mt-1 cursor-pointer">
+              <button
+                onClick={addLabel}
+                className="text-secondary-icon hover:text-secondary-foreground mt-1 flex cursor-pointer items-center gap-1.5 text-[11px] font-semibold">
                 <IconPlus /> Add Label
               </button>
             </div>

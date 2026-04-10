@@ -17,11 +17,15 @@ import '@xyflow/react/dist/style.css';
 
 import { nodeTypes } from './components/nodes';
 import { edgeTypes } from './components/edges';
-import { useWorkflowStore } from '@app/store/WorkflowStore';
+import { useWorkflowStore } from '@app/store/useWorkflowStore';
 import { workflowToReactFlow, reactFlowToPositions } from './utils/Conversion';
 import { autoLayout } from './utils/Layout';
 import { CanvasToolbar } from './components/panels/CanvasToolbar';
-import { CanvasContextMenu, NodeContextMenu, EdgeContextMenu } from './components/menus/CanvasContextMenu';
+import {
+  CanvasContextMenu,
+  NodeContextMenu,
+  EdgeContextMenu,
+} from './components/menus/CanvasContextMenu';
 
 interface FlowCanvasProps {
   workflowJson: Record<string, unknown>;
@@ -36,20 +40,37 @@ type ContextMenuState =
   | null
   | { type: 'pane'; screenX: number; screenY: number; flowX: number; flowY: number }
   | { type: 'node'; screenX: number; screenY: number; nodeId: string }
-  | { type: 'edge'; screenX: number; screenY: number; sourceStateKey: string; transitionKey: string };
+  | {
+      type: 'edge';
+      screenX: number;
+      screenY: number;
+      sourceStateKey: string;
+      transitionKey: string;
+    };
 
 function FlowCanvasInner({ workflowJson, diagramJson }: FlowCanvasProps) {
   const {
-    setSelectedNode, setSelectedEdge, updateDiagram,
-    addState, removeState, duplicateState, changeStateType,
-    addTransition, removeTransition, changeTransitionTrigger,
+    setSelectedNode,
+    setSelectedEdge,
+    updateDiagram,
+    addState,
+    removeState,
+    duplicateState,
+    changeStateType,
+    addTransition,
+    removeTransition,
+    changeTransitionTrigger,
   } = useWorkflowStore();
   const { fitView, screenToFlowPosition, getViewport } = useReactFlow();
   const autoLayoutDone = useRef(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState>(null);
 
   // Convert workflow JSON to ReactFlow nodes/edges
-  const { nodes: computedNodes, edges: computedEdges, needsLayout } = useMemo(() => {
+  const {
+    nodes: computedNodes,
+    edges: computedEdges,
+    needsLayout,
+  } = useMemo(() => {
     const result = workflowToReactFlow(workflowJson as any, diagramJson as any);
     const nodePos = (diagramJson as any)?.nodePos || {};
     const hasPositions = Object.keys(nodePos).length > 0;
@@ -85,7 +106,7 @@ function FlowCanvasInner({ workflowJson, diagramJson }: FlowCanvasProps) {
     (changes) => {
       onNodesChange(changes);
     },
-    [onNodesChange]
+    [onNodesChange],
   );
 
   // ─── Node drag → update diagram positions ───
@@ -99,7 +120,7 @@ function FlowCanvasInner({ workflowJson, diagramJson }: FlowCanvasProps) {
         };
       });
     },
-    [updateDiagram]
+    [updateDiagram],
   );
 
   // ─── Connect: Create transition in workflowJson ───
@@ -108,7 +129,7 @@ function FlowCanvasInner({ workflowJson, diagramJson }: FlowCanvasProps) {
       if (!connection.source || !connection.target) return;
       addTransition(connection.source, connection.target, 0);
     },
-    [addTransition]
+    [addTransition],
   );
 
   // ─── Selection ───
@@ -117,7 +138,7 @@ function FlowCanvasInner({ workflowJson, diagramJson }: FlowCanvasProps) {
       setSelectedNode(node.id);
       setContextMenu(null);
     },
-    [setSelectedNode]
+    [setSelectedNode],
   );
 
   const onEdgeClick = useCallback(
@@ -125,7 +146,7 @@ function FlowCanvasInner({ workflowJson, diagramJson }: FlowCanvasProps) {
       setSelectedEdge(edge.id);
       setContextMenu(null);
     },
-    [setSelectedEdge]
+    [setSelectedEdge],
   );
 
   const onPaneClick = useCallback(() => {
@@ -146,22 +167,19 @@ function FlowCanvasInner({ workflowJson, diagramJson }: FlowCanvasProps) {
         flowY: flowPos.y,
       });
     },
-    [screenToFlowPosition]
+    [screenToFlowPosition],
   );
 
-  const onNodeContextMenu = useCallback(
-    (event: React.MouseEvent, node: { id: string }) => {
-      event.preventDefault();
-      if (node.id === '__start__') return;
-      setContextMenu({
-        type: 'node',
-        screenX: event.clientX,
-        screenY: event.clientY,
-        nodeId: node.id,
-      });
-    },
-    []
-  );
+  const onNodeContextMenu = useCallback((event: React.MouseEvent, node: { id: string }) => {
+    event.preventDefault();
+    if (node.id === '__start__') return;
+    setContextMenu({
+      type: 'node',
+      screenX: event.clientX,
+      screenY: event.clientY,
+      nodeId: node.id,
+    });
+  }, []);
 
   const onEdgeContextMenu = useCallback(
     (event: React.MouseEvent, edge: { id: string; source: string; data?: any }) => {
@@ -175,7 +193,7 @@ function FlowCanvasInner({ workflowJson, diagramJson }: FlowCanvasProps) {
         transitionKey,
       });
     },
-    []
+    [],
   );
 
   const closeContextMenu = useCallback(() => setContextMenu(null), []);
@@ -188,7 +206,7 @@ function FlowCanvasInner({ workflowJson, diagramJson }: FlowCanvasProps) {
         removeState(node.id);
       }
     },
-    [removeState]
+    [removeState],
   );
 
   const onEdgesDelete = useCallback(
@@ -200,7 +218,7 @@ function FlowCanvasInner({ workflowJson, diagramJson }: FlowCanvasProps) {
         }
       }
     },
-    [removeTransition]
+    [removeTransition],
   );
 
   // ─── Auto Layout ───
@@ -223,7 +241,7 @@ function FlowCanvasInner({ workflowJson, diagramJson }: FlowCanvasProps) {
       const centerY = (-vp.y + 300) / vp.zoom;
       addState(stateType, subType, { x: centerX, y: centerY });
     },
-    [addState, getViewport]
+    [addState, getViewport],
   );
 
   // ─── Add state from context menu (at click position) ───
@@ -231,7 +249,7 @@ function FlowCanvasInner({ workflowJson, diagramJson }: FlowCanvasProps) {
     (stateType: number, subType: number, position: { x: number; y: number }) => {
       addState(stateType, subType, position);
     },
-    [addState]
+    [addState],
   );
 
   // ─── Duplicate state ───
@@ -241,11 +259,11 @@ function FlowCanvasInner({ workflowJson, diagramJson }: FlowCanvasProps) {
       const pos = nodePos || { x: 200, y: 200 };
       duplicateState(key, pos);
     },
-    [duplicateState, diagramJson]
+    [duplicateState, diagramJson],
   );
 
   return (
-    <div className="w-full h-full">
+    <div className="h-full w-full">
       <ReactFlow
         nodes={nodes}
         edges={edges}
@@ -270,10 +288,9 @@ function FlowCanvasInner({ workflowJson, diagramJson }: FlowCanvasProps) {
         snapGrid={[10, 10]}
         minZoom={0.1}
         maxZoom={2}
-        proOptions={{ hideAttribution: true }}
-      >
+        proOptions={{ hideAttribution: true }}>
         <Background gap={20} size={1} />
-        <Controls className="border-border! shadow-sm! rounded-xl!" />
+        <Controls className="border-border! rounded-xl! shadow-sm!" />
         <MiniMap
           nodeStrokeWidth={3}
           zoomable

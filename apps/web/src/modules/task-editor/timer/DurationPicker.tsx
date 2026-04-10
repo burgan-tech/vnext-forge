@@ -1,4 +1,4 @@
-import { Field } from '@modules/save-component/components/Field';
+import { Field } from '@shared/ui/Field';
 
 interface DurationPickerProps {
   value: string;
@@ -102,3 +102,4 @@ function formatDuration(d: Duration): string {
   if (result === 'P') result = 'PT0S';
   return result;
 }
+

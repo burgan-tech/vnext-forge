@@ -4,7 +4,7 @@ import Editor, { type OnMount } from '@monaco-editor/react';
 
 import { setupMonaco } from '@modules/code-editor/editor/MonacoSetup';
 import { useEditorStore } from '@modules/code-editor/EditorStore';
-import { useProjectStore } from '@modules/project-management/ProjectStore';
+import { useProjectStore } from '@app/store/useProjectStore';
 import { readFile, writeFile } from '@modules/project-workspace/WorkspaceApi';
 
 let monacoInitialized = false;

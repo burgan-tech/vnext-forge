@@ -2,8 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import MonacoEditor, { type OnMount } from '@monaco-editor/react';
 import { X, Code2, BookOpen, Maximize2, Minimize2 } from 'lucide-react';
 import { useScriptPanelStore } from '@modules/code-editor/ScriptPanelStore';
-import { useUIStore } from '@app/store/UiStore';
-import { useWorkflowStore } from '@app/store/WorkflowStore';
+import { useUIStore } from '@app/store/useUiStore';
+import { useWorkflowStore } from '@app/store/useWorkflowStore';
 import { encodeToBase64, decodeFromBase64 } from '@modules/code-editor/editor/Base64Handler';
 import { CsxSnippetToolbar } from '@modules/code-editor/editor/CsxSnippetToolbar';
 import { CsxReferencePanel } from '@modules/code-editor/editor/CsxReferencePanel';
@@ -127,7 +127,10 @@ export function ScriptEditorPanel() {
       const onMouseMove = (ev: MouseEvent) => {
         if (!resizingRef.current) return;
         const delta = startYRef.current - ev.clientY;
-        const newHeight = Math.min(MAX_HEIGHT, Math.max(MIN_HEIGHT, startHeightRef.current + delta));
+        const newHeight = Math.min(
+          MAX_HEIGHT,
+          Math.max(MIN_HEIGHT, startHeightRef.current + delta),
+        );
         setScriptPanelHeight(newHeight);
         if (isMaximized) setIsMaximized(false);
       };
@@ -163,26 +166,24 @@ export function ScriptEditorPanel() {
 
   return (
     <div
-      className="flex shrink-0 flex-col border-t border-border bg-surface"
-      style={{ height: panelHeight }}
-    >
+      className="border-border bg-surface flex shrink-0 flex-col border-t"
+      style={{ height: panelHeight }}>
       {/* Resize handle */}
       <div
-        className="group relative h-[3px] shrink-0 cursor-row-resize bg-transparent transition-colors hover:bg-secondary-border"
-        onMouseDown={handleResizeStart}
-      >
+        className="group hover:bg-secondary-border relative h-[3px] shrink-0 cursor-row-resize bg-transparent transition-colors"
+        onMouseDown={handleResizeStart}>
         <div className="absolute inset-x-0 -top-1 -bottom-1" />
       </div>
 
       {/* Header bar */}
-      <div className="flex shrink-0 items-center gap-2 border-b border-border-subtle bg-muted/70 px-3 py-1.5">
-        <div className="flex size-5 shrink-0 items-center justify-center rounded-md bg-secondary-muted">
+      <div className="border-border-subtle bg-muted/70 flex shrink-0 items-center gap-2 border-b px-3 py-1.5">
+        <div className="bg-secondary-muted flex size-5 shrink-0 items-center justify-center rounded-md">
           <Code2 size={12} className="text-secondary-icon" />
         </div>
-        <span className="truncate text-[11px] font-semibold text-foreground">
+        <span className="text-foreground truncate text-[11px] font-semibold">
           {activeScript.label}
         </span>
-        <span className="truncate font-mono text-[10px] text-muted-foreground">
+        <span className="text-muted-foreground truncate font-mono text-[10px]">
           {activeScript.stateKey}
         </span>
 
@@ -202,52 +203,49 @@ export function ScriptEditorPanel() {
         {/* API Reference toggle */}
         <button
           onClick={() => setShowReference(!showReference)}
-          className={`p-1.5 rounded-lg transition-all ${
+          className={`rounded-lg p-1.5 transition-all ${
             showReference
               ? 'bg-secondary-surface text-secondary-text'
               : 'text-muted-foreground hover:bg-muted hover:text-secondary-text'
           }`}
-          title="API Reference"
-        >
+          title="API Reference">
           <BookOpen size={14} />
         </button>
 
         {/* Maximize/Restore */}
         <button
           onClick={() => setIsMaximized(!isMaximized)}
-          className="rounded-lg p-1.5 text-muted-foreground transition-all hover:bg-muted hover:text-foreground"
-          title={isMaximized ? 'Restore' : 'Maximize'}
-        >
+          className="text-muted-foreground hover:bg-muted hover:text-foreground rounded-lg p-1.5 transition-all"
+          title={isMaximized ? 'Restore' : 'Maximize'}>
           {isMaximized ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
         </button>
 
         {/* Close */}
         <button
           onClick={handleClose}
-          className="rounded-lg p-1.5 text-muted-foreground transition-all hover:bg-muted hover:text-foreground"
-          title="Close"
-        >
+          className="text-muted-foreground hover:bg-muted hover:text-foreground rounded-lg p-1.5 transition-all"
+          title="Close">
           <X size={14} />
         </button>
       </div>
 
       {/* Snippet toolbar — horizontal, above editor */}
       {locationError && (
-        <div className="px-3 pt-2 shrink-0">
+        <div className="shrink-0 px-3 pt-2">
           <Alert variant="destructive" className="px-3 py-2 text-xs">
             <AlertDescription>{locationError}</AlertDescription>
           </Alert>
         </div>
       )}
 
-      <div className="shrink-0 border-b border-border-subtle bg-muted/40">
+      <div className="border-border-subtle bg-muted/40 shrink-0 border-b">
         <CsxSnippetToolbar templateType={activeScript.templateType} editorRef={editorRef} />
       </div>
 
       {/* Editor area */}
-      <div className="flex flex-1 min-h-0">
+      <div className="flex min-h-0 flex-1">
         {/* Monaco editor (full width) */}
-        <div className="flex-1 min-w-0">
+        <div className="min-w-0 flex-1">
           <MonacoEditor
             height={editorHeight}
             language="csharp"
@@ -280,7 +278,7 @@ export function ScriptEditorPanel() {
 
         {/* Right — API Reference panel */}
         {showReference && (
-          <div className="w-64 shrink-0 overflow-y-auto border-l border-border-subtle">
+          <div className="border-border-subtle w-64 shrink-0 overflow-y-auto border-l">
             <CsxReferencePanel
               onClose={() => setShowReference(false)}
               onInsert={handleReferenceInsert}
@@ -290,11 +288,11 @@ export function ScriptEditorPanel() {
       </div>
 
       {/* Bottom status bar */}
-      <div className="flex shrink-0 items-center justify-between border-t border-border-subtle bg-muted/40 px-3 py-1">
-        <span className="font-mono text-[10px] text-muted-foreground">
+      <div className="border-border-subtle bg-muted/40 flex shrink-0 items-center justify-between border-t px-3 py-1">
+        <span className="text-muted-foreground font-mono text-[10px]">
           {decoded.split('\n').length} lines &middot; {activeScript.templateType}
         </span>
-        <span className="font-mono text-[10px] text-muted-foreground">
+        <span className="text-muted-foreground font-mono text-[10px]">
           C# Script &middot; UTF-8
         </span>
       </div>

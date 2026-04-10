@@ -1,4 +1,4 @@
-import { JsonCodeField } from '@modules/save-component/components/JsonCodeField';
+import { JsonCodeField } from '@shared/ui/JsonCodeField';
 
 interface Props { config: Record<string, unknown>; onChange: (updater: (draft: any) => void) => void; }
 
@@ -15,3 +15,4 @@ export function ScriptTaskForm({ config, onChange }: Props) {
     </div>
   );
 }
+

@@ -1,5 +1,5 @@
-import { Field } from '@modules/save-component/components/Field';
-import { TagEditor } from '@modules/save-component/components/TagEditor';
+import { Field } from '@shared/ui/Field';
+import { TagEditor } from '@shared/ui/TagEditor';
 import { RetryPolicyEditor } from './RetryPolicyEditor';
 
 interface ErrorHandlerFormProps {
@@ -69,3 +69,4 @@ export function ErrorHandlerForm({ handler, onChange }: ErrorHandlerFormProps) {
     </div>
   );
 }
+

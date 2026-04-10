@@ -1,4 +1,4 @@
-import { Field } from '@modules/save-component/components/Field';
+import { Field } from '@shared/ui/Field';
 import { parseCron, formatCron } from './CronUtils';
 
 interface CronExpressionBuilderProps {
@@ -34,3 +34,4 @@ export function CronExpressionBuilder({ value, onChange }: CronExpressionBuilder
     </div>
   );
 }
+
