@@ -1,0 +1,12 @@
+import { Hono } from 'hono'
+import { projectController } from './controller.js'
+
+export const projectRouter = new Hono()
+  .get('/', (c) => projectController.list(c))
+  .get('/:id', (c) => projectController.getById(c))
+  .post('/', (c) => projectController.create(c))
+  .post('/import', (c) => projectController.importProject(c))
+  .get('/:id/tree', (c) => projectController.getTree(c))
+  .get('/:id/config', (c) => projectController.getConfig(c))
+  .post('/:id/export', (c) => projectController.exportProject(c))
+  .delete('/:id', (c) => projectController.remove(c))

@@ -3,10 +3,31 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src",
-    "noEmit": true
+    "composite": true,
+    "types": [
+      "node"
+    ],
+    "paths": {
+      "@project/*": ["./src/slices/project/*"],
+      "@workspace/*": ["./src/slices/workspace/*"],
+      "@validate/*": ["./src/slices/validate/*"],
+      "@runtime-proxy/*": ["./src/slices/runtime-proxy/*"],
+      "@template/*": ["./src/slices/template/*"],
+      "@shared/*": ["./src/shared/*"]
+    }
   },
-  "include": ["src"],
+  "include": [
+    "src"
+  ],
+  "exclude": [
+    "src/**/*.test.ts"
+  ],
   "references": [
-    { "path": "../../packages/vnext-types" }
+    {
+      "path": "../../packages/vnext-types"
+    },
+    {
+      "path": "../../packages/app-contracts"
+    }
   ]
 }

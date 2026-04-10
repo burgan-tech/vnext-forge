@@ -1,29 +1,47 @@
-import { serve } from '@hono/node-server'
-import { Hono } from 'hono'
-import { cors } from 'hono/cors'
-import { logger } from 'hono/logger'
-import { projectRoutes } from './routes/projects.js'
-import { fileRoutes } from './routes/files.js'
-import { runtimeProxyRoutes } from './routes/runtime-proxy.js'
-import { validateRoutes } from './routes/validate.js'
-import { templateRoutes } from './routes/templates.js'
+import { serve } from '@hono/node-server';
+import { Hono } from 'hono';
+import { cors } from 'hono/cors';
+import { ERROR_CODES, VnextForgeError } from '@vnext-forge/app-contracts';
+import { errorHandler, jsonErrorResponse } from '@shared/middleware/error-handler.js';
+import { baseLogger } from '@shared/lib/logger.js';
+import { requestLoggerMiddleware } from '@shared/middleware/logger.js';
+import { traceIdMiddleware } from '@shared/middleware/trace-id.js';
+import { ok } from '@shared/lib/response-helpers.js';
+import { projectRouter } from '@project/router.js';
+import { workspaceRouter } from '@workspace/router.js';
+import { validateRouter } from '@validate/router.js';
+import { runtimeProxyRouter } from '@runtime-proxy/router.js';
+import { templateRouter } from '@template/router.js';
+import '@shared/types/hono.js';
 
 const app = new Hono()
+  .use('*', traceIdMiddleware)
+  .use('*', requestLoggerMiddleware)
+  .use('*', cors())
+  .route('/api/projects', projectRouter)
+  .route('/api/files', workspaceRouter)
+  .route('/api/validate', validateRouter)
+  .route('/api/runtime', runtimeProxyRouter)
+  .route('/api/templates', templateRouter)
+  .get('/api/health', (c) => ok(c, { status: 'ok', traceId: c.get('traceId') }));
 
-app.use('*', logger())
-app.use('*', cors())
+app.onError(errorHandler);
+app.notFound((c) =>
+  jsonErrorResponse(
+    c,
+    new VnextForgeError(
+      ERROR_CODES.API_NOT_FOUND,
+      'The requested route does not exist.',
+      { source: 'app.notFound', layer: 'transport' },
+      c.get('traceId'),
+    ),
+  ),
+);
 
-app.route('/api/projects', projectRoutes)
-app.route('/api/files', fileRoutes)
-app.route('/api/runtime', runtimeProxyRoutes)
-app.route('/api/validate', validateRoutes)
-app.route('/api/templates', templateRoutes)
+const port = Number(process.env.PORT) || 3001;
+baseLogger.info(`vnext-forge BFF running on port ${port}`);
 
-app.get('/api/health', (c) => c.json({ status: 'ok' }))
+serve({ fetch: app.fetch, port });
 
-const port = Number(process.env.PORT) || 3001
-console.log(`vnext-flow-studio BFF running on port ${port}`)
-
-serve({ fetch: app.fetch, port })
-
-export default app
+export type AppType = typeof app;
+export default app;

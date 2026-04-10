@@ -1,7 +1,7 @@
-import { Label } from './label';
-import { State, SharedTransition, ResourceReference } from './state';
 import { ErrorBoundary } from './error-boundary';
+import { Label } from './label';
 import { MappingCode } from './mapping';
+import { State, SharedTransition, ResourceReference } from './state';
 
 export type WorkflowType = 'F' | 'S' | 'P' | 'C';
 

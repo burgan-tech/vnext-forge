@@ -1,5 +1,5 @@
 {
-  "name": "@vnext-studio/types",
+  "name": "@vnext-forge/vnext-types",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,9 +10,11 @@
   },
   "scripts": {
     "build": "tsc",
+    "lint": "eslint .",
     "clean": "rm -rf dist"
   },
   "devDependencies": {
+    "@types/node": "^22.0.0",
     "typescript": "^5.7.0"
   }
 }

@@ -1,9 +1,10 @@
-@import "tailwindcss";
+@import 'tailwindcss';
+@import 'tw-animate-css';
 
 @theme {
   /* ── Typography ── */
-  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
-  --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', ui-monospace, monospace;
 
   /* ── Radii ── */
   --radius-sm: 0.25rem;
@@ -18,28 +19,135 @@
   --color-surface: #ffffff;
   --color-surface-raised: #f8fafc;
   --color-muted: #f1f5f9;
+  --color-muted-hover: #e2e8f0;
   --color-muted-foreground: #64748b;
   --color-border: #e2e8f0;
   --color-border-subtle: #f1f5f9;
-  --color-ring: #6366f1;
+  --color-ring: #0284c7; /* sky-600 — matches primary */
+  --color-muted-border: #e2e8f0;
+  --color-muted-border-hover: #cbd5e1;
+  --color-muted-surface: #f8fafc;
+  --color-muted-icon: #94a3b8;
+  --color-muted-text: #64748b;
 
-  /* ── Primary — Deep Indigo ── */
-  --color-primary: #6366f1;
-  --color-primary-hover: #4f46e5;
-  --color-primary-foreground: #ffffff;
-  --color-primary-muted: #eef2ff;
+  /* ── Default ── */
+  --color-primary: #ffffff;
+  --color-primary-hover: #f1f5f9;
+  --color-primary-border: #cbd5e1;
+  --color-primary-foreground: #0f172a;
+  --color-primary-surface: #f1f5f9;
+  --color-primary-muted: #e2e8f0;
+  --color-primary-muted-hover: #cbd5e1;
+  --color-primary-border-hover: #94a3b8;
+  --color-primary-icon: #334155;
+  --color-primary-text: #0f172a;
+
+  /* ── Secondary ── */
+  --color-secondary: #e0f2fe;
+  --color-secondary-hover: #bae6fd;
+  --color-secondary-border: #7dd3fc;
+  --color-secondary-foreground: #0c4a6e;
+  --color-secondary-surface: #e0f2fe;
+  --color-secondary-muted: #bae6fd;
+  --color-secondary-muted-hover: #7dd3fc;
+  --color-secondary-border-hover: #38bdf8;
+  --color-secondary-icon: #0284c7;
+  --color-secondary-text: #0c4a6e;
+
+  /* ── Tertiary ── */
+  --color-tertiary: #dcfce7;
+  --color-tertiary-hover: #bbf7d0;
+  --color-tertiary-border: #86efac;
+  --color-tertiary-surface: #dcfce7;
+  --color-tertiary-foreground: #14532d;
+  --color-tertiary-muted: #bbf7d0;
+  --color-tertiary-muted-hover: #86efac;
+  --color-tertiary-border-hover: #4ade80;
+  --color-tertiary-icon: #16a34a;
+  --color-tertiary-text: #14532d;
+
+  /* ── Success ── */
+  --color-success: #dcfce7;
+  --color-success-hover: #bbf7d0;
+  --color-success-foreground: #14532d;
+  --color-success-surface: #f0fdf4; /* green-50 */
+  --color-success-border: #86efac; /* green-300 */
+  --color-success-border-hover: #4ade80; /* green-400 */
+  --color-success-icon: #15803d; /* green-700 */
+  --color-success-text: #166534; /* green-800 */
+
+  /* Validation warning surfaces */
+  --color-warning: #fef3c7;
+  --color-warning-hover: #fde68a;
+  --color-warning-foreground: #78350f;
+  --color-warning-surface: #fffbeb;
+  --color-warning-border: #fcd34d;
+  --color-warning-border-hover: #fbbf24;
+  --color-warning-icon: #d97706;
+  --color-warning-text: #92400e;
+
+  /* Validation info surfaces */
+  --color-info: #dbeafe;
+  --color-info-hover: #bfdbfe;
+  --color-info-foreground: #1e3a8a;
+  --color-info-surface: #eff6ff;
+  --color-info-border: #93c5fd;
+  --color-info-border-hover: #60a5fa;
+  --color-info-icon: #2563eb;
+  --color-info-text: #1d4ed8;
+
+  /* ── Destructive ── */
+  --color-destructive: #ef4444;
+  --color-destructive-hover: #dc2626;
+  --color-destructive-foreground: #ffffff;
+  --color-destructive-surface: #fff1f2; /* rose-50 */
+  --color-destructive-muted: #ffe4e6; /* rose-100 */
+  --color-destructive-muted-hover: #fecdd3; /* rose-200 */
+  --color-destructive-border: #fecdd3; /* rose-200 */
+  --color-destructive-border-hover: #fda4af; /* rose-300 */
+  --color-destructive-icon: #be123c; /* rose-700 */
+  --color-destructive-text: #be123c; /* rose-700 */
 
   /* ── Semantic ── */
-  --color-destructive: #ef4444;
-  --color-destructive-foreground: #ffffff;
   --color-card: #ffffff;
   --color-card-foreground: #0f172a;
-  --color-secondary: #f1f5f9;
-  --color-secondary-foreground: #0f172a;
   --color-accent: #f1f5f9;
   --color-accent-foreground: #0f172a;
-  --color-success: #10b981;
-  --color-warning: #f59e0b;
+  --color-outline-hover: #f1f5f9;
+  --color-outline-icon: #0f172a;
+  --color-ghost-hover: #f1f5f9;
+  --color-ghost-icon: #0f172a;
+  --color-link-hover: var(--color-primary-hover);
+  --color-link-icon: var(--color-primary-icon);
+
+  /* ── Subtle text ── */
+  --color-subtle: #94a3b8; /* slate-400 */
+
+  /* ── Action (solid primary CTA buttons — filled, high-emphasis) ── */
+  --color-action: #6366f1; /* indigo-500 */
+  --color-action-hover: #4f46e5; /* indigo-600 */
+  --color-action-foreground: #ffffff;
+  --color-action-shadow: rgba(99, 102, 241, 0.25);
+
+  /* ── Brand gradient ── */
+  --color-brand-from: #34d399; /* emerald-400 */
+  --color-brand-via: #14b8a6; /* teal-500 */
+  --color-brand-to: #059669; /* emerald-600 */
+  --color-brand-glow: #10b981; /* emerald-500 */
+  --color-brand-ring: #d1fae5; /* emerald-100 */
+
+  /* ── File type indicator colors ── */
+  --color-filetype-json: #f59e0b; /* amber-500 */
+  --color-filetype-csharp: #8b5cf6; /* violet-500 */
+  --color-filetype-js: #eab308; /* yellow-500 */
+  --color-filetype-ts: #3b82f6; /* blue-500 */
+  --color-filetype-sql: #f97316; /* orange-500 */
+  --color-filetype-shell: #10b981; /* emerald-500 */
+  --color-filetype-yaml: #fb7185; /* rose-400 */
+  --color-filetype-xml: #fb923c; /* orange-400 */
+  --color-filetype-html: #f43f5e; /* rose-500 */
+  --color-filetype-css: #60a5fa; /* blue-400 */
+  --color-filetype-python: #2563eb; /* blue-600 */
 
   /* ── Node state colors ── */
   --color-initial: #10b981;
@@ -56,18 +164,50 @@
   --color-trigger-auto: #10b981;
   --color-trigger-scheduled: #f59e0b;
   --color-trigger-event: #8b5cf6;
+
+  /* ── App chrome (persistent dark shell — activity bar, dark panels) ── */
+  --color-chrome: #0f172a;
+  --color-chrome-item: #1e293b;
+  --color-chrome-item-hover: #1a2433;
+  --color-chrome-foreground: #f1f5f9; /* primary text/icon on chrome shell */
+  --color-chrome-muted: #64748b; /* inactive/secondary text/icon on chrome shell */
+  --color-chrome-accent: #818cf8; /* active state accent mark on chrome shell */
+
+  /* ── Brand surface (status bar, branded header panels) ── */
+  --color-brand-surface: #0f766e; /* teal-700 — dark green surface */
+  --color-brand-surface-strong: #ffffff; /* primary/title text on brand surface */
+  --color-brand-surface-foreground: #ccfbf1; /* teal-100 — body text on brand surface */
+  --color-brand-surface-muted: #5eead4; /* teal-300 — secondary/label text on brand surface */
+  --color-brand-surface-error: #fca5a5; /* red-300 — error indicator on brand surface */
+  --color-brand-surface-warning: #fcd34d; /* yellow-300 — warning indicator on brand surface */
+  --color-brand-surface-success: #6ee7b7; /* emerald-300 — success indicator on brand surface */
+  --color-brand-surface-dot-success: #6ee7b7; /* emerald-300 — connected/healthy status dot */
+  --color-brand-surface-dot-warning: #fcd34d; /* yellow-300 — degraded status dot */
+  --color-brand-surface-dot-idle: #2dd4bf; /* teal-400 — disconnected/idle status dot */
+  /* Brand surface status chips for inline semantic state emphasis on dark shell surfaces. */
+  --color-brand-surface-status-muted: rgba(13, 148, 136, 0.22);
+  --color-brand-surface-status-muted-border: rgba(94, 234, 212, 0.35);
+  --color-brand-surface-status-muted-foreground: #ccfbf1;
+  --color-brand-surface-status-success: rgba(22, 163, 74, 0.22);
+  --color-brand-surface-status-success-border: rgba(110, 231, 183, 0.45);
+  --color-brand-surface-status-success-foreground: #d1fae5;
+  --color-brand-surface-status-warning: rgba(217, 119, 6, 0.26);
+  --color-brand-surface-status-warning-border: rgba(252, 211, 77, 0.48);
+  --color-brand-surface-status-warning-foreground: #fef3c7;
+  --color-brand-surface-status-danger: rgba(190, 24, 93, 0.26);
+  --color-brand-surface-status-danger-border: rgba(252, 165, 165, 0.5);
+  --color-brand-surface-status-danger-foreground: #fee2e2;
 }
 
 * {
   box-sizing: border-box;
-  margin: 0;
-  padding: 0;
 }
 
-html, body, #root {
+html,
+body,
+#root {
   height: 100%;
   width: 100%;
-  overflow: hidden;
 }
 
 body {
@@ -76,7 +216,7 @@ body {
   color: var(--color-foreground);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
   text-rendering: optimizeLegibility;
 }
 
@@ -115,23 +255,45 @@ body {
 
 /* ── Animations ── */
 @keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes slide-up {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes slide-down {
-  from { opacity: 0; transform: translateY(-6px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes scale-in {
-  from { opacity: 0; transform: scale(0.95); }
-  to { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .animate-fade-in {
@@ -148,4 +310,69 @@ body {
 
 .animate-scale-in {
   animation: scale-in 0.15s ease-out;
+}
+
+[data-slot='tag-editor'] > .tag-editor-chip {
+  --tag-bg: #e2e8f0;
+  --tag-border: #cbd5e1;
+  --tag-text: #334155;
+  background-color: var(--tag-bg) !important;
+  border-color: var(--tag-border) !important;
+  color: var(--tag-text) !important;
+}
+
+[data-slot='tag-editor'] > .tag-editor-chip:nth-child(6n + 1) {
+  --tag-bg: #dbeafe;
+  --tag-border: #93c5fd;
+  --tag-text: #1d4ed8;
+}
+
+[data-slot='tag-editor'] > .tag-editor-chip:nth-child(6n + 2) {
+  --tag-bg: #dcfce7;
+  --tag-border: #86efac;
+  --tag-text: #15803d;
+}
+
+[data-slot='tag-editor'] > .tag-editor-chip:nth-child(6n + 3) {
+  --tag-bg: #fef3c7;
+  --tag-border: #fcd34d;
+  --tag-text: #b45309;
+}
+
+[data-slot='tag-editor'] > .tag-editor-chip:nth-child(6n + 4) {
+  --tag-bg: #fce7f3;
+  --tag-border: #f9a8d4;
+  --tag-text: #be185d;
+}
+
+[data-slot='tag-editor'] > .tag-editor-chip:nth-child(6n + 5) {
+  --tag-bg: #ede9fe;
+  --tag-border: #c4b5fd;
+  --tag-text: #6d28d9;
+}
+
+[data-slot='tag-editor'] > .tag-editor-chip:nth-child(6n) {
+  --tag-bg: #ccfbf1;
+  --tag-border: #5eead4;
+  --tag-text: #0f766e;
+}
+
+[data-slot='tag-editor'] > .tag-editor-chip .tag-editor-chip-remove {
+  background-color: color-mix(in srgb, var(--tag-bg) 80%, white) !important;
+  border-style: solid !important;
+  border-width: 1px !important;
+  border-color: var(--color-destructive-border) !important;
+  color: var(--color-destructive-text) !important;
+}
+
+[data-slot='tag-editor'] > .tag-editor-chip .tag-editor-chip-remove:hover {
+  background-color: var(--color-destructive-muted-hover) !important;
+  border-color: var(--color-destructive-border-hover) !important;
+  color: var(--color-destructive-text) !important;
+}
+
+[data-slot='tag-editor'] > .tag-editor-chip .tag-editor-chip-remove:focus-visible {
+  background-color: var(--color-destructive-muted-hover) !important;
+  border-color: var(--color-destructive-border-hover) !important;
+  color: var(--color-destructive-text) !important;
 }
