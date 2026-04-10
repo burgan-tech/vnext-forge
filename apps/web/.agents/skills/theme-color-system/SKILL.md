@@ -44,6 +44,7 @@ If no existing family maps to the element's semantic role, add a new token famil
 - Express reusable theme decisions through the Tailwind-driven styling system instead of introducing parallel styling approaches.
 - Define and maintain shared color tokens in `apps/web/src/index.css`, then consume those tokens through Tailwind-facing semantic utilities.
 - Treat `apps/web/src/index.css` as the mandatory source for reusable app colors. Tailwind classes should reference the app token system, not bypass it with built-in raw palette colors.
+- When adding a new token in `apps/web/src/index.css`, add a short nearby code comment that states the token family's general intended usage. The comment should describe broad ownership or UI area, for example `canvas surfaces`, `nodes inside canvas`, `sidebar chrome`, or `form validation states`, not one-off component instances.
 - Treat spacing as part of the visual system. Repeated spacing patterns should be standardized through Tailwind scale choices and shared composition rules, not recreated ad hoc in each slice.
 - Treat clickable surface borders as part of the interaction system. If a control is visually clickable and uses a border, that border should come from the `primary` token family unless the component is intentionally communicating another semantic state such as destructive or success.
 - For reusable primitives under `apps/web/src/shared/ui`, prefer a variant-first API before introducing custom Tailwind props, local color overrides, or one-off style booleans.
@@ -132,6 +133,7 @@ If no existing family maps to the element's semantic role, add a new token famil
 - Introduce token work incrementally when it clearly reduces duplication.
 - Apply theme and color decisions through Tailwind classes, Tailwind theme extensions, or shared Tailwind-compatible token sources.
 - Add or update reusable color tokens in `apps/web/src/index.css` before using them in components.
+- When introducing a new token family in `apps/web/src/index.css`, document with a short comment what kind of components or UI regions it is generally meant for, such as canvas, canvas nodes, dialogs, sidebars, or passive support surfaces.
 - Use semantic Tailwind color utilities backed by the shared token system instead of raw palette utilities such as `bg-red-500`, `text-blue-600`, or `border-zinc-200`.
 - Use `primary`-backed border utilities for interactive controls such as inputs, outlined buttons, selectable cards, and other clickable bordered surfaces unless a different semantic state is explicitly required.
 - Prefer implementing reusable variant families such as `default`, `secondary`, and `tertiary` in the primitive instead of expecting consumers to recreate them.
@@ -157,6 +159,7 @@ If no existing family maps to the element's semantic role, add a new token famil
 - Do not introduce separate CSS/SCSS/CSS-in-JS theme layers for new work when the same outcome should live in the Tailwind system.
 - Do not use Tailwind magic colors such as `bg-slate-100`, `text-red-500`, `border-blue-300`, or similar raw palette classes as app color decisions.
 - Do not add a new reusable app color directly inside a component before defining it in `apps/web/src/index.css`.
+- Do not add new reusable tokens in `apps/web/src/index.css` without a short comment that explains their broad intended usage area.
 - Do not create highly specialized tokens tied to a single feature, CTA, or screen language such as `create-accent`, `import-accent`, `project-list-blue`, `error-surface`, or similar usage-specific names when a broader semantic token should exist instead.
 - Do not encode one component mood, one page headline, or one action label into the token name. If the name stops making sense outside that one UI context, it is the wrong token.
 - **Do not pick a token because its resolved hex value looks correct.** Visual match is not semantic correctness. A `-border` token on text, an `-icon` token as a gradient stop, or a `secondary` family applied to something unrelated to the secondary interaction concept are all wrong regardless of how they render.
@@ -187,6 +190,7 @@ Flag the implementation if:
 - token work adds more local exceptions than it removes
 - new theme work bypasses Tailwind without an explicit compatibility reason
 - reusable color work bypasses `apps/web/src/index.css`
+- new tokens are added in `apps/web/src/index.css` without nearby comments describing their broad intended usage
 - raw Tailwind palette colors are used as app-level color decisions instead of semantic token-backed utilities
 - a token is chosen because its resolved color value visually matches, not because its semantic role matches
 - a structural token slot (`-border`, `-icon`, `-muted`) is applied in a role it was not designed for (e.g. `-border` used as text color, `-icon` used as gradient stop)

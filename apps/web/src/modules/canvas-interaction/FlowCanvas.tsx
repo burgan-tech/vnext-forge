@@ -273,12 +273,12 @@ function FlowCanvasInner({ workflowJson, diagramJson }: FlowCanvasProps) {
         proOptions={{ hideAttribution: true }}
       >
         <Background gap={20} size={1} />
-        <Controls className="!border-slate-200 !shadow-sm !rounded-xl" />
+        <Controls className="border-border! shadow-sm! rounded-xl!" />
         <MiniMap
           nodeStrokeWidth={3}
           zoomable
           pannable
-          className="!bg-slate-50/80 !border-slate-200 !rounded-xl"
+          className="bg-muted-surface/80! border-border! rounded-xl!"
         />
         <Panel position="top-right">
           <CanvasToolbar onAddState={handleToolbarAddState} onAutoLayout={handleAutoLayout} />

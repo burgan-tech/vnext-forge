@@ -59,11 +59,11 @@ src/
     project-management/
       ProjectManagementView.tsx
       ProjectApi.ts
-      UseProjectManagement.ts
+      useProjectManagement.ts
     project-workspace/
       ProjectWorkspaceView.tsx
       WorkspaceApi.ts
-      UseProjectWorkspace.ts
+      useProjectWorkspace.ts
     canvas-interaction/
     code-editor/
     workflow-validation/
@@ -98,7 +98,7 @@ pages/
 modules/
   project-management/
     ProjectManagementView.tsx
-    UseProjectManagement.ts
+    useProjectManagement.ts
     ProjectApi.ts
 ```
 
@@ -115,9 +115,10 @@ Use one naming rule across `app`, `pages`, `modules`, and `shared`:
 - Folders use `kebab-case`
 - Files use `PascalCase`
 
-- Name files like exported React components or owned module contracts: `ProjectListActions.tsx`, `ProjectApi.ts`, `ProjectStore.ts`, `UseProjectList.ts`, `Button.tsx`
+- Name files like exported React components or owned module contracts: `ProjectListActions.tsx`, `ProjectApi.ts`, `ProjectStore.ts`, `useProjectList.ts`, `Button.tsx`
 - Keep the file name and the primary exported symbol aligned when practical
-- Use the same rule for hooks in this repo. Prefer `UseProjectList.ts` instead of `use-project-list.ts` or `useProjectList.ts`
+- Use the same rule for hooks in this repo, with one explicit exception: hook files and hook exports must use `use` + `PascalCase`, for example `useProjectList.ts` and `useProjectList`
+- If a name starts with `use`, it must follow `use` + `PascalCase`. Do not use forms like `UseProjectList`, `use-project-list`, or `useprojectlist`
 - Keep folders descriptive and in `kebab-case`, such as `project-management`, `project-list`, `shared`, `ui`, or `code-editor`
 - Keep framework exceptions as they are when required by tooling, for example `index.ts`, `main.tsx`, or `vite-env.d.ts`
 - Do not use `camelCase` or `PascalCase` for folder names unless tooling forces it
@@ -141,7 +142,7 @@ Default module contents:
 
 - `CodeEditorApi.ts`
 - `CodeEditorStore.ts`
-- `UseCodeEditor.ts`
+- `useCodeEditor.ts`
 - `CodeEditorTypes.ts`
 - `WorkflowValidationPanel.tsx`
 - `ProjectManagementView.tsx`
@@ -166,7 +167,7 @@ modules/code-editor/
   components/
   api/
   CodeEditorStore.ts
-  UseCodeEditor.ts
+  useCodeEditor.ts
 ```
 
 - Do not create `model`, `ui`, `hooks`, `types`, or `services` folders by reflex.

@@ -104,6 +104,12 @@
   /* ── Subtle text ── */
   --color-subtle: #94a3b8; /* slate-400 */
 
+  /* ── Action (solid primary CTA buttons — filled, high-emphasis) ── */
+  --color-action: #6366f1;             /* indigo-500 */
+  --color-action-hover: #4f46e5;       /* indigo-600 */
+  --color-action-foreground: #ffffff;
+  --color-action-shadow: rgba(99,102,241,0.25);
+
   /* ── Brand gradient ── */
   --color-brand-from: #34d399; /* emerald-400 */
   --color-brand-via: #14b8a6; /* teal-500 */

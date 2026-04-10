@@ -1,17 +1,30 @@
 import { useRef } from 'react';
 import Editor, { type OnMount } from '@monaco-editor/react';
 import { useEditorStore } from '@modules/code-editor/EditorStore';
+import { useSaveFile } from '@modules/code-editor/useSaveFile';
 import { useUIStore } from '@app/store/UiStore';
+import { Alert, AlertDescription } from '@shared/ui/Alert';
 import { setupMonaco } from './MonacoSetup';
 
 let monacoInitialized = false;
 
 export function CodeEditorPanel() {
-  const { tabs, activeTabId, updateTabContent, closeTab, setActiveTab } = useEditorStore();
+  const { tabs, activeTabId, updateTabContent, closeTab, setActiveTab, markTabClean } =
+    useEditorStore();
   const { theme } = useUIStore();
   const editorRef = useRef<any>(null);
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
+  const { saveError, saving } = useSaveFile({
+    filePath: activeTab?.filePath ?? null,
+    getContent: () => activeTab?.content ?? null,
+    isDirty: activeTab?.isDirty ?? false,
+    onSaved: () => {
+      if (activeTab) {
+        markTabClean(activeTab.id);
+      }
+    },
+  });
 
   const handleMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
@@ -61,7 +74,21 @@ export function CodeEditorPanel() {
             </button>
           </div>
         ))}
+
+        {saving && (
+          <div className="ml-auto flex items-center px-3 text-xs text-muted-foreground">
+            Saving...
+          </div>
+        )}
       </div>
+
+      {saveError && (
+        <div className="p-3 pb-0 shrink-0">
+          <Alert variant="destructive" className="px-3 py-2 text-xs">
+            <AlertDescription>{saveError.toUserMessage().message}</AlertDescription>
+          </Alert>
+        </div>
+      )}
 
       {activeTab && (
         <div className="flex-1">

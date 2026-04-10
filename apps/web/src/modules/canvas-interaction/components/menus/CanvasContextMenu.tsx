@@ -32,20 +32,20 @@ export function CanvasContextMenu({ position, onClose, onAddState }: CanvasConte
   return (
     <div
       ref={ref}
-      className="fixed z-[100] bg-white/95 backdrop-blur-xl rounded-xl border border-slate-200/80 shadow-xl shadow-slate-900/10 py-1.5 min-w-[180px] animate-scale-in"
+      className="fixed z-[100] bg-surface/95 backdrop-blur-xl rounded-xl border border-border shadow-xl shadow-black/10 py-1.5 min-w-[180px] animate-scale-in"
       style={{ left: position.screenX, top: position.screenY }}
     >
-      <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-slate-400">Add State</div>
-      <MenuItem label="Initial State" color="bg-emerald-500" onClick={() => add(1)} />
-      <MenuItem label="Intermediate State" color="bg-indigo-500" onClick={() => add(2)} />
-      <div className="border-t border-slate-100 my-1 mx-2" />
-      <div className="px-3 py-1 text-[10px] text-slate-400 font-medium">Final States</div>
-      <MenuItem label="Success" color="bg-emerald-400" indent onClick={() => add(3, 1)} />
-      <MenuItem label="Error" color="bg-rose-400" indent onClick={() => add(3, 2)} />
-      <MenuItem label="Terminated" color="bg-slate-400" indent onClick={() => add(3, 3)} />
-      <MenuItem label="Suspended" color="bg-amber-400" indent onClick={() => add(3, 4)} />
-      <div className="border-t border-slate-100 my-1 mx-2" />
-      <MenuItem label="SubFlow State" color="bg-violet-500" onClick={() => add(4)} />
+      <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Add State</div>
+      <MenuItem label="Initial State" color="bg-initial" onClick={() => add(1)} />
+      <MenuItem label="Intermediate State" color="bg-intermediate" onClick={() => add(2)} />
+      <div className="border-t border-border-subtle my-1 mx-2" />
+      <div className="px-3 py-1 text-[10px] text-muted-foreground font-medium">Final States</div>
+      <MenuItem label="Success" color="bg-final-success" indent onClick={() => add(3, 1)} />
+      <MenuItem label="Error" color="bg-final-error" indent onClick={() => add(3, 2)} />
+      <MenuItem label="Terminated" color="bg-final-terminated" indent onClick={() => add(3, 3)} />
+      <MenuItem label="Suspended" color="bg-final-suspended" indent onClick={() => add(3, 4)} />
+      <div className="border-t border-border-subtle my-1 mx-2" />
+      <MenuItem label="SubFlow State" color="bg-subflow" onClick={() => add(4)} />
     </div>
   );
 }
@@ -73,19 +73,19 @@ export function NodeContextMenu({ position, nodeId, onClose, onDeleteState, onDu
   return (
     <div
       ref={ref}
-      className="fixed z-[100] bg-white/95 backdrop-blur-xl rounded-xl border border-slate-200/80 shadow-xl shadow-slate-900/10 py-1.5 min-w-[180px] animate-scale-in"
+      className="fixed z-[100] bg-surface/95 backdrop-blur-xl rounded-xl border border-border shadow-xl shadow-black/10 py-1.5 min-w-[180px] animate-scale-in"
       style={{ left: position.screenX, top: position.screenY }}
     >
-      <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-slate-400 truncate">{nodeId}</div>
+      <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground truncate">{nodeId}</div>
       <MenuItem label="Duplicate" onClick={() => { onDuplicateState(nodeId); onClose(); }} />
-      <div className="border-t border-slate-100 my-1 mx-2" />
-      <div className="px-3 py-1 text-[10px] text-slate-400 font-medium">Change Type</div>
-      <MenuItem label="Initial" color="bg-emerald-500" indent onClick={() => { onChangeType(nodeId, 1); onClose(); }} />
-      <MenuItem label="Intermediate" color="bg-indigo-500" indent onClick={() => { onChangeType(nodeId, 2); onClose(); }} />
-      <MenuItem label="Final - Success" color="bg-emerald-400" indent onClick={() => { onChangeType(nodeId, 3, 1); onClose(); }} />
-      <MenuItem label="Final - Error" color="bg-rose-400" indent onClick={() => { onChangeType(nodeId, 3, 2); onClose(); }} />
-      <MenuItem label="SubFlow" color="bg-violet-500" indent onClick={() => { onChangeType(nodeId, 4); onClose(); }} />
-      <div className="border-t border-slate-100 my-1 mx-2" />
+      <div className="border-t border-border-subtle my-1 mx-2" />
+      <div className="px-3 py-1 text-[10px] text-muted-foreground font-medium">Change Type</div>
+      <MenuItem label="Initial" color="bg-initial" indent onClick={() => { onChangeType(nodeId, 1); onClose(); }} />
+      <MenuItem label="Intermediate" color="bg-intermediate" indent onClick={() => { onChangeType(nodeId, 2); onClose(); }} />
+      <MenuItem label="Final - Success" color="bg-final-success" indent onClick={() => { onChangeType(nodeId, 3, 1); onClose(); }} />
+      <MenuItem label="Final - Error" color="bg-final-error" indent onClick={() => { onChangeType(nodeId, 3, 2); onClose(); }} />
+      <MenuItem label="SubFlow" color="bg-subflow" indent onClick={() => { onChangeType(nodeId, 4); onClose(); }} />
+      <div className="border-t border-border-subtle my-1 mx-2" />
       <MenuItem label="Delete State" danger onClick={() => { onDeleteState(nodeId); onClose(); }} />
     </div>
   );
@@ -114,16 +114,16 @@ export function EdgeContextMenu({ position, sourceStateKey, transitionKey, onClo
   return (
     <div
       ref={ref}
-      className="fixed z-[100] bg-white/95 backdrop-blur-xl rounded-xl border border-slate-200/80 shadow-xl shadow-slate-900/10 py-1.5 min-w-[170px] animate-scale-in"
+      className="fixed z-[100] bg-surface/95 backdrop-blur-xl rounded-xl border border-border shadow-xl shadow-black/10 py-1.5 min-w-[170px] animate-scale-in"
       style={{ left: position.screenX, top: position.screenY }}
     >
-      <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-slate-400 truncate">{transitionKey}</div>
-      <div className="px-3 py-1 text-[10px] text-slate-400 font-medium">Trigger Type</div>
-      <MenuItem label="Manual" color="bg-slate-400" indent onClick={() => { onChangeTrigger(sourceStateKey, transitionKey, 0); onClose(); }} />
-      <MenuItem label="Auto" color="bg-emerald-400" indent onClick={() => { onChangeTrigger(sourceStateKey, transitionKey, 1); onClose(); }} />
-      <MenuItem label="Scheduled" color="bg-amber-400" indent onClick={() => { onChangeTrigger(sourceStateKey, transitionKey, 2); onClose(); }} />
-      <MenuItem label="Event" color="bg-violet-400" indent onClick={() => { onChangeTrigger(sourceStateKey, transitionKey, 3); onClose(); }} />
-      <div className="border-t border-slate-100 my-1 mx-2" />
+      <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground truncate">{transitionKey}</div>
+      <div className="px-3 py-1 text-[10px] text-muted-foreground font-medium">Trigger Type</div>
+      <MenuItem label="Manual" color="bg-final-terminated" indent onClick={() => { onChangeTrigger(sourceStateKey, transitionKey, 0); onClose(); }} />
+      <MenuItem label="Auto" color="bg-trigger-auto" indent onClick={() => { onChangeTrigger(sourceStateKey, transitionKey, 1); onClose(); }} />
+      <MenuItem label="Scheduled" color="bg-trigger-scheduled" indent onClick={() => { onChangeTrigger(sourceStateKey, transitionKey, 2); onClose(); }} />
+      <MenuItem label="Event" color="bg-trigger-event" indent onClick={() => { onChangeTrigger(sourceStateKey, transitionKey, 3); onClose(); }} />
+      <div className="border-t border-border-subtle my-1 mx-2" />
       <MenuItem label="Delete Transition" danger onClick={() => { onDeleteTransition(sourceStateKey, transitionKey); onClose(); }} />
     </div>
   );
@@ -139,9 +139,9 @@ function MenuItem({ label, color, indent, danger, onClick }: {
   return (
     <button
       onClick={onClick}
-      className={`w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 transition-colors ${
+      className={`w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 transition-colors cursor-pointer ${
         indent ? 'pl-5' : ''
-      } ${danger ? 'text-rose-500 hover:bg-rose-50' : 'text-slate-700 hover:bg-slate-50'}`}
+      } ${danger ? 'text-destructive-text hover:bg-destructive-surface' : 'text-foreground hover:bg-muted-surface'}`}
     >
       {color && <span className={`w-2 h-2 rounded-full ${color} shrink-0`} />}
       {label}

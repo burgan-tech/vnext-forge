@@ -8,6 +8,10 @@ import { encodeToBase64, decodeFromBase64 } from '@modules/code-editor/editor/Ba
 import { CsxSnippetToolbar } from '@modules/code-editor/editor/CsxSnippetToolbar';
 import { CsxReferencePanel } from '@modules/code-editor/editor/CsxReferencePanel';
 import { applyDiagnostics } from '@modules/code-editor/editor/CsxDiagnostics';
+import { applyScriptValueToWorkflow } from '@modules/code-editor/ScriptWorkflowSync';
+import { getScriptLocationError } from '@modules/code-editor/ScriptLocationValidation';
+import { Alert, AlertDescription } from '@shared/ui/Alert';
+import { Input } from '@shared/ui/Input';
 
 const MIN_HEIGHT = 200;
 const MAX_HEIGHT = 700;
@@ -18,6 +22,8 @@ export function ScriptEditorPanel() {
   const { updateWorkflow } = useWorkflowStore();
   const [showReference, setShowReference] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
+  const [locationDraft, setLocationDraft] = useState('');
+  const [locationError, setLocationError] = useState<string | null>(null);
   const editorRef = useRef<any>(null);
   const monacoRef = useRef<any>(null);
   const diagnosticTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -30,6 +36,12 @@ export function ScriptEditorPanel() {
     return decodeFromBase64(activeScript.value.code);
   }, [activeScript?.value?.code]);
 
+  useEffect(() => {
+    const nextLocation = activeScript?.value.location ?? '';
+    setLocationDraft(nextLocation);
+    setLocationError(getScriptLocationError(nextLocation));
+  }, [activeScript, activeScript?.value.location]);
+
   // Sync changes back to workflow store
   const syncToWorkflow = useCallback(
     (newCode: string) => {
@@ -38,25 +50,7 @@ export function ScriptEditorPanel() {
       const newValue = { ...activeScript.value, code: encodedCode, encoding: 'B64' as const };
 
       updateScriptValue(newValue);
-
-      updateWorkflow((draft: any) => {
-        const state = draft.attributes?.states?.find((s: any) => s.key === activeScript.stateKey);
-        if (!state) return;
-
-        if (activeScript.listField === 'transitions') {
-          const transition = state.transitions?.[activeScript.index];
-          if (transition) {
-            transition[activeScript.scriptField] = newValue;
-            if (activeScript.scriptField === 'rule') transition.condition = newValue;
-            else if (activeScript.scriptField === 'condition') transition.rule = newValue;
-          }
-        } else {
-          const entry = state[activeScript.listField]?.[activeScript.index];
-          if (entry) {
-            entry[activeScript.scriptField] = newValue;
-          }
-        }
-      });
+      updateWorkflow((draft: any) => applyScriptValueToWorkflow(draft, activeScript, newValue));
     },
     [activeScript, updateScriptValue, updateWorkflow],
   );
@@ -109,26 +103,15 @@ export function ScriptEditorPanel() {
 
   const handleLocationChange = useCallback(
     (loc: string) => {
-      if (!activeScript) return;
+      setLocationDraft(loc);
+      const nextError = getScriptLocationError(loc);
+      setLocationError(nextError);
+
+      if (!activeScript || nextError) return;
+
       const newValue = { ...activeScript.value, location: loc };
       updateScriptValue(newValue);
-
-      updateWorkflow((draft: any) => {
-        const state = draft.attributes?.states?.find((s: any) => s.key === activeScript.stateKey);
-        if (!state) return;
-
-        if (activeScript.listField === 'transitions') {
-          const transition = state.transitions?.[activeScript.index];
-          if (transition) {
-            transition[activeScript.scriptField] = newValue;
-            if (activeScript.scriptField === 'rule') transition.condition = newValue;
-            else if (activeScript.scriptField === 'condition') transition.rule = newValue;
-          }
-        } else {
-          const entry = state[activeScript.listField]?.[activeScript.index];
-          if (entry) entry[activeScript.scriptField] = newValue;
-        }
-      });
+      updateWorkflow((draft: any) => applyScriptValueToWorkflow(draft, activeScript, newValue));
     },
     [activeScript, updateScriptValue, updateWorkflow],
   );
@@ -180,38 +163,40 @@ export function ScriptEditorPanel() {
 
   return (
     <div
-      className="border-t border-slate-200/60 bg-white flex flex-col shrink-0"
+      className="flex shrink-0 flex-col border-t border-border bg-surface"
       style={{ height: panelHeight }}
     >
       {/* Resize handle */}
       <div
-        className="h-[3px] bg-transparent hover:bg-indigo-500/30 cursor-row-resize transition-colors shrink-0 group relative"
+        className="group relative h-[3px] shrink-0 cursor-row-resize bg-transparent transition-colors hover:bg-secondary-border"
         onMouseDown={handleResizeStart}
       >
         <div className="absolute inset-x-0 -top-1 -bottom-1" />
       </div>
 
       {/* Header bar */}
-      <div className="flex items-center gap-2 px-3 py-1.5 border-b border-slate-100 bg-slate-50/50 shrink-0">
-        <div className="size-5 rounded-md bg-indigo-500/10 flex items-center justify-center shrink-0">
-          <Code2 size={12} className="text-indigo-500" />
+      <div className="flex shrink-0 items-center gap-2 border-b border-border-subtle bg-muted/70 px-3 py-1.5">
+        <div className="flex size-5 shrink-0 items-center justify-center rounded-md bg-secondary-muted">
+          <Code2 size={12} className="text-secondary-icon" />
         </div>
-        <span className="text-[11px] font-semibold text-slate-600 truncate">
+        <span className="truncate text-[11px] font-semibold text-foreground">
           {activeScript.label}
         </span>
-        <span className="text-[10px] text-slate-400 font-mono truncate">
+        <span className="truncate font-mono text-[10px] text-muted-foreground">
           {activeScript.stateKey}
         </span>
 
         <div className="flex-1" />
 
         {/* Location input */}
-        <input
-          type="text"
-          value={activeScript.value.location || ''}
+        <Input
+          value={locationDraft}
           onChange={(e) => handleLocationChange(e.target.value)}
           placeholder="./ScriptName.csx"
-          className="px-2 py-1 text-[11px] font-mono border border-slate-200/60 rounded-lg bg-white text-slate-600 focus:outline-none focus:ring-1 focus:ring-indigo-500/20 focus:border-indigo-400 transition-all w-52 placeholder:text-slate-300"
+          aria-invalid={locationError ? 'true' : 'false'}
+          size="sm"
+          className="w-52"
+          inputClassName="font-mono text-[11px]"
         />
 
         {/* API Reference toggle */}
@@ -219,8 +204,8 @@ export function ScriptEditorPanel() {
           onClick={() => setShowReference(!showReference)}
           className={`p-1.5 rounded-lg transition-all ${
             showReference
-              ? 'text-indigo-600 bg-indigo-50'
-              : 'text-slate-400 hover:text-indigo-500 hover:bg-slate-100'
+              ? 'bg-secondary-surface text-secondary-text'
+              : 'text-muted-foreground hover:bg-muted hover:text-secondary-text'
           }`}
           title="API Reference"
         >
@@ -230,7 +215,7 @@ export function ScriptEditorPanel() {
         {/* Maximize/Restore */}
         <button
           onClick={() => setIsMaximized(!isMaximized)}
-          className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-all"
+          className="rounded-lg p-1.5 text-muted-foreground transition-all hover:bg-muted hover:text-foreground"
           title={isMaximized ? 'Restore' : 'Maximize'}
         >
           {isMaximized ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
@@ -239,7 +224,7 @@ export function ScriptEditorPanel() {
         {/* Close */}
         <button
           onClick={handleClose}
-          className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded-lg transition-all"
+          className="rounded-lg p-1.5 text-muted-foreground transition-all hover:bg-muted hover:text-foreground"
           title="Close"
         >
           <X size={14} />
@@ -247,7 +232,15 @@ export function ScriptEditorPanel() {
       </div>
 
       {/* Snippet toolbar — horizontal, above editor */}
-      <div className="border-b border-slate-100 bg-slate-50/30 shrink-0">
+      {locationError && (
+        <div className="px-3 pt-2 shrink-0">
+          <Alert variant="destructive" className="px-3 py-2 text-xs">
+            <AlertDescription>{locationError}</AlertDescription>
+          </Alert>
+        </div>
+      )}
+
+      <div className="shrink-0 border-b border-border-subtle bg-muted/40">
         <CsxSnippetToolbar templateType={activeScript.templateType} editorRef={editorRef} />
       </div>
 
@@ -287,7 +280,7 @@ export function ScriptEditorPanel() {
 
         {/* Right — API Reference panel */}
         {showReference && (
-          <div className="w-64 shrink-0 border-l border-slate-100 overflow-y-auto">
+          <div className="w-64 shrink-0 overflow-y-auto border-l border-border-subtle">
             <CsxReferencePanel
               onClose={() => setShowReference(false)}
               onInsert={handleReferenceInsert}
@@ -297,11 +290,11 @@ export function ScriptEditorPanel() {
       </div>
 
       {/* Bottom status bar */}
-      <div className="flex items-center justify-between px-3 py-1 border-t border-slate-100 bg-slate-50/30 shrink-0">
-        <span className="text-[10px] text-slate-400 font-mono">
+      <div className="flex shrink-0 items-center justify-between border-t border-border-subtle bg-muted/40 px-3 py-1">
+        <span className="font-mono text-[10px] text-muted-foreground">
           {decoded.split('\n').length} lines &middot; {activeScript.templateType}
         </span>
-        <span className="text-[10px] text-slate-400 font-mono">
+        <span className="font-mono text-[10px] text-muted-foreground">
           C# Script &middot; UTF-8
         </span>
       </div>

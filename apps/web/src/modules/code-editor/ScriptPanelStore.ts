@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { TemplateType } from './editor/CsxTemplates';
 import type { CsxTaskType } from './editor/CsxContext';
-import type { ScriptCode } from '@modules/save-component/components/CsxEditorField';
+import type { ScriptCode } from './CodeEditorTypes';
 
 export interface ActiveScript {
   /** Which state this script belongs to */

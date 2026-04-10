@@ -9,20 +9,22 @@ const SCOPES = [
 interface FunctionScopePickerProps {
   value: string;
   onChange: (scope: string) => void;
+  hint?: string;
 }
 
-export function FunctionScopePicker({ value, onChange }: FunctionScopePickerProps) {
+export function FunctionScopePicker({ value, onChange, hint }: FunctionScopePickerProps) {
   return (
-    <Field label="Scope">
+    <Field label="Scope" hint={hint}>
       <div className="flex gap-1">
         {SCOPES.map((s) => (
           <button
+            type="button"
             key={s.value}
             onClick={() => onChange(s.value)}
-            className={`flex-1 px-2 py-1.5 text-xs rounded border transition-colors ${
+            className={`flex-1 cursor-pointer rounded border px-2 py-1.5 text-xs transition-colors ${
               value === s.value
-                ? 'border-primary bg-primary/10 text-primary'
-                : 'border-border bg-background text-muted-foreground hover:text-foreground'
+                ? 'border-primary-border-hover bg-primary-muted text-primary-text'
+                : 'border-primary-border bg-primary text-primary-icon hover:border-primary-border-hover hover:bg-primary-hover hover:text-primary-text'
             }`}
           >
             <div className="font-medium">{s.label}</div>

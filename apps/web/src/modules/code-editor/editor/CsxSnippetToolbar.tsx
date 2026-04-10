@@ -103,7 +103,7 @@ export function CsxSnippetToolbar({ templateType, editorRef }: CsxSnippetToolbar
               e.preventDefault();
             }}
             onClick={() => insertSnippet(snippet)}
-            className="flex items-center gap-1.5 px-2 py-1 rounded-md text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-all text-[11px] font-medium whitespace-nowrap shrink-0"
+            className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md px-2 py-1 text-[11px] font-medium text-muted-foreground transition-all hover:bg-secondary-surface hover:text-secondary-text"
             title={snippet.description}
           >
             <Icon size={13} />

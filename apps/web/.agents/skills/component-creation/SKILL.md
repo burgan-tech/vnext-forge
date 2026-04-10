@@ -1,5 +1,5 @@
 ---
-name: component-creation
+name: component-creation-web
 description: Use when placing or designing UI in the web app during the architecture refactor. Components should follow the repo's simple module-based structure: default to module ownership, keep pages thin, and add extra structure only when reuse clearly justifies it.
 ---
 

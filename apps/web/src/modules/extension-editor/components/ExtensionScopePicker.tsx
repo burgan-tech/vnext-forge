@@ -9,20 +9,22 @@ const SCOPES = [
 interface ExtensionScopePickerProps {
   value: number;
   onChange: (scope: number) => void;
+  hint?: string;
 }
 
-export function ExtensionScopePicker({ value, onChange }: ExtensionScopePickerProps) {
+export function ExtensionScopePicker({ value, onChange, hint }: ExtensionScopePickerProps) {
   return (
-    <Field label="Extension Scope">
+    <Field label="Extension Scope" hint={hint}>
       <div className="flex gap-1">
         {SCOPES.map((s) => (
           <button
+            type="button"
             key={s.value}
             onClick={() => onChange(s.value)}
-            className={`flex-1 px-2 py-1.5 text-xs rounded border transition-colors ${
+            className={`flex-1 cursor-pointer px-2 py-1.5 text-xs rounded border transition-colors ${
               value === s.value
-                ? 'border-primary bg-primary/10 text-primary'
-                : 'border-border bg-background text-muted-foreground hover:text-foreground'
+                ? 'border-primary-border-hover bg-primary-muted text-primary-text'
+                : 'border-primary-border bg-primary text-primary-icon hover:border-primary-border-hover hover:bg-primary-hover hover:text-primary-text'
             }`}
           >
             <div className="font-medium">{s.label}</div>

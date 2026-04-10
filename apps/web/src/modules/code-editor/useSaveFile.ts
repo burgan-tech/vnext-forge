@@ -1,6 +1,7 @@
 import { useEffect, useCallback } from 'react';
 import { createLogger } from '@shared/lib/logger/CreateLogger';
-import { writeFile } from '@modules/project-workspace/WorkspaceApi';
+import { useAsync } from '@shared/hooks/UseAsync';
+import { writeCodeEditorFile } from './CodeEditorApi';
 
 const logger = createLogger('code-editor/useSaveFile');
 
@@ -12,30 +13,41 @@ interface UseSaveFileOptions {
 }
 
 export function useSaveFile({ filePath, getContent, onSaved, isDirty }: UseSaveFileOptions) {
+  const saveFile = useCallback(
+    (nextFilePath: string, content: string) => writeCodeEditorFile(nextFilePath, content),
+    [],
+  );
+
+  const { execute, loading, error } = useAsync(saveFile, {
+    showNotificationOnError: false,
+    errorMessage: 'File could not be saved.',
+    onSuccess: async () => {
+      onSaved?.();
+    },
+    onError: async (saveError) => {
+      logger.error('Failed to save file', saveError);
+    },
+  });
+
   const save = useCallback(async () => {
     if (!filePath || !isDirty) return;
     const content = getContent();
     if (content === null) return;
 
-    try {
-      await writeFile(filePath, content);
-      onSaved?.();
-    } catch (err) {
-      logger.error('Failed to save file', err);
-    }
-  }, [filePath, getContent, onSaved, isDirty]);
+    await execute(filePath, content);
+  }, [execute, filePath, getContent, isDirty]);
 
   // Listen for Cmd+S
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key === 's') {
         e.preventDefault();
-        save();
+        void save();
       }
     }
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [save]);
 
-  return { save };
+  return { save, saveError: error, saving: loading };
 }

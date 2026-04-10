@@ -10,20 +10,22 @@ const TYPES = [
 interface ExtensionTypePickerProps {
   value: number;
   onChange: (type: number) => void;
+  hint?: string;
 }
 
-export function ExtensionTypePicker({ value, onChange }: ExtensionTypePickerProps) {
+export function ExtensionTypePicker({ value, onChange, hint }: ExtensionTypePickerProps) {
   return (
-    <Field label="Extension Type">
+    <Field label="Extension Type" hint={hint}>
       <div className="grid grid-cols-2 gap-1">
         {TYPES.map((t) => (
           <button
+            type="button"
             key={t.value}
             onClick={() => onChange(t.value)}
-            className={`px-2 py-1.5 text-xs rounded border text-left transition-colors ${
+            className={`cursor-pointer px-2 py-1.5 text-xs rounded border text-left transition-colors ${
               value === t.value
-                ? 'border-primary bg-primary/10 text-primary'
-                : 'border-border bg-background text-muted-foreground hover:text-foreground'
+                ? 'border-primary-border-hover bg-primary-muted text-primary-text'
+                : 'border-primary-border bg-primary text-primary-icon hover:border-primary-border-hover hover:bg-primary-hover hover:text-primary-text'
             }`}
           >
             <div className="font-medium">{t.label}</div>

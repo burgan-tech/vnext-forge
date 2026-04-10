@@ -5,8 +5,9 @@ import { useProjectStore } from '@modules/project-management/ProjectStore';
 import { useComponentStore } from '@modules/save-component/ComponentStore';
 import { useSaveComponent } from '@modules/save-component/UseSaveComponent';
 import { ComponentEditorLayout } from '@modules/save-component/components/ComponentEditorLayout';
-import { readFile } from '@modules/project-workspace/WorkspaceApi';
-import { ExtensionEditorPanel } from './ExtensionEditorPanel';
+import { toVnextError } from '@shared/lib/error/VnextErrorHelpers';
+import { loadExtensionEditor } from './ExtensionEditorApi';
+import { ExtensionEditorPanel } from './components/ExtensionEditorPanel';
 
 export function ExtensionEditorView() {
   const { id, group, name } = useParams<{ id: string; group: string; name: string }>();
@@ -14,7 +15,7 @@ export function ExtensionEditorView() {
   const { componentJson, setComponent, isDirty, updateComponent, undo, redo, undoStack, redoStack } = useComponentStore();
   const { save } = useSaveComponent();
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<VnextForgeError | null>(null);
 
   useEffect(() => {
     if (!id || !group || !name || !activeProject || !vnextConfig) return;
@@ -27,15 +28,10 @@ export function ExtensionEditorView() {
     setError(null);
     try {
       const filePath = `${activeProject.path}/${vnextConfig.paths.componentsRoot}/${vnextConfig.paths.extensions}/${group}/${name}.json`;
-      const data = await readFile(filePath);
-      const json = typeof data.content === 'string' ? JSON.parse(data.content) : data.content;
-      setComponent(json, 'extension', filePath);
-    } catch (err) {
-      if (err instanceof VnextForgeError) {
-        setError(err.toUserMessage().message);
-      } else {
-        setError('Failed to load extension');
-      }
+      const result = await loadExtensionEditor({ filePath });
+      setComponent(result.json, 'extension', result.filePath);
+    } catch (value) {
+      setError(toVnextError(value));
     } finally {
       setLoading(false);
     }
@@ -44,7 +40,7 @@ export function ExtensionEditorView() {
   if (loading || !componentJson) {
     return (
       <div className="flex items-center justify-center h-full text-muted-foreground text-sm">
-        {error || 'Loading extension...'}
+        {error?.toUserMessage().message || 'Loading extension...'}
       </div>
     );
   }
