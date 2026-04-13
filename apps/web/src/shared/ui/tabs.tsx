@@ -2,7 +2,7 @@ import * as React from 'react';
 import * as TabsPrimitive from '@radix-ui/react-tabs';
 import { cva, type VariantProps } from 'class-variance-authority';
 
-import { cn } from '@shared/lib/utils/Cn';
+import { cn } from '@shared/lib/utils/cn';
 
 const tabsListVariants = cva(
   'inline-flex h-10 w-fit items-center justify-center rounded-lg border p-1 shadow-sm transition-all duration-200 ease-out',

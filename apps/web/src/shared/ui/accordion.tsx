@@ -1,7 +1,7 @@
 import { useState, type ReactNode } from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { ChevronDownIcon } from 'lucide-react';
-import { cn } from '@shared/lib/utils/Cn';
+import { cn } from '@shared/lib/utils/cn';
 import { Card, CardContent } from '@shared/ui/Card';
 import { Badge } from '@shared/ui/Badge';
 
@@ -25,45 +25,48 @@ interface AccordionProps {
   noBorder?: boolean;
 }
 
-const accordionItemVariants = cva('overflow-hidden border py-0 shadow-sm transition-all duration-200 ease-out', {
-  variants: {
-    variant: {
-      default: 'border-primary-border bg-primary text-primary-foreground',
-      secondary: 'border-secondary-border bg-secondary text-secondary-foreground',
-      tertiary: 'border-tertiary-border bg-tertiary text-tertiary-foreground',
+const accordionItemVariants = cva(
+  'overflow-hidden border py-0 shadow-sm transition-all duration-200 ease-out',
+  {
+    variants: {
+      variant: {
+        default: 'border-primary-border bg-primary text-primary-foreground',
+        secondary: 'border-secondary-border bg-secondary text-secondary-foreground',
+        tertiary: 'border-tertiary-border bg-tertiary text-tertiary-foreground',
+      },
+      hoverable: {
+        true: '',
+        false: '',
+      },
+      noBorder: {
+        true: 'border-0',
+        false: '',
+      },
     },
-    hoverable: {
-      true: '',
-      false: '',
-    },
-    noBorder: {
-      true: 'border-0',
-      false: '',
-    },
-  },
-  compoundVariants: [
-    {
+    compoundVariants: [
+      {
+        variant: 'default',
+        hoverable: true,
+        className: 'hover:border-primary-border-hover hover:bg-primary-hover',
+      },
+      {
+        variant: 'secondary',
+        hoverable: true,
+        className: 'hover:border-secondary-border-hover hover:bg-secondary-hover',
+      },
+      {
+        variant: 'tertiary',
+        hoverable: true,
+        className: 'hover:border-tertiary-border-hover hover:bg-tertiary-hover',
+      },
+    ],
+    defaultVariants: {
       variant: 'default',
-      hoverable: true,
-      className: 'hover:border-primary-border-hover hover:bg-primary-hover',
+      hoverable: false,
+      noBorder: false,
     },
-    {
-      variant: 'secondary',
-      hoverable: true,
-      className: 'hover:border-secondary-border-hover hover:bg-secondary-hover',
-    },
-    {
-      variant: 'tertiary',
-      hoverable: true,
-      className: 'hover:border-tertiary-border-hover hover:bg-tertiary-hover',
-    },
-  ],
-  defaultVariants: {
-    variant: 'default',
-    hoverable: false,
-    noBorder: false,
   },
-});
+);
 
 const accordionTriggerVariants = cva(
   'flex w-full cursor-pointer items-center justify-between rounded-[calc(var(--radius-xl)-0.125rem)] border px-5 py-4 text-left shadow-sm transition-all duration-200 ease-out',
@@ -88,12 +91,14 @@ const accordionTriggerVariants = cva(
       {
         variant: 'secondary',
         hoverable: true,
-        className: 'hover:-translate-y-px hover:border-secondary-border-hover hover:bg-secondary-hover',
+        className:
+          'hover:-translate-y-px hover:border-secondary-border-hover hover:bg-secondary-hover',
       },
       {
         variant: 'tertiary',
         hoverable: true,
-        className: 'hover:-translate-y-px hover:border-tertiary-border-hover hover:bg-tertiary-hover',
+        className:
+          'hover:-translate-y-px hover:border-tertiary-border-hover hover:bg-tertiary-hover',
       },
     ],
     defaultVariants: {
@@ -121,17 +126,20 @@ const accordionIconVariants = cva(
       {
         variant: 'default',
         hoverable: true,
-        className: 'group-hover/accordion:-translate-y-px group-hover/accordion:bg-primary-muted-hover group-hover/accordion:shadow-sm',
+        className:
+          'group-hover/accordion:-translate-y-px group-hover/accordion:bg-primary-muted-hover group-hover/accordion:shadow-sm',
       },
       {
         variant: 'secondary',
         hoverable: true,
-        className: 'group-hover/accordion:-translate-y-px group-hover/accordion:bg-secondary-muted-hover group-hover/accordion:shadow-sm',
+        className:
+          'group-hover/accordion:-translate-y-px group-hover/accordion:bg-secondary-muted-hover group-hover/accordion:shadow-sm',
       },
       {
         variant: 'tertiary',
         hoverable: true,
-        className: 'group-hover/accordion:-translate-y-px group-hover/accordion:bg-tertiary-muted-hover group-hover/accordion:shadow-sm',
+        className:
+          'group-hover/accordion:-translate-y-px group-hover/accordion:bg-tertiary-muted-hover group-hover/accordion:shadow-sm',
       },
     ],
     defaultVariants: {

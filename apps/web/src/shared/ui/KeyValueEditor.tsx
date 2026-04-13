@@ -4,7 +4,7 @@ import { Plus, X } from 'lucide-react';
 
 import { Button } from '@shared/ui/Button';
 import { Input } from '@shared/ui/Input';
-import { cn } from '@shared/lib/utils/Cn';
+import { cn } from '@shared/lib/utils/cn';
 
 export interface KeyValuePair {
   key: string;
@@ -69,7 +69,8 @@ const keyValueEditorRowVariants = cva(
 );
 
 interface KeyValueEditorProps
-  extends Omit<React.ComponentProps<'div'>, 'onChange'>,
+  extends
+    Omit<React.ComponentProps<'div'>, 'onChange'>,
     VariantProps<typeof keyValueEditorRowVariants> {
   addLabel?: string;
   keyPlaceholder?: string;
@@ -93,7 +94,11 @@ function KeyValueEditor({
   ...props
 }: KeyValueEditorProps) {
   function updatePair(index: number, field: keyof KeyValuePair, value: string) {
-    onChange(pairs.map((pair, currentIndex) => (currentIndex === index ? { ...pair, [field]: value } : pair)));
+    onChange(
+      pairs.map((pair, currentIndex) =>
+        currentIndex === index ? { ...pair, [field]: value } : pair,
+      ),
+    );
   }
 
   function addPair() {
@@ -130,9 +135,8 @@ function KeyValueEditor({
                 size="icon"
                 onClick={() => removePair(index)}
                 aria-label={`Remove row ${index + 1}`}
-                className="border-destructive-border hover:border-destructive-border-hover hover:bg-destructive-hover"
-              >
-                <X className="size-4 text-destructive-icon" />
+                className="border-destructive-border hover:border-destructive-border-hover hover:bg-destructive-hover">
+                <X className="text-destructive-icon size-4" />
               </Button>
             ) : null}
           </div>
@@ -146,8 +150,7 @@ function KeyValueEditor({
           onClick={addPair}
           noBorder
           noIconHover
-          className="mt-2 shadow-sm"
-        >
+          className="mt-2 shadow-sm">
           <Plus className="size-4" />
           {addLabel}
         </Button>

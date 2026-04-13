@@ -53,6 +53,8 @@ Detailed implementation rules, slice constraints, and architecture-specific conv
 - Do not create a second business owner under `pages`. A route entry may compose `modules/project-management/*`, but it should not duplicate that module with another business owner.
 - Route entries should compose current owners such as `modules/project-management/*` or `modules/project-workspace/*`; pages should not own transport, store, or workflow orchestration directly.
 - Use page naming only in `pages/*`. Inside `modules/*`, prefer names such as `*.view.tsx`, `*.panel.tsx`, or `*.section.tsx`.
+- Utility/helper-style infrastructure files under areas such as `api`, `config`, or `lib` should start with a lowercase letter, for example `client.ts`, `env.ts`, `logger.ts`, or `vNextErrorHelpers.ts`.
+- When a file name starts with the product prefix, write it as `vNext`, not `Vnext` or `vnext`. If `vnext` appears later in the name, keep normal word casing for that position, for example `ErrorVnextHelper.ts`.
 
 ## API Access
 

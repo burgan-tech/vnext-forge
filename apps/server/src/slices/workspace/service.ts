@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import type { Dirent } from 'node:fs'
+import { homedir, platform } from 'node:os'
 import { ERROR_CODES, VnextForgeError } from '@vnext-forge/app-contracts'
 import { COMPONENT_DIRS, CONFIG_FILE } from './constants.js'
 import type {
@@ -11,6 +12,8 @@ import type {
   WorkspaceStructure,
 } from './types.js'
 import { WorkspaceAnalyzer } from './workspace-analyzer.js'
+
+const SYSTEM_ROOT_TOKEN = '::system-root::'
 
 function toDirectoryEntry(dirPath: string, entry: Dirent): DirectoryEntry {
   return {
@@ -77,7 +80,19 @@ export class WorkspaceService {
     }
   }
 
-  async browseDirs(dirPath: string, traceId?: string): Promise<DirectoryEntry[]> {
+  async browseDirs(dirPath?: string, traceId?: string): Promise<DirectoryEntry[]> {
+    if (dirPath === SYSTEM_ROOT_TOKEN) {
+      if (platform() === 'win32') {
+        return this.listWindowsDrives(traceId)
+      }
+
+      dirPath = path.parse(process.cwd()).root
+    }
+
+    if (!dirPath) {
+      dirPath = platform() === 'win32' ? homedir() : path.parse(process.cwd()).root
+    }
+
     try {
       const entries = await fs.readdir(dirPath, { withFileTypes: true })
       return entries
@@ -90,6 +105,44 @@ export class WorkspaceService {
     } catch (error) {
       throw this.toFileError(error, 'WorkspaceService.browseDirs', traceId, { dirPath })
     }
+  }
+
+  private async listWindowsDrives(traceId?: string): Promise<DirectoryEntry[]> {
+    const driveLetters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
+    const drives = await Promise.all(
+      driveLetters.map(async (letter) => {
+        const drivePath = `${letter}:\\`
+
+        try {
+          await fs.access(drivePath)
+
+          return {
+            name: `${letter}:`,
+            path: drivePath,
+            type: 'directory' as const,
+          }
+        } catch (error) {
+          const code = (error as NodeJS.ErrnoException | undefined)?.code
+          if (code === 'ENOENT' || code === 'EACCES' || code === 'EPERM') {
+            return null
+          }
+
+          throw this.toFileError(error, 'WorkspaceService.listWindowsDrives', traceId, {
+            drivePath,
+          })
+        }
+      }),
+    )
+
+    const availableDrives: DirectoryEntry[] = []
+
+    for (const drive of drives) {
+      if (drive) {
+        availableDrives.push(drive)
+      }
+    }
+
+    return availableDrives
   }
 
   // ── Workspace (project directory) operations ──────────────────────────────────

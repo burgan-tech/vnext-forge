@@ -1,7 +1,9 @@
 import { useEffect, useRef } from 'react';
-import { ChevronRight, FolderOpen, FolderSearch } from 'lucide-react';
+import { ChevronRight, FolderOpen, FolderSearch, HardDrive, Monitor } from 'lucide-react';
 
 import { Button } from '@shared/ui/Button';
+
+const SYSTEM_ROOT_TOKEN = '::system-root::';
 
 export interface WorkspaceFolder {
   name: string;
@@ -35,6 +37,8 @@ export function FolderBrowser({
 }: FolderBrowserProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const isWindowsPath = /^[A-Za-z]:[\\/]/.test(currentPath);
+  const isWindowsDriveList =
+    !currentPath && folders.some((folder) => /^[A-Za-z]:\\?$/.test(folder.path));
   const separator = isWindowsPath ? '\\' : '/';
   const normalizedSegments = currentPath.split(/[\\/]+/).filter(Boolean);
   const breadcrumbItems = normalizedSegments.map((segment, index) => {
@@ -116,36 +120,47 @@ export function FolderBrowser({
           }>
           <div className="flex items-center gap-0.5 overflow-x-auto border-b border-slate-100 px-2 py-1.5 text-[11px] text-slate-500">
             {breadcrumbItems.length > 0 ? (
-              breadcrumbItems.map((item, index) => {
-                return (
-                  <span key={item.path} className="flex shrink-0 items-center gap-0.5">
-                    {index > 0 ? <ChevronRight size={8} className="text-slate-300" /> : null}
-                    <Button
-                      onClick={() => onNavigate(item.path)}
-                      size="sm"
-                      noIconHover
-                      className="h-5 min-h-0 max-w-[84px] rounded-md px-1 text-[10px] leading-none font-medium shadow-none hover:text-sky-600">
-                      <span className="truncate">{item.label}</span>
-                    </Button>
-                  </span>
-                );
-              })
+              <>
+                <Button
+                  onClick={() => onNavigate(SYSTEM_ROOT_TOKEN)}
+                  size="sm"
+                  noIconHover
+                  className="flex h-5 min-h-0 items-center gap-1 rounded-md px-1 text-[10px] leading-none font-medium shadow-none hover:text-sky-600">
+                  <Monitor size={10} className="shrink-0" />
+                </Button>
+                {breadcrumbItems.map((item, index) => {
+                  return (
+                    <span key={item.path} className="flex shrink-0 items-center gap-0.5">
+                      <ChevronRight size={8} className="text-slate-300" />
+                      <Button
+                        onClick={() => onNavigate(item.path)}
+                        size="sm"
+                        noIconHover
+                        className="h-5 min-h-0 max-w-[84px] rounded-md px-1 text-[10px] leading-none font-medium shadow-none hover:text-sky-600">
+                        <span className="truncate">{item.label}</span>
+                      </Button>
+                    </span>
+                  );
+                })}
+              </>
             ) : (
               <Button
-                onClick={() => onNavigate()}
+                onClick={() => onNavigate(SYSTEM_ROOT_TOKEN)}
                 size="sm"
                 noIconHover
-                className="border-border-subtle h-5 min-h-0 rounded-md px-1 text-[10px] leading-none font-medium shadow-none hover:text-sky-600">
-                Root
+                className="flex h-5 min-h-0 items-center gap-1 rounded-md px-1 text-[10px] leading-none font-medium shadow-none hover:text-sky-600">
+                <Monitor size={10} className="shrink-0" />
               </Button>
             )}
           </div>
 
-          <Button
-            onClick={() => onSelect(currentPath)}
-            className="w-full border-b border-slate-100 px-3 py-2 text-left text-xs font-semibold text-sky-600 hover:bg-sky-50">
-            Select this folder
-          </Button>
+          {currentPath ? (
+            <Button
+              onClick={() => onSelect(currentPath)}
+              className="w-full border-b border-slate-100 px-3 py-2 text-left text-xs font-semibold text-sky-600 hover:bg-sky-50">
+              Select this folder
+            </Button>
+          ) : null}
 
           {folders.length > 0 ? (
             folders.map((folder) => (
@@ -154,7 +169,11 @@ export function FolderBrowser({
                 onClick={() => onNavigate(folder.path)}
                 onDoubleClick={() => onSelect(folder.path)}
                 className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs text-slate-700 hover:bg-slate-50">
-                <FolderOpen size={13} className="shrink-0 text-slate-400" />
+                {isWindowsDriveList ? (
+                  <HardDrive size={13} className="shrink-0 text-slate-400" />
+                ) : (
+                  <FolderOpen size={13} className="shrink-0 text-slate-400" />
+                )}
                 <span className="truncate">{folder.name}</span>
               </Button>
             ))

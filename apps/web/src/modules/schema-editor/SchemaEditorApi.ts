@@ -1,10 +1,6 @@
-import {
-  failureFromError,
-  success,
-  type ApiResponse,
-} from '@vnext-forge/app-contracts';
+import { failureFromError, success, type ApiResponse } from '@vnext-forge/app-contracts';
 import { readFile, writeFile } from '@modules/project-workspace/WorkspaceApi';
-import { toVnextError } from '@shared/lib/error/VnextErrorHelpers';
+import { toVnextError } from '@shared/lib/error/vNextErrorHelpers';
 import { assertSchemaEditorDocument } from './SchemaEditorSchema';
 
 interface LoadSchemaEditorParams {
@@ -26,7 +22,8 @@ export async function loadSchemaEditor({
 }: LoadSchemaEditorParams): Promise<ApiResponse<SchemaEditorDocument>> {
   try {
     const data = await readFile(filePath);
-    const parsedContent = typeof data.content === 'string' ? JSON.parse(data.content) : data.content;
+    const parsedContent =
+      typeof data.content === 'string' ? JSON.parse(data.content) : data.content;
     const validatedDocument = assertSchemaEditorDocument(
       parsedContent,
       'SchemaEditorApi.loadSchemaEditor',

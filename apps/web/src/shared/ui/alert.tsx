@@ -1,14 +1,15 @@
 import * as React from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 
-import { cn } from '@shared/lib/utils/Cn';
+import { cn } from '@shared/lib/utils/cn';
 
 const alertVariants = cva(
   'relative w-full rounded-lg border px-4 py-3 text-sm grid has-[>svg]:grid-cols-[calc(var(--spacing)*4)_1fr] grid-cols-[0_1fr] has-[>svg]:gap-x-3 gap-y-0.5 items-start transition-all duration-200 ease-out [&>svg]:size-4 [&>svg]:translate-y-0.5 [&>svg]:text-current',
   {
     variants: {
       variant: {
-        default: 'border-primary-border bg-primary text-primary-foreground [&>svg]:text-primary-icon',
+        default:
+          'border-primary-border bg-primary text-primary-foreground [&>svg]:text-primary-icon',
         secondary:
           'border-secondary-border bg-secondary text-secondary-foreground [&>svg]:text-secondary-icon',
         tertiary:
@@ -138,12 +139,14 @@ const alertActionVariants = cva(
       {
         variant: 'secondary',
         hoverable: true,
-        className: 'hover:-translate-y-px hover:border-secondary-border-hover hover:bg-secondary-hover',
+        className:
+          'hover:-translate-y-px hover:border-secondary-border-hover hover:bg-secondary-hover',
       },
       {
         variant: 'tertiary',
         hoverable: true,
-        className: 'hover:-translate-y-px hover:border-tertiary-border-hover hover:bg-tertiary-hover',
+        className:
+          'hover:-translate-y-px hover:border-tertiary-border-hover hover:bg-tertiary-hover',
       },
       {
         variant: 'success',
@@ -158,7 +161,8 @@ const alertActionVariants = cva(
       {
         variant: 'destructive',
         hoverable: true,
-        className: 'hover:-translate-y-px hover:border-destructive-border-hover hover:bg-destructive-hover hover:text-white',
+        className:
+          'hover:-translate-y-px hover:border-destructive-border-hover hover:bg-destructive-hover hover:text-white',
       },
     ],
     defaultVariants: {

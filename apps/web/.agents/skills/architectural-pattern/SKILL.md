@@ -114,11 +114,14 @@ Use one naming rule across `app`, `pages`, `modules`, and `shared`:
 
 - Folders use `kebab-case`
 - Files use `PascalCase`
+- Utility/helper-style infrastructure files under areas such as `api`, `config`, or `lib` use a lowercase initial, for example `client.ts`, `env.ts`, `logger.ts`, `vNextErrorHelpers.ts`, or `responseHelpers.ts`
 
 - Name files like exported React components or owned module contracts: `ProjectListActions.tsx`, `ProjectApi.ts`, `ProjectStore.ts`, `useProjectList.ts`, `Button.tsx`
 - Keep the file name and the primary exported symbol aligned when practical
 - Use the same rule for hooks in this repo, with one explicit exception: hook files and hook exports must use `use` + `PascalCase`, for example `useProjectList.ts` and `useProjectList`
 - If a name starts with `use`, it must follow `use` + `PascalCase`. Do not use forms like `UseProjectList`, `use-project-list`, or `useprojectlist`
+- When a name starts with the product prefix, write it as `vNext` at the start of the identifier, for example `vNextErrorHelpers.ts` or `vNextConfig.ts`. Do not start names with `Vnext` or `vnext`.
+- If the product term appears after another word, keep normal casing for that position, for example `ErrorVnextHelper.ts`
 - Keep folders descriptive and in `kebab-case`, such as `project-management`, `project-list`, `shared`, `ui`, or `code-editor`
 - Keep framework exceptions as they are when required by tooling, for example `index.ts`, `main.tsx`, or `vite-env.d.ts`
 - Do not use `camelCase` or `PascalCase` for folder names unless tooling forces it

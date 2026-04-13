@@ -2,7 +2,7 @@ import * as React from 'react';
 import * as TooltipPrimitive from '@radix-ui/react-tooltip';
 import { cva, type VariantProps } from 'class-variance-authority';
 
-import { cn } from '@shared/lib/utils/Cn';
+import { cn } from '@shared/lib/utils/cn';
 
 const tooltipContentVariants = cva(
   'z-50 w-fit origin-(--radix-tooltip-content-transform-origin) rounded-md border px-3 py-1.5 text-xs text-balance shadow-md',
@@ -25,7 +25,11 @@ function TooltipProvider({
   ...props
 }: React.ComponentProps<typeof TooltipPrimitive.Provider>) {
   return (
-    <TooltipPrimitive.Provider data-slot="tooltip-provider" delayDuration={delayDuration} {...props} />
+    <TooltipPrimitive.Provider
+      data-slot="tooltip-provider"
+      delayDuration={delayDuration}
+      {...props}
+    />
   );
 }
 
@@ -42,7 +46,8 @@ function TooltipContent({
   sideOffset = 8,
   variant,
   ...props
-}: React.ComponentProps<typeof TooltipPrimitive.Content> & VariantProps<typeof tooltipContentVariants>) {
+}: React.ComponentProps<typeof TooltipPrimitive.Content> &
+  VariantProps<typeof tooltipContentVariants>) {
   return (
     <TooltipPrimitive.Portal>
       <TooltipPrimitive.Content

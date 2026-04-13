@@ -3,7 +3,7 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { Copy } from 'lucide-react';
 
 import { Button } from '@shared/ui/Button';
-import { cn } from '@shared/lib/utils/Cn';
+import { cn } from '@shared/lib/utils/cn';
 
 const infoRowVariants = cva('flex items-start gap-3 py-1.5', {
   variants: {
@@ -95,17 +95,9 @@ function InfoRow({
   }
 
   return (
-    <div
-      data-slot="info-row"
-      className={cn(infoRowVariants({ variant }), className)}
-      {...props}
-    >
-      {label ? (
-        <div className={cn(infoRowLabelVariants({ variant }))}>{label}</div>
-      ) : null}
-      <div className={cn(infoRowValueVariants({ variant, mono }))}>
-        {value}
-      </div>
+    <div data-slot="info-row" className={cn(infoRowVariants({ variant }), className)} {...props}>
+      {label ? <div className={cn(infoRowLabelVariants({ variant }))}>{label}</div> : null}
+      <div className={cn(infoRowValueVariants({ variant, mono }))}>{value}</div>
       {copyable && typeof value === 'string' ? (
         <Button
           type="button"
@@ -115,8 +107,7 @@ function InfoRow({
           noBorder
           noIconHover
           className="size-7 shrink-0"
-          aria-label="Copy value"
-        >
+          aria-label="Copy value">
           <Copy className="size-4" />
         </Button>
       ) : null}

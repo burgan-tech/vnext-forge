@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 
-import { cn } from '@shared/lib/utils/Cn';
+import { cn } from '@shared/lib/utils/cn';
 
 const inputRootVariants = cva(
   'group/input relative isolate flex w-full items-center overflow-hidden rounded-2xl border shadow-xs transition-all duration-200 ease-out outline-none',
@@ -163,22 +163,26 @@ const inputAdornmentVariants = cva(
       {
         variant: 'default',
         hoverable: true,
-        className: 'group-hover/input:border-primary-border-hover group-hover/input:bg-primary-muted-hover',
+        className:
+          'group-hover/input:border-primary-border-hover group-hover/input:bg-primary-muted-hover',
       },
       {
         variant: 'success',
         hoverable: true,
-        className: 'group-hover/input:border-success-border-hover group-hover/input:bg-success-hover',
+        className:
+          'group-hover/input:border-success-border-hover group-hover/input:bg-success-hover',
       },
       {
         variant: 'secondary',
         hoverable: true,
-        className: 'group-hover/input:border-secondary-border-hover group-hover/input:bg-secondary-muted-hover',
+        className:
+          'group-hover/input:border-secondary-border-hover group-hover/input:bg-secondary-muted-hover',
       },
       {
         variant: 'tertiary',
         hoverable: true,
-        className: 'group-hover/input:border-tertiary-border-hover group-hover/input:bg-tertiary-muted-hover',
+        className:
+          'group-hover/input:border-tertiary-border-hover group-hover/input:bg-tertiary-muted-hover',
       },
       {
         variant: 'muted',
@@ -197,7 +201,8 @@ const inputAdornmentVariants = cva(
 type NativeInputProps = Omit<React.ComponentProps<'input'>, 'size'>;
 
 interface InputProps
-  extends NativeInputProps,
+  extends
+    NativeInputProps,
     Omit<VariantProps<typeof inputRootVariants>, 'disabledState' | 'readOnlyState'>,
     Omit<VariantProps<typeof inputAdornmentVariants>, 'size' | 'hoverable'> {
   hoverable?: boolean;

@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 
-import { cn } from '@shared/lib/utils/Cn';
+import { cn } from '@shared/lib/utils/cn';
 
 const summaryCardVariants = cva(
   'rounded-xl border p-4 text-center shadow-sm transition-all duration-200 ease-out',
@@ -58,7 +58,8 @@ const summaryCardVariants = cva(
   },
 );
 
-interface SummaryCardProps extends React.ComponentProps<'div'>, VariantProps<typeof summaryCardVariants> {
+interface SummaryCardProps
+  extends React.ComponentProps<'div'>, VariantProps<typeof summaryCardVariants> {
   label: React.ReactNode;
   toneClassName?: string;
   value: React.ReactNode;
@@ -77,9 +78,12 @@ function SummaryCard({
   return (
     <div
       data-slot="summary-card"
-      className={cn(summaryCardVariants({ variant, hoverable, noBorder }), toneClassName, className)}
-      {...props}
-    >
+      className={cn(
+        summaryCardVariants({ variant, hoverable, noBorder }),
+        toneClassName,
+        className,
+      )}
+      {...props}>
       <div className="text-2xl font-semibold tabular-nums">{value}</div>
       <div className="mt-1 text-xs font-medium text-current/70">{label}</div>
     </div>

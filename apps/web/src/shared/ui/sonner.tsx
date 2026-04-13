@@ -2,7 +2,7 @@ import type { ComponentProps } from 'react';
 import { Toaster as Sonner, type ToasterProps } from 'sonner';
 import { cva, type VariantProps } from 'class-variance-authority';
 
-import { cn } from '@shared/lib/utils/Cn';
+import { cn } from '@shared/lib/utils/cn';
 
 const toasterSurfaceVariants = cva('border shadow-lg', {
   variants: {
@@ -69,10 +69,22 @@ const Toaster = ({ className, toastOptions, variant, ...props }: SharedToasterPr
             toasterButtonVariants({ emphasis: 'cancel' }),
             toastOptions?.classNames?.cancelButton,
           ),
-          error: cn('border-destructive-border bg-destructive/10 text-destructive', toastOptions?.classNames?.error),
-          success: cn('border-tertiary-border bg-tertiary text-tertiary-foreground', toastOptions?.classNames?.success),
-          info: cn('border-secondary-border bg-secondary text-secondary-foreground', toastOptions?.classNames?.info),
-          warning: cn('border-primary-border bg-primary text-primary-foreground', toastOptions?.classNames?.warning),
+          error: cn(
+            'border-destructive-border bg-destructive/10 text-destructive',
+            toastOptions?.classNames?.error,
+          ),
+          success: cn(
+            'border-tertiary-border bg-tertiary text-tertiary-foreground',
+            toastOptions?.classNames?.success,
+          ),
+          info: cn(
+            'border-secondary-border bg-secondary text-secondary-foreground',
+            toastOptions?.classNames?.info,
+          ),
+          warning: cn(
+            'border-primary-border bg-primary text-primary-foreground',
+            toastOptions?.classNames?.warning,
+          ),
         },
       }}
       {...props}

@@ -2,7 +2,7 @@ import * as React from 'react';
 import { ChevronRight } from 'lucide-react';
 import { cva, type VariantProps } from 'class-variance-authority';
 
-import { cn } from '@shared/lib/utils/Cn';
+import { cn } from '@shared/lib/utils/cn';
 
 const sectionVariants = cva('rounded-xl border shadow-sm transition-all duration-200 ease-out', {
   variants: {
@@ -136,7 +136,8 @@ const sectionCountVariants = cva('rounded-md border px-1.5 py-0.5 text-[10px] ta
   },
 });
 
-interface SectionProps extends Omit<React.ComponentProps<'div'>, 'title'>, VariantProps<typeof sectionVariants> {
+interface SectionProps
+  extends Omit<React.ComponentProps<'div'>, 'title'>, VariantProps<typeof sectionVariants> {
   action?: React.ReactNode;
   collapsible?: boolean;
   count?: React.ReactNode;
@@ -169,8 +170,7 @@ function Section({
     <section
       data-slot="section"
       className={cn(sectionVariants({ variant, hoverable, noBorder }), className)}
-      {...props}
-    >
+      {...props}>
       <div className="flex items-start gap-3 px-4 py-3">
         {collapsible ? (
           <button
@@ -179,8 +179,7 @@ function Section({
             className={cn(
               sectionToggleButtonVariants({ variant: resolvedVariant, hoverable: true }),
             )}
-            aria-label={isOpen ? 'Collapse section' : 'Expand section'}
-          >
+            aria-label={isOpen ? 'Collapse section' : 'Expand section'}>
             <ChevronRight className={cn('size-4 transition-transform', isOpen && 'rotate-90')} />
           </button>
         ) : icon ? (
@@ -189,13 +188,13 @@ function Section({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             {!collapsible && icon ? null : collapsible && icon ? (
-              <span className={cn(sectionIconVariants({ variant: resolvedVariant }), 'mt-0')}>{icon}</span>
+              <span className={cn(sectionIconVariants({ variant: resolvedVariant }), 'mt-0')}>
+                {icon}
+              </span>
             ) : null}
             <h3 className="text-sm font-semibold">{title}</h3>
             {count ? (
-              <span className={sectionCountVariants({ variant: resolvedVariant })}>
-                {count}
-              </span>
+              <span className={sectionCountVariants({ variant: resolvedVariant })}>{count}</span>
             ) : null}
           </div>
           {description ? <p className="mt-1 text-xs text-current/70">{description}</p> : null}

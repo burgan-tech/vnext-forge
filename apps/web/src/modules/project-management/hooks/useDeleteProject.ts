@@ -4,7 +4,7 @@ import { deleteProject } from '../ProjectApi';
 import type { ProjectInfo } from '../ProjectTypes';
 
 import type { VnextForgeError } from '@vnext-forge/app-contracts';
-import { toVnextError } from '@shared/lib/error/VnextErrorHelpers';
+import { toVnextError } from '@shared/lib/error/vNextErrorHelpers';
 
 interface UseDeleteProjectOptions {
   onDeleted?: (project: ProjectInfo) => Promise<void> | void;

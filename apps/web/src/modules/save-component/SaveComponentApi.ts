@@ -1,11 +1,7 @@
-import {
-  failureFromError,
-  success,
-  type ApiResponse,
-} from '@vnext-forge/app-contracts';
+import { failureFromError, success, type ApiResponse } from '@vnext-forge/app-contracts';
 import { z } from 'zod';
 import { apiClient, callApi, unwrapApi } from '@shared/api/Client';
-import { toVnextError } from '@shared/lib/error/VnextErrorHelpers';
+import { toVnextError } from '@shared/lib/error/vNextErrorHelpers';
 
 export interface LoadComponentFileParams {
   filePath: string;
@@ -44,7 +40,8 @@ export async function loadComponentFile({
       }),
       errorMessage,
     );
-    const parsedContent = typeof data.content === 'string' ? JSON.parse(data.content) : data.content;
+    const parsedContent =
+      typeof data.content === 'string' ? JSON.parse(data.content) : data.content;
     const json = parse ? parse(parsedContent) : parseComponentObject(parsedContent);
 
     return success({

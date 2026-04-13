@@ -5,7 +5,7 @@ import { listProjects } from '../ProjectApi';
 
 import type { ProjectInfo } from '../ProjectTypes';
 import type { VnextForgeError } from '@vnext-forge/app-contracts';
-import { toVnextError } from '@shared/lib/error/VnextErrorHelpers';
+import { toVnextError } from '@shared/lib/error/vNextErrorHelpers';
 
 export function useProjectList() {
   const { projects, setActiveProject, setProjects } = useProjectStore();

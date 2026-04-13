@@ -83,6 +83,8 @@ The main architecture rules live in `apps/web/.agents/skills/architectural-patte
 - Do not create `model`, `ui`, `hooks`, or `types` subfolders by reflex. Colocate files in the owning folder until extra structure is justified.
 - `packages/*` may be imported from any layer.
 - Use path aliases/path mappings instead of deep relative imports.
+- Utility/helper-style infrastructure files under areas such as `api`, `config`, or `lib` should start with a lowercase letter, for example `client.ts`, `env.ts`, `logger.ts`, or `vNextErrorHelpers.ts`.
+- When a file name starts with the product prefix, write it as `vNext`, not `Vnext` or `vnext`. If `vnext` appears later in the name, keep normal word casing for that position, for example `ErrorVnextHelper.ts`.
 
 ```text
 app/

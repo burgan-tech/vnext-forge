@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react';
 
 import { createProject } from '../ProjectApi';
+import { getProjectDomainError, normalizeProjectDomain } from '../ProjectManagementSchema';
 
 import { browseWorkspace } from '@modules/project-workspace/WorkspaceApi';
 import type { WorkspaceFolder } from '@shared/ui/FolderBrowser';
 import type { ProjectInfo } from '../ProjectTypes';
 import type { VnextForgeError } from '@vnext-forge/app-contracts';
-import { toVnextError } from '@shared/lib/error/VnextErrorHelpers';
+import { toVnextError } from '@shared/lib/error/vNextErrorHelpers';
 
 interface UseCreateProjectOptions {
   onCreated?: (project: ProjectInfo) => Promise<void> | void;
@@ -14,6 +15,7 @@ interface UseCreateProjectOptions {
 
 export function useCreateProject(options: UseCreateProjectOptions = {}) {
   const [domain, setDomain] = useState('');
+  const [domainTouched, setDomainTouched] = useState(false);
   const [pickerOpen, setPickerOpen] = useState(false);
   const [browsePath, setBrowsePath] = useState('');
   const [folders, setFolders] = useState<WorkspaceFolder[]>([]);
@@ -21,6 +23,8 @@ export function useCreateProject(options: UseCreateProjectOptions = {}) {
   const [browseError, setBrowseError] = useState<VnextForgeError | null>(null);
   const [createError, setCreateError] = useState<VnextForgeError | null>(null);
   const [creating, setCreating] = useState(false);
+  const domainError = useMemo(() => getProjectDomainError(domain), [domain]);
+  const visibleDomainError = domainTouched ? domainError : null;
 
   const openPicker = async (path?: string) => {
     setBrowseError(null);
@@ -41,11 +45,13 @@ export function useCreateProject(options: UseCreateProjectOptions = {}) {
   };
 
   const submit = async () => {
-    const normalizedDomain = domain.trim();
+    setDomainTouched(true);
 
-    if (!normalizedDomain) {
+    if (domainError) {
       return;
     }
+
+    const normalizedDomain = normalizeProjectDomain(domain);
 
     setCreating(true);
     setCreateError(null);
@@ -61,6 +67,7 @@ export function useCreateProject(options: UseCreateProjectOptions = {}) {
       }
 
       setDomain('');
+      setDomainTouched(false);
       setSelectedPath('');
       setPickerOpen(false);
       await options.onCreated?.(response.data);
@@ -71,11 +78,15 @@ export function useCreateProject(options: UseCreateProjectOptions = {}) {
     }
   };
 
-  const canSubmit = useMemo(() => domain.trim().length > 0 && !creating, [creating, domain]);
+  const canSubmit = useMemo(() => !domainError && !creating, [creating, domainError]);
 
   return {
     domain,
-    setDomain,
+    domainError: visibleDomainError,
+    setDomain: (value: string) => {
+      setDomainTouched(true);
+      setDomain(value);
+    },
     pickerOpen,
     setPickerOpen,
     browsePath,

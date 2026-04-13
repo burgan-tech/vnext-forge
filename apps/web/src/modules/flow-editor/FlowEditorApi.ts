@@ -1,7 +1,7 @@
 import { failureFromError, isFailure, success, type ApiResponse } from '@vnext-forge/app-contracts';
 import { decodeFromBase64 } from '@modules/code-editor/editor/Base64Handler';
 import { readFile, readOptionalFile, writeFile } from '@modules/project-workspace/WorkspaceApi';
-import { toVnextError } from '@shared/lib/error/VnextErrorHelpers';
+import { toVnextError } from '@shared/lib/error/vNextErrorHelpers';
 import {
   flowEditorDocumentSchema,
   flowEditorScriptSchema,
@@ -125,10 +125,7 @@ function parseJsonDocument(content: string, fallbackMessage: string): unknown {
   }
 }
 
-function parseFlowEditorDocument(
-  value: unknown,
-  fallbackMessage: string,
-): Record<string, unknown> {
+function parseFlowEditorDocument(value: unknown, fallbackMessage: string): Record<string, unknown> {
   try {
     return flowEditorDocumentSchema.parse(value);
   } catch (schemaError) {
@@ -195,10 +192,7 @@ function extractScripts(workflow: Record<string, unknown>): FlowEditorScriptEntr
 
       collect(transition.rule);
 
-      if (
-        conditionScript &&
-        (!ruleScript || conditionScript.location !== ruleScript.location)
-      ) {
+      if (conditionScript && (!ruleScript || conditionScript.location !== ruleScript.location)) {
         collect(conditionScript);
       }
 
