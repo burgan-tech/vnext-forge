@@ -2,7 +2,7 @@ import * as React from 'react';
 import { Slot } from '@radix-ui/react-slot';
 import { cva, type VariantProps } from 'class-variance-authority';
 
-import { cn } from '@shared/lib/utils/Cn';
+import { cn } from '@shared/lib/utils/cn';
 import Loading from '@shared/ui/Loading';
 
 const buttonVariants = cva(
@@ -17,8 +17,7 @@ const buttonVariants = cva(
         outline: 'border border-border bg-background shadow-xs',
         secondary:
           'border border-secondary-border bg-secondary text-secondary-foreground shadow-xs',
-        tertiary:
-          'border border-tertiary-border bg-tertiary text-tertiary-foreground shadow-xs',
+        tertiary: 'border border-tertiary-border bg-tertiary text-tertiary-foreground shadow-xs',
         muted: 'border border-muted-border bg-muted text-muted-foreground shadow-xs',
         ghost: 'border border-transparent',
         link: 'text-primary underline-offset-4',
@@ -212,7 +211,11 @@ function renderWrappedIcon(
   }
 
   return (
-    <span className={cn(buttonIconVariants({ variant, hoverable }), buttonIconMotionVariants({ side, hoverable }))}>
+    <span
+      className={cn(
+        buttonIconVariants({ variant, hoverable }),
+        buttonIconMotionVariants({ side, hoverable }),
+      )}>
       {icon}
     </span>
   );
@@ -274,12 +277,7 @@ function Button({
       {children}
       {rightIconComponent
         ? rightIconComponent
-        : renderWrappedIcon(
-            rightIcon,
-            rightIconVariant ?? resolvedVariant,
-            'right',
-            iconHoverable,
-          )}
+        : renderWrappedIcon(rightIcon, rightIconVariant ?? resolvedVariant, 'right', iconHoverable)}
     </span>
   );
 
@@ -289,7 +287,11 @@ function Button({
         data-slot="button"
         data-loading={loading ? 'true' : 'false'}
         aria-busy={loading}
-        className={cn(buttonVariants({ variant, size, hoverable }), noBorder && 'border-0', className)}
+        className={cn(
+          buttonVariants({ variant, size, hoverable }),
+          noBorder && 'border-0',
+          className,
+        )}
         {...props}>
         {content}
       </Comp>
@@ -299,7 +301,11 @@ function Button({
   return (
     <Comp
       data-slot="button"
-      className={cn(buttonVariants({ variant, size, hoverable }), noBorder && 'border-0', className)}
+      className={cn(
+        buttonVariants({ variant, size, hoverable }),
+        noBorder && 'border-0',
+        className,
+      )}
       disabled={disabled || loading}
       {...props}>
       {content}

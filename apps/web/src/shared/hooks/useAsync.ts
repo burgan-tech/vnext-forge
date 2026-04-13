@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import { isFailure, type ApiResponse, VnextForgeError } from '@vnext-forge/app-contracts';
-import { toVnextError } from '@shared/lib/error/VnextErrorHelpers';
+import { toVnextError } from '@shared/lib/error/vNextErrorHelpers';
 import {
   showNotification,
   type NotificationModalType,

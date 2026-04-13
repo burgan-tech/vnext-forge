@@ -1,3 +1,5 @@
+import type { ChangeEvent, KeyboardEvent } from 'react';
+
 import { AlertCircle, Plus } from 'lucide-react';
 
 import { FolderBrowser } from '@shared/ui/FolderBrowser';
@@ -18,6 +20,15 @@ interface CreateProjectCardProps {
 
 export function CreateProjectCard({ onCreated }: CreateProjectCardProps) {
   const createProject = useCreateProject({ onCreated });
+  const handleDomainChange = (event: ChangeEvent<HTMLInputElement>) => {
+    createProject.setDomain(event.target.value);
+  };
+
+  const handleDomainKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      void createProject.submit();
+    }
+  };
 
   return (
     <Card noBorder variant="default" hoverable={false} className="w-full rounded-[28px]">
@@ -38,13 +49,16 @@ export function CreateProjectCard({ onCreated }: CreateProjectCardProps) {
           type="text"
           placeholder="my-domain"
           value={createProject.domain}
-          onChange={(event) => createProject.setDomain(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') {
-              void createProject.submit();
-            }
-          }}
+          onChange={handleDomainChange}
+          aria-invalid={Boolean(createProject.domainError)}
+          onKeyDown={handleDomainKeyDown}
         />
+
+        {createProject.domainError ? (
+          <Alert variant="destructive" className="rounded-xl px-3 py-2 text-xs">
+            <AlertDescription>{createProject.domainError}</AlertDescription>
+          </Alert>
+        ) : null}
 
         <FolderBrowser
           currentPath={createProject.browsePath}

@@ -2,7 +2,7 @@ import * as React from 'react';
 import MonacoEditor from '@monaco-editor/react';
 import { cva, type VariantProps } from 'class-variance-authority';
 
-import { cn } from '@shared/lib/utils/Cn';
+import { cn } from '@shared/lib/utils/cn';
 
 const jsonCodeFieldVariants = cva(
   'overflow-hidden rounded-xl border shadow-sm transition-all duration-200 ease-out',

@@ -2,7 +2,7 @@ import * as React from 'react';
 import { X } from 'lucide-react';
 import { cva, type VariantProps } from 'class-variance-authority';
 
-import { cn } from '@shared/lib/utils/Cn';
+import { cn } from '@shared/lib/utils/cn';
 import { Badge } from '@shared/ui/Badge';
 import { Button } from '@shared/ui/Button';
 import { Input } from '@shared/ui/Input';
@@ -12,8 +12,10 @@ const tagEditorVariants = cva(
   {
     variants: {
       variant: {
-        default: 'border-primary-border bg-primary text-primary-foreground focus-within:border-primary-border-hover focus-within:ring-[3px] focus-within:ring-ring/50',
-        success: 'border-success-border bg-success text-success-foreground focus-within:border-success-border-hover focus-within:ring-[3px] focus-within:ring-ring/50',
+        default:
+          'border-primary-border bg-primary text-primary-foreground focus-within:border-primary-border-hover focus-within:ring-[3px] focus-within:ring-ring/50',
+        success:
+          'border-success-border bg-success text-success-foreground focus-within:border-success-border-hover focus-within:ring-[3px] focus-within:ring-ring/50',
         secondary:
           'border-secondary-border bg-secondary text-secondary-foreground focus-within:border-secondary-border-hover focus-within:ring-[3px] focus-within:ring-ring/50',
         tertiary:
@@ -59,8 +61,7 @@ const tagEditorVariants = cva(
 );
 
 interface TagEditorProps
-  extends Omit<React.ComponentProps<'div'>, 'onChange'>,
-    VariantProps<typeof tagEditorVariants> {
+  extends Omit<React.ComponentProps<'div'>, 'onChange'>, VariantProps<typeof tagEditorVariants> {
   onChange: (tags: string[]) => void;
   placeholder?: string;
   readOnly?: boolean;
@@ -109,14 +110,12 @@ function TagEditor({
     <div
       data-slot="tag-editor"
       className={cn(tagEditorVariants({ variant, hoverable, noBorder }), className)}
-      {...props}
-    >
+      {...props}>
       {tags.map((tag, index) => (
         <Badge
           key={`${tag}-${index}`}
           variant={variant === 'success' ? 'success' : 'default'}
-          className="tag-editor-chip gap-1 pr-0.5 text-xs"
-        >
+          className="tag-editor-chip gap-1 pr-0.5 text-xs">
           {tag}
           {!readOnly ? (
             <Button
@@ -124,9 +123,8 @@ function TagEditor({
               onClick={() => removeTag(index)}
               variant="ghost"
               size="icon"
-              className="tag-editor-chip-remove size-5 min-h-5 border-0 text-current shadow-none hover:bg-destructive/12 hover:text-destructive"
-              aria-label={`Remove ${tag}`}
-            >
+              className="tag-editor-chip-remove hover:bg-destructive/12 hover:text-destructive size-5 min-h-5 border-0 text-current shadow-none"
+              aria-label={`Remove ${tag}`}>
               <X className="size-3" />
             </Button>
           ) : null}

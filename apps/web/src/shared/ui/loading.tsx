@@ -1,17 +1,11 @@
 import { motion } from 'framer-motion';
 import { Loader2, Zap } from 'lucide-react';
 import type { ComponentType } from 'react';
-import { cn } from '@shared/lib/utils/Cn';
+import { cn } from '@shared/lib/utils/cn';
 
 export type LoadingVariant = 'spinner' | 'dots' | 'pulse' | 'bounce' | 'wave' | 'custom';
 export type LoadingSize = 'sm' | 'md' | 'lg' | 'xl';
-export type LoadingColor =
-  | 'primary'
-  | 'secondary'
-  | 'tertiary'
-  | 'destructive'
-  | 'white'
-  | 'muted';
+export type LoadingColor = 'primary' | 'secondary' | 'tertiary' | 'destructive' | 'white' | 'muted';
 
 export interface LoadingConfig {
   variant?: LoadingVariant;
@@ -190,7 +184,8 @@ const Loading = ({ config, className = '' }: LoadingProps) => {
   };
 
   const loadingContent = (
-    <div className={cn('flex flex-col items-center justify-center', currentSize.container, className)}>
+    <div
+      className={cn('flex flex-col items-center justify-center', currentSize.container, className)}>
       {renderLoadingAnimation()}
       {mergedConfig.showText && mergedConfig.text && (
         <motion.p

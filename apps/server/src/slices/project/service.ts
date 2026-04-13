@@ -91,42 +91,56 @@ export class ProjectService {
     traceId?: string,
   ): Promise<ProjectEntry> {
     await this.ensureProjectsDir()
-    const rootPath = targetPath ? path.resolve(targetPath, domain) : path.join(PROJECTS_DIR, domain)
+    const normalizedDomain = domain.trim()
+    const normalizedTargetPath = targetPath?.trim()
+    const rootPath = normalizedTargetPath
+      ? path.resolve(normalizedTargetPath, normalizedDomain)
+      : path.join(PROJECTS_DIR, normalizedDomain)
 
     try {
       await fs.access(rootPath)
       throw new VnextForgeError(
         ERROR_CODES.PROJECT_ALREADY_EXISTS,
         'Project already exists',
-        { source: 'ProjectService.createProject', layer: 'application', details: { domain, rootPath } },
+        {
+          source: 'ProjectService.createProject',
+          layer: 'application',
+          details: { domain: normalizedDomain, rootPath },
+        },
         traceId,
       )
     } catch (error) {
       const code = (error as NodeJS.ErrnoException | undefined)?.code
       if (error instanceof VnextForgeError) throw error
       if (code && code !== 'ENOENT') {
-        throw this.toProjectError(error, 'ProjectService.createProject', traceId, { domain, rootPath })
+        throw this.toProjectError(error, 'ProjectService.createProject', traceId, {
+          domain: normalizedDomain,
+          rootPath,
+        })
       }
     }
 
     try {
       await fs.mkdir(rootPath, { recursive: true })
-      for (const componentPath of this.workspaceService.getComponentPaths(rootPath, domain)) {
+      for (const componentPath of this.workspaceService.getComponentPaths(rootPath, normalizedDomain)) {
         await fs.mkdir(componentPath, { recursive: true })
       }
-      const config = this.workspaceService.createDefaultConfig(domain, description)
+      const config = this.workspaceService.createDefaultConfig(normalizedDomain, description)
       await fs.writeFile(
         this.workspaceService.getConfigPath(rootPath),
         JSON.stringify(config, null, 2),
         'utf-8',
       )
-      if (targetPath) {
-        await this.writeLinkFile(domain, rootPath)
-        return this.toProjectEntry(domain, rootPath, true, traceId)
+      if (normalizedTargetPath) {
+        await this.writeLinkFile(normalizedDomain, rootPath)
+        return this.toProjectEntry(normalizedDomain, rootPath, true, traceId)
       }
-      return this.toProjectEntry(domain, rootPath, false, traceId)
+      return this.toProjectEntry(normalizedDomain, rootPath, false, traceId)
     } catch (error) {
-      throw this.toProjectError(error, 'ProjectService.createProject', traceId, { domain, rootPath })
+      throw this.toProjectError(error, 'ProjectService.createProject', traceId, {
+        domain: normalizedDomain,
+        rootPath,
+      })
     }
   }
 

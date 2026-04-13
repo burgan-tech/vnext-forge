@@ -3,7 +3,7 @@ import * as NavigationMenuPrimitive from '@radix-ui/react-navigation-menu';
 import { cva, type VariantProps } from 'class-variance-authority';
 import { ChevronDownIcon } from 'lucide-react';
 
-import { cn } from '@shared/lib/utils/Cn';
+import { cn } from '@shared/lib/utils/cn';
 
 const navigationMenuTriggerStyle = cva(
   'group inline-flex h-10 w-max items-center justify-center rounded-xl border px-4 py-2 text-sm font-medium shadow-sm outline-none transition-all duration-200 ease-out disabled:pointer-events-none disabled:opacity-50 focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px]',
@@ -75,7 +75,8 @@ const navigationMenuLinkVariants = cva(
     variants: {
       variant: {
         default: 'border-primary-border-hover bg-primary-surface text-primary-text shadow-sm',
-        secondary: 'border-secondary-border-hover bg-secondary-surface text-secondary-text shadow-sm',
+        secondary:
+          'border-secondary-border-hover bg-secondary-surface text-secondary-text shadow-sm',
         tertiary: 'border-tertiary-border-hover bg-tertiary-surface text-tertiary-text shadow-sm',
       },
       hoverable: {
@@ -203,9 +204,12 @@ function NavigationMenuTrigger({
           noBorder,
         }),
         hoverable && 'hover:-translate-y-px',
-        variant === 'default' && 'data-[state=open]:border-primary-border-hover data-[state=open]:bg-primary-hover',
-        variant === 'secondary' && 'data-[state=open]:border-secondary-border-hover data-[state=open]:bg-secondary-hover',
-        variant === 'tertiary' && 'data-[state=open]:border-tertiary-border-hover data-[state=open]:bg-tertiary-hover',
+        variant === 'default' &&
+          'data-[state=open]:border-primary-border-hover data-[state=open]:bg-primary-hover',
+        variant === 'secondary' &&
+          'data-[state=open]:border-secondary-border-hover data-[state=open]:bg-secondary-hover',
+        variant === 'tertiary' &&
+          'data-[state=open]:border-tertiary-border-hover data-[state=open]:bg-tertiary-hover',
         'group',
         className,
       )}

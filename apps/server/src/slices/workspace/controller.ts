@@ -1,3 +1,5 @@
+import path from 'node:path';
+import { platform } from 'node:os';
 import type { Context } from 'hono';
 import { getRequestLogger } from '@shared/lib/logger.js';
 import { parseRequest } from '@shared/lib/request.js';
@@ -14,6 +16,7 @@ import {
 } from './schema.js';
 
 const workspaceService = new WorkspaceService();
+const SYSTEM_ROOT_TOKEN = '::system-root::';
 
 export const workspaceController = {
   async read(c: Context): Promise<Response> {
@@ -62,7 +65,14 @@ export const workspaceController = {
     const { query } = await parseRequest(c, fileBrowseRequestSchema, 'workspaceController.browse');
     const entries = await workspaceService.browseDirs(query.path, c.get('traceId'));
     const folders = entries.filter((entry) => entry.type === 'directory');
-    return ok(c, { path: query.path, folders });
+    const responsePath =
+      query.path === SYSTEM_ROOT_TOKEN
+        ? platform() === 'win32'
+          ? ''
+          : path.parse(process.cwd()).root
+        : query.path;
+
+    return ok(c, { path: responsePath, folders });
   },
 
   async search(c: Context): Promise<Response> {

@@ -6,7 +6,7 @@ import { browseWorkspace } from '@modules/project-workspace/WorkspaceApi';
 import type { WorkspaceFolder } from '@shared/ui/FolderBrowser';
 import type { ProjectInfo } from '../ProjectTypes';
 import type { VnextForgeError } from '@vnext-forge/app-contracts';
-import { toVnextError } from '@shared/lib/error/VnextErrorHelpers';
+import { toVnextError } from '@shared/lib/error/vNextErrorHelpers';
 
 interface UseImportProjectOptions {
   onImported?: (project: ProjectInfo) => Promise<void> | void;

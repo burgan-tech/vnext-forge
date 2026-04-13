@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 
-import { cn } from '@shared/lib/utils/Cn';
+import { cn } from '@shared/lib/utils/cn';
 
 const cardVariants = cva(
   'flex flex-col gap-6 rounded-xl border py-6 shadow-sm transition-all duration-200 ease-out',
@@ -167,13 +167,15 @@ const cardActionVariants = cva(
         variant: 'secondary',
         interactive: true,
         hoverable: true,
-        className: 'hover:-translate-y-px hover:border-secondary-border-hover hover:bg-secondary-hover',
+        className:
+          'hover:-translate-y-px hover:border-secondary-border-hover hover:bg-secondary-hover',
       },
       {
         variant: 'tertiary',
         interactive: true,
         hoverable: true,
-        className: 'hover:-translate-y-px hover:border-tertiary-border-hover hover:bg-tertiary-hover',
+        className:
+          'hover:-translate-y-px hover:border-tertiary-border-hover hover:bg-tertiary-hover',
       },
       {
         variant: 'success',
@@ -208,10 +210,7 @@ function CardAction({
   return (
     <div
       data-slot="card-action"
-      className={cn(
-        cardActionVariants({ variant, interactive, hoverable, noBorder }),
-        className,
-      )}
+      className={cn(cardActionVariants({ variant, interactive, hoverable, noBorder }), className)}
       {...props}
     />
   );

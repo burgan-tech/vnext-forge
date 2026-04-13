@@ -9,7 +9,7 @@ import {
 import type { WorkspaceFolder } from '@shared/ui/FolderBrowser';
 import { apiClient, callApi, unwrapApi } from '@shared/api/Client';
 import { createLogger } from '@shared/lib/logger/CreateLogger';
-import { toVnextError } from '@shared/lib/error/VnextErrorHelpers';
+import { toVnextError } from '@shared/lib/error/vNextErrorHelpers';
 
 import { normalizeWorkspaceName, createWorkflowNameSchema } from './ProjectWorkspaceSchema';
 
@@ -107,24 +107,17 @@ export async function scaffoldWorkflow(
   let workflowName: string;
 
   try {
-    workflowName = normalizeWorkspaceName(
-      createWorkflowNameSchema.parse(params.name),
-      'workflow',
-    );
+    workflowName = normalizeWorkspaceName(createWorkflowNameSchema.parse(params.name), 'workflow');
   } catch (value) {
     return failureFromError(toVnextError(value, 'Workflow name is invalid.'));
   }
 
   if (!parentPath.trim()) {
     return failureFromError(
-      new VnextForgeError(
-        ERROR_CODES.FILE_INVALID_PATH,
-        'Parent path is required.',
-        {
-          source: 'WorkspaceApi.scaffoldWorkflow',
-          layer: 'feature',
-        },
-      ),
+      new VnextForgeError(ERROR_CODES.FILE_INVALID_PATH, 'Parent path is required.', {
+        source: 'WorkspaceApi.scaffoldWorkflow',
+        layer: 'feature',
+      }),
     );
   }
 
