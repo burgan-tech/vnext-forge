@@ -129,7 +129,7 @@ export function FileTreeNodeRow({
     );
   }
 
-  /*  Dont use shared/ui/button or something similar this component unique.
+  /*  Dont use shared/ui/Button or something similar this component unique.
    **  We are trying to keep this component folder structure like file tree in vscode
    */
 
