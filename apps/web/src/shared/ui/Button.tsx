@@ -3,7 +3,7 @@ import { Slot } from '@radix-ui/react-slot';
 import { cva, type VariantProps } from 'class-variance-authority';
 
 import { cn } from '@shared/lib/utils/cn';
-import Loading from '@shared/ui/Loading';
+import Loading, { type LoadingColor } from '@shared/ui/Loading';
 
 const buttonVariants = cva(
   "group/button inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all duration-200 ease-out cursor-pointer disabled:cursor-not-allowed disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive",
@@ -12,6 +12,8 @@ const buttonVariants = cva(
       variant: {
         default: 'border border-primary-border bg-primary text-primary-foreground shadow-xs',
         success: 'border border-success-border bg-success text-success-foreground shadow-xs',
+        info: 'border border-info-border bg-info text-info-foreground shadow-xs',
+        warning: 'border border-warning-border bg-warning text-warning-foreground shadow-xs',
         destructive:
           'border border-destructive-border bg-destructive text-white shadow-xs focus-visible:ring-destructive/20 dark:focus-visible:ring-destructive/40 dark:bg-destructive/60',
         outline: 'border border-border bg-background shadow-xs',
@@ -43,6 +45,16 @@ const buttonVariants = cva(
         variant: 'success',
         hoverable: true,
         className: 'hover:border-success-border-hover hover:bg-success-hover',
+      },
+      {
+        variant: 'info',
+        hoverable: true,
+        className: 'hover:border-info-border-hover hover:bg-info-hover',
+      },
+      {
+        variant: 'warning',
+        hoverable: true,
+        className: 'hover:border-warning-border-hover hover:bg-warning-hover',
       },
       {
         variant: 'destructive',
@@ -139,6 +151,8 @@ const buttonIconVariants = cva(buttonIconWrapperClassName, {
     variant: {
       default: 'bg-primary-muted text-primary-icon',
       success: 'bg-success-surface text-success-icon',
+      info: 'bg-info-surface text-info-icon',
+      warning: 'bg-warning-surface text-warning-icon',
       destructive: 'bg-destructive/10 text-destructive-icon',
       outline: 'bg-accent text-outline-icon',
       secondary: 'bg-secondary-muted text-secondary-icon',
@@ -158,16 +172,26 @@ const buttonIconVariants = cva(buttonIconWrapperClassName, {
       hoverable: true,
       className: 'group-hover/button:bg-primary-muted-hover',
     },
-    {
-      variant: 'success',
-      hoverable: true,
-      className: 'group-hover/button:bg-success-hover',
-    },
-    {
-      variant: 'destructive',
-      hoverable: true,
-      className: 'group-hover/button:bg-destructive/15',
-    },
+      {
+        variant: 'success',
+        hoverable: true,
+        className: 'group-hover/button:bg-success-hover',
+      },
+      {
+        variant: 'info',
+        hoverable: true,
+        className: 'group-hover/button:bg-info-hover',
+      },
+      {
+        variant: 'warning',
+        hoverable: true,
+        className: 'group-hover/button:bg-warning-hover',
+      },
+      {
+        variant: 'destructive',
+        hoverable: true,
+        className: 'group-hover/button:bg-destructive/15',
+      },
     {
       variant: 'outline',
       hoverable: true,
@@ -253,7 +277,16 @@ function Button({
     rightIconVariant?: VariantProps<typeof buttonVariants>['variant'];
   }) {
   const Comp = asChild ? Slot : 'button';
-  const loadingColor = variant === 'destructive' ? 'white' : 'primary';
+  const loadingColor: LoadingColor =
+    variant === 'destructive'
+      ? 'white'
+      : variant === 'success'
+        ? 'success'
+        : variant === 'info'
+          ? 'info'
+          : variant === 'warning'
+            ? 'warning'
+            : 'primary';
   const resolvedVariant = variant ?? 'default';
   const iconHoverable = Boolean(hoverable) && !noIconHover;
   const leadingVisual = loading ? (

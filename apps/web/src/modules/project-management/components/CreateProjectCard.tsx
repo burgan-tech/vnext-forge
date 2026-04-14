@@ -34,11 +34,11 @@ export function CreateProjectCard({ onCreated }: CreateProjectCardProps) {
     <Card noBorder variant="default" hoverable={false} className="w-full rounded-[28px]">
       <CardHeader className="gap-3">
         <div className="flex items-center gap-3">
-          <div className="bg-tertiary-muted text-tertiary-icon border-tertiary-border flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border">
-            <Plus size={18} />
+          <div className="bg-success-surface text-success-icon border-success-border flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border">
+            <Plus className="size-4" aria-hidden="true" />
           </div>
           <div>
-            <CardTitle className="text-sm">Create Project</CardTitle>
+            <CardTitle className="text-sm text-success-text">Create Project</CardTitle>
             <CardDescription>Start a new vnext domain from scratch</CardDescription>
           </div>
         </div>
@@ -97,7 +97,7 @@ export function CreateProjectCard({ onCreated }: CreateProjectCardProps) {
         ) : null}
 
         <Button
-          variant="tertiary"
+          variant="success"
           onClick={() => {
             void createProject.submit();
           }}

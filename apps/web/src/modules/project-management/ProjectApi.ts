@@ -1,7 +1,13 @@
-import { apiClient, callApi } from '@shared/api/Client';
-import type { ApiResponse } from '@vnext-forge/app-contracts';
+import { apiClient, callApi, unwrapApi } from '@shared/api/Client';
 
-import type { FileTreeNode, ProjectInfo, VnextConfig } from './ProjectTypes';
+import type {
+  ProjectConfigStatus,
+  ProjectInfo,
+  SeedVnextComponentLayoutResult,
+  VnextComponentLayoutStatus,
+  VnextConfig,
+  WriteProjectConfigPayload,
+} from './ProjectTypes';
 
 export function listProjects() {
   return callApi<ProjectInfo[]>(apiClient.api.projects.$get());
@@ -39,19 +45,42 @@ export function getProject(projectId: string) {
   );
 }
 
-export async function getProjectTree(projectId: string): Promise<ApiResponse<FileTreeNode>> {
-  const res = await callApi<{ root: FileTreeNode }>(
-    apiClient.api.projects[':id'].tree.$get({
-      param: { id: projectId },
-    }),
-  );
-  if (!res.success) return res;
-  return { success: true, data: res.data.root, error: null };
-}
-
 export function getProjectConfig(projectId: string) {
   return callApi<VnextConfig>(
     apiClient.api.projects[':id'].config.$get({
+      param: { id: projectId },
+    }),
+  );
+}
+
+export function getProjectConfigStatus(projectId: string) {
+  return callApi<ProjectConfigStatus>(
+    apiClient.api.projects[':id'].vnextConfigStatus.$get({
+      param: { id: projectId },
+    }),
+  );
+}
+
+export function getVnextComponentLayoutStatus(projectId: string) {
+  return callApi<VnextComponentLayoutStatus>(
+    apiClient.api.projects[':id'].vnextComponentLayoutStatus.$get({
+      param: { id: projectId },
+    }),
+  );
+}
+
+export function writeProjectConfig(projectId: string, body: WriteProjectConfigPayload) {
+  return callApi<ProjectInfo>(
+    apiClient.api.projects[':id'].vnextConfig.$post({
+      param: { id: projectId },
+      json: body,
+    } as never),
+  );
+}
+
+export function seedVnextComponentLayout(projectId: string) {
+  return unwrapApi<SeedVnextComponentLayoutResult>(
+    apiClient.api.projects[':id'].vnextComponentLayout.$post({
       param: { id: projectId },
     }),
   );

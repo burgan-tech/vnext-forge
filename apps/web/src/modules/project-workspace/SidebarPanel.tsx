@@ -1,7 +1,7 @@
 import { Badge } from '@shared/ui/Badge';
 
 import { FileTree } from '@modules/project-workspace/FileTree';
-import { useProjectWorkspace } from './useProjectWorkspace';
+import { useProjectWorkspace } from './hooks/useProjectWorkspace';
 
 export function ProjectWorkspaceSidebarPanel() {
   const {
@@ -21,9 +21,7 @@ export function ProjectWorkspaceSidebarPanel() {
       <div className="px-4 pt-12">
         <div className="border-muted-border bg-muted-surface rounded-2xl border px-4 py-5 text-center shadow-sm">
           <div className="text-muted-foreground text-xs font-medium">No project selected.</div>
-          <div className="text-subtle mt-1 text-[10px]">
-            Open a project from the home page.
-          </div>
+          <div className="text-subtle mt-1 text-[10px]">Open a project from the home page.</div>
         </div>
       </div>
     );

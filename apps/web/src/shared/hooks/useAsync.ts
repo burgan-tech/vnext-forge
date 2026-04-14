@@ -10,7 +10,7 @@ import { createLogger } from '@shared/lib/logger/CreateLogger';
 
 const logger = createLogger('useAsync');
 
-interface UseAsyncOptions<T> {
+export interface UseAsyncOptions<T> {
   onSuccess?: (result: ApiResponse<T>) => void | Promise<void>;
   onError?: (error: VnextForgeError) => void | Promise<void>;
   showNotificationOnError?: boolean;

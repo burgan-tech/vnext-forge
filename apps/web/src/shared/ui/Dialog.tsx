@@ -4,7 +4,7 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { XIcon } from 'lucide-react';
 
 import { cn } from '@shared/lib/utils/cn';
-import { Button } from '@shared/ui/Button';
+import { Button, buttonVariants } from '@shared/ui/Button';
 
 const dialogContentVariants = cva(
   'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-[calc(100%-2rem)] max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 rounded-xl border p-6 shadow-lg duration-200 sm:w-full',
@@ -14,6 +14,11 @@ const dialogContentVariants = cva(
         default: 'border-primary-border bg-primary text-primary-foreground',
         secondary: 'border-secondary-border bg-secondary text-secondary-foreground',
         tertiary: 'border-tertiary-border bg-tertiary text-tertiary-foreground',
+        success: 'border-success-border bg-success text-success-foreground',
+        info: 'border-info-border bg-info text-info-foreground',
+        warning: 'border-warning-border bg-warning text-warning-foreground',
+        destructive:
+          'border-destructive-border bg-destructive-muted text-destructive-text',
       },
       hoverable: {
         true: '',
@@ -40,6 +45,27 @@ const dialogContentVariants = cva(
         hoverable: true,
         className: 'hover:border-tertiary-border-hover hover:bg-tertiary-hover',
       },
+      {
+        variant: 'success',
+        hoverable: true,
+        className: 'hover:border-success-border-hover hover:bg-success-hover',
+      },
+      {
+        variant: 'info',
+        hoverable: true,
+        className: 'hover:border-info-border-hover hover:bg-info-hover',
+      },
+      {
+        variant: 'warning',
+        hoverable: true,
+        className: 'hover:border-warning-border-hover hover:bg-warning-hover',
+      },
+      {
+        variant: 'destructive',
+        hoverable: true,
+        className:
+          'hover:border-destructive-border-hover hover:bg-destructive-muted-hover',
+      },
     ],
     defaultVariants: {
       variant: 'default',
@@ -57,6 +83,10 @@ const dialogCloseVariants = cva(
         default: 'border-destructive-border bg-destructive-muted text-destructive-icon',
         secondary: 'border-destructive-border bg-destructive-muted text-destructive-icon',
         tertiary: 'border-destructive-border bg-destructive-muted text-destructive-icon',
+        success: 'border-destructive-border bg-destructive-muted text-destructive-icon',
+        info: 'border-destructive-border bg-destructive-muted text-destructive-icon',
+        warning: 'border-destructive-border bg-destructive-muted text-destructive-icon',
+        destructive: 'border-destructive-border bg-destructive-muted text-destructive-icon',
       },
       hoverable: {
         true: '',
@@ -82,6 +112,30 @@ const dialogCloseVariants = cva(
       },
       {
         variant: 'tertiary',
+        hoverable: true,
+        className:
+          'hover:-translate-y-px hover:border-destructive-border-hover hover:bg-destructive-muted-hover hover:shadow-sm',
+      },
+      {
+        variant: 'success',
+        hoverable: true,
+        className:
+          'hover:-translate-y-px hover:border-destructive-border-hover hover:bg-destructive-muted-hover hover:shadow-sm',
+      },
+      {
+        variant: 'info',
+        hoverable: true,
+        className:
+          'hover:-translate-y-px hover:border-destructive-border-hover hover:bg-destructive-muted-hover hover:shadow-sm',
+      },
+      {
+        variant: 'warning',
+        hoverable: true,
+        className:
+          'hover:-translate-y-px hover:border-destructive-border-hover hover:bg-destructive-muted-hover hover:shadow-sm',
+      },
+      {
+        variant: 'destructive',
         hoverable: true,
         className:
           'hover:-translate-y-px hover:border-destructive-border-hover hover:bg-destructive-muted-hover hover:shadow-sm',
@@ -211,7 +265,7 @@ function DialogCancelButton({
   variant = 'secondary',
   ...props
 }: React.ComponentProps<typeof Button> & {
-  variant?: 'default' | 'secondary' | 'tertiary' | 'destructive';
+  variant?: VariantProps<typeof buttonVariants>['variant'];
 }) {
   return (
     <DialogPrimitive.Close asChild>

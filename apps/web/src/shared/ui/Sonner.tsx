@@ -10,6 +10,11 @@ const toasterSurfaceVariants = cva('border shadow-lg', {
       default: 'border-primary-border bg-primary text-primary-foreground',
       secondary: 'border-secondary-border bg-secondary text-secondary-foreground',
       tertiary: 'border-tertiary-border bg-tertiary text-tertiary-foreground',
+      success: 'border-success-border bg-success text-success-foreground',
+      info: 'border-info-border bg-info text-info-foreground',
+      warning: 'border-warning-border bg-warning text-warning-foreground',
+      destructive:
+        'border-destructive-border bg-destructive-muted text-destructive-text',
     },
   },
   defaultVariants: {
@@ -70,19 +75,19 @@ const Toaster = ({ className, toastOptions, variant, ...props }: SharedToasterPr
             toastOptions?.classNames?.cancelButton,
           ),
           error: cn(
-            'border-destructive-border bg-destructive/10 text-destructive',
+            'border-destructive-border bg-destructive-muted text-destructive-text',
             toastOptions?.classNames?.error,
           ),
           success: cn(
-            'border-tertiary-border bg-tertiary text-tertiary-foreground',
+            'border-success-border bg-success-surface text-success-text',
             toastOptions?.classNames?.success,
           ),
           info: cn(
-            'border-secondary-border bg-secondary text-secondary-foreground',
+            'border-info-border bg-info-surface text-info-text',
             toastOptions?.classNames?.info,
           ),
           warning: cn(
-            'border-primary-border bg-primary text-primary-foreground',
+            'border-warning-border bg-warning-surface text-warning-text',
             toastOptions?.classNames?.warning,
           ),
         },

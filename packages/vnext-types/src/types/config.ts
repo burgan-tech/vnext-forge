@@ -1,3 +1,11 @@
+/** exports.metadata — wizard ve editörlerde kullanıcı girdisi için tip güvenliği. */
+export interface VnextExportsMetadata {
+  description: string;
+  maintainer?: string;
+  license?: string;
+  keywords?: string[];
+}
+
 export interface VnextConfig {
   version: string;
   description?: string;
@@ -12,7 +20,6 @@ export interface VnextConfig {
     extensions?: string;
     workflows?: string;
     schemas?: string;
-    mappings?: string;
   };
   exports?: {
     functions?: string[];
@@ -22,7 +29,7 @@ export interface VnextConfig {
     schemas?: string[];
     extensions?: string[];
     visibility?: string;
-    metadata?: Record<string, unknown>;
+    metadata?: VnextExportsMetadata | Record<string, unknown>;
   };
   dependencies?: {
     domains?: string[];
@@ -34,6 +41,13 @@ export interface VnextConfig {
     strictMode?: boolean;
     validateReferenceConsistency?: boolean;
     validateSchemas?: boolean;
+    allowedHosts?: string[];
+    schemaValidationRules?: {
+      enforceKeyFormat?: boolean;
+      enforceVersionFormat?: boolean;
+      enforceFilenameConsistency?: boolean;
+      allowUnknownProperties?: boolean;
+    };
   };
   schemaValidationRules?: Record<string, unknown>;
 }

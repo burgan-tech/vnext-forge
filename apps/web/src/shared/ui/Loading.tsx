@@ -5,7 +5,16 @@ import { cn } from '@shared/lib/utils/cn';
 
 export type LoadingVariant = 'spinner' | 'dots' | 'pulse' | 'bounce' | 'wave' | 'custom';
 export type LoadingSize = 'sm' | 'md' | 'lg' | 'xl';
-export type LoadingColor = 'primary' | 'secondary' | 'tertiary' | 'destructive' | 'white' | 'muted';
+export type LoadingColor =
+  | 'primary'
+  | 'secondary'
+  | 'tertiary'
+  | 'success'
+  | 'info'
+  | 'warning'
+  | 'destructive'
+  | 'white'
+  | 'muted';
 
 export interface LoadingConfig {
   variant?: LoadingVariant;
@@ -68,6 +77,9 @@ const colorConfig: Record<LoadingColor, string> = {
   primary: 'text-primary',
   secondary: 'text-secondary',
   tertiary: 'text-tertiary',
+  success: 'text-success-icon',
+  info: 'text-info-icon',
+  warning: 'text-warning-icon',
   destructive: 'text-destructive',
   white: 'text-white',
   muted: 'text-muted-foreground',

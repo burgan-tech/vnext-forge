@@ -42,29 +42,30 @@
   --color-primary-icon: #334155;
   --color-primary-text: #0f172a;
 
-  /* ── Secondary ── */
-  --color-secondary: #e0f2fe;
-  --color-secondary-hover: #bae6fd;
-  --color-secondary-border: #7dd3fc;
-  --color-secondary-foreground: #0c4a6e;
-  --color-secondary-surface: #e0f2fe;
-  --color-secondary-muted: #bae6fd;
-  --color-secondary-muted-hover: #7dd3fc;
-  --color-secondary-border-hover: #38bdf8;
-  --color-secondary-icon: #0284c7;
-  --color-secondary-text: #0c4a6e;
+  /* ── Secondary — ilk inset yüzey: beyaz (#fff) kart / diyalog üzerinde hafif çökük, renk gürültüsü yok
+      İç içe kart: dış = default (beyaz), orta = secondary, iç = tertiary önerilir ── */
+  --color-secondary: #f8fafc;
+  --color-secondary-hover: #f1f5f9;
+  --color-secondary-border: #e2e8f0;
+  --color-secondary-foreground: #0f172a;
+  --color-secondary-surface: #ffffff;
+  --color-secondary-muted: #f1f5f9;
+  --color-secondary-muted-hover: #e2e8f0;
+  --color-secondary-border-hover: #cbd5e1;
+  --color-secondary-icon: #64748b;
+  --color-secondary-text: #334155;
 
-  /* ── Tertiary ── */
-  --color-tertiary: #dcfce7;
-  --color-tertiary-hover: #bbf7d0;
-  --color-tertiary-border: #86efac;
-  --color-tertiary-surface: #dcfce7;
-  --color-tertiary-foreground: #14532d;
-  --color-tertiary-muted: #bbf7d0;
-  --color-tertiary-muted-hover: #86efac;
-  --color-tertiary-border-hover: #4ade80;
-  --color-tertiary-icon: #16a34a;
-  --color-tertiary-text: #14532d;
+  /* ── Tertiary — ikinci inset: secondary’den bir ton daha “derin”; kenarlık biraz daha belirgin (iç kart okunurluğu) ── */
+  --color-tertiary: #f1f5f9;
+  --color-tertiary-hover: #e2e8f0;
+  --color-tertiary-border: #d8dee6;
+  --color-tertiary-surface: #f8fafc;
+  --color-tertiary-foreground: #0f172a;
+  --color-tertiary-muted: #e8eef3;
+  --color-tertiary-muted-hover: #e2e8f0;
+  --color-tertiary-border-hover: #cbd5e1;
+  --color-tertiary-icon: #64748b;
+  --color-tertiary-text: #334155;
 
   /* ── Success ── */
   --color-success: #dcfce7;
@@ -75,6 +76,7 @@
   --color-success-border-hover: #4ade80; /* green-400 */
   --color-success-icon: #15803d; /* green-700 */
   --color-success-text: #166534; /* green-800 */
+  --color-success-foreground-hover: #166534;
 
   /* Validation warning surfaces */
   --color-warning: #fef3c7;
@@ -85,6 +87,7 @@
   --color-warning-border-hover: #fbbf24;
   --color-warning-icon: #d97706;
   --color-warning-text: #92400e;
+  --color-warning-foreground-hover: #78350f;
 
   /* Validation info surfaces */
   --color-info: #dbeafe;
@@ -95,6 +98,7 @@
   --color-info-border-hover: #60a5fa;
   --color-info-icon: #2563eb;
   --color-info-text: #1d4ed8;
+  --color-info-foreground-hover: #1e3a8a;
 
   /* ── Destructive ── */
   --color-destructive: #ef4444;
@@ -107,6 +111,7 @@
   --color-destructive-border-hover: #fda4af; /* rose-300 */
   --color-destructive-icon: #be123c; /* rose-700 */
   --color-destructive-text: #be123c; /* rose-700 */
+  --color-destructive-foreground-hover: #be123c;
 
   /* ── Semantic ── */
   --color-card: #ffffff;

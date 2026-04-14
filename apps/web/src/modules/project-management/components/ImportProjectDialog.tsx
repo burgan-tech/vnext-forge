@@ -31,7 +31,11 @@ export function ImportProjectDialog({ onImported }: ImportProjectDialogProps) {
       <Button
         variant="default"
         leftIconVariant="secondary"
-        leftIcon={<FolderOpen size={20} />}
+        leftIconComponent={
+          <div className="border-info-border bg-info-surface text-info-icon flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border transition-all duration-200 ease-out group-hover/button:border-info-border-hover group-hover/button:bg-info-hover group-hover/button:-translate-y-px group-hover/button:shadow-sm">
+            <FolderOpen className="size-4" aria-hidden="true" />
+          </div>
+        }
         onClick={() => {
           void importProject.openDialog();
         }}

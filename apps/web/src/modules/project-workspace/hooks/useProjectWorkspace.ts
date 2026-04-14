@@ -8,16 +8,16 @@ import { showNotification } from '@shared/notification/model/NotificationStore';
 import { useProjectStore } from '@app/store/useProjectStore';
 import { useEditorStore } from '@modules/code-editor/EditorStore';
 
-import { resolveFileRoute } from './FileRouter';
-import { getWorkspaceNameError, normalizeWorkspaceName } from './ProjectWorkspaceSchema';
+import { resolveFileRoute } from '../FileRouter';
+import { getWorkspaceNameError, normalizeWorkspaceName } from '../ProjectWorkspaceSchema';
 import {
   createDirectory,
   deleteFile,
   renameFile,
   writeFile,
   scaffoldWorkflow,
-} from './WorkspaceApi';
-import type { FileTreeNode } from './FileTree';
+} from '../WorkspaceApi';
+import type { FileTreeNode } from '../FileTree';
 
 const logger = createLogger('useProjectWorkspace');
 
@@ -99,14 +99,11 @@ export function useProjectWorkspace() {
     },
   );
 
-  const { execute: handleDeleteFile } = useAsync(
-    (path: string) => deleteFile(path),
-    {
-      onSuccess: refreshWorkspaceTree,
-      onError: () => notifyOperationError('Item could not be deleted.'),
-      showNotificationOnError: false,
-    },
-  );
+  const { execute: handleDeleteFile } = useAsync((path: string) => deleteFile(path), {
+    onSuccess: refreshWorkspaceTree,
+    onError: () => notifyOperationError('Item could not be deleted.'),
+    showNotificationOnError: false,
+  });
 
   const { execute: handleRenameFile } = useAsync(
     (oldPath: string, newName: string) => {

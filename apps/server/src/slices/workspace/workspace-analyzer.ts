@@ -2,11 +2,20 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { ERROR_CODES, VnextForgeError } from '@vnext-forge/app-contracts'
 import { CONFIG_FILE } from './constants.js'
+import {
+  normalizeWorkspaceRootToConfig,
+  workspaceRootConfigSchema,
+} from '@project/workspace-config-schema.js'
 import type {
   FileTreeNode,
   WorkspaceAnalysisResult,
   WorkspaceConfig,
 } from './types.js'
+
+export type WorkspaceConfigReadStatus =
+  | { status: 'ok'; config: WorkspaceConfig }
+  | { status: 'missing' }
+  | { status: 'invalid'; message: string }
 
 export class WorkspaceAnalyzer {
   async analyze(rootPath: string, traceId?: string): Promise<WorkspaceAnalysisResult> {
@@ -31,6 +40,43 @@ export class WorkspaceAnalyzer {
     } catch (error) {
       throw this.toAnalyzerError(error, 'WorkspaceAnalyzer.readConfig', traceId, { rootPath })
     }
+  }
+
+  /**
+   * vnext.config.json kökte yok / bozuk / şema dışı ayrımı (UI durum çubuğu ve modal için).
+   */
+  async readConfigStatus(rootPath: string, traceId?: string): Promise<WorkspaceConfigReadStatus> {
+    const configPath = path.join(rootPath, CONFIG_FILE)
+    let raw: string
+    try {
+      raw = await fs.readFile(configPath, 'utf-8')
+    } catch (error) {
+      const code = (error as NodeJS.ErrnoException | undefined)?.code
+      if (code === 'ENOENT') {
+        return { status: 'missing' }
+      }
+      throw this.toAnalyzerError(error, 'WorkspaceAnalyzer.readConfigStatus', traceId, {
+        rootPath,
+      })
+    }
+
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(raw)
+    } catch {
+      return { status: 'invalid', message: 'vnext.config.json geçerli bir JSON dosyası değil.' }
+    }
+
+    const checked = workspaceRootConfigSchema.safeParse(parsed)
+    if (!checked.success) {
+      const detail = checked.error.issues.map((i) => i.message).join('; ')
+      return {
+        status: 'invalid',
+        message: `vnext.config.json yapısı geçersiz: ${detail}`,
+      }
+    }
+
+    return { status: 'ok', config: normalizeWorkspaceRootToConfig(checked.data) }
   }
 
   async buildTree(rootPath: string, traceId?: string): Promise<FileTreeNode> {

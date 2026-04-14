@@ -3,7 +3,7 @@ import type { MouseEventHandler } from 'react';
 import { ChevronRight, Folder, FolderOpen } from 'lucide-react';
 
 import type { FileTreeNode } from '@modules/project-management/ProjectTypes';
-import { cn } from '@shared/lib/utils/Cn';
+import { cn } from '@shared/lib/utils/cn';
 
 type FileTone = {
   label: string;

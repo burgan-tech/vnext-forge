@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-import { getProjectTree } from '@modules/project-management/ProjectApi';
+import { getProjectTree } from '@modules/project-workspace/WorkspaceApi';
 
 import type {
   FileTreeNode,

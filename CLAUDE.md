@@ -12,6 +12,45 @@ In short, the product is meant to be a standalone design and management interfac
 
 ---
 
+### Cross-platform setup (macOS, Linux, Windows)
+
+The repo is intended to run the same way on macOS, Linux, and Windows. Use these practices so paths, tooling, and environment stay consistent.
+
+**Toolchain**
+
+- Install a current **Node.js LTS** (align major versions across the team when debugging native or tooling issues).
+- Use **pnpm** at the version pinned in the root `package.json` (`packageManager` field). Prefer enabling it with **Corepack** (`corepack enable` then `corepack prepare pnpm@<pinned> --activate`) so everyone gets the same package manager.
+- Run installs and scripts from the **repository root** (`pnpm install`, `pnpm dev`, `pnpm build`) so Turborepo sees all workspaces.
+
+**Ports (local dev)**
+
+- `apps/web` (Vite): default **3000**.
+- `apps/server` (Hono): default **3001** (override with `PORT`).
+- If either port is in use on your machine, change Vite `server.port` in `apps/web/vite.config.ts` and/or set `PORT` for the server, and keep the dev proxy / web `VITE_*` URLs in sync.
+
+**Environment variables**
+
+- **Web** (`apps/web`): validated in `apps/web/src/shared/config/config.ts`. Typical local dev uses Vite `import.meta.env` — set `VITE_ENVIRONMENT`, `VITE_API_URL`, `VITE_API_URL_DEVELOPMENT`, and optionally `VITE_RUNTIME_REVALIDATION_MIN_INTERVAL_SECONDS`, `VITE_LOG_LEVEL` as needed (see that file for defaults and Zod rules). Use forward slashes in URLs; do not hardcode OS-specific file paths in env values meant for HTTP.
+- **Server** (`apps/server`): `PORT` (default 3001), `LOG_LEVEL`, `VERBOSE`, `NODE_ENV` (see `apps/server/src/index.ts` and `apps/server/src/shared/lib/logger.ts`).
+
+**Filesystem and paths**
+
+- **Case sensitivity**: Linux (and macOS on typical APFS) can be case-sensitive. Import paths and filenames must match **exact casing** everywhere; a rename that only changes case can break CI or another OS.
+- **Project paths opened in the UI**: the server resolves workspace paths with Node APIs; avoid assuming `\` vs `/` in hand-written path strings in code — use `path.join` / `path.normalize` on the server when composing filesystem paths.
+- **Line endings**: Prefer consistent LF in the repo (editor + Git). If Git rewrites line endings on Windows, watch for rare issues with shell scripts; this project’s day-to-day commands are `pnpm`/`node`-based.
+
+**Windows-specific notes**
+
+- Prefer **PowerShell** or **Git Bash** for running documented `bash`-style snippets from other docs; the root toolchain is cross-shell, but `apps/server`’s `clean` script uses `rm -rf dist`, which requires a Unix-like shell or WSL unless you run a Windows-friendly clean (e.g. delete `apps/server/dist` manually or use a cross-platform rimraf if introduced later).
+- If installs fail with path length errors, enable **long paths** in Windows or keep the clone in a shorter directory path; pnpm layouts are usually fine but deeply nested trees can hit legacy limits.
+
+**macOS / Linux notes**
+
+- Ensure Node/pnpm are on `PATH` for both terminal and IDE integrated terminals (GUI apps on macOS sometimes see a reduced `PATH`).
+- For any optional native addons in the dependency tree, you may need build tools (e.g. Xcode Command Line Tools on macOS, `build-essential` on Debian/Ubuntu).
+
+---
+
 ### Shared Packages
 
 #### `packages/vnext-types` -> `@vnext-forge/types`

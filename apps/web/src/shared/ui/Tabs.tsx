@@ -12,6 +12,11 @@ const tabsListVariants = cva(
         default: 'border-primary-border bg-primary text-primary-foreground',
         secondary: 'border-secondary-border bg-secondary text-secondary-foreground',
         tertiary: 'border-tertiary-border bg-tertiary text-tertiary-foreground',
+        success: 'border-success-border bg-success text-success-foreground',
+        info: 'border-info-border bg-info text-info-foreground',
+        warning: 'border-warning-border bg-warning text-warning-foreground',
+        destructive:
+          'border-destructive-border bg-destructive-muted text-destructive-text',
       },
       hoverable: {
         true: '',
@@ -38,6 +43,27 @@ const tabsListVariants = cva(
         hoverable: true,
         className: 'hover:border-tertiary-border-hover hover:bg-tertiary-hover',
       },
+      {
+        variant: 'success',
+        hoverable: true,
+        className: 'hover:border-success-border-hover hover:bg-success-hover',
+      },
+      {
+        variant: 'info',
+        hoverable: true,
+        className: 'hover:border-info-border-hover hover:bg-info-hover',
+      },
+      {
+        variant: 'warning',
+        hoverable: true,
+        className: 'hover:border-warning-border-hover hover:bg-warning-hover',
+      },
+      {
+        variant: 'destructive',
+        hoverable: true,
+        className:
+          'hover:border-destructive-border-hover hover:bg-destructive-muted-hover',
+      },
     ],
     defaultVariants: {
       variant: 'default',
@@ -58,6 +84,14 @@ const tabsTriggerVariants = cva(
           'border-secondary-border bg-secondary-muted text-secondary-icon shadow-sm focus-visible:ring-ring/50 data-[state=active]:border-secondary-border-hover data-[state=active]:bg-secondary-hover data-[state=active]:text-secondary-foreground data-[state=active]:shadow-sm',
         tertiary:
           'border-tertiary-border bg-tertiary-muted text-tertiary-icon shadow-sm focus-visible:ring-ring/50 data-[state=active]:border-tertiary-border-hover data-[state=active]:bg-tertiary-hover data-[state=active]:text-tertiary-foreground data-[state=active]:shadow-sm',
+        success:
+          'border-success-border bg-success-surface text-success-icon shadow-sm focus-visible:ring-ring/50 data-[state=active]:border-success-border-hover data-[state=active]:bg-success-hover data-[state=active]:text-success-foreground data-[state=active]:shadow-sm',
+        info:
+          'border-info-border bg-info-surface text-info-icon shadow-sm focus-visible:ring-ring/50 data-[state=active]:border-info-border-hover data-[state=active]:bg-info-hover data-[state=active]:text-info-foreground data-[state=active]:shadow-sm',
+        warning:
+          'border-warning-border bg-warning-surface text-warning-icon shadow-sm focus-visible:ring-ring/50 data-[state=active]:border-warning-border-hover data-[state=active]:bg-warning-hover data-[state=active]:text-warning-foreground data-[state=active]:shadow-sm',
+        destructive:
+          'border-destructive-border bg-destructive-muted text-destructive-icon shadow-sm focus-visible:ring-destructive/20 data-[state=active]:border-destructive-border-hover data-[state=active]:bg-destructive-hover data-[state=active]:text-destructive-foreground data-[state=active]:shadow-sm',
       },
       hoverable: {
         true: '',
@@ -83,6 +117,26 @@ const tabsTriggerVariants = cva(
         variant: 'tertiary',
         hoverable: true,
         className: 'hover:bg-tertiary-hover hover:text-tertiary-foreground',
+      },
+      {
+        variant: 'success',
+        hoverable: true,
+        className: 'hover:bg-success-hover hover:text-success-foreground',
+      },
+      {
+        variant: 'info',
+        hoverable: true,
+        className: 'hover:bg-info-hover hover:text-info-foreground',
+      },
+      {
+        variant: 'warning',
+        hoverable: true,
+        className: 'hover:bg-warning-hover hover:text-warning-foreground',
+      },
+      {
+        variant: 'destructive',
+        hoverable: true,
+        className: 'hover:bg-destructive-muted-hover hover:text-destructive-text',
       },
     ],
     defaultVariants: {

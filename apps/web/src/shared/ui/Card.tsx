@@ -12,6 +12,10 @@ const cardVariants = cva(
         secondary: 'border-secondary-border bg-secondary text-secondary-foreground',
         tertiary: 'border-tertiary-border bg-tertiary text-tertiary-foreground',
         success: 'border-success-border bg-success text-success-foreground',
+        info: 'border-info-border bg-info text-info-foreground',
+        warning: 'border-warning-border bg-warning text-warning-foreground',
+        destructive:
+          'border-destructive-border bg-destructive-muted text-destructive-text',
         muted: 'border-muted-border bg-muted text-muted-foreground',
       },
       hoverable: {
@@ -43,6 +47,21 @@ const cardVariants = cva(
         variant: 'success',
         hoverable: true,
         className: 'hover:border-success-border-hover hover:bg-success-hover',
+      },
+      {
+        variant: 'info',
+        hoverable: true,
+        className: 'hover:border-info-border-hover hover:bg-info-hover',
+      },
+      {
+        variant: 'warning',
+        hoverable: true,
+        className: 'hover:border-warning-border-hover hover:bg-warning-hover',
+      },
+      {
+        variant: 'destructive',
+        hoverable: true,
+        className: 'hover:border-destructive-border-hover hover:bg-destructive-muted-hover',
       },
       {
         variant: 'muted',
@@ -116,6 +135,9 @@ const cardActionVariants = cva(
         secondary: '',
         tertiary: '',
         success: '',
+        info: '',
+        warning: '',
+        destructive: '',
         muted: '',
       },
       interactive: {
@@ -153,6 +175,21 @@ const cardActionVariants = cva(
         className: 'border-success-border bg-success-surface text-success-text',
       },
       {
+        variant: 'info',
+        interactive: true,
+        className: 'border-info-border bg-info-surface text-info-text',
+      },
+      {
+        variant: 'warning',
+        interactive: true,
+        className: 'border-warning-border bg-warning-surface text-warning-text',
+      },
+      {
+        variant: 'destructive',
+        interactive: true,
+        className: 'border-destructive-border bg-destructive-surface text-destructive-text',
+      },
+      {
         variant: 'muted',
         interactive: true,
         className: 'border-muted-border bg-muted-surface text-muted-text',
@@ -182,6 +219,25 @@ const cardActionVariants = cva(
         interactive: true,
         hoverable: true,
         className: 'hover:-translate-y-px hover:border-success-border-hover hover:bg-success-hover',
+      },
+      {
+        variant: 'info',
+        interactive: true,
+        hoverable: true,
+        className: 'hover:-translate-y-px hover:border-info-border-hover hover:bg-info-hover',
+      },
+      {
+        variant: 'warning',
+        interactive: true,
+        hoverable: true,
+        className: 'hover:-translate-y-px hover:border-warning-border-hover hover:bg-warning-hover',
+      },
+      {
+        variant: 'destructive',
+        interactive: true,
+        hoverable: true,
+        className:
+          'hover:-translate-y-px hover:border-destructive-border-hover hover:bg-destructive-muted-hover',
       },
       {
         variant: 'muted',

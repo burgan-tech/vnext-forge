@@ -14,6 +14,16 @@ const textareaVariants = cva(
           'border-secondary-border bg-secondary text-secondary-foreground placeholder:text-secondary-icon/60 focus-visible:border-secondary-border-hover focus-visible:ring-ring/50',
         tertiary:
           'border-tertiary-border bg-tertiary text-tertiary-foreground placeholder:text-tertiary-icon/60 focus-visible:border-tertiary-border-hover focus-visible:ring-ring/50',
+        success:
+          'border-success-border bg-success text-success-foreground placeholder:text-success-icon/60 focus-visible:border-success-border-hover focus-visible:ring-ring/50',
+        info:
+          'border-info-border bg-info text-info-foreground placeholder:text-info-icon/60 focus-visible:border-info-border-hover focus-visible:ring-ring/50',
+        warning:
+          'border-warning-border bg-warning text-warning-foreground placeholder:text-warning-icon/60 focus-visible:border-warning-border-hover focus-visible:ring-ring/50',
+        muted:
+          'border-muted-border bg-muted text-muted-foreground placeholder:text-muted-icon/60 focus-visible:border-muted-border-hover focus-visible:ring-ring/40',
+        destructive:
+          'border-destructive-border bg-destructive-muted text-destructive-text placeholder:text-destructive-icon/60 focus-visible:border-destructive-border-hover focus-visible:ring-destructive/20',
       },
       hoverable: {
         true: '',
@@ -39,6 +49,32 @@ const textareaVariants = cva(
         variant: 'tertiary',
         hoverable: true,
         className: 'hover:border-tertiary-border-hover hover:bg-tertiary-hover',
+      },
+      {
+        variant: 'success',
+        hoverable: true,
+        className: 'hover:border-success-border-hover hover:bg-success-hover',
+      },
+      {
+        variant: 'info',
+        hoverable: true,
+        className: 'hover:border-info-border-hover hover:bg-info-hover',
+      },
+      {
+        variant: 'warning',
+        hoverable: true,
+        className: 'hover:border-warning-border-hover hover:bg-warning-hover',
+      },
+      {
+        variant: 'muted',
+        hoverable: true,
+        className: 'hover:border-muted-border-hover hover:bg-muted-hover',
+      },
+      {
+        variant: 'destructive',
+        hoverable: true,
+        className:
+          'hover:border-destructive-border-hover hover:bg-destructive-muted-hover',
       },
     ],
     defaultVariants: {

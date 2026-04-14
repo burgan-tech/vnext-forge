@@ -1,3 +1,5 @@
+import type { VnextWorkspaceConfigJson } from '@vnext-forge/app-contracts';
+
 export interface ProjectInfo {
   id: string;
   domain: string;
@@ -28,9 +30,26 @@ export interface VnextConfig {
     extensions: string;
     workflows: string;
     schemas: string;
-    mappings: string;
   };
   exports?: Record<string, unknown>;
   dependencies?: Record<string, unknown>;
   referenceResolution?: Record<string, unknown>;
+}
+
+export type ProjectConfigStatus =
+  | { status: 'ok'; config: VnextConfig }
+  | { status: 'missing' }
+  | { status: 'invalid'; message: string };
+
+export type WriteProjectConfigPayload = VnextWorkspaceConfigJson;
+
+export interface SeedVnextComponentLayoutResult {
+  ensuredPaths: string[];
+}
+
+export interface VnextComponentLayoutStatus {
+  projectContainsOnlyConfigFile: boolean;
+  componentsRootPresent: boolean;
+  missingLayoutPaths: string[];
+  layoutComplete: boolean;
 }

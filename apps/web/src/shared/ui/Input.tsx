@@ -12,6 +12,12 @@ const inputRootVariants = cva(
           'cursor-text border-primary-border bg-primary text-primary-foreground focus-within:border-primary-border-hover focus-within:bg-primary-hover focus-within:ring-[3px] focus-within:ring-ring/50',
         success:
           'cursor-text border-success-border bg-success text-success-foreground focus-within:border-success-border-hover focus-within:bg-success-hover focus-within:ring-[3px] focus-within:ring-ring/50',
+        info:
+          'cursor-text border-info-border bg-info text-info-foreground focus-within:border-info-border-hover focus-within:bg-info-hover focus-within:ring-[3px] focus-within:ring-ring/50',
+        warning:
+          'cursor-text border-warning-border bg-warning text-warning-foreground focus-within:border-warning-border-hover focus-within:bg-warning-hover focus-within:ring-[3px] focus-within:ring-ring/50',
+        destructive:
+          'cursor-text border-destructive-border bg-destructive-muted text-destructive-text focus-within:border-destructive-border-hover focus-within:bg-destructive-muted-hover focus-within:ring-[3px] focus-within:ring-destructive/20',
         secondary:
           'cursor-text border-secondary-border bg-secondary text-secondary-foreground focus-within:border-secondary-border-hover focus-within:bg-secondary-hover focus-within:ring-[3px] focus-within:ring-ring/50',
         tertiary:
@@ -67,6 +73,21 @@ const inputRootVariants = cva(
         className: 'focus-within:border-destructive-border-hover focus-within:ring-destructive/12',
       },
       {
+        invalid: true,
+        variant: 'info',
+        className: 'focus-within:border-destructive-border-hover focus-within:ring-destructive/12',
+      },
+      {
+        invalid: true,
+        variant: 'warning',
+        className: 'focus-within:border-destructive-border-hover focus-within:ring-destructive/12',
+      },
+      {
+        invalid: true,
+        variant: 'destructive',
+        className: 'focus-within:border-destructive-border-hover focus-within:ring-destructive/12',
+      },
+      {
         variant: 'default',
         hoverable: true,
         className: 'hover:border-primary-border-hover hover:bg-primary-hover',
@@ -75,6 +96,22 @@ const inputRootVariants = cva(
         variant: 'success',
         hoverable: true,
         className: 'hover:border-success-border-hover hover:bg-success-hover',
+      },
+      {
+        variant: 'info',
+        hoverable: true,
+        className: 'hover:border-info-border-hover hover:bg-info-hover',
+      },
+      {
+        variant: 'warning',
+        hoverable: true,
+        className: 'hover:border-warning-border-hover hover:bg-warning-hover',
+      },
+      {
+        variant: 'destructive',
+        hoverable: true,
+        className:
+          'hover:border-destructive-border-hover hover:bg-destructive-muted-hover',
       },
       {
         variant: 'secondary',
@@ -113,7 +150,7 @@ const inputRootVariants = cva(
 );
 
 const inputElementVariants = cva(
-  'placeholder:text-current/50 selection:bg-primary-muted selection:text-primary-foreground flex-1 border-0 bg-transparent text-sm text-current outline-none file:mr-3 file:rounded-md file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-current disabled:cursor-not-allowed',
+  'placeholder:text-current/50 selection:bg-primary-muted selection:text-primary-foreground flex-1 border-0 bg-transparent text-sm text-current outline-none file:mr-3 file:rounded-md file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-current read-only:cursor-default disabled:cursor-not-allowed',
   {
     variants: {
       size: {
@@ -145,6 +182,9 @@ const inputAdornmentVariants = cva(
       variant: {
         default: 'border-primary-border bg-primary-muted text-primary-icon',
         success: 'border-success-border bg-success-surface text-success-icon',
+        info: 'border-info-border bg-info-surface text-info-icon',
+        warning: 'border-warning-border bg-warning-surface text-warning-icon',
+        destructive: 'border-destructive-border bg-destructive-muted text-destructive-icon',
         secondary: 'border-secondary-border bg-secondary-muted text-secondary-icon',
         tertiary: 'border-tertiary-border bg-tertiary-muted text-tertiary-icon',
         muted: 'border-muted-border bg-muted-surface text-muted-icon',
@@ -171,6 +211,23 @@ const inputAdornmentVariants = cva(
         hoverable: true,
         className:
           'group-hover/input:border-success-border-hover group-hover/input:bg-success-hover',
+      },
+      {
+        variant: 'info',
+        hoverable: true,
+        className: 'group-hover/input:border-info-border-hover group-hover/input:bg-info-hover',
+      },
+      {
+        variant: 'warning',
+        hoverable: true,
+        className:
+          'group-hover/input:border-warning-border-hover group-hover/input:bg-warning-hover',
+      },
+      {
+        variant: 'destructive',
+        hoverable: true,
+        className:
+          'group-hover/input:border-destructive-border-hover group-hover/input:bg-destructive-muted-hover',
       },
       {
         variant: 'secondary',
@@ -232,6 +289,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
   ) => {
     const inputRef = React.useRef<HTMLInputElement>(null);
     const invalid = props['aria-invalid'] === true || props['aria-invalid'] === 'true';
+    const effectiveHoverable = hoverable && !disabled && !readOnly;
 
     React.useImperativeHandle(ref, () => inputRef.current as HTMLInputElement, []);
 
@@ -245,7 +303,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
             invalid,
             disabledState: disabled,
             readOnlyState: readOnly,
-            hoverable,
+            hoverable: effectiveHoverable,
             noBorder,
           }),
           className,
@@ -270,7 +328,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
               inputAdornmentVariants({
                 variant,
                 size,
-                hoverable: hoverable && !noAdornmentHover && !disabled && !readOnly,
+                hoverable: effectiveHoverable && !noAdornmentHover,
               }),
               'relative z-10',
             )}>
@@ -300,7 +358,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
               inputAdornmentVariants({
                 variant,
                 size,
-                hoverable: hoverable && !noAdornmentHover && !disabled && !readOnly,
+                hoverable: effectiveHoverable && !noAdornmentHover,
               }),
               'relative z-10',
             )}>

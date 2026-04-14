@@ -65,6 +65,7 @@ src/
       ProjectWorkspaceView.tsx
       WorkspaceApi.ts
       useProjectWorkspace.ts
+      useProjectWorkspacePage.ts
     canvas-interaction/
     code-editor/
     workflow-validation/
@@ -237,6 +238,30 @@ If `shared` starts changing because one module changed, it probably is not share
 - UI must not see raw transport errors, raw backend payloads, raw `ApiFailure`, or raw `error.message`.
 - Render `error.toUserMessage().message` in UI.
 
+## project-management and project-workspace boundaries
+
+Two slices touch the same BFF project surface. Do not collapse them into one shared `ProjectApi` under `shared`, and do not let either slice grow a second hidden transport owner.
+
+### Transport ownership
+
+- **`modules/project-management/ProjectApi.ts`**: Project lifecycle and project-scoped config against the BFF `projects` routes — for example list/create/import/delete project, fetch single `ProjectInfo`, read/write `vnext` workspace config, and config status used for project-level UX (wizard, diagnostics).
+- **`modules/project-workspace/WorkspaceApi.ts`**: Active workspace file operations (`files` routes) **and** the project file tree from `GET projects/:id/tree` (e.g. `getProjectTree`). The tree is shell/workspace ownership even though the path lives under `projects` on the server.
+
+Add new endpoints to the file whose **feature** owns the primary UX: tree and file-tree refresh stay with workspace; catalog and config CRUD stay with management.
+
+### Hooks and orchestration
+
+- **`useProjectWorkspacePage`** (bootstrap for the `/project/:id` workspace shell: parallel load of project row, tree, config status) lives under **`modules/project-workspace`**, not under `project-management`, because it orchestrates the workspace route.
+- That hook may call **`ProjectApi`** for metadata and config status and **`WorkspaceApi`** for the tree. Prefer **`project-workspace` → `project-management`** for this pairing; avoid **`project-management` → `project-workspace`** imports for transport unless you are composing from `pages` or redesigning the boundary.
+
+### App-wide store
+
+- **`app/store`** may import module services (`WorkspaceApi`, `ProjectApi`) when the store is genuinely cross-shell. Example: refreshing the file tree calls `getProjectTree` from **`WorkspaceApi`**, not from `ProjectApi`.
+
+### Types
+
+- Cross-cutting DTOs such as `FileTreeNode` or `ProjectInfo` may stay in **`modules/project-management/ProjectTypes.ts`** until a real **`packages/*`** contract exists. `project-workspace` may import those types from `project-management` for shapes returned by workspace-facing calls; treat repeated type coupling as a signal to promote types into a shared package, not to merge API modules.
+
 ## Validation Placement
 
 - Use `React Hook Form` + `Zod` for form-facing validation in the owning page or module.
@@ -314,3 +339,4 @@ Raise a concern when:
 - schemas are buried in JSX or durable validation rules are duplicated across screens
 - services dispatch notifications or notifications store raw errors/domain objects
 - shared primitives are bypassed with repeated local visual mappings that should be reusable
+- project file tree or `getProjectTree` lives in `project-management/ProjectApi` instead of `project-workspace/WorkspaceApi`, or `project-management` imports workspace transport for bootstrap (prefer workspace owning the workspace-route hook and calling `ProjectApi` for metadata only)

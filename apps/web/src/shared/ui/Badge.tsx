@@ -13,6 +13,7 @@ const badgeVariants = cva(
         secondary: 'border-secondary-border bg-secondary text-secondary-foreground',
         tertiary: 'border-tertiary-border bg-tertiary text-tertiary-foreground',
         success: 'border-success-border bg-success text-success-foreground',
+        info: 'border-info-border bg-info text-info-foreground',
         muted: 'border-muted-border bg-muted text-muted-foreground',
         warning: 'border-warning-border bg-warning text-warning-foreground',
         destructive:
@@ -33,46 +34,6 @@ const badgeVariants = cva(
       },
     },
     compoundVariants: [
-      {
-        variant: 'default',
-        interactive: true,
-        className: 'bg-primary-surface text-primary-text',
-      },
-      {
-        variant: 'secondary',
-        interactive: true,
-        className: 'bg-secondary-surface text-secondary-text',
-      },
-      {
-        variant: 'tertiary',
-        interactive: true,
-        className: 'bg-tertiary-surface text-tertiary-text',
-      },
-      {
-        variant: 'success',
-        interactive: true,
-        className: 'border-success-border bg-success-surface text-success-text',
-      },
-      {
-        variant: 'muted',
-        interactive: true,
-        className: 'border-muted-border bg-muted-surface text-muted-text',
-      },
-      {
-        variant: 'warning',
-        interactive: true,
-        className: 'border-warning-border bg-warning-surface text-warning-text',
-      },
-      {
-        variant: 'destructive',
-        interactive: true,
-        className: 'bg-destructive-surface text-destructive-text',
-      },
-      {
-        variant: 'outline',
-        interactive: true,
-        className: 'border-primary-border bg-primary-surface text-primary-text',
-      },
       {
         variant: 'default',
         hoverable: true,
@@ -96,6 +57,12 @@ const badgeVariants = cva(
         hoverable: true,
         className:
           'hover:-translate-y-px [a&]:hover:border-success-border-hover [a&]:hover:bg-success-hover hover:border-success-border-hover hover:bg-success-hover',
+      },
+      {
+        variant: 'info',
+        hoverable: true,
+        className:
+          'hover:-translate-y-px [a&]:hover:border-info-border-hover [a&]:hover:bg-info-hover hover:border-info-border-hover hover:bg-info-hover',
       },
       {
         variant: 'muted',

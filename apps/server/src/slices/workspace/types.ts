@@ -18,7 +18,6 @@ export interface WorkspacePaths {
   extensions: string
   workflows: string
   schemas: string
-  mappings: string
 }
 
 export interface WorkspaceExports {
@@ -41,6 +40,15 @@ export interface ReferenceResolutionConfig {
   enabled: boolean
   validateOnBuild: boolean
   strictMode: boolean
+  validateReferenceConsistency?: boolean
+  validateSchemas?: boolean
+  allowedHosts?: string[]
+  schemaValidationRules?: {
+    enforceKeyFormat?: boolean
+    enforceVersionFormat?: boolean
+    enforceFilenameConsistency?: boolean
+    allowUnknownProperties?: boolean
+  }
 }
 
 export interface WorkspaceConfig {

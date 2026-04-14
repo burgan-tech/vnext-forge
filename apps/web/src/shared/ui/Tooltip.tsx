@@ -12,6 +12,10 @@ const tooltipContentVariants = cva(
         default: 'border-primary-border bg-primary text-primary-foreground',
         secondary: 'border-secondary-border bg-secondary text-secondary-foreground',
         tertiary: 'border-tertiary-border bg-tertiary text-tertiary-foreground',
+        success: 'border-success-border bg-success text-success-foreground',
+        info: 'border-info-border bg-info text-info-foreground',
+        warning: 'border-warning-border bg-warning text-warning-foreground',
+        destructive: 'border-destructive-border bg-destructive-muted text-destructive-text',
       },
     },
     defaultVariants: {

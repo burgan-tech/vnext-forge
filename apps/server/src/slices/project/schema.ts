@@ -46,3 +46,61 @@ export const projectExportRequestSchema = {
     targetPath: z.string().min(1, 'Export targetPath is required'),
   }),
 }
+
+const stringArraySchema = z.array(z.string())
+
+/** Tam vnext.config.json gövdesi (POST /projects/:id/vnextConfig). */
+export const vnextWorkspaceFullConfigSchema = z.object({
+  version: z.string().min(1),
+  description: z.string().min(1),
+  domain: projectDomainSchema,
+  runtimeVersion: z.string().min(1),
+  schemaVersion: z.string().min(1),
+  paths: z.object({
+    componentsRoot: z.string().min(1),
+    tasks: z.string(),
+    views: z.string(),
+    functions: z.string(),
+    extensions: z.string(),
+    workflows: z.string(),
+    schemas: z.string(),
+  }),
+  exports: z.object({
+    functions: stringArraySchema,
+    workflows: stringArraySchema,
+    tasks: stringArraySchema,
+    views: stringArraySchema,
+    schemas: stringArraySchema,
+    extensions: stringArraySchema,
+    visibility: z.enum(['public', 'private']),
+    metadata: z.object({
+      description: z.string().min(1),
+      maintainer: z.string(),
+      license: z.string(),
+      keywords: stringArraySchema,
+    }),
+  }),
+  dependencies: z.object({
+    domains: stringArraySchema,
+    npm: stringArraySchema,
+  }),
+  referenceResolution: z.object({
+    enabled: z.boolean(),
+    validateOnBuild: z.boolean(),
+    strictMode: z.boolean(),
+    validateReferenceConsistency: z.boolean(),
+    validateSchemas: z.boolean(),
+    allowedHosts: stringArraySchema,
+    schemaValidationRules: z.object({
+      enforceKeyFormat: z.boolean(),
+      enforceVersionFormat: z.boolean(),
+      enforceFilenameConsistency: z.boolean(),
+      allowUnknownProperties: z.boolean(),
+    }),
+  }),
+})
+
+export const projectWriteFullConfigRequestSchema = {
+  params: projectIdSchema,
+  json: vnextWorkspaceFullConfigSchema,
+}

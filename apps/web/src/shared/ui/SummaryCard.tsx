@@ -10,6 +10,10 @@ const summaryCardVariants = cva(
       variant: {
         default: 'border-primary-border bg-primary text-primary-foreground',
         success: 'border-success-border bg-success text-success-foreground',
+        info: 'border-info-border bg-info text-info-foreground',
+        warning: 'border-warning-border bg-warning text-warning-foreground',
+        destructive:
+          'border-destructive-border bg-destructive-muted text-destructive-text',
         secondary: 'border-secondary-border bg-secondary text-secondary-foreground',
         tertiary: 'border-tertiary-border bg-tertiary text-tertiary-foreground',
         muted: 'border-muted-border bg-muted text-muted-foreground',
@@ -33,6 +37,22 @@ const summaryCardVariants = cva(
         variant: 'success',
         hoverable: true,
         className: 'hover:border-success-border-hover hover:bg-success-hover',
+      },
+      {
+        variant: 'info',
+        hoverable: true,
+        className: 'hover:border-info-border-hover hover:bg-info-hover',
+      },
+      {
+        variant: 'warning',
+        hoverable: true,
+        className: 'hover:border-warning-border-hover hover:bg-warning-hover',
+      },
+      {
+        variant: 'destructive',
+        hoverable: true,
+        className:
+          'hover:border-destructive-border-hover hover:bg-destructive-muted-hover',
       },
       {
         variant: 'secondary',

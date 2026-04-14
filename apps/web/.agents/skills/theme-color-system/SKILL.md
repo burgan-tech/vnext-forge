@@ -22,6 +22,21 @@ The app's visual language is corporate, minimal, and purposeful. Every visual el
 
 These principles are not constraints to work around; they are the intended output. An interface that feels open, readable, and structured is the goal.
 
+## Semantic coloring (chromatic families)
+
+**Semantic coloring** means color is chosen so the user reads a **stable meaning** (outcome, risk, information type, or failure) — not merely depth, brand decoration, or “this chip looks nice.” In `apps/web/src/index.css`, that meaning is carried only by the **chromatic semantic families** below (plus `muted` / `default` when something must stay deliberately neutral).
+
+| Family | Communicates |
+|--------|----------------|
+| **`success`** | Positive outcome, completion, validation passed, healthy or published state, or intentional affirmative emphasis where a green read is correct. |
+| **`info`** | Informational emphasis: hints, context, non-blocking notices — neither success nor danger. |
+| **`warning`** | Caution, needs attention, pending or degraded state that is not yet a hard failure. |
+| **`destructive`** | Errors, failures, blocked validation, or irreversible / dangerous actions — red read is intentional. |
+
+Each family has coordinated tokens (`-surface`, `-border`, `-border-hover`, `-text`, `-icon`, `-muted`, …). Choose slots by **element role** (surface vs border vs label text vs icon), not by whichever hex happens to match a mockup.
+
+**Primitives that must lean on semantic coloring:** **`Badge`**, **`TagEditor`**, and similar **pills, chips, and inline labels** that encode **state, category, or validation**. When the label means “ok / failed / warn / FYI”, the variant must be **`success`**, **`destructive`**, **`warning`**, or **`info`** (or **`muted`** when explicitly passive). Do **not** use `secondary` / `tertiary` there to fake green, red, amber, or blue meaning — those variants are **structural** (nesting / neutral emphasis); see *Structural nesting vs semantic state*. **Structural choice (separate from hue):** use **`TagEditor`** when entries behave as **chips** (keywords, small sets, reorder-by-tag UX). Use a **line-delimited `Textarea`** pattern for **bulk technical lists** (many homogeneous keys, paste-friendly lines) — see *Line-delimited string[] fields (Textarea vs TagEditor)*.
+
 ## ⚠️ Semantic Color Usage — Non-Negotiable Rule
 
 **A token that fits visually is not enough. Every token used must be semantically justified.**
@@ -33,13 +48,25 @@ Concrete examples of what this rule forbids:
 - Using `text-destructive-border` for an error indicator on a dark surface because `#fecdd3` happens to be light rose — `-border` is a structural token for bordered surfaces, not a text-on-dark token.
 - Using `from-secondary-icon to-tertiary-icon` for a gradient because the colors look nice together — `*-icon` tokens are icon foregrounds, not gradient palette values.
 - Using `text-success-border` for a success check icon because `#86efac` is a light green — `-border` is a border token, not an icon color token.
-- Using `bg-secondary` for a badge because sky-blue matches the brand — only use `secondary` if the element semantically belongs to the secondary interaction family.
+- Using `bg-secondary` or `bg-tertiary` for a **status** or **outcome** badge (for example “published”, “valid”, “error”) because the tint looks pleasant — outcome and validation semantics belong in **`success`**, **`info`**, **`warning`**, or **`destructive`**, not in structural `secondary` / `tertiary` surfaces.
 
 **The correct mental model:**
 
 1. What is this UI element communicating? (state, role, hierarchy, intent)
-2. Which token family represents that communication? (`muted` for passive, `success` for positive outcome, `destructive` for irreversible actions, `chrome` for app shell, `brand-surface` for branded panels, etc.)
+2. Which token family represents that communication? (`muted` for passive, **`secondary` / `tertiary` for nested structural surfaces** — see *Structural nesting vs semantic state*, **`success` / `info` / `warning` / `destructive` for semantic coloring** — see *Semantic coloring (chromatic families)*, `chrome` for app shell, `brand-surface` for branded panels, etc.)
 3. Within that family, which slot is appropriate? (`-foreground` for text on the family's surface, `-icon` for icon color, `-border` for border, `-text` for standalone text)
+
+### Structural nesting vs semantic state
+
+The **`secondary`** and **`tertiary`** families in `apps/web/src/index.css` are defined primarily for **structural hierarchy**: nested cards, inset panels, accordions, and other “container inside container” layouts (for example a dialog scroll area with a white `default` card and a deeper **`tertiary`** sub-card). They signal **depth and grouping** through neutral background and border steps — not product meaning.
+
+- **Typical surface stack:** `default` (baseline white / primary family on cards) → first inset **`secondary`** → second inset **`tertiary`**. Prefer **border + background contrast** over stacking heavy shadows on nested panels; inner nested cards often omit shadow when the parent already separates from the page.
+- **Dialog / panel outer shell:** **`DialogContent`** (and similar modal or inspector shells) should use **`variant="default"`** as the **baseline** surface unless the product deliberately themes the whole shell with a semantic variant. Section **`Card`**s inside that shell use **`secondary`** for the **first** structural inset. Use **`tertiary` on `Card` only when one card nests inside another card** (second inset). Do not put the outermost section cards in `tertiary` on a `default` dialog — that skips the secondary step and flattens the depth ladder. Optional header strips (e.g. “config missing” notices) may use **`info`** (or other chromatic families) where **messaging semantics** apply; that is not a substitute for keeping the dialog body on **`default`**; on **`default`** dialog shells, nested section **`Card`**s often use **`shadow-none`** so elevation does not stack with the modal chrome — see *Elevation and Surface Depth*.
+- **Wide dialog / two-column layout:** Order **section `Card`s** so **reading flow and dependency match** — e.g. keep configuration that logically follows “dependencies” **in the same column**, directly under that card, rather than splitting related blocks across columns without reason. **`exports`-style** wide single-owner panels may occupy the **other** column.
+- **Field primitives inside structural cards:** **`Input`**, **`Textarea`**, **`Select`**, **`TagEditor`**, and other **data-entry** primitives should **stay on `variant="default"`** for normal editable fields. **Do not** mirror the parent **`Card`**’s `secondary` / `tertiary` on these controls “so they match the panel” — **containers carry nesting depth; controls keep the standard field chrome** unless the field itself has a semantic job. **Exceptions:** **`muted`** (or equivalent) for **read-only** or intentionally **low-emphasis** fields; **`destructive`** / error presentation for **invalid** input; **`info`** (or other chromatic variants) only when that **control surface** is explicitly an informational callout, not merely because it sits on a tinted card. **`Button`** / **`DialogCancelButton`** variants follow **action semantics** (primary weight, cancel, destructive delete) and likewise **do not** need to echo the enclosing `Card` variant.
+- **Semantic coloring** (positive outcome, risk, caution, informational emphasis) must use the dedicated families in `index.css`: **`success`**, **`info`**, **`warning`**, and **`destructive`**, with slots (`-surface`, `-border`, `-text`, `-icon`, …) chosen for the element’s role — see *Semantic coloring (chromatic families)*. Do not repurpose `secondary` / `tertiary` to imply success, danger, warning, or info — users will misread them.
+
+**Interaction primitives** (`Button`, `DialogCancelButton`, inputs with `variant="secondary"` | `"tertiary"`, etc.) reuse the same token names for **neutral action emphasis** (secondary/tertiary control weight). Token **values** stay calm and structural so cards and controls stay coherent. When in doubt: *nested shell vs semantic message?* — nested shell → `secondary` / `tertiary` surfaces; message → `success` / `info` / `warning` / `destructive`.
 
 Do not use structural token slots (`-border`, `-icon`, `-muted`) in roles they were not designed for just to reach a target color. If no existing family maps to the element's semantic role, add a new token family with a stable, cross-app semantic name — do not borrow a structurally mismatched token because it produces the right hex value, and do not create usage-specific tokens like `create-accent`, `import-accent`, `project-list-blue`, or `error-surface` when a broader semantic token should exist instead. If a name stops making sense outside one UI context, it is the wrong token.
 
@@ -76,10 +103,11 @@ Do not use structural token slots (`-border`, `-icon`, `-muted`) in roles they w
 ## Primitive Variant Rules
 
 - Treat `shared/ui` as the UI library layer. Cross-app visual variants belong here, not in feature-level wrappers. Do not implement the same `default/secondary/tertiary` mapping separately in module or page code.
-- Prefer a stable variant vocabulary for reusable controls. For button-like primitives, `default`, `secondary`, and `tertiary` are the first-choice semantic action variants. Interpret `default` as the primary action family — "primary button" in design discussions usually maps to `variant="default"`.
+- Prefer a stable variant vocabulary for reusable controls. For button-like primitives, `default`, `secondary`, and `tertiary` are the first-choice **interaction emphasis** variants (not chromatic status). Interpret `default` as the primary action family — "primary button" in design discussions usually maps to `variant="default"`.
+- For **container** primitives (`Card`, `Section`, nested dialog panels), `variant="secondary"` and `variant="tertiary"` mean **inset surface level** — see *Structural nesting vs semantic state*. Do not choose them to add decorative color; choose them to show one container inside another without implying `success` / `warning` / etc.
 - Use semantic variants intentionally:
-  - Positive forward actions (`create`, `add`, `save new`, `confirm`) may map to `tertiary` or `success` when positive emphasis improves clarity.
-  - Routine neutral actions (`cancel`, `close`, `dismiss`, `back`) stay in `default` or `secondary`.
+  - Positive forward actions (`create`, `add`, `save new`, `confirm`) use `variant="default"` or `variant="success"` when affirmative semantics matter — do not use `tertiary` or `secondary` button variants to stand in for **success** messaging; use the **`success`** token family where the UI must read as clearly positive/chromatic.
+  - Routine neutral actions (`cancel`, `close`, `dismiss`, `back`) stay in `default` or `secondary` (interaction weight).
   - Destructive actions (`delete`, `remove`, irreversible `reset`) use `destructive`.
 - Treat `success` as the reusable positive-semantic family for clearly affirmative states, outcomes, or forward actions. Selected states in option pickers (scope selectors, type pickers, toggle-button groups) are a canonical use case: use `variant="success"` on the shared `Button` primitive. Do not hand-roll selection with raw token stacks like `border-primary-border-hover bg-primary-muted text-primary-text`.
 - Treat `muted` as the reusable passive-semantic family for empty states, no-data shells, read-only support regions, and other intentionally low-emphasis UI. Do not let passive shells share the same visual weight as `default` interactive controls.
@@ -108,6 +136,15 @@ Do not use structural token slots (`-border`, `-icon`, `-muted`) in roles they w
 - Do not map dismissive actions (`cancel`, `close`, `dismiss`) to destructive surface, border, hover, or icon tokens unless the action itself is destructive.
 - Do not style clickable bordered surfaces with unrelated neutral border tokens by default when the interaction language should be anchored to `primary`.
 
+### `Button` `leftIconComponent` / `rightIconComponent` (custom icon slot)
+
+- In `apps/web/src/shared/ui/Button.tsx`, the root element exposes the Tailwind named group `group/button`. The default `leftIcon` / `rightIcon` path renders through an internal wrapper (`buttonIconVariants`, `buttonIconMotionVariants`) so icon surfaces and motion stay coupled to button hover and to `hoverable` / `noIconHover`.
+- When you pass **`leftIconComponent` or `rightIconComponent`**, that internal wrapper is **not** applied to your node. The custom subtree must **stay visually coupled to the button hover**; otherwise the leading/trailing visual freezes while the root uses variant hover tokens (for example `--color-primary-hover`), which reads as broken interaction design.
+- **Coupling rule:** drive hover styles from the **button root**, not from `hover:` on the inner slot alone. Use **`group-hover/button:`** utilities on the custom icon container (and on any nested accent box) so hover matches pointer intent over the whole control, including when focus is on the button.
+- **Token rule:** treat the custom slot like any other semantic surface. For example, an informational accent tile next to primary action text uses the shared **`info`** family at rest (`border-info-border`, `bg-info-surface`, `text-info-icon`) and on root hover adds **`group-hover/button:border-info-border-hover`** and **`group-hover/button:bg-info-hover`**. Use the **`-border-hover` / `-hover`** slots from the same semantic family you used at rest; do not invent raw palette hovers on the slot.
+- **Motion parity:** when the button is `hoverable` (default) and not `noIconHover`, mirror the built-in icon motion on the same side: leading/custom left visual uses `group-hover/button:-translate-y-px group-hover/button:shadow-sm` with **`transition-all duration-200 ease-out`**; trailing/custom right visual uses `group-hover/button:translate-x-0.5`. When `hoverable={false}` or `noIconHover`, omit these motion and group-hover-coupled accents so disabling stays complete (see `hoverable`-style flags above).
+- **Elevation nuance:** the global “borders over shadows” rule still applies to page-scale cards and panels. The shared **`Button`** icon region is the narrow exception where **`shadow-sm`** may appear **only** as part of this documented `group-hover/button` micro-interaction, in parity with the primitive’s wrapped icon path — do not escalate to `shadow-md` or heavier, or add extra shadows on the full button chrome.
+
 ## Typography and Readability
 
 - `text-sm` (14px) is the baseline for interactive UI content: labels, form fields, list items, button text.
@@ -129,6 +166,7 @@ Icons are typographic siblings: their size, color, and spacing follow the same s
 - Keep stroke width consistent. Lucide defaults to `stroke-width: 2`. Do not mix `stroke-width: 1` and `stroke-width: 2` icons in the same surface — inconsistent stroke weight reads as visual noise.
 - Icon-only interactive controls must carry `aria-label` describing the action, and must use a minimum `size-8` (32px) hit area even when the icon itself is `size-4`. Decorative icons (duplicating adjacent text meaning) are marked `aria-hidden="true"` so screen readers do not announce them twice.
 - Icon + label spacing is part of the shared primitive API. Use the primitive's `leftIcon`/`rightIcon` slots rather than manually placing an icon with `gap-*` classes.
+- When `Button`'s **`leftIconComponent`** or **`rightIconComponent`** escape hatch is used, follow *Hover, Border, and Cursor Semantics* → **`Button` `leftIconComponent` / `rightIconComponent` (custom icon slot)** so the custom leading/trailing visual hovers in lockstep with the control (`group-hover/button:`), using semantic token families rather than isolated `hover:` on the inner node alone.
 - Do not use emoji or image-based glyphs in place of the icon system for UI meaning. Emoji rendering varies across platforms and breaks the minimal, corporate tone.
 
 ## Elevation and Surface Depth
@@ -136,7 +174,7 @@ Icons are typographic siblings: their size, color, and spacing follow the same s
 The app uses a flat, border-first surface model. Depth is expressed through background token differences and structured borders, not shadow stacking.
 
 - `shadow-sm` is the practical ceiling for surface elevation, reserved for dropdown menus, popovers, command palettes, and modal dialogs that must separate clearly from the document beneath. Do not use `shadow-md`, `shadow-lg`, `shadow-xl`, or heavier for cards, panels, editor regions, or sidebar sections — those surfaces are separated by border and background token contrast. Do not add `shadow-*` to buttons or bordered interactive controls for depth or 3D effect; their boundary is communicated by border tokens.
-- Surface hierarchy comes from background token layering: `--color-background` for the page, card/surface variants for panels, `--color-muted` for supporting regions. This layering plus consistent border tokens provides sufficient visual depth without shadows.
+- Surface hierarchy comes from background token layering: `--color-background` for the page, **`default` / primary-style** surfaces for baseline cards, **`secondary`** then **`tertiary`** for nested inset steps (see *Structural nesting vs semantic state*), and `--color-muted` for passive supporting regions. This layering plus consistent border tokens provides sufficient visual depth without shadows.
 - Avoid decorative gradients on UI surfaces. `bg-gradient-*` utilities are not part of the app's flat token model. Gradients must serve a functional role (overflow fade mask, skeleton shimmer, progress fill), and must be defined through a token-compatible approach rather than inline arbitrary colors.
 - Do not introduce pattern textures, image-based backgrounds, or decorative surface treatments that are not expressed through the token system.
 
@@ -223,7 +261,7 @@ The primary layout combines canvas, code editor, and sidebar panels that can be 
 
 ## Badge and Status Indicator System
 
-Workflow definitions carry many states — draft, published, active, paused, error, running, completed. The badge and status language stays consistent so the same visual read always means the same thing.
+Workflow definitions carry many states — draft, published, active, paused, error, running, completed. The badge and status language stays consistent so the same visual read always means the same thing. This section applies equally to **`TagEditor`** chips and any pill-shaped control that carries **classification or state**: they must use **semantic coloring** (`success`, `info`, `warning`, `destructive`, or neutral `muted` / `default`) — not `secondary` / `tertiary` — when color is meant to be interpreted as meaning.
 
 - Badges have two canonical forms: the dot indicator (`size-2` colored dot, used when the label is already provided by adjacent text) and the pill badge (rounded rectangular with its own label, used when status must stand alone). Never use a bare dot to communicate state when the adjacent context does not name the state — upgrade to a pill badge with a label.
 - Status colors map to shared semantic token families:
@@ -232,6 +270,7 @@ Workflow definitions carry many states — draft, published, active, paused, err
   - `success` / `completed` / `published` → `success` family
   - `warning` / `paused` / `pending` → `warning` family
   - `error` / `failed` → `destructive` family
+  - Informational-only labels (non-success, non-warning, non-error) → **`info`** when a distinct informational hue is required; otherwise **`muted`** or **`default`**
 - Do not introduce a new status with a one-off color; extend the token system first.
 - Pill badges use `text-xs` with `font-medium`, `px-2 py-0.5` internal spacing, and the matching variant's `-muted` background with `-text` foreground — the same contract the Button primitive uses for muted-surface variants.
 - Count badges (notifications, unread counts) live at the edge of their anchor (top-right by default) with `size-4` or `size-5`, `text-xs` `font-medium`. Cap values beyond a two-digit threshold visually (e.g. `99+`) so the badge does not distort its anchor's layout.
@@ -251,12 +290,21 @@ The app hosts many form surfaces — workflow metadata, node configuration, task
 - Form-level errors (server-side failures, cross-field validation) appear at the top of the form in an alert surface using the `destructive` family's muted background and text tokens. Do not use a full destructive background for form-level alerts — that emphasis is reserved for critical destructive confirmations.
 - Field grouping uses spacing as the primary separator: `space-y-4` or `space-y-6` within a group, larger gap (`space-y-8`) plus a section heading between groups. Use explicit section headings rather than horizontal rules to divide groups.
 - Related fields (date range, min/max pair, first/last name) sit on the same row using `grid` or `flex` with a consistent gap token; the relationship must be visible at a glance.
+- **Nested card / “metadata band” layout:** Inside a **`tertiary`** (or **`secondary`**) sub-card, structure **vertical bands** with **`space-y-4`**: first a **full-width single-line** primary field (e.g. title or description via **`Input`**), then a **`grid`** band (`grid-cols-1` `sm:grid-cols-2` `gap-4`) for **paired short fields** (e.g. maintainer + license), then heavier controls (tags, textareas) **below**. Avoid one flat multi-column grid that forces the primary long label field to share a row with unrelated peers.
+- **Boolean clusters in sub-panels:** Several related **boolean** fields inside a nested **`Card`** (e.g. schema rule toggles) should use **`grid-cols-1 sm:grid-cols-2` `gap-4`** so pairs read **side-by-side** from `sm` breakpoint upward and **stack** on narrow viewports.
 - Input width reflects expected input length. Use the Tailwind size scale (`w-20`, `w-32`, `w-full` in a grid column) rather than ad hoc arbitrary widths.
 - Submit and cancel actions live at the end of the form: right-aligned in modal/dialog forms, left-aligned or full-width in full-page forms. Destructive confirmations (`Delete`, `Discard changes`) sit furthest from the primary action to reduce mis-clicks.
 - Submit is `variant="default"` (primary action). Cancel/back is `variant="secondary"` or `variant="default"`, not `destructive`. Delete-and-save-style forms expose a destructive action as a tertiary placement, not as the submit button.
 - Disabled submit state must be reachable with an accessible explanation (tooltip or adjacent helper text) of what is missing. Do not silently disable submit.
 - Form state (submitting, saving, error) is communicated through the submit button's loading state and a persistent form-level status region, not toast-only feedback that disappears.
 - All form composition rules live in a shared form layout primitive or a small set of shared form building blocks. Modules compose the building blocks; they do not reimplement label placement, error rendering, or validation timing.
+
+### Line-delimited `string[]` fields (Textarea vs TagEditor)
+
+- **Textarea (line model):** Prefer **`Textarea`** with **one logical value per line** (optional **`font-mono` `text-sm`** for keys, **`resize-y`**, concise helper copy) for **bulk technical lists**: hostnames, exported component keys, allowlists, and any field where users **paste** or **type** many homogeneous entries. Full-width bands (`sm:col-span-2` inside a parent grid) work well so lines are not squeezed into half-width columns.
+- **TagEditor (chip model):** Prefer **`TagEditor`** for **short, chip-oriented** sets (e.g. **keywords**, small curated lists) where pill add/remove is the primary affordance — not as the default for every `string[]` in a config surface when the line model is clearer.
+- **Enter / newlines must not disappear:** When syncing **`Textarea`** text ↔ `string[]`, **do not** `filter` out every empty line **on each `onChange`** and immediately write back a joined string — that removes the newline the user just typed and **Enter feels broken**. Split on `\n`, **trim per line** for content, but **preserve blank lines while editing** (keep `""` in the array), **or** hold a **local draft string** and commit parsed arrays on **blur**. **Normalize** (drop empty / whitespace-only entries) on **submit** (and optionally on blur) so persisted JSON stays clean.
+- **Dense modals:** In **tall scrollable dialogs** with many line-list fields, use a **modestly small** initial **`rows` / `min-h-*`** so the form stays scannable; keep **`resize-y`** so users can expand one field when needed. Prefer one shared helper or defaults in a primitive over unrelated magic numbers per screen.
 
 ## Notification and Toast Visual System
 
@@ -305,6 +353,10 @@ Primitives and variants:
 - Variant families exist in `index.css` but the primitive bypasses them with hard-coded Tailwind palette values.
 - Raw `<input>` is used in module or page code when `shared/ui/Input` exists, or titled sectioned editor panels are structured as plain divs with `border-t` dividers instead of the `Card/CardHeader/CardContent` pattern.
 - General app UI defaults to non-`default` variants without an explicit semantic reason.
+- **`DialogContent`** (or equivalent modal shell) is not **`variant="default"`** without an explicit product decision, or **section cards** skip **`secondary`** and use **`tertiary`** as the first inset on a default shell (*Structural nesting vs semantic state* → *Dialog / panel outer shell*).
+- **`Input`**, **`Textarea`**, **`Select`**, **`TagEditor`**, or similar **field** primitives use **`secondary`/`tertiary`** only to “match” a nested **`Card`**, instead of staying **`variant="default"`** for normal editing (exceptions: **`muted`** read-only / low-emphasis, **`destructive`** / errors, deliberate **`info`** callout surfaces) (*Structural nesting vs semantic state* → *Field primitives inside structural cards*).
+- `secondary` / `tertiary` surfaces (or control variants) are used to imply success, failure, caution, or informational meaning where **`success`**, **`info`**, **`warning`**, or **`destructive`** is the correct family (*Structural nesting vs semantic state*, *Semantic coloring (chromatic families)*).
+- **`Badge`**, **`TagEditor`**, or similar chips use `secondary` / `tertiary` (or arbitrary palette classes) to carry **state or validation meaning** that should use **`success`**, **`info`**, **`warning`**, or **`destructive`** instead (*Semantic coloring (chromatic families)*).
 
 Interaction, hover, cursor, destructive:
 
@@ -338,4 +390,9 @@ Data, drag, split-pane, badge, form, notification:
 - Resize handles are invisible at rest or lack a wider pointer-active hit area; splitters leave pointer cursor; collapse is implemented as a zero-width resize; panel width animates during drag; resizable panels lack explicit min/max bounds or do not persist sizes.
 - A new status semantic uses a one-off color instead of a token family; a bare dot is used where adjacent context does not name the state; count badges grow without a visual cap; status dots lack `aria-label` or accompanying text; pill shape or state-to-token mapping is reimplemented outside the badge primitive.
 - Form labels are inline beside controls in editor forms; fields validate on first keystroke; error messages are generic; form-level alerts use full destructive backgrounds; horizontal rules divide form sections where spacing + headings should; cancel or back actions use `variant="destructive"`; the submit button is silently disabled; success/failure is communicated only through a transient toast.
+- **Line-delimited** `Textarea` ↔ `string[]` mapping **drops all empty lines on every keystroke**, so **Enter appears broken** (*Line-delimited string[] fields*).
+- **`TagEditor`** is used for **long homogeneous bulk lists** where a **line-per-row `Textarea`** is the clearer model, or the inverse: **Textarea lines** for **keyword-style chip** metadata without justification (*Line-delimited string[] fields*, *Semantic coloring* for chip semantics).
+- **Wide dialog** places logically **dependent section cards in separate columns** without reading-flow reason (*Wide dialog / two-column layout*).
+- **Metadata-style** sub-card: primary **single-line** field forced into a **shared multi-column grid** with unrelated peers instead of **full-width row + paired `sm:grid-cols-2` band** (*Nested card / “metadata band” layout*).
+- **Boolean** groups in a sub-panel stay **single-column** on `sm+` where **two columns** would match the established toggle grid (*Boolean clusters in sub-panels*).
 - A custom `sonner` toaster or parallel toast surface is mounted outside `@shared/ui/sonner`; toast surfaces use full-saturation variant backgrounds; toast variant color falls outside shared semantic families; consumers override toast position per call; the visible stack grows unbounded; destructive error toasts auto-dismiss before being read or acted on; toasts lack a visible dismiss affordance; toast action buttons use `variant="default"` or stack multiple primary actions; toast motion uses bounce/spring/elastic easing; toasts are raised above modals by bumping z-index or intercept pointer events over an open modal; persistent page-level feedback is rendered as a floating toast rather than an inline banner.

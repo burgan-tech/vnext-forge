@@ -8,6 +8,7 @@ import {
   projectCreateRequestSchema,
   projectExportRequestSchema,
   projectImportRequestSchema,
+  projectWriteFullConfigRequestSchema,
 } from './schema.js';
 
 const projectService = new ProjectService();
@@ -65,6 +66,40 @@ export const projectController = {
     return ok(c, config);
   },
 
+  async getConfigStatus(c: Context): Promise<Response> {
+    const { params } = await parseRequest(
+      c,
+      projectByIdRequestSchema,
+      'projectController.getConfigStatus',
+    );
+    const status = await projectService.getConfigStatus(params.id, c.get('traceId'));
+    return ok(c, status);
+  },
+
+  async getVnextComponentLayoutStatus(c: Context): Promise<Response> {
+    const logger = getRequestLogger(c, 'projectController.getVnextComponentLayoutStatus');
+    const { params } = await parseRequest(
+      c,
+      projectByIdRequestSchema,
+      'projectController.getVnextComponentLayoutStatus',
+    );
+    logger.info({ projectId: params.id }, 'reading vnext component layout status');
+    const result = await projectService.getVnextComponentLayoutStatus(params.id, c.get('traceId'));
+    return ok(c, result);
+  },
+
+  async writeConfig(c: Context): Promise<Response> {
+    const logger = getRequestLogger(c, 'projectController.writeConfig');
+    const { params, json } = await parseRequest(
+      c,
+      projectWriteFullConfigRequestSchema,
+      'projectController.writeConfig',
+    );
+    logger.info({ projectId: params.id, domain: json.domain }, 'writing vnext.config.json');
+    const project = await projectService.writeProjectConfig(params.id, json, c.get('traceId'));
+    return ok(c, project);
+  },
+
   async exportProject(c: Context): Promise<Response> {
     const logger = getRequestLogger(c, 'projectController.exportProject');
     const { params, json } = await parseRequest(
@@ -83,5 +118,20 @@ export const projectController = {
     logger.info({ projectId: params.id }, 'removing project');
     await projectService.removeProject(params.id, c.get('traceId'));
     return empty(c);
+  },
+
+  async seedVnextComponentLayout(c: Context): Promise<Response> {
+    const logger = getRequestLogger(c, 'projectController.seedVnextComponentLayout');
+    const { params } = await parseRequest(
+      c,
+      projectByIdRequestSchema,
+      'projectController.seedVnextComponentLayout',
+    );
+    logger.info({ projectId: params.id }, 'seeding vnext component directories from config paths');
+    const result = await projectService.seedVnextComponentLayoutFromConfig(
+      params.id,
+      c.get('traceId'),
+    );
+    return ok(c, result);
   },
 };
