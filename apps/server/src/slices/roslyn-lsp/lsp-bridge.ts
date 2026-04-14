@@ -112,9 +112,24 @@ export async function handleLspConnect(ws: WebSocket, sessionId: string): Promis
   }
 
   // LSP server → WebSocket (rewrite file:// URIs back to client URIs)
-  lspServer.onMessage((rawMsg) => {
+  lspServer.onMessage((rawMsg: any) => {
     try {
+      // Log diagnostics before rewriting so we can see what URI csharp-ls sends
+      if ((rawMsg as any).method === 'textDocument/publishDiagnostics') {
+        const d = rawMsg as any
+        logger.info(
+          { sessionId, uri: d.params?.uri, count: d.params?.diagnostics?.length ?? 0 },
+          'publishDiagnostics received from LSP server',
+        )
+      }
       const msg = rewriteIncoming(rawMsg, session)
+      if ((msg as any).method === 'textDocument/publishDiagnostics') {
+        const d = msg as any
+        logger.info(
+          { sessionId, uri: d.params?.uri, count: d.params?.diagnostics?.length ?? 0 },
+          'publishDiagnostics forwarded to WebSocket client',
+        )
+      }
       ws.send(JSON.stringify(msg))
     } catch (err) {
       logger.warn({ err, sessionId }, 'Failed to forward LSP message to WebSocket')
@@ -174,6 +189,12 @@ export function handleLspMessage(sessionId: string, rawMessage: string): void {
 
   // ── textDocument/didChange: keep Script.cs in sync + rewrite URI ──────────
   if (msg.method === 'textDocument/didChange') {
+    const clientUri: string | undefined = msg.params?.textDocument?.uri
+    // Update reverse mapping so publishDiagnostics returns to the currently active model
+    if (clientUri) {
+      const serverUri = session.clientToServer.get(clientUri)
+      if (serverUri) session.serverToClient.set(serverUri, clientUri)
+    }
     const text: string | undefined = msg.params?.contentChanges?.[0]?.text
     if (text !== undefined) {
       updateScriptContent(session.workspace, text).catch((err) =>

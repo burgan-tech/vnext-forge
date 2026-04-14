@@ -296,9 +296,11 @@ export function createCsharpLspClient(monaco: Monaco, sessionId: string): Csharp
   // ── Document synchronization ─────────────────────────────────────────────
 
   function notifyDidOpen(model: any): void {
+    const uri = model.uri.toString();
+    logger.info('textDocument/didOpen', { uri, sessionId });
     sendNotification('textDocument/didOpen', {
       textDocument: {
-        uri: model.uri.toString(),
+        uri,
         languageId: 'csharp',
         version: model.getVersionId(),
         text: model.getValue(),
@@ -323,13 +325,18 @@ export function createCsharpLspClient(monaco: Monaco, sessionId: string): Csharp
 
   function applyPublishDiagnostics(params: any): void {
     const { uri, diagnostics } = params;
+    logger.info('publishDiagnostics received', { uri, count: (diagnostics ?? []).length, sessionId });
     // Primary lookup by exact URI (server rewrites file:// → inmemory://)
     let model = monaco.editor.getModel(monaco.Uri.parse(uri));
     // Fallback: find the active C# model (only one Script.cs per session)
     if (!model) {
+      logger.warn('Model not found by URI, falling back to language search', { uri });
       model = monaco.editor.getModels().find((m: any) => m.getLanguageId() === 'csharp') ?? null;
     }
-    if (!model) return;
+    if (!model) {
+      logger.warn('No C# model found for diagnostics', { uri });
+      return;
+    }
 
     const markers = (diagnostics ?? []).map((d: any) => ({
       severity: lspSeverityToMonaco(d.severity, monaco),

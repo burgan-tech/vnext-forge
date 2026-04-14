@@ -5,6 +5,8 @@ import { createCsharpLspClient, type CsharpLspClient } from './lspClient';
 
 const logger = createLogger('MonacoSetup');
 
+let staticProvidersRegistered = false;
+
 export function registerCSharpSnippets(monaco: Monaco) {
   monaco.languages.registerCompletionItemProvider('csharp', {
     triggerCharacters: [':'],
@@ -155,9 +157,12 @@ export async function setupMonacoWithLsp(
   monaco: Monaco,
   sessionId: string,
 ): Promise<CsharpLspClient | null> {
-  // Static completions — always registered, serve as fallback when LSP is unavailable
-  registerContextAwareCompletions(monaco);
-  registerCSharpSnippets(monaco);
+  // Static completions — register only once per Monaco instance (module-level guard)
+  if (!staticProvidersRegistered) {
+    registerContextAwareCompletions(monaco);
+    registerCSharpSnippets(monaco);
+    staticProvidersRegistered = true;
+  }
 
   const client = createCsharpLspClient(monaco, sessionId);
   try {
