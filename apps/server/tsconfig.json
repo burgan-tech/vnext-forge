@@ -13,6 +13,7 @@
       "@validate/*": ["./src/slices/validate/*"],
       "@runtime-proxy/*": ["./src/slices/runtime-proxy/*"],
       "@template/*": ["./src/slices/template/*"],
+      "@roslyn-lsp/*": ["./src/slices/roslyn-lsp/*"],
       "@shared/*": ["./src/shared/*"]
     }
   },
