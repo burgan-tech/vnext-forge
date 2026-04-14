@@ -16,16 +16,18 @@ const LSP_TMP_ROOT = path.join(os.tmpdir(), 'vnext-lsp')
 function buildCsprojContent(): string {
   return `<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <!-- Suppress warnings about missing main entry point for script-style files -->
     <OutputType>Library</OutputType>
   </PropertyGroup>
+  <!--
   <ItemGroup>
     <PackageReference Include="VNext.Scripting.Abstractions" Version="*" />
   </ItemGroup>
+  -->
 </Project>
 `
 }
