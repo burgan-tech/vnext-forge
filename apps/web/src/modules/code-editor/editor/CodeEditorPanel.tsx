@@ -7,8 +7,6 @@ import { Alert, AlertDescription } from '@shared/ui/Alert';
 import { setupMonacoWithLsp } from './MonacoSetup';
 import type { CsharpLspClient } from './lspClient';
 
-let monacoInitialized = false;
-
 export function CodeEditorPanel() {
   const { tabs, activeTabId, updateTabContent, closeTab, setActiveTab, markTabClean } =
     useEditorStore();
@@ -39,8 +37,11 @@ export function CodeEditorPanel() {
 
   const handleMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
-    if (!monacoInitialized) {
-      monacoInitialized = true;
+    // Start LSP if not already running. Handles both initial mount and remount
+    // after the client was disposed (e.g. unmount → remount in the same session).
+    // setupMonacoWithLsp has its own module-level guard for static providers so
+    // calling it again is safe and only creates a new LSP WebSocket connection.
+    if (!lspClientRef.current) {
       setupMonacoWithLsp(monaco, lspSessionId.current).then((client) => {
         lspClientRef.current = client;
       });

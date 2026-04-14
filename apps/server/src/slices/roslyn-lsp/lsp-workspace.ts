@@ -20,14 +20,10 @@ function buildCsprojContent(): string {
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <!-- Suppress warnings about missing main entry point for script-style files -->
     <OutputType>Library</OutputType>
+    <!-- Suppress CS0436 (type conflicts with imported type) from stubs -->
+    <NoWarn>CS0436</NoWarn>
   </PropertyGroup>
-  <!--
-  <ItemGroup>
-    <PackageReference Include="VNext.Scripting.Abstractions" Version="*" />
-  </ItemGroup>
-  -->
 </Project>
 `
 }
@@ -37,6 +33,92 @@ function buildGlobalUsings(): string {
 global using System.Threading.Tasks;
 global using System.Collections.Generic;
 global using System.Linq;
+`
+}
+
+/**
+ * Stub definitions for common VNext scripting types.
+ *
+ * These stubs let csharp-ls load and analyse Script.cs even when the real
+ * VNext assemblies are not available.  They define just enough surface area
+ * (type names, key members) so that code that uses them compiles inside the
+ * temporary LSP workspace, allowing Roslyn to report real C# errors in the
+ * user's script rather than failing silently due to unresolved references.
+ *
+ * The stubs live in dedicated namespaces that mirror the real packages so
+ * that existing `using` directives in scripts resolve without changes.
+ */
+function buildScriptStubs(): string {
+  return `// Auto-generated VNext scripting stubs for LSP analysis
+#pragma warning disable CS8618, CS1591
+
+namespace BBT.Workflow.Scripting
+{
+    public class ScriptBase { }
+    public class ScriptContext
+    {
+        public dynamic? Instance { get; set; }
+        public dynamic? Body { get; set; }
+        public System.Collections.Generic.Dictionary<string, string?>? Headers { get; set; }
+    }
+    public class ScriptResponse
+    {
+        public string? Key { get; set; }
+        public object? Data { get; set; }
+        public string[]? Tags { get; set; }
+    }
+    public interface IMapping
+    {
+        System.Threading.Tasks.Task<ScriptResponse> InputHandler(BBT.Workflow.Definitions.WorkflowTask task, ScriptContext context);
+        System.Threading.Tasks.Task<ScriptResponse> OutputHandler(ScriptContext context);
+    }
+    public interface IConditionMapping
+    {
+        System.Threading.Tasks.Task<bool> Handler(ScriptContext context);
+    }
+    public interface ITimerMapping
+    {
+        System.Threading.Tasks.Task<TimerSchedule> Handler(ScriptContext context);
+    }
+    public interface ITransitionMapping
+    {
+        System.Threading.Tasks.Task<ScriptResponse> Handler(ScriptContext context);
+    }
+    public interface ISubFlowMapping
+    {
+        System.Threading.Tasks.Task<ScriptResponse> InputHandler(BBT.Workflow.Definitions.WorkflowTask task, ScriptContext context);
+        System.Threading.Tasks.Task<ScriptResponse> OutputHandler(ScriptContext context);
+    }
+    public interface ISubProcessMapping
+    {
+        System.Threading.Tasks.Task<ScriptResponse> InputHandler(BBT.Workflow.Definitions.WorkflowTask task, ScriptContext context);
+    }
+    public class TimerSchedule
+    {
+        public static TimerSchedule FromDuration(System.TimeSpan duration) => new();
+    }
+}
+
+namespace BBT.Workflow.Definitions
+{
+    public class WorkflowTask
+    {
+        public string? Id { get; set; }
+        public string? Name { get; set; }
+        public void SetBody(object body) { }
+        public void SetHeaders(System.Collections.Generic.Dictionary<string, string?> headers) { }
+    }
+    public class HttpTask : WorkflowTask { }
+}
+
+namespace BBT.Workflow.Scripting.Functions
+{
+    public class FunctionContext : BBT.Workflow.Scripting.ScriptContext { }
+    public interface IFunction
+    {
+        System.Threading.Tasks.Task<BBT.Workflow.Scripting.ScriptResponse> Handler(FunctionContext context);
+    }
+}
 `
 }
 
@@ -75,6 +157,7 @@ export async function createLspWorkspace(sessionId: string): Promise<LspWorkspac
   await Promise.all([
     fs.writeFile(path.join(workspacePath, 'session.csproj'), buildCsprojContent(), 'utf-8'),
     fs.writeFile(path.join(workspacePath, 'GlobalUsings.cs'), buildGlobalUsings(), 'utf-8'),
+    fs.writeFile(path.join(workspacePath, 'ScriptStubs.cs'), buildScriptStubs(), 'utf-8'),
     fs.writeFile(scriptPath, '// Script placeholder\n', 'utf-8'),
   ])
 
@@ -134,6 +217,23 @@ export async function runDotnetRestore(workspacePath: string, sessionId: string)
 
 // ── CSX → CS wrapping ─────────────────────────────────────────────────────────
 
+const IMPLICIT_USINGS_LINES = [
+  'using System;',
+  'using System.Threading.Tasks;',
+  'using System.Collections.Generic;',
+  'using System.Linq;',
+  '',
+  '#nullable enable',
+  '',
+]
+
+/**
+ * Number of lines prepended by wrapCsxContent when the script does not start
+ * with a using directive or # directive. Used by the LSP bridge to shift
+ * publishDiagnostics line numbers back to the original Monaco document.
+ */
+export const CSX_WRAP_OFFSET = IMPLICIT_USINGS_LINES.length
+
 /**
  * Wraps raw CSX script content so it's valid as a .cs file.
  * This lets OmniSharp treat it as a regular C# file while still
@@ -143,15 +243,7 @@ export async function runDotnetRestore(workspacePath: string, sessionId: string)
  * so we only need to prepend missing using directives that are implicit in CSX.
  */
 function wrapCsxContent(csxContent: string): string {
-  const implicitUsings = [
-    'using System;',
-    'using System.Threading.Tasks;',
-    'using System.Collections.Generic;',
-    'using System.Linq;',
-    '',
-    '#nullable enable',
-    '',
-  ].join('\n')
+  const implicitUsings = IMPLICIT_USINGS_LINES.join('\n')
 
   // If the content already starts with using directives, don't double them
   const trimmed = csxContent.trimStart()
@@ -160,4 +252,16 @@ function wrapCsxContent(csxContent: string): string {
   }
 
   return implicitUsings + csxContent
+}
+
+/**
+ * Returns the line offset introduced by wrapCsxContent for the given content.
+ * If wrapping was skipped (content starts with using/# ), returns 0.
+ */
+export function getWrapOffset(csxContent: string): number {
+  const trimmed = csxContent.trimStart()
+  if (trimmed.startsWith('using ') || trimmed.startsWith('#')) {
+    return 0
+  }
+  return CSX_WRAP_OFFSET
 }

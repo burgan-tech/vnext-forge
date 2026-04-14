@@ -6,6 +6,7 @@ import {
   createLspWorkspace,
   updateScriptContent,
   destroyLspWorkspace,
+  getWrapOffset,
 } from './lsp-workspace.js'
 import { ensureOmniSharp } from './omnisharp-installer.js'
 
@@ -18,11 +19,28 @@ interface BridgeSession {
   lspServer: OmniSharpSession
   /** Monaco inmemory URI → file:// URI used by the LSP server */
   clientToServer: Map<string, string>
-  /** file:// URI used by LSP server → Monaco inmemory URI */
+  /** Normalized file:// URI → Monaco inmemory URI (for reliable lookup) */
   serverToClient: Map<string, string>
+  /**
+   * Number of lines prepended to Script.cs by wrapCsxContent for the active
+   * document. Used to shift publishDiagnostics ranges back to Monaco coords.
+   * 0 when no wrapping was applied (script starts with using/#).
+   */
+  wrapOffset: number
 }
 
-const activeSessions = new Map<string, BridgeSession>()
+/**
+ * Pending session: holds messages queued from the client before the LSP server
+ * is ready. handleLspConnect is async (workspace create + dotnet restore), so
+ * client messages that arrive during setup are buffered here and flushed once
+ * the real BridgeSession is registered in activeSessions.
+ */
+interface PendingSession {
+  pending: true
+  messageQueue: string[]
+}
+
+const activeSessions = new Map<string, BridgeSession | PendingSession>()
 
 // ── URI helpers ───────────────────────────────────────────────────────────────
 
@@ -30,6 +48,23 @@ function scriptFileUri(workspace: LspWorkspace): string {
   // Normalize path separators and encode for URI
   const normalised = workspace.scriptPath.replace(/\\/g, '/')
   return normalised.startsWith('/') ? `file://${normalised}` : `file:///${normalised}`
+}
+
+/**
+ * Normalizes a file:// URI for reliable Map lookups.
+ * Decodes percent-encoding, lowercases the path on case-insensitive systems,
+ * and removes any trailing slashes.
+ */
+function normalizeFileUri(uri: string): string {
+  try {
+    // decodeURIComponent handles %20 and similar encodings
+    const decoded = decodeURIComponent(uri)
+    // On macOS/Windows paths are case-insensitive; normalize to lowercase
+    // so csharp-ls capitalisation variants still match.
+    return decoded.toLowerCase().replace(/\\/g, '/').replace(/\/+$/, '')
+  } catch {
+    return uri.toLowerCase()
+  }
 }
 
 /**
@@ -57,7 +92,7 @@ function rewriteOutgoing(msg: any, session: BridgeSession): any {
  * Monaco inmemory:// URI so Monaco can match the model.
  *
  * Handles:
- *   - textDocument/publishDiagnostics  → params.uri
+ *   - textDocument/publishDiagnostics  → params.uri + range line shift
  *   - textDocument/hover, completion, etc. (no URI in response body, skipped)
  */
 function rewriteIncoming(msg: any, session: BridgeSession): any {
@@ -65,13 +100,33 @@ function rewriteIncoming(msg: any, session: BridgeSession): any {
   const uri: string | undefined = msg.params?.uri
   if (!uri) return msg
 
-  const clientUri = session.serverToClient.get(uri)
+  // Use normalized URI for lookup to handle csharp-ls encoding/casing variants
+  const clientUri = session.serverToClient.get(normalizeFileUri(uri))
   if (!clientUri) return msg
 
-  return {
-    ...msg,
-    params: { ...msg.params, uri: clientUri },
+  const rewritten = { ...msg, params: { ...msg.params, uri: clientUri } }
+
+  // Shift diagnostic line numbers back by the number of lines wrapCsxContent
+  // prepended so they align with the original Monaco document positions.
+  if (msg.method === 'textDocument/publishDiagnostics' && session.wrapOffset > 0) {
+    const offset = session.wrapOffset
+    const shifted = (rewritten.params.diagnostics ?? []).map((d: any) => ({
+      ...d,
+      range: {
+        start: {
+          line: Math.max(0, (d.range?.start?.line ?? 0) - offset),
+          character: d.range?.start?.character ?? 0,
+        },
+        end: {
+          line: Math.max(0, (d.range?.end?.line ?? 0) - offset),
+          character: d.range?.end?.character ?? 0,
+        },
+      },
+    }))
+    rewritten.params = { ...rewritten.params, diagnostics: shifted }
   }
+
+  return rewritten
 }
 
 // ── Bridge lifecycle ──────────────────────────────────────────────────────────
@@ -79,11 +134,16 @@ function rewriteIncoming(msg: any, session: BridgeSession): any {
 export async function handleLspConnect(ws: WebSocket, sessionId: string): Promise<void> {
   logger.info({ sessionId }, 'LSP client connected')
 
+  // Register a pending slot immediately so that handleLspMessage can queue
+  // messages that arrive while the workspace and LSP process are being set up.
+  activeSessions.set(sessionId, { pending: true, messageQueue: [] })
+
   let serverInfo: Awaited<ReturnType<typeof ensureOmniSharp>>
   try {
     serverInfo = await ensureOmniSharp()
   } catch (err: any) {
     logger.error({ err, sessionId }, 'No LSP server available — closing WebSocket')
+    activeSessions.delete(sessionId)
     ws.close(1011, Buffer.from('LSP server unavailable'))
     return
   }
@@ -93,6 +153,7 @@ export async function handleLspConnect(ws: WebSocket, sessionId: string): Promis
     workspace = await createLspWorkspace(sessionId)
   } catch (err: any) {
     logger.error({ err, sessionId }, 'Failed to create LSP workspace — closing WebSocket')
+    activeSessions.delete(sessionId)
     ws.close(1011, Buffer.from('Workspace creation failed'))
     return
   }
@@ -109,6 +170,7 @@ export async function handleLspConnect(ws: WebSocket, sessionId: string): Promis
     lspServer,
     clientToServer: new Map(),
     serverToClient: new Map(),
+    wrapOffset: 0,
   }
 
   // LSP server → WebSocket (rewrite file:// URIs back to client URIs)
@@ -136,12 +198,37 @@ export async function handleLspConnect(ws: WebSocket, sessionId: string): Promis
     }
   })
 
+  // Retrieve any messages that arrived while we were setting up and replay them.
+  // If the client disconnected during setup, activeSessions will have been
+  // deleted by handleLspDisconnect — abort cleanly in that case.
+  const pendingEntry = activeSessions.get(sessionId)
+  if (!pendingEntry) {
+    logger.info({ sessionId }, 'Client disconnected during LSP setup — aborting')
+    lspServer.dispose()
+    await destroyLspWorkspace(workspace)
+    return
+  }
+  const queued = 'pending' in pendingEntry ? pendingEntry.messageQueue : []
+
+  // Replace the pending slot with the real session before flushing the queue
+  // so that processLspMessage can operate on the fully initialised session.
   activeSessions.set(sessionId, session)
+
+  if (queued.length > 0) {
+    logger.info({ sessionId, count: queued.length }, 'Flushing queued LSP messages')
+    for (const raw of queued) {
+      processLspMessage(session, raw)
+    }
+  }
 }
 
-export function handleLspMessage(sessionId: string, rawMessage: string): void {
-  const session = activeSessions.get(sessionId)
-  if (!session) return
+/**
+ * Processes a raw JSON string message from the client against a fully
+ * initialised BridgeSession. Extracted so it can be called both from the
+ * live message handler and from the startup queue flush.
+ */
+function processLspMessage(session: BridgeSession, rawMessage: string): void {
+  const { sessionId } = session.lspServer
 
   let msg: any
   try {
@@ -172,13 +259,15 @@ export function handleLspMessage(sessionId: string, rawMessage: string): void {
 
     if (!session.clientToServer.has(clientUri)) {
       session.clientToServer.set(clientUri, serverUri)
-      session.serverToClient.set(serverUri, clientUri)
+      // Store under normalized key so csharp-ls URI variants still match
+      session.serverToClient.set(normalizeFileUri(serverUri), clientUri)
       logger.info({ sessionId, clientUri, serverUri }, 'LSP document URI mapping registered')
     }
 
     // Also keep Script.cs in sync with the opened content
     const text: string | undefined = msg.params.textDocument.text
     if (text !== undefined) {
+      session.wrapOffset = getWrapOffset(text)
       updateScriptContent(session.workspace, text).catch((err) =>
         logger.warn({ err, sessionId }, 'Failed to mirror opened document'),
       )
@@ -193,10 +282,11 @@ export function handleLspMessage(sessionId: string, rawMessage: string): void {
     // Update reverse mapping so publishDiagnostics returns to the currently active model
     if (clientUri) {
       const serverUri = session.clientToServer.get(clientUri)
-      if (serverUri) session.serverToClient.set(serverUri, clientUri)
+      if (serverUri) session.serverToClient.set(normalizeFileUri(serverUri), clientUri)
     }
     const text: string | undefined = msg.params?.contentChanges?.[0]?.text
     if (text !== undefined) {
+      session.wrapOffset = getWrapOffset(text)
       updateScriptContent(session.workspace, text).catch((err) =>
         logger.warn({ err, sessionId }, 'Failed to mirror script content'),
       )
@@ -216,13 +306,31 @@ export function handleLspMessage(sessionId: string, rawMessage: string): void {
   session.lspServer.send(msg)
 }
 
+export function handleLspMessage(sessionId: string, rawMessage: string): void {
+  const entry = activeSessions.get(sessionId)
+  if (!entry) return
+
+  // If the session is still initialising, buffer the message for later replay
+  if ('pending' in entry) {
+    entry.messageQueue.push(rawMessage)
+    return
+  }
+
+  processLspMessage(entry, rawMessage)
+}
+
 export async function handleLspDisconnect(sessionId: string): Promise<void> {
   logger.info({ sessionId }, 'LSP client disconnected')
 
-  const session = activeSessions.get(sessionId)
-  if (!session) return
+  const entry = activeSessions.get(sessionId)
+  if (!entry) return
 
   activeSessions.delete(sessionId)
-  session.lspServer.dispose()
-  await destroyLspWorkspace(session.workspace)
+
+  // If still pending (setup was in progress), nothing to tear down yet —
+  // handleLspConnect will check activeSessions and skip the flush.
+  if ('pending' in entry) return
+
+  entry.lspServer.dispose()
+  await destroyLspWorkspace(entry.workspace)
 }

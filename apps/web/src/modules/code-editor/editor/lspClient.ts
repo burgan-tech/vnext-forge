@@ -124,6 +124,11 @@ export function createCsharpLspClient(monaco: Monaco, sessionId: string): Csharp
 
   // ── JSON-RPC helpers ─────────────────────────────────────────────────────
 
+  function sendRaw(json: string): void {
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    ws.send(json);
+  }
+
   function sendNotification(method: string, params?: unknown): void {
     if (!ws || ws.readyState !== WebSocket.OPEN) return;
     const msg: JsonRpcNotification = { jsonrpc: '2.0', method, params };
@@ -371,8 +376,20 @@ export function createCsharpLspClient(monaco: Monaco, sessionId: string): Csharp
     if ('method' in msg) {
       if (msg.method === 'textDocument/publishDiagnostics') {
         applyPublishDiagnostics(msg.params as any);
+        return;
       }
-      // Other server-side notifications (window/logMessage, etc.) are silently ignored
+
+      // Server-initiated requests have both 'method' and 'id'.
+      // csharp-ls sends client/registerCapability and workspace/configuration
+      // before it starts analysing files. Without responses it hangs forever.
+      if ('id' in msg) {
+        const response = msg.method === 'workspace/configuration'
+          // Return an empty config object per workspace folder requested
+          ? { jsonrpc: '2.0' as const, id: (msg as any).id, result: ((msg as any).params?.items ?? []).map(() => ({})) }
+          : { jsonrpc: '2.0' as const, id: (msg as any).id, result: null };
+        sendRaw(JSON.stringify(response));
+      }
+      // Other notifications (window/logMessage etc.) are silently ignored
     }
   }
 
