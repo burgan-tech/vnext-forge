@@ -15,7 +15,7 @@ const logger = baseLogger.child({ source: 'LspBridge' })
 
 interface BridgeSession {
   workspace: LspWorkspace
-  omniSharp: OmniSharpSession
+  lspServer: OmniSharpSession
 }
 
 const activeSessions = new Map<string, BridgeSession>()
@@ -24,17 +24,17 @@ const activeSessions = new Map<string, BridgeSession>()
 
 /**
  * Called when a WebSocket client connects to /api/lsp/csharp.
- * Sets up the workspace, starts OmniSharp, and wires the bidirectional bridge.
+ * Sets up the workspace, starts the LSP server, and wires the bidirectional bridge.
  */
 export async function handleLspConnect(ws: WebSocket, sessionId: string): Promise<void> {
   logger.info({ sessionId }, 'LSP client connected')
 
-  let omnisharpPath: string
+  let serverInfo: Awaited<ReturnType<typeof ensureOmniSharp>>
   try {
-    omnisharpPath = await ensureOmniSharp()
+    serverInfo = await ensureOmniSharp()
   } catch (err: any) {
-    logger.error({ err, sessionId }, 'OmniSharp unavailable — closing LSP WebSocket')
-    ws.close(1011, Buffer.from('OmniSharp unavailable'))
+    logger.error({ err, sessionId }, 'No LSP server available — closing WebSocket')
+    ws.close(1011, Buffer.from('LSP server unavailable'))
     return
   }
 
@@ -47,26 +47,32 @@ export async function handleLspConnect(ws: WebSocket, sessionId: string): Promis
     return
   }
 
-  const omniSharp = startOmniSharp(sessionId, workspace.workspacePath, omnisharpPath)
+  const lspServer = startOmniSharp(
+    sessionId,
+    workspace.workspacePath,
+    serverInfo.executablePath,
+    serverInfo.serverType,
+  )
 
-  // OmniSharp → WebSocket
-  omniSharp.onMessage((msg) => {
+  // LSP server → WebSocket
+  lspServer.onMessage((msg) => {
     try {
       ws.send(JSON.stringify(msg))
     } catch (err) {
-      logger.warn({ err, sessionId }, 'Failed to forward OmniSharp message to WebSocket')
+      logger.warn({ err, sessionId }, 'Failed to forward LSP message to WebSocket')
     }
   })
 
-  activeSessions.set(sessionId, { workspace, omniSharp })
+  activeSessions.set(sessionId, { workspace, lspServer })
 }
 
 /**
  * Called when the WebSocket receives a message from the Monaco LSP client.
- * Forwards the JSON-RPC message to OmniSharp.
+ * Forwards the JSON-RPC message to the LSP server.
  *
- * Intercepts textDocument/didOpen and textDocument/didChange to keep
- * Script.cs in sync with what Monaco has open.
+ * Intercepts:
+ *   - initialize     → injects rootUri / rootPath so csharp-ls can find the project
+ *   - didOpen/didChange → mirrors content to Script.cs in the temp workspace
  */
 export function handleLspMessage(sessionId: string, rawMessage: string): void {
   const session = activeSessions.get(sessionId)
@@ -80,29 +86,39 @@ export function handleLspMessage(sessionId: string, rawMessage: string): void {
     return
   }
 
-  // Mirror script content changes to the workspace file so Roslyn reflects them
+  // Inject workspace root into initialize so csharp-ls can load the .csproj
+  if (msg.method === 'initialize' && msg.params) {
+    const workspaceUri = `file://${session.workspace.workspacePath}`
+    msg.params = {
+      ...msg.params,
+      rootUri: workspaceUri,
+      rootPath: session.workspace.workspacePath,
+      workspaceFolders: [{ uri: workspaceUri, name: 'vnext-script' }],
+    }
+  }
+
+  // Mirror script content to workspace so Roslyn stays in sync with Monaco
   if (msg.method === 'textDocument/didChange' && msg.params?.contentChanges) {
     const text = msg.params.contentChanges[0]?.text
     if (text !== undefined) {
       updateScriptContent(session.workspace, text).catch((err) =>
-        logger.warn({ err, sessionId }, 'Failed to mirror script content to workspace'),
+        logger.warn({ err, sessionId }, 'Failed to mirror script content'),
       )
     }
   }
 
   if (msg.method === 'textDocument/didOpen' && msg.params?.textDocument?.text) {
-    const text = msg.params.textDocument.text
-    updateScriptContent(session.workspace, text).catch((err) =>
-      logger.warn({ err, sessionId }, 'Failed to mirror opened document to workspace'),
+    updateScriptContent(session.workspace, msg.params.textDocument.text).catch((err) =>
+      logger.warn({ err, sessionId }, 'Failed to mirror opened document'),
     )
   }
 
-  session.omniSharp.send(msg)
+  session.lspServer.send(msg)
 }
 
 /**
  * Called when the WebSocket client disconnects.
- * Tears down OmniSharp and removes the temporary workspace.
+ * Tears down the LSP server process and removes the temporary workspace.
  */
 export async function handleLspDisconnect(sessionId: string): Promise<void> {
   logger.info({ sessionId }, 'LSP client disconnected')
@@ -111,6 +127,6 @@ export async function handleLspDisconnect(sessionId: string): Promise<void> {
   if (!session) return
 
   activeSessions.delete(sessionId)
-  session.omniSharp.dispose()
+  session.lspServer.dispose()
   await destroyLspWorkspace(session.workspace)
 }

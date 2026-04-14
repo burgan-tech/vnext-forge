@@ -1,5 +1,6 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 import { baseLogger } from '@shared/lib/logger.js'
+import type { LspServerType } from './omnisharp-installer.js'
 
 const logger = baseLogger.child({ source: 'OmniSharpProcess' })
 
@@ -59,27 +60,25 @@ export interface OmniSharpSession {
 export function startOmniSharp(
   sessionId: string,
   workspacePath: string,
-  omnisharpPath: string,
+  executablePath: string,
+  serverType: LspServerType,
 ): OmniSharpSession {
   const messageHandlers: Array<(msg: object) => void> = []
   let receiveBuffer = Buffer.alloc(0)
   let disposed = false
 
-  const child: ChildProcess = spawn(
-    omnisharpPath,
-    [
-      '--languageserver',
-      '-s', workspacePath,
-      '--encoding', 'utf-8',
-      '--loglevel', 'warning',
-    ],
-    {
-      stdio: ['pipe', 'pipe', 'pipe'],
-      env: { ...process.env, DOTNET_NOLOGO: '1', DOTNET_CLI_TELEMETRY_OPTOUT: '1' },
-    },
-  )
+  // csharp-ls: no CLI args — workspace is provided via LSP initialize.rootUri
+  // OmniSharp:  requires --languageserver -s <workspace> for project discovery
+  const args = serverType === 'csharp-ls'
+    ? []
+    : ['--languageserver', '-s', workspacePath, '--encoding', 'utf-8', '--loglevel', 'warning']
 
-  logger.info({ sessionId, pid: child.pid }, 'OmniSharp process started')
+  const child: ChildProcess = spawn(executablePath, args, {
+    stdio: ['pipe', 'pipe', 'pipe'],
+    env: { ...process.env, DOTNET_NOLOGO: '1', DOTNET_CLI_TELEMETRY_OPTOUT: '1' },
+  })
+
+  logger.info({ sessionId, pid: child.pid, serverType }, 'LSP server process started')
 
   // ── stdout: accumulate and parse LSP frames ───────────────────────────────
 

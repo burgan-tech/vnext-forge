@@ -10,186 +10,235 @@ import { baseLogger } from '@shared/lib/logger.js'
 const execFileAsync = promisify(execFile)
 const execAsync = promisify(exec)
 
-const logger = baseLogger.child({ source: 'OmniSharpInstaller' })
+const logger = baseLogger.child({ source: 'LspInstaller' })
 
 const OMNISHARP_VERSION = '1.39.11'
-const OMNISHARP_INSTALL_DIR = path.join(homedir(), '.vnext-forge', 'omnisharp')
+const INSTALL_DIR = path.join(homedir(), '.vnext-forge', 'omnisharp')
 
-let cachedPath: string | null = null
+// ── Result type ───────────────────────────────────────────────────────────────
 
-// ── Platform detection ────────────────────────────────────────────────────────
+export type LspServerType = 'csharp-ls' | 'omnisharp'
 
-type OmniSharpPlatform =
-  | 'linux-x64'
-  | 'linux-arm64'
-  | 'osx-x64'
-  | 'osx-arm64'
-  | 'win-x64'
-
-function detectPlatform(): OmniSharpPlatform {
-  const os = platform()
-  const cpu = arch()
-
-  if (os === 'linux') return cpu === 'arm64' ? 'linux-arm64' : 'linux-x64'
-  if (os === 'darwin') return cpu === 'arm64' ? 'osx-arm64' : 'osx-x64'
-  if (os === 'win32') return 'win-x64'
-
-  logger.warn({ os, cpu }, 'Unknown platform — defaulting to linux-x64')
-  return 'linux-x64'
+export interface LspServerInfo {
+  executablePath: string
+  serverType: LspServerType
 }
 
-function getDownloadUrl(platformId: OmniSharpPlatform): string {
-  const base = `https://github.com/OmniSharp/omnisharp-roslyn/releases/download/v${OMNISHARP_VERSION}`
-  return `${base}/omnisharp-${platformId}-net6.0.tar.gz`
-}
+let cached: LspServerInfo | null = null
 
-function getInstalledExecutable(): string {
-  const ext = platform() === 'win32' ? '.exe' : ''
-  return path.join(OMNISHARP_INSTALL_DIR, `OmniSharp${ext}`)
-}
+// ── csharp-ls detection (dotnet global tool, preferred) ───────────────────────
 
-// ── Check candidates ──────────────────────────────────────────────────────────
+async function findCsharpLs(): Promise<string | null> {
+  // 1. CSHARP_LS_PATH env override
+  const envPath = process.env.CSHARP_LS_PATH
+  if (envPath) {
+    try {
+      await fs.access(envPath, fs.constants.X_OK)
+      return envPath
+    } catch { /* not accessible */ }
+  }
 
-/**
- * Checks if `OMNISHARP_PATH` env variable is set and points to a valid executable.
- */
-async function checkEnvOverride(): Promise<string | null> {
-  const envPath = process.env.OMNISHARP_PATH
-  if (!envPath) return null
+  // 2. System PATH
+  for (const name of ['csharp-ls', 'csharp_ls']) {
+    try {
+      const { stdout } = await execAsync(
+        platform() === 'win32' ? `where ${name}` : `which ${name}`,
+      )
+      const resolved = stdout.trim().split('\n')[0].trim()
+      if (resolved) return resolved
+    } catch { /* not found */ }
+  }
 
+  // 3. dotnet global tools default location
+  const dotnetToolsDir = path.join(homedir(), '.dotnet', 'tools')
+  const toolName = platform() === 'win32' ? 'csharp-ls.exe' : 'csharp-ls'
+  const toolPath = path.join(dotnetToolsDir, toolName)
   try {
-    await fs.access(envPath, fs.constants.X_OK)
-    logger.info({ path: envPath }, 'OmniSharp found via OMNISHARP_PATH env')
-    return envPath
-  } catch {
-    logger.warn({ path: envPath }, 'OMNISHARP_PATH is set but file is not executable or does not exist')
+    await fs.access(toolPath, fs.constants.X_OK)
+    return toolPath
+  } catch { /* not installed */ }
+
+  return null
+}
+
+async function installCsharpLs(): Promise<string | null> {
+  logger.info('Installing csharp-ls via dotnet tool...')
+  try {
+    await execFileAsync('dotnet', ['tool', 'install', '-g', 'csharp-ls'])
+    logger.info('csharp-ls installed successfully')
+    return await findCsharpLs()
+  } catch (err: any) {
+    if (err?.stderr?.includes('already installed') || err?.stdout?.includes('already installed')) {
+      logger.info('csharp-ls already installed')
+      return await findCsharpLs()
+    }
+    logger.warn({ err: err?.message }, 'csharp-ls installation failed')
     return null
   }
 }
 
-/**
- * Checks if `omnisharp` or `OmniSharp` is available on the system PATH.
- */
-async function checkSystemPath(): Promise<string | null> {
+// ── OmniSharp detection + self-contained download ─────────────────────────────
+
+type OmniSharpPlatformId = 'linux-x64' | 'linux-arm64' | 'osx' | 'win-x64'
+
+function detectOmniSharpPlatform(): OmniSharpPlatformId {
+  const os = platform()
+  const cpu = arch()
+  if (os === 'linux') return cpu === 'arm64' ? 'linux-arm64' : 'linux-x64'
+  if (os === 'darwin') return 'osx'  // x64 build runs via Rosetta on arm64
+  return 'win-x64'
+}
+
+function getOmniSharpDownloadUrl(platformId: OmniSharpPlatformId): string {
+  const base = `https://github.com/OmniSharp/omnisharp-roslyn/releases/download/v${OMNISHARP_VERSION}`
+  // Use self-contained .zip builds — these bundle their own .NET runtime
+  // and work regardless of which .NET SDK version is installed on the host.
+  return `${base}/omnisharp-${platformId}.zip`
+}
+
+function getInstalledOmniSharpExecutable(): string {
+  return path.join(INSTALL_DIR, platform() === 'win32' ? 'OmniSharp.exe' : 'OmniSharp')
+}
+
+async function checkOmniSharpEnvOverride(): Promise<string | null> {
+  const envPath = process.env.OMNISHARP_PATH
+  if (!envPath) return null
+  try {
+    await fs.access(envPath, fs.constants.X_OK)
+    return envPath
+  } catch {
+    logger.warn({ path: envPath }, 'OMNISHARP_PATH set but file not accessible')
+    return null
+  }
+}
+
+async function findOmniSharpOnPath(): Promise<string | null> {
   const candidates = platform() === 'win32'
     ? ['omnisharp.exe', 'OmniSharp.exe']
     : ['omnisharp', 'OmniSharp']
-
   for (const name of candidates) {
     try {
       const { stdout } = await execAsync(
         platform() === 'win32' ? `where ${name}` : `which ${name}`,
       )
       const resolved = stdout.trim().split('\n')[0].trim()
-      if (resolved) {
-        logger.info({ path: resolved }, 'OmniSharp found on system PATH')
-        return resolved
-      }
+      if (resolved) return resolved
     } catch { /* not found */ }
   }
   return null
 }
 
-/**
- * Checks if OmniSharp was previously downloaded to the vnext-forge install dir.
- */
-async function checkLocalInstall(): Promise<string | null> {
-  const exe = getInstalledExecutable()
+async function findCachedOmniSharp(): Promise<string | null> {
+  const exe = getInstalledOmniSharpExecutable()
   try {
     await fs.access(exe, fs.constants.X_OK)
-    logger.info({ path: exe }, 'OmniSharp found in local install directory')
     return exe
   } catch {
     return null
   }
 }
 
-// ── Download ──────────────────────────────────────────────────────────────────
-
 async function downloadOmniSharp(): Promise<string> {
-  const platformId = detectPlatform()
-  const url = getDownloadUrl(platformId)
-  const exe = getInstalledExecutable()
+  const platformId = detectOmniSharpPlatform()
+  const url = getOmniSharpDownloadUrl(platformId)
+  const exe = getInstalledOmniSharpExecutable()
 
-  logger.info({ url, platformId, version: OMNISHARP_VERSION }, 'Downloading OmniSharp...')
+  logger.info({ url, platformId, version: OMNISHARP_VERSION }, 'Downloading OmniSharp (self-contained)...')
 
-  await fs.mkdir(OMNISHARP_INSTALL_DIR, { recursive: true })
+  await fs.mkdir(INSTALL_DIR, { recursive: true })
 
-  // Download the tar.gz using Node.js built-in fetch (Node 18+)
   const response = await fetch(url, {
     headers: { 'User-Agent': 'vnext-forge/1.0' },
     redirect: 'follow',
   })
 
   if (!response.ok || !response.body) {
-    throw new Error(`Failed to download OmniSharp: HTTP ${response.status} from ${url}`)
+    throw new Error(`HTTP ${response.status} downloading OmniSharp from ${url}`)
   }
 
-  // Stream to a temp file then extract
-  const tarPath = path.join(OMNISHARP_INSTALL_DIR, 'omnisharp.tar.gz')
-
-  // Write the download to disk
-  const dest = createWriteStream(tarPath)
+  const zipPath = path.join(INSTALL_DIR, 'omnisharp.zip')
+  const dest = createWriteStream(zipPath)
   await pipeline(response.body as any, dest)
 
-  logger.info({ tarPath }, 'OmniSharp archive downloaded, extracting...')
+  logger.info({ zipPath }, 'OmniSharp archive downloaded, extracting...')
 
-  // Extract the tar.gz
-  await execFileAsync('tar', ['-xzf', tarPath, '-C', OMNISHARP_INSTALL_DIR])
+  // Use system unzip (available on macOS and most Linux distros)
+  await execFileAsync('unzip', ['-o', zipPath, '-d', INSTALL_DIR])
+  await fs.unlink(zipPath).catch(() => undefined)
 
-  // Remove the archive
-  await fs.unlink(tarPath).catch(() => undefined)
-
-  // Make executable on unix
   if (platform() !== 'win32') {
-    await execFileAsync('chmod', ['+x', exe])
+    await execFileAsync('chmod', ['+x', exe]).catch(() => undefined)
   }
 
-  logger.info({ path: exe }, 'OmniSharp installed successfully')
+  logger.info({ path: exe }, 'OmniSharp installed')
   return exe
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /**
- * Ensures OmniSharp is available and returns the path to the executable.
+ * Resolves an LSP server for C# files.
  *
- * Resolution order:
- *   1. `OMNISHARP_PATH` env variable (manual override)
- *   2. System PATH (`omnisharp` / `OmniSharp`)
- *   3. Previously downloaded to `~/.vnext-forge/omnisharp/`
- *   4. Auto-download from GitHub releases (v1.39.11)
- *
- * Result is cached after first successful resolution.
+ * Priority:
+ *   1. csharp-ls (CSHARP_LS_PATH env, system PATH, dotnet tools dir)
+ *   2. dotnet tool install -g csharp-ls  (auto-install if dotnet is available)
+ *   3. OMNISHARP_PATH env
+ *   4. omnisharp / OmniSharp on system PATH
+ *   5. Previously downloaded OmniSharp in ~/.vnext-forge/omnisharp/
+ *   6. Auto-download OmniSharp self-contained build from GitHub releases
  */
-export async function ensureOmniSharp(): Promise<string> {
-  if (cachedPath) return cachedPath
+export async function ensureOmniSharp(): Promise<LspServerInfo> {
+  if (cached) return cached
 
-  // 1. Env override
-  const fromEnv = await checkEnvOverride()
-  if (fromEnv) { cachedPath = fromEnv; return fromEnv }
+  // ── csharp-ls (preferred — proper dotnet tool, works with any .NET SDK) ──
+  const csLsPath = await findCsharpLs()
+  if (csLsPath) {
+    logger.info({ path: csLsPath }, 'Using csharp-ls as LSP server')
+    cached = { executablePath: csLsPath, serverType: 'csharp-ls' }
+    return cached
+  }
 
-  // 2. System PATH
-  const fromPath = await checkSystemPath()
-  if (fromPath) { cachedPath = fromPath; return fromPath }
+  // Try to install csharp-ls if dotnet is available
+  const installed = await installCsharpLs()
+  if (installed) {
+    logger.info({ path: installed }, 'Using csharp-ls (just installed) as LSP server')
+    cached = { executablePath: installed, serverType: 'csharp-ls' }
+    return cached
+  }
 
-  // 3. Local install cache
-  const fromLocal = await checkLocalInstall()
-  if (fromLocal) { cachedPath = fromLocal; return fromLocal }
+  // ── OmniSharp (fallback) ──────────────────────────────────────────────────
+  logger.info('csharp-ls not available — falling back to OmniSharp')
 
-  // 4. Auto-download
-  logger.warn('OmniSharp not found — downloading from GitHub releases')
+  const fromEnv = await checkOmniSharpEnvOverride()
+  if (fromEnv) {
+    cached = { executablePath: fromEnv, serverType: 'omnisharp' }
+    return cached
+  }
+
+  const fromPath = await findOmniSharpOnPath()
+  if (fromPath) {
+    cached = { executablePath: fromPath, serverType: 'omnisharp' }
+    return cached
+  }
+
+  const fromLocal = await findCachedOmniSharp()
+  if (fromLocal) {
+    cached = { executablePath: fromLocal, serverType: 'omnisharp' }
+    return cached
+  }
+
+  // Auto-download self-contained OmniSharp
+  logger.warn('OmniSharp not found — downloading self-contained build from GitHub releases')
   try {
     const downloaded = await downloadOmniSharp()
-    cachedPath = downloaded
-    return downloaded
+    cached = { executablePath: downloaded, serverType: 'omnisharp' }
+    return cached
   } catch (err: any) {
-    logger.error({ err }, 'OmniSharp download failed — Roslyn IntelliSense will be unavailable')
     throw new Error(
-      `OmniSharp could not be installed automatically. ` +
-      `Download it manually from https://github.com/OmniSharp/omnisharp-roslyn/releases ` +
-      `and set the OMNISHARP_PATH environment variable to its location. ` +
-      `(Original error: ${err?.message ?? String(err)})`,
+      `No C# LSP server found. Options:\n` +
+      `  • dotnet tool install -g csharp-ls   (recommended, requires .NET SDK)\n` +
+      `  • Set OMNISHARP_PATH=/path/to/OmniSharp  (manual override)\n` +
+      `  Original error: ${err?.message ?? String(err)}`,
     )
   }
 }
