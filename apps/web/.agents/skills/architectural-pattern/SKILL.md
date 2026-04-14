@@ -1,6 +1,6 @@
 ---
 name: architectural-pattern-web
-description: Use when defining or refactoring web architecture in this repo without FSD. Prefer a common React module-based vertical slice structure with shallow ownership, a narrow `shared` layer, explicit rules for local, module, server, and app-wide state, and a single `app/store` home for zustand global stores.
+description: Use when defining or refactoring web architecture in this repo. Prefer a common React module-based vertical slice structure with shallow ownership, a narrow `shared` layer, explicit rules for local, module, server, and app-wide state, and a single `app/store` home for zustand global stores.
 ---
 
 # Architectural Pattern Web
@@ -8,6 +8,7 @@ description: Use when defining or refactoring web architecture in this repo with
 Use this skill for web structure decisions and architecture reviews.
 
 Related skills:
+
 - `api-fetching` for transport details
 - `api-error-handling` for failure normalization
 - `state-store-handling` for state placement nuance
@@ -161,7 +162,7 @@ Examples:
 - If a module has more than `3` type-only files, move them under `types/`.
 - Apply the same rule to other repeated file kinds only when the grouping improves scanning.
 
-Keep the split shallow. The goal is easier scanning inside the owning vertical slice, not recreating FSD.
+Keep the split shallow. The goal is easier scanning inside the owning vertical slice.
 
 Allowed minimal split:
 
@@ -278,7 +279,6 @@ If `shared` starts changing because one module changed, it probably is not share
 
 ## Do Not Do
 
-- Do not reintroduce FSD layers under different names.
 - Do not create `entities`, `features`, `widgets`, `routes`, `stores`, `components`, or `hooks` as new top-level owners.
 - Do not create slice-local subfolders too early; use them when repeated file kinds exceed `3`, not by reflex.
 - Do not place `zustand` global stores inside modules or in a top-level `src/stores`; use `src/app/store`.
