@@ -69,10 +69,15 @@ export class WorkspaceAnalyzer {
 
     const checked = workspaceRootConfigSchema.safeParse(parsed)
     if (!checked.success) {
-      const detail = checked.error.issues.map((i) => i.message).join('; ')
+      const fieldErrors = checked.error.issues
+        .slice(0, 5)
+        .map((i) => {
+          const field = i.path.length > 0 ? i.path.join('.') : null
+          return field ? `${field}: ${i.message}` : i.message
+        })
       return {
         status: 'invalid',
-        message: `vnext.config.json yapısı geçersiz: ${detail}`,
+        message: `vnext.config.json yapısı geçersiz:\n${fieldErrors.join('\n')}`,
       }
     }
 

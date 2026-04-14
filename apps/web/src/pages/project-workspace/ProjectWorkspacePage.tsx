@@ -3,11 +3,9 @@ import { useNavigate, useParams } from 'react-router-dom';
 
 import { useProjectStore } from '@app/store/useProjectStore';
 import { useVnextWorkspaceUiStore } from '@app/store/useVnextWorkspaceUiStore';
-import { useWorkspaceDiagnosticsStore } from '@app/store/useWorkspaceDiagnosticsStore';
 import { Badge } from '@shared/ui/Badge';
 import { Button } from '@shared/ui/Button';
 
-import { CreateVnextConfigDialog } from '@modules/project-workspace/components/CreateVnextConfigDialog';
 import { VnextTemplateSeedDialog } from '@modules/project-workspace/components/VnextTemplateSeedDialog';
 import { useProjectWorkspacePage } from '@modules/project-workspace/hooks/useProjectWorkspacePage';
 
@@ -20,26 +18,17 @@ export function ProjectWorkspacePage() {
   const declineTemplatePromptForProject = useVnextWorkspaceUiStore(
     (s) => s.declineTemplatePromptForProject,
   );
-  const setShowMissingVnextConfigBar = useVnextWorkspaceUiStore((s) => s.setShowMissingVnextConfigBar);
+  const setShowMissingVnextConfigBar = useVnextWorkspaceUiStore(
+    (s) => s.setShowMissingVnextConfigBar,
+  );
 
-  const workspace = useProjectWorkspacePage(id);
+  useProjectWorkspacePage(id);
 
   useEffect(() => {
     return () => {
       setShowMissingVnextConfigBar(false);
     };
   }, [setShowMissingVnextConfigBar]);
-
-  const handleVnextWizardOpenChange = (open: boolean) => {
-    if (!open) {
-      const { vnextConfig } = useProjectStore.getState();
-      const { configIssues } = useWorkspaceDiagnosticsStore.getState();
-      if (!vnextConfig && configIssues.length === 0) {
-        setShowMissingVnextConfigBar(true);
-      }
-    }
-    workspace.setVnextConfigWizardOpen(open);
-  };
 
   if (loading && !activeProject) {
     return (
@@ -66,28 +55,19 @@ export function ProjectWorkspacePage() {
   return (
     <div className="flex h-full flex-col">
       {id ? (
-        <>
-          <CreateVnextConfigDialog
-            projectId={id}
-            defaultDomain={activeProject.domain}
-            open={workspace.vnextConfigWizardOpen}
-            onOpenChange={handleVnextWizardOpenChange}
-            onCompleted={workspace.handleWizardCompleted}
-          />
-          <VnextTemplateSeedDialog
-            open={templateSeedDialogOpen}
-            onOpenChange={setTemplateSeedDialogOpen}
-            projectId={id}
-            onDecline={() => declineTemplatePromptForProject(id)}
-          />
-        </>
+        <VnextTemplateSeedDialog
+          open={templateSeedDialogOpen}
+          onOpenChange={setTemplateSeedDialogOpen}
+          projectId={id}
+          onDecline={() => declineTemplatePromptForProject(id)}
+        />
       ) : null}
 
       <div className="border-border flex items-center gap-3 border-b p-3">
         <Button
           className="text-muted-foreground hover:text-foreground px-0 text-xs"
           noBorder
-          onClick={() => navigate('/')}
+          onClick={() => void navigate('/')}
           size="sm"
           variant="ghost">
           Projects

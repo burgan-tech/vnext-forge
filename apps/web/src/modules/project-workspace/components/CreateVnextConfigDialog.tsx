@@ -1,6 +1,13 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import type { Control, Path, UseFormRegister } from 'react-hook-form';
-import { Controller, useForm, useWatch } from 'react-hook-form';
+import {
+  Controller,
+  useForm,
+  useWatch,
+  type Control,
+  type Path,
+  type UseFormRegister,
+} from 'react-hook-form';
+import { AlertCircle, Loader2 } from 'lucide-react';
 import {
   buildVnextWorkspaceConfig,
   isSuccess,
@@ -9,6 +16,7 @@ import {
 } from '@vnext-forge/app-contracts';
 
 import type { ProjectInfo } from '@modules/project-management/ProjectTypes';
+import { useProjectStore } from '@app/store/useProjectStore';
 import { Button } from '@shared/ui/Button';
 import { Card, CardContent, CardHeader, CardTitle } from '@shared/ui/Card';
 import { Checkbox } from '@shared/ui/Checkbox';
@@ -26,8 +34,18 @@ import { Select } from '@shared/ui/Select';
 import { TagEditor } from '@shared/ui/TagEditor';
 import { Textarea } from '@shared/ui/Textarea';
 import { cn } from '@shared/lib/utils/cn';
+import { createLogger } from '@shared/lib/logger/CreateLogger';
 
+import { readFile } from '../WorkspaceApi';
 import { useWriteVnextWorkspaceConfig } from '../hooks/useWriteVnextWorkspaceConfig';
+import {
+  normalizeVnextWizardPayload,
+  rawConfigToEditableValues,
+  validateNormalizedVnextWizardPayload,
+  wizardValidationIssueMap,
+} from '../vnextWorkspaceConfigWizardValidation';
+
+const logger = createLogger('CreateVnextConfigDialog');
 
 function stringArrayToMultiline(value: unknown): string {
   if (!Array.isArray(value)) return '';
@@ -40,12 +58,80 @@ function multilineToStringArray(text: string): string[] {
   return text.split('\n').map((line) => line.trim());
 }
 
-/** Kayıt öncesi: yalnızca boş / whitespace satırlarını at (düzenleme sırasında Enter ile oluşan `""`). */
-function compactNonEmptyLines(items: string[] | undefined): string[] {
-  return (items ?? []).map((s) => s.trim()).filter((s) => s.length > 0);
+const exportComponentKeysHelperText = 'Her satırda bir component key.';
+
+function pickWizardFieldError(
+  issues: Record<string, string>,
+  basePath: string,
+): string | undefined {
+  if (issues[basePath]) {
+    return issues[basePath];
+  }
+  const nested = Object.keys(issues).find((k) => k.startsWith(`${basePath}.`));
+  return nested ? issues[nested] : undefined;
 }
 
-const exportComponentKeysHelperText = 'Her satırda bir component key.';
+/** Zod path → formdaki kart/başlıklarla uyumlu kısa Türkçe etiket. */
+function friendlyWizardIssuePath(pathParts: (string | number)[]): string {
+  const p = pathParts.map(String);
+  if (p.length === 0) return 'Yapılandırma';
+
+  const [a, b, c, d] = [p[0], p[1], p[2], p[3]];
+
+  const rootFields = new Set([
+    'version',
+    'description',
+    'domain',
+    'runtimeVersion',
+    'schemaVersion',
+  ]);
+  if (p.length === 1 && a && rootFields.has(a)) {
+    return `Root kartı içindeki ${a} alanı`;
+  }
+
+  if (a === 'paths' && p.length === 2 && b) {
+    return `Paths kartı içindeki ${b} alanı`;
+  }
+
+  if (a === 'referenceResolution' && b === 'allowedHosts') {
+    return 'Reference resolution kartı içindeki allowedHosts alanı';
+  }
+
+  if (a === 'referenceResolution' && b === 'schemaValidationRules' && c) {
+    return `Reference resolution kartı, schemaValidationRules içindeki ${c} alanı`;
+  }
+
+  if (a === 'exports' && b === 'metadata') {
+    if (c === 'keywords' && (typeof d === 'number' || (typeof d === 'string' && /^\d+$/.test(d)))) {
+      const idx = typeof d === 'number' ? d : Number(d);
+      return `Exports kartı, metadata içindeki keywords (${idx + 1}. öğe)`;
+    }
+    if (c) {
+      return `Exports kartı, metadata içindeki ${c} alanı`;
+    }
+  }
+
+  if (p.length === 1 && a === 'allowedHosts') {
+    return 'Reference resolution kartı içindeki allowedHosts alanı';
+  }
+
+  if (a === 'referenceResolution' && p.length >= 2) {
+    return `Reference resolution kartı içindeki ${p.slice(1).join(' › ')} alanı`;
+  }
+
+  return p.join(' › ');
+}
+
+/** Mesajda tekrarlayan teknik path önekini kaldırır. */
+function wizardIssueMessageForDisplay(message: string, pathParts: (string | number)[]): string {
+  let m = message.trim();
+  const joined = pathParts.join('.');
+  if (joined) {
+    const re = new RegExp(`^\\s*${joined.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*:?\\s*`, 'i');
+    m = m.replace(re, '').trim();
+  }
+  return m || message.trim();
+}
 
 /** Form etiketleri: `text-sm`; uzun teknik isimler grid hücresinde kırılır (`break-words`, `min-w-0`). */
 const labelMono =
@@ -66,12 +152,14 @@ function JsonTextField({
   name,
   placeholder,
   className,
+  errorText,
 }: {
   label: string;
   register: UseFormRegister<VnextWorkspaceConfigJson>;
   name: Path<VnextWorkspaceConfigJson>;
   placeholder?: string;
   className?: string;
+  errorText?: string;
 }) {
   return (
     <JsonFieldShell label={label}>
@@ -80,8 +168,20 @@ function JsonTextField({
         placeholder={placeholder}
         variant="default"
         hoverable={false}
-        className={cn('rounded-xl', className)}
+        aria-invalid={Boolean(errorText)}
+        className={cn(
+          'rounded-xl',
+          errorText &&
+            'border-destructive-border ring-destructive/20 focus-visible:ring-destructive/30',
+          className,
+        )}
       />
+      {errorText ? (
+        <p className="text-destructive mt-1 flex items-start gap-1 text-xs leading-normal">
+          <AlertCircle className="mt-px size-3 shrink-0" aria-hidden />
+          {errorText}
+        </p>
+      ) : null}
     </JsonFieldShell>
   );
 }
@@ -121,11 +221,13 @@ function JsonTagField({
   control,
   name,
   placeholder,
+  errorText,
 }: {
   label: string;
   control: Control<VnextWorkspaceConfigJson>;
   name: Path<VnextWorkspaceConfigJson>;
   placeholder?: string;
+  errorText?: string;
 }) {
   return (
     <Controller
@@ -134,13 +236,20 @@ function JsonTagField({
       render={({ field }) => (
         <JsonFieldShell label={label}>
           <TagEditor
-            tags={Array.isArray(field.value) ? (field.value as string[]) : []}
+            tags={
+              Array.isArray(field.value)
+                ? field.value.filter((t): t is string => typeof t === 'string')
+                : []
+            }
             onChange={field.onChange}
             placeholder={placeholder ?? 'Add item…'}
             variant="default"
             hoverable={false}
-            className="rounded-xl"
+            className={cn('rounded-xl', errorText && 'ring-destructive/25 ring-2')}
           />
+          {errorText ? (
+            <p className="text-destructive mt-1 text-xs leading-normal">{errorText}</p>
+          ) : null}
         </JsonFieldShell>
       )}
     />
@@ -154,12 +263,14 @@ function JsonStringArrayLinesField({
   name,
   placeholder,
   helperText,
+  errorText,
 }: {
   label: string;
   control: Control<VnextWorkspaceConfigJson>;
   name: Path<VnextWorkspaceConfigJson>;
   placeholder?: string;
   helperText?: string;
+  errorText?: string;
 }) {
   return (
     <Controller
@@ -178,9 +289,17 @@ function JsonStringArrayLinesField({
               variant="default"
               hoverable={false}
               rows={3}
-              className="min-h-20 resize-y rounded-xl font-mono text-sm leading-relaxed"
+              aria-invalid={Boolean(errorText)}
+              className={cn(
+                'min-h-20 resize-y rounded-xl font-mono text-sm leading-relaxed',
+                errorText &&
+                  'border-destructive-border ring-destructive/20 focus-visible:ring-destructive/30',
+              )}
               spellCheck={false}
             />
+            {errorText ? (
+              <p className="text-destructive text-xs leading-normal">{errorText}</p>
+            ) : null}
             {helperText ? (
               <p className="text-muted-foreground text-xs leading-normal">{helperText}</p>
             ) : null}
@@ -222,7 +341,23 @@ export function CreateVnextConfigDialog({
 
   const { register, control, handleSubmit, reset, setValue } = form;
   const domain = useWatch({ control, name: 'domain' });
+  const watchedForm = useWatch({ control, defaultValue: seed });
   const [useCustomComponentsRoot, setUseCustomComponentsRoot] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [loadingConfig, setLoadingConfig] = useState(false);
+
+  const normalizedWizardPayload = useMemo(
+    () => normalizeVnextWizardPayload(watchedForm as VnextWorkspaceConfigJson),
+    [watchedForm],
+  );
+  const wizardValidation = useMemo(
+    () => validateNormalizedVnextWizardPayload(normalizedWizardPayload),
+    [normalizedWizardPayload],
+  );
+  const fieldIssues = useMemo(
+    () => (wizardValidation.success ? {} : wizardValidationIssueMap(wizardValidation.error)),
+    [wizardValidation],
+  );
 
   const writeOptions = useMemo(
     () => ({
@@ -231,18 +366,74 @@ export function CreateVnextConfigDialog({
         onOpenChange(false);
         await onCompleted(result.data.id);
       },
+      successMessage: isEditMode
+        ? 'vnext.config.json güncellendi.'
+        : 'vnext.config.json oluşturuldu.',
     }),
-    [onCompleted, onOpenChange],
+    [isEditMode, onCompleted, onOpenChange],
   );
 
   const { execute: writeConfig, loading: writing } = useWriteVnextWorkspaceConfig(writeOptions);
 
   useEffect(() => {
     if (!open) {
+      queueMicrotask(() => {
+        setIsEditMode(false);
+        setLoadingConfig(false);
+      });
       return;
     }
-    setUseCustomComponentsRoot(false);
-    reset(seed);
+
+    const projectPath = useProjectStore.getState().activeProject?.path;
+    if (!projectPath) {
+      queueMicrotask(() => {
+        setIsEditMode(false);
+        setUseCustomComponentsRoot(false);
+      });
+      reset(seed);
+      return;
+    }
+
+    let cancelled = false;
+    queueMicrotask(() => setLoadingConfig(true));
+
+    void (async () => {
+      try {
+        const { content } = await readFile(`${projectPath}/vnext.config.json`);
+        const parsed: unknown = JSON.parse(content);
+        if (cancelled) return;
+
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          const editable = rawConfigToEditableValues(parsed as Record<string, unknown>);
+          const rawPaths = (parsed as Record<string, unknown>).paths;
+          const rawDomain = (parsed as Record<string, unknown>).domain;
+          const hasCustomRoot =
+            rawPaths != null &&
+            typeof rawPaths === 'object' &&
+            typeof (rawPaths as Record<string, unknown>).componentsRoot === 'string' &&
+            (rawPaths as Record<string, unknown>).componentsRoot !== rawDomain;
+          setIsEditMode(true);
+          setUseCustomComponentsRoot(hasCustomRoot);
+          reset(editable);
+        } else {
+          setIsEditMode(false);
+          setUseCustomComponentsRoot(false);
+          reset(seed);
+        }
+      } catch {
+        if (cancelled) return;
+        logger.info('Mevcut vnext.config.json okunamadı, yeni oluşturma modunda açılıyor.');
+        setIsEditMode(false);
+        setUseCustomComponentsRoot(false);
+        reset(seed);
+      } finally {
+        if (!cancelled) setLoadingConfig(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [open, reset, seed]);
 
   useEffect(() => {
@@ -252,22 +443,12 @@ export function CreateVnextConfigDialog({
   }, [domain, setValue, useCustomComponentsRoot]);
 
   const onSubmit = handleSubmit(async (values) => {
-    await writeConfig(projectId, {
-      ...values,
-      referenceResolution: {
-        ...values.referenceResolution,
-        allowedHosts: compactNonEmptyLines(values.referenceResolution.allowedHosts),
-      },
-      exports: {
-        ...values.exports,
-        functions: compactNonEmptyLines(values.exports.functions),
-        workflows: compactNonEmptyLines(values.exports.workflows),
-        tasks: compactNonEmptyLines(values.exports.tasks),
-        views: compactNonEmptyLines(values.exports.views),
-        schemas: compactNonEmptyLines(values.exports.schemas),
-        extensions: compactNonEmptyLines(values.exports.extensions),
-      },
-    });
+    const normalized = normalizeVnextWizardPayload(values);
+    const parsed = validateNormalizedVnextWizardPayload(normalized);
+    if (!parsed.success) {
+      return;
+    }
+    await writeConfig(projectId, parsed.data);
   });
 
   return (
@@ -276,19 +457,55 @@ export function CreateVnextConfigDialog({
         variant="default"
         className="w-full max-w-[min(72rem,calc(100vw-1.5rem))] gap-0 rounded-2xl p-0 sm:max-w-[min(72rem,calc(100vw-1.5rem))]">
         <div className="flex max-h-[min(90vh,920px)] flex-col">
-          <div className="m-2 shrink-0 space-y-2 rounded-xl px-6 py-5">
+          <div className="my-1 shrink-0 space-y-2 rounded-xl px-6 py-5">
             <DialogHeader className="space-y-2 text-left">
-              <DialogTitle className="text-primary-text">vnext.config.json gerekli</DialogTitle>
-              <DialogDescription className="text-primary-text leading-relaxed">
-                Proje kökünde yapılandırma dosyası bulunamadı. Alanlar vnext.config.json yapısıyla
-                uyumludur; kart başlıkları hangi nesneyi düzenlediğinizi gösterir. Varsayılanlar
-                doldurulmuştur, istediğiniz gibi düzenleyebilirsiniz.
-              </DialogDescription>
+              <DialogTitle className="text-primary-text">
+                {isEditMode
+                  ? 'vnext.config.json dosyası düzenleniyor'
+                  : 'vnext.config.json dosyası gerekli'}
+              </DialogTitle>
             </DialogHeader>
           </div>
 
-          <form className="flex min-h-0 flex-1 flex-col" onSubmit={(e) => void onSubmit(e)}>
+          {loadingConfig ? (
+            <div className="flex flex-1 items-center justify-center py-20">
+              <Loader2 className="text-muted-foreground size-6 animate-spin" />
+            </div>
+          ) : null}
+
+          <form
+            className={cn('flex min-h-0 flex-1 flex-col', loadingConfig && 'hidden')}
+            onSubmit={(e) => void onSubmit(e)}>
             <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+              {!wizardValidation.success ? (
+                <div
+                  role="alert"
+                  className="border-destructive-border bg-destructive/5 mb-6 rounded-xl border p-4">
+                  <div className="text-destructive flex gap-2 text-sm">
+                    <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden />
+                    <div className="min-w-0 space-y-2">
+                      <p className="leading-snug font-semibold">
+                        Zorunlu alanlar eksik veya geçersiz
+                      </p>
+                      <ul className="text-destructive/95 max-h-40 list-inside list-disc overflow-y-auto text-xs leading-relaxed">
+                        {Array.from(
+                          new Set(
+                            wizardValidation.error.issues.map((i) => {
+                              const label = friendlyWizardIssuePath(i.path);
+                              const detail = wizardIssueMessageForDisplay(i.message, i.path);
+                              return `${label}: ${detail}`;
+                            }),
+                          ),
+                        ).map((line) => (
+                          <li key={line} className="wrap-break-word">
+                            {line}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
               <div className="grid min-w-0 grid-cols-1 gap-6 xl:grid-cols-2">
                 <div className="min-w-0 space-y-6">
                   <Card variant="secondary" hoverable={false} className="gap-4 py-5 shadow-none">
@@ -296,23 +513,36 @@ export function CreateVnextConfigDialog({
                       <CardTitle className="font-mono text-sm font-medium">Root</CardTitle>
                     </CardHeader>
                     <CardContent className="grid min-w-0 grid-cols-1 gap-4 px-5 sm:grid-cols-2">
-                      <JsonTextField label="version" register={register} name="version" />
-                      <JsonTextField label="domain" register={register} name="domain" />
+                      <JsonTextField
+                        label="version"
+                        register={register}
+                        name="version"
+                        errorText={pickWizardFieldError(fieldIssues, 'version')}
+                      />
+                      <JsonTextField
+                        label="domain"
+                        register={register}
+                        name="domain"
+                        errorText={pickWizardFieldError(fieldIssues, 'domain')}
+                      />
                       <JsonTextField
                         label="description"
                         register={register}
                         name="description"
                         className="sm:col-span-2"
+                        errorText={pickWizardFieldError(fieldIssues, 'description')}
                       />
                       <JsonTextField
                         label="runtimeVersion"
                         register={register}
                         name="runtimeVersion"
+                        errorText={pickWizardFieldError(fieldIssues, 'runtimeVersion')}
                       />
                       <JsonTextField
                         label="schemaVersion"
                         register={register}
                         name="schemaVersion"
+                        errorText={pickWizardFieldError(fieldIssues, 'schemaVersion')}
                       />
                     </CardContent>
                   </Card>
@@ -337,27 +567,58 @@ export function CreateVnextConfigDialog({
                             variant={useCustomComponentsRoot ? 'default' : 'muted'}
                             readOnly={!useCustomComponentsRoot}
                             hoverable={false}
-                            className="rounded-xl"
+                            aria-invalid={Boolean(
+                              pickWizardFieldError(fieldIssues, 'paths.componentsRoot'),
+                            )}
+                            className={cn(
+                              'rounded-xl',
+                              pickWizardFieldError(fieldIssues, 'paths.componentsRoot') &&
+                                'border-destructive-border ring-destructive/20 focus-visible:ring-destructive/30',
+                            )}
                           />
+                          {pickWizardFieldError(fieldIssues, 'paths.componentsRoot') ? (
+                            <p className="text-destructive mt-1 flex items-start gap-1 text-xs leading-normal">
+                              <AlertCircle className="mt-px size-3 shrink-0" aria-hidden />
+                              {pickWizardFieldError(fieldIssues, 'paths.componentsRoot')}
+                            </p>
+                          ) : null}
                         </JsonFieldShell>
-                        <JsonTextField label="tasks" register={register} name="paths.tasks" />
-                        <JsonTextField label="views" register={register} name="paths.views" />
+                        <JsonTextField
+                          label="tasks"
+                          register={register}
+                          name="paths.tasks"
+                          errorText={pickWizardFieldError(fieldIssues, 'paths.tasks')}
+                        />
+                        <JsonTextField
+                          label="views"
+                          register={register}
+                          name="paths.views"
+                          errorText={pickWizardFieldError(fieldIssues, 'paths.views')}
+                        />
                         <JsonTextField
                           label="functions"
                           register={register}
                           name="paths.functions"
+                          errorText={pickWizardFieldError(fieldIssues, 'paths.functions')}
                         />
                         <JsonTextField
                           label="extensions"
                           register={register}
                           name="paths.extensions"
+                          errorText={pickWizardFieldError(fieldIssues, 'paths.extensions')}
                         />
                         <JsonTextField
                           label="workflows"
                           register={register}
                           name="paths.workflows"
+                          errorText={pickWizardFieldError(fieldIssues, 'paths.workflows')}
                         />
-                        <JsonTextField label="schemas" register={register} name="paths.schemas" />
+                        <JsonTextField
+                          label="schemas"
+                          register={register}
+                          name="paths.schemas"
+                          errorText={pickWizardFieldError(fieldIssues, 'paths.schemas')}
+                        />
                       </div>
                     </CardContent>
                   </Card>
@@ -422,6 +683,10 @@ export function CreateVnextConfigDialog({
                         name="referenceResolution.allowedHosts"
                         placeholder="registry.npmjs.org"
                         helperText="Her satırda bir hostname."
+                        errorText={pickWizardFieldError(
+                          fieldIssues,
+                          'referenceResolution.allowedHosts',
+                        )}
                       />
 
                       <Card variant="tertiary" hoverable={false} className="gap-3 py-4 shadow-none">
@@ -553,17 +818,29 @@ export function CreateVnextConfigDialog({
                             label="description"
                             register={register}
                             name="exports.metadata.description"
+                            errorText={pickWizardFieldError(
+                              fieldIssues,
+                              'exports.metadata.description',
+                            )}
                           />
                           <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
                             <JsonTextField
                               label="maintainer"
                               register={register}
                               name="exports.metadata.maintainer"
+                              errorText={pickWizardFieldError(
+                                fieldIssues,
+                                'exports.metadata.maintainer',
+                              )}
                             />
                             <JsonTextField
                               label="license"
                               register={register}
                               name="exports.metadata.license"
+                              errorText={pickWizardFieldError(
+                                fieldIssues,
+                                'exports.metadata.license',
+                              )}
                             />
                           </div>
                           <div className="min-w-0">
@@ -572,6 +849,10 @@ export function CreateVnextConfigDialog({
                               control={control}
                               name="exports.metadata.keywords"
                               placeholder="keyword…"
+                              errorText={pickWizardFieldError(
+                                fieldIssues,
+                                'exports.metadata.keywords',
+                              )}
                             />
                           </div>
                         </CardContent>
@@ -586,8 +867,13 @@ export function CreateVnextConfigDialog({
               <DialogCancelButton type="button" variant="secondary" className="rounded-xl">
                 Kapat
               </DialogCancelButton>
-              <Button type="submit" variant="success" className="rounded-xl" loading={writing}>
-                Oluştur ve kaydet
+              <Button
+                type="submit"
+                variant="success"
+                className="rounded-xl"
+                loading={writing}
+                disabled={!wizardValidation.success}>
+                {isEditMode ? 'Güncelle ve kaydet' : 'Oluştur ve kaydet'}
               </Button>
             </DialogFooter>
           </form>

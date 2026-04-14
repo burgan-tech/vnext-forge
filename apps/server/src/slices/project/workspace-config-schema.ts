@@ -6,25 +6,26 @@ import { z } from 'zod'
 
 import type { WorkspaceConfig, WorkspaceExports, WorkspacePaths } from '@workspace/types.js'
 
-/** vnext.config.json için minimal doğrulama (durum + ağaç yönlendirmesi). */
+const requiredField = (label: string) =>
+  z.string({ required_error: `"${label}" alanı zorunludur.` }).min(1, `"${label}" boş olamaz.`)
+
+/** vnext.config.json doğrulaması — paths alanları zorunlu ve boş olamaz. */
 export const workspaceRootConfigSchema = z
   .object({
-    domain: z.string().min(1),
-    version: z.string().min(1),
+    domain: requiredField('domain'),
+    version: requiredField('version'),
     description: z.string().optional(),
-    runtimeVersion: z.string().optional(),
-    schemaVersion: z.string().optional(),
-    paths: z
-      .object({
-        componentsRoot: z.string().min(1).optional(),
-        tasks: z.string().optional(),
-        views: z.string().optional(),
-        functions: z.string().optional(),
-        extensions: z.string().optional(),
-        workflows: z.string().optional(),
-        schemas: z.string().optional(),
-      })
-      .optional(),
+    runtimeVersion: requiredField('runtimeVersion').optional(),
+    schemaVersion: requiredField('schemaVersion').optional(),
+    paths: z.object({
+      componentsRoot: requiredField('paths.componentsRoot'),
+      tasks: requiredField('paths.tasks'),
+      views: requiredField('paths.views'),
+      functions: requiredField('paths.functions'),
+      extensions: requiredField('paths.extensions'),
+      workflows: requiredField('paths.workflows'),
+      schemas: requiredField('paths.schemas'),
+    }),
     exports: z.record(z.string(), z.unknown()).optional(),
     dependencies: z.record(z.string(), z.unknown()).optional(),
     referenceResolution: z.record(z.string(), z.unknown()).optional(),
@@ -80,15 +81,15 @@ function coerceDependencies(raw: unknown): { domains: string[]; npm?: string[] }
 /** Ayrıştırılmış kök dosyayı iç kullanım `WorkspaceConfig` şekline tamamlar. */
 export function normalizeWorkspaceRootToConfig(parsed: WorkspaceRootConfigParsed): WorkspaceConfig {
   const domain = parsed.domain
-  const p = parsed.paths ?? {}
+  const p = parsed.paths
   const paths: WorkspacePaths = {
-    componentsRoot: p.componentsRoot ?? domain,
-    tasks: p.tasks ?? 'Tasks',
-    views: p.views ?? 'Views',
-    functions: p.functions ?? 'Functions',
-    extensions: p.extensions ?? 'Extensions',
-    workflows: p.workflows ?? 'Workflows',
-    schemas: p.schemas ?? 'Schemas',
+    componentsRoot: p.componentsRoot,
+    tasks: p.tasks,
+    views: p.views,
+    functions: p.functions,
+    extensions: p.extensions,
+    workflows: p.workflows,
+    schemas: p.schemas,
   }
 
   return {

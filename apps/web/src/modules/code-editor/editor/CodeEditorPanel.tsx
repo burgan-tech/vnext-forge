@@ -1,28 +1,39 @@
-import { useRef } from 'react';
+import { useCallback, useRef } from 'react';
 import Editor, { type OnMount } from '@monaco-editor/react';
+import type { editor } from 'monaco-editor';
 import { useEditorStore } from '@modules/code-editor/EditorStore';
 import { useSaveFile } from '@modules/code-editor/useSaveFile';
-import { useUIStore } from '@app/store/useUiStore';
 import { Alert, AlertDescription } from '@shared/ui/Alert';
 import { setupMonaco } from './MonacoSetup';
 
 let monacoInitialized = false;
 
 export function CodeEditorPanel() {
-  const { tabs, activeTabId, updateTabContent, closeTab, setActiveTab, markTabClean } =
-    useEditorStore();
-  const { theme } = useUIStore();
-  const editorRef = useRef<any>(null);
+  const { tabs, activeTabId, updateTabContent, closeTab, setActiveTab } = useEditorStore();
+  const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
+
+  const getLatestEditorContent = useCallback((): string | null => {
+    const fromMonaco = editorRef.current?.getValue();
+    if (typeof fromMonaco === 'string') {
+      return fromMonaco;
+    }
+    return activeTab?.content ?? null;
+  }, [activeTab?.content]);
+
   const { saveError, saving } = useSaveFile({
     filePath: activeTab?.filePath ?? null,
-    getContent: () => activeTab?.content ?? null,
+    getContent: getLatestEditorContent,
     isDirty: activeTab?.isDirty ?? false,
     onSaved: () => {
-      if (activeTab) {
-        markTabClean(activeTab.id);
-      }
+      const id = useEditorStore.getState().activeTabId;
+      if (!id) return;
+      const editor = editorRef.current;
+      const raw = editor?.getValue() ?? useEditorStore.getState().tabs.find((t) => t.id === id)?.content;
+      if (raw === undefined) return;
+      useEditorStore.getState().updateTabContent(id, raw);
+      useEditorStore.getState().markTabClean(id);
     },
   });
 
@@ -100,7 +111,7 @@ export function CodeEditorPanel() {
           <Editor
             height="100%"
             language={getLanguage(activeTab.language)}
-            value={activeTab.content || ''}
+            value={activeTab.content ?? ''}
             theme="vs"
             onChange={(value) => {
               if (value !== undefined) {

@@ -189,19 +189,19 @@
   --color-brand-surface-dot-success: #6ee7b7; /* emerald-300 — connected/healthy status dot */
   --color-brand-surface-dot-warning: #fcd34d; /* yellow-300 — degraded status dot */
   --color-brand-surface-dot-idle: #2dd4bf; /* teal-400 — disconnected/idle status dot */
-  /* Brand surface status chips for inline semantic state emphasis on dark shell surfaces. */
-  --color-brand-surface-status-muted: rgba(13, 148, 136, 0.22);
-  --color-brand-surface-status-muted-border: rgba(94, 234, 212, 0.35);
-  --color-brand-surface-status-muted-foreground: #ccfbf1;
-  --color-brand-surface-status-success: rgba(22, 163, 74, 0.22);
-  --color-brand-surface-status-success-border: rgba(110, 231, 183, 0.45);
-  --color-brand-surface-status-success-foreground: #d1fae5;
-  --color-brand-surface-status-warning: rgba(217, 119, 6, 0.26);
-  --color-brand-surface-status-warning-border: rgba(252, 211, 77, 0.48);
-  --color-brand-surface-status-warning-foreground: #fef3c7;
-  --color-brand-surface-status-danger: rgba(190, 24, 93, 0.26);
-  --color-brand-surface-status-danger-border: rgba(252, 165, 165, 0.5);
-  --color-brand-surface-status-danger-foreground: #fee2e2;
+  /* Brand surface status chips — semantic hues on #0f766e: muted=neutral teal lift, success=green, warning=amber, danger=rose (not bar-tinted mashups). */
+  --color-brand-surface-status-muted: #1e6d66;
+  --color-brand-surface-status-muted-border: #3aac9c;
+  --color-brand-surface-status-muted-foreground: #f0fdfa; /* teal-50 */
+  --color-brand-surface-status-success: #157a63;
+  --color-brand-surface-status-success-border: #3dd68c;
+  --color-brand-surface-status-success-foreground: #d1fae5; /* emerald-100 */
+  --color-brand-surface-status-warning: #665018;
+  --color-brand-surface-status-warning-border: #e5b325;
+  --color-brand-surface-status-warning-foreground: #fffbeb; /* amber-50 */
+  --color-brand-surface-status-danger: #5c2835;
+  --color-brand-surface-status-danger-border: #f87171;
+  --color-brand-surface-status-danger-foreground: #ffe4e6; /* rose-100 */
 }
 
 * {

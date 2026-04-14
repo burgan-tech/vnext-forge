@@ -20,7 +20,8 @@ export function useProjectList() {
       const response = await listProjects();
 
       if (!response.success) {
-        throw response;
+        setError(toVnextError(response, 'Projects could not be loaded.'));
+        return;
       }
 
       setProjects(response.data);

@@ -22,10 +22,11 @@ export function applyProjectConfigStatus(
 
   const { setVnextConfig } = useProjectStore.getState();
   const { setConfigIssues, clearConfigIssues } = useWorkspaceDiagnosticsStore.getState();
-  const { setVnextConfigWizardOpen, setShowMissingVnextConfigBar } =
+  const { setVnextConfigWizardOpen, setShowMissingVnextConfigBar, setComponentLayoutStatus } =
     useVnextWorkspaceUiStore.getState();
 
   if (!status.success) {
+    setComponentLayoutStatus(null);
     setVnextConfig(null);
     setConfigIssues([
       {
@@ -43,12 +44,14 @@ export function applyProjectConfigStatus(
   if (status.data.status === 'ok') {
     clearConfigIssues();
     setVnextConfig(status.data.config);
+    /* layout: syncVnextWorkspaceFromDisk veya offerLayoutSeedIfNeeded günceller */
     setVnextConfigWizardOpen(false);
     setShowMissingVnextConfigBar(false);
     return;
   }
 
   setVnextConfig(null);
+  setComponentLayoutStatus(null);
 
   if (status.data.status === 'invalid') {
     setConfigIssues([

@@ -1,13 +1,24 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Editor, { type OnMount } from '@monaco-editor/react';
+import type { editor } from 'monaco-editor';
 
 import { setupMonaco } from '@modules/code-editor/editor/MonacoSetup';
 import { useEditorStore } from '@modules/code-editor/EditorStore';
 import { useProjectStore } from '@app/store/useProjectStore';
+import { getProject } from '@modules/project-management/ProjectApi';
 import { readFile, writeFile } from '@modules/project-workspace/WorkspaceApi';
+import { syncVnextWorkspaceFromDisk } from '@modules/project-workspace/syncVnextWorkspaceFromDisk';
+import { validateVnextConfigJsonText } from '@modules/project-workspace/vnextWorkspaceConfigWizardValidation';
+import { applyVnextConfigStrictValidationFailure } from '@modules/project-workspace/workspaceConfigDiagnostics';
+import { isFailure } from '@vnext-forge/app-contracts';
 
 let monacoInitialized = false;
+
+function isVnextConfigFilePath(p: string): boolean {
+  const n = p.replace(/\\/g, '/').toLowerCase();
+  return n.endsWith('/vnext.config.json') || n === 'vnext.config.json';
+}
 
 function detectLanguage(fileName: string): string {
   const ext = fileName.split('.').pop()?.toLowerCase();
@@ -49,18 +60,35 @@ function detectLanguage(fileName: string): string {
 export function CodeEditorPage() {
   const { id, '*': encodedFilePath } = useParams<{ id: string; '*': string }>();
   const navigate = useNavigate();
-  const { activeProject } = useProjectStore();
+  const { activeProject, setActiveProject } = useProjectStore();
   const { tabs, activeTabId, openTab, updateTabContent, markTabClean, setActiveTab, closeTab } = useEditorStore();
   const [content, setContent] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const editorRef = useRef<any>(null);
+  const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
 
   const filePath = encodedFilePath ? decodeURIComponent(encodedFilePath) : null;
-  const fileName = filePath?.split('/').pop() || 'unknown';
+  const fileName = filePath?.split('/').pop() ?? 'unknown';
   const language = detectLanguage(fileName);
   const activeTab = tabs.find((tab) => tab.id === activeTabId);
+
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    void (async () => {
+      if (useProjectStore.getState().activeProject?.id !== id) {
+        const res = await getProject(id);
+        if (cancelled || !res.success) return;
+        setActiveProject(res.data);
+      }
+      if (cancelled) return;
+      await syncVnextWorkspaceFromDisk(id, { openWizardOnMissing: false });
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [id, setActiveProject]);
 
   useEffect(() => {
     if (!filePath) return;
@@ -90,16 +118,35 @@ export function CodeEditorPage() {
 
   const handleSave = useCallback(async () => {
     if (!filePath || !activeTab) return;
+    const latest = editorRef.current?.getValue() ?? activeTab.content ?? '';
     setSaving(true);
+    setError(null);
     try {
-      await writeFile(filePath, activeTab.content ?? '');
+      const result = await writeFile(filePath, latest);
+      if (isFailure(result)) {
+        setError(result.error.message);
+        return;
+      }
+      updateTabContent(filePath, latest);
       markTabClean(filePath);
+      if (id && isVnextConfigFilePath(filePath)) {
+        const strict = validateVnextConfigJsonText(latest);
+        if (!strict.ok) {
+          applyVnextConfigStrictValidationFailure(strict.summary);
+          setError(strict.summary);
+          return;
+        }
+        const syncResult = await syncVnextWorkspaceFromDisk(id, { openWizardOnMissing: true });
+        if (!syncResult.ok) {
+          setError(syncResult.message);
+        }
+      }
     } catch (err) {
       setError(String(err));
     } finally {
       setSaving(false);
     }
-  }, [filePath, activeTab, markTabClean]);
+  }, [filePath, activeTab, id, markTabClean, updateTabContent]);
 
   const handleMount: OnMount = useCallback(
     (editor, monaco) => {
@@ -108,8 +155,12 @@ export function CodeEditorPage() {
         setupMonaco(monaco);
         monacoInitialized = true;
       }
-      editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
-        handleSave();
+      const keys = monaco as {
+        KeyMod: { CtrlCmd: number };
+        KeyCode: { KeyS: number };
+      };
+      editor.addCommand(keys.KeyMod.CtrlCmd | keys.KeyCode.KeyS, () => {
+        void handleSave();
       });
     },
     [handleSave],
@@ -131,7 +182,12 @@ export function CodeEditorPage() {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-2">
         <div className="text-sm text-red-500">{error}</div>
-        <button onClick={() => navigate(`/project/${id}`)} className="text-xs text-slate-400 hover:text-slate-900">
+        <button
+          type="button"
+          onClick={() => {
+            void navigate(`/project/${id}`);
+          }}
+          className="text-xs text-slate-400 hover:text-slate-900">
           Back to project
         </button>
       </div>
@@ -170,12 +226,17 @@ export function CodeEditorPage() {
       )}
 
       <div className="flex shrink-0 items-center gap-2 border-b border-slate-100 bg-white px-3 py-1 text-[11px]">
-        <button onClick={() => navigate(`/project/${id}`)} className="text-slate-400 hover:text-slate-700">
-          {activeProject?.domain || id}
+        <button
+          type="button"
+          onClick={() => {
+            void navigate(`/project/${id}`);
+          }}
+          className="text-slate-400 hover:text-slate-700">
+          {activeProject?.domain ?? id}
         </button>
         <span className="text-slate-300">/</span>
         <span className="truncate text-slate-500">
-          {filePath?.replace((activeProject?.path || '') + '/', '') || fileName}
+          {filePath?.replace(`${activeProject?.path ?? ''}/`, '') ?? fileName}
         </span>
         <div className="ml-auto flex items-center gap-2">
           {activeTab?.isDirty && <span className="text-[10px] font-medium text-amber-500">Modified</span>}

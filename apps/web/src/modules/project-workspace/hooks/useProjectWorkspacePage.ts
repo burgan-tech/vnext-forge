@@ -1,5 +1,4 @@
 import { useCallback, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 
 import {
   getProject,
@@ -11,46 +10,38 @@ import { useVnextWorkspaceUiStore } from '@app/store/useVnextWorkspaceUiStore';
 import { useWorkspaceDiagnosticsStore } from '@app/store/useWorkspaceDiagnosticsStore';
 import { createLogger } from '@shared/lib/logger/CreateLogger';
 
-import { applyComponentLayoutSeedOffer } from '../applyComponentLayoutSeedOffer';
 import { applyProjectConfigStatus } from '../applyProjectConfigStatus';
 import { getProjectTree } from '../WorkspaceApi';
 
 const logger = createLogger('useProjectWorkspacePage');
 
 export interface ProjectWorkspacePageController {
-  vnextConfigWizardOpen: boolean;
-  setVnextConfigWizardOpen: (open: boolean) => void;
   reloadProjectWorkspace: () => Promise<void>;
-  handleWizardCompleted: (nextProjectId: string) => Promise<void>;
 }
 
 /**
  * Proje çalışma alanı bootstrap: proje meta + config `ProjectApi`, ağaç `WorkspaceApi`.
  */
 export function useProjectWorkspacePage(projectId?: string): ProjectWorkspacePageController {
-  const navigate = useNavigate();
   const { setActiveProject, setError, setFileTree, setLoading, setVnextConfig } = useProjectStore();
   const { clearConfigIssues } = useWorkspaceDiagnosticsStore();
-  const vnextConfigWizardOpen = useVnextWorkspaceUiStore((s) => s.vnextConfigWizardOpen);
-  const setVnextConfigWizardOpen = useVnextWorkspaceUiStore((s) => s.setVnextConfigWizardOpen);
+  const setComponentLayoutStatus = useVnextWorkspaceUiStore((s) => s.setComponentLayoutStatus);
   const resetVnextWorkspaceUi = useVnextWorkspaceUiStore((s) => s.resetVnextWorkspaceUi);
   /** Ana yüklemeden ayrı: hata fırlatırsa workspace (ağaç dahil) sıfırlanmamalı. */
   const offerLayoutSeedIfNeeded = useCallback(
-    async (pid: string, ignoreTemplateDecline: boolean) => {
+    async (pid: string) => {
       try {
         const layoutRes = await getVnextComponentLayoutStatus(pid);
         if (!layoutRes.success) {
+          setComponentLayoutStatus(null);
           return;
         }
-        applyComponentLayoutSeedOffer(layoutRes.data, {
-          activeProjectId: pid,
-          ignoreTemplateDecline,
-        });
+        setComponentLayoutStatus(layoutRes.data);
       } catch (error) {
         logger.warn('Bileşen layout teklifi atlandı (ağaç yine de yüklü).', { error, projectId: pid });
       }
     },
-    [],
+    [setComponentLayoutStatus],
   );
 
   const applyConfigStatus = useCallback(
@@ -90,7 +81,7 @@ export function useProjectWorkspacePage(projectId?: string): ProjectWorkspacePag
       setFileTree(treeResponse.data);
       applyConfigStatus(statusResponse);
       if (statusResponse.success && statusResponse.data.status === 'ok') {
-        await offerLayoutSeedIfNeeded(projectId, false);
+        await offerLayoutSeedIfNeeded(projectId);
       }
     } catch (error) {
       logger.error('Project workspace could not be loaded.', {
@@ -162,7 +153,7 @@ export function useProjectWorkspacePage(projectId?: string): ProjectWorkspacePag
         setFileTree(treeResponse.data);
         applyConfigStatus(statusResponse);
         if (statusResponse.success && statusResponse.data.status === 'ok') {
-          await offerLayoutSeedIfNeeded(projectId, false);
+          await offerLayoutSeedIfNeeded(projectId);
         }
       } catch (error) {
         if (cancelled) {
@@ -205,20 +196,7 @@ export function useProjectWorkspacePage(projectId?: string): ProjectWorkspacePag
     resetVnextWorkspaceUi,
   ]);
 
-  const handleWizardCompleted = useCallback(
-    async (nextProjectId: string) => {
-      await reloadProjectWorkspace();
-      if (nextProjectId !== projectId) {
-        navigate(`/project/${nextProjectId}`, { replace: true });
-      }
-    },
-    [navigate, projectId, reloadProjectWorkspace],
-  );
-
   return {
-    vnextConfigWizardOpen,
-    setVnextConfigWizardOpen,
     reloadProjectWorkspace,
-    handleWizardCompleted,
   };
 }

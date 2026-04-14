@@ -1,4 +1,4 @@
-import { AlertCircle, AlertTriangle, CheckCircle2, FileWarning } from 'lucide-react';
+import { AlertTriangle, CheckCircle2 } from 'lucide-react';
 
 import { useProjectStore } from '@app/store/useProjectStore';
 import { useRuntimeStore } from '@app/store/useRuntimeStore';
@@ -6,20 +6,89 @@ import { useValidationStore } from '@app/store/useValidationStore';
 import { useVnextWorkspaceUiStore } from '@app/store/useVnextWorkspaceUiStore';
 import { useWorkspaceDiagnosticsStore } from '@app/store/useWorkspaceDiagnosticsStore';
 import { useWorkflowStore } from '@app/store/useWorkflowStore';
-import { useVnextConfigStatusRecheck } from '@modules/project-workspace/hooks/useVnextConfigStatusRecheck';
+import {
+  StatusBarErrorIssuesPopover,
+  type ErrorPopoverItem,
+} from '@app/layouts/ui/StatusBarErrorIssuesPopover';
+import { StatusBarNotification } from '@shared/ui/StatusBarNotification';
 
 export function StatusBar() {
-  const { activeProject } = useProjectStore();
+  const { activeProject, vnextConfig } = useProjectStore();
   const showMissingVnextConfigBar = useVnextWorkspaceUiStore((s) => s.showMissingVnextConfigBar);
-  const { recheck, rechecking } = useVnextConfigStatusRecheck();
+  const setVnextConfigWizardOpen = useVnextWorkspaceUiStore((s) => s.setVnextConfigWizardOpen);
+  const componentLayoutStatus = useVnextWorkspaceUiStore((s) => s.componentLayoutStatus);
+  const openTemplateSeedDialog = useVnextWorkspaceUiStore((s) => s.openTemplateSeedDialog);
   const { connected, healthStatus } = useRuntimeStore();
   const { isDirty } = useWorkflowStore();
   const { issues } = useValidationStore();
   const { configIssues } = useWorkspaceDiagnosticsStore();
+  const invalidVnextConfigIssue = configIssues.find((i) => i.id === 'workspace-config-invalid');
+
+  const needsTemplateOffer =
+    componentLayoutStatus != null &&
+    (!componentLayoutStatus.layoutComplete || componentLayoutStatus.projectContainsOnlyConfigFile);
+
+  const templateBarBase =
+    Boolean(activeProject) &&
+    Boolean(vnextConfig) &&
+    !invalidVnextConfigIssue &&
+    !showMissingVnextConfigBar &&
+    needsTemplateOffer;
+
+  const openTemplateDialogFromLayout = () => {
+    const layout = useVnextWorkspaceUiStore.getState().componentLayoutStatus;
+    if (!layout) return;
+    const reason = layout.projectContainsOnlyConfigFile ? 'only_config' : 'incomplete_layout';
+    openTemplateSeedDialog(reason, layout.missingLayoutPaths);
+  };
 
   const mergedIssues = [...issues, ...configIssues];
-  const errors = mergedIssues.filter((issue) => issue.severity === 'error').length;
+  const errorIssues = mergedIssues.filter((issue) => issue.severity === 'error');
   const warnings = mergedIssues.filter((issue) => issue.severity === 'warning').length;
+
+  const configActionIds = new Set<string>();
+  if (invalidVnextConfigIssue) configActionIds.add(invalidVnextConfigIssue.id);
+
+  const showTemplateSeedIssue =
+    templateBarBase && componentLayoutStatus != null && !componentLayoutStatus.layoutComplete;
+
+  const missingPaths = componentLayoutStatus?.missingLayoutPaths ?? [];
+
+  const errorPopoverItems: ErrorPopoverItem[] = [
+    ...(activeProject && !invalidVnextConfigIssue && showMissingVnextConfigBar
+      ? [
+          {
+            id: 'missing-vnext-config',
+            message: 'vnext.config.json bulunamadı',
+            action: { label: 'Oluştur', onClick: () => setVnextConfigWizardOpen(true) },
+          },
+        ]
+      : []),
+    ...errorIssues.map((issue) => ({
+      id: issue.id,
+      message: issue.message,
+      detail: [issue.path, issue.rule].filter(Boolean).join(' · ') || undefined,
+      action: configActionIds.has(issue.id)
+        ? { label: 'Düzelt', onClick: () => setVnextConfigWizardOpen(true) }
+        : undefined,
+    })),
+    ...(showTemplateSeedIssue
+      ? [
+          {
+            id: 'missing-component-layout',
+            message: componentLayoutStatus?.projectContainsOnlyConfigFile
+              ? `Bileşen klasörleri eksik\n${missingPaths.slice(0, 8).join('\n')}`
+              : `Bazı bileşen klasörleri eksik\n${missingPaths.slice(0, 8).join('\n')}`,
+            detail: 'workspace.layout',
+            action: {
+              label: 'Oluştur',
+              onClick: () => openTemplateDialogFromLayout(),
+            },
+          },
+        ]
+      : []),
+  ];
+  const totalErrors = errorPopoverItems.length;
   const runtimeTone = connected ? 'success' : healthStatus === 'unhealthy' ? 'warning' : 'muted';
   const runtimeIndicatorClass = connected
     ? 'bg-brand-surface-dot-success'
@@ -31,20 +100,12 @@ export function StatusBar() {
     : healthStatus === 'unhealthy'
       ? 'Runtime Offline'
       : 'Standalone Mode';
-  const modifiedPillClass =
-    'border-brand-surface-status-warning-border bg-brand-surface-status-warning text-brand-surface-status-warning-foreground';
-  const errorPillClass =
-    'border-brand-surface-status-danger-border bg-brand-surface-status-danger text-brand-surface-status-danger-foreground';
-  const warningPillClass =
-    'border-brand-surface-status-warning-border bg-brand-surface-status-warning text-brand-surface-status-warning-foreground';
-  const validatedPillClass =
-    'border-brand-surface-status-success-border bg-brand-surface-status-success text-brand-surface-status-success-foreground';
-  const runtimePillClass =
+  const runtimeChipVariant =
     runtimeTone === 'success'
-      ? 'border-brand-surface-status-success-border bg-brand-surface-status-success text-brand-surface-status-success-foreground'
+      ? 'chip-success'
       : runtimeTone === 'warning'
-        ? 'border-brand-surface-status-warning-border bg-brand-surface-status-warning text-brand-surface-status-warning-foreground'
-        : 'border-brand-surface-status-muted-border bg-brand-surface-status-muted text-brand-surface-status-muted-foreground';
+        ? 'chip-warning'
+        : 'chip-muted';
 
   return (
     <div className="bg-brand-surface text-brand-surface-foreground flex h-7 shrink-0 items-center gap-3 px-4 text-[11px] select-none">
@@ -54,57 +115,40 @@ export function StatusBar() {
 
       <span className="flex-1" />
 
-      {activeProject && showMissingVnextConfigBar ? (
-        <button
-          type="button"
-          disabled={rechecking}
-          onClick={() => void recheck()}
-          className="border-warning-border bg-warning-surface text-warning-text hover:border-warning-border-hover hover:bg-warning-hover inline-flex max-w-[min(28rem,50vw)] cursor-pointer items-center gap-1.5 truncate rounded-full border px-2 py-0.5 text-left font-medium transition-colors duration-150 ease-out disabled:cursor-wait disabled:opacity-70"
-          title="vnext.config.json durumunu yeniden kontrol et">
-          <FileWarning className="text-warning-icon size-3.5 shrink-0" aria-hidden />
-          <span className="truncate text-xs">
-            {rechecking ? 'Kontrol ediliyor…' : 'vnext.config.json bulunamadı'}
-          </span>
-        </button>
-      ) : null}
-
       {isDirty && (
-        <span
-          className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 font-medium ${modifiedPillClass}`}>
-          <span className="bg-brand-surface-dot-warning h-1.5 w-1.5 animate-pulse rounded-full" />
+        <StatusBarNotification
+          variant="chip-warning"
+          className="gap-1.5"
+          leading={
+            <span className="bg-brand-surface-dot-warning h-1.5 w-1.5 shrink-0 animate-pulse rounded-full" />
+          }>
           Modified
-        </span>
+        </StatusBarNotification>
       )}
 
-      {errors > 0 && (
-        <span
-          className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-medium ${errorPillClass}`}>
-          <AlertCircle size={12} />
-          {errors} {errors === 1 ? 'Error' : 'Errors'}
-        </span>
-      )}
+      {totalErrors > 0 ? <StatusBarErrorIssuesPopover items={errorPopoverItems} /> : null}
 
       {warnings > 0 && (
-        <span
-          className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-medium ${warningPillClass}`}>
-          <AlertTriangle size={12} />
+        <StatusBarNotification
+          variant="chip-warning"
+          leading={<AlertTriangle className="size-3.5 shrink-0" />}>
           {warnings} {warnings === 1 ? 'Warning' : 'Warnings'}
-        </span>
+        </StatusBarNotification>
       )}
 
-      {errors === 0 && warnings === 0 && activeProject && (
-        <span
-          className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 font-medium ${validatedPillClass}`}>
-          <CheckCircle2 size={12} />
-          Validated
-        </span>
+      {totalErrors === 0 && warnings === 0 && activeProject && !needsTemplateOffer && (
+        <StatusBarNotification
+          variant="chip-success"
+          leading={<CheckCircle2 className="size-3.5 shrink-0" />}>
+          No Error
+        </StatusBarNotification>
       )}
 
-      <span
-        className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 font-medium ${runtimePillClass}`}>
-        <span className={`h-2 w-2 rounded-full ${runtimeIndicatorClass}`} />
-        <span>{runtimeLabel}</span>
-      </span>
+      <StatusBarNotification
+        variant={runtimeChipVariant}
+        leading={<span className={`h-2 w-2 shrink-0 rounded-full ${runtimeIndicatorClass}`} />}>
+        {runtimeLabel}
+      </StatusBarNotification>
     </div>
   );
 }
