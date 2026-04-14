@@ -16,16 +16,66 @@ const logger = baseLogger.child({ source: 'LspBridge' })
 interface BridgeSession {
   workspace: LspWorkspace
   lspServer: OmniSharpSession
+  /** Monaco inmemory URI → file:// URI used by the LSP server */
+  clientToServer: Map<string, string>
+  /** file:// URI used by LSP server → Monaco inmemory URI */
+  serverToClient: Map<string, string>
 }
 
 const activeSessions = new Map<string, BridgeSession>()
 
-// ── Bridge lifecycle ──────────────────────────────────────────────────────────
+// ── URI helpers ───────────────────────────────────────────────────────────────
+
+function scriptFileUri(workspace: LspWorkspace): string {
+  // Normalize path separators and encode for URI
+  const normalised = workspace.scriptPath.replace(/\\/g, '/')
+  return normalised.startsWith('/') ? `file://${normalised}` : `file:///${normalised}`
+}
 
 /**
- * Called when a WebSocket client connects to /api/lsp/csharp.
- * Sets up the workspace, starts the LSP server, and wires the bidirectional bridge.
+ * Rewrites outgoing (client → server) message URIs from Monaco inmemory://
+ * to the file:// URI that csharp-ls understands.
  */
+function rewriteOutgoing(msg: any, session: BridgeSession): any {
+  const uri: string | undefined = msg.params?.textDocument?.uri
+  if (!uri) return msg
+
+  const serverUri = session.clientToServer.get(uri)
+  if (!serverUri) return msg
+
+  return {
+    ...msg,
+    params: {
+      ...msg.params,
+      textDocument: { ...msg.params.textDocument, uri: serverUri },
+    },
+  }
+}
+
+/**
+ * Rewrites incoming (server → client) message URIs from file:// back to the
+ * Monaco inmemory:// URI so Monaco can match the model.
+ *
+ * Handles:
+ *   - textDocument/publishDiagnostics  → params.uri
+ *   - textDocument/hover, completion, etc. (no URI in response body, skipped)
+ */
+function rewriteIncoming(msg: any, session: BridgeSession): any {
+  // publishDiagnostics carries uri at the top of params, not inside textDocument
+  const uri: string | undefined = msg.params?.uri
+  if (!uri) return msg
+
+  const clientUri = session.serverToClient.get(uri)
+  if (!clientUri) return msg
+
+  return {
+    ...msg,
+    params: { ...msg.params, uri: clientUri },
+  }
+}
+
+// ── Bridge lifecycle ──────────────────────────────────────────────────────────
+
 export async function handleLspConnect(ws: WebSocket, sessionId: string): Promise<void> {
   logger.info({ sessionId }, 'LSP client connected')
 
@@ -54,26 +104,26 @@ export async function handleLspConnect(ws: WebSocket, sessionId: string): Promis
     serverInfo.serverType,
   )
 
-  // LSP server → WebSocket
-  lspServer.onMessage((msg) => {
+  const session: BridgeSession = {
+    workspace,
+    lspServer,
+    clientToServer: new Map(),
+    serverToClient: new Map(),
+  }
+
+  // LSP server → WebSocket (rewrite file:// URIs back to client URIs)
+  lspServer.onMessage((rawMsg) => {
     try {
+      const msg = rewriteIncoming(rawMsg, session)
       ws.send(JSON.stringify(msg))
     } catch (err) {
       logger.warn({ err, sessionId }, 'Failed to forward LSP message to WebSocket')
     }
   })
 
-  activeSessions.set(sessionId, { workspace, lspServer })
+  activeSessions.set(sessionId, session)
 }
 
-/**
- * Called when the WebSocket receives a message from the Monaco LSP client.
- * Forwards the JSON-RPC message to the LSP server.
- *
- * Intercepts:
- *   - initialize     → injects rootUri / rootPath so csharp-ls can find the project
- *   - didOpen/didChange → mirrors content to Script.cs in the temp workspace
- */
 export function handleLspMessage(sessionId: string, rawMessage: string): void {
   const session = activeSessions.get(sessionId)
   if (!session) return
@@ -86,40 +136,65 @@ export function handleLspMessage(sessionId: string, rawMessage: string): void {
     return
   }
 
-  // Inject workspace root into initialize so csharp-ls can load the .csproj
+  // ── initialize: inject workspace root so csharp-ls finds the .csproj ─────
   if (msg.method === 'initialize' && msg.params) {
-    const workspaceUri = `file://${session.workspace.workspacePath}`
-    msg.params = {
-      ...msg.params,
-      rootUri: workspaceUri,
-      rootPath: session.workspace.workspacePath,
-      workspaceFolders: [{ uri: workspaceUri, name: 'vnext-script' }],
+    const workspaceUri = `file://${session.workspace.workspacePath.replace(/\\/g, '/')}`
+    msg = {
+      ...msg,
+      params: {
+        ...msg.params,
+        rootUri: workspaceUri,
+        rootPath: session.workspace.workspacePath,
+        workspaceFolders: [{ uri: workspaceUri, name: 'vnext-script' }],
+      },
     }
   }
 
-  // Mirror script content to workspace so Roslyn stays in sync with Monaco
-  if (msg.method === 'textDocument/didChange' && msg.params?.contentChanges) {
-    const text = msg.params.contentChanges[0]?.text
+  // ── textDocument/didOpen: register URI mapping + rewrite ─────────────────
+  if (msg.method === 'textDocument/didOpen' && msg.params?.textDocument?.uri) {
+    const clientUri: string = msg.params.textDocument.uri
+    const serverUri = scriptFileUri(session.workspace)
+
+    if (!session.clientToServer.has(clientUri)) {
+      session.clientToServer.set(clientUri, serverUri)
+      session.serverToClient.set(serverUri, clientUri)
+      logger.info({ sessionId, clientUri, serverUri }, 'LSP document URI mapping registered')
+    }
+
+    // Also keep Script.cs in sync with the opened content
+    const text: string | undefined = msg.params.textDocument.text
+    if (text !== undefined) {
+      updateScriptContent(session.workspace, text).catch((err) =>
+        logger.warn({ err, sessionId }, 'Failed to mirror opened document'),
+      )
+    }
+
+    msg = rewriteOutgoing(msg, session)
+  }
+
+  // ── textDocument/didChange: keep Script.cs in sync + rewrite URI ──────────
+  if (msg.method === 'textDocument/didChange') {
+    const text: string | undefined = msg.params?.contentChanges?.[0]?.text
     if (text !== undefined) {
       updateScriptContent(session.workspace, text).catch((err) =>
         logger.warn({ err, sessionId }, 'Failed to mirror script content'),
       )
     }
+    msg = rewriteOutgoing(msg, session)
   }
 
-  if (msg.method === 'textDocument/didOpen' && msg.params?.textDocument?.text) {
-    updateScriptContent(session.workspace, msg.params.textDocument.text).catch((err) =>
-      logger.warn({ err, sessionId }, 'Failed to mirror opened document'),
-    )
+  // ── All other textDocument/* requests: rewrite URI ────────────────────────
+  if (
+    msg.method?.startsWith('textDocument/') &&
+    msg.method !== 'textDocument/didOpen' &&
+    msg.method !== 'textDocument/didChange'
+  ) {
+    msg = rewriteOutgoing(msg, session)
   }
 
   session.lspServer.send(msg)
 }
 
-/**
- * Called when the WebSocket client disconnects.
- * Tears down the LSP server process and removes the temporary workspace.
- */
 export async function handleLspDisconnect(sessionId: string): Promise<void> {
   logger.info({ sessionId }, 'LSP client disconnected')
 

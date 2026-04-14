@@ -323,7 +323,12 @@ export function createCsharpLspClient(monaco: Monaco, sessionId: string): Csharp
 
   function applyPublishDiagnostics(params: any): void {
     const { uri, diagnostics } = params;
-    const model = monaco.editor.getModel(monaco.Uri.parse(uri));
+    // Primary lookup by exact URI (server rewrites file:// → inmemory://)
+    let model = monaco.editor.getModel(monaco.Uri.parse(uri));
+    // Fallback: find the active C# model (only one Script.cs per session)
+    if (!model) {
+      model = monaco.editor.getModels().find((m: any) => m.getLanguageId() === 'csharp') ?? null;
+    }
     if (!model) return;
 
     const markers = (diagnostics ?? []).map((d: any) => ({
