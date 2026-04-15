@@ -39,5 +39,10 @@ export const fileSearchRequestSchema = {
   query: z.object({
     q: z.string().min(1, 'Search query is required'),
     project: z.string().min(1, 'Project path is required'),
+    matchCase: z.coerce.boolean().optional().default(false),
+    matchWholeWord: z.coerce.boolean().optional().default(false),
+    useRegex: z.coerce.boolean().optional().default(false),
+    include: z.string().optional(),
+    exclude: z.string().optional(),
   }),
 }
