@@ -12,7 +12,7 @@ import {
   buildVnextWorkspaceConfig,
   isSuccess,
   type ApiResponse,
-  type VnextWorkspaceConfigJson,
+  type VnextWorkspaceConfig,
 } from '@vnext-forge/app-contracts';
 
 import type { ProjectInfo } from '@modules/project-management/ProjectTypes';
@@ -34,7 +34,7 @@ import { Select } from '@shared/ui/Select';
 import { TagEditor } from '@shared/ui/TagEditor';
 import { Textarea } from '@shared/ui/Textarea';
 import { cn } from '@shared/lib/utils/cn';
-import { createLogger } from '@shared/lib/logger/CreateLogger';
+import { createLogger } from '@shared/lib/logger/createLogger';
 
 import { readFile } from '../WorkspaceApi';
 import { useWriteVnextWorkspaceConfig } from '../hooks/useWriteVnextWorkspaceConfig';
@@ -155,8 +155,8 @@ function JsonTextField({
   errorText,
 }: {
   label: string;
-  register: UseFormRegister<VnextWorkspaceConfigJson>;
-  name: Path<VnextWorkspaceConfigJson>;
+  register: UseFormRegister<VnextWorkspaceConfig>;
+  name: Path<VnextWorkspaceConfig>;
   placeholder?: string;
   className?: string;
   errorText?: string;
@@ -192,8 +192,8 @@ function JsonBoolField({
   name,
 }: {
   label: string;
-  control: Control<VnextWorkspaceConfigJson>;
-  name: Path<VnextWorkspaceConfigJson>;
+  control: Control<VnextWorkspaceConfig>;
+  name: Path<VnextWorkspaceConfig>;
 }) {
   return (
     <Controller
@@ -224,8 +224,8 @@ function JsonTagField({
   errorText,
 }: {
   label: string;
-  control: Control<VnextWorkspaceConfigJson>;
-  name: Path<VnextWorkspaceConfigJson>;
+  control: Control<VnextWorkspaceConfig>;
+  name: Path<VnextWorkspaceConfig>;
   placeholder?: string;
   errorText?: string;
 }) {
@@ -266,8 +266,8 @@ function JsonStringArrayLinesField({
   errorText,
 }: {
   label: string;
-  control: Control<VnextWorkspaceConfigJson>;
-  name: Path<VnextWorkspaceConfigJson>;
+  control: Control<VnextWorkspaceConfig>;
+  name: Path<VnextWorkspaceConfig>;
   placeholder?: string;
   helperText?: string;
   errorText?: string;
@@ -325,7 +325,7 @@ export function CreateVnextConfigDialog({
   onOpenChange,
   onCompleted,
 }: CreateVnextConfigDialogProps) {
-  const seed = useMemo((): VnextWorkspaceConfigJson => {
+  const seed = useMemo((): VnextWorkspaceConfig => {
     const d = defaultDomain.trim() || 'workspace';
     return buildVnextWorkspaceConfig({
       domain: d,
@@ -334,7 +334,7 @@ export function CreateVnextConfigDialog({
     });
   }, [defaultDomain]);
 
-  const form = useForm<VnextWorkspaceConfigJson>({
+  const form = useForm<VnextWorkspaceConfig>({
     mode: 'onChange',
     defaultValues: seed,
   });
@@ -347,7 +347,7 @@ export function CreateVnextConfigDialog({
   const [loadingConfig, setLoadingConfig] = useState(false);
 
   const normalizedWizardPayload = useMemo(
-    () => normalizeVnextWizardPayload(watchedForm as VnextWorkspaceConfigJson),
+    () => normalizeVnextWizardPayload(watchedForm as VnextWorkspaceConfig),
     [watchedForm],
   );
   const wizardValidation = useMemo(
@@ -794,7 +794,7 @@ export function CreateVnextConfigDialog({
                               onChange={(e) =>
                                 field.onChange(
                                   e.target
-                                    .value as VnextWorkspaceConfigJson['exports']['visibility'],
+                                    .value as VnextWorkspaceConfig['exports']['visibility'],
                                 )
                               }
                               variant="default"

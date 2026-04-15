@@ -2,7 +2,7 @@ import fs from 'node:fs/promises'
 import { homedir } from 'node:os'
 import path from 'node:path'
 import type { z } from 'zod'
-import type { VnextWorkspaceConfigJson } from '@vnext-forge/app-contracts'
+import type { VnextWorkspaceConfig } from '@vnext-forge/app-contracts'
 import { ERROR_CODES, VnextForgeError } from '@vnext-forge/app-contracts'
 import { CONFIG_FILE } from '@workspace/constants.js'
 import { WorkspaceService } from '@workspace/service.js'
@@ -14,13 +14,13 @@ import type {
   SeedVnextComponentLayoutResult,
   VnextComponentLayoutStatusResult,
 } from './types.js'
-import type { WorkspacePaths } from '@workspace/types.js'
+import type { VnextWorkspacePaths } from '@workspace/types.js'
 
 type WriteProjectConfigInput = z.infer<(typeof projectWriteFullConfigRequestSchema)['json']>
 
 const PROJECTS_DIR = path.join(homedir(), 'vnext-projects')
 
-const COMPONENT_LAYOUT_PATH_KEYS: (keyof Omit<WorkspacePaths, 'componentsRoot'>)[] = [
+const COMPONENT_LAYOUT_PATH_KEYS: (keyof Omit<VnextWorkspacePaths, 'componentsRoot'>)[] = [
   'tasks',
   'views',
   'functions',
@@ -193,7 +193,7 @@ export class ProjectService {
     traceId?: string,
   ): Promise<ProjectEntry> {
     const { projectPath, linked } = await this.resolveProjectPath(id, traceId)
-    const configJson: VnextWorkspaceConfigJson = input
+    const configJson: VnextWorkspaceConfig = input
 
     await fs.writeFile(
       path.join(projectPath, CONFIG_FILE),
@@ -431,7 +431,7 @@ export class ProjectService {
 
   private collectComponentLayoutDirectories(
     projectRoot: string,
-    paths: WorkspacePaths,
+    paths: VnextWorkspacePaths,
     traceId?: string,
   ): string[] {
     const componentsRoot = paths.componentsRoot.trim()

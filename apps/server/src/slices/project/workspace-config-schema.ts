@@ -4,10 +4,15 @@ import {
 } from '@vnext-forge/app-contracts'
 import { z } from 'zod'
 
-import type { WorkspaceConfig, WorkspaceExports, WorkspacePaths } from '@workspace/types.js'
+import type {
+  VnextWorkspaceConfig,
+  VnextWorkspaceExports,
+  VnextWorkspacePaths,
+  VnextWorkspaceReferenceResolution,
+} from '@workspace/types.js'
 
 const requiredField = (label: string) =>
-  z.string({ required_error: `"${label}" alanı zorunludur.` }).min(1, `"${label}" boş olamaz.`)
+  z.string({ message: `"${label}" alanı zorunludur.` }).min(1, `"${label}" boş olamaz.`)
 
 /** vnext.config.json doğrulaması — paths alanları zorunlu ve boş olamaz. */
 export const workspaceRootConfigSchema = z
@@ -38,7 +43,7 @@ function asStringArray(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []
 }
 
-function coerceExports(raw: unknown, domain: string): WorkspaceExports {
+function coerceExports(raw: unknown, domain: string): VnextWorkspaceExports {
   if (!raw || typeof raw !== 'object') {
     return {
       functions: [],
@@ -62,7 +67,7 @@ function coerceExports(raw: unknown, domain: string): WorkspaceExports {
     visibility: record.visibility === 'private' ? 'private' : 'public',
     metadata:
       record.metadata && typeof record.metadata === 'object'
-        ? (record.metadata as Record<string, unknown>)
+        ? (record.metadata as VnextWorkspaceExports['metadata'])
         : { description: `Exported components for ${domain}` },
   }
 }
@@ -78,11 +83,11 @@ function coerceDependencies(raw: unknown): { domains: string[]; npm?: string[] }
   }
 }
 
-/** Ayrıştırılmış kök dosyayı iç kullanım `WorkspaceConfig` şekline tamamlar. */
-export function normalizeWorkspaceRootToConfig(parsed: WorkspaceRootConfigParsed): WorkspaceConfig {
+/** Ayrıştırılmış kök dosyayı kanonik `VnextWorkspaceConfig` şekline tamamlar. */
+export function normalizeWorkspaceRootToConfig(parsed: WorkspaceRootConfigParsed): VnextWorkspaceConfig {
   const domain = parsed.domain
   const p = parsed.paths
-  const paths: WorkspacePaths = {
+  const paths: VnextWorkspacePaths = {
     componentsRoot: p.componentsRoot,
     tasks: p.tasks,
     views: p.views,
@@ -103,7 +108,7 @@ export function normalizeWorkspaceRootToConfig(parsed: WorkspaceRootConfigParsed
     dependencies: coerceDependencies(parsed.dependencies),
     referenceResolution:
       parsed.referenceResolution && typeof parsed.referenceResolution === 'object'
-        ? (parsed.referenceResolution as unknown as WorkspaceConfig['referenceResolution'])
+        ? (parsed.referenceResolution as unknown as VnextWorkspaceReferenceResolution)
         : undefined,
   }
 }

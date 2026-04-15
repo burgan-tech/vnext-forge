@@ -61,7 +61,8 @@ export function CodeEditorPage() {
   const { id, '*': encodedFilePath } = useParams<{ id: string; '*': string }>();
   const navigate = useNavigate();
   const { activeProject, setActiveProject } = useProjectStore();
-  const { tabs, activeTabId, openTab, updateTabContent, markTabClean, setActiveTab, closeTab } = useEditorStore();
+  const { tabs, activeTabId, openTab, updateTabContent, markTabClean, setActiveTab, closeTab } =
+    useEditorStore();
   const [content, setContent] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -175,7 +176,11 @@ export function CodeEditorPage() {
   };
 
   if (loading) {
-    return <div className="flex h-full items-center justify-center text-sm text-slate-400">Loading file...</div>;
+    return (
+      <div className="flex h-full items-center justify-center text-sm text-slate-400">
+        Loading file...
+      </div>
+    );
   }
 
   if (error && content === null) {
@@ -206,8 +211,7 @@ export function CodeEditorPage() {
                   ? 'bg-white font-medium text-slate-900'
                   : 'text-slate-500 hover:bg-slate-100/50 hover:text-slate-700'
               }`}
-              onClick={() => handleTabClick(tab.id)}
-            >
+              onClick={() => handleTabClick(tab.id)}>
               <FileIcon language={tab.language} />
               <span className="max-w-[140px] truncate">{tab.title}</span>
               {tab.isDirty && <span className="text-[10px] text-amber-500">*</span>}
@@ -216,8 +220,7 @@ export function CodeEditorPage() {
                   event.stopPropagation();
                   closeTab(tab.id);
                 }}
-                className="ml-0.5 shrink-0 text-slate-300 hover:text-slate-600"
-              >
+                className="ml-0.5 shrink-0 text-slate-300 hover:text-slate-600">
                 x
               </button>
             </div>
@@ -239,9 +242,11 @@ export function CodeEditorPage() {
           {filePath?.replace(`${activeProject?.path ?? ''}/`, '') ?? fileName}
         </span>
         <div className="ml-auto flex items-center gap-2">
-          {activeTab?.isDirty && <span className="text-[10px] font-medium text-amber-500">Modified</span>}
+          {activeTab?.isDirty && (
+            <span className="text-[10px] font-medium text-amber-500">Modified</span>
+          )}
           {saving && <span className="text-[10px] font-medium text-indigo-500">Saving...</span>}
-          <span className="font-mono text-[10px] uppercase text-slate-400">{language}</span>
+          <span className="font-mono text-[10px] text-slate-400 uppercase">{language}</span>
         </div>
       </div>
 
@@ -314,7 +319,8 @@ function FileIcon({ language }: { language: string }) {
   };
 
   return (
-    <span className={`w-4 shrink-0 text-center text-[9px] font-bold ${colors[language] || 'text-slate-400'}`}>
+    <span
+      className={`w-4 shrink-0 text-center text-[9px] font-bold ${colors[language] || 'text-slate-400'}`}>
       {labels[language] || '~'}
     </span>
   );

@@ -1,4 +1,4 @@
-import type { VnextWorkspaceConfigJson } from '@vnext-forge/app-contracts';
+import type { VnextWorkspaceConfig } from '@vnext-forge/app-contracts';
 import { z } from 'zod';
 
 /** Kayıt öncesi: boş / yalnızca whitespace satırlarını at. */
@@ -9,13 +9,16 @@ export function compactNonEmptyLines(items: string[] | undefined): string[] {
 /**
  * Form değerlerini kayıt / doğrulama ile aynı şekilde normalize eder (satır listeleri sıkıştırılır).
  */
-export function normalizeVnextWizardPayload(values: VnextWorkspaceConfigJson): VnextWorkspaceConfigJson {
+export function normalizeVnextWizardPayload(values: VnextWorkspaceConfig): VnextWorkspaceConfig {
+  const ref = values.referenceResolution;
   return {
     ...values,
-    referenceResolution: {
-      ...values.referenceResolution,
-      allowedHosts: compactNonEmptyLines(values.referenceResolution.allowedHosts),
-    },
+    ...(ref && {
+      referenceResolution: {
+        ...ref,
+        allowedHosts: compactNonEmptyLines(ref.allowedHosts),
+      },
+    }),
     exports: {
       ...values.exports,
       functions: compactNonEmptyLines(values.exports.functions),
@@ -124,8 +127,8 @@ export const vnextWorkspaceConfigWizardSchema = z.object({
 export type VnextWorkspaceConfigWizardParse = z.infer<typeof vnextWorkspaceConfigWizardSchema>;
 
 export function validateNormalizedVnextWizardPayload(
-  normalized: VnextWorkspaceConfigJson,
-): z.SafeParseReturnType<VnextWorkspaceConfigJson, VnextWorkspaceConfigWizardParse> {
+  normalized: VnextWorkspaceConfig,
+): z.SafeParseReturnType<VnextWorkspaceConfig, VnextWorkspaceConfigWizardParse> {
   return vnextWorkspaceConfigWizardSchema.safeParse(normalized);
 }
 
@@ -145,7 +148,7 @@ export function wizardValidationIssueMap(error: z.ZodError): Record<string, stri
  * Diskten okunan ham JSON nesnesini wizard form yapısına dönüştürür.
  * Eksik alanlar boş bırakılır (Zod doğrulaması hataları göstersin diye).
  */
-export function rawConfigToEditableValues(raw: Record<string, unknown>): VnextWorkspaceConfigJson {
+export function rawConfigToEditableValues(raw: Record<string, unknown>): VnextWorkspaceConfig {
   const str = (v: unknown): string => (typeof v === 'string' ? v : '');
   const bool = (v: unknown, fallback: boolean): boolean =>
     typeof v === 'boolean' ? v : fallback;
@@ -243,9 +246,9 @@ export function validateVnextConfigJsonText(
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
     return { ok: false, summary: 'vnext.config.json kökü bir nesne (object) olmalıdır.' };
   }
-  let normalized: VnextWorkspaceConfigJson;
+  let normalized: VnextWorkspaceConfig;
   try {
-    normalized = normalizeVnextWizardPayload(parsed as VnextWorkspaceConfigJson);
+    normalized = normalizeVnextWizardPayload(parsed as VnextWorkspaceConfig);
   } catch {
     return {
       ok: false,

@@ -1,6 +1,6 @@
 import { useRuntimeStore } from '@app/store/useRuntimeStore';
-import { useAsync } from '@shared/hooks/UseAsync';
-import { createLogger } from '@shared/lib/logger/CreateLogger';
+import { useAsync } from '@shared/hooks/useAsync';
+import { createLogger } from '@shared/lib/logger/createLogger';
 
 import { checkRuntimeHealth } from './WorkflowExecutionApi';
 import { useRuntimeRevalidator } from './useRuntimeRevalidator';

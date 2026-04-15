@@ -35,6 +35,12 @@ importers:
 
   apps/server:
     dependencies:
+      '@burgan-tech/vnext-schema':
+        specifier: ^0.0.39
+        version: 0.0.39
+      '@burgan-tech/vnext-template':
+        specifier: ^0.0.7
+        version: 0.0.7
       '@hono/node-server':
         specifier: ^1.14.0
         version: 1.19.12(hono@4.12.10)
@@ -244,9 +250,6 @@ importers:
       '@vnext-forge/vnext-types':
         specifier: workspace:*
         version: link:../vnext-types
-      zod:
-        specifier: ^3.24.0
-        version: 3.25.76
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -348,6 +351,19 @@ packages:
   '@babel/types@7.29.0':
     resolution: {integrity: sha512-LwdZHpScM4Qz8Xw2iKSzS+cfglZzJGvofQICy7W7v4caru4EaAmyUuO6BGrbyQ2mYV11W0U8j5mBhd14dd3B0A==}
     engines: {node: '>=6.9.0'}
+
+  '@burgan-tech/vnext-schema@0.0.38':
+    resolution: {integrity: sha512-Lqrl5IjLVbJTirBSEK5w806PXjEJm6f/fR9rmvOMFkmvIII5vgFwKsL1cvfi28TIKp7UKwx/7vDZy71PQakyfA==}
+    engines: {node: '>=14.0.0'}
+
+  '@burgan-tech/vnext-schema@0.0.39':
+    resolution: {integrity: sha512-H/EpP0yMCgH+6ITJid0USlSLok8ibtEFSY+I9PGnbMdBtP9x50tmZu7oZYTNC30utNAloO1uIqYiL/ckYX9Bxg==}
+    engines: {node: '>=14.0.0'}
+
+  '@burgan-tech/vnext-template@0.0.7':
+    resolution: {integrity: sha512-mvjko0c9PPWF47szCxcK1jeor2GltBgXGbWuVdswJ/0aftbnEQyuEcry19acUr2l2Wb5bgSPVuRQYbJBGLlnlQ==}
+    engines: {node: '>=16.0.0'}
+    hasBin: true
 
   '@emnapi/core@1.9.2':
     resolution: {integrity: sha512-UC+ZhH3XtczQYfOlu3lNEkdW/p4dsJ1r/bP7H8+rhao3TTTMO1ATq/4DdIi23XuGoFY+Cz0JmCbdVl0hz9jZcA==}
@@ -3663,6 +3679,14 @@ snapshots:
     dependencies:
       '@babel/helper-string-parser': 7.27.1
       '@babel/helper-validator-identifier': 7.28.5
+
+  '@burgan-tech/vnext-schema@0.0.38': {}
+
+  '@burgan-tech/vnext-schema@0.0.39': {}
+
+  '@burgan-tech/vnext-template@0.0.7':
+    dependencies:
+      '@burgan-tech/vnext-schema': 0.0.38
 
   '@emnapi/core@1.9.2':
     dependencies:

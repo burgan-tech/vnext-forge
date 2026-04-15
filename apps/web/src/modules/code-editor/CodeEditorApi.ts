@@ -1,4 +1,4 @@
-import { apiClient, callApi } from '@shared/api/Client';
+import { apiClient, callApi } from '@shared/api/client';
 
 function normalizeFilePath(filePath: string): string {
   return filePath.replace(/\\/g, '/').replace(/\/{2,}/g, '/');

@@ -8,12 +8,12 @@ import {
 } from '@project/workspace-config-schema.js'
 import type {
   FileTreeNode,
+  VnextWorkspaceConfig,
   WorkspaceAnalysisResult,
-  WorkspaceConfig,
 } from './types.js'
 
 export type WorkspaceConfigReadStatus =
-  | { status: 'ok'; config: WorkspaceConfig }
+  | { status: 'ok'; config: VnextWorkspaceConfig }
   | { status: 'missing' }
   | { status: 'invalid'; message: string }
 
@@ -32,11 +32,11 @@ export class WorkspaceAnalyzer {
     }
   }
 
-  async readConfig(rootPath: string, traceId?: string): Promise<WorkspaceConfig> {
+  async readConfig(rootPath: string, traceId?: string): Promise<VnextWorkspaceConfig> {
     try {
       const configPath = path.join(rootPath, CONFIG_FILE)
       const raw = await fs.readFile(configPath, 'utf-8')
-      return JSON.parse(raw) as WorkspaceConfig
+      return JSON.parse(raw) as VnextWorkspaceConfig
     } catch (error) {
       throw this.toAnalyzerError(error, 'WorkspaceAnalyzer.readConfig', traceId, { rootPath })
     }
@@ -95,7 +95,7 @@ export class WorkspaceAnalyzer {
   private async tryReadConfig(
     rootPath: string,
     traceId?: string,
-  ): Promise<WorkspaceConfig | null> {
+  ): Promise<VnextWorkspaceConfig | null> {
     try {
       return await this.readConfig(rootPath, traceId)
     } catch (error) {

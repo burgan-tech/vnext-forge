@@ -33,8 +33,16 @@ Keep the pattern simple:
 
 The detailed architecture rules live in `apps/web/.agents/skills/architectural-pattern/SKILL.md`. Keep this file shorter and more operational.
 
-Prefer extracting durable logic either into the remaining shared packages (`@vnext-forge/types`, `@vnext-forge/app-contracts`) or into well-bounded local module owners under `src/modules/*` instead of expanding page-level or route-level coupling.
+Prefer extracting durable logic either into the remaining shared packages (`@vnext-forge/vnext-types`, `@vnext-forge/app-contracts`) or into well-bounded local module owners under `src/modules/*` instead of expanding page-level or route-level coupling.
 Prefer extracting durable logic into the active module owners instead of reviving legacy top-level areas. Current primary owners include `project-management`, `project-workspace`, `canvas-interaction`, `code-editor`, `workflow-validation`, `workflow-execution`, `save-workflow`, `save-component`, `task-editor`, `function-editor`, `extension-editor`, `schema-editor`, and `view-editor`.
+
+## Workspace Config Types
+
+- Kanonik workspace config tipleri (`VnextWorkspaceConfig`, `VnextWorkspacePaths`, `VnextWorkspaceExports`, `VnextWorkspaceExportsMeta`, `VnextWorkspaceDependencies`, `VnextWorkspaceReferenceResolution`) `@vnext-forge/vnext-types` paketinde tanimlidir ve `@vnext-forge/app-contracts` uzerinden re-export edilir.
+- Web tarafinda bu tipleri `@vnext-forge/app-contracts`'tan import et. Ayrica `buildVnextWorkspaceConfig()` builder fonksiyonu da ayni pakette bulunur.
+- `modules/project-management/ProjectTypes.ts` icinde `VnextWorkspaceConfig` re-export edilir; module-local consumer'lar buradan alabilir.
+- Web kodunda workspace config icin yeni local interface tanimlama; kanonik kaynaktan gelen tipleri kullan.
+- Eski tip isimleri (`VnextWorkspaceConfigJson`, `VnextConfig`, `WorkspaceConfig`) kullanimdan kaldirilmistir; her yerde `VnextWorkspaceConfig` kullan.
 
 ## Expectation
 

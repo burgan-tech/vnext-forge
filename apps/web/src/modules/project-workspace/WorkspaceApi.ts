@@ -8,8 +8,8 @@ import {
 } from '@vnext-forge/app-contracts';
 import type { FileTreeNode } from '@modules/project-management/ProjectTypes';
 import type { WorkspaceFolder } from '@shared/ui/FolderBrowser';
-import { apiClient, callApi, unwrapApi } from '@shared/api/Client';
-import { createLogger } from '@shared/lib/logger/CreateLogger';
+import { apiClient, callApi, unwrapApi } from '@shared/api/client';
+import { createLogger } from '@shared/lib/logger/createLogger';
 import { toVnextError } from '@shared/lib/error/vNextErrorHelpers';
 
 import { normalizeWorkspaceName, createWorkflowNameSchema } from './ProjectWorkspaceSchema';

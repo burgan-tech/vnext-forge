@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 
-import type { UseAsyncOptions } from '@shared/hooks/UseAsync';
-import { useAsync } from '@shared/hooks/UseAsync';
+import type { UseAsyncOptions } from '@shared/hooks/useAsync';
+import { useAsync } from '@shared/hooks/useAsync';
 
 import { writeProjectConfig } from '@modules/project-management/ProjectApi';
 import type { ProjectInfo, WriteProjectConfigPayload } from '@modules/project-management/ProjectTypes';

@@ -3,7 +3,7 @@ import {
   getProjectConfigStatus,
   getVnextComponentLayoutStatus,
 } from '@modules/project-management/ProjectApi';
-import { createLogger } from '@shared/lib/logger/CreateLogger';
+import { createLogger } from '@shared/lib/logger/createLogger';
 
 import { applyProjectConfigStatus } from './applyProjectConfigStatus';
 

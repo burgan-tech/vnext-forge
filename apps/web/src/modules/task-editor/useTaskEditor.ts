@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useComponentStore } from '@app/store/useComponentStore';
-import { useAsync } from '@shared/hooks/UseAsync';
+import { useAsync } from '@shared/hooks/useAsync';
 import { loadTaskEditor } from './TaskEditorApi';
 
 interface UseTaskEditorParams {

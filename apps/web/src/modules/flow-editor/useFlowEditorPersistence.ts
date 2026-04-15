@@ -1,8 +1,8 @@
 import { useCallback, useEffect } from 'react';
 import { useProjectStore } from '@app/store/useProjectStore';
 import { useWorkflowStore } from '@app/store/useWorkflowStore';
-import { useAsync } from '@shared/hooks/UseAsync';
-import { createLogger } from '@shared/lib/logger/CreateLogger';
+import { useAsync } from '@shared/hooks/useAsync';
+import { createLogger } from '@shared/lib/logger/createLogger';
 import { saveFlowEditorDocument } from './FlowEditorApi';
 
 const logger = createLogger('flow-editor/useFlowEditorPersistence');

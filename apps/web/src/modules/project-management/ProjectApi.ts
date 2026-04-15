@@ -1,11 +1,11 @@
-import { apiClient, callApi, unwrapApi } from '@shared/api/Client';
+import { apiClient, callApi, unwrapApi } from '@shared/api/client';
 
 import type {
   ProjectConfigStatus,
   ProjectInfo,
   SeedVnextComponentLayoutResult,
   VnextComponentLayoutStatus,
-  VnextConfig,
+  VnextWorkspaceConfig,
   WriteProjectConfigPayload,
 } from './ProjectTypes';
 
@@ -46,7 +46,7 @@ export function getProject(projectId: string) {
 }
 
 export function getProjectConfig(projectId: string) {
-  return callApi<VnextConfig>(
+  return callApi<VnextWorkspaceConfig>(
     apiClient.api.projects[':id'].config.$get({
       param: { id: projectId },
     }),

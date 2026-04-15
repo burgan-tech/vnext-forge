@@ -1,5 +1,5 @@
-import type { VnextConfig } from '@modules/project-management/ProjectTypes';
-import { createLogger } from '@shared/lib/logger/CreateLogger';
+import type { VnextWorkspaceConfig } from '@modules/project-management/ProjectTypes';
+import { createLogger } from '@shared/lib/logger/createLogger';
 
 export type FileRouteType =
   | 'workflow'
@@ -26,7 +26,7 @@ export interface FileRoute {
 const logger = createLogger('FileRouter');
 export function resolveFileRoute(
   filePath: string,
-  config: VnextConfig | null,
+  config: VnextWorkspaceConfig | null,
   projectId: string,
   projectPath: string,
 ): FileRoute {

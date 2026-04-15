@@ -5,8 +5,8 @@ import {
   showNotification,
   type NotificationModalType,
   type NotificationType,
-} from '@shared/notification/model/NotificationStore';
-import { createLogger } from '@shared/lib/logger/CreateLogger';
+} from '@shared/notification/model/notificationStore';
+import { createLogger } from '@shared/lib/logger/createLogger';
 
 const logger = createLogger('useAsync');
 

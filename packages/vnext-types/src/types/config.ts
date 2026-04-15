@@ -1,53 +1,61 @@
-/** exports.metadata — wizard ve editörlerde kullanıcı girdisi için tip güvenliği. */
-export interface VnextExportsMetadata {
-  description: string;
-  maintainer?: string;
-  license?: string;
-  keywords?: string[];
+/** Canonical vnext.config.json domain types. Single source of truth for all layers. */
+
+export interface VnextWorkspacePaths {
+  componentsRoot: string
+  tasks: string
+  views: string
+  functions: string
+  extensions: string
+  workflows: string
+  schemas: string
 }
 
-export interface VnextConfig {
-  version: string;
-  description?: string;
-  domain: string;
-  runtimeVersion?: string;
-  schemaVersion?: string;
-  paths?: {
-    componentsRoot?: string;
-    tasks?: string;
-    views?: string;
-    functions?: string;
-    extensions?: string;
-    workflows?: string;
-    schemas?: string;
-  };
-  exports?: {
-    functions?: string[];
-    workflows?: string[];
-    tasks?: string[];
-    views?: string[];
-    schemas?: string[];
-    extensions?: string[];
-    visibility?: string;
-    metadata?: VnextExportsMetadata | Record<string, unknown>;
-  };
-  dependencies?: {
-    domains?: string[];
-    npm?: string[];
-  };
-  referenceResolution?: {
-    enabled?: boolean;
-    validateOnBuild?: boolean;
-    strictMode?: boolean;
-    validateReferenceConsistency?: boolean;
-    validateSchemas?: boolean;
-    allowedHosts?: string[];
-    schemaValidationRules?: {
-      enforceKeyFormat?: boolean;
-      enforceVersionFormat?: boolean;
-      enforceFilenameConsistency?: boolean;
-      allowUnknownProperties?: boolean;
-    };
-  };
-  schemaValidationRules?: Record<string, unknown>;
+export interface VnextWorkspaceExportsMeta {
+  description: string
+  maintainer?: string
+  license?: string
+  keywords?: string[]
+}
+
+export interface VnextWorkspaceExports {
+  functions: string[]
+  workflows: string[]
+  tasks: string[]
+  views: string[]
+  schemas: string[]
+  extensions: string[]
+  visibility: 'public' | 'private'
+  metadata: VnextWorkspaceExportsMeta
+}
+
+export interface VnextWorkspaceDependencies {
+  domains: string[]
+  npm?: string[]
+}
+
+export interface VnextWorkspaceReferenceResolution {
+  enabled: boolean
+  validateOnBuild: boolean
+  strictMode: boolean
+  validateReferenceConsistency?: boolean
+  validateSchemas?: boolean
+  allowedHosts?: string[]
+  schemaValidationRules?: {
+    enforceKeyFormat?: boolean
+    enforceVersionFormat?: boolean
+    enforceFilenameConsistency?: boolean
+    allowUnknownProperties?: boolean
+  }
+}
+
+export interface VnextWorkspaceConfig {
+  version: string
+  description?: string
+  domain: string
+  runtimeVersion: string
+  schemaVersion: string
+  paths: VnextWorkspacePaths
+  exports: VnextWorkspaceExports
+  dependencies: VnextWorkspaceDependencies
+  referenceResolution?: VnextWorkspaceReferenceResolution
 }

@@ -7,8 +7,8 @@ import { COMPONENT_DIRS, CONFIG_FILE } from './constants.js'
 import type {
   DirectoryEntry,
   SearchResult,
+  VnextWorkspaceConfig,
   WorkspaceAnalysisResult,
-  WorkspaceConfig,
   WorkspaceStructure,
 } from './types.js'
 import { WorkspaceAnalyzer, type WorkspaceConfigReadStatus } from './workspace-analyzer.js'
@@ -151,7 +151,7 @@ export class WorkspaceService {
     return this.analyzer.analyze(rootPath, traceId)
   }
 
-  async getConfig(rootPath: string, traceId?: string): Promise<WorkspaceConfig> {
+  async getConfig(rootPath: string, traceId?: string): Promise<VnextWorkspaceConfig> {
     return this.analyzer.readConfig(rootPath, traceId)
   }
 
@@ -163,16 +163,15 @@ export class WorkspaceService {
     return { root: await this.analyzer.buildTree(rootPath, traceId) }
   }
 
-  createDefaultConfig(domain: string, description?: string): WorkspaceConfig {
+  createDefaultConfig(domain: string, description?: string): VnextWorkspaceConfig {
     const normalizedDomain = domain.trim()
     const desc =
       description?.trim() || `${normalizedDomain} alan tanımı yapılandırması`
-    const built = buildVnextWorkspaceConfig({
+    return buildVnextWorkspaceConfig({
       domain: normalizedDomain,
       description: desc,
       exportsMetadataDescription: `Exported components for ${normalizedDomain} domain`,
     })
-    return built as unknown as WorkspaceConfig
   }
 
   getConfigPath(rootPath: string): string {

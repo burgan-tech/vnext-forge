@@ -53,9 +53,16 @@ The repo is intended to run the same way on macOS, Linux, and Windows. Use these
 
 ### Shared Packages
 
-#### `packages/vnext-types` -> `@vnext-forge/types`
+#### `packages/vnext-types` -> `@vnext-forge/vnext-types`
 
 Domain model types. Workflow, State, Transition, Task, Schema, View, Function, Extension, Diagram, and Config types, plus constants (state-types, trigger-types, task-types) and utilities (csx-codec, version).
+
+**Workspace config canonical types** (`types/config.ts`): The single source of truth for the `vnext.config.json` shape. All layers (web, server, packages) import these types from here or through a re-export.
+
+- `VnextWorkspaceConfig` — full normalized config
+- `VnextWorkspacePaths`, `VnextWorkspaceExports`, `VnextWorkspaceExportsMeta`, `VnextWorkspaceDependencies`, `VnextWorkspaceReferenceResolution` — sub-shapes
+
+Do not duplicate these types in app-local code. Server and web consumer files import them via re-exports (`@workspace/types.js` on server, `@vnext-forge/app-contracts` on web).
 
 - Depends on no other package (leaf node)
 - Used by both `apps/web` and `apps/server`
@@ -64,7 +71,7 @@ Domain model types. Workflow, State, Transition, Task, Schema, View, Function, E
 
 #### `packages/app-contracts` -> `@vnext-forge/app-contracts`
 
-Web <-> Server communication contracts. Two responsibilities:
+Web <-> Server communication contracts. Three responsibilities:
 
 **1. ApiResponse<T>** (`response/envelope.ts`):
 
@@ -84,7 +91,10 @@ The shared error type used across all application layers. Every `throw` should b
 - `toLogEntry()` - plain object for server-side logging
 - `toUserMessage()` - message safe to show to the user (raw `.message` must never be shown)
 
-- Depends on no other package (leaf node)
+**3. Workspace config builder** (`vnext-workspace-defaults.ts`):
+Version constants (`VNEXT_WORKSPACE_RUNTIME_VERSION`, `VNEXT_WORKSPACE_SCHEMA_VERSION`, `VNEXT_WORKSPACE_CONFIG_VERSION`), `BuildVnextWorkspaceConfigInput`, and the `buildVnextWorkspaceConfig()` factory function. This file also re-exports all canonical workspace config types from `@vnext-forge/vnext-types` so web code can import them from a single package.
+
+- Depends on `@vnext-forge/vnext-types` (for canonical workspace config types)
 
 ---
 
@@ -102,6 +112,16 @@ Several formerly shared workspace, workflow-domain, and editor-language modules 
 - `apps/web/src/modules/canvas-interaction/*`, `apps/web/src/modules/workflow-execution/*`, `apps/web/src/modules/save-workflow/*`, and `apps/web/src/modules/save-component/*` own the remaining workflow editing and execution flows.
 
 Only `packages/vnext-types` and `packages/app-contracts` remain as shared packages in this repo.
+
+**Package dependency flow:**
+
+```text
+vnext-types (leaf, no deps)
+  └─> app-contracts (depends on vnext-types)
+        └─> apps/web, apps/server
+```
+
+Canonical domain types (including `VnextWorkspaceConfig`) live in `vnext-types`. `app-contracts` re-exports them and adds builder logic, error contracts, and API envelope types. App-local code imports from `@vnext-forge/app-contracts` (web) or directly from `@vnext-forge/vnext-types` (server workspace types via re-export in `@workspace/types.js`). Do not define duplicate config type interfaces in app-local code.
 
 ---
 

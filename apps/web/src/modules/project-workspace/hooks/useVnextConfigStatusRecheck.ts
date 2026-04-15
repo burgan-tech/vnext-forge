@@ -1,8 +1,8 @@
 import { useCallback, useState } from 'react';
 
 import { useProjectStore } from '@app/store/useProjectStore';
-import { showNotification } from '@shared/notification/model/NotificationStore';
-import { createLogger } from '@shared/lib/logger/CreateLogger';
+import { showNotification } from '@shared/notification/model/notificationStore';
+import { createLogger } from '@shared/lib/logger/createLogger';
 
 import { syncVnextWorkspaceFromDisk } from '../syncVnextWorkspaceFromDisk';
 

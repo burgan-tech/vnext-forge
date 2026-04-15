@@ -10,7 +10,7 @@ import {
   DialogTitle,
 } from '@shared/ui/Dialog';
 import { Button } from '@shared/ui/Button';
-import { showNotification } from '@shared/notification/model/NotificationStore';
+import { showNotification } from '@shared/notification/model/notificationStore';
 import { useProjectStore } from '@app/store/useProjectStore';
 import { useVnextWorkspaceUiStore } from '@app/store/useVnextWorkspaceUiStore';
 import {

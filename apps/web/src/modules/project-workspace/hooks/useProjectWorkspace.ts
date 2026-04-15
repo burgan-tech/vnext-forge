@@ -2,9 +2,9 @@ import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { failureFromCode, ERROR_CODES, getData } from '@vnext-forge/app-contracts';
 
-import { createLogger } from '@shared/lib/logger/CreateLogger';
-import { useAsync } from '@shared/hooks/UseAsync';
-import { showNotification } from '@shared/notification/model/NotificationStore';
+import { createLogger } from '@shared/lib/logger/createLogger';
+import { useAsync } from '@shared/hooks/useAsync';
+import { showNotification } from '@shared/notification/model/notificationStore';
 import { useProjectStore } from '@app/store/useProjectStore';
 import { useEditorStore } from '@modules/code-editor/EditorStore';
 

@@ -262,6 +262,22 @@ Add new endpoints to the file whose **feature** owns the primary UX: tree and fi
 
 - Cross-cutting DTOs such as `FileTreeNode` or `ProjectInfo` may stay in **`modules/project-management/ProjectTypes.ts`** until a real **`packages/*`** contract exists. `project-workspace` may import those types from `project-management` for shapes returned by workspace-facing calls; treat repeated type coupling as a signal to promote types into a shared package, not to merge API modules.
 
+### Workspace Config Types
+
+- Canonical workspace config types (`VnextWorkspaceConfig` and sub-types like `VnextWorkspacePaths`, `VnextWorkspaceExports`, `VnextWorkspaceExportsMeta`, `VnextWorkspaceDependencies`, `VnextWorkspaceReferenceResolution`) are defined in `@vnext-forge/vnext-types` and re-exported through `@vnext-forge/app-contracts`.
+- Web code imports these types from `@vnext-forge/app-contracts`. The builder function `buildVnextWorkspaceConfig()` also lives there.
+- `modules/project-management/ProjectTypes.ts` re-exports `VnextWorkspaceConfig` from `@vnext-forge/app-contracts` so module-local consumers can import from one place.
+- Do not define duplicate workspace config interfaces in module-local or page-local code. Use the canonical types.
+- Legacy names (`VnextWorkspaceConfigJson`, `VnextConfig`, `WorkspaceConfig`) are retired; always use `VnextWorkspaceConfig`.
+
+### Workspace Config Types
+
+- Canonical workspace config types (`VnextWorkspaceConfig` and sub-types like `VnextWorkspacePaths`, `VnextWorkspaceExports`, `VnextWorkspaceExportsMeta`, `VnextWorkspaceDependencies`, `VnextWorkspaceReferenceResolution`) are defined in `@vnext-forge/vnext-types` and re-exported through `@vnext-forge/app-contracts`.
+- Web code imports these types from `@vnext-forge/app-contracts`. The builder function `buildVnextWorkspaceConfig()` also lives there.
+- `modules/project-management/ProjectTypes.ts` re-exports `VnextWorkspaceConfig` from `@vnext-forge/app-contracts` so module-local consumers can import from one place.
+- Do not define duplicate workspace config interfaces in module-local or page-local code. Use the canonical types.
+- Legacy names (`VnextWorkspaceConfigJson`, `VnextConfig`, `WorkspaceConfig`) are retired; always use `VnextWorkspaceConfig`.
+
 ## Validation Placement
 
 - Use `React Hook Form` + `Zod` for form-facing validation in the owning page or module.

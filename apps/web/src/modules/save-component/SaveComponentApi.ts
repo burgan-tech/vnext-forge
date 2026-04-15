@@ -1,6 +1,6 @@
 import { failureFromError, success, type ApiResponse } from '@vnext-forge/app-contracts';
 import { z } from 'zod';
-import { apiClient, callApi, unwrapApi } from '@shared/api/Client';
+import { apiClient, callApi, unwrapApi } from '@shared/api/client';
 import { toVnextError } from '@shared/lib/error/vNextErrorHelpers';
 
 export interface LoadComponentFileParams {

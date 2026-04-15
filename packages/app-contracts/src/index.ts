@@ -48,12 +48,13 @@ export {
   VNEXT_WORKSPACE_SCHEMA_VERSION,
   VNEXT_WORKSPACE_CONFIG_VERSION,
   buildVnextWorkspaceConfig,
-} from './vnext-workspace-defaults.js';
+} from './vnext/vnext-workspace-defaults.js';
 export type {
   BuildVnextWorkspaceConfigInput,
-  VnextWorkspaceConfigJson,
-  VnextWorkspaceExportsJson,
-  VnextWorkspaceExportsMetadataJson,
-  VnextWorkspacePathsJson,
-  VnextWorkspaceReferenceResolutionJson,
-} from './vnext-workspace-defaults.js';
+  VnextWorkspaceConfig,
+  VnextWorkspaceDependencies,
+  VnextWorkspaceExports,
+  VnextWorkspaceExportsMeta,
+  VnextWorkspacePaths,
+  VnextWorkspaceReferenceResolution,
+} from './vnext/vnext-workspace-defaults.js';

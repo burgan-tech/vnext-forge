@@ -20,6 +20,8 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@burgan-tech/vnext-schema": "^0.0.39",
+    "@burgan-tech/vnext-template": "^0.0.7",
     "@hono/node-server": "^1.14.0",
     "@vnext-forge/app-contracts": "workspace:*",
     "@vnext-forge/vnext-types": "workspace:*",

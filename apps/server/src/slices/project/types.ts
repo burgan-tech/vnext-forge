@@ -1,4 +1,4 @@
-import type { WorkspaceConfig } from '@workspace/types.js'
+import type { VnextWorkspaceConfig } from '@workspace/types.js'
 
 export interface ProjectEntry {
   id: string
@@ -17,7 +17,7 @@ export interface LinkFile {
 }
 
 export type ProjectConfigStatus =
-  | { status: 'ok'; config: WorkspaceConfig }
+  | { status: 'ok'; config: VnextWorkspaceConfig }
   | { status: 'missing' }
   | { status: 'invalid'; message: string }
 

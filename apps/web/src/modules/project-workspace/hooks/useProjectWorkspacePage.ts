@@ -38,7 +38,10 @@ export function useProjectWorkspacePage(projectId?: string): ProjectWorkspacePag
         }
         setComponentLayoutStatus(layoutRes.data);
       } catch (error) {
-        logger.warn('Bileşen layout teklifi atlandı (ağaç yine de yüklü).', { error, projectId: pid });
+        logger.warn('Bileşen layout teklifi atlandı (ağaç yine de yüklü).', {
+          error,
+          projectId: pid,
+        });
       }
     },
     [setComponentLayoutStatus],

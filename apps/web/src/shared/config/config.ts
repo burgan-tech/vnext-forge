@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { createLogger } from '@shared/lib/logger/CreateLogger';
+import { createLogger } from '@shared/lib/logger/createLogger';
 
 const logger = createLogger('config');
 

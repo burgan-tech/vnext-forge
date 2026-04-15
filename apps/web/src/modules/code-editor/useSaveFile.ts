@@ -1,6 +1,6 @@
 import { useEffect, useCallback } from 'react';
-import { createLogger } from '@shared/lib/logger/CreateLogger';
-import { useAsync } from '@shared/hooks/UseAsync';
+import { createLogger } from '@shared/lib/logger/createLogger';
+import { useAsync } from '@shared/hooks/useAsync';
 import { writeCodeEditorFile } from './CodeEditorApi';
 
 const logger = createLogger('code-editor/useSaveFile');

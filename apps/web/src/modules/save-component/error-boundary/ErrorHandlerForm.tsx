@@ -1,7 +1,7 @@
 import { Field } from '@shared/ui/Field';
 import { TagEditor } from '@shared/ui/TagEditor';
 import { Badge } from '@shared/ui/Badge';
-import { cn } from '@shared/lib/utils/Cn';
+import { cn } from '@shared/lib/utils/cn';
 import { RetryPolicyEditor } from './RetryPolicyEditor';
 
 interface ErrorHandlerFormProps {

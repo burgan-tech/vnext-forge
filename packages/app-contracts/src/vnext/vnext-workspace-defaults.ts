@@ -1,70 +1,33 @@
 /**
  * Merkezi vNext workspace (vnext.config.json) varsayılanları.
  * Sürüm değerleri tek kaynakta tutulur; runtime / şema hizası buradan yönetilir.
+ *
+ * Kanonik tip tanımları `@vnext-forge/vnext-types` paketinde yaşar.
+ * Bu dosya yalnızca versiyon sabitleri, builder girdisi ve builder fonksiyonunu barındırır.
  */
+import type {
+  VnextWorkspaceConfig,
+  VnextWorkspaceExportsMeta,
+  VnextWorkspaceReferenceResolution,
+} from '@vnext-forge/vnext-types'
+
+export type {
+  VnextWorkspaceConfig,
+  VnextWorkspaceDependencies,
+  VnextWorkspaceExports,
+  VnextWorkspaceExportsMeta,
+  VnextWorkspacePaths,
+  VnextWorkspaceReferenceResolution,
+} from '@vnext-forge/vnext-types'
+
+// ── Version constants ─────────────────────────────────────────────────────────
+
 export const VNEXT_WORKSPACE_RUNTIME_VERSION = '0.0.33' as const
 export const VNEXT_WORKSPACE_SCHEMA_VERSION = '0.0.33' as const
 
 export const VNEXT_WORKSPACE_CONFIG_VERSION = '1.0.0' as const
 
-export interface VnextWorkspacePathsJson {
-  componentsRoot: string
-  tasks: string
-  views: string
-  functions: string
-  extensions: string
-  workflows: string
-  schemas: string
-}
-
-export interface VnextWorkspaceExportsMetadataJson {
-  description: string
-  maintainer: string
-  license: string
-  keywords: string[]
-}
-
-export interface VnextWorkspaceExportsJson {
-  functions: string[]
-  workflows: string[]
-  tasks: string[]
-  views: string[]
-  schemas: string[]
-  extensions: string[]
-  visibility: 'public' | 'private'
-  metadata: VnextWorkspaceExportsMetadataJson
-}
-
-export interface VnextWorkspaceReferenceResolutionJson {
-  enabled: boolean
-  validateOnBuild: boolean
-  strictMode: boolean
-  validateReferenceConsistency: boolean
-  validateSchemas: boolean
-  allowedHosts: string[]
-  schemaValidationRules: {
-    enforceKeyFormat: boolean
-    enforceVersionFormat: boolean
-    enforceFilenameConsistency: boolean
-    allowUnknownProperties: boolean
-  }
-}
-
-/** vnext.config.json ile uyumlu tam yapı (sunucu / istemci yazımı için). */
-export interface VnextWorkspaceConfigJson {
-  version: string
-  description: string
-  domain: string
-  runtimeVersion: string
-  schemaVersion: string
-  paths: VnextWorkspacePathsJson
-  exports: VnextWorkspaceExportsJson
-  dependencies: {
-    domains: string[]
-    npm: string[]
-  }
-  referenceResolution: VnextWorkspaceReferenceResolutionJson
-}
+// ── Builder input ─────────────────────────────────────────────────────────────
 
 export interface BuildVnextWorkspaceConfigInput {
   domain: string
@@ -84,6 +47,8 @@ export interface BuildVnextWorkspaceConfigInput {
   configVersion?: string
 }
 
+// ── Defaults ──────────────────────────────────────────────────────────────────
+
 const DEFAULT_PATH_SEGMENTS = {
   tasks: 'Tasks',
   views: 'Views',
@@ -93,7 +58,7 @@ const DEFAULT_PATH_SEGMENTS = {
   schemas: 'Schemas',
 } as const
 
-const DEFAULT_REFERENCE_RESOLUTION: VnextWorkspaceReferenceResolutionJson = {
+const DEFAULT_REFERENCE_RESOLUTION: Required<VnextWorkspaceReferenceResolution> = {
   enabled: true,
   validateOnBuild: true,
   strictMode: true,
@@ -108,16 +73,19 @@ const DEFAULT_REFERENCE_RESOLUTION: VnextWorkspaceReferenceResolutionJson = {
   },
 }
 
+// ── Builder ───────────────────────────────────────────────────────────────────
+
 /**
  * Wizard / sunucu tarafında vnext.config.json üretimi.
+ * Her zaman tam dolu bir config döner (description, referenceResolution dahil).
  */
 export function buildVnextWorkspaceConfig(
   input: BuildVnextWorkspaceConfigInput,
-): VnextWorkspaceConfigJson {
+): VnextWorkspaceConfig {
   const domain = input.domain.trim()
   const componentsRoot = (input.componentsRoot ?? domain).trim()
 
-  const metadata: VnextWorkspaceExportsMetadataJson = {
+  const metadata: Required<VnextWorkspaceExportsMeta> = {
     description: input.exportsMetadataDescription.trim(),
     maintainer: input.exportsMetadataMaintainer?.trim() || 'vNext Team',
     license: input.exportsMetadataLicense?.trim() || 'MIT',
