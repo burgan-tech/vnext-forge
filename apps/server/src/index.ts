@@ -12,6 +12,8 @@ import { workspaceRouter } from '@workspace/router.js';
 import { validateRouter } from '@validate/router.js';
 import { runtimeProxyRouter } from '@runtime-proxy/router.js';
 import { templateRouter } from '@template/router.js';
+import { injectRoslynWebSocket } from '@roslyn-lsp/router.js';
+import { ensureOmniSharp } from '@roslyn-lsp/omnisharp-installer.js';
 import '@shared/types/hono.js';
 
 const app = new Hono()
@@ -41,7 +43,13 @@ app.notFound((c) =>
 const port = Number(process.env.PORT) || 3001;
 baseLogger.info(`vnext-forge BFF running on port ${port}`);
 
-serve({ fetch: app.fetch, port });
+// Check OmniSharp availability at startup (non-blocking)
+ensureOmniSharp().catch((err) =>
+  baseLogger.warn({ err }, 'OmniSharp not available — Roslyn IntelliSense will be disabled'),
+);
+
+const server = serve({ fetch: app.fetch, port });
+injectRoslynWebSocket(server);
 
 export type AppType = typeof app;
 export default app;

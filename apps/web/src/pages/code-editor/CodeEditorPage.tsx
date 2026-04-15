@@ -2,12 +2,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Editor, { type OnMount } from '@monaco-editor/react';
 
-import { setupMonaco } from '@modules/code-editor/editor/MonacoSetup';
+import { setupMonacoWithLsp } from '@modules/code-editor/editor/MonacoSetup';
+import type { CsharpLspClient } from '@modules/code-editor/editor/lspClient';
 import { useEditorStore } from '@modules/code-editor/EditorStore';
 import { useProjectStore } from '@app/store/useProjectStore';
 import { readFile, writeFile } from '@modules/project-workspace/WorkspaceApi';
-
-let monacoInitialized = false;
 
 function detectLanguage(fileName: string): string {
   const ext = fileName.split('.').pop()?.toLowerCase();
@@ -56,6 +55,8 @@ export function CodeEditorPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const editorRef = useRef<any>(null);
+  const lspClientRef = useRef<CsharpLspClient | null>(null);
+  const lspSessionId = useRef(crypto.randomUUID());
 
   const filePath = encodedFilePath ? decodeURIComponent(encodedFilePath) : null;
   const fileName = filePath?.split('/').pop() || 'unknown';
@@ -101,12 +102,21 @@ export function CodeEditorPage() {
     }
   }, [filePath, activeTab, markTabClean]);
 
+  // Dispose LSP client on unmount
+  useEffect(() => {
+    return () => {
+      lspClientRef.current?.dispose();
+      lspClientRef.current = null;
+    };
+  }, []);
+
   const handleMount: OnMount = useCallback(
     (editor, monaco) => {
       editorRef.current = editor;
-      if (!monacoInitialized) {
-        setupMonaco(monaco);
-        monacoInitialized = true;
+      if (!lspClientRef.current) {
+        setupMonacoWithLsp(monaco, lspSessionId.current).then((client) => {
+          lspClientRef.current = client;
+        });
       }
       editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
         handleSave();
@@ -187,6 +197,7 @@ export function CodeEditorPage() {
       <div className="flex-1">
         <Editor
           height="100%"
+          path={filePath ?? undefined}
           language={language}
           value={activeTab?.content ?? content ?? ''}
           theme="vs"

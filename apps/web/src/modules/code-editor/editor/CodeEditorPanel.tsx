@@ -1,18 +1,19 @@
-import { useRef } from 'react';
+import { useEffect, useRef } from 'react';
 import Editor, { type OnMount } from '@monaco-editor/react';
 import { useEditorStore } from '@modules/code-editor/EditorStore';
 import { useSaveFile } from '@modules/code-editor/useSaveFile';
 import { useUIStore } from '@app/store/useUiStore';
 import { Alert, AlertDescription } from '@shared/ui/Alert';
-import { setupMonaco } from './MonacoSetup';
-
-let monacoInitialized = false;
+import { setupMonacoWithLsp } from './MonacoSetup';
+import type { CsharpLspClient } from './lspClient';
 
 export function CodeEditorPanel() {
   const { tabs, activeTabId, updateTabContent, closeTab, setActiveTab, markTabClean } =
     useEditorStore();
   const { theme } = useUIStore();
   const editorRef = useRef<any>(null);
+  const lspClientRef = useRef<CsharpLspClient | null>(null);
+  const lspSessionId = useRef(crypto.randomUUID());
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
   const { saveError, saving } = useSaveFile({
@@ -26,11 +27,24 @@ export function CodeEditorPanel() {
     },
   });
 
+  // Dispose LSP client on unmount
+  useEffect(() => {
+    return () => {
+      lspClientRef.current?.dispose();
+      lspClientRef.current = null;
+    };
+  }, []);
+
   const handleMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
-    if (!monacoInitialized) {
-      setupMonaco(monaco);
-      monacoInitialized = true;
+    // Start LSP if not already running. Handles both initial mount and remount
+    // after the client was disposed (e.g. unmount → remount in the same session).
+    // setupMonacoWithLsp has its own module-level guard for static providers so
+    // calling it again is safe and only creates a new LSP WebSocket connection.
+    if (!lspClientRef.current) {
+      setupMonacoWithLsp(monaco, lspSessionId.current).then((client) => {
+        lspClientRef.current = client;
+      });
     }
   };
 
@@ -99,6 +113,7 @@ export function CodeEditorPanel() {
         <div className="flex-1">
           <Editor
             height="100%"
+            path={activeTab.id}
             language={getLanguage(activeTab.language)}
             value={activeTab.content || ''}
             theme="vs"
