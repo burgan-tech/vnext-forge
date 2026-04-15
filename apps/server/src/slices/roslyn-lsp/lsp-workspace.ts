@@ -21,9 +21,10 @@ function buildCsprojContent(): string {
     <ImplicitUsings>enable</ImplicitUsings>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <OutputType>Library</OutputType>
-    <!-- Suppress CS0436 (type conflicts with imported type) from stubs -->
-    <NoWarn>CS0436</NoWarn>
   </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="BBT.Workflow.Domain" Version="*" />
+  </ItemGroup>
 </Project>
 `
 }
@@ -36,91 +37,6 @@ global using System.Linq;
 `
 }
 
-/**
- * Stub definitions for common VNext scripting types.
- *
- * These stubs let csharp-ls load and analyse Script.cs even when the real
- * VNext assemblies are not available.  They define just enough surface area
- * (type names, key members) so that code that uses them compiles inside the
- * temporary LSP workspace, allowing Roslyn to report real C# errors in the
- * user's script rather than failing silently due to unresolved references.
- *
- * The stubs live in dedicated namespaces that mirror the real packages so
- * that existing `using` directives in scripts resolve without changes.
- */
-function buildScriptStubs(): string {
-  return `// Auto-generated VNext scripting stubs for LSP analysis
-#pragma warning disable CS8618, CS1591
-
-namespace BBT.Workflow.Scripting
-{
-    public class ScriptBase { }
-    public class ScriptContext
-    {
-        public dynamic? Instance { get; set; }
-        public dynamic? Body { get; set; }
-        public System.Collections.Generic.Dictionary<string, string?>? Headers { get; set; }
-    }
-    public class ScriptResponse
-    {
-        public string? Key { get; set; }
-        public object? Data { get; set; }
-        public string[]? Tags { get; set; }
-    }
-    public interface IMapping
-    {
-        System.Threading.Tasks.Task<ScriptResponse> InputHandler(BBT.Workflow.Definitions.WorkflowTask task, ScriptContext context);
-        System.Threading.Tasks.Task<ScriptResponse> OutputHandler(ScriptContext context);
-    }
-    public interface IConditionMapping
-    {
-        System.Threading.Tasks.Task<bool> Handler(ScriptContext context);
-    }
-    public interface ITimerMapping
-    {
-        System.Threading.Tasks.Task<TimerSchedule> Handler(ScriptContext context);
-    }
-    public interface ITransitionMapping
-    {
-        System.Threading.Tasks.Task<ScriptResponse> Handler(ScriptContext context);
-    }
-    public interface ISubFlowMapping
-    {
-        System.Threading.Tasks.Task<ScriptResponse> InputHandler(BBT.Workflow.Definitions.WorkflowTask task, ScriptContext context);
-        System.Threading.Tasks.Task<ScriptResponse> OutputHandler(ScriptContext context);
-    }
-    public interface ISubProcessMapping
-    {
-        System.Threading.Tasks.Task<ScriptResponse> InputHandler(BBT.Workflow.Definitions.WorkflowTask task, ScriptContext context);
-    }
-    public class TimerSchedule
-    {
-        public static TimerSchedule FromDuration(System.TimeSpan duration) => new();
-    }
-}
-
-namespace BBT.Workflow.Definitions
-{
-    public class WorkflowTask
-    {
-        public string? Id { get; set; }
-        public string? Name { get; set; }
-        public void SetBody(object body) { }
-        public void SetHeaders(System.Collections.Generic.Dictionary<string, string?> headers) { }
-    }
-    public class HttpTask : WorkflowTask { }
-}
-
-namespace BBT.Workflow.Scripting.Functions
-{
-    public class FunctionContext : BBT.Workflow.Scripting.ScriptContext { }
-    public interface IFunction
-    {
-        System.Threading.Tasks.Task<BBT.Workflow.Scripting.ScriptResponse> Handler(FunctionContext context);
-    }
-}
-`
-}
 
 function buildNuGetConfig(feedUrl: string): string {
   return `<?xml version="1.0" encoding="utf-8"?>
@@ -157,11 +73,10 @@ export async function createLspWorkspace(sessionId: string): Promise<LspWorkspac
   await Promise.all([
     fs.writeFile(path.join(workspacePath, 'session.csproj'), buildCsprojContent(), 'utf-8'),
     fs.writeFile(path.join(workspacePath, 'GlobalUsings.cs'), buildGlobalUsings(), 'utf-8'),
-    fs.writeFile(path.join(workspacePath, 'ScriptStubs.cs'), buildScriptStubs(), 'utf-8'),
     fs.writeFile(scriptPath, '// Script placeholder\n', 'utf-8'),
   ])
 
-  // Write NuGet.Config if a private feed is configured
+  // Write NuGet.Config if a private feed is configured in addition to nuget.org
   const privateFeed = process.env.VNEXT_NUGET_FEED
   if (privateFeed) {
     await fs.writeFile(path.join(workspacePath, 'NuGet.Config'), buildNuGetConfig(privateFeed), 'utf-8')
