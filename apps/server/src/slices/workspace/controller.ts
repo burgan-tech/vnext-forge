@@ -79,7 +79,18 @@ export const workspaceController = {
     const logger = getRequestLogger(c, 'workspaceController.search');
     const { query } = await parseRequest(c, fileSearchRequestSchema, 'workspaceController.search');
     logger.info({ projectPath: query.project, query: query.q }, 'searching files');
-    const results = await workspaceService.searchFiles(query.project, query.q, c.get('traceId'));
+    const results = await workspaceService.searchFiles(
+      query.project,
+      query.q,
+      {
+        matchCase: query.matchCase,
+        matchWholeWord: query.matchWholeWord,
+        useRegex: query.useRegex,
+        include: query.include,
+        exclude: query.exclude,
+      },
+      c.get('traceId'),
+    );
     return ok(c, results);
   },
 };

@@ -15,6 +15,40 @@ import { WorkspaceAnalyzer } from './workspace-analyzer.js'
 
 const SYSTEM_ROOT_TOKEN = '::system-root::'
 
+function buildSearchMatcher(
+  query: string,
+  options: { matchCase?: boolean; matchWholeWord?: boolean; useRegex?: boolean },
+): RegExp {
+  let pattern = options.useRegex ? query : query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  if (options.matchWholeWord) pattern = `\\b${pattern}\\b`
+  const flags = options.matchCase ? 'g' : 'gi'
+  return new RegExp(pattern, flags)
+}
+
+/**
+ * Minimal glob pattern matcher supporting `*`, `**`, and `?` wildcards.
+ * Patterns like `**\/*.json`, `*.ts`, `src/**` are handled correctly.
+ */
+function matchesGlobPattern(filePath: string, pattern: string): boolean {
+  const segments = pattern.split(',').map((p) => p.trim()).filter(Boolean)
+  return segments.some((seg) => matchSingleGlob(filePath, seg))
+}
+
+function matchSingleGlob(filePath: string, pattern: string): boolean {
+  // Escape regex special chars except * and ?
+  const regexStr = pattern
+    .replace(/[.+^${}()|[\]\\]/g, '\\$&')
+    .replace(/\*\*/g, '\u0000')
+    .replace(/\*/g, '[^/]*')
+    .replace(/\?/g, '[^/]')
+    .replace(/\u0000/g, '.*')
+  try {
+    return new RegExp(`^${regexStr}$`).test(filePath)
+  } catch {
+    return false
+  }
+}
+
 function toDirectoryEntry(dirPath: string, entry: Dirent): DirectoryEntry {
   return {
     name: entry.name,
@@ -69,10 +103,32 @@ export class WorkspaceService {
     }
   }
 
-  async searchFiles(projectPath: string, query: string, traceId?: string): Promise<SearchResult[]> {
+  async searchFiles(
+    projectPath: string,
+    query: string,
+    options: {
+      matchCase?: boolean
+      matchWholeWord?: boolean
+      useRegex?: boolean
+      include?: string
+      exclude?: string
+    } = {},
+    traceId?: string,
+  ): Promise<SearchResult[]> {
     const results: SearchResult[] = []
+    let matcher: RegExp
     try {
-      await this.searchDir(projectPath, query.toLowerCase(), results, traceId)
+      matcher = buildSearchMatcher(query, options)
+    } catch {
+      throw new VnextForgeError(
+        ERROR_CODES.FILE_READ_ERROR,
+        'Invalid regular expression in search query',
+        { source: 'WorkspaceService.searchFiles', layer: 'infrastructure' },
+        traceId,
+      )
+    }
+    try {
+      await this.searchDir(projectPath, projectPath, matcher, options, results, traceId)
       return results.slice(0, 100)
     } catch (error) {
       if (error instanceof VnextForgeError) throw error
@@ -203,7 +259,9 @@ export class WorkspaceService {
 
   private async searchDir(
     dirPath: string,
-    query: string,
+    projectRoot: string,
+    matcher: RegExp,
+    options: { include?: string; exclude?: string },
     results: SearchResult[],
     traceId?: string,
   ): Promise<void> {
@@ -211,21 +269,27 @@ export class WorkspaceService {
     try {
       entries = await fs.readdir(dirPath, { withFileTypes: true })
     } catch (error) {
-      throw this.toFileError(error, 'WorkspaceService.searchDir', traceId, { dirPath, query })
+      throw this.toFileError(error, 'WorkspaceService.searchDir', traceId, { dirPath })
     }
 
     for (const entry of entries) {
       if (entry.name.startsWith('.') || entry.name === 'node_modules') continue
       const fullPath = path.join(dirPath, entry.name)
+      const relPath = path.relative(projectRoot, fullPath).replace(/\\/g, '/')
 
       if (entry.isDirectory()) {
-        await this.searchDir(fullPath, query, results, traceId)
+        if (options.exclude && matchesGlobPattern(relPath, options.exclude)) continue
+        await this.searchDir(fullPath, projectRoot, matcher, options, results, traceId)
       } else if (/\.(json|csx|ts|js|md)$/.test(entry.name)) {
+        if (options.exclude && matchesGlobPattern(relPath, options.exclude)) continue
+        if (options.include && !matchesGlobPattern(relPath, options.include)) continue
+
         try {
           const content = await fs.readFile(fullPath, 'utf-8')
           const lines = content.split('\n')
           for (let i = 0; i < lines.length; i++) {
-            if (lines[i].toLowerCase().includes(query)) {
+            matcher.lastIndex = 0
+            if (matcher.test(lines[i])) {
               results.push({ path: fullPath, line: i + 1, text: lines[i].trim() })
               if (results.length >= 100) return
             }

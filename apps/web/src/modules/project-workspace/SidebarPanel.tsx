@@ -1,6 +1,12 @@
+import { useState } from 'react';
+
+import { Search, X } from 'lucide-react';
+
 import { Badge } from '@shared/ui/Badge';
+import { cn } from '@shared/lib/utils/cn';
 
 import { FileTree } from '@modules/project-workspace/FileTree';
+import { filterFileTree } from './filterFileTree';
 import { useProjectWorkspace } from './useProjectWorkspace';
 
 export function ProjectWorkspaceSidebarPanel() {
@@ -15,6 +21,8 @@ export function ProjectWorkspaceSidebarPanel() {
     handleRenameFile,
     handleCreateWorkflow,
   } = useProjectWorkspace();
+
+  const [filterQuery, setFilterQuery] = useState('');
 
   if (!activeProject) {
     return (
@@ -46,20 +54,55 @@ export function ProjectWorkspaceSidebarPanel() {
           </Badge>
         )}
       </div>
-      <div className="mt-1">
-        {fileTree ? (
-          <FileTree
-            node={fileTree}
-            depth={0}
-            onFileClick={handleFileClick}
-            onCreateFile={handleCreateFile}
-            onCreateFolder={handleCreateFolder}
-            onDeleteFile={handleDeleteFile}
-            onRenameFile={handleRenameFile}
-            onCreateWorkflow={handleCreateWorkflow}
-            workflowsDir={vnextConfig?.paths?.workflows?.split('/').pop() || 'Workflows'}
+      <div className="px-3 pb-2">
+        <div className={cn(
+          'border-secondary-border bg-secondary flex h-7 items-center gap-1.5 rounded-lg border px-2 transition-all',
+          'focus-within:border-secondary-border-hover focus-within:ring-ring/40 focus-within:ring-[2px]',
+        )}>
+          <Search className="text-muted-foreground size-3 shrink-0" />
+          <input
+            className="placeholder:text-muted-foreground/60 min-w-0 flex-1 border-0 bg-transparent text-[11px] outline-none"
+            placeholder="Filter files…"
+            value={filterQuery}
+            onChange={(e) => setFilterQuery(e.target.value)}
           />
-        ) : null}
+          {filterQuery && (
+            <button
+              type="button"
+              onClick={() => setFilterQuery('')}
+              className="text-muted-foreground hover:text-foreground flex shrink-0 items-center justify-center transition-colors">
+              <X className="size-3" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-1">
+        {fileTree ? (() => {
+          const displayed = filterQuery ? filterFileTree(fileTree, filterQuery) : fileTree;
+
+          if (!displayed) {
+            return (
+              <div className="text-muted-foreground px-4 py-6 text-center text-[11px]">
+                No files matching <span className="font-medium">"{filterQuery}"</span>
+              </div>
+            );
+          }
+
+          return (
+            <FileTree
+              node={displayed}
+              depth={0}
+              onFileClick={handleFileClick}
+              onCreateFile={handleCreateFile}
+              onCreateFolder={handleCreateFolder}
+              onDeleteFile={handleDeleteFile}
+              onRenameFile={handleRenameFile}
+              onCreateWorkflow={handleCreateWorkflow}
+              workflowsDir={vnextConfig?.paths?.workflows?.split('/').pop() || 'Workflows'}
+            />
+          );
+        })() : null}
       </div>
     </div>
   );
