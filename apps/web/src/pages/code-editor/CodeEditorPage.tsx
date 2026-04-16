@@ -5,6 +5,10 @@ import type { editor } from 'monaco-editor';
 
 import { setupMonaco } from '@modules/code-editor/editor/MonacoSetup';
 import { useEditorStore } from '@modules/code-editor/EditorStore';
+import {
+  useComponentFileTypesStore,
+  flowToComponentType,
+} from '@app/store/useComponentFileTypesStore';
 import { useProjectStore } from '@app/store/useProjectStore';
 import { getProject } from '@modules/project-management/ProjectApi';
 import { readFile, writeFile } from '@modules/project-workspace/WorkspaceApi';
@@ -14,6 +18,35 @@ import { applyVnextConfigStrictValidationFailure } from '@modules/project-worksp
 import { isFailure } from '@vnext-forge/app-contracts';
 
 let monacoInitialized = false;
+
+function updateComponentFileTypeAfterSave(filePath: string, content: string): void {
+  const projectPath = useProjectStore.getState().activeProject?.path;
+  if (!projectPath) return;
+
+  const normalized = filePath.replace(/\\/g, '/');
+  const normalizedProject = projectPath.replace(/\\/g, '/');
+  if (!normalized.startsWith(normalizedProject)) return;
+
+  const relativePath = normalized.slice(normalizedProject.length).replace(/^\//, '');
+  const componentsRoot = useProjectStore.getState().vnextConfig?.paths?.componentsRoot;
+  if (!componentsRoot || !relativePath.startsWith(componentsRoot)) return;
+
+  try {
+    const parsed = JSON.parse(content) as Record<string, unknown>;
+    const flow = typeof parsed.flow === 'string' ? parsed.flow : null;
+    const componentType = flow ? flowToComponentType(flow) : null;
+    const store = useComponentFileTypesStore.getState();
+    const current = store.fileTypes[relativePath];
+
+    if (componentType && current !== componentType) {
+      store.setFileType(relativePath, componentType);
+    } else if (!componentType && current) {
+      store.setFileType(relativePath, null);
+    }
+  } catch {
+    // Non-parseable JSON
+  }
+}
 
 function isVnextConfigFilePath(p: string): boolean {
   const n = p.replace(/\\/g, '/').toLowerCase();
@@ -83,8 +116,6 @@ export function CodeEditorPage() {
         if (cancelled || !res.success) return;
         setActiveProject(res.data);
       }
-      if (cancelled) return;
-      await syncVnextWorkspaceFromDisk(id, { openWizardOnMissing: false });
     })();
     return () => {
       cancelled = true;
@@ -130,6 +161,9 @@ export function CodeEditorPage() {
       }
       updateTabContent(filePath, latest);
       markTabClean(filePath);
+      if (language === 'json') {
+        updateComponentFileTypeAfterSave(filePath, latest);
+      }
       if (id && isVnextConfigFilePath(filePath)) {
         const strict = validateVnextConfigJsonText(latest);
         if (!strict.ok) {

@@ -5,6 +5,7 @@ import { FileText, Folder } from 'lucide-react';
 import type { FileTreeNode } from '@modules/project-management/ProjectTypes';
 import { cn } from '@shared/lib/utils/cn';
 
+import type { ComponentFolderType } from './componentFolderIcons';
 import { FileTreeContextMenu, type FileTreeMenuItem } from './FileTreeContextMenu';
 import { FileTreeNodeRow } from './FileTreeNodeRow';
 import { getWorkspaceNameError, normalizeWorkspaceName } from './ProjectWorkspaceSchema';
@@ -20,17 +21,30 @@ interface FileTreeProps {
   onDeleteFile?: (path: string) => void;
   onRenameFile?: (oldPath: string, newName: string) => void;
   onCreateWorkflow?: (parentPath: string, name: string) => void;
-  /** Path segment to detect Workflows directories (e.g. 'Workflows') */
-  workflowsDir?: string;
+  componentDirs?: Partial<Record<ComponentFolderType, string>>;
 }
 
-function isWorkflowsContext(nodePath: string, workflowsDir?: string): boolean {
-  if (!workflowsDir) return false;
-  const segments = nodePath.split('/');
-  const wfIdx = segments.indexOf(workflowsDir);
-  if (wfIdx < 0) return false;
-  const depth = segments.length - 1 - wfIdx;
-  return depth <= 1;
+function detectComponentFolderType(
+  nodePath: string,
+  componentDirs?: Partial<Record<ComponentFolderType, string>>,
+): ComponentFolderType | undefined {
+  if (!componentDirs) return undefined;
+  const segments = nodePath.replace(/\\/g, '/').split('/');
+  let fallback: ComponentFolderType | undefined;
+
+  for (const [type, dirName] of Object.entries(componentDirs)) {
+    if (!dirName) continue;
+    const idx = segments.indexOf(dirName);
+    if (idx < 0) continue;
+    const depthFromDir = segments.length - 1 - idx;
+    if (depthFromDir > 1) continue;
+    if (type === 'components_root') {
+      fallback = 'components_root';
+      continue;
+    }
+    return type as ComponentFolderType;
+  }
+  return fallback;
 }
 
 export function FileTree({
@@ -42,7 +56,7 @@ export function FileTree({
   onDeleteFile,
   onRenameFile,
   onCreateWorkflow,
-  workflowsDir,
+  componentDirs,
 }: FileTreeProps) {
   const [expanded, setExpanded] = useState(depth < 2);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
@@ -131,7 +145,8 @@ export function FileTree({
     setInputError(null);
   };
 
-  const isWfCtx = node.type === 'directory' && isWorkflowsContext(node.path, workflowsDir);
+  const folderType = node.type === 'directory' ? detectComponentFolderType(node.path, componentDirs) : undefined;
+  const isWfCtx = folderType === 'workflows';
   if (node.type === 'file') {
     if (renaming) {
       return (
@@ -259,7 +274,7 @@ export function FileTree({
         node={node}
         depth={depth}
         expanded={expanded}
-        isWorkflowContext={isWfCtx}
+        componentFolderType={folderType}
         onClick={() => setExpanded(!expanded)}
         onContextMenu={handleContextMenu}
       />
@@ -332,7 +347,7 @@ export function FileTree({
               onDeleteFile={onDeleteFile}
               onRenameFile={onRenameFile}
               onCreateWorkflow={onCreateWorkflow}
-              workflowsDir={workflowsDir}
+              componentDirs={componentDirs}
             />
           ))}
         </div>

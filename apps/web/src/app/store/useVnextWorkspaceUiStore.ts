@@ -15,6 +15,8 @@ interface VnextWorkspaceUiState {
   templateSeedMissingPathsPreview: string[] | null;
   /** Kullanıcı şablon teklifini reddettiyse bu proje için otomatik tekrar gösterme */
   templatePromptDeclinedProjectId: string | null;
+  /** validate.js script dosyası projede var mı */
+  validateScriptMissing: boolean;
 
   setVnextConfigWizardOpen: (open: boolean) => void;
   setShowMissingVnextConfigBar: (show: boolean) => void;
@@ -23,6 +25,7 @@ interface VnextWorkspaceUiState {
   openTemplateSeedDialog: (reason: TemplateSeedDialogReason, missingPaths?: string[]) => void;
   declineTemplatePromptForProject: (projectId: string) => void;
   clearTemplatePromptDecline: () => void;
+  setValidateScriptMissing: (missing: boolean) => void;
   resetVnextWorkspaceUi: () => void;
 }
 
@@ -34,6 +37,7 @@ const initial = {
   templateSeedDialogReason: null as TemplateSeedDialogReason | null,
   templateSeedMissingPathsPreview: null as string[] | null,
   templatePromptDeclinedProjectId: null as string | null,
+  validateScriptMissing: false,
 };
 
 export const useVnextWorkspaceUiStore = create<VnextWorkspaceUiState>((set) => ({
@@ -56,8 +60,7 @@ export const useVnextWorkspaceUiStore = create<VnextWorkspaceUiState>((set) => (
     set({
       templateSeedDialogOpen: true,
       templateSeedDialogReason: reason,
-      templateSeedMissingPathsPreview:
-        reason === 'incomplete_layout' ? (missingPaths ?? []).slice(0, 14) : null,
+      templateSeedMissingPathsPreview: missingPaths ?? null,
     }),
   declineTemplatePromptForProject: (projectId) =>
     set({
@@ -67,5 +70,6 @@ export const useVnextWorkspaceUiStore = create<VnextWorkspaceUiState>((set) => (
       templateSeedMissingPathsPreview: null,
     }),
   clearTemplatePromptDecline: () => set({ templatePromptDeclinedProjectId: null }),
+  setValidateScriptMissing: (validateScriptMissing) => set({ validateScriptMissing }),
   resetVnextWorkspaceUi: () => set(initial),
 }));

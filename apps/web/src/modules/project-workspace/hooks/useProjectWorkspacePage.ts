@@ -1,16 +1,17 @@
 import { useCallback, useEffect } from 'react';
 
-import {
-  getProject,
-  getProjectConfigStatus,
-  getVnextComponentLayoutStatus,
-} from '@modules/project-management/ProjectApi';
+import { getProject, getProjectConfigStatus } from '@modules/project-management/ProjectApi';
+import { useComponentFileTypesStore } from '@app/store/useComponentFileTypesStore';
 import { useProjectStore } from '@app/store/useProjectStore';
 import { useVnextWorkspaceUiStore } from '@app/store/useVnextWorkspaceUiStore';
 import { useWorkspaceDiagnosticsStore } from '@app/store/useWorkspaceDiagnosticsStore';
-import { createLogger } from '@shared/lib/logger/CreateLogger';
+import { createLogger } from '@shared/lib/logger/createLogger';
 
 import { applyProjectConfigStatus } from '../applyProjectConfigStatus';
+import {
+  loadComponentFileTypes,
+  refreshWorkspaceLayoutAndValidateScript,
+} from '../syncVnextWorkspaceFromDisk';
 import { getProjectTree } from '../WorkspaceApi';
 
 const logger = createLogger('useProjectWorkspacePage');
@@ -25,27 +26,7 @@ export interface ProjectWorkspacePageController {
 export function useProjectWorkspacePage(projectId?: string): ProjectWorkspacePageController {
   const { setActiveProject, setError, setFileTree, setLoading, setVnextConfig } = useProjectStore();
   const { clearConfigIssues } = useWorkspaceDiagnosticsStore();
-  const setComponentLayoutStatus = useVnextWorkspaceUiStore((s) => s.setComponentLayoutStatus);
   const resetVnextWorkspaceUi = useVnextWorkspaceUiStore((s) => s.resetVnextWorkspaceUi);
-  /** Ana yüklemeden ayrı: hata fırlatırsa workspace (ağaç dahil) sıfırlanmamalı. */
-  const offerLayoutSeedIfNeeded = useCallback(
-    async (pid: string) => {
-      try {
-        const layoutRes = await getVnextComponentLayoutStatus(pid);
-        if (!layoutRes.success) {
-          setComponentLayoutStatus(null);
-          return;
-        }
-        setComponentLayoutStatus(layoutRes.data);
-      } catch (error) {
-        logger.warn('Bileşen layout teklifi atlandı (ağaç yine de yüklü).', {
-          error,
-          projectId: pid,
-        });
-      }
-    },
-    [setComponentLayoutStatus],
-  );
 
   const applyConfigStatus = useCallback(
     (status: Awaited<ReturnType<typeof getProjectConfigStatus>>) => {
@@ -84,7 +65,10 @@ export function useProjectWorkspacePage(projectId?: string): ProjectWorkspacePag
       setFileTree(treeResponse.data);
       applyConfigStatus(statusResponse);
       if (statusResponse.success && statusResponse.data.status === 'ok') {
-        await offerLayoutSeedIfNeeded(projectId);
+        await Promise.all([
+          refreshWorkspaceLayoutAndValidateScript(projectId),
+          loadComponentFileTypes(projectId),
+        ]);
       }
     } catch (error) {
       logger.error('Project workspace could not be loaded.', {
@@ -97,6 +81,7 @@ export function useProjectWorkspacePage(projectId?: string): ProjectWorkspacePag
       setVnextConfig(null);
       clearConfigIssues();
       resetVnextWorkspaceUi();
+      useComponentFileTypesStore.getState().clearFileTypes();
       setError('Project could not be loaded.');
     } finally {
       setLoading(false);
@@ -104,7 +89,6 @@ export function useProjectWorkspacePage(projectId?: string): ProjectWorkspacePag
   }, [
     applyConfigStatus,
     clearConfigIssues,
-    offerLayoutSeedIfNeeded,
     projectId,
     setActiveProject,
     setError,
@@ -121,6 +105,7 @@ export function useProjectWorkspacePage(projectId?: string): ProjectWorkspacePag
       setVnextConfig(null);
       clearConfigIssues();
       resetVnextWorkspaceUi();
+      useComponentFileTypesStore.getState().clearFileTypes();
       setError('Project could not be resolved.');
       setLoading(false);
       return;
@@ -156,7 +141,10 @@ export function useProjectWorkspacePage(projectId?: string): ProjectWorkspacePag
         setFileTree(treeResponse.data);
         applyConfigStatus(statusResponse);
         if (statusResponse.success && statusResponse.data.status === 'ok') {
-          await offerLayoutSeedIfNeeded(projectId);
+          await Promise.all([
+            refreshWorkspaceLayoutAndValidateScript(projectId),
+            loadComponentFileTypes(projectId),
+          ]);
         }
       } catch (error) {
         if (cancelled) {
@@ -173,6 +161,7 @@ export function useProjectWorkspacePage(projectId?: string): ProjectWorkspacePag
         setVnextConfig(null);
         clearConfigIssues();
         resetVnextWorkspaceUi();
+        useComponentFileTypesStore.getState().clearFileTypes();
         setError('Project could not be loaded.');
       } finally {
         if (!cancelled) {
@@ -189,7 +178,6 @@ export function useProjectWorkspacePage(projectId?: string): ProjectWorkspacePag
   }, [
     applyConfigStatus,
     clearConfigIssues,
-    offerLayoutSeedIfNeeded,
     projectId,
     setActiveProject,
     setError,

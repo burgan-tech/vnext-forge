@@ -1,16 +1,61 @@
-import { useCallback, useRef } from 'react';
-import Editor, { type OnMount } from '@monaco-editor/react';
-import type { editor } from 'monaco-editor';
+import { useCallback, useEffect, useRef } from 'react';
+import Editor, { type OnMount, type Monaco } from '@monaco-editor/react';
+import type { editor, IDisposable } from 'monaco-editor';
 import { useEditorStore } from '@modules/code-editor/EditorStore';
 import { useSaveFile } from '@modules/code-editor/useSaveFile';
+import {
+  useComponentFileTypesStore,
+  flowToComponentType,
+} from '@app/store/useComponentFileTypesStore';
+import { useProjectStore } from '@app/store/useProjectStore';
+import { useEditorValidationStore, type EditorMarkerIssue } from '@app/store/useEditorValidationStore';
 import { Alert, AlertDescription } from '@shared/ui/Alert';
 import { setupMonaco } from './MonacoSetup';
+import { configureJsonSchemaValidation } from './JsonSchemaSetup';
 
 let monacoInitialized = false;
+
+function updateComponentFileTypeFromContent(filePath: string, content: string): void {
+  const projectPath = useProjectStore.getState().activeProject?.path;
+  if (!projectPath) return;
+
+  const normalized = filePath.replace(/\\/g, '/');
+  const normalizedProject = projectPath.replace(/\\/g, '/');
+  if (!normalized.startsWith(normalizedProject)) return;
+
+  const relativePath = normalized.slice(normalizedProject.length).replace(/^\//, '');
+  const componentsRoot = useProjectStore.getState().vnextConfig?.paths?.componentsRoot;
+  if (!componentsRoot || !relativePath.startsWith(componentsRoot)) return;
+
+  try {
+    const parsed = JSON.parse(content) as Record<string, unknown>;
+    const flow = typeof parsed.flow === 'string' ? parsed.flow : null;
+    const componentType = flow ? flowToComponentType(flow) : null;
+    const store = useComponentFileTypesStore.getState();
+    const current = store.fileTypes[relativePath];
+
+    if (componentType && current !== componentType) {
+      store.setFileType(relativePath, componentType);
+    } else if (!componentType && current) {
+      store.setFileType(relativePath, null);
+    }
+  } catch {
+    // Non-parseable JSON, skip silently
+  }
+}
+
+function markerSeverityToString(severity: number): 'error' | 'warning' | 'info' {
+  if (severity === 8) return 'error';
+  if (severity === 4) return 'warning';
+  return 'info';
+}
 
 export function CodeEditorPanel() {
   const { tabs, activeTabId, updateTabContent, closeTab, setActiveTab } = useEditorStore();
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
+  const markerListenerRef = useRef<IDisposable | null>(null);
+  const monacoRef = useRef<Monaco | null>(null);
+  const vnextConfig = useProjectStore((s) => s.vnextConfig);
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
 
@@ -29,20 +74,58 @@ export function CodeEditorPanel() {
     onSaved: () => {
       const id = useEditorStore.getState().activeTabId;
       if (!id) return;
-      const editor = editorRef.current;
-      const raw = editor?.getValue() ?? useEditorStore.getState().tabs.find((t) => t.id === id)?.content;
+      const monacoEditor = editorRef.current;
+      const raw = monacoEditor?.getValue() ?? useEditorStore.getState().tabs.find((t) => t.id === id)?.content;
       if (raw === undefined) return;
       useEditorStore.getState().updateTabContent(id, raw);
       useEditorStore.getState().markTabClean(id);
+
+      const tab = useEditorStore.getState().tabs.find((t) => t.id === id);
+      if (tab?.filePath && tab.language === 'json') {
+        updateComponentFileTypeFromContent(tab.filePath, raw);
+      }
     },
   });
 
+  useEffect(() => {
+    return () => {
+      markerListenerRef.current?.dispose();
+      useEditorValidationStore.getState().clearMarkers();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (monacoRef.current && vnextConfig?.paths) {
+      void configureJsonSchemaValidation(monacoRef.current, vnextConfig.paths);
+    }
+  }, [vnextConfig?.paths]);
+
   const handleMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
+    monacoRef.current = monaco;
     if (!monacoInitialized) {
       setupMonaco(monaco);
       monacoInitialized = true;
     }
+
+    markerListenerRef.current?.dispose();
+    markerListenerRef.current = monaco.editor.onDidChangeMarkers(() => {
+      const model = editor.getModel();
+      if (!model) return;
+
+      const markers = monaco.editor.getModelMarkers({ resource: model.uri });
+      const issues: EditorMarkerIssue[] = markers.map((marker: editor.IMarker) => ({
+        severity: markerSeverityToString(marker.severity),
+        message: marker.message,
+        startLineNumber: marker.startLineNumber,
+        startColumn: marker.startColumn,
+        endLineNumber: marker.endLineNumber,
+        endColumn: marker.endColumn,
+      }));
+
+      const filePath = activeTab?.filePath ?? model.uri.toString();
+      useEditorValidationStore.getState().setActiveFileMarkers(filePath, issues);
+    });
   };
 
   const getLanguage = (lang: string) => {

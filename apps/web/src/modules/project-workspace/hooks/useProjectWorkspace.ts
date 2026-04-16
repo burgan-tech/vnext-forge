@@ -10,6 +10,7 @@ import { useEditorStore } from '@modules/code-editor/EditorStore';
 
 import { resolveFileRoute } from '../FileRouter';
 import { getWorkspaceNameError, normalizeWorkspaceName } from '../ProjectWorkspaceSchema';
+import { loadComponentFileTypes } from '../syncVnextWorkspaceFromDisk';
 import {
   createDirectory,
   deleteFile,
@@ -28,7 +29,10 @@ export function useProjectWorkspace() {
 
   const refreshWorkspaceTree = useCallback(async () => {
     await refreshFileTree();
-  }, [refreshFileTree]);
+    if (activeProject) {
+      void loadComponentFileTypes(activeProject.id);
+    }
+  }, [refreshFileTree, activeProject]);
 
   const notifyInvalidName = useCallback((message: string) => {
     showNotification({

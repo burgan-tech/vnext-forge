@@ -10,6 +10,25 @@ The UI is not limited to workflow visualization. It is responsible for the end-t
 
 In short, the product is meant to be a standalone design and management interface for the workflow engine ecosystem, focused on authoring, verification, and operational workflow tooling.
 
+### User-visible language (English only — strict)
+
+All **end-user-facing** and **integrator-facing** text in this repository must be written in **English (US style is fine)**. Treat this as a non-negotiable product contract, not a preference.
+
+**In scope (must be English):**
+
+- UI copy: labels, buttons, menus, dialogs, drawers, tabs, panel and sidebar titles, section headings, empty states, placeholders, tooltips, and similar chrome.
+- Feedback: toasts, snackbars, banners, inline alerts, success and confirmation messages.
+- Errors shown to humans: `VnextForgeError.toUserMessage()`, `ApiFailure.error.message`, validation messages returned to the client, Monaco/editor diagnostics titles or descriptions that surface in the product UI, and any other string intended for display in the app.
+- Naming that users see: wizard and dialog titles, step names, list column headers, status bar text, and feature names when they appear as UI strings (file and symbol names in code may follow existing code conventions; **visible** names stay English).
+- Accessible strings tied to the UI: `aria-label`, `aria-description`, live region text, and visible `title` attributes when they convey UI meaning.
+
+**Out of scope (not governed by this rule):**
+
+- Team communication, ad-hoc notes, or docs outside the shipped product unless a doc is explicitly meant as end-user documentation (keep that English too).
+- Log-only diagnostic text may stay English for consistency with code and tooling; do not route raw internal errors to the UI.
+
+When adding or changing strings, default to English. Do not ship Turkish or other locale strings in UI, API user messages, or user-visible panel names unless the project later adds a formal i18n layer and this rule is explicitly revised.
+
 ---
 
 ### Cross-platform setup (macOS, Linux, Windows)

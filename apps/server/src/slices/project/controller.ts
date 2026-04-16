@@ -127,11 +127,31 @@ export const projectController = {
       projectByIdRequestSchema,
       'projectController.seedVnextComponentLayout',
     );
-    logger.info({ projectId: params.id }, 'seeding vnext component directories from config paths');
+    logger.info({ projectId: params.id }, 'seeding project from vnext-template');
     const result = await projectService.seedVnextComponentLayoutFromConfig(
       params.id,
       c.get('traceId'),
     );
+    return ok(c, result);
+  },
+
+  async getValidateScriptStatus(c: Context): Promise<Response> {
+    const { params } = await parseRequest(
+      c,
+      projectByIdRequestSchema,
+      'projectController.getValidateScriptStatus',
+    );
+    const result = await projectService.getValidateScriptStatus(params.id, c.get('traceId'));
+    return ok(c, result);
+  },
+
+  async getComponentFileTypes(c: Context): Promise<Response> {
+    const { params } = await parseRequest(
+      c,
+      projectByIdRequestSchema,
+      'projectController.getComponentFileTypes',
+    );
+    const result = await projectService.getComponentFileTypes(params.id, c.get('traceId'));
     return ok(c, result);
   },
 };

@@ -85,3 +85,19 @@ export function seedVnextComponentLayout(projectId: string) {
     }),
   );
 }
+
+export function getValidateScriptStatus(projectId: string) {
+  return callApi<{ exists: boolean }>(
+    apiClient.api.projects[':id'].validateScriptStatus.$get({
+      param: { id: projectId },
+    }),
+  );
+}
+
+export function getComponentFileTypes(projectId: string) {
+  return callApi<Record<string, string>>(
+    apiClient.api.projects[':id'].componentFileTypes.$get({
+      param: { id: projectId },
+    }),
+  );
+}

@@ -1,4 +1,4 @@
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { ProjectListActions } from './components/ProjectListActions';
@@ -13,6 +13,7 @@ import type { ProjectInfo } from './ProjectTypes';
 export function ProjectManagementView() {
   const navigate = useNavigate();
   const projectListOverviewApiRef = useRef<ProjectListOverviewApi | null>(null);
+  const [creating, setCreating] = useState(false);
 
   const handleProjectReady = async (project: ProjectInfo) => {
     await projectListOverviewApiRef.current?.refreshProjects();
@@ -34,10 +35,15 @@ export function ProjectManagementView() {
     <div className="flex min-h-full w-full items-start justify-center overflow-y-auto py-8">
       <div className="w-full max-w-xl px-4 sm:px-6">
         <ProjectListHero />
-        <ProjectListActions onProjectReady={handleProjectReady} />
+        <ProjectListActions
+          onProjectReady={handleProjectReady}
+          disabled={creating}
+          onCreatingChange={setCreating}
+        />
         <ProjectListOverview
           deleteError={deleteProject.deleteError}
           deletingProjectId={deleteProject.deletingProjectId}
+          disabled={creating}
           onApiReady={(api) => {
             projectListOverviewApiRef.current = api;
           }}

@@ -1,4 +1,5 @@
-import { AlertCircle, ExternalLink } from 'lucide-react';
+import { useState } from 'react';
+import { AlertCircle, ChevronDown, ChevronRight, ExternalLink } from 'lucide-react';
 
 import { cn } from '@shared/lib/utils/cn';
 import { Popover, PopoverContent, PopoverTrigger } from '@shared/ui/Popover';
@@ -19,6 +20,82 @@ export interface ErrorPopoverItem {
 
 interface StatusBarErrorIssuesPopoverProps {
   items: ErrorPopoverItem[];
+}
+
+function ErrorItem({ item }: { item: ErrorPopoverItem }) {
+  const lines = item.message.split('\n').filter((l) => l.trim().length > 0);
+  const heading = lines[0];
+  const details = lines.slice(1);
+  const hasExpandableContent = details.length > 0;
+
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <li className="border-b border-border-subtle last:border-b-0">
+      <div className="flex items-start gap-2 px-3 py-2">
+        <AlertCircle className="mt-0.5 size-3.5 shrink-0 text-destructive-icon" aria-hidden />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex min-w-0 items-start gap-1">
+              {hasExpandableContent ? (
+                <button
+                  type="button"
+                  onClick={() => setExpanded((v) => !v)}
+                  className="mt-0.5 shrink-0 rounded p-0.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                  aria-expanded={expanded}
+                  aria-label={expanded ? 'Detayları gizle' : 'Detayları göster'}>
+                  {expanded ? (
+                    <ChevronDown className="size-3" />
+                  ) : (
+                    <ChevronRight className="size-3" />
+                  )}
+                </button>
+              ) : null}
+              <p className="text-sm leading-snug text-foreground">
+                {heading}
+                {hasExpandableContent && !expanded ? (
+                  <span className="ml-1 text-xs text-muted-foreground">
+                    ({details.length} detay)
+                  </span>
+                ) : null}
+              </p>
+            </div>
+            {item.action != null ? (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  item.action!.onClick();
+                }}
+                className="mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-md border border-warning-border bg-warning-surface px-2 py-0.5 text-xs font-medium text-warning-text transition-colors duration-150 ease-out hover:border-warning-border-hover hover:bg-warning-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
+                <ExternalLink className="size-3" aria-hidden />
+                {item.action.label}
+              </button>
+            ) : null}
+          </div>
+          {hasExpandableContent && expanded ? (
+            <ol className="mt-1 space-y-0.5 pl-4">
+              {details.map((line, idx) => (
+                <li
+                  key={line}
+                  className="flex gap-1.5 font-mono text-xs leading-relaxed text-muted-foreground">
+                  <span className="shrink-0 text-muted-foreground/60">{idx + 1}.</span>
+                  <span className="min-w-0 truncate" title={line}>{line}</span>
+                </li>
+              ))}
+            </ol>
+          ) : null}
+          {item.detail != null && item.detail !== '' ? (
+            <p
+              className="mt-0.5 truncate font-mono text-xs text-muted-foreground"
+              title={item.detail}>
+              {item.detail}
+            </p>
+          ) : null}
+        </div>
+      </div>
+    </li>
+  );
 }
 
 export function StatusBarErrorIssuesPopover({ items }: StatusBarErrorIssuesPopoverProps) {
@@ -54,54 +131,9 @@ export function StatusBarErrorIssuesPopover({ items }: StatusBarErrorIssuesPopov
           className="min-h-0 flex-1 overflow-y-auto"
           role="list"
           aria-label="Hata listesi">
-          {items.map((item) => {
-            const lines = item.message.split('\n').filter((l) => l.trim().length > 0);
-            const heading = lines[0];
-            const details = lines.slice(1);
-
-            return (
-              <li
-                key={item.id}
-                className="border-b border-border-subtle last:border-b-0">
-                <div className="flex items-start gap-2 px-3 py-2">
-                  <AlertCircle className="mt-0.5 size-3.5 shrink-0 text-destructive-icon" aria-hidden />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm leading-snug text-foreground">{heading}</p>
-                      {item.action != null ? (
-                        <button
-                          type="button"
-                          onClick={item.action.onClick}
-                          className="mt-0.5 inline-flex shrink-0 items-center gap-1 rounded-md border border-warning-border bg-warning-surface px-2 py-0.5 text-xs font-medium text-warning-text transition-colors duration-150 ease-out hover:border-warning-border-hover hover:bg-warning-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50">
-                          <ExternalLink className="size-3" aria-hidden />
-                          {item.action.label}
-                        </button>
-                      ) : null}
-                    </div>
-                    {details.length > 0 ? (
-                      <ol className="mt-1 space-y-0.5">
-                        {details.map((line, idx) => (
-                          <li
-                            key={line}
-                            className="flex gap-1.5 font-mono text-xs leading-relaxed text-muted-foreground">
-                            <span className="shrink-0 text-muted-foreground/60">{idx + 1}.</span>
-                            <span className="min-w-0 truncate" title={line}>{line}</span>
-                          </li>
-                        ))}
-                      </ol>
-                    ) : null}
-                    {item.detail != null && item.detail !== '' ? (
-                      <p
-                        className="mt-0.5 truncate font-mono text-xs text-muted-foreground"
-                        title={item.detail}>
-                        {item.detail}
-                      </p>
-                    ) : null}
-                  </div>
-                </div>
-              </li>
-            );
-          })}
+          {items.map((item) => (
+            <ErrorItem key={item.id} item={item} />
+          ))}
         </ul>
       </PopoverContent>
     </Popover>

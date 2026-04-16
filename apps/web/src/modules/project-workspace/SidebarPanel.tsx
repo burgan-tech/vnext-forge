@@ -1,6 +1,9 @@
+import { useMemo } from 'react';
+
 import { Badge } from '@shared/ui/Badge';
 
 import { FileTree } from '@modules/project-workspace/FileTree';
+import type { ComponentFolderType } from './componentFolderIcons';
 import { useProjectWorkspace } from './hooks/useProjectWorkspace';
 
 export function ProjectWorkspaceSidebarPanel() {
@@ -15,6 +18,20 @@ export function ProjectWorkspaceSidebarPanel() {
     handleRenameFile,
     handleCreateWorkflow,
   } = useProjectWorkspace();
+
+  const componentDirs = useMemo((): Partial<Record<ComponentFolderType, string>> | undefined => {
+    const p = vnextConfig?.paths;
+    if (!p) return undefined;
+    return {
+      components_root: p.componentsRoot?.split('/').pop() || undefined,
+      workflows:  p.workflows?.split('/').pop()  || 'Workflows',
+      tasks:      p.tasks?.split('/').pop()      || 'Tasks',
+      schemas:    p.schemas?.split('/').pop()     || 'Schemas',
+      views:      p.views?.split('/').pop()       || 'Views',
+      functions:  p.functions?.split('/').pop()   || 'Functions',
+      extensions: p.extensions?.split('/').pop()  || 'Extensions',
+    };
+  }, [vnextConfig?.paths]);
 
   if (!activeProject) {
     return (
@@ -55,7 +72,7 @@ export function ProjectWorkspaceSidebarPanel() {
             onDeleteFile={handleDeleteFile}
             onRenameFile={handleRenameFile}
             onCreateWorkflow={handleCreateWorkflow}
-            workflowsDir={vnextConfig?.paths?.workflows?.split('/').pop() || 'Workflows'}
+            componentDirs={componentDirs}
           />
         ) : null}
       </div>

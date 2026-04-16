@@ -44,7 +44,7 @@ export function applyProjectConfigStatus(
   if (status.data.status === 'ok') {
     clearConfigIssues();
     setVnextConfig(status.data.config);
-    /* layout: syncVnextWorkspaceFromDisk veya offerLayoutSeedIfNeeded günceller */
+    /* layout + validate.js: refreshWorkspaceLayoutAndValidateScript (workspace açılışı / ağaç yenileme / tam sync) */
     setVnextConfigWizardOpen(false);
     setShowMissingVnextConfigBar(false);
     return;

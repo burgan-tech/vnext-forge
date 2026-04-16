@@ -1,5 +1,6 @@
 import type { Monaco } from '@monaco-editor/react';
 import { registerContextAwareCompletions } from './CsxCompletions';
+import { configureJsonSchemaValidation } from './JsonSchemaSetup';
 
 export function registerCSharpSnippets(monaco: Monaco) {
   monaco.languages.registerCompletionItemProvider('csharp', {
@@ -138,4 +139,5 @@ export function registerCSharpSnippets(monaco: Monaco) {
 export function setupMonaco(monaco: Monaco) {
   registerContextAwareCompletions(monaco);
   registerCSharpSnippets(monaco);
+  void configureJsonSchemaValidation(monaco);
 }

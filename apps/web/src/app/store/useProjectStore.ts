@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 
+import { refreshWorkspaceLayoutAndValidateScript } from '@modules/project-workspace/syncVnextWorkspaceFromDisk';
 import { getProjectTree } from '@modules/project-workspace/WorkspaceApi';
 
 import type {
@@ -39,7 +40,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   setLoading: (loading) => set({ loading }),
   setError: (error) => set({ error }),
   refreshFileTree: async () => {
-    const { activeProject } = get();
+    const { activeProject, vnextConfig } = get();
 
     if (!activeProject) {
       return;
@@ -53,6 +54,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       }
 
       set({ fileTree: treeResponse.data });
+
+      if (vnextConfig) {
+        await refreshWorkspaceLayoutAndValidateScript(activeProject.id);
+      }
     } catch {
       set({ fileTree: null });
     }

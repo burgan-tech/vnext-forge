@@ -1,13 +1,18 @@
+import { open } from 'node:fs/promises'
 import fs from 'node:fs/promises'
 import { homedir } from 'node:os'
 import path from 'node:path'
+import type { Dirent } from 'node:fs'
 import type { z } from 'zod'
 import type { VnextWorkspaceConfig } from '@vnext-forge/app-contracts'
 import { ERROR_CODES, VnextForgeError } from '@vnext-forge/app-contracts'
 import { CONFIG_FILE } from '@workspace/constants.js'
 import { WorkspaceService } from '@workspace/service.js'
+import { TemplateService } from '@template/service.js'
+import { baseLogger } from '@shared/lib/logger.js'
 import { projectWriteFullConfigRequestSchema } from './schema.js'
 import type {
+  ComponentFileTypeMap,
   ProjectConfigStatus,
   ProjectEntry,
   LinkFile,
@@ -29,8 +34,20 @@ const COMPONENT_LAYOUT_PATH_KEYS: (keyof Omit<VnextWorkspacePaths, 'componentsRo
   'schemas',
 ]
 
+const EXPECTED_TEMPLATE_FILES = [
+  'package.json',
+  'validate.js',
+  'build.js',
+  'index.js',
+  'setup.js',
+  'sync-schema-version.js',
+]
+
 export class ProjectService {
-  constructor(private readonly workspaceService = new WorkspaceService()) {}
+  constructor(
+    private readonly workspaceService = new WorkspaceService(),
+    private readonly templateService = new TemplateService(),
+  ) {}
 
   async ensureProjectsDir(): Promise<void> {
     await fs.mkdir(PROJECTS_DIR, { recursive: true })
@@ -142,16 +159,15 @@ export class ProjectService {
     }
 
     try {
-      await fs.mkdir(rootPath, { recursive: true })
-      for (const componentPath of this.workspaceService.getComponentPaths(rootPath, normalizedDomain)) {
-        await fs.mkdir(componentPath, { recursive: true })
-      }
+      await this.templateService.scaffoldFromTemplate(rootPath, normalizedDomain, traceId)
+
       const config = this.workspaceService.createDefaultConfig(normalizedDomain, description)
       await fs.writeFile(
         this.workspaceService.getConfigPath(rootPath),
         JSON.stringify(config, null, 2),
         'utf-8',
       )
+
       if (normalizedTargetPath) {
         await this.writeLinkFile(normalizedDomain, rootPath)
         return this.toProjectEntry(normalizedDomain, rootPath, true, traceId)
@@ -283,6 +299,19 @@ export class ProjectService {
     ])
 
     const missingLayoutPaths: string[] = []
+
+    for (const templateFile of EXPECTED_TEMPLATE_FILES) {
+      const filePath = path.join(projectPath, templateFile)
+      try {
+        await fs.stat(filePath)
+      } catch (error) {
+        const code = (error as NodeJS.ErrnoException | undefined)?.code
+        if (code === 'ENOENT') {
+          missingLayoutPaths.push(templateFile)
+        }
+      }
+    }
+
     for (const dir of dirs) {
       const rel = this.toProjectRelativePosixPath(projectPath, dir)
       try {
@@ -325,8 +354,11 @@ export class ProjectService {
   }
 
   /**
-   * vnext.config.json içindeki `paths.componentsRoot` ve bileşen yollarına göre klasör iskeleti oluşturur
-   * (`createProject` içindeki `getComponentPaths` yerine yapılandırmaya dayalı).
+   * vnext-template kullanarak proje dosyalarini olusturur ve
+   * vnext.config.json'a gore klasor isimlerini override eder.
+   *
+   * init.js mevcut dizinde package.json varsa hata verir,
+   * bu nedenle gecici bir dizinde calistirilir ve sonuc proje dizinine kopyalanir.
    */
   async seedVnextComponentLayoutFromConfig(
     id: string,
@@ -354,7 +386,34 @@ export class ProjectService {
       )
     }
 
-    const dirs = this.collectComponentLayoutDirectories(projectPath, status.config.paths, traceId)
+    const config = status.config
+
+    const tmpDir = path.join(projectPath, '.vnext-template-tmp')
+    try {
+      await fs.rm(tmpDir, { recursive: true, force: true })
+    } catch { /* ignore */ }
+
+    await this.templateService.scaffoldFromTemplate(tmpDir, config.domain, traceId)
+
+    const tmpEntries = await fs.readdir(tmpDir)
+    for (const entry of tmpEntries) {
+      if (entry === 'node_modules') continue
+      const src = path.join(tmpDir, entry)
+      const dest = path.join(projectPath, entry)
+      try {
+        await fs.stat(dest)
+      } catch {
+        await fs.rename(src, dest)
+      }
+    }
+
+    try {
+      await fs.rm(tmpDir, { recursive: true, force: true })
+    } catch { /* ignore */ }
+
+    await this.templateService.applyCustomConfig(projectPath, config.domain, config, traceId)
+
+    const dirs = this.collectComponentLayoutDirectories(projectPath, config.paths, traceId)
     const ensuredPaths: string[] = []
     for (const dir of dirs) {
       await fs.mkdir(dir, { recursive: true })
@@ -362,6 +421,96 @@ export class ProjectService {
     }
 
     return { ensuredPaths }
+  }
+
+  async getValidateScriptStatus(
+    id: string,
+    traceId?: string,
+  ): Promise<{ exists: boolean }> {
+    const { projectPath } = await this.resolveProjectPath(id, traceId)
+    return this.templateService.checkValidateScript(projectPath)
+  }
+
+  async getComponentFileTypes(
+    id: string,
+    traceId?: string,
+  ): Promise<ComponentFileTypeMap> {
+    const { projectPath } = await this.resolveProjectPath(id, traceId)
+    const status = await this.workspaceService.readConfigStatus(projectPath, traceId)
+
+    if (status.status !== 'ok') {
+      return {}
+    }
+
+    const componentsRoot = status.config.paths.componentsRoot.trim()
+    if (!componentsRoot || path.isAbsolute(componentsRoot)) {
+      return {}
+    }
+
+    const componentsRootAbsolute = path.resolve(path.join(projectPath, componentsRoot))
+    try {
+      const st = await fs.stat(componentsRootAbsolute)
+      if (!st.isDirectory()) return {}
+    } catch {
+      return {}
+    }
+
+    const result: ComponentFileTypeMap = {}
+    await this.collectJsonFlowTypes(componentsRootAbsolute, projectPath, result)
+    return result
+  }
+
+  /**
+   * `"flow"` alanı genellikle JSON dosyasının ilk 512 byte'ında bulunur.
+   * Dosyanın tamamını okumak yerine sadece başını okuyup regex ile çıkarıyoruz.
+   * Büyük workflow JSON dosyaları (50-100KB) için bu 100x daha az I/O demek.
+   * Eğer bulunamazsa dosya sessizce atlanır — tam parse yapmaya gerek yok.
+   */
+  private static readonly FLOW_HEAD_BYTES = 512
+  private static readonly FLOW_REGEX = /"flow"\s*:\s*"(sys-[a-z]+)"/
+
+  private async collectJsonFlowTypes(
+    dirPath: string,
+    projectRoot: string,
+    result: ComponentFileTypeMap,
+  ): Promise<void> {
+    let entries: Dirent[]
+    try {
+      entries = await fs.readdir(dirPath, { withFileTypes: true })
+    } catch {
+      return
+    }
+
+    for (const entry of entries) {
+      if (entry.name.startsWith('.') || entry.name === 'node_modules') continue
+      const fullPath = path.join(dirPath, entry.name)
+
+      if (entry.isDirectory()) {
+        await this.collectJsonFlowTypes(fullPath, projectRoot, result)
+      } else if (entry.name.endsWith('.json')) {
+        const flow = await this.extractFlowFromHead(fullPath)
+        if (flow) {
+          const relativePath = path.relative(projectRoot, fullPath).split(path.sep).join('/')
+          result[relativePath] = flow
+        }
+      }
+    }
+  }
+
+  private async extractFlowFromHead(filePath: string): Promise<string | null> {
+    let fh: Awaited<ReturnType<typeof open>> | null = null
+    try {
+      fh = await open(filePath, 'r')
+      const buf = Buffer.alloc(ProjectService.FLOW_HEAD_BYTES)
+      const { bytesRead } = await fh.read(buf, 0, ProjectService.FLOW_HEAD_BYTES, 0)
+      const head = buf.toString('utf-8', 0, bytesRead)
+      const match = ProjectService.FLOW_REGEX.exec(head)
+      return match ? match[1] : null
+    } catch {
+      return null
+    } finally {
+      await fh?.close()
+    }
   }
 
   private deriveImportDomainFromPath(resolvedSource: string): string {

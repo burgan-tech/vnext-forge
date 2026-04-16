@@ -16,10 +16,12 @@ type CreateProjectCallback = (
 
 interface CreateProjectCardProps {
   onCreated?: CreateProjectCallback;
+  disabled?: boolean;
+  onCreatingChange?: (creating: boolean) => void;
 }
 
-export function CreateProjectCard({ onCreated }: CreateProjectCardProps) {
-  const createProject = useCreateProject({ onCreated });
+export function CreateProjectCard({ onCreated, disabled, onCreatingChange }: CreateProjectCardProps) {
+  const createProject = useCreateProject({ onCreated, onCreatingChange });
   const handleDomainChange = (event: ChangeEvent<HTMLInputElement>) => {
     createProject.setDomain(event.target.value);
   };
@@ -52,6 +54,7 @@ export function CreateProjectCard({ onCreated }: CreateProjectCardProps) {
           onChange={handleDomainChange}
           aria-invalid={Boolean(createProject.domainError)}
           onKeyDown={handleDomainKeyDown}
+          disabled={disabled || createProject.creating}
         />
 
         {createProject.domainError ? (
@@ -102,9 +105,9 @@ export function CreateProjectCard({ onCreated }: CreateProjectCardProps) {
             void createProject.submit();
           }}
           loading={createProject.creating}
-          disabled={!createProject.canSubmit}
+          disabled={disabled || !createProject.canSubmit}
           className="h-10 w-full rounded-xl shadow-sm">
-          Create
+          {createProject.creating ? 'Oluşturuluyor…' : 'Create'}
         </Button>
       </CardContent>
     </Card>

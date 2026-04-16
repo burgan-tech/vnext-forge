@@ -21,7 +21,7 @@ export type ProjectConfigStatus =
   | { status: 'missing' }
   | { status: 'invalid'; message: string }
 
-/** POST /projects/:id/vnextComponentLayout — mkdir ile güvence altına alınan yollar (proje köküne göre, `/` ile). */
+/** POST /projects/:id/vnextComponentLayout — vnext-template ile proje yapısı oluşturma sonucu. */
 export interface SeedVnextComponentLayoutResult {
   ensuredPaths: string[]
 }
@@ -32,8 +32,11 @@ export interface VnextComponentLayoutStatusResult {
   projectContainsOnlyConfigFile: boolean
   /** paths.componentsRoot diskte klasör olarak var mı */
   componentsRootPresent: boolean
-  /** Beklenen layout yollarından eksik veya dosya olarak var olanlar (posix, proje köküne göre) */
+  /** Eksik bileşen klasörleri ve şablon dosyaları (posix, proje köküne göre) */
   missingLayoutPaths: string[]
-  /** Tüm beklenen dizinler mevcut ve klasör */
+  /** Tüm beklenen klasörler ve dosyalar mevcut */
   layoutComplete: boolean
 }
+
+/** GET /projects/:id/componentFileTypes — componentsRoot altındaki .json dosyalarının flow alanına göre tip haritası. */
+export type ComponentFileTypeMap = Record<string, string>

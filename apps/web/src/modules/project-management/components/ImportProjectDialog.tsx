@@ -21,9 +21,10 @@ type ImportProjectCallback = (
 
 interface ImportProjectDialogProps {
   onImported?: ImportProjectCallback;
+  disabled?: boolean;
 }
 
-export function ImportProjectDialog({ onImported }: ImportProjectDialogProps) {
+export function ImportProjectDialog({ onImported, disabled }: ImportProjectDialogProps) {
   const importProject = useImportProject({ onImported });
 
   return (
@@ -36,6 +37,7 @@ export function ImportProjectDialog({ onImported }: ImportProjectDialogProps) {
             <FolderOpen className="size-4" aria-hidden="true" />
           </div>
         }
+        disabled={disabled}
         onClick={() => {
           void importProject.openDialog();
         }}

@@ -6,6 +6,7 @@ import { useValidationStore } from '@app/store/useValidationStore';
 import { useVnextWorkspaceUiStore } from '@app/store/useVnextWorkspaceUiStore';
 import { useWorkspaceDiagnosticsStore } from '@app/store/useWorkspaceDiagnosticsStore';
 import { useWorkflowStore } from '@app/store/useWorkflowStore';
+import { useEditorValidationStore } from '@app/store/useEditorValidationStore';
 import {
   StatusBarErrorIssuesPopover,
   type ErrorPopoverItem,
@@ -23,6 +24,8 @@ export function StatusBar() {
   const { issues } = useValidationStore();
   const { configIssues } = useWorkspaceDiagnosticsStore();
   const invalidVnextConfigIssue = configIssues.find((i) => i.id === 'workspace-config-invalid');
+  const validateScriptMissing = useVnextWorkspaceUiStore((s) => s.validateScriptMissing);
+  const { activeFileMarkers } = useEditorValidationStore();
 
   const needsTemplateOffer =
     componentLayoutStatus != null &&
@@ -39,12 +42,14 @@ export function StatusBar() {
     const layout = useVnextWorkspaceUiStore.getState().componentLayoutStatus;
     if (!layout) return;
     const reason = layout.projectContainsOnlyConfigFile ? 'only_config' : 'incomplete_layout';
-    openTemplateSeedDialog(reason, layout.missingLayoutPaths);
+    setTimeout(() => {
+      openTemplateSeedDialog(reason, layout.missingLayoutPaths);
+    }, 0);
   };
 
   const mergedIssues = [...issues, ...configIssues];
   const errorIssues = mergedIssues.filter((issue) => issue.severity === 'error');
-  const warnings = mergedIssues.filter((issue) => issue.severity === 'warning').length;
+  const baseWarnings = mergedIssues.filter((issue) => issue.severity === 'warning').length;
 
   const configActionIds = new Set<string>();
   if (invalidVnextConfigIssue) configActionIds.add(invalidVnextConfigIssue.id);
@@ -53,6 +58,9 @@ export function StatusBar() {
     templateBarBase && componentLayoutStatus != null && !componentLayoutStatus.layoutComplete;
 
   const missingPaths = componentLayoutStatus?.missingLayoutPaths ?? [];
+
+  const editorSchemaErrors = activeFileMarkers.filter((m) => m.severity === 'error');
+  const editorSchemaWarnings = activeFileMarkers.filter((m) => m.severity === 'warning');
 
   const errorPopoverItems: ErrorPopoverItem[] = [
     ...(activeProject && !invalidVnextConfigIssue && showMissingVnextConfigBar
@@ -72,18 +80,31 @@ export function StatusBar() {
         ? { label: 'Düzelt', onClick: () => setVnextConfigWizardOpen(true) }
         : undefined,
     })),
+    ...editorSchemaErrors.map((marker, idx) => ({
+      id: `schema-error-${idx}`,
+      message: marker.message,
+      detail: `Satır ${marker.startLineNumber}:${marker.startColumn}`,
+    })),
     ...(showTemplateSeedIssue
       ? [
           {
             id: 'missing-component-layout',
             message: componentLayoutStatus?.projectContainsOnlyConfigFile
-              ? `Bileşen klasörleri eksik\n${missingPaths.slice(0, 8).join('\n')}`
-              : `Bazı bileşen klasörleri eksik\n${missingPaths.slice(0, 8).join('\n')}`,
-            detail: 'workspace.layout',
+              ? `Proje şablonu oluşturulmamış\n${missingPaths.join('\n')}`
+              : `Proje yapısı eksik\n${missingPaths.join('\n')}`,
+            detail: 'vnext-template',
             action: {
-              label: 'Oluştur',
+              label: 'Şablonu Oluştur',
               onClick: () => openTemplateDialogFromLayout(),
             },
+          },
+        ]
+      : []),
+    ...(activeProject && validateScriptMissing && !showTemplateSeedIssue
+      ? [
+          {
+            id: 'missing-validate-script',
+            message: 'validate.js dosyası bulunamadı. Proje şablonunu yeniden oluşturun.',
           },
         ]
       : []),
@@ -128,15 +149,16 @@ export function StatusBar() {
 
       {totalErrors > 0 ? <StatusBarErrorIssuesPopover items={errorPopoverItems} /> : null}
 
-      {warnings > 0 && (
+      {(baseWarnings + editorSchemaWarnings.length) > 0 && (
         <StatusBarNotification
           variant="chip-warning"
           leading={<AlertTriangle className="size-3.5 shrink-0" />}>
-          {warnings} {warnings === 1 ? 'Warning' : 'Warnings'}
+          {baseWarnings + editorSchemaWarnings.length}{' '}
+          {baseWarnings + editorSchemaWarnings.length === 1 ? 'Warning' : 'Warnings'}
         </StatusBarNotification>
       )}
 
-      {totalErrors === 0 && warnings === 0 && activeProject && !needsTemplateOffer && (
+      {totalErrors === 0 && baseWarnings + editorSchemaWarnings.length === 0 && activeProject && !needsTemplateOffer && (
         <StatusBarNotification
           variant="chip-success"
           leading={<CheckCircle2 className="size-3.5 shrink-0" />}>
