@@ -5,6 +5,7 @@ import { JsonCodeField } from '@shared/ui/JsonCodeField';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@shared/ui/Card';
 import { SchemaMetadataForm } from './SchemaMetadataForm';
 import { SchemaTree } from './SchemaTree';
+import { ValidatePayloadCard } from './ValidatePayloadCard';
 import { getSchemaSource } from '../SchemaEditorSchema';
 
 interface SchemaEditorPanelProps {
@@ -105,6 +106,7 @@ export function SchemaEditorPanel({ json, onChange }: SchemaEditorPanelProps) {
           )}
         </CardContent>
       </Card>
+      <ValidatePayloadCard schema={schema} />
     </div>
   );
 }

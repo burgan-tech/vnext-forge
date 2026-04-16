@@ -8,10 +8,12 @@ import { encodeToBase64, decodeFromBase64 } from '@modules/code-editor/editor/Ba
 import { CsxSnippetToolbar } from '@modules/code-editor/editor/CsxSnippetToolbar';
 import { CsxReferencePanel } from '@modules/code-editor/editor/CsxReferencePanel';
 import { applyDiagnostics } from '@modules/code-editor/editor/CsxDiagnostics';
+import { setupMonacoWithLsp } from '@modules/code-editor/editor/MonacoSetup';
 import { applyScriptValueToWorkflow } from '@modules/code-editor/ScriptWorkflowSync';
 import { getScriptLocationError } from '@modules/code-editor/ScriptLocationValidation';
 import { Alert, AlertDescription } from '@shared/ui/Alert';
 import { Input } from '@shared/ui/Input';
+import type { CsharpLspClient } from '@modules/code-editor/editor/lspClient';
 
 const MIN_HEIGHT = 200;
 const MAX_HEIGHT = 700;
@@ -27,6 +29,8 @@ export function ScriptEditorPanel() {
   const editorRef = useRef<any>(null);
   const monacoRef = useRef<any>(null);
   const diagnosticTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lspClientRef = useRef<CsharpLspClient | null>(null);
+  const lspSessionId = useRef(crypto.randomUUID());
   const resizingRef = useRef(false);
   const startYRef = useRef(0);
   const startHeightRef = useRef(0);
@@ -83,6 +87,11 @@ export function ScriptEditorPanel() {
       }
 
       editor.focus();
+
+      // Start Roslyn LSP client (static completions registered as fallback inside)
+      setupMonacoWithLsp(monaco, lspSessionId.current).then((client) => {
+        lspClientRef.current = client;
+      });
     },
     [activeScript],
   );
@@ -155,6 +164,8 @@ export function ScriptEditorPanel() {
   useEffect(() => {
     return () => {
       if (diagnosticTimerRef.current) clearTimeout(diagnosticTimerRef.current);
+      lspClientRef.current?.dispose();
+      lspClientRef.current = null;
     };
   }, []);
 

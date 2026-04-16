@@ -1,6 +1,5 @@
-import { Input } from '@shared/ui/Input';
-
 import { useUIStore } from '@app/store/useUiStore';
+import { SearchPanel } from '@modules/project-search/SearchPanel';
 import { ProjectWorkspaceSidebarPanel } from '@modules/project-workspace/SidebarPanel';
 
 export function Sidebar() {
@@ -18,14 +17,7 @@ export function Sidebar() {
       <div className="flex-1 overflow-y-auto">
         {sidebarView === 'project' && <ProjectWorkspaceSidebarPanel />}
 
-        {sidebarView === 'search' && (
-          <div className="mt-2 px-3">
-            <Input size="sm" placeholder="Search files..." />
-            <div className="text-muted-foreground mt-6 text-center text-[10px]">
-              Type to search across project files
-            </div>
-          </div>
-        )}
+        {sidebarView === 'search' && <SearchPanel />}
 
         {sidebarView === 'validation' && (
           <div className="text-muted-foreground mt-12 px-4 text-center text-xs">

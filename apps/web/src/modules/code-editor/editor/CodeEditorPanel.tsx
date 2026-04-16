@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef } from 'react';
 import Editor, { type OnMount, type Monaco } from '@monaco-editor/react';
 import type { editor, IDisposable } from 'monaco-editor';
+
+import { useUIStore } from '@app/store/useUiStore';
 import { useEditorStore } from '@modules/code-editor/EditorStore';
 import { useSaveFile } from '@modules/code-editor/useSaveFile';
 import {
@@ -10,10 +12,9 @@ import {
 import { useProjectStore } from '@app/store/useProjectStore';
 import { useEditorValidationStore, type EditorMarkerIssue } from '@app/store/useEditorValidationStore';
 import { Alert, AlertDescription } from '@shared/ui/Alert';
-import { setupMonaco } from './MonacoSetup';
+import { setupMonacoWithLsp } from './MonacoSetup';
+import type { CsharpLspClient } from './lspClient';
 import { configureJsonSchemaValidation } from './JsonSchemaSetup';
-
-let monacoInitialized = false;
 
 function updateComponentFileTypeFromContent(filePath: string, content: string): void {
   const projectPath = useProjectStore.getState().activeProject?.path;
@@ -52,10 +53,15 @@ function markerSeverityToString(severity: number): 'error' | 'warning' | 'info' 
 
 export function CodeEditorPanel() {
   const { tabs, activeTabId, updateTabContent, closeTab, setActiveTab } = useEditorStore();
+  const { theme: uiTheme } = useUIStore();
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
+  const lspClientRef = useRef<CsharpLspClient | null>(null);
+  const lspSessionId = useRef(crypto.randomUUID());
   const markerListenerRef = useRef<IDisposable | null>(null);
   const monacoRef = useRef<Monaco | null>(null);
   const vnextConfig = useProjectStore((s) => s.vnextConfig);
+
+  const monacoEditorTheme = uiTheme === 'dark' ? 'vs-dark' : 'vs';
 
   const activeTab = tabs.find((t) => t.id === activeTabId);
 
@@ -90,22 +96,25 @@ export function CodeEditorPanel() {
   useEffect(() => {
     return () => {
       markerListenerRef.current?.dispose();
+      lspClientRef.current?.dispose();
+      lspClientRef.current = null;
       useEditorValidationStore.getState().clearMarkers();
     };
   }, []);
 
   useEffect(() => {
-    if (monacoRef.current && vnextConfig?.paths) {
-      void configureJsonSchemaValidation(monacoRef.current, vnextConfig.paths);
+    if (monacoRef.current) {
+      void configureJsonSchemaValidation(monacoRef.current, vnextConfig?.paths ?? null);
     }
   }, [vnextConfig?.paths]);
 
   const handleMount: OnMount = (editor, monaco) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
-    if (!monacoInitialized) {
-      setupMonaco(monaco);
-      monacoInitialized = true;
+    if (!lspClientRef.current) {
+      void setupMonacoWithLsp(monaco, lspSessionId.current).then((client) => {
+        lspClientRef.current = client;
+      });
     }
 
     markerListenerRef.current?.dispose();
@@ -193,9 +202,10 @@ export function CodeEditorPanel() {
         <div className="flex-1">
           <Editor
             height="100%"
+            path={activeTab.id}
             language={getLanguage(activeTab.language)}
             value={activeTab.content ?? ''}
-            theme="vs"
+            theme={monacoEditorTheme}
             onChange={(value) => {
               if (value !== undefined) {
                 updateTabContent(activeTab.id, value);

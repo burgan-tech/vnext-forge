@@ -1,6 +1,12 @@
 import type { Monaco } from '@monaco-editor/react';
+import { createLogger } from '@shared/lib/logger/createLogger';
 import { registerContextAwareCompletions } from './CsxCompletions';
 import { configureJsonSchemaValidation } from './JsonSchemaSetup';
+import { createCsharpLspClient, type CsharpLspClient } from './lspClient';
+
+const logger = createLogger('MonacoSetup');
+
+let staticProvidersRegistered = false;
 
 export function registerCSharpSnippets(monaco: Monaco) {
   monaco.languages.registerCompletionItemProvider('csharp', {
@@ -140,4 +146,32 @@ export function setupMonaco(monaco: Monaco) {
   registerContextAwareCompletions(monaco);
   registerCSharpSnippets(monaco);
   void configureJsonSchemaValidation(monaco);
+}
+
+/**
+ * Sets up Monaco with both static completions (always active as fallback)
+ * and the Roslyn LSP client (connected to OmniSharp on the server).
+ *
+ * Returns a disposable LSP client handle. Call dispose() on editor unmount.
+ * If the LSP connection fails, static completions continue to work.
+ */
+export async function setupMonacoWithLsp(
+  monaco: Monaco,
+  sessionId: string,
+): Promise<CsharpLspClient | null> {
+  // Static completions — register only once per Monaco instance (module-level guard)
+  if (!staticProvidersRegistered) {
+    registerContextAwareCompletions(monaco);
+    registerCSharpSnippets(monaco);
+    staticProvidersRegistered = true;
+  }
+
+  const client = createCsharpLspClient(monaco, sessionId);
+  try {
+    await client.start();
+    return client;
+  } catch (err: any) {
+    logger.warn('Roslyn LSP unavailable — using static completions only', { err: err?.message });
+    return null;
+  }
 }

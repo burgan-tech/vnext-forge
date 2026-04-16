@@ -97,6 +97,38 @@ export function renameFile(oldPath: string, newPath: string) {
   );
 }
 
+export interface FileSearchOptions {
+  query: string;
+  projectPath: string;
+  matchCase?: boolean;
+  matchWholeWord?: boolean;
+  useRegex?: boolean;
+  include?: string;
+  exclude?: string;
+}
+
+export interface FileSearchResult {
+  path: string;
+  line: number;
+  text: string;
+}
+
+export function searchFiles(opts: FileSearchOptions) {
+  return callApi<FileSearchResult[]>(
+    apiClient.api.files.search.$get({
+      query: {
+        q: opts.query,
+        project: opts.projectPath,
+        ...(opts.matchCase !== undefined && { matchCase: String(opts.matchCase) }),
+        ...(opts.matchWholeWord !== undefined && { matchWholeWord: String(opts.matchWholeWord) }),
+        ...(opts.useRegex !== undefined && { useRegex: String(opts.useRegex) }),
+        ...(opts.include ? { include: opts.include } : {}),
+        ...(opts.exclude ? { exclude: opts.exclude } : {}),
+      },
+    }),
+  );
+}
+
 export interface WorkflowScaffoldParams {
   parentPath: string;
   name: string;
