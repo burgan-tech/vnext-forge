@@ -1,12 +1,56 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Editor, { type OnMount } from '@monaco-editor/react';
+import type { editor } from 'monaco-editor';
 
 import { setupMonacoWithLsp } from '@modules/code-editor/editor/MonacoSetup';
 import type { CsharpLspClient } from '@modules/code-editor/editor/lspClient';
 import { useEditorStore } from '@modules/code-editor/EditorStore';
+import {
+  useComponentFileTypesStore,
+  flowToComponentType,
+} from '@app/store/useComponentFileTypesStore';
 import { useProjectStore } from '@app/store/useProjectStore';
+import { getProject } from '@modules/project-management/ProjectApi';
 import { readFile, writeFile } from '@modules/project-workspace/WorkspaceApi';
+import { syncVnextWorkspaceFromDisk } from '@modules/project-workspace/syncVnextWorkspaceFromDisk';
+import { validateVnextConfigJsonText } from '@modules/project-workspace/vnextWorkspaceConfigWizardValidation';
+import { applyVnextConfigStrictValidationFailure } from '@modules/project-workspace/workspaceConfigDiagnostics';
+import { isFailure } from '@vnext-forge/app-contracts';
+
+function updateComponentFileTypeAfterSave(filePath: string, content: string): void {
+  const projectPath = useProjectStore.getState().activeProject?.path;
+  if (!projectPath) return;
+
+  const normalized = filePath.replace(/\\/g, '/');
+  const normalizedProject = projectPath.replace(/\\/g, '/');
+  if (!normalized.startsWith(normalizedProject)) return;
+
+  const relativePath = normalized.slice(normalizedProject.length).replace(/^\//, '');
+  const componentsRoot = useProjectStore.getState().vnextConfig?.paths?.componentsRoot;
+  if (!componentsRoot || !relativePath.startsWith(componentsRoot)) return;
+
+  try {
+    const parsed = JSON.parse(content) as Record<string, unknown>;
+    const flow = typeof parsed.flow === 'string' ? parsed.flow : null;
+    const componentType = flow ? flowToComponentType(flow) : null;
+    const store = useComponentFileTypesStore.getState();
+    const current = store.fileTypes[relativePath];
+
+    if (componentType && current !== componentType) {
+      store.setFileType(relativePath, componentType);
+    } else if (!componentType && current) {
+      store.setFileType(relativePath, null);
+    }
+  } catch {
+    // Non-parseable JSON
+  }
+}
+
+function isVnextConfigFilePath(p: string): boolean {
+  const n = p.replace(/\\/g, '/').toLowerCase();
+  return n.endsWith('/vnext.config.json') || n === 'vnext.config.json';
+}
 
 function detectLanguage(fileName: string): string {
   const ext = fileName.split('.').pop()?.toLowerCase();
@@ -48,20 +92,36 @@ function detectLanguage(fileName: string): string {
 export function CodeEditorPage() {
   const { id, '*': encodedFilePath } = useParams<{ id: string; '*': string }>();
   const navigate = useNavigate();
-  const { activeProject } = useProjectStore();
-  const { tabs, activeTabId, openTab, updateTabContent, markTabClean, setActiveTab, closeTab } = useEditorStore();
+  const { activeProject, setActiveProject } = useProjectStore();
+  const { tabs, activeTabId, openTab, updateTabContent, markTabClean, setActiveTab, closeTab } =
+    useEditorStore();
   const [content, setContent] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const editorRef = useRef<any>(null);
+  const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const lspClientRef = useRef<CsharpLspClient | null>(null);
   const lspSessionId = useRef(crypto.randomUUID());
 
   const filePath = encodedFilePath ? decodeURIComponent(encodedFilePath) : null;
-  const fileName = filePath?.split('/').pop() || 'unknown';
+  const fileName = filePath?.split('/').pop() ?? 'unknown';
   const language = detectLanguage(fileName);
   const activeTab = tabs.find((tab) => tab.id === activeTabId);
+
+  useEffect(() => {
+    if (!id) return;
+    let cancelled = false;
+    void (async () => {
+      if (useProjectStore.getState().activeProject?.id !== id) {
+        const res = await getProject(id);
+        if (cancelled || !res.success) return;
+        setActiveProject(res.data);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [id, setActiveProject]);
 
   useEffect(() => {
     if (!filePath) return;
@@ -91,16 +151,38 @@ export function CodeEditorPage() {
 
   const handleSave = useCallback(async () => {
     if (!filePath || !activeTab) return;
+    const latest = editorRef.current?.getValue() ?? activeTab.content ?? '';
     setSaving(true);
+    setError(null);
     try {
-      await writeFile(filePath, activeTab.content ?? '');
+      const result = await writeFile(filePath, latest);
+      if (isFailure(result)) {
+        setError(result.error.message);
+        return;
+      }
+      updateTabContent(filePath, latest);
       markTabClean(filePath);
+      if (language === 'json') {
+        updateComponentFileTypeAfterSave(filePath, latest);
+      }
+      if (id && isVnextConfigFilePath(filePath)) {
+        const strict = validateVnextConfigJsonText(latest);
+        if (!strict.ok) {
+          applyVnextConfigStrictValidationFailure(strict.summary);
+          setError(strict.summary);
+          return;
+        }
+        const syncResult = await syncVnextWorkspaceFromDisk(id, { openWizardOnMissing: true });
+        if (!syncResult.ok) {
+          setError(syncResult.message);
+        }
+      }
     } catch (err) {
       setError(String(err));
     } finally {
       setSaving(false);
     }
-  }, [filePath, activeTab, markTabClean]);
+  }, [filePath, activeTab, id, markTabClean, updateTabContent]);
 
   // Dispose LSP client on unmount
   useEffect(() => {
@@ -118,8 +200,12 @@ export function CodeEditorPage() {
           lspClientRef.current = client;
         });
       }
-      editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
-        handleSave();
+      const keys = monaco as {
+        KeyMod: { CtrlCmd: number };
+        KeyCode: { KeyS: number };
+      };
+      editor.addCommand(keys.KeyMod.CtrlCmd | keys.KeyCode.KeyS, () => {
+        void handleSave();
       });
     },
     [handleSave],
@@ -134,14 +220,23 @@ export function CodeEditorPage() {
   };
 
   if (loading) {
-    return <div className="flex h-full items-center justify-center text-sm text-slate-400">Loading file...</div>;
+    return (
+      <div className="flex h-full items-center justify-center text-sm text-slate-400">
+        Loading file...
+      </div>
+    );
   }
 
   if (error && content === null) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-2">
         <div className="text-sm text-red-500">{error}</div>
-        <button onClick={() => navigate(`/project/${id}`)} className="text-xs text-slate-400 hover:text-slate-900">
+        <button
+          type="button"
+          onClick={() => {
+            void navigate(`/project/${id}`);
+          }}
+          className="text-xs text-slate-400 hover:text-slate-900">
           Back to project
         </button>
       </div>
@@ -160,8 +255,7 @@ export function CodeEditorPage() {
                   ? 'bg-white font-medium text-slate-900'
                   : 'text-slate-500 hover:bg-slate-100/50 hover:text-slate-700'
               }`}
-              onClick={() => handleTabClick(tab.id)}
-            >
+              onClick={() => handleTabClick(tab.id)}>
               <FileIcon language={tab.language} />
               <span className="max-w-[140px] truncate">{tab.title}</span>
               {tab.isDirty && <span className="text-[10px] text-amber-500">*</span>}
@@ -170,8 +264,7 @@ export function CodeEditorPage() {
                   event.stopPropagation();
                   closeTab(tab.id);
                 }}
-                className="ml-0.5 shrink-0 text-slate-300 hover:text-slate-600"
-              >
+                className="ml-0.5 shrink-0 text-slate-300 hover:text-slate-600">
                 x
               </button>
             </div>
@@ -180,17 +273,24 @@ export function CodeEditorPage() {
       )}
 
       <div className="flex shrink-0 items-center gap-2 border-b border-slate-100 bg-white px-3 py-1 text-[11px]">
-        <button onClick={() => navigate(`/project/${id}`)} className="text-slate-400 hover:text-slate-700">
-          {activeProject?.domain || id}
+        <button
+          type="button"
+          onClick={() => {
+            void navigate(`/project/${id}`);
+          }}
+          className="text-slate-400 hover:text-slate-700">
+          {activeProject?.domain ?? id}
         </button>
         <span className="text-slate-300">/</span>
         <span className="truncate text-slate-500">
-          {filePath?.replace((activeProject?.path || '') + '/', '') || fileName}
+          {filePath?.replace(`${activeProject?.path ?? ''}/`, '') ?? fileName}
         </span>
         <div className="ml-auto flex items-center gap-2">
-          {activeTab?.isDirty && <span className="text-[10px] font-medium text-amber-500">Modified</span>}
+          {activeTab?.isDirty && (
+            <span className="text-[10px] font-medium text-amber-500">Modified</span>
+          )}
           {saving && <span className="text-[10px] font-medium text-indigo-500">Saving...</span>}
-          <span className="font-mono text-[10px] uppercase text-slate-400">{language}</span>
+          <span className="font-mono text-[10px] text-slate-400 uppercase">{language}</span>
         </div>
       </div>
 
@@ -264,7 +364,8 @@ function FileIcon({ language }: { language: string }) {
   };
 
   return (
-    <span className={`w-4 shrink-0 text-center text-[9px] font-bold ${colors[language] || 'text-slate-400'}`}>
+    <span
+      className={`w-4 shrink-0 text-center text-[9px] font-bold ${colors[language] || 'text-slate-400'}`}>
       {labels[language] || '~'}
     </span>
   );

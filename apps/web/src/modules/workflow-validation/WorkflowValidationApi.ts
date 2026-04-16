@@ -5,7 +5,7 @@ import {
   isFailure,
   success,
 } from '@vnext-forge/app-contracts';
-import { apiClient, callApi } from '@shared/api/Client';
+import { apiClient, callApi } from '@shared/api/client';
 import { toVnextError } from '@shared/lib/error/vNextErrorHelpers';
 import { validateWorkflow } from './ValidationEngine';
 import {

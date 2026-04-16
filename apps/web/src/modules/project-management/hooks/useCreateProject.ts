@@ -4,6 +4,7 @@ import { createProject } from '../ProjectApi';
 import { getProjectDomainError, normalizeProjectDomain } from '../ProjectManagementSchema';
 
 import { browseWorkspace } from '@modules/project-workspace/WorkspaceApi';
+import { showNotification } from '@shared/notification/model/notificationStore';
 import type { WorkspaceFolder } from '@shared/ui/FolderBrowser';
 import type { ProjectInfo } from '../ProjectTypes';
 import type { VnextForgeError } from '@vnext-forge/app-contracts';
@@ -11,6 +12,7 @@ import { toVnextError } from '@shared/lib/error/vNextErrorHelpers';
 
 interface UseCreateProjectOptions {
   onCreated?: (project: ProjectInfo) => Promise<void> | void;
+  onCreatingChange?: (creating: boolean) => void;
 }
 
 export function useCreateProject(options: UseCreateProjectOptions = {}) {
@@ -54,7 +56,14 @@ export function useCreateProject(options: UseCreateProjectOptions = {}) {
     const normalizedDomain = normalizeProjectDomain(domain);
 
     setCreating(true);
+    options.onCreatingChange?.(true);
     setCreateError(null);
+
+    showNotification({
+      type: 'info',
+      message: 'Proje oluşturuluyor… Birazdan yönlendirileceksiniz.',
+      modalType: 'toast',
+    });
 
     try {
       const response = await createProject({
@@ -70,11 +79,19 @@ export function useCreateProject(options: UseCreateProjectOptions = {}) {
       setDomainTouched(false);
       setSelectedPath('');
       setPickerOpen(false);
+
+      showNotification({
+        type: 'success',
+        message: 'Proje başarıyla oluşturuldu!',
+        modalType: 'toast',
+      });
+
       await options.onCreated?.(response.data);
     } catch (value) {
       setCreateError(toVnextError(value, 'Project could not be created.'));
     } finally {
       setCreating(false);
+      options.onCreatingChange?.(false);
     }
   };
 

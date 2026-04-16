@@ -16,10 +16,12 @@ type CreateProjectCallback = (
 
 interface CreateProjectCardProps {
   onCreated?: CreateProjectCallback;
+  disabled?: boolean;
+  onCreatingChange?: (creating: boolean) => void;
 }
 
-export function CreateProjectCard({ onCreated }: CreateProjectCardProps) {
-  const createProject = useCreateProject({ onCreated });
+export function CreateProjectCard({ onCreated, disabled, onCreatingChange }: CreateProjectCardProps) {
+  const createProject = useCreateProject({ onCreated, onCreatingChange });
   const handleDomainChange = (event: ChangeEvent<HTMLInputElement>) => {
     createProject.setDomain(event.target.value);
   };
@@ -34,11 +36,11 @@ export function CreateProjectCard({ onCreated }: CreateProjectCardProps) {
     <Card noBorder variant="default" hoverable={false} className="w-full rounded-[28px]">
       <CardHeader className="gap-3">
         <div className="flex items-center gap-3">
-          <div className="bg-tertiary-muted text-tertiary-icon border-tertiary-border flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border">
-            <Plus size={18} />
+          <div className="bg-success-surface text-success-icon border-success-border flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border">
+            <Plus className="size-4" aria-hidden="true" />
           </div>
           <div>
-            <CardTitle className="text-sm">Create Project</CardTitle>
+            <CardTitle className="text-sm text-success-text">Create Project</CardTitle>
             <CardDescription>Start a new vnext domain from scratch</CardDescription>
           </div>
         </div>
@@ -52,6 +54,7 @@ export function CreateProjectCard({ onCreated }: CreateProjectCardProps) {
           onChange={handleDomainChange}
           aria-invalid={Boolean(createProject.domainError)}
           onKeyDown={handleDomainKeyDown}
+          disabled={disabled || createProject.creating}
         />
 
         {createProject.domainError ? (
@@ -97,14 +100,14 @@ export function CreateProjectCard({ onCreated }: CreateProjectCardProps) {
         ) : null}
 
         <Button
-          variant="tertiary"
+          variant="success"
           onClick={() => {
             void createProject.submit();
           }}
           loading={createProject.creating}
-          disabled={!createProject.canSubmit}
+          disabled={disabled || !createProject.canSubmit}
           className="h-10 w-full rounded-xl shadow-sm">
-          Create
+          {createProject.creating ? 'Oluşturuluyor…' : 'Create'}
         </Button>
       </CardContent>
     </Card>

@@ -6,9 +6,10 @@ import {
   type ApiResponse,
   VnextForgeError,
 } from '@vnext-forge/app-contracts';
+import type { FileTreeNode } from '@modules/project-management/ProjectTypes';
 import type { WorkspaceFolder } from '@shared/ui/FolderBrowser';
-import { apiClient, callApi, unwrapApi } from '@shared/api/Client';
-import { createLogger } from '@shared/lib/logger/CreateLogger';
+import { apiClient, callApi, unwrapApi } from '@shared/api/client';
+import { createLogger } from '@shared/lib/logger/createLogger';
 import { toVnextError } from '@shared/lib/error/vNextErrorHelpers';
 
 import { normalizeWorkspaceName, createWorkflowNameSchema } from './ProjectWorkspaceSchema';
@@ -26,6 +27,17 @@ export function browseWorkspace(path?: string) {
       query: path ? { path } : {},
     }),
   );
+}
+
+/** Project file tree from BFF `GET projects/:id/tree` (workspace shell ownership). */
+export async function getProjectTree(projectId: string): Promise<ApiResponse<FileTreeNode>> {
+  const res = await callApi<{ root: FileTreeNode }>(
+    apiClient.api.projects[':id'].tree.$get({
+      param: { id: projectId },
+    }),
+  );
+  if (!res.success) return res;
+  return { success: true, data: res.data.root, error: null };
 }
 
 export function readFile(path: string) {

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { ApiResponse } from '@vnext-forge/app-contracts';
-import { useAsync } from '@shared/hooks/UseAsync';
+import { useAsync } from '@shared/hooks/useAsync';
 import { useComponentStore } from '../../app/store/useComponentStore';
 import type { ComponentFileDocument } from './SaveComponentApi';
 

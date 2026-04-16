@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useValidationStore } from '@app/store/useValidationStore';
 import { useWorkflowStore } from '@app/store/useWorkflowStore';
-import { useAsync } from '@shared/hooks/UseAsync';
+import { useAsync } from '@shared/hooks/useAsync';
 import { validateWorkflowDefinition } from './WorkflowValidationApi';
 
 export function useWorkflowValidation() {

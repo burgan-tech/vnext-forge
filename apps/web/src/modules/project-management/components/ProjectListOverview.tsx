@@ -18,6 +18,7 @@ export interface ProjectListOverviewApi {
 interface ProjectListOverviewProps {
   deleteError?: VnextForgeError | null;
   deletingProjectId?: string | null;
+  disabled?: boolean;
   onApiReady?: (api: ProjectListOverviewApi) => void;
   onOpen: (project: ProjectInfo) => void;
   onDelete: (project: ProjectInfo) => void;
@@ -53,6 +54,7 @@ function EmptyState() {
 export function ProjectListOverview({
   deleteError,
   deletingProjectId,
+  disabled,
   onApiReady,
   onOpen,
   onDelete,
@@ -77,6 +79,7 @@ export function ProjectListOverview({
       <ProjectListSection
         projects={projects}
         deletingProjectId={deletingProjectId}
+        disabled={disabled}
         onOpen={handleOpen}
         onDelete={onDelete}
       />

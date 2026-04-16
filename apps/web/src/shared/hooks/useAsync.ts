@@ -5,12 +5,12 @@ import {
   showNotification,
   type NotificationModalType,
   type NotificationType,
-} from '@shared/notification/model/NotificationStore';
-import { createLogger } from '@shared/lib/logger/CreateLogger';
+} from '@shared/notification/model/notificationStore';
+import { createLogger } from '@shared/lib/logger/createLogger';
 
 const logger = createLogger('useAsync');
 
-interface UseAsyncOptions<T> {
+export interface UseAsyncOptions<T> {
   onSuccess?: (result: ApiResponse<T>) => void | Promise<void>;
   onError?: (error: VnextForgeError) => void | Promise<void>;
   showNotificationOnError?: boolean;

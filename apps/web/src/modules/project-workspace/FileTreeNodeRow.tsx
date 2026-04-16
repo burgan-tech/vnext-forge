@@ -1,9 +1,21 @@
-import type { MouseEventHandler } from 'react';
+import { useCallback, useMemo, type MouseEventHandler } from 'react';
 
 import { ChevronRight, Folder, FolderOpen } from 'lucide-react';
 
+import {
+  useComponentFileTypesStore,
+  type VnextComponentType,
+} from '@app/store/useComponentFileTypesStore';
+import { useProjectStore } from '@app/store/useProjectStore';
 import type { FileTreeNode } from '@modules/project-management/ProjectTypes';
-import { cn } from '@shared/lib/utils/Cn';
+import { cn } from '@shared/lib/utils/cn';
+
+import { ComponentFolderIcon } from './ComponentFolderIcon';
+import {
+  COMPONENT_FILE_ICONS,
+  VNEXT_CONFIG_FILE_ICON,
+  type ComponentFolderType,
+} from './componentFolderIcons';
 
 type FileTone = {
   label: string;
@@ -14,7 +26,7 @@ interface FileTreeNodeRowProps {
   node: FileTreeNode;
   depth: number;
   expanded?: boolean;
-  isWorkflowContext?: boolean;
+  componentFolderType?: ComponentFolderType;
   onClick: () => void;
   onContextMenu: MouseEventHandler<HTMLDivElement>;
 }
@@ -98,17 +110,55 @@ function getFileTone(name: string): FileTone {
   }
 }
 
+function toRelativePath(absolutePath: string, projectPath: string): string {
+  const normalized = absolutePath.replace(/\\/g, '/');
+  const normalizedProject = projectPath.replace(/\\/g, '/');
+  if (normalized.startsWith(normalizedProject)) {
+    const rel = normalized.slice(normalizedProject.length);
+    return rel.startsWith('/') ? rel.slice(1) : rel;
+  }
+  return normalized;
+}
+
+/**
+ * path-scoped selector: Zustand sadece bu path'in değeri değiştiğinde re-render tetikler.
+ * Dönen değer primitive (string | undefined) olduğu için Object.is karşılaştırması
+ * aynı tip ise true döner ve gereksiz re-render engellenir.
+ */
+function useComponentFileType(nodePath: string, isJson: boolean): VnextComponentType | undefined {
+  const projectPath = useProjectStore((s) => s.activeProject?.path);
+
+  const relativePath = useMemo(() => {
+    if (!isJson || !projectPath) return null;
+    return toRelativePath(nodePath, projectPath);
+  }, [isJson, nodePath, projectPath]);
+
+  const selector = useCallback(
+    (s: { fileTypes: Record<string, VnextComponentType> }) => {
+      if (!relativePath) return undefined;
+      return s.fileTypes[relativePath];
+    },
+    [relativePath],
+  );
+
+  return useComponentFileTypesStore(selector);
+}
+
 export function FileTreeNodeRow({
   node,
   depth,
   expanded = false,
-  isWorkflowContext = false,
+  componentFolderType,
   onClick,
   onContextMenu,
 }: FileTreeNodeRowProps) {
   const rowPaddingLeft = depth * 14 + 6;
+  const isJson = node.type === 'file' && node.name.endsWith('.json');
+  const componentFileType = useComponentFileType(node.path, isJson);
 
   if (node.type === 'file') {
+    const componentIcon = componentFileType ? COMPONENT_FILE_ICONS[componentFileType] : null;
+    const isVnextConfig = node.name === 'vnext.config.json';
     const fileTone = getFileTone(node.name);
 
     return (
@@ -117,21 +167,33 @@ export function FileTreeNodeRow({
         style={{ paddingLeft: rowPaddingLeft }}
         onClick={onClick}
         onContextMenu={onContextMenu}>
-        <span
-          className={cn(
-            'flex w-4 shrink-0 items-center justify-center text-[9px] font-bold',
-            fileTone.toneClassName.split(' ').at(-1),
-          )}>
-          {fileTone.label}
-        </span>
+        {componentIcon ? (
+          <img
+            src={componentIcon.icon}
+            alt=""
+            className="size-4 shrink-0"
+            draggable={false}
+          />
+        ) : isVnextConfig ? (
+          <img
+            src={VNEXT_CONFIG_FILE_ICON}
+            alt=""
+            className="size-4 shrink-0"
+            draggable={false}
+          />
+        ) : (
+          <span
+            className={cn(
+              'flex w-4 shrink-0 items-center justify-center text-[9px] font-bold',
+              fileTone.toneClassName.split(' ').at(-1),
+            )}>
+            {fileTone.label}
+          </span>
+        )}
         <span className="group-hover:text-foreground truncate">{node.name}</span>
       </div>
     );
   }
-
-  /*  Dont use shared/ui/button or something similar this component unique.
-   **  We are trying to keep this component folder structure like file tree in vscode
-   */
 
   return (
     <div
@@ -144,7 +206,16 @@ export function FileTreeNodeRow({
           className={cn('size-3 transition-transform duration-150', expanded && 'rotate-90')}
         />
       </span>
-      {expanded ? (
+      {componentFolderType ? (
+        <ComponentFolderIcon
+          type={componentFolderType}
+          expanded={expanded}
+          className={cn(
+            'size-3.5 shrink-0',
+            expanded ? 'text-secondary-icon' : 'text-muted-icon',
+          )}
+        />
+      ) : expanded ? (
         <FolderOpen className="text-secondary-icon size-3.5 shrink-0" />
       ) : (
         <Folder className="text-muted-icon size-3.5 shrink-0" />
@@ -152,11 +223,6 @@ export function FileTreeNodeRow({
       <span className="group-hover:text-foreground min-w-0 flex-1 truncate font-medium">
         {node.name}
       </span>
-      {isWorkflowContext && (
-        <span className="text-tertiary-text text-[9px] font-semibold tracking-[0.14em] uppercase">
-          workflow
-        </span>
-      )}
     </div>
   );
 }

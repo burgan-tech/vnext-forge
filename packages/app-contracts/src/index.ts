@@ -42,3 +42,19 @@ export {
   mapResponse,
   fold,
 } from './response/helpers.js';
+
+export {
+  VNEXT_WORKSPACE_RUNTIME_VERSION,
+  VNEXT_WORKSPACE_SCHEMA_VERSION,
+  VNEXT_WORKSPACE_CONFIG_VERSION,
+  buildVnextWorkspaceConfig,
+} from './vnext/vnext-workspace-defaults.js';
+export type {
+  BuildVnextWorkspaceConfigInput,
+  VnextWorkspaceConfig,
+  VnextWorkspaceDependencies,
+  VnextWorkspaceExports,
+  VnextWorkspaceExportsMeta,
+  VnextWorkspacePaths,
+  VnextWorkspaceReferenceResolution,
+} from './vnext/vnext-workspace-defaults.js';

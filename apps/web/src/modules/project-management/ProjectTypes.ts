@@ -1,3 +1,7 @@
+import type { VnextWorkspaceConfig } from '@vnext-forge/app-contracts';
+
+export type { VnextWorkspaceConfig } from '@vnext-forge/app-contracts';
+
 export interface ProjectInfo {
   id: string;
   domain: string;
@@ -14,23 +18,20 @@ export interface FileTreeNode {
   children?: FileTreeNode[];
 }
 
-export interface VnextConfig {
-  version: string;
-  description?: string;
-  domain: string;
-  runtimeVersion?: string;
-  schemaVersion?: string;
-  paths: {
-    componentsRoot: string;
-    tasks: string;
-    views: string;
-    functions: string;
-    extensions: string;
-    workflows: string;
-    schemas: string;
-    mappings: string;
-  };
-  exports?: Record<string, unknown>;
-  dependencies?: Record<string, unknown>;
-  referenceResolution?: Record<string, unknown>;
+export type ProjectConfigStatus =
+  | { status: 'ok'; config: VnextWorkspaceConfig }
+  | { status: 'missing' }
+  | { status: 'invalid'; message: string };
+
+export type WriteProjectConfigPayload = VnextWorkspaceConfig;
+
+export interface SeedVnextComponentLayoutResult {
+  ensuredPaths: string[];
+}
+
+export interface VnextComponentLayoutStatus {
+  projectContainsOnlyConfigFile: boolean;
+  componentsRootPresent: boolean;
+  missingLayoutPaths: string[];
+  layoutComplete: boolean;
 }

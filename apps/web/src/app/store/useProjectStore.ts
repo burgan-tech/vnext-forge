@@ -1,24 +1,25 @@
 import { create } from 'zustand';
 
-import { getProjectTree } from '@modules/project-management/ProjectApi';
+import { refreshWorkspaceLayoutAndValidateScript } from '@modules/project-workspace/syncVnextWorkspaceFromDisk';
+import { getProjectTree } from '@modules/project-workspace/WorkspaceApi';
 
 import type {
   FileTreeNode,
   ProjectInfo,
-  VnextConfig,
+  VnextWorkspaceConfig,
 } from '@modules/project-management/ProjectTypes';
 
 interface ProjectState {
   projects: ProjectInfo[];
   activeProject: ProjectInfo | null;
   fileTree: FileTreeNode | null;
-  vnextConfig: VnextConfig | null;
+  vnextConfig: VnextWorkspaceConfig | null;
   loading: boolean;
   error: string | null;
   setProjects: (projects: ProjectInfo[]) => void;
   setActiveProject: (project: ProjectInfo | null) => void;
   setFileTree: (tree: FileTreeNode | null) => void;
-  setVnextConfig: (config: VnextConfig | null) => void;
+  setVnextConfig: (config: VnextWorkspaceConfig | null) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   refreshFileTree: () => Promise<void>;
@@ -39,7 +40,7 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
   setLoading: (loading) => set({ loading }),
   setError: (error) => set({ error }),
   refreshFileTree: async () => {
-    const { activeProject } = get();
+    const { activeProject, vnextConfig } = get();
 
     if (!activeProject) {
       return;
@@ -53,6 +54,10 @@ export const useProjectStore = create<ProjectState>((set, get) => ({
       }
 
       set({ fileTree: treeResponse.data });
+
+      if (vnextConfig) {
+        await refreshWorkspaceLayoutAndValidateScript(activeProject.id);
+      }
     } catch {
       set({ fileTree: null });
     }

@@ -2,16 +2,16 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import type { Dirent } from 'node:fs'
 import { homedir, platform } from 'node:os'
-import { ERROR_CODES, VnextForgeError } from '@vnext-forge/app-contracts'
+import { buildVnextWorkspaceConfig, ERROR_CODES, VnextForgeError } from '@vnext-forge/app-contracts'
 import { COMPONENT_DIRS, CONFIG_FILE } from './constants.js'
 import type {
   DirectoryEntry,
   SearchResult,
+  VnextWorkspaceConfig,
   WorkspaceAnalysisResult,
-  WorkspaceConfig,
   WorkspaceStructure,
 } from './types.js'
-import { WorkspaceAnalyzer } from './workspace-analyzer.js'
+import { WorkspaceAnalyzer, type WorkspaceConfigReadStatus } from './workspace-analyzer.js'
 
 const SYSTEM_ROOT_TOKEN = '::system-root::'
 
@@ -207,44 +207,27 @@ export class WorkspaceService {
     return this.analyzer.analyze(rootPath, traceId)
   }
 
-  async getConfig(rootPath: string, traceId?: string): Promise<WorkspaceConfig> {
+  async getConfig(rootPath: string, traceId?: string): Promise<VnextWorkspaceConfig> {
     return this.analyzer.readConfig(rootPath, traceId)
+  }
+
+  async readConfigStatus(rootPath: string, traceId?: string): Promise<WorkspaceConfigReadStatus> {
+    return this.analyzer.readConfigStatus(rootPath, traceId)
   }
 
   async getFileTree(rootPath: string, traceId?: string): Promise<WorkspaceStructure> {
     return { root: await this.analyzer.buildTree(rootPath, traceId) }
   }
 
-  createDefaultConfig(domain: string, description?: string): WorkspaceConfig {
-    return {
-      domain,
-      description,
-      version: '1.0.0',
-      runtimeVersion: '0.0.33',
-      schemaVersion: '0.0.33',
-      paths: {
-        componentsRoot: domain,
-        tasks: 'Tasks',
-        views: 'Views',
-        functions: 'Functions',
-        extensions: 'Extensions',
-        workflows: 'Workflows',
-        schemas: 'Schemas',
-        mappings: 'Mappings',
-      },
-      exports: {
-        functions: [],
-        workflows: [],
-        tasks: [],
-        views: [],
-        schemas: [],
-        extensions: [],
-        visibility: 'private',
-        metadata: {},
-      },
-      dependencies: { domains: [], npm: [] },
-      referenceResolution: { enabled: true, validateOnBuild: true, strictMode: false },
-    }
+  createDefaultConfig(domain: string, description?: string): VnextWorkspaceConfig {
+    const normalizedDomain = domain.trim()
+    const desc =
+      description?.trim() || `${normalizedDomain} alan tanımı yapılandırması`
+    return buildVnextWorkspaceConfig({
+      domain: normalizedDomain,
+      description: desc,
+      exportsMetadataDescription: `Exported components for ${normalizedDomain} domain`,
+    })
   }
 
   getConfigPath(rootPath: string): string {

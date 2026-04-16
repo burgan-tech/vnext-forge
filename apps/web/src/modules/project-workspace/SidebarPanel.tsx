@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 
 import { Search, X } from 'lucide-react';
 
@@ -6,8 +6,9 @@ import { Badge } from '@shared/ui/Badge';
 import { cn } from '@shared/lib/utils/cn';
 
 import { FileTree } from '@modules/project-workspace/FileTree';
+import type { ComponentFolderType } from './componentFolderIcons';
 import { filterFileTree } from './filterFileTree';
-import { useProjectWorkspace } from './useProjectWorkspace';
+import { useProjectWorkspace } from './hooks/useProjectWorkspace';
 
 export function ProjectWorkspaceSidebarPanel() {
   const {
@@ -24,14 +25,26 @@ export function ProjectWorkspaceSidebarPanel() {
 
   const [filterQuery, setFilterQuery] = useState('');
 
+  const componentDirs = useMemo((): Partial<Record<ComponentFolderType, string>> | undefined => {
+    const p = vnextConfig?.paths;
+    if (!p) return undefined;
+    return {
+      components_root: p.componentsRoot?.split('/').pop() || undefined,
+      workflows: p.workflows?.split('/').pop() || 'Workflows',
+      tasks: p.tasks?.split('/').pop() || 'Tasks',
+      schemas: p.schemas?.split('/').pop() || 'Schemas',
+      views: p.views?.split('/').pop() || 'Views',
+      functions: p.functions?.split('/').pop() || 'Functions',
+      extensions: p.extensions?.split('/').pop() || 'Extensions',
+    };
+  }, [vnextConfig?.paths]);
+
   if (!activeProject) {
     return (
       <div className="px-4 pt-12">
         <div className="border-muted-border bg-muted-surface rounded-2xl border px-4 py-5 text-center shadow-sm">
           <div className="text-muted-foreground text-xs font-medium">No project selected.</div>
-          <div className="text-subtle mt-1 text-[10px]">
-            Open a project from the home page.
-          </div>
+          <div className="text-subtle mt-1 text-[10px]">Open a project from the home page.</div>
         </div>
       </div>
     );
@@ -55,10 +68,11 @@ export function ProjectWorkspaceSidebarPanel() {
         )}
       </div>
       <div className="px-3 pb-2">
-        <div className={cn(
-          'border-secondary-border bg-secondary flex h-7 items-center gap-1.5 rounded-lg border px-2 transition-all',
-          'focus-within:border-secondary-border-hover focus-within:ring-ring/40 focus-within:ring-[2px]',
-        )}>
+        <div
+          className={cn(
+            'border-secondary-border bg-secondary flex h-7 items-center gap-1.5 rounded-lg border px-2 transition-all',
+            'focus-within:border-secondary-border-hover focus-within:ring-ring/40 focus-within:ring-2',
+          )}>
           <Search className="text-muted-foreground size-3 shrink-0" />
           <input
             className="placeholder:text-muted-foreground/60 min-w-0 flex-1 border-0 bg-transparent text-[11px] outline-none"
@@ -99,7 +113,7 @@ export function ProjectWorkspaceSidebarPanel() {
               onDeleteFile={handleDeleteFile}
               onRenameFile={handleRenameFile}
               onCreateWorkflow={handleCreateWorkflow}
-              workflowsDir={vnextConfig?.paths?.workflows?.split('/').pop() || 'Workflows'}
+              componentDirs={componentDirs}
             />
           );
         })() : null}

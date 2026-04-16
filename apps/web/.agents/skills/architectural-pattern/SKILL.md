@@ -1,6 +1,6 @@
 ---
 name: architectural-pattern-web
-description: Use when defining or refactoring web architecture in this repo without FSD. Prefer a common React module-based vertical slice structure with shallow ownership, a narrow `shared` layer, explicit rules for local, module, server, and app-wide state, and a single `app/store` home for zustand global stores.
+description: Use when defining or refactoring web architecture in this repo. Prefer a common React module-based vertical slice structure with shallow ownership, a narrow `shared` layer, explicit rules for local, module, server, and app-wide state, and a single `app/store` home for zustand global stores.
 ---
 
 # Architectural Pattern Web
@@ -8,6 +8,7 @@ description: Use when defining or refactoring web architecture in this repo with
 Use this skill for web structure decisions and architecture reviews.
 
 Related skills:
+
 - `api-fetching` for transport details
 - `api-error-handling` for failure normalization
 - `state-store-handling` for state placement nuance
@@ -64,6 +65,7 @@ src/
       ProjectWorkspaceView.tsx
       WorkspaceApi.ts
       useProjectWorkspace.ts
+      useProjectWorkspacePage.ts
     canvas-interaction/
     code-editor/
     workflow-validation/
@@ -161,7 +163,7 @@ Examples:
 - If a module has more than `3` type-only files, move them under `types/`.
 - Apply the same rule to other repeated file kinds only when the grouping improves scanning.
 
-Keep the split shallow. The goal is easier scanning inside the owning vertical slice, not recreating FSD.
+Keep the split shallow. The goal is easier scanning inside the owning vertical slice.
 
 Allowed minimal split:
 
@@ -236,6 +238,46 @@ If `shared` starts changing because one module changed, it probably is not share
 - UI must not see raw transport errors, raw backend payloads, raw `ApiFailure`, or raw `error.message`.
 - Render `error.toUserMessage().message` in UI.
 
+## project-management and project-workspace boundaries
+
+Two slices touch the same BFF project surface. Do not collapse them into one shared `ProjectApi` under `shared`, and do not let either slice grow a second hidden transport owner.
+
+### Transport ownership
+
+- **`modules/project-management/ProjectApi.ts`**: Project lifecycle and project-scoped config against the BFF `projects` routes — for example list/create/import/delete project, fetch single `ProjectInfo`, read/write `vnext` workspace config, and config status used for project-level UX (wizard, diagnostics).
+- **`modules/project-workspace/WorkspaceApi.ts`**: Active workspace file operations (`files` routes) **and** the project file tree from `GET projects/:id/tree` (e.g. `getProjectTree`). The tree is shell/workspace ownership even though the path lives under `projects` on the server.
+
+Add new endpoints to the file whose **feature** owns the primary UX: tree and file-tree refresh stay with workspace; catalog and config CRUD stay with management.
+
+### Hooks and orchestration
+
+- **`useProjectWorkspacePage`** (bootstrap for the `/project/:id` workspace shell: parallel load of project row, tree, config status) lives under **`modules/project-workspace`**, not under `project-management`, because it orchestrates the workspace route.
+- That hook may call **`ProjectApi`** for metadata and config status and **`WorkspaceApi`** for the tree. Prefer **`project-workspace` → `project-management`** for this pairing; avoid **`project-management` → `project-workspace`** imports for transport unless you are composing from `pages` or redesigning the boundary.
+
+### App-wide store
+
+- **`app/store`** may import module services (`WorkspaceApi`, `ProjectApi`) when the store is genuinely cross-shell. Example: refreshing the file tree calls `getProjectTree` from **`WorkspaceApi`**, not from `ProjectApi`.
+
+### Types
+
+- Cross-cutting DTOs such as `FileTreeNode` or `ProjectInfo` may stay in **`modules/project-management/ProjectTypes.ts`** until a real **`packages/*`** contract exists. `project-workspace` may import those types from `project-management` for shapes returned by workspace-facing calls; treat repeated type coupling as a signal to promote types into a shared package, not to merge API modules.
+
+### Workspace Config Types
+
+- Canonical workspace config types (`VnextWorkspaceConfig` and sub-types like `VnextWorkspacePaths`, `VnextWorkspaceExports`, `VnextWorkspaceExportsMeta`, `VnextWorkspaceDependencies`, `VnextWorkspaceReferenceResolution`) are defined in `@vnext-forge/vnext-types` and re-exported through `@vnext-forge/app-contracts`.
+- Web code imports these types from `@vnext-forge/app-contracts`. The builder function `buildVnextWorkspaceConfig()` also lives there.
+- `modules/project-management/ProjectTypes.ts` re-exports `VnextWorkspaceConfig` from `@vnext-forge/app-contracts` so module-local consumers can import from one place.
+- Do not define duplicate workspace config interfaces in module-local or page-local code. Use the canonical types.
+- Legacy names (`VnextWorkspaceConfigJson`, `VnextConfig`, `WorkspaceConfig`) are retired; always use `VnextWorkspaceConfig`.
+
+### Workspace Config Types
+
+- Canonical workspace config types (`VnextWorkspaceConfig` and sub-types like `VnextWorkspacePaths`, `VnextWorkspaceExports`, `VnextWorkspaceExportsMeta`, `VnextWorkspaceDependencies`, `VnextWorkspaceReferenceResolution`) are defined in `@vnext-forge/vnext-types` and re-exported through `@vnext-forge/app-contracts`.
+- Web code imports these types from `@vnext-forge/app-contracts`. The builder function `buildVnextWorkspaceConfig()` also lives there.
+- `modules/project-management/ProjectTypes.ts` re-exports `VnextWorkspaceConfig` from `@vnext-forge/app-contracts` so module-local consumers can import from one place.
+- Do not define duplicate workspace config interfaces in module-local or page-local code. Use the canonical types.
+- Legacy names (`VnextWorkspaceConfigJson`, `VnextConfig`, `WorkspaceConfig`) are retired; always use `VnextWorkspaceConfig`.
+
 ## Validation Placement
 
 - Use `React Hook Form` + `Zod` for form-facing validation in the owning page or module.
@@ -278,7 +320,6 @@ If `shared` starts changing because one module changed, it probably is not share
 
 ## Do Not Do
 
-- Do not reintroduce FSD layers under different names.
 - Do not create `entities`, `features`, `widgets`, `routes`, `stores`, `components`, or `hooks` as new top-level owners.
 - Do not create slice-local subfolders too early; use them when repeated file kinds exceed `3`, not by reflex.
 - Do not place `zustand` global stores inside modules or in a top-level `src/stores`; use `src/app/store`.
@@ -314,3 +355,4 @@ Raise a concern when:
 - schemas are buried in JSX or durable validation rules are duplicated across screens
 - services dispatch notifications or notifications store raw errors/domain objects
 - shared primitives are bypassed with repeated local visual mappings that should be reusable
+- project file tree or `getProjectTree` lives in `project-management/ProjectApi` instead of `project-workspace/WorkspaceApi`, or `project-management` imports workspace transport for bootstrap (prefer workspace owning the workspace-route hook and calling `ProjectApi` for metadata only)

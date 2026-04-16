@@ -1,3 +1,17 @@
+import type { VnextWorkspaceConfig } from '@vnext-forge/vnext-types'
+
+// Re-export canonical config types from vnext-types
+export type {
+  VnextWorkspaceConfig,
+  VnextWorkspaceDependencies,
+  VnextWorkspaceExports,
+  VnextWorkspaceExportsMeta,
+  VnextWorkspacePaths,
+  VnextWorkspaceReferenceResolution,
+} from '@vnext-forge/vnext-types'
+
+// ── Server-only types ─────────────────────────────────────────────────────────
+
 export interface SearchResult {
   path: string
   line: number
@@ -10,54 +24,9 @@ export interface DirectoryEntry {
   type: 'file' | 'directory'
 }
 
-export interface WorkspacePaths {
-  componentsRoot: string
-  tasks: string
-  views: string
-  functions: string
-  extensions: string
-  workflows: string
-  schemas: string
-  mappings: string
-}
-
-export interface WorkspaceExports {
-  functions: string[]
-  workflows: string[]
-  tasks: string[]
-  views: string[]
-  schemas: string[]
-  extensions: string[]
-  visibility?: 'public' | 'private'
-  metadata?: Record<string, unknown>
-}
-
-export interface WorkspaceDependencies {
-  domains: string[]
-  npm?: string[]
-}
-
-export interface ReferenceResolutionConfig {
-  enabled: boolean
-  validateOnBuild: boolean
-  strictMode: boolean
-}
-
-export interface WorkspaceConfig {
-  domain: string
-  description?: string
-  version: string
-  runtimeVersion: string
-  schemaVersion: string
-  paths: WorkspacePaths
-  exports: WorkspaceExports
-  dependencies: WorkspaceDependencies
-  referenceResolution?: ReferenceResolutionConfig
-}
-
 export interface IWorkspace {
   rootPath: string
-  config: WorkspaceConfig
+  config: VnextWorkspaceConfig
 }
 
 export interface WorkspaceMetadata {
@@ -81,7 +50,7 @@ export interface WorkspaceStructure {
 
 export interface WorkspaceAnalysisResult {
   rootPath: string
-  config: WorkspaceConfig | null
+  config: VnextWorkspaceConfig | null
   configValid: boolean
   tree: FileTreeNode
 }

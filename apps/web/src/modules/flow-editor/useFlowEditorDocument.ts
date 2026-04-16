@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { useProjectStore } from '@app/store/useProjectStore';
 import { useWorkflowStore } from '@app/store/useWorkflowStore';
-import { useAsync } from '@shared/hooks/UseAsync';
+import { useAsync } from '@shared/hooks/useAsync';
 import { loadFlowEditorDocument } from './FlowEditorApi';
 
 interface UseFlowEditorDocumentOptions {

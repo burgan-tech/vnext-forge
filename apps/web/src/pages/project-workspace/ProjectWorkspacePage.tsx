@@ -1,17 +1,34 @@
+import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import { useProjectStore } from '@app/store/useProjectStore';
+import { useVnextWorkspaceUiStore } from '@app/store/useVnextWorkspaceUiStore';
 import { Badge } from '@shared/ui/Badge';
 import { Button } from '@shared/ui/Button';
 
-import { useProjectWorkspacePage } from './UseProjectWorkspacePage';
+import { VnextTemplateSeedDialog } from '@modules/project-workspace/components/VnextTemplateSeedDialog';
+import { useProjectWorkspacePage } from '@modules/project-workspace/hooks/useProjectWorkspacePage';
 
 export function ProjectWorkspacePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { activeProject, error, loading } = useProjectStore();
+  const templateSeedDialogOpen = useVnextWorkspaceUiStore((s) => s.templateSeedDialogOpen);
+  const setTemplateSeedDialogOpen = useVnextWorkspaceUiStore((s) => s.setTemplateSeedDialogOpen);
+  const declineTemplatePromptForProject = useVnextWorkspaceUiStore(
+    (s) => s.declineTemplatePromptForProject,
+  );
+  const setShowMissingVnextConfigBar = useVnextWorkspaceUiStore(
+    (s) => s.setShowMissingVnextConfigBar,
+  );
 
   useProjectWorkspacePage(id);
+
+  useEffect(() => {
+    return () => {
+      setShowMissingVnextConfigBar(false);
+    };
+  }, [setShowMissingVnextConfigBar]);
 
   if (loading && !activeProject) {
     return (
@@ -37,11 +54,20 @@ export function ProjectWorkspacePage() {
 
   return (
     <div className="flex h-full flex-col">
+      {id ? (
+        <VnextTemplateSeedDialog
+          open={templateSeedDialogOpen}
+          onOpenChange={setTemplateSeedDialogOpen}
+          projectId={id}
+          onDecline={() => declineTemplatePromptForProject(id)}
+        />
+      ) : null}
+
       <div className="border-border flex items-center gap-3 border-b p-3">
         <Button
           className="text-muted-foreground hover:text-foreground px-0 text-xs"
           noBorder
-          onClick={() => navigate('/')}
+          onClick={() => void navigate('/')}
           size="sm"
           variant="ghost">
           Projects

@@ -35,6 +35,12 @@ importers:
 
   apps/server:
     dependencies:
+      '@burgan-tech/vnext-schema':
+        specifier: ^0.0.39
+        version: 0.0.39
+      '@burgan-tech/vnext-template':
+        specifier: ^0.0.7
+        version: 0.0.7
       '@hono/node-server':
         specifier: ^1.14.0
         version: 1.19.12(hono@4.12.10)
@@ -44,6 +50,12 @@ importers:
       '@vnext-forge/vnext-types':
         specifier: workspace:*
         version: link:../../packages/vnext-types
+      ajv:
+        specifier: ^8.12.0
+        version: 8.18.0
+      ajv-formats:
+        specifier: ^2.1.1
+        version: 2.1.1(ajv@8.18.0)
       hono:
         specifier: ^4.6.0
         version: 4.12.10
@@ -249,6 +261,10 @@ importers:
         version: 6.4.1(@types/node@22.19.17)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)
 
   packages/app-contracts:
+    dependencies:
+      '@vnext-forge/vnext-types':
+        specifier: workspace:*
+        version: link:../vnext-types
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -350,6 +366,19 @@ packages:
   '@babel/types@7.29.0':
     resolution: {integrity: sha512-LwdZHpScM4Qz8Xw2iKSzS+cfglZzJGvofQICy7W7v4caru4EaAmyUuO6BGrbyQ2mYV11W0U8j5mBhd14dd3B0A==}
     engines: {node: '>=6.9.0'}
+
+  '@burgan-tech/vnext-schema@0.0.38':
+    resolution: {integrity: sha512-Lqrl5IjLVbJTirBSEK5w806PXjEJm6f/fR9rmvOMFkmvIII5vgFwKsL1cvfi28TIKp7UKwx/7vDZy71PQakyfA==}
+    engines: {node: '>=14.0.0'}
+
+  '@burgan-tech/vnext-schema@0.0.39':
+    resolution: {integrity: sha512-H/EpP0yMCgH+6ITJid0USlSLok8ibtEFSY+I9PGnbMdBtP9x50tmZu7oZYTNC30utNAloO1uIqYiL/ckYX9Bxg==}
+    engines: {node: '>=14.0.0'}
+
+  '@burgan-tech/vnext-template@0.0.7':
+    resolution: {integrity: sha512-mvjko0c9PPWF47szCxcK1jeor2GltBgXGbWuVdswJ/0aftbnEQyuEcry19acUr2l2Wb5bgSPVuRQYbJBGLlnlQ==}
+    engines: {node: '>=16.0.0'}
+    hasBin: true
 
   '@emnapi/core@1.9.2':
     resolution: {integrity: sha512-UC+ZhH3XtczQYfOlu3lNEkdW/p4dsJ1r/bP7H8+rhao3TTTMO1ATq/4DdIi23XuGoFY+Cz0JmCbdVl0hz9jZcA==}
@@ -1804,6 +1833,14 @@ packages:
     resolution: {integrity: sha512-UVJyE9MttOsBQIDKw1skb9nAwQuR5wuGD3+82K6JgJlm/Y+KI92oNsMNGZCYdDsVtRHSak0pcV5Dno5+4jh9sw==}
     engines: {node: '>=0.4.0'}
     hasBin: true
+
+  ajv-formats@2.1.1:
+    resolution: {integrity: sha512-Wx0Kx52hxE7C18hkMEggYlEifqWZtYaRgouJor+WMdPnQyEK13vgEWyVNup7SoeeoLMsr4kf5h6dOW11I15MUA==}
+    peerDependencies:
+      ajv: ^8.0.0
+    peerDependenciesMeta:
+      ajv:
+        optional: true
 
   ajv@6.14.0:
     resolution: {integrity: sha512-IWrosm/yrn43eiKqkfkHis7QioDleaXQHdDVPKg0FSwwd/DuvyX79TZnFOnYpB7dcsFAMmtFztZuXPDvSePkFw==}
@@ -3694,6 +3731,14 @@ snapshots:
       '@babel/helper-string-parser': 7.27.1
       '@babel/helper-validator-identifier': 7.28.5
 
+  '@burgan-tech/vnext-schema@0.0.38': {}
+
+  '@burgan-tech/vnext-schema@0.0.39': {}
+
+  '@burgan-tech/vnext-template@0.0.7':
+    dependencies:
+      '@burgan-tech/vnext-schema': 0.0.38
+
   '@emnapi/core@1.9.2':
     dependencies:
       '@emnapi/wasi-threads': 1.2.1
@@ -4983,6 +5028,10 @@ snapshots:
       acorn: 8.16.0
 
   acorn@8.16.0: {}
+
+  ajv-formats@2.1.1(ajv@8.18.0):
+    optionalDependencies:
+      ajv: 8.18.0
 
   ajv@6.14.0:
     dependencies:

@@ -4,6 +4,7 @@ import { ProjectListItem } from './ProjectListItem';
 interface ProjectListProps {
   projects: ProjectInfo[];
   deletingProjectId?: string | null;
+  disabled?: boolean;
   onOpen: (project: ProjectInfo) => void;
   onDelete: (project: ProjectInfo) => void;
 }
@@ -11,6 +12,7 @@ interface ProjectListProps {
 export function ProjectList({
   projects,
   deletingProjectId,
+  disabled,
   onOpen,
   onDelete,
 }: ProjectListProps) {
@@ -21,6 +23,7 @@ export function ProjectList({
           key={project.id}
           project={project}
           deleting={deletingProjectId === project.id}
+          disabled={disabled}
           onOpen={onOpen}
           onDelete={onDelete}
         />

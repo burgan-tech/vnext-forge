@@ -6,7 +6,7 @@ import {
 } from '@vnext-forge/app-contracts';
 import { z } from 'zod';
 
-import { apiClient, callApi } from '@shared/api/Client';
+import { apiClient, callApi } from '@shared/api/client';
 import { parseRuntimeHealthResponse } from './WorkflowExecutionSchema';
 
 export interface RuntimeHealthSnapshot {

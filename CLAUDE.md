@@ -10,13 +10,78 @@ The UI is not limited to workflow visualization. It is responsible for the end-t
 
 In short, the product is meant to be a standalone design and management interface for the workflow engine ecosystem, focused on authoring, verification, and operational workflow tooling.
 
+### User-visible language (English only — strict)
+
+All **end-user-facing** and **integrator-facing** text in this repository must be written in **English (US style is fine)**. Treat this as a non-negotiable product contract, not a preference.
+
+**In scope (must be English):**
+
+- UI copy: labels, buttons, menus, dialogs, drawers, tabs, panel and sidebar titles, section headings, empty states, placeholders, tooltips, and similar chrome.
+- Feedback: toasts, snackbars, banners, inline alerts, success and confirmation messages.
+- Errors shown to humans: `VnextForgeError.toUserMessage()`, `ApiFailure.error.message`, validation messages returned to the client, Monaco/editor diagnostics titles or descriptions that surface in the product UI, and any other string intended for display in the app.
+- Naming that users see: wizard and dialog titles, step names, list column headers, status bar text, and feature names when they appear as UI strings (file and symbol names in code may follow existing code conventions; **visible** names stay English).
+- Accessible strings tied to the UI: `aria-label`, `aria-description`, live region text, and visible `title` attributes when they convey UI meaning.
+
+**Out of scope (not governed by this rule):**
+
+- Team communication, ad-hoc notes, or docs outside the shipped product unless a doc is explicitly meant as end-user documentation (keep that English too).
+- Log-only diagnostic text may stay English for consistency with code and tooling; do not route raw internal errors to the UI.
+
+When adding or changing strings, default to English. Do not ship Turkish or other locale strings in UI, API user messages, or user-visible panel names unless the project later adds a formal i18n layer and this rule is explicitly revised.
+
+---
+
+### Cross-platform setup (macOS, Linux, Windows)
+
+The repo is intended to run the same way on macOS, Linux, and Windows. Use these practices so paths, tooling, and environment stay consistent.
+
+**Toolchain**
+
+- Install a current **Node.js LTS** (align major versions across the team when debugging native or tooling issues).
+- Use **pnpm** at the version pinned in the root `package.json` (`packageManager` field). Prefer enabling it with **Corepack** (`corepack enable` then `corepack prepare pnpm@<pinned> --activate`) so everyone gets the same package manager.
+- Run installs and scripts from the **repository root** (`pnpm install`, `pnpm dev`, `pnpm build`) so Turborepo sees all workspaces.
+
+**Ports (local dev)**
+
+- `apps/web` (Vite): default **3000**.
+- `apps/server` (Hono): default **3001** (override with `PORT`).
+- If either port is in use on your machine, change Vite `server.port` in `apps/web/vite.config.ts` and/or set `PORT` for the server, and keep the dev proxy / web `VITE_*` URLs in sync.
+
+**Environment variables**
+
+- **Web** (`apps/web`): validated in `apps/web/src/shared/config/config.ts`. Typical local dev uses Vite `import.meta.env` — set `VITE_ENVIRONMENT`, `VITE_API_URL`, `VITE_API_URL_DEVELOPMENT`, and optionally `VITE_RUNTIME_REVALIDATION_MIN_INTERVAL_SECONDS`, `VITE_LOG_LEVEL` as needed (see that file for defaults and Zod rules). Use forward slashes in URLs; do not hardcode OS-specific file paths in env values meant for HTTP.
+- **Server** (`apps/server`): `PORT` (default 3001), `LOG_LEVEL`, `VERBOSE`, `NODE_ENV` (see `apps/server/src/index.ts` and `apps/server/src/shared/lib/logger.ts`).
+
+**Filesystem and paths**
+
+- **Case sensitivity**: Linux (and macOS on typical APFS) can be case-sensitive. Import paths and filenames must match **exact casing** everywhere; a rename that only changes case can break CI or another OS.
+- **Project paths opened in the UI**: the server resolves workspace paths with Node APIs; avoid assuming `\` vs `/` in hand-written path strings in code — use `path.join` / `path.normalize` on the server when composing filesystem paths.
+- **Line endings**: Prefer consistent LF in the repo (editor + Git). If Git rewrites line endings on Windows, watch for rare issues with shell scripts; this project’s day-to-day commands are `pnpm`/`node`-based.
+
+**Windows-specific notes**
+
+- Prefer **PowerShell** or **Git Bash** for running documented `bash`-style snippets from other docs; the root toolchain is cross-shell, but `apps/server`’s `clean` script uses `rm -rf dist`, which requires a Unix-like shell or WSL unless you run a Windows-friendly clean (e.g. delete `apps/server/dist` manually or use a cross-platform rimraf if introduced later).
+- If installs fail with path length errors, enable **long paths** in Windows or keep the clone in a shorter directory path; pnpm layouts are usually fine but deeply nested trees can hit legacy limits.
+
+**macOS / Linux notes**
+
+- Ensure Node/pnpm are on `PATH` for both terminal and IDE integrated terminals (GUI apps on macOS sometimes see a reduced `PATH`).
+- For any optional native addons in the dependency tree, you may need build tools (e.g. Xcode Command Line Tools on macOS, `build-essential` on Debian/Ubuntu).
+
 ---
 
 ### Shared Packages
 
-#### `packages/vnext-types` -> `@vnext-forge/types`
+#### `packages/vnext-types` -> `@vnext-forge/vnext-types`
 
 Domain model types. Workflow, State, Transition, Task, Schema, View, Function, Extension, Diagram, and Config types, plus constants (state-types, trigger-types, task-types) and utilities (csx-codec, version).
+
+**Workspace config canonical types** (`types/config.ts`): The single source of truth for the `vnext.config.json` shape. All layers (web, server, packages) import these types from here or through a re-export.
+
+- `VnextWorkspaceConfig` — full normalized config
+- `VnextWorkspacePaths`, `VnextWorkspaceExports`, `VnextWorkspaceExportsMeta`, `VnextWorkspaceDependencies`, `VnextWorkspaceReferenceResolution` — sub-shapes
+
+Do not duplicate these types in app-local code. Server and web consumer files import them via re-exports (`@workspace/types.js` on server, `@vnext-forge/app-contracts` on web).
 
 - Depends on no other package (leaf node)
 - Used by both `apps/web` and `apps/server`
@@ -25,7 +90,7 @@ Domain model types. Workflow, State, Transition, Task, Schema, View, Function, E
 
 #### `packages/app-contracts` -> `@vnext-forge/app-contracts`
 
-Web <-> Server communication contracts. Two responsibilities:
+Web <-> Server communication contracts. Three responsibilities:
 
 **1. ApiResponse<T>** (`response/envelope.ts`):
 
@@ -45,7 +110,10 @@ The shared error type used across all application layers. Every `throw` should b
 - `toLogEntry()` - plain object for server-side logging
 - `toUserMessage()` - message safe to show to the user (raw `.message` must never be shown)
 
-- Depends on no other package (leaf node)
+**3. Workspace config builder** (`vnext-workspace-defaults.ts`):
+Version constants (`VNEXT_WORKSPACE_RUNTIME_VERSION`, `VNEXT_WORKSPACE_SCHEMA_VERSION`, `VNEXT_WORKSPACE_CONFIG_VERSION`), `BuildVnextWorkspaceConfigInput`, and the `buildVnextWorkspaceConfig()` factory function. This file also re-exports all canonical workspace config types from `@vnext-forge/vnext-types` so web code can import them from a single package.
+
+- Depends on `@vnext-forge/vnext-types` (for canonical workspace config types)
 
 ---
 
@@ -63,6 +131,16 @@ Several formerly shared workspace, workflow-domain, and editor-language modules 
 - `apps/web/src/modules/canvas-interaction/*`, `apps/web/src/modules/workflow-execution/*`, `apps/web/src/modules/save-workflow/*`, and `apps/web/src/modules/save-component/*` own the remaining workflow editing and execution flows.
 
 Only `packages/vnext-types` and `packages/app-contracts` remain as shared packages in this repo.
+
+**Package dependency flow:**
+
+```text
+vnext-types (leaf, no deps)
+  └─> app-contracts (depends on vnext-types)
+        └─> apps/web, apps/server
+```
+
+Canonical domain types (including `VnextWorkspaceConfig`) live in `vnext-types`. `app-contracts` re-exports them and adds builder logic, error contracts, and API envelope types. App-local code imports from `@vnext-forge/app-contracts` (web) or directly from `@vnext-forge/vnext-types` (server workspace types via re-export in `@workspace/types.js`). Do not define duplicate config type interfaces in app-local code.
 
 ---
 
