@@ -1,6 +1,6 @@
 import { failureFromError, success, type ApiResponse } from '@vnext-forge/app-contracts';
 import { z } from 'zod';
-import { apiClient, callApi, unwrapApi } from '@shared/api/client';
+import { callApi, unwrapApi } from '@shared/api/client';
 import { toVnextError } from '@shared/lib/error/vNextErrorHelpers';
 
 export interface LoadComponentFileParams {
@@ -21,11 +21,10 @@ function parseComponentObject(content: unknown): Record<string, unknown> {
 }
 
 export function saveComponentFile(path: string, content: string) {
-  return callApi<void>(
-    apiClient.api.files.$put({
-      json: { path, content },
-    }),
-  );
+  return callApi<void>({
+    method: 'files.write',
+    params: { path, content },
+  });
 }
 
 export async function loadComponentFile({
@@ -35,9 +34,7 @@ export async function loadComponentFile({
 }: LoadComponentFileParams): Promise<ApiResponse<ComponentFileDocument>> {
   try {
     const data = await unwrapApi<{ content: string }>(
-      apiClient.api.files.$get({
-        query: { path: filePath },
-      }),
+      { method: 'files.read', params: { path: filePath } },
       errorMessage,
     );
     const parsedContent =

@@ -1,5 +1,11 @@
 # Server Instructions
 
+> **DEPRECATED** — `apps/server` is no longer the active delivery target.
+> All server-side logic has been migrated to `apps/extension` (VS Code Extension Host).
+> This package is kept as a reference archive. Do not add new features here.
+
+
+
 ## Logging
 
 - Server tarafinda dogrudan `console.log`, `console.error`, `console.warn` veya diger `console.*` cagrilarini kullanma.

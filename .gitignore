@@ -3,7 +3,12 @@ node_modules/
 .pnpm-store/
 
 # Build output
-dist/
+# Note: apps/extension/dist/ is NOT excluded here — vsce needs to include
+# dist/vendor/ and dist/webview/ in the VSIX. Use apps/extension/.gitignore
+# to exclude only the compiled bundle.
+apps/web/dist/
+apps/server/dist/
+packages/*/dist/
 build/
 .turbo/
 vnext-flow-studio-web/node_modules

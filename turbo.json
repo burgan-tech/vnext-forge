@@ -9,8 +9,17 @@
       "dependsOn": ["^build"],
       "outputs": ["dist/**"]
     },
+    "vnext-forge#build": {
+      "dependsOn": ["^build", "@vnext-forge/web#build"],
+      "outputs": ["dist/**"]
+    },
     "lint": {
       "dependsOn": ["^build"]
+    },
+    "vnext-forge#package": {
+      "dependsOn": ["vnext-forge#build"],
+      "outputs": ["*.vsix"],
+      "cache": false
     },
     "clean": {
       "cache": false

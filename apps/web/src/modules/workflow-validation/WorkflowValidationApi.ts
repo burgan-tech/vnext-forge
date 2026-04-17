@@ -5,7 +5,7 @@ import {
   isFailure,
   success,
 } from '@vnext-forge/app-contracts';
-import { apiClient, callApi } from '@shared/api/client';
+import { callApi } from '@shared/api/client';
 import { toVnextError } from '@shared/lib/error/vNextErrorHelpers';
 import { validateWorkflow } from './ValidationEngine';
 import {
@@ -19,11 +19,10 @@ export async function validateWorkflowDefinition(
 ): Promise<WorkflowValidationResponse> {
   try {
     const localIssues = validateWorkflow(workflow);
-    const remoteResult = await callApi<unknown>(
-      apiClient.api.validate.$post({
-        json: workflow,
-      }),
-    );
+    const remoteResult = await callApi<unknown>({
+      method: 'validate.workflow',
+      params: { content: workflow },
+    });
 
     if (isFailure(remoteResult)) {
       return remoteResult;

@@ -1,0 +1,115 @@
+{
+  "name": "vnext-forge",
+  "displayName": "vnext-forge",
+  "description": "Workflow designer for the vnext engine ecosystem",
+  "version": "0.1.0",
+  "publisher": "burgan-tech",
+  "private": true,
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": ["Other"],
+  "activationEvents": [
+    "workspaceContains:vnext.config.json",
+    "onCommand:vnextForge.open",
+    "onCommand:vnextForge.openDesigner",
+    "onCommand:vnextForge.createProject",
+    "onCommand:vnextForge.createComponent"
+  ],
+  "main": "./dist/extension.js",
+  "files": [
+    "dist/extension.js",
+    "dist/vendor/**",
+    "dist/webview/**"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "vnextForge.open",
+        "title": "Open Designer",
+        "category": "vnext-forge"
+      },
+      {
+        "command": "vnextForge.openDesigner",
+        "title": "Open Designer",
+        "category": "vnext-forge"
+      },
+      {
+        "command": "vnextForge.createProject",
+        "title": "Create vnext Project",
+        "category": "vnext-forge"
+      },
+      {
+        "command": "vnextForge.createComponent",
+        "title": "Create vnext Component",
+        "category": "vnext-forge"
+      }
+    ],
+    "menus": {
+      "commandPalette": [
+        {
+          "command": "vnextForge.open",
+          "when": "vnextForge.isVnextWorkspace"
+        },
+        {
+          "command": "vnextForge.openDesigner",
+          "when": "vnextForge.isVnextWorkspace"
+        },
+        {
+          "command": "vnextForge.createProject"
+        },
+        {
+          "command": "vnextForge.createComponent",
+          "when": "vnextForge.isVnextWorkspace"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "vnextForge.openDesigner",
+          "when": "vnextForge.isVnextWorkspace && resourceExtname =~ /^\\.(json|csx|cs|js|ts|xml|ya?ml|md|html?|css|sql|sh|py|txt|http)$/",
+          "group": "navigation@1"
+        }
+      ],
+      "editor/title/context": [
+        {
+          "command": "vnextForge.openDesigner",
+          "when": "vnextForge.isVnextWorkspace && resourceExtname =~ /^\\.(json|csx|cs|js|ts|xml|ya?ml|md|html?|css|sql|sh|py|txt|http)$/",
+          "group": "navigation@1"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "vnext-forge",
+      "properties": {
+        "vnextForge.lsp.autoInstall": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically install the C# language server (csharp-ls or OmniSharp) when a vnext workspace is detected."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "dev": "node esbuild.config.mjs --watch",
+    "build": "node esbuild.config.mjs --production",
+    "package": "vsce package --no-dependencies --allow-missing-repository --skip-license --allow-unused-files-pattern",
+    "lint": "eslint .",
+    "clean": "rm -rf dist *.vsix"
+  },
+  "dependencies": {
+    "@burgan-tech/vnext-schema": "^0.0.39",
+    "@burgan-tech/vnext-template": "^0.0.7",
+    "@vnext-forge/app-contracts": "workspace:*",
+    "@vnext-forge/vnext-types": "workspace:*",
+    "ajv": "^8.12.0",
+    "ajv-formats": "^2.1.1",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^2.24.0",
+    "esbuild": "^0.24.0",
+    "typescript": "^5.7.0"
+  }
+}
