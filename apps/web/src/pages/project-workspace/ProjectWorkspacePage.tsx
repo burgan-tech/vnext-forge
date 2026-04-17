@@ -1,13 +1,12 @@
 import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
-import { useProjectStore } from '@app/store/useProjectStore';
-import { useVnextWorkspaceUiStore } from '@app/store/useVnextWorkspaceUiStore';
-import { Badge } from '@shared/ui/Badge';
-import { Button } from '@shared/ui/Button';
+import { useProjectStore } from '@vnext-forge/designer-ui';
+import { Badge, Button } from '@vnext-forge/designer-ui/ui';
 
-import { VnextTemplateSeedDialog } from '@modules/project-workspace/components/VnextTemplateSeedDialog';
-import { useProjectWorkspacePage } from '@modules/project-workspace/hooks/useProjectWorkspacePage';
+import { useVnextWorkspaceUiStore } from '../../app/store/useVnextWorkspaceUiStore';
+import { VnextTemplateSeedDialog } from '../../modules/project-workspace/components/VnextTemplateSeedDialog';
+import { useProjectWorkspacePage } from '../../modules/project-workspace/hooks/useProjectWorkspacePage';
 
 export function ProjectWorkspacePage() {
   const { id } = useParams<{ id: string }>();

@@ -1,10 +1,13 @@
-import type { AppLogger } from '@shared/lib/logger.js'
+import type { AppLogger } from '../lib/logger.js';
 
 declare module 'hono' {
   interface ContextVariableMap {
-    logger: AppLogger
-    traceId: string
+    logger: AppLogger;
+    traceId: string;
   }
 }
 
-export {}
+export type Variables = {
+  logger: AppLogger;
+  traceId: string;
+};

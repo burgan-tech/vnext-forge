@@ -1,5 +1,6 @@
-import type { ProjectInfo } from '@modules/project-management/ProjectTypes';
-import { Section } from '@shared/ui/Section';
+import { Section } from '@vnext-forge/designer-ui/ui';
+
+import type { ProjectInfo } from '../ProjectTypes';
 
 import { ProjectList } from './ProjectList';
 

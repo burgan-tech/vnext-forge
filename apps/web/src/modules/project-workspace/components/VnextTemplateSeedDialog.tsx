@@ -1,23 +1,23 @@
 import { useState } from 'react';
 import { FolderPlus, FolderTree, Loader2 } from 'lucide-react';
 
+import { showNotification, toVnextError } from '@vnext-forge/designer-ui';
 import {
+  Button,
   Dialog,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@shared/ui/Dialog';
-import { Button } from '@shared/ui/Button';
-import { showNotification } from '@shared/notification/model/notificationStore';
-import { useProjectStore } from '@app/store/useProjectStore';
-import { useVnextWorkspaceUiStore } from '@app/store/useVnextWorkspaceUiStore';
+} from '@vnext-forge/designer-ui/ui';
+
+import { useProjectListStore } from '../../../app/store/useProjectListStore';
+import { useVnextWorkspaceUiStore } from '../../../app/store/useVnextWorkspaceUiStore';
 import {
   getVnextComponentLayoutStatus,
   seedVnextComponentLayout,
-} from '@modules/project-management/ProjectApi';
-import { toVnextError } from '@shared/lib/error/vNextErrorHelpers';
+} from '../../project-management/ProjectApi';
 
 interface VnextTemplateSeedDialogProps {
   open: boolean;
@@ -61,7 +61,7 @@ export function VnextTemplateSeedDialog({
       try {
         const { ensuredPaths } = await seedVnextComponentLayout(projectId);
         onOpenChange(false);
-        void useProjectStore.getState().refreshFileTree();
+        void useProjectListStore.getState().refreshFileTree();
         const layoutRes = await getVnextComponentLayoutStatus(projectId);
         if (layoutRes.success) {
           useVnextWorkspaceUiStore.getState().setComponentLayoutStatus(layoutRes.data);

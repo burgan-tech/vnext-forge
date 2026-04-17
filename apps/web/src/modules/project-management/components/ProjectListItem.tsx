@@ -1,7 +1,8 @@
 import { ArrowRight, Folder, Trash2 } from 'lucide-react';
 
+import { Button } from '@vnext-forge/designer-ui/ui';
+
 import type { ProjectInfo } from '../ProjectTypes';
-import { Button } from '@shared/ui/Button';
 
 interface ProjectListItemProps {
   project: ProjectInfo;

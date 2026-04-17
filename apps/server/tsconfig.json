@@ -4,31 +4,14 @@
     "outDir": "./dist",
     "rootDir": "./src",
     "composite": true,
-    "types": [
-      "node"
-    ],
-    "paths": {
-      "@project/*": ["./src/slices/project/*"],
-      "@workspace/*": ["./src/slices/workspace/*"],
-      "@validate/*": ["./src/slices/validate/*"],
-      "@runtime-proxy/*": ["./src/slices/runtime-proxy/*"],
-      "@template/*": ["./src/slices/template/*"],
-      "@roslyn-lsp/*": ["./src/slices/roslyn-lsp/*"],
-      "@shared/*": ["./src/shared/*"]
-    }
+    "types": ["node"]
   },
-  "include": [
-    "src"
-  ],
-  "exclude": [
-    "src/**/*.test.ts"
-  ],
+  "include": ["src"],
+  "exclude": ["src/**/*.test.ts"],
   "references": [
-    {
-      "path": "../../packages/vnext-types"
-    },
-    {
-      "path": "../../packages/app-contracts"
-    }
+    { "path": "../../packages/vnext-types" },
+    { "path": "../../packages/app-contracts" },
+    { "path": "../../packages/services-core" },
+    { "path": "../../packages/lsp-core" }
   ]
 }

@@ -126,9 +126,11 @@ export const vnextWorkspaceConfigWizardSchema = z.object({
 
 export type VnextWorkspaceConfigWizardParse = z.infer<typeof vnextWorkspaceConfigWizardSchema>;
 
+export type VnextWizardSafeParseResult = ReturnType<typeof vnextWorkspaceConfigWizardSchema.safeParse>;
+
 export function validateNormalizedVnextWizardPayload(
   normalized: VnextWorkspaceConfig,
-): z.SafeParseReturnType<VnextWorkspaceConfig, VnextWorkspaceConfigWizardParse> {
+): VnextWizardSafeParseResult {
   return vnextWorkspaceConfigWizardSchema.safeParse(normalized);
 }
 
@@ -262,7 +264,7 @@ export function validateVnextConfigJsonText(
   }
   const lines = result.error.issues
     .slice(0, 5)
-    .map((i) => `${i.path.join('.') || 'kök'}: ${i.message}`);
+    .map((i: z.core.$ZodIssue) => `${i.path.join('.') || 'kök'}: ${i.message}`);
   return {
     ok: false,
     summary: `vnext.config.json studio kurallarına uymuyor — ${lines.join(' · ')}`,

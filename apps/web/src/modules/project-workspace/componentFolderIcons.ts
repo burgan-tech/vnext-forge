@@ -1,4 +1,4 @@
-import type { VnextComponentType } from '@app/store/useComponentFileTypesStore';
+import type { VnextComponentType } from '../../app/store/useComponentFileTypesStore';
 
 export type ComponentFolderType =
   | 'workflows'

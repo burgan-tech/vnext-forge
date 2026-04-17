@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { useProjectStore } from '@app/store/useProjectStore';
+import { toVnextError, useProjectStore } from '@vnext-forge/designer-ui';
+import type { VnextForgeError } from '@vnext-forge/app-contracts';
+
+import { useProjectListStore } from '../../../app/store/useProjectListStore';
 import { listProjects } from '../ProjectApi';
 
 import type { ProjectInfo } from '../ProjectTypes';
-import type { VnextForgeError } from '@vnext-forge/app-contracts';
-import { toVnextError } from '@shared/lib/error/vNextErrorHelpers';
 
 export function useProjectList() {
-  const { projects, setActiveProject, setProjects } = useProjectStore();
+  const projects = useProjectListStore((s) => s.projects);
+  const setProjects = useProjectListStore((s) => s.setProjects);
+  const setActiveProject = useProjectStore((s) => s.setActiveProject);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<VnextForgeError | null>(null);
 

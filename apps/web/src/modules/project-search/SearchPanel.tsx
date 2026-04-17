@@ -3,11 +3,14 @@ import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CaseSensitive, Regex, Search, WholeWord } from 'lucide-react';
 
-import { useProjectStore } from '@app/store/useProjectStore';
-import { cn } from '@shared/lib/utils/cn';
-import { useEditorStore } from '@modules/code-editor/EditorStore';
-import { resolveFileRoute } from '@modules/project-workspace/FileRouter';
-import type { FileSearchResult } from '@modules/project-workspace/WorkspaceApi';
+import {
+  cn,
+  useEditorStore,
+  useProjectStore,
+  type FileSearchResult,
+} from '@vnext-forge/designer-ui';
+
+import { resolveFileRoute } from '../project-workspace/FileRouter';
 
 import { SearchResultList } from './SearchResultList';
 import { useProjectSearch } from './useProjectSearch';

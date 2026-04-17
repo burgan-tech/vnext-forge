@@ -1,4 +1,4 @@
-import { callApi, unwrapApi } from '@shared/api/client';
+import { callApi, unwrapApi } from '@vnext-forge/designer-ui/api';
 
 import type {
   ProjectConfigStatus,

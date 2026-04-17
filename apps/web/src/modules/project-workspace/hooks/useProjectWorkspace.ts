@@ -2,28 +2,33 @@ import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { failureFromCode, ERROR_CODES, getData } from '@vnext-forge/app-contracts';
 
-import { createLogger } from '@shared/lib/logger/createLogger';
-import { useAsync } from '@shared/hooks/useAsync';
-import { showNotification } from '@shared/notification/model/notificationStore';
-import { useProjectStore } from '@app/store/useProjectStore';
-import { useEditorStore } from '@modules/code-editor/EditorStore';
-
-import { resolveFileRoute } from '../FileRouter';
-import { getWorkspaceNameError, normalizeWorkspaceName } from '../ProjectWorkspaceSchema';
-import { loadComponentFileTypes } from '../syncVnextWorkspaceFromDisk';
 import {
   createDirectory,
+  createLogger,
   deleteFile,
+  getWorkspaceNameError,
+  normalizeWorkspaceName,
   renameFile,
-  writeFile,
   scaffoldWorkflow,
-} from '../WorkspaceApi';
-import type { FileTreeNode } from '../FileTree';
+  showNotification,
+  useAsync,
+  useEditorStore,
+  useProjectStore,
+  writeFile,
+  type FileTreeNode,
+} from '@vnext-forge/designer-ui';
+
+import { useProjectListStore } from '../../../app/store/useProjectListStore';
+import { resolveFileRoute } from '../FileRouter';
+import { loadComponentFileTypes } from '../syncVnextWorkspaceFromDisk';
 
 const logger = createLogger('useProjectWorkspace');
 
 export function useProjectWorkspace() {
-  const { activeProject, fileTree, refreshFileTree, vnextConfig } = useProjectStore();
+  const activeProject = useProjectStore((s) => s.activeProject);
+  const vnextConfig = useProjectStore((s) => s.vnextConfig);
+  const fileTree = useProjectListStore((s) => s.fileTree);
+  const refreshFileTree = useProjectListStore((s) => s.refreshFileTree);
   const { openTab } = useEditorStore();
   const navigate = useNavigate();
 

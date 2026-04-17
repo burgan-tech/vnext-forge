@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "composite": true,
+    "noEmit": false,
+    "types": []
+  },
+  "include": ["src"],
+  "references": [
+    { "path": "../vnext-types" },
+    { "path": "../app-contracts" },
+    { "path": "../services-core" }
+  ]
+}

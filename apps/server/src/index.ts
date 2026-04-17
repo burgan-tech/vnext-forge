@@ -2,29 +2,28 @@ import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { ERROR_CODES, VnextForgeError } from '@vnext-forge/app-contracts';
-import { errorHandler, jsonErrorResponse } from '@shared/middleware/error-handler.js';
-import { baseLogger } from '@shared/lib/logger.js';
-import { requestLoggerMiddleware } from '@shared/middleware/logger.js';
-import { traceIdMiddleware } from '@shared/middleware/trace-id.js';
-import { ok } from '@shared/lib/response-helpers.js';
-import { projectRouter } from '@project/router.js';
-import { workspaceRouter } from '@workspace/router.js';
-import { validateRouter } from '@validate/router.js';
-import { runtimeProxyRouter } from '@runtime-proxy/router.js';
-import { templateRouter } from '@template/router.js';
-import { injectRoslynWebSocket } from '@roslyn-lsp/router.js';
-import { ensureOmniSharp } from '@roslyn-lsp/omnisharp-installer.js';
-import '@shared/types/hono.js';
 
-const app = new Hono()
+import { createPinoLoggerAdapter } from './adapters/pino-logger.js';
+import { composeLspBridge } from './composition/lsp.js';
+import { composeWebServerServices } from './composition/services.js';
+import { injectLspWebSocket } from './lsp/router.js';
+import { createRpcRouter } from './rpc/rpc-router.js';
+import { baseLogger } from './shared/lib/logger.js';
+import { ok } from './shared/lib/response-helpers.js';
+import { errorHandler, jsonErrorResponse } from './shared/middleware/error-handler.js';
+import { requestLoggerMiddleware } from './shared/middleware/logger.js';
+import { traceIdMiddleware } from './shared/middleware/trace-id.js';
+import type { Variables } from './shared/types/hono.js';
+
+const loggerAdapter = createPinoLoggerAdapter(baseLogger);
+const { services, registry } = composeWebServerServices(loggerAdapter);
+const rpcRouter = createRpcRouter({ registry, services });
+
+const app = new Hono<{ Variables: Variables }>()
   .use('*', traceIdMiddleware)
   .use('*', requestLoggerMiddleware)
   .use('*', cors())
-  .route('/api/projects', projectRouter)
-  .route('/api/files', workspaceRouter)
-  .route('/api/validate', validateRouter)
-  .route('/api/runtime', runtimeProxyRouter)
-  .route('/api/templates', templateRouter)
+  .route('/api/rpc', rpcRouter)
   .get('/api/health', (c) => ok(c, { status: 'ok', traceId: c.get('traceId') }));
 
 app.onError(errorHandler);
@@ -41,15 +40,12 @@ app.notFound((c) =>
 );
 
 const port = Number(process.env.PORT) || 3001;
-baseLogger.info(`vnext-forge BFF running on port ${port}`);
-
-// Check OmniSharp availability at startup (non-blocking)
-ensureOmniSharp().catch((err) =>
-  baseLogger.warn({ err }, 'OmniSharp not available — Roslyn IntelliSense will be disabled'),
-);
+baseLogger.info(`vnext-forge web-server running on port ${port}`);
 
 const server = serve({ fetch: app.fetch, port });
-injectRoslynWebSocket(server);
+
+const lspBridge = composeLspBridge(loggerAdapter);
+injectLspWebSocket(server, { bridge: lspBridge, logger: loggerAdapter });
 
 export type AppType = typeof app;
 export default app;

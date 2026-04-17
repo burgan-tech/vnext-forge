@@ -1,8 +1,6 @@
 import { useCallback, useState } from 'react';
 
-import { useProjectStore } from '@app/store/useProjectStore';
-import { showNotification } from '@shared/notification/model/notificationStore';
-import { createLogger } from '@shared/lib/logger/createLogger';
+import { createLogger, showNotification, useProjectStore } from '@vnext-forge/designer-ui';
 
 import { syncVnextWorkspaceFromDisk } from '../syncVnextWorkspaceFromDisk';
 

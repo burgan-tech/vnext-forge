@@ -8,7 +8,6 @@ import { createWorkspaceConfig } from '../../eslint.config.mjs';
 export default createWorkspaceConfig({
   tsconfigRootDir: import.meta.dirname,
   runtime: 'browser',
-  loggerConsoleFiles: ['src/shared/lib/logger/createLogger.ts'],
   extraRules: {
     '@typescript-eslint/no-floating-promises': 'off',
   },
@@ -28,12 +27,6 @@ export default createWorkspaceConfig({
     {
       files: ['src/**/*.{ts,tsx}'],
       ...reactRefresh.configs.vite,
-    },
-    {
-      files: ['src/shared/ui/**/*.tsx'],
-      rules: {
-        'react-refresh/only-export-components': 'off',
-      },
     },
   ],
 });

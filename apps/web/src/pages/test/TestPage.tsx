@@ -10,20 +10,20 @@ import {
   Sparkles,
 } from 'lucide-react';
 
-import Accordion from '@shared/ui/Accordion';
-import { Alert, AlertDescription, AlertTitle } from '@shared/ui/Alert';
-import { Badge } from '@shared/ui/Badge';
-import { Button } from '@shared/ui/Button';
 import {
+  Accordion,
+  Alert,
+  AlertDescription,
+  AlertTitle,
+  Badge,
+  Button,
   Card,
   CardContent,
   CardDescription,
   CardFooter,
   CardHeader,
   CardTitle,
-} from '@shared/ui/Card';
-import { Checkbox } from '@shared/ui/Checkbox';
-import {
+  Checkbox,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -31,8 +31,6 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@shared/ui/Dialog';
-import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
@@ -40,7 +38,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@shared/ui/DropdownMenu';
+} from '@vnext-forge/designer-ui/ui';
 
 type SurfaceVariant = 'default' | 'secondary' | 'tertiary';
 

@@ -1,12 +1,13 @@
-import { useComponentFileTypesStore } from '@app/store/useComponentFileTypesStore';
-import { useVnextWorkspaceUiStore } from '@app/store/useVnextWorkspaceUiStore';
+import { createLogger } from '@vnext-forge/designer-ui';
+
+import { useComponentFileTypesStore } from '../../app/store/useComponentFileTypesStore';
+import { useVnextWorkspaceUiStore } from '../../app/store/useVnextWorkspaceUiStore';
 import {
   getComponentFileTypes,
   getProjectConfigStatus,
   getVnextComponentLayoutStatus,
   getValidateScriptStatus,
-} from '@modules/project-management/ProjectApi';
-import { createLogger } from '@shared/lib/logger/createLogger';
+} from '../project-management/ProjectApi';
 
 import { applyProjectConfigStatus } from './applyProjectConfigStatus';
 

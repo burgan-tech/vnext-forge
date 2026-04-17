@@ -2,13 +2,12 @@ import { useCallback, useMemo, type MouseEventHandler } from 'react';
 
 import { ChevronRight, Folder, FolderOpen } from 'lucide-react';
 
+import { cn, useProjectStore, type FileTreeNode } from '@vnext-forge/designer-ui';
+
 import {
   useComponentFileTypesStore,
   type VnextComponentType,
-} from '@app/store/useComponentFileTypesStore';
-import { useProjectStore } from '@app/store/useProjectStore';
-import type { FileTreeNode } from '@modules/project-management/ProjectTypes';
-import { cn } from '@shared/lib/utils/cn';
+} from '../../app/store/useComponentFileTypesStore';
 
 import { ComponentFolderIcon } from './ComponentFolderIcon';
 import {

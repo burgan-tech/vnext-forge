@@ -1,5 +1,4 @@
-import type { VnextWorkspaceConfig } from '@modules/project-management/ProjectTypes';
-import { createLogger } from '@shared/lib/logger/createLogger';
+import { createLogger, type VnextWorkspaceConfig } from '@vnext-forge/designer-ui';
 
 export type FileRouteType =
   | 'workflow'

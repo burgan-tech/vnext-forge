@@ -2,17 +2,23 @@ import type { ChangeEvent, KeyboardEvent } from 'react';
 
 import { AlertCircle, Plus } from 'lucide-react';
 
-import { FolderBrowser } from '@shared/ui/FolderBrowser';
-import { Alert, AlertDescription } from '@shared/ui/Alert';
-import { Button } from '@shared/ui/Button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@shared/ui/Card';
-import { Input } from '@shared/ui/Input';
+import {
+  Alert,
+  AlertDescription,
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  FolderBrowser,
+  Input,
+} from '@vnext-forge/designer-ui/ui';
 
 import { useCreateProject } from '../hooks/useCreateProject';
+import type { ProjectInfo } from '../ProjectTypes';
 
-type CreateProjectCallback = (
-  project: import('@modules/project-management/ProjectTypes').ProjectInfo,
-) => Promise<void> | void;
+type CreateProjectCallback = (project: ProjectInfo) => Promise<void> | void;
 
 interface CreateProjectCardProps {
   onCreated?: CreateProjectCallback;

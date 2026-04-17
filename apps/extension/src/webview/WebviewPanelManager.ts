@@ -1,19 +1,38 @@
 import * as fs from 'node:fs'
 import * as vscode from 'vscode'
-import type { MessageRouter } from '../MessageRouter'
-import type { FileRoute } from '../file-router'
-import type { VnextWorkspaceConfig } from '@vnext-forge/vnext-types'
+import type { VnextWorkspaceConfig } from '@vnext-forge/services-core'
 
-export interface WebviewNavigationMessage {
-  type: 'navigate'
-  route: FileRoute
-  /** Project id used by the webview to resolve active project context. */
+import type { FileRouteKind } from '../file-router'
+import type { MessageRouter } from '../MessageRouter'
+
+/**
+ * Editor kinds the webview panel knows how to render. `'config'` and
+ * `'unknown'` are deliberately excluded — those file types are opened in
+ * VS Code's native editor instead (see `commands.ts`).
+ */
+export type WebviewEditorKind = Exclude<FileRouteKind, 'config' | 'unknown'>
+
+/**
+ * Host -> webview message that tells the webview which designer editor to
+ * render. The webview no longer carries a router, so we describe the editor
+ * declaratively (kind + ids) and the webview picks the matching component.
+ */
+export interface WebviewOpenEditorMessage {
+  type: 'open-editor'
+  kind: WebviewEditorKind
+  /** Project id used by `useProjectStore` to scope subsequent requests. */
   projectId: string
   /** Absolute workspace path of the project. */
   projectPath: string
-  /** Domain name read from vnext.config.json. */
+  /** Domain name read from `vnext.config.json`. */
   projectDomain: string
-  /** Full vnext.config.json — hydrates useProjectStore.vnextConfig in the webview. */
+  /** Component group (folder under the editor's root). */
+  group: string
+  /** Component file name (without `.json`). */
+  name: string
+  /** Absolute file path the user opened, kept for diagnostics. */
+  filePath: string
+  /** Full `vnext.config.json` — hydrates `useProjectStore.vnextConfig`. */
   vnextConfig: VnextWorkspaceConfig
 }
 
@@ -21,7 +40,7 @@ export class WebviewPanelManager {
   private panel: vscode.WebviewPanel | undefined
   private readonly context: vscode.ExtensionContext
   private readonly router: MessageRouter
-  private pendingNavigation: WebviewNavigationMessage | undefined
+  private pendingOpen: WebviewOpenEditorMessage | undefined
   private webviewReady = false
 
   constructor(context: vscode.ExtensionContext, router: MessageRouter) {
@@ -50,7 +69,8 @@ export class WebviewPanelManager {
 
     const routerDisposable = this.router.attach(this.panel)
 
-    // Intercept 'ready' signals from the webview so we can flush queued navigations.
+    // Intercept 'ready' signals from the webview so we can flush a queued
+    // open-editor message that arrived before the React tree mounted.
     const readyDisposable = this.panel.webview.onDidReceiveMessage((raw: unknown) => {
       if (
         typeof raw === 'object' &&
@@ -58,33 +78,40 @@ export class WebviewPanelManager {
         (raw as { type?: unknown }).type === 'webview-ready'
       ) {
         this.webviewReady = true
-        if (this.pendingNavigation) {
-          this.panel?.webview.postMessage(this.pendingNavigation)
-          this.pendingNavigation = undefined
+        if (this.pendingOpen) {
+          this.panel?.webview.postMessage(this.pendingOpen)
+          this.pendingOpen = undefined
         }
       }
     })
 
     this.panel.webview.html = this.buildHtml(this.panel.webview)
 
-    this.panel.onDidDispose(() => {
-      routerDisposable.dispose()
-      readyDisposable.dispose()
-      this.panel = undefined
-      this.webviewReady = false
-      this.pendingNavigation = undefined
-    }, null, this.context.subscriptions)
+    this.panel.onDidDispose(
+      () => {
+        routerDisposable.dispose()
+        readyDisposable.dispose()
+        this.panel = undefined
+        this.webviewReady = false
+        this.pendingOpen = undefined
+      },
+      null,
+      this.context.subscriptions,
+    )
   }
 
-  /** Open the designer (creating the panel if needed) and navigate to a file route. */
-  navigateTo(message: WebviewNavigationMessage): void {
+  /**
+   * Open the designer (creating the panel if needed) and tell the webview
+   * which editor to render.
+   */
+  openEditor(message: WebviewOpenEditorMessage): void {
     this.openOrReveal()
     if (!this.panel) return
     if (this.webviewReady) {
       this.panel.webview.postMessage(message)
     } else {
       // Queue until the webview announces it is ready.
-      this.pendingNavigation = message
+      this.pendingOpen = message
     }
   }
 
@@ -98,11 +125,15 @@ export class WebviewPanelManager {
     const indexHtmlPath = vscode.Uri.joinPath(webviewDistPath, 'index.html').fsPath
     let html = fs.readFileSync(indexHtmlPath, 'utf8')
 
+    // Rewrite asset references to webview URIs. Vite emits relative paths
+    // (`./assets/...`) when `base: ''`, so the regex must accept an optional
+    // `./` prefix in addition to a leading `/` or no prefix at all.
     html = html.replace(
-      /((?:src|href)=")(\/?assets\/[^"]+)(")/g,
+      /((?:src|href)=")(\.?\/?assets\/[^"]+)(")/g,
       (_match, prefix, assetPath, suffix) => {
+        const cleanPath = (assetPath as string).replace(/^\.?\/?/, '')
         const assetUri = webview.asWebviewUri(
-          vscode.Uri.joinPath(webviewDistPath, assetPath.replace(/^\//, '')),
+          vscode.Uri.joinPath(webviewDistPath, cleanPath),
         )
         return `${prefix}${assetUri}${suffix}`
       },

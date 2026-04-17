@@ -1,18 +1,17 @@
 import { useCallback, useEffect } from 'react';
 
-import { getProject, getProjectConfigStatus } from '@modules/project-management/ProjectApi';
-import { useComponentFileTypesStore } from '@app/store/useComponentFileTypesStore';
-import { useProjectStore } from '@app/store/useProjectStore';
-import { useVnextWorkspaceUiStore } from '@app/store/useVnextWorkspaceUiStore';
-import { useWorkspaceDiagnosticsStore } from '@app/store/useWorkspaceDiagnosticsStore';
-import { createLogger } from '@shared/lib/logger/createLogger';
+import { createLogger, getProjectTree, useProjectStore } from '@vnext-forge/designer-ui';
 
+import { useComponentFileTypesStore } from '../../../app/store/useComponentFileTypesStore';
+import { useProjectListStore } from '../../../app/store/useProjectListStore';
+import { useVnextWorkspaceUiStore } from '../../../app/store/useVnextWorkspaceUiStore';
+import { useWorkspaceDiagnosticsStore } from '../../../app/store/useWorkspaceDiagnosticsStore';
+import { getProject, getProjectConfigStatus } from '../../project-management/ProjectApi';
 import { applyProjectConfigStatus } from '../applyProjectConfigStatus';
 import {
   loadComponentFileTypes,
   refreshWorkspaceLayoutAndValidateScript,
 } from '../syncVnextWorkspaceFromDisk';
-import { getProjectTree } from '../WorkspaceApi';
 
 const logger = createLogger('useProjectWorkspacePage');
 
@@ -24,8 +23,12 @@ export interface ProjectWorkspacePageController {
  * Proje çalışma alanı bootstrap: proje meta + config `ProjectApi`, ağaç `WorkspaceApi`.
  */
 export function useProjectWorkspacePage(projectId?: string): ProjectWorkspacePageController {
-  const { setActiveProject, setError, setFileTree, setLoading, setVnextConfig } = useProjectStore();
-  const { clearConfigIssues } = useWorkspaceDiagnosticsStore();
+  const setActiveProject = useProjectStore((s) => s.setActiveProject);
+  const setVnextConfig = useProjectStore((s) => s.setVnextConfig);
+  const setLoading = useProjectStore((s) => s.setLoading);
+  const setError = useProjectStore((s) => s.setError);
+  const setFileTree = useProjectListStore((s) => s.setFileTree);
+  const clearConfigIssues = useWorkspaceDiagnosticsStore((s) => s.clearConfigIssues);
   const resetVnextWorkspaceUi = useVnextWorkspaceUiStore((s) => s.resetVnextWorkspaceUi);
 
   const applyConfigStatus = useCallback(

@@ -2,13 +2,11 @@ import { useCallback, useEffect, useRef, useState, type MouseEvent as ReactMouse
 
 import { FileText, Folder } from 'lucide-react';
 
-import type { FileTreeNode } from '@modules/project-management/ProjectTypes';
-import { cn } from '@shared/lib/utils/cn';
+import { cn, getWorkspaceNameError, normalizeWorkspaceName, type FileTreeNode } from '@vnext-forge/designer-ui';
 
 import type { ComponentFolderType } from './componentFolderIcons';
 import { FileTreeContextMenu, type FileTreeMenuItem } from './FileTreeContextMenu';
 import { FileTreeNodeRow } from './FileTreeNodeRow';
-import { getWorkspaceNameError, normalizeWorkspaceName } from './ProjectWorkspaceSchema';
 
 export type { FileTreeNode };
 

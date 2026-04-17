@@ -1,9 +1,9 @@
 import { FolderOpen } from 'lucide-react';
 
-import { FolderBrowser } from '@shared/ui/FolderBrowser';
-import { Alert, AlertDescription } from '@shared/ui/Alert';
-import { Button } from '@shared/ui/Button';
 import {
+  Alert,
+  AlertDescription,
+  Button,
   Dialog,
   DialogCancelButton,
   DialogContent,
@@ -11,13 +11,13 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@shared/ui/Dialog';
+  FolderBrowser,
+} from '@vnext-forge/designer-ui/ui';
 
 import { useImportProject } from '../hooks/useImportProject';
+import type { ProjectInfo } from '../ProjectTypes';
 
-type ImportProjectCallback = (
-  project: import('@modules/project-management/ProjectTypes').ProjectInfo,
-) => Promise<void> | void;
+type ImportProjectCallback = (project: ProjectInfo) => Promise<void> | void;
 
 interface ImportProjectDialogProps {
   onImported?: ImportProjectCallback;

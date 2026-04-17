@@ -7,7 +7,7 @@ import {
   VnextForgeError,
   internalFailure,
 } from '@vnext-forge/app-contracts'
-import { baseLogger } from '@shared/lib/logger.js'
+import { baseLogger } from '../lib/logger.js'
 
 function statusFromErrorCode(code: ErrorCode): ContentfulStatusCode {
   switch (code) {

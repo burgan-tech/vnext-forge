@@ -1,6 +1,7 @@
-import { useProjectStore } from '@app/store/useProjectStore';
-import { useVnextWorkspaceUiStore } from '@app/store/useVnextWorkspaceUiStore';
-import { useWorkspaceDiagnosticsStore } from '@app/store/useWorkspaceDiagnosticsStore';
+import { useProjectStore } from '@vnext-forge/designer-ui';
+
+import { useVnextWorkspaceUiStore } from '../../app/store/useVnextWorkspaceUiStore';
+import { useWorkspaceDiagnosticsStore } from '../../app/store/useWorkspaceDiagnosticsStore';
 
 /**
  * Kod editöründen kaydedilen içerik sıkı doğrulamadan geçmediğinde: StatusBar + store ile uyumlu hata kaydı.

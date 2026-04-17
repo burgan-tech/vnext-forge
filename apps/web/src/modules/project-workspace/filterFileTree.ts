@@ -1,4 +1,4 @@
-import type { FileTreeNode } from '@modules/project-management/ProjectTypes';
+import type { FileTreeNode } from '@vnext-forge/designer-ui';
 
 /**
  * Recursively filters a FileTreeNode tree keeping only nodes whose name matches

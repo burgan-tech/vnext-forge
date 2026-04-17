@@ -1,7 +1,16 @@
 import * as path from 'node:path'
-import type { VnextWorkspaceConfig } from '@vnext-forge/vnext-types'
+import type { VnextWorkspaceConfig } from '@vnext-forge/services-core'
 
-export type FileRouteType =
+/**
+ * Editor "kinds" the webview can render.
+ *
+ * - `'workflow' | 'task' | 'schema' | 'view' | 'function' | 'extension'`:
+ *   render the matching designer editor inside the shared webview panel.
+ * - `'config' | 'unknown'`: the host should let VS Code's native editor open
+ *   the file. The webview is only used for component editors; generic code
+ *   editing is delegated to VS Code itself (see `commands.ts`).
+ */
+export type FileRouteKind =
   | 'workflow'
   | 'task'
   | 'schema'
@@ -11,12 +20,17 @@ export type FileRouteType =
   | 'config'
   | 'unknown'
 
+/**
+ * Result of resolving a workspace file path against a project's
+ * `vnext.config.json`. Replaces the previous SPA-style `navigateTo` URL
+ * model — the webview no longer carries a router, so the host passes
+ * `kind + group + name` directly.
+ */
 export interface FileRoute {
-  type: FileRouteType
+  kind: FileRouteKind
   group: string
   name: string
-  navigateTo?: string
-  /** Absolute file path, useful for editor tabs fallback. */
+  /** Absolute file path for downstream consumers (logging, native open). */
   filePath: string
 }
 
@@ -84,14 +98,14 @@ function parseGroupName(rest: string, ext = '.json'): { group: string; name: str
 }
 
 /**
- * Resolve the navigation route for a file inside a vnext project.
- * Mirrors the logic in apps/web/src/modules/project-workspace/FileRouter.ts so
- * the extension host can decide where to point the webview.
+ * Resolve which designer editor (if any) should handle a file inside a vnext
+ * project. The host uses this to decide whether to open the shared webview
+ * (for component editors) or fall back to VS Code's native text editor (for
+ * `vnext.config.json` and unknown file types).
  */
 export function resolveFileRoute(
   filePathAbsolute: string,
   config: VnextWorkspaceConfig | null,
-  projectId: string,
   projectPath: string,
 ): FileRoute {
   const normalizedFile = normalize(filePathAbsolute)
@@ -104,20 +118,18 @@ export function resolveFileRoute(
 
   if (relativePath.toLowerCase() === 'vnext.config.json') {
     return {
-      type: 'config',
+      kind: 'config',
       group: '',
       name: 'vnext.config.json',
       filePath: normalizedFile,
-      navigateTo: `/project/${projectId}/code/${encodeURIComponent(normalizedFile)}`,
     }
   }
 
   const unknownFallback = (): FileRoute => ({
-    type: 'unknown',
+    kind: 'unknown',
     group: '',
     name: path.basename(normalizedFile),
     filePath: normalizedFile,
-    navigateTo: `/project/${projectId}/code/${encodeURIComponent(normalizedFile)}`,
   })
 
   if (!config) return unknownFallback()
@@ -125,16 +137,16 @@ export function resolveFileRoute(
   const componentsRoot = normalizeConfigPath(config.paths?.componentsRoot)
   if (!componentsRoot) return unknownFallback()
 
-  const checks: { kind: FileRouteType; segment: string; route: string }[] = [
-    { kind: 'workflow', segment: normalizeConfigPath(config.paths.workflows), route: 'flow' },
-    { kind: 'task', segment: normalizeConfigPath(config.paths.tasks), route: 'task' },
-    { kind: 'schema', segment: normalizeConfigPath(config.paths.schemas), route: 'schema' },
-    { kind: 'view', segment: normalizeConfigPath(config.paths.views), route: 'view' },
-    { kind: 'function', segment: normalizeConfigPath(config.paths.functions), route: 'function' },
-    { kind: 'extension', segment: normalizeConfigPath(config.paths.extensions), route: 'extension' },
+  const checks: { kind: FileRouteKind; segment: string }[] = [
+    { kind: 'workflow', segment: normalizeConfigPath(config.paths.workflows) },
+    { kind: 'task', segment: normalizeConfigPath(config.paths.tasks) },
+    { kind: 'schema', segment: normalizeConfigPath(config.paths.schemas) },
+    { kind: 'view', segment: normalizeConfigPath(config.paths.views) },
+    { kind: 'function', segment: normalizeConfigPath(config.paths.functions) },
+    { kind: 'extension', segment: normalizeConfigPath(config.paths.extensions) },
   ]
 
-  for (const { kind, segment, route } of checks) {
+  for (const { kind, segment } of checks) {
     if (!segment) continue
     const rest = extractRest(relativePath, componentsRoot, segment)
     if (rest === null) continue
@@ -144,11 +156,10 @@ export function resolveFileRoute(
     const parsed = parseGroupName(rest, '.json')
     if (!parsed) continue
     return {
-      type: kind,
+      kind,
       group: parsed.group,
       name: parsed.name,
       filePath: normalizedFile,
-      navigateTo: `/project/${projectId}/${route}/${encodeURIComponent(parsed.group)}/${encodeURIComponent(parsed.name)}`,
     }
   }
 

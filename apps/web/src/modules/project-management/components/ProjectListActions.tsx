@@ -1,5 +1,6 @@
-import type { ProjectInfo } from '@modules/project-management/ProjectTypes';
-import { Separator } from '@shared/ui/Separator';
+import { Separator } from '@vnext-forge/designer-ui/ui';
+
+import type { ProjectInfo } from '../ProjectTypes';
 
 import { CreateProjectCard } from './CreateProjectCard';
 import { ImportProjectDialog } from './ImportProjectDialog';

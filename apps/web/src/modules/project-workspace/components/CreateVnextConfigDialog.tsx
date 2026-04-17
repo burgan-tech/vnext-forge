@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { z } from 'zod';
 import {
   Controller,
   useForm,
@@ -15,28 +16,32 @@ import {
   type VnextWorkspaceConfig,
 } from '@vnext-forge/app-contracts';
 
-import type { ProjectInfo } from '@modules/project-management/ProjectTypes';
-import { useProjectStore } from '@app/store/useProjectStore';
-import { Button } from '@shared/ui/Button';
-import { Card, CardContent, CardHeader, CardTitle } from '@shared/ui/Card';
-import { Checkbox } from '@shared/ui/Checkbox';
 import {
+  cn,
+  createLogger,
+  readFile,
+  useProjectStore,
+  type ProjectInfo,
+} from '@vnext-forge/designer-ui';
+import {
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  Checkbox,
   Dialog,
   DialogCancelButton,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@shared/ui/Dialog';
-import { Input } from '@shared/ui/Input';
-import { Select } from '@shared/ui/Select';
-import { TagEditor } from '@shared/ui/TagEditor';
-import { Textarea } from '@shared/ui/Textarea';
-import { cn } from '@shared/lib/utils/cn';
-import { createLogger } from '@shared/lib/logger/createLogger';
+  Input,
+  Select,
+  TagEditor,
+  Textarea,
+} from '@vnext-forge/designer-ui/ui';
 
-import { readFile } from '../WorkspaceApi';
 import { useWriteVnextWorkspaceConfig } from '../hooks/useWriteVnextWorkspaceConfig';
 import {
   normalizeVnextWizardPayload,
@@ -72,8 +77,8 @@ function pickWizardFieldError(
 }
 
 /** Zod path → formdaki kart/başlıklarla uyumlu kısa Türkçe etiket. */
-function friendlyWizardIssuePath(pathParts: (string | number)[]): string {
-  const p = pathParts.map(String);
+function friendlyWizardIssuePath(pathParts: readonly PropertyKey[]): string {
+  const p = pathParts.map((part) => String(part));
   if (p.length === 0) return 'Yapılandırma';
 
   const [a, b, c, d] = [p[0], p[1], p[2], p[3]];
@@ -123,9 +128,9 @@ function friendlyWizardIssuePath(pathParts: (string | number)[]): string {
 }
 
 /** Mesajda tekrarlayan teknik path önekini kaldırır. */
-function wizardIssueMessageForDisplay(message: string, pathParts: (string | number)[]): string {
+function wizardIssueMessageForDisplay(message: string, pathParts: readonly PropertyKey[]): string {
   let m = message.trim();
-  const joined = pathParts.join('.');
+  const joined = pathParts.map((part) => String(part)).join('.');
   if (joined) {
     const re = new RegExp(`^\\s*${joined.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*:?\\s*`, 'i');
     m = m.replace(re, '').trim();
@@ -490,7 +495,7 @@ export function CreateVnextConfigDialog({
                       <ul className="text-destructive/95 max-h-40 list-inside list-disc overflow-y-auto text-xs leading-relaxed">
                         {Array.from(
                           new Set(
-                            wizardValidation.error.issues.map((i) => {
+                            wizardValidation.error.issues.map((i: z.core.$ZodIssue) => {
                               const label = friendlyWizardIssuePath(i.path);
                               const detail = wizardIssueMessageForDisplay(i.message, i.path);
                               return `${label}: ${detail}`;

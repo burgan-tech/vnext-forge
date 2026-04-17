@@ -1,14 +1,16 @@
 import { useMemo, useState } from 'react';
 
+import {
+  browseWorkspace,
+  showNotification,
+  toVnextError,
+  type WorkspaceFolder,
+} from '@vnext-forge/designer-ui';
+import type { VnextForgeError } from '@vnext-forge/app-contracts';
+
 import { createProject } from '../ProjectApi';
 import { getProjectDomainError, normalizeProjectDomain } from '../ProjectManagementSchema';
-
-import { browseWorkspace } from '@modules/project-workspace/WorkspaceApi';
-import { showNotification } from '@shared/notification/model/notificationStore';
-import type { WorkspaceFolder } from '@shared/ui/FolderBrowser';
 import type { ProjectInfo } from '../ProjectTypes';
-import type { VnextForgeError } from '@vnext-forge/app-contracts';
-import { toVnextError } from '@shared/lib/error/vNextErrorHelpers';
 
 interface UseCreateProjectOptions {
   onCreated?: (project: ProjectInfo) => Promise<void> | void;

@@ -1,13 +1,19 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { DesignerUiProvider } from '@vnext-forge/designer-ui';
+
 import './index.css';
-import AppProviders from '@app/providers/AppProviders';
-import { AppRouter } from '@app/routes/AppRouter';
+import { AppRouter } from './app/AppRouter';
+import { createHttpTransport } from './transport/HttpTransport';
+
+const transport = createHttpTransport({
+  baseUrl: import.meta.env.VITE_API_BASE_URL ?? '',
+});
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <AppProviders>
+    <DesignerUiProvider transport={transport}>
       <AppRouter />
-    </AppProviders>
+    </DesignerUiProvider>
   </StrictMode>,
 );

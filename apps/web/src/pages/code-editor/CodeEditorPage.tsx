@@ -3,20 +3,24 @@ import { useNavigate, useParams } from 'react-router-dom';
 import Editor, { type OnMount } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
 
-import { setupMonacoWithLsp } from '@modules/code-editor/editor/MonacoSetup';
-import type { CsharpLspClient } from '@modules/code-editor/editor/lspClient';
-import { useEditorStore } from '@modules/code-editor/EditorStore';
-import {
-  useComponentFileTypesStore,
-  flowToComponentType,
-} from '@app/store/useComponentFileTypesStore';
-import { useProjectStore } from '@app/store/useProjectStore';
-import { getProject } from '@modules/project-management/ProjectApi';
-import { readFile, writeFile } from '@modules/project-workspace/WorkspaceApi';
-import { syncVnextWorkspaceFromDisk } from '@modules/project-workspace/syncVnextWorkspaceFromDisk';
-import { validateVnextConfigJsonText } from '@modules/project-workspace/vnextWorkspaceConfigWizardValidation';
-import { applyVnextConfigStrictValidationFailure } from '@modules/project-workspace/workspaceConfigDiagnostics';
 import { isFailure } from '@vnext-forge/app-contracts';
+import {
+  readFile,
+  setupMonacoWithLsp,
+  useEditorStore,
+  useProjectStore,
+  writeFile,
+  type CsharpLspClient,
+} from '@vnext-forge/designer-ui';
+
+import {
+  flowToComponentType,
+  useComponentFileTypesStore,
+} from '../../app/store/useComponentFileTypesStore';
+import { getProject } from '../../modules/project-management/ProjectApi';
+import { syncVnextWorkspaceFromDisk } from '../../modules/project-workspace/syncVnextWorkspaceFromDisk';
+import { validateVnextConfigJsonText } from '../../modules/project-workspace/vnextWorkspaceConfigWizardValidation';
+import { applyVnextConfigStrictValidationFailure } from '../../modules/project-workspace/workspaceConfigDiagnostics';
 
 function updateComponentFileTypeAfterSave(filePath: string, content: string): void {
   const projectPath = useProjectStore.getState().activeProject?.path;

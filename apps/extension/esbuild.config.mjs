@@ -43,14 +43,6 @@ const buildOptions = {
   target: 'node18',
   sourcemap: !production,
   minify: production,
-  alias: {
-    '@handlers/project': path.resolve(__dirname, 'src/handlers/project'),
-    '@handlers/workspace': path.resolve(__dirname, 'src/handlers/workspace'),
-    '@handlers/validate': path.resolve(__dirname, 'src/handlers/validate'),
-    '@handlers/template': path.resolve(__dirname, 'src/handlers/template'),
-    '@handlers/runtime-proxy': path.resolve(__dirname, 'src/handlers/runtime-proxy'),
-    '@ext/shared': path.resolve(__dirname, 'src/shared'),
-  },
 };
 
 if (watch) {

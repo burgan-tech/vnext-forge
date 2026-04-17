@@ -1,10 +1,13 @@
 import { useMemo } from 'react';
 
-import type { UseAsyncOptions } from '@shared/hooks/useAsync';
-import { useAsync } from '@shared/hooks/useAsync';
+import {
+  useAsync,
+  type ProjectInfo,
+  type UseAsyncOptions,
+  type WriteProjectConfigPayload,
+} from '@vnext-forge/designer-ui';
 
-import { writeProjectConfig } from '@modules/project-management/ProjectApi';
-import type { ProjectInfo, WriteProjectConfigPayload } from '@modules/project-management/ProjectTypes';
+import { writeProjectConfig } from '../../project-management/ProjectApi';
 
 /**
  * vnext.config.json yazımı — transport `ProjectApi` içinde; async yaşam döngüsü burada.

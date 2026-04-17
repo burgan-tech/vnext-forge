@@ -1,13 +1,11 @@
 import * as vscode from 'vscode'
 import * as path from 'node:path'
 import * as fs from 'node:fs/promises'
-import type { ProjectService } from '@handlers/project/service'
-import type { WorkspaceService } from '@handlers/workspace/service'
-import { baseLogger } from '@ext/shared/logger'
-import type { VnextWorkspaceConfig } from '@vnext-forge/vnext-types'
-import { resolveFileRoute, type FileRoute } from './file-router'
-import type { VnextWorkspaceDetector, VnextWorkspaceRoot } from './workspace-detector'
-import type { WebviewPanelManager } from './webview/WebviewPanelManager'
+import type { ProjectService, WorkspaceService, VnextWorkspaceConfig } from '@vnext-forge/services-core'
+import { baseLogger } from './shared/logger.js'
+import { resolveFileRoute, type FileRoute, type FileRouteKind } from './file-router.js'
+import type { VnextWorkspaceDetector, VnextWorkspaceRoot } from './workspace-detector.js'
+import type { WebviewEditorKind, WebviewPanelManager } from './webview/WebviewPanelManager.js'
 
 interface CommandDeps {
   projectService: ProjectService
@@ -39,6 +37,25 @@ function openCommand({ panelManager }: CommandDeps): void {
 
 // ── vnextForge.openDesigner ──────────────────────────────────────────────────
 
+/**
+ * Whether a resolved file route maps to a designer editor in the webview.
+ * `config` and `unknown` files are deliberately routed to VS Code's native
+ * text editor instead.
+ */
+function isWebviewEditorRoute(
+  route: FileRoute,
+): route is FileRoute & { kind: WebviewEditorKind } {
+  const kind: FileRouteKind = route.kind
+  return (
+    kind === 'workflow' ||
+    kind === 'task' ||
+    kind === 'schema' ||
+    kind === 'view' ||
+    kind === 'function' ||
+    kind === 'extension'
+  )
+}
+
 async function openDesignerCommand(uri: vscode.Uri | undefined, deps: CommandDeps): Promise<void> {
   const targetUri = uri ?? vscode.window.activeTextEditor?.document.uri
   if (!targetUri) {
@@ -58,14 +75,34 @@ async function openDesignerCommand(uri: vscode.Uri | undefined, deps: CommandDep
   const projectInfo = await resolveProjectForRoot(root, deps)
   if (!projectInfo) return
 
-  const route = resolveFileRoute(target, projectInfo.config, projectInfo.projectId, root.folderPath)
+  const route = resolveFileRoute(target, projectInfo.config, root.folderPath)
 
-  deps.panelManager.navigateTo({
-    type: 'navigate',
-    route,
+  // Files that don't map to a designer editor (vnext.config.json, generic
+  // source files) are opened in VS Code's native editor — the webview only
+  // hosts the structured component editors. This keeps the extension feeling
+  // like a VS Code integration rather than a web app embedded inside VS Code.
+  if (!isWebviewEditorRoute(route)) {
+    try {
+      const document = await vscode.workspace.openTextDocument(targetUri)
+      await vscode.window.showTextDocument(document, { preview: false })
+    } catch (error) {
+      baseLogger.warn(
+        { target, error: (error as Error).message },
+        'Failed to open file in native editor',
+      )
+    }
+    return
+  }
+
+  deps.panelManager.openEditor({
+    type: 'open-editor',
+    kind: route.kind,
     projectId: projectInfo.projectId,
     projectPath: root.folderPath,
     projectDomain: projectInfo.config.domain,
+    group: route.group,
+    name: route.name,
+    filePath: route.filePath,
     vnextConfig: projectInfo.config,
   })
 }
@@ -174,7 +211,7 @@ async function createProjectCommand({ projectService, detector }: CommandDeps): 
 
 // ── vnextForge.createComponent ───────────────────────────────────────────────
 
-type ComponentKind = 'workflow' | 'task' | 'schema' | 'view' | 'function' | 'extension'
+type ComponentKind = WebviewEditorKind
 
 const COMPONENT_KINDS: { kind: ComponentKind; label: string; description: string }[] = [
   { kind: 'workflow', label: 'Workflow', description: 'Flow / SubFlow / Core definition' },
@@ -184,10 +221,6 @@ const COMPONENT_KINDS: { kind: ComponentKind; label: string; description: string
   { kind: 'function', label: 'Function', description: 'Scripted function' },
   { kind: 'extension', label: 'Extension', description: 'Extension definition' },
 ]
-
-function routeSegmentForKind(kind: ComponentKind): string {
-  return kind === 'workflow' ? 'flow' : kind
-}
 
 function pathSegmentForKind(config: VnextWorkspaceConfig, kind: ComponentKind): string {
   switch (kind) {
@@ -286,14 +319,6 @@ async function createComponentCommand(deps: CommandDeps): Promise<void> {
 
   baseLogger.info({ targetFile, kind }, 'vnext component created')
 
-  const route: FileRoute = {
-    type: kind,
-    group,
-    name: keyTrimmed,
-    filePath: targetFile,
-    navigateTo: `/project/${config.domain}/${routeSegmentForKind(kind)}/${encodeURIComponent(group)}/${encodeURIComponent(keyTrimmed)}`,
-  }
-
   try {
     await deps.projectService.importProject(root.folderPath)
   } catch (error) {
@@ -303,12 +328,15 @@ async function createComponentCommand(deps: CommandDeps): Promise<void> {
     )
   }
 
-  panelManager.navigateTo({
-    type: 'navigate',
-    route,
+  panelManager.openEditor({
+    type: 'open-editor',
+    kind,
     projectId: config.domain,
     projectPath: root.folderPath,
     projectDomain: config.domain,
+    group,
+    name: keyTrimmed,
+    filePath: targetFile,
     vnextConfig: config,
   })
 }

@@ -2,9 +2,7 @@ import { useState } from 'react';
 
 import { ChevronDown, ChevronRight, FileText } from 'lucide-react';
 
-import { cn } from '@shared/lib/utils/cn';
-
-import type { FileSearchResult } from '@modules/project-workspace/WorkspaceApi';
+import { cn, type FileSearchResult } from '@vnext-forge/designer-ui';
 
 interface FileGroup {
   filePath: string;
