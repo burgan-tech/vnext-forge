@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useProjectStore } from '@app/store/useProjectStore';
-import { createLogger } from '@shared/lib/logger/CreateLogger';
+import { createLogger } from '@shared/lib/logger/createLogger';
 
 import { searchFiles, type FileSearchResult } from '@modules/project-workspace/WorkspaceApi';
 

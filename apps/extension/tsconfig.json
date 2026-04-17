@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "lib": ["ES2022"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "sourceMap": true,
+    "paths": {
+      "@handlers/project/*": ["./src/handlers/project/*"],
+      "@handlers/workspace/*": ["./src/handlers/workspace/*"],
+      "@handlers/validate/*": ["./src/handlers/validate/*"],
+      "@handlers/template/*": ["./src/handlers/template/*"],
+      "@handlers/runtime-proxy/*": ["./src/handlers/runtime-proxy/*"],
+      "@ext/shared/*": ["./src/shared/*"]
+    }
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

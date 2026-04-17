@@ -1,14 +1,12 @@
 # vnext-forge - Project Context
 
-Visual workflow designer: React Flow canvas + Monaco code editor. Monorepo with pnpm workspaces + Turborepo.
+Workflow designer delivered as a **VS Code extension**. React webview (Vite) + Monaco editor in the webview; Node.js extension host replaces the former BFF server. Monorepo with pnpm workspaces + Turborepo.
 
 ## Project Goal
 
-The main purpose of this project is to provide the **standalone UI** for a workflow engine runtime application. It acts as the frontend surface for another application domain, but it is intentionally built and delivered as an independent product.
+The main purpose of this project is to provide the **workflow design and management interface** for the vnext engine ecosystem, packaged as a VS Code extension (`burgan-tech.vnext-forge`). It is intentionally built and delivered as an independent product — not a library or embedded widget.
 
-The UI is not limited to workflow visualization. It is responsible for the end-to-end management of workflow definitions described in JSON, including creating workflows through the interface, editing them, validating workflow definitions, validating workflow data, running tests and simulations, and supporting other runtime-related workflow operations from the UI.
-
-In short, the product is meant to be a standalone design and management interface for the workflow engine ecosystem, focused on authoring, verification, and operational workflow tooling.
+The UI covers end-to-end workflow management: creating and editing workflow definitions in JSON, visual canvas design, Monaco-based code editing, real-time validation, runtime connection, simulation, and project scaffolding.
 
 ### User-visible language (English only — strict)
 
@@ -33,64 +31,64 @@ When adding or changing strings, default to English. Do not ship Turkish or othe
 
 ### Cross-platform setup (macOS, Linux, Windows)
 
-The repo is intended to run the same way on macOS, Linux, and Windows. Use these practices so paths, tooling, and environment stay consistent.
+The repo is intended to run the same way on macOS, Linux, and Windows.
 
 **Toolchain**
 
 - Install a current **Node.js LTS** (align major versions across the team when debugging native or tooling issues).
 - Use **pnpm** at the version pinned in the root `package.json` (`packageManager` field). Prefer enabling it with **Corepack** (`corepack enable` then `corepack prepare pnpm@<pinned> --activate`) so everyone gets the same package manager.
-- Run installs and scripts from the **repository root** (`pnpm install`, `pnpm dev`, `pnpm build`) so Turborepo sees all workspaces.
+- Run installs and scripts from the **repository root** (`pnpm install`, `pnpm build`) so Turborepo sees all workspaces.
 
-**Ports (local dev)**
+**Dev workflow**
 
-- `apps/web` (Vite): default **3000**.
-- `apps/server` (Hono): default **3001** (override with `PORT`).
-- If either port is in use on your machine, change Vite `server.port` in `apps/web/vite.config.ts` and/or set `PORT` for the server, and keep the dev proxy / web `VITE_*` URLs in sync.
+- `apps/web` (Vite dev server): default port **3000** — used for isolated UI development only. In extension mode the webview is served from `dist/webview/`, not this server.
+- `apps/extension` (esbuild watch): `pnpm --filter vnext-forge dev` — rebuilds extension host on save.
+- For a full development loop, build the web bundle once (`pnpm --filter @vnext-forge/web build`) and then use extension host watch mode.
 
 **Environment variables**
 
-- **Web** (`apps/web`): validated in `apps/web/src/shared/config/config.ts`. Typical local dev uses Vite `import.meta.env` — set `VITE_ENVIRONMENT`, `VITE_API_URL`, `VITE_API_URL_DEVELOPMENT`, and optionally `VITE_RUNTIME_REVALIDATION_MIN_INTERVAL_SECONDS`, `VITE_LOG_LEVEL` as needed (see that file for defaults and Zod rules). Use forward slashes in URLs; do not hardcode OS-specific file paths in env values meant for HTTP.
-- **Server** (`apps/server`): `PORT` (default 3001), `LOG_LEVEL`, `VERBOSE`, `NODE_ENV` (see `apps/server/src/index.ts` and `apps/server/src/shared/lib/logger.ts`).
+- **Web** (`apps/web`): validated in `apps/web/src/shared/config/config.ts`. In extension mode config is injected at runtime by the extension host via `window.__VNEXT_CONFIG__` (set in the webview HTML by `WebviewPanelManager`). Vite `import.meta.env` values are used in standalone dev only.
+- **Extension host** (`apps/extension`): no HTTP server, no `PORT`. Logs go to the VS Code Output Channel (`vnext-forge`).
 
 **Filesystem and paths**
 
 - **Case sensitivity**: Linux (and macOS on typical APFS) can be case-sensitive. Import paths and filenames must match **exact casing** everywhere; a rename that only changes case can break CI or another OS.
-- **Project paths opened in the UI**: the server resolves workspace paths with Node APIs; avoid assuming `\` vs `/` in hand-written path strings in code — use `path.join` / `path.normalize` on the server when composing filesystem paths.
-- **Line endings**: Prefer consistent LF in the repo (editor + Git). If Git rewrites line endings on Windows, watch for rare issues with shell scripts; this project’s day-to-day commands are `pnpm`/`node`-based.
+- **Project paths**: the extension host resolves workspace paths via Node.js APIs; use `path.join` / `path.normalize` when composing filesystem paths — never assume `\` vs `/`.
+- **Line endings**: prefer consistent LF. If Git rewrites line endings on Windows, watch for issues with shell scripts.
 
 **Windows-specific notes**
 
-- Prefer **PowerShell** or **Git Bash** for running documented `bash`-style snippets from other docs; the root toolchain is cross-shell, but `apps/server`’s `clean` script uses `rm -rf dist`, which requires a Unix-like shell or WSL unless you run a Windows-friendly clean (e.g. delete `apps/server/dist` manually or use a cross-platform rimraf if introduced later).
-- If installs fail with path length errors, enable **long paths** in Windows or keep the clone in a shorter directory path; pnpm layouts are usually fine but deeply nested trees can hit legacy limits.
+- Use **PowerShell** or **Git Bash** for bash-style snippets. The `clean` scripts use `rm -rf` which requires a Unix shell or WSL on Windows.
+- If installs fail with path-length errors, enable long paths in Windows or clone to a shorter path.
 
 **macOS / Linux notes**
 
-- Ensure Node/pnpm are on `PATH` for both terminal and IDE integrated terminals (GUI apps on macOS sometimes see a reduced `PATH`).
-- For any optional native addons in the dependency tree, you may need build tools (e.g. Xcode Command Line Tools on macOS, `build-essential` on Debian/Ubuntu).
+- Ensure Node/pnpm are on `PATH` for both terminal and IDE integrated terminals.
+- Native addons may need Xcode Command Line Tools (macOS) or `build-essential` (Debian/Ubuntu).
 
 ---
 
 ### Shared Packages
 
-#### `packages/vnext-types` -> `@vnext-forge/vnext-types`
+#### `packages/vnext-types` → `@vnext-forge/vnext-types`
 
 Domain model types. Workflow, State, Transition, Task, Schema, View, Function, Extension, Diagram, and Config types, plus constants (state-types, trigger-types, task-types) and utilities (csx-codec, version).
 
-**Workspace config canonical types** (`types/config.ts`): The single source of truth for the `vnext.config.json` shape. All layers (web, server, packages) import these types from here or through a re-export.
+**Workspace config canonical types** (`types/config.ts`): The single source of truth for the `vnext.config.json` shape. All layers import these types from here or through a re-export.
 
 - `VnextWorkspaceConfig` — full normalized config
 - `VnextWorkspacePaths`, `VnextWorkspaceExports`, `VnextWorkspaceExportsMeta`, `VnextWorkspaceDependencies`, `VnextWorkspaceReferenceResolution` — sub-shapes
 
-Do not duplicate these types in app-local code. Server and web consumer files import them via re-exports (`@workspace/types.js` on server, `@vnext-forge/app-contracts` on web).
+Do not duplicate these types in app-local code. Extension handler files import them via `@workspace/types.js`; web consumer files import them via `@vnext-forge/app-contracts`.
 
 - Depends on no other package (leaf node)
-- Used by both `apps/web` and `apps/server`
+- Used by `apps/web` and `apps/extension`
 
 ---
 
-#### `packages/app-contracts` -> `@vnext-forge/app-contracts`
+#### `packages/app-contracts` → `@vnext-forge/app-contracts`
 
-Web <-> Server communication contracts. Three responsibilities:
+Shared contracts used by both the web app and the extension host.
 
 **1. ApiResponse<T>** (`response/envelope.ts`):
 
@@ -99,58 +97,125 @@ ApiSuccess<T>  -> { success: true; data: T }
 ApiFailure     -> { success: false; error: { code, message, traceId } }
 ```
 
-All server endpoints are wrapped in this envelope. The web layer performs a discriminated union check via `response.success`.
+Every handler response is wrapped in this envelope. The web layer performs a discriminated union check via `response.success`. The same envelope is used for both HTTP (legacy) and `postMessage` transport.
 
 **2. VnextForgeError** (`error/vnext-error.ts`):
 The shared error type used across all application layers. Every `throw` should be a `VnextForgeError`.
 
-- `code: ErrorCode` - `FILE_*`, `PROJECT_*`, `WORKFLOW_*`, `RUNTIME_*`, `SIMULATION_*`, `GIT_*`, `API_*`, `INTERNAL_*`
-- `context.source` - which function threw the error, for example `"FileService.writeFile"`
-- `context.layer` - `presentation | feature | domain | infrastructure | transport`
-- `toLogEntry()` - plain object for server-side logging
-- `toUserMessage()` - message safe to show to the user (raw `.message` must never be shown)
+- `code: ErrorCode` — `FILE_*`, `PROJECT_*`, `WORKFLOW_*`, `RUNTIME_*`, `SIMULATION_*`, `GIT_*`, `API_*`, `INTERNAL_*`
+- `context.source` — which function threw the error, e.g. `"FileService.writeFile"`
+- `context.layer` — `presentation | feature | domain | infrastructure | transport`
+- `toLogEntry()` — plain object for logging (extension Output Channel)
+- `toUserMessage()` — message safe to show to the user (raw `.message` must never be shown)
 
 **3. Workspace config builder** (`vnext-workspace-defaults.ts`):
-Version constants (`VNEXT_WORKSPACE_RUNTIME_VERSION`, `VNEXT_WORKSPACE_SCHEMA_VERSION`, `VNEXT_WORKSPACE_CONFIG_VERSION`), `BuildVnextWorkspaceConfigInput`, and the `buildVnextWorkspaceConfig()` factory function. This file also re-exports all canonical workspace config types from `@vnext-forge/vnext-types` so web code can import them from a single package.
+Version constants and `buildVnextWorkspaceConfig()` factory. Also re-exports all canonical workspace config types from `@vnext-forge/vnext-types`.
 
-- Depends on `@vnext-forge/vnext-types` (for canonical workspace config types)
+- Depends on `@vnext-forge/vnext-types`
 
 ---
 
 ### Current Ownership
 
-Several formerly shared workspace, workflow-domain, and editor-language modules are now owned directly by app-local code:
+Business logic that formerly lived in `apps/server` now lives in `apps/extension/src/handlers/`:
 
-- `apps/server/src/slices/workspace/*` owns workspace contracts, path resolution, config handling, file tree analysis, and workspace inspection endpoints.
-- `apps/server/src/slices/template/*` owns the template catalog and template list endpoints.
-- `apps/server/src/slices/validate/*` is the server-side validation integration boundary.
-- `apps/web/src/modules/project-management/*` owns project list, create, import, delete, and project-facing API/state flows.
-- `apps/web/src/modules/project-workspace/*` owns active workspace, file tree, workspace orchestration, and sidebar-facing state.
-- `apps/web/src/modules/code-editor/*` owns Monaco setup, editor-side context handling, and editor-facing workflow bridges.
-- `apps/web/src/modules/workflow-validation/*` owns client-side validation UX and editor feedback.
-- `apps/web/src/modules/canvas-interaction/*`, `apps/web/src/modules/workflow-execution/*`, `apps/web/src/modules/save-workflow/*`, and `apps/web/src/modules/save-component/*` own the remaining workflow editing and execution flows.
+- `handlers/project/*` — project list, create, delete, import
+- `handlers/workspace/*` — workspace path resolution, config reading, file tree, file I/O
+- `handlers/validate/*` — workflow and component validation (wraps `@burgan-tech/vnext-schema` via AJV)
+- `handlers/template/*` — project scaffolding via `@burgan-tech/vnext-template`
+- `handlers/runtime-proxy/*` — proxies requests to the external vnext runtime engine
 
-Only `packages/vnext-types` and `packages/app-contracts` remain as shared packages in this repo.
+Web-side module ownership is unchanged:
+
+- `apps/web/src/modules/project-management/*` — project list, create/import/delete, project-facing API/state flows
+- `apps/web/src/modules/project-workspace/*` — active workspace, file tree, workspace orchestration, sidebar state
+- `apps/web/src/modules/code-editor/*` — Monaco setup, editor-side context handling, workflow context bridges
+- `apps/web/src/modules/workflow-validation/*` — client-side validation UX and editor feedback
+- `apps/web/src/modules/canvas-interaction/*`, `workflow-execution/*`, `save-workflow/*`, `save-component/*` — remaining workflow editing and execution flows
+
+Only `packages/vnext-types` and `packages/app-contracts` remain as shared packages.
 
 **Package dependency flow:**
 
 ```text
 vnext-types (leaf, no deps)
   └─> app-contracts (depends on vnext-types)
-        └─> apps/web, apps/server
+        └─> apps/web, apps/extension
 ```
 
-Canonical domain types (including `VnextWorkspaceConfig`) live in `vnext-types`. `app-contracts` re-exports them and adds builder logic, error contracts, and API envelope types. App-local code imports from `@vnext-forge/app-contracts` (web) or directly from `@vnext-forge/vnext-types` (server workspace types via re-export in `@workspace/types.js`). Do not define duplicate config type interfaces in app-local code.
+---
+
+### apps/extension
+
+VS Code extension. esbuild bundles the extension host as a single CommonJS file (`dist/extension.js`).
+
+```text
+src/
+  extension.ts              -> Activation entry point; wires detector, commands, LSP bootstrap
+  commands.ts               -> VS Code commands (open, openDesigner, createProject, createComponent)
+  workspace-detector.ts     -> Detects vnext.config.json roots; owns the `vnextForge.isVnextWorkspace` context key
+  file-router.ts            -> Host-side file → designer-route resolver (mirror of web FileRouter.ts)
+  lsp-bootstrap.ts          -> Background LSP install on activation (progress + autoInstall setting)
+  MessageRouter.ts          -> Dispatches postMessage requests to handlers; routes LSP events
+
+  handlers/
+    project/                -> Project CRUD operations
+    workspace/              -> File I/O, workspace config, file tree, path resolution
+    validate/               -> Workflow/component validation (AJV + @burgan-tech/vnext-schema)
+    template/               -> Project scaffolding (executes @burgan-tech/vnext-template/init.js)
+    runtime-proxy/          -> HTTP proxy to external vnext runtime engine
+
+  lsp/
+    lsp-bridge.ts           -> OmniSharp session lifecycle (connect / message / disconnect)
+    lsp-workspace.ts        -> Workspace path helpers for OmniSharp
+    omnisharp-installer.ts  -> Lazy download of OmniSharp binaries
+    omnisharp-process.ts    -> OmniSharp process management
+    WebviewLspManager.ts    -> Bridges LSP socket events to webview postMessage
+
+  webview/
+    WebviewPanelManager.ts  -> Creates/reveals the webview panel; serves webview HTML;
+                               injects window.__VNEXT_CONFIG__; rewrites asset URIs;
+                               forwards host-originated `navigate` messages to the webview
+
+  shared/
+    logger.ts               -> VS Code OutputChannel logger (replaces pino)
+```
+
+**Activation events** (in `apps/extension/package.json`):
+- `workspaceContains:vnext.config.json` — auto-activate when the user opens a vnext project.
+- `onCommand:vnextForge.open | openDesigner | createProject | createComponent`.
+
+**Contributed commands**: `vnextForge.open`, `vnextForge.openDesigner` (bound to
+`explorer/context` and `editor/title/context` menus for `.json` files when
+`vnextForge.isVnextWorkspace`), `vnextForge.createProject`, `vnextForge.createComponent`.
+
+**Build:**
+- esbuild bundles `src/extension.ts` → `dist/extension.js` (CJS, Node 18, minified in production)
+- `vscode` is external (provided by VS Code at runtime)
+- `@burgan-tech/vnext-schema` is bundled (plain CJS module)
+- `@burgan-tech/vnext-template` is external (must be on disk); the build plugin copies it from `node_modules/` to `dist/vendor/` with `dereference: true` so pnpm symlinks are resolved to real files
+
+**dist/ layout after full build:**
+```text
+dist/
+  extension.js         -> extension host bundle
+  vendor/
+    @burgan-tech/
+      vnext-template/  -> real copy of the template package (init.js run as child process)
+  webview/             -> React app bundle (output of apps/web Vite build)
+    index.html
+    assets/
+```
+
+**Error flow:** handler throws `new VnextForgeError(...)` → `MessageRouter.dispatch()` catches it → logs with `toLogEntry()` to OutputChannel → returns `toUserMessage()` + `traceId` to the webview as `ApiFailure`.
 
 ---
 
 ### apps/web
 
-React 19 + Vite 6. The web app uses a simple module-based vertical slice structure, not FSD. Keep the structure shallow and owner-based.
+React 19 + Vite 6. The web app uses a simple module-based vertical slice structure. The Vite build outputs to `../extension/dist/webview/` so the extension can serve it as the webview content.
 
-The active structure is `app / pages / modules / shared`. `entities / features / widgets / routes / stores / components / hooks` are no longer target top-level owners for web code.
-
-The main architecture rules live in `apps/web/.agents/skills/architectural-pattern/SKILL.md`. Keep this top-level guide shorter than that skill.
+The active structure is `app / pages / modules / shared`.
 
 - Start with the narrowest owner and the shallowest folder that keeps the code understandable.
 - Default structure: `app -> pages -> modules -> shared`.
@@ -188,69 +253,66 @@ modules/              -> user-facing business modules with local UI/state/servic
 
 shared/
   ui/                 -> generic primitives
-  api/                -> Hono RPC client helpers
-  config/             -> env.ts, constants.ts
+  api/                -> postMessage transport client (client.ts, vscodeTransport.ts)
+  config/             -> config.ts (reads window.__VNEXT_CONFIG__ or import.meta.env)
   lib/                -> logger, error helpers, utility modules
 ```
 
-Pages should stay thin. Business logic should usually live in the owning module. Route files may compose module views, but they should not become a second business owner.
+Pages should stay thin. Business logic should usually live in the owning module.
 
-Current migration guidance:
+Current guidance:
 
-- keep new business code in `src/modules/*` and route entry in `src/pages/*`
-- keep `shared` narrow; do not move project/workspace/editor business logic into `shared`
-- do not reintroduce FSD aliases such as `@entities`, `@features`, or `@widgets`
-- do not add new top-level `src/stores/*`, `src/hooks/*`, or `src/components/*` owners
-- treat any remaining `legacy-*` module area as temporary migration quarantine, not as a destination pattern
+- Keep new business code in `src/modules/*` and route entry in `src/pages/*`.
+- Keep `shared` narrow; do not move project/workspace/editor business logic into `shared`.
+- Do not reintroduce FSD aliases such as `@entities`, `@features`, or `@widgets`.
+- Do not add new top-level `src/stores/*`, `src/hooks/*`, or `src/components/*` owners.
+- Treat any remaining `legacy-*` module area as temporary migration quarantine, not as a destination pattern.
 
 ---
 
-### apps/server
+### Web ↔ Extension Host Communication (postMessage)
 
-Hono BFF (Node.js). All file system and external service access lives here.
+There is **no HTTP server**. The webview calls `sendToHost({ method, params })` in `shared/api/vscodeTransport.ts`. The extension host's `MessageRouter` receives the message, calls the matching handler, and replies with an `ApiResponse<T>`.
 
-The server is organized by slices. Each slice owns its router, controller, schema, and service-level collaborators.
+```ts
+// web side — shared/api/client.ts
+export async function callApi<T>(request: ApiRequest): Promise<ApiResponse<T>>
+export async function unwrapApi<T>(request: ApiRequest, fallbackMessage?: string): Promise<T>
 
-```text
-src/
-  index.ts                       -> Hono app + AppType export (for Hono RPC)
+// message shape (web → host)
+{ requestId: string; type: 'api'; method: string; params: unknown }
 
-  slices/
-    project/                     -> Project routes, controller, schema, service, types
-    runtime-proxy/               -> Engine API proxy routes
-    template/
-      catalog.ts                 -> Template catalog now owned by server
-      controller.ts              -> Template list endpoint orchestration
-    validate/
-      controller.ts              -> Validation endpoint orchestration
-      service.ts                 -> Server-side validation integration boundary
-    workspace/
-      workspace-contracts.ts     -> Workspace contracts and structure types
-      constants.ts               -> Standard workspace file and directory names
-      resolver.ts                -> Workspace path resolution helpers
-      workspace-analyzer.ts      -> Workspace analysis and config reading
-      service.ts                 -> File and workspace operations
-      controller.ts              -> Workspace endpoint orchestration
-
-  shared/
-    middleware/
-      error-handler.ts           -> `VnextForgeError` -> `ApiResponse<never>` mapping
-      logger.ts                  -> Central logger middleware
-      trace-id.ts                -> Request trace identifier middleware
-    lib/
-      request.ts                 -> Request parsing helpers
-      response-helpers.ts        -> `ApiResponse` success helpers
+// reply shape (host → web)
+{ requestId: string; response: ApiResponse<T> }
 ```
 
-**Error flow:** service throws `new VnextForgeError(...)` -> `error-handler.ts` catches it -> logs with `toLogEntry()` -> returns `toUserMessage()` + `traceId` to the client.
+**Method naming convention:** `<domain>.<action>`, for example `projects.list`, `workspace.getConfig`, `validate.workflow`, `files.write`.
 
----
+**LSP messages** use a separate type field:
+```ts
+// web → host
+{ type: 'lsp'; event: 'connect' | 'message' | 'disconnect'; sessionId: string; data?: unknown }
 
-### Web <-> Server Communication (Hono RPC)
+// host → web
+{ type: 'lsp'; event: 'message' | 'close'; sessionId: string; data?: unknown }
+```
 
-The server exports `AppType`. The web layer creates a fully typed client with `hc<AppType>('/')` (`shared/api/client.ts`). The response envelope is always `ApiResponse<T>`.
+When adding new capabilities, add a handler in `apps/extension/src/handlers/<domain>/` and register the method string in `MessageRouter.handle()`. Add the corresponding `callApi` call in the appropriate web module's `*Api.ts` file.
 
-New endpoint access should be colocated with the owning module unless there is a clear, stable shared abstraction that justifies lifting it elsewhere.
+**Host → Webview push messages** (not tied to a `requestId`):
+```ts
+// 'navigate' — fired by vnextForge.openDesigner / createComponent
+{ type: 'navigate'; route: FileRoute; projectId: string; projectPath: string }
+```
+The webview listens for these in `apps/web/src/shared/api/HostNavigationBridge.tsx`,
+hydrates the active project in `useProjectStore`, and drives React Router. On
+mount the webview posts `{ type: 'webview-ready' }` so the host can flush any
+navigation queued before the UI finished loading.
+
+**Webview shell (in extension mode)**: the React app no longer renders its own
+Explorer / Search / Problems / Settings sidebar or status bar. File browsing
+and project selection happen in the native VS Code Explorer; the webview only
+renders the designer that corresponds to the active route.
 
 ---
 
@@ -260,3 +322,9 @@ New endpoint access should be colocated with the owning module unless there is a
 - Route logs through the shared logger in `@shared/lib/logger`.
 - Create scoped loggers with `createLogger('ModuleName')` so log output stays attributable.
 - The shared logger is the only place allowed to talk directly to `console.*`.
+
+---
+
+### apps/server (DEPRECATED)
+
+`apps/server` (Hono BFF) is no longer the active delivery target. All server-side logic has been migrated to `apps/extension`. This package is kept as a reference archive. Do not add new features here.

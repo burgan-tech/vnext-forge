@@ -94,7 +94,14 @@ function lspCompletionKindToMonaco(kind: number | undefined, monaco: Monaco): nu
   return map[kind ?? 0] ?? monaco.languages.CompletionItemKind.Text;
 }
 
-// ── WS URL ────────────────────────────────────────────────────────────────────
+// ── Environment detection ─────────────────────────────────────────────────────
+
+/** True when running inside a VS Code webview (acquireVsCodeApi is injected). */
+function isVsCodeWebview(): boolean {
+  return typeof (window as any).acquireVsCodeApi === 'function';
+}
+
+// ── WS URL (standalone web app only) ─────────────────────────────────────────
 
 function getWsUrl(sessionId: string): string {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -115,9 +122,12 @@ export interface CsharpLspClient {
  * @param sessionId - Unique session identifier (used for the WS ?session= param)
  */
 export function createCsharpLspClient(monaco: Monaco, sessionId: string): CsharpLspClient {
-  let ws: WebSocket | null = null;
   let nextId = 1;
   let disposed = false;
+  // Abstracted transport: set by startWithWebSocket or startWithPostMessage
+  let connected = false;
+  let doSend: (rawJson: string) => void = () => { /* not yet connected */ };
+  let doDisconnect: () => void = () => { /* not yet connected */ };
 
   const pendingRequests = new Map<number, { resolve: (r: unknown) => void; reject: (e: unknown) => void }>();
   const disposables: Array<{ dispose(): void }> = [];
@@ -125,26 +135,26 @@ export function createCsharpLspClient(monaco: Monaco, sessionId: string): Csharp
   // ── JSON-RPC helpers ─────────────────────────────────────────────────────
 
   function sendRaw(json: string): void {
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
-    ws.send(json);
+    if (!connected) return;
+    doSend(json);
   }
 
   function sendNotification(method: string, params?: unknown): void {
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    if (!connected) return;
     const msg: JsonRpcNotification = { jsonrpc: '2.0', method, params };
-    ws.send(JSON.stringify(msg));
+    doSend(JSON.stringify(msg));
   }
 
   function sendRequest(method: string, params?: unknown): Promise<unknown> {
     return new Promise((resolve, reject) => {
-      if (!ws || ws.readyState !== WebSocket.OPEN) {
-        reject(new Error('LSP WebSocket not open'));
+      if (!connected) {
+        reject(new Error('LSP transport not connected'));
         return;
       }
       const id = nextId++;
       pendingRequests.set(id, { resolve, reject });
       const msg: JsonRpcRequest = { jsonrpc: '2.0', id, method, params };
-      ws.send(JSON.stringify(msg));
+      doSend(JSON.stringify(msg));
     });
   }
 
@@ -425,44 +435,112 @@ export function createCsharpLspClient(monaco: Monaco, sessionId: string): Csharp
     );
   }
 
+  // ── postMessage transport (VS Code webview) ──────────────────────────────
+
+  async function startWithPostMessage(): Promise<void> {
+    const api = (window as any).acquireVsCodeApi() as {
+      postMessage(msg: unknown): void;
+    };
+
+    // Receive LSP messages forwarded from the extension host bridge
+    const windowListener = (event: MessageEvent) => {
+      const msg = event.data as { type?: string; event?: string; data?: unknown; reason?: string };
+      if (msg?.type !== 'lsp') return;
+
+      if (msg.event === 'close') {
+        connected = false;
+        window.removeEventListener('message', windowListener);
+        logger.info('LSP postMessage transport closed', { sessionId, reason: msg.reason });
+        pendingRequests.forEach(({ reject: r }) => r(new Error('LSP connection closed')));
+        pendingRequests.clear();
+        return;
+      }
+
+      if (msg.event === 'message' && msg.data) {
+        try {
+          handleMessage(msg.data as JsonRpcMessage);
+        } catch { /* malformed */ }
+      }
+    };
+
+    window.addEventListener('message', windowListener);
+
+    // Wire send: each call forwards raw JSON to the extension host bridge
+    doSend = (rawJson: string) => {
+      api.postMessage({ type: 'lsp', event: 'message', sessionId, data: rawJson });
+    };
+
+    doDisconnect = () => {
+      connected = false;
+      window.removeEventListener('message', windowListener);
+      api.postMessage({ type: 'lsp', event: 'disconnect', sessionId });
+    };
+
+    // Signal the extension host to open an LSP session
+    api.postMessage({ type: 'lsp', event: 'connect', sessionId });
+    connected = true;
+
+    await initialize();
+    registerProviders();
+    trackModels();
+
+    logger.info('LSP postMessage transport connected', { sessionId });
+  }
+
+  // ── WebSocket transport (standalone web app) ──────────────────────────────
+
+  function startWithWebSocket(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const url = getWsUrl(sessionId);
+      const ws = new WebSocket(url);
+
+      ws.addEventListener('error', () => {
+        reject(new Error('LSP WebSocket connection failed'));
+      });
+
+      ws.addEventListener('open', async () => {
+        logger.info('LSP WebSocket connected', { sessionId });
+
+        doSend = (rawJson: string) => ws.send(rawJson);
+        doDisconnect = () => {
+          connected = false;
+          if (ws.readyState !== WebSocket.CLOSED) {
+            try { ws.close(); } catch { /* ignore */ }
+          }
+        };
+        connected = true;
+
+        ws.addEventListener('message', (event) => {
+          try {
+            const msg = JSON.parse(event.data as string) as JsonRpcMessage;
+            handleMessage(msg);
+          } catch { /* malformed JSON */ }
+        });
+
+        ws.addEventListener('close', () => {
+          connected = false;
+          logger.info('LSP WebSocket closed', { sessionId });
+          pendingRequests.forEach(({ reject: r }) => r(new Error('Connection closed')));
+          pendingRequests.clear();
+        });
+
+        try {
+          await initialize();
+          registerProviders();
+          trackModels();
+          resolve();
+        } catch (err) {
+          reject(err);
+        }
+      });
+    });
+  }
+
   // ── Public interface ──────────────────────────────────────────────────────
 
   return {
     start(): Promise<void> {
-      return new Promise((resolve, reject) => {
-        const url = getWsUrl(sessionId);
-        ws = new WebSocket(url);
-
-        ws.addEventListener('error', () => {
-          reject(new Error('LSP WebSocket connection failed'));
-        });
-
-        ws.addEventListener('open', async () => {
-          logger.info('LSP WebSocket connected', { sessionId });
-
-          ws!.addEventListener('message', (event) => {
-            try {
-              const msg = JSON.parse(event.data as string) as JsonRpcMessage;
-              handleMessage(msg);
-            } catch { /* malformed JSON */ }
-          });
-
-          ws!.addEventListener('close', () => {
-            logger.info('LSP WebSocket closed', { sessionId });
-            pendingRequests.forEach(({ reject: r }) => r(new Error('Connection closed')));
-            pendingRequests.clear();
-          });
-
-          try {
-            await initialize();
-            registerProviders();
-            trackModels();
-            resolve();
-          } catch (err) {
-            reject(err);
-          }
-        });
-      });
+      return isVsCodeWebview() ? startWithPostMessage() : startWithWebSocket();
     },
 
     dispose(): void {
@@ -476,10 +554,7 @@ export function createCsharpLspClient(monaco: Monaco, sessionId: string): Csharp
       pendingRequests.forEach(({ reject: r }) => r(new Error('LSP client disposed')));
       pendingRequests.clear();
 
-      if (ws && ws.readyState !== WebSocket.CLOSED) {
-        try { ws.close(); } catch { /* ignore */ }
-      }
-      ws = null;
+      doDisconnect();
 
       logger.info('Roslyn LSP client disposed', { sessionId });
     },

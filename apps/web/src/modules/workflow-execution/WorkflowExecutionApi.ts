@@ -6,7 +6,7 @@ import {
 } from '@vnext-forge/app-contracts';
 import { z } from 'zod';
 
-import { apiClient, callApi } from '@shared/api/client';
+import { callApi } from '@shared/api/client';
 import { parseRuntimeHealthResponse } from './WorkflowExecutionSchema';
 
 export interface RuntimeHealthSnapshot {
@@ -16,7 +16,7 @@ export interface RuntimeHealthSnapshot {
 }
 
 export async function checkRuntimeHealth(): Promise<ApiResponse<RuntimeHealthSnapshot>> {
-  const response = await callApi<unknown>(apiClient.api.health.$get());
+  const response = await callApi<unknown>({ method: 'health.check' });
 
   if (!response.success) {
     return response;

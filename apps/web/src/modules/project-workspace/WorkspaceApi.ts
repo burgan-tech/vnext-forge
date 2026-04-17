@@ -8,7 +8,7 @@ import {
 } from '@vnext-forge/app-contracts';
 import type { FileTreeNode } from '@modules/project-management/ProjectTypes';
 import type { WorkspaceFolder } from '@shared/ui/FolderBrowser';
-import { apiClient, callApi, unwrapApi } from '@shared/api/client';
+import { callApi, unwrapApi } from '@shared/api/client';
 import { createLogger } from '@shared/lib/logger/createLogger';
 import { toVnextError } from '@shared/lib/error/vNextErrorHelpers';
 
@@ -22,29 +22,25 @@ interface WorkspaceBrowseResult {
 }
 
 export function browseWorkspace(path?: string) {
-  return callApi<WorkspaceBrowseResult>(
-    apiClient.api.files.browse.$get({
-      query: path ? { path } : {},
-    }),
-  );
+  return callApi<WorkspaceBrowseResult>({
+    method: 'files.browse',
+    params: path ? { path } : {},
+  });
 }
 
-/** Project file tree from BFF `GET projects/:id/tree` (workspace shell ownership). */
+/** Project file tree from the extension host `projects.getTree`. */
 export async function getProjectTree(projectId: string): Promise<ApiResponse<FileTreeNode>> {
-  const res = await callApi<{ root: FileTreeNode }>(
-    apiClient.api.projects[':id'].tree.$get({
-      param: { id: projectId },
-    }),
-  );
+  const res = await callApi<{ root: FileTreeNode }>({
+    method: 'projects.getTree',
+    params: { id: projectId },
+  });
   if (!res.success) return res;
   return { success: true, data: res.data.root, error: null };
 }
 
 export function readFile(path: string) {
   return unwrapApi<{ content: string }>(
-    apiClient.api.files.$get({
-      query: { path: normalizeFilePath(path) },
-    }),
+    { method: 'files.read', params: { path: normalizeFilePath(path) } },
     'Failed to read file',
   );
 }
@@ -63,38 +59,31 @@ export async function readOptionalFile(path: string): Promise<{ content: string 
 }
 
 export function writeFile(path: string, content: string) {
-  return callApi<void>(
-    apiClient.api.files.$put({
-      json: { path: normalizeFilePath(path), content },
-    }),
-  );
+  return callApi<void>({
+    method: 'files.write',
+    params: { path: normalizeFilePath(path), content },
+  });
 }
 
 export function deleteFile(path: string) {
-  return callApi<void>(
-    apiClient.api.files.$delete({
-      query: { path: normalizeFilePath(path) },
-    }),
-  );
+  return callApi<void>({
+    method: 'files.delete',
+    params: { path: normalizeFilePath(path) },
+  });
 }
 
 export function createDirectory(path: string) {
-  return callApi<void>(
-    apiClient.api.files.mkdir.$post({
-      json: { path: normalizeFilePath(path) },
-    }),
-  );
+  return callApi<void>({
+    method: 'files.mkdir',
+    params: { path: normalizeFilePath(path) },
+  });
 }
 
 export function renameFile(oldPath: string, newPath: string) {
-  return callApi<void>(
-    apiClient.api.files.rename.$post({
-      json: {
-        oldPath: normalizeFilePath(oldPath),
-        newPath: normalizeFilePath(newPath),
-      },
-    }),
-  );
+  return callApi<void>({
+    method: 'files.rename',
+    params: { oldPath: normalizeFilePath(oldPath), newPath: normalizeFilePath(newPath) },
+  });
 }
 
 export interface FileSearchOptions {
@@ -114,19 +103,18 @@ export interface FileSearchResult {
 }
 
 export function searchFiles(opts: FileSearchOptions) {
-  return callApi<FileSearchResult[]>(
-    apiClient.api.files.search.$get({
-      query: {
-        q: opts.query,
-        project: opts.projectPath,
-        ...(opts.matchCase !== undefined && { matchCase: String(opts.matchCase) }),
-        ...(opts.matchWholeWord !== undefined && { matchWholeWord: String(opts.matchWholeWord) }),
-        ...(opts.useRegex !== undefined && { useRegex: String(opts.useRegex) }),
-        ...(opts.include ? { include: opts.include } : {}),
-        ...(opts.exclude ? { exclude: opts.exclude } : {}),
-      },
-    }),
-  );
+  return callApi<FileSearchResult[]>({
+    method: 'files.search',
+    params: {
+      q: opts.query,
+      project: opts.projectPath,
+      ...(opts.matchCase !== undefined && { matchCase: opts.matchCase }),
+      ...(opts.matchWholeWord !== undefined && { matchWholeWord: opts.matchWholeWord }),
+      ...(opts.useRegex !== undefined && { useRegex: opts.useRegex }),
+      ...(opts.include ? { include: opts.include } : {}),
+      ...(opts.exclude ? { exclude: opts.exclude } : {}),
+    },
+  });
 }
 
 export interface WorkflowScaffoldParams {

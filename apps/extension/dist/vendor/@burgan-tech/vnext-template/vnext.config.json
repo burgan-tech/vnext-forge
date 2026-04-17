@@ -1,0 +1,58 @@
+{
+  "version": "1.0.0",
+  "description": "{domainName} Domain Definition Configuration",
+  "domain": "{domainName}",
+  "runtimeVersion": "0.0.42",
+  "schemaVersion": "0.0.38",
+  "paths": {
+    "componentsRoot": "{domainName}",
+    "tasks": "Tasks",
+    "views": "Views",
+    "functions": "Functions",
+    "extensions": "Extensions",
+    "workflows": "Workflows",
+    "schemas": "Schemas"
+  },
+  "exports": {
+    "functions": [],
+    "workflows": [],
+    "tasks": [],
+    "views": [],
+    "schemas": [],
+    "extensions": [],
+    "visibility": "public",
+    "metadata": {
+      "description": "Exported components for {domainName} domain",
+      "maintainer": "vNext Team",
+      "license": "MIT",
+      "keywords": [
+        "{domainName}",
+        "vnext",
+        "workflow",
+        "domain"
+      ]
+    }
+  },
+  "dependencies": {
+    "domains": [],
+    "npm": []
+  },
+  "referenceResolution": {
+    "enabled": true,
+    "validateOnBuild": true,
+    "strictMode": true,
+    "validateReferenceConsistency": true,
+    "validateSchemas": true,
+    "allowedHosts": [
+      "registry.npmjs.org",
+      "npm.vnext.com",
+      "npm.pkg.github.com"
+    ],
+    "schemaValidationRules": {
+      "enforceKeyFormat": true,
+      "enforceVersionFormat": true,
+      "enforceFilenameConsistency": true,
+      "allowUnknownProperties": false
+    }
+  }
+}

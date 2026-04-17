@@ -2,8 +2,8 @@ import { useState } from 'react';
 import { CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@shared/ui/Card';
 import { JsonCodeField } from '@shared/ui/JsonCodeField';
-import { Button } from '@shared/ui/button';
-import { Alert, AlertDescription, AlertTitle } from '@shared/ui/alert';
+import { Button } from '@shared/ui/Button';
+import { Alert, AlertDescription, AlertTitle } from '@shared/ui/Alert';
 import { usePayloadValidator } from '../usePayloadValidator';
 
 interface ValidatePayloadCardProps {

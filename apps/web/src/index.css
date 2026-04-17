@@ -230,6 +230,115 @@ body {
   font-family: var(--font-sans);
 }
 
+/*
+ * Monaco editor fixes for VS Code / Cursor webview.
+ *
+ * The webview host injects global `input, textarea, select { ... }` styles
+ * with `!important` that paint solid VS Code input-colored backgrounds,
+ * borders, padding and focus outlines on every form control. Monaco renders
+ * a hidden `<textarea class="inputarea">` positioned over the cursor for
+ * keyboard / IME input; the injected styles make that textarea visible and
+ * intercept clicks on top of the code.
+ *
+ * Fighting the injected colors one property at a time is not reliable
+ * across editors: use `opacity: 0` as the authoritative hide, since no
+ * injected host style overrides it. The textarea still receives focus and
+ * keystrokes normally. When Monaco actively composes IME input it adds the
+ * `.ime-input` class — in that case we briefly allow visibility so users
+ * can see what they are typing.
+ */
+html body .monaco-editor textarea.inputarea {
+  opacity: 0 !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  color: transparent !important;
+  caret-color: transparent !important;
+  border: 0 !important;
+  outline: 0 !important;
+  outline-offset: 0 !important;
+  box-shadow: none !important;
+  resize: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  font: inherit !important;
+}
+
+html body .monaco-editor textarea.inputarea.ime-input {
+  opacity: 1 !important;
+}
+
+html body .monaco-editor textarea::-webkit-resizer,
+html body .monaco-editor textarea::-webkit-scrollbar-corner {
+  background: transparent !important;
+  display: none !important;
+}
+
+/* Monaco's own <input>/<textarea>/<select> inside suggest, find, rename,
+ * parameter-hints, quick-input etc.: disable the host's form chrome so
+ * Monaco's theme styling shows through. */
+html body .monaco-editor input,
+html body .monaco-editor select,
+html body .monaco-workbench input,
+html body .monaco-workbench textarea,
+html body .monaco-workbench select,
+html body .monaco-menu input,
+html body .monaco-list input,
+html body .quick-input-widget input,
+html body .quick-input-widget textarea {
+  background-color: var(
+    --vscode-input-background,
+    var(--color-surface)
+  ) !important;
+  color: var(--vscode-input-foreground, var(--color-foreground)) !important;
+  border: 1px solid
+    var(--vscode-input-border, var(--color-border)) !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  resize: none !important;
+}
+
+/* Suggest / hover / parameter-hints / context menu containers: apply the
+ * VS Code widget palette so popups match the editor theme instead of the
+ * webview form palette. */
+html body .monaco-editor .suggest-widget,
+html body .monaco-editor .parameter-hints-widget,
+html body .monaco-editor .monaco-hover,
+html body .monaco-editor-hover,
+html body .monaco-editor .context-view,
+html body .monaco-editor .monaco-menu-container,
+html body .monaco-menu,
+html body .monaco-editor-overlaymessage {
+  background-color: var(
+    --vscode-editorWidget-background,
+    var(--color-surface)
+  ) !important;
+  color: var(
+    --vscode-editorWidget-foreground,
+    var(--color-foreground)
+  ) !important;
+  border: 1px solid
+    var(--vscode-editorWidget-border, var(--color-border)) !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12) !important;
+}
+
+html body .monaco-editor .suggest-widget .monaco-list .monaco-list-row {
+  background: transparent !important;
+}
+html body .monaco-editor .suggest-widget .monaco-list .monaco-list-row.focused {
+  background-color: var(
+    --vscode-list-focusBackground,
+    var(--color-accent)
+  ) !important;
+  color: var(
+    --vscode-list-focusForeground,
+    var(--color-foreground)
+  ) !important;
+}
+
 /* ── Scrollbar — Refined, minimal ── */
 ::-webkit-scrollbar {
   width: 5px;

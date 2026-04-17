@@ -13,14 +13,14 @@ export default defineConfig({
       '@shared': path.resolve(__dirname, './src/shared'),
     },
   },
+  build: {
+    // Output directly into the extension's expected webview asset directory.
+    // The extension reads the generated index.html and rewrites asset URIs via
+    // webview.asWebviewUri() before serving it as the webview content.
+    outDir: '../extension/dist/webview',
+    emptyOutDir: true,
+  },
   server: {
     port: 3000,
-    proxy: {
-      '/api': {
-        target: 'http://localhost:3001',
-        changeOrigin: true,
-        ws: true,
-      },
-    },
   },
 })

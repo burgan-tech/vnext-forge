@@ -1,4 +1,4 @@
-import { apiClient, callApi } from '@shared/api/client';
+import { callApi } from '@shared/api/client';
 import { createLogger } from '@shared/lib/logger/createLogger';
 
 const logger = createLogger('JsonSchemaRegistry');
@@ -17,11 +17,9 @@ export async function fetchVnextSchemas(): Promise<SchemaCache | null> {
 
   fetchPromise = (async () => {
     try {
-      const response = await callApi<SchemaCache>(
-        apiClient.api.validate.schemas.$get(),
-      );
+      const response = await callApi<SchemaCache>({ method: 'validate.getAllSchemas' });
       if (response.success) {
-        cache = response.data;
+        cache = response.data as SchemaCache;
         logger.info(`Loaded ${Object.keys(cache.schemas).length} vnext schemas`);
         return cache;
       }
