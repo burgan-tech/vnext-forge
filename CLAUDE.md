@@ -2,6 +2,25 @@
 
 Workflow designer delivered as a **VS Code extension**. React webview (Vite) + Monaco editor in the webview; Node.js extension host replaces the former BFF server. Monorepo with pnpm workspaces + Turborepo.
 
+## Workspace-specific context (CLAUDE.\*.md)
+
+This file is the repo-wide context. Workspace-specific context lives next to it as
+`CLAUDE.<WORKSPACE>.md` files at the repo root. When working inside a given workspace,
+also load the matching file:
+
+- **`apps/web/`** → see [`./CLAUDE.WEB.md`](./CLAUDE.WEB.md)
+  Web client (React 19 + Vite 6) architecture, module-based vertical slice rules,
+  API access via Hono RPC client, `useAsync` async flows, error handling, logging.
+- **`apps/server/`** → see [`./CLAUDE.SERVER.md`](./CLAUDE.SERVER.md)
+  Deprecated Hono BFF; reference archive only. New backend logic lives in
+  `apps/extension/src/handlers/*` (covered in this root file).
+- **`apps/extension/`** — covered directly in this file (no separate `CLAUDE.EXTENSION.md` yet).
+- **`packages/*`** — no per-package context file at the moment.
+
+Skills (auto-loaded by Cursor) live under [`./.cursor/skills/*/SKILL.md`](./.cursor/skills).
+Each skill's frontmatter declares its scope (web, server, or repo-wide); follow only the
+skills whose scope matches the workspace you are editing.
+
 ## Project Goal
 
 The main purpose of this project is to provide the **workflow design and management interface** for the vnext engine ecosystem, packaged as a VS Code extension (`burgan-tech.vnext-forge`). It is intentionally built and delivered as an independent product — not a library or embedded widget.
