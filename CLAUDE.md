@@ -12,14 +12,55 @@ also load the matching file:
   Web client (React 19 + Vite 6) architecture, module-based vertical slice rules,
   API access via Hono RPC client, `useAsync` async flows, error handling, logging.
 - **`apps/server/`** → see [`./CLAUDE.SERVER.md`](./CLAUDE.SERVER.md)
-  Deprecated Hono BFF; reference archive only. New backend logic lives in
-  `apps/extension/src/handlers/*` (covered in this root file).
-- **`apps/extension/`** — covered directly in this file (no separate `CLAUDE.EXTENSION.md` yet).
-- **`packages/*`** — no per-package context file at the moment.
+  Active Hono RPC backend for the web shell. Loopback-bound by default; hardened
+  with body limit, CORS allowlist, capability policy, runtime-proxy SSRF defense,
+  filesystem jail, LSP WebSocket policy, child-env allowlist (Wave 1–3).
+- **`apps/extension/`** → see [`./CLAUDE.EXTENSION.md`](./CLAUDE.EXTENSION.md)
+  VS Code extension host (esbuild bundle) and webview composition; per-shell
+  config, runtime-proxy URL allowlist, LSP installer ownership.
+- **`packages/designer-ui/`** → see [`./CLAUDE.DESIGNER-UI.md`](./CLAUDE.DESIGNER-UI.md)
+  Shared React UI library (canvas, editor, hooks, host adapters, notification
+  port). Public barrels + `./editor` subpath; single global save shortcut owner;
+  HostEditorCapabilities; postMessage origin validation.
+- **`packages/services-core/`** → see [`./CLAUDE.SERVICES-CORE.md`](./CLAUDE.SERVICES-CORE.md)
+  RPC method registry, dispatch, services. Per-method capability policy;
+  runtime-proxy URL allowlist; child-env helper. Imports `@vnext-forge/app-contracts` only.
+- **`packages/lsp-core/`** → see [`./CLAUDE.LSP-CORE.md`](./CLAUDE.LSP-CORE.md)
+  Shared LSP wiring; single extension-host LSP stack factory; consumed by
+  `apps/extension` and `apps/server`.
+- **`packages/app-contracts/`**, **`packages/vnext-types/`** — covered in the
+  "Shared Packages" section below; pure types/schemas, no per-package file.
 
 Skills (auto-loaded by Cursor) live under [`./.cursor/skills/*/SKILL.md`](./.cursor/skills).
 Each skill's frontmatter declares its scope (web, server, or repo-wide); follow only the
 skills whose scope matches the workspace you are editing.
+
+## Architecture references
+
+- [Dependency policy](./docs/architecture/dependency-policy.md)
+- [ADR 001 — Trust model](./docs/architecture/adr/001-trust-model.md)
+- [ADR 002 — Trace headers (`trace-v1`)](./docs/architecture/adr/002-trace-headers.md)
+- [ADR 003 — Runtime health (`degraded` deferred)](./docs/architecture/adr/003-runtime-health-degraded.md)
+- [ADR 004 — Workspace bootstrap aggregation](./docs/architecture/adr/004-bootstrap-aggregation.md)
+- [ADR 005 — Error taxonomy](./docs/architecture/adr/005-error-taxonomy.md)
+- [ADR 006 — Designer root provider order (R-f12 dropped)](./docs/architecture/adr/006-provider-order.md)
+- [Web vs extension parity](./docs/architecture/web-extension-parity.md)
+- [Bundler alignment checklist](./docs/architecture/bundler-checklist.md)
+
+Default deployment is single-developer workstation, server bound to loopback. See [`docs/architecture/adr/001-trust-model.md`](./docs/architecture/adr/001-trust-model.md) for the items required to lift that assumption.
+
+## Conditional rules and skills
+
+In addition to the always-on rules under `.cursor/rules/*.mdc` (subagent dispatch, plan-mode policy), the following **auto-trigger** based on file globs or task content. Read them when their scope matches.
+
+| Type | Path | Auto-trigger | Purpose |
+|------|------|--------------|---------|
+| Rule | `.cursor/rules/config-singleton.mdc` | files matching `**/shared/config/config.ts` or `**/shared/config.ts` | `process.env` / `import.meta.env` only inside the config module |
+| Rule | `.cursor/rules/server-hardening.mdc` | `apps/server/src/**` | Body limit, CORS allowlist, capability policy, error-handler invariants must stay intact |
+| Rule | `.cursor/rules/rpc-method-policy.mdc` | `packages/services-core/src/registry/**`, `apps/server/src/rpc/**` | Every new RPC method has `paramsSchema`, `resultSchema`, capability tag, fixture (R-b9/R-a2) |
+| Skill | `.cursor/skills/shared/error-taxonomy/SKILL.md` | any error/handler/throw work | `ERROR_CODES`, `VnextForgeError`, `error-presentation` mapping |
+| Skill | `.cursor/skills/shared/trace-headers/SKILL.md` | any HTTP/transport/middleware work | `trace-v1` contract; never adopt `traceparent` |
+| Skill | `.cursor/skills/shared/dependency-policy/SKILL.md` | any cross-package import or barrel change | Allowed import directions, ESLint enforcements |
 
 ## Project Goal
 
@@ -174,15 +215,28 @@ Web-side module ownership is unchanged:
 - `apps/web/src/modules/workflow-validation/*` — client-side validation UX and editor feedback
 - `apps/web/src/modules/canvas-interaction/*`, `workflow-execution/*`, `save-workflow/*`, `save-component/*` — remaining workflow editing and execution flows
 
-Only `packages/vnext-types` and `packages/app-contracts` remain as shared packages.
+Shared packages are listed below. See [`./docs/architecture/dependency-policy.md`](./docs/architecture/dependency-policy.md) for the canonical rules and Mermaid diagram.
 
-**Package dependency flow:**
+**Package dependency flow (allowed directions only):**
 
 ```text
 vnext-types (leaf, no deps)
-  └─> app-contracts (depends on vnext-types)
+  └─> app-contracts (Zod schemas, ApiResponse, ErrorCode, env primitives)
+        ├─> services-core (RPC registry, dispatch, runtime-proxy, child-env)
+        │     └─> apps/server, apps/extension
+        ├─> lsp-core (extension-host LSP stack factory)
+        │     └─> apps/server, apps/extension
+        ├─> designer-ui (React UI library; ./editor subpath; HostEditorCapabilities)
+        │     └─> apps/web, apps/extension/webview-ui
         └─> apps/web, apps/extension
 ```
+
+**Forbidden directions** (enforced by ESLint where possible):
+
+- `apps/web` must **not** import `@vnext-forge/services-core` or any deep path under it.
+- `apps/web` must **not** import from `@vnext-forge/designer-ui/dist/**`.
+- `apps/*` must not import each other.
+- `packages/*` must not import `apps/*`.
 
 ---
 
@@ -368,6 +422,20 @@ renders the designer that corresponds to the active route.
 
 ---
 
-### apps/server (DEPRECATED)
+### apps/server (active Hono RPC backend)
 
-`apps/server` (Hono BFF) is no longer the active delivery target. All server-side logic has been migrated to `apps/extension`. This package is kept as a reference archive. Do not add new features here.
+`apps/server` is the **active Hono RPC backend** for the web shell. It exposes a single `/api/rpc` endpoint backed by `packages/services-core`'s method registry, plus auxiliary `/api/health` and LSP WebSocket routes.
+
+The server is **bound to loopback by default** and is hardened with:
+
+- Body limit + JSON parse middleware (`apps/server/src/shared/middleware/body-limit.ts`)
+- Explicit CORS allowlist (`apps/server/src/shared/middleware/cors.ts`)
+- Per-method capability policy (read-only / writes-files / spawns-process / talks-runtime)
+- Runtime-proxy URL allowlist (SSRF defense; `packages/services-core/src/services/runtime-proxy/`)
+- Filesystem jail (realpath + approved roots; symlinks rejected)
+- LSP WebSocket policy (max message bytes, max connections, origin check)
+- `trace-v1` header contract — server always generates its own `X-Trace-Id`; inbound `traceparent` is recorded as `linkedTraceId` only
+
+When changing anything under `apps/server/src/**`, the **`server-hardening.mdc` rule** auto-loads. See [`./CLAUDE.SERVER.md`](./CLAUDE.SERVER.md) for the full server playbook.
+
+`apps/extension/src/handlers/*` exists in parallel for the VS Code `postMessage` path and shares the same `services-core` registry where possible.

@@ -4,12 +4,18 @@ import { Badge } from '../../../ui/Badge';
 import { Alert, AlertDescription, AlertTitle } from '../../../ui/Alert';
 import { ErrorHandlerForm } from './ErrorHandlerForm';
 
-interface ErrorBoundaryPanelProps {
+interface VnextWorkflowErrorHandlersPanelProps {
   errorBoundary: any;
   onChange: (updater: (draft: any) => void) => void;
 }
 
-export function ErrorBoundaryPanel({ errorBoundary, onChange }: ErrorBoundaryPanelProps) {
+/**
+ * Edits vNext workflow/task `errorBoundary.handlers` — not a React error boundary.
+ */
+export function VnextWorkflowErrorHandlersPanel({
+  errorBoundary,
+  onChange,
+}: VnextWorkflowErrorHandlersPanelProps) {
   const handlers = errorBoundary?.handlers || [];
 
   function addHandler() {
@@ -35,7 +41,7 @@ export function ErrorBoundaryPanel({ errorBoundary, onChange }: ErrorBoundaryPan
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="text-xs font-medium text-foreground">Error Handlers</div>
+          <div className="text-xs font-medium text-foreground">Failure handlers</div>
           <Badge variant={handlers.length > 0 ? 'destructive' : 'muted'}>{handlers.length}</Badge>
         </div>
         <Button
@@ -55,7 +61,7 @@ export function ErrorBoundaryPanel({ errorBoundary, onChange }: ErrorBoundaryPan
       {handlers.length === 0 ? (
         <Alert variant="muted" className="py-2">
           <AlertCircle />
-          <AlertTitle>No error handlers configured</AlertTitle>
+          <AlertTitle>No failure handlers configured</AlertTitle>
           <AlertDescription>
             Add a handler when this component needs a visible failure strategy.
           </AlertDescription>

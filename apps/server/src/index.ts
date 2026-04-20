@@ -64,7 +64,14 @@ baseLogger.info(
 const server = serve({ fetch: app.fetch, port: config.port, hostname: config.host });
 
 const lspBridge = composeLspBridge(loggerAdapter);
-injectLspWebSocket(server, { bridge: lspBridge, logger: loggerAdapter });
+injectLspWebSocket(server, {
+  bridge: lspBridge,
+  logger: loggerAdapter,
+  bindHost: config.host,
+  corsAllowedOrigins: config.corsAllowedOrigins,
+  lspMaxMessageBytes: config.lspMaxMessageBytes,
+  lspMaxConnections: config.lspMaxConnections,
+});
 
 export type AppType = typeof app;
 export default app;

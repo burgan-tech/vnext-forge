@@ -5,9 +5,11 @@ import {
   DesignerUiProvider,
   registerLogSink,
   registerNotificationSink,
+  setHostEditorCapabilities,
 } from '@vnext-forge/designer-ui';
 
 import './index.css';
+import { extensionHostEditorCapabilities } from './host/extensionHostEditorCapabilities';
 import { HostEditorBridge } from './HostEditorBridge';
 import { createVsCodeLogSink } from './logging/vscode-log-sink';
 import { createVsCodeNotificationSink } from './notifications/vscode-notification-sink';
@@ -31,6 +33,7 @@ function getVsCodeApi(): VsCodeWebviewApi {
 
 const vsCodeApi = getVsCodeApi();
 const transport = createVsCodeTransport(vsCodeApi);
+setHostEditorCapabilities(extensionHostEditorCapabilities());
 
 // Route every designer-ui `showNotification(...)` call to the host so the
 // user sees a native `vscode.window.show*` notification rather than an

@@ -17,8 +17,9 @@ export function TransitionsTab({ state }: { state: any }) {
   const stateKey = state.key;
 
   const allStateKeys = useMemo(() => {
-    const attrs = (workflowJson as any)?.attributes;
-    return (attrs?.states || []).map((s: any) => s.key) as string[];
+    type Attrs = { states?: Array<{ key: string }> };
+    const attrs = workflowJson?.attributes as Attrs | undefined;
+    return (attrs?.states || []).map((s) => s.key);
   }, [workflowJson]);
 
   const addTransition = () => {

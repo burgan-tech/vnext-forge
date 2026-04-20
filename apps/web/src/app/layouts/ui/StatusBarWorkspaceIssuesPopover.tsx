@@ -7,7 +7,8 @@ import {
   statusBarNotificationVariants,
 } from './StatusBarNotification';
 
-export interface ErrorPopoverItem {
+/** Workspace diagnostics / validation row for the status bar (not React error-boundary state). */
+export interface WorkspaceIssuePopoverItem {
   id: string;
   message: string;
   detail?: string;
@@ -17,21 +18,21 @@ export interface ErrorPopoverItem {
   };
 }
 
-interface StatusBarErrorIssuesPopoverProps {
-  items: ErrorPopoverItem[];
+interface StatusBarWorkspaceIssuesPopoverProps {
+  items: WorkspaceIssuePopoverItem[];
 }
 
-export function StatusBarErrorIssuesPopover({ items }: StatusBarErrorIssuesPopoverProps) {
+export function StatusBarWorkspaceIssuesPopover({ items }: StatusBarWorkspaceIssuesPopoverProps) {
   const count = items.length;
   if (count === 0) return null;
 
-  const label = count === 1 ? '1 error' : `${count} errors`;
+  const label = count === 1 ? '1 issue' : `${count} issues`;
 
   return (
     <Popover>
       <PopoverTrigger
         type="button"
-        title="Show errors"
+        title="Show workspace issues"
         aria-haspopup="dialog"
         className={cn(
           statusBarNotificationVariants({ variant: 'chip-danger', interactive: true }),
@@ -47,13 +48,13 @@ export function StatusBarErrorIssuesPopover({ items }: StatusBarErrorIssuesPopov
         className="flex max-h-[min(20rem,calc(100vh-4rem))] w-[min(24rem,calc(100vw-2rem))] flex-col overflow-hidden p-0">
         <div className="border-border shrink-0 border-b px-3 py-2">
           <p className="text-foreground text-sm font-medium">
-            {count} {count === 1 ? 'error' : 'errors'} found
+            {count} workspace {count === 1 ? 'issue' : 'issues'}
           </p>
         </div>
         <ul
           className="min-h-0 flex-1 overflow-y-auto"
           role="list"
-          aria-label="Error list">
+          aria-label="Workspace issues">
           {items.map((item) => {
             const lines = item.message.split('\n').filter((l) => l.trim().length > 0);
             const heading = lines[0];

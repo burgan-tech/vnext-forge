@@ -11,6 +11,8 @@ import { applyDiagnostics } from '../../../modules/code-editor/editor/CsxDiagnos
 import { setupMonacoWithLsp } from '../../../modules/code-editor/editor/MonacoSetup';
 import { applyScriptValueToWorkflow } from '../../../modules/code-editor/ScriptWorkflowSync';
 import { getScriptLocationError } from '../../../modules/code-editor/ScriptLocationValidation';
+import { subscribeMonacoModelMarkers } from '../../../editor/monacoMarkerSync';
+import { useEditorValidationStore } from '../../../store/useEditorValidationStore';
 import { Alert, AlertDescription } from '../../../ui/Alert';
 import { Input } from '../../../ui/Input';
 import type { CsharpLspClient } from '../../../modules/code-editor/editor/lspClient';
@@ -29,6 +31,7 @@ export function ScriptEditorPanel() {
   const editorRef = useRef<any>(null);
   const monacoRef = useRef<any>(null);
   const diagnosticTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const markerDisposableRef = useRef<{ dispose: () => void } | null>(null);
   const lspClientRef = useRef<CsharpLspClient | null>(null);
   const lspSessionId = useRef(crypto.randomUUID());
   const resizingRef = useRef(false);
@@ -39,6 +42,13 @@ export function ScriptEditorPanel() {
     if (!activeScript?.value?.code) return '';
     return decodeFromBase64(activeScript.value.code);
   }, [activeScript?.value?.code]);
+
+  const scriptValidationKey = activeScript
+    ? `csx:${activeScript.stateKey}:${activeScript.templateType}`
+    : '';
+  const scriptMarkerCounts = useEditorValidationStore((s) =>
+    scriptValidationKey && s.activeFilePath === scriptValidationKey ? s.markerCounts : null,
+  );
 
   useEffect(() => {
     const nextLocation = activeScript?.value.location ?? '';
@@ -88,6 +98,12 @@ export function ScriptEditorPanel() {
 
       editor.focus();
 
+      if (activeScript) {
+        const key = `csx:${activeScript.stateKey}:${activeScript.templateType}`;
+        markerDisposableRef.current?.dispose();
+        markerDisposableRef.current = subscribeMonacoModelMarkers(editor, monaco, key);
+      }
+
       // Start Roslyn LSP client (static completions registered as fallback inside)
       setupMonacoWithLsp(monaco, lspSessionId.current).then((client) => {
         lspClientRef.current = client;
@@ -95,6 +111,23 @@ export function ScriptEditorPanel() {
     },
     [activeScript],
   );
+
+  useEffect(() => {
+    if (!scriptValidationKey) {
+      markerDisposableRef.current?.dispose();
+      markerDisposableRef.current = null;
+      return;
+    }
+    const editor = editorRef.current;
+    const monaco = monacoRef.current;
+    if (!editor || !monaco) return;
+    markerDisposableRef.current?.dispose();
+    markerDisposableRef.current = subscribeMonacoModelMarkers(editor, monaco, scriptValidationKey);
+    return () => {
+      markerDisposableRef.current?.dispose();
+      markerDisposableRef.current = null;
+    };
+  }, [scriptValidationKey]);
 
   const handleReferenceInsert = useCallback((text: string) => {
     const editor = editorRef.current;
@@ -164,6 +197,8 @@ export function ScriptEditorPanel() {
   useEffect(() => {
     return () => {
       if (diagnosticTimerRef.current) clearTimeout(diagnosticTimerRef.current);
+      markerDisposableRef.current?.dispose();
+      markerDisposableRef.current = null;
       lspClientRef.current?.dispose();
       lspClientRef.current = null;
     };
@@ -302,6 +337,22 @@ export function ScriptEditorPanel() {
       <div className="border-border-subtle bg-muted/40 flex shrink-0 items-center justify-between border-t px-3 py-1">
         <span className="text-muted-foreground font-mono text-[10px]">
           {decoded.split('\n').length} lines &middot; {activeScript.templateType}
+          {scriptMarkerCounts &&
+            (scriptMarkerCounts.errors > 0 || scriptMarkerCounts.warnings > 0) && (
+              <>
+                {' '}
+                &middot;{' '}
+                {scriptMarkerCounts.errors > 0 && (
+                  <span className="text-destructive">{scriptMarkerCounts.errors} err</span>
+                )}
+                {scriptMarkerCounts.errors > 0 && scriptMarkerCounts.warnings > 0 && ' '}
+                {scriptMarkerCounts.warnings > 0 && (
+                  <span className="text-amber-600 dark:text-amber-500">
+                    {scriptMarkerCounts.warnings} warn
+                  </span>
+                )}
+              </>
+            )}
         </span>
         <span className="text-muted-foreground font-mono text-[10px]">
           C# Script &middot; UTF-8

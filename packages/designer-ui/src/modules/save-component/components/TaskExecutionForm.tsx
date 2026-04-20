@@ -4,7 +4,7 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import { Field } from '../../../ui/Field';
 import { Button } from '../../../ui/Button';
 import { Badge } from '../../../ui/Badge';
-import { ErrorBoundaryPanel } from '../error-boundary/ErrorBoundaryPanel';
+import { VnextWorkflowErrorHandlersPanel } from '../error-boundary/VnextWorkflowErrorHandlersPanel';
 import {
   taskExecutionFormSchema,
   type TaskExecutionFormValues,
@@ -120,14 +120,14 @@ export function TaskExecutionForm({ execution, onChange }: TaskExecutionFormProp
           }
           className="w-fit"
         >
-          Error Boundary
+          Workflow failure handlers
         </Button>
         {execution.errorBoundary?.handlers?.length ? (
           <Badge variant="destructive">{execution.errorBoundary.handlers.length} handlers</Badge>
         ) : null}
       </div>
       {showErrorBoundary && (
-        <ErrorBoundaryPanel
+        <VnextWorkflowErrorHandlersPanel
           errorBoundary={execution.errorBoundary || {}}
           onChange={(updater) =>
             onChange((d) => {

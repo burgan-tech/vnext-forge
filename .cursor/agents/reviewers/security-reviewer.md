@@ -1,6 +1,6 @@
 ---
 name: security-reviewer
-model: claude-opus-4-7-medium
+model: composer-2-fast
 description: Senior application & configuration security reviewer. Use when auditing OWASP-style risks, secrets, authn/authz, input handling, dependencies, security headers, blockchain interactions, or AI agent / MCP / instruction surfaces (AGENTS.md, skills, automations) before merge or release. Combines OWASP-driven code review with configuration / supply-chain scanning.
 ---
 

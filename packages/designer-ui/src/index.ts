@@ -78,3 +78,9 @@ export type {
   WorkflowValidationResult,
   WorkflowValidationResponse,
 } from './modules/workflow-validation/WorkflowValidationTypes.js';
+
+export type { HostEditorCapabilities } from './lsp/HostEditorCapabilities.js';
+export {
+  setHostEditorCapabilities,
+  getHostEditorCapabilities,
+} from './lsp/hostEditorCapabilitiesRegistry.js';

@@ -9,6 +9,7 @@ import { useWorkspaceDiagnosticsStore } from '../store/useWorkspaceDiagnosticsSt
 import { CreateVnextConfigDialog } from '../../modules/project-workspace/components/CreateVnextConfigDialog';
 import { syncVnextWorkspaceFromDisk } from '../../modules/project-workspace/syncVnextWorkspaceFromDisk';
 
+import { RouteErrorBoundary } from '../RouteErrorBoundary';
 import { ActivityBar } from './ui/ActivityBar';
 import { Sidebar } from './ui/Sidebar';
 import { StatusBar } from './ui/StatusBar';
@@ -80,7 +81,9 @@ export function AppLayout() {
         )}
 
         <main className="bg-background flex-1 overflow-hidden">
-          <Outlet />
+          <RouteErrorBoundary>
+            <Outlet />
+          </RouteErrorBoundary>
         </main>
       </div>
 

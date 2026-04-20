@@ -1,6 +1,10 @@
 import { spawn } from 'node:child_process';
 
-import type { ProcessAdapter } from '@vnext-forge/services-core';
+import {
+  buildChildEnv,
+  DEFAULT_CHILD_PROCESS_ENV_ALLOWLIST,
+  type ProcessAdapter,
+} from '@vnext-forge/services-core';
 
 /**
  * VS Code extension host `ProcessAdapter`.
@@ -16,7 +20,7 @@ export function createVsCodeProcessAdapter(): ProcessAdapter {
       return new Promise((resolve, reject) => {
         const child = spawn(process.execPath, [scriptPath, ...scriptArgs], {
           cwd,
-          env: { ...process.env, ...env } as NodeJS.ProcessEnv,
+          env: buildChildEnv(DEFAULT_CHILD_PROCESS_ENV_ALLOWLIST, env),
           stdio: ['ignore', 'pipe', 'pipe'],
         });
 

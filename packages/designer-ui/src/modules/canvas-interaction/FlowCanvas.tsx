@@ -18,7 +18,12 @@ import '@xyflow/react/dist/style.css';
 import { nodeTypes } from './components/nodes';
 import { edgeTypes } from './components/edges';
 import { useWorkflowStore } from '../../store/useWorkflowStore';
-import { workflowToReactFlow, reactFlowToPositions } from './utils/Conversion';
+import {
+  workflowToReactFlow,
+  reactFlowToPositions,
+  toDiagramData,
+  toVnextWorkflow,
+} from './utils/Conversion';
 import { autoLayout } from './utils/Layout';
 import { CanvasToolbar } from './components/panels/CanvasToolbar';
 import {
@@ -71,9 +76,9 @@ function FlowCanvasInner({ workflowJson, diagramJson }: FlowCanvasProps) {
     edges: computedEdges,
     needsLayout,
   } = useMemo(() => {
-    const result = workflowToReactFlow(workflowJson as any, diagramJson as any);
-    const nodePos = (diagramJson as any)?.nodePos || {};
-    const hasPositions = Object.keys(nodePos).length > 0;
+    const diagram = toDiagramData(diagramJson);
+    const result = workflowToReactFlow(toVnextWorkflow(workflowJson), diagram);
+    const hasPositions = Object.keys(diagram.nodePos).length > 0;
     return { ...result, needsLayout: !hasPositions };
   }, [workflowJson, diagramJson]);
 
@@ -93,7 +98,7 @@ function FlowCanvasInner({ workflowJson, diagramJson }: FlowCanvasProps) {
       autoLayout(computedNodes, computedEdges).then((layoutedNodes) => {
         setNodes(layoutedNodes);
         const positions = reactFlowToPositions(layoutedNodes);
-        updateDiagram((draft: any) => {
+        updateDiagram((draft: Record<string, unknown>) => {
           draft.nodePos = positions.nodePos;
         });
         setTimeout(() => fitView({ padding: 0.2 }), 50);
@@ -112,12 +117,17 @@ function FlowCanvasInner({ workflowJson, diagramJson }: FlowCanvasProps) {
   // ─── Node drag → update diagram positions ───
   const onNodeDragStop = useCallback(
     (_: unknown, node: { id: string; position: { x: number; y: number } }) => {
-      updateDiagram((draft: any) => {
-        if (!draft.nodePos) draft.nodePos = {};
-        draft.nodePos[node.id] = {
+      updateDiagram((draft: Record<string, unknown>) => {
+        const prev = draft.nodePos;
+        const nodePos =
+          prev && typeof prev === 'object' && !Array.isArray(prev)
+            ? { ...(prev as Record<string, { x: number; y: number }>) }
+            : {};
+        nodePos[node.id] = {
           x: Math.round(node.position.x),
           y: Math.round(node.position.y),
         };
+        draft.nodePos = nodePos;
       });
     },
     [updateDiagram],
@@ -182,9 +192,9 @@ function FlowCanvasInner({ workflowJson, diagramJson }: FlowCanvasProps) {
   }, []);
 
   const onEdgeContextMenu = useCallback(
-    (event: React.MouseEvent, edge: { id: string; source: string; data?: any }) => {
+    (event: React.MouseEvent, edge: { id: string; source: string; data?: { transitionKey?: string } }) => {
       event.preventDefault();
-      const transitionKey = edge.data?.transitionKey || edge.id;
+      const transitionKey = edge.data?.transitionKey ?? edge.id;
       setContextMenu({
         type: 'edge',
         screenX: event.clientX,
@@ -210,7 +220,7 @@ function FlowCanvasInner({ workflowJson, diagramJson }: FlowCanvasProps) {
   );
 
   const onEdgesDelete = useCallback(
-    (deletedEdges: Array<{ id: string; source: string; data?: any }>) => {
+    (deletedEdges: Array<{ id: string; source: string; data?: { transitionKey?: string } }>) => {
       for (const edge of deletedEdges) {
         const transitionKey = edge.data?.transitionKey;
         if (transitionKey && edge.source !== '__start__') {
@@ -226,7 +236,7 @@ function FlowCanvasInner({ workflowJson, diagramJson }: FlowCanvasProps) {
     const layoutedNodes = await autoLayout(nodes, edges);
     setNodes(layoutedNodes);
     const positions = reactFlowToPositions(layoutedNodes);
-    updateDiagram((draft: any) => {
+    updateDiagram((draft: Record<string, unknown>) => {
       draft.nodePos = positions.nodePos;
     });
     setTimeout(() => fitView({ padding: 0.2 }), 50);
@@ -255,7 +265,7 @@ function FlowCanvasInner({ workflowJson, diagramJson }: FlowCanvasProps) {
   // ─── Duplicate state ───
   const handleDuplicateState = useCallback(
     (key: string) => {
-      const nodePos = (diagramJson as any)?.nodePos?.[key];
+      const nodePos = toDiagramData(diagramJson).nodePos[key];
       const pos = nodePos || { x: 200, y: 200 };
       duplicateState(key, pos);
     },

@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 
 import {
+  createLogger,
   ExtensionEditorView,
   FlowEditorView,
   FunctionEditorView,
+  isMessageOriginAllowed,
   SchemaEditorView,
   TaskEditorView,
   ViewEditorView,
@@ -11,7 +13,10 @@ import {
   type VnextWorkspaceConfig,
 } from '@vnext-forge/designer-ui';
 
+import { resolveWebviewPostMessageAllowedOrigins } from './host/webviewMessageOrigins.js';
 import type { VsCodeWebviewApi } from './VsCodeTransport';
+
+const logger = createLogger('extension/HostEditorBridge');
 
 /**
  * Editor "kinds" the host can ask the webview to render. Mirrors
@@ -75,7 +80,16 @@ export function HostEditorBridge({ api }: HostEditorBridgeProps) {
   const setVnextConfig = useProjectStore((s) => s.setVnextConfig);
 
   useEffect(() => {
+    const allowedOrigins = resolveWebviewPostMessageAllowedOrigins();
+
     function handle(event: MessageEvent<unknown>) {
+      if (!isMessageOriginAllowed(event.origin, allowedOrigins)) {
+        logger.warn('Ignoring open-editor postMessage from unexpected origin', {
+          origin: event.origin,
+        });
+        return;
+      }
+
       const data = event.data;
       if (!isOpenEditorMessage(data)) return;
 

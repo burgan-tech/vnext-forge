@@ -1,11 +1,11 @@
 import type { Node, Edge } from '@xyflow/react';
 
-interface DiagramNodePos {
+export interface DiagramNodePos {
   x: number;
   y: number;
 }
 
-interface DiagramData {
+export interface DiagramData {
   nodePos: Record<string, DiagramNodePos>;
 }
 
@@ -38,8 +38,9 @@ interface WorkflowTransition {
   label?: Array<{ language: string; label: string }>;
 }
 
-interface VnextWorkflow {
+export interface VnextWorkflow {
   key: string;
+  tags?: string[];
   attributes?: {
     // vnext uses "startTransition" not "start"
     startTransition?: { key: string; target?: string; to?: string };
@@ -208,6 +209,28 @@ export function reactFlowToPositions(nodes: Node[]): DiagramData {
   const nodePos: Record<string, DiagramNodePos> = {};
   for (const node of nodes) {
     nodePos[node.id] = { x: Math.round(node.position.x), y: Math.round(node.position.y) };
+  }
+  return { nodePos };
+}
+
+/** Narrow store JSON to the workflow shape expected by the canvas converter. */
+export function toVnextWorkflow(workflow: Record<string, unknown>): VnextWorkflow {
+  return workflow as unknown as VnextWorkflow;
+}
+
+/** Read `nodePos` from persisted diagram JSON with basic structural validation. */
+export function toDiagramData(diagram: Record<string, unknown>): DiagramData {
+  const raw = diagram.nodePos;
+  const nodePos: Record<string, DiagramNodePos> = {};
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+      if (v && typeof v === 'object' && !Array.isArray(v)) {
+        const o = v as Record<string, unknown>;
+        if (typeof o.x === 'number' && typeof o.y === 'number') {
+          nodePos[k] = { x: o.x, y: o.y };
+        }
+      }
+    }
   }
   return { nodePos };
 }

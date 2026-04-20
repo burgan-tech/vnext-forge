@@ -1,20 +1,46 @@
 import { BrowserRouter, Route, Routes, useNavigate } from 'react-router-dom';
 
 import { ProjectNavigationProvider } from '@vnext-forge/designer-ui';
-import { useEffect, type ReactNode } from 'react';
+import { lazy, Suspense, useEffect, type ReactNode } from 'react';
 
 import { useThemeStore } from './store/useThemeStore';
-import { CodeEditorPage } from '../pages/code-editor/CodeEditorPage';
-import { ExtensionEditorPage } from '../pages/extension-editor/ExtensionEditorPage';
-import { FlowEditorPage } from '../pages/flow-editor/FlowEditorPage';
-import { FunctionEditorPage } from '../pages/function-editor/FunctionEditorPage';
-import { ProjectListPage } from '../pages/project-list/ProjectListPage';
-import { ProjectWorkspacePage } from '../pages/project-workspace/ProjectWorkspacePage';
-import { SchemaEditorPage } from '../pages/schema-editor/SchemaEditorPage';
-import { TaskEditorPage } from '../pages/task-editor/TaskEditorPage';
-import { TestPage } from '../pages/test/TestPage';
-import { ViewEditorPage } from '../pages/view-editor/ViewEditorPage';
-import { AppLayout } from './layouts/AppLayout';
+import { RouteSkeleton } from './RouteSkeleton';
+
+const ProjectListPage = lazy(() =>
+  import('../pages/project-list/ProjectListPage').then((m) => ({ default: m.ProjectListPage })),
+);
+const AppLayout = lazy(() => import('./layouts/AppLayout').then((m) => ({ default: m.AppLayout })));
+const ProjectWorkspacePage = lazy(() =>
+  import('../pages/project-workspace/ProjectWorkspacePage').then((m) => ({
+    default: m.ProjectWorkspacePage,
+  })),
+);
+const FlowEditorPage = lazy(() =>
+  import('../pages/flow-editor/FlowEditorPage').then((m) => ({ default: m.FlowEditorPage })),
+);
+const TaskEditorPage = lazy(() =>
+  import('../pages/task-editor/TaskEditorPage').then((m) => ({ default: m.TaskEditorPage })),
+);
+const SchemaEditorPage = lazy(() =>
+  import('../pages/schema-editor/SchemaEditorPage').then((m) => ({ default: m.SchemaEditorPage })),
+);
+const ViewEditorPage = lazy(() =>
+  import('../pages/view-editor/ViewEditorPage').then((m) => ({ default: m.ViewEditorPage })),
+);
+const FunctionEditorPage = lazy(() =>
+  import('../pages/function-editor/FunctionEditorPage').then((m) => ({
+    default: m.FunctionEditorPage,
+  })),
+);
+const ExtensionEditorPage = lazy(() =>
+  import('../pages/extension-editor/ExtensionEditorPage').then((m) => ({
+    default: m.ExtensionEditorPage,
+  })),
+);
+const CodeEditorPage = lazy(() =>
+  import('../pages/code-editor/CodeEditorPage').then((m) => ({ default: m.CodeEditorPage })),
+);
+const TestPage = lazy(() => import('../pages/test/TestPage').then((m) => ({ default: m.TestPage })));
 
 /**
  * Bridges React Router's `useNavigate()` into the host-agnostic
@@ -68,22 +94,24 @@ export function AppRouter() {
     <BrowserRouter>
       <ThemeEffect />
       <WebProjectNavigationAdapter>
-        <Routes>
-          <Route index element={<ProjectListPage />} />
-          <Route element={<AppLayout />}>
-            <Route path="project">
-              <Route path=":id" element={<ProjectWorkspacePage />} />
-              <Route path=":id/flow/:group/:name" element={<FlowEditorPage />} />
-              <Route path=":id/task/:group/:name" element={<TaskEditorPage />} />
-              <Route path=":id/schema/:group/:name" element={<SchemaEditorPage />} />
-              <Route path=":id/view/:group/:name" element={<ViewEditorPage />} />
-              <Route path=":id/function/:group/:name" element={<FunctionEditorPage />} />
-              <Route path=":id/extension/:group/:name" element={<ExtensionEditorPage />} />
-              <Route path=":id/code/*" element={<CodeEditorPage />} />
+        <Suspense fallback={<RouteSkeleton />}>
+          <Routes>
+            <Route index element={<ProjectListPage />} />
+            <Route element={<AppLayout />}>
+              <Route path="project">
+                <Route path=":id" element={<ProjectWorkspacePage />} />
+                <Route path=":id/flow/:group/:name" element={<FlowEditorPage />} />
+                <Route path=":id/task/:group/:name" element={<TaskEditorPage />} />
+                <Route path=":id/schema/:group/:name" element={<SchemaEditorPage />} />
+                <Route path=":id/view/:group/:name" element={<ViewEditorPage />} />
+                <Route path=":id/function/:group/:name" element={<FunctionEditorPage />} />
+                <Route path=":id/extension/:group/:name" element={<ExtensionEditorPage />} />
+                <Route path=":id/code/*" element={<CodeEditorPage />} />
+              </Route>
             </Route>
-          </Route>
-          <Route path="/test" element={<TestPage />} />
-        </Routes>
+            <Route path="/test" element={<TestPage />} />
+          </Routes>
+        </Suspense>
       </WebProjectNavigationAdapter>
     </BrowserRouter>
   );

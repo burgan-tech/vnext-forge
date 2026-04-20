@@ -1,0 +1,48 @@
+---
+description: RPC method registry policy. Auto-loads when editing the services-core registry or the apps/server RPC router. Every method must declare paramsSchema, resultSchema, a capability tag, a JSON fixture, and stay within the snapshot of sorted method names.
+globs:
+  - "packages/services-core/src/registry/**/*.ts"
+  - "packages/services-core/src/services/**/*.ts"
+  - "apps/server/src/rpc/**/*.ts"
+alwaysApply: false
+---
+
+# RPC Method Policy
+
+> **Loads when editing**: registry, dispatch, services, or the RPC router.
+
+## Method definition contract
+
+Every entry in the method registry must declare:
+
+| Field | Required | Notes |
+|-------|----------|-------|
+| `name` | yes | `<domain>.<action>`, kebab-case domain, lowerCamelCase action (`projects.list`, `runtime.proxy`). |
+| `paramsSchema` | yes | A Zod schema. Use `.strict()` unless additive evolution is intended. |
+| `resultSchema` | yes | Zod schema for the success payload. |
+| `capabilities` | yes | Array of `'reads-files' \| 'writes-files' \| 'spawns-process' \| 'talks-runtime'`. Empty array means **pure**. The dispatcher gates the call. |
+| `handler` | yes | `async (params, ctx) => result`. May `throw VnextForgeError` for typed failures. |
+| `description` | recommended | Single-line; ends up in generated docs. |
+
+## Contract tests (R-b9 / R-a2)
+
+- A snapshot test pins the **sorted method names**. Adding/removing/renaming a method requires updating the snapshot in the same PR.
+- For each method, place a JSON fixture under `packages/services-core/test/fixtures/<method-name>.json` with `{ params, result }`. The fixture is validated against `paramsSchema` and `resultSchema` automatically.
+- Run `pnpm --filter @vnext-forge/services-core test` after any registry change.
+
+## Capability enforcement
+
+- The dispatcher checks the method's capability set against the calling shell's capability budget.
+- **Don't bypass** the dispatcher inside a service (e.g. another service calling a method by hand). Use the registered `dispatchMethod()` helper or expose a plain function.
+
+## Forbidden
+
+- Importing `apps/*` from `packages/services-core/**`.
+- Reading `process.env` directly inside a service. Take it as a constructor/factory parameter wired from the shell's config.
+- Returning anything other than the declared `resultSchema` shape on success. Returning `undefined` is allowed only if `resultSchema` is `z.void()`.
+
+## Cross-references
+
+- `.cursor/skills/shared/error-taxonomy/SKILL.md`
+- `.cursor/skills/shared/dependency-policy/SKILL.md`
+- [`docs/architecture/adr/004-bootstrap-aggregation.md`](../../docs/architecture/adr/004-bootstrap-aggregation.md) — guidance on aggregating RPCs vs creating new ones.

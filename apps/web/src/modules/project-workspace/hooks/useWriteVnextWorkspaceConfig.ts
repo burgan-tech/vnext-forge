@@ -11,6 +11,8 @@ import { writeProjectConfig } from '../../project-management/ProjectApi';
 
 /**
  * vnext.config.json yazımı — transport `ProjectApi` içinde; async yaşam döngüsü burada.
+ * `useAsync` owns success/error toasts by default; callers should not add parallel
+ * `showNotification` for the same mutation (R-f16).
  */
 export function useWriteVnextWorkspaceConfig(
   options?: Pick<

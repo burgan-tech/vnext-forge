@@ -10,6 +10,30 @@ export default createWorkspaceConfig({
   runtime: 'browser',
   extraRules: {
     '@typescript-eslint/no-floating-promises': 'off',
+    'no-restricted-imports': [
+      'error',
+      {
+        paths: [
+          {
+            name: '@vnext-forge/services-core',
+            message:
+              'Import services through designer-ui / ProjectApi or @vnext-forge/app-contracts from apps/web — not services-core directly.',
+          },
+        ],
+        patterns: [
+          {
+            group: ['**/packages/services-core/**', '**/services-core/src/**'],
+            message:
+              'Do not deep-import the services-core package from apps/web; use workspace HTTP/RPC boundaries.',
+          },
+          {
+            group: ['@vnext-forge/designer-ui/dist/**'],
+            message:
+              'Import from @vnext-forge/designer-ui (or documented subpaths like /ui, /editor) — not compiled dist paths.',
+          },
+        ],
+      },
+    ],
   },
   // Bootstrap-time configuration warnings (e.g. missing .env /
   // VITE_API_BASE_URL) are emitted via console.warn before any logger adapter

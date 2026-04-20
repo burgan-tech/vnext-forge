@@ -27,12 +27,72 @@ export interface RuntimeProxyServiceDeps {
   allowRuntimeUrlOverride?: boolean
 }
 
+/** Hop-by-hop and connection headers that must not be forwarded (R-b4). */
+export const RUNTIME_PROXY_HOP_BY_HOP_HEADER_NAMES = [
+  'connection',
+  'keep-alive',
+  'proxy-authenticate',
+  'proxy-authorization',
+  'te',
+  'trailer',
+  'transfer-encoding',
+  'upgrade',
+  'host',
+  'content-length',
+] as const
+
+const hopByHopLower = new Set(
+  RUNTIME_PROXY_HOP_BY_HOP_HEADER_NAMES.map((name) => name.toLowerCase()),
+)
+
+function stripHopByHopHeaders(
+  headers: Record<string, string> | undefined,
+): Record<string, string> {
+  if (!headers) return {}
+  const out: Record<string, string> = {}
+  for (const [key, value] of Object.entries(headers)) {
+    if (hopByHopLower.has(key.toLowerCase())) continue
+    out[key] = value
+  }
+  return out
+}
+
+/**
+ * Builds outbound fetch headers for the runtime HTTP proxy. Content-Type is
+ * owned by the server and set only when a JSON body is sent.
+ */
+export function buildRuntimeProxyOutboundHeaders(params: {
+  method: string
+  body?: string | undefined
+  callerHeaders?: Record<string, string> | undefined
+  traceId?: string | undefined
+}): Record<string, string> {
+  const method = params.method.toUpperCase()
+  const headers: Record<string, string> = {
+    Accept: 'application/json, text/plain, */*',
+    ...stripHopByHopHeaders(params.callerHeaders),
+  }
+
+  const hasBody = Boolean(params.body && params.body.length > 0)
+  const sendsEntityBody = method !== 'GET' && method !== 'HEAD' && hasBody
+  if (sendsEntityBody) {
+    headers['Content-Type'] = 'application/json'
+  }
+
+  if (params.traceId) {
+    headers['X-Trace-Id'] = params.traceId
+  }
+
+  return headers
+}
+
 export const runtimeProxyParams = z.object({
   method: z.string().min(1),
   runtimePath: z.string().min(1),
   query: z.record(z.string(), z.string()).optional(),
   body: z.string().optional(),
   runtimeUrl: z.string().optional(),
+  headers: z.record(z.string(), z.string()).optional(),
 })
 
 export const runtimeProxyResult = z.object({
@@ -104,7 +164,12 @@ export function createRuntimeProxyService(deps: RuntimeProxyServiceDeps) {
     const method = req.method.toUpperCase()
 
     try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      const headers = buildRuntimeProxyOutboundHeaders({
+        method,
+        body: req.body,
+        callerHeaders: req.headers,
+        traceId,
+      })
       const init: { method: string; headers: Record<string, string>; body?: string } = {
         method,
         headers,

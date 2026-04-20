@@ -1,6 +1,10 @@
 import { spawn } from 'node:child_process';
 
-import type { ProcessAdapter } from '@vnext-forge/services-core';
+import {
+  buildChildEnv,
+  DEFAULT_CHILD_PROCESS_ENV_ALLOWLIST,
+  type ProcessAdapter,
+} from '@vnext-forge/services-core';
 
 /**
  * Concrete `ProcessAdapter` for Node-based shells. Runs the supplied script
@@ -14,7 +18,7 @@ export function createNodeProcessAdapter(): ProcessAdapter {
       return new Promise((resolve, reject) => {
         const child = spawn(process.execPath, [scriptPath, ...scriptArgs], {
           cwd,
-          env: { ...process.env, ...env } as NodeJS.ProcessEnv,
+          env: buildChildEnv(DEFAULT_CHILD_PROCESS_ENV_ALLOWLIST, env),
           stdio: ['ignore', 'pipe', 'pipe'],
         });
 

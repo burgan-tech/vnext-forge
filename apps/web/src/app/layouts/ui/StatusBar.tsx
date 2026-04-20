@@ -11,9 +11,9 @@ import { StatusBarNotification } from './StatusBarNotification';
 import { useVnextWorkspaceUiStore } from '../../store/useVnextWorkspaceUiStore';
 import { useWorkspaceDiagnosticsStore } from '../../store/useWorkspaceDiagnosticsStore';
 import {
-  StatusBarErrorIssuesPopover,
-  type ErrorPopoverItem,
-} from './StatusBarErrorIssuesPopover';
+  StatusBarWorkspaceIssuesPopover,
+  type WorkspaceIssuePopoverItem,
+} from './StatusBarWorkspaceIssuesPopover';
 
 export function StatusBar() {
   const { activeProject, vnextConfig } = useProjectStore();
@@ -57,7 +57,7 @@ export function StatusBar() {
 
   const missingPaths = componentLayoutStatus?.missingLayoutPaths ?? [];
 
-  const errorPopoverItems: ErrorPopoverItem[] = [
+  const errorPopoverItems: WorkspaceIssuePopoverItem[] = [
     ...(activeProject && !invalidVnextConfigIssue && showMissingVnextConfigBar
       ? [
           {
@@ -129,7 +129,7 @@ export function StatusBar() {
         </StatusBarNotification>
       )}
 
-      {totalErrors > 0 ? <StatusBarErrorIssuesPopover items={errorPopoverItems} /> : null}
+      {totalErrors > 0 ? <StatusBarWorkspaceIssuesPopover items={errorPopoverItems} /> : null}
 
       {warnings > 0 && (
         <StatusBarNotification

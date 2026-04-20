@@ -1,6 +1,11 @@
 import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { failureFromCode, ERROR_CODES, getData } from '@vnext-forge/app-contracts';
+import {
+  failureFromCode,
+  ERROR_CODES,
+  getData,
+  type VnextForgeError,
+} from '@vnext-forge/app-contracts';
 
 import {
   createDirectory,
@@ -29,7 +34,7 @@ export function useProjectWorkspace() {
   const vnextConfig = useProjectStore((s) => s.vnextConfig);
   const fileTree = useProjectListStore((s) => s.fileTree);
   const refreshFileTree = useProjectListStore((s) => s.refreshFileTree);
-  const { openTab } = useEditorStore();
+  const openTab = useEditorStore((s) => s.openTab);
   const navigate = useNavigate();
 
   const refreshWorkspaceTree = useCallback(async () => {
@@ -39,19 +44,22 @@ export function useProjectWorkspace() {
     }
   }, [refreshFileTree, activeProject]);
 
-  const notifyInvalidName = useCallback((message: string) => {
-    showNotification({
-      message,
-      kind: 'error',
-    });
-  }, []);
-
-  const notifyOperationError = useCallback((message: string) => {
-    showNotification({
-      message,
-      kind: 'error',
-    });
-  }, []);
+  /**
+   * Single toast owner for workspace tree mutations: `useAsync` treats
+   * validation failures (`failureFromCode`) like transport errors, so we must
+   * not fire a separate inline validation toast (R-f16 double-notify).
+   */
+  const reportWorkspaceMutationError = useCallback(
+    (fallbackMessage: string) => (err: VnextForgeError) => {
+      const message =
+        err.code === ERROR_CODES.FILE_INVALID_PATH
+          ? err.toUserMessage().message
+          : fallbackMessage;
+      const kind = err.code === ERROR_CODES.FILE_INVALID_PATH ? 'warning' : 'error';
+      showNotification({ message, kind });
+    },
+    [],
+  );
 
   const handleFileClick = useCallback(
     (node: FileTreeNode) => {
@@ -78,7 +86,6 @@ export function useProjectWorkspace() {
     async (parentPath: string, name: string) => {
       const validationError = getWorkspaceNameError(name, 'file');
       if (validationError) {
-        notifyInvalidName(validationError);
         return failureFromCode(ERROR_CODES.FILE_INVALID_PATH, validationError);
       }
 
@@ -86,7 +93,7 @@ export function useProjectWorkspace() {
     },
     {
       onSuccess: refreshWorkspaceTree,
-      onError: () => notifyOperationError('File could not be created.'),
+      onError: reportWorkspaceMutationError('File could not be created.'),
       showNotificationOnError: false,
     },
   );
@@ -95,7 +102,6 @@ export function useProjectWorkspace() {
     async (parentPath: string, name: string) => {
       const validationError = getWorkspaceNameError(name, 'folder');
       if (validationError) {
-        notifyInvalidName(validationError);
         return failureFromCode(ERROR_CODES.FILE_INVALID_PATH, validationError);
       }
 
@@ -103,14 +109,14 @@ export function useProjectWorkspace() {
     },
     {
       onSuccess: refreshWorkspaceTree,
-      onError: () => notifyOperationError('Folder could not be created.'),
+      onError: reportWorkspaceMutationError('Folder could not be created.'),
       showNotificationOnError: false,
     },
   );
 
   const { execute: handleDeleteFile } = useAsync((path: string) => deleteFile(path), {
     onSuccess: refreshWorkspaceTree,
-    onError: () => notifyOperationError('Item could not be deleted.'),
+    onError: reportWorkspaceMutationError('Item could not be deleted.'),
     showNotificationOnError: false,
   });
 
@@ -118,7 +124,6 @@ export function useProjectWorkspace() {
     (oldPath: string, newName: string) => {
       const validationError = getWorkspaceNameError(newName, 'rename');
       if (validationError) {
-        notifyInvalidName(validationError);
         return Promise.resolve(failureFromCode(ERROR_CODES.FILE_INVALID_PATH, validationError));
       }
 
@@ -127,7 +132,7 @@ export function useProjectWorkspace() {
     },
     {
       onSuccess: refreshWorkspaceTree,
-      onError: () => notifyOperationError('Item could not be renamed.'),
+      onError: reportWorkspaceMutationError('Item could not be renamed.'),
       showNotificationOnError: false,
     },
   );
@@ -136,7 +141,6 @@ export function useProjectWorkspace() {
     (parentPath: string, name: string) => {
       const validationError = getWorkspaceNameError(name, 'workflow');
       if (validationError) {
-        notifyInvalidName(validationError);
         return Promise.resolve(failureFromCode(ERROR_CODES.FILE_INVALID_PATH, validationError));
       }
 
@@ -162,7 +166,7 @@ export function useProjectWorkspace() {
           navigate(`/project/${activeProject.id}/flow/${data.groupName}/${data.workflowName}`);
         }
       },
-      onError: () => notifyOperationError('Workflow scaffold could not be created.'),
+      onError: reportWorkspaceMutationError('Workflow scaffold could not be created.'),
       showNotificationOnError: false,
     },
   );

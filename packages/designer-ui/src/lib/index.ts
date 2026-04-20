@@ -9,3 +9,4 @@ export {
   type LogSink,
 } from './logger/createLogger.js';
 export { toVnextError } from './error/vNextErrorHelpers.js';
+export { isMessageOriginAllowed } from './messageOriginPolicy.js';

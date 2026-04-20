@@ -85,6 +85,10 @@ const ConfigSchema = z.object({
   verbose: coercedBool.default(false),
   /** Standard Node environment marker, surfaced in log records. */
   nodeEnv: NodeEnvSchema.default('development'),
+  /** Max inbound WebSocket frame size for the LSP endpoint (bytes). */
+  lspMaxMessageBytes: z.coerce.number().int().positive().default(1_048_576),
+  /** Max concurrent LSP WebSocket connections. */
+  lspMaxConnections: z.coerce.number().int().positive().default(8),
 });
 
 export type AppConfig = z.infer<typeof ConfigSchema>;
@@ -115,6 +119,8 @@ function loadConfig(): AppConfig {
     logLevel: process.env.LOG_LEVEL,
     verbose: process.env.VERBOSE,
     nodeEnv: process.env.NODE_ENV,
+    lspMaxMessageBytes: process.env.LSP_MAX_MESSAGE_BYTES,
+    lspMaxConnections: process.env.LSP_MAX_CONNECTIONS,
   });
 
   if (!parsed.success) {

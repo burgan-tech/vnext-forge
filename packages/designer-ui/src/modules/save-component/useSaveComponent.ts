@@ -1,6 +1,7 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback } from 'react';
 import { createLogger } from '../../lib/logger/createLogger';
 import { useAsync } from '../../hooks/useAsync';
+import { useRegisterGlobalSaveShortcut } from '../../hooks/useRegisterGlobalSaveShortcut';
 import { saveComponentFile } from './SaveComponentApi';
 import { useComponentStore } from '../../store/useComponentStore';
 
@@ -35,17 +36,7 @@ export function useSaveComponent() {
     await execute(filePath, JSON.stringify(componentJson, null, 2));
   }, [componentJson, execute, filePath, isDirty]);
 
-  // Listen for Cmd+S
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
-        e.preventDefault();
-        void save();
-      }
-    }
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [save]);
+  useRegisterGlobalSaveShortcut(save);
 
   return { save, isDirty, saving: loading, saveError: error };
 }

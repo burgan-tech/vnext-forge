@@ -25,3 +25,8 @@ export * from './services/file-router/index.js'
 export * from './services/project/index.js'
 
 export * from './registry/index.js'
+
+export {
+  buildChildEnv,
+  DEFAULT_CHILD_PROCESS_ENV_ALLOWLIST,
+} from './lib/child-env.js'

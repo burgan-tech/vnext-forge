@@ -16,8 +16,9 @@ export function StartNodePanel({ startTransition }: { startTransition: any }) {
 
   // All state keys for target dropdown
   const allStateKeys = useMemo(() => {
-    const attrs = (workflowJson as any)?.attributes;
-    return (attrs?.states || []).map((s: any) => s.key) as string[];
+    type Attrs = { states?: Array<{ key: string }> };
+    const attrs = workflowJson?.attributes as Attrs | undefined;
+    return (attrs?.states || []).map((s) => s.key);
   }, [workflowJson]);
 
   const updateStartField = (field: string, value: any) => {

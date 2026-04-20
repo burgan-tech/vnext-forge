@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 
-import { createOmniSharpInstaller } from '@vnext-forge/lsp-core';
+import type { OmniSharpInstaller } from '@vnext-forge/lsp-core';
 import type { LoggerAdapter } from '@vnext-forge/services-core';
 
 import { baseLogger } from './shared/logger.js';
@@ -9,11 +9,13 @@ import { baseLogger } from './shared/logger.js';
  * On activation, pre-install the C# language server so the first LSP session
  * starts up instantly. Runs in the background; failures never block activation.
  *
- * Accepts the `LoggerAdapter` from `services-core` so the installer shares the
- * same log sink (`vnext-forge-core` OutputChannel) as the rest of the shared
- * services.
+ * Uses the same `OmniSharpInstaller` instance as `createExtensionHostLspStack`
+ * so download/cache state is shared with the bridge (R-b8).
  */
-export function bootstrapLsp(logger: LoggerAdapter): void {
+export function bootstrapLsp(
+  logger: LoggerAdapter,
+  installer: OmniSharpInstaller,
+): void {
   const config = vscode.workspace.getConfiguration('vnextForge');
   const autoInstall = config.get<boolean>('lsp.autoInstall', true);
   if (!autoInstall) {
@@ -29,7 +31,6 @@ export function bootstrapLsp(logger: LoggerAdapter): void {
     async (progress) => {
       progress.report({ message: 'Locating C# language server…' });
       try {
-        const installer = createOmniSharpInstaller({ logger });
         const info = await installer.ensureLspServer();
         baseLogger.info(
           { server: info.serverType, path: info.executablePath },

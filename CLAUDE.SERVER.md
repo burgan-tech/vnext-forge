@@ -1,22 +1,89 @@
 # Server Instructions
 
-> **Scope:** `apps/server` (deprecated Hono BFF; reference archive only). Load this file in addition to the repo-wide [`./CLAUDE.md`](./CLAUDE.md) only when editing code under `apps/server`. Related skills live under `.cursor/skills/` with `Scope: apps/server` in their frontmatter.
+> **Scope:** `apps/server` (active Hono RPC backend serving the web shell). Load alongside the repo-wide [`./CLAUDE.md`](./CLAUDE.md) when editing this workspace. The conditional rule [`.cursor/rules/server-hardening.mdc`](./.cursor/rules/server-hardening.mdc) auto-loads on edits under `apps/server/src/**`. For errors, traces, and imports, read [`.cursor/skills/shared/error-taxonomy/SKILL.md`](./.cursor/skills/shared/error-taxonomy/SKILL.md), [`.cursor/skills/shared/trace-headers/SKILL.md`](./.cursor/skills/shared/trace-headers/SKILL.md), and [`.cursor/skills/shared/dependency-policy/SKILL.md`](./.cursor/skills/shared/dependency-policy/SKILL.md).
 
-> **DEPRECATED** — `apps/server` is no longer the active delivery target.
-> All server-side logic has been migrated to `apps/extension` (VS Code Extension Host).
-> This package is kept as a reference archive. Do not add new features here.
+## Goal
 
+Keep `apps/server` a **thin transport layer**: HTTP, WebSocket, middleware, and composition. **Business logic and RPC methods** live in [`packages/services-core`](./packages/services-core) and are invoked through `dispatchMethod`. Default deployment binds the server to **loopback**; lifting that assumption requires the trust-model checklist.
 
+## Trust model summary
+
+Full detail: [`./docs/architecture/adr/001-trust-model.md`](./docs/architecture/adr/001-trust-model.md).
+
+- **Loopback bind by default** — non-loopback needs explicit config and the `BLOCKER-FOR-NON-LOOPBACK` items in ADR 001.
+- **CORS** — explicit allowlist only; never `*`.
+- **RPC body limit** — oversize requests fail as `ApiFailure` with `RPC_BODY_TOO_LARGE`.
+- **Capability policy** — per-method capabilities enforced in the dispatcher (`reads-files`, `writes-files`, `spawns-process`, `talks-runtime`).
+- **Runtime-proxy URL allowlist** — SSRF defense in `services-core`; no passthrough for arbitrary URLs.
+- **Filesystem jail** — workspace-scoped paths; escapes via symlinks are rejected.
+- **LSP WebSocket policy** — max message size, max connections, origin check when not loopback.
+- **Child process environment** — `buildChildEnv()` allowlist; never spread full `process.env`.
+- **Trace (`trace-v1`)** — server-owned `X-Trace-Id`; inbound `traceparent` is linkage only.
+- **Structured logging** — Pino with redaction; no raw `console.*` in application code.
+
+## Middleware pipeline
+
+Order (Hono):
+
+```text
+trace-id → request-logger → cors → body-limit → routes → error-handler
+```
+
+`trace-id` runs **first** so every request (including failures before or inside later middleware) gets a stable correlation id and response header. `error-handler` is **last** and is the **only** place that turns `ZodError` / `VnextForgeError` into `ApiResponse<never>` (with `traceId` from context).
+
+## Routing layout
+
+| Path | Role |
+|------|------|
+| `POST /api/rpc` | Single RPC entry; delegates to `dispatchMethod` from `@vnext-forge/services-core`. |
+| `GET /api/health` | Binary health (no `degraded` semantics; see ADR 003). |
+| WebSocket `/api/lsp` | LSP transport; policy in [`./apps/server/src/lsp/router.ts`](./apps/server/src/lsp/router.ts) + [`./apps/server/src/lsp/lsp-ws-policy.ts`](./apps/server/src/lsp/lsp-ws-policy.ts). |
+
+Any additional thin REST endpoints should stay adapters; **defer real behavior to RPC** unless there is a strong transport reason not to.
+
+## Adding a new RPC method
+
+Follow [`.cursor/rules/rpc-method-policy.mdc`](./.cursor/rules/rpc-method-policy.mdc) and [`./CLAUDE.SERVICES-CORE.md`](./CLAUDE.SERVICES-CORE.md). Do not duplicate the registry contract here.
+
+## Config
+
+Single Zod-validated singleton: [`./apps/server/src/shared/config/config.ts`](./apps/server/src/shared/config/config.ts). Read [`.cursor/rules/config-singleton.mdc`](./.cursor/rules/config-singleton.mdc). Defaults live in the schema; a missing `.env` logs a warning and the process continues with defaults. Reuses primitives from `@vnext-forge/app-contracts/env/common` (`LogLevelSchema`, `NodeEnvSchema`, `coercedBool`, `csvList`, `isLoopbackHost`).
 
 ## Logging
 
-- Server tarafinda dogrudan `console.log`, `console.error`, `console.warn` veya diger `console.*` cagrilarini kullanma.
-- Tum loglar merkezi logger uzerinden akmalidir: request icinde `c.get('logger')` veya `getRequestLogger(...)`, request disinda `baseLogger`.
-- Controller seviyesinde loglar orchestration odakli ve kisa olmali; hata loglama merkezi olarak `error-handler` uzerinden devam etmelidir.
+- Do **not** call `console.log`, `console.error`, `console.warn`, or other `console.*` from application code.
+- All logs go through the **central logger**: inside a request use `c.get('logger')` (or the project’s `getRequestLogger(...)` helper if present); outside request scope use `baseLogger`.
+- Controller-level logs should be **short and orchestration-focused**; rely on the **error-handler** for centralized error logging where appropriate.
 
-## Workspace Config Types
+## Workspace config types
 
-- Workspace config tipi (`VnextWorkspaceConfig` ve alt tipleri) `@vnext-forge/vnext-types` paketinde kanonik olarak tanimlidir.
-- `apps/server/src/slices/workspace/types.ts` bu tipleri `export type { ... } from '@vnext-forge/vnext-types'` ile re-export eder. Server-only tipler (`IWorkspace`, `WorkspaceAnalysisResult`, `SearchResult`, `DirectoryEntry` vb.) ayni dosyada kalir.
-- Server icinde workspace config tiplerini kullanirken `@workspace/types.js` path alias'indan import et, dogrudan `@vnext-forge/vnext-types` yerine. Boylece server-only tipleri ve kanonik tipleri ayni noktadan alabilirsin.
-- Workspace config tipi icin yeni local interface tanimlama; kanonik kaynaktan re-export edilen tipleri kullan.
+- Canonical workspace config types (`VnextWorkspaceConfig` and related) live in **`@vnext-forge/vnext-types`**.
+- `apps/server/src/slices/workspace/types.ts` re-exports those types via `export type { ... } from '@vnext-forge/vnext-types'`. Server-only types (`IWorkspace`, `WorkspaceAnalysisResult`, `SearchResult`, `DirectoryEntry`, etc.) stay in that same file.
+- When importing workspace config types in `apps/server`, prefer the **`@workspace/types.js`** path alias over importing `@vnext-forge/vnext-types` directly so server-only and canonical types share one entry point.
+- Do **not** define a parallel local interface for workspace config; use the canonical / re-exported types.
+
+## Tests
+
+Families under [`./apps/server/src/__tests__/`](./apps/server/src/__tests__/) include: `trace-id.test.ts`, `lsp-ws-policy.test.ts`, `error-handler.test.ts`, `body-limit.test.ts`, `capability-policy.test.ts`, `runtime-proxy-allowlist.test.ts` (31 tests total across these areas).
+
+Run:
+
+```bash
+pnpm --filter @vnext-forge/server test
+```
+
+Write tests against the **real middleware chain**; do not disable middleware “just for tests.”
+
+## Don'ts
+
+- Do not regress hardening invariants from [`.cursor/rules/server-hardening.mdc`](./.cursor/rules/server-hardening.mdc): loopback default, CORS allowlist, body limit, trace contract, single error-handler boundary, capability policy, runtime-proxy allowlist, FS jail, LSP WS policy, child-env allowlist, structured logging only.
+- Do not use `cors({ origin: '*' })` even temporarily.
+- Do not treat inbound `X-Trace-Id` as authoritative; inbound `traceparent` is `linkedTraceId` only.
+- Do not bypass the registry’s capability check from a service or route.
+
+## Cross-references
+
+- ADRs: [`001-trust-model`](./docs/architecture/adr/001-trust-model.md), [`002-trace-headers`](./docs/architecture/adr/002-trace-headers.md), [`003-runtime-health-degraded`](./docs/architecture/adr/003-runtime-health-degraded.md), [`004-bootstrap-aggregation`](./docs/architecture/adr/004-bootstrap-aggregation.md), [`005-error-taxonomy`](./docs/architecture/adr/005-error-taxonomy.md), [`006-provider-order`](./docs/architecture/adr/006-provider-order.md)
+- Skills: [error-taxonomy](./.cursor/skills/shared/error-taxonomy/SKILL.md), [trace-headers](./.cursor/skills/shared/trace-headers/SKILL.md), [dependency-policy](./.cursor/skills/shared/dependency-policy/SKILL.md)
+- Rules: [server-hardening](./.cursor/rules/server-hardening.mdc), [rpc-method-policy](./.cursor/rules/rpc-method-policy.mdc), [config-singleton](./.cursor/rules/config-singleton.mdc)
+- [Web vs extension parity](./docs/architecture/web-extension-parity.md), [Bundler checklist](./docs/architecture/bundler-checklist.md)

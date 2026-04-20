@@ -4,6 +4,9 @@ import tailwindcss from '@tailwindcss/vite';
 
 export default defineConfig({
   plugins: [react(), tailwindcss()],
+  optimizeDeps: {
+    include: ['@vnext-forge/designer-ui/editor', '@monaco-editor/react', 'monaco-editor'],
+  },
   build: {
     outDir: './dist',
     emptyOutDir: true,

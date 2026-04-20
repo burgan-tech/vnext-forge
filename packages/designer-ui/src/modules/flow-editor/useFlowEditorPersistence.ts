@@ -1,7 +1,8 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback } from 'react';
 import { useProjectStore } from '../../store/useProjectStore';
 import { useWorkflowStore } from '../../store/useWorkflowStore';
 import { useAsync } from '../../hooks/useAsync';
+import { useRegisterGlobalSaveShortcut } from '../../hooks/useRegisterGlobalSaveShortcut';
 import { createLogger } from '../../lib/logger/createLogger';
 import { saveFlowEditorDocument } from './FlowEditorApi';
 
@@ -44,17 +45,7 @@ export function useFlowEditorPersistence({ group, name }: UseFlowEditorPersisten
     });
   }, [activeProject, diagramJson, execute, group, isDirty, name, vnextConfig, workflowJson]);
 
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if ((event.metaKey || event.ctrlKey) && event.key === 's') {
-        event.preventDefault();
-        void save();
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [save]);
+  useRegisterGlobalSaveShortcut(save);
 
   return { isDirty, save, saving: loading, saveError: error };
 }

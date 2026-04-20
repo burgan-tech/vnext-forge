@@ -15,6 +15,9 @@ export default defineConfig({
   root: __dirname,
   base: '',
   plugins: [react(), tailwindcss()],
+  optimizeDeps: {
+    include: ['@vnext-forge/designer-ui/editor', '@monaco-editor/react', 'monaco-editor'],
+  },
   build: {
     outDir: '../dist/webview-ui',
     emptyOutDir: true,

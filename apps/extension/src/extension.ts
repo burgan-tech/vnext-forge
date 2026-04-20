@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 
 import { registerCommands } from './commands.js';
-import { composeExtensionLspBridge } from './composition/lsp.js';
+import { createExtensionHostLspStack } from './composition/lsp.js';
 import { composeExtensionServices } from './composition/services.js';
 import { bootstrapLsp } from './lsp-bootstrap.js';
 import { MessageRouter } from './MessageRouter.js';
@@ -15,6 +15,13 @@ import { VnextWorkspaceDetector } from './workspace-detector.js';
  * `lsp-core` packages with VS Code-specific adapters (workspace root
  * resolver, OutputChannel logger, webview `postMessage` transport) and wires
  * the resulting services to commands and the webview `MessageRouter`.
+ *
+ * LSP / OmniSharp lifecycle owner: `createExtensionHostLspStack` in
+ * `@vnext-forge/lsp-core` constructs the single shared `OmniSharpInstaller` and
+ * `LspBridge`. The extension only re-exports that factory from
+ * `composition/lsp.ts` and passes the same installer into `bootstrapLsp` for
+ * background pre-download — there is no second installer factory in the
+ * extension host (R-b8).
  */
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   baseLogger.info({}, 'vnext-forge activating');
@@ -31,7 +38,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   context.subscriptions.push(webviewLogChannel);
 
   const { services, registry } = composeExtensionServices(loggerAdapter);
-  const lspBridge = composeExtensionLspBridge(loggerAdapter);
+  const { bridge: lspBridge, installer: lspInstaller } =
+    createExtensionHostLspStack(loggerAdapter);
 
   const router = new MessageRouter({
     registry,
@@ -61,7 +69,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   await detector.refresh();
 
   if (detector.getRoots().length > 0) {
-    bootstrapLsp(loggerAdapter);
+    bootstrapLsp(loggerAdapter, lspInstaller);
   }
 }
 

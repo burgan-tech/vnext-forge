@@ -1,18 +1,9 @@
-import {
-  createLspBridge,
-  createLspWorkspaceManager,
-  createOmniSharpInstaller,
+/**
+ * Extension-side entry for `@vnext-forge/lsp-core`. Re-exports the shared
+ * factory so callers never import `createOmniSharpInstaller` directly in two
+ * places (R-b8).
+ */
+export {
+  createExtensionHostLspStack,
   type LspBridge,
 } from '@vnext-forge/lsp-core';
-import type { LoggerAdapter } from '@vnext-forge/services-core';
-
-/**
- * Wire up the shared LSP core for the VS Code extension host. The bridge is
- * transport-agnostic; the webview `postMessage` transport is plugged in per
- * editor session by `src/panels/lsp-transport.ts`.
- */
-export function composeExtensionLspBridge(logger: LoggerAdapter): LspBridge {
-  const installer = createOmniSharpInstaller({ logger });
-  const workspaceManager = createLspWorkspaceManager({ logger });
-  return createLspBridge({ logger, installer, workspaceManager });
-}

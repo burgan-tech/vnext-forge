@@ -12,6 +12,8 @@
  */
 import type { Monaco } from '@monaco-editor/react';
 import { createLogger } from '../../../lib/logger/createLogger';
+import { getHostEditorCapabilities } from '../../../lsp/hostEditorCapabilitiesRegistry.js';
+import { isMessageOriginAllowed } from '../../../lib/messageOriginPolicy.js';
 
 const logger = createLogger('RoslynLspClient');
 
@@ -92,13 +94,6 @@ function lspCompletionKindToMonaco(kind: number | undefined, monaco: Monaco): nu
     25: monaco.languages.CompletionItemKind.TypeParameter,
   };
   return map[kind ?? 0] ?? monaco.languages.CompletionItemKind.Text;
-}
-
-// ── Environment detection ─────────────────────────────────────────────────────
-
-/** True when running inside a VS Code webview (acquireVsCodeApi is injected). */
-function isVsCodeWebview(): boolean {
-  return typeof (window as any).acquireVsCodeApi === 'function';
 }
 
 // ── WS URL (standalone web app only) ─────────────────────────────────────────
@@ -443,7 +438,17 @@ export function createCsharpLspClient(monaco: Monaco, sessionId: string): Csharp
     };
 
     // Receive LSP messages forwarded from the extension host bridge
+    const caps = getHostEditorCapabilities();
+
     const windowListener = (event: MessageEvent) => {
+      if (!isMessageOriginAllowed(event.origin, caps.postMessageAllowedOrigins)) {
+        logger.warn('Ignoring LSP postMessage from unexpected origin', {
+          sessionId,
+          origin: event.origin,
+        });
+        return;
+      }
+
       const msg = event.data as { type?: string; event?: string; data?: unknown; reason?: string };
       if (msg?.type !== 'lsp') return;
 
@@ -540,7 +545,9 @@ export function createCsharpLspClient(monaco: Monaco, sessionId: string): Csharp
 
   return {
     start(): Promise<void> {
-      return isVsCodeWebview() ? startWithPostMessage() : startWithWebSocket();
+      return getHostEditorCapabilities().csharpLspUsesPostMessageTransport
+        ? startWithPostMessage()
+        : startWithWebSocket();
     },
 
     dispose(): void {

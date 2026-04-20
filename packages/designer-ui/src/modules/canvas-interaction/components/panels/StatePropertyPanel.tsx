@@ -64,7 +64,7 @@ export function StatePropertyPanel() {
     { key: 'tasks', label: 'Tasks', count: entries.length + exits.length, show: true },
     { key: 'transitions', label: 'Transitions', count: transitions.length, show: true },
     { key: 'subflow', label: 'SubFlow', show: stateType === 4 },
-    { key: 'error-boundary', label: 'Errors', show: !!state.errorBoundary },
+    { key: 'error-boundary', label: 'vNext failure', show: !!state.errorBoundary },
   ];
 
   return (

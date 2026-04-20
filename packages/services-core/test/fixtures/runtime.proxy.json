@@ -1,0 +1,11 @@
+{
+  "params": {
+    "method": "GET",
+    "runtimePath": "/health"
+  },
+  "result": {
+    "status": 200,
+    "contentType": "application/json",
+    "data": "{}"
+  }
+}

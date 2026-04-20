@@ -27,3 +27,5 @@ export {
   type LspBridgeDeps,
   type LspClientTransport,
 } from './lsp-bridge.js'
+
+export { createExtensionHostLspStack } from './extension-host-lsp-stack.js'

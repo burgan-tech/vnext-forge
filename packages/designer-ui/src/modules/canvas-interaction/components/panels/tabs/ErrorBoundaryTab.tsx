@@ -6,7 +6,7 @@ export function ErrorBoundaryTab({ state }: { state: any }) {
   if (!eb) {
     return (
       <div className="flex items-center justify-center py-8">
-        <div className="text-[10px] text-muted-foreground">No error boundary configured</div>
+        <div className="text-[10px] text-muted-foreground">No vNext failure handlers configured</div>
       </div>
     );
   }

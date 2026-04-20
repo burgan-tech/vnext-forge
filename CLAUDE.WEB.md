@@ -1,6 +1,6 @@
 # apps/web - Context
 
-> **Scope:** `apps/web` (web frontend). Load this file in addition to the repo-wide [`./CLAUDE.md`](./CLAUDE.md) whenever editing code under `apps/web`. Specialized skills under `.cursor/skills/web/*` cover narrow visual / UI infrastructure concerns (theme tokens, component folder icons, notification container). Architecture, API access, error handling, async flows, state placement, component placement, and form validation rules now live in this file directly.
+> **Scope:** `apps/web` (web frontend). Load with the repo-wide [`./CLAUDE.md`](./CLAUDE.md) whenever editing under `apps/web`. The app uses the **active `apps/server` Hono RPC backend** (not deprecated); the Hono RPC client routes through it. When editing **`packages/designer-ui`**, also load [`./CLAUDE.DESIGNER-UI.md`](./CLAUDE.DESIGNER-UI.md). **Skills:** web — [theme-color-system](./.cursor/skills/web/theme-color-system/SKILL.md), [icon-creation](./.cursor/skills/web/icon-creation/SKILL.md), [notification-container-pattern](./.cursor/skills/web/notification-container-pattern/SKILL.md); shared — [error-taxonomy](./.cursor/skills/shared/error-taxonomy/SKILL.md), [trace-headers](./.cursor/skills/shared/trace-headers/SKILL.md), [dependency-policy](./.cursor/skills/shared/dependency-policy/SKILL.md). Architecture, API access, routing, error handling, async flows, state, components, and forms below always apply here.
 
 `apps/web` is the web client of vnext-forge. The standalone product framing belongs to the monorepo and product as a whole, not to `apps/web` as an isolated application.
 
@@ -79,6 +79,15 @@ Two slices touch the same project surface. Do not collapse them into one shared 
 - Framework exceptions stay (`index.ts`, `main.tsx`, `vite-env.d.ts`).
 - Do not mix `kebab-case`, `camelCase`, and `PascalCase` file names inside the same owner.
 
+## Cross-package imports
+
+| Constraint | Rule |
+|------------|------|
+| `@vnext-forge/services-core` | **Do not import** from `apps/web` (no deep paths). |
+| `@vnext-forge/designer-ui/dist/**` | **Do not import.** Use `@vnext-forge/designer-ui` or `@vnext-forge/designer-ui/editor`. |
+
+Enforced by `apps/web/eslint.config.js` (`no-restricted-imports`). Full policy: [`.cursor/skills/shared/dependency-policy/SKILL.md`](./.cursor/skills/shared/dependency-policy/SKILL.md), [`docs/architecture/dependency-policy.md`](./docs/architecture/dependency-policy.md).
+
 ## Workspace Config Types
 
 - Canonical workspace config types (`VnextWorkspaceConfig`, `VnextWorkspacePaths`, `VnextWorkspaceExports`, `VnextWorkspaceExportsMeta`, `VnextWorkspaceDependencies`, `VnextWorkspaceReferenceResolution`) are defined in `@vnext-forge/vnext-types` and re-exported through `@vnext-forge/app-contracts`.
@@ -89,7 +98,9 @@ Two slices touch the same project surface. Do not collapse them into one shared 
 
 ## API Access
 
-All server communication goes through the Hono RPC client in `shared/api/client.ts`.
+All server communication goes through the Hono RPC client in `shared/api/client.ts`. The client’s **base URL** comes from the **per-shell config singleton** (web vs extension webview), not a hardcoded origin.
+
+**Bootstrap:** load initial workspace-shaped data via **`projects.getWorkspaceBootstrap`** once where the product needs aggregation — see [ADR 004](./docs/architecture/adr/004-bootstrap-aggregation.md). **Do not** fan out multiple parallel “initial load” RPCs for the same aggregated payload.
 
 The intended call chain is:
 
@@ -136,6 +147,11 @@ export const projectApi = {
 
 Hooks and actions consume the service. The `callApi` wrapping stays inside the service; the hook never touches `apiClient` or `callApi` directly.
 
+## Routing, Suspense, Error boundary
+
+- Lazy routes sit under a single **`<Suspense fallback={<RouteSkeleton />}>`** around `<Routes>` (`src/app/RouteSkeleton.tsx`).
+- **`RouteErrorBoundary`** (`src/app/RouteErrorBoundary.tsx`) wraps the layout: it **logs** the error and surfaces **`traceId`** for support.
+
 ## Async UI Flows
 
 Use the shared `useAsync` hook (`shared/hooks/useAsync.ts`) for reusable async UI contracts.
@@ -174,7 +190,19 @@ useAsync(asyncFunction, options?) -> { execute, retry, reset, loading, error, da
 - One component can express the flow clearly with local state.
 - The request is one-off and does not need reusable retry or error semantics.
 
+## Save shortcut (R-f15)
+
+- **Do not** add document-level **`Ctrl+S` / `Meta+S`** `keydown` handlers in `apps/web`.
+- Register the web shell’s single save sink through designer-ui **`useRegisterGlobalSaveShortcut`** / `globalSaveShortcutRegistry` (see [`./CLAUDE.DESIGNER-UI.md`](./CLAUDE.DESIGNER-UI.md)).
+
+## Notifications (R-f16)
+
+- **One** notification sink per shell on web: **Sonner**, wired through the designer-ui **notification port** — do **not** toast directly from ad hoc `sonner` calls in feature code.
+- **`useProjectWorkspace`** and similar flows: **dedupe** — at most **one** toast per mutation. Parity with extension: [`docs/architecture/web-extension-parity.md`](./docs/architecture/web-extension-parity.md), [`.cursor/skills/web/notification-container-pattern/SKILL.md`](./.cursor/skills/web/notification-container-pattern/SKILL.md).
+
 ## Error Handling
+
+Full contract: [`.cursor/skills/shared/error-taxonomy/SKILL.md`](./.cursor/skills/shared/error-taxonomy/SKILL.md), [ADR 005](./docs/architecture/adr/005-error-taxonomy.md). **`traceId`** on failures follows [ADR 002](./docs/architecture/adr/002-trace-headers.md) (`ApiFailure` correlation).
 
 The shared error type is `VnextForgeError` from `@vnext-forge/app-contracts`.
 
@@ -240,6 +268,7 @@ Hono RPC Response
 - Promote state only when multiple real consumers require it.
 - Do not split a small module into `model`, `hooks`, `types` folders unless navigation has actually become hard.
 - Move only durable results upward, not transient loading or error flags.
+- **Zustand:** use **selector functions** — `useStore((s) => s.field)`; do **not** subscribe to the **entire store** unless every field is required (R-f11).
 
 ### Repo-specific owners
 
@@ -271,6 +300,7 @@ All new UI implementation must use Tailwind CSS utilities. Do not introduce CSS 
 - Do not place transport calls directly in page components or view components.
 - Build new component styling with Tailwind utility classes.
 - During migration, move callers to the new owner directly instead of leaving backward-compat wrapper files.
+- **Monaco / editor-related** UI: import from **`@vnext-forge/designer-ui/editor`**, not the package root. New `package.json#exports` subpaths follow [`docs/architecture/bundler-checklist.md`](./docs/architecture/bundler-checklist.md).
 
 ### Default variants
 
@@ -324,16 +354,11 @@ Is this rule about user correction, or about runtime trust?
 - Create a scoped logger with `createLogger('ScopeName')` once per module or component boundary and reuse that instance for all log calls.
 - Do not call `createLogger(...)` inside hot paths or before every `debug`, `info`, `warn`, or `error` call.
 - Direct `console.*` usage is reserved for the shared logger implementation only.
+- **Webview shell:** the extension injects **`window.__VNEXT_CONFIG__`** for environment hints; read it only through the **per-shell config module**, not scattered `window` access in features.
 
 ## Specialized Skills
 
-Detailed visual / UI infrastructure references live as skills under `.cursor/skills/web/*`:
-
-- **`theme-color-system`** — token families, semantic coloring, elevation, motion, z-index, badge / table / drag / split-pane / form / toast visual contracts.
-- **`icon-creation`** — component folder icons in the FileTree sidebar.
-- **`notification-container-pattern`** — optional transient feedback infrastructure (toast, banners) when a notification system is intentionally introduced.
-
-These skills trigger only on the narrow surface they own. Architecture, API access, error handling, async flows, state placement, component placement, and form validation rules in this file are always in effect for `apps/web`.
+Narrow visual / UI infrastructure: `.cursor/skills/web/*` (linked in **Scope**). Cross-cutting **shared** skills are also linked in **Scope**. Everything else in this file applies to all `apps/web` edits regardless of skill triggers.
 
 ## Expectation
 

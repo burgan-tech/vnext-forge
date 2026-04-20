@@ -186,6 +186,8 @@ function buildWebviewConfig(): Record<string, unknown> {
     .get<number>('runtimeRevalidationMinIntervalSeconds', 30)
   return {
     RUNTIME_REVALIDATION_MIN_INTERVAL_SECONDS: revalidationSeconds,
+    /** Webview `postMessage` origin allowlist (API + LSP); merged with defaults in webview boot. */
+    POST_MESSAGE_ALLOWED_ORIGINS: ['vscode-webview:', 'vscode-file://vscode-app'],
   }
 }
 

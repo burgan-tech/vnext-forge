@@ -1,5 +1,9 @@
 import type { ApiResponse } from '@vnext-forge/app-contracts';
-import type { ApiTransport } from '@vnext-forge/designer-ui';
+import { createLogger, isMessageOriginAllowed, type ApiTransport } from '@vnext-forge/designer-ui';
+
+import { resolveWebviewPostMessageAllowedOrigins } from './host/webviewMessageOrigins.js';
+
+const logger = createLogger('extension/VsCodeTransport');
 
 /**
  * Webview `postMessage` handle exposed by the `vscode` webview runtime.
@@ -36,12 +40,9 @@ interface WebviewApiReply {
 }
 
 function isApiReply(value: unknown): value is WebviewApiReply {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    typeof (value as { requestId?: unknown }).requestId === 'string' &&
-    'result' in (value as object)
-  );
+  if (typeof value !== 'object' || value === null) return false;
+  const record = value as Record<string, unknown>;
+  return typeof record.requestId === 'string' && 'result' in record;
 }
 
 /**
@@ -54,8 +55,14 @@ function isApiReply(value: unknown): value is WebviewApiReply {
  */
 export function createVsCodeTransport(api: VsCodeWebviewApi): ApiTransport {
   const pending = new Map<string, PendingCall>();
+  const allowedOrigins = resolveWebviewPostMessageAllowedOrigins();
 
   window.addEventListener('message', (event) => {
+    if (!isMessageOriginAllowed(event.origin, allowedOrigins)) {
+      logger.warn('Ignoring API postMessage from unexpected origin', { origin: event.origin });
+      return;
+    }
+
     const data = event.data as unknown;
     if (!isApiReply(data)) return;
 

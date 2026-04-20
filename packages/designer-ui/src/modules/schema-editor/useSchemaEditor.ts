@@ -1,4 +1,5 @@
 import { useCallback, useEffect } from 'react';
+import { useRegisterGlobalSaveShortcut } from '../../hooks/useRegisterGlobalSaveShortcut';
 import { createLogger } from '../../lib/logger/createLogger';
 import { useAsync } from '../../hooks/useAsync';
 import { loadSchemaEditor, saveSchemaEditor } from './SchemaEditorApi';
@@ -74,17 +75,7 @@ export function useSchemaEditor({ filePath }: UseSchemaEditorParams) {
     });
   }, [componentFilePath, componentJson, executeSave, isDirty]);
 
-  useEffect(() => {
-    function handleKeyDown(event: KeyboardEvent) {
-      if ((event.metaKey || event.ctrlKey) && event.key === 's') {
-        event.preventDefault();
-        void save();
-      }
-    }
-
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [save]);
+  useRegisterGlobalSaveShortcut(save);
 
   const isReady = Boolean(data && componentJson && componentFilePath === filePath);
 
