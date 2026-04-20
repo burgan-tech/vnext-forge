@@ -1,4 +1,5 @@
-import type { ZodTypeAny } from 'zod'
+import { ERROR_CODES, VnextForgeError } from '@vnext-forge/app-contracts'
+import { z, type ZodTypeAny } from 'zod'
 
 import type { ProjectService } from '../services/project/index.js'
 import {
@@ -20,6 +21,8 @@ import {
   projectsGetValidateScriptStatusResult,
   projectsGetVnextComponentLayoutStatusParams,
   projectsGetVnextComponentLayoutStatusResult,
+  projectsGetWorkspaceBootstrapParams,
+  projectsGetWorkspaceBootstrapResult,
   projectsImportParams,
   projectsImportResult,
   projectsListParams,
@@ -126,14 +129,14 @@ export function defineMethod<P extends ZodTypeAny, R extends ZodTypeAny>(
 export function buildMethodRegistry(): MethodRegistry {
   return {
     // ── files / workspace ────────────────────────────────────────────────────
-    'files/read': {
+    'files.read': {
       paramsSchema: filesReadParams,
       resultSchema: filesReadResult,
       handler: async ({ path }, { workspaceService }, traceId) => ({
         content: await workspaceService.readFile(path, traceId),
       }),
     },
-    'files/write': {
+    'files.write': {
       paramsSchema: filesWriteParams,
       resultSchema: filesWriteResult,
       handler: async ({ path, content }, { workspaceService }, traceId) => {
@@ -141,7 +144,7 @@ export function buildMethodRegistry(): MethodRegistry {
         return null
       },
     },
-    'files/delete': {
+    'files.delete': {
       paramsSchema: filesDeleteParams,
       resultSchema: filesDeleteResult,
       handler: async ({ path }, { workspaceService }, traceId) => {
@@ -149,7 +152,7 @@ export function buildMethodRegistry(): MethodRegistry {
         return null
       },
     },
-    'files/mkdir': {
+    'files.mkdir': {
       paramsSchema: filesMkdirParams,
       resultSchema: filesMkdirResult,
       handler: async ({ path }, { workspaceService }, traceId) => {
@@ -157,7 +160,7 @@ export function buildMethodRegistry(): MethodRegistry {
         return null
       },
     },
-    'files/rename': {
+    'files.rename': {
       paramsSchema: filesRenameParams,
       resultSchema: filesRenameResult,
       handler: async ({ oldPath, newPath }, { workspaceService }, traceId) => {
@@ -165,16 +168,15 @@ export function buildMethodRegistry(): MethodRegistry {
         return null
       },
     },
-    'files/browse': {
+    'files.browse': {
       paramsSchema: filesBrowseParams,
       resultSchema: filesBrowseResult,
       handler: async (params, { workspaceService }, traceId) => {
-        const path = params.path
-        const folders = await workspaceService.browseDirs(path, traceId)
-        return { path: path ?? '', folders }
+        const { resolvedPath, entries } = await workspaceService.browseDirs(params.path, traceId)
+        return { path: resolvedPath, folders: entries }
       },
     },
-    'files/search': {
+    'files.search': {
       paramsSchema: filesSearchParams,
       resultSchema: filesSearchResult,
       handler: async (
@@ -192,92 +194,98 @@ export function buildMethodRegistry(): MethodRegistry {
     },
 
     // ── projects ─────────────────────────────────────────────────────────────
-    'projects/list': {
+    'projects.list': {
       paramsSchema: projectsListParams,
       resultSchema: projectsListResult,
       handler: async (_p, { projectService }, traceId) => projectService.listProjects(traceId),
     },
-    'projects/getById': {
+    'projects.getById': {
       paramsSchema: projectsGetByIdParams,
       resultSchema: projectsGetByIdResult,
       handler: async ({ id }, { projectService }, traceId) =>
         projectService.getProject(id, traceId),
     },
-    'projects/create': {
+    'projects.create': {
       paramsSchema: projectsCreateParams,
       resultSchema: projectsCreateResult,
       handler: async ({ domain, description, targetPath }, { projectService }, traceId) =>
         projectService.createProject(domain, description, targetPath, traceId),
     },
-    'projects/import': {
+    'projects.import': {
       paramsSchema: projectsImportParams,
       resultSchema: projectsImportResult,
       handler: async ({ path }, { projectService }, traceId) =>
         projectService.importProject(path, traceId),
     },
-    'projects/remove': {
+    'projects.remove': {
       paramsSchema: projectsRemoveParams,
       resultSchema: projectsRemoveResult,
       handler: async ({ id }, { projectService }, traceId) =>
         projectService.removeProject(id, traceId),
     },
-    'projects/export': {
+    'projects.export': {
       paramsSchema: projectsExportParams,
       resultSchema: projectsExportResult,
       handler: async ({ id, targetPath }, { projectService }, traceId) =>
         projectService.exportProject(id, targetPath, traceId),
     },
-    'projects/getTree': {
+    'projects.getTree': {
       paramsSchema: projectsGetTreeParams,
       resultSchema: projectsGetTreeResult,
       handler: async ({ id }, { projectService }, traceId) =>
         projectService.getFileTree(id, traceId),
     },
-    'projects/getConfig': {
+    'projects.getConfig': {
       paramsSchema: projectsGetConfigParams,
       resultSchema: projectsGetConfigResult,
       handler: async ({ id }, { projectService }, traceId) =>
         projectService.getConfig(id, traceId),
     },
-    'projects/getConfigStatus': {
+    'projects.getConfigStatus': {
       paramsSchema: projectsGetConfigStatusParams,
       resultSchema: projectsGetConfigStatusResult,
       handler: async ({ id }, { projectService }, traceId) =>
         projectService.getConfigStatus(id, traceId),
     },
-    'projects/writeConfig': {
+    'projects.writeConfig': {
       paramsSchema: projectsWriteConfigParams,
       resultSchema: projectsWriteConfigResult,
       handler: async ({ id, config }, { projectService }, traceId) =>
         projectService.writeProjectConfig(id, config, traceId),
     },
-    'projects/getVnextComponentLayoutStatus': {
+    'projects.getVnextComponentLayoutStatus': {
       paramsSchema: projectsGetVnextComponentLayoutStatusParams,
       resultSchema: projectsGetVnextComponentLayoutStatusResult,
       handler: async ({ id }, { projectService }, traceId) =>
         projectService.getVnextComponentLayoutStatus(id, traceId),
     },
-    'projects/seedVnextComponentLayout': {
+    'projects.seedVnextComponentLayout': {
       paramsSchema: projectsSeedVnextComponentLayoutParams,
       resultSchema: projectsSeedVnextComponentLayoutResult,
       handler: async ({ id }, { projectService }, traceId) =>
         projectService.seedVnextComponentLayoutFromConfig(id, traceId),
     },
-    'projects/getValidateScriptStatus': {
+    'projects.getValidateScriptStatus': {
       paramsSchema: projectsGetValidateScriptStatusParams,
       resultSchema: projectsGetValidateScriptStatusResult,
       handler: async ({ id }, { projectService }, traceId) =>
         projectService.getValidateScriptStatus(id, traceId),
     },
-    'projects/getComponentFileTypes': {
+    'projects.getComponentFileTypes': {
       paramsSchema: projectsGetComponentFileTypesParams,
       resultSchema: projectsGetComponentFileTypesResult,
       handler: async ({ id }, { projectService }, traceId) =>
         projectService.getComponentFileTypes(id, traceId),
     },
+    'projects.getWorkspaceBootstrap': {
+      paramsSchema: projectsGetWorkspaceBootstrapParams,
+      resultSchema: projectsGetWorkspaceBootstrapResult,
+      handler: async ({ id }, { projectService }, traceId) =>
+        projectService.getWorkspaceBootstrap(id, traceId),
+    },
 
     // ── templates ────────────────────────────────────────────────────────────
-    'templates/validateScriptStatus': {
+    'templates.validateScriptStatus': {
       paramsSchema: templatesValidateScriptParams,
       resultSchema: templatesValidateScriptResult,
       handler: async ({ projectPath }, { templateService }) =>
@@ -285,39 +293,76 @@ export function buildMethodRegistry(): MethodRegistry {
     },
 
     // ── validation ───────────────────────────────────────────────────────────
-    'validate/workflow': {
+    'validate.workflow': {
       paramsSchema: validateWorkflowParams,
       resultSchema: validationResultShape,
       handler: async ({ content }, { validateService }) => validateService.validate(content),
     },
-    'validate/component': {
+    'validate.component': {
       paramsSchema: validateComponentParams,
       resultSchema: validationResultShape,
       handler: async ({ content, type }, { validateService }) =>
         validateService.validateComponent(content, type),
     },
-    'validate/getAvailableTypes': {
+    'validate.getAvailableTypes': {
       paramsSchema: validateGetAvailableTypesParams,
       resultSchema: validateGetAvailableTypesResult,
       handler: async (_p, { validateService }) => validateService.getAvailableTypes(),
     },
-    'validate/getAllSchemas': {
+    'validate.getAllSchemas': {
       paramsSchema: validateGetAllSchemasParams,
       resultSchema: validateGetAllSchemasResult,
       handler: async (_p, { validateService }) => validateService.getAllSchemas(),
     },
-    'validate/getSchema': {
+    'validate.getSchema': {
       paramsSchema: validateGetSchemaParams,
       resultSchema: validateGetSchemaResult,
       handler: async ({ type }, { validateService }) => validateService.getSchema(type),
     },
 
     // ── runtime proxy ────────────────────────────────────────────────────────
-    'runtime/proxy': {
+    'runtime.proxy': {
       paramsSchema: runtimeProxyParams,
       resultSchema: runtimeProxyResult,
       handler: async (params, { runtimeProxyService }, traceId) =>
         runtimeProxyService.proxy(params, traceId),
+    },
+
+    // ── health ───────────────────────────────────────────────────────────────
+    // Lightweight wrapper around the runtime engine's `/health` endpoint.
+    //
+    // The runtime engine being down is an EXPECTED operational state for the
+    // designer, not an error: the UI just shows a "disconnected" indicator. So
+    // we swallow `RUNTIME_CONNECTION_FAILED` here and report it as
+    // `status: 'down'` over the success channel. That keeps the server logs
+    // quiet (no ERROR / 502) and lets the UI render its disconnected state
+    // without surfacing a warning per poll.
+    'health.check': {
+      paramsSchema: z.object({}).optional(),
+      resultSchema: z.object({
+        status: z.enum(['ok', 'down']),
+      }),
+      handler: async (_p, { runtimeProxyService }, traceId) => {
+        try {
+          const proxied = await runtimeProxyService.proxy(
+            { method: 'GET', runtimePath: '/health' },
+            traceId,
+          )
+          return {
+            status: (proxied.status >= 200 && proxied.status < 300 ? 'ok' : 'down') as
+              | 'ok'
+              | 'down',
+          }
+        } catch (error) {
+          if (
+            error instanceof VnextForgeError &&
+            error.code === ERROR_CODES.RUNTIME_CONNECTION_FAILED
+          ) {
+            return { status: 'down' as const }
+          }
+          throw error
+        }
+      },
     },
   }
 }

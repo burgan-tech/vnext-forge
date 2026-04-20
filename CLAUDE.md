@@ -60,14 +60,36 @@ The repo is intended to run the same way on macOS, Linux, and Windows.
 
 **Dev workflow**
 
-- `apps/web` (Vite dev server): default port **3000** — used for isolated UI development only. In extension mode the webview is served from `dist/webview/`, not this server.
+- `apps/web` (Vite dev server): default port **3000** — used for isolated UI development only. In extension mode the webview is served from `dist/webview-ui/`, not this server.
 - `apps/extension` (esbuild watch): `pnpm --filter vnext-forge dev` — rebuilds extension host on save.
 - For a full development loop, build the web bundle once (`pnpm --filter @vnext-forge/web build`) and then use extension host watch mode.
 
-**Environment variables**
+**Environment variables & runtime config**
 
-- **Web** (`apps/web`): validated in `apps/web/src/shared/config/config.ts`. In extension mode config is injected at runtime by the extension host via `window.__VNEXT_CONFIG__` (set in the webview HTML by `WebviewPanelManager`). Vite `import.meta.env` values are used in standalone dev only.
-- **Extension host** (`apps/extension`): no HTTP server, no `PORT`. Logs go to the VS Code Output Channel (`vnext-forge`).
+Each app workspace has a single `.env` file (no mode-specific `.env.dev` /
+`.env.prod` variants) and a single Zod-validated `config` singleton. Defaults
+live in the schema, so a missing `.env` is never fatal — the app boots, logs
+a warning, and uses the built-in defaults.
+
+- All `.env*` files are **git-ignored** (root `.gitignore`). Treat each `.env`
+  as a per-developer override file; commit the defaults to the schema instead.
+- The `config` object is a module-level singleton: importing it from anywhere
+  yields the same validated instance. It is also attached to
+  `globalThis.__vnextConfig` (i.e. `window.__vnextConfig` in the browser) for
+  dev-tools / REPL inspection — application code must always go through the
+  import.
+- To add a new setting: extend `ConfigSchema` (with default), wire it from
+  `process.env` / `import.meta.env` inside `loadConfig()`, and document it in
+  the workspace `.env` file.
+
+| Workspace             | Config module                              | `.env` location          | Default loader                                  |
+| --------------------- | ------------------------------------------ | ------------------------ | ----------------------------------------------- |
+| `apps/server`         | `src/shared/config/config.ts`              | `apps/server/.env`       | `tsx watch --env-file-if-exists=.env src/index.ts` |
+| `apps/web`            | `src/shared/config/config.ts`              | `apps/web/.env`          | Vite (only `VITE_*` keys reach the bundle)      |
+| `apps/extension`      | runtime config injected via `window.__VNEXT_CONFIG__` from `DesignerPanel`; no `.env` file (no HTTP server, no `PORT`). Logs go to the VS Code Output Channel (`vnext-forge`). |
+
+Read settings via `import { config } from '@/shared/config/config'`; do not
+read `process.env` / `import.meta.env` directly outside the config module.
 
 **Filesystem and paths**
 
@@ -191,10 +213,12 @@ src/
     omnisharp-process.ts    -> OmniSharp process management
     WebviewLspManager.ts    -> Bridges LSP socket events to webview postMessage
 
-  webview/
-    WebviewPanelManager.ts  -> Creates/reveals the webview panel; serves webview HTML;
+  panels/
+    DesignerPanel.ts        -> Creates/reveals the designer webview panel; serves webview HTML;
                                injects window.__VNEXT_CONFIG__; rewrites asset URIs;
-                               forwards host-originated `navigate` messages to the webview
+                               forwards host-originated `open-editor` messages to the webview UI
+    lsp-transport.ts        -> Per-session postMessage transport bridging the host's LspBridge
+                               to the webview UI's LSP client
 
   shared/
     logger.ts               -> VS Code OutputChannel logger (replaces pino)
@@ -232,7 +256,7 @@ dist/
 
 ### apps/web
 
-React 19 + Vite 6. The web app uses a simple module-based vertical slice structure. The Vite build outputs to `../extension/dist/webview/` so the extension can serve it as the webview content.
+React 19 + Vite 6. The web app uses a simple module-based vertical slice structure. The Vite build outputs to `../extension/dist/webview-ui/` so the extension can serve it as the webview content.
 
 The active structure is `app / pages / modules / shared`.
 
@@ -273,7 +297,7 @@ modules/              -> user-facing business modules with local UI/state/servic
 shared/
   ui/                 -> generic primitives
   api/                -> postMessage transport client (client.ts, vscodeTransport.ts)
-  config/             -> config.ts (reads window.__VNEXT_CONFIG__ or import.meta.env)
+  config/             -> config.ts (Zod-validated singleton; reads import.meta.env / .env, falls back to baked-in defaults)
   lib/                -> logger, error helpers, utility modules
 ```
 

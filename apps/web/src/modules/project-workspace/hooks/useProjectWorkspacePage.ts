@@ -1,17 +1,17 @@
 import { useCallback, useEffect } from 'react';
 
-import { createLogger, getProjectTree, useProjectStore } from '@vnext-forge/designer-ui';
+import { createLogger, useProjectStore } from '@vnext-forge/designer-ui';
+import { success, type ApiResponse } from '@vnext-forge/app-contracts';
 
 import { useComponentFileTypesStore } from '../../../app/store/useComponentFileTypesStore';
 import { useProjectListStore } from '../../../app/store/useProjectListStore';
 import { useVnextWorkspaceUiStore } from '../../../app/store/useVnextWorkspaceUiStore';
 import { useWorkspaceDiagnosticsStore } from '../../../app/store/useWorkspaceDiagnosticsStore';
-import { getProject, getProjectConfigStatus } from '../../project-management/ProjectApi';
-import { applyProjectConfigStatus } from '../applyProjectConfigStatus';
 import {
-  loadComponentFileTypes,
-  refreshWorkspaceLayoutAndValidateScript,
-} from '../syncVnextWorkspaceFromDisk';
+  getWorkspaceBootstrap,
+  type ProjectWorkspaceBootstrap,
+} from '../../project-management/ProjectApi';
+import { applyProjectConfigStatus } from '../applyProjectConfigStatus';
 
 const logger = createLogger('useProjectWorkspacePage');
 
@@ -20,7 +20,13 @@ export interface ProjectWorkspacePageController {
 }
 
 /**
- * Proje çalışma alanı bootstrap: proje meta + config `ProjectApi`, ağaç `WorkspaceApi`.
+ * Proje çalışma alanı bootstrap: tek `projects.getWorkspaceBootstrap` RPC
+ * çağrısı; sunucu projeyi, ağacı, config durumunu ve (config OK ise) layout +
+ * validate script + component file types üçlüsünü tek seferde döner.
+ *
+ * Daha önce 6 ayrı RPC tetikliyorduk; React 19 StrictMode dev modda effect 2x
+ * çalıştığı için bu sayı 12'ye çıkıyordu. Aggregation ile dev'de 2, prod'da 1
+ * isteğe iniyor.
  */
 export function useProjectWorkspacePage(projectId?: string): ProjectWorkspacePageController {
   const setActiveProject = useProjectStore((s) => s.setActiveProject);
@@ -31,164 +37,110 @@ export function useProjectWorkspacePage(projectId?: string): ProjectWorkspacePag
   const clearConfigIssues = useWorkspaceDiagnosticsStore((s) => s.clearConfigIssues);
   const resetVnextWorkspaceUi = useVnextWorkspaceUiStore((s) => s.resetVnextWorkspaceUi);
 
-  const applyConfigStatus = useCallback(
-    (status: Awaited<ReturnType<typeof getProjectConfigStatus>>) => {
-      applyProjectConfigStatus(status, {
-        openWizardOnMissing: true,
-      });
+  const applyBootstrap = useCallback((bootstrap: ProjectWorkspaceBootstrap) => {
+    const { setComponentLayoutStatus, setValidateScriptMissing } =
+      useVnextWorkspaceUiStore.getState();
+
+    setActiveProject(bootstrap.project);
+    setFileTree(bootstrap.tree.root);
+    applyProjectConfigStatus(success(bootstrap.configStatus), { openWizardOnMissing: true });
+
+    if (bootstrap.configStatus.status === 'ok') {
+      setComponentLayoutStatus(bootstrap.layoutStatus);
+      setValidateScriptMissing(
+        bootstrap.validateScriptStatus ? !bootstrap.validateScriptStatus.exists : false,
+      );
+      if (bootstrap.componentFileTypes) {
+        useComponentFileTypesStore.getState().setFileTypes(bootstrap.componentFileTypes);
+      } else {
+        useComponentFileTypesStore.getState().clearFileTypes();
+      }
+    } else {
+      setComponentLayoutStatus(null);
+      setValidateScriptMissing(false);
+      useComponentFileTypesStore.getState().clearFileTypes();
+    }
+  }, [setActiveProject, setFileTree]);
+
+  const resetWorkspaceState = useCallback(
+    (errorMessage: string | null) => {
+      setActiveProject(null);
+      setFileTree(null);
+      setVnextConfig(null);
+      clearConfigIssues();
+      resetVnextWorkspaceUi();
+      useComponentFileTypesStore.getState().clearFileTypes();
+      if (errorMessage) {
+        setError(errorMessage);
+      }
     },
-    [],
+    [
+      clearConfigIssues,
+      resetVnextWorkspaceUi,
+      setActiveProject,
+      setError,
+      setFileTree,
+      setVnextConfig,
+    ],
+  );
+
+  const fetchAndApplyBootstrap = useCallback(
+    async (
+      id: string,
+      isCancelled: () => boolean,
+    ): Promise<ApiResponse<ProjectWorkspaceBootstrap>> => {
+      setLoading(true);
+      setError(null);
+      clearConfigIssues();
+
+      try {
+        const response = await getWorkspaceBootstrap(id);
+
+        if (isCancelled()) {
+          return response;
+        }
+
+        if (!response.success) {
+          logger.error('Project workspace could not be loaded.', {
+            error: response.error,
+            projectId: id,
+          });
+          resetWorkspaceState('Project could not be loaded.');
+          return response;
+        }
+
+        applyBootstrap(response.data);
+        return response;
+      } finally {
+        if (!isCancelled()) {
+          setLoading(false);
+        }
+      }
+    },
+    [applyBootstrap, clearConfigIssues, resetWorkspaceState, setError, setLoading],
   );
 
   const reloadProjectWorkspace = useCallback(async () => {
     if (!projectId) {
       return;
     }
-
-    setLoading(true);
-    setError(null);
-    clearConfigIssues();
-
-    try {
-      const [projectResponse, treeResponse, statusResponse] = await Promise.all([
-        getProject(projectId),
-        getProjectTree(projectId),
-        getProjectConfigStatus(projectId),
-      ]);
-
-      if (!projectResponse.success) {
-        throw new Error(projectResponse.error.message);
-      }
-
-      if (!treeResponse.success) {
-        throw new Error(treeResponse.error.message);
-      }
-
-      setActiveProject(projectResponse.data);
-      setFileTree(treeResponse.data);
-      applyConfigStatus(statusResponse);
-      if (statusResponse.success && statusResponse.data.status === 'ok') {
-        await Promise.all([
-          refreshWorkspaceLayoutAndValidateScript(projectId),
-          loadComponentFileTypes(projectId),
-        ]);
-      }
-    } catch (error) {
-      logger.error('Project workspace could not be loaded.', {
-        error,
-        projectId,
-      });
-
-      setActiveProject(null);
-      setFileTree(null);
-      setVnextConfig(null);
-      clearConfigIssues();
-      resetVnextWorkspaceUi();
-      useComponentFileTypesStore.getState().clearFileTypes();
-      setError('Project could not be loaded.');
-    } finally {
-      setLoading(false);
-    }
-  }, [
-    applyConfigStatus,
-    clearConfigIssues,
-    projectId,
-    setActiveProject,
-    setError,
-    setFileTree,
-    setLoading,
-    setVnextConfig,
-    resetVnextWorkspaceUi,
-  ]);
+    await fetchAndApplyBootstrap(projectId, () => false);
+  }, [fetchAndApplyBootstrap, projectId]);
 
   useEffect(() => {
     if (!projectId) {
-      setActiveProject(null);
-      setFileTree(null);
-      setVnextConfig(null);
-      clearConfigIssues();
-      resetVnextWorkspaceUi();
-      useComponentFileTypesStore.getState().clearFileTypes();
-      setError('Project could not be resolved.');
+      resetWorkspaceState('Project could not be resolved.');
       setLoading(false);
       return;
     }
 
     let cancelled = false;
-
-    const loadProject = async () => {
-      setLoading(true);
-      setError(null);
-      clearConfigIssues();
-
-      try {
-        const [projectResponse, treeResponse, statusResponse] = await Promise.all([
-          getProject(projectId),
-          getProjectTree(projectId),
-          getProjectConfigStatus(projectId),
-        ]);
-
-        if (!projectResponse.success) {
-          throw new Error(projectResponse.error.message);
-        }
-
-        if (!treeResponse.success) {
-          throw new Error(treeResponse.error.message);
-        }
-
-        if (cancelled) {
-          return;
-        }
-
-        setActiveProject(projectResponse.data);
-        setFileTree(treeResponse.data);
-        applyConfigStatus(statusResponse);
-        if (statusResponse.success && statusResponse.data.status === 'ok') {
-          await Promise.all([
-            refreshWorkspaceLayoutAndValidateScript(projectId),
-            loadComponentFileTypes(projectId),
-          ]);
-        }
-      } catch (error) {
-        if (cancelled) {
-          return;
-        }
-
-        logger.error('Project workspace could not be loaded.', {
-          error,
-          projectId,
-        });
-
-        setActiveProject(null);
-        setFileTree(null);
-        setVnextConfig(null);
-        clearConfigIssues();
-        resetVnextWorkspaceUi();
-        useComponentFileTypesStore.getState().clearFileTypes();
-        setError('Project could not be loaded.');
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    };
-
-    void loadProject();
+    void fetchAndApplyBootstrap(projectId, () => cancelled);
 
     return () => {
       cancelled = true;
     };
-  }, [
-    applyConfigStatus,
-    clearConfigIssues,
-    projectId,
-    setActiveProject,
-    setError,
-    setFileTree,
-    setLoading,
-    setVnextConfig,
-    resetVnextWorkspaceUi,
-  ]);
+  }, [fetchAndApplyBootstrap, projectId, resetWorkspaceState, setLoading]);
 
   return {
     reloadProjectWorkspace,

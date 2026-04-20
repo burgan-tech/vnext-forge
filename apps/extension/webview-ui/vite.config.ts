@@ -1,0 +1,25 @@
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
+
+/**
+ * Vite config for the VS Code extension webview bundle.
+ *
+ * - `root` is set to this directory so `index.html` is the Vite entry.
+ * - `base: ''` emits relative asset paths, which the extension rewrites via
+ *   `webview.asWebviewUri()` in `panels/DesignerPanel.ts` at runtime.
+ * - `outDir` points at `../dist/webview-ui` so the extension `files` glob
+ *   (`dist/webview-ui/**`) picks up the bundle when packaging the `.vsix`.
+ */
+export default defineConfig({
+  root: __dirname,
+  base: '',
+  plugins: [react(), tailwindcss()],
+  build: {
+    outDir: '../dist/webview-ui',
+    emptyOutDir: true,
+  },
+  server: {
+    port: 3100,
+  },
+});

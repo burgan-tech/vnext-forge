@@ -154,3 +154,16 @@ export const projectsGetValidateScriptStatusResult = z.object({ exists: z.boolea
 
 export const projectsGetComponentFileTypesParams = projectIdParam
 export const projectsGetComponentFileTypesResult = z.record(z.string(), z.string())
+
+// Aggregated bootstrap payload (single RPC for opening a project workspace).
+// Cheap fields are always set; expensive ones are nullable and only populated
+// when `configStatus.status === 'ok'`.
+export const projectsGetWorkspaceBootstrapParams = projectIdParam
+export const projectsGetWorkspaceBootstrapResult = z.object({
+  project: projectEntryShape,
+  tree: projectsGetTreeResult,
+  configStatus: projectsGetConfigStatusResult,
+  layoutStatus: projectsGetVnextComponentLayoutStatusResult.nullable(),
+  validateScriptStatus: projectsGetValidateScriptStatusResult.nullable(),
+  componentFileTypes: projectsGetComponentFileTypesResult.nullable(),
+})

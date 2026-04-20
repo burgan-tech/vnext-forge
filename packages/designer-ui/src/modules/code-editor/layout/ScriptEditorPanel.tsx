@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import MonacoEditor, { type OnMount } from '@monaco-editor/react';
 import { X, Code2, BookOpen, Maximize2, Minimize2 } from 'lucide-react';
 import { useScriptPanelStore } from '../../../modules/code-editor/ScriptPanelStore';
-import { useUIStore } from '../../../store/useUiStore';
+import { useEditorPanelsStore } from '../../../store/useEditorPanelsStore';
 import { useWorkflowStore } from '../../../store/useWorkflowStore';
 import { encodeToBase64, decodeFromBase64 } from '../../../modules/code-editor/editor/Base64Handler';
 import { CsxSnippetToolbar } from '../../../modules/code-editor/editor/CsxSnippetToolbar';
@@ -20,7 +20,7 @@ const MAX_HEIGHT = 700;
 
 export function ScriptEditorPanel() {
   const { activeScript, updateScriptValue, closeScript } = useScriptPanelStore();
-  const { scriptPanelHeight, setScriptPanelHeight, setScriptPanelOpen } = useUIStore();
+  const { scriptPanelHeight, setScriptPanelHeight, setScriptPanelOpen } = useEditorPanelsStore();
   const { updateWorkflow } = useWorkflowStore();
   const [showReference, setShowReference] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);

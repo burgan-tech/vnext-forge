@@ -18,6 +18,7 @@ import { createNodeFileSystemAdapter } from '../adapters/node-file-system.js';
 import { createNodeNetworkAdapter } from '../adapters/node-network.js';
 import { createNodeProcessAdapter } from '../adapters/node-process.js';
 import { createNodeWorkspaceRootResolver } from '../adapters/node-workspace-root.js';
+import { config } from '../shared/config/config.js';
 
 const nodeRequire = createRequire(import.meta.url);
 
@@ -74,7 +75,7 @@ export function composeWebServerServices(logger: LoggerAdapter): ComposedService
   const runtimeProxyService = createRuntimeProxyService({
     network,
     logger,
-    defaultRuntimeUrl: process.env.VNEXT_RUNTIME_URL ?? 'http://localhost:4201',
+    defaultRuntimeUrl: config.vnextRuntimeUrl,
   });
 
   const services: ServiceRegistry = {

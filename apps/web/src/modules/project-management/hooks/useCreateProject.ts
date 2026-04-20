@@ -1,16 +1,11 @@
 import { useMemo, useState } from 'react';
 
-import {
-  browseWorkspace,
-  showNotification,
-  toVnextError,
-  type WorkspaceFolder,
-} from '@vnext-forge/designer-ui';
+import { browseWorkspace, showNotification, toVnextError } from '@vnext-forge/designer-ui';
 import type { VnextForgeError } from '@vnext-forge/app-contracts';
 
 import { createProject } from '../ProjectApi';
 import { getProjectDomainError, normalizeProjectDomain } from '../ProjectManagementSchema';
-import type { ProjectInfo } from '../ProjectTypes';
+import type { ProjectInfo, WorkspaceFolder } from '../ProjectTypes';
 
 interface UseCreateProjectOptions {
   onCreated?: (project: ProjectInfo) => Promise<void> | void;
@@ -62,9 +57,8 @@ export function useCreateProject(options: UseCreateProjectOptions = {}) {
     setCreateError(null);
 
     showNotification({
-      type: 'info',
+      kind: 'info',
       message: 'Proje oluşturuluyor… Birazdan yönlendirileceksiniz.',
-      modalType: 'toast',
     });
 
     try {
@@ -83,9 +77,8 @@ export function useCreateProject(options: UseCreateProjectOptions = {}) {
       setPickerOpen(false);
 
       showNotification({
-        type: 'success',
+        kind: 'success',
         message: 'Proje başarıyla oluşturuldu!',
-        modalType: 'toast',
       });
 
       await options.onCreated?.(response.data);

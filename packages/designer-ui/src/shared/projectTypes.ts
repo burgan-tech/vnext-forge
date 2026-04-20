@@ -43,3 +43,15 @@ export interface VnextComponentLayoutStatus {
   missingLayoutPaths: string[];
   layoutComplete: boolean;
 }
+
+/**
+ * Discriminator for vNext component files. Used by the file tree icons and
+ * by editor views that need to know which schema/view/etc. they're editing.
+ */
+export type VnextComponentType =
+  | 'workflow'
+  | 'task'
+  | 'schema'
+  | 'view'
+  | 'function'
+  | 'extension';

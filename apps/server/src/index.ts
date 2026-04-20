@@ -8,6 +8,7 @@ import { composeLspBridge } from './composition/lsp.js';
 import { composeWebServerServices } from './composition/services.js';
 import { injectLspWebSocket } from './lsp/router.js';
 import { createRpcRouter } from './rpc/rpc-router.js';
+import { config } from './shared/config/config.js';
 import { baseLogger } from './shared/lib/logger.js';
 import { ok } from './shared/lib/response-helpers.js';
 import { errorHandler, jsonErrorResponse } from './shared/middleware/error-handler.js';
@@ -39,10 +40,9 @@ app.notFound((c) =>
   ),
 );
 
-const port = Number(process.env.PORT) || 3001;
-baseLogger.info(`vnext-forge web-server running on port ${port}`);
+baseLogger.info(`vnext-forge web-server running on port ${config.port}`);
 
-const server = serve({ fetch: app.fetch, port });
+const server = serve({ fetch: app.fetch, port: config.port });
 
 const lspBridge = composeLspBridge(loggerAdapter);
 injectLspWebSocket(server, { bridge: lspBridge, logger: loggerAdapter });

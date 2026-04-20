@@ -680,6 +680,57 @@ export function createProjectService(deps: ProjectServiceDeps) {
     )
   }
 
+  /**
+   * Aggregates everything the designer needs to render a project workspace
+   * into a single round-trip.
+   *
+   * Without this, the UI fires 6 sequential/parallel RPC calls every time a
+   * project is opened (`projects.getById`, `projects.getTree`,
+   * `projects.getConfigStatus`, `projects.getVnextComponentLayoutStatus`,
+   * `projects.getValidateScriptStatus`, `projects.getComponentFileTypes`). In
+   * React 19 StrictMode dev that doubles to 12. Aggregating server-side keeps
+   * the wire to a single POST and lets us run the layout/validate/file-types
+   * triple in parallel after we know the config is OK.
+   *
+   * Cheap fields (`project`, `tree`, `configStatus`) are always returned.
+   * Expensive fields (`layoutStatus`, `validateScriptStatus`,
+   * `componentFileTypes`) are only computed when `configStatus.status === 'ok'`,
+   * mirroring what the UI used to do client-side.
+   */
+  async function getWorkspaceBootstrap(id: string, traceId?: string) {
+    const [project, tree, configStatus] = await Promise.all([
+      getProject(id, traceId),
+      getFileTree(id, traceId),
+      getConfigStatus(id, traceId),
+    ])
+
+    if (configStatus.status !== 'ok') {
+      return {
+        project,
+        tree,
+        configStatus,
+        layoutStatus: null,
+        validateScriptStatus: null,
+        componentFileTypes: null,
+      }
+    }
+
+    const [layoutStatus, validateScriptStatus, componentFileTypes] = await Promise.all([
+      getVnextComponentLayoutStatus(id, traceId).catch(() => null),
+      getValidateScriptStatus(id, traceId).catch(() => null),
+      getComponentFileTypes(id, traceId).catch(() => null),
+    ])
+
+    return {
+      project,
+      tree,
+      configStatus,
+      layoutStatus,
+      validateScriptStatus,
+      componentFileTypes,
+    }
+  }
+
   return {
     listProjects,
     getProject,
@@ -693,6 +744,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
     getVnextComponentLayoutStatus,
     seedVnextComponentLayoutFromConfig,
     getComponentFileTypes,
+    getWorkspaceBootstrap,
     exportProject,
     removeProject,
   }

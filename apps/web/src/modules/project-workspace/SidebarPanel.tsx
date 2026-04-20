@@ -2,10 +2,9 @@ import { useMemo, useState } from 'react';
 
 import { Search, X } from 'lucide-react';
 
-import { cn } from '@vnext-forge/designer-ui';
+import { cn, type ComponentFolderType } from '@vnext-forge/designer-ui';
 import { Badge } from '@vnext-forge/designer-ui/ui';
 
-import type { ComponentFolderType } from './componentFolderIcons';
 import { FileTree } from './FileTree';
 import { filterFileTree } from './filterFileTree';
 import { useProjectWorkspace } from './hooks/useProjectWorkspace';

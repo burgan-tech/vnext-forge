@@ -7,7 +7,7 @@ import { bootstrapLsp } from './lsp-bootstrap.js';
 import { MessageRouter } from './MessageRouter.js';
 import { createVsCodeOutputChannelLogger } from './adapters/vscode-output-channel-logger.js';
 import { baseLogger } from './shared/logger.js';
-import { WebviewPanelManager } from './webview/WebviewPanelManager.js';
+import { DesignerPanel } from './panels/DesignerPanel.js';
 import { VnextWorkspaceDetector } from './workspace-detector.js';
 
 /**
@@ -23,6 +23,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   context.subscriptions.push(outputChannel);
   const loggerAdapter = createVsCodeOutputChannelLogger(outputChannel);
 
+  // Dedicated channel for webview-side designer-ui logs forwarded via the
+  // `host:log` postMessage tunnel. Keeping it separate from the core channel
+  // makes it trivial to filter "what happened in the editor UI" vs "what
+  // happened in the extension host".
+  const webviewLogChannel = vscode.window.createOutputChannel('vnext-forge:webview');
+  context.subscriptions.push(webviewLogChannel);
+
   const { services, registry } = composeExtensionServices(loggerAdapter);
   const lspBridge = composeExtensionLspBridge(loggerAdapter);
 
@@ -31,8 +38,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     services,
     lspBridge,
     logger: loggerAdapter,
+    webviewLogChannel,
   });
-  const panelManager = new WebviewPanelManager(context, router);
+  const designerPanel = new DesignerPanel(context, router);
 
   const detector = new VnextWorkspaceDetector(services.workspaceService);
   context.subscriptions.push(detector);
@@ -41,7 +49,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     projectService: services.projectService,
     workspaceService: services.workspaceService,
     detector,
-    panelManager,
+    designerPanel,
   });
 
   context.subscriptions.push(

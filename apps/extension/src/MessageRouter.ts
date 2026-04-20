@@ -12,7 +12,7 @@ import type { LspBridge } from '@vnext-forge/lsp-core';
 import {
   createWebviewLspTransport,
   type WebviewLspTransport,
-} from './webview/webview-lsp-transport.js';
+} from './panels/lsp-transport.js';
 
 // ── Message protocol ──────────────────────────────────────────────────────────
 
@@ -38,6 +38,31 @@ interface WebviewLspFrame {
   data?: string;
 }
 
+/** Webview → Extension Host: surface a native VS Code notification. */
+interface WebviewNotifyFrame {
+  type: 'host:notify';
+  kind: 'info' | 'success' | 'warning' | 'error';
+  message: string;
+  actionLabel?: string;
+  actionId?: string;
+}
+
+/** Extension Host → Webview: action button on a `host:notify` was pressed. */
+interface WebviewNotifyActionReply {
+  type: 'host:notify:action';
+  actionId: string;
+}
+
+/** Webview → Extension Host: tunnel a designer-ui logger entry. */
+interface WebviewLogFrame {
+  type: 'host:log';
+  level: 'debug' | 'info' | 'warn' | 'error';
+  scope: string;
+  message: string;
+  payload?: unknown;
+  timestamp: string;
+}
+
 // ── Router ────────────────────────────────────────────────────────────────────
 
 export interface MessageRouterDeps {
@@ -45,6 +70,12 @@ export interface MessageRouterDeps {
   services: ServiceRegistry;
   lspBridge: LspBridge;
   logger: LoggerAdapter;
+  /**
+   * VS Code OutputChannel used to surface webview logs (every `host:log`
+   * frame the webview sends through `createVsCodeLogSink`). Created and
+   * disposed by extension activation; the router only writes to it.
+   */
+  webviewLogChannel: vscode.OutputChannel;
 }
 
 /**
@@ -88,6 +119,75 @@ export class MessageRouter {
     if (isLspFrame(raw)) {
       this.handleLspFrame(panel, raw);
       return;
+    }
+
+    if (isNotifyFrame(raw)) {
+      void this.handleNotifyFrame(panel, raw);
+      return;
+    }
+
+    if (isLogFrame(raw)) {
+      this.handleLogFrame(raw);
+      return;
+    }
+  }
+
+  // ── Webview log tunnel ────────────────────────────────────────────────────
+
+  private handleLogFrame(frame: WebviewLogFrame): void {
+    const level = frame.level.toUpperCase();
+    const head = `[${frame.timestamp}] [${level}] [${frame.scope}] ${frame.message}`;
+
+    if (frame.payload === undefined) {
+      this.deps.webviewLogChannel.appendLine(head);
+      return;
+    }
+
+    let payloadText: string;
+    try {
+      payloadText = JSON.stringify(frame.payload);
+    } catch {
+      payloadText = String(frame.payload);
+    }
+    this.deps.webviewLogChannel.appendLine(`${head} ${payloadText}`);
+  }
+
+  // ── Notifications ─────────────────────────────────────────────────────────
+
+  private async handleNotifyFrame(
+    panel: vscode.WebviewPanel,
+    frame: WebviewNotifyFrame,
+  ): Promise<void> {
+    const items: string[] = frame.actionLabel ? [frame.actionLabel] : [];
+    let pick: string | undefined;
+    try {
+      switch (frame.kind) {
+        case 'error':
+          pick = await vscode.window.showErrorMessage(frame.message, ...items);
+          break;
+        case 'warning':
+          pick = await vscode.window.showWarningMessage(frame.message, ...items);
+          break;
+        case 'success':
+        case 'info':
+        default:
+          pick = await vscode.window.showInformationMessage(frame.message, ...items);
+          break;
+      }
+    } catch (error) {
+      this.deps.logger.error(
+        { err: error, kind: frame.kind } as Record<string, unknown>,
+        'Failed to surface webview notification',
+      );
+      return;
+    }
+
+    if (frame.actionId && frame.actionLabel && pick === frame.actionLabel) {
+      const reply: WebviewNotifyActionReply = {
+        type: 'host:notify:action',
+        actionId: frame.actionId,
+      };
+      void panel.webview.postMessage(reply);
     }
   }
 
@@ -193,6 +293,25 @@ function isLspFrame(value: unknown): value is WebviewLspFrame {
     typeof v.sessionId === 'string' &&
     (v.event === 'connect' || v.event === 'message' || v.event === 'disconnect')
   );
+}
+
+function isNotifyFrame(value: unknown): value is WebviewNotifyFrame {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (v.type !== 'host:notify') return false;
+  if (typeof v.message !== 'string') return false;
+  return (
+    v.kind === 'info' || v.kind === 'success' || v.kind === 'warning' || v.kind === 'error'
+  );
+}
+
+function isLogFrame(value: unknown): value is WebviewLogFrame {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (v.type !== 'host:log') return false;
+  if (typeof v.scope !== 'string' || typeof v.message !== 'string') return false;
+  if (typeof v.timestamp !== 'string') return false;
+  return v.level === 'debug' || v.level === 'info' || v.level === 'warn' || v.level === 'error';
 }
 
 function toVnextForgeError(error: unknown, method: string, traceId: string): VnextForgeError {

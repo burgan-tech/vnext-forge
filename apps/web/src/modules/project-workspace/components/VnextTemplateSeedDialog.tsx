@@ -69,19 +69,17 @@ export function VnextTemplateSeedDialog({
           useVnextWorkspaceUiStore.getState().setComponentLayoutStatus(null);
         }
         showNotification({
-          type: 'success',
+          kind: 'success',
           message:
             ensuredPaths.length > 0
               ? `Proje şablonu oluşturuldu. ${ensuredPaths.length} klasör yolu doğrulandı.`
               : 'Proje şablonu başarıyla oluşturuldu.',
-          modalType: 'toast',
         });
       } catch (error) {
         const err = toVnextError(error);
         showNotification({
-          type: 'error',
+          kind: 'error',
           message: err.toUserMessage().message,
-          modalType: 'toast',
         });
       } finally {
         setPending(false);

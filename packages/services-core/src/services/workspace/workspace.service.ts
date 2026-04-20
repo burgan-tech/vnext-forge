@@ -239,23 +239,29 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
   async function browseDirs(
     dirPath: string | undefined,
     traceId?: string,
-  ): Promise<DirectoryEntry[]> {
-    let target = dirPath
-    if (target === SYSTEM_ROOT_TOKEN) {
-      if (fs.isWindows) return listWindowsDrives(traceId)
-      target = '/'
-    }
-    if (!target) {
-      target = fs.isWindows ? fs.resolveHome() : '/'
+  ): Promise<{ resolvedPath: string; entries: DirectoryEntry[] }> {
+    // Explicit "system root" request: list Windows drives, or treat POSIX root.
+    if (dirPath === SYSTEM_ROOT_TOKEN) {
+      if (fs.isWindows) {
+        return { resolvedPath: '', entries: await listWindowsDrives(traceId) }
+      }
+      return { resolvedPath: '/', entries: await readDirEntries('/', traceId) }
     }
 
+    // Default (no path supplied): start from the user's home directory so the
+    // folder picker opens at `~/` instead of an empty/system view.
+    const target = dirPath && dirPath.length > 0 ? dirPath : fs.resolveHome()
+    return { resolvedPath: target, entries: await readDirEntries(target, traceId) }
+  }
+
+  async function readDirEntries(target: string, traceId?: string): Promise<DirectoryEntry[]> {
     try {
       const entries = await fs.readDir(target)
       return entries
         .filter((entry) => !entry.name.startsWith('.') && entry.name !== 'node_modules')
         .map((entry) => ({
           name: entry.name,
-          path: joinPosix(target!, entry.name),
+          path: joinPosix(target, entry.name),
           type: entry.isDirectory ? ('directory' as const) : ('file' as const),
         }))
         .sort((left, right) => {

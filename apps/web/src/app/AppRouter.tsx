@@ -1,8 +1,9 @@
 import { BrowserRouter, Route, Routes, useNavigate } from 'react-router-dom';
 
 import { ProjectNavigationProvider } from '@vnext-forge/designer-ui';
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 
+import { useThemeStore } from './store/useThemeStore';
 import { CodeEditorPage } from '../pages/code-editor/CodeEditorPage';
 import { ExtensionEditorPage } from '../pages/extension-editor/ExtensionEditorPage';
 import { FlowEditorPage } from '../pages/flow-editor/FlowEditorPage';
@@ -37,6 +38,25 @@ function WebProjectNavigationAdapter({ children }: { children: ReactNode }) {
 }
 
 /**
+ * Mirrors the active theme onto `<html data-theme>` so Tailwind tokens can
+ * react to it. The `system` value defers to the user's OS preference. The
+ * extension webview never mounts this — its theme tracks VS Code itself.
+ */
+function ThemeEffect() {
+  const theme = useThemeStore((s) => s.theme);
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === 'system') {
+      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      root.dataset.theme = prefersDark ? 'dark' : 'light';
+    } else {
+      root.dataset.theme = theme;
+    }
+  }, [theme]);
+  return null;
+}
+
+/**
  * Web SPA route tree. Mirrors the original (pre-extension) layout:
  *   - `/`                                  → project list (no chrome)
  *   - `/project/:id`                       → project workspace + chrome
@@ -46,6 +66,7 @@ function WebProjectNavigationAdapter({ children }: { children: ReactNode }) {
 export function AppRouter() {
   return (
     <BrowserRouter>
+      <ThemeEffect />
       <WebProjectNavigationAdapter>
         <Routes>
           <Route index element={<ProjectListPage />} />

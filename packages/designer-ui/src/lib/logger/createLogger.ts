@@ -16,6 +16,22 @@ export interface Logger {
   child: (scope: string, options?: CreateLoggerOptions) => Logger;
 }
 
+/**
+ * Host-agnostic sink that receives every (already minLevel-filtered, already
+ * sanitized) log entry produced by `createLogger`. Concrete implementations
+ * decide where to put it: the default sink writes to `console.*`; the VS
+ * Code extension webview registers a sink that tunnels every entry to a
+ * native OutputChannel via `host:log` postMessage frames.
+ */
+export interface LogSink {
+  write(
+    level: LogLevel,
+    scope: string,
+    message: string,
+    payload: LoggerPayload | undefined,
+  ): void;
+}
+
 const LOG_LEVEL_PRIORITY: Record<LogLevel, number> = {
   debug: 10,
   info: 20,
@@ -173,27 +189,54 @@ function createPrefix(scope: string, level: LogLevel): string {
   return `[${new Date().toISOString()}] [${LEVEL_LABELS[level]}] [${scope}]`;
 }
 
-function createLogMethod(
-  level: LogLevel,
-  scope: string,
-  minLevelPriority: number,
-): (message: string, payload?: LoggerPayload) => void {
-  const levelPriority = LOG_LEVEL_PRIORITY[level];
-  const consoleMethod = CONSOLE_METHODS[level];
-
-  if (levelPriority < minLevelPriority) {
-    return () => undefined;
-  }
-
-  return (message, payload) => {
+const CONSOLE_SINK: LogSink = {
+  write(level, scope, message, payload) {
     const prefix = createPrefix(scope, level);
+    const consoleMethod = CONSOLE_METHODS[level];
 
     if (payload === undefined) {
       consoleMethod(prefix, message);
       return;
     }
 
-    consoleMethod(prefix, message, sanitize(payload));
+    consoleMethod(prefix, message, payload);
+  },
+};
+
+let activeSink: LogSink = CONSOLE_SINK;
+
+/**
+ * Replace the global log sink. Host shells call this once during boot:
+ * - the web SPA leaves the default console sink in place;
+ * - the VS Code extension webview installs a sink that posts each entry to
+ *   the extension host so they land in a native OutputChannel.
+ */
+export function registerLogSink(sink: LogSink): void {
+  activeSink = sink;
+}
+
+/**
+ * Restore the default console sink. Mostly useful for tests that swap a
+ * custom sink in and need to clean up afterwards.
+ */
+export function resetLogSink(): void {
+  activeSink = CONSOLE_SINK;
+}
+
+function createLogMethod(
+  level: LogLevel,
+  scope: string,
+  minLevelPriority: number,
+): (message: string, payload?: LoggerPayload) => void {
+  const levelPriority = LOG_LEVEL_PRIORITY[level];
+
+  if (levelPriority < minLevelPriority) {
+    return () => undefined;
+  }
+
+  return (message, payload) => {
+    const sanitized = payload === undefined ? undefined : sanitize(payload);
+    activeSink.write(level, scope, message, sanitized);
   };
 }
 

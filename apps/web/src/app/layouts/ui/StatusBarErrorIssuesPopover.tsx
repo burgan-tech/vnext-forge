@@ -1,13 +1,11 @@
 import { AlertCircle, ExternalLink } from 'lucide-react';
 
+import { cn, Popover, PopoverContent, PopoverTrigger } from '@vnext-forge/designer-ui';
+
 import {
-  cn,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
   StatusBarNotificationLabel,
   statusBarNotificationVariants,
-} from '@vnext-forge/designer-ui';
+} from './StatusBarNotification';
 
 export interface ErrorPopoverItem {
   id: string;

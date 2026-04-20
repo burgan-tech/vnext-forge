@@ -5,13 +5,13 @@ import type { ProjectService, WorkspaceService, VnextWorkspaceConfig } from '@vn
 import { baseLogger } from './shared/logger.js'
 import { resolveFileRoute, type FileRoute, type FileRouteKind } from './file-router.js'
 import type { VnextWorkspaceDetector, VnextWorkspaceRoot } from './workspace-detector.js'
-import type { WebviewEditorKind, WebviewPanelManager } from './webview/WebviewPanelManager.js'
+import type { DesignerEditorKind, DesignerPanel } from './panels/DesignerPanel.js'
 
 interface CommandDeps {
   projectService: ProjectService
   workspaceService: WorkspaceService
   detector: VnextWorkspaceDetector
-  panelManager: WebviewPanelManager
+  designerPanel: DesignerPanel
 }
 
 /** Register all VS Code commands for vnext-forge. */
@@ -31,20 +31,20 @@ export function registerCommands(
 
 // ── vnextForge.open ───────────────────────────────────────────────────────────
 
-function openCommand({ panelManager }: CommandDeps): void {
-  panelManager.openOrReveal()
+function openCommand({ designerPanel }: CommandDeps): void {
+  designerPanel.openOrReveal()
 }
 
 // ── vnextForge.openDesigner ──────────────────────────────────────────────────
 
 /**
- * Whether a resolved file route maps to a designer editor in the webview.
+ * Whether a resolved file route maps to a designer editor in the webview UI.
  * `config` and `unknown` files are deliberately routed to VS Code's native
  * text editor instead.
  */
-function isWebviewEditorRoute(
+function isDesignerEditorRoute(
   route: FileRoute,
-): route is FileRoute & { kind: WebviewEditorKind } {
+): route is FileRoute & { kind: DesignerEditorKind } {
   const kind: FileRouteKind = route.kind
   return (
     kind === 'workflow' ||
@@ -81,7 +81,7 @@ async function openDesignerCommand(uri: vscode.Uri | undefined, deps: CommandDep
   // source files) are opened in VS Code's native editor — the webview only
   // hosts the structured component editors. This keeps the extension feeling
   // like a VS Code integration rather than a web app embedded inside VS Code.
-  if (!isWebviewEditorRoute(route)) {
+  if (!isDesignerEditorRoute(route)) {
     try {
       const document = await vscode.workspace.openTextDocument(targetUri)
       await vscode.window.showTextDocument(document, { preview: false })
@@ -94,7 +94,7 @@ async function openDesignerCommand(uri: vscode.Uri | undefined, deps: CommandDep
     return
   }
 
-  deps.panelManager.openEditor({
+  deps.designerPanel.openEditor({
     type: 'open-editor',
     kind: route.kind,
     projectId: projectInfo.projectId,
@@ -211,7 +211,7 @@ async function createProjectCommand({ projectService, detector }: CommandDeps): 
 
 // ── vnextForge.createComponent ───────────────────────────────────────────────
 
-type ComponentKind = WebviewEditorKind
+type ComponentKind = DesignerEditorKind
 
 const COMPONENT_KINDS: { kind: ComponentKind; label: string; description: string }[] = [
   { kind: 'workflow', label: 'Workflow', description: 'Flow / SubFlow / Core definition' },
@@ -240,7 +240,7 @@ function pathSegmentForKind(config: VnextWorkspaceConfig, kind: ComponentKind): 
 }
 
 async function createComponentCommand(deps: CommandDeps): Promise<void> {
-  const { detector, workspaceService, panelManager } = deps
+  const { detector, workspaceService, designerPanel } = deps
   const roots = detector.getRoots()
   if (roots.length === 0) {
     void vscode.window.showWarningMessage(
@@ -328,7 +328,7 @@ async function createComponentCommand(deps: CommandDeps): Promise<void> {
     )
   }
 
-  panelManager.openEditor({
+  designerPanel.openEditor({
     type: 'open-editor',
     kind,
     projectId: config.domain,

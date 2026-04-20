@@ -1,10 +1,10 @@
 import { useState } from 'react';
 
-import { browseWorkspace, toVnextError, type WorkspaceFolder } from '@vnext-forge/designer-ui';
+import { browseWorkspace, toVnextError } from '@vnext-forge/designer-ui';
 import type { VnextForgeError } from '@vnext-forge/app-contracts';
 
 import { importProject } from '../ProjectApi';
-import type { ProjectInfo } from '../ProjectTypes';
+import type { ProjectInfo, WorkspaceFolder } from '../ProjectTypes';
 
 interface UseImportProjectOptions {
   onImported?: (project: ProjectInfo) => Promise<void> | void;

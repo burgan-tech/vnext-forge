@@ -11,10 +11,10 @@ import {
   CardDescription,
   CardHeader,
   CardTitle,
-  FolderBrowser,
   Input,
 } from '@vnext-forge/designer-ui/ui';
 
+import { FolderBrowser } from './FolderBrowser';
 import { useCreateProject } from '../hooks/useCreateProject';
 import type { ProjectInfo } from '../ProjectTypes';
 

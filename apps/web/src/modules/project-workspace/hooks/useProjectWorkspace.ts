@@ -42,14 +42,14 @@ export function useProjectWorkspace() {
   const notifyInvalidName = useCallback((message: string) => {
     showNotification({
       message,
-      type: 'error',
+      kind: 'error',
     });
   }, []);
 
   const notifyOperationError = useCallback((message: string) => {
     showNotification({
       message,
-      type: 'error',
+      kind: 'error',
     });
   }, []);
 

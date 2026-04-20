@@ -1,13 +1,13 @@
 import { AlertTriangle, CheckCircle2 } from 'lucide-react';
 
 import {
-  StatusBarNotification,
   useProjectStore,
   useRuntimeStore,
   useValidationStore,
   useWorkflowStore,
 } from '@vnext-forge/designer-ui';
 
+import { StatusBarNotification } from './StatusBarNotification';
 import { useVnextWorkspaceUiStore } from '../../store/useVnextWorkspaceUiStore';
 import { useWorkspaceDiagnosticsStore } from '../../store/useWorkspaceDiagnosticsStore';
 import {

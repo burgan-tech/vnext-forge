@@ -20,7 +20,7 @@ The product is a VS Code extension built as a monorepo:
 ```
 apps/
   extension/   # VS Code extension (extension host + bundled business logic)
-  web/         # React webview UI (Vite → bundled into extension/dist/webview/)
+  web/         # React webview UI (Vite → bundled into extension/dist/webview-ui/)
   server/      # [DEPRECATED] Former standalone BFF — logic moved to extension
 
 packages/
@@ -78,7 +78,7 @@ pnpm --filter vnext-forge dev
 ### Full build (web UI + extension host)
 
 ```bash
-# 1. Build the React webview — outputs to apps/extension/dist/webview/
+# 1. Build the React webview — outputs to apps/extension/dist/webview-ui/
 pnpm --filter @vnext-forge/web build
 
 # 2. Build the extension host (also copies vnext-template vendor to dist/vendor/)

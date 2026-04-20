@@ -4,16 +4,18 @@ import { DesignerUiProvider } from '@vnext-forge/designer-ui';
 
 import './index.css';
 import { AppRouter } from './app/AppRouter';
+import { SonnerNotificationProvider } from './app/notifications/SonnerNotificationProvider';
+import { config } from './shared/config/config';
 import { createHttpTransport } from './transport/HttpTransport';
 
-const transport = createHttpTransport({
-  baseUrl: import.meta.env.VITE_API_BASE_URL ?? '',
-});
+const transport = createHttpTransport({ baseUrl: config.apiBaseUrl });
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <DesignerUiProvider transport={transport}>
-      <AppRouter />
+      <SonnerNotificationProvider>
+        <AppRouter />
+      </SonnerNotificationProvider>
     </DesignerUiProvider>
   </StrictMode>,
 );

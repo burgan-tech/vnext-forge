@@ -187,6 +187,9 @@ importers:
       '@vnext-forge/vnext-types':
         specifier: workspace:*
         version: link:../../packages/vnext-types
+      class-variance-authority:
+        specifier: ^0.7.1
+        version: 0.7.1
       lucide-react:
         specifier: ^0.468.0
         version: 0.468.0(react@19.2.4)
@@ -205,6 +208,9 @@ importers:
       react-router-dom:
         specifier: ^7.1.0
         version: 7.14.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      sonner:
+        specifier: ^2.0.7
+        version: 2.0.7(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       zod:
         specifier: ^4.3.6
         version: 4.3.6
@@ -348,12 +354,6 @@ importers:
       react-hook-form:
         specifier: ^7.54.0
         version: 7.72.1(react@19.2.4)
-      react-router-dom:
-        specifier: ^7.1.0
-        version: 7.14.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      sonner:
-        specifier: ^2.0.7
-        version: 2.0.7(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       tailwind-merge:
         specifier: ^3.5.0
         version: 3.5.0

@@ -1,12 +1,8 @@
 import { create } from 'zustand';
 
-export type VnextComponentType =
-  | 'workflow'
-  | 'task'
-  | 'schema'
-  | 'view'
-  | 'function'
-  | 'extension';
+import type { VnextComponentType } from '@vnext-forge/designer-ui';
+
+export type { VnextComponentType };
 
 const FLOW_TO_COMPONENT_TYPE: Record<string, VnextComponentType> = {
   'sys-flows': 'workflow',

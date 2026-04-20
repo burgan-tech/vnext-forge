@@ -1,6 +1,7 @@
 import { callApi, unwrapApi } from '@vnext-forge/designer-ui/api';
 
 import type {
+  FileTreeNode,
   ProjectConfigStatus,
   ProjectInfo,
   SeedVnextComponentLayoutResult,
@@ -8,6 +9,22 @@ import type {
   VnextWorkspaceConfig,
   WriteProjectConfigPayload,
 } from './ProjectTypes';
+
+/**
+ * Single round-trip payload for opening a project workspace. Mirrors the
+ * server-side `projects.getWorkspaceBootstrap` aggregation: cheap fields are
+ * always populated; the expensive triple (`layoutStatus`,
+ * `validateScriptStatus`, `componentFileTypes`) is only set when
+ * `configStatus.status === 'ok'`.
+ */
+export interface ProjectWorkspaceBootstrap {
+  project: ProjectInfo;
+  tree: { root: FileTreeNode };
+  configStatus: ProjectConfigStatus;
+  layoutStatus: VnextComponentLayoutStatus | null;
+  validateScriptStatus: { exists: boolean } | null;
+  componentFileTypes: Record<string, string> | null;
+}
 
 export function listProjects() {
   return callApi<ProjectInfo[]>({ method: 'projects.list' });
@@ -74,6 +91,13 @@ export function getValidateScriptStatus(projectId: string) {
 export function getComponentFileTypes(projectId: string) {
   return callApi<Record<string, string>>({
     method: 'projects.getComponentFileTypes',
+    params: { id: projectId },
+  });
+}
+
+export function getWorkspaceBootstrap(projectId: string) {
+  return callApi<ProjectWorkspaceBootstrap>({
+    method: 'projects.getWorkspaceBootstrap',
     params: { id: projectId },
   });
 }

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 const runtimeHealthResponseSchema = z.object({
-  status: z.literal('ok'),
+  status: z.enum(['ok', 'down']),
   traceId: z.string().optional(),
 });
 

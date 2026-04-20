@@ -7,7 +7,6 @@ import {
   VnextForgeError,
 } from '@vnext-forge/app-contracts';
 import type { FileTreeNode } from '../../shared/projectTypes';
-import type { WorkspaceFolder } from '../../ui/FolderBrowser';
 import { callApi, unwrapApi } from '../../api/client';
 import { createLogger } from '../../lib/logger/createLogger';
 import { toVnextError } from '../../lib/error/vNextErrorHelpers';
@@ -16,9 +15,14 @@ import { normalizeWorkspaceName, createWorkflowNameSchema } from './ProjectWorks
 
 const logger = createLogger('WorkspaceApi');
 
-interface WorkspaceBrowseResult {
+/**
+ * Shape returned by `files.browse`. Hosts that render a folder picker (web
+ * project dialogs) consume this directly; the VS Code shell uses the native
+ * "Open Folder" UI and never calls this method.
+ */
+export interface WorkspaceBrowseResult {
   path: string;
-  folders: WorkspaceFolder[];
+  folders: { name: string; path: string }[];
 }
 
 export function browseWorkspace(path?: string) {

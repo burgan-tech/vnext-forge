@@ -2,19 +2,20 @@ import { useCallback, useMemo, type MouseEventHandler } from 'react';
 
 import { ChevronRight, Folder, FolderOpen } from 'lucide-react';
 
-import { cn, useProjectStore, type FileTreeNode } from '@vnext-forge/designer-ui';
+import {
+  cn,
+  ComponentFileIcon,
+  ComponentFolderIcon,
+  useProjectStore,
+  VnextConfigFileIcon,
+  type ComponentFolderType,
+  type FileTreeNode,
+} from '@vnext-forge/designer-ui';
 
 import {
   useComponentFileTypesStore,
   type VnextComponentType,
 } from '../../app/store/useComponentFileTypesStore';
-
-import { ComponentFolderIcon } from './ComponentFolderIcon';
-import {
-  COMPONENT_FILE_ICONS,
-  VNEXT_CONFIG_FILE_ICON,
-  type ComponentFolderType,
-} from './componentFolderIcons';
 
 type FileTone = {
   label: string;
@@ -156,7 +157,6 @@ export function FileTreeNodeRow({
   const componentFileType = useComponentFileType(node.path, isJson);
 
   if (node.type === 'file') {
-    const componentIcon = componentFileType ? COMPONENT_FILE_ICONS[componentFileType] : null;
     const isVnextConfig = node.name === 'vnext.config.json';
     const fileTone = getFileTone(node.name);
 
@@ -166,20 +166,10 @@ export function FileTreeNodeRow({
         style={{ paddingLeft: rowPaddingLeft }}
         onClick={onClick}
         onContextMenu={onContextMenu}>
-        {componentIcon ? (
-          <img
-            src={componentIcon.icon}
-            alt=""
-            className="size-4 shrink-0"
-            draggable={false}
-          />
+        {componentFileType ? (
+          <ComponentFileIcon type={componentFileType} className="size-4 shrink-0" />
         ) : isVnextConfig ? (
-          <img
-            src={VNEXT_CONFIG_FILE_ICON}
-            alt=""
-            className="size-4 shrink-0"
-            draggable={false}
-          />
+          <VnextConfigFileIcon className="size-4 shrink-0" />
         ) : (
           <span
             className={cn(

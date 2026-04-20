@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { ReactFlowProvider } from '@xyflow/react';
 import { AlertCircle, ArrowLeft, ChevronRight, Loader2, Settings2 } from 'lucide-react';
-import { useUIStore } from '../../store/useUiStore';
+import { useEditorPanelsStore } from '../../store/useEditorPanelsStore';
 import { useProjectStore } from '../../store/useProjectStore';
 import { useWorkflowStore } from '../../store/useWorkflowStore';
 import { FlowCanvas } from '../../modules/canvas-interaction/FlowCanvas';
@@ -31,7 +31,7 @@ export interface FlowEditorViewProps {
 export function FlowEditorView({ projectId, group, name, onNavigateBack }: FlowEditorViewProps) {
   const { workflowJson, diagramJson, selectedNodeId, selectedEdgeId, isDirty } = useWorkflowStore();
   const { activeProject } = useProjectStore();
-  const { propertiesPanelOpen, scriptPanelOpen } = useUIStore();
+  const { propertiesPanelOpen, scriptPanelOpen } = useEditorPanelsStore();
   const { activeScript } = useScriptPanelStore();
   const [showMetadata, setShowMetadata] = useState(false);
 

@@ -1,12 +1,9 @@
 export {
   showNotification,
-  dismissNotification,
-  nextNotification,
-  useNotificationStore,
+  registerNotificationSink,
+  resetNotificationSink,
   type NotificationOptions,
-  type NotificationType,
-  type NotificationModalType,
-  type NotificationState,
-} from './model/notificationStore.js';
-export { type AppNotification, type AppNotificationType } from './model/types.js';
-export { NotificationContainer } from './ui/NotificationContainer.js';
+  type NotificationKind,
+  type NotificationAction,
+  type NotificationSink,
+} from './notification-port.js';

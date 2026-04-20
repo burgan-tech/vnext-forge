@@ -1,11 +1,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { isFailure, type ApiResponse, VnextForgeError } from '@vnext-forge/app-contracts';
 import { toVnextError } from '../lib/error/vNextErrorHelpers.js';
-import {
-  showNotification,
-  type NotificationModalType,
-  type NotificationType,
-} from '../notification/model/notificationStore.js';
+import { showNotification, type NotificationKind } from '../notification/notification-port.js';
 import { createLogger } from '../lib/logger/createLogger.js';
 
 const logger = createLogger('useAsync');
@@ -17,11 +13,10 @@ export interface UseAsyncOptions<T> {
   showNotificationOnSuccess?: boolean;
   successMessage?: string;
   errorMessage?: string;
-  notificationType?: NotificationType;
-  successNotificationType?: NotificationType;
-  errorNotificationType?: NotificationType;
-  modalType?: NotificationModalType;
-  duration?: number;
+  notificationKind?: NotificationKind;
+  successNotificationKind?: NotificationKind;
+  errorNotificationKind?: NotificationKind;
+  notificationDurationMs?: number;
 }
 
 type AsyncFunction<T, TArgs extends unknown[]> = (...args: TArgs) => Promise<ApiResponse<T>>;
@@ -72,10 +67,11 @@ export function useAsync<T, TArgs extends unknown[]>(
       if (currentOptions?.showNotificationOnSuccess && currentOptions.successMessage) {
         showNotification({
           message: currentOptions.successMessage,
-          type:
-            currentOptions.successNotificationType ?? currentOptions.notificationType ?? 'success',
-          modalType: currentOptions.modalType ?? 'toast',
-          duration: currentOptions.duration ?? 3000,
+          kind:
+            currentOptions.successNotificationKind ??
+            currentOptions.notificationKind ??
+            'success',
+          durationMs: currentOptions.notificationDurationMs ?? 3000,
         });
       }
     } catch (value) {
@@ -88,10 +84,11 @@ export function useAsync<T, TArgs extends unknown[]>(
       if (currentOptions?.showNotificationOnError !== false) {
         showNotification({
           message: error.toUserMessage().message,
-          type:
-            currentOptions?.errorNotificationType ?? currentOptions?.notificationType ?? 'error',
-          modalType: currentOptions?.modalType ?? 'toast',
-          duration: currentOptions?.duration ?? 3000,
+          kind:
+            currentOptions?.errorNotificationKind ??
+            currentOptions?.notificationKind ??
+            'error',
+          durationMs: currentOptions?.notificationDurationMs ?? 3000,
         });
       }
 

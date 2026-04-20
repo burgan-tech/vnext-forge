@@ -11,6 +11,10 @@ export default createWorkspaceConfig({
   extraRules: {
     '@typescript-eslint/no-floating-promises': 'off',
   },
+  // Bootstrap-time configuration warnings (e.g. missing .env /
+  // VITE_API_BASE_URL) are emitted via console.warn before any logger adapter
+  // is wired up. Keep this list as small as possible.
+  loggerConsoleFiles: ['src/shared/config/config.ts'],
   overrides: [
     {
       files: ['src/**/*.{ts,tsx}'],

@@ -1,0 +1,38 @@
+interface VnextConfigFileIconProps {
+  className?: string;
+}
+
+/**
+ * Inline SVG icon for `vnext.config.json`. Lives in `designer-ui` so both the
+ * web file tree and the extension webview can render it without depending on
+ * a host-served /folder_icons/* asset.
+ */
+export function VnextConfigFileIcon({
+  className = 'size-4 shrink-0',
+}: VnextConfigFileIconProps) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}>
+      <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z" />
+      <path d="M14 2v4a1 1 0 0 0 1 1h4" />
+      <g transform="translate(5.5,9.5) scale(0.58)">
+        <path
+          d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"
+          stroke="#9333ea"
+          strokeWidth="2"
+          fill="none"
+        />
+        <circle cx="12" cy="12" r="3" stroke="#9333ea" strokeWidth="2" fill="none" />
+      </g>
+    </svg>
+  );
+}

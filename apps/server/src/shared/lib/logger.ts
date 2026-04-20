@@ -1,6 +1,8 @@
 import type { Context } from 'hono'
 import pino, { type Logger as PinoLogger } from 'pino'
 
+import { config } from '../config/config.js'
+
 export type AppLogger = Pick<PinoLogger, 'trace' | 'debug' | 'info' | 'warn' | 'error' | 'fatal'> & {
   child(bindings: Record<string, unknown>): AppLogger
 }
@@ -17,26 +19,23 @@ const redactedPaths = [
   'req.headers.cookie',
 ]
 
-const level = process.env.LOG_LEVEL ?? 'info'
-const verbose = process.env.VERBOSE === 'true'
-
 const transport = pino.transport({
   target: 'pino-pretty',
   options: {
     colorize: process.stdout.isTTY,
     translateTime: 'SYS:HH:MM:ss',
     // In default mode show only time + level + message; verbose mode shows all fields
-    ignore: verbose ? 'pid,hostname' : 'pid,hostname,service,env,traceId,source,method,path',
+    ignore: config.verbose ? 'pid,hostname' : 'pid,hostname,service,env,traceId,source,method,path',
     singleLine: true,
   },
 })
 
 export const baseLogger: AppLogger = pino(
   {
-    level,
+    level: config.logLevel,
     base: {
       service: '@vnext-forge/server',
-      env: process.env.NODE_ENV ?? 'development',
+      env: config.nodeEnv,
     },
     redact: {
       paths: redactedPaths,

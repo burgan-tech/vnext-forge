@@ -20,7 +20,7 @@
   "files": [
     "dist/extension.js",
     "dist/vendor/**",
-    "dist/webview/**"
+    "dist/webview-ui/**"
   ],
   "contributes": {
     "commands": [
@@ -92,10 +92,10 @@
   "scripts": {
     "dev": "node esbuild.config.mjs --watch",
     "dev:host": "node esbuild.config.mjs --watch",
-    "dev:webview": "vite build --watch --config webview-src/vite.config.ts",
+    "dev:webview": "vite build --watch --config webview-ui/vite.config.ts",
     "build": "npm run build:host && npm run build:webview",
     "build:host": "node esbuild.config.mjs --production",
-    "build:webview": "vite build --config webview-src/vite.config.ts",
+    "build:webview": "vite build --config webview-ui/vite.config.ts",
     "package": "vsce package --no-dependencies --allow-missing-repository --skip-license --allow-unused-files-pattern",
     "lint": "eslint .",
     "clean": "rm -rf dist *.vsix"

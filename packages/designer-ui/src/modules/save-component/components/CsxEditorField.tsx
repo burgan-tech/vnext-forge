@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 import { encodeToBase64, decodeFromBase64 } from '../../../modules/code-editor/editor/Base64Handler';
 import { generateTemplate, type TemplateType } from '../../../modules/code-editor/editor/CsxTemplates';
 import { useScriptPanelStore, type ActiveScript } from '../../../modules/code-editor/ScriptPanelStore';
-import { useUIStore } from '../../../store/useUiStore';
+import { useEditorPanelsStore } from '../../../store/useEditorPanelsStore';
 import type { CsxTaskType } from '../../../modules/code-editor/editor/CsxContext';
 import { Code2, Plus, Trash2, ExternalLink } from 'lucide-react';
 
@@ -50,7 +50,7 @@ export function CsxEditorField({
   scriptField,
 }: CsxEditorFieldProps) {
   const { openScript, activeScript } = useScriptPanelStore();
-  const { setScriptPanelOpen } = useUIStore();
+  const { setScriptPanelOpen } = useEditorPanelsStore();
 
   const decoded = useMemo(() => {
     if (!value?.code) return '';

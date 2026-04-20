@@ -22,8 +22,9 @@ export async function checkRuntimeHealth(): Promise<ApiResponse<RuntimeHealthSna
     return response;
   }
 
+  let parsed;
   try {
-    parseRuntimeHealthResponse(response.data);
+    parsed = parseRuntimeHealthResponse(response.data);
   } catch (error) {
     const traceId =
       response.data && typeof response.data === 'object' && 'traceId' in response.data
@@ -45,9 +46,15 @@ export async function checkRuntimeHealth(): Promise<ApiResponse<RuntimeHealthSna
     );
   }
 
+  // The server reports an unreachable runtime as `status: 'down'` over the
+  // success channel so that "runtime not running" is treated as an expected
+  // operational state instead of a transport error. We surface it here as an
+  // unhealthy snapshot — UI consumers display a "disconnected" indicator
+  // without logging warnings on every poll.
+  const isHealthy = parsed.status === 'ok';
   return success({
-    connected: true,
-    healthStatus: 'healthy',
+    connected: isHealthy,
+    healthStatus: isHealthy ? 'healthy' : 'unhealthy',
     lastHealthCheck: new Date().toISOString(),
   });
 }
