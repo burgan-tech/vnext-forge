@@ -28,6 +28,10 @@ function statusFromErrorCode(code: ErrorCode): ContentfulStatusCode {
       return 409
     case ERROR_CODES.API_UNPROCESSABLE:
       return 422
+    case ERROR_CODES.API_PAYLOAD_TOO_LARGE:
+      return 413
+    case ERROR_CODES.API_RATE_LIMITED:
+      return 429
     case ERROR_CODES.RUNTIME_CONNECTION_FAILED:
     case ERROR_CODES.RUNTIME_TIMEOUT:
     case ERROR_CODES.RUNTIME_INVALID_RESPONSE:
@@ -37,8 +41,23 @@ function statusFromErrorCode(code: ErrorCode): ContentfulStatusCode {
   }
 }
 
+/**
+ * Render a `VnextForgeError` as the standard `ApiResponse` failure envelope.
+ *
+ * The error originally constructed inside a service may not carry a
+ * `traceId` (it is not always known at throw time). The error-handler is
+ * the single boundary that owns the request → response correlation, so we
+ * fold the request's `traceId` into the user-facing payload here. This
+ * guarantees the contract HttpTransport relies on: every failure body
+ * carries the same `traceId` the response advertises in `X-Trace-Id`.
+ */
 export function jsonErrorResponse(c: Context, error: VnextForgeError): Response {
-  return c.json(error.toFailure(), statusFromErrorCode(error.code))
+  const traceId = error.traceId ?? c.get('traceId')
+  const failure = error.toFailure()
+  if (traceId && !failure.error.traceId) {
+    failure.error.traceId = traceId
+  }
+  return c.json(failure, statusFromErrorCode(error.code))
 }
 
 export const errorHandler = (error: Error, c: Context) => {

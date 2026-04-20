@@ -62,8 +62,8 @@ export function StatusBar() {
       ? [
           {
             id: 'missing-vnext-config',
-            message: 'vnext.config.json bulunamadı',
-            action: { label: 'Oluştur', onClick: () => setVnextConfigWizardOpen(true) },
+            message: 'vnext.config.json not found',
+            action: { label: 'Create', onClick: () => setVnextConfigWizardOpen(true) },
           },
         ]
       : []),
@@ -72,7 +72,7 @@ export function StatusBar() {
       message: issue.message,
       detail: [issue.path, issue.rule].filter(Boolean).join(' · ') || undefined,
       action: configActionIds.has(issue.id)
-        ? { label: 'Düzelt', onClick: () => setVnextConfigWizardOpen(true) }
+        ? { label: 'Fix', onClick: () => setVnextConfigWizardOpen(true) }
         : undefined,
     })),
     ...(showTemplateSeedIssue
@@ -80,11 +80,11 @@ export function StatusBar() {
           {
             id: 'missing-component-layout',
             message: componentLayoutStatus?.projectContainsOnlyConfigFile
-              ? `Bileşen klasörleri eksik\n${missingPaths.slice(0, 8).join('\n')}`
-              : `Bazı bileşen klasörleri eksik\n${missingPaths.slice(0, 8).join('\n')}`,
+              ? `Component folders are missing\n${missingPaths.slice(0, 8).join('\n')}`
+              : `Some component folders are missing\n${missingPaths.slice(0, 8).join('\n')}`,
             detail: 'workspace.layout',
             action: {
-              label: 'Oluştur',
+              label: 'Create',
               onClick: () => openTemplateDialogFromLayout(),
             },
           },

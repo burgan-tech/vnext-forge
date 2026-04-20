@@ -8,6 +8,7 @@ import type {
 } from '../../adapters/index.js'
 import { getErrnoCode } from '../../internal/errno.js'
 import { basename, isAbsolutePosix, joinPosix, relativePosix, toPosix } from '../../internal/paths.js'
+import type { PathPolicy } from '../../internal/path-policy.js'
 import { CONFIG_FILE } from '../workspace/constants.js'
 import type {
   VnextWorkspaceConfig,
@@ -55,10 +56,16 @@ export interface ProjectServiceDeps {
   workspaceRootResolver: WorkspaceRootResolver
   workspaceService: WorkspaceService
   templateService: TemplateService
+  /**
+   * Optional filesystem jail. When provided, every project operation that
+   * accepts a caller-supplied path (`createProject`, `importProject`,
+   * `exportProject`) is gated through it before any I/O happens.
+   */
+  pathPolicy?: PathPolicy
 }
 
 export function createProjectService(deps: ProjectServiceDeps) {
-  const { fs, workspaceRootResolver, workspaceService, templateService } = deps
+  const { fs, workspaceRootResolver, workspaceService, templateService, pathPolicy } = deps
 
   async function getProjectsRoot(): Promise<string> {
     return workspaceRootResolver.resolveProjectsRoot()
@@ -154,6 +161,14 @@ export function createProjectService(deps: ProjectServiceDeps) {
       ? joinPosix(normalizedTargetPath, normalizedDomain)
       : joinPosix(root, normalizedDomain)
 
+    // Caller-supplied targetPath is the SSRF-equivalent for the file
+    // system: without this gate, a privileged client could materialize a
+    // freshly scaffolded template anywhere on disk (e.g. inside another
+    // user's home dir on a multi-tenant deployment).
+    if (pathPolicy && normalizedTargetPath) {
+      await pathPolicy.assertWritable(rootPath, traceId)
+    }
+
     if (await fs.exists(rootPath)) {
       throw new VnextForgeError(
         ERROR_CODES.PROJECT_ALREADY_EXISTS,
@@ -191,6 +206,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
 
   async function importProject(sourcePath: string, traceId?: string): Promise<ProjectEntry> {
     const resolvedSource = toPosix(sourcePath)
+    if (pathPolicy) await pathPolicy.assertReadable(resolvedSource, traceId)
     const status: WorkspaceConfigReadStatus = await workspaceService.readConfigStatus(resolvedSource, traceId)
     await ensureProjectsDir()
 
@@ -468,6 +484,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
     traceId?: string,
   ): Promise<{ success: true; exportPath: string }> {
     const { projectPath } = await resolveProjectPath(id, traceId)
+    if (pathPolicy) await pathPolicy.assertWritable(targetPath, traceId)
     try {
       await fs.copyRecursive(projectPath, targetPath)
     } catch (error) {

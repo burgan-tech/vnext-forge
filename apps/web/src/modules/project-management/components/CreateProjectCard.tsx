@@ -113,7 +113,7 @@ export function CreateProjectCard({ onCreated, disabled, onCreatingChange }: Cre
           loading={createProject.creating}
           disabled={disabled || !createProject.canSubmit}
           className="h-10 w-full rounded-xl shadow-sm">
-          {createProject.creating ? 'Oluşturuluyor…' : 'Create'}
+          {createProject.creating ? 'Creating…' : 'Create'}
         </Button>
       </CardContent>
     </Card>

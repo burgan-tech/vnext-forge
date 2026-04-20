@@ -7,6 +7,24 @@ export interface RuntimeProxyServiceDeps {
   network: NetworkAdapter
   logger: LoggerAdapter
   defaultRuntimeUrl?: string
+  /**
+   * Extra runtime base URLs that may be targeted via `req.runtimeUrl`. The
+   * `defaultRuntimeUrl` is implicitly always allowed; this list extends it.
+   * If `allowRuntimeUrlOverride` is `false`, this list is ignored — only
+   * the default is reachable.
+   */
+  allowedBaseUrls?: readonly string[]
+  /**
+   * When `false` (the default), the `runtimeUrl` parameter on
+   * `runtime.proxy` is rejected and every request goes to
+   * `defaultRuntimeUrl`. This is the SSRF-safe configuration.
+   *
+   * Set to `true` only when you intentionally want callers to choose
+   * which allow-listed runtime to talk to (e.g. a multi-runtime designer
+   * desktop). Even then the candidate must appear in `allowedBaseUrls` or
+   * equal `defaultRuntimeUrl`.
+   */
+  allowRuntimeUrlOverride?: boolean
 }
 
 export const runtimeProxyParams = z.object({
@@ -24,13 +42,62 @@ export const runtimeProxyResult = z.object({
 })
 
 export function createRuntimeProxyService(deps: RuntimeProxyServiceDeps) {
-  const { network, defaultRuntimeUrl = 'http://localhost:4201' } = deps
+  const {
+    network,
+    defaultRuntimeUrl = 'http://localhost:4201',
+    allowedBaseUrls = [],
+    allowRuntimeUrlOverride = false,
+  } = deps
+
+  // Normalize once at construction so per-request matching is a cheap
+  // string compare. Trailing slashes are dropped because `${base}${path}`
+  // joins them anyway.
+  const normalize = (u: string) => u.trim().replace(/\/+$/, '')
+  const allowed = new Set<string>([
+    normalize(defaultRuntimeUrl),
+    ...allowedBaseUrls.map(normalize),
+  ])
 
   async function proxy(
     req: z.infer<typeof runtimeProxyParams>,
     traceId?: string,
   ): Promise<z.infer<typeof runtimeProxyResult>> {
-    const runtimeUrl = req.runtimeUrl ?? defaultRuntimeUrl
+    let runtimeUrl: string
+    if (req.runtimeUrl) {
+      if (!allowRuntimeUrlOverride) {
+        throw new VnextForgeError(
+          ERROR_CODES.API_FORBIDDEN,
+          'runtimeUrl override is disabled on this server. ' +
+            'Set ALLOW_RUNTIME_URL_OVERRIDE=true and add the URL to ' +
+            'RUNTIME_ALLOWED_BASE_URLS to enable it.',
+          {
+            source: 'RuntimeProxyService.proxy',
+            layer: 'transport',
+            details: { attemptedRuntimeUrl: req.runtimeUrl },
+          },
+          traceId,
+        )
+      }
+      const candidate = normalize(req.runtimeUrl)
+      if (!allowed.has(candidate)) {
+        throw new VnextForgeError(
+          ERROR_CODES.API_FORBIDDEN,
+          `runtimeUrl ${req.runtimeUrl} is not in the allow-list.`,
+          {
+            source: 'RuntimeProxyService.proxy',
+            layer: 'transport',
+            details: {
+              attemptedRuntimeUrl: req.runtimeUrl,
+              allowedBaseUrls: [...allowed],
+            },
+          },
+          traceId,
+        )
+      }
+      runtimeUrl = candidate
+    } else {
+      runtimeUrl = normalize(defaultRuntimeUrl)
+    }
     const url = `${runtimeUrl}${req.runtimePath}`
     const queryString = req.query ? new URLSearchParams(req.query).toString() : ''
     const fullUrl = queryString ? `${url}?${queryString}` : url

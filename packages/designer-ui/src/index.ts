@@ -52,9 +52,10 @@ export {
   type ExtensionEditorViewProps,
 } from './modules/extension-editor/ExtensionEditorView.js';
 
-// Workflow-execution APIs/hooks (runtime health). These are shared because
-// useRuntimeStore lives in designer-ui; the mount component
-// `RuntimeHealthSync` is web-only and lives in `apps/web`.
+// Workflow-execution APIs/hooks (runtime health). The whole module lives in
+// designer-ui — host shells (apps/web SPA, apps/extension webview) consume
+// the API/schema helpers, the hooks AND the `RuntimeHealthSync` mount
+// component from here.
 export * from './modules/workflow-execution/WorkflowExecutionApi.js';
 export * from './modules/workflow-execution/WorkflowExecutionSchema.js';
 export { useRuntimeHealth } from './modules/workflow-execution/useRuntimeHealth.js';

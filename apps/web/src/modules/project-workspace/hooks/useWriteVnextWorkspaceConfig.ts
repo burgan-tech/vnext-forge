@@ -23,9 +23,9 @@ export function useWriteVnextWorkspaceConfig(
     useMemo(
       () => ({
         showNotificationOnError: true,
-        errorMessage: 'Yapılandırma kaydedilemedi.',
+        errorMessage: 'Configuration could not be saved.',
         showNotificationOnSuccess: true,
-        successMessage: 'vnext.config.json oluşturuldu.',
+        successMessage: 'vnext.config.json created.',
         ...options,
       }),
       [options],

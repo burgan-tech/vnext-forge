@@ -35,7 +35,7 @@ export function useVnextConfigStatusRecheck() {
       logger.error('vnext.config durumu yeniden okunamadı.', { error, projectId });
       showNotification({
         kind: 'error',
-        message: 'Yapılandırma durumu kontrol edilemedi.',
+        message: 'Configuration status could not be checked.',
       });
     } finally {
       setRechecking(false);

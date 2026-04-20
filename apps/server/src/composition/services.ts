@@ -2,6 +2,7 @@ import { createRequire } from 'node:module';
 
 import {
   buildMethodRegistry,
+  createPathPolicy,
   createProjectService,
   createRuntimeProxyService,
   createTemplateService,
@@ -57,7 +58,13 @@ export function composeWebServerServices(logger: LoggerAdapter): ComposedService
   const processAdapter = createNodeProcessAdapter();
   const workspaceRootResolver = createNodeWorkspaceRootResolver();
 
-  const workspaceService = createWorkspaceService({ fs, logger });
+  const pathPolicy = createPathPolicy({
+    fs,
+    logger,
+    approvedRoots: config.workspaceAllowedRoots,
+  });
+
+  const workspaceService = createWorkspaceService({ fs, logger, pathPolicy });
   const templateService = createTemplateService({
     fs,
     process: processAdapter,
@@ -70,12 +77,15 @@ export function composeWebServerServices(logger: LoggerAdapter): ComposedService
     workspaceRootResolver,
     workspaceService,
     templateService,
+    pathPolicy,
   });
   const validateService = createValidateService({ schemaLoader, logger });
   const runtimeProxyService = createRuntimeProxyService({
     network,
     logger,
     defaultRuntimeUrl: config.vnextRuntimeUrl,
+    allowedBaseUrls: config.runtimeAllowedBaseUrls,
+    allowRuntimeUrlOverride: config.allowRuntimeUrlOverride,
   });
 
   const services: ServiceRegistry = {

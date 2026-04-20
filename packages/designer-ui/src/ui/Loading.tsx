@@ -89,7 +89,7 @@ const defaultConfig: Required<Omit<LoadingConfig, 'customIcon'>> = {
   variant: 'spinner',
   size: 'md',
   color: 'primary',
-  text: 'Yukleniyor...',
+  text: 'Loading...',
   showText: true,
   fullScreen: false,
   overlay: false,

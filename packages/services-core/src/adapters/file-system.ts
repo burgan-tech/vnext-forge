@@ -29,6 +29,15 @@ export interface FileSystemAdapter {
 
   readDir(dirPath: string): Promise<DirectoryEntryStat[]>
 
+  /**
+   * Resolve a path to its canonical absolute form, following symlinks. Used
+   * by the filesystem jail to detect symlink-based escapes from the
+   * configured allow-listed roots. Implementations MUST NOT swallow
+   * `ENOENT` — the jail relies on it to distinguish "missing target" (must
+   * verify parent instead) from "target outside jail".
+   */
+  realpath(targetPath: string): Promise<string>
+
   /** True only if the running platform exposes Windows-style drive letters. */
   readonly isWindows: boolean
   /** Resolve `~` and absolute paths consistently. */

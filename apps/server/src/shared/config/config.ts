@@ -2,6 +2,13 @@ import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import {
+  LogLevelSchema,
+  NodeEnvSchema,
+  coercedBool,
+  csvList,
+  isLoopbackHost as isLoopbackHostShared,
+} from '@vnext-forge/app-contracts';
 import { z } from 'zod';
 
 /**
@@ -25,6 +32,8 @@ import { z } from 'zod';
  */
 
 const ConfigSchema = z.object({
+  /** Network interface the server binds to. Default `127.0.0.1` (loopback). */
+  host: z.string().min(1).default('127.0.0.1'),
   /** HTTP port the Hono server binds to. */
   port: z.coerce.number().int().positive().default(3001),
   /**
@@ -32,18 +41,50 @@ const ConfigSchema = z.object({
    * project may still override this per-instance via its own configuration.
    */
   vnextRuntimeUrl: z.string().url().default('http://localhost:4201'),
+  /**
+   * Allowed runtime base URLs that the proxy may target. The default
+   * `vnextRuntimeUrl` is implicitly always allowed; this list extends it.
+   * Provided as a comma-separated env var.
+   */
+  runtimeAllowedBaseUrls: csvList.pipe(z.array(z.string().url()).default([])),
+  /**
+   * When `true`, callers may override the proxy target via the
+   * `runtimeUrl` parameter on `runtime.proxy`. This is OFF by default
+   * because it is a SSRF foot-gun — only enable on a trusted, isolated host.
+   */
+  allowRuntimeUrlOverride: coercedBool.default(false),
+  /** Maximum HTTP request body size accepted by the RPC endpoint, in bytes. */
+  maxRequestBodyBytes: z.coerce.number().int().positive().default(1_048_576), // 1 MiB
+  /**
+   * Allow-listed workspace roots for the filesystem jail. Every file /
+   * project operation must canonicalize to a descendant of one of these
+   * roots. Provide as a comma-separated env var.
+   *
+   * If omitted, the jail runs in "open" mode (logs a warning, gates only
+   * `..`-style traversal, lets paths land anywhere). This is acceptable
+   * for single-developer local hosts but MUST be configured for any
+   * shared / production deployment.
+   */
+  workspaceAllowedRoots: csvList.pipe(z.array(z.string().min(1)).default([])),
+  /**
+   * Origins permitted by the CORS allowlist. Browser shells must be served
+   * from one of these. Default mirrors the local Vite dev server + the
+   * server's own port (so direct `curl` calls keep working).
+   */
+  corsAllowedOrigins: csvList.pipe(
+    z
+      .array(z.string().url())
+      .default(['http://localhost:5173', 'http://localhost:3001']),
+  ),
   /** Pino log level. */
-  logLevel: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
+  logLevel: LogLevelSchema.default('info'),
   /**
    * When `true`, the pretty transport prints the full structured payload
    * instead of the compact `time | level | message` line.
    */
-  verbose: z
-    .union([z.boolean(), z.string()])
-    .default(false)
-    .transform((v) => (typeof v === 'string' ? v.toLowerCase() === 'true' : v)),
+  verbose: coercedBool.default(false),
   /** Standard Node environment marker, surfaced in log records. */
-  nodeEnv: z.enum(['development', 'production', 'test']).default('development'),
+  nodeEnv: NodeEnvSchema.default('development'),
 });
 
 export type AppConfig = z.infer<typeof ConfigSchema>;
@@ -63,8 +104,14 @@ function loadConfig(): AppConfig {
   const envExists = existsSync(envPath);
 
   const parsed = ConfigSchema.safeParse({
+    host: process.env.HOST,
     port: process.env.PORT,
     vnextRuntimeUrl: process.env.VNEXT_RUNTIME_URL,
+    runtimeAllowedBaseUrls: process.env.RUNTIME_ALLOWED_BASE_URLS,
+    allowRuntimeUrlOverride: process.env.ALLOW_RUNTIME_URL_OVERRIDE,
+    maxRequestBodyBytes: process.env.MAX_REQUEST_BODY_BYTES,
+    workspaceAllowedRoots: process.env.WORKSPACE_ALLOWED_ROOTS,
+    corsAllowedOrigins: process.env.CORS_ALLOWED_ORIGINS,
     logLevel: process.env.LOG_LEVEL,
     verbose: process.env.VERBOSE,
     nodeEnv: process.env.NODE_ENV,
@@ -81,14 +128,35 @@ function loadConfig(): AppConfig {
     console.warn(
       `[vnext-forge/server] No .env file found at ${envPath}. ` +
         'Using built-in defaults: ' +
-        `port=${parsed.data.port}, vnextRuntimeUrl=${parsed.data.vnextRuntimeUrl}, ` +
+        `host=${parsed.data.host}, port=${parsed.data.port}, ` +
+        `vnextRuntimeUrl=${parsed.data.vnextRuntimeUrl}, ` +
         `logLevel=${parsed.data.logLevel}, nodeEnv=${parsed.data.nodeEnv}. ` +
         'Create apps/server/.env to override.',
     );
   }
 
+  // Loud warning when bound to a non-loopback interface — capability gating
+  // (see services-core registry/policy) tightens its rules in that mode and
+  // the deployer needs to know they have left the local-only trust model.
+  if (!isLoopbackHost(parsed.data.host)) {
+    console.warn(
+      `[vnext-forge/server] HOST=${parsed.data.host} is NOT loopback. ` +
+        'Capability gating will deny privileged RPC methods (files.*, ' +
+        'runtime.proxy, projects.create/import/remove, files.browse) unless ' +
+        'the request originates from an allow-listed origin. Make sure ' +
+        'CORS_ALLOWED_ORIGINS is correct for your deployment.',
+    );
+  }
+
   return parsed.data;
 }
+
+/**
+ * Re-export the shared loopback predicate so existing callers keep their
+ * `import { isLoopbackHost } from './config.js'` path working. Implementation
+ * lives in `@vnext-forge/app-contracts/env/common.ts` (R-b7).
+ */
+export const isLoopbackHost = isLoopbackHostShared;
 
 /**
  * Validated application configuration. Import this object anywhere in the

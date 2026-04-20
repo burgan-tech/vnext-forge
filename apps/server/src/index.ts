@@ -11,6 +11,7 @@ import { createRpcRouter } from './rpc/rpc-router.js';
 import { config } from './shared/config/config.js';
 import { baseLogger } from './shared/lib/logger.js';
 import { ok } from './shared/lib/response-helpers.js';
+import { bodyLimitMiddleware } from './shared/middleware/body-limit.js';
 import { errorHandler, jsonErrorResponse } from './shared/middleware/error-handler.js';
 import { requestLoggerMiddleware } from './shared/middleware/logger.js';
 import { traceIdMiddleware } from './shared/middleware/trace-id.js';
@@ -20,10 +21,24 @@ const loggerAdapter = createPinoLoggerAdapter(baseLogger);
 const { services, registry } = composeWebServerServices(loggerAdapter);
 const rpcRouter = createRpcRouter({ registry, services });
 
+// Explicit allowlist — wildcard `*` is only acceptable for fully public APIs
+// and we intentionally do not run this server in that mode. Browser shells
+// must originate from one of `config.corsAllowedOrigins`.
+const corsMiddleware = cors({
+  origin: (origin) => {
+    if (!origin) return origin // non-browser callers (curl, server-to-server)
+    return config.corsAllowedOrigins.includes(origin) ? origin : null;
+  },
+  credentials: false,
+  allowMethods: ['GET', 'POST', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Authorization', 'X-Trace-Id'],
+});
+
 const app = new Hono<{ Variables: Variables }>()
   .use('*', traceIdMiddleware)
   .use('*', requestLoggerMiddleware)
-  .use('*', cors())
+  .use('*', corsMiddleware)
+  .use('*', bodyLimitMiddleware)
   .route('/api/rpc', rpcRouter)
   .get('/api/health', (c) => ok(c, { status: 'ok', traceId: c.get('traceId') }));
 
@@ -40,9 +55,13 @@ app.notFound((c) =>
   ),
 );
 
-baseLogger.info(`vnext-forge web-server running on port ${config.port}`);
+baseLogger.info(
+  `vnext-forge web-server running on http://${config.host}:${config.port} ` +
+    `(corsAllowedOrigins=${config.corsAllowedOrigins.join(',') || '<none>'}, ` +
+    `maxRequestBodyBytes=${config.maxRequestBodyBytes})`,
+);
 
-const server = serve({ fetch: app.fetch, port: config.port });
+const server = serve({ fetch: app.fetch, port: config.port, hostname: config.host });
 
 const lspBridge = composeLspBridge(loggerAdapter);
 injectLspWebSocket(server, { bridge: lspBridge, logger: loggerAdapter });

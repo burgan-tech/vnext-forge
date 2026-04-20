@@ -79,6 +79,10 @@ export function createNodeFileSystemAdapter(): FileSystemAdapter {
       }
     },
 
+    async realpath(targetPath) {
+      return fs.realpath(targetPath);
+    },
+
     async readDir(dirPath): Promise<DirectoryEntryStat[]> {
       const entries = await fs.readdir(dirPath, { withFileTypes: true });
       return entries.map((entry) => ({

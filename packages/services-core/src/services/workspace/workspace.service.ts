@@ -4,6 +4,7 @@ import { z } from 'zod'
 import type { FileSystemAdapter, LoggerAdapter } from '../../adapters/index.js'
 import { toFileVnextError } from '../../internal/errno.js'
 import { joinPosix, relativePosix, toPosix } from '../../internal/paths.js'
+import type { PathPolicy } from '../../internal/path-policy.js'
 import { CONFIG_FILE } from './constants.js'
 import { createWorkspaceAnalyzer, type WorkspaceAnalyzer } from './workspace-analyzer.js'
 import type {
@@ -110,13 +111,21 @@ export const filesSearchResult = z.array(
 export interface WorkspaceServiceDeps {
   fs: FileSystemAdapter
   logger: LoggerAdapter
+  /**
+   * Optional filesystem jail. When provided, every file/directory
+   * operation is gated through it (see `internal/path-policy.ts`). When
+   * absent the service runs in the legacy "no jail" mode used by the VS
+   * Code extension shell where the user already trusts the workspace.
+   */
+  pathPolicy?: PathPolicy
 }
 
 export function createWorkspaceService(deps: WorkspaceServiceDeps) {
-  const { fs } = deps
+  const { fs, pathPolicy } = deps
   const analyzer: WorkspaceAnalyzer = createWorkspaceAnalyzer({ fs })
 
   async function readFile(filePath: string, traceId?: string): Promise<string> {
+    if (pathPolicy) await pathPolicy.assertReadable(filePath, traceId)
     try {
       return await fs.readFile(filePath)
     } catch (error) {
@@ -125,6 +134,7 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
   }
 
   async function writeFile(filePath: string, content: string, traceId?: string): Promise<void> {
+    if (pathPolicy) await pathPolicy.assertWritable(filePath, traceId)
     try {
       const dir = filePath.replace(/\\/g, '/').split('/').slice(0, -1).join('/')
       if (dir) await fs.mkdir(dir, { recursive: true })
@@ -135,6 +145,7 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
   }
 
   async function deleteFile(filePath: string, traceId?: string): Promise<void> {
+    if (pathPolicy) await pathPolicy.assertWritable(filePath, traceId)
     try {
       await fs.rmrf(filePath)
     } catch (error) {
@@ -143,6 +154,7 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
   }
 
   async function createDirectory(dirPath: string, traceId?: string): Promise<void> {
+    if (pathPolicy) await pathPolicy.assertWritable(dirPath, traceId)
     try {
       await fs.mkdir(dirPath, { recursive: true })
     } catch (error) {
@@ -151,6 +163,10 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
   }
 
   async function renameFile(oldPath: string, newPath: string, traceId?: string): Promise<void> {
+    if (pathPolicy) {
+      await pathPolicy.assertWritable(oldPath, traceId)
+      await pathPolicy.assertWritable(newPath, traceId)
+    }
     try {
       await fs.rename(oldPath, newPath)
     } catch (error) {
@@ -170,6 +186,7 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
     } = {},
     traceId?: string,
   ): Promise<SearchResult[]> {
+    if (pathPolicy) await pathPolicy.assertReadable(projectPath, traceId)
     const results: SearchResult[] = []
     let matcher: RegExp
     try {
@@ -251,6 +268,7 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
     // Default (no path supplied): start from the user's home directory so the
     // folder picker opens at `~/` instead of an empty/system view.
     const target = dirPath && dirPath.length > 0 ? dirPath : fs.resolveHome()
+    if (pathPolicy) await pathPolicy.assertBrowsable(target, traceId)
     return { resolvedPath: target, entries: await readDirEntries(target, traceId) }
   }
 

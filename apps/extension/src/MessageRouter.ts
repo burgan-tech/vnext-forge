@@ -202,7 +202,11 @@ export class MessageRouter {
         this.deps.services,
         method,
         params ?? {},
-        { traceId },
+        // The VS Code extension host is intrinsically trusted: every
+        // caller is either the user's own webview or another extension
+        // the editor has already activated. We bypass the capability
+        // gate with `trusted: true`.
+        { traceId, caller: { trusted: true } },
       );
       return { success: true, data, error: null };
     } catch (error) {

@@ -16,6 +16,7 @@ import { createVsCodeFileSystemAdapter } from '../adapters/vscode-file-system.js
 import { createVsCodeNetworkAdapter } from '../adapters/vscode-network.js';
 import { createVsCodeProcessAdapter } from '../adapters/vscode-process.js';
 import { createVsCodeWorkspaceRootResolver } from '../adapters/vscode-workspace-root.js';
+import { extensionConfig } from '../shared/config.js';
 
 interface VnextSchemaModule {
   getSchema(type: string): Record<string, unknown> | null;
@@ -78,7 +79,9 @@ export function composeExtensionServices(logger: LoggerAdapter): ComposedService
   const runtimeProxyService = createRuntimeProxyService({
     network,
     logger,
-    defaultRuntimeUrl: process.env.VNEXT_RUNTIME_URL ?? 'http://localhost:4201',
+    defaultRuntimeUrl: extensionConfig.vnextRuntimeUrl,
+    allowedBaseUrls: extensionConfig.runtimeAllowedBaseUrls,
+    allowRuntimeUrlOverride: extensionConfig.allowRuntimeUrlOverride,
   });
 
   const services: ServiceRegistry = {

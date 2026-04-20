@@ -1,5 +1,11 @@
 import { useCallback, useRef, useState } from 'react';
-import { isFailure, type ApiResponse, VnextForgeError } from '@vnext-forge/app-contracts';
+import {
+  getErrorPresentation,
+  isFailure,
+  type ApiResponse,
+  type ErrorSeverity,
+  VnextForgeError,
+} from '@vnext-forge/app-contracts';
 import { toVnextError } from '../lib/error/vNextErrorHelpers.js';
 import { showNotification, type NotificationKind } from '../notification/notification-port.js';
 import { createLogger } from '../lib/logger/createLogger.js';
@@ -20,6 +26,24 @@ export interface UseAsyncOptions<T> {
 }
 
 type AsyncFunction<T, TArgs extends unknown[]> = (...args: TArgs) => Promise<ApiResponse<T>>;
+
+/**
+ * Translate the typed `ErrorSeverity` from `error-presentation.ts` into a
+ * `NotificationKind` understood by the notification port. They almost
+ * align 1:1; the only mismatch is `'error'` which maps to the host's
+ * red toast.
+ */
+function severityToNotificationKind(severity: ErrorSeverity): NotificationKind {
+  switch (severity) {
+    case 'info':
+      return 'info';
+    case 'warning':
+      return 'warning';
+    case 'error':
+    default:
+      return 'error';
+  }
+}
 
 export function useAsync<T, TArgs extends unknown[]>(
   asyncFunction: AsyncFunction<T, TArgs>,
@@ -82,12 +106,17 @@ export function useAsync<T, TArgs extends unknown[]>(
       setSuccess(false);
 
       if (currentOptions?.showNotificationOnError !== false) {
+        // Pick the toast kind from the per-code presentation map so that
+        // expected operational states (e.g. runtime offline) surface as
+        // a yellow warning instead of a red error. Caller overrides
+        // (`errorNotificationKind` / `notificationKind`) still win.
+        const presentation = getErrorPresentation(error.code);
         showNotification({
           message: error.toUserMessage().message,
           kind:
             currentOptions?.errorNotificationKind ??
             currentOptions?.notificationKind ??
-            'error',
+            severityToNotificationKind(presentation.severity),
           durationMs: currentOptions?.notificationDurationMs ?? 3000,
         });
       }

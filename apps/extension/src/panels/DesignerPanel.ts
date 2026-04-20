@@ -169,12 +169,23 @@ export class DesignerPanel {
   }
 }
 
+/**
+ * Build the runtime config blob injected into the webview as
+ * `window.__VNEXT_CONFIG__`. The webview communicates with the host
+ * over `postMessage` (no HTTP), so we deliberately do NOT inject any
+ * URL-shaped fields — older versions hardcoded `https://localhost/api`
+ * here, which gave security reviewers a false signal that the webview
+ * was talking to a real network endpoint.
+ *
+ * Only fields actively read by `packages/designer-ui/src/config/config.ts`
+ * belong here. Add a new field on both sides in the same change.
+ */
 function buildWebviewConfig(): Record<string, unknown> {
+  const revalidationSeconds = vscode.workspace
+    .getConfiguration('vnextForge')
+    .get<number>('runtimeRevalidationMinIntervalSeconds', 30)
   return {
-    ENVIRONMENT: 'PRODUCTION',
-    API_URL: 'https://localhost/api',
-    API_URL_DEVELOPMENT: 'https://localhost/api',
-    RUNTIME_REVALIDATION_MIN_INTERVAL_SECONDS: 30,
+    RUNTIME_REVALIDATION_MIN_INTERVAL_SECONDS: revalidationSeconds,
   }
 }
 

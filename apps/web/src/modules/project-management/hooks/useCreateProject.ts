@@ -58,7 +58,7 @@ export function useCreateProject(options: UseCreateProjectOptions = {}) {
 
     showNotification({
       kind: 'info',
-      message: 'Proje oluşturuluyor… Birazdan yönlendirileceksiniz.',
+      message: 'Creating project… You will be redirected shortly.',
     });
 
     try {
@@ -78,7 +78,7 @@ export function useCreateProject(options: UseCreateProjectOptions = {}) {
 
       showNotification({
         kind: 'success',
-        message: 'Proje başarıyla oluşturuldu!',
+        message: 'Project created successfully!',
       });
 
       await options.onCreated?.(response.data);

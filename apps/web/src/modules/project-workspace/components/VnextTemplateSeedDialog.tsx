@@ -42,10 +42,10 @@ export function VnextTemplateSeedDialog({
   const isIncomplete = templateSeedDialogReason === 'incomplete_layout';
 
   const title = isOnlyConfig
-    ? 'Proje şablonunu oluştur'
+    ? 'Create project template'
     : isIncomplete
-      ? 'Eksik yapıyı tamamla'
-      : 'Şablon yapısını oluştur';
+      ? 'Complete missing structure'
+      : 'Create template structure';
 
   const hasMissingPaths =
     templateSeedMissingPathsPreview != null && templateSeedMissingPathsPreview.length > 0;
@@ -72,8 +72,8 @@ export function VnextTemplateSeedDialog({
           kind: 'success',
           message:
             ensuredPaths.length > 0
-              ? `Proje şablonu oluşturuldu. ${ensuredPaths.length} klasör yolu doğrulandı.`
-              : 'Proje şablonu başarıyla oluşturuldu.',
+              ? `Project template created. ${ensuredPaths.length} folder paths verified.`
+              : 'Project template created successfully.',
         });
       } catch (error) {
         const err = toVnextError(error);
@@ -110,31 +110,35 @@ export function VnextTemplateSeedDialog({
                   <div className="flex items-center gap-3 py-2">
                     <Loader2 className="text-info-icon size-5 animate-spin" />
                     <p className="text-muted-foreground text-sm">
-                      Proje şablonu oluşturuluyor, lütfen bekleyin…
+                      Creating project template, please wait…
                     </p>
                   </div>
                 ) : (
                   <>
                     {isOnlyConfig ? (
                       <p className="text-muted-foreground text-sm">
-                        Proje kökünde yalnızca{' '}
+                        Only{' '}
                         <code className="bg-muted rounded px-1 py-0.5 text-xs">vnext.config.json</code>{' '}
-                        bulunuyor. vnext-template şablonunu kullanarak bileşen klasörlerini
-                        ve proje dosyalarını otomatik olarak oluşturabiliriz.
-                        Yapılandırmanızdaki özel ayarlar korunacaktır.
+                        exists at the project root. We can use the vnext-template
+                        scaffold to create component folders and project files
+                        automatically. Your custom settings in the configuration
+                        will be preserved.
                       </p>
                     ) : isIncomplete ? (
                       <p className="text-muted-foreground text-sm">
-                        <code className="bg-muted rounded px-1 py-0.5 text-xs">vnext.config.json</code>{' '}
-                        yollarına göre bazı dosya ve klasörler eksik. vnext-template şablonunu
-                        kullanarak eksik dosya ve klasörleri oluşturabiliriz.
+                        Some files and folders are missing relative to the paths
+                        in{' '}
+                        <code className="bg-muted rounded px-1 py-0.5 text-xs">vnext.config.json</code>.
+                        We can use the vnext-template scaffold to create the
+                        missing files and folders.
                       </p>
                     ) : (
                       <p className="text-muted-foreground text-sm">
+                        Creates missing component folders and project files under{' '}
                         <code className="bg-muted rounded px-1 py-0.5 text-xs">
                           paths.componentsRoot
-                        </code>{' '}
-                        altında eksik bileşen klasörlerini ve proje dosyalarını oluşturur.
+                        </code>
+                        .
                       </p>
                     )}
 
@@ -142,7 +146,7 @@ export function VnextTemplateSeedDialog({
                       <div className="space-y-1.5">
                         <p className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
                           <FolderTree className="size-3.5 shrink-0 opacity-60" />
-                          Eksik dosya ve klasörler
+                          Missing files and folders
                         </p>
                         <ol className="border-border bg-muted/30 max-h-40 overflow-y-auto rounded-lg border">
                           {templateSeedMissingPathsPreview!.map((p, idx) => (
@@ -173,7 +177,7 @@ export function VnextTemplateSeedDialog({
             className="rounded-xl"
             onClick={onDecline}
             disabled={pending}>
-            İptal
+            Cancel
           </Button>
           <Button
             type="button"
@@ -181,7 +185,7 @@ export function VnextTemplateSeedDialog({
             className="rounded-xl"
             onClick={handleConfirm}
             disabled={!projectId || pending}>
-            {pending ? 'Oluşturuluyor…' : 'Evet, oluştur'}
+            {pending ? 'Creating…' : 'Yes, create'}
           </Button>
         </DialogFooter>
       </DialogContent>

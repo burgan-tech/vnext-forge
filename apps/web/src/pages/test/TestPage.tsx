@@ -61,8 +61,8 @@ export function TestPage() {
           <div className="space-y-2">
             <h1 className="text-3xl font-semibold tracking-tight">Primitive Variant Showcase</h1>
             <p className="text-muted-foreground max-w-3xl text-sm">
-              Button, card, checkbox, dialog, dropdown menu, accordion, alert ve badge icin variant,
-              hover ve border davranislarini ayni sayfada test edebilirsin.
+              Variants, hover, and border behavior for button, card, checkbox, dialog, dropdown
+              menu, accordion, alert, and badge — test them on a single page.
             </p>
           </div>
         </header>
@@ -73,7 +73,7 @@ export function TestPage() {
               <CardHeader>
                 <CardTitle className="capitalize">{variant} Card</CardTitle>
                 <CardDescription>
-                  Surface, border ve icon tonu bu card uzerinden kolayca gorulebilir.
+                  Surface, border, and icon tone are easy to inspect from this card.
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -84,7 +84,7 @@ export function TestPage() {
                   <div className="space-y-1">
                     <p className="text-sm font-medium">Workspace Preview</p>
                     <p className="text-xs text-current/70">
-                      Variant family burada body ve icon tonuna yansiyor.
+                      The variant family is reflected in body and icon tone here.
                     </p>
                   </div>
                 </div>
@@ -109,7 +109,7 @@ export function TestPage() {
           <Card className="gap-5">
             <CardHeader>
               <CardTitle>Checkbox + Badge</CardTitle>
-              <CardDescription>Variant ve border davranislarini birlikte test et.</CardDescription>
+              <CardDescription>Test variant and border behavior together.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {surfaceVariants.map((variant) => (
@@ -119,7 +119,7 @@ export function TestPage() {
                   <div className="space-y-1">
                     <p className="text-sm font-medium capitalize">{variant}</p>
                     <p className="text-muted-foreground text-xs">
-                      Hover, checked ve noBorder davranisi
+                      Hover, checked, and noBorder behavior
                     </p>
                   </div>
                   <div className="flex items-center gap-3">
@@ -141,33 +141,33 @@ export function TestPage() {
           <Card className="gap-5">
             <CardHeader>
               <CardTitle>Alert + Badge</CardTitle>
-              <CardDescription>Her variantin metin, icon ve hover dengesi.</CardDescription>
+              <CardDescription>Text, icon, and hover balance for each variant.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <Alert variant="default">
                 <Bell />
                 <AlertTitle>Default Alert</AlertTitle>
                 <AlertDescription>
-                  Primary surface ve semantik icon rengi kullanir.
+                  Uses the primary surface and semantic icon color.
                 </AlertDescription>
               </Alert>
               <Alert variant="secondary">
                 <Sparkles />
                 <AlertTitle>Secondary Alert</AlertTitle>
                 <AlertDescription>
-                  Secondary surface daha yumusak ama gorunur kalir.
+                  The secondary surface is softer but stays visible.
                 </AlertDescription>
               </Alert>
               <Alert variant="tertiary">
                 <CheckCircle2 />
                 <AlertTitle>Tertiary Alert</AlertTitle>
-                <AlertDescription>Success benzeri ama destructive olmayan vurgu.</AlertDescription>
+                <AlertDescription>Success-like emphasis without being destructive.</AlertDescription>
               </Alert>
               <Alert variant="destructive">
                 <AlertCircle />
                 <AlertTitle>Destructive Alert</AlertTitle>
                 <AlertDescription>
-                  Kritik aksiyon ve hata yuzeyi icin ayrilmis durumda.
+                  Reserved for critical actions and error surfaces.
                 </AlertDescription>
               </Alert>
             </CardContent>
@@ -179,7 +179,7 @@ export function TestPage() {
             <CardHeader>
               <CardTitle>Dialog Variants</CardTitle>
               <CardDescription>
-                Content surface, close button hover ve footer aksiyonlarini test et.
+                Test content surface, close button hover, and footer actions.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-wrap gap-3">
@@ -194,8 +194,8 @@ export function TestPage() {
                     <DialogHeader>
                       <DialogTitle className="capitalize">{variant} Dialog</DialogTitle>
                       <DialogDescription>
-                        Dialog content ve close button artik shared semantic token yapisini
-                        kullaniyor.
+                        Dialog content and close button now use the shared semantic token
+                        structure.
                       </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 rounded-2xl border border-current/10 p-4">
@@ -206,7 +206,7 @@ export function TestPage() {
                         <div>
                           <p className="text-sm font-medium">Dialog body content</p>
                           <p className="text-xs text-current/70">
-                            Hoverable ve border yapisini burada kontrol edebilirsin.
+                            You can check hoverable and border structure here.
                           </p>
                         </div>
                       </div>
@@ -225,7 +225,7 @@ export function TestPage() {
             <CardHeader>
               <CardTitle>Dropdown Menu</CardTitle>
               <CardDescription>
-                Content, item ve checkbox item varyasyonlarini bu bloktan acabilirsin.
+                Open content, item, and checkbox-item variants from this block.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-wrap gap-3">
@@ -282,7 +282,7 @@ export function TestPage() {
             <CardHeader>
               <CardTitle>Accordion</CardTitle>
               <CardDescription>
-                Trigger hover, left icon motion ve chevron davranisi burada gorunur.
+                Trigger hover, left-icon motion, and chevron behavior are visible here.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -296,8 +296,8 @@ export function TestPage() {
                   content: (
                     <div className="space-y-3">
                       <p className="text-sm text-current/80">
-                        Bu item {variant} token ailesini kullaniyor. Hoverda icon yuzeyi, chevron ve
-                        trigger yuzeyi birlikte hareket ediyor.
+                        This item uses the {variant} token family. On hover the icon surface,
+                        chevron, and trigger surface move together.
                       </p>
                       <div className="flex flex-wrap gap-2">
                         <Badge variant={variant}>badge</Badge>
@@ -316,7 +316,7 @@ export function TestPage() {
             <CardHeader>
               <CardTitle>Badge Strip</CardTitle>
               <CardDescription>
-                Inline kullanim ve outline/destructive farkini hizli gormek icin.
+                Quickly compare inline usage and outline vs. destructive.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">

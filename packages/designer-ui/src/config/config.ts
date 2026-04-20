@@ -3,44 +3,49 @@ import { createLogger } from '../lib/logger/createLogger';
 
 const logger = createLogger('config');
 
-const APP_ENVIRONMENTS = ['DEVELOPMENT', 'PRODUCTION', 'TEST'] as const;
-const appEnvironmentSchema = z.enum(APP_ENVIRONMENTS);
+/**
+ * Runtime configuration for the designer UI bundle.
+ *
+ * Background: this used to expose `API_URL` / `API_BASE_URL` /
+ * `ENVIRONMENT` because an earlier shape of the codebase fetched data
+ * directly from a public API. The current architecture pushes every API
+ * call through `ApiTransport`, so those fields had become dead config —
+ * worse, they were emitted with placeholder values like
+ * `https://localhost/api` from the VS Code webview boot script, giving
+ * security reviewers a false signal that the webview was talking to a
+ * real HTTP endpoint.
+ *
+ * Today the only field the UI actually consumes is the runtime
+ * revalidation interval, which is how often `useRuntimeRevalidator`
+ * polls the workflow runtime for state changes. Hosts (web SPA / VS Code
+ * webview) inject this through the same `window.__VNEXT_CONFIG__`
+ * channel; if no host injects it the safe default below is used.
+ */
 
-type AppEnvironment = z.infer<typeof appEnvironmentSchema>;
+const positiveIntegerSchema = z.coerce.number().int().positive();
 
 const DEFAULTS = {
-  API_URL: 'https://api.example.com/api',
-  API_URL_DEVELOPMENT: 'http://localhost:8080/api',
-  ENVIRONMENT: 'DEVELOPMENT' as AppEnvironment,
   RUNTIME_REVALIDATION_MIN_INTERVAL_SECONDS: 30,
 } as const;
 
-const rawStringSchema = z.string().trim().min(1);
-const urlSchema = rawStringSchema.url();
-const positiveIntegerSchema = z.coerce.number().int().positive();
-
 const appConfigSchema = z.object({
-  ENVIRONMENT: appEnvironmentSchema,
-  API_URL: urlSchema,
-  API_URL_DEVELOPMENT: urlSchema,
-  API_BASE_URL: urlSchema,
   RUNTIME_REVALIDATION_MIN_INTERVAL_SECONDS: positiveIntegerSchema,
 });
 
 export type AppConfig = z.infer<typeof appConfigSchema>;
 
-// Shape injected by the VS Code extension host via window.__VNEXT_CONFIG__.
-// Only the fields actually consumed by the web app need to be present.
-interface VscodeWebviewConfig {
-  ENVIRONMENT?: string;
-  API_URL?: string;
-  API_URL_DEVELOPMENT?: string;
+/**
+ * Shape injected by the host shell via `window.__VNEXT_CONFIG__`.
+ * Optional fields are intentional — every value falls back to a baked
+ * default so the UI boots even when the host injects nothing.
+ */
+interface HostInjectedConfig {
   RUNTIME_REVALIDATION_MIN_INTERVAL_SECONDS?: number;
 }
 
 declare global {
   interface Window {
-    __VNEXT_CONFIG__?: VscodeWebviewConfig;
+    __VNEXT_CONFIG__?: HostInjectedConfig;
   }
 }
 
@@ -50,52 +55,31 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function getImportMetaEnv(): Record<string, unknown> {
   const importMetaValue: unknown = import.meta;
-
-  if (!isRecord(importMetaValue)) {
-    return {};
-  }
-
+  if (!isRecord(importMetaValue)) return {};
   const env = importMetaValue.env;
   return isRecord(env) ? env : {};
 }
 
 /**
- * Returns a flat config bag that merges the VS Code webview injection
+ * Returns a flat config bag that merges the host injection
  * (`window.__VNEXT_CONFIG__`) over the standard Vite env variables.
- * The injected values take precedence so the extension host can override
+ * The injected values take precedence so the host shell can override
  * VITE_* defaults without rebuilding the bundle.
  */
 function getRawConfig(): Record<string, unknown> {
   const metaEnv = getImportMetaEnv();
-
   const injected: Record<string, unknown> = {};
-  const windowConfig =
-    typeof window !== 'undefined' ? window.__VNEXT_CONFIG__ : undefined;
+  const windowConfig = typeof window !== 'undefined' ? window.__VNEXT_CONFIG__ : undefined;
   if (isRecord(windowConfig)) {
-    if (windowConfig.ENVIRONMENT !== undefined)
-      injected.VITE_ENVIRONMENT = windowConfig.ENVIRONMENT;
-    if (windowConfig.API_URL !== undefined)
-      injected.VITE_API_URL = windowConfig.API_URL;
-    if (windowConfig.API_URL_DEVELOPMENT !== undefined)
-      injected.VITE_API_URL_DEVELOPMENT = windowConfig.API_URL_DEVELOPMENT;
-    if (windowConfig.RUNTIME_REVALIDATION_MIN_INTERVAL_SECONDS !== undefined)
+    if (windowConfig.RUNTIME_REVALIDATION_MIN_INTERVAL_SECONDS !== undefined) {
       injected.VITE_RUNTIME_REVALIDATION_MIN_INTERVAL_SECONDS =
         windowConfig.RUNTIME_REVALIDATION_MIN_INTERVAL_SECONDS;
+    }
   }
-
   return { ...metaEnv, ...injected };
 }
 
-function normalizeString(value: unknown): string | undefined {
-  if (typeof value !== 'string') {
-    return undefined;
-  }
-
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : undefined;
-}
-
-function warnFallback(key: string, fallback: string | number, value: unknown): void {
+function warnFallback(key: string, fallback: number, value: unknown): void {
   const metaEnv = getImportMetaEnv();
   if (metaEnv.DEV === true) {
     logger.warn(`Invalid or missing ${key}. Falling back to default.`, {
@@ -111,44 +95,14 @@ function parseEnvField<T>(
   value: unknown,
   schema: z.ZodType<T>,
   fallback: T,
-  normalize?: (input: unknown) => unknown,
 ): T {
-  const candidate = normalize ? normalize(value) : value;
-  const result = schema.safeParse(candidate);
-
-  if (result.success) {
-    return result.data;
-  }
-
-  warnFallback(key, typeof fallback === 'string' ? fallback : String(fallback), value);
+  const result = schema.safeParse(value);
+  if (result.success) return result.data;
+  warnFallback(key, typeof fallback === 'number' ? fallback : Number(fallback), value);
   return fallback;
 }
 
 const env = getRawConfig();
-
-const environment = parseEnvField(
-  'VITE_ENVIRONMENT',
-  env.VITE_ENVIRONMENT,
-  appEnvironmentSchema,
-  DEFAULTS.ENVIRONMENT,
-  (value) => normalizeString(value)?.toUpperCase(),
-);
-
-const apiUrl = parseEnvField(
-  'VITE_API_URL',
-  env.VITE_API_URL,
-  urlSchema,
-  DEFAULTS.API_URL,
-  normalizeString,
-);
-
-const apiUrlDevelopment = parseEnvField(
-  'VITE_API_URL_DEVELOPMENT',
-  env.VITE_API_URL_DEVELOPMENT,
-  urlSchema,
-  DEFAULTS.API_URL_DEVELOPMENT,
-  normalizeString,
-);
 
 const runtimeRevalidationMinIntervalSeconds = parseEnvField(
   'VITE_RUNTIME_REVALIDATION_MIN_INTERVAL_SECONDS',
@@ -159,11 +113,6 @@ const runtimeRevalidationMinIntervalSeconds = parseEnvField(
 
 export const APP_CONFIG = Object.freeze(
   appConfigSchema.parse({
-    ENVIRONMENT: environment,
-    API_URL: apiUrl,
-    API_URL_DEVELOPMENT: apiUrlDevelopment,
-    API_BASE_URL: environment === 'DEVELOPMENT' ? apiUrlDevelopment : apiUrl,
     RUNTIME_REVALIDATION_MIN_INTERVAL_SECONDS: runtimeRevalidationMinIntervalSeconds,
   }),
 );
-

@@ -10,7 +10,6 @@
     "./lib": "./src/lib/index.ts",
     "./notification": "./src/notification/index.ts",
     "./api": "./src/api/index.ts",
-    "./modules/project-management": "./src/modules/project-management/index.ts",
     "./styles.css": "./src/styles.css"
   },
   "main": "./src/index.ts",

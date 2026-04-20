@@ -25,13 +25,13 @@ export function StatusBarErrorIssuesPopover({ items }: StatusBarErrorIssuesPopov
   const count = items.length;
   if (count === 0) return null;
 
-  const label = count === 1 ? '1 hata' : `${count} hata`;
+  const label = count === 1 ? '1 error' : `${count} errors`;
 
   return (
     <Popover>
       <PopoverTrigger
         type="button"
-        title="Hataları göster"
+        title="Show errors"
         aria-haspopup="dialog"
         className={cn(
           statusBarNotificationVariants({ variant: 'chip-danger', interactive: true }),
@@ -47,13 +47,13 @@ export function StatusBarErrorIssuesPopover({ items }: StatusBarErrorIssuesPopov
         className="flex max-h-[min(20rem,calc(100vh-4rem))] w-[min(24rem,calc(100vw-2rem))] flex-col overflow-hidden p-0">
         <div className="border-border shrink-0 border-b px-3 py-2">
           <p className="text-foreground text-sm font-medium">
-            {count} {count === 1 ? 'hata' : 'hata'} bulundu
+            {count} {count === 1 ? 'error' : 'errors'} found
           </p>
         </div>
         <ul
           className="min-h-0 flex-1 overflow-y-auto"
           role="list"
-          aria-label="Hata listesi">
+          aria-label="Error list">
           {items.map((item) => {
             const lines = item.message.split('\n').filter((l) => l.trim().length > 0);
             const heading = lines[0];

@@ -41,7 +41,7 @@ const nonEmpty = (label: string) =>
   z
     .string()
     .trim()
-    .min(1, `${label} boş olamaz.`);
+    .min(1, `${label} cannot be empty.`);
 
 const pathsSchema = z.object({
   componentsRoot: nonEmpty('paths.componentsRoot'),
@@ -59,13 +59,13 @@ const metadataSchema = z.object({
   license: nonEmpty('exports.metadata.license'),
   keywords: z
     .array(z.string())
-    .min(1, 'En az bir anahtar kelime (exports.metadata.keywords) gerekli.')
+    .min(1, 'At least one keyword (exports.metadata.keywords) is required.')
     .superRefine((arr, ctx) => {
       for (let i = 0; i < arr.length; i++) {
         if (!arr[i].trim()) {
           ctx.addIssue({
             code: 'custom',
-            message: 'Boş anahtar kelime olamaz.',
+            message: 'Keyword cannot be empty.',
             path: [i],
           });
         }
@@ -93,7 +93,7 @@ const referenceResolutionSchema = z
     if (hosts.length === 0) {
       ctx.addIssue({
         code: 'custom',
-        message: 'referenceResolution.allowedHosts: en az bir hostname gerekli.',
+        message: 'referenceResolution.allowedHosts: at least one hostname is required.',
         path: ['allowedHosts'],
       });
     }
@@ -243,10 +243,10 @@ export function validateVnextConfigJsonText(
   try {
     parsed = JSON.parse(raw);
   } catch {
-    return { ok: false, summary: 'vnext.config.json geçerli bir JSON dosyası değil.' };
+    return { ok: false, summary: 'vnext.config.json is not valid JSON.' };
   }
   if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-    return { ok: false, summary: 'vnext.config.json kökü bir nesne (object) olmalıdır.' };
+    return { ok: false, summary: 'vnext.config.json root must be an object.' };
   }
   let normalized: VnextWorkspaceConfig;
   try {
@@ -255,7 +255,7 @@ export function validateVnextConfigJsonText(
     return {
       ok: false,
       summary:
-        'vnext.config.json zorunlu bölümler (paths, exports, referenceResolution vb.) eksik veya bozuk.',
+        'vnext.config.json is missing or has invalid required sections (paths, exports, referenceResolution, etc.).',
     };
   }
   const result = validateNormalizedVnextWizardPayload(normalized);
@@ -264,9 +264,9 @@ export function validateVnextConfigJsonText(
   }
   const lines = result.error.issues
     .slice(0, 5)
-    .map((i: z.core.$ZodIssue) => `${i.path.join('.') || 'kök'}: ${i.message}`);
+    .map((i: z.core.$ZodIssue) => `${i.path.join('.') || 'root'}: ${i.message}`);
   return {
     ok: false,
-    summary: `vnext.config.json studio kurallarına uymuyor — ${lines.join(' · ')}`,
+    summary: `vnext.config.json does not meet studio rules — ${lines.join(' · ')}`,
   };
 }

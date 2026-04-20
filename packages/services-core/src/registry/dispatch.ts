@@ -2,9 +2,16 @@ import { ZodError, type ZodTypeAny, type infer as zInfer } from 'zod'
 import { ERROR_CODES, VnextForgeError } from '@vnext-forge/app-contracts'
 
 import type { MethodHandler, MethodRegistry, ServiceRegistry } from './method-registry.js'
+import { assertCapabilityAllowed, type CallerContext } from './policy.js'
 
 export interface DispatchOptions {
   traceId?: string
+  /**
+   * Caller identity / trust context, supplied by the host transport. When
+   * present, the dispatcher enforces the per-method capability policy
+   * defined in `policy.ts`. Omit only in legacy in-process tests.
+   */
+  caller?: CallerContext
 }
 
 /**
@@ -34,18 +41,31 @@ export async function dispatchMethod(
     )
   }
 
+  // Capability gate runs BEFORE param parsing so a non-allow-listed caller
+  // cannot probe the schema of a privileged method by sending bad input.
+  assertCapabilityAllowed(method, options.caller, options.traceId)
+
   let parsedParams: zInfer<typeof entry.paramsSchema>
   try {
     parsedParams = entry.paramsSchema.parse(rawParams) as zInfer<typeof entry.paramsSchema>
   } catch (error) {
     if (error instanceof ZodError) {
+      // Strip any value-bearing fields from Zod issues so we never leak
+      // a raw param payload (which could contain secrets) into log sinks
+      // or HTTP error envelopes. Keep only the structural information the
+      // caller needs to fix their request.
+      const safeIssues = error.issues.map((issue) => ({
+        path: issue.path.join('.'),
+        message: issue.message,
+        code: issue.code,
+      }))
       throw new VnextForgeError(
         ERROR_CODES.API_BAD_REQUEST,
         'Request validation failed',
         {
           source: 'services-core.dispatchMethod',
           layer: 'application',
-          details: { method, issues: error.issues },
+          details: { method, issues: safeIssues },
         },
         options.traceId,
       )

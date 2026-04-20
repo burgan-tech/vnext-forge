@@ -27,6 +27,16 @@ export type {
 } from './error/vnext-forge-error.js';
 
 export {
+  ERROR_PRESENTATION,
+  getErrorPresentation,
+} from './error/error-presentation.js';
+export type {
+  ErrorPresentation,
+  ErrorRecoveryAction,
+  ErrorSeverity,
+} from './error/error-presentation.js';
+
+export {
   success,
   failure,
   failureFromCode,
@@ -42,6 +52,15 @@ export {
   mapResponse,
   fold,
 } from './response/helpers.js';
+
+export {
+  LogLevelSchema,
+  NodeEnvSchema,
+  csvList,
+  coercedBool,
+  isLoopbackHost,
+} from './env/common.js';
+export type { LogLevel, NodeEnv } from './env/common.js';
 
 export {
   VNEXT_WORKSPACE_RUNTIME_VERSION,

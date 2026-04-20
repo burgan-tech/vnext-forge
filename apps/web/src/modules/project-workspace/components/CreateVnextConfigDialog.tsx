@@ -63,7 +63,7 @@ function multilineToStringArray(text: string): string[] {
   return text.split('\n').map((line) => line.trim());
 }
 
-const exportComponentKeysHelperText = 'Her satırda bir component key.';
+const exportComponentKeysHelperText = 'One component key per line.';
 
 function pickWizardFieldError(
   issues: Record<string, string>,
@@ -79,7 +79,7 @@ function pickWizardFieldError(
 /** Zod path → formdaki kart/başlıklarla uyumlu kısa Türkçe etiket. */
 function friendlyWizardIssuePath(pathParts: readonly PropertyKey[]): string {
   const p = pathParts.map((part) => String(part));
-  if (p.length === 0) return 'Yapılandırma';
+  if (p.length === 0) return 'Configuration';
 
   const [a, b, c, d] = [p[0], p[1], p[2], p[3]];
 
@@ -91,37 +91,37 @@ function friendlyWizardIssuePath(pathParts: readonly PropertyKey[]): string {
     'schemaVersion',
   ]);
   if (p.length === 1 && a && rootFields.has(a)) {
-    return `Root kartı içindeki ${a} alanı`;
+    return `Root card: ${a} field`;
   }
 
   if (a === 'paths' && p.length === 2 && b) {
-    return `Paths kartı içindeki ${b} alanı`;
+    return `Paths card: ${b} field`;
   }
 
   if (a === 'referenceResolution' && b === 'allowedHosts') {
-    return 'Reference resolution kartı içindeki allowedHosts alanı';
+    return 'Reference resolution card: allowedHosts field';
   }
 
   if (a === 'referenceResolution' && b === 'schemaValidationRules' && c) {
-    return `Reference resolution kartı, schemaValidationRules içindeki ${c} alanı`;
+    return `Reference resolution card, schemaValidationRules: ${c} field`;
   }
 
   if (a === 'exports' && b === 'metadata') {
     if (c === 'keywords' && (typeof d === 'number' || (typeof d === 'string' && /^\d+$/.test(d)))) {
       const idx = typeof d === 'number' ? d : Number(d);
-      return `Exports kartı, metadata içindeki keywords (${idx + 1}. öğe)`;
+      return `Exports card, metadata keywords (item ${idx + 1})`;
     }
     if (c) {
-      return `Exports kartı, metadata içindeki ${c} alanı`;
+      return `Exports card, metadata: ${c} field`;
     }
   }
 
   if (p.length === 1 && a === 'allowedHosts') {
-    return 'Reference resolution kartı içindeki allowedHosts alanı';
+    return 'Reference resolution card: allowedHosts field';
   }
 
   if (a === 'referenceResolution' && p.length >= 2) {
-    return `Reference resolution kartı içindeki ${p.slice(1).join(' › ')} alanı`;
+    return `Reference resolution card: ${p.slice(1).join(' › ')} field`;
   }
 
   return p.join(' › ');
@@ -334,7 +334,7 @@ export function CreateVnextConfigDialog({
     const d = defaultDomain.trim() || 'workspace';
     return buildVnextWorkspaceConfig({
       domain: d,
-      description: `${d} alan tanımı yapılandırması`,
+      description: `${d} domain configuration`,
       exportsMetadataDescription: `Exported components for ${d} domain`,
     });
   }, [defaultDomain]);
@@ -372,8 +372,8 @@ export function CreateVnextConfigDialog({
         await onCompleted(result.data.id);
       },
       successMessage: isEditMode
-        ? 'vnext.config.json güncellendi.'
-        : 'vnext.config.json oluşturuldu.',
+        ? 'vnext.config.json updated.'
+        : 'vnext.config.json created.',
     }),
     [isEditMode, onCompleted, onOpenChange],
   );
@@ -465,9 +465,7 @@ export function CreateVnextConfigDialog({
           <div className="my-1 shrink-0 space-y-2 rounded-xl px-6 py-5">
             <DialogHeader className="space-y-2 text-left">
               <DialogTitle className="text-primary-text">
-                {isEditMode
-                  ? 'vnext.config.json dosyası düzenleniyor'
-                  : 'vnext.config.json dosyası gerekli'}
+                {isEditMode ? 'Editing vnext.config.json' : 'vnext.config.json is required'}
               </DialogTitle>
             </DialogHeader>
           </div>
@@ -490,7 +488,7 @@ export function CreateVnextConfigDialog({
                     <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden />
                     <div className="min-w-0 space-y-2">
                       <p className="leading-snug font-semibold">
-                        Zorunlu alanlar eksik veya geçersiz
+                        Required fields are missing or invalid
                       </p>
                       <ul className="text-destructive/95 max-h-40 list-inside list-disc overflow-y-auto text-xs leading-relaxed">
                         {Array.from(
@@ -562,7 +560,7 @@ export function CreateVnextConfigDialog({
                           checked={useCustomComponentsRoot}
                           onCheckedChange={(v) => setUseCustomComponentsRoot(v === true)}
                         />
-                        <span className="font-mono">Özel componentsRoot kullan</span>
+                        <span className="font-mono">Use custom componentsRoot</span>
                       </label>
                       <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
                         <JsonFieldShell label="componentsRoot">
@@ -687,7 +685,7 @@ export function CreateVnextConfigDialog({
                         control={control}
                         name="referenceResolution.allowedHosts"
                         placeholder="registry.npmjs.org"
-                        helperText="Her satırda bir hostname."
+                        helperText="One hostname per line."
                         errorText={pickWizardFieldError(
                           fieldIssues,
                           'referenceResolution.allowedHosts',
@@ -870,7 +868,7 @@ export function CreateVnextConfigDialog({
 
             <DialogFooter className="border-border-subtle shrink-0 gap-2 border-t px-6 py-4 sm:flex-row sm:justify-end">
               <DialogCancelButton type="button" variant="secondary" className="rounded-xl">
-                Kapat
+                Close
               </DialogCancelButton>
               <Button
                 type="submit"
@@ -878,7 +876,7 @@ export function CreateVnextConfigDialog({
                 className="rounded-xl"
                 loading={writing}
                 disabled={!wizardValidation.success}>
-                {isEditMode ? 'Güncelle ve kaydet' : 'Oluştur ve kaydet'}
+                {isEditMode ? 'Update and save' : 'Create and save'}
               </Button>
             </DialogFooter>
           </form>

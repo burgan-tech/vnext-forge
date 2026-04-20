@@ -11,6 +11,11 @@ export * from './adapters/index.js'
 
 export * as paths from './internal/paths.js'
 export { getErrnoCode, toFileVnextError } from './internal/errno.js'
+export {
+  createPathPolicy,
+  type PathPolicy,
+  type PathPolicyDeps,
+} from './internal/path-policy.js'
 
 export * from './services/workspace/index.js'
 export * from './services/template/index.js'

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { ERROR_CODES, VnextForgeError } from '@vnext-forge/app-contracts';
 import { dispatchMethod, type MethodRegistry, type ServiceRegistry } from '@vnext-forge/services-core';
 
+import { config, isLoopbackHost } from '../shared/config/config.js';
 import type { Variables } from '../shared/types/hono.js';
 import { ok } from '../shared/lib/response-helpers.js';
 
@@ -25,8 +26,15 @@ export function createRpcRouter(deps: {
 }) {
   const router = new Hono<{ Variables: Variables }>();
 
+  // Loopback binds run in single-developer trust mode: the operator owns
+  // the machine and any TCP client able to reach 127.0.0.1 already has
+  // file-system level access. For non-loopback binds we MUST require an
+  // allow-listed Origin for privileged methods.
+  const trusted = isLoopbackHost(config.host);
+
   router.post('/', async (c) => {
     const traceId = c.get('traceId');
+    const origin = c.req.header('origin') ?? null;
 
     let body: unknown;
     try {
@@ -59,7 +67,14 @@ export function createRpcRouter(deps: {
       deps.services,
       parsed.data.method,
       parsed.data.params ?? {},
-      { traceId },
+      {
+        traceId,
+        caller: {
+          trusted,
+          origin,
+          allowedOrigins: config.corsAllowedOrigins,
+        },
+      },
     );
 
     return ok(c, result);
