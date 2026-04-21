@@ -25,6 +25,7 @@ import {
   CardHeader,
   CardTitle,
   Checkbox,
+  ColorThemeSwitch,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -51,6 +52,9 @@ import {
   DropdownSelectItem,
   DropdownSelectTrigger,
   DropdownSelectValue,
+  Input,
+  TagEditor,
+  Textarea,
 } from '@vnext-forge/designer-ui/ui';
 
 type SurfaceVariant = 'default' | 'secondary' | 'tertiary';
@@ -67,6 +71,16 @@ export function TestPage() {
   const [compactMode, setCompactMode] = useState(false);
   const [layoutMode, setLayoutMode] = useState<'list' | 'grid' | 'compact'>('list');
   const [curveKind, setCurveKind] = useState('exponential');
+  const [inputValue, setInputValue] = useState('');
+  const [textareaValue, setTextareaValue] = useState('');
+  const [tagEditors, setTagEditors] = useState<Record<'main' | SurfaceVariant, string[]>>({
+    main: ['workflow', 'test'],
+    default: [],
+    secondary: [],
+    tertiary: [],
+  });
+  /** ColorThemeSwitch: `true` = açık (güneş), `false` = koyu (ay) — yalnızca demo state */
+  const [demoLightTheme, setDemoLightTheme] = useState(false);
 
   return (
     <div className="bg-background text-foreground min-h-screen px-6 py-10">
@@ -81,6 +95,31 @@ export function TestPage() {
             </p>
           </div>
         </header>
+
+        <section>
+          <Card className="gap-5">
+            <CardHeader>
+              <CardTitle>ColorThemeSwitch</CardTitle>
+              <CardDescription>
+                Ay / güneş geçişi, yaylı thumb ve hover / basılı durumlar. Bu sayfadaki örnek yalnızca
+                yerel state tutar; uygulama temasını değiştirmez.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-wrap items-center gap-8">
+              <ColorThemeSwitch
+                checked={demoLightTheme}
+                onCheckedChange={setDemoLightTheme}
+                aria-label="Test sayfası demo tema anahtarı"
+              />
+              <p className="text-muted-foreground text-sm">
+                <span className="text-foreground font-medium">
+                  {demoLightTheme ? 'Açık tema (On)' : 'Koyu tema (Off)'}
+                </span>
+                — switch bileşeniyle aynı anlamda.
+              </p>
+            </CardContent>
+          </Card>
+        </section>
 
         <section className="grid gap-4 lg:grid-cols-3">
           {surfaceVariants.map((variant) => (
@@ -118,6 +157,101 @@ export function TestPage() {
               </CardFooter>
             </Card>
           ))}
+        </section>
+
+        <section className="grid gap-6 xl:grid-cols-3">
+          <Card className="gap-5">
+            <CardHeader>
+              <CardTitle>Input</CardTitle>
+              <CardDescription>
+                Tek satır alan; yüzey varyantları ve boyutlar bu sayfada hızlıca görülebilir.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Input
+                placeholder="Kontrollü örnek (default)"
+                value={inputValue}
+                onChange={(event) => setInputValue(event.target.value)}
+              />
+              <div className="grid gap-3 sm:grid-cols-3">
+                {surfaceVariants.map((variant) => (
+                  <Input
+                    key={variant}
+                    variant={variant}
+                    placeholder={`${variant} variant`}
+                    aria-label={`Input ${variant}`}
+                  />
+                ))}
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <Input size="sm" placeholder="size sm" />
+                <Input size="default" placeholder="size default" />
+                <Input size="lg" placeholder="size lg" />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="gap-5">
+            <CardHeader>
+              <CardTitle>Textarea</CardTitle>
+              <CardDescription>
+                Çok satırlı metin; tema yüzeyleriyle birlikte odak ve hover davranışını deneyin.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Textarea
+                placeholder="Kontrollü örnek (default) — birkaç satır yazın…"
+                value={textareaValue}
+                onChange={(event) => setTextareaValue(event.target.value)}
+                rows={4}
+              />
+              <div className="grid gap-3">
+                {surfaceVariants.map((variant) => (
+                  <Textarea
+                    key={variant}
+                    variant={variant}
+                    placeholder={`${variant} variant`}
+                    rows={3}
+                    aria-label={`Textarea ${variant}`}
+                  />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="gap-5">
+            <CardHeader>
+              <CardTitle>TagEditor</CardTitle>
+              <CardDescription>
+                Enter veya blur ile etiket ekleyin; geri tuşu veya X ile kaldırın. Yüzey
+                varyantları Input ile uyumludur.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <TagEditor
+                tags={tagEditors.main}
+                onChange={(tags) => setTagEditors((prev) => ({ ...prev, main: tags }))}
+                placeholder="Etiket ekle…"
+              />
+              <div className="space-y-3">
+                <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                  Varyantlar
+                </p>
+                <div className="grid gap-3">
+                  {surfaceVariants.map((variant) => (
+                    <TagEditor
+                      key={variant}
+                      variant={variant}
+                      tags={tagEditors[variant]}
+                      onChange={(tags) => setTagEditors((prev) => ({ ...prev, [variant]: tags }))}
+                      placeholder={`${variant} — etiket…`}
+                      aria-label={`TagEditor ${variant}`}
+                    />
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </section>
 
         <section className="grid gap-6 xl:grid-cols-2">

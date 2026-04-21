@@ -118,8 +118,8 @@
   --color-info-text: #1d4ed8;
   --color-info-foreground-hover: #1e3a8a;
 
-  /* ── Destructive ── */
-  --color-destructive: #ef4444;
+  /* ── Destructive ── (durgun: açık kırmızı; hover: belirgin koyu — trash / destructive Button geçişi) */
+  --color-destructive: #f87171;
   --color-destructive-hover: #dc2626;
   --color-destructive-foreground: #ffffff;
   --color-destructive-surface: #fff1f2; /* rose-50 */
@@ -478,22 +478,26 @@ html body .monaco-editor .suggest-widget .monaco-list .monaco-list-row.focused {
   --tag-text: #0f766e;
 }
 
+/* destructive token (soluk durgun) + hover’da destructive-hover; trash ile aynı mantık. */
 [data-slot='tag-editor'] > .tag-editor-chip .tag-editor-chip-remove {
-  background-color: color-mix(in srgb, var(--tag-bg) 80%, white) !important;
+  background-color: var(--color-destructive) !important;
   border-style: solid !important;
   border-width: 1px !important;
   border-color: var(--color-destructive-border) !important;
-  color: var(--color-destructive-text) !important;
+  color: var(--color-destructive-foreground) !important;
+  transition:
+    background-color 200ms ease-out,
+    border-color 200ms ease-out;
 }
 
 [data-slot='tag-editor'] > .tag-editor-chip .tag-editor-chip-remove:hover {
-  background-color: var(--color-destructive-muted-hover) !important;
+  background-color: var(--color-destructive-hover) !important;
   border-color: var(--color-destructive-border-hover) !important;
-  color: var(--color-destructive-text) !important;
+  color: var(--color-destructive-foreground) !important;
 }
 
 [data-slot='tag-editor'] > .tag-editor-chip .tag-editor-chip-remove:focus-visible {
-  background-color: var(--color-destructive-muted-hover) !important;
+  background-color: var(--color-destructive-hover) !important;
   border-color: var(--color-destructive-border-hover) !important;
-  color: var(--color-destructive-text) !important;
+  color: var(--color-destructive-foreground) !important;
 }

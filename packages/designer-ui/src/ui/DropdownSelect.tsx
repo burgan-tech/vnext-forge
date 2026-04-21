@@ -17,7 +17,10 @@ const DropdownSelectValue = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <SelectPrimitive.Value
     ref={ref}
-    className={cn('flex-1 min-w-0 truncate text-left data-[placeholder]:text-muted-foreground', className)}
+    className={cn(
+      'data-[placeholder]:text-muted-foreground min-w-0 flex-1 truncate text-left',
+      className,
+    )}
     {...props}
   />
 ));
@@ -37,7 +40,7 @@ const DropdownSelectTrigger = React.forwardRef<
       'flex w-full min-w-0 items-center justify-between gap-2 text-left',
       'data-[state=open]:rounded-b-none',
       'data-[state=open]:border-primary-border-hover data-[state=open]:ring-0',
-      '[&>svg]:shrink-0 [&>svg]:text-primary-icon [&>svg]:transition-transform [&[data-state=open]>svg]:rotate-180',
+      '[&>svg]:text-primary-icon [&>svg]:shrink-0 [&>svg]:transition-transform [&[data-state=open]>svg]:rotate-180',
       className,
     )}
     {...props}>
@@ -69,7 +72,7 @@ function DropdownSelectContent({
         avoidCollisions={avoidCollisions}
         className={cn(
           'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
-          'relative z-50 max-h-[var(--radix-select-content-available-height)] w-[var(--radix-select-trigger-width)] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-md border border-border bg-background text-foreground shadow-md',
+          'border-border bg-background text-foreground relative z-50 max-h-[var(--radix-select-content-available-height)] w-[var(--radix-select-trigger-width)] min-w-[var(--radix-select-trigger-width)] overflow-hidden rounded-md border shadow-md',
           'origin-[var(--radix-select-content-transform-origin)] transition-[transform,opacity] duration-150 ease-out',
           'data-[side=bottom]:rounded-t-none data-[side=bottom]:border-t-0',
           'data-[side=top]:rounded-b-none data-[side=top]:border-b-0',
@@ -101,7 +104,7 @@ const DropdownSelectItem = React.forwardRef<
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
-      'relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pr-8 pl-2 text-sm outline-none',
+      'relative flex w-full cursor-default items-center rounded-sm py-1.5 pr-8 pl-2 text-sm outline-none select-none',
       'data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
       'data-[highlighted]:bg-primary-muted data-[highlighted]:text-primary-text',
       'focus:bg-primary-muted focus:text-primary-text',
@@ -111,7 +114,7 @@ const DropdownSelectItem = React.forwardRef<
     <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
     <span className="pointer-events-none absolute right-2 flex size-3.5 items-center justify-center">
       <SelectPrimitive.ItemIndicator>
-        <CheckIcon className="size-4 text-primary-icon" />
+        <CheckIcon className="text-primary-icon size-4" />
       </SelectPrimitive.ItemIndicator>
     </span>
   </SelectPrimitive.Item>
@@ -137,7 +140,8 @@ export interface DropdownSelectOption {
 }
 
 export interface DropdownSelectFieldProps
-  extends Omit<React.ComponentProps<typeof SelectPrimitive.Root>, 'children'>,
+  extends
+    Omit<React.ComponentProps<typeof SelectPrimitive.Root>, 'children'>,
     VariantProps<typeof selectVariants> {
   options: DropdownSelectOption[];
   placeholder?: string;
@@ -147,16 +151,7 @@ export interface DropdownSelectFieldProps
 
 const DropdownSelectField = React.forwardRef<HTMLButtonElement, DropdownSelectFieldProps>(
   (
-    {
-      options,
-      placeholder,
-      className,
-      variant,
-      hoverable,
-      noBorder,
-      onBlur,
-      ...rootProps
-    },
+    { options, placeholder, className, variant, hoverable, noBorder, onBlur, ...rootProps },
     ref,
   ) => (
     <DropdownSelect {...rootProps}>

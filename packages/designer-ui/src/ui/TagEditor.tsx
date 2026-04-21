@@ -4,8 +4,6 @@ import { cva, type VariantProps } from 'class-variance-authority';
 
 import { cn } from '../lib/utils/cn.js';
 import { Badge } from './Badge';
-import { Button } from './Button';
-import { Input } from './Input';
 
 const tagEditorVariants = cva(
   'flex min-h-9 flex-wrap gap-1 rounded-md border px-2 py-1.5 shadow-xs transition-all duration-200 ease-out',
@@ -63,6 +61,7 @@ const tagEditorVariants = cva(
 interface TagEditorProps
   extends Omit<React.ComponentProps<'div'>, 'onChange'>, VariantProps<typeof tagEditorVariants> {
   onChange: (tags: string[]) => void;
+  /** Boş “yeni etiket” alanında gösterilir; mevcut etiketler varken de görünür (giriş dolunca gizlenir). */
   placeholder?: string;
   readOnly?: boolean;
   tags: string[];
@@ -73,7 +72,7 @@ function TagEditor({
   hoverable,
   noBorder,
   onChange,
-  placeholder = 'Add tag...',
+  placeholder = 'Add tag',
   readOnly = false,
   tags,
   variant,
@@ -115,34 +114,38 @@ function TagEditor({
         <Badge
           key={`${tag}-${index}`}
           variant={variant === 'success' ? 'success' : 'default'}
-          className="tag-editor-chip gap-1 pr-0.5 text-xs">
-          {tag}
+          className="tag-editor-chip max-w-full gap-1 pr-0.5 text-xs [&>span]:min-w-0">
+          <span className="leading-none">{tag}</span>
           {!readOnly ? (
-            <Button
+            <button
               type="button"
               onClick={() => removeTag(index)}
-              variant="ghost"
-              size="icon"
-              className="tag-editor-chip-remove hover:bg-destructive/12 hover:text-destructive size-5 min-h-5 border-0 text-current shadow-none"
+              className={cn(
+                'tag-editor-chip-remove inline-flex size-4 shrink-0 cursor-pointer items-center justify-center',
+                'rounded-sm p-0 leading-none shadow-none outline-none',
+                'focus-visible:ring-2 focus-visible:ring-ring/50',
+              )}
               aria-label={`Remove ${tag}`}>
-              <X className="size-3" />
-            </Button>
+              <X className="size-3 shrink-0 block" aria-hidden />
+            </button>
           ) : null}
         </Badge>
       ))}
       {!readOnly ? (
-        <Input
-          value={input}
+        <input
+          data-slot="tag-editor-input"
           type="text"
+          value={input}
           onChange={(event) => setInput(event.target.value)}
           onKeyDown={handleKeyDown}
           onBlur={() => addTag(input)}
-          placeholder={tags.length === 0 ? placeholder : ''}
-          variant={variant === 'success' ? 'success' : 'default'}
-          size="sm"
-          noBorder
-          className="min-w-24 flex-1 bg-transparent shadow-none"
-          inputClassName="min-w-20 py-1 text-sm"
+          placeholder={placeholder}
+          aria-label={placeholder}
+          className={cn(
+            'min-w-28 flex-1 border-0 bg-transparent py-0.5 text-sm text-current outline-none ring-0',
+            'placeholder:text-current/50',
+            'selection:bg-primary-muted selection:text-primary-foreground',
+          )}
         />
       ) : null}
     </div>

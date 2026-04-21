@@ -38,7 +38,7 @@ export function ProjectListItem({
       className={`group border-primary-border bg-primary focus-visible:ring-ring/50 flex w-full items-center gap-3.5 rounded-2xl border px-4 py-3.5 text-left shadow-sm transition-all duration-200 focus-visible:ring-2 focus-visible:outline-none ${
         disabled
           ? 'pointer-events-none opacity-50'
-          : 'cursor-pointer hover:border-primary-border-hover hover:bg-primary-hover hover:shadow-md'
+          : 'hover:border-primary-border-hover hover:bg-primary-hover cursor-pointer hover:shadow-md'
       }`}>
       <div className="border-info-border bg-info-surface text-info-icon group-hover:border-info-border-hover group-hover:bg-info-hover flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition-colors">
         <Folder size={16} />
