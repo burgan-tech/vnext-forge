@@ -72,9 +72,12 @@ export const useEditorStore = create<EditorState>((set, get) => ({
 
   updateTabContent: (id, content) =>
     set((s) => ({
-      tabs: s.tabs.map((t) =>
-        t.kind === 'file' && t.id === id ? { ...t, content, isDirty: true } : t,
-      ),
+      tabs: s.tabs.map((t) => {
+        if (t.kind !== 'file' || t.id !== id) return t;
+        // Monaco bazen yükleme sonrası aynı metinle onChange üretir; gereksiz "modified" önlenir.
+        if (t.content === content) return t;
+        return { ...t, content, isDirty: true };
+      }),
     })),
 
   markTabClean: (id) =>

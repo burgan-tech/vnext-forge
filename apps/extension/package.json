@@ -22,7 +22,8 @@
   "files": [
     "dist/extension.js",
     "dist/vendor/**",
-    "dist/webview-ui/**"
+    "dist/webview-ui/**",
+    "media/**"
   ],
   "contributes": {
     "commands": [
@@ -119,7 +120,8 @@
     "dev:host": "node esbuild.config.mjs --watch",
     "dev:webview": "vite build --watch --config webview-ui/vite.config.ts",
     "build": "npm run build:host && npm run build:webview",
-    "build:host": "node esbuild.config.mjs --production",
+    "sync-tab-icons": "node scripts/sync-component-tab-icons.mjs",
+    "build:host": "npm run sync-tab-icons && node esbuild.config.mjs --production",
     "build:webview": "vite build --config webview-ui/vite.config.ts",
     "package": "vsce package --no-dependencies --allow-missing-repository --skip-license --allow-unused-files-pattern",
     "lint": "eslint .",

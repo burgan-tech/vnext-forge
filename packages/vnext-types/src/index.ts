@@ -16,3 +16,4 @@ export * from './constants/trigger-types';
 export * from './constants/task-types';
 export * from './utils/csx-codec';
 export * from './utils/version';
+export * from './utils/editor-tab-presentation';

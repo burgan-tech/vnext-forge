@@ -1,10 +1,10 @@
-import folderBadgeComponentsRoot from '../../assets/icons/component-folder/badges/components-root.svg?raw';
-import folderBadgeExtensions from '../../assets/icons/component-folder/badges/extensions.svg?raw';
-import folderBadgeFunctions from '../../assets/icons/component-folder/badges/functions.svg?raw';
-import folderBadgeSchemas from '../../assets/icons/component-folder/badges/schemas.svg?raw';
-import folderBadgeTasks from '../../assets/icons/component-folder/badges/tasks.svg?raw';
-import folderBadgeViews from '../../assets/icons/component-folder/badges/views.svg?raw';
-import folderBadgeWorkflows from '../../assets/icons/component-folder/badges/workflows.svg?raw';
+import badgeComponentsRoot from '../../assets/icons/component-badges/components-root.svg?raw';
+import badgeExtension from '../../assets/icons/component-badges/extension.svg?raw';
+import badgeFunction from '../../assets/icons/component-badges/function.svg?raw';
+import badgeSchema from '../../assets/icons/component-badges/schema.svg?raw';
+import badgeTask from '../../assets/icons/component-badges/task.svg?raw';
+import badgeView from '../../assets/icons/component-badges/view.svg?raw';
+import badgeWorkflow from '../../assets/icons/component-badges/workflow.svg?raw';
 import folderClosedSvg from '../../assets/icons/component-folder/closed.svg?raw';
 import folderOpenSvg from '../../assets/icons/component-folder/open.svg?raw';
 import { cn } from '../../lib/utils/cn.js';
@@ -14,13 +14,13 @@ import { svgRootWithClass } from './svgRootWithClass.js';
 const FOLDER_LAYER_CLASS = 'block h-full w-full';
 
 const FOLDER_BADGE_SVG: Record<ComponentFolderType, string> = {
-  workflows: folderBadgeWorkflows,
-  tasks: folderBadgeTasks,
-  schemas: folderBadgeSchemas,
-  views: folderBadgeViews,
-  functions: folderBadgeFunctions,
-  extensions: folderBadgeExtensions,
-  components_root: folderBadgeComponentsRoot,
+  workflows: badgeWorkflow,
+  tasks: badgeTask,
+  schemas: badgeSchema,
+  views: badgeView,
+  functions: badgeFunction,
+  extensions: badgeExtension,
+  components_root: badgeComponentsRoot,
 };
 
 interface ComponentFolderIconProps {
@@ -33,8 +33,8 @@ interface ComponentFolderIconProps {
  * Icon for a vNext component folder (workflows, tasks, schemas, views,
  * functions, extensions or the configurable components root).
  *
- * SVG shapes live under `src/assets/icons/component-folder/`; this component composes
- * the folder glyph and type badge for `currentColor` on the folder stroke.
+ * Folder glyphs live under `src/assets/icons/component-folder/`; type badges are shared
+ * with file icons under `src/assets/icons/component-badges/`.
  */
 export function ComponentFolderIcon({
   type,

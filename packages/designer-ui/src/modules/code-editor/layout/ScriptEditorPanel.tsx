@@ -72,6 +72,7 @@ export function ScriptEditorPanel() {
   const handleCodeChange = useCallback(
     (newCode: string | undefined) => {
       if (!activeScript) return;
+      if ((newCode || '') === decoded) return;
       syncToWorkflow(newCode || '');
 
       if (diagnosticTimerRef.current) clearTimeout(diagnosticTimerRef.current);
@@ -83,7 +84,7 @@ export function ScriptEditorPanel() {
         }
       }, 300);
     },
-    [activeScript, syncToWorkflow],
+    [activeScript, decoded, syncToWorkflow],
   );
 
   const handleEditorMount: OnMount = useCallback(

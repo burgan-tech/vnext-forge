@@ -58,6 +58,7 @@ function FlowCanvasInner({ workflowJson, diagramJson }: FlowCanvasProps) {
     setSelectedNode,
     setSelectedEdge,
     updateDiagram,
+    markClean,
     addState,
     removeState,
     duplicateState,
@@ -101,10 +102,12 @@ function FlowCanvasInner({ workflowJson, diagramJson }: FlowCanvasProps) {
         updateDiagram((draft: Record<string, unknown>) => {
           draft.nodePos = positions.nodePos;
         });
+        // İlk otomatik yerleşim kullanıcı düzenlemesi değil; "Modified" gösterme.
+        markClean();
         setTimeout(() => fitView({ padding: 0.2 }), 50);
       });
     }
-  }, [needsLayout, computedNodes, computedEdges, setNodes, updateDiagram, fitView]);
+  }, [needsLayout, computedNodes, computedEdges, setNodes, updateDiagram, fitView, markClean]);
 
   // ─── Node changes (position, selection, etc.) ───
   const handleNodesChange: OnNodesChange = useCallback(

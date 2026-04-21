@@ -1,5 +1,15 @@
 export { useSaveFile } from './useSaveFile.js';
 export {
+  componentEditorKindToVnextComponentType,
+  componentTabKindFromSpaRoute,
+  formatHyphenatedTabTitle,
+  getEditorTabDisplayTitle,
+  getVnextComponentEditorTabDisplayTitle,
+  type SpaComponentEditorTabRouteKind,
+  type VnextComponentTabKind,
+} from './editorTabPresentation.js';
+export { EditorTabLabel, type EditorTabLabelProps } from './EditorTabLabel.js';
+export {
   componentEditorTabId,
   useEditorStore,
   type ComponentEditorKind,

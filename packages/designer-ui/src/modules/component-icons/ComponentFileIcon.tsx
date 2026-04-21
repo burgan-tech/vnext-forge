@@ -1,9 +1,9 @@
-import fileBadgeExtension from '../../assets/icons/component-file/badges/extension.svg?raw';
-import fileBadgeFunction from '../../assets/icons/component-file/badges/function.svg?raw';
-import fileBadgeSchema from '../../assets/icons/component-file/badges/schema.svg?raw';
-import fileBadgeTask from '../../assets/icons/component-file/badges/task.svg?raw';
-import fileBadgeView from '../../assets/icons/component-file/badges/view.svg?raw';
-import fileBadgeWorkflow from '../../assets/icons/component-file/badges/workflow.svg?raw';
+import badgeExtension from '../../assets/icons/component-badges/extension.svg?raw';
+import badgeFunction from '../../assets/icons/component-badges/function.svg?raw';
+import badgeSchema from '../../assets/icons/component-badges/schema.svg?raw';
+import badgeTask from '../../assets/icons/component-badges/task.svg?raw';
+import badgeView from '../../assets/icons/component-badges/view.svg?raw';
+import badgeWorkflow from '../../assets/icons/component-badges/workflow.svg?raw';
 import fileOutlineSvg from '../../assets/icons/component-file/outline.svg?raw';
 import type { VnextComponentType } from '../../shared/projectTypes.js';
 import { cn } from '../../lib/utils/cn.js';
@@ -12,12 +12,12 @@ import { svgRootWithClass } from './svgRootWithClass.js';
 const FILE_LAYER_CLASS = 'block h-full w-full';
 
 const FILE_BADGE_SVG: Record<VnextComponentType, string> = {
-  workflow: fileBadgeWorkflow,
-  task: fileBadgeTask,
-  schema: fileBadgeSchema,
-  view: fileBadgeView,
-  function: fileBadgeFunction,
-  extension: fileBadgeExtension,
+  workflow: badgeWorkflow,
+  task: badgeTask,
+  schema: badgeSchema,
+  view: badgeView,
+  function: badgeFunction,
+  extension: badgeExtension,
 };
 
 interface ComponentFileIconProps {

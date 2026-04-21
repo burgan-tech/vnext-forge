@@ -143,7 +143,11 @@ function JsonCodeField({
           height="100%"
         language={language}
         value={value}
-        onChange={(nextValue) => onChange(nextValue ?? '')}
+        onChange={(nextValue) => {
+          const next = nextValue ?? '';
+          if (next === value) return;
+          onChange(next);
+        }}
         onMount={handleMount}
         theme="vs"
         options={{

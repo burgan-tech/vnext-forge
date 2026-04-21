@@ -68,12 +68,21 @@ export { RuntimeHealthSync } from './modules/workflow-execution/RuntimeHealthSyn
 // also consume a small subset (e.g. the web `CodeEditorPage` reuses
 // `useEditorStore` and `setupMonacoWithLsp`).
 export {
+  componentEditorKindToVnextComponentType,
+  componentTabKindFromSpaRoute,
+  formatHyphenatedTabTitle,
+  getEditorTabDisplayTitle,
+  getVnextComponentEditorTabDisplayTitle,
+  type SpaComponentEditorTabRouteKind,
+  type VnextComponentTabKind,
+  EditorTabLabel,
+  type EditorTabLabelProps,
   componentEditorTabId,
   useEditorStore,
   type ComponentEditorKind,
   type EditorTab,
   type EditorTabKind,
-} from './modules/code-editor/EditorStore.js';
+} from './modules/code-editor/index.js';
 export { useSaveFile } from './modules/code-editor/useSaveFile.js';
 export { setupMonacoWithLsp } from './modules/code-editor/editor/MonacoSetup.js';
 export type { CsharpLspClient } from './modules/code-editor/editor/lspClient.js';

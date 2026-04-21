@@ -1,6 +1,4 @@
-import type { ComponentEditorKind, EditorTab } from '@vnext-forge/designer-ui';
-
-import { componentKindShortLabel } from '../editorTabNavigation';
+import { EditorTabLabel, type EditorTab } from '@vnext-forge/designer-ui';
 
 function FileIcon({ language }: { language: string }) {
   const colors: Record<string, string> = {
@@ -41,14 +39,6 @@ function FileIcon({ language }: { language: string }) {
   );
 }
 
-function ComponentKindIcon({ kind }: { kind: ComponentEditorKind }) {
-  return (
-    <span className="text-muted-foreground w-4 shrink-0 text-center text-[8px] font-bold tracking-tight">
-      {componentKindShortLabel(kind)}
-    </span>
-  );
-}
-
 interface EditorTabBarProps {
   tabs: EditorTab[];
   activeTabId: string | null;
@@ -83,12 +73,11 @@ export function EditorTabBar({ tabs, activeTabId, onTabClick, onTabClose }: Edit
                 onTabClose(tab.id);
               }
             }}>
-            {tab.kind === 'file' && tab.language ? (
-              <FileIcon language={tab.language} />
-            ) : tab.kind === 'component' && tab.componentKind ? (
-              <ComponentKindIcon kind={tab.componentKind} />
-            ) : null}
-            <span className="max-w-[140px] truncate">{tab.title}</span>
+            <EditorTabLabel
+              tab={tab}
+              titleClassName="max-w-[140px] truncate"
+              renderFileLeading={(language) => <FileIcon language={language} />}
+            />
             {tab.isDirty && <span className="text-[10px] font-medium text-amber-600">*</span>}
             <button
               type="button"

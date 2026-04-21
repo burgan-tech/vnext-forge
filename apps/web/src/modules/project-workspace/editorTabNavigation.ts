@@ -27,16 +27,3 @@ export function buildNavigatePathForTab(projectId: string, tab: EditorTab): stri
   }
   return null;
 }
-
-const COMPONENT_KIND_LABEL: Record<ComponentEditorKind, string> = {
-  flow: 'FL',
-  task: 'TS',
-  schema: 'SC',
-  view: 'VW',
-  function: 'FN',
-  extension: 'EX',
-};
-
-export function componentKindShortLabel(kind: ComponentEditorKind): string {
-  return COMPONENT_KIND_LABEL[kind] ?? '?';
-}

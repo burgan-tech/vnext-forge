@@ -1,6 +1,11 @@
 import * as fs from 'node:fs'
 import * as vscode from 'vscode'
 import type { VnextWorkspaceConfig } from '@vnext-forge/services-core'
+import {
+  getVnextComponentEditorTabDisplayTitle,
+  getVnextComponentTabIconFileName,
+  type VnextComponentTabKind,
+} from '@vnext-forge/vnext-types'
 
 import type { FileRouteKind } from '../file-router'
 import type { MessageRouter } from '../MessageRouter'
@@ -107,12 +112,32 @@ export class DesignerPanel {
   openEditor(message: DesignerOpenEditorMessage): void {
     this.openOrReveal()
     if (!this.panel) return
+    this.applyWebviewTabChrome(message)
     if (this.webviewReady) {
       this.panel.webview.postMessage(message)
     } else {
       // Queue until the webview announces it is ready.
       this.pendingOpen = message
     }
+  }
+
+  /**
+   * VS Code editör sekmesi başlığı ve ikonu — web `EditorTabBar` ile aynı kurallar
+   * (`@vnext-forge/vnext-types` + `media/component-tab-icons`).
+   */
+  private applyWebviewTabChrome(message: DesignerOpenEditorMessage): void {
+    if (!this.panel) return
+    const kind = message.kind as VnextComponentTabKind
+    this.panel.title = getVnextComponentEditorTabDisplayTitle(message.name, {
+      storedTitleWithJson: `${message.name}.json`,
+    })
+    const iconFile = getVnextComponentTabIconFileName(kind)
+    this.panel.iconPath = vscode.Uri.joinPath(
+      this.context.extensionUri,
+      'media',
+      'component-tab-icons',
+      iconFile,
+    )
   }
 
   private buildHtml(webview: vscode.Webview): string {
