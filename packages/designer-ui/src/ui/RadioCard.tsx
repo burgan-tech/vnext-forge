@@ -95,8 +95,8 @@ function RadioCard({
           className={cn(
             'size-3 shrink-0 rounded-full border-2 transition-colors duration-150 ease-out',
             selected
-              ? 'border-success-foreground bg-success-foreground'
-              : 'border-border bg-background',
+              ? 'border-final-success bg-final-success'
+              : 'border-border bg-surface',
           )}
         />
         <span className="flex min-w-0 flex-1 flex-col items-start gap-0 text-left">

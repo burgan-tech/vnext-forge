@@ -369,6 +369,8 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
                 hasTrailing: Boolean(trailing),
               }),
               'relative z-10',
+              variant === 'muted' &&
+                'text-muted-foreground placeholder:text-muted-foreground/55 read-only:text-muted-foreground',
               inputClassName,
             )}
             {...restProps}

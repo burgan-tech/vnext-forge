@@ -101,6 +101,8 @@ export function ExtensionMetadataForm({ json, onChange }: ExtensionMetadataFormP
           <Input
             type="text"
             {...domainValidation}
+            variant="muted"
+            readOnly
             className="w-full"
             inputClassName="font-mono text-xs"
             aria-invalid={Boolean(form.formState.errors.domain)}
@@ -110,6 +112,8 @@ export function ExtensionMetadataForm({ json, onChange }: ExtensionMetadataFormP
           <Input
             type="text"
             {...flowValidation}
+            variant="muted"
+            readOnly
             placeholder="(optional)"
             className="w-full"
             inputClassName="font-mono text-xs"

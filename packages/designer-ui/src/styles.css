@@ -257,18 +257,20 @@ html.dark {
   --color-foreground: #e2e8f0; /* slate-200 — body text */
   --color-surface: #273449; /* kart, bg’den hafif açık (raised hissi) */
   --color-surface-raised: #334155; /* slate-700 — popover, dialog */
-  --color-muted: #273449;
-  --color-muted-hover: #334155;
-  --color-muted-foreground: #94a3b8; /* slate-400 — ikincil text */
+  /* Muted yüzey + metin: surface (#273449) üzerinde ikincil metin slate-400 çok soluk kalıyordu;
+     slate-300 ile okunurluk artar (Input muted, Badge, Card muted vb.). */
+  --color-muted: #334155; /* slate-700 — surface’den bir kademe ayrışır, alan hissi */
+  --color-muted-hover: #3d4a63;
+  --color-muted-foreground: #cbd5e1; /* slate-300 — ikincil text, yeterli kontrast */
   /* Form kontrolleri: taban bir tık slate-600’dan açık (#55607a); hover slate-500 / -400 */
   --color-border: #55607a; /* genel ayraç — 600→500 yarım adım */
   --color-border-subtle: #3d4a63; /* hafif separator — önceki 700’e göre hafif güçlü */
   --color-ring: #38bdf8; /* sky-400 — dark’ta odak halkası daha parlak */
-  --color-muted-border: #55607a;
+  --color-muted-border: #64748b; /* slate-500 — muted alan çerçevesi biraz belirgin */
   --color-muted-border-hover: #94a3b8; /* slate-400 */
-  --color-muted-surface: #273449;
-  --color-muted-icon: #94a3b8;
-  --color-muted-text: #94a3b8;
+  --color-muted-surface: #334155;
+  --color-muted-icon: #cbd5e1;
+  --color-muted-text: #cbd5e1;
 
   /* ── Default — surface ile eş (varsayılan kart yüzeyi) ── */
   --color-primary: #273449;
