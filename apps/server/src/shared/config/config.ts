@@ -68,13 +68,14 @@ const ConfigSchema = z.object({
   workspaceAllowedRoots: csvList.pipe(z.array(z.string().min(1)).default([])),
   /**
    * Origins permitted by the CORS allowlist. Browser shells must be served
-   * from one of these. Default mirrors the local Vite dev server + the
+   * from one of these. Default mirrors the local Vite dev server
+   * (`apps/web` runs on `:3000`, see `apps/web/vite.config.ts`) + the
    * server's own port (so direct `curl` calls keep working).
    */
   corsAllowedOrigins: csvList.pipe(
     z
       .array(z.string().url())
-      .default(['http://localhost:5173', 'http://localhost:3001']),
+      .default(['http://localhost:3000', 'http://localhost:3001']),
   ),
   /** Pino log level. */
   logLevel: LogLevelSchema.default('info'),
@@ -147,8 +148,8 @@ function loadConfig(): AppConfig {
   if (!isLoopbackHost(parsed.data.host)) {
     console.warn(
       `[vnext-forge/server] HOST=${parsed.data.host} is NOT loopback. ` +
-        'Capability gating will deny privileged RPC methods (files.*, ' +
-        'runtime.proxy, projects.create/import/remove, files.browse) unless ' +
+        'Capability gating will deny privileged REST methods (files/*, ' +
+        'runtime/proxy, projects/create|import|remove, files/browse) unless ' +
         'the request originates from an allow-listed origin. Make sure ' +
         'CORS_ALLOWED_ORIGINS is correct for your deployment.',
     );

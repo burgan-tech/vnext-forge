@@ -24,12 +24,12 @@ import { z } from 'zod';
  *  - In dev the SPA runs on http://localhost:3000 (Vite) and the API on
  *    http://localhost:3001 (Hono), so we need a fully-qualified URL.
  *  - In production the SPA is expected to be served from the same origin as
- *    the API, so the empty string yields a relative `/api/rpc` request.
+ *    the API, so the empty string yields same-origin `/api/v1/*` requests.
  */
 const defaultApiBaseUrl = import.meta.env.DEV ? 'http://localhost:3001' : '';
 
 const ConfigSchema = z.object({
-  /** Base URL of the Hono RPC server. The transport POSTs to `${apiBaseUrl}/api/rpc`. */
+  /** Base URL of the Hono API server (`${apiBaseUrl}/api/v1/*` REST surface). */
   apiBaseUrl: z.string().default(defaultApiBaseUrl),
   /** Standard build-mode markers, surfaced for convenience. */
   isDev: z.boolean(),

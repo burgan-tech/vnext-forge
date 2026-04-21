@@ -3,7 +3,7 @@ import { z } from 'zod'
 
 import type { FileSystemAdapter, LoggerAdapter } from '../../adapters/index.js'
 import { toFileVnextError } from '../../internal/errno.js'
-import { joinPosix, relativePosix, toPosix } from '../../internal/paths.js'
+import { joinPosix, joinWithSeparator, relativePosix, toPosix } from '../../internal/paths.js'
 import type { PathPolicy } from '../../internal/path-policy.js'
 import { CONFIG_FILE } from './constants.js'
 import { createWorkspaceAnalyzer, type WorkspaceAnalyzer } from './workspace-analyzer.js'
@@ -92,9 +92,9 @@ export const filesBrowseResult = z.object({
 export const filesSearchParams = z.object({
   project: z.string().min(1),
   q: z.string().min(1),
-  matchCase: z.boolean().optional(),
-  matchWholeWord: z.boolean().optional(),
-  useRegex: z.boolean().optional(),
+  matchCase: z.coerce.boolean().optional(),
+  matchWholeWord: z.coerce.boolean().optional(),
+  useRegex: z.coerce.boolean().optional(),
   include: z.string().optional(),
   exclude: z.string().optional(),
 })
@@ -267,9 +267,29 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
 
     // Default (no path supplied): start from the user's home directory so the
     // folder picker opens at `~/` instead of an empty/system view.
-    const target = dirPath && dirPath.length > 0 ? dirPath : fs.resolveHome()
+    const rawTarget = dirPath && dirPath.length > 0 ? dirPath : fs.resolveHome()
+    // Normalize separators to the host OS convention. Inputs may arrive with
+    // mixed `\\` / `/` (breadcrumb clicks vs. listed entries vs. user paste);
+    // we hand the OS-native form to both the path policy and `readDir`, and
+    // also return it to the client so future calls stay consistent.
+    const target = toNativePath(rawTarget)
     if (pathPolicy) await pathPolicy.assertBrowsable(target, traceId)
     return { resolvedPath: target, entries: await readDirEntries(target, traceId) }
+  }
+
+  /**
+   * OS-aware join used only for the folder picker — see `joinWithSeparator`
+   * docs in `internal/paths.ts`. We keep `joinPosix` for any persisted path
+   * (project IDs, link files) so they remain platform-portable.
+   */
+  function nativeJoin(...parts: string[]): string {
+    return joinWithSeparator(fs.isWindows ? '\\' : '/', ...parts)
+  }
+
+  /** Convert any mixed-separator path string to the host OS convention. */
+  function toNativePath(filePath: string): string {
+    if (!fs.isWindows) return filePath.replace(/\\/g, '/')
+    return filePath.replace(/\//g, '\\').replace(/\\{2,}/g, '\\')
   }
 
   async function readDirEntries(target: string, traceId?: string): Promise<DirectoryEntry[]> {
@@ -279,7 +299,7 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
         .filter((entry) => !entry.name.startsWith('.') && entry.name !== 'node_modules')
         .map((entry) => ({
           name: entry.name,
-          path: joinPosix(target, entry.name),
+          path: nativeJoin(target, entry.name),
           type: entry.isDirectory ? ('directory' as const) : ('file' as const),
         }))
         .sort((left, right) => {

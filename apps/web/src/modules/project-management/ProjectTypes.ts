@@ -2,6 +2,13 @@
  * Web module-local re-export for backwards-compat. The canonical source for
  * these types is `@vnext-forge/designer-ui` (see `shared/projectTypes`).
  */
+import type {
+  FileTreeNode,
+  ProjectConfigStatus,
+  ProjectInfo,
+  VnextComponentLayoutStatus,
+} from '@vnext-forge/designer-ui';
+
 export type {
   FileTreeNode,
   ProjectConfigStatus,
@@ -11,6 +18,22 @@ export type {
   VnextWorkspaceConfig,
   WriteProjectConfigPayload,
 } from '@vnext-forge/designer-ui';
+
+/**
+ * Single round-trip payload for opening a project workspace. Mirrors the
+ * server-side `projects/getWorkspaceBootstrap` aggregation: cheap fields are
+ * always populated; the expensive triple (`layoutStatus`,
+ * `validateScriptStatus`, `componentFileTypes`) is only set when
+ * `configStatus.status === 'ok'`.
+ */
+export interface ProjectWorkspaceBootstrap {
+  project: ProjectInfo;
+  tree: { root: FileTreeNode };
+  configStatus: ProjectConfigStatus;
+  layoutStatus: VnextComponentLayoutStatus | null;
+  validateScriptStatus: { exists: boolean } | null;
+  componentFileTypes: Record<string, string> | null;
+}
 
 /**
  * Folder entry returned by `files.browse`. Used by the web project

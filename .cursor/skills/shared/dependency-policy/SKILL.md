@@ -16,15 +16,21 @@ vnext-types
         ├─> lsp-core      ─> apps/server, apps/extension
         ├─> designer-ui   ─> apps/web,    apps/extension/webview-ui
         └─> apps/*
+
+apps/web -- type only (AppType for hc<AppType>) --> apps/server
 ```
 
 ## Forbidden combinations (must)
 
-- `apps/web` **must not** import `@vnext-forge/services-core` or any deep path under `packages/services-core/**`. Reason: the server-only RPC implementation should never ship to the browser. Enforced by `apps/web/eslint.config.js` `no-restricted-imports`.
+- `apps/web` **must not** import `@vnext-forge/services-core` or any deep path under `packages/services-core/**`. Reason: the server-only method implementation should never ship to the browser. Enforced by `apps/web/eslint.config.js` `no-restricted-imports`.
 - `apps/web` **must not** import from `@vnext-forge/designer-ui/dist/**`. Always use `@vnext-forge/designer-ui` or its declared subpaths (e.g. `@vnext-forge/designer-ui/editor`). Enforced by ESLint.
-- `apps/*` **must not** import each other. Cross-app sharing happens through `packages/*`.
+- `apps/*` **must not** import each other at runtime. Cross-app sharing happens through `packages/*`.
 - `packages/*` **must not** import `apps/*`. Packages are leaves of the build graph.
 - `packages/app-contracts` and `packages/vnext-types` are **pure types/schemas** — no runtime side effects, no environment reads, no I/O.
+
+## Documented exception: `apps/web` → `apps/server` (type-only)
+
+For the Hono `hc<AppType>` typed REST client, `apps/web` may `import type { AppType } from '@vnext-forge/server'` from a **single** API shell module (`apps/web/src/shared/api/client.ts`). Type-only; `tsc -b` strips it. ESLint `no-restricted-imports` in `apps/web` narrows this exception to `apps/web/src/shared/api/**`. `@vnext-forge/server` lives under `apps/web` `devDependencies` so pnpm resolves the workspace edge without implying a runtime dependency. Authoritative: [ADR 007](../../../../docs/architecture/adr/007-rest-migration.md) and [`docs/architecture/dependency-policy.md`](../../../../docs/architecture/dependency-policy.md). Do not extend this edge to other paths.
 
 ## Adding a new dependency edge
 

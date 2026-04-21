@@ -17,7 +17,7 @@
  * regardless of which shell consumes them. Each shell additionally scans its
  * own `src/` automatically.
  */
-@source "./**/*.{ts,tsx}";
+@source './**/*.{ts,tsx}';
 
 @theme {
   /* ── Typography ── */
@@ -225,6 +225,9 @@
 * {
   box-sizing: border-box;
 }
+input {
+  outline: none !important;
+}
 
 html,
 body,
@@ -305,13 +308,9 @@ html body .monaco-menu input,
 html body .monaco-list input,
 html body .quick-input-widget input,
 html body .quick-input-widget textarea {
-  background-color: var(
-    --vscode-input-background,
-    var(--color-surface)
-  ) !important;
+  background-color: var(--vscode-input-background, var(--color-surface)) !important;
   color: var(--vscode-input-foreground, var(--color-foreground)) !important;
-  border: 1px solid
-    var(--vscode-input-border, var(--color-border)) !important;
+  border: 1px solid var(--vscode-input-border, var(--color-border)) !important;
   outline: 0 !important;
   box-shadow: none !important;
   appearance: none !important;
@@ -330,16 +329,9 @@ html body .monaco-editor .context-view,
 html body .monaco-editor .monaco-menu-container,
 html body .monaco-menu,
 html body .monaco-editor-overlaymessage {
-  background-color: var(
-    --vscode-editorWidget-background,
-    var(--color-surface)
-  ) !important;
-  color: var(
-    --vscode-editorWidget-foreground,
-    var(--color-foreground)
-  ) !important;
-  border: 1px solid
-    var(--vscode-editorWidget-border, var(--color-border)) !important;
+  background-color: var(--vscode-editorWidget-background, var(--color-surface)) !important;
+  color: var(--vscode-editorWidget-foreground, var(--color-foreground)) !important;
+  border: 1px solid var(--vscode-editorWidget-border, var(--color-border)) !important;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.12) !important;
 }
 
@@ -347,14 +339,8 @@ html body .monaco-editor .suggest-widget .monaco-list .monaco-list-row {
   background: transparent !important;
 }
 html body .monaco-editor .suggest-widget .monaco-list .monaco-list-row.focused {
-  background-color: var(
-    --vscode-list-focusBackground,
-    var(--color-accent)
-  ) !important;
-  color: var(
-    --vscode-list-focusForeground,
-    var(--color-foreground)
-  ) !important;
+  background-color: var(--vscode-list-focusBackground, var(--color-accent)) !important;
+  color: var(--vscode-list-focusForeground, var(--color-foreground)) !important;
 }
 
 /* ── Scrollbar — Refined, minimal ── */

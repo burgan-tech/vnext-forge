@@ -17,7 +17,7 @@ export async function fetchVnextSchemas(): Promise<SchemaCache | null> {
 
   fetchPromise = (async () => {
     try {
-      const response = await callApi<SchemaCache>({ method: 'validate.getAllSchemas' });
+      const response = await callApi<SchemaCache>({ method: 'validate/getAllSchemas' });
       if (response.success) {
         cache = response.data as SchemaCache;
         logger.info(`Loaded ${Object.keys(cache.schemas).length} vnext schemas`);

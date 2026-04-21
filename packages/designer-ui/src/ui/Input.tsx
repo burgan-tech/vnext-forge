@@ -4,7 +4,7 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '../lib/utils/cn.js';
 
 const inputRootVariants = cva(
-  'group/input relative isolate flex w-full items-center overflow-hidden rounded-2xl border shadow-xs transition-all duration-200 ease-out outline-none',
+  'group/input relative isolate flex w-full items-center overflow-hidden rounded-[3px] border shadow-xs transition-all duration-200 ease-out outline-none',
   {
     variants: {
       variant: {
@@ -12,8 +12,7 @@ const inputRootVariants = cva(
           'cursor-text border-primary-border bg-primary text-primary-foreground focus-within:border-primary-border-hover focus-within:bg-primary-hover focus-within:ring-[3px] focus-within:ring-ring/50',
         success:
           'cursor-text border-success-border bg-success text-success-foreground focus-within:border-success-border-hover focus-within:bg-success-hover focus-within:ring-[3px] focus-within:ring-ring/50',
-        info:
-          'cursor-text border-info-border bg-info text-info-foreground focus-within:border-info-border-hover focus-within:bg-info-hover focus-within:ring-[3px] focus-within:ring-ring/50',
+        info: 'cursor-text border-info-border bg-info text-info-foreground focus-within:border-info-border-hover focus-within:bg-info-hover focus-within:ring-[3px] focus-within:ring-ring/50',
         warning:
           'cursor-text border-warning-border bg-warning text-warning-foreground focus-within:border-warning-border-hover focus-within:bg-warning-hover focus-within:ring-[3px] focus-within:ring-ring/50',
         destructive:
@@ -26,9 +25,9 @@ const inputRootVariants = cva(
           'cursor-default border-muted-border bg-muted text-muted-foreground focus-within:border-muted-border-hover focus-within:bg-muted-hover focus-within:ring-[3px] focus-within:ring-ring/40',
       },
       size: {
-        sm: 'min-h-9 gap-2 px-3',
-        default: 'min-h-11 gap-2.5 px-3.5',
-        lg: 'min-h-12 gap-3 px-4',
+        sm: 'min-h-8 gap-1.5 px-2',
+        default: 'min-h-10 gap-2 px-2',
+        lg: 'min-h-11 gap-2.5 px-2.5',
       },
       invalid: {
         true: 'border-destructive-border bg-destructive/5 ring-[3px] ring-destructive/10',
@@ -110,8 +109,7 @@ const inputRootVariants = cva(
       {
         variant: 'destructive',
         hoverable: true,
-        className:
-          'hover:border-destructive-border-hover hover:bg-destructive-muted-hover',
+        className: 'hover:border-destructive-border-hover hover:bg-destructive-muted-hover',
       },
       {
         variant: 'secondary',
@@ -150,13 +148,13 @@ const inputRootVariants = cva(
 );
 
 const inputElementVariants = cva(
-  'placeholder:text-current/50 selection:bg-primary-muted selection:text-primary-foreground flex-1 border-0 bg-transparent text-sm text-current outline-none file:mr-3 file:rounded-md file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-current read-only:cursor-default disabled:cursor-not-allowed',
+  'placeholder:text-current/50 selection:bg-primary-muted selection:text-primary-foreground flex-1 border-0 bg-transparent py-0 text-sm text-current outline-none file:mr-3 file:rounded-[2px] file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-current file:py-0 read-only:cursor-default disabled:cursor-not-allowed',
   {
     variants: {
       size: {
-        sm: 'py-2 text-sm',
-        default: 'py-2.5 text-sm',
-        lg: 'py-3 text-base',
+        sm: 'min-h-0 text-sm',
+        default: 'min-h-0 text-sm',
+        lg: 'min-h-0 text-base',
       },
       hasLeading: {
         true: '',
@@ -176,7 +174,7 @@ const inputElementVariants = cva(
 );
 
 const inputAdornmentVariants = cva(
-  'flex shrink-0 items-center justify-center rounded-lg border shadow-sm transition-all duration-200 ease-out',
+  'flex shrink-0 items-center justify-center rounded-[2px] border shadow-sm transition-all duration-200 ease-out',
   {
     variants: {
       variant: {
@@ -190,9 +188,9 @@ const inputAdornmentVariants = cva(
         muted: 'border-muted-border bg-muted-surface text-muted-icon',
       },
       size: {
-        sm: 'size-7 text-xs',
-        default: 'size-8 text-sm',
-        lg: 'size-9 text-sm',
+        sm: 'size-6 text-xs',
+        default: 'size-7 text-sm',
+        lg: 'size-8 text-sm',
       },
       hoverable: {
         true: '',

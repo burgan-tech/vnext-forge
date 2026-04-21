@@ -31,45 +31,45 @@ export type MethodCapability = 'public' | 'privileged'
 const METHOD_CAPABILITIES: Readonly<Record<string, MethodCapability>> = Object.freeze({
   // ── files / workspace — every entry is privileged because it reads or
   // writes the developer's local file system.
-  'files.read': 'privileged',
-  'files.write': 'privileged',
-  'files.delete': 'privileged',
-  'files.mkdir': 'privileged',
-  'files.rename': 'privileged',
-  'files.browse': 'privileged',
-  'files.search': 'privileged',
+  'files/read': 'privileged',
+  'files/write': 'privileged',
+  'files/delete': 'privileged',
+  'files/mkdir': 'privileged',
+  'files/rename': 'privileged',
+  'files/browse': 'privileged',
+  'files/search': 'privileged',
 
   // ── projects — listing / reading a project record is `public`; anything
   // that materializes new artefacts on disk or removes them is privileged.
-  'projects.list': 'public',
-  'projects.getById': 'public',
-  'projects.getTree': 'public',
-  'projects.getConfig': 'public',
-  'projects.getConfigStatus': 'public',
-  'projects.getVnextComponentLayoutStatus': 'public',
-  'projects.getValidateScriptStatus': 'public',
-  'projects.getComponentFileTypes': 'public',
-  'projects.getWorkspaceBootstrap': 'public',
-  'projects.create': 'privileged',
-  'projects.import': 'privileged',
-  'projects.remove': 'privileged',
-  'projects.export': 'privileged',
-  'projects.writeConfig': 'privileged',
-  'projects.seedVnextComponentLayout': 'privileged',
+  'projects/list': 'public',
+  'projects/getById': 'public',
+  'projects/getTree': 'public',
+  'projects/getConfig': 'public',
+  'projects/getConfigStatus': 'public',
+  'projects/getVnextComponentLayoutStatus': 'public',
+  'projects/getValidateScriptStatus': 'public',
+  'projects/getComponentFileTypes': 'public',
+  'projects/getWorkspaceBootstrap': 'public',
+  'projects/create': 'privileged',
+  'projects/import': 'privileged',
+  'projects/remove': 'privileged',
+  'projects/export': 'privileged',
+  'projects/writeConfig': 'privileged',
+  'projects/seedVnextComponentLayout': 'privileged',
 
   // ── templates / validation — pure functions over input payloads or the
   // bundled schemas, no file system touch.
-  'templates.validateScriptStatus': 'public',
-  'validate.workflow': 'public',
-  'validate.component': 'public',
-  'validate.getAvailableTypes': 'public',
-  'validate.getAllSchemas': 'public',
-  'validate.getSchema': 'public',
+  'templates/validateScriptStatus': 'public',
+  'validate/workflow': 'public',
+  'validate/component': 'public',
+  'validate/getAvailableTypes': 'public',
+  'validate/getAllSchemas': 'public',
+  'validate/getSchema': 'public',
 
   // ── runtime / health — proxying network traffic to an external runtime
   // is the most SSRF-sensitive surface in the registry.
-  'runtime.proxy': 'privileged',
-  'health.check': 'public',
+  'runtime/proxy': 'privileged',
+  'health/check': 'public',
 })
 
 /**

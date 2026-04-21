@@ -38,6 +38,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
+  Input,
 } from '@vnext-forge/designer-ui/ui';
 
 type SurfaceVariant = 'default' | 'secondary' | 'tertiary';
@@ -57,7 +58,7 @@ export function TestPage() {
     <div className="bg-background text-foreground min-h-screen px-6 py-10">
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-10">
         <header className="space-y-3">
-            <Badge variant="muted">Shared UI Test Surface</Badge>
+          <Badge variant="muted">Shared UI Test Surface</Badge>
           <div className="space-y-2">
             <h1 className="text-3xl font-semibold tracking-tight">Primitive Variant Showcase</h1>
             <p className="text-muted-foreground max-w-3xl text-sm">
@@ -161,7 +162,9 @@ export function TestPage() {
               <Alert variant="tertiary">
                 <CheckCircle2 />
                 <AlertTitle>Tertiary Alert</AlertTitle>
-                <AlertDescription>Success-like emphasis without being destructive.</AlertDescription>
+                <AlertDescription>
+                  Success-like emphasis without being destructive.
+                </AlertDescription>
               </Alert>
               <Alert variant="destructive">
                 <AlertCircle />
@@ -194,8 +197,7 @@ export function TestPage() {
                     <DialogHeader>
                       <DialogTitle className="capitalize">{variant} Dialog</DialogTitle>
                       <DialogDescription>
-                        Dialog content and close button now use the shared semantic token
-                        structure.
+                        Dialog content and close button now use the shared semantic token structure.
                       </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 rounded-2xl border border-current/10 p-4">

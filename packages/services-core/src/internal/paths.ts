@@ -10,13 +10,25 @@ export function toPosix(filePath: string): string {
 }
 
 export function joinPosix(...parts: string[]): string {
+  return joinWithSeparator('/', ...parts)
+}
+
+/**
+ * Generic, OS-agnostic path join that takes the separator explicitly.
+ * Internal/iç state (project IDs, link files, registry fixtures) MUST keep
+ * using `joinPosix` so the persisted strings stay platform-portable. This
+ * helper exists only for paths that are displayed to the user or fed back
+ * into the OS filesystem unchanged (e.g. the workspace folder picker), where
+ * Windows users expect native `\\` separators.
+ */
+export function joinWithSeparator(separator: '/' | '\\', ...parts: string[]): string {
   const cleaned = parts
     .map((part, idx) => {
       if (idx === 0) return part.replace(/[/\\]+$/, '')
       return part.replace(/^[/\\]+/, '').replace(/[/\\]+$/, '')
     })
     .filter((p) => p.length > 0)
-  return cleaned.join('/')
+  return cleaned.join(separator)
 }
 
 export function relativePosix(rootAbs: string, childAbs: string): string {

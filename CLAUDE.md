@@ -10,11 +10,14 @@ also load the matching file:
 
 - **`apps/web/`** → see [`./CLAUDE.WEB.md`](./CLAUDE.WEB.md)
   Web client (React 19 + Vite 6) architecture, module-based vertical slice rules,
-  API access via Hono RPC client, `useAsync` async flows, error handling, logging.
+  API access via type-safe Hono `hc<AppType>` REST client, `useAsync` async flows,
+  error handling, logging.
 - **`apps/server/`** → see [`./CLAUDE.SERVER.md`](./CLAUDE.SERVER.md)
-  Active Hono RPC backend for the web shell. Loopback-bound by default; hardened
-  with body limit, CORS allowlist, capability policy, runtime-proxy SSRF defense,
-  filesystem jail, LSP WebSocket policy, child-env allowlist (Wave 1–3).
+  Active Hono REST backend for the web shell. Per-method REST endpoints under
+  `/api/v1/<domain>/<action>` bridged to `services-core` via `dispatchMethod`.
+  Loopback-bound by default; hardened with body limit, CORS allowlist, capability
+  policy, runtime-proxy SSRF defense, filesystem jail, LSP WebSocket policy,
+  child-env allowlist (Wave 1–3).
 - **`apps/extension/`** → see [`./CLAUDE.EXTENSION.md`](./CLAUDE.EXTENSION.md)
   VS Code extension host (esbuild bundle) and webview composition; per-shell
   config, runtime-proxy URL allowlist, LSP installer ownership.
@@ -23,8 +26,9 @@ also load the matching file:
   port). Public barrels + `./editor` subpath; single global save shortcut owner;
   HostEditorCapabilities; postMessage origin validation.
 - **`packages/services-core/`** → see [`./CLAUDE.SERVICES-CORE.md`](./CLAUDE.SERVICES-CORE.md)
-  RPC method registry, dispatch, services. Per-method capability policy;
-  runtime-proxy URL allowlist; child-env helper. Imports `@vnext-forge/app-contracts` only.
+  Method registry (slash-separated ids like `files/read`), dispatch, services.
+  Per-method capability policy; runtime-proxy URL allowlist; child-env helper.
+  Imports `@vnext-forge/app-contracts` only.
 - **`packages/lsp-core/`** → see [`./CLAUDE.LSP-CORE.md`](./CLAUDE.LSP-CORE.md)
   Shared LSP wiring; single extension-host LSP stack factory; consumed by
   `apps/extension` and `apps/server`.
@@ -44,6 +48,7 @@ skills whose scope matches the workspace you are editing.
 - [ADR 004 — Workspace bootstrap aggregation](./docs/architecture/adr/004-bootstrap-aggregation.md)
 - [ADR 005 — Error taxonomy](./docs/architecture/adr/005-error-taxonomy.md)
 - [ADR 006 — Designer root provider order (R-f12 dropped)](./docs/architecture/adr/006-provider-order.md)
+- [ADR 007 — REST migration (`/api/v1/<methodId>` + dispatch bridge)](./docs/architecture/adr/007-rest-migration.md)
 - [Web vs extension parity](./docs/architecture/web-extension-parity.md)
 - [Bundler alignment checklist](./docs/architecture/bundler-checklist.md)
 
@@ -57,7 +62,7 @@ In addition to the always-on rules under `.cursor/rules/*.mdc` (subagent dispatc
 |------|------|--------------|---------|
 | Rule | `.cursor/rules/config-singleton.mdc` | files matching `**/shared/config/config.ts` or `**/shared/config.ts` | `process.env` / `import.meta.env` only inside the config module |
 | Rule | `.cursor/rules/server-hardening.mdc` | `apps/server/src/**` | Body limit, CORS allowlist, capability policy, error-handler invariants must stay intact |
-| Rule | `.cursor/rules/rpc-method-policy.mdc` | `packages/services-core/src/registry/**`, `apps/server/src/rpc/**` | Every new RPC method has `paramsSchema`, `resultSchema`, capability tag, fixture (R-b9/R-a2) |
+| Rule | `.cursor/rules/rpc-method-policy.mdc` | `packages/services-core/src/registry/**`, `apps/server/src/api/v1/**` | Every new method has `paramsSchema`, `resultSchema`, capability tag, fixture (R-b9/R-a2), and `MethodHttpSpec` entry in `@vnext-forge/app-contracts` |
 | Skill | `.cursor/skills/shared/error-taxonomy/SKILL.md` | any error/handler/throw work | `ERROR_CODES`, `VnextForgeError`, `error-presentation` mapping |
 | Skill | `.cursor/skills/shared/trace-headers/SKILL.md` | any HTTP/transport/middleware work | `trace-v1` contract; never adopt `traceparent` |
 | Skill | `.cursor/skills/shared/dependency-policy/SKILL.md` | any cross-package import or barrel change | Allowed import directions, ESLint enforcements |
@@ -179,7 +184,7 @@ ApiSuccess<T>  -> { success: true; data: T }
 ApiFailure     -> { success: false; error: { code, message, traceId } }
 ```
 
-Every handler response is wrapped in this envelope. The web layer performs a discriminated union check via `response.success`. The same envelope is used for both HTTP (legacy) and `postMessage` transport.
+Every handler response is wrapped in this envelope. The web layer performs a discriminated union check via `response.success`. The same envelope is used for both HTTP REST (web ↔ server) and `postMessage` (webview ↔ extension host) transport.
 
 **2. VnextForgeError** (`error/vnext-error.ts`):
 The shared error type used across all application layers. Every `throw` should be a `VnextForgeError`.
@@ -190,7 +195,11 @@ The shared error type used across all application layers. Every `throw` should b
 - `toLogEntry()` — plain object for logging (extension Output Channel)
 - `toUserMessage()` — message safe to show to the user (raw `.message` must never be shown)
 
-**3. Workspace config builder** (`vnext-workspace-defaults.ts`):
+**3. Method HTTP metadata** (`method-http.ts`):
+
+`METHOD_HTTP_METADATA` is the single source of truth that binds each method id (`files/read`, `projects/create`, …) to its HTTP verb (`GET`/`POST`/…), parameter source (`query` vs `json`), and success status (`200` vs `201`). Both `apps/server` (route registration via `createDispatchHelper`) and `apps/web` (`HttpTransport`) read from it; `getMethodHttpSpec(methodId)` is the typed accessor. Changing a method's wire shape happens here once. A contract test in `packages/services-core` enforces parity between this metadata and the registry.
+
+**4. Workspace config builder** (`vnext-workspace-defaults.ts`):
 Version constants and `buildVnextWorkspaceConfig()` factory. Also re-exports all canonical workspace config types from `@vnext-forge/vnext-types`.
 
 - Depends on `@vnext-forge/vnext-types`
@@ -221,22 +230,28 @@ Shared packages are listed below. See [`./docs/architecture/dependency-policy.md
 
 ```text
 vnext-types (leaf, no deps)
-  └─> app-contracts (Zod schemas, ApiResponse, ErrorCode, env primitives)
-        ├─> services-core (RPC registry, dispatch, runtime-proxy, child-env)
+  └─> app-contracts (Zod schemas, ApiResponse, ErrorCode, env primitives,
+                     METHOD_HTTP_METADATA / MethodHttpSpec)
+        ├─> services-core (method registry, dispatch, runtime-proxy, child-env)
         │     └─> apps/server, apps/extension
         ├─> lsp-core (extension-host LSP stack factory)
         │     └─> apps/server, apps/extension
-        ├─> designer-ui (React UI library; ./editor subpath; HostEditorCapabilities)
+        ├─> designer-ui (React UI library; ./editor subpath; HostEditorCapabilities;
+        │     transport-agnostic ApiTransport port)
         │     └─> apps/web, apps/extension/webview-ui
         └─> apps/web, apps/extension
+
+apps/web -- type only (AppType for hc<AppType>) --> apps/server
 ```
 
 **Forbidden directions** (enforced by ESLint where possible):
 
 - `apps/web` must **not** import `@vnext-forge/services-core` or any deep path under it.
 - `apps/web` must **not** import from `@vnext-forge/designer-ui/dist/**`.
-- `apps/*` must not import each other.
+- `apps/*` must not import each other at runtime.
 - `packages/*` must not import `apps/*`.
+
+**Documented exception** — `apps/web` may `import type { AppType } from '@vnext-forge/server'` from a single HTTP API shell module (`apps/web/src/shared/api/client.ts`). Type-only; erased at build time. ESLint `no-restricted-imports` narrows this exception. See [ADR 007](./docs/architecture/adr/007-rest-migration.md) and [dependency-policy doc](./docs/architecture/dependency-policy.md).
 
 ---
 
@@ -350,9 +365,20 @@ modules/              -> user-facing business modules with local UI/state/servic
 
 shared/
   ui/                 -> generic primitives
-  api/                -> postMessage transport client (client.ts, vscodeTransport.ts)
+  api/                -> Hono RPC client (client.ts: hc<AppType>, callApi, unwrapApi),
+                         api-envelope.ts (response shape validation), trace-headers.ts
+                         (X-Trace-Id / traceparent injection), api-v1-client.ts type helper
   config/             -> config.ts (Zod-validated singleton; reads import.meta.env / .env, falls back to baked-in defaults)
   lib/                -> logger, error helpers, utility modules
+
+services/             -> domain service modules wrapping apiClient.api.v1.*
+                         (files.service.ts, projects.service.ts, validate.service.ts,
+                         templates.service.ts, runtime.service.ts, health.service.ts);
+                         each function returns Promise<ApiResponse<T>>
+
+transport/            -> HttpTransport.ts — implements designer-ui's ApiTransport port;
+                         metadata-driven (reads METHOD_HTTP_METADATA from app-contracts)
+                         and is registered with DesignerUiProvider in main.tsx
 ```
 
 Pages should stay thin. Business logic should usually live in the owning module.
@@ -367,34 +393,62 @@ Current guidance:
 
 ---
 
-### Web ↔ Extension Host Communication (postMessage)
+### Web ↔ Server Communication (HTTP REST)
 
-There is **no HTTP server**. The webview calls `sendToHost({ method, params })` in `shared/api/vscodeTransport.ts`. The extension host's `MessageRouter` receives the message, calls the matching handler, and replies with an `ApiResponse<T>`.
+The web shell communicates with `apps/server` over **per-method REST endpoints** under `/api/v1/<domain>/<action>`. There is no longer a single `/api/rpc` entry. The wire shape (verb, params source, success status) for every method comes from `METHOD_HTTP_METADATA` in `@vnext-forge/app-contracts` — both server (route registration) and client (transport / RPC chain) read from it.
 
 ```ts
 // web side — shared/api/client.ts
-export async function callApi<T>(request: ApiRequest): Promise<ApiResponse<T>>
-export async function unwrapApi<T>(request: ApiRequest, fallbackMessage?: string): Promise<T>
+export const apiClient = hc<AppType>(config.apiBaseUrl, { fetch: createTraceInjectingFetch() });
+export async function callApi<T>(response: Response | Promise<Response>): Promise<ApiResponse<T>>
+export async function unwrapApi<T>(response: Response | Promise<Response>, fallbackMessage?: string): Promise<T>
 
-// message shape (web → host)
+// canonical service call (apps/web/src/services/*)
+import { apiClient, callApi } from '@shared/api/client';
+const projects = await callApi<ProjectInfo[]>(apiClient.api.v1.projects.list.$get());
+```
+
+**Method id convention (one source of truth across both shells):** `<domain>/<action>` (e.g. `projects/list`, `workspace/getConfig`, `validate/workflow`, `files/write`). The slash form aligns the method id with the REST URL path under `/api/v1/`.
+
+When adding a new method:
+
+1. Add the registry entry (`paramsSchema`, `resultSchema`, `capabilities`, `handler`) to `packages/services-core/src/registry/method-registry.ts`.
+2. Add a `MethodHttpSpec` entry (verb, paramSource, successStatus) to `packages/app-contracts/src/method-http.ts` and update `MethodId`.
+3. Add a route in `apps/server/src/api/v1/<domain>.routes.ts` that delegates to `createDispatchHelper`.
+4. Add a fixture under `packages/services-core/test/fixtures/<domain>/<action>.json` and update the snapshot.
+5. Add the typed wrapper in `apps/web/src/services/<domain>.service.ts` for web callers.
+
+### Web ↔ Webview ↔ Extension Host Communication (postMessage)
+
+In **extension mode** the same React app boots inside a VS Code webview. There the webview calls `sendToHost({ method, params })` in the extension-side transport, and the extension host's `MessageRouter` dispatches to handlers via the same `services-core` `dispatchMethod`. The on-the-wire envelope is still `ApiResponse<T>` and method ids use the same slash form.
+
+```ts
+// message shape (webview → host)
 { requestId: string; type: 'api'; method: string; params: unknown }
 
-// reply shape (host → web)
+// reply shape (host → webview)
 { requestId: string; response: ApiResponse<T> }
 ```
 
-**Method naming convention:** `<domain>.<action>`, for example `projects.list`, `workspace.getConfig`, `validate.workflow`, `files.write`.
-
 **LSP messages** use a separate type field:
 ```ts
-// web → host
+// webview → host
 { type: 'lsp'; event: 'connect' | 'message' | 'disconnect'; sessionId: string; data?: unknown }
 
-// host → web
+// host → webview
 { type: 'lsp'; event: 'message' | 'close'; sessionId: string; data?: unknown }
 ```
 
-When adding new capabilities, add a handler in `apps/extension/src/handlers/<domain>/` and register the method string in `MessageRouter.handle()`. Add the corresponding `callApi` call in the appropriate web module's `*Api.ts` file.
+When adding new capabilities for the extension shell, the `MessageRouter` already routes to the same `services-core` registry — no per-method switch case is needed. Add the typed wrapper to the relevant module's `*Api.ts` (or to `apps/web/src/services/*`) for callers.
+
+### designer-ui transport-agnostic port
+
+`packages/designer-ui` ships an `ApiTransport` port and `callApi` / `unwrapApi` helpers. Each shell registers exactly one transport:
+
+- `apps/web` registers `HttpTransport` (REST → server, metadata-driven).
+- `apps/extension/webview-ui` registers `VsCodeTransport` (postMessage → host).
+
+designer-ui itself remains transport-agnostic (no `services-core` import).
 
 **Host → Webview push messages** (not tied to a `requestId`):
 ```ts
@@ -422,20 +476,20 @@ renders the designer that corresponds to the active route.
 
 ---
 
-### apps/server (active Hono RPC backend)
+### apps/server (active Hono REST backend)
 
-`apps/server` is the **active Hono RPC backend** for the web shell. It exposes a single `/api/rpc` endpoint backed by `packages/services-core`'s method registry, plus auxiliary `/api/health` and LSP WebSocket routes.
+`apps/server` is the **active Hono REST backend** for the web shell. It exposes per-method REST endpoints under `/api/v1/<domain>/<action>` backed by `packages/services-core`'s method registry, plus auxiliary `/api/health` and LSP WebSocket routes. Each route is a thin handler that delegates to `createDispatchHelper`, which extracts params from query or JSON body (per `MethodHttpSpec`), calls `dispatchMethod`, and maps success to the configured HTTP status (`200` or `201`).
 
 The server is **bound to loopback by default** and is hardened with:
 
 - Body limit + JSON parse middleware (`apps/server/src/shared/middleware/body-limit.ts`)
-- Explicit CORS allowlist (`apps/server/src/shared/middleware/cors.ts`)
+- Explicit CORS allowlist with `GET/POST/PUT/DELETE/OPTIONS` (`apps/server/src/shared/middleware/cors.ts`)
 - Per-method capability policy (read-only / writes-files / spawns-process / talks-runtime)
 - Runtime-proxy URL allowlist (SSRF defense; `packages/services-core/src/services/runtime-proxy/`)
 - Filesystem jail (realpath + approved roots; symlinks rejected)
 - LSP WebSocket policy (max message bytes, max connections, origin check)
 - `trace-v1` header contract — server always generates its own `X-Trace-Id`; inbound `traceparent` is recorded as `linkedTraceId` only
 
-When changing anything under `apps/server/src/**`, the **`server-hardening.mdc` rule** auto-loads. See [`./CLAUDE.SERVER.md`](./CLAUDE.SERVER.md) for the full server playbook.
+When changing anything under `apps/server/src/**`, the **`server-hardening.mdc` rule** auto-loads. See [`./CLAUDE.SERVER.md`](./CLAUDE.SERVER.md) for the full server playbook and [ADR 007](./docs/architecture/adr/007-rest-migration.md) for the REST migration rationale.
 
-`apps/extension/src/handlers/*` exists in parallel for the VS Code `postMessage` path and shares the same `services-core` registry where possible.
+`apps/extension/src/MessageRouter.ts` exists in parallel for the VS Code `postMessage` path and shares the **same** `services-core` registry through `dispatchMethod` — no duplicate per-method wiring per shell.

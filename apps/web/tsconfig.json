@@ -4,12 +4,16 @@
     "jsx": "react-jsx",
     "outDir": "./dist",
     "rootDir": "./src",
-    "noEmit": true
+    "noEmit": true,
+    "paths": {
+      "@shared/*": ["./src/shared/*"]
+    }
   },
   "include": ["src"],
   "references": [
     { "path": "../../packages/vnext-types" },
     { "path": "../../packages/app-contracts" },
-    { "path": "../../packages/designer-ui" }
+    { "path": "../../packages/designer-ui" },
+    { "path": "../server" }
   ]
 }

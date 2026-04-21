@@ -1,15 +1,16 @@
 ---
-description: RPC method registry policy. Auto-loads when editing the services-core registry or the apps/server RPC router. Every method must declare paramsSchema, resultSchema, a capability tag, a JSON fixture, and stay within the snapshot of sorted method names.
+description: Method registry policy. Auto-loads when editing the services-core registry, the per-domain REST routers, or the HTTP method metadata. Every method must declare paramsSchema, resultSchema, a capability tag, a JSON fixture, a MethodHttpSpec entry, and stay within the snapshot of sorted method names.
 globs:
   - "packages/services-core/src/registry/**/*.ts"
   - "packages/services-core/src/services/**/*.ts"
-  - "apps/server/src/rpc/**/*.ts"
+  - "packages/app-contracts/src/method-http.ts"
+  - "apps/server/src/api/v1/**/*.ts"
 alwaysApply: false
 ---
 
-# RPC Method Policy
+# Method Registry Policy
 
-> **Loads when editing**: registry, dispatch, services, or the RPC router.
+> **Loads when editing**: the registry, dispatch, services, the per-domain REST routers under `apps/server/src/api/v1/`, or the shared `method-http.ts` metadata.
 
 ## Method definition contract
 
@@ -17,18 +18,42 @@ Every entry in the method registry must declare:
 
 | Field | Required | Notes |
 |-------|----------|-------|
-| `name` | yes | `<domain>.<action>`, kebab-case domain, lowerCamelCase action (`projects.list`, `runtime.proxy`). |
-| `paramsSchema` | yes | A Zod schema. Use `.strict()` unless additive evolution is intended. |
+| `name` | yes | Slash-form id `<domain>/<action>` (`projects/list`, `runtime/proxy`, `files/read`). Lowercase domain segments, lowerCamelCase action. The same id is the URL path under `/api/v1/`, the `MessageRouter` method field, and the fixture file path. |
+| `paramsSchema` | yes | A Zod schema. Use `.strict()` unless additive evolution is intended. For methods bound as `paramSource: 'query'`, primitive fields must use `z.coerce.*` so `?flag=true` parses correctly. |
 | `resultSchema` | yes | Zod schema for the success payload. |
 | `capabilities` | yes | Array of `'reads-files' \| 'writes-files' \| 'spawns-process' \| 'talks-runtime'`. Empty array means **pure**. The dispatcher gates the call. |
 | `handler` | yes | `async (params, ctx) => result`. May `throw VnextForgeError` for typed failures. |
 | `description` | recommended | Single-line; ends up in generated docs. |
 
+## HTTP metadata contract
+
+Every method id MUST also have a matching entry in [`packages/app-contracts/src/method-http.ts`](../../packages/app-contracts/src/method-http.ts):
+
+| Field | Notes |
+|-------|-------|
+| `verb` | One of `GET`, `POST`, `PUT`, `DELETE`. Reads → `GET`; mutations → `POST` (use `PUT`/`DELETE` only for true idempotent / removal semantics). |
+| `paramSource` | `'query'` for `GET`, `'json'` for body-carrying verbs. |
+| `successStatus` | `200` (default) or `201` (resource creation). |
+
+The `MethodId` union must include the new id so the typed client (`hc<AppType>`) and `getMethodHttpSpec()` callers stay sound.
+
 ## Contract tests (R-b9 / R-a2)
 
-- A snapshot test pins the **sorted method names**. Adding/removing/renaming a method requires updating the snapshot in the same PR.
-- For each method, place a JSON fixture under `packages/services-core/test/fixtures/<method-name>.json` with `{ params, result }`. The fixture is validated against `paramsSchema` and `resultSchema` automatically.
-- Run `pnpm --filter @vnext-forge/services-core test` after any registry change.
+- A snapshot test in `packages/services-core/test/registry-contract.test.ts` pins the **sorted method names**. Adding/removing/renaming a method requires updating the snapshot in the same PR.
+- For each method, place a JSON fixture under `packages/services-core/test/fixtures/<domain>/<action>.json` with `{ params, result }`. The fixture is validated against `paramsSchema` and `resultSchema` automatically.
+- A parity test enforces that every registry key has a `MethodHttpSpec` entry and vice versa — drift fails the build.
+- Run `pnpm --filter @vnext-forge/services-core test` after any registry or metadata change.
+
+## Server route registration
+
+Each domain has a router in `apps/server/src/api/v1/<domain>.routes.ts`. New routes are one-liners that delegate to `createDispatchHelper` — do **not** open a second Zod parser at the route layer:
+
+```ts
+app.get('/<domain>/<action>', (c) => dispatch(c, '<domain>/<action>', { source: 'query' }));
+app.post('/<domain>/<action>', (c) => dispatch(c, '<domain>/<action>', { source: 'json' }));
+```
+
+The helper builds the trusted `caller` context (loopback / origin / allowedOrigins), calls `dispatchMethod`, and maps success to `ok` / `created` based on `successStatus`.
 
 ## Capability enforcement
 
@@ -40,9 +65,12 @@ Every entry in the method registry must declare:
 - Importing `apps/*` from `packages/services-core/**`.
 - Reading `process.env` directly inside a service. Take it as a constructor/factory parameter wired from the shell's config.
 - Returning anything other than the declared `resultSchema` shape on success. Returning `undefined` is allowed only if `resultSchema` is `z.void()`.
+- Re-introducing a single `/api/rpc` entry on the server, or adding a per-method `switch` in the extension `MessageRouter` instead of going through `dispatchMethod`.
+- Defining the verb / param source / success status anywhere other than `MethodHttpSpec` (no inline literals in routers).
 
 ## Cross-references
 
 - `.cursor/skills/shared/error-taxonomy/SKILL.md`
 - `.cursor/skills/shared/dependency-policy/SKILL.md`
-- [`docs/architecture/adr/004-bootstrap-aggregation.md`](../../docs/architecture/adr/004-bootstrap-aggregation.md) — guidance on aggregating RPCs vs creating new ones.
+- [`docs/architecture/adr/004-bootstrap-aggregation.md`](../../docs/architecture/adr/004-bootstrap-aggregation.md) — guidance on aggregating methods vs creating new ones.
+- [`docs/architecture/adr/007-rest-migration.md`](../../docs/architecture/adr/007-rest-migration.md) — REST per-method routes + dispatch bridge rationale.

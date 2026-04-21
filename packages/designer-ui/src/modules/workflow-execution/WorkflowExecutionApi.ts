@@ -16,7 +16,7 @@ export interface RuntimeHealthSnapshot {
 }
 
 export async function checkRuntimeHealth(): Promise<ApiResponse<RuntimeHealthSnapshot>> {
-  const response = await callApi<unknown>({ method: 'health.check' });
+  const response = await callApi<unknown>({ method: 'health/check' });
 
   if (!response.success) {
     return response;

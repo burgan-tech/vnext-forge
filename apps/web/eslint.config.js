@@ -15,6 +15,11 @@ export default createWorkspaceConfig({
       {
         paths: [
           {
+            name: '@vnext-forge/server',
+            message:
+              'Import `@vnext-forge/server` only from `src/shared/api/client.ts` (type-only `AppType` for `hc`) — use `@shared/api` / `HttpTransport` elsewhere.',
+          },
+          {
             name: '@vnext-forge/services-core',
             message:
               'Import services through designer-ui / ProjectApi or @vnext-forge/app-contracts from apps/web — not services-core directly.',
@@ -55,6 +60,35 @@ export default createWorkspaceConfig({
     {
       files: ['src/**/*.{ts,tsx}'],
       ...reactRefresh.configs.vite,
+    },
+    {
+      files: ['src/shared/api/**/*.{ts,tsx}'],
+      rules: {
+        'no-restricted-imports': [
+          'error',
+          {
+            paths: [
+              {
+                name: '@vnext-forge/services-core',
+                message:
+                  'Import services through designer-ui / ProjectApi or @vnext-forge/app-contracts from apps/web — not services-core directly.',
+              },
+            ],
+            patterns: [
+              {
+                group: ['**/packages/services-core/**', '**/services-core/src/**'],
+                message:
+                  'Do not deep-import the services-core package from apps/web; use workspace HTTP/RPC boundaries.',
+              },
+              {
+                group: ['@vnext-forge/designer-ui/dist/**'],
+                message:
+                  'Import from @vnext-forge/designer-ui (or documented subpaths like /ui, /editor) — not compiled dist paths.',
+              },
+            ],
+          },
+        ],
+      },
     },
   ],
 });

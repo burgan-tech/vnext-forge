@@ -8,47 +8,48 @@ import {
 
 describe('capability policy', () => {
   it('classifies privileged FS / proxy methods correctly', () => {
-    expect(methodCapability('files.read')).toBe('privileged')
-    expect(methodCapability('files.write')).toBe('privileged')
-    expect(methodCapability('files.delete')).toBe('privileged')
-    expect(methodCapability('files.browse')).toBe('privileged')
-    expect(methodCapability('runtime.proxy')).toBe('privileged')
-    expect(methodCapability('projects.create')).toBe('privileged')
-    expect(methodCapability('projects.import')).toBe('privileged')
-    expect(methodCapability('projects.remove')).toBe('privileged')
-    expect(methodCapability('projects.export')).toBe('privileged')
-    expect(methodCapability('projects.writeConfig')).toBe('privileged')
-    expect(methodCapability('projects.seedVnextComponentLayout')).toBe('privileged')
+    expect(methodCapability('files/read')).toBe('privileged')
+    expect(methodCapability('files/write')).toBe('privileged')
+    expect(methodCapability('files/delete')).toBe('privileged')
+    expect(methodCapability('files/browse')).toBe('privileged')
+    expect(methodCapability('runtime/proxy')).toBe('privileged')
+    expect(methodCapability('projects/create')).toBe('privileged')
+    expect(methodCapability('projects/import')).toBe('privileged')
+    expect(methodCapability('projects/remove')).toBe('privileged')
+    expect(methodCapability('projects/export')).toBe('privileged')
+    expect(methodCapability('projects/writeConfig')).toBe('privileged')
+    expect(methodCapability('projects/seedVnextComponentLayout')).toBe('privileged')
   })
 
   it('classifies read-only / pure methods as public', () => {
-    expect(methodCapability('projects.list')).toBe('public')
-    expect(methodCapability('projects.getById')).toBe('public')
-    expect(methodCapability('projects.getTree')).toBe('public')
-    expect(methodCapability('projects.getConfig')).toBe('public')
-    expect(methodCapability('projects.getWorkspaceBootstrap')).toBe('public')
-    expect(methodCapability('validate.workflow')).toBe('public')
-    expect(methodCapability('validate.getSchema')).toBe('public')
-    expect(methodCapability('health.check')).toBe('public')
+    expect(methodCapability('projects/list')).toBe('public')
+    expect(methodCapability('projects/getById')).toBe('public')
+    expect(methodCapability('projects/getTree')).toBe('public')
+    expect(methodCapability('projects/getConfig')).toBe('public')
+    expect(methodCapability('projects/getWorkspaceBootstrap')).toBe('public')
+    expect(methodCapability('validate/workflow')).toBe('public')
+    expect(methodCapability('validate/getSchema')).toBe('public')
+    expect(methodCapability('health/check')).toBe('public')
   })
 
   it('returns undefined for unknown methods so the dispatcher fails closed', () => {
+    // intentionally invalid: tests unknown method rejection
     expect(methodCapability('not.a.method')).toBeUndefined()
   })
 
   it('bypasses the gate when the caller is trusted', () => {
     expect(() =>
-      assertCapabilityAllowed('files.write', { trusted: true }, 'trace-123'),
+      assertCapabilityAllowed('files/write', { trusted: true }, 'trace-123'),
     ).not.toThrow()
     expect(() =>
-      assertCapabilityAllowed('runtime.proxy', { trusted: true }),
+      assertCapabilityAllowed('runtime/proxy', { trusted: true }),
     ).not.toThrow()
   })
 
   it('rejects privileged methods when the origin is not allow-listed', () => {
     expect(() =>
       assertCapabilityAllowed(
-        'files.write',
+        'files/write',
         {
           trusted: false,
           origin: 'http://attacker.example.com',
@@ -61,7 +62,7 @@ describe('capability policy', () => {
 
   it('accepts privileged methods when the origin IS allow-listed', () => {
     expect(() =>
-      assertCapabilityAllowed('files.write', {
+      assertCapabilityAllowed('files/write', {
         trusted: false,
         origin: 'http://localhost:5173',
         allowedOrigins: ['http://localhost:5173'],
@@ -72,7 +73,7 @@ describe('capability policy', () => {
   it('rejects privileged methods when no origin header is supplied', () => {
     let caught: VnextForgeError | undefined
     try {
-      assertCapabilityAllowed('runtime.proxy', {
+      assertCapabilityAllowed('runtime/proxy', {
         trusted: false,
         origin: null,
         allowedOrigins: ['http://localhost:5173'],
@@ -85,14 +86,14 @@ describe('capability policy', () => {
 
   it('always allows public methods regardless of origin', () => {
     expect(() =>
-      assertCapabilityAllowed('projects.list', {
+      assertCapabilityAllowed('projects/list', {
         trusted: false,
         origin: 'http://attacker.example.com',
         allowedOrigins: [],
       }),
     ).not.toThrow()
     expect(() =>
-      assertCapabilityAllowed('health.check', {
+      assertCapabilityAllowed('health/check', {
         trusted: false,
         origin: null,
         allowedOrigins: [],
@@ -101,6 +102,7 @@ describe('capability policy', () => {
   })
 
   it('fails closed for unknown methods', () => {
+    // intentionally invalid: tests unknown method rejection
     expect(() =>
       assertCapabilityAllowed('not.a.method', {
         trusted: false,

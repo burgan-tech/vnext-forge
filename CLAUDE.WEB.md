@@ -1,6 +1,6 @@
 # apps/web - Context
 
-> **Scope:** `apps/web` (web frontend). Load with the repo-wide [`./CLAUDE.md`](./CLAUDE.md) whenever editing under `apps/web`. The app uses the **active `apps/server` Hono RPC backend** (not deprecated); the Hono RPC client routes through it. When editing **`packages/designer-ui`**, also load [`./CLAUDE.DESIGNER-UI.md`](./CLAUDE.DESIGNER-UI.md). **Skills:** web — [theme-color-system](./.cursor/skills/web/theme-color-system/SKILL.md), [icon-creation](./.cursor/skills/web/icon-creation/SKILL.md), [notification-container-pattern](./.cursor/skills/web/notification-container-pattern/SKILL.md); shared — [error-taxonomy](./.cursor/skills/shared/error-taxonomy/SKILL.md), [trace-headers](./.cursor/skills/shared/trace-headers/SKILL.md), [dependency-policy](./.cursor/skills/shared/dependency-policy/SKILL.md). Architecture, API access, routing, error handling, async flows, state, components, and forms below always apply here.
+> **Scope:** `apps/web` (web frontend). Load with the repo-wide [`./CLAUDE.md`](./CLAUDE.md) whenever editing under `apps/web`. The app talks to the **active `apps/server` Hono REST backend** through the type-safe `hc<AppType>` client at `apps/web/src/shared/api/client.ts`; designer-ui modules use the package's transport-agnostic `ApiTransport` port, which `apps/web` registers via `HttpTransport` (REST). When editing **`packages/designer-ui`**, also load [`./CLAUDE.DESIGNER-UI.md`](./CLAUDE.DESIGNER-UI.md). **Skills:** web — [theme-color-system](./.cursor/skills/web/theme-color-system/SKILL.md), [icon-creation](./.cursor/skills/web/icon-creation/SKILL.md), [notification-container-pattern](./.cursor/skills/web/notification-container-pattern/SKILL.md); shared — [error-taxonomy](./.cursor/skills/shared/error-taxonomy/SKILL.md), [trace-headers](./.cursor/skills/shared/trace-headers/SKILL.md), [dependency-policy](./.cursor/skills/shared/dependency-policy/SKILL.md). Architecture, API access, routing, error handling, async flows, state, components, and forms below always apply here.
 
 `apps/web` is the web client of vnext-forge. The standalone product framing belongs to the monorepo and product as a whole, not to `apps/web` as an isolated application.
 
@@ -85,8 +85,9 @@ Two slices touch the same project surface. Do not collapse them into one shared 
 |------------|------|
 | `@vnext-forge/services-core` | **Do not import** from `apps/web` (no deep paths). |
 | `@vnext-forge/designer-ui/dist/**` | **Do not import.** Use `@vnext-forge/designer-ui` or `@vnext-forge/designer-ui/editor`. |
+| `@vnext-forge/server` | **Type-only** imports allowed **only** in `apps/web/src/shared/api/**` (specifically `client.ts` for `AppType`). No runtime imports — see [ADR 007](./docs/architecture/adr/007-rest-migration.md). |
 
-Enforced by `apps/web/eslint.config.js` (`no-restricted-imports`). Full policy: [`.cursor/skills/shared/dependency-policy/SKILL.md`](./.cursor/skills/shared/dependency-policy/SKILL.md), [`docs/architecture/dependency-policy.md`](./docs/architecture/dependency-policy.md).
+Enforced by `apps/web/eslint.config.js` (`no-restricted-imports`, narrowed for the `shared/api/**` exception). Full policy: [`.cursor/skills/shared/dependency-policy/SKILL.md`](./.cursor/skills/shared/dependency-policy/SKILL.md), [`docs/architecture/dependency-policy.md`](./docs/architecture/dependency-policy.md).
 
 ## Workspace Config Types
 
@@ -98,15 +99,18 @@ Enforced by `apps/web/eslint.config.js` (`no-restricted-imports`). Full policy: 
 
 ## API Access
 
-All server communication goes through the Hono RPC client in `shared/api/client.ts`. The client’s **base URL** comes from the **per-shell config singleton** (web vs extension webview), not a hardcoded origin.
+All server communication goes through the type-safe Hono client `apiClient = hc<AppType>(...)` in `shared/api/client.ts`. The client's **base URL** comes from the **per-shell config singleton**, not a hardcoded origin. The client wraps fetch with `createTraceInjectingFetch()` so every outbound request carries `X-Trace-Id` and W3C `traceparent` headers (see [ADR 002](./docs/architecture/adr/002-trace-headers.md)).
 
-**Bootstrap:** load initial workspace-shaped data via **`projects.getWorkspaceBootstrap`** once where the product needs aggregation — see [ADR 004](./docs/architecture/adr/004-bootstrap-aggregation.md). **Do not** fan out multiple parallel “initial load” RPCs for the same aggregated payload.
+**Wire shape per method** is defined once in `@vnext-forge/app-contracts/method-http.ts` (`METHOD_HTTP_METADATA` / `getMethodHttpSpec`) and consumed by both the server route registration and the web `HttpTransport` adapter (`apps/web/src/transport/HttpTransport.ts`) used by `designer-ui`.
+
+**Bootstrap:** load initial workspace-shaped data via **`projects.getWorkspaceBootstrap`** once where the product needs aggregation — see [ADR 004](./docs/architecture/adr/004-bootstrap-aggregation.md). **Do not** fan out multiple parallel "initial load" calls for the same aggregated payload.
 
 The intended call chain is:
 
 ```text
-shared/api/client.ts
-  -> owning service module (usually module-local, returns Promise<ApiResponse<T>>)
+shared/api/client.ts (apiClient = hc<AppType>(...))
+  -> owning service module under apps/web/src/services/<domain>.service.ts
+     (or module-local *Api.ts that delegates to one of those services)
   -> module hook or action
   -> UI
 ```
@@ -114,38 +118,45 @@ shared/api/client.ts
 ### Helpers
 
 ```ts
-// For useAsync; returns ApiResponse<T>
+// For useAsync; returns ApiResponse<T>; validates envelope shape
 callApi<T>(response: Response | Promise<Response>): Promise<ApiResponse<T>>
 
 // For imperative use outside useAsync; throws VnextForgeError on failure
 unwrapApi<T>(response: Response | Promise<Response>, fallbackMessage?: string): Promise<T>
 ```
 
+Both helpers route through `shared/api/api-envelope.ts` for response shape validation and `shared/lib/error/vNextErrorHelpers.ts` for `VnextForgeError` normalization.
+
 ### Rules
 
 - Do not call `apiClient` directly from pages, components, hooks, or JSX.
-- Keep direct `apiClient` calls in the owning service module.
-- `callApi` and `unwrapApi` should appear only in `shared/api` or in the owning module service boundary.
+- Keep direct `apiClient` calls in the owning service module (`apps/web/src/services/*` or a thin module-local `*Api.ts` facade).
+- `callApi` and `unwrapApi` should appear only in `shared/api`, `apps/web/src/services/*`, or the owning module service boundary.
 - Only lift service code into `shared/*` when it is truly generic and stable across modules.
 - Do not use raw `fetch` anywhere in the web app.
 - Service functions return `Promise<ApiResponse<T>>` for normal flows.
-- Name service functions by business intent, not HTTP verbs alone.
+- Name service functions by business intent (`list`, `create`, `getWorkspaceBootstrap`), not HTTP verbs alone.
 - Use response helpers from `@vnext-forge/app-contracts` (`isSuccess`, `isFailure`, `fold`, `getData`, `getError`, `unwrap`, `unwrapOr`) for branching.
+- Type-only imports from `@vnext-forge/server` are allowed **only** under `shared/api/**` (specifically `client.ts` for the `AppType` Hono `hc` typing) — see [ADR 007](./docs/architecture/adr/007-rest-migration.md). Runtime imports from the server are forbidden.
 
 ### Default service pattern
 
 ```ts
-// modules/project-management/ProjectApi.ts
+// apps/web/src/services/projects.service.ts
 import { apiClient, callApi } from '@shared/api/client';
+import type { ApiResponse } from '@vnext-forge/app-contracts';
 
-export const projectApi = {
-  list: () => callApi<ProjectInfo[]>(apiClient.api.projects.$get()),
-  remove: (id: string) =>
-    callApi<void>(apiClient.api.projects[':id'].$delete({ param: { id } })),
+export const projectsService = {
+  list(): Promise<ApiResponse<ProjectInfo[]>> {
+    return callApi<ProjectInfo[]>(apiClient.api.v1.projects.list.$get());
+  },
+  create(input: CreateProjectInput): Promise<ApiResponse<ProjectInfo>> {
+    return callApi<ProjectInfo>(apiClient.api.v1.projects.create.$post({ json: input }));
+  },
 };
 ```
 
-Hooks and actions consume the service. The `callApi` wrapping stays inside the service; the hook never touches `apiClient` or `callApi` directly.
+Module-local `*Api.ts` files (e.g. `modules/project-management/ProjectApi.ts`) act as thin facades over these services and preserve the module's external API. Hooks and actions consume the service; `callApi` wrapping stays inside the service and the hook never touches `apiClient` or `callApi` directly.
 
 ## Routing, Suspense, Error boundary
 

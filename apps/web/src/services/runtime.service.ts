@@ -1,0 +1,9 @@
+import type { ApiResponse } from '@vnext-forge/app-contracts';
+
+import { callApi } from '@shared/api';
+
+import { v1 } from './v1';
+
+export async function proxy(params: unknown): Promise<ApiResponse<unknown>> {
+  return callApi(v1.runtime.proxy.$post({ json: params }));
+}

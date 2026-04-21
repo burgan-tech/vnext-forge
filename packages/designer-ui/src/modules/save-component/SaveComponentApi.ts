@@ -22,7 +22,7 @@ function parseComponentObject(content: unknown): Record<string, unknown> {
 
 export function saveComponentFile(path: string, content: string) {
   return callApi<void>({
-    method: 'files.write',
+    method: 'files/write',
     params: { path, content },
   });
 }
@@ -34,7 +34,7 @@ export async function loadComponentFile({
 }: LoadComponentFileParams): Promise<ApiResponse<ComponentFileDocument>> {
   try {
     const data = await unwrapApi<{ content: string }>(
-      { method: 'files.read', params: { path: filePath } },
+      { method: 'files/read', params: { path: filePath } },
       errorMessage,
     );
     const parsedContent =

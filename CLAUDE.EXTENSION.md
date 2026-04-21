@@ -8,7 +8,7 @@ VS Code extension that **hosts the designer webview**, runs the **shared LSP sta
 
 ## Composition root
 
-`src/composition/services.ts` constructs services from **`@vnext-forge/services-core`**, wired with **`extensionConfig`** from the extension’s validated singleton. This is the composition root for service lifetime and dependencies.
+`src/composition/services.ts` constructs services from **`@vnext-forge/services-core`**, wired with **`extensionConfig`** from the extension's validated singleton. This is the composition root for service lifetime and dependencies. `src/MessageRouter.ts` then bridges webview `postMessage` requests to **`dispatchMethod`** using the same registry consumed by `apps/server` — there is no per-method switch case in the extension shell. Method ids on the wire use the canonical slash-form `<domain>/<action>` (e.g. `projects/list`, `files/read`).
 
 ## Per-shell config
 
@@ -61,7 +61,7 @@ From `apps/extension/package.json`:
 
 ## Error / trace contract
 
-Handlers throw **`VnextForgeError`**; **`MessageRouter`** serializes failures to **`ApiFailure`** including **`traceId`**. See [error-taxonomy](./.cursor/skills/shared/error-taxonomy/SKILL.md) and [trace-headers](./.cursor/skills/shared/trace-headers/SKILL.md).
+Method handlers throw **`VnextForgeError`**; **`MessageRouter`** catches via `dispatchMethod` and serializes failures to **`ApiFailure`** including **`traceId`** (extension-side trace id source per [`./docs/architecture/adr/002-trace-headers.md`](./docs/architecture/adr/002-trace-headers.md)). See [error-taxonomy](./.cursor/skills/shared/error-taxonomy/SKILL.md) and [trace-headers](./.cursor/skills/shared/trace-headers/SKILL.md).
 
 ## Dependency boundaries
 

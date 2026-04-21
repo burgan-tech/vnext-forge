@@ -27,7 +27,7 @@ export interface WorkspaceBrowseResult {
 
 export function browseWorkspace(path?: string) {
   return callApi<WorkspaceBrowseResult>({
-    method: 'files.browse',
+    method: 'files/browse',
     params: path ? { path } : {},
   });
 }
@@ -35,7 +35,7 @@ export function browseWorkspace(path?: string) {
 /** Project file tree from the extension host `projects.getTree`. */
 export async function getProjectTree(projectId: string): Promise<ApiResponse<FileTreeNode>> {
   const res = await callApi<{ root: FileTreeNode }>({
-    method: 'projects.getTree',
+    method: 'projects/getTree',
     params: { id: projectId },
   });
   if (!res.success) return res;
@@ -44,7 +44,7 @@ export async function getProjectTree(projectId: string): Promise<ApiResponse<Fil
 
 export function readFile(path: string) {
   return unwrapApi<{ content: string }>(
-    { method: 'files.read', params: { path: normalizeFilePath(path) } },
+    { method: 'files/read', params: { path: normalizeFilePath(path) } },
     'Failed to read file',
   );
 }
@@ -64,28 +64,28 @@ export async function readOptionalFile(path: string): Promise<{ content: string 
 
 export function writeFile(path: string, content: string) {
   return callApi<void>({
-    method: 'files.write',
+    method: 'files/write',
     params: { path: normalizeFilePath(path), content },
   });
 }
 
 export function deleteFile(path: string) {
   return callApi<void>({
-    method: 'files.delete',
+    method: 'files/delete',
     params: { path: normalizeFilePath(path) },
   });
 }
 
 export function createDirectory(path: string) {
   return callApi<void>({
-    method: 'files.mkdir',
+    method: 'files/mkdir',
     params: { path: normalizeFilePath(path) },
   });
 }
 
 export function renameFile(oldPath: string, newPath: string) {
   return callApi<void>({
-    method: 'files.rename',
+    method: 'files/rename',
     params: { oldPath: normalizeFilePath(oldPath), newPath: normalizeFilePath(newPath) },
   });
 }
@@ -108,7 +108,7 @@ export interface FileSearchResult {
 
 export function searchFiles(opts: FileSearchOptions) {
   return callApi<FileSearchResult[]>({
-    method: 'files.search',
+    method: 'files/search',
     params: {
       q: opts.query,
       project: opts.projectPath,

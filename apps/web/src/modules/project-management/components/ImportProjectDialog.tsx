@@ -51,15 +51,16 @@ export function ImportProjectDialog({ onImported, disabled }: ImportProjectDialo
       </Button>
 
       <Dialog open={importProject.open} onOpenChange={importProject.setOpen}>
-        <DialogContent className="border-border bg-surface max-w-xl rounded-[28px] p-0">
-          <div className="space-y-5 p-6">
-            <DialogHeader className="space-y-1 text-left">
-              <DialogTitle>Import Project</DialogTitle>
-              <DialogDescription>
-                Browse the workspace and select an existing project folder to link.
-              </DialogDescription>
-            </DialogHeader>
+        <DialogContent
+          className="border-border bg-surface flex max-h-[calc(100vh-4rem)] max-w-lg flex-col gap-0 overflow-hidden rounded-[28px] p-0">
+          <DialogHeader className="space-y-1 px-6 pt-6 pb-4 text-left">
+            <DialogTitle>Import Project</DialogTitle>
+            <DialogDescription>
+              Browse the workspace and select an existing project folder to link.
+            </DialogDescription>
+          </DialogHeader>
 
+          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-6 pb-2">
             <FolderBrowser
               currentPath={importProject.browsePath}
               folders={importProject.folders}
@@ -93,26 +94,26 @@ export function ImportProjectDialog({ onImported, disabled }: ImportProjectDialo
                 </AlertDescription>
               </Alert>
             ) : null}
-
-            <DialogFooter>
-              <DialogCancelButton
-                variant="secondary"
-                onClick={() => importProject.setOpen(false)}
-                className="rounded-xl">
-                Cancel
-              </DialogCancelButton>
-              <Button
-                variant="default"
-                onClick={() => {
-                  void importProject.submit();
-                }}
-                loading={importProject.importing}
-                disabled={!importProject.selectedPath}
-                className="rounded-xl">
-                Import
-              </Button>
-            </DialogFooter>
           </div>
+
+          <DialogFooter className="border-border/60 bg-surface/95 border-t px-6 py-4 backdrop-blur">
+            <DialogCancelButton
+              variant="secondary"
+              onClick={() => importProject.setOpen(false)}
+              className="rounded-xl">
+              Cancel
+            </DialogCancelButton>
+            <Button
+              variant="default"
+              onClick={() => {
+                void importProject.submit();
+              }}
+              loading={importProject.importing}
+              disabled={!importProject.selectedPath}
+              className="rounded-xl">
+              Import
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>

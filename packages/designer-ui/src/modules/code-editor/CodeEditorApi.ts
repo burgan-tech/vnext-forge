@@ -6,7 +6,7 @@ function normalizeFilePath(filePath: string): string {
 
 export function writeCodeEditorFile(path: string, content: string) {
   return callApi<void>({
-    method: 'files.write',
+    method: 'files/write',
     params: { path: normalizeFilePath(path), content },
   });
 }

@@ -6,6 +6,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./ui": "./src/ui/index.ts",
+    "./assets": "./src/assets/index.ts",
     "./editor": "./src/editor/index.ts",
     "./hooks": "./src/hooks/index.ts",
     "./lib": "./src/lib/index.ts",

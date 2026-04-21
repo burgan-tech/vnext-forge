@@ -77,3 +77,15 @@ export type {
   VnextWorkspacePaths,
   VnextWorkspaceReferenceResolution,
 } from './vnext/vnext-workspace-defaults.js';
+
+export type {
+  MethodHttpVerb,
+  MethodHttpParamSource,
+  MethodHttpSpec,
+  MethodId,
+} from './method-http.js';
+export {
+  METHOD_HTTP_METADATA,
+  getMethodHttpSpec,
+  listMethodHttpSpecs,
+} from './method-http.js';

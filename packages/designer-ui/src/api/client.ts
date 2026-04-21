@@ -12,7 +12,7 @@ export interface ApiRequest {
  * ApiResponse<T>. Use this when you need to inspect `success` yourself.
  *
  * @example
- * const res = await callApi<Project[]>({ method: 'projects.list' });
+ * const res = await callApi<Project[]>({ method: 'projects/list' });
  * if (isFailure(res)) { ... }
  */
 export async function callApi<T>(request: ApiRequest): Promise<ApiResponse<T>> {
@@ -24,7 +24,7 @@ export async function callApi<T>(request: ApiRequest): Promise<ApiResponse<T>> {
  * Send a request and return the unwrapped data. Throws VnextForgeError on failure.
  *
  * @example
- * const project = await unwrapApi<Project>({ method: 'projects.getById', params: { id } });
+ * const project = await unwrapApi<Project>({ method: 'projects/getById', params: { id } });
  */
 export async function unwrapApi<T>(request: ApiRequest, fallbackMessage?: string): Promise<T> {
   const payload = await callApi<T>(request);

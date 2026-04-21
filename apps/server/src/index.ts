@@ -7,7 +7,7 @@ import { createPinoLoggerAdapter } from './adapters/pino-logger.js';
 import { composeLspBridge } from './composition/lsp.js';
 import { composeWebServerServices } from './composition/services.js';
 import { injectLspWebSocket } from './lsp/router.js';
-import { createRpcRouter } from './rpc/rpc-router.js';
+import { createApiV1Router } from './api/v1/index.js';
 import { config } from './shared/config/config.js';
 import { baseLogger } from './shared/lib/logger.js';
 import { ok } from './shared/lib/response-helpers.js';
@@ -19,7 +19,7 @@ import type { Variables } from './shared/types/hono.js';
 
 const loggerAdapter = createPinoLoggerAdapter(baseLogger);
 const { services, registry } = composeWebServerServices(loggerAdapter);
-const rpcRouter = createRpcRouter({ registry, services });
+const apiV1Router = createApiV1Router({ registry, services });
 
 // Explicit allowlist — wildcard `*` is only acceptable for fully public APIs
 // and we intentionally do not run this server in that mode. Browser shells
@@ -30,8 +30,18 @@ const corsMiddleware = cors({
     return config.corsAllowedOrigins.includes(origin) ? origin : null;
   },
   credentials: false,
-  allowMethods: ['GET', 'POST', 'OPTIONS'],
-  allowHeaders: ['Content-Type', 'Authorization', 'X-Trace-Id'],
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  // `X-Trace-Id` + W3C `traceparent`/`tracestate` are part of the `trace-v1`
+  // contract — see ADR-002 and `apps/web/src/shared/api/trace-headers.ts`.
+  // Browsers reject the preflight if any of these are missing here.
+  allowHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Trace-Id',
+    'traceparent',
+    'tracestate',
+  ],
+  exposeHeaders: ['X-Trace-Id'],
 });
 
 const app = new Hono<{ Variables: Variables }>()
@@ -39,7 +49,7 @@ const app = new Hono<{ Variables: Variables }>()
   .use('*', requestLoggerMiddleware)
   .use('*', corsMiddleware)
   .use('*', bodyLimitMiddleware)
-  .route('/api/rpc', rpcRouter)
+  .route('/api/v1', apiV1Router)
   .get('/api/health', (c) => ok(c, { status: 'ok', traceId: c.get('traceId') }));
 
 app.onError(errorHandler);

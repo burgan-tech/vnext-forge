@@ -20,7 +20,7 @@ export async function validateWorkflowDefinition(
   try {
     const localIssues = validateWorkflow(workflow);
     const remoteResult = await callApi<unknown>({
-      method: 'validate.workflow',
+      method: 'validate/workflow',
       params: { content: workflow },
     });
 

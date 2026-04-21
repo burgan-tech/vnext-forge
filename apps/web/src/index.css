@@ -9,3 +9,6 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import '@vnext-forge/designer-ui/styles.css';
+
+* {
+}
