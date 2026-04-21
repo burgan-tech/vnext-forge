@@ -7,6 +7,7 @@ import { useVnextWorkspaceUiStore } from '../store/useVnextWorkspaceUiStore';
 import { useWebShellStore } from '../store/useWebShellStore';
 import { useWorkspaceDiagnosticsStore } from '../store/useWorkspaceDiagnosticsStore';
 import { CreateVnextConfigDialog } from '../../modules/project-workspace/components/CreateVnextConfigDialog';
+import { useProjectWorkspacePage } from '../../modules/project-workspace/hooks/useProjectWorkspacePage';
 import { syncVnextWorkspaceFromDisk } from '../../modules/project-workspace/syncVnextWorkspaceFromDisk';
 
 import { RouteErrorBoundary } from '../RouteErrorBoundary';
@@ -36,6 +37,8 @@ export function AppLayout() {
 
   const routeProjectId = routeProjectIdFromPathname(location.pathname);
   const projectId = activeProject?.id ?? routeProjectId;
+
+  useProjectWorkspacePage(routeProjectId);
 
   const handleWizardOpenChange = (open: boolean) => {
     if (!open) {

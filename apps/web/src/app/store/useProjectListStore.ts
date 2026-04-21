@@ -22,16 +22,19 @@ import { refreshWorkspaceLayoutAndValidateScript } from '../../modules/project-w
 interface ProjectListState {
   projects: ProjectInfo[];
   fileTree: FileTreeNode | null;
+  /** `fileTree` hangi proje için üretildiyse; `activeProject.id` ile eşleşmezse sidebar eski ağacı göstermez. */
+  fileTreeProjectId: string | null;
   setProjects: (projects: ProjectInfo[]) => void;
-  setFileTree: (tree: FileTreeNode | null) => void;
+  setWorkspaceFileTree: (projectId: string | null, tree: FileTreeNode | null) => void;
   refreshFileTree: () => Promise<void>;
 }
 
 export const useProjectListStore = create<ProjectListState>((set) => ({
   projects: [],
   fileTree: null,
+  fileTreeProjectId: null,
   setProjects: (projects) => set({ projects }),
-  setFileTree: (fileTree) => set({ fileTree }),
+  setWorkspaceFileTree: (projectId, tree) => set({ fileTree: tree, fileTreeProjectId: projectId }),
   refreshFileTree: async () => {
     const { activeProject, vnextConfig } = useProjectStore.getState();
 
@@ -46,13 +49,13 @@ export const useProjectListStore = create<ProjectListState>((set) => ({
         throw new Error(treeResponse.error.message);
       }
 
-      set({ fileTree: treeResponse.data });
+      set({ fileTree: treeResponse.data, fileTreeProjectId: activeProject.id });
 
       if (vnextConfig) {
         await refreshWorkspaceLayoutAndValidateScript(activeProject.id);
       }
     } catch {
-      set({ fileTree: null });
+      set({ fileTree: null, fileTreeProjectId: null });
     }
   },
 }));

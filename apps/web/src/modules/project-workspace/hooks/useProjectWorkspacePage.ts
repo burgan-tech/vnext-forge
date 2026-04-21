@@ -1,4 +1,5 @@
 import { useCallback, useEffect } from 'react';
+import { unstable_batchedUpdates as batchedUpdates } from 'react-dom';
 
 import { createLogger, useProjectStore } from '@vnext-forge/designer-ui';
 import { success, type ApiResponse } from '@vnext-forge/app-contracts';
@@ -33,40 +34,48 @@ export function useProjectWorkspacePage(projectId?: string): ProjectWorkspacePag
   const setVnextConfig = useProjectStore((s) => s.setVnextConfig);
   const setLoading = useProjectStore((s) => s.setLoading);
   const setError = useProjectStore((s) => s.setError);
-  const setFileTree = useProjectListStore((s) => s.setFileTree);
   const clearConfigIssues = useWorkspaceDiagnosticsStore((s) => s.clearConfigIssues);
   const resetVnextWorkspaceUi = useVnextWorkspaceUiStore((s) => s.resetVnextWorkspaceUi);
 
-  const applyBootstrap = useCallback((bootstrap: ProjectWorkspaceBootstrap) => {
-    const { setComponentLayoutStatus, setValidateScriptMissing } =
-      useVnextWorkspaceUiStore.getState();
+  const applyBootstrap = useCallback(
+    (bootstrap: ProjectWorkspaceBootstrap) => {
+      const { setComponentLayoutStatus, setValidateScriptMissing } =
+        useVnextWorkspaceUiStore.getState();
 
-    setActiveProject(bootstrap.project);
-    setFileTree(bootstrap.tree.root);
-    applyProjectConfigStatus(success(bootstrap.configStatus), { openWizardOnMissing: true });
+      batchedUpdates(() => {
+        setActiveProject(bootstrap.project);
+        useProjectListStore
+          .getState()
+          .setWorkspaceFileTree(bootstrap.project.id, bootstrap.tree.root);
+      });
+      applyProjectConfigStatus(success(bootstrap.configStatus), { openWizardOnMissing: true });
 
-    if (bootstrap.configStatus.status === 'ok') {
-      setComponentLayoutStatus(bootstrap.layoutStatus);
-      setValidateScriptMissing(
-        bootstrap.validateScriptStatus ? !bootstrap.validateScriptStatus.exists : false,
-      );
-      if (bootstrap.componentFileTypes) {
-        useComponentFileTypesStore.getState().setFileTypes(bootstrap.componentFileTypes);
+      if (bootstrap.configStatus.status === 'ok') {
+        setComponentLayoutStatus(bootstrap.layoutStatus);
+        setValidateScriptMissing(
+          bootstrap.validateScriptStatus ? !bootstrap.validateScriptStatus.exists : false,
+        );
+        if (bootstrap.componentFileTypes) {
+          useComponentFileTypesStore.getState().setFileTypes(bootstrap.componentFileTypes);
+        } else {
+          useComponentFileTypesStore.getState().clearFileTypes();
+        }
       } else {
+        setComponentLayoutStatus(null);
+        setValidateScriptMissing(false);
         useComponentFileTypesStore.getState().clearFileTypes();
       }
-    } else {
-      setComponentLayoutStatus(null);
-      setValidateScriptMissing(false);
-      useComponentFileTypesStore.getState().clearFileTypes();
-    }
-  }, [setActiveProject, setFileTree]);
+    },
+    [setActiveProject],
+  );
 
   const resetWorkspaceState = useCallback(
     (errorMessage: string | null) => {
-      setActiveProject(null);
-      setFileTree(null);
-      setVnextConfig(null);
+      batchedUpdates(() => {
+        setActiveProject(null);
+        useProjectListStore.getState().setWorkspaceFileTree(null, null);
+        setVnextConfig(null);
+      });
       clearConfigIssues();
       resetVnextWorkspaceUi();
       useComponentFileTypesStore.getState().clearFileTypes();
@@ -79,7 +88,6 @@ export function useProjectWorkspacePage(projectId?: string): ProjectWorkspacePag
       resetVnextWorkspaceUi,
       setActiveProject,
       setError,
-      setFileTree,
       setVnextConfig,
     ],
   );
@@ -89,6 +97,16 @@ export function useProjectWorkspacePage(projectId?: string): ProjectWorkspacePag
       id: string,
       isCancelled: () => boolean,
     ): Promise<ApiResponse<ProjectWorkspaceBootstrap>> => {
+      const { activeProject: previousProject } = useProjectStore.getState();
+      if (previousProject?.id !== id) {
+        batchedUpdates(() => {
+          setActiveProject(null);
+          useProjectListStore.getState().setWorkspaceFileTree(null, null);
+          setVnextConfig(null);
+        });
+        useComponentFileTypesStore.getState().clearFileTypes();
+      }
+
       setLoading(true);
       setError(null);
       clearConfigIssues();
@@ -117,7 +135,15 @@ export function useProjectWorkspacePage(projectId?: string): ProjectWorkspacePag
         }
       }
     },
-    [applyBootstrap, clearConfigIssues, resetWorkspaceState, setError, setLoading],
+    [
+      applyBootstrap,
+      clearConfigIssues,
+      resetWorkspaceState,
+      setActiveProject,
+      setError,
+      setLoading,
+      setVnextConfig,
+    ],
   );
 
   const reloadProjectWorkspace = useCallback(async () => {

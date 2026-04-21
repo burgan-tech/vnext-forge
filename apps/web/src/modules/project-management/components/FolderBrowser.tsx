@@ -1,7 +1,15 @@
 import { useEffect, useRef } from 'react';
-import { Check, ChevronRight, FolderOpen, FolderSearch, HardDrive, Monitor } from 'lucide-react';
+import {
+  Check,
+  ChevronDown,
+  ChevronRight,
+  FolderOpen,
+  FolderSearch,
+  HardDrive,
+  Monitor,
+} from 'lucide-react';
 
-import { Button } from '@vnext-forge/designer-ui';
+import { Button, cn } from '@vnext-forge/designer-ui';
 
 import type { WorkspaceFolder } from '../ProjectTypes';
 
@@ -90,14 +98,36 @@ export function FolderBrowser({
     <div ref={containerRef} className={inline ? '' : 'relative'}>
       {!inline ? (
         <Button
+          type="button"
           onClick={onToggle}
-          className="flex h-11 w-full items-center gap-2 rounded-xl border border-slate-300 bg-slate-50 px-3.5 text-left text-sm shadow-sm transition-colors hover:border-slate-400">
-          <FolderSearch size={16} className="shrink-0 text-slate-500" />
-          {selectedPath ? (
-            <span className="truncate font-mono text-xs text-slate-700">{selectedPath}</span>
-          ) : (
-            <span className="text-sm font-semibold text-slate-700">{placeholder}</span>
-          )}
+          aria-expanded={open}
+          aria-haspopup="dialog"
+          className={cn(
+            'h-11 min-h-11 w-full justify-start rounded-xl text-left text-sm shadow-xs transition-[color,background-color,border-color,box-shadow] duration-150 ease-out',
+            'active:bg-primary-muted',
+            open && 'border-primary-border-hover ring-ring/35 ring-[3px]',
+            '[&>span]:w-full [&>span]:min-w-0 [&>span]:max-w-full [&>span]:justify-start [&>span]:gap-0 [&>span]:px-3.5 [&>span]:py-2',
+          )}>
+          <span className="flex w-full min-w-0 items-center gap-2">
+            <FolderSearch size={16} className="text-primary-icon shrink-0" aria-hidden />
+            {selectedPath ? (
+              <span className="text-foreground min-w-0 flex-1 truncate font-mono text-sm font-semibold">
+                {selectedPath}
+              </span>
+            ) : (
+              <span className="text-foreground min-w-0 flex-1 truncate text-sm font-semibold">
+                {placeholder}
+              </span>
+            )}
+            <ChevronDown
+              size={16}
+              className={cn(
+                'text-muted-icon group-hover/button:text-primary-icon ml-auto shrink-0 transition-transform duration-200 ease-out',
+                open && 'rotate-180',
+              )}
+              aria-hidden
+            />
+          </span>
         </Button>
       ) : null}
 
@@ -105,42 +135,42 @@ export function FolderBrowser({
         <div
           className={
             inline
-              ? 'overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm shadow-slate-900/5'
-              : 'absolute top-11 right-0 left-0 z-50 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl shadow-slate-900/5'
+              ? 'border-border bg-surface overflow-hidden rounded-xl border shadow-sm'
+              : 'border-border bg-surface absolute top-11 right-0 left-0 z-50 overflow-hidden rounded-xl border shadow-sm'
           }>
           {inline ? (
-            <div className="flex items-center gap-2 border-b border-slate-100 bg-slate-50 px-3 py-2 text-xs">
-              <FolderSearch size={14} className="shrink-0 text-slate-500" />
+            <div className="border-border-subtle bg-muted text-muted-foreground flex items-center gap-2 border-b px-3 py-2 text-xs">
+              <FolderSearch size={14} className="text-muted-icon shrink-0" />
               {selectedPath ? (
                 <>
-                  <span className="font-medium text-slate-500">Selected:</span>
+                  <span className="text-muted-foreground font-semibold">Selected:</span>
                   <span
-                    className="truncate font-mono text-[11px] text-slate-700"
+                    className="text-foreground truncate font-mono text-sm font-semibold"
                     title={selectedPath}>
                     {selectedPath}
                   </span>
                 </>
               ) : (
-                <span className="truncate font-medium text-slate-600">{placeholder}</span>
+                <span className="text-secondary-text truncate text-sm font-semibold">{placeholder}</span>
               )}
             </div>
           ) : null}
 
-          <div className="flex items-center gap-1 overflow-x-auto border-b border-slate-100 bg-slate-50/60 px-2.5 py-1.5 text-xs text-slate-500">
+          <div className="border-border-subtle bg-muted/60 text-muted-foreground flex items-center gap-1 overflow-x-auto border-b px-2.5 py-1.5 text-xs">
             <button
               type="button"
               onClick={() => onNavigate(SYSTEM_ROOT_TOKEN)}
-              className="inline-flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 font-medium text-slate-500 transition-colors hover:bg-slate-200/70 hover:text-sky-600"
+              className="text-muted-foreground hover:bg-muted-hover hover:text-foreground inline-flex h-6 shrink-0 cursor-pointer items-center gap-1 rounded-md px-1.5 font-medium transition-colors duration-150 ease-out"
               aria-label="System root">
               <Monitor size={12} className="shrink-0" />
             </button>
             {breadcrumbItems.map((item) => (
               <span key={item.path} className="flex shrink-0 items-center gap-0.5">
-                <ChevronRight size={10} className="shrink-0 text-slate-300" />
+                <ChevronRight size={10} className="text-subtle shrink-0" />
                 <button
                   type="button"
                   onClick={() => onNavigate(item.path)}
-                  className="inline-flex h-6 max-w-[120px] items-center rounded-md px-1.5 font-medium text-slate-600 transition-colors hover:bg-slate-200/70 hover:text-sky-600">
+                  className="text-secondary-text hover:bg-muted-hover hover:text-foreground inline-flex h-6 max-w-[120px] cursor-pointer items-center rounded-md px-1.5 font-medium transition-colors duration-150 ease-out">
                   <span className="truncate">{item.label}</span>
                 </button>
               </span>
@@ -154,16 +184,16 @@ export function FolderBrowser({
                 onClick={() => onSelect(currentPath)}
                 aria-pressed={isCurrentPathSelected}
                 className={
-                  'flex w-full items-center justify-between gap-2 border-b border-slate-100 px-3 py-2 text-left text-xs font-semibold transition-colors ' +
+                  'border-border-subtle flex w-full cursor-pointer items-center justify-between gap-2 border-b px-3 py-2 text-left text-xs font-semibold transition-colors duration-150 ease-out ' +
                   (isCurrentPathSelected
-                    ? 'bg-sky-50 text-sky-700 hover:bg-sky-100'
-                    : 'text-sky-600 hover:bg-sky-50')
+                    ? 'bg-primary-muted text-foreground hover:bg-primary-muted-hover'
+                    : 'text-foreground hover:bg-muted')
                 }>
                 <span className="truncate">
                   {isCurrentPathSelected ? 'Selected this folder' : 'Select this folder'}
                 </span>
                 {isCurrentPathSelected ? (
-                  <Check size={13} className="shrink-0 text-sky-600" aria-hidden="true" />
+                  <Check size={13} className="text-primary-icon shrink-0" aria-hidden="true" />
                 ) : null}
               </button>
             ) : null}
@@ -179,18 +209,18 @@ export function FolderBrowser({
                     onClick={() => onNavigate(folder.path)}
                     onDoubleClick={() => onSelect(folder.path)}
                     className={
-                      'flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors ' +
+                      'flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors duration-150 ease-out ' +
                       (isFolderSelected
-                        ? 'bg-sky-50 text-sky-700 hover:bg-sky-100'
-                        : 'text-slate-700 hover:bg-slate-50')
+                        ? 'bg-primary-muted text-foreground hover:bg-primary-muted-hover'
+                        : 'text-foreground hover:bg-muted')
                     }>
                     {isWindowsDriveList ? (
                       <HardDrive
                         size={13}
                         className={
                           isFolderSelected
-                            ? 'shrink-0 text-sky-500'
-                            : 'shrink-0 text-slate-400'
+                            ? 'text-primary-icon shrink-0'
+                            : 'text-muted-icon shrink-0'
                         }
                       />
                     ) : (
@@ -198,8 +228,8 @@ export function FolderBrowser({
                         size={13}
                         className={
                           isFolderSelected
-                            ? 'shrink-0 text-sky-500'
-                            : 'shrink-0 text-slate-400'
+                            ? 'text-primary-icon shrink-0'
+                            : 'text-muted-icon shrink-0'
                         }
                       />
                     )}
@@ -207,7 +237,7 @@ export function FolderBrowser({
                     {isFolderSelected ? (
                       <Check
                         size={12}
-                        className="ml-auto shrink-0 text-sky-600"
+                        className="text-primary-icon ml-auto shrink-0"
                         aria-hidden="true"
                       />
                     ) : null}
@@ -215,7 +245,7 @@ export function FolderBrowser({
                 );
               })
             ) : (
-              <div className="px-3 py-2 text-xs text-slate-400">{emptyText}</div>
+              <div className="text-muted-foreground px-3 py-2 text-xs">{emptyText}</div>
             )}
           </div>
 

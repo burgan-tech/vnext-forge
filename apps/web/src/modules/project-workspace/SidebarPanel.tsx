@@ -5,11 +5,13 @@ import { Search, X } from 'lucide-react';
 import { cn, type ComponentFolderType } from '@vnext-forge/designer-ui';
 import { Badge } from '@vnext-forge/designer-ui/ui';
 
+import { useProjectListStore } from '../../app/store/useProjectListStore';
 import { FileTree } from './FileTree';
 import { filterFileTree } from './filterFileTree';
 import { useProjectWorkspace } from './hooks/useProjectWorkspace';
 
 export function ProjectWorkspaceSidebarPanel() {
+  const fileTreeProjectId = useProjectListStore((s) => s.fileTreeProjectId);
   const {
     activeProject,
     fileTree,
@@ -37,6 +39,9 @@ export function ProjectWorkspaceSidebarPanel() {
       extensions: p.extensions?.split('/').pop() || 'Extensions',
     };
   }, [vnextConfig?.paths]);
+
+  const treeMatchesProject =
+    Boolean(fileTree) && fileTreeProjectId != null && fileTreeProjectId === activeProject?.id;
 
   if (!activeProject) {
     return (
@@ -91,31 +96,37 @@ export function ProjectWorkspaceSidebarPanel() {
       </div>
 
       <div className="mt-1">
-        {fileTree ? (() => {
-          const displayed = filterQuery ? filterFileTree(fileTree, filterQuery) : fileTree;
+        {!treeMatchesProject ? (
+          <div className="text-muted-foreground px-4 py-6 text-center text-[11px]">
+            Loading files…
+          </div>
+        ) : fileTree ? (
+          (() => {
+            const displayed = filterQuery ? filterFileTree(fileTree, filterQuery) : fileTree;
 
-          if (!displayed) {
+            if (!displayed) {
+              return (
+                <div className="text-muted-foreground px-4 py-6 text-center text-[11px]">
+                  No files matching <span className="font-medium">"{filterQuery}"</span>
+                </div>
+              );
+            }
+
             return (
-              <div className="text-muted-foreground px-4 py-6 text-center text-[11px]">
-                No files matching <span className="font-medium">"{filterQuery}"</span>
-              </div>
+              <FileTree
+                node={displayed}
+                depth={0}
+                onFileClick={handleFileClick}
+                onCreateFile={handleCreateFile}
+                onCreateFolder={handleCreateFolder}
+                onDeleteFile={handleDeleteFile}
+                onRenameFile={handleRenameFile}
+                onCreateWorkflow={handleCreateWorkflow}
+                componentDirs={componentDirs}
+              />
             );
-          }
-
-          return (
-            <FileTree
-              node={displayed}
-              depth={0}
-              onFileClick={handleFileClick}
-              onCreateFile={handleCreateFile}
-              onCreateFolder={handleCreateFolder}
-              onDeleteFile={handleDeleteFile}
-              onRenameFile={handleRenameFile}
-              onCreateWorkflow={handleCreateWorkflow}
-              componentDirs={componentDirs}
-            />
-          );
-        })() : null}
+          })()
+        ) : null}
       </div>
     </div>
   );

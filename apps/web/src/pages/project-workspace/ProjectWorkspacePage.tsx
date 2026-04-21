@@ -6,8 +6,6 @@ import { Badge, Button } from '@vnext-forge/designer-ui/ui';
 
 import { useVnextWorkspaceUiStore } from '../../app/store/useVnextWorkspaceUiStore';
 import { VnextTemplateSeedDialog } from '../../modules/project-workspace/components/VnextTemplateSeedDialog';
-import { useProjectWorkspacePage } from '../../modules/project-workspace/hooks/useProjectWorkspacePage';
-
 export function ProjectWorkspacePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -20,8 +18,6 @@ export function ProjectWorkspacePage() {
   const setShowMissingVnextConfigBar = useVnextWorkspaceUiStore(
     (s) => s.setShowMissingVnextConfigBar,
   );
-
-  useProjectWorkspacePage(id);
 
   useEffect(() => {
     return () => {

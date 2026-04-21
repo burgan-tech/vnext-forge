@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
+import { AlertCircle } from 'lucide-react';
 
 import { cn } from '../lib/utils/cn.js';
 
@@ -125,6 +126,12 @@ const inputRootVariants = cva(
         variant: 'muted',
         hoverable: true,
         className: 'hover:border-muted-border-hover hover:bg-muted-hover',
+      },
+      {
+        invalid: true,
+        hoverable: true,
+        className:
+          'hover:border-destructive-border-hover hover:bg-destructive/10 hover:ring-destructive/15',
       },
       {
         disabledState: true,
@@ -260,6 +267,7 @@ interface InputProps
     NativeInputProps,
     Omit<VariantProps<typeof inputRootVariants>, 'disabledState' | 'readOnlyState'>,
     Omit<VariantProps<typeof inputAdornmentVariants>, 'size' | 'hoverable'> {
+  error?: React.ReactNode;
   hoverable?: boolean;
   inputClassName?: string;
   leading?: React.ReactNode;
@@ -272,6 +280,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     {
       className,
       disabled = false,
+      error,
       hoverable = true,
       inputClassName,
       leading,
@@ -281,87 +290,118 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
       size,
       trailing,
       variant,
-      ...props
+      'aria-describedby': ariaDescribedByFromUser,
+      'aria-invalid': ariaInvalidFromUser,
+      ...restProps
     },
     ref,
   ) => {
     const inputRef = React.useRef<HTMLInputElement>(null);
-    const invalid = props['aria-invalid'] === true || props['aria-invalid'] === 'true';
+    const errorId = React.useId();
+    const errorDescriptionId = error ? `${errorId}-error` : undefined;
+
+    const ariaInvalidFromProps =
+      ariaInvalidFromUser === true ||
+      ariaInvalidFromUser === 'true' ||
+      ariaInvalidFromUser === 'grammar' ||
+      ariaInvalidFromUser === 'spelling';
+    const invalid = ariaInvalidFromProps || Boolean(error);
+
+    const ariaDescribedBy =
+      [ariaDescribedByFromUser, errorDescriptionId].filter(Boolean).join(' ') || undefined;
+
     const effectiveHoverable = hoverable && !disabled && !readOnly;
 
     React.useImperativeHandle(ref, () => inputRef.current as HTMLInputElement, []);
 
     return (
-      <div
-        data-slot="input-root"
-        className={cn(
-          inputRootVariants({
-            variant,
-            size,
-            invalid,
-            disabledState: disabled,
-            readOnlyState: readOnly,
-            hoverable: effectiveHoverable,
-            noBorder,
-          }),
-          className,
-        )}
-        onMouseDown={(event) => {
-          if (disabled || readOnly) {
-            return;
-          }
-
-          const target = event.target as HTMLElement;
-          if (target.closest('input, button, a, [role="button"], [role="link"]')) {
-            return;
-          }
-
-          event.preventDefault();
-          inputRef.current?.focus();
-        }}>
-        {leading ? (
-          <span
-            data-slot="input-leading"
-            className={cn(
-              inputAdornmentVariants({
-                variant,
-                size,
-                hoverable: effectiveHoverable && !noAdornmentHover,
-              }),
-              'relative z-10',
-            )}>
-            {leading}
-          </span>
-        ) : null}
-        <input
-          ref={inputRef}
-          data-slot="input"
-          disabled={disabled}
-          readOnly={readOnly}
+      <div data-slot="input-field" className="flex w-full flex-col gap-1">
+        <div
+          data-slot="input-root"
           className={cn(
-            inputElementVariants({
+            inputRootVariants({
+              variant,
               size,
-              hasLeading: Boolean(leading),
-              hasTrailing: Boolean(trailing),
+              invalid,
+              disabledState: disabled,
+              readOnlyState: readOnly,
+              hoverable: effectiveHoverable,
+              noBorder,
             }),
-            'relative z-10',
-            inputClassName,
+            className,
           )}
-          {...props}
-        />
-        {trailing ? (
-          <span
-            data-slot="input-trailing"
+          onMouseDown={(event) => {
+            if (disabled || readOnly) {
+              return;
+            }
+
+            const target = event.target as HTMLElement;
+            if (target.closest('input, button, a, [role="button"], [role="link"]')) {
+              return;
+            }
+
+            event.preventDefault();
+            inputRef.current?.focus();
+          }}>
+          {leading ? (
+            <span
+              data-slot="input-leading"
+              className={cn(
+                inputAdornmentVariants({
+                  variant,
+                  size,
+                  hoverable: effectiveHoverable && !noAdornmentHover,
+                }),
+                'relative z-10',
+              )}>
+              {leading}
+            </span>
+          ) : null}
+          <input
+            ref={inputRef}
+            data-slot="input"
+            disabled={disabled}
+            readOnly={readOnly}
             className={cn(
-              inputAdornmentVariants({
-                variant,
+              inputElementVariants({
                 size,
-                hoverable: effectiveHoverable && !noAdornmentHover,
+                hasLeading: Boolean(leading),
+                hasTrailing: Boolean(trailing),
               }),
               'relative z-10',
-            )}>
-            {trailing}
-          </span>
+              inputClassName,
+            )}
+            {...restProps}
+            aria-invalid={invalid || undefined}
+            aria-describedby={ariaDescribedBy}
+          />
+          {trailing ? (
+            <span
+              data-slot="input-trailing"
+              className={cn(
+                inputAdornmentVariants({
+                  variant,
+                  size,
+                  hoverable: effectiveHoverable && !noAdornmentHover,
+                }),
+                'relative z-10',
+              )}>
+              {trailing}
+            </span>
+          ) : null}
+        </div>
+        {error ? (
+          <div
+            id={errorDescriptionId}
+            data-slot="input-error"
+            role="alert"
+            className="text-destructive-text ml-1 flex items-start gap-1.5 text-xs leading-snug">
+            <AlertCircle
+              className="text-destructive-icon mt-0.5 size-3.5 shrink-0"
+              aria-hidden="true"
+            />
+            <span className="min-w-0 flex-1">{error}</span>
+          </div>
         ) : null}
       </div>
     );

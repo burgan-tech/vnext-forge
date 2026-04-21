@@ -247,6 +247,7 @@
  *   text 2    → slate-300 (#cbd5e1)
  *   text 1    → slate-200 (#e2e8f0)
  *   strong    → slate-100 (#f1f5f9)
+ *   border (kontrol dış çerçeve) → ~slate-600/500 arası (#55607a) — bir kademe daha belirgin; hover slate-500+
  */
 html.dark {
   color-scheme: dark;
@@ -259,11 +260,12 @@ html.dark {
   --color-muted: #273449;
   --color-muted-hover: #334155;
   --color-muted-foreground: #94a3b8; /* slate-400 — ikincil text */
-  --color-border: #334155; /* slate-700 — görünür ama gürültüsüz */
-  --color-border-subtle: #273449; /* bg ile surface arası — neredeyse görünmez ayraç */
+  /* Form kontrolleri: taban bir tık slate-600’dan açık (#55607a); hover slate-500 / -400 */
+  --color-border: #55607a; /* genel ayraç — 600→500 yarım adım */
+  --color-border-subtle: #3d4a63; /* hafif separator — önceki 700’e göre hafif güçlü */
   --color-ring: #38bdf8; /* sky-400 — dark’ta odak halkası daha parlak */
-  --color-muted-border: #3d4a63;
-  --color-muted-border-hover: #475569; /* slate-600 */
+  --color-muted-border: #55607a;
+  --color-muted-border-hover: #94a3b8; /* slate-400 */
   --color-muted-surface: #273449;
   --color-muted-icon: #94a3b8;
   --color-muted-text: #94a3b8;
@@ -271,36 +273,36 @@ html.dark {
   /* ── Default — surface ile eş (varsayılan kart yüzeyi) ── */
   --color-primary: #273449;
   --color-primary-hover: #334155;
-  --color-primary-border: #334155;
+  --color-primary-border: #55607a; /* yüzeyden ayırt edilebilir dış çerçeve */
   --color-primary-foreground: #f1f5f9; /* slate-100 — yüksek kontrast text */
   --color-primary-surface: #334155;
   --color-primary-muted: #334155;
   --color-primary-muted-hover: #3d4a63;
-  --color-primary-border-hover: #475569;
+  --color-primary-border-hover: #94a3b8;
   --color-primary-icon: #cbd5e1; /* slate-300 */
   --color-primary-text: #f1f5f9;
 
   /* ── Secondary — default üzerine BİR ton açık inset (kart→secondary kart) ── */
   --color-secondary: #334155; /* slate-700 */
   --color-secondary-hover: #3d4a63;
-  --color-secondary-border: #3d4a63;
+  --color-secondary-border: #55607a; /* RadioCard / ikincil buton */
   --color-secondary-foreground: #f1f5f9;
   --color-secondary-surface: #273449; /* dış konteyner: default kart */
   --color-secondary-muted: #3d4a63;
   --color-secondary-muted-hover: #475569;
-  --color-secondary-border-hover: #475569;
+  --color-secondary-border-hover: #94a3b8;
   --color-secondary-icon: #cbd5e1;
   --color-secondary-text: #cbd5e1; /* slate-300 — ikincil bağlamda yumuşak */
 
   /* ── Tertiary — secondary üzerine DAHA açık inset (en iç kart) ── */
   --color-tertiary: #3d4a63;
   --color-tertiary-hover: #475569; /* slate-600 */
-  --color-tertiary-border: #475569;
+  --color-tertiary-border: #7c8ba1; /* en iç inset — slate-500 ile 400 arası, hafif güçlü */
   --color-tertiary-surface: #334155; /* dış: secondary */
   --color-tertiary-foreground: #f1f5f9;
   --color-tertiary-muted: #475569;
   --color-tertiary-muted-hover: #64748b;
-  --color-tertiary-border-hover: #64748b;
+  --color-tertiary-border-hover: #94a3b8;
   --color-tertiary-icon: #cbd5e1;
   --color-tertiary-text: #cbd5e1;
 
@@ -337,17 +339,17 @@ html.dark {
   --color-info-text: #93c5fd; /* blue-300 */
   --color-info-foreground-hover: #dbeafe;
 
-  /* ── Destructive — durgun: koyu kırmızı; hover: parlak kırmızı (trash / destructive Button) ── */
-  --color-destructive: #b91c1c; /* red-700 — dark’ta durgun durum */
-  --color-destructive-hover: #ef4444; /* red-500 — hover’da belirgin uyarı */
+  /* ── Destructive — dark’ta bir kademe daha açık kırmızı (700→600 taban); yüzey/border uyumlu ── */
+  --color-destructive: #dc2626; /* red-600 — dolgu/trash: koyu bordo yerine okunur kırmızı */
+  --color-destructive-hover: #ef4444; /* red-500 */
   --color-destructive-foreground: #ffffff;
-  --color-destructive-surface: #5c1414;
-  --color-destructive-muted: #7f1d1d; /* red-900 */
-  --color-destructive-muted-hover: #991b1b; /* red-800 */
-  --color-destructive-border: #7f1d1d;
-  --color-destructive-border-hover: #b91c1c;
-  --color-destructive-icon: #fb7185; /* rose-400 */
-  --color-destructive-text: #fda4af; /* rose-300 */
+  --color-destructive-surface: #6b2222; /* yumuşak hata alanı — önceki #5c1414’ten hafif açık */
+  --color-destructive-muted: #991b1b; /* red-800 */
+  --color-destructive-muted-hover: #b91c1c; /* red-700 */
+  --color-destructive-border: #b91c1c;
+  --color-destructive-border-hover: #dc2626;
+  --color-destructive-icon: #fca5a5; /* red-300 — ikon bir tık daha açık */
+  --color-destructive-text: #fecaca; /* red-200 — metin/hata vurgusu */
   --color-destructive-foreground-hover: #ffe4e6;
 
   /* ── Semantic ── */
@@ -412,10 +414,10 @@ html.dark {
 
 /* ── Dark mode: scrollbar — yüzey üzerinde görünür ama gürültüsüz ── */
 html.dark ::-webkit-scrollbar-thumb {
-  background: #475569; /* slate-600 */
+  background: #55607a;
 }
 html.dark ::-webkit-scrollbar-thumb:hover {
-  background: #64748b; /* slate-500 */
+  background: #94a3b8; /* slate-400 */
 }
 
 /* ── Dark mode: text selection ── */
@@ -688,7 +690,7 @@ html body .monaco-editor .suggest-widget .monaco-list .monaco-list-row.focused {
 /* ── Dark mode: tag chip’ler — koyu surface + parlak text (success/info/warning paterni) ── */
 html.dark [data-slot='tag-editor'] > .tag-editor-chip {
   --tag-bg: #1e293b; /* slate-800 */
-  --tag-border: #334155; /* slate-700 */
+  --tag-border: #55607a; /* dış TagEditor çerçevesi ile hizalı */
   --tag-text: #cbd5e1; /* slate-300 */
 }
 

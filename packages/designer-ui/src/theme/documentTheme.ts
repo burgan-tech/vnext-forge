@@ -1,4 +1,8 @@
-import { useSettingsStore, type ColorThemePreference } from '../store/useSettingsStore.js';
+import {
+  SETTINGS_PERSIST_KEY,
+  useSettingsStore,
+  type ColorThemePreference,
+} from '../store/useSettingsStore.js';
 
 /**
  * Tercihi (light / dark / system) gerçek görünüme çevirir.
@@ -22,9 +26,35 @@ export function applyColorThemeToDocument(preference: ColorThemePreference): voi
 }
 
 /**
- * Store’daki güncel `colorTheme` ile dokümanı senkronlar. Shell `main.tsx` içinde
- * `createRoot` öncesi çağrılmalı; böylece ilk boyamada OS teması yansır (FOUC azalır).
+ * Zustand persist henüz rehydrate olmadan önce `localStorage` içindeki kaydı okur
+ * (persist JSON biçimi: `{ state: { colorTheme }, version }`).
+ */
+function readPersistedColorThemeFromStorage(): ColorThemePreference | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  try {
+    const raw = localStorage.getItem(SETTINGS_PERSIST_KEY);
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw) as { state?: { colorTheme?: unknown } };
+    const t = parsed.state?.colorTheme;
+    if (t === 'light' || t === 'dark' || t === 'system') {
+      return t;
+    }
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+/**
+ * Store / kalıcı ayarlarla dokümanı senkronlar. Shell `main.tsx` içinde
+ * `createRoot` öncesi çağrılmalı; önce `localStorage` (persist), yoksa store varsayılanı.
  */
 export function syncColorThemeFromSettingsStore(): void {
-  applyColorThemeToDocument(useSettingsStore.getState().colorTheme);
+  const persisted = readPersistedColorThemeFromStorage();
+  const preference = persisted ?? useSettingsStore.getState().colorTheme;
+  applyColorThemeToDocument(preference);
 }

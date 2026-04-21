@@ -284,34 +284,14 @@ export function createProjectService(deps: ProjectServiceDeps) {
     return only.isFile && only.name === CONFIG_FILE
   }
 
-  async function getVnextComponentLayoutStatus(
+  async function computeVnextComponentLayoutStatus(
+    projectPath: string,
     id: string,
+    config: VnextWorkspaceConfig,
     traceId?: string,
   ): Promise<VnextComponentLayoutStatusResult> {
-    const { path: projectPath } = await getProject(id, traceId)
-    const status = await workspaceService.readConfigStatus(projectPath, traceId)
-
-    if (status.status !== 'ok') {
-      const message =
-        status.status === 'missing'
-          ? 'vnext.config.json was not found.'
-          : status.status === 'invalid'
-            ? status.message
-            : 'Project configuration could not be read.'
-      throw new VnextForgeError(
-        ERROR_CODES.PROJECT_INVALID_CONFIG,
-        message,
-        {
-          source: 'ProjectService.getVnextComponentLayoutStatus',
-          layer: 'application',
-          details: { id, configStatus: status.status },
-        },
-        traceId,
-      )
-    }
-
     const projectContainsOnlyConfigFile = await projectRootHasOnlyVnextConfigFile(projectPath)
-    const dirs = collectComponentLayoutDirectories(projectPath, status.config.paths, traceId)
+    const dirs = collectComponentLayoutDirectories(projectPath, config.paths, traceId)
 
     const missingLayoutPaths: string[] = []
 
@@ -357,6 +337,35 @@ export function createProjectService(deps: ProjectServiceDeps) {
       missingLayoutPaths,
       layoutComplete: missingLayoutPaths.length === 0,
     }
+  }
+
+  async function getVnextComponentLayoutStatus(
+    id: string,
+    traceId?: string,
+  ): Promise<VnextComponentLayoutStatusResult> {
+    const { path: projectPath } = await getProject(id, traceId)
+    const status = await workspaceService.readConfigStatus(projectPath, traceId)
+
+    if (status.status !== 'ok') {
+      const message =
+        status.status === 'missing'
+          ? 'vnext.config.json was not found.'
+          : status.status === 'invalid'
+            ? status.message
+            : 'Project configuration could not be read.'
+      throw new VnextForgeError(
+        ERROR_CODES.PROJECT_INVALID_CONFIG,
+        message,
+        {
+          source: 'ProjectService.getVnextComponentLayoutStatus',
+          layer: 'application',
+          details: { id, configStatus: status.status },
+        },
+        traceId,
+      )
+    }
+
+    return computeVnextComponentLayoutStatus(projectPath, id, status.config, traceId)
   }
 
   async function seedVnextComponentLayoutFromConfig(
@@ -417,15 +426,11 @@ export function createProjectService(deps: ProjectServiceDeps) {
     return { ensuredPaths }
   }
 
-  async function getComponentFileTypes(
-    id: string,
-    traceId?: string,
+  async function getComponentFileTypesFromResolved(
+    projectPath: string,
+    config: VnextWorkspaceConfig,
   ): Promise<ComponentFileTypeMap> {
-    const { projectPath } = await resolveProjectPath(id, traceId)
-    const status = await workspaceService.readConfigStatus(projectPath, traceId)
-    if (status.status !== 'ok') return {}
-
-    const componentsRoot = status.config.paths.componentsRoot.trim()
+    const componentsRoot = config.paths.componentsRoot.trim()
     if (!componentsRoot || isAbsolutePosix(componentsRoot)) return {}
 
     const componentsRootAbsolute = joinPosix(projectPath, componentsRoot)
@@ -439,6 +444,17 @@ export function createProjectService(deps: ProjectServiceDeps) {
     const result: ComponentFileTypeMap = {}
     await collectJsonFlowTypes(componentsRootAbsolute, projectPath, result)
     return result
+  }
+
+  async function getComponentFileTypes(
+    id: string,
+    traceId?: string,
+  ): Promise<ComponentFileTypeMap> {
+    const { projectPath } = await resolveProjectPath(id, traceId)
+    const status = await workspaceService.readConfigStatus(projectPath, traceId)
+    if (status.status !== 'ok') return {}
+
+    return getComponentFileTypesFromResolved(projectPath, status.config)
   }
 
   async function collectJsonFlowTypes(
@@ -574,6 +590,31 @@ export function createProjectService(deps: ProjectServiceDeps) {
     } catch {
       return { id, domain: fallbackDomain || id, path: rootPath, linked }
     }
+  }
+
+  /**
+   * Bootstrap-only: tek `readConfigStatus` sonucundan `ProjectEntry` üretir; `status !== 'ok'`
+   * iken `toProjectEntry` ile aynı davranışı korumak için `getConfig` yoluna düşer (ekstra okuma).
+   */
+  async function buildProjectEntryForBootstrap(
+    id: string,
+    projectPath: string,
+    linked: boolean,
+    configStatus: ProjectConfigStatus,
+    traceId?: string,
+  ): Promise<ProjectEntry> {
+    if (configStatus.status === 'ok') {
+      const c = configStatus.config
+      return {
+        id,
+        domain: c.domain || id,
+        description: c.description,
+        path: projectPath,
+        version: c.version,
+        linked,
+      }
+    }
+    return toProjectEntry(id, projectPath, linked, traceId)
   }
 
   function collectComponentLayoutDirectories(
@@ -713,13 +754,38 @@ export function createProjectService(deps: ProjectServiceDeps) {
    * Expensive fields (`layoutStatus`, `validateScriptStatus`,
    * `componentFileTypes`) are only computed when `configStatus.status === 'ok'`,
    * mirroring what the UI used to do client-side.
+   *
+   * Tek `resolveProjectPath`, tek `readConfigStatus` ve (ok iken) `getProject`/`getConfig`
+   * tekrarını atlayacak şekilde `project` + ikinci faz layout/file-types için önceden
+   * çözülmüş yol ve config kullanılır.
    */
   async function getWorkspaceBootstrap(id: string, traceId?: string) {
-    const [project, tree, configStatus] = await Promise.all([
-      getProject(id, traceId),
-      getFileTree(id, traceId),
-      getConfigStatus(id, traceId),
+    const { projectPath, linked } = await resolveProjectPath(id, traceId)
+    try {
+      const stat = await fs.stat(projectPath)
+      if (!stat.isDirectory) {
+        throw new VnextForgeError(
+          ERROR_CODES.PROJECT_NOT_FOUND,
+          'Project directory was not found',
+          {
+            source: 'ProjectService.getProject',
+            layer: 'application',
+            details: { id, projectPath },
+          },
+          traceId,
+        )
+      }
+    } catch (error) {
+      if (error instanceof VnextForgeError) throw error
+      throw toProjectError(error, 'ProjectService.getProject', traceId, { id, projectPath })
+    }
+
+    const [configStatus, tree] = await Promise.all([
+      workspaceService.readConfigStatus(projectPath, traceId),
+      workspaceService.getFileTree(projectPath, traceId),
     ])
+
+    const project = await buildProjectEntryForBootstrap(id, projectPath, linked, configStatus, traceId)
 
     if (configStatus.status !== 'ok') {
       return {
@@ -733,9 +799,9 @@ export function createProjectService(deps: ProjectServiceDeps) {
     }
 
     const [layoutStatus, validateScriptStatus, componentFileTypes] = await Promise.all([
-      getVnextComponentLayoutStatus(id, traceId).catch(() => null),
-      getValidateScriptStatus(id, traceId).catch(() => null),
-      getComponentFileTypes(id, traceId).catch(() => null),
+      computeVnextComponentLayoutStatus(projectPath, id, configStatus.config, traceId).catch(() => null),
+      templateService.checkValidateScript(projectPath).catch(() => null),
+      getComponentFileTypesFromResolved(projectPath, configStatus.config).catch(() => null),
     ])
 
     return {

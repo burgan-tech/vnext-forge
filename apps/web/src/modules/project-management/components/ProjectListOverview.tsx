@@ -2,7 +2,13 @@ import { useEffect } from 'react';
 
 import { Link2 } from 'lucide-react';
 
-import { Alert, AlertDescription, AlertTitle, Card, CardContent } from '@vnext-forge/designer-ui/ui';
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+  Card,
+  CardContent,
+} from '@vnext-forge/designer-ui/ui';
 import type { VnextForgeError } from '@vnext-forge/app-contracts';
 
 import type { ProjectInfo } from '../ProjectTypes';
