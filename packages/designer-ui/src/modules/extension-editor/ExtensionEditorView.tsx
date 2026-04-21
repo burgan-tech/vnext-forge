@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useProjectStore } from '../../store/useProjectStore';
 import { useComponentStore } from '../../store/useComponentStore';
 import { useLoadComponent } from '../../modules/save-component/useLoadComponent';
@@ -10,9 +11,15 @@ export interface ExtensionEditorViewProps {
   projectId: string;
   group: string;
   name: string;
+  registerToolbar?: (toolbar: ReactNode | null) => void;
 }
 
-export function ExtensionEditorView({ projectId: id, group, name }: ExtensionEditorViewProps) {
+export function ExtensionEditorView({
+  projectId: id,
+  group,
+  name,
+  registerToolbar,
+}: ExtensionEditorViewProps) {
   const { activeProject, vnextConfig } = useProjectStore();
   const { componentJson, isDirty, updateComponent, undo, redo, undoStack, redoStack } =
     useComponentStore();
@@ -39,11 +46,7 @@ export function ExtensionEditorView({ projectId: id, group, name }: ExtensionEdi
 
   return (
     <ComponentEditorLayout
-      projectId={id || ''}
-      projectDomain={activeProject?.domain}
-      typeName="Extensions"
-      group={group || ''}
-      name={name || ''}
+      registerToolbar={registerToolbar}
       isDirty={isDirty}
       hasSaved={!isDirty && undoStack.length > 0}
       saving={saving}

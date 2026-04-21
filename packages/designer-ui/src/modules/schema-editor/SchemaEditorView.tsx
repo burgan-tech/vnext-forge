@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useProjectStore } from '../../store/useProjectStore';
 import { ComponentEditorLayout } from '../../modules/save-component/components/ComponentEditorLayout';
 import { SchemaEditorPanel } from './components/SchemaEditorPanel';
@@ -8,9 +9,15 @@ export interface SchemaEditorViewProps {
   projectId: string;
   group: string;
   name: string;
+  registerToolbar?: (toolbar: ReactNode | null) => void;
 }
 
-export function SchemaEditorView({ projectId: id, group, name }: SchemaEditorViewProps) {
+export function SchemaEditorView({
+  projectId: id,
+  group,
+  name,
+  registerToolbar,
+}: SchemaEditorViewProps) {
   const { activeProject, vnextConfig } = useProjectStore();
   const {
     componentJson,
@@ -37,11 +44,7 @@ export function SchemaEditorView({ projectId: id, group, name }: SchemaEditorVie
 
   return (
     <ComponentEditorLayout
-      projectId={id || ''}
-      projectDomain={activeProject?.domain}
-      typeName="Schemas"
-      group={group || ''}
-      name={name || ''}
+      registerToolbar={registerToolbar}
       isDirty={isDirty}
       hasSaved={!isDirty && undoStack.length > 0}
       saving={saving}

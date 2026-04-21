@@ -1,15 +1,9 @@
-import type { ReactNode } from 'react';
+import { useLayoutEffect, type ReactNode } from 'react';
 import { AlertCircle, Save, Undo2, Redo2 } from 'lucide-react';
 import { Button } from '../../../ui/Button';
 import { Alert, AlertDescription } from '../../../ui/Alert';
-import { useProjectNavigation } from '../../../app/HostNavigationContext';
 
 interface ComponentEditorLayoutProps {
-  projectId: string;
-  projectDomain?: string;
-  typeName: string;
-  group: string;
-  name: string;
   isDirty: boolean;
   hasSaved?: boolean;
   saving?: boolean;
@@ -20,14 +14,47 @@ interface ComponentEditorLayoutProps {
   canUndo?: boolean;
   canRedo?: boolean;
   children: ReactNode;
+  /**
+   * Web shell: araç çubuğunu sekme satırına taşır (ör. `setToolbar`).
+   * Verildiğinde üst breadcrumb ve yerel araç satırı çizilmez.
+   */
+  registerToolbar?: (toolbar: ReactNode | null) => void;
+}
+
+function StatusBadge({
+  isDirty,
+  hasSaved,
+  compact,
+}: {
+  isDirty: boolean;
+  hasSaved: boolean;
+  compact: boolean;
+}) {
+  if (isDirty) {
+    return (
+      <span
+        className="border-warning-border bg-warning-surface text-warning-text max-w-36 truncate rounded-full border px-1.5 py-px text-[9px] font-medium leading-none"
+        title="Kaydedilmemiş değişiklikler">
+        Modified
+      </span>
+    );
+  }
+  if (compact) return null;
+  if (hasSaved) {
+    return (
+      <span className="border-success-border bg-success-surface rounded-full border px-3 py-1 font-medium text-success-text">
+        Saved
+      </span>
+    );
+  }
+  return (
+    <span className="border-border bg-muted/40 text-muted-foreground rounded-full border px-3 py-1 font-medium">
+      No change
+    </span>
+  );
 }
 
 export function ComponentEditorLayout({
-  projectId,
-  projectDomain,
-  typeName,
-  group,
-  name,
   isDirty,
   hasSaved = false,
   saving = false,
@@ -38,73 +65,138 @@ export function ComponentEditorLayout({
   canUndo,
   canRedo,
   children,
+  registerToolbar,
 }: ComponentEditorLayoutProps) {
-  const navigation = useProjectNavigation();
+  const compact = Boolean(registerToolbar);
+
+  const toolbarNode = (
+    <>
+      <StatusBadge isDirty={isDirty} hasSaved={hasSaved} compact={compact} />
+      {saving ? (
+        <span className="text-[10px] font-medium text-indigo-600 dark:text-indigo-400">Saving…</span>
+      ) : null}
+      {onUndo && (
+        <div
+          className="border-border bg-muted/30 flex items-center gap-px rounded border p-px"
+          role="group"
+          aria-label="Geçmiş">
+          <Button
+            type="button"
+            onClick={onUndo}
+            disabled={!canUndo}
+            variant="muted"
+            size="sm"
+            className={compact ? 'h-6 min-h-6 min-w-6 px-0' : 'min-w-8'}
+            title="Geri al">
+            <Undo2 size={compact ? 12 : 14} />
+          </Button>
+          {onRedo && (
+            <Button
+              type="button"
+              onClick={onRedo}
+              disabled={!canRedo}
+              variant="muted"
+              size="sm"
+              className={compact ? 'h-6 min-h-6 min-w-6 px-0' : 'min-w-8'}
+              title="Yinele">
+              <Redo2 size={compact ? 12 : 14} />
+            </Button>
+          )}
+        </div>
+      )}
+      <Button
+        type="button"
+        onClick={onSave}
+        disabled={!isDirty || saving}
+        variant="success"
+        size="sm"
+        className={compact ? 'h-6 min-h-6 gap-1 px-2 text-[11px]' : ''}
+        leftIconComponent={<Save size={compact ? 12 : 14} />}
+        title="Save (Cmd+S)">
+        {saving ? 'Saving...' : 'Save'}
+      </Button>
+    </>
+  );
+
+  useLayoutEffect(() => {
+    if (!registerToolbar) return;
+    registerToolbar(
+      <div className="flex max-w-full shrink-0 items-center gap-1 sm:gap-1.5">{toolbarNode}</div>,
+    );
+    return () => {
+      registerToolbar(null);
+    };
+  }, [
+    registerToolbar,
+    isDirty,
+    hasSaved,
+    saving,
+    onSave,
+    onUndo,
+    onRedo,
+    canUndo,
+    canRedo,
+    compact,
+  ]);
+
+  const errorBlock =
+    saveErrorMessage ? (
+      <Alert variant="destructive" className="py-2">
+        <AlertCircle />
+        <AlertDescription className="truncate font-medium">{saveErrorMessage}</AlertDescription>
+      </Alert>
+    ) : null;
+
+  if (registerToolbar) {
+    return (
+      <div className="flex h-full flex-col">
+        {errorBlock ? <div className="border-border shrink-0 border-b px-3 py-2">{errorBlock}</div> : null}
+        <div className="flex-1 overflow-y-auto">{children}</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col h-full">
-      <div className="border-b border-border bg-background px-3 py-2 text-xs shrink-0">
+    <div className="flex h-full flex-col">
+      <div className="border-border bg-background shrink-0 border-b px-3 py-2">
         <div className="flex flex-wrap items-center gap-2">
-          {navigation ? (
-            <button
-              type="button"
-              onClick={() => {
-                navigation.navigateToProject(projectId);
-              }}
-              className="text-muted-foreground transition-colors hover:text-foreground"
-            >
-              {projectDomain ?? projectId}
-            </button>
-          ) : (
-            <span className="text-muted-foreground">{projectDomain ?? projectId}</span>
-          )}
-          <span className="text-muted-foreground/60">/</span>
-          <span className="rounded-full border border-border bg-muted/40 px-3 py-1 font-medium text-foreground">
-            {typeName}
-          </span>
-          <span className="text-muted-foreground/60">/</span>
-          <span className="rounded-full border border-border bg-background px-3 py-1 font-medium text-foreground">
-            {group}/{name}
-          </span>
-          {isDirty ? (
-            <span className="rounded-full border border-warning-border bg-warning-surface px-3 py-1 font-medium text-warning-text">
-              Modified
-            </span>
-          ) : hasSaved ? (
-            <span className="rounded-full border border-success-border bg-success-surface px-3 py-1 font-medium text-success-text">
-              Saved
-            </span>
-          ) : (
-            <span className="rounded-full border border-border bg-muted/40 px-3 py-1 font-medium text-muted-foreground">
-              No change
-            </span>
-          )}
-          <div className="ml-auto flex items-center gap-2">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+            <StatusBadge isDirty={isDirty} hasSaved={hasSaved} compact={false} />
+            {saving ? (
+              <span className="text-[10px] font-medium text-indigo-600 dark:text-indigo-400">
+                Saving…
+              </span>
+            ) : null}
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
             {onUndo && (
-              <Button
-                type="button"
-                onClick={onUndo}
-                disabled={!canUndo}
-                variant="muted"
-                size="sm"
-                className="min-w-8"
-                title="Undo"
-              >
-                <Undo2 size={14} />
-              </Button>
-            )}
-            {onRedo && (
-              <Button
-                type="button"
-                onClick={onRedo}
-                disabled={!canRedo}
-                variant="muted"
-                size="sm"
-                className="min-w-8"
-                title="Redo"
-              >
-                <Redo2 size={14} />
-              </Button>
+              <div
+                className="border-border bg-muted/30 flex items-center gap-px rounded border p-px"
+                role="group"
+                aria-label="Geçmiş">
+                <Button
+                  type="button"
+                  onClick={onUndo}
+                  disabled={!canUndo}
+                  variant="muted"
+                  size="sm"
+                  className="min-w-8"
+                  title="Undo">
+                  <Undo2 size={14} />
+                </Button>
+                {onRedo && (
+                  <Button
+                    type="button"
+                    onClick={onRedo}
+                    disabled={!canRedo}
+                    variant="muted"
+                    size="sm"
+                    className="min-w-8"
+                    title="Redo">
+                    <Redo2 size={14} />
+                  </Button>
+                )}
+              </div>
             )}
             <Button
               type="button"
@@ -113,20 +205,12 @@ export function ComponentEditorLayout({
               variant="success"
               size="sm"
               leftIconComponent={<Save size={14} />}
-              title="Save (Cmd+S)"
-            >
+              title="Save (Cmd+S)">
               {saving ? 'Saving...' : 'Save'}
             </Button>
           </div>
         </div>
-        {saveErrorMessage ? (
-          <Alert variant="destructive" className="mt-2 py-2">
-            <AlertCircle />
-            <AlertDescription className="truncate font-medium">
-              {saveErrorMessage}
-            </AlertDescription>
-          </Alert>
-        ) : null}
+        {errorBlock ? <div className="mt-2">{errorBlock}</div> : null}
       </div>
 
       <div className="flex-1 overflow-y-auto">{children}</div>

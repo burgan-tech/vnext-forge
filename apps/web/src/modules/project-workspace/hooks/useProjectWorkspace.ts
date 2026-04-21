@@ -24,6 +24,7 @@ import {
 } from '@vnext-forge/designer-ui';
 
 import { useProjectListStore } from '../../../app/store/useProjectListStore';
+import { openEditorTabForComponentRoute } from '../openEditorTabFromFileRoute';
 import { resolveFileRoute } from '../FileRouter';
 import { loadComponentFileTypes } from '../syncVnextWorkspaceFromDisk';
 
@@ -67,12 +68,14 @@ export function useProjectWorkspace() {
       const route = resolveFileRoute(node.path, vnextConfig, activeProject.id, activeProject.path);
       logger.info('File clicked', { path: node.path, resolvedRoute: route });
       if (route.navigateTo) {
+        openEditorTabForComponentRoute(route, activeProject.id);
         navigate(route.navigateTo);
         return;
       }
       if (!route.editorTab) return;
       openTab({
         id: route.editorTab.filePath,
+        kind: 'file',
         title: route.editorTab.title,
         filePath: route.editorTab.filePath,
         language: route.editorTab.language,
@@ -89,6 +92,7 @@ export function useProjectWorkspace() {
       const normalizedFilePath = node.path.replace(/\\/g, '/');
       openTab({
         id: normalizedFilePath,
+        kind: 'file',
         title: node.name,
         filePath: normalizedFilePath,
         language: 'json',

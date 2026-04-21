@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useProjectStore } from '../../store/useProjectStore';
 import { useComponentStore } from '../../store/useComponentStore';
 import { useSaveComponent } from '../../modules/save-component/useSaveComponent';
@@ -9,9 +10,15 @@ export interface TaskEditorViewProps {
   projectId: string;
   group: string;
   name: string;
+  registerToolbar?: (toolbar: ReactNode | null) => void;
 }
 
-export function TaskEditorView({ projectId: id, group, name }: TaskEditorViewProps) {
+export function TaskEditorView({
+  projectId: id,
+  group,
+  name,
+  registerToolbar,
+}: TaskEditorViewProps) {
   const { activeProject, vnextConfig } = useProjectStore();
   const componentJson = useComponentStore((state) => state.componentJson);
   const isDirty = useComponentStore((state) => state.isDirty);
@@ -37,11 +44,7 @@ export function TaskEditorView({ projectId: id, group, name }: TaskEditorViewPro
 
   return (
     <ComponentEditorLayout
-      projectId={id || ''}
-      projectDomain={activeProject?.domain}
-      typeName="Tasks"
-      group={group || ''}
-      name={name || ''}
+      registerToolbar={registerToolbar}
       isDirty={isDirty}
       hasSaved={!isDirty && undoStackLength > 0}
       saving={saving}

@@ -10,6 +10,7 @@ import {
   type FileSearchResult,
 } from '@vnext-forge/designer-ui';
 
+import { openEditorTabForComponentRoute } from '../project-workspace/openEditorTabFromFileRoute';
 import { resolveFileRoute } from '../project-workspace/FileRouter';
 
 import { SearchResultList } from './SearchResultList';
@@ -73,6 +74,7 @@ export function SearchPanel() {
       const route = resolveFileRoute(result.path, vnextConfig, activeProject.id, activeProject.path);
 
       if (route.navigateTo) {
+        openEditorTabForComponentRoute(route, activeProject.id);
         navigate(route.navigateTo);
         return;
       }
@@ -80,6 +82,7 @@ export function SearchPanel() {
       if (route.editorTab) {
         openTab({
           id: route.editorTab.filePath,
+          kind: 'file',
           title: route.editorTab.title,
           filePath: route.editorTab.filePath,
           language: route.editorTab.language,
@@ -91,6 +94,7 @@ export function SearchPanel() {
       // Fallback: open as generic code tab
       openTab({
         id: fakeNode.path,
+        kind: 'file',
         title: fakeNode.name,
         filePath: fakeNode.path,
         language: 'plaintext',

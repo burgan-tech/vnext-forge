@@ -1,16 +1,19 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import Editor, { type OnMount } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
+import { Redo2, Save, Undo2 } from 'lucide-react';
 
 import { isFailure } from '@vnext-forge/app-contracts';
 import {
+  Button,
   readFile,
   setupMonacoWithLsp,
   useEditorStore,
   useProjectStore,
   writeFile,
   type CsharpLspClient,
+  type EditorTab,
 } from '@vnext-forge/designer-ui';
 
 import {
@@ -22,6 +25,7 @@ import { ENABLE_COMPONENT_FLOW_ICONS } from '../../modules/project-workspace/com
 import { syncVnextWorkspaceFromDisk } from '../../modules/project-workspace/syncVnextWorkspaceFromDisk';
 import { validateVnextConfigJsonText } from '../../modules/project-workspace/vnextWorkspaceConfigWizardValidation';
 import { applyVnextConfigStrictValidationFailure } from '../../modules/project-workspace/workspaceConfigDiagnostics';
+import { useCodeEditorToolbar } from '../../modules/project-workspace/CodeEditorToolbarContext';
 
 function updateComponentFileTypeAfterSave(filePath: string, content: string): void {
   if (!ENABLE_COMPONENT_FLOW_ICONS) return;
@@ -56,6 +60,26 @@ function updateComponentFileTypeAfterSave(filePath: string, content: string): vo
 function isVnextConfigFilePath(p: string): boolean {
   const n = p.replace(/\\/g, '/').toLowerCase();
   return n.endsWith('/vnext.config.json') || n === 'vnext.config.json';
+}
+
+function getMonacoUndoRedoState(ed: editor.IStandaloneCodeEditor): {
+  canUndo: boolean;
+  canRedo: boolean;
+} {
+  const model = ed.getModel() as unknown as { canUndo?: () => boolean; canRedo?: () => boolean } | null;
+  if (model && typeof model.canUndo === 'function' && typeof model.canRedo === 'function') {
+    return { canUndo: model.canUndo(), canRedo: model.canRedo() };
+  }
+  const undoAction = ed.getAction('editor.action.undo');
+  const redoAction = ed.getAction('editor.action.redo');
+  const isEnabled = (a: typeof undoAction) => {
+    if (!a?.isSupported()) return false;
+    return (a as { enabled?: boolean }).enabled !== false;
+  };
+  return {
+    canUndo: isEnabled(undoAction),
+    canRedo: isEnabled(redoAction),
+  };
 }
 
 function detectLanguage(fileName: string): string {
@@ -98,21 +122,24 @@ function detectLanguage(fileName: string): string {
 export function CodeEditorPage() {
   const { id, '*': encodedFilePath } = useParams<{ id: string; '*': string }>();
   const navigate = useNavigate();
-  const { activeProject, setActiveProject } = useProjectStore();
-  const { tabs, activeTabId, openTab, updateTabContent, markTabClean, setActiveTab, closeTab } =
-    useEditorStore();
+  const { setActiveProject } = useProjectStore();
+  const { tabs, openTab, updateTabContent, markTabClean } = useEditorStore();
   const [content, setContent] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [monacoUndoRedo, setMonacoUndoRedo] = useState({ canUndo: false, canRedo: false });
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const lspClientRef = useRef<CsharpLspClient | null>(null);
   const lspSessionId = useRef(crypto.randomUUID());
+  const { setToolbar } = useCodeEditorToolbar();
 
   const filePath = encodedFilePath ? decodeURIComponent(encodedFilePath) : null;
   const fileName = filePath?.split('/').pop() ?? 'unknown';
   const language = detectLanguage(fileName);
-  const activeTab = tabs.find((tab) => tab.id === activeTabId);
+  const activeFileTab: EditorTab | undefined = filePath
+    ? tabs.find((t) => t.kind === 'file' && t.filePath === filePath)
+    : undefined;
 
   useEffect(() => {
     if (!id) return;
@@ -131,7 +158,7 @@ export function CodeEditorPage() {
 
   useEffect(() => {
     if (!filePath) return;
-    openTab({ id: filePath, title: fileName, filePath, language });
+    openTab({ id: filePath, kind: 'file', title: fileName, filePath, language });
   }, [filePath]);
 
   useEffect(() => {
@@ -156,8 +183,8 @@ export function CodeEditorPage() {
   }
 
   const handleSave = useCallback(async () => {
-    if (!filePath || !activeTab) return;
-    const latest = editorRef.current?.getValue() ?? activeTab.content ?? '';
+    if (!filePath || !activeFileTab) return;
+    const latest = editorRef.current?.getValue() ?? activeFileTab.content ?? '';
     setSaving(true);
     setError(null);
     try {
@@ -188,7 +215,7 @@ export function CodeEditorPage() {
     } finally {
       setSaving(false);
     }
-  }, [filePath, activeTab, id, markTabClean, updateTabContent]);
+  }, [filePath, activeFileTab, id, markTabClean, updateTabContent]);
 
   // Dispose LSP client on unmount
   useEffect(() => {
@@ -196,6 +223,30 @@ export function CodeEditorPage() {
       lspClientRef.current?.dispose();
       lspClientRef.current = null;
     };
+  }, []);
+
+  useEffect(() => {
+    if (loading) return;
+    const ed = editorRef.current;
+    if (!ed) return;
+    const update = () => {
+      setMonacoUndoRedo(getMonacoUndoRedoState(ed));
+    };
+    update();
+    const d1 = ed.onDidChangeModelContent(update);
+    const d2 = ed.onDidChangeModel(update);
+    return () => {
+      d1.dispose();
+      d2.dispose();
+    };
+  }, [filePath, loading]);
+
+  const handleUndo = useCallback(() => {
+    editorRef.current?.trigger('editor', 'editor.action.undo', undefined);
+  }, []);
+
+  const handleRedo = useCallback(() => {
+    editorRef.current?.trigger('editor', 'editor.action.redo', undefined);
   }, []);
 
   const handleMount: OnMount = useCallback(
@@ -213,17 +264,88 @@ export function CodeEditorPage() {
       editor.addCommand(keys.KeyMod.CtrlCmd | keys.KeyCode.KeyS, () => {
         void handleSave();
       });
+      setMonacoUndoRedo(getMonacoUndoRedoState(editor));
     },
     [handleSave],
   );
 
-  const handleTabClick = (tabId: string) => {
-    setActiveTab(tabId);
-    const tab = tabs.find((item) => item.id === tabId);
-    if (tab) {
-      navigate(`/project/${id}/code/${encodeURIComponent(tab.filePath)}`, { replace: true });
+  useLayoutEffect(() => {
+    if (loading || (error !== null && content === null)) {
+      setToolbar(null);
+      return;
     }
-  };
+    setToolbar(
+      <>
+        {activeFileTab?.isDirty ? (
+          <span
+            className="border-warning-border bg-warning-surface text-warning-text max-w-36 truncate rounded-full border px-1.5 py-px text-[9px] font-medium leading-none"
+            title="Kaydedilmemiş değişiklikler">
+            Modified
+          </span>
+        ) : null}
+        {saving ? (
+          <span className="text-[10px] font-medium text-indigo-600 dark:text-indigo-400">Saving…</span>
+        ) : null}
+        <span className="text-muted-foreground hidden rounded border border-border/80 bg-muted/40 px-1 py-px font-mono text-[9px] uppercase leading-none tracking-wide sm:inline">
+          {language}
+        </span>
+        <div
+          className="border-border bg-muted/30 flex items-center gap-px rounded border p-px"
+          role="group"
+          aria-label="Geçmiş">
+          <Button
+            type="button"
+            variant="muted"
+            size="sm"
+            className="h-6 min-h-6 min-w-6 px-0"
+            title="Geri al"
+            disabled={!monacoUndoRedo.canUndo}
+            onClick={handleUndo}>
+            <Undo2 size={12} />
+          </Button>
+          <Button
+            type="button"
+            variant="muted"
+            size="sm"
+            className="h-6 min-h-6 min-w-6 px-0"
+            title="Yinele"
+            disabled={!monacoUndoRedo.canRedo}
+            onClick={handleRedo}>
+            <Redo2 size={12} />
+          </Button>
+        </div>
+        <Button
+          type="button"
+          variant="success"
+          size="sm"
+          className="h-6 min-h-6 gap-1 px-2 text-[11px]"
+          title="Kaydet (Ctrl+S)"
+          disabled={!activeFileTab?.isDirty || saving}
+          leftIconComponent={<Save size={12} />}
+          onClick={() => {
+            void handleSave();
+          }}>
+          {saving ? 'Saving…' : 'Save'}
+        </Button>
+      </>,
+    );
+    return () => {
+      setToolbar(null);
+    };
+  }, [
+    activeFileTab?.isDirty,
+    content,
+    error,
+    handleRedo,
+    handleSave,
+    handleUndo,
+    language,
+    loading,
+    monacoUndoRedo.canRedo,
+    monacoUndoRedo.canUndo,
+    saving,
+    setToolbar,
+  ]);
 
   if (loading) {
     return (
@@ -251,61 +373,12 @@ export function CodeEditorPage() {
 
   return (
     <div className="flex h-full flex-col">
-      {tabs.length > 0 && (
-        <div className="flex shrink-0 overflow-x-auto border-b border-slate-200 bg-slate-50/50">
-          {tabs.map((tab) => (
-            <div
-              key={tab.id}
-              className={`flex min-w-0 cursor-pointer items-center gap-1.5 border-r border-slate-100 px-3 py-1.5 text-xs ${
-                tab.id === activeTabId
-                  ? 'bg-white font-medium text-slate-900'
-                  : 'text-slate-500 hover:bg-slate-100/50 hover:text-slate-700'
-              }`}
-              onClick={() => handleTabClick(tab.id)}>
-              <FileIcon language={tab.language} />
-              <span className="max-w-[140px] truncate">{tab.title}</span>
-              {tab.isDirty && <span className="text-[10px] text-amber-500">*</span>}
-              <button
-                onClick={(event) => {
-                  event.stopPropagation();
-                  closeTab(tab.id);
-                }}
-                className="ml-0.5 shrink-0 text-slate-300 hover:text-slate-600">
-                x
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
-
-      <div className="flex shrink-0 items-center gap-2 border-b border-slate-100 bg-white px-3 py-1 text-[11px]">
-        <button
-          type="button"
-          onClick={() => {
-            void navigate(`/project/${id}`);
-          }}
-          className="text-slate-400 hover:text-slate-700">
-          {activeProject?.domain ?? id}
-        </button>
-        <span className="text-slate-300">/</span>
-        <span className="truncate text-slate-500">
-          {filePath?.replace(`${activeProject?.path ?? ''}/`, '') ?? fileName}
-        </span>
-        <div className="ml-auto flex items-center gap-2">
-          {activeTab?.isDirty && (
-            <span className="text-[10px] font-medium text-amber-500">Modified</span>
-          )}
-          {saving && <span className="text-[10px] font-medium text-indigo-500">Saving...</span>}
-          <span className="font-mono text-[10px] text-slate-400 uppercase">{language}</span>
-        </div>
-      </div>
-
-      <div className="flex-1">
+      <div className="min-h-0 flex-1">
         <Editor
           height="100%"
           path={filePath ?? undefined}
           language={language}
-          value={activeTab?.content ?? content ?? ''}
+          value={activeFileTab?.content ?? content ?? ''}
           theme="vs"
           onChange={(value) => {
             if (value !== undefined && filePath) {
@@ -335,44 +408,5 @@ export function CodeEditorPage() {
         />
       </div>
     </div>
-  );
-}
-
-function FileIcon({ language }: { language: string }) {
-  const colors: Record<string, string> = {
-    csharp: 'text-violet-500',
-    json: 'text-amber-500',
-    javascript: 'text-yellow-500',
-    typescript: 'text-blue-500',
-    sql: 'text-orange-500',
-    shell: 'text-green-500',
-    markdown: 'text-slate-500',
-    yaml: 'text-red-400',
-    xml: 'text-orange-400',
-    html: 'text-red-500',
-    css: 'text-blue-400',
-    python: 'text-blue-600',
-  };
-
-  const labels: Record<string, string> = {
-    csharp: 'C#',
-    json: '{}',
-    javascript: 'JS',
-    typescript: 'TS',
-    sql: 'SQL',
-    shell: 'SH',
-    markdown: 'MD',
-    yaml: 'YML',
-    xml: 'XML',
-    html: 'HT',
-    css: 'CSS',
-    python: 'PY',
-  };
-
-  return (
-    <span
-      className={`w-4 shrink-0 text-center text-[9px] font-bold ${colors[language] || 'text-slate-400'}`}>
-      {labels[language] || '~'}
-    </span>
   );
 }

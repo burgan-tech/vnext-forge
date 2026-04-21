@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useComponentStore } from '../../store/useComponentStore';
 import { useProjectStore } from '../../store/useProjectStore';
 import { ComponentEditorLayout } from '../../modules/save-component/components/ComponentEditorLayout';
@@ -10,9 +11,15 @@ export interface ViewEditorViewProps {
   projectId: string;
   group: string;
   name: string;
+  registerToolbar?: (toolbar: ReactNode | null) => void;
 }
 
-export function ViewEditorView({ projectId: id, group, name }: ViewEditorViewProps) {
+export function ViewEditorView({
+  projectId: id,
+  group,
+  name,
+  registerToolbar,
+}: ViewEditorViewProps) {
   const { activeProject, vnextConfig } = useProjectStore();
   const { componentJson, isDirty, updateComponent, undo, redo, undoStack, redoStack } =
     useComponentStore();
@@ -40,11 +47,7 @@ export function ViewEditorView({ projectId: id, group, name }: ViewEditorViewPro
 
   return (
     <ComponentEditorLayout
-      projectId={id || ''}
-      projectDomain={activeProject?.domain}
-      typeName="Views"
-      group={group || ''}
-      name={name || ''}
+      registerToolbar={registerToolbar}
       isDirty={isDirty}
       hasSaved={!isDirty && undoStack.length > 0}
       saving={saving}

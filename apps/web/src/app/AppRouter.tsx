@@ -9,6 +9,9 @@ const ProjectListPage = lazy(() =>
   import('../pages/project-list/ProjectListPage').then((m) => ({ default: m.ProjectListPage })),
 );
 const AppLayout = lazy(() => import('./layouts/AppLayout').then((m) => ({ default: m.AppLayout })));
+const ProjectEditorShell = lazy(() =>
+  import('./layouts/ProjectEditorShell').then((m) => ({ default: m.ProjectEditorShell })),
+);
 const ProjectWorkspacePage = lazy(() =>
   import('../pages/project-workspace/ProjectWorkspacePage').then((m) => ({
     default: m.ProjectWorkspacePage,
@@ -78,14 +81,16 @@ export function AppRouter() {
             <Route index element={<ProjectListPage />} />
             <Route element={<AppLayout />}>
               <Route path="project">
-                <Route path=":id" element={<ProjectWorkspacePage />} />
-                <Route path=":id/flow/:group/:name" element={<FlowEditorPage />} />
-                <Route path=":id/task/:group/:name" element={<TaskEditorPage />} />
-                <Route path=":id/schema/:group/:name" element={<SchemaEditorPage />} />
-                <Route path=":id/view/:group/:name" element={<ViewEditorPage />} />
-                <Route path=":id/function/:group/:name" element={<FunctionEditorPage />} />
-                <Route path=":id/extension/:group/:name" element={<ExtensionEditorPage />} />
-                <Route path=":id/code/*" element={<CodeEditorPage />} />
+                <Route path=":id" element={<ProjectEditorShell />}>
+                  <Route index element={<ProjectWorkspacePage />} />
+                  <Route path="flow/:group/:name" element={<FlowEditorPage />} />
+                  <Route path="task/:group/:name" element={<TaskEditorPage />} />
+                  <Route path="schema/:group/:name" element={<SchemaEditorPage />} />
+                  <Route path="view/:group/:name" element={<ViewEditorPage />} />
+                  <Route path="function/:group/:name" element={<FunctionEditorPage />} />
+                  <Route path="extension/:group/:name" element={<ExtensionEditorPage />} />
+                  <Route path="code/*" element={<CodeEditorPage />} />
+                </Route>
               </Route>
             </Route>
             <Route path="/test" element={<TestPage />} />

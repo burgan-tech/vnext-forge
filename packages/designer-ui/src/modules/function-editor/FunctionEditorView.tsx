@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { useProjectStore } from '../../store/useProjectStore';
 import { useComponentStore } from '../../store/useComponentStore';
 import { useSaveComponent } from '../../modules/save-component/useSaveComponent';
@@ -9,9 +10,15 @@ export interface FunctionEditorViewProps {
   projectId: string;
   group: string;
   name: string;
+  registerToolbar?: (toolbar: ReactNode | null) => void;
 }
 
-export function FunctionEditorView({ projectId: id, group, name }: FunctionEditorViewProps) {
+export function FunctionEditorView({
+  projectId: id,
+  group,
+  name,
+  registerToolbar,
+}: FunctionEditorViewProps) {
   const { activeProject, vnextConfig } = useProjectStore();
   const {
     componentJson,
@@ -43,11 +50,7 @@ export function FunctionEditorView({ projectId: id, group, name }: FunctionEdito
 
   return (
     <ComponentEditorLayout
-      projectId={id || ''}
-      projectDomain={activeProject?.domain}
-      typeName="Functions"
-      group={group || ''}
-      name={name || ''}
+      registerToolbar={registerToolbar}
       isDirty={isDirty}
       hasSaved={!isDirty && undoStack.length > 0}
       saving={saving}

@@ -67,7 +67,13 @@ export { RuntimeHealthSync } from './modules/workflow-execution/RuntimeHealthSyn
 // (FlowEditorView etc.) embed the Monaco + C# script panel. Host shells can
 // also consume a small subset (e.g. the web `CodeEditorPage` reuses
 // `useEditorStore` and `setupMonacoWithLsp`).
-export { useEditorStore, type EditorTab } from './modules/code-editor/EditorStore.js';
+export {
+  componentEditorTabId,
+  useEditorStore,
+  type ComponentEditorKind,
+  type EditorTab,
+  type EditorTabKind,
+} from './modules/code-editor/EditorStore.js';
 export { useSaveFile } from './modules/code-editor/useSaveFile.js';
 export { setupMonacoWithLsp } from './modules/code-editor/editor/MonacoSetup.js';
 export type { CsharpLspClient } from './modules/code-editor/editor/lspClient.js';

@@ -1,7 +1,7 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { unstable_batchedUpdates as batchedUpdates } from 'react-dom';
 
-import { createLogger, useProjectStore } from '@vnext-forge/designer-ui';
+import { createLogger, useEditorStore, useProjectStore } from '@vnext-forge/designer-ui';
 import { success, type ApiResponse } from '@vnext-forge/app-contracts';
 
 import { useComponentFileTypesStore } from '../../../app/store/useComponentFileTypesStore';
@@ -30,6 +30,9 @@ export interface ProjectWorkspacePageController {
  * isteğe iniyor.
  */
 export function useProjectWorkspacePage(projectId?: string): ProjectWorkspacePageController {
+  /** URL'deki proje id'si değişince sekmeleri sıfırla (store'daki activeProject gecikse bile). */
+  const previousRouteProjectIdRef = useRef<string | undefined>(undefined);
+
   const setActiveProject = useProjectStore((s) => s.setActiveProject);
   const setVnextConfig = useProjectStore((s) => s.setVnextConfig);
   const setLoading = useProjectStore((s) => s.setLoading);
@@ -79,6 +82,7 @@ export function useProjectWorkspacePage(projectId?: string): ProjectWorkspacePag
       clearConfigIssues();
       resetVnextWorkspaceUi();
       useComponentFileTypesStore.getState().clearFileTypes();
+      useEditorStore.getState().clearTabs();
       if (errorMessage) {
         setError(errorMessage);
       }
@@ -99,6 +103,7 @@ export function useProjectWorkspacePage(projectId?: string): ProjectWorkspacePag
           setVnextConfig(null);
         });
         useComponentFileTypesStore.getState().clearFileTypes();
+        useEditorStore.getState().clearTabs();
       }
 
       setLoading(true);
@@ -146,6 +151,18 @@ export function useProjectWorkspacePage(projectId?: string): ProjectWorkspacePag
     }
     await fetchAndApplyBootstrap(projectId, () => false);
   }, [fetchAndApplyBootstrap, projectId]);
+
+  useEffect(() => {
+    if (!projectId) {
+      previousRouteProjectIdRef.current = undefined;
+      return;
+    }
+    const prev = previousRouteProjectIdRef.current;
+    if (prev !== undefined && prev !== projectId) {
+      useEditorStore.getState().clearTabs();
+    }
+    previousRouteProjectIdRef.current = projectId;
+  }, [projectId]);
 
   useEffect(() => {
     if (!projectId) {

@@ -28,4 +28,4 @@ export * from './Tabs.js';
 export * from './TagEditor.js';
 export * from './Textarea.js';
 export * from './Tooltip.js';
-export * from '../assets/icons/index.js';
+export * from '../modules/component-icons/index.js';

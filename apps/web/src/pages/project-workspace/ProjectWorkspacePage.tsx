@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
-import { useProjectStore } from '@vnext-forge/designer-ui';
+import { useEditorStore, useProjectStore } from '@vnext-forge/designer-ui';
 import { Badge, Button } from '@vnext-forge/designer-ui/ui';
 
 import { useVnextWorkspaceUiStore } from '../../app/store/useVnextWorkspaceUiStore';
@@ -10,6 +10,7 @@ export function ProjectWorkspacePage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { activeProject, error, loading } = useProjectStore();
+  const editorTabCount = useEditorStore((s) => s.tabs.length);
   const templateSeedDialogOpen = useVnextWorkspaceUiStore((s) => s.templateSeedDialogOpen);
   const setTemplateSeedDialogOpen = useVnextWorkspaceUiStore((s) => s.setTemplateSeedDialogOpen);
   const declineTemplatePromptForProject = useVnextWorkspaceUiStore(
@@ -58,19 +59,21 @@ export function ProjectWorkspacePage() {
         />
       ) : null}
 
-      <div className="border-border flex items-center gap-3 border-b p-3">
-        <Button
-          className="text-muted-foreground hover:text-foreground px-0 text-xs"
-          noBorder
-          onClick={() => void navigate('/')}
-          size="sm"
-          variant="ghost">
-          Projects
-        </Button>
-        <span className="text-muted-foreground text-xs">/</span>
-        <span className="text-sm font-medium">{activeProject.domain}</span>
-        {activeProject.linked ? <Badge variant="muted">linked</Badge> : null}
-      </div>
+      {editorTabCount > 0 ? (
+        <div className="border-border flex items-center gap-3 border-b p-3">
+          <Button
+            className="text-muted-foreground hover:text-foreground px-0 text-xs"
+            noBorder
+            onClick={() => void navigate('/')}
+            size="sm"
+            variant="ghost">
+            Projects
+          </Button>
+          <span className="text-muted-foreground text-xs">/</span>
+          <span className="text-sm font-medium">{activeProject.domain}</span>
+          {activeProject.linked ? <Badge variant="muted">linked</Badge> : null}
+        </div>
+      ) : null}
 
       <div className="flex flex-1 items-center justify-center p-8">
         <div className="max-w-md text-center">
