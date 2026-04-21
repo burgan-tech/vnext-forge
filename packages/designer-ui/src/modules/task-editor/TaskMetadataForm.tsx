@@ -1,7 +1,10 @@
+import {
+  MetadataEditableTextInput,
+  MetadataLockedTextInput,
+} from '../component-metadata';
 import { Field } from '../../ui/Field';
-import { Input } from '../../ui/Input';
-import { Select } from '../../ui/Select';
 import { TagEditor } from '../../ui/TagEditor';
+import { TaskTypePicker } from './components/TaskTypePicker';
 
 interface TaskMetadataFormProps {
   json: Record<string, unknown>;
@@ -9,69 +12,38 @@ interface TaskMetadataFormProps {
 }
 
 export function TaskMetadataForm({ json, onChange }: TaskMetadataFormProps) {
+  const taskType = String((json.attributes as Record<string, unknown> | undefined)?.type ?? '6');
+
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
         <Field label="Key">
-          <Input
-            type="text"
-            value={String(json.key || '')}
-            readOnly
-            hoverable={false}
-            size="sm"
-            variant="muted"
-            inputClassName="font-mono text-xs"
-          />
+          <MetadataLockedTextInput value={String(json.key || '')} />
         </Field>
         <Field label="Version">
-          <Input
-            type="text"
+          <MetadataEditableTextInput
             value={String(json.version || '')}
             onChange={(e) => onChange((d) => { d.version = e.target.value; })}
-            size="sm"
-            inputClassName="font-mono text-xs"
           />
         </Field>
         <Field label="Domain">
-          <Input
-            type="text"
-            value={String(json.domain || '')}
-            onChange={(e) => onChange((d) => { d.domain = e.target.value; })}
-            size="sm"
-            inputClassName="font-mono text-xs"
-          />
+          <MetadataLockedTextInput value={String(json.domain || '')} />
         </Field>
         <Field label="Flow">
-          <Input
-            type="text"
-            value={String(json.flow || '')}
-            onChange={(e) => onChange((d) => { d.flow = e.target.value; })}
-            size="sm"
-            inputClassName="font-mono text-xs"
-          />
+          <MetadataLockedTextInput value={String(json.flow || '')} />
         </Field>
       </div>
-      <Field label="Task Type">
-        <Select
-          value={String((json.attributes as any)?.type || '6')}
-          onChange={(e) => onChange((d) => {
+
+      <TaskTypePicker
+        value={taskType}
+        onChange={(next) => {
+          onChange((d) => {
             if (!d.attributes) d.attributes = {};
-            (d.attributes as any).type = e.target.value;
-          })}
-          className="text-xs"
-        >
-          <option value="3">Dapr Service Invocation</option>
-          <option value="4">Dapr PubSub</option>
-          <option value="5">Script (C#)</option>
-          <option value="6">HTTP Request</option>
-          <option value="7">Dapr Binding</option>
-          <option value="11">Start Workflow</option>
-          <option value="12">Direct Trigger</option>
-          <option value="13">Get Instance Data</option>
-          <option value="14">SubProcess / Start Trigger</option>
-          <option value="15">Get Instances</option>
-        </Select>
-      </Field>
+            (d.attributes as Record<string, unknown>).type = next;
+          });
+        }}
+      />
+
       <Field label="Tags">
         <TagEditor
           tags={(json.tags as string[]) || []}
@@ -81,4 +53,3 @@ export function TaskMetadataForm({ json, onChange }: TaskMetadataFormProps) {
     </div>
   );
 }
-

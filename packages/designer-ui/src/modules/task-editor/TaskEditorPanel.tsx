@@ -28,7 +28,7 @@ export function TaskEditorPanel({ json, onChange }: TaskEditorPanelProps) {
       <Card variant="default" className="gap-3">
         <CardHeader className="border-border border-b">
           <CardTitle className="text-base">Task Metadata</CardTitle>
-          <CardDescription className="text-xs">Identity and flow bindings.</CardDescription>
+          <CardDescription className="text-xs">Identity, type and flow bindings.</CardDescription>
         </CardHeader>
         <CardContent className="px-4 sm:px-6">
           <TaskMetadataForm json={json} onChange={onChange} />

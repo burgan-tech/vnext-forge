@@ -262,7 +262,7 @@ const inputAdornmentVariants = cva(
 
 type NativeInputProps = Omit<React.ComponentProps<'input'>, 'size'>;
 
-interface InputProps
+export interface InputProps
   extends
     NativeInputProps,
     Omit<VariantProps<typeof inputRootVariants>, 'disabledState' | 'readOnlyState'>,

@@ -1,9 +1,9 @@
-import { Button } from '../../../ui/Button';
 import { Field } from '../../../ui/Field';
+import { RadioCard, RadioCardGroup } from '../../../ui/RadioCard';
 
 const SCOPES = [
-  { value: 'I', label: 'Instance', desc: 'Per workflow instance' },
-  { value: 'F', label: 'Workflow', desc: 'Per workflow definition' },
+  { value: 'I', label: 'Instance', desc: 'Per instance' },
+  { value: 'F', label: 'Workflow', desc: 'Per workflow' },
   { value: 'D', label: 'Domain', desc: 'Per domain' },
 ] as const;
 
@@ -15,25 +15,22 @@ interface FunctionScopePickerProps {
 
 export function FunctionScopePicker({ value, onChange, hint }: FunctionScopePickerProps) {
   return (
-    <Field label="Scope" hint={hint}>
-      <div className="flex gap-1">
+    <Field label="Scope" hint={hint} className="space-y-0">
+      <RadioCardGroup
+        value={value}
+        onValueChange={(v) => onChange(String(v))}
+        aria-label="Function scope"
+        className="grid grid-cols-3 gap-1.5">
         {SCOPES.map((s) => (
-          <Button
+          <RadioCard
             key={s.value}
-            type="button"
-            onClick={() => onChange(s.value)}
-            variant={value === s.value ? 'success' : 'default'}
-            aria-pressed={value === s.value}
-            className="h-auto flex-1 rounded-xl px-3 py-2 text-xs"
-          >
-            <span className="flex flex-col items-start gap-0.5 text-left">
-              <span className="font-medium">{s.label}</span>
-              <span className="text-[10px] opacity-70">{s.desc}</span>
-            </span>
-          </Button>
+            value={s.value}
+            label={s.label}
+            description={s.desc}
+            className="h-auto min-h-0 min-w-0 shrink [&>span]:gap-1 [&>span]:px-2 [&>span]:py-1 [&_span.text-sm]:text-xs [&_span.text-xs]:text-[10px] [&_span.text-xs]:leading-tight"
+          />
         ))}
-      </div>
+      </RadioCardGroup>
     </Field>
   );
 }
-

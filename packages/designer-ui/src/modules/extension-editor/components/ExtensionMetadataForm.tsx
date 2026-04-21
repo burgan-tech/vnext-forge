@@ -1,7 +1,10 @@
 import { useEffect } from 'react';
 import { Controller, useForm, useWatch } from 'react-hook-form';
+import {
+  MetadataEditableTextInput,
+  MetadataLockedTextInput,
+} from '../../component-metadata';
 import { Field } from '../../../ui/Field';
-import { Input } from '../../../ui/Input';
 import { TagEditor } from '../../../ui/TagEditor';
 import {
   extensionMetadataFormSchema,
@@ -80,43 +83,27 @@ export function ExtensionMetadataForm({ json, onChange }: ExtensionMetadataFormP
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
         <Field label="Key" hint={form.formState.errors.key?.message}>
-          <Input
-            type="text"
+          <MetadataEditableTextInput
             {...keyValidation}
-            className="w-full"
-            inputClassName="font-mono text-xs"
             aria-invalid={Boolean(form.formState.errors.key)}
           />
         </Field>
         <Field label="Version" hint={form.formState.errors.version?.message}>
-          <Input
-            type="text"
+          <MetadataEditableTextInput
             {...versionValidation}
-            className="w-full"
-            inputClassName="font-mono text-xs"
             aria-invalid={Boolean(form.formState.errors.version)}
           />
         </Field>
         <Field label="Domain" hint={form.formState.errors.domain?.message}>
-          <Input
-            type="text"
+          <MetadataLockedTextInput
             {...domainValidation}
-            variant="muted"
-            readOnly
-            className="w-full"
-            inputClassName="font-mono text-xs"
             aria-invalid={Boolean(form.formState.errors.domain)}
           />
         </Field>
         <Field label="Flow" hint={form.formState.errors.flow?.message}>
-          <Input
-            type="text"
+          <MetadataLockedTextInput
             {...flowValidation}
-            variant="muted"
-            readOnly
             placeholder="(optional)"
-            className="w-full"
-            inputClassName="font-mono text-xs"
             aria-invalid={Boolean(form.formState.errors.flow)}
           />
         </Field>
