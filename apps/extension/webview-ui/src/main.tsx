@@ -6,6 +6,7 @@ import {
   registerLogSink,
   registerNotificationSink,
   setHostEditorCapabilities,
+  syncColorThemeFromSettingsStore,
 } from '@vnext-forge/designer-ui';
 
 import './index.css';
@@ -44,6 +45,8 @@ registerNotificationSink(createVsCodeNotificationSink(vsCodeApi));
 // OutputChannel via the extension host. Without this the webview logs end
 // up in the (hidden) Webview Developer Tools console only.
 registerLogSink(createVsCodeLogSink(vsCodeApi));
+
+syncColorThemeFromSettingsStore();
 
 /*
  * The VS Code webview is intentionally router-less. Navigation between

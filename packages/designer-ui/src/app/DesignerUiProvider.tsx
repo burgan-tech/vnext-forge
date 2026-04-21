@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import { setApiTransport, type ApiTransport } from '../api/transport.js';
 
+import { DocumentThemeSync } from './DocumentThemeSync.js';
+
 export interface DesignerUiProviderProps {
   /**
    * Platform-specific API transport. The host shell (apps/web SPA or
@@ -16,6 +18,9 @@ export interface DesignerUiProviderProps {
  * Top-level provider for designer-ui. Registers the active ApiTransport for
  * the lifetime of the host shell. Wrap the entire designer-ui consumer tree
  * (router, modules, pages) with this provider.
+ *
+ * `DocumentThemeSync` is mounted here so shell ayarlarındaki `colorTheme`
+ * (`useSettingsStore`) `document.documentElement` üzerine yansır.
  *
  * Notifications are shell-specific: each host registers its own
  * {@link import('../notification/notification-port.js').NotificationSink}
@@ -51,5 +56,10 @@ export function DesignerUiProvider({ transport, children }: DesignerUiProviderPr
   // run `callApi` in their reconnected effects with no transport.
   setApiTransport(transport);
 
-  return <>{children}</>;
+  return (
+    <>
+      <DocumentThemeSync />
+      {children}
+    </>
+  );
 }

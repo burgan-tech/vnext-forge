@@ -21,7 +21,7 @@ export function ProjectListActions({
       <ImportProjectDialog onImported={onProjectReady} disabled={disabled} />
       <div className="my-4 flex items-center gap-3">
         <Separator decorative className="flex-1" />
-        <span className="text-[11px] font-medium text-subtle">or</span>
+        <span className="text-subtle text-[11px] font-medium">or</span>
         <Separator decorative className="flex-1" />
       </div>
       <CreateProjectCard

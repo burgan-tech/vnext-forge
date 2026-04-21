@@ -1,9 +1,8 @@
 import { BrowserRouter, Route, Routes, useNavigate } from 'react-router-dom';
 
 import { ProjectNavigationProvider } from '@vnext-forge/designer-ui';
-import { lazy, Suspense, useEffect, type ReactNode } from 'react';
+import { lazy, Suspense, type ReactNode } from 'react';
 
-import { useThemeStore } from './store/useThemeStore';
 import { RouteSkeleton } from './RouteSkeleton';
 
 const ProjectListPage = lazy(() =>
@@ -64,25 +63,6 @@ function WebProjectNavigationAdapter({ children }: { children: ReactNode }) {
 }
 
 /**
- * Mirrors the active theme onto `<html data-theme>` so Tailwind tokens can
- * react to it. The `system` value defers to the user's OS preference. The
- * extension webview never mounts this — its theme tracks VS Code itself.
- */
-function ThemeEffect() {
-  const theme = useThemeStore((s) => s.theme);
-  useEffect(() => {
-    const root = document.documentElement;
-    if (theme === 'system') {
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      root.dataset.theme = prefersDark ? 'dark' : 'light';
-    } else {
-      root.dataset.theme = theme;
-    }
-  }, [theme]);
-  return null;
-}
-
-/**
  * Web SPA route tree. Mirrors the original (pre-extension) layout:
  *   - `/`                                  → project list (no chrome)
  *   - `/project/:id`                       → project workspace + chrome
@@ -92,7 +72,6 @@ function ThemeEffect() {
 export function AppRouter() {
   return (
     <BrowserRouter>
-      <ThemeEffect />
       <WebProjectNavigationAdapter>
         <Suspense fallback={<RouteSkeleton />}>
           <Routes>

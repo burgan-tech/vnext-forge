@@ -7,5 +7,9 @@
  * `@vnext-forge/designer-ui` package and are layered on top.
  */
 @import 'tailwindcss';
+
+/* designer-ui `html.dark` + Tailwind `dark:` — web SPA ile aynı sözleşme */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @import 'tw-animate-css';
 @import '@vnext-forge/designer-ui/styles.css';

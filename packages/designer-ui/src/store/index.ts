@@ -1,3 +1,4 @@
+export { useSettingsStore, type ColorThemePreference } from './useSettingsStore.js';
 export { useProjectStore } from './useProjectStore.js';
 export { useEditorPanelsStore } from './useEditorPanelsStore.js';
 export { useRuntimeStore } from './useRuntimeStore.js';

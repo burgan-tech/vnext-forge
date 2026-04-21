@@ -4,6 +4,7 @@
 // ./lib, ./notification, ./api, ./styles.css).
 
 export * from './app/index.js';
+export * from './theme/documentTheme.js';
 export * from './api/index.js';
 export * from './hooks/index.js';
 export * from './lib/index.js';

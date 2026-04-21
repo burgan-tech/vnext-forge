@@ -42,6 +42,7 @@ const THUMB_TRAVEL = 56 - THUMB_SIZE - THUMB_PAD * 2;
 
 const spring = { type: 'spring' as const, stiffness: 420, damping: 32, mass: 0.6 };
 
+/** İkon kuyusu: tema token’ları + hafif derinlik (styles.css @theme ile uyumlu) */
 function MoonSunIcon({
   checked,
   isHovered,
@@ -58,31 +59,39 @@ function MoonSunIcon({
   return (
     <div
       className={cn(
-        'relative flex size-14 items-center justify-center rounded-full transition-transform duration-200',
+        'relative flex size-14 items-center justify-center rounded-full border transition-transform duration-200',
+        checked ? 'border-border bg-background' : 'border-transparent bg-chrome-item',
         isPressed && 'scale-[0.96]',
         !isPressed && isHovered && 'scale-[1.04]',
       )}
       style={{
-        background: checked ? '#e8e8e8' : '#2b2b2b',
+        borderColor: checked
+          ? 'var(--color-border)'
+          : 'color-mix(in srgb, var(--color-chrome-foreground) 12%, var(--color-chrome))',
         boxShadow: checked
-          ? 'inset 3px 3px 6px rgba(0,0,0,0.08), inset -2px -2px 5px rgba(255,255,255,0.85)'
-          : 'inset 4px 4px 8px rgba(0,0,0,0.45), inset -3px -3px 6px rgba(255,255,255,0.06)',
+          ? 'inset 2px 2px 6px color-mix(in srgb, var(--color-foreground) 8%, transparent), inset -2px -2px 6px color-mix(in srgb, var(--color-background) 92%, white)'
+          : 'inset 3px 3px 8px color-mix(in srgb, black 45%, transparent), inset -2px -2px 6px color-mix(in srgb, var(--color-chrome-foreground) 6%, transparent)',
       }}>
       <svg
         className="size-10 overflow-visible"
         viewBox="0 0 24 24"
         aria-hidden
-        style={{ filter: checked ? 'drop-shadow(0 1px 1px rgba(0,0,0,0.12))' : undefined }}>
+        style={{
+          filter: checked
+            ? 'drop-shadow(0 1px 1px color-mix(in srgb, var(--color-foreground) 14%, transparent))'
+            : undefined,
+        }}>
         <defs>
+          {/* Güneş: marka yeşil–teal (sayfadaki CTA ile aynı aile, düşük bağırmayan ton) */}
           <linearGradient id={sunGradientId} x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#ffb347" />
-            <stop offset="100%" stopColor="#ff8c00" />
+            <stop offset="0%" stopColor="var(--color-brand-glow)" />
+            <stop offset="100%" stopColor="var(--color-brand-from)" />
           </linearGradient>
-          {/* Ay: arka plandan ayrışan soğuk gümüş + hilal okunurluğu */}
+          {/* Ay: chrome / muted — koyu yüzeyde okunur hilal */}
           <linearGradient id={moonGradientId} x1="18%" y1="12%" x2="82%" y2="88%">
-            <stop offset="0%" stopColor="#c5d0e0" />
-            <stop offset="42%" stopColor="#8b9cb3" />
-            <stop offset="100%" stopColor="#4f5f73" />
+            <stop offset="0%" stopColor="var(--color-muted-border)" />
+            <stop offset="42%" stopColor="var(--color-muted-foreground)" />
+            <stop offset="100%" stopColor="var(--color-chrome-muted)" />
           </linearGradient>
         </defs>
 
@@ -99,12 +108,12 @@ function MoonSunIcon({
             transformOrigin: '12px 12px',
             filter: checked
               ? undefined
-              : 'drop-shadow(0 0 5px rgba(180, 210, 255, 0.35)) drop-shadow(0 1px 2px rgba(0,0,0,0.55))',
+              : 'drop-shadow(0 0 4px color-mix(in srgb, var(--color-info-border) 35%, transparent)) drop-shadow(0 1px 2px color-mix(in srgb, black 55%, transparent))',
           }}>
           <path
             d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"
             fill={`url(#${moonGradientId})`}
-            stroke="rgba(255,255,255,0.42)"
+            stroke="color-mix(in srgb, var(--color-chrome-foreground) 42%, transparent)"
             strokeWidth="0.5"
           />
         </motion.g>
@@ -128,7 +137,7 @@ function MoonSunIcon({
                 height="4.2"
                 rx="0.85"
                 fill={`url(#${sunGradientId})`}
-                stroke="rgba(255,255,255,0.35)"
+                stroke="color-mix(in srgb, var(--color-card) 45%, transparent)"
                 strokeWidth="0.12"
                 initial={false}
                 animate={{
@@ -148,7 +157,7 @@ function MoonSunIcon({
             cy="12"
             r="4.2"
             fill={`url(#${sunGradientId})`}
-            stroke="rgba(255,255,255,0.45)"
+            stroke="color-mix(in srgb, var(--color-card) 50%, transparent)"
             strokeWidth="0.25"
           />
         </motion.g>
@@ -168,6 +177,7 @@ function ColorThemeSwitch({
   'aria-label': ariaLabel = 'Açık ve koyu renk teması arasında geçiş',
   onClick,
   onKeyDown,
+  style: styleProp,
   ...rest
 }: ColorThemeSwitchProps) {
   const reactId = React.useId();
@@ -203,18 +213,25 @@ function ColorThemeSwitch({
     <button
       type="button"
       role="switch"
+      data-slot="color-theme-switch"
       aria-checked={checked}
       aria-label={ariaLabel}
       disabled={disabled}
       data-state={checked ? 'on' : 'off'}
       className={cn(
-        'flex flex-col items-center gap-3 rounded-2xl border border-transparent p-4 outline-none transition-colors duration-500 ease-out',
+        'flex flex-col items-center gap-3 rounded-2xl border border-border p-4 outline-none transition-colors duration-500 ease-out',
         'focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
         disabled && 'cursor-not-allowed opacity-50',
         !disabled && 'cursor-pointer',
-        checked ? 'bg-[#e8e8e8]' : 'bg-[#2b2b2b]',
+        checked ? 'bg-muted text-foreground' : 'bg-chrome text-chrome-foreground',
         className,
       )}
+      style={{
+        borderColor: checked
+          ? 'var(--color-border)'
+          : 'color-mix(in srgb, var(--color-chrome-foreground) 14%, var(--color-chrome))',
+        ...styleProp,
+      }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => {
         setIsHovered(false);
@@ -237,10 +254,13 @@ function ColorThemeSwitch({
         <div
           className={cn(TRACK_CLASS, 'overflow-hidden')}
           style={{
-            background: checked ? 'linear-gradient(180deg, #00d000 0%, #00b000 100%)' : '#2b2b2b',
+            /* On: pastel success — Create kartı / success-surface ile aynı dil, düşük doygunluk */
+            background: checked
+              ? 'linear-gradient(180deg, var(--color-success-surface) 0%, var(--color-success) 100%)'
+              : 'var(--color-chrome)',
             boxShadow: checked
-              ? 'inset 0 1px 0 rgba(255,255,255,0.25), 0 4px 12px rgba(0,0,0,0.12), 0 2px 4px rgba(0,0,0,0.08)'
-              : 'inset 3px 3px 6px rgba(0,0,0,0.5), inset -2px -2px 5px rgba(255,255,255,0.05)',
+              ? 'inset 0 1px 0 color-mix(in srgb, white 55%, transparent), 0 1px 2px color-mix(in srgb, var(--color-foreground) 5%, transparent)'
+              : 'inset 3px 3px 6px color-mix(in srgb, black 50%, transparent), inset -2px -2px 5px color-mix(in srgb, var(--color-chrome-foreground) 5%, transparent)',
           }}>
           <motion.span
             className="absolute top-1 left-1 z-[1] block rounded-full"
@@ -248,11 +268,11 @@ function ColorThemeSwitch({
               width: THUMB_SIZE,
               height: THUMB_SIZE,
               background: checked
-                ? 'linear-gradient(180deg, #c8f0c8 0%, #9fd89f 100%)'
-                : 'linear-gradient(180deg, #d8d8d8 0%, #a8a8a8 100%)',
+                ? 'linear-gradient(180deg, var(--color-surface) 0%, var(--color-success-hover) 100%)'
+                : 'linear-gradient(180deg, var(--color-primary-muted) 0%, var(--color-muted-foreground) 100%)',
               boxShadow: checked
-                ? '0 2px 6px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.5), 0 0 0 1px rgba(30,30,30,0.35)'
-                : '0 3px 8px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.35)',
+                ? '0 1px 3px color-mix(in srgb, var(--color-foreground) 10%, transparent), inset 0 1px 0 color-mix(in srgb, white 70%, transparent), 0 0 0 1px var(--color-success-border)'
+                : '0 3px 8px color-mix(in srgb, black 45%, transparent), inset 0 1px 0 color-mix(in srgb, white 35%, transparent)',
             }}
             initial={false}
             animate={{
@@ -261,9 +281,11 @@ function ColorThemeSwitch({
             }}
             transition={spring}
           />
-          <span className="pointer-events-none absolute inset-0 z-[2] flex items-center justify-between px-2 text-xs font-bold tracking-wide select-none">
+          <span className="pointer-events-none absolute inset-0 z-[2] flex items-center justify-between px-2 text-xs font-medium tracking-wide select-none">
             <motion.span
-              className={cn(checked ? 'text-white drop-shadow-sm' : 'text-transparent')}
+              className={cn(
+                checked ? 'text-success-foreground' : 'text-transparent',
+              )}
               initial={false}
               animate={{
                 opacity: checked ? 1 : 0,
@@ -273,7 +295,7 @@ function ColorThemeSwitch({
               {onLabel}
             </motion.span>
             <motion.span
-              className={cn(!checked ? 'text-[#a8a8a8]' : 'text-transparent')}
+              className={cn(!checked ? 'text-chrome-muted' : 'text-transparent')}
               initial={false}
               animate={{
                 opacity: checked ? 0 : 1,

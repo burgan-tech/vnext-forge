@@ -1,6 +1,10 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { DesignerUiProvider, setHostEditorCapabilities } from '@vnext-forge/designer-ui';
+import {
+  DesignerUiProvider,
+  setHostEditorCapabilities,
+  syncColorThemeFromSettingsStore,
+} from '@vnext-forge/designer-ui';
 
 import './index.css';
 import { AppRouter } from './app/AppRouter';
@@ -12,6 +16,8 @@ import { webHostEditorCapabilities } from './shared/host/webHostEditorCapabiliti
 
 const transport = createHttpTransport({ baseUrl: config.apiBaseUrl });
 setHostEditorCapabilities(webHostEditorCapabilities());
+
+syncColorThemeFromSettingsStore();
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

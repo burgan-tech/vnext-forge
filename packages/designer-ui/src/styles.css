@@ -222,6 +222,213 @@
   --color-brand-surface-status-danger-foreground: #ffe4e6; /* rose-100 */
 }
 
+/*
+ * Koyu mod: `applyColorThemeToDocument` çözümlenen mod koyu olduğunda `<html class="dark">`
+ * ile aynı isimli @theme token’larını gece paletine çevirir. Shell’lerde Tailwind
+ * `@custom-variant dark` tanımlı olmalıdır (web / extension index.css).
+ *
+ * Hiyerarşi mantığı (light tarafının terslemesi):
+ *   - Light: default (beyaz) → secondary (bir ton koyu) → tertiary (en koyu inset)
+ *   - Dark : default (en koyu) → secondary (bir ton açık) → tertiary (daha açık inset)
+ *   İç içe kart: dış = default, orta = secondary, iç = tertiary — hem light’ta
+ *   koyulaşan hem dark’ta açılan inset hissi korunur.
+ *
+ * Renk skalası (Tailwind slate tabanlı, VS Code Dark Modern grimsi tonlarında —
+ * fazla siyah görünümden kaçınmak için skala YUKARI çekildi: bg = slate-800,
+ * en koyu yüzey chrome = slate-900):
+ *   chrome    → slate-900 (#0f172a) — sidebar/activitybar, bg’den koyu
+ *   bg/app    → slate-800 (#1e293b) — VS Code editor (#1e1e1e) hissinde
+ *   surface   → #273449           — kart, bg’den bir ton açık (raised hissi)
+ *   raised    → slate-700 (#334155) — popover, dialog, dropdown
+ *   inset     → #3d4a63           — en iç kart (tertiary)
+ *   hover     → slate-600 (#475569)
+ *   subtle    → slate-500 (#64748b)
+ *   muted txt → slate-400 (#94a3b8)
+ *   text 2    → slate-300 (#cbd5e1)
+ *   text 1    → slate-200 (#e2e8f0)
+ *   strong    → slate-100 (#f1f5f9)
+ */
+html.dark {
+  color-scheme: dark;
+
+  /* ── Core palette — VS Code Dark Modern grimsi tonları ── */
+  --color-background: #1e293b; /* slate-800 — VS Code editor.background hissi */
+  --color-foreground: #e2e8f0; /* slate-200 — body text */
+  --color-surface: #273449; /* kart, bg’den hafif açık (raised hissi) */
+  --color-surface-raised: #334155; /* slate-700 — popover, dialog */
+  --color-muted: #273449;
+  --color-muted-hover: #334155;
+  --color-muted-foreground: #94a3b8; /* slate-400 — ikincil text */
+  --color-border: #334155; /* slate-700 — görünür ama gürültüsüz */
+  --color-border-subtle: #273449; /* bg ile surface arası — neredeyse görünmez ayraç */
+  --color-ring: #38bdf8; /* sky-400 — dark’ta odak halkası daha parlak */
+  --color-muted-border: #3d4a63;
+  --color-muted-border-hover: #475569; /* slate-600 */
+  --color-muted-surface: #273449;
+  --color-muted-icon: #94a3b8;
+  --color-muted-text: #94a3b8;
+
+  /* ── Default — surface ile eş (varsayılan kart yüzeyi) ── */
+  --color-primary: #273449;
+  --color-primary-hover: #334155;
+  --color-primary-border: #334155;
+  --color-primary-foreground: #f1f5f9; /* slate-100 — yüksek kontrast text */
+  --color-primary-surface: #334155;
+  --color-primary-muted: #334155;
+  --color-primary-muted-hover: #3d4a63;
+  --color-primary-border-hover: #475569;
+  --color-primary-icon: #cbd5e1; /* slate-300 */
+  --color-primary-text: #f1f5f9;
+
+  /* ── Secondary — default üzerine BİR ton açık inset (kart→secondary kart) ── */
+  --color-secondary: #334155; /* slate-700 */
+  --color-secondary-hover: #3d4a63;
+  --color-secondary-border: #3d4a63;
+  --color-secondary-foreground: #f1f5f9;
+  --color-secondary-surface: #273449; /* dış konteyner: default kart */
+  --color-secondary-muted: #3d4a63;
+  --color-secondary-muted-hover: #475569;
+  --color-secondary-border-hover: #475569;
+  --color-secondary-icon: #cbd5e1;
+  --color-secondary-text: #cbd5e1; /* slate-300 — ikincil bağlamda yumuşak */
+
+  /* ── Tertiary — secondary üzerine DAHA açık inset (en iç kart) ── */
+  --color-tertiary: #3d4a63;
+  --color-tertiary-hover: #475569; /* slate-600 */
+  --color-tertiary-border: #475569;
+  --color-tertiary-surface: #334155; /* dış: secondary */
+  --color-tertiary-foreground: #f1f5f9;
+  --color-tertiary-muted: #475569;
+  --color-tertiary-muted-hover: #64748b;
+  --color-tertiary-border-hover: #64748b;
+  --color-tertiary-icon: #cbd5e1;
+  --color-tertiary-text: #cbd5e1;
+
+  /* ── Success — koyu yeşil yüzey + parlak yeşil text (bg’den hafif tonla ayrılır) ── */
+  --color-success: #14532d; /* green-900 */
+  --color-success-hover: #166534; /* green-800 */
+  --color-success-foreground: #dcfce7; /* green-100 */
+  --color-success-surface: #0a3622; /* green-950 ile -900 arası — bg’den ayırt edilir */
+  --color-success-border: #166534;
+  --color-success-border-hover: #15803d;
+  --color-success-icon: #4ade80; /* green-400 — parlak ikon */
+  --color-success-text: #86efac; /* green-300 */
+  --color-success-foreground-hover: #bbf7d0;
+
+  /* ── Warning ── */
+  --color-warning: #78350f; /* amber-900 */
+  --color-warning-hover: #92400e; /* amber-800 */
+  --color-warning-foreground: #fef3c7;
+  --color-warning-surface: #5c2410;
+  --color-warning-border: #92400e;
+  --color-warning-border-hover: #b45309;
+  --color-warning-icon: #fbbf24; /* amber-400 */
+  --color-warning-text: #fcd34d; /* amber-300 */
+  --color-warning-foreground-hover: #fef3c7;
+
+  /* ── Info ── */
+  --color-info: #1e3a8a; /* blue-900 */
+  --color-info-hover: #1e40af; /* blue-800 */
+  --color-info-foreground: #dbeafe;
+  --color-info-surface: #1e2e6e;
+  --color-info-border: #1d4ed8;
+  --color-info-border-hover: #2563eb;
+  --color-info-icon: #60a5fa; /* blue-400 */
+  --color-info-text: #93c5fd; /* blue-300 */
+  --color-info-foreground-hover: #dbeafe;
+
+  /* ── Destructive — durgun: koyu kırmızı; hover: parlak kırmızı (trash / destructive Button) ── */
+  --color-destructive: #b91c1c; /* red-700 — dark’ta durgun durum */
+  --color-destructive-hover: #ef4444; /* red-500 — hover’da belirgin uyarı */
+  --color-destructive-foreground: #ffffff;
+  --color-destructive-surface: #5c1414;
+  --color-destructive-muted: #7f1d1d; /* red-900 */
+  --color-destructive-muted-hover: #991b1b; /* red-800 */
+  --color-destructive-border: #7f1d1d;
+  --color-destructive-border-hover: #b91c1c;
+  --color-destructive-icon: #fb7185; /* rose-400 */
+  --color-destructive-text: #fda4af; /* rose-300 */
+  --color-destructive-foreground-hover: #ffe4e6;
+
+  /* ── Semantic ── */
+  --color-card: #273449; /* surface ile eş — varsayılan kart */
+  --color-card-foreground: #f1f5f9;
+  --color-accent: #334155; /* hover/aktif vurgusu — secondary ile eş */
+  --color-accent-foreground: #f1f5f9;
+  --color-outline-hover: #334155;
+  --color-outline-icon: #f1f5f9;
+  --color-ghost-hover: #334155;
+  --color-ghost-icon: #f1f5f9;
+  /* link-hover / link-icon zaten primary referansı, otomatik dark olur */
+
+  /* ── Subtle text ── */
+  --color-subtle: #64748b; /* slate-500 */
+
+  /* ── Action (solid CTA — dark’ta hafif açık tonla canlı dur) ── */
+  --color-action: #6366f1; /* indigo-500 */
+  --color-action-hover: #818cf8; /* indigo-400 — dark’ta hover daha parlak */
+  --color-action-foreground: #ffffff;
+  --color-action-shadow: rgba(99, 102, 241, 0.45);
+
+  /* ── Brand gradient — dark’ta hafif tonla, ışıltı koyu yüzeyde okunsun ── */
+  --color-brand-from: #34d399; /* emerald-400 */
+  --color-brand-via: #2dd4bf; /* teal-400 */
+  --color-brand-to: #10b981; /* emerald-500 */
+  --color-brand-glow: #34d399;
+  --color-brand-ring: #064e3b; /* emerald-900 — dark halka */
+
+  /* ── App chrome — VS Code sidebar pattern: bg’den BİR ton KOYU (görsel ayrım) ── */
+  --color-chrome: #0f172a; /* slate-900 — sidebar/activitybar, bg (#1e293b) altında */
+  --color-chrome-item: #1e293b;
+  --color-chrome-item-hover: #273449;
+  --color-chrome-foreground: #f1f5f9;
+  --color-chrome-muted: #94a3b8;
+  --color-chrome-accent: #818cf8; /* indigo-400 — aktif vurgu */
+
+  /* ── Brand surface (status bar) — dark’ta da teal kimliği korunur, biraz koyulaştırılır ── */
+  --color-brand-surface: #115e59; /* teal-800 */
+  --color-brand-surface-strong: #ffffff;
+  --color-brand-surface-foreground: #ccfbf1; /* teal-100 */
+  --color-brand-surface-muted: #5eead4; /* teal-300 */
+  --color-brand-surface-error: #fca5a5;
+  --color-brand-surface-warning: #fcd34d;
+  --color-brand-surface-success: #6ee7b7;
+  --color-brand-surface-dot-success: #6ee7b7;
+  --color-brand-surface-dot-warning: #fcd34d;
+  --color-brand-surface-dot-idle: #2dd4bf;
+  --color-brand-surface-status-muted: #134e4a; /* teal-900 */
+  --color-brand-surface-status-muted-border: #2dd4bf;
+  --color-brand-surface-status-muted-foreground: #ccfbf1;
+  --color-brand-surface-status-success: #064e3b; /* emerald-900 */
+  --color-brand-surface-status-success-border: #34d399;
+  --color-brand-surface-status-success-foreground: #d1fae5;
+  --color-brand-surface-status-warning: #451a03; /* amber-950 */
+  --color-brand-surface-status-warning-border: #f59e0b;
+  --color-brand-surface-status-warning-foreground: #fef3c7;
+  --color-brand-surface-status-danger: #450a0a; /* red-950 */
+  --color-brand-surface-status-danger-border: #f87171;
+  --color-brand-surface-status-danger-foreground: #fee2e2;
+}
+
+/* ── Dark mode: scrollbar — yüzey üzerinde görünür ama gürültüsüz ── */
+html.dark ::-webkit-scrollbar-thumb {
+  background: #475569; /* slate-600 */
+}
+html.dark ::-webkit-scrollbar-thumb:hover {
+  background: #64748b; /* slate-500 */
+}
+
+/* ── Dark mode: text selection ── */
+html.dark ::selection {
+  background: #312e81; /* indigo-900 */
+  color: #e0e7ff; /* indigo-100 */
+}
+
+/* ── Dark mode: focus visible — daha parlak indigo ── */
+html.dark :focus-visible {
+  outline-color: #818cf8; /* indigo-400 */
+}
+
 * {
   box-sizing: border-box;
 }
@@ -476,6 +683,49 @@ html body .monaco-editor .suggest-widget .monaco-list .monaco-list-row.focused {
   --tag-bg: #ccfbf1;
   --tag-border: #5eead4;
   --tag-text: #0f766e;
+}
+
+/* ── Dark mode: tag chip’ler — koyu surface + parlak text (success/info/warning paterni) ── */
+html.dark [data-slot='tag-editor'] > .tag-editor-chip {
+  --tag-bg: #1e293b; /* slate-800 */
+  --tag-border: #334155; /* slate-700 */
+  --tag-text: #cbd5e1; /* slate-300 */
+}
+
+html.dark [data-slot='tag-editor'] > .tag-editor-chip:nth-child(6n + 1) {
+  --tag-bg: #172554; /* blue-950 */
+  --tag-border: #1d4ed8; /* blue-700 */
+  --tag-text: #93c5fd; /* blue-300 */
+}
+
+html.dark [data-slot='tag-editor'] > .tag-editor-chip:nth-child(6n + 2) {
+  --tag-bg: #052e16; /* green-950 */
+  --tag-border: #166534; /* green-800 */
+  --tag-text: #86efac; /* green-300 */
+}
+
+html.dark [data-slot='tag-editor'] > .tag-editor-chip:nth-child(6n + 3) {
+  --tag-bg: #451a03; /* amber-950 */
+  --tag-border: #92400e; /* amber-800 */
+  --tag-text: #fcd34d; /* amber-300 */
+}
+
+html.dark [data-slot='tag-editor'] > .tag-editor-chip:nth-child(6n + 4) {
+  --tag-bg: #500724; /* pink-950 */
+  --tag-border: #9d174d; /* pink-800 */
+  --tag-text: #f9a8d4; /* pink-300 */
+}
+
+html.dark [data-slot='tag-editor'] > .tag-editor-chip:nth-child(6n + 5) {
+  --tag-bg: #2e1065; /* violet-950 */
+  --tag-border: #6d28d9; /* violet-700 */
+  --tag-text: #c4b5fd; /* violet-300 */
+}
+
+html.dark [data-slot='tag-editor'] > .tag-editor-chip:nth-child(6n) {
+  --tag-bg: #042f2e; /* teal-950 */
+  --tag-border: #0f766e; /* teal-700 */
+  --tag-text: #5eead4; /* teal-300 */
 }
 
 /* destructive token (soluk durgun) + hover’da destructive-hover; trash ile aynı mantık. */

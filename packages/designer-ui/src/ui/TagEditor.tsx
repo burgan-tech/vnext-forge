@@ -121,12 +121,12 @@ function TagEditor({
               type="button"
               onClick={() => removeTag(index)}
               className={cn(
-                'tag-editor-chip-remove inline-flex size-4 shrink-0 cursor-pointer items-center justify-center',
+                'tag-editor-chip-remove inline-flex size-3.5 shrink-0 cursor-pointer items-center justify-center',
                 'rounded-sm p-0 leading-none shadow-none outline-none',
-                'focus-visible:ring-2 focus-visible:ring-ring/50',
+                'focus-visible:ring-ring/50 focus-visible:ring-2',
               )}
               aria-label={`Remove ${tag}`}>
-              <X className="size-3 shrink-0 block" aria-hidden />
+              <X className="block size-2.5 shrink-0" aria-hidden />
             </button>
           ) : null}
         </Badge>
@@ -142,7 +142,7 @@ function TagEditor({
           placeholder={placeholder}
           aria-label={placeholder}
           className={cn(
-            'min-w-28 flex-1 border-0 bg-transparent py-0.5 text-sm text-current outline-none ring-0',
+            'ml-1 min-w-28 flex-1 border-0 bg-transparent py-0.5 text-sm text-current ring-0 outline-none',
             'placeholder:text-current/50',
             'selection:bg-primary-muted selection:text-primary-foreground',
           )}
