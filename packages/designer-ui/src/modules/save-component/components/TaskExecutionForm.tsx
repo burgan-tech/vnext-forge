@@ -4,6 +4,8 @@ import { ChevronDown, ChevronRight } from 'lucide-react';
 import { Field } from '../../../ui/Field';
 import { Button } from '../../../ui/Button';
 import { Badge } from '../../../ui/Badge';
+import { Input } from '../../../ui/Input';
+import { Textarea } from '../../../ui/Textarea';
 import { VnextWorkflowErrorHandlersPanel } from '../error-boundary/VnextWorkflowErrorHandlersPanel';
 import {
   taskExecutionFormSchema,
@@ -59,12 +61,18 @@ export function TaskExecutionForm({ execution, onChange }: TaskExecutionFormProp
 
   return (
     <div className="space-y-2">
-      <div className="flex gap-2 items-start">
+      <div className="flex items-start gap-2">
         <Field label="Order" hint={form.formState.errors.order?.message}>
-          <input
+          <Input
             type="number"
             {...orderValidation}
-            className="w-16 rounded-md border border-primary-border bg-background px-2 py-1 text-xs font-mono text-foreground shadow-sm outline-none transition-colors focus:border-primary-border-hover"
+            min={0}
+            step={1}
+            inputMode="numeric"
+            size="sm"
+            className="w-[4.75rem] min-w-[4.75rem]"
+            aria-invalid={Boolean(form.formState.errors.order)}
+            inputClassName="text-xs font-mono px-1.5 tabular-nums"
           />
         </Field>
       </div>
@@ -72,7 +80,11 @@ export function TaskExecutionForm({ execution, onChange }: TaskExecutionFormProp
       <ResourceReferenceField
         label="Task Reference"
         value={execution.task || {}}
-        onChange={(val) => onChange((d) => { d.task = val; })}
+        onChange={(val) =>
+          onChange((d) => {
+            d.task = val;
+          })
+        }
         showFlow
       />
 
@@ -86,13 +98,12 @@ export function TaskExecutionForm({ execution, onChange }: TaskExecutionFormProp
             {showMapping ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
           </span>
         }
-        className="w-fit"
-      >
+        className="w-fit">
         Mapping
       </Button>
       {showMapping && (
         <Field label="Mapping (C# Expression)">
-          <textarea
+          <Textarea
             value={execution.mapping?.body || ''}
             onChange={(e) =>
               onChange((d) => {
@@ -101,8 +112,11 @@ export function TaskExecutionForm({ execution, onChange }: TaskExecutionFormProp
               })
             }
             placeholder="return input;"
-            rows={3}
-            className="w-full resize-y rounded-md border border-tertiary-border bg-background px-2 py-1 text-xs font-mono text-foreground shadow-sm outline-none transition-colors focus:border-tertiary-border-hover"
+            rows={10}
+            spellCheck={false}
+            wrap="soft"
+            variant="default"
+            className="min-h-[10rem] w-full resize-y overflow-auto font-mono text-xs leading-relaxed break-words whitespace-pre-wrap"
           />
         </Field>
       )}
@@ -118,8 +132,7 @@ export function TaskExecutionForm({ execution, onChange }: TaskExecutionFormProp
               {showErrorBoundary ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
             </span>
           }
-          className="w-fit"
-        >
+          className="w-fit">
           Workflow failure handlers
         </Button>
         {execution.errorBoundary?.handlers?.length ? (

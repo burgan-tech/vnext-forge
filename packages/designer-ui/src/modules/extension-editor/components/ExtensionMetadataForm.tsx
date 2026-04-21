@@ -118,47 +118,49 @@ export function ExtensionMetadataForm({ json, onChange }: ExtensionMetadataFormP
         </Field>
       </div>
 
-      <Controller
-        control={form.control}
-        name="type"
-        rules={{
-          validate: (value) => {
-            const result = extensionMetadataFormSchema.shape.type.safeParse(value);
-            return result.success || result.error.issues[0]?.message || 'Type is required.';
-          },
-        }}
-        render={({ field }) => (
-          <ExtensionTypePicker
-            value={field.value}
-            onChange={(type) => {
-              field.onChange(type);
-              void form.trigger('type');
-            }}
-            hint={form.formState.errors.type?.message}
-          />
-        )}
-      />
+      <div className="grid min-h-0 grid-cols-1 gap-4 md:grid-cols-2 md:items-stretch md:gap-5">
+        <Controller
+          control={form.control}
+          name="type"
+          rules={{
+            validate: (value) => {
+              const result = extensionMetadataFormSchema.shape.type.safeParse(value);
+              return result.success || result.error.issues[0]?.message || 'Type is required.';
+            },
+          }}
+          render={({ field }) => (
+            <ExtensionTypePicker
+              value={field.value}
+              onChange={(type) => {
+                field.onChange(type);
+                void form.trigger('type');
+              }}
+              hint={form.formState.errors.type?.message}
+            />
+          )}
+        />
 
-      <Controller
-        control={form.control}
-        name="scope"
-        rules={{
-          validate: (value) => {
-            const result = extensionMetadataFormSchema.shape.scope.safeParse(value);
-            return result.success || result.error.issues[0]?.message || 'Scope is required.';
-          },
-        }}
-        render={({ field }) => (
-          <ExtensionScopePicker
-            value={field.value}
-            onChange={(scope) => {
-              field.onChange(scope);
-              void form.trigger('scope');
-            }}
-            hint={form.formState.errors.scope?.message}
-          />
-        )}
-      />
+        <Controller
+          control={form.control}
+          name="scope"
+          rules={{
+            validate: (value) => {
+              const result = extensionMetadataFormSchema.shape.scope.safeParse(value);
+              return result.success || result.error.issues[0]?.message || 'Scope is required.';
+            },
+          }}
+          render={({ field }) => (
+            <ExtensionScopePicker
+              value={field.value}
+              onChange={(scope) => {
+                field.onChange(scope);
+                void form.trigger('scope');
+              }}
+              hint={form.formState.errors.scope?.message}
+            />
+          )}
+        />
+      </div>
 
       {showDefinedFlows && (
         <Controller

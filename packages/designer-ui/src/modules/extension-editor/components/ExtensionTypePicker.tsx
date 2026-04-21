@@ -1,5 +1,5 @@
-import { Button } from '../../../ui/Button';
 import { Field } from '../../../ui/Field';
+import { RadioCard, RadioCardGroup } from '../../../ui/RadioCard';
 
 const TYPES = [
   { value: 1, label: 'Global', desc: 'Runs on all flows' },
@@ -16,25 +16,19 @@ interface ExtensionTypePickerProps {
 
 export function ExtensionTypePicker({ value, onChange, hint }: ExtensionTypePickerProps) {
   return (
-    <Field label="Extension Type" hint={hint}>
-      <div className="grid grid-cols-2 gap-1">
+    <Field
+      label="Extension Type"
+      hint={hint}
+      className="flex h-full min-h-0 flex-col gap-2 space-y-0">
+      <RadioCardGroup
+        value={value}
+        onValueChange={(v) => onChange(Number(v))}
+        aria-label="Extension type"
+        className="grid min-h-0 flex-1 grid-cols-2 grid-rows-2 gap-1.5">
         {TYPES.map((t) => (
-          <Button
-            key={t.value}
-            type="button"
-            onClick={() => onChange(t.value)}
-            variant={value === t.value ? 'success' : 'default'}
-            aria-pressed={value === t.value}
-            className="h-auto justify-start rounded-xl px-3 py-2 text-left text-xs"
-          >
-            <span className="flex flex-col items-start gap-0.5">
-              <span className="font-medium">{t.label}</span>
-              <span className="text-[10px] opacity-70">{t.desc}</span>
-            </span>
-          </Button>
+          <RadioCard key={t.value} value={t.value} label={t.label} description={t.desc} />
         ))}
-      </div>
+      </RadioCardGroup>
     </Field>
   );
 }
-

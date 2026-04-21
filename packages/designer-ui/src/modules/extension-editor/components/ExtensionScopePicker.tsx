@@ -1,5 +1,5 @@
-import { Button } from '../../../ui/Button';
 import { Field } from '../../../ui/Field';
+import { RadioCard, RadioCardGroup } from '../../../ui/RadioCard';
 
 const SCOPES = [
   { value: 1, label: 'Get Instance', desc: 'Single instance retrieval' },
@@ -15,25 +15,25 @@ interface ExtensionScopePickerProps {
 
 export function ExtensionScopePicker({ value, onChange, hint }: ExtensionScopePickerProps) {
   return (
-    <Field label="Extension Scope" hint={hint}>
-      <div className="flex gap-1">
+    <Field
+      label="Extension Scope"
+      hint={hint}
+      className="flex h-full min-h-0 flex-col gap-1.5 space-y-0">
+      <RadioCardGroup
+        value={value}
+        onValueChange={(v) => onChange(Number(v))}
+        aria-label="Extension scope"
+        className="flex min-h-0 flex-1 flex-col justify-start gap-1">
         {SCOPES.map((s) => (
-          <Button
+          <RadioCard
             key={s.value}
-            type="button"
-            onClick={() => onChange(s.value)}
-            variant={value === s.value ? 'success' : 'default'}
-            aria-pressed={value === s.value}
-            className="h-auto flex-1 rounded-xl px-3 py-2 text-xs"
-          >
-            <span className="flex flex-col items-start gap-0.5 text-left">
-              <span className="font-medium">{s.label}</span>
-              <span className="text-[10px] opacity-70">{s.desc}</span>
-            </span>
-          </Button>
+            value={s.value}
+            label={s.label}
+            description={s.desc}
+            className="my-px h-auto min-h-0 w-full shrink-0 [&>span]:px-2.5 [&>span]:py-1.5"
+          />
         ))}
-      </div>
+      </RadioCardGroup>
     </Field>
   );
 }
-

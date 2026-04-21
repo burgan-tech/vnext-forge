@@ -1,4 +1,5 @@
 import { Field } from '../../../ui/Field';
+import { Input } from '../../../ui/Input';
 
 interface ResourceReference {
   key?: string;
@@ -23,38 +24,46 @@ export function ResourceReferenceField({ label, value, onChange, showFlow, readO
   return (
     <Field label={label}>
       <div className="grid grid-cols-2 gap-1">
-        <input
+        <Input
           type="text"
           value={value.key || ''}
           onChange={(e) => update('key', e.target.value)}
           placeholder="key"
           readOnly={readOnly}
-          className="px-2 py-1 text-xs border border-border rounded bg-background font-mono"
+          size="sm"
+          className="min-w-0"
+          inputClassName="text-xs font-mono"
         />
-        <input
+        <Input
           type="text"
           value={value.domain || ''}
           onChange={(e) => update('domain', e.target.value)}
           placeholder="domain"
           readOnly={readOnly}
-          className="px-2 py-1 text-xs border border-border rounded bg-background font-mono"
+          size="sm"
+          className="min-w-0"
+          inputClassName="text-xs font-mono"
         />
-        <input
+        <Input
           type="text"
           value={value.version || ''}
           onChange={(e) => update('version', e.target.value)}
           placeholder="version"
           readOnly={readOnly}
-          className="px-2 py-1 text-xs border border-border rounded bg-background font-mono"
+          size="sm"
+          className="min-w-0"
+          inputClassName="text-xs font-mono"
         />
         {showFlow && (
-          <input
+          <Input
             type="text"
             value={value.flow || ''}
             onChange={(e) => update('flow', e.target.value)}
             placeholder="flow"
             readOnly={readOnly}
-            className="px-2 py-1 text-xs border border-border rounded bg-background font-mono"
+            size="sm"
+            className="min-w-0"
+            inputClassName="text-xs font-mono"
           />
         )}
       </div>

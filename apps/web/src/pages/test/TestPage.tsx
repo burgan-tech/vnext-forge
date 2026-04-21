@@ -8,6 +8,7 @@ import {
   MoreHorizontal,
   Settings,
   Sparkles,
+  User,
 } from 'lucide-react';
 
 import {
@@ -36,9 +37,20 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuSeparator,
+  DropdownMenuShortcut,
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
-  Input,
+  DropdownSelect,
+  DropdownSelectContent,
+  DropdownSelectField,
+  DropdownSelectItem,
+  DropdownSelectTrigger,
+  DropdownSelectValue,
 } from '@vnext-forge/designer-ui/ui';
 
 type SurfaceVariant = 'default' | 'secondary' | 'tertiary';
@@ -53,6 +65,8 @@ export function TestPage() {
   });
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [compactMode, setCompactMode] = useState(false);
+  const [layoutMode, setLayoutMode] = useState<'list' | 'grid' | 'compact'>('list');
+  const [curveKind, setCurveKind] = useState('exponential');
 
   return (
     <div className="bg-background text-foreground min-h-screen px-6 py-10">
@@ -227,54 +241,289 @@ export function TestPage() {
             <CardHeader>
               <CardTitle>Dropdown Menu</CardTitle>
               <CardDescription>
-                Open content, item, and checkbox-item variants from this block.
+                Basit örnek ve içerik yüzey tipleri yan yana; aşağıda tam varyant şeridi (checkbox,
+                destructive).
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-8">
+              <div className="space-y-3">
+                <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                  Yan yana: basit + içerik tipleri
+                </p>
+                <div className="flex flex-wrap items-end gap-4">
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-muted-foreground text-xs">Basit (yalnızca satırlar)</span>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button size="sm" variant="outline" rightIcon={<ChevronDown />}>
+                          Menü
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent className="w-48" align="start">
+                        <DropdownMenuItem>Profil</DropdownMenuItem>
+                        <DropdownMenuItem>Ayarlar</DropdownMenuItem>
+                        <DropdownMenuItem>Çıkış</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-muted-foreground text-xs">İçerik: default</span>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button size="sm" variant="default" rightIcon={<ChevronDown />}>
+                          default
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent variant="default" className="w-48" align="start">
+                        <DropdownMenuLabel variant="default">İşlemler</DropdownMenuLabel>
+                        <DropdownMenuSeparator variant="default" />
+                        <DropdownMenuItem variant="default">
+                          <FolderOpen />
+                          Aç
+                        </DropdownMenuItem>
+                        <DropdownMenuItem variant="default">
+                          <Settings />
+                          Düzenle
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-muted-foreground text-xs">İçerik: secondary + hoverable</span>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button size="sm" variant="secondary" rightIcon={<ChevronDown />}>
+                          secondary
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent
+                        variant="secondary"
+                        hoverable
+                        className="w-48"
+                        align="start">
+                        <DropdownMenuLabel variant="secondary">İşlemler</DropdownMenuLabel>
+                        <DropdownMenuSeparator variant="secondary" />
+                        <DropdownMenuItem variant="secondary">
+                          <FolderOpen />
+                          Aç
+                        </DropdownMenuItem>
+                        <DropdownMenuItem variant="secondary">
+                          <Settings />
+                          Düzenle
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-muted-foreground text-xs">İçerik: tertiary + noBorder</span>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button size="sm" variant="tertiary" rightIcon={<ChevronDown />}>
+                          tertiary
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent
+                        variant="tertiary"
+                        noBorder
+                        className="w-48"
+                        align="start">
+                        <DropdownMenuLabel variant="tertiary">İşlemler</DropdownMenuLabel>
+                        <DropdownMenuSeparator variant="tertiary" />
+                        <DropdownMenuItem variant="tertiary">
+                          <FolderOpen />
+                          Aç
+                        </DropdownMenuItem>
+                        <DropdownMenuItem variant="tertiary">
+                          <Settings />
+                          Düzenle
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
+                  Tam örnek: checkbox + destructive (surface varyantları)
+                </p>
+                <div className="flex flex-wrap gap-3">
+                  {surfaceVariants.map((variant) => (
+                    <DropdownMenu key={variant}>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant={variant}
+                          rightIcon={<ChevronDown />}
+                          rightIconVariant={variant}
+                          className="capitalize">
+                          {variant} menu
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent variant={variant} className="w-64">
+                        <DropdownMenuLabel variant={variant} className="capitalize">
+                          {variant} actions
+                        </DropdownMenuLabel>
+                        <DropdownMenuSeparator variant={variant} />
+                        <DropdownMenuItem variant={variant}>
+                          <FolderOpen />
+                          Open project
+                        </DropdownMenuItem>
+                        <DropdownMenuItem variant={variant}>
+                          <Settings />
+                          Settings
+                        </DropdownMenuItem>
+                        <DropdownMenuCheckboxItem
+                          variant={variant}
+                          checked={notificationsEnabled}
+                          onCheckedChange={(checked) => setNotificationsEnabled(checked === true)}>
+                          Notifications enabled
+                        </DropdownMenuCheckboxItem>
+                        <DropdownMenuCheckboxItem
+                          variant={variant}
+                          checked={compactMode}
+                          onCheckedChange={(checked) => setCompactMode(checked === true)}>
+                          Compact mode
+                        </DropdownMenuCheckboxItem>
+                        <DropdownMenuSeparator variant={variant} />
+                        <DropdownMenuItem variant="destructive">
+                          <AlertCircle />
+                          Delete item
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+
+        <section>
+          <Card className="gap-5">
+            <CardHeader>
+              <CardTitle>Dropdown Menu — gelişmiş</CardTitle>
+              <CardDescription>
+                Alt menü (sub), radyo grubu ve klavye kısayolu satırlarını tek yerde dene.
               </CardDescription>
             </CardHeader>
             <CardContent className="flex flex-wrap gap-3">
-              {surfaceVariants.map((variant) => (
-                <DropdownMenu key={variant}>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant={variant}
-                      rightIcon={<ChevronDown />}
-                      rightIconVariant={variant}
-                      className="capitalize">
-                      {variant} menu
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent variant={variant} className="w-64">
-                    <DropdownMenuLabel variant={variant} className="capitalize">
-                      {variant} actions
-                    </DropdownMenuLabel>
-                    <DropdownMenuSeparator variant={variant} />
-                    <DropdownMenuItem variant={variant}>
-                      <FolderOpen />
-                      Open project
-                    </DropdownMenuItem>
-                    <DropdownMenuItem variant={variant}>
-                      <Settings />
-                      Settings
-                    </DropdownMenuItem>
-                    <DropdownMenuCheckboxItem
-                      variant={variant}
-                      checked={notificationsEnabled}
-                      onCheckedChange={(checked) => setNotificationsEnabled(checked === true)}>
-                      Notifications enabled
-                    </DropdownMenuCheckboxItem>
-                    <DropdownMenuCheckboxItem
-                      variant={variant}
-                      checked={compactMode}
-                      onCheckedChange={(checked) => setCompactMode(checked === true)}>
-                      Compact mode
-                    </DropdownMenuCheckboxItem>
-                    <DropdownMenuSeparator variant={variant} />
-                    <DropdownMenuItem variant="destructive">
-                      <AlertCircle />
-                      Delete item
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ))}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" leftIcon={<MoreHorizontal />}>
+                    Gelişmiş menü
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent variant="secondary" className="w-56" align="start">
+                  <DropdownMenuLabel variant="secondary">Görünüm</DropdownMenuLabel>
+                  <DropdownMenuSeparator variant="secondary" />
+                  <DropdownMenuRadioGroup
+                    value={layoutMode}
+                    onValueChange={(value) =>
+                      setLayoutMode(value as 'list' | 'grid' | 'compact')
+                    }>
+                    <DropdownMenuRadioItem variant="secondary" value="list">
+                      Liste
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem variant="secondary" value="grid">
+                      Izgara
+                    </DropdownMenuRadioItem>
+                    <DropdownMenuRadioItem variant="secondary" value="compact">
+                      Kompakt
+                    </DropdownMenuRadioItem>
+                  </DropdownMenuRadioGroup>
+                  <DropdownMenuSeparator variant="secondary" />
+                  <DropdownMenuItem variant="secondary">
+                    <Settings />
+                    Tercihler
+                    <DropdownMenuShortcut variant="secondary">⌘,</DropdownMenuShortcut>
+                  </DropdownMenuItem>
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger variant="secondary">
+                      <User />
+                      Hesap
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent variant="secondary">
+                      <DropdownMenuItem variant="secondary">
+                        Profil
+                      </DropdownMenuItem>
+                      <DropdownMenuItem variant="secondary">
+                        Çıkış
+                      </DropdownMenuItem>
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <p className="text-muted-foreground flex min-h-10 items-center text-sm">
+                Seçilen düzen: <span className="text-foreground ml-1 font-medium">{layoutMode}</span>
+              </p>
+            </CardContent>
+          </Card>
+        </section>
+
+        <section>
+          <Card className="gap-5">
+            <CardHeader>
+              <CardTitle>Dropdown select</CardTitle>
+              <CardDescription>
+                Form alanı için basit liste seçimi (Radix Select): tetikleyicide seçilen etiket, açık
+                konumda odak halkası ve listede vurgulu satır.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="flex max-w-xl flex-col gap-6">
+              <div className="space-y-2">
+                <p className="text-muted-foreground text-xs font-medium uppercase">
+                  Hazır alan (options + placeholder)
+                </p>
+                <DropdownSelectField
+                  value={curveKind}
+                  onValueChange={setCurveKind}
+                  placeholder="Seçin"
+                  options={[
+                    { value: 'fixed', label: 'Fixed' },
+                    { value: 'linear', label: 'Linear' },
+                    { value: 'exponential', label: 'Exponential' },
+                  ]}
+                />
+                <p className="text-muted-foreground text-xs">
+                  Seçilen değer: <span className="text-foreground font-mono">{curveKind}</span>
+                </p>
+              </div>
+              <div className="space-y-2">
+                <p className="text-muted-foreground text-xs font-medium uppercase">
+                  Bileşenleri tek tek (aynı davranış)
+                </p>
+                <DropdownSelect value={curveKind} onValueChange={setCurveKind}>
+                  <DropdownSelectTrigger className="w-full max-w-md">
+                    <DropdownSelectValue placeholder="Seçin" />
+                  </DropdownSelectTrigger>
+                  <DropdownSelectContent>
+                    <DropdownSelectItem value="fixed">Fixed</DropdownSelectItem>
+                    <DropdownSelectItem value="linear">Linear</DropdownSelectItem>
+                    <DropdownSelectItem value="exponential">Exponential</DropdownSelectItem>
+                  </DropdownSelectContent>
+                </DropdownSelect>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                {surfaceVariants.map((v) => (
+                  <div key={v} className="w-44 space-y-1">
+                    <p className="text-muted-foreground text-xs capitalize">{v}</p>
+                    <DropdownSelectField
+                      variant={v}
+                      value={curveKind}
+                      onValueChange={setCurveKind}
+                      placeholder="Seçin"
+                      options={[
+                        { value: 'fixed', label: 'Fixed' },
+                        { value: 'linear', label: 'Linear' },
+                        { value: 'exponential', label: 'Exponential' },
+                      ]}
+                    />
+                  </div>
+                ))}
+              </div>
             </CardContent>
           </Card>
         </section>

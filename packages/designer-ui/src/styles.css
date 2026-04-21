@@ -228,6 +228,9 @@
 input {
   outline: none !important;
 }
+textarea {
+  outline: none !important;
+}
 
 html,
 body,
