@@ -48,11 +48,9 @@ export function TaskExecutionList({ tasks, onChange }: TaskExecutionListProps) {
           onClick={addTask}
           variant="default"
           size="sm"
-          leftIconComponent={
-            <span className="bg-success-surface text-success-icon group-hover/button:bg-success-hover flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors duration-200">
-              <Plus size={12} />
-            </span>
-          }>
+          leftIconType="default"
+          leftIconVariant="success"
+          leftIcon={<Plus aria-hidden />}>
           Add Task
         </Button>
       </div>
@@ -84,20 +82,21 @@ export function TaskExecutionList({ tasks, onChange }: TaskExecutionListProps) {
                     disabled={i === 0}
                     variant="muted"
                     size="sm"
-                    className="rotate-180"
-                    title="Move up">
-                    <GripVertical size={12} />
-                  </Button>
+                    leftIconType="default"
+                    leftIconVariant="muted"
+                    leftIcon={<GripVertical aria-hidden />}
+                    className="shrink-0 rotate-180"
+                    title="Move up"
+                    aria-label="Move task up"
+                  />
                   <Button
                     type="button"
                     onClick={() => removeTask(i)}
                     variant="default"
                     size="sm"
-                    leftIconComponent={
-                      <span className="bg-destructive-surface text-destructive-icon group-hover/button:bg-destructive-hover flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors duration-200">
-                        <Trash2 size={12} />
-                      </span>
-                    }>
+                    leftIconType="solid"
+                    leftIconVariant="destructive"
+                    leftIcon={<Trash2 aria-hidden />}>
                     Remove Task
                   </Button>
                 </div>

@@ -93,10 +93,14 @@ export function TaskExecutionForm({ execution, onChange }: TaskExecutionFormProp
         type="button"
         variant="default"
         size="sm"
-        leftIconComponent={
-          <span className="bg-muted-surface text-muted-text group-hover/button:bg-muted-hover flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors duration-200">
-            {showMapping ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-          </span>
+        leftIconType="splitaccent"
+        leftIconVariant="muted"
+        leftIcon={
+          showMapping ? (
+            <ChevronDown className="size-3.5" aria-hidden />
+          ) : (
+            <ChevronRight className="size-3.5" aria-hidden />
+          )
         }
         className="w-fit">
         Mapping
@@ -127,10 +131,14 @@ export function TaskExecutionForm({ execution, onChange }: TaskExecutionFormProp
           type="button"
           variant="default"
           size="sm"
-          leftIconComponent={
-            <span className="bg-destructive-surface text-destructive-icon group-hover/button:bg-destructive-hover flex h-6 w-6 shrink-0 items-center justify-center rounded-md transition-colors duration-200">
-              {showErrorBoundary ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-            </span>
+          leftIconType="splitaccent"
+          leftIconVariant="destructive"
+          leftIcon={
+            showErrorBoundary ? (
+              <ChevronDown className="size-3.5" aria-hidden />
+            ) : (
+              <ChevronRight className="size-3.5" aria-hidden />
+            )
           }
           className="w-fit">
           Workflow failure handlers
