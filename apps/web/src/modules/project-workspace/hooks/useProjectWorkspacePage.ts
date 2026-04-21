@@ -83,13 +83,7 @@ export function useProjectWorkspacePage(projectId?: string): ProjectWorkspacePag
         setError(errorMessage);
       }
     },
-    [
-      clearConfigIssues,
-      resetVnextWorkspaceUi,
-      setActiveProject,
-      setError,
-      setVnextConfig,
-    ],
+    [clearConfigIssues, resetVnextWorkspaceUi, setActiveProject, setError, setVnextConfig],
   );
 
   const fetchAndApplyBootstrap = useCallback(

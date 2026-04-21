@@ -6,6 +6,7 @@ import {
   ChevronDown,
   FolderOpen,
   MoreHorizontal,
+  Palette,
   Settings,
   Sparkles,
   User,
@@ -693,6 +694,28 @@ export function TestPage() {
                     </div>
                   ),
                 }))}
+              />
+              <p className="text-muted-foreground mt-8 text-xs font-medium">
+                Inline + chrome (narrow panels / settings column)
+              </p>
+              <Accordion
+                allowMultiple={false}
+                chrome
+                className="mt-3"
+                density="inline"
+                defaultOpenItemIds={[]}
+                items={[
+                  {
+                    id: 'appearance-inline',
+                    title: 'Appearance',
+                    icon: <Palette className="size-3.5" strokeWidth={2} aria-hidden />,
+                    content: (
+                      <p className="text-muted-foreground text-xs">
+                        Compact trigger and neutral chrome instead of primary/secondary surfaces.
+                      </p>
+                    ),
+                  },
+                ]}
               />
             </CardContent>
           </Card>

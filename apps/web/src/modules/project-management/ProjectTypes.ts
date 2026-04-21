@@ -22,9 +22,10 @@ export type {
 /**
  * Single round-trip payload for opening a project workspace. Mirrors the
  * server-side `projects/getWorkspaceBootstrap` aggregation: cheap fields are
- * always populated; the expensive triple (`layoutStatus`,
- * `validateScriptStatus`, `componentFileTypes`) is only set when
- * `configStatus.status === 'ok'`.
+ * always populated; the expensive fields (`layoutStatus`,
+ * `validateScriptStatus`, `componentFileTypes`) are only computed when
+ * `configStatus.status === 'ok'`. `componentFileTypes` may still be `null`
+ * when the server skips bootstrap-time JSON `flow` scanning.
  */
 export interface ProjectWorkspaceBootstrap {
   project: ProjectInfo;

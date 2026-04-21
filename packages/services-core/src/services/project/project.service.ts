@@ -48,6 +48,13 @@ const EXPECTED_TEMPLATE_FILES = [
 const FLOW_HEAD_BYTES = 512
 const FLOW_REGEX = /"flow"\s*:\s*"(sys-[a-z]+)"/
 
+/**
+ * Bootstrap sırasında bileşen kökündeki tüm `.json` dosyalarını okuyup `flow` alanına göre
+ * dosya ağacı ikon eşlemesi (`componentFileTypes`) üretmek maliyetlidir. `false` iken
+ * `getWorkspaceBootstrap` bu taramayı yapmaz; `projects/getComponentFileTypes` RPC’si etkilenmez.
+ */
+const WORKSPACE_BOOTSTRAP_SCAN_COMPONENT_FILE_TYPES = false
+
 type WriteProjectConfigInput = z.infer<typeof vnextWorkspaceFullConfigSchema>
 
 export interface ProjectServiceDeps {
@@ -753,7 +760,9 @@ export function createProjectService(deps: ProjectServiceDeps) {
    * Cheap fields (`project`, `tree`, `configStatus`) are always returned.
    * Expensive fields (`layoutStatus`, `validateScriptStatus`,
    * `componentFileTypes`) are only computed when `configStatus.status === 'ok'`,
-   * mirroring what the UI used to do client-side.
+   * mirroring what the UI used to do client-side. `componentFileTypes` can be
+   * forced to `null` via `WORKSPACE_BOOTSTRAP_SCAN_COMPONENT_FILE_TYPES` to skip
+   * JSON `flow` scanning on bootstrap.
    *
    * Tek `resolveProjectPath`, tek `readConfigStatus` ve (ok iken) `getProject`/`getConfig`
    * tekrarını atlayacak şekilde `project` + ikinci faz layout/file-types için önceden
@@ -801,7 +810,9 @@ export function createProjectService(deps: ProjectServiceDeps) {
     const [layoutStatus, validateScriptStatus, componentFileTypes] = await Promise.all([
       computeVnextComponentLayoutStatus(projectPath, id, configStatus.config, traceId).catch(() => null),
       templateService.checkValidateScript(projectPath).catch(() => null),
-      getComponentFileTypesFromResolved(projectPath, configStatus.config).catch(() => null),
+      WORKSPACE_BOOTSTRAP_SCAN_COMPONENT_FILE_TYPES
+        ? getComponentFileTypesFromResolved(projectPath, configStatus.config).catch(() => null)
+        : Promise.resolve(null),
     ])
 
     return {

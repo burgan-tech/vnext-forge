@@ -18,11 +18,13 @@ import {
   useComponentFileTypesStore,
 } from '../../app/store/useComponentFileTypesStore';
 import { getProject } from '../../modules/project-management/ProjectApi';
+import { ENABLE_COMPONENT_FLOW_ICONS } from '../../modules/project-workspace/componentFlowIconsPolicy';
 import { syncVnextWorkspaceFromDisk } from '../../modules/project-workspace/syncVnextWorkspaceFromDisk';
 import { validateVnextConfigJsonText } from '../../modules/project-workspace/vnextWorkspaceConfigWizardValidation';
 import { applyVnextConfigStrictValidationFailure } from '../../modules/project-workspace/workspaceConfigDiagnostics';
 
 function updateComponentFileTypeAfterSave(filePath: string, content: string): void {
+  if (!ENABLE_COMPONENT_FLOW_ICONS) return;
   const projectPath = useProjectStore.getState().activeProject?.path;
   if (!projectPath) return;
 

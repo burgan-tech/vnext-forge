@@ -1,10 +1,14 @@
-import { Input } from '@vnext-forge/designer-ui/ui';
+import { useSettingsStore } from '@vnext-forge/designer-ui';
+import { Accordion, ColorThemeSwitchSidebar, Input } from '@vnext-forge/designer-ui/ui';
+import { Palette } from 'lucide-react';
 
 import { ProjectWorkspaceSidebarPanel } from '../../../modules/project-workspace';
 import { useWebShellStore } from '../../store/useWebShellStore';
 
 export function Sidebar() {
   const sidebarView = useWebShellStore((s) => s.sidebarView);
+  const colorTheme = useSettingsStore((s) => s.colorTheme);
+  const setColorTheme = useSettingsStore((s) => s.setColorTheme);
 
   return (
     <div className="flex h-full flex-col">
@@ -34,8 +38,28 @@ export function Sidebar() {
         )}
 
         {sidebarView === 'templates' && (
-          <div className="text-muted-foreground mt-12 px-4 text-center text-xs">
-            Settings coming soon
+          <div className="px-3 pt-2">
+            <Accordion
+              allowMultiple={false}
+              chrome
+              density="inline"
+              defaultOpenItemIds={[]}
+              items={[
+                {
+                  id: 'appearance',
+                  title: 'Appearance',
+                  icon: <Palette className="size-3.5" strokeWidth={2} aria-hidden />,
+                  content: (
+                    <ColorThemeSwitchSidebar
+                      compact
+                      variant="plain"
+                      value={colorTheme}
+                      onChange={setColorTheme}
+                    />
+                  ),
+                },
+              ]}
+            />
           </div>
         )}
       </div>
