@@ -82,6 +82,22 @@ export function useProjectWorkspace() {
     [activeProject, navigate, openTab, vnextConfig],
   );
 
+  /** Opens JSON in the Monaco tab, bypassing designer routes (workflow/task/schema/…). */
+  const handleOpenFileInCodeEditor = useCallback(
+    (node: FileTreeNode) => {
+      if (!activeProject || node.type !== 'file') return;
+      const normalizedFilePath = node.path.replace(/\\/g, '/');
+      openTab({
+        id: normalizedFilePath,
+        title: node.name,
+        filePath: normalizedFilePath,
+        language: 'json',
+      });
+      navigate(`/project/${activeProject.id}/code/${encodeURIComponent(normalizedFilePath)}`);
+    },
+    [activeProject, navigate, openTab],
+  );
+
   const { execute: handleCreateFile } = useAsync(
     async (parentPath: string, name: string) => {
       const validationError = getWorkspaceNameError(name, 'file');
@@ -176,6 +192,7 @@ export function useProjectWorkspace() {
     fileTree,
     vnextConfig,
     handleFileClick,
+    handleOpenFileInCodeEditor,
     handleCreateFile,
     handleCreateFolder,
     handleDeleteFile,

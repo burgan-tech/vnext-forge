@@ -9,6 +9,7 @@ import {
   type ComponentFolderType,
   type FileTreeNode,
 } from '@vnext-forge/designer-ui';
+import { matchComponentFolderType } from './componentFolderPaths';
 import { FileTreeContextMenu, type FileTreeMenuItem } from './FileTreeContextMenu';
 import { FileTreeNodeRow } from './FileTreeNodeRow';
 
@@ -18,47 +19,29 @@ interface FileTreeProps {
   node: FileTreeNode;
   depth: number;
   onFileClick?: (node: FileTreeNode) => void;
+  /** For `.json` files: open in code editor instead of the designer route. */
+  onOpenFileInCodeEditor?: (node: FileTreeNode) => void;
   onCreateFile?: (parentPath: string, name: string) => void;
   onCreateFolder?: (parentPath: string, name: string) => void;
   onDeleteFile?: (path: string) => void;
   onRenameFile?: (oldPath: string, newName: string) => void;
   onCreateWorkflow?: (parentPath: string, name: string) => void;
-  componentDirs?: Partial<Record<ComponentFolderType, string>>;
-}
-
-function detectComponentFolderType(
-  nodePath: string,
-  componentDirs?: Partial<Record<ComponentFolderType, string>>,
-): ComponentFolderType | undefined {
-  if (!componentDirs) return undefined;
-  const segments = nodePath.replace(/\\/g, '/').split('/');
-  let fallback: ComponentFolderType | undefined;
-
-  for (const [type, dirName] of Object.entries(componentDirs)) {
-    if (!dirName) continue;
-    const idx = segments.indexOf(dirName);
-    if (idx < 0) continue;
-    const depthFromDir = segments.length - 1 - idx;
-    if (depthFromDir > 1) continue;
-    if (type === 'components_root') {
-      fallback = 'components_root';
-      continue;
-    }
-    return type as ComponentFolderType;
-  }
-  return fallback;
+  projectRoot?: string;
+  componentFolderRelPaths?: Partial<Record<ComponentFolderType, string>>;
 }
 
 export function FileTree({
   node,
   depth,
   onFileClick,
+  onOpenFileInCodeEditor,
   onCreateFile,
   onCreateFolder,
   onDeleteFile,
   onRenameFile,
   onCreateWorkflow,
-  componentDirs,
+  projectRoot,
+  componentFolderRelPaths,
 }: FileTreeProps) {
   const [expanded, setExpanded] = useState(depth < 2);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
@@ -147,7 +130,10 @@ export function FileTree({
     setInputError(null);
   };
 
-  const folderType = node.type === 'directory' ? detectComponentFolderType(node.path, componentDirs) : undefined;
+  const folderType =
+    node.type === 'directory'
+      ? matchComponentFolderType(node.path, projectRoot, componentFolderRelPaths)
+      : undefined;
   const isWfCtx = folderType === 'workflows';
   if (node.type === 'file') {
     if (renaming) {
@@ -184,6 +170,38 @@ export function FileTree({
       );
     }
 
+    const isJsonFile = node.name.toLowerCase().endsWith('.json');
+    const fileMenuItems: FileTreeMenuItem[] = [];
+    if (isJsonFile && onOpenFileInCodeEditor) {
+      fileMenuItems.push({
+        label: 'Code editor ile aç',
+        accent: true,
+        action: () => {
+          onOpenFileInCodeEditor(node);
+          setContextMenu(null);
+        },
+      });
+      fileMenuItems.push({ divider: true });
+    }
+    fileMenuItems.push(
+      {
+        label: 'Rename',
+        action: () => {
+          setRenaming(true);
+          setRenameName(node.name);
+          setContextMenu(null);
+        },
+      },
+      {
+        label: 'Delete',
+        action: () => {
+          onDeleteFile?.(node.path);
+          setContextMenu(null);
+        },
+        danger: true,
+      },
+    );
+
     return (
       <>
         <FileTreeNodeRow
@@ -193,29 +211,7 @@ export function FileTree({
           onContextMenu={handleContextMenu}
         />
         {contextMenu && (
-          <FileTreeContextMenu
-            ref={menuRef}
-            x={contextMenu.x}
-            y={contextMenu.y}
-            items={[
-              {
-                label: 'Rename',
-                action: () => {
-                  setRenaming(true);
-                  setRenameName(node.name);
-                  setContextMenu(null);
-                },
-              },
-              {
-                label: 'Delete',
-                action: () => {
-                  onDeleteFile?.(node.path);
-                  setContextMenu(null);
-                },
-                danger: true,
-              },
-            ]}
-          />
+          <FileTreeContextMenu ref={menuRef} x={contextMenu.x} y={contextMenu.y} items={fileMenuItems} />
         )}
       </>
     );
@@ -344,12 +340,14 @@ export function FileTree({
               node={child}
               depth={depth + 1}
               onFileClick={onFileClick}
+              onOpenFileInCodeEditor={onOpenFileInCodeEditor}
               onCreateFile={onCreateFile}
               onCreateFolder={onCreateFolder}
               onDeleteFile={onDeleteFile}
               onRenameFile={onRenameFile}
               onCreateWorkflow={onCreateWorkflow}
-              componentDirs={componentDirs}
+              projectRoot={projectRoot}
+              componentFolderRelPaths={componentFolderRelPaths}
             />
           ))}
         </div>

@@ -2,10 +2,11 @@ import { useMemo, useState } from 'react';
 
 import { Search, X } from 'lucide-react';
 
-import { cn, type ComponentFolderType } from '@vnext-forge/designer-ui';
+import { cn } from '@vnext-forge/designer-ui';
 import { Badge } from '@vnext-forge/designer-ui/ui';
 
 import { useProjectListStore } from '../../app/store/useProjectListStore';
+import { buildComponentFolderRelPaths } from './componentFolderPaths';
 import { FileTree } from './FileTree';
 import { filterFileTree } from './filterFileTree';
 import { useProjectWorkspace } from './hooks/useProjectWorkspace';
@@ -17,6 +18,7 @@ export function ProjectWorkspaceSidebarPanel() {
     fileTree,
     vnextConfig,
     handleFileClick,
+    handleOpenFileInCodeEditor,
     handleCreateFile,
     handleCreateFolder,
     handleDeleteFile,
@@ -26,19 +28,10 @@ export function ProjectWorkspaceSidebarPanel() {
 
   const [filterQuery, setFilterQuery] = useState('');
 
-  const componentDirs = useMemo((): Partial<Record<ComponentFolderType, string>> | undefined => {
-    const p = vnextConfig?.paths;
-    if (!p) return undefined;
-    return {
-      components_root: p.componentsRoot?.split('/').pop() || undefined,
-      workflows: p.workflows?.split('/').pop() || 'Workflows',
-      tasks: p.tasks?.split('/').pop() || 'Tasks',
-      schemas: p.schemas?.split('/').pop() || 'Schemas',
-      views: p.views?.split('/').pop() || 'Views',
-      functions: p.functions?.split('/').pop() || 'Functions',
-      extensions: p.extensions?.split('/').pop() || 'Extensions',
-    };
-  }, [vnextConfig?.paths]);
+  const componentFolderRelPaths = useMemo(
+    () => buildComponentFolderRelPaths(vnextConfig?.paths),
+    [vnextConfig?.paths],
+  );
 
   const treeMatchesProject =
     Boolean(fileTree) && fileTreeProjectId != null && fileTreeProjectId === activeProject?.id;
@@ -117,12 +110,14 @@ export function ProjectWorkspaceSidebarPanel() {
                 node={displayed}
                 depth={0}
                 onFileClick={handleFileClick}
+                onOpenFileInCodeEditor={handleOpenFileInCodeEditor}
                 onCreateFile={handleCreateFile}
                 onCreateFolder={handleCreateFolder}
                 onDeleteFile={handleDeleteFile}
                 onRenameFile={handleRenameFile}
                 onCreateWorkflow={handleCreateWorkflow}
-                componentDirs={componentDirs}
+                projectRoot={activeProject.path}
+                componentFolderRelPaths={componentFolderRelPaths}
               />
             );
           })()
