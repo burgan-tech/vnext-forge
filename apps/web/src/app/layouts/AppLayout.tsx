@@ -113,7 +113,9 @@ export function AppLayout() {
             id="app-shell-resizable"
             orientation="horizontal">
             <ResizablePanel
+              autoCollapseBelowMin
               className="bg-surface/80 flex min-h-0 min-w-0 flex-col overflow-hidden backdrop-blur-sm"
+              collapseOvershootPx={30}
               id="app-shell-sidebar"
               maxSize={440}
               minSize={160}

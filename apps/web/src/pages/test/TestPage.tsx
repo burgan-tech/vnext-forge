@@ -33,21 +33,31 @@ export function TestPage() {
             <code className="text-foreground/90">ResizablePanelGroup</code>,{' '}
             <code className="text-foreground/90">ResizablePanel</code>,{' '}
             <code className="text-foreground/90">ResizableHandle</code> — yatay ve dikey düzen,
-            ince ayırıcı; hit alanı sol panelin scrollbar sütununa taşmaz.
+            ince ayırıcı; aşağıda <code className="text-foreground/90">autoCollapseBelowMin</code> +{' '}
+            <code className="text-foreground/90">collapseOvershootPx</code> (piksel{' '}
+            <code className="text-foreground/90">minSize</code>) ile sınırı aşınca 0 genişliğe kapanma
+            dene.
           </p>
         </header>
 
         <section className="space-y-3">
           <div className="flex items-center gap-2 text-sm font-medium">
             <SquareSplitHorizontal className="text-muted-foreground size-4" aria-hidden />
-            İki sütun
+            İki sütun — <span className="text-muted-foreground font-normal">autoCollapseBelowMin</span>
           </div>
           <div className="border-border h-[min(24rem,70vh)] min-h-56 overflow-hidden rounded-xl border">
             <ResizablePanelGroup orientation="horizontal" className="h-full min-h-0 w-full">
-              <ResizablePanel defaultSize="42%" minSize="18%">
+              <ResizablePanel
+                autoCollapseBelowMin
+                className="min-w-0"
+                collapseOvershootPx={30}
+                defaultSize="42%"
+                id="test-resize-col-left"
+                maxSize="55%"
+                minSize={160}>
                 <PanelPlaceholder
                   title="Sol panel"
-                  description="defaultSize 42%, minSize 18%"
+                  description="min 160px; min−30px ~130’a kadar inince tam kapanır (autoCollapseBelowMin)"
                   icon={<FileJson className="size-5" aria-hidden />}
                 />
               </ResizablePanel>
@@ -67,13 +77,21 @@ export function TestPage() {
         <section className="space-y-3">
           <div className="flex items-center gap-2 text-sm font-medium">
             <SquareSplitVertical className="text-muted-foreground size-4" aria-hidden />
-            Üst / alt — dikey bölme
+            Üst / alt — <span className="text-muted-foreground font-normal">dikey, autoCollapse</span>
           </div>
           <div className="border-border h-[min(22rem,60vh)] min-h-48 overflow-hidden rounded-xl border">
             <ResizablePanelGroup orientation="vertical" className="h-full min-h-0 w-full">
-              <ResizablePanel defaultSize="40%" minSize="15%">
+              <ResizablePanel
+                autoCollapseBelowMin
+                className="min-h-0"
+                collapseOvershootPx={24}
+                defaultSize="40%"
+                id="test-resize-row-top"
+                minSize={100}>
                 <div className="bg-secondary/30 flex h-full min-h-0 items-center justify-center p-4">
-                  <p className="text-muted-foreground text-sm">Üst bölge</p>
+                  <p className="text-muted-foreground text-center text-sm">
+                    Üst bölge — min 100px, 24px overshoot → ~76px altına inince kapanır
+                  </p>
                 </div>
               </ResizablePanel>
               <ResizableHandle />

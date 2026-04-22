@@ -3,6 +3,49 @@ import { Group, Panel, Separator } from 'react-resizable-panels';
 
 import { cn } from '../lib/utils/cn.js';
 
+type LibraryPanelProps = React.ComponentProps<typeof Panel>;
+
+/**
+ * @see https://github.com/bvaughn/react-resizable-panels/blob/main/packages/react-resizable-panels/README.md#panel
+ */
+export type ResizablePanelProps = LibraryPanelProps & {
+  /**
+   * `true` iken (kütüphane `react-resizable-panels`):
+   * Sürükleme ile `minSize` sınırının **altına** inildiğinde panel `collapsedSize` değerine (varsayılan `0%`) kapanabilir
+   * (yani tam kapanma için `collapsedSize` verilmezse genişlik 0).
+   */
+  autoCollapseBelowMin?: boolean;
+  /**
+   * Sadece **piksel** tabanlı `minSize` (`number` veya `"160px"`) ile anlamlıdır.
+   * Kütüphaneye giden eşik `minSize - collapseOvershootPx` olur: önce min’e inilir, bu kadar piksel **daha**
+   * aşılınca çökme eşiği devreye girer (min 160, 30 verilirse ~130 piksele kadar inmeden kapanmaz).
+   * @default 0
+   */
+  collapseOvershootPx?: number;
+};
+
+function resolveMinSizeForCollapseOvershoot(
+  minSize: LibraryPanelProps['minSize'] | undefined,
+  overshootPx: number
+): LibraryPanelProps['minSize'] | undefined {
+  if (overshootPx <= 0 || minSize === undefined) {
+    return minSize;
+  }
+  if (typeof minSize === 'number') {
+    return Math.max(0, minSize - overshootPx);
+  }
+  if (typeof minSize === 'string') {
+    const t = minSize.trim();
+    if (t.endsWith('px')) {
+      const n = parseFloat(t);
+      if (Number.isFinite(n)) {
+        return `${Math.max(0, n - overshootPx)}px`;
+      }
+    }
+  }
+  return minSize;
+}
+
 /**
  * shadcn/ui Resizable — `react-resizable-panels` v4 (Group / Panel / Separator).
  * Ayırıcı: 1px çizgi `::before` ile; sütun ayracında çizgi handle sütununun solunda (sol panel kenarına bitişik)
@@ -24,8 +67,27 @@ function ResizablePanelGroup({
   );
 }
 
-function ResizablePanel({ ...props }: React.ComponentProps<typeof Panel>) {
-  return <Panel data-slot="resizable-panel" {...props} />;
+function ResizablePanel({
+  autoCollapseBelowMin = false,
+  collapseOvershootPx = 0,
+  minSize,
+  collapsible,
+  collapsedSize,
+  ...props
+}: ResizablePanelProps) {
+  const effectiveMinSize = autoCollapseBelowMin
+    ? resolveMinSizeForCollapseOvershoot(minSize, collapseOvershootPx)
+    : minSize;
+
+  return (
+    <Panel
+      data-slot="resizable-panel"
+      {...props}
+      collapsedSize={autoCollapseBelowMin && collapsedSize === undefined ? '0%' : collapsedSize}
+      collapsible={autoCollapseBelowMin ? true : collapsible}
+      minSize={effectiveMinSize}
+    />
+  );
 }
 
 function ResizableHandle({ className, ...props }: React.ComponentProps<typeof Separator>) {
