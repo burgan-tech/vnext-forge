@@ -275,6 +275,16 @@ The primary layout combines canvas, code editor, and sidebar panels that can be 
 - Splitters support keyboard resize. Arrow keys adjust size in standard increments (e.g. 16px per step, larger jumps with modifier keys). Splitters are focusable interactive controls with a visible focus ring.
 - The split-pane primitive owns its own z-index context so splitter handles do not compete with floating surfaces (dropdowns, tooltips).
 
+### designer-ui `Resizable` (react-resizable-panels v4) — invariants
+
+(`packages/designer-ui/src/ui/Resizable.tsx` + app shell usage.)
+
+- **No `withHandle`** on `Separator` — no thick built-in drag grip.
+- **Visually narrow** at rest: ~1px stroke (`::before`), stronger on hover; hit slop can stay ~10px without a fat visible bar.
+- **Default `disableCursor: true` on `ResizablePanelGroup`**: don’t show resize cursors on idle hover; user sees resize cursor only during active drag.
+- **Handle aligned to the panel edge** you’re resizing from (e.g. line hugging the sidebar), not centered in a wide neutral gutter.
+- **Optional collapse:** `ResizablePanel` adds **`autoCollapseBelowMin`** and **`collapseOvershootPx`** (px `minSize` only) — details in root **`CLAUDE.DESIGNER-UI.md`** (section *Resizable*).
+
 ## Badge and Status Indicator System
 
 Workflow definitions carry many states — draft, published, active, paused, error, running, completed. The badge and status language stays consistent so the same visual read always means the same thing. This section applies equally to **`TagEditor`** chips and any pill-shaped control that carries **classification or state**: they must use **semantic coloring** (`success`, `info`, `warning`, `destructive`, or neutral `muted` / `default`) — not `secondary` / `tertiary` — when color is meant to be interpreted as meaning.

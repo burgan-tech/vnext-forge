@@ -66,6 +66,7 @@ In addition to the always-on rules under `.cursor/rules/*.mdc` (subagent dispatc
 | Skill | `.cursor/skills/shared/error-taxonomy/SKILL.md` | any error/handler/throw work | `ERROR_CODES`, `VnextForgeError`, `error-presentation` mapping |
 | Skill | `.cursor/skills/shared/trace-headers/SKILL.md` | any HTTP/transport/middleware work | `trace-v1` contract; never adopt `traceparent` |
 | Skill | `.cursor/skills/shared/dependency-policy/SKILL.md` | any cross-package import or barrel change | Allowed import directions, ESLint enforcements |
+| Rule | `.cursor/rules/designer-ui-resizable.mdc` | `packages/designer-ui/src/ui/Resizable.tsx`, `apps/web` shell split | Thin Resizable handle, `disableCursor`, no `withHandle`, `autoCollapseBelowMin` contract |
 
 ## Project Goal
 

@@ -163,6 +163,8 @@ Module-local `*Api.ts` files (e.g. `modules/project-management/ProjectApi.ts`) a
 - Lazy routes sit under a single **`<Suspense fallback={<RouteSkeleton />}>`** around `<Routes>` (`src/app/RouteSkeleton.tsx`).
 - **`RouteErrorBoundary`** (`src/app/RouteErrorBoundary.tsx`) wraps the layout: it **logs** the error and surfaces **`traceId`** for support.
 
+**App shell split (sidebar / main):** use `@vnext-forge/designer-ui/ui` `Resizable*`; follow **`CLAUDE.DESIGNER-UI.md`** (§ Resizable) and **theme-color-system** split-pane + *designer-ui Resizable* invariants (thin handle, `disableCursor`, optional `autoCollapseBelowMin` / `collapseOvershootPx`).
+
 ## Async UI Flows
 
 Use the shared `useAsync` hook (`shared/hooks/useAsync.ts`) for reusable async UI contracts.

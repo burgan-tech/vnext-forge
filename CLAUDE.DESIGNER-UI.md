@@ -1,6 +1,6 @@
 # packages/designer-ui - Context
 
-> **Scope:** `packages/designer-ui` (shared React UI library used by `apps/web` and `apps/extension/webview-ui`). Load this file in addition to [`./CLAUDE.md`](./CLAUDE.md) when editing under `packages/designer-ui/`. **Skills:** [theme-color-system](./.cursor/skills/web/theme-color-system/SKILL.md), [icon-creation](./.cursor/skills/web/icon-creation/SKILL.md), [notification-container-pattern](./.cursor/skills/web/notification-container-pattern/SKILL.md), [error-taxonomy](./.cursor/skills/shared/error-taxonomy/SKILL.md), [dependency-policy](./.cursor/skills/shared/dependency-policy/SKILL.md). Web/extension parity: [`docs/architecture/web-extension-parity.md`](./docs/architecture/web-extension-parity.md).
+> **Scope:** `packages/designer-ui` (shared React UI library used by `apps/web` and `apps/extension/webview-ui`). Load this file in addition to [`./CLAUDE.md`](./CLAUDE.md) when editing under `packages/designer-ui/`. **Skills:** [theme-color-system](./.cursor/skills/web/theme-color-system/SKILL.md), [icon-creation](./.cursor/skills/web/icon-creation/SKILL.md), [notification-container-pattern](./.cursor/skills/web/notification-container-pattern/SKILL.md), [error-taxonomy](./.cursor/skills/shared/error-taxonomy/SKILL.md), [dependency-policy](./.cursor/skills/shared/dependency-policy/SKILL.md). **Rule (Resizable / shell split):** [`.cursor/rules/designer-ui-resizable.mdc`](./.cursor/rules/designer-ui-resizable.mdc). Web/extension parity: [`docs/architecture/web-extension-parity.md`](./docs/architecture/web-extension-parity.md).
 
 ## Goal
 
@@ -97,6 +97,18 @@ User-visible error copy must go through **`toErrorPresentation()`** (and related
 ## Internationalization
 
 All designer-ui **user-visible strings** are **English-only**; product-wide rule in [`./CLAUDE.md`](./CLAUDE.md) (section **User-visible language**).
+
+## Resizable (`src/ui/Resizable.tsx`)
+
+shadcn-style wrapper over **`react-resizable-panels` v4** (`Group` / `Panel` / `Separator`). Compact invariants:
+
+- **No `withHandle`**: no built-in fat grip/icon — thin affordance only.
+- **Narrow at rest** (~1px line via `::before`), subtle hover; wide hit target, quiet chrome.
+- **`ResizablePanelGroup` default `disableCursor: true`**: no `ew-resize`/`ns-resize` on hover; cursor changes only while actually dragging (library behavior).
+- **Handle flush to the controlled edge** (e.g. vertical split: line on the sidebar-adjacent side of the handle column) so the bar doesn’t float mid-gutter.
+- **`ResizablePanel` extensions**: `autoCollapseBelowMin` (→ `collapsible` + `collapsedSize` 0) and optional **`collapseOvershootPx`** with **pixel** `minSize` (library threshold = `minSize − overshoot`).
+
+Deeper split-pane UX: [theme-color-system — Split pane](./.cursor/skills/web/theme-color-system/SKILL.md#split-pane-and-resizable-panel-patterns).
 
 ## Dependency boundaries
 
