@@ -1,9 +1,26 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from 'react';
 import MonacoEditor, { type OnMount } from '@monaco-editor/react';
+import type { PanelImperativeHandle, PanelSize } from 'react-resizable-panels';
 import { X, Code2, BookOpen, Maximize2, Minimize2 } from 'lucide-react';
 import { useScriptPanelStore } from '../../../modules/code-editor/ScriptPanelStore';
 import { useEditorPanelsStore } from '../../../store/useEditorPanelsStore';
 import { useWorkflowStore } from '../../../store/useWorkflowStore';
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+  usePanelRef,
+} from '../../../ui/Resizable.js';
 import { encodeToBase64, decodeFromBase64 } from '../../../modules/code-editor/editor/Base64Handler';
 import { CsxSnippetToolbar } from '../../../modules/code-editor/editor/CsxSnippetToolbar';
 import { CsxReferencePanel } from '../../../modules/code-editor/editor/CsxReferencePanel';
@@ -20,12 +37,90 @@ import type { CsharpLspClient } from '../../../modules/code-editor/editor/lspCli
 const MIN_HEIGHT = 200;
 const MAX_HEIGHT = 700;
 
+const FLOW_EDITOR_MAIN_COLUMN_ID = 'flow-editor-vertical-main';
+const FLOW_EDITOR_SCRIPT_COLUMN_ID = 'flow-editor-vertical-script';
+
+const ScriptPanelResizeContext = createContext<RefObject<PanelImperativeHandle | null> | null>(
+  null,
+);
+
+function useScriptPanelResizePanelRef() {
+  return useContext(ScriptPanelResizeContext);
+}
+
+/**
+ * Flow editöründe canvas (üst) + script paneli (alt) dikey bölünür; script yüksekliği store’da tutulur.
+ */
+export function FlowEditorCanvasAndScriptResizableColumn({
+  canvas,
+  scriptPanel,
+}: {
+  canvas: ReactNode;
+  scriptPanel: ReactNode | null;
+}) {
+  const setScriptPanelHeight = useEditorPanelsStore((s) => s.setScriptPanelHeight);
+  const scriptPanelPanelRef = usePanelRef();
+
+  const defaultLayout = useMemo(() => {
+    const scriptPx = Math.min(
+      MAX_HEIGHT,
+      Math.max(MIN_HEIGHT, useEditorPanelsStore.getState().scriptPanelHeight),
+    );
+    const groupH =
+      typeof window !== 'undefined'
+        ? Math.max(320, Math.min(window.innerHeight - 80, window.innerHeight * 0.92))
+        : 640;
+    const scriptPct = (100 * scriptPx) / groupH;
+    const mainPct = 100 - scriptPct;
+    const r = (n: number) => Math.round(n * 1000) / 1000;
+    return {
+      [FLOW_EDITOR_MAIN_COLUMN_ID]: r(mainPct),
+      [FLOW_EDITOR_SCRIPT_COLUMN_ID]: r(scriptPct),
+    } as const;
+  }, []);
+
+  if (!scriptPanel) {
+    return <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{canvas}</div>;
+  }
+
+  return (
+    <ResizablePanelGroup
+      className="flex min-h-0 flex-1 flex-col overflow-hidden"
+      defaultLayout={defaultLayout}
+      id="flow-editor-vertical-resize"
+      orientation="vertical">
+      <ResizablePanel
+        className="flex min-h-0 min-w-0 flex-col overflow-hidden"
+        id={FLOW_EDITOR_MAIN_COLUMN_ID}
+        minSize="20%">
+        {canvas}
+      </ResizablePanel>
+      <ResizableHandle className="aria-[orientation=horizontal]:before:top-auto aria-[orientation=horizontal]:before:bottom-0" />
+      <ResizablePanel
+        className="border-border bg-surface relative z-40 flex min-h-0 flex-col overflow-hidden"
+        id={FLOW_EDITOR_SCRIPT_COLUMN_ID}
+        maxSize={MAX_HEIGHT}
+        minSize={MIN_HEIGHT}
+        panelRef={scriptPanelPanelRef}
+        onResize={(size) => {
+          setScriptPanelHeight(Math.round(size.inPixels));
+        }}>
+        <ScriptPanelResizeContext.Provider value={scriptPanelPanelRef}>
+          {scriptPanel}
+        </ScriptPanelResizeContext.Provider>
+      </ResizablePanel>
+    </ResizablePanelGroup>
+  );
+}
+
 export function ScriptEditorPanel() {
   const { activeScript, updateScriptValue, closeScript } = useScriptPanelStore();
-  const { scriptPanelHeight, setScriptPanelHeight, setScriptPanelOpen } = useEditorPanelsStore();
+  const { setScriptPanelOpen } = useEditorPanelsStore();
   const { updateWorkflow } = useWorkflowStore();
   const [showReference, setShowReference] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
+  const scriptLayoutPanelRef = useScriptPanelResizePanelRef();
+  const sizeBeforeMaximizeRef = useRef<PanelSize | null>(null);
   const [locationDraft, setLocationDraft] = useState('');
   const [locationError, setLocationError] = useState<string | null>(null);
   const editorRef = useRef<any>(null);
@@ -34,9 +129,6 @@ export function ScriptEditorPanel() {
   const markerDisposableRef = useRef<{ dispose: () => void } | null>(null);
   const lspClientRef = useRef<CsharpLspClient | null>(null);
   const lspSessionId = useRef(crypto.randomUUID());
-  const resizingRef = useRef(false);
-  const startYRef = useRef(0);
-  const startHeightRef = useRef(0);
 
   const decoded = useMemo(() => {
     if (!activeScript?.value?.code) return '';
@@ -159,40 +251,26 @@ export function ScriptEditorPanel() {
     [activeScript, updateScriptValue, updateWorkflow],
   );
 
-  // ─── Resize handle ───
-  const handleResizeStart = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-      resizingRef.current = true;
-      startYRef.current = e.clientY;
-      startHeightRef.current = isMaximized ? window.innerHeight * 0.7 : scriptPanelHeight;
-
-      const onMouseMove = (ev: MouseEvent) => {
-        if (!resizingRef.current) return;
-        const delta = startYRef.current - ev.clientY;
-        const newHeight = Math.min(
-          MAX_HEIGHT,
-          Math.max(MIN_HEIGHT, startHeightRef.current + delta),
-        );
-        setScriptPanelHeight(newHeight);
-        if (isMaximized) setIsMaximized(false);
-      };
-
-      const onMouseUp = () => {
-        resizingRef.current = false;
-        document.removeEventListener('mousemove', onMouseMove);
-        document.removeEventListener('mouseup', onMouseUp);
-        document.body.style.cursor = '';
-        document.body.style.userSelect = '';
-      };
-
-      document.body.style.cursor = 'row-resize';
-      document.body.style.userSelect = 'none';
-      document.addEventListener('mousemove', onMouseMove);
-      document.addEventListener('mouseup', onMouseUp);
-    },
-    [scriptPanelHeight, setScriptPanelHeight, isMaximized],
-  );
+  const toggleMaximize = useCallback(() => {
+    const api = scriptLayoutPanelRef?.current;
+    if (!api) {
+      setIsMaximized((m) => !m);
+      return;
+    }
+    if (!isMaximized) {
+      sizeBeforeMaximizeRef.current = api.getSize();
+      api.resize('70%');
+      setIsMaximized(true);
+    } else {
+      const prev = sizeBeforeMaximizeRef.current;
+      if (prev) {
+        api.resize(`${prev.asPercentage}%`);
+      } else {
+        api.resize(useEditorPanelsStore.getState().scriptPanelHeight);
+      }
+      setIsMaximized(false);
+    }
+  }, [isMaximized, scriptLayoutPanelRef]);
 
   // Cleanup
   useEffect(() => {
@@ -207,21 +285,8 @@ export function ScriptEditorPanel() {
 
   if (!activeScript) return null;
 
-  const panelHeight = isMaximized ? '70vh' : scriptPanelHeight;
-  // Header(~37) + snippet bar(~32) + status bar(~24) + resize(3) = ~96
-  const editorHeight = typeof panelHeight === 'number' ? panelHeight - 96 : 'calc(70vh - 96px)';
-
   return (
-    <div
-      className="border-border bg-surface flex shrink-0 flex-col border-t"
-      style={{ height: panelHeight }}>
-      {/* Resize handle */}
-      <div
-        className="group hover:bg-secondary-border relative h-[3px] shrink-0 cursor-row-resize bg-transparent transition-colors"
-        onMouseDown={handleResizeStart}>
-        <div className="absolute inset-x-0 -top-1 -bottom-1" />
-      </div>
-
+    <div className="bg-surface flex h-full min-h-0 flex-col">
       {/* Header bar */}
       <div className="border-border-subtle bg-muted/70 flex shrink-0 items-center gap-2 border-b px-3 py-1.5">
         <div className="bg-secondary-muted flex size-5 shrink-0 items-center justify-center rounded-md">
@@ -261,7 +326,7 @@ export function ScriptEditorPanel() {
 
         {/* Maximize/Restore */}
         <button
-          onClick={() => setIsMaximized(!isMaximized)}
+          onClick={toggleMaximize}
           className="text-muted-foreground hover:bg-muted hover:text-foreground rounded-lg p-1.5 transition-all"
           title={isMaximized ? 'Restore' : 'Maximize'}>
           {isMaximized ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
@@ -292,9 +357,9 @@ export function ScriptEditorPanel() {
       {/* Editor area */}
       <div className="flex min-h-0 flex-1">
         {/* Monaco editor (full width) */}
-        <div className="min-w-0 flex-1">
+        <div className="min-h-0 min-w-0 flex-1">
           <MonacoEditor
-            height={editorHeight}
+            height="100%"
             language="csharp"
             value={decoded}
             onChange={handleCodeChange}

@@ -5,10 +5,16 @@ import { useEditorPanelsStore } from '../../store/useEditorPanelsStore';
 import { useProjectStore } from '../../store/useProjectStore';
 import { useWorkflowStore } from '../../store/useWorkflowStore';
 import { FlowCanvas } from '../../modules/canvas-interaction/FlowCanvas';
-import { StatePropertyPanel } from '../../modules/canvas-interaction/components/panels/StatePropertyPanel';
+import {
+  StatePropertyPanel,
+  WorkflowPropertySidebarResizableRow,
+} from '../../modules/canvas-interaction/components/panels/StatePropertyPanel';
 import { TransitionPropertyPanel } from '../../modules/canvas-interaction/components/panels/TransitionPropertyPanel';
 import { WorkflowMetadataPanel } from '../../modules/canvas-interaction/components/panels/WorkflowMetadataPanel';
-import { ScriptEditorPanel } from '../../modules/code-editor/layout/ScriptEditorPanel';
+import {
+  FlowEditorCanvasAndScriptResizableColumn,
+  ScriptEditorPanel,
+} from '../../modules/code-editor/layout/ScriptEditorPanel';
 import { useScriptPanelStore } from '../../modules/code-editor/ScriptPanelStore';
 import { useFlowEditorPersistence } from '../../modules/flow-editor/useFlowEditorPersistence';
 import { useFlowEditorDocument } from '../../modules/flow-editor/useFlowEditorDocument';
@@ -126,21 +132,35 @@ export function FlowEditorView({ projectId, group, name, onNavigateBack }: FlowE
       )}
 
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <div className="flex flex-1 overflow-hidden">
-          <div className="relative h-full flex-1">
-            <ReactFlowProvider>
-              <FlowCanvas workflowJson={workflowJson} diagramJson={diagramJson} />
-            </ReactFlowProvider>
-          </div>
-
-          {showSidePanel && (
-            <aside className="w-[360px] shrink-0 overflow-y-auto border-l border-border-subtle bg-surface/80 shadow-[-4px_0_16px_rgba(0,0,0,0.03)] backdrop-blur-sm">
-              {selectedNodeId ? <StatePropertyPanel /> : <TransitionPropertyPanel />}
-            </aside>
-          )}
-        </div>
-
-        {scriptPanelOpen && activeScript && <ScriptEditorPanel />}
+        <FlowEditorCanvasAndScriptResizableColumn
+          canvas={
+            <div className="flex min-h-0 flex-1 overflow-hidden">
+              {showSidePanel ? (
+                <WorkflowPropertySidebarResizableRow
+                  canvas={
+                    <div className="relative h-full min-h-0 w-full">
+                      <ReactFlowProvider>
+                        <FlowCanvas workflowJson={workflowJson} diagramJson={diagramJson} />
+                      </ReactFlowProvider>
+                    </div>
+                  }
+                  sidePanel={
+                    selectedNodeId ? <StatePropertyPanel /> : <TransitionPropertyPanel />
+                  }
+                />
+              ) : (
+                <div className="relative h-full min-h-0 flex-1">
+                  <ReactFlowProvider>
+                    <FlowCanvas workflowJson={workflowJson} diagramJson={diagramJson} />
+                  </ReactFlowProvider>
+                </div>
+              )}
+            </div>
+          }
+          scriptPanel={
+            scriptPanelOpen && activeScript ? <ScriptEditorPanel /> : null
+          }
+        />
       </div>
     </div>
   );

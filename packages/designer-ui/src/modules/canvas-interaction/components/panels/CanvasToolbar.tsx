@@ -30,18 +30,17 @@ export function CanvasToolbar({ onAddState, onAutoLayout }: CanvasToolbarProps) 
   return (
     <div
       ref={ref}
-      className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1.5 px-2.5 py-2 rounded-2xl bg-surface/90 backdrop-blur-xl border border-border shadow-[0_8px_40px_rgba(0,0,0,0.08),0_2px_4px_rgba(0,0,0,0.04)]"
-    >
+      className="fixed left-1/2 z-30 flex -translate-x-1/2 items-center gap-1 rounded-xl border border-border bg-surface/90 px-2 py-1.5 shadow-[0_8px_40px_rgba(0,0,0,0.08),0_2px_4px_rgba(0,0,0,0.04)] backdrop-blur-xl bottom-[max(1.5rem,calc(var(--designer-host-status-bar-height,0px)+0.75rem))]">
       {/* Add State */}
       <div className="relative">
         <button
           onClick={() => setOpen(!open)}
-          className="flex items-center gap-2 px-4 py-2.5 text-[13px] font-semibold rounded-xl transition-all duration-150 bg-action text-action-foreground hover:bg-action-hover shadow-md hover:shadow-lg active:scale-[0.97] cursor-pointer"
+          className="bg-action text-action-foreground hover:bg-action-hover shadow-md hover:shadow-lg flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-all duration-150 active:scale-[0.97]"
           style={{ '--tw-shadow-color': 'var(--color-action-shadow)' } as React.CSSProperties}
         >
-          <Plus size={15} strokeWidth={2.5} />
+          <Plus size={14} strokeWidth={2.5} />
           <span>Add State</span>
-          <ChevronDown size={13} className={`transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+          <ChevronDown size={12} className={`transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
         </button>
 
         {open && (
@@ -60,13 +59,12 @@ export function CanvasToolbar({ onAddState, onAutoLayout }: CanvasToolbarProps) 
         )}
       </div>
 
-      <div className="w-px h-6 bg-border" />
+      <div className="h-5 w-px bg-border" />
 
       <button
         onClick={onAutoLayout}
-        className="flex items-center gap-2 px-4 py-2.5 text-[13px] font-medium text-muted-foreground rounded-xl hover:bg-muted transition-all duration-150 active:scale-[0.97] cursor-pointer"
-      >
-        <Wand2 size={15} className="text-muted-icon" />
+        className="text-muted-foreground hover:bg-muted flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium transition-all duration-150 active:scale-[0.97]">
+        <Wand2 size={14} className="text-muted-icon" />
         <span>Layout</span>
       </button>
     </div>

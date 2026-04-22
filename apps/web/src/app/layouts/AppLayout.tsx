@@ -89,7 +89,13 @@ export function AppLayout() {
   };
 
   return (
-    <div className="bg-background text-foreground flex h-screen w-screen flex-col overflow-hidden">
+    <div
+      className="bg-background text-foreground flex h-screen w-screen flex-col overflow-hidden"
+      style={
+        {
+          ['--designer-host-status-bar-height' as string]: '1.75rem',
+        } as React.CSSProperties
+      }>
       <RuntimeHealthSync />
 
       {projectId ? (

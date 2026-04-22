@@ -1,5 +1,7 @@
+import type { ReactNode } from 'react';
 import { useMemo, useState } from 'react';
 import { useWorkflowStore } from '../../../../store/useWorkflowStore';
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '../../../../ui/Resizable.js';
 import {
   getStateTypeLabel,
   getStateTypeColor,
@@ -14,12 +16,77 @@ import { TransitionsTab } from './tabs/TransitionsTab';
 import { SubFlowTab } from './tabs/SubFlowTab';
 import { ErrorBoundaryTab } from './tabs/ErrorBoundaryTab';
 import { StartNodePanel } from './tabs/StartNodePanel';
-import { MousePointer2 } from 'lucide-react';
+import { MousePointer2, X } from 'lucide-react';
 
 type Tab = 'general' | 'tasks' | 'transitions' | 'subflow' | 'error-boundary';
 
+const FLOW_EDITOR_CANVAS_PANEL_ID = 'flow-editor-canvas';
+const FLOW_EDITOR_PROPERTIES_PANEL_ID = 'flow-editor-properties';
+
+/** Flow editor sağ özellik sütunu — `FlowEditorView` ile uyumlu piksel sınırları + auto-collapse. */
+export const statePropertyPanelResizableProps = {
+  autoCollapseBelowMin: true,
+  collapseOvershootPx: 30,
+  minSize: 200,
+  maxSize: 400,
+} as const;
+
+/**
+ * Canvas + sağ özellik paneli satırı. Özellik sütunu `statePropertyPanelResizableProps` ile yeniden boyutlanır.
+ */
+export function WorkflowPropertySidebarResizableRow({
+  canvas,
+  sidePanel,
+}: {
+  canvas: ReactNode;
+  sidePanel: ReactNode;
+}) {
+  const defaultLayout = useMemo(() => {
+    const { minSize, maxSize } = statePropertyPanelResizableProps;
+    if (typeof window === 'undefined') {
+      return {
+        [FLOW_EDITOR_CANVAS_PANEL_ID]: 72,
+        [FLOW_EDITOR_PROPERTIES_PANEL_ID]: 28,
+      } as const;
+    }
+    const rowEstimatePx = Math.max(480, window.innerWidth - 80);
+    const sidePx = Math.min(
+      maxSize,
+      Math.max(minSize, Math.round(rowEstimatePx * 0.22) + 50),
+    );
+    const sidePct = (100 * sidePx) / rowEstimatePx;
+    const canvasPct = 100 - sidePct;
+    const r = (n: number) => Math.round(n * 1000) / 1000;
+    return {
+      [FLOW_EDITOR_CANVAS_PANEL_ID]: r(canvasPct),
+      [FLOW_EDITOR_PROPERTIES_PANEL_ID]: r(sidePct),
+    } as const;
+  }, []);
+
+  return (
+    <ResizablePanelGroup
+      className="flex h-full min-h-0 w-full flex-1"
+      defaultLayout={defaultLayout}
+      orientation="horizontal">
+      <ResizablePanel
+        className="relative min-h-0 min-w-0"
+        id={FLOW_EDITOR_CANVAS_PANEL_ID}
+        minSize="35%">
+        {canvas}
+      </ResizablePanel>
+      <ResizableHandle className="before:right-0 before:left-auto before:translate-x-0" />
+      <ResizablePanel
+        className="bg-surface/80 flex min-h-0 min-w-0 flex-col overflow-hidden shadow-[-4px_0_16px_rgba(0,0,0,0.03)] backdrop-blur-sm"
+        id={FLOW_EDITOR_PROPERTIES_PANEL_ID}
+        {...statePropertyPanelResizableProps}>
+        {sidePanel}
+      </ResizablePanel>
+    </ResizablePanelGroup>
+  );
+}
+
 export function StatePropertyPanel() {
-  const { workflowJson, selectedNodeId, updateWorkflow } = useWorkflowStore();
+  const { workflowJson, selectedNodeId, updateWorkflow, setSelectedNode } = useWorkflowStore();
   const [activeTab, setActiveTab] = useState<Tab>('general');
 
   const state = useMemo(() => {
@@ -72,13 +139,23 @@ export function StatePropertyPanel() {
       {/* Header */}
       <div className="border-border-subtle bg-surface border-b px-4 py-3.5">
         <div className="mb-1 flex items-center gap-2">
-          <span className="text-foreground truncate text-[14px] font-bold tracking-tight">
-            {state.key}
-          </span>
-          <Badge className={getStateTypeColor(stateType)}>{getStateTypeLabel(stateType)}</Badge>
-          {subType > 0 && (
-            <Badge className={getSubTypeBadge(subType)}>{getSubTypeLabel(subType)}</Badge>
-          )}
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+            <span className="text-foreground truncate text-[14px] font-bold tracking-tight">
+              {state.key}
+            </span>
+            <Badge className={getStateTypeColor(stateType)}>{getStateTypeLabel(stateType)}</Badge>
+            {subType > 0 && (
+              <Badge className={getSubTypeBadge(subType)}>{getSubTypeLabel(subType)}</Badge>
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={() => setSelectedNode(null)}
+            className="text-muted-foreground hover:bg-muted hover:text-foreground shrink-0 rounded-md p-1 transition-colors"
+            title="Close panel"
+            aria-label="Close panel">
+            <X size={14} strokeWidth={2} aria-hidden />
+          </button>
         </div>
         {getLabel(state) && (
           <div className="text-muted-foreground truncate text-[12px]">{getLabel(state)}</div>
