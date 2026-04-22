@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { HostDocumentToolbarSlot } from '../../modules/save-component/components/hostDocumentToolbarSlot';
 import { useProjectStore } from '../../store/useProjectStore';
 import { useComponentStore } from '../../store/useComponentStore';
 import { useSaveComponent } from '../../modules/save-component/useSaveComponent';
@@ -10,7 +10,7 @@ export interface FunctionEditorViewProps {
   projectId: string;
   group: string;
   name: string;
-  registerToolbar?: (toolbar: ReactNode | null) => void;
+  registerToolbar?: HostDocumentToolbarSlot;
 }
 
 export function FunctionEditorView({

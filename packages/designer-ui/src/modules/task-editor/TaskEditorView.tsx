@@ -1,8 +1,8 @@
-import type { ReactNode } from 'react';
 import { useProjectStore } from '../../store/useProjectStore';
 import { useComponentStore } from '../../store/useComponentStore';
 import { useSaveComponent } from '../../modules/save-component/useSaveComponent';
 import { ComponentEditorLayout } from '../../modules/save-component/components/ComponentEditorLayout';
+import type { HostDocumentToolbarSlot } from '../../modules/save-component/components/hostDocumentToolbarSlot';
 import { useTaskEditor } from './useTaskEditor';
 import { TaskEditorPanel } from './TaskEditorPanel';
 
@@ -10,7 +10,7 @@ export interface TaskEditorViewProps {
   projectId: string;
   group: string;
   name: string;
-  registerToolbar?: (toolbar: ReactNode | null) => void;
+  registerToolbar?: HostDocumentToolbarSlot;
 }
 
 export function TaskEditorView({

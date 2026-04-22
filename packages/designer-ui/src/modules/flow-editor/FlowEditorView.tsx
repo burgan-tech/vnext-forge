@@ -1,9 +1,10 @@
-import { useCallback, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { ReactFlowProvider } from '@xyflow/react';
 import { AlertCircle, ArrowLeft, Loader2 } from 'lucide-react';
 import { useEditorPanelsStore } from '../../store/useEditorPanelsStore';
 import { useWorkflowStore } from '../../store/useWorkflowStore';
 import { ComponentEditorLayout } from '../../modules/save-component/components/ComponentEditorLayout';
+import type { HostDocumentToolbarSlot } from '../../modules/save-component/components/hostDocumentToolbarSlot';
 import { FlowCanvas } from '../../modules/canvas-interaction/FlowCanvas';
 import {
   StatePropertyPanel,
@@ -61,10 +62,9 @@ export interface FlowEditorViewProps {
    */
   onNavigateBack?: () => void;
   /**
-   * Web: sekme satırı sağına Save / Undo / Modified araç çubuğunu taşır (`setToolbar`).
-   * VS Code webview: verilmez; düzenleyici üstünde yerel araç satırı gösterilir.
+   * Web: sekme satırı sağı (`setToolbar`). VS Code webview: verilmez — panel üst şeridi `ComponentEditorLayout` içinde.
    */
-  registerToolbar?: (toolbar: ReactNode | null) => void;
+  registerToolbar?: HostDocumentToolbarSlot;
 }
 
 export function FlowEditorView({

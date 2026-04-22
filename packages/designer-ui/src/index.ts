@@ -53,6 +53,13 @@ export {
   type ExtensionEditorViewProps,
 } from './modules/extension-editor/ExtensionEditorView.js';
 
+/** Belge Save / Undo çubuğunun host tarafından nereye iliştirileceği (web sekme satırı vs. panel içi). */
+export type { HostDocumentToolbarSlot } from './modules/save-component/components/hostDocumentToolbarSlot.js';
+export {
+  EditorDocumentToolbar,
+  type EditorDocumentToolbarProps,
+} from './modules/save-component/components/EditorDocumentToolbar.js';
+
 // Workflow-execution APIs/hooks (runtime health). The whole module lives in
 // designer-ui — host shells (apps/web SPA, apps/extension webview) consume
 // the API/schema helpers, the hooks AND the `RuntimeHealthSync` mount

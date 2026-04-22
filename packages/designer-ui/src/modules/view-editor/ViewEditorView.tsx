@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import type { HostDocumentToolbarSlot } from '../../modules/save-component/components/hostDocumentToolbarSlot';
 import { useComponentStore } from '../../store/useComponentStore';
 import { useProjectStore } from '../../store/useProjectStore';
 import { ComponentEditorLayout } from '../../modules/save-component/components/ComponentEditorLayout';
@@ -11,7 +11,7 @@ export interface ViewEditorViewProps {
   projectId: string;
   group: string;
   name: string;
-  registerToolbar?: (toolbar: ReactNode | null) => void;
+  registerToolbar?: HostDocumentToolbarSlot;
 }
 
 export function ViewEditorView({

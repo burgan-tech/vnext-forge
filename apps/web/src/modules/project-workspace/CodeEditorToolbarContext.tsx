@@ -7,16 +7,19 @@ import {
   type ReactNode,
 } from 'react';
 
+import type { HostDocumentToolbarSlot } from '@vnext-forge/designer-ui';
+
 type CodeEditorToolbarContextValue = {
   toolbar: ReactNode | null;
-  setToolbar: (node: ReactNode | null) => void;
+  /** `HostDocumentToolbarSlot` — yalnızca web’de; editör `registerToolbar` ile dolar. */
+  setToolbar: HostDocumentToolbarSlot;
 };
 
 const CodeEditorToolbarContext = createContext<CodeEditorToolbarContextValue | null>(null);
 
 export function CodeEditorToolbarProvider({ children }: { children: ReactNode }) {
   const [toolbar, setToolbarState] = useState<ReactNode | null>(null);
-  const setToolbar = useCallback((node: ReactNode | null) => {
+  const setToolbar = useCallback<HostDocumentToolbarSlot>((node) => {
     setToolbarState(node);
   }, []);
   const value = useMemo(() => ({ toolbar, setToolbar }), [toolbar, setToolbar]);
