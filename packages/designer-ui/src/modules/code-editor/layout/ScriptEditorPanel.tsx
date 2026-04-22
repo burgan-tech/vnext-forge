@@ -95,7 +95,7 @@ export function FlowEditorCanvasAndScriptResizableColumn({
         minSize="20%">
         {canvas}
       </ResizablePanel>
-      <ResizableHandle className="aria-[orientation=horizontal]:before:top-auto aria-[orientation=horizontal]:before:bottom-0" />
+      <ResizableHandle className="aria-[orientation=horizontal]:before:top-auto! aria-[orientation=horizontal]:before:bottom-0!" />
       <ResizablePanel
         className="border-border bg-surface relative z-40 flex min-h-0 flex-col overflow-hidden"
         id={FLOW_EDITOR_SCRIPT_COLUMN_ID}

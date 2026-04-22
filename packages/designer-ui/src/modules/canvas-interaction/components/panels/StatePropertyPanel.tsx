@@ -74,7 +74,7 @@ export function WorkflowPropertySidebarResizableRow({
         minSize="35%">
         {canvas}
       </ResizablePanel>
-      <ResizableHandle className="before:right-0 before:left-auto before:translate-x-0" />
+      <ResizableHandle className="aria-[orientation=vertical]:before:left-auto! aria-[orientation=vertical]:before:right-0!" />
       <ResizablePanel
         className="bg-surface/80 flex min-h-0 min-w-0 flex-col overflow-hidden shadow-[-4px_0_16px_rgba(0,0,0,0.03)] backdrop-blur-sm"
         id={FLOW_EDITOR_PROPERTIES_PANEL_ID}

@@ -14,13 +14,17 @@ export interface KeyValuePair {
 export type KVPair = KeyValuePair;
 
 const keyValueEditorRowVariants = cva(
-  'flex items-center gap-2 rounded-xl border p-2 transition-all duration-200 ease-out',
+  'flex items-center gap-2 transition-all duration-200 ease-out',
   {
     variants: {
       variant: {
-        default: 'border-primary-border bg-primary text-primary-foreground',
-        secondary: 'border-secondary-border bg-secondary text-secondary-foreground',
-        tertiary: 'border-tertiary-border bg-tertiary text-tertiary-foreground',
+        plain: '',
+        default:
+          'rounded-xl border p-2 border-primary-border-hover bg-primary-surface text-primary-foreground shadow-sm',
+        secondary:
+          'rounded-xl border p-2 border-secondary-border-hover bg-secondary-surface text-secondary-foreground shadow-sm',
+        tertiary:
+          'rounded-xl border p-2 border-tertiary-border-hover bg-tertiary-surface text-tertiary-foreground shadow-sm',
       },
       hoverable: {
         true: '',
@@ -32,18 +36,6 @@ const keyValueEditorRowVariants = cva(
       },
     },
     compoundVariants: [
-      {
-        variant: 'default',
-        className: 'border-primary-border-hover bg-primary-surface shadow-sm',
-      },
-      {
-        variant: 'secondary',
-        className: 'border-secondary-border-hover bg-secondary-surface shadow-sm',
-      },
-      {
-        variant: 'tertiary',
-        className: 'border-tertiary-border-hover bg-tertiary-surface shadow-sm',
-      },
       {
         variant: 'default',
         hoverable: true,
@@ -61,7 +53,7 @@ const keyValueEditorRowVariants = cva(
       },
     ],
     defaultVariants: {
-      variant: 'default',
+      variant: 'plain',
       hoverable: false,
       noBorder: false,
     },
@@ -131,12 +123,11 @@ function KeyValueEditor({
             {!readOnly ? (
               <Button
                 type="button"
-                variant="outline"
+                variant="destructive"
                 size="icon"
                 onClick={() => removePair(index)}
-                aria-label={`Remove row ${index + 1}`}
-                className="border-destructive-border hover:border-destructive-border-hover hover:bg-destructive-hover">
-                <X className="text-destructive-icon size-4" />
+                aria-label={`Remove row ${index + 1}`}>
+                <X className="size-4" />
               </Button>
             ) : null}
           </div>
@@ -145,13 +136,12 @@ function KeyValueEditor({
       {!readOnly ? (
         <Button
           type="button"
-          variant="ghost"
+          variant="default"
+          leftIconVariant="success"
           size="sm"
           onClick={addPair}
-          noBorder
-          noIconHover
-          className="mt-2 shadow-sm">
-          <Plus className="size-4" />
+          leftIcon={<Plus />}
+          className="mt-1">
           {addLabel}
         </Button>
       ) : null}
