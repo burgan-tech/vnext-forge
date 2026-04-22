@@ -435,6 +435,7 @@ html.dark :focus-visible {
 
 * {
   box-sizing: border-box;
+  outline: none !important;
 }
 input {
   outline: none !important;

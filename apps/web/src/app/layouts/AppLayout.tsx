@@ -1,6 +1,13 @@
+import { useMemo } from 'react';
 import { matchPath, Outlet, useLocation } from 'react-router-dom';
 
 import { RuntimeHealthSync, useProjectStore } from '@vnext-forge/designer-ui';
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+  useGroupRef,
+} from '@vnext-forge/designer-ui/ui';
 
 import { useProjectListStore } from '../store/useProjectListStore';
 import { useVnextWorkspaceUiStore } from '../store/useVnextWorkspaceUiStore';
@@ -29,7 +36,7 @@ function routeProjectIdFromPathname(pathname: string): string | undefined {
 export function AppLayout() {
   const location = useLocation();
   const sidebarOpen = useWebShellStore((s) => s.sidebarOpen);
-  const sidebarWidth = useWebShellStore((s) => s.sidebarWidth);
+  const setSidebarWidth = useWebShellStore((s) => s.setSidebarWidth);
 
   const activeProject = useProjectStore((s) => s.activeProject);
   const vnextConfigWizardOpen = useVnextWorkspaceUiStore((s) => s.vnextConfigWizardOpen);
@@ -37,8 +44,31 @@ export function AppLayout() {
 
   const routeProjectId = routeProjectIdFromPathname(location.pathname);
   const projectId = activeProject?.id ?? routeProjectId;
+  const resizableShellGroupRef = useGroupRef();
 
   useProjectWorkspacePage(routeProjectId);
+
+  /**
+   * `react-resizable-panels` ilk ölçümde panel toplam genişliği 0 iken
+   * `defaultLayoutDeferred` tutabiliyor; bu aşamada `getLayout`/`setLayout` boş ve ilk sürükleme etkisiz
+   * kalabiliyor. Group seviyesinde yüzde `defaultLayout` vererek ilk geçerli layout'u aynı render'da
+   * uygulatıyoruz. Bağımlılık listesinde `onResize` ile güncellenen `sidebarWidth` yok; böylece sürüklerken
+   * `defaultLayout` yeniden hesaplanıp sürükleme sıfırlanmaz.
+   */
+  const shellResizableDefaultLayout = useMemo(() => {
+    if (typeof window === 'undefined' || !sidebarOpen) {
+      return undefined;
+    }
+    const activityBarWidthPx = 52;
+    const total = Math.max(1, window.innerWidth - activityBarWidthPx);
+    const sw = Math.min(440, Math.max(160, useWebShellStore.getState().sidebarWidth));
+    const sidebarPct = (100 * sw) / total;
+    const mainPct = 100 - sidebarPct;
+    return {
+      'app-shell-sidebar': Math.round(sidebarPct * 1000) / 1000,
+      'app-shell-main': Math.round(mainPct * 1000) / 1000,
+    } as const;
+  }, [sidebarOpen, projectId, location.key]);
 
   const handleWizardOpenChange = (open: boolean) => {
     if (!open) {
@@ -72,22 +102,45 @@ export function AppLayout() {
         />
       ) : null}
 
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
         <ActivityBar />
 
-        {sidebarOpen && (
-          <aside
-            className="border-border bg-surface/80 shrink-0 overflow-y-auto border-r backdrop-blur-sm"
-            style={{ width: sidebarWidth }}>
-            <Sidebar />
-          </aside>
+        {sidebarOpen ? (
+          <ResizablePanelGroup
+            defaultLayout={shellResizableDefaultLayout}
+            groupRef={resizableShellGroupRef}
+            className="flex h-full min-h-0 min-w-0 flex-1"
+            id="app-shell-resizable"
+            orientation="horizontal">
+            <ResizablePanel
+              className="bg-surface/80 flex min-h-0 min-w-0 flex-col overflow-hidden backdrop-blur-sm"
+              id="app-shell-sidebar"
+              maxSize={440}
+              minSize={160}
+              onResize={({ inPixels }) => {
+                setSidebarWidth(Math.round(inPixels));
+              }}>
+              <Sidebar />
+            </ResizablePanel>
+            <ResizableHandle />
+            <ResizablePanel
+              className="flex min-h-0 min-w-0 flex-1 flex-col"
+              id="app-shell-main"
+              minSize="32%">
+              <main className="bg-background min-h-0 min-w-0 flex-1 overflow-hidden">
+                <RouteErrorBoundary>
+                  <Outlet />
+                </RouteErrorBoundary>
+              </main>
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        ) : (
+          <main className="bg-background min-h-0 min-w-0 flex-1 overflow-hidden">
+            <RouteErrorBoundary>
+              <Outlet />
+            </RouteErrorBoundary>
+          </main>
         )}
-
-        <main className="bg-background flex-1 overflow-hidden">
-          <RouteErrorBoundary>
-            <Outlet />
-          </RouteErrorBoundary>
-        </main>
       </div>
 
       <StatusBar />

@@ -1,766 +1,153 @@
-import { useState } from 'react';
+import type { ReactNode } from 'react';
 import {
-  AlertCircle,
-  Bell,
-  CheckCircle2,
-  ChevronDown,
-  FolderOpen,
-  MoreHorizontal,
-  Palette,
-  Settings,
-  Sparkles,
-  User,
+  Code2,
+  FileJson,
+  LayoutTemplate,
+  SquareSplitHorizontal,
+  SquareSplitVertical,
 } from 'lucide-react';
 
 import {
-  Accordion,
-  Alert,
-  AlertDescription,
-  AlertTitle,
   Badge,
-  Button,
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
-  Checkbox,
-  ColorThemeSwitch,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuRadioGroup,
-  DropdownMenuRadioItem,
-  DropdownMenuSeparator,
-  DropdownMenuShortcut,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-  DropdownMenuTrigger,
-  DropdownSelect,
-  DropdownSelectContent,
-  DropdownSelectField,
-  DropdownSelectItem,
-  DropdownSelectTrigger,
-  DropdownSelectValue,
-  Input,
-  TagEditor,
-  Textarea,
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
 } from '@vnext-forge/designer-ui/ui';
 
-type SurfaceVariant = 'default' | 'secondary' | 'tertiary';
-
-const surfaceVariants: SurfaceVariant[] = ['default', 'secondary', 'tertiary'];
-
+/**
+ * `/test` — yalnızca `@vnext-forge/designer-ui` Resizable (react-resizable-panels v4) denemeleri.
+ */
 export function TestPage() {
-  const [checkboxes, setCheckboxes] = useState<Record<SurfaceVariant, boolean>>({
-    default: true,
-    secondary: false,
-    tertiary: true,
-  });
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [compactMode, setCompactMode] = useState(false);
-  const [layoutMode, setLayoutMode] = useState<'list' | 'grid' | 'compact'>('list');
-  const [curveKind, setCurveKind] = useState('exponential');
-  const [inputValue, setInputValue] = useState('');
-  const [textareaValue, setTextareaValue] = useState('');
-  const [tagEditors, setTagEditors] = useState<Record<'main' | SurfaceVariant, string[]>>({
-    main: ['workflow', 'test'],
-    default: [],
-    secondary: [],
-    tertiary: [],
-  });
-  /** ColorThemeSwitch: `true` = açık (güneş), `false` = koyu (ay) — yalnızca demo state */
-  const [demoLightTheme, setDemoLightTheme] = useState(false);
-
   return (
     <div className="bg-background text-foreground min-h-screen px-6 py-10">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-10">
-        <header className="space-y-3">
-          <Badge variant="muted">Shared UI Test Surface</Badge>
-          <div className="space-y-2">
-            <h1 className="text-3xl font-semibold tracking-tight">Primitive Variant Showcase</h1>
-            <p className="text-muted-foreground max-w-3xl text-sm">
-              Variants, hover, and border behavior for button, card, checkbox, dialog, dropdown
-              menu, accordion, alert, and badge — test them on a single page.
-            </p>
-          </div>
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-10">
+        <header className="space-y-2">
+          <Badge variant="muted">/test</Badge>
+          <h1 className="text-2xl font-semibold tracking-tight">Resizable</h1>
+          <p className="text-muted-foreground max-w-2xl text-sm">
+            <code className="text-foreground/90">ResizablePanelGroup</code>,{' '}
+            <code className="text-foreground/90">ResizablePanel</code>,{' '}
+            <code className="text-foreground/90">ResizableHandle</code> — yatay ve dikey düzen,
+            ince ayırıcı; hit alanı sol panelin scrollbar sütununa taşmaz.
+          </p>
         </header>
 
-        <section>
-          <Card className="gap-5">
-            <CardHeader>
-              <CardTitle>ColorThemeSwitch</CardTitle>
-              <CardDescription>
-                Ay / güneş geçişi, yaylı thumb ve hover / basılı durumlar. Bu sayfadaki örnek yalnızca
-                yerel state tutar; uygulama temasını değiştirmez.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-wrap items-center gap-8">
-              <ColorThemeSwitch
-                checked={demoLightTheme}
-                onCheckedChange={setDemoLightTheme}
-                aria-label="Test sayfası demo tema anahtarı"
-              />
-              <p className="text-muted-foreground text-sm">
-                <span className="text-foreground font-medium">
-                  {demoLightTheme ? 'Açık tema (On)' : 'Koyu tema (Off)'}
-                </span>
-                — switch bileşeniyle aynı anlamda.
-              </p>
-            </CardContent>
-          </Card>
-        </section>
-
-        <section className="grid gap-4 lg:grid-cols-3">
-          {surfaceVariants.map((variant) => (
-            <Card key={variant} variant={variant} hoverable className="gap-4">
-              <CardHeader>
-                <CardTitle className="capitalize">{variant} Card</CardTitle>
-                <CardDescription>
-                  Surface, border, and icon tone are easy to inspect from this card.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-current/8">
-                    <FolderOpen className="size-5" />
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium">Workspace Preview</p>
-                    <p className="text-xs text-current/70">
-                      The variant family is reflected in body and icon tone here.
-                    </p>
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Badge variant={variant}>badge</Badge>
-                  <Badge variant={variant} noBorder>
-                    noBorder
-                  </Badge>
-                </div>
-              </CardContent>
-              <CardFooter className="justify-between">
-                <span className="text-xs text-current/70">Hover card</span>
-                <Button size="sm" variant={variant}>
-                  Action
-                </Button>
-              </CardFooter>
-            </Card>
-          ))}
-        </section>
-
-        <section className="grid gap-6 xl:grid-cols-3">
-          <Card className="gap-5">
-            <CardHeader>
-              <CardTitle>Input</CardTitle>
-              <CardDescription>
-                Tek satır alan; yüzey varyantları ve boyutlar bu sayfada hızlıca görülebilir.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Input
-                placeholder="Kontrollü örnek (default)"
-                value={inputValue}
-                onChange={(event) => setInputValue(event.target.value)}
-              />
-              <div className="grid gap-3 sm:grid-cols-3">
-                {surfaceVariants.map((variant) => (
-                  <Input
-                    key={variant}
-                    variant={variant}
-                    placeholder={`${variant} variant`}
-                    aria-label={`Input ${variant}`}
-                  />
-                ))}
-              </div>
-              <div className="flex flex-wrap gap-3">
-                <Input size="sm" placeholder="size sm" />
-                <Input size="default" placeholder="size default" />
-                <Input size="lg" placeholder="size lg" />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="gap-5">
-            <CardHeader>
-              <CardTitle>Textarea</CardTitle>
-              <CardDescription>
-                Çok satırlı metin; tema yüzeyleriyle birlikte odak ve hover davranışını deneyin.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Textarea
-                placeholder="Kontrollü örnek (default) — birkaç satır yazın…"
-                value={textareaValue}
-                onChange={(event) => setTextareaValue(event.target.value)}
-                rows={4}
-              />
-              <div className="grid gap-3">
-                {surfaceVariants.map((variant) => (
-                  <Textarea
-                    key={variant}
-                    variant={variant}
-                    placeholder={`${variant} variant`}
-                    rows={3}
-                    aria-label={`Textarea ${variant}`}
-                  />
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="gap-5">
-            <CardHeader>
-              <CardTitle>TagEditor</CardTitle>
-              <CardDescription>
-                Enter veya blur ile etiket ekleyin; geri tuşu veya X ile kaldırın. Yüzey
-                varyantları Input ile uyumludur.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <TagEditor
-                tags={tagEditors.main}
-                onChange={(tags) => setTagEditors((prev) => ({ ...prev, main: tags }))}
-                placeholder="Etiket ekle…"
-              />
-              <div className="space-y-3">
-                <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-                  Varyantlar
-                </p>
-                <div className="grid gap-3">
-                  {surfaceVariants.map((variant) => (
-                    <TagEditor
-                      key={variant}
-                      variant={variant}
-                      tags={tagEditors[variant]}
-                      onChange={(tags) => setTagEditors((prev) => ({ ...prev, [variant]: tags }))}
-                      placeholder={`${variant} — etiket…`}
-                      aria-label={`TagEditor ${variant}`}
-                    />
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </section>
-
-        <section className="grid gap-6 xl:grid-cols-2">
-          <Card className="gap-5">
-            <CardHeader>
-              <CardTitle>Checkbox + Badge</CardTitle>
-              <CardDescription>Test variant and border behavior together.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {surfaceVariants.map((variant) => (
-                <div
-                  key={variant}
-                  className="border-border/60 flex items-center justify-between rounded-xl border px-4 py-3">
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium capitalize">{variant}</p>
-                    <p className="text-muted-foreground text-xs">
-                      Hover, checked, and noBorder behavior
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Checkbox
-                      variant={variant}
-                      checked={checkboxes[variant]}
-                      onCheckedChange={(checked) =>
-                        setCheckboxes((prev) => ({ ...prev, [variant]: checked === true }))
-                      }
-                    />
-                    <Checkbox variant={variant} checked={checkboxes[variant]} noBorder />
-                    <Badge variant={variant}>{checkboxes[variant] ? 'checked' : 'idle'}</Badge>
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          <Card className="gap-5">
-            <CardHeader>
-              <CardTitle>Alert + Badge</CardTitle>
-              <CardDescription>Text, icon, and hover balance for each variant.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Alert variant="default">
-                <Bell />
-                <AlertTitle>Default Alert</AlertTitle>
-                <AlertDescription>
-                  Uses the primary surface and semantic icon color.
-                </AlertDescription>
-              </Alert>
-              <Alert variant="secondary">
-                <Sparkles />
-                <AlertTitle>Secondary Alert</AlertTitle>
-                <AlertDescription>
-                  The secondary surface is softer but stays visible.
-                </AlertDescription>
-              </Alert>
-              <Alert variant="tertiary">
-                <CheckCircle2 />
-                <AlertTitle>Tertiary Alert</AlertTitle>
-                <AlertDescription>
-                  Success-like emphasis without being destructive.
-                </AlertDescription>
-              </Alert>
-              <Alert variant="destructive">
-                <AlertCircle />
-                <AlertTitle>Destructive Alert</AlertTitle>
-                <AlertDescription>
-                  Reserved for critical actions and error surfaces.
-                </AlertDescription>
-              </Alert>
-            </CardContent>
-          </Card>
-        </section>
-
-        <section className="grid gap-6 xl:grid-cols-2">
-          <Card className="gap-5">
-            <CardHeader>
-              <CardTitle>Dialog Variants</CardTitle>
-              <CardDescription>
-                Test content surface, close button hover, and footer actions.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-wrap gap-3">
-              {surfaceVariants.map((variant) => (
-                <Dialog key={variant}>
-                  <DialogTrigger asChild>
-                    <Button variant={variant} leftIcon={<FolderOpen />} className="capitalize">
-                      {variant} dialog
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent variant={variant} className="sm:max-w-xl">
-                    <DialogHeader>
-                      <DialogTitle className="capitalize">{variant} Dialog</DialogTitle>
-                      <DialogDescription>
-                        Dialog content and close button now use the shared semantic token structure.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 rounded-2xl border border-current/10 p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-current/8">
-                          <Settings className="size-5" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium">Dialog body content</p>
-                          <p className="text-xs text-current/70">
-                            You can check hoverable and border structure here.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button variant="outline">Cancel</Button>
-                      <Button variant={variant}>Save changes</Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              ))}
-            </CardContent>
-          </Card>
-
-          <Card className="gap-5">
-            <CardHeader>
-              <CardTitle>Dropdown Menu</CardTitle>
-              <CardDescription>
-                Basit örnek ve içerik yüzey tipleri yan yana; aşağıda tam varyant şeridi (checkbox,
-                destructive).
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-8">
-              <div className="space-y-3">
-                <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-                  Yan yana: basit + içerik tipleri
-                </p>
-                <div className="flex flex-wrap items-end gap-4">
-                  <div className="flex flex-col gap-1.5">
-                    <span className="text-muted-foreground text-xs">Basit (yalnızca satırlar)</span>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button size="sm" variant="outline" rightIcon={<ChevronDown />}>
-                          Menü
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent className="w-48" align="start">
-                        <DropdownMenuItem>Profil</DropdownMenuItem>
-                        <DropdownMenuItem>Ayarlar</DropdownMenuItem>
-                        <DropdownMenuItem>Çıkış</DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-
-                  <div className="flex flex-col gap-1.5">
-                    <span className="text-muted-foreground text-xs">İçerik: default</span>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button size="sm" variant="default" rightIcon={<ChevronDown />}>
-                          default
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent variant="default" className="w-48" align="start">
-                        <DropdownMenuLabel variant="default">İşlemler</DropdownMenuLabel>
-                        <DropdownMenuSeparator variant="default" />
-                        <DropdownMenuItem variant="default">
-                          <FolderOpen />
-                          Aç
-                        </DropdownMenuItem>
-                        <DropdownMenuItem variant="default">
-                          <Settings />
-                          Düzenle
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-
-                  <div className="flex flex-col gap-1.5">
-                    <span className="text-muted-foreground text-xs">İçerik: secondary + hoverable</span>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button size="sm" variant="secondary" rightIcon={<ChevronDown />}>
-                          secondary
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent
-                        variant="secondary"
-                        hoverable
-                        className="w-48"
-                        align="start">
-                        <DropdownMenuLabel variant="secondary">İşlemler</DropdownMenuLabel>
-                        <DropdownMenuSeparator variant="secondary" />
-                        <DropdownMenuItem variant="secondary">
-                          <FolderOpen />
-                          Aç
-                        </DropdownMenuItem>
-                        <DropdownMenuItem variant="secondary">
-                          <Settings />
-                          Düzenle
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-
-                  <div className="flex flex-col gap-1.5">
-                    <span className="text-muted-foreground text-xs">İçerik: tertiary + noBorder</span>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button size="sm" variant="tertiary" rightIcon={<ChevronDown />}>
-                          tertiary
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent
-                        variant="tertiary"
-                        noBorder
-                        className="w-48"
-                        align="start">
-                        <DropdownMenuLabel variant="tertiary">İşlemler</DropdownMenuLabel>
-                        <DropdownMenuSeparator variant="tertiary" />
-                        <DropdownMenuItem variant="tertiary">
-                          <FolderOpen />
-                          Aç
-                        </DropdownMenuItem>
-                        <DropdownMenuItem variant="tertiary">
-                          <Settings />
-                          Düzenle
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <p className="text-muted-foreground text-xs font-medium tracking-wide uppercase">
-                  Tam örnek: checkbox + destructive (surface varyantları)
-                </p>
-                <div className="flex flex-wrap gap-3">
-                  {surfaceVariants.map((variant) => (
-                    <DropdownMenu key={variant}>
-                      <DropdownMenuTrigger asChild>
-                        <Button
-                          variant={variant}
-                          rightIcon={<ChevronDown />}
-                          rightIconVariant={variant}
-                          className="capitalize">
-                          {variant} menu
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent variant={variant} className="w-64">
-                        <DropdownMenuLabel variant={variant} className="capitalize">
-                          {variant} actions
-                        </DropdownMenuLabel>
-                        <DropdownMenuSeparator variant={variant} />
-                        <DropdownMenuItem variant={variant}>
-                          <FolderOpen />
-                          Open project
-                        </DropdownMenuItem>
-                        <DropdownMenuItem variant={variant}>
-                          <Settings />
-                          Settings
-                        </DropdownMenuItem>
-                        <DropdownMenuCheckboxItem
-                          variant={variant}
-                          checked={notificationsEnabled}
-                          onCheckedChange={(checked) => setNotificationsEnabled(checked === true)}>
-                          Notifications enabled
-                        </DropdownMenuCheckboxItem>
-                        <DropdownMenuCheckboxItem
-                          variant={variant}
-                          checked={compactMode}
-                          onCheckedChange={(checked) => setCompactMode(checked === true)}>
-                          Compact mode
-                        </DropdownMenuCheckboxItem>
-                        <DropdownMenuSeparator variant={variant} />
-                        <DropdownMenuItem variant="destructive">
-                          <AlertCircle />
-                          Delete item
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  ))}
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </section>
-
-        <section>
-          <Card className="gap-5">
-            <CardHeader>
-              <CardTitle>Dropdown Menu — gelişmiş</CardTitle>
-              <CardDescription>
-                Alt menü (sub), radyo grubu ve klavye kısayolu satırlarını tek yerde dene.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-wrap gap-3">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" leftIcon={<MoreHorizontal />}>
-                    Gelişmiş menü
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent variant="secondary" className="w-56" align="start">
-                  <DropdownMenuLabel variant="secondary">Görünüm</DropdownMenuLabel>
-                  <DropdownMenuSeparator variant="secondary" />
-                  <DropdownMenuRadioGroup
-                    value={layoutMode}
-                    onValueChange={(value) =>
-                      setLayoutMode(value as 'list' | 'grid' | 'compact')
-                    }>
-                    <DropdownMenuRadioItem variant="secondary" value="list">
-                      Liste
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem variant="secondary" value="grid">
-                      Izgara
-                    </DropdownMenuRadioItem>
-                    <DropdownMenuRadioItem variant="secondary" value="compact">
-                      Kompakt
-                    </DropdownMenuRadioItem>
-                  </DropdownMenuRadioGroup>
-                  <DropdownMenuSeparator variant="secondary" />
-                  <DropdownMenuItem variant="secondary">
-                    <Settings />
-                    Tercihler
-                    <DropdownMenuShortcut variant="secondary">⌘,</DropdownMenuShortcut>
-                  </DropdownMenuItem>
-                  <DropdownMenuSub>
-                    <DropdownMenuSubTrigger variant="secondary">
-                      <User />
-                      Hesap
-                    </DropdownMenuSubTrigger>
-                    <DropdownMenuSubContent variant="secondary">
-                      <DropdownMenuItem variant="secondary">
-                        Profil
-                      </DropdownMenuItem>
-                      <DropdownMenuItem variant="secondary">
-                        Çıkış
-                      </DropdownMenuItem>
-                    </DropdownMenuSubContent>
-                  </DropdownMenuSub>
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <p className="text-muted-foreground flex min-h-10 items-center text-sm">
-                Seçilen düzen: <span className="text-foreground ml-1 font-medium">{layoutMode}</span>
-              </p>
-            </CardContent>
-          </Card>
-        </section>
-
-        <section>
-          <Card className="gap-5">
-            <CardHeader>
-              <CardTitle>Dropdown select</CardTitle>
-              <CardDescription>
-                Form alanı için basit liste seçimi (Radix Select): tetikleyicide seçilen etiket, açık
-                konumda odak halkası ve listede vurgulu satır.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex max-w-xl flex-col gap-6">
-              <div className="space-y-2">
-                <p className="text-muted-foreground text-xs font-medium uppercase">
-                  Hazır alan (options + placeholder)
-                </p>
-                <DropdownSelectField
-                  value={curveKind}
-                  onValueChange={setCurveKind}
-                  placeholder="Seçin"
-                  options={[
-                    { value: 'fixed', label: 'Fixed' },
-                    { value: 'linear', label: 'Linear' },
-                    { value: 'exponential', label: 'Exponential' },
-                  ]}
+        <section className="space-y-3">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <SquareSplitHorizontal className="text-muted-foreground size-4" aria-hidden />
+            İki sütun
+          </div>
+          <div className="border-border h-[min(24rem,70vh)] min-h-56 overflow-hidden rounded-xl border">
+            <ResizablePanelGroup orientation="horizontal" className="h-full min-h-0 w-full">
+              <ResizablePanel defaultSize="42%" minSize="18%">
+                <PanelPlaceholder
+                  title="Sol panel"
+                  description="defaultSize 42%, minSize 18%"
+                  icon={<FileJson className="size-5" aria-hidden />}
                 />
-                <p className="text-muted-foreground text-xs">
-                  Seçilen değer: <span className="text-foreground font-mono">{curveKind}</span>
-                </p>
-              </div>
-              <div className="space-y-2">
-                <p className="text-muted-foreground text-xs font-medium uppercase">
-                  Bileşenleri tek tek (aynı davranış)
-                </p>
-                <DropdownSelect value={curveKind} onValueChange={setCurveKind}>
-                  <DropdownSelectTrigger className="w-full max-w-md">
-                    <DropdownSelectValue placeholder="Seçin" />
-                  </DropdownSelectTrigger>
-                  <DropdownSelectContent>
-                    <DropdownSelectItem value="fixed">Fixed</DropdownSelectItem>
-                    <DropdownSelectItem value="linear">Linear</DropdownSelectItem>
-                    <DropdownSelectItem value="exponential">Exponential</DropdownSelectItem>
-                  </DropdownSelectContent>
-                </DropdownSelect>
-              </div>
-              <div className="flex flex-wrap gap-3">
-                {surfaceVariants.map((v) => (
-                  <div key={v} className="w-44 space-y-1">
-                    <p className="text-muted-foreground text-xs capitalize">{v}</p>
-                    <DropdownSelectField
-                      variant={v}
-                      value={curveKind}
-                      onValueChange={setCurveKind}
-                      placeholder="Seçin"
-                      options={[
-                        { value: 'fixed', label: 'Fixed' },
-                        { value: 'linear', label: 'Linear' },
-                        { value: 'exponential', label: 'Exponential' },
-                      ]}
-                    />
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
+              </ResizablePanel>
+              <ResizableHandle />
+
+              <ResizablePanel defaultSize="58%" minSize="22%">
+                <PanelPlaceholder
+                  title="Sağ panel"
+                  description="Kalan alan; sürükleyerek oranı değiştir."
+                  icon={<Code2 className="size-5" aria-hidden />}
+                />
+              </ResizablePanel>
+            </ResizablePanelGroup>
+          </div>
         </section>
 
-        <section className="grid gap-6 xl:grid-cols-2">
-          <Card className="gap-5">
-            <CardHeader>
-              <CardTitle>Accordion</CardTitle>
-              <CardDescription>
-                Trigger hover, left-icon motion, and chevron behavior are visible here.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Accordion
-                defaultOpenItemIds={['secondary']}
-                items={surfaceVariants.map((variant) => ({
-                  id: variant,
-                  title: `${variant[0].toUpperCase()}${variant.slice(1)} accordion item`,
-                  badge: variant,
-                  icon: <FolderOpen className="size-5" />,
-                  content: (
-                    <div className="space-y-3">
-                      <p className="text-sm text-current/80">
-                        This item uses the {variant} token family. On hover the icon surface,
-                        chevron, and trigger surface move together.
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        <Badge variant={variant}>badge</Badge>
-                        <Button size="sm" variant={variant}>
-                          Action
-                        </Button>
-                      </div>
-                    </div>
-                  ),
-                }))}
-              />
-              <p className="text-muted-foreground mt-8 text-xs font-medium">
-                Inline + chrome (narrow panels / settings column)
-              </p>
-              <Accordion
-                allowMultiple={false}
-                chrome
-                className="mt-3"
-                density="inline"
-                defaultOpenItemIds={[]}
-                items={[
-                  {
-                    id: 'appearance-inline',
-                    title: 'Appearance',
-                    icon: <Palette className="size-3.5" strokeWidth={2} aria-hidden />,
-                    content: (
-                      <p className="text-muted-foreground text-xs">
-                        Compact trigger and neutral chrome instead of primary/secondary surfaces.
-                      </p>
-                    ),
-                  },
-                ]}
-              />
-            </CardContent>
-          </Card>
+        <section className="space-y-3">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <SquareSplitVertical className="text-muted-foreground size-4" aria-hidden />
+            Üst / alt — dikey bölme
+          </div>
+          <div className="border-border h-[min(22rem,60vh)] min-h-48 overflow-hidden rounded-xl border">
+            <ResizablePanelGroup orientation="vertical" className="h-full min-h-0 w-full">
+              <ResizablePanel defaultSize="40%" minSize="15%">
+                <div className="bg-secondary/30 flex h-full min-h-0 items-center justify-center p-4">
+                  <p className="text-muted-foreground text-sm">Üst bölge</p>
+                </div>
+              </ResizablePanel>
+              <ResizableHandle />
+              <ResizablePanel defaultSize="60%" minSize="20%">
+                <div className="bg-muted/40 flex h-full min-h-0 items-center justify-center p-4">
+                  <p className="text-muted-foreground text-sm">Alt bölge</p>
+                </div>
+              </ResizablePanel>
+            </ResizablePanelGroup>
+          </div>
+        </section>
 
-          <Card className="gap-5">
-            <CardHeader>
-              <CardTitle>Badge Strip</CardTitle>
-              <CardDescription>
-                Quickly compare inline usage and outline vs. destructive.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex flex-wrap gap-2">
-                <Badge variant="default">default</Badge>
-                <Badge variant="secondary">secondary</Badge>
-                <Badge variant="tertiary">tertiary</Badge>
-                <Badge variant="outline">outline</Badge>
-                <Badge variant="destructive">destructive</Badge>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Badge variant="default" noBorder>
-                  default noBorder
-                </Badge>
-                <Badge variant="secondary" noBorder>
-                  secondary noBorder
-                </Badge>
-                <Badge variant="tertiary" noBorder>
-                  tertiary noBorder
-                </Badge>
-              </div>
-              <div className="flex flex-wrap gap-3">
-                <Button variant="default" leftIcon={<Sparkles />}>
-                  Default button
-                </Button>
-                <Button variant="secondary" leftIcon={<FolderOpen />}>
-                  Secondary button
-                </Button>
-                <Button variant="tertiary" rightIcon={<MoreHorizontal />}>
-                  Tertiary button
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+        <section className="space-y-3">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <LayoutTemplate className="text-muted-foreground size-4" aria-hidden />
+            Üç sütun — ince ayırıcı (without handle)
+          </div>
+          <div className="border-border h-48 min-h-40 overflow-hidden rounded-xl border">
+            <ResizablePanelGroup orientation="horizontal" className="h-full min-h-0 w-full">
+              <ResizablePanel defaultSize="25%" minSize="12%">
+                <div className="text-muted-foreground border-border/60 flex h-full items-center justify-center border-r text-xs">
+                  A
+                </div>
+              </ResizablePanel>
+              <ResizableHandle />
+              <ResizablePanel defaultSize="50%" minSize="20%">
+                <div className="text-muted-foreground flex h-full items-center justify-center text-xs">
+                  B
+                </div>
+              </ResizablePanel>
+              <ResizableHandle />
+              <ResizablePanel defaultSize="25%" minSize="12%">
+                <div className="text-muted-foreground border-border/60 flex h-full items-center justify-center border-l text-xs">
+                  C
+                </div>
+              </ResizablePanel>
+            </ResizablePanelGroup>
+          </div>
         </section>
       </div>
+    </div>
+  );
+}
+
+function PanelPlaceholder({
+  title,
+  description,
+  icon,
+}: {
+  title: string;
+  description: string;
+  icon: ReactNode;
+}) {
+  return (
+    <div className="h-full min-h-0 overflow-auto p-3">
+      <Card variant="secondary" className="h-full min-h-0 border-0 shadow-none">
+        <CardHeader className="pb-2">
+          <div className="flex items-start gap-3">
+            <div className="bg-primary-muted text-primary-icon flex size-10 shrink-0 items-center justify-center rounded-lg">
+              {icon}
+            </div>
+            <div className="min-w-0 space-y-1">
+              <CardTitle className="text-base">{title}</CardTitle>
+              <CardDescription className="text-xs">{description}</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground text-sm leading-relaxed">
+            Burada form önizleme, özet veya log alanı gibi gerçek içerik olabilir. Yükseklik
+            sınırlandığı için taşan metin bu kart içinde kaydırılır.
+          </p>
+        </CardContent>
+      </Card>
     </div>
   );
 }

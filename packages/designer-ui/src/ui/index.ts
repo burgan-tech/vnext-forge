@@ -20,6 +20,7 @@ export { default as Loading, type LoadingColor } from './Loading.js';
 export * from './NavigationMenu.js';
 export * from './Popover.js';
 export * from './RadioCard.js';
+export * from './Resizable.js';
 export * from './Section.js';
 export * from './Select.js';
 export * from './Separator.js';

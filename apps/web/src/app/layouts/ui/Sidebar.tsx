@@ -11,7 +11,7 @@ export function Sidebar() {
   const setColorTheme = useSettingsStore((s) => s.setColorTheme);
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full min-h-0 min-w-0 flex-col">
       <div className="text-muted-foreground px-4 py-3 text-[11px] font-semibold tracking-widest uppercase">
         {sidebarView === 'project' && 'Explorer'}
         {sidebarView === 'search' && 'Search'}
