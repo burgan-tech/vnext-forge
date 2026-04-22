@@ -41,6 +41,17 @@ export function FunctionMetadataForm({ json, onChange }: FunctionMetadataFormPro
       return;
     }
 
+    /**
+     * JSON'da olmayan default alanlari (orn. `scope` yoksa form 'I'
+     * uretiyor) mount aninda geri yazmak, dosyayi degistirmedigimiz halde
+     * editorin "Modified" gorunmesine yol aciyordu. Yalnizca form
+     * degerleri JSON'un mevcut temsilinden gercekten farkliysa yaziyoruz.
+     */
+    const currentJsonValues = toFunctionMetadataFormValues(json);
+    if (JSON.stringify(parsedValues.data) === JSON.stringify(currentJsonValues)) {
+      return;
+    }
+
     onChange((draft) => {
       draft.key = parsedValues.data.key;
       draft.version = parsedValues.data.version;
@@ -49,7 +60,7 @@ export function FunctionMetadataForm({ json, onChange }: FunctionMetadataFormPro
       draft.scope = parsedValues.data.scope;
       draft.tags = parsedValues.data.tags;
     });
-  }, [onChange, values]);
+  }, [json, onChange, values]);
 
   const keyValidation = form.register('key', {
     validate: (value) => {

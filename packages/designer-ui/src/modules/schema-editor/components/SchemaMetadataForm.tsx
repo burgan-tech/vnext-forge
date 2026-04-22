@@ -40,6 +40,17 @@ export function SchemaMetadataForm({ json, onChange }: SchemaMetadataFormProps) 
       return;
     }
 
+    /**
+     * JSON'da olmayan default alanlari mount aninda geri yazmak, dosyayi
+     * degistirmedigimiz halde editorin "Modified" gorunmesine yol aciyordu.
+     * Yalnizca form degerleri JSON'un mevcut temsilinden gercekten
+     * farkliysa yaziyoruz.
+     */
+    const currentJsonValues = toSchemaMetadataFormValues(json);
+    if (JSON.stringify(parsedValues.data) === JSON.stringify(currentJsonValues)) {
+      return;
+    }
+
     onChange((draft) => {
       draft.key = parsedValues.data.key;
       draft.version = parsedValues.data.version;
@@ -47,7 +58,7 @@ export function SchemaMetadataForm({ json, onChange }: SchemaMetadataFormProps) 
       draft.flow = parsedValues.data.flow || undefined;
       draft.tags = parsedValues.data.tags;
     });
-  }, [onChange, values]);
+  }, [json, onChange, values]);
 
   const keyValidation = form.register('key', {
     validate: (value) => {

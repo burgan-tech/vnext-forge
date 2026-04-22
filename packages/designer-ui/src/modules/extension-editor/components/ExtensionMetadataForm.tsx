@@ -40,6 +40,17 @@ export function ExtensionMetadataForm({ json, onChange }: ExtensionMetadataFormP
     const parsed = extensionMetadataFormSchema.safeParse(values);
     if (!parsed.success) return;
 
+    /**
+     * JSON'da olmayan default alanlari (orn. `scope`/`type` yoksa form
+     * fallback uretiyor) mount aninda geri yazmak, dosyayi degistirmedigimiz
+     * halde editorin "Modified" gorunmesine yol aciyordu. Yalnizca form
+     * degerleri JSON'un mevcut temsilinden gercekten farkliysa yaziyoruz.
+     */
+    const currentJsonValues = toExtensionMetadataFormValues(json);
+    if (JSON.stringify(parsed.data) === JSON.stringify(currentJsonValues)) {
+      return;
+    }
+
     onChange((draft) => {
       draft.key = parsed.data.key;
       draft.version = parsed.data.version;
@@ -50,7 +61,7 @@ export function ExtensionMetadataForm({ json, onChange }: ExtensionMetadataFormP
       draft.definedFlows = parsed.data.definedFlows;
       draft.tags = parsed.data.tags;
     });
-  }, [onChange, values]);
+  }, [json, onChange, values]);
 
   const keyValidation = form.register('key', {
     validate: (value) => {

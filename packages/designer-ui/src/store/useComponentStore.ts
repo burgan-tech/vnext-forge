@@ -32,6 +32,15 @@ export const useComponentStore = create<ComponentState>((set, get) => ({
     const { componentJson, undoStack } = get();
     if (!componentJson) return;
     const next = produce(componentJson, updater);
+    if (next === componentJson) return;
+    /**
+     * Metadata form'lari mount aninda useEffect ile alan degerlerini geri
+     * yaziyor. Tag/array gibi yeni referans atamalari immer'i her seferinde
+     * yeni nesne uretmeye zorladigi icin, gercek bir degisiklik olmadan
+     * `isDirty` true'ya cekiliyordu. Yapisal esitlik kontrolu ile bu sahte
+     * "modified" durumunu engelliyoruz.
+     */
+    if (JSON.stringify(next) === JSON.stringify(componentJson)) return;
     set({
       componentJson: next,
       isDirty: true,
