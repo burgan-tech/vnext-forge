@@ -1,5 +1,6 @@
 import * as vscode from 'vscode';
 
+import { registerComponentJsonAutoOpen } from './component-json-auto-open.js';
 import { registerCommands } from './commands.js';
 import { createExtensionHostLspStack } from './composition/lsp.js';
 import { composeExtensionServices } from './composition/services.js';
@@ -58,6 +59,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     workspaceService: services.workspaceService,
     detector,
     designerPanel,
+  });
+
+  registerComponentJsonAutoOpen(context, {
+    detector,
+    designerPanel,
+    workspaceService: services.workspaceService,
+    projectService: services.projectService,
   });
 
   context.subscriptions.push(

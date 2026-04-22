@@ -15,6 +15,7 @@
     "workspaceContains:vnext.config.json",
     "onCommand:vnextForge.open",
     "onCommand:vnextForge.openDesigner",
+    "onCommand:vnextForge.openInTextEditor",
     "onCommand:vnextForge.createProject",
     "onCommand:vnextForge.createComponent"
   ],
@@ -35,6 +36,11 @@
       {
         "command": "vnextForge.openDesigner",
         "title": "Open Designer",
+        "category": "vnext-forge"
+      },
+      {
+        "command": "vnextForge.openInTextEditor",
+        "title": "Open in Text Editor",
         "category": "vnext-forge"
       },
       {
@@ -59,6 +65,10 @@
           "when": "vnextForge.isVnextWorkspace"
         },
         {
+          "command": "vnextForge.openInTextEditor",
+          "when": "vnextForge.isVnextWorkspace"
+        },
+        {
           "command": "vnextForge.createProject"
         },
         {
@@ -71,6 +81,11 @@
           "command": "vnextForge.openDesigner",
           "when": "vnextForge.isVnextWorkspace && resourceExtname =~ /^\\.(json|csx|cs|js|ts|xml|ya?ml|md|html?|css|sql|sh|py|txt|http)$/",
           "group": "navigation@1"
+        },
+        {
+          "command": "vnextForge.openInTextEditor",
+          "when": "vnextForge.isVnextWorkspace && resourceExtname == .json",
+          "group": "navigation@2"
         }
       ],
       "editor/title/context": [
@@ -78,6 +93,11 @@
           "command": "vnextForge.openDesigner",
           "when": "vnextForge.isVnextWorkspace && resourceExtname =~ /^\\.(json|csx|cs|js|ts|xml|ya?ml|md|html?|css|sql|sh|py|txt|http)$/",
           "group": "navigation@1"
+        },
+        {
+          "command": "vnextForge.openInTextEditor",
+          "when": "vnextForge.isVnextWorkspace && resourceExtname == .json",
+          "group": "navigation@2"
         }
       ]
     },
@@ -111,6 +131,11 @@
           "type": "number",
           "default": 30,
           "description": "Minimum time (seconds) between background runtime revalidation requests issued by the designer UI."
+        },
+        "vnextForge.openComponentJsonInDesigner": {
+          "type": "boolean",
+          "default": true,
+          "description": "When true, component .json files under vnext.config.json paths open in the vnext-forge designer by default (Explorer / single-click). Use \"Open in Text Editor\" from the context menu to open the raw file in VS Code."
         }
       }
     }

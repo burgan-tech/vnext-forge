@@ -88,6 +88,8 @@ export interface MessageRouterDeps {
  */
 export class MessageRouter {
   private readonly activeLspTransports = new Map<string, WebviewLspTransport>();
+  /** Her LSP `sessionId` hangi webview paneline ait — panel kapanınca yalnızca o oturumlar kapanır. */
+  private readonly lspSessionOwner = new Map<string, vscode.WebviewPanel>();
 
   constructor(private readonly deps: MessageRouterDeps) {}
 
@@ -98,7 +100,7 @@ export class MessageRouter {
     });
 
     const disposeDisposable = panel.onDidDispose(() => {
-      this.tearDownAllLspSessions();
+      this.tearDownLspSessionsForPanel(panel);
     });
 
     return vscode.Disposable.from(messageDisposable, disposeDisposable);
@@ -253,10 +255,12 @@ export class MessageRouter {
 
     const transport = createWebviewLspTransport(panel, sessionId);
     this.activeLspTransports.set(sessionId, transport);
+    this.lspSessionOwner.set(sessionId, panel);
 
     void this.deps.lspBridge.connect(sessionId, transport).catch((err) => {
       this.deps.logger.error({ err, sessionId }, 'LSP bridge connect failed');
       this.activeLspTransports.delete(sessionId);
+      this.lspSessionOwner.delete(sessionId);
       transport.close(1011, 'LSP bridge unavailable');
     });
   }
@@ -265,12 +269,15 @@ export class MessageRouter {
     const transport = this.activeLspTransports.get(sessionId);
     if (!transport) return;
     this.activeLspTransports.delete(sessionId);
+    this.lspSessionOwner.delete(sessionId);
     transport.deliverClose();
   }
 
-  private tearDownAllLspSessions(): void {
-    const ids = [...this.activeLspTransports.keys()];
-    for (const sessionId of ids) {
+  private tearDownLspSessionsForPanel(panel: vscode.WebviewPanel): void {
+    const sessionIds = [...this.lspSessionOwner.entries()]
+      .filter(([, owner]) => owner === panel)
+      .map(([id]) => id);
+    for (const sessionId of sessionIds) {
       this.closeLspSession(sessionId);
     }
   }

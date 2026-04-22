@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import {
   createLogger,
@@ -8,8 +8,9 @@ import {
   isMessageOriginAllowed,
   SchemaEditorView,
   TaskEditorView,
-  ViewEditorView,
+  useEditorStore,
   useProjectStore,
+  ViewEditorView,
   type VnextWorkspaceConfig,
 } from '@vnext-forge/designer-ui';
 
@@ -25,10 +26,8 @@ const logger = createLogger('extension/HostEditorBridge');
 type EditorKind = 'workflow' | 'task' | 'schema' | 'view' | 'function' | 'extension';
 
 /**
- * `open-editor` frame sent by the extension host whenever the user activates
- * a vnext component file (right-click → Open Designer, file double-click via
- * a custom command, post-create hook, …). The webview is router-less: each
- * frame describes exactly which editor + project + component to mount.
+ * `open-editor` frame sent by the extension host. VS Code shell'de ayrı sekme çubuğu
+ * yok: tek `WebviewPanel` sekmesi + panel başlığı/ikonu host tarafında (`DesignerPanel`).
  */
 interface HostOpenEditorMessage {
   type: 'open-editor';
@@ -40,14 +39,6 @@ interface HostOpenEditorMessage {
   name: string;
   filePath: string;
   vnextConfig: VnextWorkspaceConfig;
-}
-
-interface ActiveEditor {
-  kind: EditorKind;
-  projectId: string;
-  group: string;
-  name: string;
-  filePath: string;
 }
 
 function isOpenEditorMessage(value: unknown): value is HostOpenEditorMessage {
@@ -65,19 +56,38 @@ export interface HostEditorBridgeProps {
 }
 
 /**
- * Listens for `open-editor` frames from the extension host, hydrates the
- * shared `useProjectStore` with the active project + its `vnext.config.json`,
- * and renders the matching designer editor.
- *
- * The webview deliberately has no router: in a VS Code extension, navigation
- * is driven by the host (file clicks, commands, custom editor providers).
- * Mounting the right editor is therefore a function of the latest host frame
- * — not URL state inside the webview.
+ * Web SPA’daki `EditorTabBar` burada yok: sekme kromu yalnızca VS Code’un kendi
+ * sekmesinde (webview panel `title` + `iconPath`).
  */
 export function HostEditorBridge({ api }: HostEditorBridgeProps) {
-  const [active, setActive] = useState<ActiveEditor | null>(null);
+  const [active, setActive] = useState<HostOpenEditorMessage | null>(null);
   const setActiveProject = useProjectStore((s) => s.setActiveProject);
   const setVnextConfig = useProjectStore((s) => s.setVnextConfig);
+
+  const applyOpenEditor = useCallback(
+    (data: HostOpenEditorMessage) => {
+      setActiveProject({
+        id: data.projectId,
+        domain: data.projectDomain,
+        path: data.projectPath,
+        linked: true,
+      });
+      setVnextConfig(data.vnextConfig);
+      setActive(data);
+      api.postMessage({
+        type: 'host:designer-active-tab',
+        kind: data.kind,
+        name: data.name,
+      });
+    },
+    [api, setActiveProject, setVnextConfig],
+  );
+
+  useEffect(() => {
+    // Web bundle içinde kalan `useEditorStore` sekmeleri (SPA ile paylaşılan zustand)
+    // extension görünümünü etkilemesin.
+    useEditorStore.getState().clearTabs();
+  }, []);
 
   useEffect(() => {
     const allowedOrigins = resolveWebviewPostMessageAllowedOrigins();
@@ -92,22 +102,7 @@ export function HostEditorBridge({ api }: HostEditorBridgeProps) {
 
       const data = event.data;
       if (!isOpenEditorMessage(data)) return;
-
-      setActiveProject({
-        id: data.projectId,
-        domain: data.projectDomain,
-        path: data.projectPath,
-        linked: true,
-      });
-      setVnextConfig(data.vnextConfig);
-
-      setActive({
-        kind: data.kind,
-        projectId: data.projectId,
-        group: data.group,
-        name: data.name,
-        filePath: data.filePath,
-      });
+      applyOpenEditor(data);
     }
 
     window.addEventListener('message', handle);
@@ -116,74 +111,46 @@ export function HostEditorBridge({ api }: HostEditorBridgeProps) {
     return () => {
       window.removeEventListener('message', handle);
     };
-  }, [api, setActiveProject, setVnextConfig]);
+  }, [api, applyOpenEditor]);
 
-  if (!active) return <EmptyState />;
+  return (
+    <div className="bg-background text-foreground flex h-screen w-screen min-h-0 flex-col overflow-hidden">
+      <div className="min-h-0 flex-1 overflow-hidden">
+        {active ? <ActiveEditor payload={active} /> : <EmptyState />}
+      </div>
+    </div>
+  );
+}
 
-  switch (active.kind) {
+function ActiveEditor({ payload }: { payload: HostOpenEditorMessage }) {
+  const { kind, projectId, group, name } = payload;
+  switch (kind) {
     case 'workflow':
-      return (
-        <FlowEditorView
-          projectId={active.projectId}
-          group={active.group}
-          name={active.name}
-        />
-      );
+      return <FlowEditorView projectId={projectId} group={group} name={name} />;
     case 'task':
-      return (
-        <TaskEditorView
-          projectId={active.projectId}
-          group={active.group}
-          name={active.name}
-        />
-      );
+      return <TaskEditorView projectId={projectId} group={group} name={name} />;
     case 'schema':
-      return (
-        <SchemaEditorView
-          projectId={active.projectId}
-          group={active.group}
-          name={active.name}
-        />
-      );
+      return <SchemaEditorView projectId={projectId} group={group} name={name} />;
     case 'view':
-      return (
-        <ViewEditorView
-          projectId={active.projectId}
-          group={active.group}
-          name={active.name}
-        />
-      );
+      return <ViewEditorView projectId={projectId} group={group} name={name} />;
     case 'function':
-      return (
-        <FunctionEditorView
-          projectId={active.projectId}
-          group={active.group}
-          name={active.name}
-        />
-      );
+      return <FunctionEditorView projectId={projectId} group={group} name={name} />;
     case 'extension':
-      return (
-        <ExtensionEditorView
-          projectId={active.projectId}
-          group={active.group}
-          name={active.name}
-        />
-      );
+      return <ExtensionEditorView projectId={projectId} group={group} name={name} />;
   }
 }
 
 function EmptyState() {
   return (
-    <div className="bg-background text-foreground flex h-screen w-screen items-center justify-center">
+    <div className="bg-background text-foreground flex h-full w-full items-center justify-center">
       <div className="max-w-md text-center">
         <h1 className="text-2xl font-semibold">vnext-forge Designer</h1>
         <p className="text-muted-foreground mt-3 text-sm">
-          Open a vnext component from the VS Code Explorer to start designing.
+          vNext bileşen .json dosyaları Explorer’da açıldığında burada görünür; sağ tık ile
+          metin editöründe açabilirsiniz. Sekmeler yalnızca VS Code başlık çubuğundadır.
         </p>
         <p className="text-muted-foreground mt-2 text-xs">
-          Right-click a <code>.json</code> file under your workspace and choose
-          &quot;Open Designer&quot;, or use the Command Palette to create a new
-          component.
+          Komut paletinden &quot;Open Designer&quot; veya bağlam menüsünden dosya seçebilirsiniz.
         </p>
       </div>
     </div>

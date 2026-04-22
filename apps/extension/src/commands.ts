@@ -3,7 +3,9 @@ import * as path from 'node:path'
 import * as fs from 'node:fs/promises'
 import type { ProjectService, WorkspaceService, VnextWorkspaceConfig } from '@vnext-forge/services-core'
 import { baseLogger } from './shared/logger.js'
-import { resolveFileRoute, type FileRoute, type FileRouteKind } from './file-router.js'
+import { markUriSkipComponentDesignerAutoOpen } from './component-json-auto-open.js'
+import { isDesignerEditorRoute, resolveProjectForRoot } from './designer-helpers.js'
+import { resolveFileRoute } from './file-router.js'
 import type { VnextWorkspaceDetector, VnextWorkspaceRoot } from './workspace-detector.js'
 import type { DesignerEditorKind, DesignerPanel } from './panels/DesignerPanel.js'
 
@@ -24,6 +26,9 @@ export function registerCommands(
     vscode.commands.registerCommand('vnextForge.openDesigner', (uri?: vscode.Uri) =>
       openDesignerCommand(uri, deps),
     ),
+    vscode.commands.registerCommand('vnextForge.openInTextEditor', (uri?: vscode.Uri) =>
+      openInTextEditorCommand(uri, deps),
+    ),
     vscode.commands.registerCommand('vnextForge.createProject', () => createProjectCommand(deps)),
     vscode.commands.registerCommand('vnextForge.createComponent', () => createComponentCommand(deps)),
   )
@@ -32,29 +37,10 @@ export function registerCommands(
 // ── vnextForge.open ───────────────────────────────────────────────────────────
 
 function openCommand({ designerPanel }: CommandDeps): void {
-  designerPanel.openOrReveal()
+  designerPanel.openOrRevealEmpty()
 }
 
 // ── vnextForge.openDesigner ──────────────────────────────────────────────────
-
-/**
- * Whether a resolved file route maps to a designer editor in the webview UI.
- * `config` and `unknown` files are deliberately routed to VS Code's native
- * text editor instead.
- */
-function isDesignerEditorRoute(
-  route: FileRoute,
-): route is FileRoute & { kind: DesignerEditorKind } {
-  const kind: FileRouteKind = route.kind
-  return (
-    kind === 'workflow' ||
-    kind === 'task' ||
-    kind === 'schema' ||
-    kind === 'view' ||
-    kind === 'function' ||
-    kind === 'extension'
-  )
-}
 
 async function openDesignerCommand(uri: vscode.Uri | undefined, deps: CommandDeps): Promise<void> {
   const targetUri = uri ?? vscode.window.activeTextEditor?.document.uri
@@ -72,7 +58,7 @@ async function openDesignerCommand(uri: vscode.Uri | undefined, deps: CommandDep
     return
   }
 
-  const projectInfo = await resolveProjectForRoot(root, deps)
+  const projectInfo = await resolveProjectForRoot(root, deps.workspaceService, deps.projectService)
   if (!projectInfo) return
 
   const route = resolveFileRoute(target, projectInfo.config, root.folderPath)
@@ -107,37 +93,26 @@ async function openDesignerCommand(uri: vscode.Uri | undefined, deps: CommandDep
   })
 }
 
-async function resolveProjectForRoot(
-  root: VnextWorkspaceRoot,
-  { workspaceService, projectService }: CommandDeps,
-): Promise<{ projectId: string; config: VnextWorkspaceConfig } | null> {
+// ── vnextForge.openInTextEditor ─────────────────────────────────────────────
+
+/** Bileşen yollarındaki .json (veya herhangi bir dosya) VS Code metin editöründe, tasarımcıyı atlayarak. */
+async function openInTextEditorCommand(uri: vscode.Uri | undefined, deps: CommandDeps): Promise<void> {
+  const targetUri = uri ?? vscode.window.activeTextEditor?.document.uri
+  if (!targetUri) {
+    void vscode.window.showWarningMessage('vnext-forge: No file selected to open in the text editor.')
+    return
+  }
+
+  markUriSkipComponentDesignerAutoOpen(targetUri)
+
   try {
-    const status = await workspaceService.readConfigStatus(root.folderPath)
-    if (status.status === 'ok') {
-      try {
-        await projectService.importProject(root.folderPath)
-      } catch (error) {
-        baseLogger.warn(
-          { folder: root.folderPath, error: (error as Error).message },
-          'Failed to link project registry entry — API calls keyed by projectId may fail',
-        )
-      }
-      return { projectId: status.config.domain, config: status.config }
-    }
-    if (status.status === 'invalid') {
-      void vscode.window.showWarningMessage(
-        `vnext-forge: ${path.basename(root.folderPath)}/vnext.config.json is invalid. ${status.message}`,
-      )
-      return null
-    }
-    void vscode.window.showWarningMessage(
-      `vnext-forge: vnext.config.json is missing in ${root.folderPath}.`,
-    )
-    return null
+    const document = await vscode.workspace.openTextDocument(targetUri)
+    await vscode.window.showTextDocument(document, { preview: false })
   } catch (error) {
-    baseLogger.error({ error: (error as Error).message }, 'Failed to read vnext.config.json')
-    void vscode.window.showErrorMessage('vnext-forge: Failed to read workspace configuration.')
-    return null
+    baseLogger.warn(
+      { path: targetUri.fsPath, error: (error as Error).message },
+      'Failed to open file in native text editor',
+    )
   }
 }
 

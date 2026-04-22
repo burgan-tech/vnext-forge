@@ -1,4 +1,5 @@
 import * as fs from 'node:fs'
+import * as path from 'node:path'
 import * as vscode from 'vscode'
 import type { VnextWorkspaceConfig } from '@vnext-forge/services-core'
 import {
@@ -41,28 +42,119 @@ export interface DesignerOpenEditorMessage {
   vnextConfig: VnextWorkspaceConfig
 }
 
+const EMPTY_DESIGNER_PANEL_KEY = '__vnext_forge_landing__'
+
+function normalizeFilePanelKey(filePath: string): string {
+  return path.normalize(filePath).replace(/\\/g, '/').toLowerCase()
+}
+
+function isWebviewReadyMessage(raw: unknown): boolean {
+  return (
+    typeof raw === 'object' &&
+    raw !== null &&
+    (raw as { type?: unknown }).type === 'webview-ready'
+  )
+}
+
+interface ManagedWebview {
+  panel: vscode.WebviewPanel
+  webviewReady: boolean
+  pendingOpen: DesignerOpenEditorMessage | undefined
+}
+
+/**
+ * Her bileşen dosyası ayrı bir {@link vscode.WebviewPanel} — VS Code’da ayrı editör
+ * sekmeleri. Aynı dosya tekrar açılırsa mevcut panel `reveal` edilir.
+ */
 export class DesignerPanel {
-  private panel: vscode.WebviewPanel | undefined
+  private readonly panels = new Map<string, ManagedWebview>()
   private readonly context: vscode.ExtensionContext
   private readonly router: MessageRouter
-  private pendingOpen: DesignerOpenEditorMessage | undefined
-  private webviewReady = false
 
   constructor(context: vscode.ExtensionContext, router: MessageRouter) {
     this.context = context
     this.router = router
   }
 
-  openOrReveal(): void {
-    if (this.panel) {
-      this.panel.reveal()
+  /**
+   * Boş “Designer” görünümü (komut paleti). Tek bir landing paneli; zaten
+   * varsa `reveal`.
+   */
+  openOrRevealEmpty(): void {
+    const existing = this.panels.get(EMPTY_DESIGNER_PANEL_KEY)
+    if (existing) {
+      existing.panel.reveal(vscode.ViewColumn.Active)
+      return
+    }
+    this.createWebviewForKey(EMPTY_DESIGNER_PANEL_KEY, 'vnext-forge Designer', undefined)
+  }
+
+  /**
+   * Bileşen editörü: dosya yolu başına bir VS Code sekmesi (webview panel).
+   */
+  openEditor(message: DesignerOpenEditorMessage): void {
+    const fileKey = normalizeFilePanelKey(message.filePath)
+
+    const existing = this.panels.get(fileKey)
+    if (existing) {
+      this.revealAndSendOpen(existing, message)
       return
     }
 
-    this.panel = vscode.window.createWebviewPanel(
+    // Yalnızca landing paneli açıksa onu bu dosyaya dönüştür (fazla boş sekme biriktirme).
+    const landingOnly =
+      this.panels.size === 1 && this.panels.has(EMPTY_DESIGNER_PANEL_KEY)
+    if (landingOnly) {
+      const landing = this.panels.get(EMPTY_DESIGNER_PANEL_KEY)!
+      this.panels.delete(EMPTY_DESIGNER_PANEL_KEY)
+      this.panels.set(fileKey, landing)
+      this.setPanelLabelForComponent(landing.panel, message)
+      this.revealAndSendOpen(landing, message)
+      return
+    }
+
+    const title = getVnextComponentEditorTabDisplayTitle(message.name, {
+      storedTitleWithJson: `${message.name}.json`,
+    })
+    this.createWebviewForKey(fileKey, title, message)
+  }
+
+  private revealAndSendOpen(managed: ManagedWebview, message: DesignerOpenEditorMessage): void {
+    this.setPanelLabelForComponent(managed.panel, message)
+    managed.panel.reveal(vscode.ViewColumn.Active)
+    if (managed.webviewReady) {
+      void managed.panel.webview.postMessage(message)
+    } else {
+      managed.pendingOpen = message
+    }
+  }
+
+  private setPanelLabelForComponent(
+    panel: vscode.WebviewPanel,
+    message: Pick<DesignerOpenEditorMessage, 'kind' | 'name'>,
+  ): void {
+    const kind = message.kind as VnextComponentTabKind
+    panel.title = getVnextComponentEditorTabDisplayTitle(message.name, {
+      storedTitleWithJson: `${message.name}.json`,
+    })
+    const iconFile = getVnextComponentTabIconFileName(kind)
+    panel.iconPath = vscode.Uri.joinPath(
+      this.context.extensionUri,
+      'media',
+      'component-tab-icons',
+      iconFile,
+    )
+  }
+
+  private createWebviewForKey(
+    key: string,
+    title: string,
+    initial: DesignerOpenEditorMessage | undefined,
+  ): void {
+    const panel = vscode.window.createWebviewPanel(
       'vnextForge',
-      'vnext-forge Designer',
-      vscode.ViewColumn.One,
+      title,
+      vscode.ViewColumn.Active,
       {
         enableScripts: true,
         retainContextWhenHidden: true,
@@ -72,71 +164,75 @@ export class DesignerPanel {
       },
     )
 
-    const routerDisposable = this.router.attach(this.panel)
+    if (initial) {
+      this.setPanelLabelForComponent(panel, initial)
+    } else {
+      panel.iconPath = undefined
+    }
 
-    // Intercept 'ready' signals from the webview so we can flush a queued
-    // open-editor message that arrived before the React tree mounted.
-    const readyDisposable = this.panel.webview.onDidReceiveMessage((raw: unknown) => {
-      if (
-        typeof raw === 'object' &&
-        raw !== null &&
-        (raw as { type?: unknown }).type === 'webview-ready'
-      ) {
-        this.webviewReady = true
-        if (this.pendingOpen) {
-          this.panel?.webview.postMessage(this.pendingOpen)
-          this.pendingOpen = undefined
+    const managed: ManagedWebview = {
+      panel,
+      webviewReady: false,
+      pendingOpen: initial,
+    }
+    this.panels.set(key, managed)
+
+    const routerDisposable = this.router.attach(panel)
+
+    const readyDisposable = panel.webview.onDidReceiveMessage((raw: unknown) => {
+      if (isWebviewReadyMessage(raw)) {
+        managed.webviewReady = true
+        if (managed.pendingOpen) {
+          void panel.webview.postMessage(managed.pendingOpen)
+          managed.pendingOpen = undefined
         }
       }
     })
 
-    this.panel.webview.html = this.buildHtml(this.panel.webview)
+    const chromeDisposable = panel.webview.onDidReceiveMessage((raw: unknown) => {
+      this.applyWebviewTabChromeIfHostFrame(panel, raw)
+    })
 
-    this.panel.onDidDispose(
+    panel.webview.html = this.buildHtml(panel.webview)
+
+    panel.onDidDispose(
       () => {
         routerDisposable.dispose()
         readyDisposable.dispose()
-        this.panel = undefined
-        this.webviewReady = false
-        this.pendingOpen = undefined
+        chromeDisposable.dispose()
+        this.panels.delete(key)
       },
       null,
       this.context.subscriptions,
     )
   }
 
-  /**
-   * Open the designer (creating the panel if needed) and tell the webview
-   * which editor to render.
-   */
-  openEditor(message: DesignerOpenEditorMessage): void {
-    this.openOrReveal()
-    if (!this.panel) return
-    this.applyWebviewTabChrome(message)
-    if (this.webviewReady) {
-      this.panel.webview.postMessage(message)
-    } else {
-      // Queue until the webview announces it is ready.
-      this.pendingOpen = message
-    }
-  }
-
-  /**
-   * VS Code editör sekmesi başlığı ve ikonu — web `EditorTabBar` ile aynı kurallar
-   * (`@vnext-forge/vnext-types` + `media/component-tab-icons`).
-   */
-  private applyWebviewTabChrome(message: DesignerOpenEditorMessage): void {
-    if (!this.panel) return
-    const kind = message.kind as VnextComponentTabKind
-    this.panel.title = getVnextComponentEditorTabDisplayTitle(message.name, {
-      storedTitleWithJson: `${message.name}.json`,
+  private applyWebviewPanelTabChromeFromKindAndName(
+    panel: vscode.WebviewPanel,
+    kind: VnextComponentTabKind,
+    componentName: string,
+  ): void {
+    panel.title = getVnextComponentEditorTabDisplayTitle(componentName, {
+      storedTitleWithJson: `${componentName}.json`,
     })
     const iconFile = getVnextComponentTabIconFileName(kind)
-    this.panel.iconPath = vscode.Uri.joinPath(
+    panel.iconPath = vscode.Uri.joinPath(
       this.context.extensionUri,
       'media',
       'component-tab-icons',
       iconFile,
+    )
+  }
+
+  private applyWebviewTabChromeIfHostFrame(panel: vscode.WebviewPanel, raw: unknown): void {
+    if (typeof raw !== 'object' || raw === null) return
+    if ((raw as { type?: unknown }).type !== 'host:designer-active-tab') return
+    const rec = raw as { kind?: unknown; name?: unknown }
+    if (typeof rec.kind !== 'string' || typeof rec.name !== 'string') return
+    this.applyWebviewPanelTabChromeFromKindAndName(
+      panel,
+      rec.kind as VnextComponentTabKind,
+      rec.name,
     )
   }
 
@@ -150,9 +246,6 @@ export class DesignerPanel {
     const indexHtmlPath = vscode.Uri.joinPath(webviewDistPath, 'index.html').fsPath
     let html = fs.readFileSync(indexHtmlPath, 'utf8')
 
-    // Rewrite asset references to webview URIs. Vite emits relative paths
-    // (`./assets/...`) when `base: ''`, so the regex must accept an optional
-    // `./` prefix in addition to a leading `/` or no prefix at all.
     html = html.replace(
       /((?:src|href)=")(\.?\/?assets\/[^"]+)(")/g,
       (_match, prefix, assetPath, suffix) => {
@@ -201,9 +294,6 @@ export class DesignerPanel {
  * URL-shaped fields — older versions hardcoded `https://localhost/api`
  * here, which gave security reviewers a false signal that the webview
  * was talking to a real network endpoint.
- *
- * Only fields actively read by `packages/designer-ui/src/config/config.ts`
- * belong here. Add a new field on both sides in the same change.
  */
 function buildWebviewConfig(): Record<string, unknown> {
   const revalidationSeconds = vscode.workspace
