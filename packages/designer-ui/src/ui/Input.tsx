@@ -5,7 +5,15 @@ import { AlertCircle } from 'lucide-react';
 import { cn } from '../lib/utils/cn.js';
 
 const inputRootVariants = cva(
-  'group/input relative isolate flex w-full items-center overflow-hidden rounded-[3px] border shadow-xs transition-all duration-200 ease-out outline-none',
+  [
+    'group/input relative isolate flex w-full items-center overflow-hidden rounded-[3px] border outline-none',
+    /* Derinlik: belirgin çökük yüzey + hafif yüzen dış gölge; koyu temada daha derin oyuk + güçlü rim */
+    'shadow-[inset_0_2px_5px_rgba(15,23,42,0.14),inset_0_-1px_0_rgba(15,23,42,0.08),0_1px_2px_rgba(15,23,42,0.06),0_2px_8px_rgba(15,23,42,0.05)]',
+    'dark:shadow-[inset_0_3px_12px_rgba(0,0,0,0.58),inset_0_1px_0_rgba(255,255,255,0.11),0_1px_0_rgba(255,255,255,0.07),0_2px_6px_rgba(0,0,0,0.22)]',
+    'transition-[box-shadow,background-color,border-color,opacity] duration-200 ease-out',
+    'focus-within:shadow-[inset_0_2px_6px_rgba(15,23,42,0.11),inset_0_-1px_0_rgba(15,23,42,0.05),0_2px_4px_rgba(15,23,42,0.08),0_4px_14px_rgba(15,23,42,0.07)]',
+    'dark:focus-within:shadow-[inset_0_3px_14px_rgba(0,0,0,0.62),inset_0_1px_0_rgba(255,255,255,0.14),0_0_0_1px_rgba(255,255,255,0.07),0_3px_12px_rgba(0,0,0,0.32)]',
+  ].join(' '),
   {
     variants: {
       variant: {
