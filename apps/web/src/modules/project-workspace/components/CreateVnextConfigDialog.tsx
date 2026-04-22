@@ -100,6 +100,15 @@ function friendlyWizardIssuePath(pathParts: readonly PropertyKey[]): string {
     return `Paths card: ${b} field`;
   }
 
+  if (a === 'dependencies' && p.length === 2 && b) {
+    return `Dependencies card: ${b} field`;
+  }
+
+  if (a === 'dependencies' && b && (typeof c === 'number' || (typeof c === 'string' && /^\d+$/.test(c)))) {
+    const idx = typeof c === 'number' ? c : Number(c);
+    return `Dependencies card, ${b} (item ${idx + 1})`;
+  }
+
   if (a === 'referenceResolution' && b === 'allowedHosts') {
     return 'Reference resolution card: allowedHosts field';
   }
@@ -177,7 +186,6 @@ function JsonTextField({
         hoverable={false}
         aria-invalid={Boolean(errorText)}
         className={cn(
-          'rounded-xl',
           errorText &&
             'border-destructive-border ring-destructive/20 focus-visible:ring-destructive/30',
           className,
@@ -213,7 +221,7 @@ function JsonBoolField({
             onChange={(e) => field.onChange(e.target.value === 'true')}
             variant="default"
             hoverable={false}
-            className="w-full rounded-xl">
+            className="w-full">
             <option value="true">true</option>
             <option value="false">false</option>
           </Select>
@@ -252,7 +260,7 @@ function JsonTagField({
             placeholder={placeholder ?? 'Add item…'}
             variant="default"
             hoverable={false}
-            className={cn('rounded-xl', errorText && 'ring-destructive/25 ring-2')}
+            className={cn(errorText && 'ring-destructive/25 ring-2')}
           />
           {errorText ? (
             <p className="text-destructive mt-1 text-xs leading-normal">{errorText}</p>
@@ -298,7 +306,7 @@ function JsonStringArrayLinesField({
               rows={3}
               aria-invalid={Boolean(errorText)}
               className={cn(
-                'min-h-20 resize-y rounded-xl font-mono text-sm leading-relaxed',
+                'min-h-20 resize-y font-mono text-sm leading-relaxed',
                 errorText &&
                   'border-destructive-border ring-destructive/20 focus-visible:ring-destructive/30',
               )}
@@ -402,9 +410,7 @@ export function CreateVnextConfigDialog({
       onError: () => {
         pendingSubmitValuesRef.current = null;
       },
-      successMessage: isEditMode
-        ? 'vnext.config.json updated.'
-        : 'vnext.config.json created.',
+      successMessage: isEditMode ? 'vnext.config.json updated.' : 'vnext.config.json created.',
     }),
     [isEditMode, onCompleted, onOpenChange, presentation, reset],
   );
@@ -635,477 +641,472 @@ export function CreateVnextConfigDialog({
         </div>
       ) : null}
 
-          {loadingConfig ? (
-            <div className="flex flex-1 items-center justify-center py-20">
-              <Loader2 className="text-muted-foreground size-6 animate-spin" />
+      {loadingConfig ? (
+        <div className="flex flex-1 items-center justify-center py-20">
+          <Loader2 className="text-muted-foreground size-6 animate-spin" />
+        </div>
+      ) : null}
+
+      <form
+        className={cn('flex min-h-0 flex-1 flex-col', loadingConfig && 'hidden')}
+        onSubmit={(e) => void onSubmit(e)}>
+        <div className={cn('min-h-0 flex-1 overflow-y-auto', isDialog ? 'px-6 py-5' : 'p-4')}>
+          {!wizardValidation.success ? (
+            <div
+              role="alert"
+              className="border-destructive-border bg-destructive/5 mb-6 rounded-xl border p-4">
+              <div className="text-destructive flex gap-2 text-sm">
+                <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden />
+                <div className="min-w-0 space-y-2">
+                  <p className="leading-snug font-semibold">
+                    Required fields are missing or invalid
+                  </p>
+                  <ul className="text-destructive/95 max-h-40 list-inside list-disc overflow-y-auto text-xs leading-relaxed">
+                    {Array.from(
+                      new Set(
+                        wizardValidation.error.issues.map((i: z.core.$ZodIssue) => {
+                          const label = friendlyWizardIssuePath(i.path);
+                          const detail = wizardIssueMessageForDisplay(i.message, i.path);
+                          return `${label}: ${detail}`;
+                        }),
+                      ),
+                    ).map((line) => (
+                      <li key={line} className="wrap-break-word">
+                        {line}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
             </div>
           ) : null}
+          <div
+            className={cn('grid min-w-0 grid-cols-1 xl:grid-cols-2', isDialog ? 'gap-6' : 'gap-4')}>
+            <div className={cn('min-w-0', isDialog ? 'space-y-6' : 'space-y-4')}>
+              <Card variant={sectionCardVariant} hoverable={false} className={sectionCardClassName}>
+                <CardHeader className={sectionHeaderClassName}>
+                  <CardTitle className={sectionTitleClassName}>
+                    {isDialog ? 'Root' : 'Workspace root'}
+                  </CardTitle>
+                  {!isDialog ? (
+                    <CardDescription className="text-xs">
+                      Domain, description, and runtime/schema versions for this workspace.
+                    </CardDescription>
+                  ) : null}
+                </CardHeader>
+                <CardContent
+                  className={cn(
+                    'grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2',
+                    sectionContentPad,
+                  )}>
+                  <JsonTextField
+                    label="version"
+                    register={register}
+                    name="version"
+                    errorText={pickWizardFieldError(fieldIssues, 'version')}
+                  />
+                  <JsonTextField
+                    label="domain"
+                    register={register}
+                    name="domain"
+                    errorText={pickWizardFieldError(fieldIssues, 'domain')}
+                  />
+                  <JsonTextField
+                    label="description"
+                    register={register}
+                    name="description"
+                    className="sm:col-span-2"
+                    errorText={pickWizardFieldError(fieldIssues, 'description')}
+                  />
+                  <JsonTextField
+                    label="runtimeVersion"
+                    register={register}
+                    name="runtimeVersion"
+                    errorText={pickWizardFieldError(fieldIssues, 'runtimeVersion')}
+                  />
+                  <JsonTextField
+                    label="schemaVersion"
+                    register={register}
+                    name="schemaVersion"
+                    errorText={pickWizardFieldError(fieldIssues, 'schemaVersion')}
+                  />
+                </CardContent>
+              </Card>
 
-          <form
-            className={cn('flex min-h-0 flex-1 flex-col', loadingConfig && 'hidden')}
-            onSubmit={(e) => void onSubmit(e)}>
-            <div
-              className={cn(
-                'min-h-0 flex-1 overflow-y-auto',
-                isDialog ? 'px-6 py-5' : 'p-4',
-              )}>
-              {!wizardValidation.success ? (
-                <div
-                  role="alert"
-                  className="border-destructive-border bg-destructive/5 mb-6 rounded-xl border p-4">
-                  <div className="text-destructive flex gap-2 text-sm">
-                    <AlertCircle className="mt-0.5 size-4 shrink-0" aria-hidden />
-                    <div className="min-w-0 space-y-2">
-                      <p className="leading-snug font-semibold">
-                        Required fields are missing or invalid
-                      </p>
-                      <ul className="text-destructive/95 max-h-40 list-inside list-disc overflow-y-auto text-xs leading-relaxed">
-                        {Array.from(
-                          new Set(
-                            wizardValidation.error.issues.map((i: z.core.$ZodIssue) => {
-                              const label = friendlyWizardIssuePath(i.path);
-                              const detail = wizardIssueMessageForDisplay(i.message, i.path);
-                              return `${label}: ${detail}`;
-                            }),
-                          ),
-                        ).map((line) => (
-                          <li key={line} className="wrap-break-word">
-                            {line}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
+              <Card variant={sectionCardVariant} hoverable={false} className={sectionCardClassName}>
+                <CardHeader className={sectionHeaderClassName}>
+                  <CardTitle className={sectionTitleClassName}>
+                    {isDialog ? 'paths' : 'Paths'}
+                  </CardTitle>
+                  {!isDialog ? (
+                    <CardDescription className="text-xs">
+                      Component folder paths relative to the project root.
+                    </CardDescription>
+                  ) : null}
+                </CardHeader>
+                <CardContent className={cn('space-y-4', sectionContentPad)}>
+                  <label className="text-foreground flex cursor-pointer items-center gap-2 text-sm leading-normal font-medium">
+                    <Checkbox
+                      checked={useCustomComponentsRoot}
+                      onCheckedChange={(v) => setUseCustomComponentsRoot(v === true)}
+                    />
+                    <span className="font-mono">Use custom componentsRoot</span>
+                  </label>
+                  <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
+                    <JsonFieldShell label="componentsRoot">
+                      <Input
+                        {...register('paths.componentsRoot')}
+                        placeholder={domain || 'componentsRoot'}
+                        variant={useCustomComponentsRoot ? 'default' : 'muted'}
+                        readOnly={!useCustomComponentsRoot}
+                        hoverable={false}
+                        aria-invalid={Boolean(
+                          pickWizardFieldError(fieldIssues, 'paths.componentsRoot'),
+                        )}
+                        className={cn(
+                          pickWizardFieldError(fieldIssues, 'paths.componentsRoot') &&
+                            'border-destructive-border ring-destructive/20 focus-visible:ring-destructive/30',
+                        )}
+                      />
+                      {pickWizardFieldError(fieldIssues, 'paths.componentsRoot') ? (
+                        <p className="text-destructive mt-1 flex items-start gap-1 text-xs leading-normal">
+                          <AlertCircle className="mt-px size-3 shrink-0" aria-hidden />
+                          {pickWizardFieldError(fieldIssues, 'paths.componentsRoot')}
+                        </p>
+                      ) : null}
+                    </JsonFieldShell>
+                    <JsonTextField
+                      label="tasks"
+                      register={register}
+                      name="paths.tasks"
+                      errorText={pickWizardFieldError(fieldIssues, 'paths.tasks')}
+                    />
+                    <JsonTextField
+                      label="views"
+                      register={register}
+                      name="paths.views"
+                      errorText={pickWizardFieldError(fieldIssues, 'paths.views')}
+                    />
+                    <JsonTextField
+                      label="functions"
+                      register={register}
+                      name="paths.functions"
+                      errorText={pickWizardFieldError(fieldIssues, 'paths.functions')}
+                    />
+                    <JsonTextField
+                      label="extensions"
+                      register={register}
+                      name="paths.extensions"
+                      errorText={pickWizardFieldError(fieldIssues, 'paths.extensions')}
+                    />
+                    <JsonTextField
+                      label="workflows"
+                      register={register}
+                      name="paths.workflows"
+                      errorText={pickWizardFieldError(fieldIssues, 'paths.workflows')}
+                    />
+                    <JsonTextField
+                      label="schemas"
+                      register={register}
+                      name="paths.schemas"
+                      errorText={pickWizardFieldError(fieldIssues, 'paths.schemas')}
+                    />
                   </div>
-                </div>
-              ) : null}
-              <div
-                className={cn(
-                  'grid min-w-0 grid-cols-1 xl:grid-cols-2',
-                  isDialog ? 'gap-6' : 'gap-4',
-                )}>
-                <div className={cn('min-w-0', isDialog ? 'space-y-6' : 'space-y-4')}>
-                  <Card variant={sectionCardVariant} hoverable={false} className={sectionCardClassName}>
-                    <CardHeader className={sectionHeaderClassName}>
-                      <CardTitle className={sectionTitleClassName}>
-                        {isDialog ? 'Root' : 'Workspace root'}
+                </CardContent>
+              </Card>
+
+              <Card variant={sectionCardVariant} hoverable={false} className={sectionCardClassName}>
+                <CardHeader className={sectionHeaderClassName}>
+                  <CardTitle className={sectionTitleClassName}>
+                    {isDialog ? 'dependencies' : 'Dependencies'}
+                  </CardTitle>
+                  {!isDialog ? (
+                    <CardDescription className="text-xs">
+                      Cross-domain and npm package references for this workspace.
+                    </CardDescription>
+                  ) : null}
+                </CardHeader>
+                <CardContent className={cn('space-y-4', sectionContentPad)}>
+                  <JsonStringArrayLinesField
+                    label="domains"
+                    control={control}
+                    name="dependencies.domains"
+                    placeholder="other-domain-key"
+                    helperText="One domain key per line."
+                    errorText={pickWizardFieldError(fieldIssues, 'dependencies.domains')}
+                  />
+                  <JsonStringArrayLinesField
+                    label="npm"
+                    control={control}
+                    name="dependencies.npm"
+                    placeholder="@scope/package@^1.0.0"
+                    helperText="One npm package specifier per line."
+                    errorText={pickWizardFieldError(fieldIssues, 'dependencies.npm')}
+                  />
+                </CardContent>
+              </Card>
+
+              <Card variant={sectionCardVariant} hoverable={false} className={sectionCardClassName}>
+                <CardHeader className={sectionHeaderClassName}>
+                  <CardTitle className={sectionTitleClassName}>
+                    {isDialog ? 'referenceResolution' : 'Reference resolution'}
+                  </CardTitle>
+                  {!isDialog ? (
+                    <CardDescription className="text-xs">
+                      Build-time validation, strict mode, and registry host allowlists.
+                    </CardDescription>
+                  ) : null}
+                </CardHeader>
+                <CardContent className={cn('space-y-4', sectionContentPad)}>
+                  <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
+                    <JsonBoolField
+                      label="enabled"
+                      control={control}
+                      name="referenceResolution.enabled"
+                    />
+                    <JsonBoolField
+                      label="validateOnBuild"
+                      control={control}
+                      name="referenceResolution.validateOnBuild"
+                    />
+                    <JsonBoolField
+                      label="strictMode"
+                      control={control}
+                      name="referenceResolution.strictMode"
+                    />
+                    <JsonBoolField
+                      label="validateReferenceConsistency"
+                      control={control}
+                      name="referenceResolution.validateReferenceConsistency"
+                    />
+                    <JsonBoolField
+                      label="validateSchemas"
+                      control={control}
+                      name="referenceResolution.validateSchemas"
+                    />
+                  </div>
+                  <JsonStringArrayLinesField
+                    label="allowedHosts"
+                    control={control}
+                    name="referenceResolution.allowedHosts"
+                    placeholder="registry.npmjs.org"
+                    helperText="One hostname per line."
+                    errorText={pickWizardFieldError(
+                      fieldIssues,
+                      'referenceResolution.allowedHosts',
+                    )}
+                  />
+
+                  <Card
+                    variant={nestedCardVariant}
+                    hoverable={false}
+                    className={nestedCardClassName}>
+                    <CardHeader className={nestedHeaderClassName}>
+                      <CardTitle className={nestedTitleClassName}>
+                        {isDialog ? 'schemaValidationRules' : 'Schema validation rules'}
                       </CardTitle>
                       {!isDialog ? (
                         <CardDescription className="text-xs">
-                          Domain, description, and runtime/schema versions for this workspace.
+                          Filename, key, and version consistency for JSON definitions.
                         </CardDescription>
                       ) : null}
                     </CardHeader>
                     <CardContent
                       className={cn(
                         'grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2',
-                        sectionContentPad,
+                        nestedContentClassName,
                       )}>
-                      <JsonTextField
-                        label="version"
-                        register={register}
-                        name="version"
-                        errorText={pickWizardFieldError(fieldIssues, 'version')}
+                      <JsonBoolField
+                        label="enforceKeyFormat"
+                        control={control}
+                        name="referenceResolution.schemaValidationRules.enforceKeyFormat"
                       />
-                      <JsonTextField
-                        label="domain"
-                        register={register}
-                        name="domain"
-                        errorText={pickWizardFieldError(fieldIssues, 'domain')}
+                      <JsonBoolField
+                        label="enforceVersionFormat"
+                        control={control}
+                        name="referenceResolution.schemaValidationRules.enforceVersionFormat"
                       />
+                      <JsonBoolField
+                        label="enforceFilenameConsistency"
+                        control={control}
+                        name="referenceResolution.schemaValidationRules.enforceFilenameConsistency"
+                      />
+                      <JsonBoolField
+                        label="allowUnknownProperties"
+                        control={control}
+                        name="referenceResolution.schemaValidationRules.allowUnknownProperties"
+                      />
+                    </CardContent>
+                  </Card>
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className={cn('min-w-0', isDialog ? 'space-y-6' : 'space-y-4')}>
+              <Card variant={sectionCardVariant} hoverable={false} className={sectionCardClassName}>
+                <CardHeader className={sectionHeaderClassName}>
+                  <CardTitle className={sectionTitleClassName}>
+                    {isDialog ? 'exports' : 'Exports'}
+                  </CardTitle>
+                  {!isDialog ? (
+                    <CardDescription className="text-xs">
+                      Published component keys, visibility, and package metadata.
+                    </CardDescription>
+                  ) : null}
+                </CardHeader>
+                <CardContent className={cn('space-y-4', sectionContentPad)}>
+                  <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
+                    <div className="min-w-0 sm:col-span-2">
+                      <JsonStringArrayLinesField
+                        label="functions"
+                        control={control}
+                        name="exports.functions"
+                        placeholder="my-function-key"
+                        helperText={exportComponentKeysHelperText}
+                      />
+                    </div>
+                    <div className="min-w-0 sm:col-span-2">
+                      <JsonStringArrayLinesField
+                        label="workflows"
+                        control={control}
+                        name="exports.workflows"
+                        placeholder="my-workflow-key"
+                        helperText={exportComponentKeysHelperText}
+                      />
+                    </div>
+                    <div className="min-w-0 sm:col-span-2">
+                      <JsonStringArrayLinesField
+                        label="tasks"
+                        control={control}
+                        name="exports.tasks"
+                        placeholder="my-task-key"
+                        helperText={exportComponentKeysHelperText}
+                      />
+                    </div>
+                    <div className="min-w-0 sm:col-span-2">
+                      <JsonStringArrayLinesField
+                        label="views"
+                        control={control}
+                        name="exports.views"
+                        placeholder="my-view-key"
+                        helperText={exportComponentKeysHelperText}
+                      />
+                    </div>
+                    <div className="min-w-0 sm:col-span-2">
+                      <JsonStringArrayLinesField
+                        label="schemas"
+                        control={control}
+                        name="exports.schemas"
+                        placeholder="my-schema-key"
+                        helperText={exportComponentKeysHelperText}
+                      />
+                    </div>
+                    <div className="min-w-0 sm:col-span-2">
+                      <JsonStringArrayLinesField
+                        label="extensions"
+                        control={control}
+                        name="exports.extensions"
+                        placeholder="my-extension-key"
+                        helperText={exportComponentKeysHelperText}
+                      />
+                    </div>
+                  </div>
+                  <Controller
+                    control={control}
+                    name="exports.visibility"
+                    render={({ field }) => (
+                      <JsonFieldShell label="visibility">
+                        <Select
+                          value={field.value}
+                          onChange={(e) =>
+                            field.onChange(
+                              e.target.value as VnextWorkspaceConfig['exports']['visibility'],
+                            )
+                          }
+                          variant="default"
+                          hoverable={false}
+                          className="w-full">
+                          <option value="public">public</option>
+                          <option value="private">private</option>
+                        </Select>
+                      </JsonFieldShell>
+                    )}
+                  />
+
+                  <Card
+                    variant={nestedCardVariant}
+                    hoverable={false}
+                    className={nestedCardClassName}>
+                    <CardHeader className={nestedHeaderClassName}>
+                      <CardTitle className={nestedTitleClassName}>
+                        {isDialog ? 'metadata' : 'Metadata'}
+                      </CardTitle>
+                      {!isDialog ? (
+                        <CardDescription className="text-xs">
+                          Description, maintainer, license, and keyword tags for the package.
+                        </CardDescription>
+                      ) : null}
+                    </CardHeader>
+                    <CardContent className={cn('space-y-4', nestedContentClassName)}>
                       <JsonTextField
                         label="description"
                         register={register}
-                        name="description"
-                        className="sm:col-span-2"
-                        errorText={pickWizardFieldError(fieldIssues, 'description')}
-                      />
-                      <JsonTextField
-                        label="runtimeVersion"
-                        register={register}
-                        name="runtimeVersion"
-                        errorText={pickWizardFieldError(fieldIssues, 'runtimeVersion')}
-                      />
-                      <JsonTextField
-                        label="schemaVersion"
-                        register={register}
-                        name="schemaVersion"
-                        errorText={pickWizardFieldError(fieldIssues, 'schemaVersion')}
-                      />
-                    </CardContent>
-                  </Card>
-
-                  <Card variant={sectionCardVariant} hoverable={false} className={sectionCardClassName}>
-                    <CardHeader className={sectionHeaderClassName}>
-                      <CardTitle className={sectionTitleClassName}>
-                        {isDialog ? 'paths' : 'Paths'}
-                      </CardTitle>
-                      {!isDialog ? (
-                        <CardDescription className="text-xs">
-                          Component folder paths relative to the project root.
-                        </CardDescription>
-                      ) : null}
-                    </CardHeader>
-                    <CardContent className={cn('space-y-4', sectionContentPad)}>
-                      <label className="text-foreground flex cursor-pointer items-center gap-2 text-sm leading-normal font-medium">
-                        <Checkbox
-                          checked={useCustomComponentsRoot}
-                          onCheckedChange={(v) => setUseCustomComponentsRoot(v === true)}
-                        />
-                        <span className="font-mono">Use custom componentsRoot</span>
-                      </label>
-                      <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
-                        <JsonFieldShell label="componentsRoot">
-                          <Input
-                            {...register('paths.componentsRoot')}
-                            placeholder={domain || 'componentsRoot'}
-                            variant={useCustomComponentsRoot ? 'default' : 'muted'}
-                            readOnly={!useCustomComponentsRoot}
-                            hoverable={false}
-                            aria-invalid={Boolean(
-                              pickWizardFieldError(fieldIssues, 'paths.componentsRoot'),
-                            )}
-                            className={cn(
-                              'rounded-xl',
-                              pickWizardFieldError(fieldIssues, 'paths.componentsRoot') &&
-                                'border-destructive-border ring-destructive/20 focus-visible:ring-destructive/30',
-                            )}
-                          />
-                          {pickWizardFieldError(fieldIssues, 'paths.componentsRoot') ? (
-                            <p className="text-destructive mt-1 flex items-start gap-1 text-xs leading-normal">
-                              <AlertCircle className="mt-px size-3 shrink-0" aria-hidden />
-                              {pickWizardFieldError(fieldIssues, 'paths.componentsRoot')}
-                            </p>
-                          ) : null}
-                        </JsonFieldShell>
-                        <JsonTextField
-                          label="tasks"
-                          register={register}
-                          name="paths.tasks"
-                          errorText={pickWizardFieldError(fieldIssues, 'paths.tasks')}
-                        />
-                        <JsonTextField
-                          label="views"
-                          register={register}
-                          name="paths.views"
-                          errorText={pickWizardFieldError(fieldIssues, 'paths.views')}
-                        />
-                        <JsonTextField
-                          label="functions"
-                          register={register}
-                          name="paths.functions"
-                          errorText={pickWizardFieldError(fieldIssues, 'paths.functions')}
-                        />
-                        <JsonTextField
-                          label="extensions"
-                          register={register}
-                          name="paths.extensions"
-                          errorText={pickWizardFieldError(fieldIssues, 'paths.extensions')}
-                        />
-                        <JsonTextField
-                          label="workflows"
-                          register={register}
-                          name="paths.workflows"
-                          errorText={pickWizardFieldError(fieldIssues, 'paths.workflows')}
-                        />
-                        <JsonTextField
-                          label="schemas"
-                          register={register}
-                          name="paths.schemas"
-                          errorText={pickWizardFieldError(fieldIssues, 'paths.schemas')}
-                        />
-                      </div>
-                    </CardContent>
-                  </Card>
-
-                  <Card variant={sectionCardVariant} hoverable={false} className={sectionCardClassName}>
-                    <CardHeader className={sectionHeaderClassName}>
-                      <CardTitle className={sectionTitleClassName}>
-                        {isDialog ? 'dependencies' : 'Dependencies'}
-                      </CardTitle>
-                      {!isDialog ? (
-                        <CardDescription className="text-xs">
-                          Cross-domain and npm package references for this workspace.
-                        </CardDescription>
-                      ) : null}
-                    </CardHeader>
-                    <CardContent className={cn('space-y-4', sectionContentPad)}>
-                      <JsonTagField
-                        label="domains"
-                        control={control}
-                        name="dependencies.domains"
-                        placeholder="domain key…"
-                      />
-                      <JsonTagField
-                        label="npm"
-                        control={control}
-                        name="dependencies.npm"
-                        placeholder="package spec…"
-                      />
-                    </CardContent>
-                  </Card>
-
-                  <Card variant={sectionCardVariant} hoverable={false} className={sectionCardClassName}>
-                    <CardHeader className={sectionHeaderClassName}>
-                      <CardTitle className={sectionTitleClassName}>
-                        {isDialog ? 'referenceResolution' : 'Reference resolution'}
-                      </CardTitle>
-                      {!isDialog ? (
-                        <CardDescription className="text-xs">
-                          Build-time validation, strict mode, and registry host allowlists.
-                        </CardDescription>
-                      ) : null}
-                    </CardHeader>
-                    <CardContent className={cn('space-y-4', sectionContentPad)}>
-                      <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
-                        <JsonBoolField
-                          label="enabled"
-                          control={control}
-                          name="referenceResolution.enabled"
-                        />
-                        <JsonBoolField
-                          label="validateOnBuild"
-                          control={control}
-                          name="referenceResolution.validateOnBuild"
-                        />
-                        <JsonBoolField
-                          label="strictMode"
-                          control={control}
-                          name="referenceResolution.strictMode"
-                        />
-                        <JsonBoolField
-                          label="validateReferenceConsistency"
-                          control={control}
-                          name="referenceResolution.validateReferenceConsistency"
-                        />
-                        <JsonBoolField
-                          label="validateSchemas"
-                          control={control}
-                          name="referenceResolution.validateSchemas"
-                        />
-                      </div>
-                      <JsonStringArrayLinesField
-                        label="allowedHosts"
-                        control={control}
-                        name="referenceResolution.allowedHosts"
-                        placeholder="registry.npmjs.org"
-                        helperText="One hostname per line."
+                        name="exports.metadata.description"
                         errorText={pickWizardFieldError(
                           fieldIssues,
-                          'referenceResolution.allowedHosts',
+                          'exports.metadata.description',
                         )}
                       />
-
-                      <Card variant={nestedCardVariant} hoverable={false} className={nestedCardClassName}>
-                        <CardHeader className={nestedHeaderClassName}>
-                          <CardTitle className={nestedTitleClassName}>
-                            {isDialog ? 'schemaValidationRules' : 'Schema validation rules'}
-                          </CardTitle>
-                          {!isDialog ? (
-                            <CardDescription className="text-xs">
-                              Filename, key, and version consistency for JSON definitions.
-                            </CardDescription>
-                          ) : null}
-                        </CardHeader>
-                        <CardContent
-                          className={cn(
-                            'grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2',
-                            nestedContentClassName,
-                          )}>
-                          <JsonBoolField
-                            label="enforceKeyFormat"
-                            control={control}
-                            name="referenceResolution.schemaValidationRules.enforceKeyFormat"
-                          />
-                          <JsonBoolField
-                            label="enforceVersionFormat"
-                            control={control}
-                            name="referenceResolution.schemaValidationRules.enforceVersionFormat"
-                          />
-                          <JsonBoolField
-                            label="enforceFilenameConsistency"
-                            control={control}
-                            name="referenceResolution.schemaValidationRules.enforceFilenameConsistency"
-                          />
-                          <JsonBoolField
-                            label="allowUnknownProperties"
-                            control={control}
-                            name="referenceResolution.schemaValidationRules.allowUnknownProperties"
-                          />
-                        </CardContent>
-                      </Card>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                <div className={cn('min-w-0', isDialog ? 'space-y-6' : 'space-y-4')}>
-                  <Card variant={sectionCardVariant} hoverable={false} className={sectionCardClassName}>
-                    <CardHeader className={sectionHeaderClassName}>
-                      <CardTitle className={sectionTitleClassName}>
-                        {isDialog ? 'exports' : 'Exports'}
-                      </CardTitle>
-                      {!isDialog ? (
-                        <CardDescription className="text-xs">
-                          Published component keys, visibility, and package metadata.
-                        </CardDescription>
-                      ) : null}
-                    </CardHeader>
-                    <CardContent className={cn('space-y-4', sectionContentPad)}>
                       <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
-                        <div className="min-w-0 sm:col-span-2">
-                          <JsonStringArrayLinesField
-                            label="functions"
-                            control={control}
-                            name="exports.functions"
-                            placeholder="my-function-key"
-                            helperText={exportComponentKeysHelperText}
-                          />
-                        </div>
-                        <div className="min-w-0 sm:col-span-2">
-                          <JsonStringArrayLinesField
-                            label="workflows"
-                            control={control}
-                            name="exports.workflows"
-                            placeholder="my-workflow-key"
-                            helperText={exportComponentKeysHelperText}
-                          />
-                        </div>
-                        <div className="min-w-0 sm:col-span-2">
-                          <JsonStringArrayLinesField
-                            label="tasks"
-                            control={control}
-                            name="exports.tasks"
-                            placeholder="my-task-key"
-                            helperText={exportComponentKeysHelperText}
-                          />
-                        </div>
-                        <div className="min-w-0 sm:col-span-2">
-                          <JsonStringArrayLinesField
-                            label="views"
-                            control={control}
-                            name="exports.views"
-                            placeholder="my-view-key"
-                            helperText={exportComponentKeysHelperText}
-                          />
-                        </div>
-                        <div className="min-w-0 sm:col-span-2">
-                          <JsonStringArrayLinesField
-                            label="schemas"
-                            control={control}
-                            name="exports.schemas"
-                            placeholder="my-schema-key"
-                            helperText={exportComponentKeysHelperText}
-                          />
-                        </div>
-                        <div className="min-w-0 sm:col-span-2">
-                          <JsonStringArrayLinesField
-                            label="extensions"
-                            control={control}
-                            name="exports.extensions"
-                            placeholder="my-extension-key"
-                            helperText={exportComponentKeysHelperText}
-                          />
-                        </div>
+                        <JsonTextField
+                          label="maintainer"
+                          register={register}
+                          name="exports.metadata.maintainer"
+                          errorText={pickWizardFieldError(
+                            fieldIssues,
+                            'exports.metadata.maintainer',
+                          )}
+                        />
+                        <JsonTextField
+                          label="license"
+                          register={register}
+                          name="exports.metadata.license"
+                          errorText={pickWizardFieldError(fieldIssues, 'exports.metadata.license')}
+                        />
                       </div>
-                      <Controller
-                        control={control}
-                        name="exports.visibility"
-                        render={({ field }) => (
-                          <JsonFieldShell label="visibility">
-                            <Select
-                              value={field.value}
-                              onChange={(e) =>
-                                field.onChange(
-                                  e.target
-                                    .value as VnextWorkspaceConfig['exports']['visibility'],
-                                )
-                              }
-                              variant="default"
-                              hoverable={false}
-                              className="w-full rounded-xl">
-                              <option value="public">public</option>
-                              <option value="private">private</option>
-                            </Select>
-                          </JsonFieldShell>
-                        )}
-                      />
-
-                      <Card variant={nestedCardVariant} hoverable={false} className={nestedCardClassName}>
-                        <CardHeader className={nestedHeaderClassName}>
-                          <CardTitle className={nestedTitleClassName}>
-                            {isDialog ? 'metadata' : 'Metadata'}
-                          </CardTitle>
-                          {!isDialog ? (
-                            <CardDescription className="text-xs">
-                              Description, maintainer, license, and keyword tags for the package.
-                            </CardDescription>
-                          ) : null}
-                        </CardHeader>
-                        <CardContent className={cn('space-y-4', nestedContentClassName)}>
-                          <JsonTextField
-                            label="description"
-                            register={register}
-                            name="exports.metadata.description"
-                            errorText={pickWizardFieldError(
-                              fieldIssues,
-                              'exports.metadata.description',
-                            )}
-                          />
-                          <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
-                            <JsonTextField
-                              label="maintainer"
-                              register={register}
-                              name="exports.metadata.maintainer"
-                              errorText={pickWizardFieldError(
-                                fieldIssues,
-                                'exports.metadata.maintainer',
-                              )}
-                            />
-                            <JsonTextField
-                              label="license"
-                              register={register}
-                              name="exports.metadata.license"
-                              errorText={pickWizardFieldError(
-                                fieldIssues,
-                                'exports.metadata.license',
-                              )}
-                            />
-                          </div>
-                          <div className="min-w-0">
-                            <JsonTagField
-                              label="keywords"
-                              control={control}
-                              name="exports.metadata.keywords"
-                              placeholder="keyword…"
-                              errorText={pickWizardFieldError(
-                                fieldIssues,
-                                'exports.metadata.keywords',
-                              )}
-                            />
-                          </div>
-                        </CardContent>
-                      </Card>
+                      <div className="min-w-0">
+                        <JsonTagField
+                          label="keywords"
+                          control={control}
+                          name="exports.metadata.keywords"
+                          placeholder="keyword…"
+                          errorText={pickWizardFieldError(fieldIssues, 'exports.metadata.keywords')}
+                        />
+                      </div>
                     </CardContent>
                   </Card>
-                </div>
-              </div>
+                </CardContent>
+              </Card>
             </div>
+          </div>
+        </div>
 
-            {isDialog ? (
-              <DialogFooter className="border-border-subtle shrink-0 gap-2 border-t px-6 py-4 sm:flex-row sm:justify-end">
-                <DialogCancelButton type="button" variant="secondary" className="rounded-xl">
-                  Close
-                </DialogCancelButton>
-                <Button
-                  type="submit"
-                  variant="success"
-                  className="rounded-xl"
-                  loading={writing}
-                  disabled={!wizardValidation.success}>
-                  {isEditMode ? 'Update and save' : 'Create and save'}
-                </Button>
-              </DialogFooter>
-            ) : null}
-          </form>
+        {isDialog ? (
+          <DialogFooter className="border-border-subtle shrink-0 gap-2 border-t px-6 py-4 sm:flex-row sm:justify-end">
+            <DialogCancelButton type="button" variant="secondary" className="rounded-xl">
+              Close
+            </DialogCancelButton>
+            <Button
+              type="submit"
+              variant="success"
+              className="rounded-xl"
+              loading={writing}
+              disabled={!wizardValidation.success}>
+              {isEditMode ? 'Update and save' : 'Create and save'}
+            </Button>
+          </DialogFooter>
+        ) : null}
+      </form>
     </div>
   );
 
