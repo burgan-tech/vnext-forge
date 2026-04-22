@@ -40,7 +40,10 @@ export function ViewEditorPanel({ json, onChange }: ViewEditorPanelProps) {
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <Field label="Key">
-                <MetadataLockedTextInput value={String(json.key || '')} />
+                <MetadataEditableTextInput
+                  value={String(json.key || '')}
+                  onChange={(e) => onChange((draft) => { draft.key = e.target.value; })}
+                />
               </Field>
               <Field label="Version" errorMsg={versionError}>
                 <MetadataEditableTextInput
