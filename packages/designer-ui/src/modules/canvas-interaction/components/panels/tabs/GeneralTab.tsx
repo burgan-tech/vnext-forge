@@ -41,7 +41,7 @@ export function GeneralTab({ state, updateWorkflow }: { state: any; updateWorkfl
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div>
         <label className="text-[10px] text-muted-foreground block mb-1 font-semibold tracking-wide">Key</label>
         <InfoRow label="" value={state.key} mono copyable />
@@ -123,9 +123,9 @@ export function GeneralTab({ state, updateWorkflow }: { state: any; updateWorkfl
       </Section>
 
       {/* Quick summary */}
-      <div className="mt-4 pt-4 border-t border-border-subtle">
-        <div className="text-[10px] font-bold text-muted-foreground mb-3 tracking-widest uppercase">Summary</div>
-        <div className="grid grid-cols-3 gap-2">
+      <div className="mt-3 pt-3 border-t border-border-subtle">
+        <div className="text-[9px] font-bold text-muted-foreground mb-2 tracking-widest uppercase">Summary</div>
+        <div className="grid grid-cols-3 gap-1.5">
           <SummaryCard label="Entry Tasks" value={state.onEntries?.length || 0} color="text-intermediate bg-intermediate/10" />
           <SummaryCard label="Exit Tasks" value={state.onExits?.length || 0} color="text-subflow bg-subflow/10" />
           <SummaryCard label="Transitions" value={state.transitions?.length || 0} color="text-initial bg-initial/10" />

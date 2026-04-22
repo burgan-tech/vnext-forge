@@ -207,9 +207,9 @@ export function WorkflowMetadataPanel({ onClose }: WorkflowMetadataPanelProps) {
     'w-full px-2.5 py-1.5 text-xs font-mono border border-border rounded-lg bg-muted-surface text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary-border focus:bg-surface transition-all placeholder:text-subtle';
 
   return (
-    <div className="border-border bg-surface/80 max-h-112.5 overflow-y-auto border-b backdrop-blur-sm">
+    <div className="border-border bg-surface/80 flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden backdrop-blur-sm">
       {/* Header */}
-      <div className="border-border-subtle bg-surface sticky top-0 z-10 flex items-center gap-2 border-b px-4 py-3">
+      <div className="border-border-subtle bg-surface flex shrink-0 items-center gap-2 border-b px-4 py-3">
         <div className="bg-secondary-muted flex size-7 items-center justify-center rounded-lg">
           <Info size={14} className="text-secondary-icon" />
         </div>
@@ -223,333 +223,341 @@ export function WorkflowMetadataPanel({ onClose }: WorkflowMetadataPanelProps) {
         </button>
       </div>
 
-      <div className="space-y-4 p-4">
-        {/* Basic fields */}
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="text-muted-foreground mb-1 block text-[10px] font-semibold tracking-wide">
-              Key
-            </label>
-            <div className="bg-muted text-muted-foreground truncate rounded-lg px-2.5 py-1.5 font-mono text-xs">
-              {wf.key || '—'}
+      <div className="min-h-0 min-w-0 flex-1 overflow-y-auto">
+        <div className="space-y-4 p-4 pb-3">
+          {/* Basic fields */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-muted-foreground mb-1 block text-[10px] font-semibold tracking-wide">
+                Key
+              </label>
+              <div className="bg-muted text-muted-foreground truncate rounded-lg px-2.5 py-1.5 font-mono text-xs">
+                {wf.key || '—'}
+              </div>
+            </div>
+            <div>
+              <label className="text-muted-foreground mb-1 block text-[10px] font-semibold tracking-wide">
+                Domain
+              </label>
+              <div className="bg-muted text-muted-foreground truncate rounded-lg px-2.5 py-1.5 font-mono text-xs">
+                {wf.domain || '—'}
+              </div>
             </div>
           </div>
-          <div>
-            <label className="text-muted-foreground mb-1 block text-[10px] font-semibold tracking-wide">
-              Domain
-            </label>
-            <div className="bg-muted text-muted-foreground truncate rounded-lg px-2.5 py-1.5 font-mono text-xs">
-              {wf.domain || '—'}
-            </div>
-          </div>
-        </div>
 
-        <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="text-muted-foreground mb-1 block text-[10px] font-semibold tracking-wide">
+                Version
+              </label>
+              <input
+                type="text"
+                value={wf.version || ''}
+                onChange={(e) => updateRoot('version', e.target.value)}
+                className={inputClass}
+              />
+            </div>
+            <div>
+              <label className="text-muted-foreground mb-1 block text-[10px] font-semibold tracking-wide">
+                Type
+              </label>
+              <select
+                value={attrs.type || 'F'}
+                onChange={(e) => updateAttr('type', e.target.value)}
+                className={inputClass + ' cursor-pointer'}>
+                <option value="F">F — Flow</option>
+                <option value="P">P — Process</option>
+                <option value="S">S — SubFlow</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-muted-foreground mb-1 block text-[10px] font-semibold tracking-wide">
+                Flow
+              </label>
+              <div className="bg-muted text-muted-foreground rounded-lg px-2.5 py-1.5 font-mono text-xs">
+                {wf.flow || 'sys-flows'}
+              </div>
+            </div>
+          </div>
+
+          {/* Comment */}
           <div>
             <label className="text-muted-foreground mb-1 block text-[10px] font-semibold tracking-wide">
-              Version
+              Documentation
             </label>
-            <input
-              type="text"
-              value={wf.version || ''}
-              onChange={(e) => updateRoot('version', e.target.value)}
-              className={inputClass}
+            <textarea
+              value={wf._comment || ''}
+              onChange={(e) => updateRoot('_comment', e.target.value)}
+              placeholder="Workflow description (markdown)"
+              rows={3}
+              className="border-border bg-muted-surface text-foreground focus:ring-ring/20 focus:border-primary-border focus:bg-surface placeholder:text-subtle w-full resize-y rounded-xl border px-2.5 py-2 font-mono text-xs transition-all focus:ring-2 focus:outline-none"
             />
           </div>
+
+          {/* Tags */}
           <div>
-            <label className="text-muted-foreground mb-1 block text-[10px] font-semibold tracking-wide">
-              Type
+            <label className="text-muted-foreground mb-1.5 flex items-center gap-1 text-[10px] font-semibold tracking-wide">
+              <Tag size={10} /> Tags
             </label>
-            <select
-              value={attrs.type || 'F'}
-              onChange={(e) => updateAttr('type', e.target.value)}
-              className={inputClass + ' cursor-pointer'}>
-              <option value="F">F — Flow</option>
-              <option value="P">P — Process</option>
-              <option value="S">S — SubFlow</option>
-            </select>
-          </div>
-          <div>
-            <label className="text-muted-foreground mb-1 block text-[10px] font-semibold tracking-wide">
-              Flow
-            </label>
-            <div className="bg-muted text-muted-foreground rounded-lg px-2.5 py-1.5 font-mono text-xs">
-              {wf.flow || 'sys-flows'}
-            </div>
-          </div>
-        </div>
-
-        {/* Comment */}
-        <div>
-          <label className="text-muted-foreground mb-1 block text-[10px] font-semibold tracking-wide">
-            Documentation
-          </label>
-          <textarea
-            value={wf._comment || ''}
-            onChange={(e) => updateRoot('_comment', e.target.value)}
-            placeholder="Workflow description (markdown)"
-            rows={3}
-            className="border-border bg-muted-surface text-foreground focus:ring-ring/20 focus:border-primary-border focus:bg-surface placeholder:text-subtle w-full resize-y rounded-xl border px-2.5 py-2 font-mono text-xs transition-all focus:ring-2 focus:outline-none"
-          />
-        </div>
-
-        {/* Tags */}
-        <div>
-          <label className="text-muted-foreground mb-1.5 flex items-center gap-1 text-[10px] font-semibold tracking-wide">
-            <Tag size={10} /> Tags
-          </label>
-          <div className="flex flex-wrap gap-1.5">
-            {tags.map((tag, i) => (
-              <div key={i} className="bg-muted flex items-center gap-1 rounded-lg py-1 pr-1 pl-2.5">
-                <input
-                  type="text"
-                  value={tag}
-                  onChange={(e) => updateTag(i, e.target.value)}
-                  className="text-foreground w-16 border-none bg-transparent p-0 text-xs focus:outline-none"
-                  placeholder="tag"
-                />
-                <button
-                  onClick={() => removeTag(i)}
-                  className="text-muted-foreground hover:text-destructive-text cursor-pointer rounded p-0.5 transition-colors">
-                  <X size={12} />
-                </button>
-              </div>
-            ))}
-            <button
-              onClick={addTag}
-              className="text-secondary-icon hover:text-secondary-foreground border-secondary-border/60 hover:border-secondary-border hover:bg-secondary cursor-pointer rounded-lg border border-dashed px-2.5 py-1 text-[11px] font-semibold transition-all">
-              + Tag
-            </button>
-          </div>
-        </div>
-
-        {/* Labels */}
-        <div>
-          <label className="text-muted-foreground mb-1.5 flex items-center gap-1 text-[10px] font-semibold tracking-wide">
-            <Globe size={10} /> Labels
-          </label>
-          <div className="space-y-1.5">
-            {labels.map((l, i) => (
-              <div key={i} className="flex items-center gap-2">
-                <input
-                  type="text"
-                  value={l.language}
-                  onChange={(e) => updateLabel(i, 'language', e.target.value)}
-                  className="text-muted-foreground border-border bg-muted focus:ring-ring/20 w-10 shrink-0 rounded-lg border px-2 py-1.5 text-center font-mono text-[11px] focus:ring-2 focus:outline-none"
-                />
-                <input
-                  type="text"
-                  value={l.label}
-                  onChange={(e) => updateLabel(i, 'label', e.target.value)}
-                  className="border-border bg-muted-surface text-foreground focus:ring-ring/20 focus:border-primary-border focus:bg-surface flex-1 rounded-lg border px-2.5 py-1.5 text-xs transition-all focus:ring-2 focus:outline-none"
-                />
-                <button
-                  onClick={() => removeLabel(i)}
-                  className="text-subtle hover:text-destructive-text hover:bg-destructive-surface cursor-pointer rounded-lg p-1 transition-all">
-                  <Trash2 size={13} />
-                </button>
-              </div>
-            ))}
-            <button
-              onClick={addLabel}
-              className="text-secondary-icon hover:text-secondary-foreground flex cursor-pointer items-center gap-1.5 text-[11px] font-semibold">
-              <Plus size={13} /> Add Label
-            </button>
-          </div>
-        </div>
-
-        {/* ─── updateData ─── */}
-        <Section title="Update Data" icon={<Zap size={13} />} defaultOpen={!!updateData}>
-          {updateData ? (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-foreground text-xs font-semibold">
-                  Update Data Transition
-                </span>
-                <button
-                  onClick={removeUpdateData}
-                  className="text-destructive-text hover:text-destructive-icon cursor-pointer text-[11px] font-semibold">
-                  Remove
-                </button>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-muted-foreground text-[10px] font-semibold">Key</label>
+            <div className="flex flex-wrap gap-1.5">
+              {tags.map((tag, i) => (
+                <div
+                  key={i}
+                  className="bg-muted flex items-center gap-1 rounded-lg py-1 pr-1 pl-2.5">
                   <input
                     type="text"
-                    value={updateData.key || ''}
-                    onChange={(e) => updateUpdateDataField('key', e.target.value)}
-                    className={inputClass}
-                  />
-                </div>
-                <div>
-                  <label className="text-muted-foreground text-[10px] font-semibold">Target</label>
-                  <div className="bg-muted text-muted-foreground rounded-lg px-2.5 py-1.5 font-mono text-xs">
-                    $self
-                  </div>
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-muted-foreground text-[10px] font-semibold">
-                    Version Strategy
-                  </label>
-                  <select
-                    value={updateData.versionStrategy || 'Major'}
-                    onChange={(e) => updateUpdateDataField('versionStrategy', e.target.value)}
-                    className={inputClass + ' cursor-pointer'}>
-                    <option value="Minor">Minor</option>
-                    <option value="Major">Major</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="text-muted-foreground text-[10px] font-semibold">
-                    Trigger Type
-                  </label>
-                  <select
-                    value={updateData.triggerType ?? 0}
-                    onChange={(e) => updateUpdateDataField('triggerType', Number(e.target.value))}
-                    className={inputClass + ' cursor-pointer'}>
-                    <option value={0}>Manual</option>
-                    <option value={1}>Auto</option>
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className="text-muted-foreground text-[10px] font-semibold">Schema</label>
-                <SchemaReferenceField
-                  value={updateData.schema}
-                  onChange={(ref) => updateUpdateDataField('schema', ref)}
-                />
-              </div>
-            </div>
-          ) : (
-            <button
-              onClick={createUpdateData}
-              className="text-secondary-icon hover:text-secondary-foreground flex cursor-pointer items-center gap-1.5 text-[11px] font-semibold">
-              <Plus size={13} /> Create updateData Transition
-            </button>
-          )}
-        </Section>
-
-        {/* ─── Shared Transitions ─── */}
-        <Section
-          title={`Shared Transitions (${sharedTransitions.length})`}
-          icon={<Share2 size={13} />}
-          defaultOpen={sharedTransitions.length > 0}>
-          <div className="space-y-3">
-            {sharedTransitions.map((st, i) => (
-              <div
-                key={i}
-                className="bg-surface border-border space-y-2 rounded-xl border p-3 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
-                <div className="flex items-center justify-between">
-                  <input
-                    type="text"
-                    value={st.key || ''}
-                    onChange={(e) => updateSharedTransitionField(i, 'key', e.target.value)}
-                    className="text-foreground flex-1 border-none bg-transparent p-0 font-mono text-xs font-semibold focus:outline-none"
+                    value={tag}
+                    onChange={(e) => updateTag(i, e.target.value)}
+                    className="text-foreground w-16 border-none bg-transparent p-0 text-xs focus:outline-none"
+                    placeholder="tag"
                   />
                   <button
-                    onClick={() => removeSharedTransition(i)}
+                    onClick={() => removeTag(i)}
+                    className="text-muted-foreground hover:text-destructive-text cursor-pointer rounded p-0.5 transition-colors">
+                    <X size={12} />
+                  </button>
+                </div>
+              ))}
+              <button
+                onClick={addTag}
+                className="text-secondary-icon hover:text-secondary-foreground border-secondary-border/60 hover:border-secondary-border hover:bg-secondary cursor-pointer rounded-lg border border-dashed px-2.5 py-1 text-[11px] font-semibold transition-all">
+                + Tag
+              </button>
+            </div>
+          </div>
+
+          {/* Labels */}
+          <div>
+            <label className="text-muted-foreground mb-1.5 flex items-center gap-1 text-[10px] font-semibold tracking-wide">
+              <Globe size={10} /> Labels
+            </label>
+            <div className="space-y-1.5">
+              {labels.map((l, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={l.language}
+                    onChange={(e) => updateLabel(i, 'language', e.target.value)}
+                    className="text-muted-foreground border-border bg-muted focus:ring-ring/20 w-10 shrink-0 rounded-lg border px-2 py-1.5 text-center font-mono text-[11px] focus:ring-2 focus:outline-none"
+                  />
+                  <input
+                    type="text"
+                    value={l.label}
+                    onChange={(e) => updateLabel(i, 'label', e.target.value)}
+                    className="border-border bg-muted-surface text-foreground focus:ring-ring/20 focus:border-primary-border focus:bg-surface flex-1 rounded-lg border px-2.5 py-1.5 text-xs transition-all focus:ring-2 focus:outline-none"
+                  />
+                  <button
+                    onClick={() => removeLabel(i)}
                     className="text-subtle hover:text-destructive-text hover:bg-destructive-surface cursor-pointer rounded-lg p-1 transition-all">
                     <Trash2 size={13} />
                   </button>
                 </div>
+              ))}
+              <button
+                onClick={addLabel}
+                className="text-secondary-icon hover:text-secondary-foreground flex cursor-pointer items-center gap-1.5 text-[11px] font-semibold">
+                <Plus size={13} /> Add Label
+              </button>
+            </div>
+          </div>
+
+          {/* ─── updateData ─── */}
+          <Section title="Update Data" icon={<Zap size={13} />} defaultOpen={!!updateData}>
+            {updateData ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-foreground text-xs font-semibold">
+                    Update Data Transition
+                  </span>
+                  <button
+                    onClick={removeUpdateData}
+                    className="text-destructive-text hover:text-destructive-icon cursor-pointer text-[11px] font-semibold">
+                    Remove
+                  </button>
+                </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="text-muted-foreground text-[10px] font-semibold">
-                      Target
-                    </label>
+                    <label className="text-muted-foreground text-[10px] font-semibold">Key</label>
                     <input
                       type="text"
-                      value={st.target || '$self'}
-                      onChange={(e) => updateSharedTransitionField(i, 'target', e.target.value)}
+                      value={updateData.key || ''}
+                      onChange={(e) => updateUpdateDataField('key', e.target.value)}
                       className={inputClass}
                     />
                   </div>
                   <div>
                     <label className="text-muted-foreground text-[10px] font-semibold">
-                      Trigger
+                      Target
+                    </label>
+                    <div className="bg-muted text-muted-foreground rounded-lg px-2.5 py-1.5 font-mono text-xs">
+                      $self
+                    </div>
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-muted-foreground text-[10px] font-semibold">
+                      Version Strategy
                     </label>
                     <select
-                      value={st.triggerType ?? 0}
-                      onChange={(e) =>
-                        updateSharedTransitionField(i, 'triggerType', Number(e.target.value))
-                      }
+                      value={updateData.versionStrategy || 'Major'}
+                      onChange={(e) => updateUpdateDataField('versionStrategy', e.target.value)}
+                      className={inputClass + ' cursor-pointer'}>
+                      <option value="Minor">Minor</option>
+                      <option value="Major">Major</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-muted-foreground text-[10px] font-semibold">
+                      Trigger Type
+                    </label>
+                    <select
+                      value={updateData.triggerType ?? 0}
+                      onChange={(e) => updateUpdateDataField('triggerType', Number(e.target.value))}
                       className={inputClass + ' cursor-pointer'}>
                       <option value={0}>Manual</option>
                       <option value={1}>Auto</option>
-                      <option value={2}>Scheduled</option>
-                      <option value={3}>Event</option>
                     </select>
                   </div>
                 </div>
                 <div>
-                  <label className="text-muted-foreground text-[10px] font-semibold">
-                    Available In (state keys, comma separated)
-                  </label>
-                  <input
-                    type="text"
-                    value={(st.availableIn || []).join(', ')}
-                    onChange={(e) =>
-                      updateSharedTransitionField(
-                        i,
-                        'availableIn',
-                        e.target.value
-                          .split(',')
-                          .map((s: string) => s.trim())
-                          .filter(Boolean),
-                      )
-                    }
-                    className={inputClass}
-                    placeholder="state-1, state-2"
-                  />
-                </div>
-                <div>
                   <label className="text-muted-foreground text-[10px] font-semibold">Schema</label>
                   <SchemaReferenceField
-                    value={st.schema}
-                    onChange={(ref) => updateSharedTransitionField(i, 'schema', ref)}
+                    value={updateData.schema}
+                    onChange={(ref) => updateUpdateDataField('schema', ref)}
                   />
                 </div>
               </div>
-            ))}
-            <button
-              onClick={addSharedTransition}
-              className="text-secondary-icon hover:text-secondary-foreground flex cursor-pointer items-center gap-1.5 text-[11px] font-semibold">
-              <Plus size={13} /> Add Shared Transition
-            </button>
-          </div>
-        </Section>
+            ) : (
+              <button
+                onClick={createUpdateData}
+                className="text-secondary-icon hover:text-secondary-foreground flex cursor-pointer items-center gap-1.5 text-[11px] font-semibold">
+                <Plus size={13} /> Create updateData Transition
+              </button>
+            )}
+          </Section>
 
-        {/* ─── Functions / Features / Extensions ─── */}
-        <ResourceArraySection
-          title="Functions"
-          icon={<Boxes size={13} />}
-          items={functions}
-          field="functions"
-          onAdd={addToArray}
-          onRemove={removeFromArray}
-          onUpdate={updateArrayItem}
-        />
-        <ResourceArraySection
-          title="Features"
-          icon={<Puzzle size={13} />}
-          items={features}
-          field="features"
-          onAdd={addToArray}
-          onRemove={removeFromArray}
-          onUpdate={updateArrayItem}
-        />
-        <ResourceArraySection
-          title="Extensions"
-          icon={<Zap size={13} />}
-          items={extensions}
-          field="extensions"
-          onAdd={addToArray}
-          onRemove={removeFromArray}
-          onUpdate={updateArrayItem}
-        />
+          {/* ─── Shared Transitions ─── */}
+          <Section
+            title={`Shared Transitions (${sharedTransitions.length})`}
+            icon={<Share2 size={13} />}
+            defaultOpen={sharedTransitions.length > 0}>
+            <div className="space-y-3">
+              {sharedTransitions.map((st, i) => (
+                <div
+                  key={i}
+                  className="bg-surface border-border space-y-2 rounded-xl border p-3 shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+                  <div className="flex items-center justify-between">
+                    <input
+                      type="text"
+                      value={st.key || ''}
+                      onChange={(e) => updateSharedTransitionField(i, 'key', e.target.value)}
+                      className="text-foreground flex-1 border-none bg-transparent p-0 font-mono text-xs font-semibold focus:outline-none"
+                    />
+                    <button
+                      onClick={() => removeSharedTransition(i)}
+                      className="text-subtle hover:text-destructive-text hover:bg-destructive-surface cursor-pointer rounded-lg p-1 transition-all">
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-muted-foreground text-[10px] font-semibold">
+                        Target
+                      </label>
+                      <input
+                        type="text"
+                        value={st.target || '$self'}
+                        onChange={(e) => updateSharedTransitionField(i, 'target', e.target.value)}
+                        className={inputClass}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-muted-foreground text-[10px] font-semibold">
+                        Trigger
+                      </label>
+                      <select
+                        value={st.triggerType ?? 0}
+                        onChange={(e) =>
+                          updateSharedTransitionField(i, 'triggerType', Number(e.target.value))
+                        }
+                        className={inputClass + ' cursor-pointer'}>
+                        <option value={0}>Manual</option>
+                        <option value={1}>Auto</option>
+                        <option value={2}>Scheduled</option>
+                        <option value={3}>Event</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-muted-foreground text-[10px] font-semibold">
+                      Available In (state keys, comma separated)
+                    </label>
+                    <input
+                      type="text"
+                      value={(st.availableIn || []).join(', ')}
+                      onChange={(e) =>
+                        updateSharedTransitionField(
+                          i,
+                          'availableIn',
+                          e.target.value
+                            .split(',')
+                            .map((s: string) => s.trim())
+                            .filter(Boolean),
+                        )
+                      }
+                      className={inputClass}
+                      placeholder="state-1, state-2"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-muted-foreground text-[10px] font-semibold">
+                      Schema
+                    </label>
+                    <SchemaReferenceField
+                      value={st.schema}
+                      onChange={(ref) => updateSharedTransitionField(i, 'schema', ref)}
+                    />
+                  </div>
+                </div>
+              ))}
+              <button
+                onClick={addSharedTransition}
+                className="text-secondary-icon hover:text-secondary-foreground flex cursor-pointer items-center gap-1.5 text-[11px] font-semibold">
+                <Plus size={13} /> Add Shared Transition
+              </button>
+            </div>
+          </Section>
+
+          {/* ─── Functions / Features / Extensions ─── */}
+          <ResourceArraySection
+            title="Functions"
+            icon={<Boxes size={13} />}
+            items={functions}
+            field="functions"
+            onAdd={addToArray}
+            onRemove={removeFromArray}
+            onUpdate={updateArrayItem}
+          />
+          <ResourceArraySection
+            title="Features"
+            icon={<Puzzle size={13} />}
+            items={features}
+            field="features"
+            onAdd={addToArray}
+            onRemove={removeFromArray}
+            onUpdate={updateArrayItem}
+          />
+          <ResourceArraySection
+            title="Extensions"
+            icon={<Zap size={13} />}
+            items={extensions}
+            field="extensions"
+            onAdd={addToArray}
+            onRemove={removeFromArray}
+            onUpdate={updateArrayItem}
+          />
+        </div>
       </div>
     </div>
   );

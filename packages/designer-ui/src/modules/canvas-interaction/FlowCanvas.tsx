@@ -35,6 +35,8 @@ import {
 interface FlowCanvasProps {
   workflowJson: Record<string, unknown>;
   diagramJson: Record<string, unknown>;
+  workflowSettingsActive?: boolean;
+  onToggleWorkflowSettings?: () => void;
 }
 
 const defaultEdgeOptions = {
@@ -53,7 +55,12 @@ type ContextMenuState =
       transitionKey: string;
     };
 
-function FlowCanvasInner({ workflowJson, diagramJson }: FlowCanvasProps) {
+function FlowCanvasInner({
+  workflowJson,
+  diagramJson,
+  workflowSettingsActive,
+  onToggleWorkflowSettings,
+}: FlowCanvasProps) {
   const {
     setSelectedNode,
     setSelectedEdge,
@@ -311,7 +318,12 @@ function FlowCanvasInner({ workflowJson, diagramJson }: FlowCanvasProps) {
           className="bg-muted-surface/80! border-border! rounded-xl!"
         />
         <Panel position="top-right">
-          <CanvasToolbar onAddState={handleToolbarAddState} onAutoLayout={handleAutoLayout} />
+          <CanvasToolbar
+            onAddState={handleToolbarAddState}
+            onAutoLayout={handleAutoLayout}
+            workflowSettingsActive={workflowSettingsActive}
+            onToggleWorkflowSettings={onToggleWorkflowSettings}
+          />
         </Panel>
       </ReactFlow>
 

@@ -1,4 +1,4 @@
-import { useLayoutEffect, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { AlertCircle, Save, Undo2, Redo2 } from 'lucide-react';
 import { Button } from '../../../ui/Button';
 import { Alert, AlertDescription } from '../../../ui/Alert';
@@ -69,6 +69,18 @@ export function ComponentEditorLayout({
 }: ComponentEditorLayoutProps) {
   const compact = Boolean(registerToolbar);
 
+  /** Araç çubuğu `useEffect` bağımlılıkları dışında tutuyoruz; aksi halde (ör. `onSave` her
+   * render yeni) üst `setToolbar` döngüye girer. */
+  const onSaveRef = useRef(onSave);
+  const onUndoRef = useRef(onUndo);
+  const onRedoRef = useRef(onRedo);
+  onSaveRef.current = onSave;
+  onUndoRef.current = onUndo;
+  onRedoRef.current = onRedo;
+
+  const hasUndoGroup = Boolean(onUndo);
+  const hasRedoButton = Boolean(onRedo);
+
   const toolbarNode = (
     <>
       <StatusBadge isDirty={isDirty} hasSaved={hasSaved} compact={compact} />
@@ -82,7 +94,7 @@ export function ComponentEditorLayout({
           aria-label="Geçmiş">
           <Button
             type="button"
-            onClick={onUndo}
+            onClick={() => onUndoRef.current?.()}
             disabled={!canUndo}
             variant="muted"
             size="sm"
@@ -93,7 +105,7 @@ export function ComponentEditorLayout({
           {onRedo && (
             <Button
               type="button"
-              onClick={onRedo}
+              onClick={() => onRedoRef.current?.()}
               disabled={!canRedo}
               variant="muted"
               size="sm"
@@ -106,7 +118,7 @@ export function ComponentEditorLayout({
       )}
       <Button
         type="button"
-        onClick={onSave}
+        onClick={() => onSaveRef.current()}
         disabled={!isDirty || saving}
         variant="success"
         size="sm"
@@ -118,7 +130,10 @@ export function ComponentEditorLayout({
     </>
   );
 
-  useLayoutEffect(() => {
+  // `toolbarNode` yalnızca ilkel/eylem bayrakları (isDirty, canUndo, …) değişince yenilenmeli;
+  // aksi halde `registerToolbar` + üstte `setState` sonsuz döngüye girebiliyor. onSave/Undo/Redo `ref`.
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- toolbarNode senkronu: yukarıdaki değerler
+  useEffect(() => {
     if (!registerToolbar) return;
     registerToolbar(
       <div className="flex max-w-full shrink-0 items-center gap-1 sm:gap-1.5">{toolbarNode}</div>,
@@ -131,12 +146,11 @@ export function ComponentEditorLayout({
     isDirty,
     hasSaved,
     saving,
-    onSave,
-    onUndo,
-    onRedo,
     canUndo,
     canRedo,
     compact,
+    hasUndoGroup,
+    hasRedoButton,
   ]);
 
   const errorBlock =

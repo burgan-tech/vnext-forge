@@ -186,9 +186,9 @@ export function LabelList({ labels }: { labels: any[] }) {
 
 export function SummaryCard({ label, value, color }: { label: string; value: number; color: string }) {
   return (
-    <div className={`rounded-xl p-3 text-center ${color}`}>
-      <div className="text-xl font-bold leading-none tabular-nums tracking-tight">{value}</div>
-      <div className="text-[10px] mt-1.5 opacity-60 font-semibold">{label}</div>
+    <div className={`rounded-lg px-2 py-2 text-center ${color}`}>
+      <div className="text-base font-bold leading-none tabular-nums tracking-tight">{value}</div>
+      <div className="mt-1 text-[9px] font-semibold leading-tight opacity-60">{label}</div>
     </div>
   );
 }

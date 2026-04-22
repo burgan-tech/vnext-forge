@@ -1,15 +1,21 @@
 import { useState, useRef, useEffect } from 'react';
 import {
   Plus, Wand2, Play, Square, CheckCircle2, XCircle,
-  StopCircle, PauseCircle, Repeat2, ChevronDown,
+  StopCircle, PauseCircle, Repeat2, ChevronDown, Settings2,
 } from 'lucide-react';
-
 interface CanvasToolbarProps {
   onAddState: (stateType: number, subType: number) => void;
   onAutoLayout: () => void;
+  workflowSettingsActive?: boolean;
+  onToggleWorkflowSettings?: () => void;
 }
 
-export function CanvasToolbar({ onAddState, onAutoLayout }: CanvasToolbarProps) {
+export function CanvasToolbar({
+  onAddState,
+  onAutoLayout,
+  workflowSettingsActive,
+  onToggleWorkflowSettings,
+}: CanvasToolbarProps) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -67,6 +73,25 @@ export function CanvasToolbar({ onAddState, onAutoLayout }: CanvasToolbarProps) 
         <Wand2 size={14} className="text-muted-icon" />
         <span>Layout</span>
       </button>
+
+      {onToggleWorkflowSettings && (
+        <>
+          <div className="h-5 w-px bg-border" />
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onToggleWorkflowSettings}
+              className={`shrink-0 rounded-xl p-1.5 transition-all duration-150 ${
+                workflowSettingsActive
+                  ? 'border border-secondary-border bg-secondary-surface text-secondary-text'
+                  : 'border border-transparent text-muted-foreground hover:border-muted-border-hover hover:bg-muted hover:text-foreground'
+              }`}
+              title="Workflow Settings">
+              <Settings2 size={16} />
+            </button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

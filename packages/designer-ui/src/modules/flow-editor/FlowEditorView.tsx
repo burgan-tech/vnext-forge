@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useCallback, useMemo, useState, type ReactNode } from 'react';
 import { ReactFlowProvider } from '@xyflow/react';
-import { AlertCircle, ArrowLeft, ChevronRight, Loader2, Settings2 } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Loader2 } from 'lucide-react';
 import { useEditorPanelsStore } from '../../store/useEditorPanelsStore';
-import { useProjectStore } from '../../store/useProjectStore';
 import { useWorkflowStore } from '../../store/useWorkflowStore';
+import { ComponentEditorLayout } from '../../modules/save-component/components/ComponentEditorLayout';
 import { FlowCanvas } from '../../modules/canvas-interaction/FlowCanvas';
 import {
   StatePropertyPanel,
@@ -19,8 +19,36 @@ import { useScriptPanelStore } from '../../modules/code-editor/ScriptPanelStore'
 import { useFlowEditorPersistence } from '../../modules/flow-editor/useFlowEditorPersistence';
 import { useFlowEditorDocument } from '../../modules/flow-editor/useFlowEditorDocument';
 import { Alert, AlertDescription, AlertTitle } from '../../ui/Alert';
-import { Badge } from '../../ui/Badge';
 import { Button } from '../../ui/Button';
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '../../ui/Resizable.js';
+
+const WORKFLOW_METADATA_RESIZE_PANEL_ID = 'workflow-metadata-resize';
+const WORKFLOW_BODY_BELOW_METADATA_PANEL_ID = 'workflow-body-below-metadata';
+
+/** Tahmini grup yüksekliği (viewport); default/min/max piksel ayarları buna göre. */
+const WORKFLOW_METADATA_GROUP_HEIGHT_ESTIMATE_OFFSET = 80;
+
+function getWorkflowMetadataVerticalResizeMetrics() {
+  const H =
+    typeof window !== 'undefined'
+      ? Math.max(400, window.innerHeight - WORKFLOW_METADATA_GROUP_HEIGHT_ESTIMATE_OFFSET)
+      : 720;
+  const r = (n: number) => Math.round(n * 1000) / 1000;
+  const minMetaPx = Math.round(H * 0.12) + 100;
+  let maxMetaPx = Math.round(H * 0.78) - 100;
+  maxMetaPx = Math.max(maxMetaPx, minMetaPx + 120);
+  let defaultMetaPx = Math.round(H * 0.38) + 100;
+  defaultMetaPx = Math.min(maxMetaPx, Math.max(minMetaPx, defaultMetaPx));
+  const metaPct = r((100 * defaultMetaPx) / H);
+  return {
+    minMetaPx,
+    maxMetaPx,
+    defaultLayout: {
+      [WORKFLOW_METADATA_RESIZE_PANEL_ID]: metaPct,
+      [WORKFLOW_BODY_BELOW_METADATA_PANEL_ID]: r(100 - metaPct),
+    } as const,
+  };
+}
 
 export interface FlowEditorViewProps {
   projectId: string;
@@ -32,32 +60,54 @@ export interface FlowEditorViewProps {
    * editor stays router-agnostic.
    */
   onNavigateBack?: () => void;
+  /**
+   * Web: sekme satırı sağına Save / Undo / Modified araç çubuğunu taşır (`setToolbar`).
+   * VS Code webview: verilmez; düzenleyici üstünde yerel araç satırı gösterilir.
+   */
+  registerToolbar?: (toolbar: ReactNode | null) => void;
 }
 
-export function FlowEditorView({ projectId, group, name, onNavigateBack }: FlowEditorViewProps) {
+export function FlowEditorView({
+  projectId: _projectId,
+  group,
+  name,
+  onNavigateBack,
+  registerToolbar,
+}: FlowEditorViewProps) {
   const { workflowJson, diagramJson, selectedNodeId, selectedEdgeId, isDirty } = useWorkflowStore();
-  const { activeProject } = useProjectStore();
+  const undo = useWorkflowStore((s) => s.undo);
+  const redo = useWorkflowStore((s) => s.redo);
+  const undoStackLength = useWorkflowStore((s) => s.undoStack.length);
+  const redoStackLength = useWorkflowStore((s) => s.redoStack.length);
   const { propertiesPanelOpen, scriptPanelOpen } = useEditorPanelsStore();
   const { activeScript } = useScriptPanelStore();
   const [showMetadata, setShowMetadata] = useState(false);
 
+  const workflowMetadataResizeMetrics = useMemo(
+    () => getWorkflowMetadataVerticalResizeMetrics(),
+    [],
+  );
+
   const { loading, error } = useFlowEditorDocument({ group, name });
-  const { saveError, saving } = useFlowEditorPersistence({ group, name });
+  const { save, saveError, saving } = useFlowEditorPersistence({ group, name });
+  const handleSave = useCallback(() => {
+    void save();
+  }, [save]);
 
   if (loading) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 bg-background">
-        <div className="flex size-10 items-center justify-center rounded-2xl bg-muted">
-          <Loader2 size={20} className="animate-spin text-muted-icon" />
+      <div className="bg-background flex h-full flex-col items-center justify-center gap-3">
+        <div className="bg-muted flex size-10 items-center justify-center rounded-2xl">
+          <Loader2 size={20} className="text-muted-icon animate-spin" />
         </div>
-        <span className="text-[13px] font-medium text-muted-foreground">Loading workflow...</span>
+        <span className="text-muted-foreground text-[13px] font-medium">Loading workflow...</span>
       </div>
     );
   }
 
   if (error || !workflowJson || !diagramJson) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-4 bg-background px-6">
+      <div className="bg-background flex h-full flex-col items-center justify-center gap-4 px-6">
         <div className="w-full max-w-md">
           <Alert variant="destructive">
             <AlertCircle size={16} />
@@ -81,87 +131,81 @@ export function FlowEditorView({ projectId, group, name, onNavigateBack }: FlowE
 
   const showSidePanel = propertiesPanelOpen && (selectedNodeId || selectedEdgeId);
 
-  return (
-    <div className="flex h-full flex-col bg-background">
-      <div className="flex shrink-0 items-center gap-2 border-b border-border-subtle bg-surface/80 px-4 py-2.5 text-xs backdrop-blur-sm">
-        {onNavigateBack ? (
-          <button
-            onClick={onNavigateBack}
-            className="font-medium text-muted-foreground transition-colors hover:text-foreground">
-            {activeProject?.domain || projectId}
-          </button>
-        ) : (
-          <span className="font-medium text-muted-foreground">
-            {activeProject?.domain || projectId}
-          </span>
-        )}
-        <ChevronRight size={12} className="text-muted-foreground" />
-        <span className="text-muted-foreground">Workflows</span>
-        <ChevronRight size={12} className="text-muted-foreground" />
-        <span className="font-semibold tracking-tight text-foreground">
-          {group}/{name}
-        </span>
-        {isDirty && (
-          <Badge variant="muted" className="ml-1.5" title="Unsaved changes">
-            Modified
-          </Badge>
-        )}
-        {saving && <span className="ml-2 text-muted-foreground">Saving...</span>}
+  const flowCanvasProps = {
+    workflowJson,
+    diagramJson,
+    workflowSettingsActive: showMetadata,
+    onToggleWorkflowSettings: () => setShowMetadata((v) => !v),
+  } as const;
 
-        <button
-          onClick={() => setShowMetadata(!showMetadata)}
-          className={`ml-auto rounded-xl p-1.5 transition-all duration-150 ${
-            showMetadata
-              ? 'border border-secondary-border bg-secondary-surface text-secondary-text'
-              : 'border border-transparent text-muted-foreground hover:border-muted-border-hover hover:bg-muted hover:text-foreground'
-          }`}
-          title="Workflow Settings">
-          <Settings2 size={16} />
-        </button>
-      </div>
-
-      {showMetadata && <WorkflowMetadataPanel onClose={() => setShowMetadata(false)} />}
-      {saveError && (
-        <div className="border-b border-border-subtle px-4 py-3">
-          <Alert variant="destructive">
-            <AlertCircle size={14} className="shrink-0" />
-            <AlertTitle>Unable to save workflow</AlertTitle>
-            <AlertDescription>{saveError.toUserMessage().message}</AlertDescription>
-          </Alert>
-        </div>
-      )}
-
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-        <FlowEditorCanvasAndScriptResizableColumn
-          canvas={
-            <div className="flex min-h-0 flex-1 overflow-hidden">
-              {showSidePanel ? (
-                <WorkflowPropertySidebarResizableRow
-                  canvas={
-                    <div className="relative h-full min-h-0 w-full">
-                      <ReactFlowProvider>
-                        <FlowCanvas workflowJson={workflowJson} diagramJson={diagramJson} />
-                      </ReactFlowProvider>
-                    </div>
-                  }
-                  sidePanel={
-                    selectedNodeId ? <StatePropertyPanel /> : <TransitionPropertyPanel />
-                  }
-                />
-              ) : (
-                <div className="relative h-full min-h-0 flex-1">
-                  <ReactFlowProvider>
-                    <FlowCanvas workflowJson={workflowJson} diagramJson={diagramJson} />
-                  </ReactFlowProvider>
-                </div>
-              )}
-            </div>
-          }
-          scriptPanel={
-            scriptPanelOpen && activeScript ? <ScriptEditorPanel /> : null
-          }
-        />
-      </div>
+  const editorBody = (
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+      <FlowEditorCanvasAndScriptResizableColumn
+        canvas={
+          <div className="flex min-h-0 flex-1 overflow-hidden">
+            {showSidePanel ? (
+              <WorkflowPropertySidebarResizableRow
+                canvas={
+                  <div className="relative h-full min-h-0 w-full">
+                    <ReactFlowProvider>
+                      <FlowCanvas {...flowCanvasProps} />
+                    </ReactFlowProvider>
+                  </div>
+                }
+                sidePanel={selectedNodeId ? <StatePropertyPanel /> : <TransitionPropertyPanel />}
+              />
+            ) : (
+              <div className="relative h-full min-h-0 flex-1">
+                <ReactFlowProvider>
+                  <FlowCanvas {...flowCanvasProps} />
+                </ReactFlowProvider>
+              </div>
+            )}
+          </div>
+        }
+        scriptPanel={scriptPanelOpen && activeScript ? <ScriptEditorPanel /> : null}
+      />
     </div>
+  );
+
+  return (
+    <ComponentEditorLayout
+      canRedo={redoStackLength > 0}
+      canUndo={undoStackLength > 0}
+      hasSaved={!isDirty && undoStackLength > 0}
+      isDirty={isDirty}
+      onRedo={redo}
+      onSave={handleSave}
+      onUndo={undo}
+      registerToolbar={registerToolbar}
+      saveErrorMessage={saveError?.toUserMessage().message ?? null}
+      saving={saving}>
+      <div className="bg-background flex h-full min-h-0 min-w-0 flex-col">
+        {showMetadata ? (
+          <ResizablePanelGroup
+            className="flex min-h-0 w-full min-w-0 flex-1 flex-col items-stretch overflow-hidden"
+            defaultLayout={workflowMetadataResizeMetrics.defaultLayout}
+            id="workflow-settings-vertical-resize"
+            orientation="vertical">
+            <ResizablePanel
+              className="flex min-h-0 w-full min-w-0 flex-col overflow-hidden"
+              id={WORKFLOW_METADATA_RESIZE_PANEL_ID}
+              maxSize={workflowMetadataResizeMetrics.maxMetaPx}
+              minSize={workflowMetadataResizeMetrics.minMetaPx}>
+              <WorkflowMetadataPanel onClose={() => setShowMetadata(false)} />
+            </ResizablePanel>
+            <ResizableHandle className="-mt-px box-border w-full max-w-none shrink-0 aria-[orientation=horizontal]:before:top-auto aria-[orientation=horizontal]:before:bottom-0" />
+            <ResizablePanel
+              className="flex min-h-0 min-w-0 flex-col overflow-hidden"
+              id={WORKFLOW_BODY_BELOW_METADATA_PANEL_ID}
+              minSize="22%">
+              {editorBody}
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        ) : (
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{editorBody}</div>
+        )}
+      </div>
+    </ComponentEditorLayout>
   );
 }

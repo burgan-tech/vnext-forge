@@ -1,11 +1,6 @@
 import { AlertTriangle, CheckCircle2 } from 'lucide-react';
 
-import {
-  useProjectStore,
-  useRuntimeStore,
-  useValidationStore,
-  useWorkflowStore,
-} from '@vnext-forge/designer-ui';
+import { useProjectStore, useRuntimeStore, useValidationStore } from '@vnext-forge/designer-ui';
 
 import { StatusBarNotification } from './StatusBarNotification';
 import { useVnextWorkspaceUiStore } from '../../store/useVnextWorkspaceUiStore';
@@ -22,7 +17,6 @@ export function StatusBar() {
   const componentLayoutStatus = useVnextWorkspaceUiStore((s) => s.componentLayoutStatus);
   const openTemplateSeedDialog = useVnextWorkspaceUiStore((s) => s.openTemplateSeedDialog);
   const { connected, healthStatus } = useRuntimeStore();
-  const { isDirty } = useWorkflowStore();
   const { issues } = useValidationStore();
   const { configIssues } = useWorkspaceDiagnosticsStore();
   const invalidVnextConfigIssue = configIssues.find((i) => i.id === 'workspace-config-invalid');
@@ -117,17 +111,6 @@ export function StatusBar() {
       </span>
 
       <span className="flex-1" />
-
-      {isDirty && (
-        <StatusBarNotification
-          variant="chip-warning"
-          className="gap-1.5"
-          leading={
-            <span className="bg-brand-surface-dot-warning h-1.5 w-1.5 shrink-0 animate-pulse rounded-full" />
-          }>
-          Modified
-        </StatusBarNotification>
-      )}
 
       {totalErrors > 0 ? <StatusBarWorkspaceIssuesPopover items={errorPopoverItems} /> : null}
 

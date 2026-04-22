@@ -137,10 +137,10 @@ export function StatePropertyPanel() {
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="border-border-subtle bg-surface border-b px-4 py-3.5">
-        <div className="mb-1 flex items-center gap-2">
-          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-            <span className="text-foreground truncate text-[14px] font-bold tracking-tight">
+      <div className="border-border-subtle bg-surface border-b px-3 py-2">
+        <div className="mb-0.5 flex items-center gap-1.5">
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+            <span className="text-foreground truncate text-[13px] font-bold tracking-tight">
               {state.key}
             </span>
             <Badge className={getStateTypeColor(stateType)}>{getStateTypeLabel(stateType)}</Badge>
@@ -158,19 +158,19 @@ export function StatePropertyPanel() {
           </button>
         </div>
         {getLabel(state) && (
-          <div className="text-muted-foreground truncate text-[12px]">{getLabel(state)}</div>
+          <div className="text-muted-foreground truncate text-[11px] leading-snug">{getLabel(state)}</div>
         )}
       </div>
 
       {/* Tabs */}
-      <div className="border-border-subtle bg-muted-surface flex border-b px-1">
+      <div className="border-border-subtle bg-muted-surface flex border-b px-0.5">
         {tabs
           .filter((t) => t.show)
           .map((tab) => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
-              className={`cursor-pointer border-b-2 px-3 py-2.5 text-[12px] font-semibold tracking-tight whitespace-nowrap transition-all ${
+              className={`cursor-pointer border-b-2 px-2.5 py-1.5 text-[11px] font-semibold tracking-tight whitespace-nowrap transition-all ${
                 activeTab === tab.key
                   ? 'border-secondary-border text-secondary-icon'
                   : 'text-muted-foreground hover:text-primary-icon hover:border-muted-border-hover border-transparent'
@@ -191,7 +191,7 @@ export function StatePropertyPanel() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 space-y-3 overflow-y-auto p-4">
+      <div className="flex-1 space-y-3 overflow-y-auto p-3">
         {activeTab === 'general' && <GeneralTab state={state} updateWorkflow={updateWorkflow} />}
         {activeTab === 'tasks' && <TasksTab state={state} />}
         {activeTab === 'transitions' && <TransitionsTab state={state} />}

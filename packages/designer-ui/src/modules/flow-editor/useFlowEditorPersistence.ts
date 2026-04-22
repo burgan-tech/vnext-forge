@@ -14,8 +14,8 @@ interface UseFlowEditorPersistenceOptions {
 }
 
 export function useFlowEditorPersistence({ group, name }: UseFlowEditorPersistenceOptions) {
-  const { workflowJson, diagramJson, isDirty, markClean } = useWorkflowStore();
-  const { activeProject, vnextConfig } = useProjectStore();
+  const isDirty = useWorkflowStore((s) => s.isDirty);
+  const markClean = useWorkflowStore((s) => s.markClean);
 
   const { execute, loading, error } = useAsync(saveFlowEditorDocument, {
     showNotificationOnSuccess: false,
@@ -29,8 +29,17 @@ export function useFlowEditorPersistence({ group, name }: UseFlowEditorPersisten
     },
   });
 
+  /**
+   * `workflowJson` / `diagramJson` her düzenlemede değişir; `save`'i buna
+   * bağımlı tutmak `ComponentEditorLayout` + `registerToolbar` içindeki
+   * `useLayoutEffect`'i her güncellemede tetikleyip üstte `setToolbar` ile
+   * sonsuz güncelleme döngüsüne yol açabiliyor. Anlık snapshot için
+   * `getState()` kullan.
+   */
   const save = useCallback(async () => {
-    if (!workflowJson || !diagramJson || !activeProject || !vnextConfig || !isDirty) {
+    const { workflowJson, diagramJson, isDirty: dirty } = useWorkflowStore.getState();
+    const { activeProject, vnextConfig } = useProjectStore.getState();
+    if (!workflowJson || !diagramJson || !activeProject || !vnextConfig || !dirty) {
       return;
     }
 
@@ -43,7 +52,7 @@ export function useFlowEditorPersistence({ group, name }: UseFlowEditorPersisten
       workflowJson,
       diagramJson,
     });
-  }, [activeProject, diagramJson, execute, group, isDirty, name, vnextConfig, workflowJson]);
+  }, [execute, group, name]);
 
   useRegisterGlobalSaveShortcut(save);
 
