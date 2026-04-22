@@ -37,6 +37,12 @@ export function useProjectWorkspacePage(projectId?: string): ProjectWorkspacePag
   const setVnextConfig = useProjectStore((s) => s.setVnextConfig);
   const setLoading = useProjectStore((s) => s.setLoading);
   const setError = useProjectStore((s) => s.setError);
+  const activeProjectId = useProjectStore((s) => s.activeProject?.id);
+  const workspaceLoading = useProjectStore((s) => s.loading);
+  const fileTree = useProjectListStore((s) => s.fileTree);
+  const fileTreeProjectId = useProjectListStore((s) => s.fileTreeProjectId);
+  const fileTreeError = useProjectListStore((s) => s.fileTreeError);
+  const refreshFileTree = useProjectListStore((s) => s.refreshFileTree);
   const clearConfigIssues = useWorkspaceDiagnosticsStore((s) => s.clearConfigIssues);
   const resetVnextWorkspaceUi = useVnextWorkspaceUiStore((s) => s.resetVnextWorkspaceUi);
 
@@ -178,6 +184,38 @@ export function useProjectWorkspacePage(projectId?: string): ProjectWorkspacePag
       cancelled = true;
     };
   }, [fetchAndApplyBootstrap, projectId, resetWorkspaceState, setLoading]);
+
+  /**
+   * HMR / kısmi modül yükü: `fileTree` store sıfırlanabilir, `activeProject` kalabilir;
+   * bootstrap effect yalnızca `projectId` değişince çalışır, bu durumda ağaç sonsuz
+   * "Loading"de kalırdı. Rota, aktif proje ve ağaç eşleşmiyorsa (hata dışı) yenile.
+   */
+  useEffect(() => {
+    if (!projectId) {
+      return;
+    }
+    if (workspaceLoading) {
+      return;
+    }
+    if (fileTreeError) {
+      return;
+    }
+    if (activeProjectId == null || activeProjectId !== projectId) {
+      return;
+    }
+    if (fileTree && fileTreeProjectId === projectId) {
+      return;
+    }
+    void refreshFileTree();
+  }, [
+    projectId,
+    activeProjectId,
+    workspaceLoading,
+    fileTree,
+    fileTreeProjectId,
+    fileTreeError,
+    refreshFileTree,
+  ]);
 
   return {
     reloadProjectWorkspace,

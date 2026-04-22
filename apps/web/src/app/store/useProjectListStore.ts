@@ -24,23 +24,38 @@ interface ProjectListState {
   fileTree: FileTreeNode | null;
   /** `fileTree` hangi proje için üretildiyse; `activeProject.id` ile eşleşmezse sidebar eski ağacı göstermez. */
   fileTreeProjectId: string | null;
+  /** `refreshFileTree` veya ağaç eşleşmediğinde; kullanıcıya hata + yeniden dene. */
+  fileTreeError: string | null;
+  isRefreshingFileTree: boolean;
   setProjects: (projects: ProjectInfo[]) => void;
   setWorkspaceFileTree: (projectId: string | null, tree: FileTreeNode | null) => void;
   refreshFileTree: () => Promise<void>;
+}
+
+function fileListMessage(err: unknown): string {
+  if (err instanceof Error && err.message.length > 0) {
+    return err.message;
+  }
+  return 'Could not load file list';
 }
 
 export const useProjectListStore = create<ProjectListState>((set) => ({
   projects: [],
   fileTree: null,
   fileTreeProjectId: null,
+  fileTreeError: null,
+  isRefreshingFileTree: false,
   setProjects: (projects) => set({ projects }),
-  setWorkspaceFileTree: (projectId, tree) => set({ fileTree: tree, fileTreeProjectId: projectId }),
+  setWorkspaceFileTree: (projectId, tree) =>
+    set({ fileTree: tree, fileTreeProjectId: projectId, fileTreeError: null }),
   refreshFileTree: async () => {
     const { activeProject, vnextConfig } = useProjectStore.getState();
 
     if (!activeProject) {
       return;
     }
+
+    set({ isRefreshingFileTree: true, fileTreeError: null });
 
     try {
       const treeResponse = await getProjectTree(activeProject.id);
@@ -49,13 +64,27 @@ export const useProjectListStore = create<ProjectListState>((set) => ({
         throw new Error(treeResponse.error.message);
       }
 
-      set({ fileTree: treeResponse.data, fileTreeProjectId: activeProject.id });
+      set({
+        fileTree: treeResponse.data,
+        fileTreeProjectId: activeProject.id,
+        fileTreeError: null,
+      });
 
       if (vnextConfig) {
-        await refreshWorkspaceLayoutAndValidateScript(activeProject.id);
+        try {
+          await refreshWorkspaceLayoutAndValidateScript(activeProject.id);
+        } catch {
+          /* Ağaç geçerli; layout/validate türetimi ayrı hata, ağacı silme. */
+        }
       }
-    } catch {
-      set({ fileTree: null, fileTreeProjectId: null });
+    } catch (err) {
+      set({
+        fileTree: null,
+        fileTreeProjectId: null,
+        fileTreeError: fileListMessage(err),
+      });
+    } finally {
+      set({ isRefreshingFileTree: false });
     }
   },
 }));

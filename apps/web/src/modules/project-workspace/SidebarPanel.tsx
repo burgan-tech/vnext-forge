@@ -13,6 +13,8 @@ import { useProjectWorkspace } from './hooks/useProjectWorkspace';
 
 export function ProjectWorkspaceSidebarPanel() {
   const fileTreeProjectId = useProjectListStore((s) => s.fileTreeProjectId);
+  const fileTreeError = useProjectListStore((s) => s.fileTreeError);
+  const refreshFileTree = useProjectListStore((s) => s.refreshFileTree);
   const {
     activeProject,
     fileTree,
@@ -89,7 +91,19 @@ export function ProjectWorkspaceSidebarPanel() {
       </div>
 
       <div className="mt-1">
-        {!treeMatchesProject ? (
+        {!treeMatchesProject && fileTreeError ? (
+          <div className="px-4 py-6 text-center text-[11px]">
+            <p className="text-muted-foreground mb-3 leading-relaxed">{fileTreeError}</p>
+            <button
+              type="button"
+              className="text-foreground bg-secondary border-secondary-border hover:bg-secondary-hover rounded-md border px-2.5 py-1 text-[11px] font-medium transition-colors"
+              onClick={() => {
+                void refreshFileTree();
+              }}>
+              Retry
+            </button>
+          </div>
+        ) : !treeMatchesProject ? (
           <div className="text-muted-foreground px-4 py-6 text-center text-[11px]">
             Loading files…
           </div>
