@@ -32,27 +32,27 @@
       {
         "command": "vnextForge.open",
         "title": "Open Designer",
-        "category": "vnext-forge"
+        "category": "Forge"
       },
       {
         "command": "vnextForge.openDesigner",
-        "title": "Open Designer",
-        "category": "vnext-forge"
+        "title": "Open with vNext Forge",
+        "category": "Forge"
       },
       {
         "command": "vnextForge.openInTextEditor",
-        "title": "Open in Text Editor",
-        "category": "vnext-forge"
+        "title": "Open with Text Editor",
+        "category": "Forge"
       },
       {
         "command": "vnextForge.createProject",
         "title": "Create vnext Project",
-        "category": "vnext-forge"
+        "category": "Forge"
       },
       {
         "command": "vnextForge.createComponent",
         "title": "Create vnext Component",
-        "category": "vnext-forge"
+        "category": "Forge"
       }
     ],
     "menus": {
@@ -80,24 +80,24 @@
       "explorer/context": [
         {
           "command": "vnextForge.openDesigner",
-          "when": "vnextForge.isVnextWorkspace && resourceExtname =~ /^\\.(json|csx|cs|js|ts|xml|ya?ml|md|html?|css|sql|sh|py|txt|http)$/",
+          "when": "vnextForge.isVnextWorkspace && resourceExtname == .json && resourcePath =~ /[\\\\/](Tasks|Views|Functions|Extensions|Workflows|Schemas)[\\\\/]/",
           "group": "navigation@1"
         },
         {
           "command": "vnextForge.openInTextEditor",
-          "when": "vnextForge.isVnextWorkspace && resourceExtname == .json",
+          "when": "vnextForge.isVnextWorkspace && resourceExtname == .json && resourcePath =~ /[\\\\/](Tasks|Views|Functions|Extensions|Workflows|Schemas)[\\\\/]/",
           "group": "navigation@2"
         }
       ],
       "editor/title/context": [
         {
           "command": "vnextForge.openDesigner",
-          "when": "vnextForge.isVnextWorkspace && resourceExtname =~ /^\\.(json|csx|cs|js|ts|xml|ya?ml|md|html?|css|sql|sh|py|txt|http)$/",
+          "when": "vnextForge.isVnextWorkspace && resourceExtname == .json && resourcePath =~ /[\\\\/](Tasks|Views|Functions|Extensions|Workflows|Schemas)[\\\\/]/",
           "group": "navigation@1"
         },
         {
           "command": "vnextForge.openInTextEditor",
-          "when": "vnextForge.isVnextWorkspace && resourceExtname == .json",
+          "when": "vnextForge.isVnextWorkspace && resourceExtname == .json && resourcePath =~ /[\\\\/](Tasks|Views|Functions|Extensions|Workflows|Schemas)[\\\\/]/",
           "group": "navigation@2"
         }
       ]

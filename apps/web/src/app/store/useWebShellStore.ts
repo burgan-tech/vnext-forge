@@ -19,7 +19,7 @@ interface WebShellState {
  */
 export const useWebShellStore = create<WebShellState>((set) => ({
   sidebarOpen: true,
-  sidebarWidth: 280,
+  sidebarWidth: 230,
   sidebarView: 'project',
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
   setSidebarView: (sidebarView) => set({ sidebarView, sidebarOpen: true }),
