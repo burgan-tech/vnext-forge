@@ -1,67 +1,69 @@
-import * as vscode from 'vscode'
-import * as path from 'node:path'
-import * as fs from 'node:fs/promises'
-import type { ProjectService, WorkspaceService, VnextWorkspaceConfig } from '@vnext-forge/services-core'
-import { baseLogger } from './shared/logger.js'
-import { markUriSkipComponentDesignerAutoOpen } from './component-json-auto-open.js'
-import { isDesignerEditorRoute, resolveProjectForRoot } from './designer-helpers.js'
-import { resolveFileRoute } from './file-router.js'
-import type { VnextWorkspaceDetector, VnextWorkspaceRoot } from './workspace-detector.js'
-import type { DesignerEditorKind, DesignerPanel } from './panels/DesignerPanel.js'
+import * as vscode from 'vscode';
+import * as path from 'node:path';
+import * as fs from 'node:fs/promises';
+import type {
+  ProjectService,
+  WorkspaceService,
+  VnextWorkspaceConfig,
+} from '@vnext-forge/services-core';
+import { baseLogger } from './shared/logger.js';
+import { isDesignerEditorRoute, resolveProjectForRoot } from './designer-helpers.js';
+import { resolveFileRoute } from './file-router.js';
+import type { VnextWorkspaceDetector, VnextWorkspaceRoot } from './workspace-detector.js';
+import type { DesignerEditorKind, DesignerPanel } from './panels/DesignerPanel.js';
 
 interface CommandDeps {
-  projectService: ProjectService
-  workspaceService: WorkspaceService
-  detector: VnextWorkspaceDetector
-  designerPanel: DesignerPanel
+  projectService: ProjectService;
+  workspaceService: WorkspaceService;
+  detector: VnextWorkspaceDetector;
+  designerPanel: DesignerPanel;
 }
 
 /** Register all VS Code commands for vnext-forge. */
-export function registerCommands(
-  context: vscode.ExtensionContext,
-  deps: CommandDeps,
-): void {
+export function registerCommands(context: vscode.ExtensionContext, deps: CommandDeps): void {
   context.subscriptions.push(
     vscode.commands.registerCommand('vnextForge.open', () => openCommand(deps)),
     vscode.commands.registerCommand('vnextForge.openDesigner', (uri?: vscode.Uri) =>
       openDesignerCommand(uri, deps),
     ),
     vscode.commands.registerCommand('vnextForge.openInTextEditor', (uri?: vscode.Uri) =>
-      openInTextEditorCommand(uri, deps),
+      openInTextEditorCommand(uri),
     ),
     vscode.commands.registerCommand('vnextForge.createProject', () => createProjectCommand(deps)),
-    vscode.commands.registerCommand('vnextForge.createComponent', () => createComponentCommand(deps)),
-  )
+    vscode.commands.registerCommand('vnextForge.createComponent', () =>
+      createComponentCommand(deps),
+    ),
+  );
 }
 
 // ── vnextForge.open ───────────────────────────────────────────────────────────
 
 function openCommand({ designerPanel }: CommandDeps): void {
-  designerPanel.openOrRevealEmpty()
+  designerPanel.openOrRevealEmpty();
 }
 
 // ── vnextForge.openDesigner ──────────────────────────────────────────────────
 
 async function openDesignerCommand(uri: vscode.Uri | undefined, deps: CommandDeps): Promise<void> {
-  const targetUri = uri ?? vscode.window.activeTextEditor?.document.uri
+  const targetUri = uri ?? vscode.window.activeTextEditor?.document.uri;
   if (!targetUri) {
-    void vscode.window.showWarningMessage('vnext-forge: No file selected to open in the designer.')
-    return
+    void vscode.window.showWarningMessage('vnext-forge: No file selected to open in the designer.');
+    return;
   }
 
-  const target = targetUri.fsPath
-  const root = deps.detector.findOwningRoot(target)
+  const target = targetUri.fsPath;
+  const root = deps.detector.findOwningRoot(target);
   if (!root) {
     void vscode.window.showWarningMessage(
       'vnext-forge: The selected file is not inside a vnext workspace (no vnext.config.json found).',
-    )
-    return
+    );
+    return;
   }
 
-  const projectInfo = await resolveProjectForRoot(root, deps.workspaceService, deps.projectService)
-  if (!projectInfo) return
+  const projectInfo = await resolveProjectForRoot(root, deps.workspaceService, deps.projectService);
+  if (!projectInfo) return;
 
-  const route = resolveFileRoute(target, projectInfo.config, root.folderPath)
+  const route = resolveFileRoute(target, projectInfo.config, root.folderPath);
 
   // Files that don't map to a designer editor (vnext.config.json, generic
   // source files) are opened in VS Code's native editor — the webview only
@@ -69,15 +71,15 @@ async function openDesignerCommand(uri: vscode.Uri | undefined, deps: CommandDep
   // like a VS Code integration rather than a web app embedded inside VS Code.
   if (!isDesignerEditorRoute(route)) {
     try {
-      const document = await vscode.workspace.openTextDocument(targetUri)
-      await vscode.window.showTextDocument(document, { preview: false })
+      const document = await vscode.workspace.openTextDocument(targetUri);
+      await vscode.window.showTextDocument(document, { preview: false });
     } catch (error) {
       baseLogger.warn(
         { target, error: (error as Error).message },
         'Failed to open file in native editor',
-      )
+      );
     }
-    return
+    return;
   }
 
   deps.designerPanel.openEditor({
@@ -90,29 +92,33 @@ async function openDesignerCommand(uri: vscode.Uri | undefined, deps: CommandDep
     name: route.name,
     filePath: route.filePath,
     vnextConfig: projectInfo.config,
-  })
+  });
 }
 
 // ── vnextForge.openInTextEditor ─────────────────────────────────────────────
 
 /** Bileşen yollarındaki .json (veya herhangi bir dosya) VS Code metin editöründe, tasarımcıyı atlayarak. */
-async function openInTextEditorCommand(uri: vscode.Uri | undefined, deps: CommandDeps): Promise<void> {
-  const targetUri = uri ?? vscode.window.activeTextEditor?.document.uri
+async function openInTextEditorCommand(uri: vscode.Uri | undefined): Promise<void> {
+  const targetUri = uri ?? vscode.window.activeTextEditor?.document.uri;
   if (!targetUri) {
-    void vscode.window.showWarningMessage('vnext-forge: No file selected to open in the text editor.')
-    return
+    void vscode.window.showWarningMessage(
+      'vnext-forge: No file selected to open in the text editor.',
+    );
+    return;
   }
 
-  markUriSkipComponentDesignerAutoOpen(targetUri)
-
+  // `vscode.openWith` + `default` viewType, custom editor'ı (vnext-forge
+  // designer) atlayıp dosyayı doğrudan VS Code'un yerleşik metin
+  // editöründe açar. `openTextDocument` + `showTextDocument` çoğu
+  // sürümde çalışsa da, custom editor priority `default` iken bazı
+  // sürümlerde tasarımcıya geri yönlendirebiliyor.
   try {
-    const document = await vscode.workspace.openTextDocument(targetUri)
-    await vscode.window.showTextDocument(document, { preview: false })
+    await vscode.commands.executeCommand('vscode.openWith', targetUri, 'default');
   } catch (error) {
     baseLogger.warn(
       { path: targetUri.fsPath, error: (error as Error).message },
       'Failed to open file in native text editor',
-    )
+    );
   }
 }
 
@@ -124,24 +130,24 @@ async function createProjectCommand({ projectService, detector }: CommandDeps): 
     prompt: 'Domain name (used as project id)',
     placeHolder: 'my-domain',
     validateInput: (value) => {
-      const trimmed = value.trim()
-      if (!trimmed) return 'Domain name is required'
+      const trimmed = value.trim();
+      if (!trimmed) return 'Domain name is required';
       if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(trimmed)) {
-        return 'Use letters, digits, ".", "_" or "-" (must start with a letter or digit)'
+        return 'Use letters, digits, ".", "_" or "-" (must start with a letter or digit)';
       }
-      return null
+      return null;
     },
     ignoreFocusOut: true,
-  })
-  if (!domain) return
+  });
+  if (!domain) return;
 
   const description = await vscode.window.showInputBox({
     title: 'Create vnext Project',
     prompt: 'Description (optional)',
     ignoreFocusOut: true,
-  })
+  });
 
-  const defaultUri = vscode.workspace.workspaceFolders?.[0]?.uri
+  const defaultUri = vscode.workspace.workspaceFolders?.[0]?.uri;
   const targetUris = await vscode.window.showOpenDialog({
     title: 'Select target folder for the new project',
     canSelectFolders: true,
@@ -149,9 +155,9 @@ async function createProjectCommand({ projectService, detector }: CommandDeps): 
     canSelectMany: false,
     defaultUri,
     openLabel: 'Create Here',
-  })
-  if (!targetUris || targetUris.length === 0) return
-  const targetPath = targetUris[0].fsPath
+  });
+  if (!targetUris || targetUris.length === 0) return;
+  const targetPath = targetUris[0].fsPath;
 
   try {
     const project = await vscode.window.withProgress(
@@ -161,32 +167,36 @@ async function createProjectCommand({ projectService, detector }: CommandDeps): 
       },
       () =>
         projectService.createProject(domain.trim(), description?.trim() ?? undefined, targetPath),
-    )
+    );
 
-    await detector.refresh()
+    await detector.refresh();
 
     const action = await vscode.window.showInformationMessage(
       `vnext-forge: Project "${project.domain}" created at ${project.path}.`,
       'Open in New Window',
       'Add to Workspace',
-    )
+    );
 
     if (action === 'Open in New Window') {
-      await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(project.path), true)
+      await vscode.commands.executeCommand(
+        'vscode.openFolder',
+        vscode.Uri.file(project.path),
+        true,
+      );
     } else if (action === 'Add to Workspace') {
-      const start = vscode.workspace.workspaceFolders?.length ?? 0
-      vscode.workspace.updateWorkspaceFolders(start, 0, { uri: vscode.Uri.file(project.path) })
+      const start = vscode.workspace.workspaceFolders?.length ?? 0;
+      vscode.workspace.updateWorkspaceFolders(start, 0, { uri: vscode.Uri.file(project.path) });
     }
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    baseLogger.error({ domain, message }, 'Failed to create vnext project')
-    void vscode.window.showErrorMessage(`vnext-forge: Failed to create project. ${message}`)
+    const message = error instanceof Error ? error.message : String(error);
+    baseLogger.error({ domain, message }, 'Failed to create vnext project');
+    void vscode.window.showErrorMessage(`vnext-forge: Failed to create project. ${message}`);
   }
 }
 
 // ── vnextForge.createComponent ───────────────────────────────────────────────
 
-type ComponentKind = DesignerEditorKind
+type ComponentKind = DesignerEditorKind;
 
 const COMPONENT_KINDS: { kind: ComponentKind; label: string; description: string }[] = [
   { kind: 'workflow', label: 'Workflow', description: 'Flow / SubFlow / Core definition' },
@@ -195,112 +205,118 @@ const COMPONENT_KINDS: { kind: ComponentKind; label: string; description: string
   { kind: 'view', label: 'View', description: 'UI view binding' },
   { kind: 'function', label: 'Function', description: 'Scripted function' },
   { kind: 'extension', label: 'Extension', description: 'Extension definition' },
-]
+];
 
 function pathSegmentForKind(config: VnextWorkspaceConfig, kind: ComponentKind): string {
   switch (kind) {
     case 'workflow':
-      return config.paths.workflows
+      return config.paths.workflows;
     case 'task':
-      return config.paths.tasks
+      return config.paths.tasks;
     case 'schema':
-      return config.paths.schemas
+      return config.paths.schemas;
     case 'view':
-      return config.paths.views
+      return config.paths.views;
     case 'function':
-      return config.paths.functions
+      return config.paths.functions;
     case 'extension':
-      return config.paths.extensions
+      return config.paths.extensions;
   }
 }
 
 async function createComponentCommand(deps: CommandDeps): Promise<void> {
-  const { detector, workspaceService, designerPanel } = deps
-  const roots = detector.getRoots()
+  const { detector, workspaceService, designerPanel } = deps;
+  const roots = detector.getRoots();
   if (roots.length === 0) {
     void vscode.window.showWarningMessage(
       'vnext-forge: Open a folder containing vnext.config.json first.',
-    )
-    return
+    );
+    return;
   }
 
-  const root = roots.length === 1 ? roots[0] : await pickWorkspaceRoot(roots)
-  if (!root) return
+  const root = roots.length === 1 ? roots[0] : await pickWorkspaceRoot(roots);
+  if (!root) return;
 
-  const status = await workspaceService.readConfigStatus(root.folderPath)
+  const status = await workspaceService.readConfigStatus(root.folderPath);
   if (status.status !== 'ok') {
     void vscode.window.showWarningMessage(
       `vnext-forge: vnext.config.json in ${path.basename(root.folderPath)} is not valid.`,
-    )
-    return
+    );
+    return;
   }
-  const config = status.config
+  const config = status.config;
 
   const pickedKind = await vscode.window.showQuickPick(
-    COMPONENT_KINDS.map((k) => ({ label: k.label, description: k.description, componentKind: k.kind })),
+    COMPONENT_KINDS.map((k) => ({
+      label: k.label,
+      description: k.description,
+      componentKind: k.kind,
+    })),
     { title: 'Create vnext Component', placeHolder: 'Select component type' },
-  )
-  if (!pickedKind) return
+  );
+  if (!pickedKind) return;
 
-  const kind: ComponentKind = pickedKind.componentKind
-  const kindLabel = pickedKind.label
+  const kind: ComponentKind = pickedKind.componentKind;
+  const kindLabel = pickedKind.label;
   const kindFolderAbs = path.resolve(
     root.folderPath,
     config.paths.componentsRoot,
     pathSegmentForKind(config, kind),
-  )
+  );
 
-  const group = await pickGroup(kindFolderAbs)
-  if (group === undefined) return
+  const group = await pickGroup(kindFolderAbs);
+  if (group === undefined) return;
 
   const key = await vscode.window.showInputBox({
     title: `Create ${kindLabel}`,
     prompt: 'Component key (file name without extension)',
     placeHolder: 'my-component',
     validateInput: (value) => {
-      const trimmed = value.trim()
-      if (!trimmed) return 'Key is required'
+      const trimmed = value.trim();
+      if (!trimmed) return 'Key is required';
       if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(trimmed)) {
-        return 'Use letters, digits, ".", "_" or "-" (must start with a letter or digit)'
+        return 'Use letters, digits, ".", "_" or "-" (must start with a letter or digit)';
       }
-      return null
+      return null;
     },
     ignoreFocusOut: true,
-  })
-  if (!key) return
-  const keyTrimmed = key.trim()
+  });
+  if (!key) return;
+  const keyTrimmed = key.trim();
 
-  const targetDir = group === '' ? kindFolderAbs : path.join(kindFolderAbs, group)
-  const targetFile = path.join(targetDir, `${keyTrimmed}.json`)
+  const targetDir = group === '' ? kindFolderAbs : path.join(kindFolderAbs, group);
+  const targetFile = path.join(targetDir, `${keyTrimmed}.json`);
 
   try {
-    await fs.access(targetFile)
-    void vscode.window.showErrorMessage(`vnext-forge: ${path.basename(targetFile)} already exists.`)
-    return
+    await fs.access(targetFile);
+    void vscode.window.showErrorMessage(
+      `vnext-forge: ${path.basename(targetFile)} already exists.`,
+    );
+    return;
   } catch {
     // expected ENOENT
   }
 
-  const stub = buildComponentStub(kind, keyTrimmed, config.domain)
+  const stub = buildComponentStub(kind, keyTrimmed, config.domain);
 
   try {
-    await fs.mkdir(targetDir, { recursive: true })
-    await fs.writeFile(targetFile, JSON.stringify(stub, null, 2), 'utf-8')
+    await fs.mkdir(targetDir, { recursive: true });
+    await fs.writeFile(targetFile, JSON.stringify(stub, null, 2), 'utf-8');
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
-    void vscode.window.showErrorMessage(`vnext-forge: Failed to write component file. ${message}`)
-    return
+    const message = error instanceof Error ? error.message : String(error);
+    void vscode.window.showErrorMessage(`vnext-forge: Failed to write component file. ${message}`);
+    return;
   }
 
-  baseLogger.info({ targetFile, kind }, 'vnext component created')
+  baseLogger.info({ targetFile, kind }, 'vnext component created');
 
   try {
-    await deps.projectService.importProject(root.folderPath)
+    await deps.projectService.importProject(root.folderPath);
   } catch (error) {
     baseLogger.warn(
       { folder: root.folderPath, error: (error as Error).message },
       'Failed to link project registry entry after component creation',
-    )
+    );
   }
 
   designerPanel.openEditor({
@@ -313,7 +329,7 @@ async function createComponentCommand(deps: CommandDeps): Promise<void> {
     name: keyTrimmed,
     filePath: targetFile,
     vnextConfig: config,
-  })
+  });
 }
 
 async function pickWorkspaceRoot(
@@ -322,71 +338,75 @@ async function pickWorkspaceRoot(
   const picked = await vscode.window.showQuickPick(
     roots.map((r) => ({ label: path.basename(r.folderPath), description: r.folderPath, root: r })),
     { title: 'Select vnext workspace', placeHolder: 'Workspace root' },
-  )
-  return picked?.root
+  );
+  return picked?.root;
 }
 
 async function pickGroup(kindFolderAbs: string): Promise<string | undefined> {
-  const existing = await listSubdirectories(kindFolderAbs)
-  const createNewLabel = '$(add) Create new group…'
-  const rootLabel = '$(root-folder) (no group — place at root)'
+  const existing = await listSubdirectories(kindFolderAbs);
+  const createNewLabel = '$(add) Create new group…';
+  const rootLabel = '$(root-folder) (no group — place at root)';
 
   const items: (vscode.QuickPickItem & { group?: string; isCreate?: boolean })[] = [
     { label: rootLabel, group: '' },
     ...existing.map((name) => ({ label: name, group: name })),
     { label: createNewLabel, isCreate: true },
-  ]
+  ];
 
   const picked = await vscode.window.showQuickPick(items, {
     title: 'Select group folder',
     placeHolder: 'Choose an existing group or create a new one',
-  })
-  if (!picked) return undefined
+  });
+  if (!picked) return undefined;
 
   if (picked.isCreate) {
     const name = await vscode.window.showInputBox({
       title: 'New group folder',
       prompt: 'Group folder name (relative to the component type directory)',
       validateInput: (value) => {
-        const trimmed = value.trim()
-        if (!trimmed) return 'Name is required'
-        if (/[\\/]/.test(trimmed)) return 'Do not include path separators'
+        const trimmed = value.trim();
+        if (!trimmed) return 'Name is required';
+        if (/[\\/]/.test(trimmed)) return 'Do not include path separators';
         if (!/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/.test(trimmed)) {
-          return 'Use letters, digits, ".", "_" or "-" (must start with a letter or digit)'
+          return 'Use letters, digits, ".", "_" or "-" (must start with a letter or digit)';
         }
-        return null
+        return null;
       },
       ignoreFocusOut: true,
-    })
-    if (!name) return undefined
-    return name.trim()
+    });
+    if (!name) return undefined;
+    return name.trim();
   }
 
-  return picked.group ?? ''
+  return picked.group ?? '';
 }
 
 async function listSubdirectories(dir: string): Promise<string[]> {
   try {
-    const entries = await fs.readdir(dir, { withFileTypes: true })
+    const entries = await fs.readdir(dir, { withFileTypes: true });
     return entries
       .filter((e) => e.isDirectory() && !e.name.startsWith('.') && e.name !== 'node_modules')
       .map((e) => e.name)
-      .sort((a, b) => a.localeCompare(b))
+      .sort((a, b) => a.localeCompare(b));
   } catch {
-    return []
+    return [];
   }
 }
 
 // ── Component stubs ───────────────────────────────────────────────────────────
 
-function buildComponentStub(kind: ComponentKind, key: string, domain: string): Record<string, unknown> {
+function buildComponentStub(
+  kind: ComponentKind,
+  key: string,
+  domain: string,
+): Record<string, unknown> {
   const base = {
     key,
     flow: `sys-${kind}`,
     domain,
     version: '1.0.0',
     tags: [],
-  }
+  };
 
   switch (kind) {
     case 'workflow':
@@ -399,7 +419,7 @@ function buildComponentStub(kind: ComponentKind, key: string, domain: string): R
           timeout: { key: '', domain, flow: '', version: '' },
           states: [],
         },
-      }
+      };
     case 'task':
       return {
         ...base,
@@ -409,7 +429,7 @@ function buildComponentStub(kind: ComponentKind, key: string, domain: string): R
           executionTimeout: 30,
           config: {},
         },
-      }
+      };
     case 'schema':
       return {
         ...base,
@@ -421,7 +441,7 @@ function buildComponentStub(kind: ComponentKind, key: string, domain: string): R
             properties: {},
           },
         },
-      }
+      };
     case 'view':
       return {
         ...base,
@@ -431,7 +451,7 @@ function buildComponentStub(kind: ComponentKind, key: string, domain: string): R
           display: 'full-page',
           content: {},
         },
-      }
+      };
     case 'function':
       return {
         ...base,
@@ -440,7 +460,7 @@ function buildComponentStub(kind: ComponentKind, key: string, domain: string): R
           scope: 'F',
           task: { key: '', domain, flow: '', version: '' },
         },
-      }
+      };
     case 'extension':
       return {
         ...base,
@@ -449,6 +469,6 @@ function buildComponentStub(kind: ComponentKind, key: string, domain: string): R
           type: 1,
           task: { key: '', domain, flow: '', version: '' },
         },
-      }
+      };
   }
 }

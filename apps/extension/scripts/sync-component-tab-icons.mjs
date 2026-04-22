@@ -30,20 +30,42 @@ function stripSvgWrapper(svg) {
     .trim();
 }
 
-/** outline.svg stroke'ları dış <svg> üzerinde; VS Code sekmesinde görünür kalsın diye <g> ile taşınır */
-const outlineInner = `<g stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${stripSvgWrapper(fs.readFileSync(outlinePath, 'utf8'))}</g>`;
+/**
+ * outline.svg stroke'ları dış <svg> üzerinde; VS Code tab ikonları
+ * `currentColor` substitution YAPMIYOR — SVG'yi olduğu gibi renderliyor.
+ * Bu yüzden sabit renkli iki varyant üretiyoruz:
+ *   - light: koyu kontur (light tema sekme metni rengi)
+ *   - dark : açık kontur (dark / high-contrast tema sekme metni rengi)
+ * `DesignerPanel.iconPath` { light, dark } objesi ile bu varyantları kullanır.
+ */
+const OUTLINE_STROKE = {
+  light: '#424242',
+  dark: '#cccccc',
+};
+
+const outlineRaw = stripSvgWrapper(fs.readFileSync(outlinePath, 'utf8'));
+
+function buildOutlineGroup(stroke) {
+  return `<g stroke="${stroke}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none">${outlineRaw}</g>`;
+}
 
 fs.mkdirSync(outDir, { recursive: true });
+
+let written = 0;
 
 for (const [kind, badgeName] of Object.entries(BADGE_FILES)) {
   const badgePath = path.join(duIcons, 'component-badges', badgeName);
   const badgeInner = stripSvgWrapper(fs.readFileSync(badgePath, 'utf8'));
-  const combined = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
-${outlineInner}
+
+  for (const [variant, stroke] of Object.entries(OUTLINE_STROKE)) {
+    const combined = `<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
+${buildOutlineGroup(stroke)}
 ${badgeInner}
 </svg>
 `;
-  fs.writeFileSync(path.join(outDir, `${kind}.svg`), combined);
+    fs.writeFileSync(path.join(outDir, `${kind}-${variant}.svg`), combined);
+    written++;
+  }
 }
 
-console.log('[sync-component-tab-icons] wrote', Object.keys(BADGE_FILES).length, 'icons to', outDir);
+console.log('[sync-component-tab-icons] wrote', written, 'icon files to', outDir);

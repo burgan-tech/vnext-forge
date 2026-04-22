@@ -9,10 +9,7 @@ import {
 } from '@vnext-forge/services-core';
 import type { LspBridge } from '@vnext-forge/lsp-core';
 
-import {
-  createWebviewLspTransport,
-  type WebviewLspTransport,
-} from './panels/lsp-transport.js';
+import { createWebviewLspTransport, type WebviewLspTransport } from './panels/lsp-transport.js';
 
 // ── Message protocol ──────────────────────────────────────────────────────────
 
@@ -311,9 +308,7 @@ function isNotifyFrame(value: unknown): value is WebviewNotifyFrame {
   const v = value as Record<string, unknown>;
   if (v.type !== 'host:notify') return false;
   if (typeof v.message !== 'string') return false;
-  return (
-    v.kind === 'info' || v.kind === 'success' || v.kind === 'warning' || v.kind === 'error'
-  );
+  return v.kind === 'info' || v.kind === 'success' || v.kind === 'warning' || v.kind === 'error';
 }
 
 function isLogFrame(value: unknown): value is WebviewLogFrame {

@@ -13,6 +13,7 @@
   ],
   "activationEvents": [
     "workspaceContains:vnext.config.json",
+    "onCustomEditor:vnextForge.componentEditor",
     "onCommand:vnextForge.open",
     "onCommand:vnextForge.openDesigner",
     "onCommand:vnextForge.openInTextEditor",
@@ -101,6 +102,18 @@
         }
       ]
     },
+    "customEditors": [
+      {
+        "viewType": "vnextForge.componentEditor",
+        "displayName": "vnext-forge Designer",
+        "selector": [
+          {
+            "filenamePattern": "*.json"
+          }
+        ],
+        "priority": "default"
+      }
+    ],
     "configuration": {
       "title": "vnext-forge",
       "properties": {

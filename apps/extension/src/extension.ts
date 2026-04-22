@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 
-import { registerComponentJsonAutoOpen } from './component-json-auto-open.js';
 import { registerCommands } from './commands.js';
+import { VnextComponentCustomTextEditorProvider } from './vnext-component-custom-text-editor.js';
 import { createExtensionHostLspStack } from './composition/lsp.js';
 import { composeExtensionServices } from './composition/services.js';
 import { bootstrapLsp } from './lsp-bootstrap.js';
@@ -39,8 +39,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   context.subscriptions.push(webviewLogChannel);
 
   const { services, registry } = composeExtensionServices(loggerAdapter);
-  const { bridge: lspBridge, installer: lspInstaller } =
-    createExtensionHostLspStack(loggerAdapter);
+  const { bridge: lspBridge, installer: lspInstaller } = createExtensionHostLspStack(loggerAdapter);
 
   const router = new MessageRouter({
     registry,
@@ -61,10 +60,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     designerPanel,
   });
 
-  registerComponentJsonAutoOpen(context, {
+  // Custom editor: bileşen JSON dosyaları doğrudan tasarımcı webview'inde
+  // açılır (text editor flash'ı yok). Bileşen olmayan JSON'lar (örn.
+  // vnext.config.json, package.json) provider içinde algılanıp anında
+  // VS Code'un yerleşik metin editörüne devredilir.
+  VnextComponentCustomTextEditorProvider.register(context, {
     detector,
     designerPanel,
-    workspaceService: services.workspaceService,
     projectService: services.projectService,
   });
 
