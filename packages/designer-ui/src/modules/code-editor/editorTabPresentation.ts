@@ -38,7 +38,7 @@ export function getEditorTabDisplayTitle(tab: EditorTab): string {
     });
   }
   if (tab.kind === 'workspace-config') {
-    return 'vnext.config.json';
+    return 'vNext Config';
   }
   return formatHyphenatedTabTitle(tab.title);
 }

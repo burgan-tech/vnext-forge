@@ -20,6 +20,7 @@ const BADGE_FILES = {
   view: 'view.svg',
   function: 'function.svg',
   extension: 'extension.svg',
+  config: 'settings.svg',
 };
 
 function stripSvgWrapper(svg) {

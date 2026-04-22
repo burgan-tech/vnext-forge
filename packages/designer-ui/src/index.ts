@@ -53,6 +53,24 @@ export {
   type ExtensionEditorViewProps,
 } from './modules/extension-editor/ExtensionEditorView.js';
 
+export { CreateVnextConfigDialog } from './modules/workspace-config-editor/CreateVnextConfigDialog.js';
+export {
+  WorkspaceConfigEditorView,
+  type WorkspaceConfigEditorViewProps,
+} from './modules/workspace-config-editor/WorkspaceConfigEditorView.js';
+export { useWriteVnextWorkspaceConfig } from './modules/workspace-config-editor/useWriteVnextWorkspaceConfig.js';
+export {
+  compactNonEmptyLines,
+  normalizeVnextWizardPayload,
+  vnextWorkspaceConfigWizardSchema,
+  validateNormalizedVnextWizardPayload,
+  wizardValidationIssueMap,
+  rawConfigToEditableValues,
+  validateVnextConfigJsonText,
+  type VnextWorkspaceConfigWizardParse,
+  type VnextWizardSafeParseResult,
+} from './modules/workspace-config-editor/wizardValidation.js';
+
 /** Belge Save / Undo çubuğunun host tarafından nereye iliştirileceği (web sekme satırı vs. panel içi). */
 export type { HostDocumentToolbarSlot } from './modules/save-component/components/hostDocumentToolbarSlot.js';
 export {

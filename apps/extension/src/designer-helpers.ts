@@ -20,7 +20,8 @@ export function isDesignerEditorRoute(
     kind === 'schema' ||
     kind === 'view' ||
     kind === 'function' ||
-    kind === 'extension'
+    kind === 'extension' ||
+    kind === 'config'
   )
 }
 

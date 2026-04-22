@@ -11,6 +11,7 @@ import {
   useEditorStore,
   useProjectStore,
   ViewEditorView,
+  WorkspaceConfigEditorView,
   type VnextWorkspaceConfig,
 } from '@vnext-forge/designer-ui';
 
@@ -23,7 +24,14 @@ const logger = createLogger('extension/HostEditorBridge');
  * Editor "kinds" the host can ask the webview to render. Mirrors
  * `DesignerEditorKind` in `apps/extension/src/panels/DesignerPanel.ts`.
  */
-type EditorKind = 'workflow' | 'task' | 'schema' | 'view' | 'function' | 'extension';
+type EditorKind =
+  | 'workflow'
+  | 'task'
+  | 'schema'
+  | 'view'
+  | 'function'
+  | 'extension'
+  | 'config';
 
 /**
  * `open-editor` frame sent by the extension host. VS Code shell'de ayrı sekme çubuğu
@@ -137,6 +145,8 @@ function ActiveEditor({ payload }: { payload: HostOpenEditorMessage }) {
       return <FunctionEditorView projectId={projectId} group={group} name={name} />;
     case 'extension':
       return <ExtensionEditorView projectId={projectId} group={group} name={name} />;
+    case 'config':
+      return <WorkspaceConfigEditorView />;
   }
 }
 

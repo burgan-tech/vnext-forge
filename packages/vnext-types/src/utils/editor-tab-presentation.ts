@@ -11,7 +11,8 @@ export type VnextComponentTabKind =
   | 'schema'
   | 'view'
   | 'function'
-  | 'extension';
+  | 'extension'
+  | 'config';
 
 /** Web rotasında workflow için kullanılan segment (`/flow/...`). */
 export type SpaComponentEditorTabRouteKind =
@@ -66,6 +67,9 @@ export function getVnextComponentEditorTabDisplayTitle(
     } else {
       raw = stored ?? '';
     }
+  }
+  if (raw.toLowerCase() === 'vnext.config.json' || raw.toLowerCase() === 'vnext.config') {
+    return 'vNext Config';
   }
   return formatHyphenatedTabTitle(raw);
 }

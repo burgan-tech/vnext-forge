@@ -12,11 +12,12 @@ import type { FileRouteKind } from '../file-router';
 import type { MessageRouter } from '../MessageRouter';
 
 /**
- * Editor kinds the designer panel knows how to render. `'config'` and
- * `'unknown'` are deliberately excluded — those file types are opened in
- * VS Code's native editor instead (see `commands.ts`).
+ * Editor kinds the designer panel knows how to render. `'unknown'` is
+ * deliberately excluded — bilinmeyen dosyalar VS Code'un yerleşik editörüne
+ * yönlendirilir (bkz. `commands.ts`). `'config'` (vnext.config.json) artık
+ * `WorkspaceConfigEditorView` ile designer içinde açılır.
  */
-export type DesignerEditorKind = Exclude<FileRouteKind, 'config' | 'unknown'>;
+export type DesignerEditorKind = Exclude<FileRouteKind, 'unknown'>;
 
 /**
  * Host -> webview message that tells the webview UI which designer editor to

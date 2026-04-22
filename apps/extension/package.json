@@ -36,12 +36,12 @@
       },
       {
         "command": "vnextForge.openDesigner",
-        "title": "Open with vNext Forge",
+        "title": "Forge: Open with vNext Forge",
         "category": "Forge"
       },
       {
         "command": "vnextForge.openInTextEditor",
-        "title": "Open with Text Editor",
+        "title": "Forge: Open with Text Editor",
         "category": "Forge"
       },
       {
