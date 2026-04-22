@@ -71,7 +71,7 @@ export function EditorDocumentToolbar({
   const iconSm = compact ? 12 : 14;
 
   const savingLabel = (
-    <span className="text-[10px] font-medium text-indigo-600 dark:text-indigo-400">Saving…</span>
+    <span className="text-info-text text-[10px] font-medium">Saving…</span>
   );
 
   const historyGroup =

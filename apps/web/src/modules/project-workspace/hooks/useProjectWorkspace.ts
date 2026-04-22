@@ -24,7 +24,10 @@ import {
 } from '@vnext-forge/designer-ui';
 
 import { useProjectListStore } from '../../../app/store/useProjectListStore';
-import { openEditorTabForComponentRoute } from '../openEditorTabFromFileRoute';
+import {
+  openEditorTabForComponentRoute,
+  openVnextWorkspaceConfigTab,
+} from '../openEditorTabFromFileRoute';
 import { resolveFileRoute } from '../FileRouter';
 import { loadComponentFileTypes } from '../syncVnextWorkspaceFromDisk';
 
@@ -68,7 +71,11 @@ export function useProjectWorkspace() {
       const route = resolveFileRoute(node.path, vnextConfig, activeProject.id, activeProject.path);
       logger.info('File clicked', { path: node.path, resolvedRoute: route });
       if (route.navigateTo) {
-        openEditorTabForComponentRoute(route, activeProject.id);
+        if (route.type === 'config') {
+          openVnextWorkspaceConfigTab(activeProject.id);
+        } else {
+          openEditorTabForComponentRoute(route, activeProject.id);
+        }
         navigate(route.navigateTo);
         return;
       }

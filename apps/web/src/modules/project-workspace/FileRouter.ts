@@ -39,11 +39,7 @@ export function resolveFileRoute(
       type: 'config',
       group: '',
       name: 'vnext.config.json',
-      editorTab: {
-        filePath: normalizedFilePath,
-        language: 'json',
-        title: 'vnext.config.json',
-      },
+      navigateTo: `/project/${projectId}/workspace-config`,
     };
   }
 

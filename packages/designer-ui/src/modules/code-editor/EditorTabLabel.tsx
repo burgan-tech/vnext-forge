@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 
 import { ComponentFileIcon } from '../component-icons/ComponentFileIcon.js';
+import { VnextConfigFileIcon } from '../component-icons/VnextConfigFileIcon.js';
 
 import { componentEditorKindToVnextComponentType, getEditorTabDisplayTitle } from './editorTabPresentation.js';
 import type { EditorTab } from './EditorStore.js';
@@ -31,6 +32,8 @@ export function EditorTabLabel({ tab, renderFileLeading, titleClassName }: Edito
         className="size-4 shrink-0"
       />
     );
+  } else if (tab.kind === 'workspace-config') {
+    leading = <VnextConfigFileIcon className="size-4 shrink-0" />;
   }
 
   return (

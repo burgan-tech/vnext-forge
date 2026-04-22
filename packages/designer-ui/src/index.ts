@@ -85,6 +85,7 @@ export {
   EditorTabLabel,
   type EditorTabLabelProps,
   componentEditorTabId,
+  vnextWorkspaceConfigTabId,
   useEditorStore,
   type ComponentEditorKind,
   type EditorTab,

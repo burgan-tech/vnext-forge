@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type EditorTabKind = 'file' | 'component';
+export type EditorTabKind = 'file' | 'component' | 'workspace-config';
 
 /** vNext component editor türleri (URL segment ile uyumlu). */
 export type ComponentEditorKind =
@@ -18,6 +18,11 @@ export function componentEditorTabId(
   name: string,
 ): string {
   return `${projectId}:component:${kind}:${group}:${name}`;
+}
+
+/** Proje kökündeki `vnext.config.json` tam sayfa sihirbaz sekmesi. */
+export function vnextWorkspaceConfigTabId(projectId: string): string {
+  return `${projectId}:workspace-config`;
 }
 
 export interface EditorTab {

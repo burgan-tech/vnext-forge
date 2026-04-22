@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { z } from 'zod';
 import {
   Controller,
@@ -19,6 +19,7 @@ import {
 import {
   cn,
   createLogger,
+  EditorDocumentToolbar,
   readFile,
   useProjectStore,
   type ProjectInfo,
@@ -27,6 +28,7 @@ import {
   Button,
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
   Checkbox,
@@ -321,6 +323,13 @@ interface CreateVnextConfigDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCompleted: (nextProjectId: string) => void | Promise<void>;
+  /**
+   * `dialog`: Radix modal (eksik config sihirbazı).
+   * `embedded`: Tam sayfa sekme gövdesi — üst seviye `Dialog` yok.
+   */
+  presentation?: 'dialog' | 'embedded';
+  /** Yalnız `embedded`: Save çubuğu web sekme satırının sağına (`ProjectEditorShell`). */
+  registerToolbar?: (toolbar: ReactNode | null) => void;
 }
 
 export function CreateVnextConfigDialog({
@@ -329,6 +338,8 @@ export function CreateVnextConfigDialog({
   open,
   onOpenChange,
   onCompleted,
+  presentation = 'dialog',
+  registerToolbar,
 }: CreateVnextConfigDialogProps) {
   const seed = useMemo((): VnextWorkspaceConfig => {
     const d = defaultDomain.trim() || 'workspace';
@@ -344,12 +355,21 @@ export function CreateVnextConfigDialog({
     defaultValues: seed,
   });
 
-  const { register, control, handleSubmit, reset, setValue } = form;
+  const { register, control, handleSubmit, reset, setValue, getValues, formState } = form;
+  const { isDirty } = formState;
   const domain = useWatch({ control, name: 'domain' });
   const watchedForm = useWatch({ control, defaultValue: seed });
   const [useCustomComponentsRoot, setUseCustomComponentsRoot] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [loadingConfig, setLoadingConfig] = useState(false);
+  const [undoStack, setUndoStack] = useState<VnextWorkspaceConfig[]>([]);
+  const [redoStack, setRedoStack] = useState<VnextWorkspaceConfig[]>([]);
+  const pendingSubmitValuesRef = useRef<VnextWorkspaceConfig | null>(null);
+  const submitFormRef = useRef<() => void>(() => {});
+  const prevFormSerializedRef = useRef<string | null>(null);
+  const skipHistoryRef = useRef(true);
+
+  const hasSavedForToolbar = !isDirty && undoStack.length > 0;
 
   const normalizedWizardPayload = useMemo(
     () => normalizeVnextWizardPayload(watchedForm as VnextWorkspaceConfig),
@@ -368,20 +388,35 @@ export function CreateVnextConfigDialog({
     () => ({
       onSuccess: async (result: ApiResponse<ProjectInfo>) => {
         if (!isSuccess(result)) return;
-        onOpenChange(false);
+        const pending = pendingSubmitValuesRef.current;
+        pendingSubmitValuesRef.current = null;
+        if (pending) {
+          skipHistoryRef.current = true;
+          reset(pending);
+        }
+        if (presentation === 'dialog') {
+          onOpenChange(false);
+        }
         await onCompleted(result.data.id);
+      },
+      onError: () => {
+        pendingSubmitValuesRef.current = null;
       },
       successMessage: isEditMode
         ? 'vnext.config.json updated.'
         : 'vnext.config.json created.',
     }),
-    [isEditMode, onCompleted, onOpenChange],
+    [isEditMode, onCompleted, onOpenChange, presentation, reset],
   );
 
   const { execute: writeConfig, loading: writing } = useWriteVnextWorkspaceConfig(writeOptions);
 
   useEffect(() => {
     if (!open) {
+      setUndoStack([]);
+      setRedoStack([]);
+      prevFormSerializedRef.current = null;
+      skipHistoryRef.current = true;
       queueMicrotask(() => {
         setIsEditMode(false);
         setLoadingConfig(false);
@@ -395,6 +430,10 @@ export function CreateVnextConfigDialog({
         setIsEditMode(false);
         setUseCustomComponentsRoot(false);
       });
+      setUndoStack([]);
+      setRedoStack([]);
+      prevFormSerializedRef.current = null;
+      skipHistoryRef.current = true;
       reset(seed);
       return;
     }
@@ -407,6 +446,11 @@ export function CreateVnextConfigDialog({
         const { content } = await readFile(`${projectPath}/vnext.config.json`);
         const parsed: unknown = JSON.parse(content);
         if (cancelled) return;
+
+        setUndoStack([]);
+        setRedoStack([]);
+        prevFormSerializedRef.current = null;
+        skipHistoryRef.current = true;
 
         if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
           const editable = rawConfigToEditableValues(parsed as Record<string, unknown>);
@@ -428,6 +472,10 @@ export function CreateVnextConfigDialog({
       } catch {
         if (cancelled) return;
         logger.info('Mevcut vnext.config.json okunamadı, yeni oluşturma modunda açılıyor.');
+        setUndoStack([]);
+        setRedoStack([]);
+        prevFormSerializedRef.current = null;
+        skipHistoryRef.current = true;
         setIsEditMode(false);
         setUseCustomComponentsRoot(false);
         reset(seed);
@@ -443,9 +491,38 @@ export function CreateVnextConfigDialog({
 
   useEffect(() => {
     if (!useCustomComponentsRoot && domain) {
+      skipHistoryRef.current = true;
       setValue('paths.componentsRoot', domain.trim(), { shouldDirty: false, shouldValidate: true });
     }
   }, [domain, setValue, useCustomComponentsRoot]);
+
+  useEffect(() => {
+    if (loadingConfig) return;
+    const data = watchedForm as VnextWorkspaceConfig;
+    const serialized = JSON.stringify(data);
+
+    if (skipHistoryRef.current) {
+      skipHistoryRef.current = false;
+      prevFormSerializedRef.current = serialized;
+      return;
+    }
+
+    if (prevFormSerializedRef.current === null) {
+      prevFormSerializedRef.current = serialized;
+      return;
+    }
+
+    if (prevFormSerializedRef.current === serialized) return;
+
+    try {
+      const prevValues = JSON.parse(prevFormSerializedRef.current) as VnextWorkspaceConfig;
+      setUndoStack((u) => [...u.slice(-49), prevValues]);
+      setRedoStack([]);
+    } catch {
+      /* ignore */
+    }
+    prevFormSerializedRef.current = serialized;
+  }, [watchedForm, loadingConfig]);
 
   const onSubmit = handleSubmit(async (values) => {
     const normalized = normalizeVnextWizardPayload(values);
@@ -453,22 +530,110 @@ export function CreateVnextConfigDialog({
     if (!parsed.success) {
       return;
     }
+    pendingSubmitValuesRef.current = values;
     await writeConfig(projectId, parsed.data);
   });
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        variant="default"
-        className="w-full max-w-[min(72rem,calc(100vw-1.5rem))] gap-0 rounded-2xl p-0 sm:max-w-[min(72rem,calc(100vw-1.5rem))]">
-        <div className="flex max-h-[min(90vh,920px)] flex-col">
-          <div className="my-1 shrink-0 space-y-2 rounded-xl px-6 py-5">
-            <DialogHeader className="space-y-2 text-left">
-              <DialogTitle className="text-primary-text">
-                {isEditMode ? 'Editing vnext.config.json' : 'vnext.config.json is required'}
-              </DialogTitle>
-            </DialogHeader>
-          </div>
+  submitFormRef.current = () => {
+    void onSubmit();
+  };
+
+  const stableOnSave = useCallback(() => {
+    submitFormRef.current();
+  }, []);
+
+  const undo = useCallback(() => {
+    if (undoStack.length === 0) return;
+    const prevValues = undoStack[undoStack.length - 1];
+    const current = getValues();
+    skipHistoryRef.current = true;
+    setRedoStack((r) => [...r, current]);
+    setUndoStack((u) => u.slice(0, -1));
+    reset(prevValues);
+  }, [undoStack, getValues, reset]);
+
+  const redo = useCallback(() => {
+    if (redoStack.length === 0) return;
+    const nextValues = redoStack[redoStack.length - 1];
+    const current = getValues();
+    skipHistoryRef.current = true;
+    setUndoStack((u) => [...u, current]);
+    setRedoStack((r) => r.slice(0, -1));
+    reset(nextValues);
+  }, [redoStack, getValues, reset]);
+
+  const undoRef = useRef(undo);
+  const redoRef = useRef(redo);
+  undoRef.current = undo;
+  redoRef.current = redo;
+
+  const stableOnUndo = useCallback(() => {
+    undoRef.current();
+  }, []);
+  const stableOnRedo = useCallback(() => {
+    redoRef.current();
+  }, []);
+
+  const isDialog = presentation === 'dialog';
+  const titleText = isEditMode ? 'Editing vnext.config.json' : 'vnext.config.json is required';
+
+  /** Tam ekran: ExtensionEditorPanel ile aynı kart yüzeyi; modal: mevcut iç içe secondary/tertiary. */
+  const sectionCardVariant = isDialog ? ('secondary' as const) : ('default' as const);
+  const sectionCardClassName = isDialog ? 'gap-4 py-5 shadow-none' : 'gap-3';
+  const sectionHeaderClassName = isDialog ? 'px-5 pb-0' : 'border-border border-b';
+  const sectionTitleClassName = isDialog ? 'font-mono text-sm font-medium' : 'text-base';
+  const sectionContentPad = isDialog ? 'px-5' : 'px-4 sm:px-6';
+  const nestedCardVariant = isDialog ? ('tertiary' as const) : ('secondary' as const);
+  const nestedCardClassName = isDialog ? 'gap-3 py-4 shadow-none' : 'gap-3 shadow-none';
+  const nestedHeaderClassName = isDialog ? 'px-4 pb-0' : 'border-border border-b';
+  const nestedTitleClassName = isDialog
+    ? 'text-tertiary-text font-mono text-xs leading-snug font-medium'
+    : 'text-sm';
+  const nestedContentClassName = isDialog ? 'px-4' : 'px-4 sm:px-6';
+
+  const hostToolbar = useMemo(
+    () => (
+      <EditorDocumentToolbar
+        arrangement="host-row"
+        isDirty={isDirty}
+        hasSaved={hasSavedForToolbar}
+        saving={writing}
+        onSave={stableOnSave}
+        onUndo={stableOnUndo}
+        onRedo={stableOnRedo}
+        canUndo={undoStack.length > 0}
+        canRedo={redoStack.length > 0}
+      />
+    ),
+    [
+      hasSavedForToolbar,
+      isDirty,
+      redoStack.length,
+      stableOnRedo,
+      stableOnSave,
+      stableOnUndo,
+      undoStack.length,
+      writing,
+    ],
+  );
+
+  useEffect(() => {
+    if (isDialog || !registerToolbar) return;
+    registerToolbar(hostToolbar);
+    return () => {
+      registerToolbar(null);
+    };
+  }, [hostToolbar, isDialog, registerToolbar]);
+
+  const shell = (
+    <div className={cn('flex flex-col', isDialog ? 'max-h-[min(90vh,920px)]' : 'h-full min-h-0')}>
+      {isDialog ? (
+        <div className="my-1 shrink-0 space-y-2 rounded-xl px-6 py-5">
+          <DialogHeader className="space-y-2 text-left">
+            <DialogTitle className="text-primary-text">{titleText}</DialogTitle>
+          </DialogHeader>
+        </div>
+      ) : null}
 
           {loadingConfig ? (
             <div className="flex flex-1 items-center justify-center py-20">
@@ -479,7 +644,11 @@ export function CreateVnextConfigDialog({
           <form
             className={cn('flex min-h-0 flex-1 flex-col', loadingConfig && 'hidden')}
             onSubmit={(e) => void onSubmit(e)}>
-            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+            <div
+              className={cn(
+                'min-h-0 flex-1 overflow-y-auto',
+                isDialog ? 'px-6 py-5' : 'p-4',
+              )}>
               {!wizardValidation.success ? (
                 <div
                   role="alert"
@@ -509,13 +678,28 @@ export function CreateVnextConfigDialog({
                   </div>
                 </div>
               ) : null}
-              <div className="grid min-w-0 grid-cols-1 gap-6 xl:grid-cols-2">
-                <div className="min-w-0 space-y-6">
-                  <Card variant="secondary" hoverable={false} className="gap-4 py-5 shadow-none">
-                    <CardHeader className="px-5 pb-0">
-                      <CardTitle className="font-mono text-sm font-medium">Root</CardTitle>
+              <div
+                className={cn(
+                  'grid min-w-0 grid-cols-1 xl:grid-cols-2',
+                  isDialog ? 'gap-6' : 'gap-4',
+                )}>
+                <div className={cn('min-w-0', isDialog ? 'space-y-6' : 'space-y-4')}>
+                  <Card variant={sectionCardVariant} hoverable={false} className={sectionCardClassName}>
+                    <CardHeader className={sectionHeaderClassName}>
+                      <CardTitle className={sectionTitleClassName}>
+                        {isDialog ? 'Root' : 'Workspace root'}
+                      </CardTitle>
+                      {!isDialog ? (
+                        <CardDescription className="text-xs">
+                          Domain, description, and runtime/schema versions for this workspace.
+                        </CardDescription>
+                      ) : null}
                     </CardHeader>
-                    <CardContent className="grid min-w-0 grid-cols-1 gap-4 px-5 sm:grid-cols-2">
+                    <CardContent
+                      className={cn(
+                        'grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2',
+                        sectionContentPad,
+                      )}>
                       <JsonTextField
                         label="version"
                         register={register}
@@ -550,11 +734,18 @@ export function CreateVnextConfigDialog({
                     </CardContent>
                   </Card>
 
-                  <Card variant="secondary" hoverable={false} className="gap-4 py-5 shadow-none">
-                    <CardHeader className="px-5 pb-0">
-                      <CardTitle className="font-mono text-sm font-medium">paths</CardTitle>
+                  <Card variant={sectionCardVariant} hoverable={false} className={sectionCardClassName}>
+                    <CardHeader className={sectionHeaderClassName}>
+                      <CardTitle className={sectionTitleClassName}>
+                        {isDialog ? 'paths' : 'Paths'}
+                      </CardTitle>
+                      {!isDialog ? (
+                        <CardDescription className="text-xs">
+                          Component folder paths relative to the project root.
+                        </CardDescription>
+                      ) : null}
                     </CardHeader>
-                    <CardContent className="space-y-4 px-5">
+                    <CardContent className={cn('space-y-4', sectionContentPad)}>
                       <label className="text-foreground flex cursor-pointer items-center gap-2 text-sm leading-normal font-medium">
                         <Checkbox
                           checked={useCustomComponentsRoot}
@@ -626,11 +817,18 @@ export function CreateVnextConfigDialog({
                     </CardContent>
                   </Card>
 
-                  <Card variant="secondary" hoverable={false} className="gap-4 py-5 shadow-none">
-                    <CardHeader className="px-5 pb-0">
-                      <CardTitle className="font-mono text-sm font-medium">dependencies</CardTitle>
+                  <Card variant={sectionCardVariant} hoverable={false} className={sectionCardClassName}>
+                    <CardHeader className={sectionHeaderClassName}>
+                      <CardTitle className={sectionTitleClassName}>
+                        {isDialog ? 'dependencies' : 'Dependencies'}
+                      </CardTitle>
+                      {!isDialog ? (
+                        <CardDescription className="text-xs">
+                          Cross-domain and npm package references for this workspace.
+                        </CardDescription>
+                      ) : null}
                     </CardHeader>
-                    <CardContent className="space-y-4 px-5">
+                    <CardContent className={cn('space-y-4', sectionContentPad)}>
                       <JsonTagField
                         label="domains"
                         control={control}
@@ -646,13 +844,18 @@ export function CreateVnextConfigDialog({
                     </CardContent>
                   </Card>
 
-                  <Card variant="secondary" hoverable={false} className="gap-4 py-5 shadow-none">
-                    <CardHeader className="px-5 pb-0">
-                      <CardTitle className="font-mono text-sm font-medium">
-                        referenceResolution
+                  <Card variant={sectionCardVariant} hoverable={false} className={sectionCardClassName}>
+                    <CardHeader className={sectionHeaderClassName}>
+                      <CardTitle className={sectionTitleClassName}>
+                        {isDialog ? 'referenceResolution' : 'Reference resolution'}
                       </CardTitle>
+                      {!isDialog ? (
+                        <CardDescription className="text-xs">
+                          Build-time validation, strict mode, and registry host allowlists.
+                        </CardDescription>
+                      ) : null}
                     </CardHeader>
-                    <CardContent className="space-y-4 px-5">
+                    <CardContent className={cn('space-y-4', sectionContentPad)}>
                       <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
                         <JsonBoolField
                           label="enabled"
@@ -692,13 +895,22 @@ export function CreateVnextConfigDialog({
                         )}
                       />
 
-                      <Card variant="tertiary" hoverable={false} className="gap-3 py-4 shadow-none">
-                        <CardHeader className="px-4 pb-0">
-                          <CardTitle className="text-tertiary-text font-mono text-xs leading-snug font-medium">
-                            schemaValidationRules
+                      <Card variant={nestedCardVariant} hoverable={false} className={nestedCardClassName}>
+                        <CardHeader className={nestedHeaderClassName}>
+                          <CardTitle className={nestedTitleClassName}>
+                            {isDialog ? 'schemaValidationRules' : 'Schema validation rules'}
                           </CardTitle>
+                          {!isDialog ? (
+                            <CardDescription className="text-xs">
+                              Filename, key, and version consistency for JSON definitions.
+                            </CardDescription>
+                          ) : null}
                         </CardHeader>
-                        <CardContent className="grid min-w-0 grid-cols-1 gap-4 px-4 sm:grid-cols-2">
+                        <CardContent
+                          className={cn(
+                            'grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2',
+                            nestedContentClassName,
+                          )}>
                           <JsonBoolField
                             label="enforceKeyFormat"
                             control={control}
@@ -725,12 +937,19 @@ export function CreateVnextConfigDialog({
                   </Card>
                 </div>
 
-                <div className="min-w-0 space-y-6">
-                  <Card variant="secondary" hoverable={false} className="gap-4 py-5 shadow-none">
-                    <CardHeader className="px-5 pb-0">
-                      <CardTitle className="font-mono text-sm font-medium">exports</CardTitle>
+                <div className={cn('min-w-0', isDialog ? 'space-y-6' : 'space-y-4')}>
+                  <Card variant={sectionCardVariant} hoverable={false} className={sectionCardClassName}>
+                    <CardHeader className={sectionHeaderClassName}>
+                      <CardTitle className={sectionTitleClassName}>
+                        {isDialog ? 'exports' : 'Exports'}
+                      </CardTitle>
+                      {!isDialog ? (
+                        <CardDescription className="text-xs">
+                          Published component keys, visibility, and package metadata.
+                        </CardDescription>
+                      ) : null}
                     </CardHeader>
-                    <CardContent className="space-y-4 px-5">
+                    <CardContent className={cn('space-y-4', sectionContentPad)}>
                       <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
                         <div className="min-w-0 sm:col-span-2">
                           <JsonStringArrayLinesField
@@ -810,13 +1029,18 @@ export function CreateVnextConfigDialog({
                         )}
                       />
 
-                      <Card variant="tertiary" hoverable={false} className="gap-3 py-4 shadow-none">
-                        <CardHeader className="px-4 pb-0">
-                          <CardTitle className="text-tertiary-text font-mono text-xs font-medium">
-                            metadata
+                      <Card variant={nestedCardVariant} hoverable={false} className={nestedCardClassName}>
+                        <CardHeader className={nestedHeaderClassName}>
+                          <CardTitle className={nestedTitleClassName}>
+                            {isDialog ? 'metadata' : 'Metadata'}
                           </CardTitle>
+                          {!isDialog ? (
+                            <CardDescription className="text-xs">
+                              Description, maintainer, license, and keyword tags for the package.
+                            </CardDescription>
+                          ) : null}
                         </CardHeader>
-                        <CardContent className="space-y-4 px-4">
+                        <CardContent className={cn('space-y-4', nestedContentClassName)}>
                           <JsonTextField
                             label="description"
                             register={register}
@@ -866,22 +1090,40 @@ export function CreateVnextConfigDialog({
               </div>
             </div>
 
-            <DialogFooter className="border-border-subtle shrink-0 gap-2 border-t px-6 py-4 sm:flex-row sm:justify-end">
-              <DialogCancelButton type="button" variant="secondary" className="rounded-xl">
-                Close
-              </DialogCancelButton>
-              <Button
-                type="submit"
-                variant="success"
-                className="rounded-xl"
-                loading={writing}
-                disabled={!wizardValidation.success}>
-                {isEditMode ? 'Update and save' : 'Create and save'}
-              </Button>
-            </DialogFooter>
+            {isDialog ? (
+              <DialogFooter className="border-border-subtle shrink-0 gap-2 border-t px-6 py-4 sm:flex-row sm:justify-end">
+                <DialogCancelButton type="button" variant="secondary" className="rounded-xl">
+                  Close
+                </DialogCancelButton>
+                <Button
+                  type="submit"
+                  variant="success"
+                  className="rounded-xl"
+                  loading={writing}
+                  disabled={!wizardValidation.success}>
+                  {isEditMode ? 'Update and save' : 'Create and save'}
+                </Button>
+              </DialogFooter>
+            ) : null}
           </form>
-        </div>
-      </DialogContent>
-    </Dialog>
+    </div>
+  );
+
+  if (isDialog) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent
+          variant="default"
+          className="w-full max-w-[min(72rem,calc(100vw-1.5rem))] gap-0 rounded-2xl p-0 sm:max-w-[min(72rem,calc(100vw-1.5rem))]">
+          {shell}
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  if (!open) return null;
+
+  return (
+    <div className="bg-background flex h-full min-h-0 w-full flex-col overflow-hidden">{shell}</div>
   );
 }

@@ -1,4 +1,8 @@
-import { componentEditorTabId, useEditorStore } from '@vnext-forge/designer-ui';
+import {
+  componentEditorTabId,
+  useEditorStore,
+  vnextWorkspaceConfigTabId,
+} from '@vnext-forge/designer-ui';
 
 import type { FileRoute } from './FileRouter';
 import { fileRouteTypeToComponentKind } from './fileRouteTypeToComponentKind';
@@ -14,5 +18,14 @@ export function openEditorTabForComponentRoute(route: FileRoute, projectId: stri
     componentKind: kind,
     group: route.group,
     name: route.name,
+  });
+}
+
+/** `vnext.config.json` tam sayfa yapılandırma sekmesini açar (rota `navigate` ile tamamlanmalı). */
+export function openVnextWorkspaceConfigTab(projectId: string): void {
+  useEditorStore.getState().openTab({
+    id: vnextWorkspaceConfigTabId(projectId),
+    kind: 'workspace-config',
+    title: 'vnext.config.json',
   });
 }

@@ -100,6 +100,7 @@ export function AppLayout() {
 
       {projectId ? (
         <CreateVnextConfigDialog
+          presentation="dialog"
           projectId={projectId}
           defaultDomain={activeProject?.domain ?? projectId}
           open={vnextConfigWizardOpen}

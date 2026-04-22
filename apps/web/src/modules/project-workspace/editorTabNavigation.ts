@@ -1,8 +1,13 @@
-import type { ComponentEditorKind, EditorTab } from '@vnext-forge/designer-ui';
+import type { NavigateFunction } from 'react-router-dom';
+
+import { useEditorStore, type EditorTab } from '@vnext-forge/designer-ui';
 
 export function buildNavigatePathForTab(projectId: string, tab: EditorTab): string | null {
   if (tab.kind === 'file' && tab.filePath) {
     return `/project/${projectId}/code/${encodeURIComponent(tab.filePath)}`;
+  }
+  if (tab.kind === 'workspace-config') {
+    return `/project/${projectId}/workspace-config`;
   }
   if (tab.kind === 'component' && tab.componentKind && tab.group && tab.name) {
     const g = encodeURIComponent(tab.group);
@@ -26,4 +31,18 @@ export function buildNavigatePathForTab(projectId: string, tab: EditorTab): stri
     }
   }
   return null;
+}
+
+/** `closeTab` sonrası kalan aktif sekmeye veya proje köküne yönlendirir. */
+export function navigateAfterTabClosed(projectId: string, navigate: NavigateFunction): void {
+  const { tabs, activeTabId } = useEditorStore.getState();
+  if (tabs.length === 0) {
+    navigate(`/project/${projectId}`, { replace: true });
+    return;
+  }
+  const active = tabs.find((t) => t.id === activeTabId);
+  if (active) {
+    const path = buildNavigatePathForTab(projectId, active);
+    if (path) navigate(path, { replace: true });
+  }
 }

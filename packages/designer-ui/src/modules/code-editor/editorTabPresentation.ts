@@ -37,5 +37,8 @@ export function getEditorTabDisplayTitle(tab: EditorTab): string {
       storedTitleWithJson: tab.title,
     });
   }
+  if (tab.kind === 'workspace-config') {
+    return 'vnext.config.json';
+  }
   return formatHyphenatedTabTitle(tab.title);
 }

@@ -10,7 +10,10 @@ import {
   type FileSearchResult,
 } from '@vnext-forge/designer-ui';
 
-import { openEditorTabForComponentRoute } from '../project-workspace/openEditorTabFromFileRoute';
+import {
+  openEditorTabForComponentRoute,
+  openVnextWorkspaceConfigTab,
+} from '../project-workspace/openEditorTabFromFileRoute';
 import { resolveFileRoute } from '../project-workspace/FileRouter';
 
 import { SearchResultList } from './SearchResultList';
@@ -74,7 +77,11 @@ export function SearchPanel() {
       const route = resolveFileRoute(result.path, vnextConfig, activeProject.id, activeProject.path);
 
       if (route.navigateTo) {
-        openEditorTabForComponentRoute(route, activeProject.id);
+        if (route.type === 'config') {
+          openVnextWorkspaceConfigTab(activeProject.id);
+        } else {
+          openEditorTabForComponentRoute(route, activeProject.id);
+        }
         navigate(route.navigateTo);
         return;
       }

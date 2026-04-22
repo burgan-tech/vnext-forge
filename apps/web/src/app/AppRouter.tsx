@@ -42,6 +42,11 @@ const ExtensionEditorPage = lazy(() =>
 const CodeEditorPage = lazy(() =>
   import('../pages/code-editor/CodeEditorPage').then((m) => ({ default: m.CodeEditorPage })),
 );
+const VnextWorkspaceConfigPage = lazy(() =>
+  import('../pages/vnext-workspace-config/VnextWorkspaceConfigPage').then((m) => ({
+    default: m.VnextWorkspaceConfigPage,
+  })),
+);
 const TestPage = lazy(() => import('../pages/test/TestPage').then((m) => ({ default: m.TestPage })));
 
 /**
@@ -89,6 +94,7 @@ export function AppRouter() {
                   <Route path="view/:group/:name" element={<ViewEditorPage />} />
                   <Route path="function/:group/:name" element={<FunctionEditorPage />} />
                   <Route path="extension/:group/:name" element={<ExtensionEditorPage />} />
+                  <Route path="workspace-config" element={<VnextWorkspaceConfigPage />} />
                   <Route path="code/*" element={<CodeEditorPage />} />
                 </Route>
               </Route>

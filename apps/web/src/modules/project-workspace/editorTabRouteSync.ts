@@ -1,6 +1,10 @@
 import { matchPath } from 'react-router-dom';
 
-import { componentEditorTabId, type ComponentEditorKind } from '@vnext-forge/designer-ui';
+import {
+  componentEditorTabId,
+  vnextWorkspaceConfigTabId,
+  type ComponentEditorKind,
+} from '@vnext-forge/designer-ui';
 
 /**
  * Mevcut URL'den `useEditorStore` activeTabId değerini türetir (dosya yolu veya component tab id).
@@ -11,6 +15,14 @@ export function activeTabIdFromPathname(projectId: string, pathname: string): st
   if (codeMatch?.params.id === projectId && codeMatch.params['*']) {
     const raw = String(codeMatch.params['*']).replace(/^\//, '');
     if (raw) return decodeURIComponent(raw);
+  }
+
+  const workspaceConfigMatch = matchPath(
+    { path: '/project/:id/workspace-config', end: true },
+    pathname,
+  );
+  if (workspaceConfigMatch?.params.id === projectId) {
+    return vnextWorkspaceConfigTabId(projectId);
   }
 
   const kinds: ComponentEditorKind[] = ['flow', 'task', 'schema', 'view', 'function', 'extension'];
