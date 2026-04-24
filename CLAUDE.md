@@ -451,6 +451,30 @@ When adding new capabilities for the extension shell, the `MessageRouter` alread
 
 designer-ui itself remains transport-agnostic (no `services-core` import).
 
+### Workspace filesystem change events (SPA file tree sync)
+
+When disk mutations must be reflected in the **web shell sidebar file tree** (and related cheap indexes), use the shared **workspace FS event bus** instead of ad-hoc `refreshFileTree` callbacks on individual pages.
+
+**Emit (in `@vnext-forge/designer-ui`):**
+
+- Module: `packages/designer-ui/src/workspace-fs-events/` — `subscribeWorkspaceFsChange`, `emitWorkspaceFsChange`, `resetWorkspaceFsChangeListeners` (tests), and `emitFsChangeOnSuccess` (emit only when `ApiResponse.success`).
+- Wrapped low-level APIs emit after successful RPCs: `WorkspaceApi` (`writeFile`, `deleteFile`, `createDirectory`, `renameFile`), `CodeEditorApi.writeCodeEditorFile`, `SaveComponentApi.saveComponentFile`. `scaffoldWorkflow` also emits `kind: 'scaffold'` when the scaffold completes successfully (intermediate `writeFile` / `createDirectory` calls emit their own events; debouncing collapses bursts).
+- Callers that already go through `WorkspaceApi.writeFile` (e.g. `FlowEditorApi`, `SchemaEditorApi`, `persistScriptTaskScriptFile`) do **not** need extra emits.
+
+**Subscribe (web shell only):**
+
+- `apps/web/src/app/store/useProjectListStore.ts` — `startWorkspaceFsTreeSync()` registers a single listener (idempotent). Bootstrapped once from `apps/web/src/main.tsx` (alongside transport / theme setup).
+- On each emitted change, the listener schedules a **debounced** refresh (~150ms): `refreshFileTree()` and `loadComponentFileTypes(activeProject.id)` when `useProjectStore` has an `activeProject`.
+
+**Extension webview:**
+
+- No subscriber is registered; VS Code’s Explorer updates via its own file watcher. Emits from shared editor code are no-ops there.
+
+**Agent guidance:**
+
+- Do **not** add per-editor `onAfterSaveSuccess` / `onAfterScriptPersistedToDisk` hooks or duplicate `refreshFileTree` calls for ordinary saves that already use the wrapped file APIs.
+- If a new feature writes workspace files through a path that **bypasses** those wrappers (e.g. a dedicated RPC like `projects/writeConfig` that does not go through `files/write`), either wire that path to emit `emitWorkspaceFsChange` on success or call `refreshFileTree` explicitly where the product still requires it.
+
 **Host → Webview push messages** (not tied to a `requestId`):
 ```ts
 // 'navigate' — fired by vnextForge.openDesigner / createComponent

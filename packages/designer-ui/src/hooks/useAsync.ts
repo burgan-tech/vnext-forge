@@ -86,16 +86,18 @@ export function useAsync<T, TArgs extends unknown[]>(
       setData(result.data);
       setSuccess(true);
 
-      await currentOptions?.onSuccess?.(result);
+      // `onSuccess` / bildirim: tamamlanma anındaki seçenekler (stale closure önlemi).
+      const successOptions = optionsRef.current;
+      await successOptions?.onSuccess?.(result);
 
-      if (currentOptions?.showNotificationOnSuccess && currentOptions.successMessage) {
+      if (successOptions?.showNotificationOnSuccess && successOptions.successMessage) {
         showNotification({
-          message: currentOptions.successMessage,
+          message: successOptions.successMessage,
           kind:
-            currentOptions.successNotificationKind ??
-            currentOptions.notificationKind ??
+            successOptions.successNotificationKind ??
+            successOptions.notificationKind ??
             'success',
-          durationMs: currentOptions.notificationDurationMs ?? 3000,
+          durationMs: successOptions.notificationDurationMs ?? 3000,
         });
       }
     } catch (value) {

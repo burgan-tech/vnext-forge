@@ -9,6 +9,7 @@ export * from './api/index.js';
 export * from './hooks/index.js';
 export * from './lib/index.js';
 export * from './notification/index.js';
+export * from './workspace-fs-events/index.js';
 export * from './ui/index.js';
 export * from './store/index.js';
 

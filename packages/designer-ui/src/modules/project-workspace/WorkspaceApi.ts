@@ -12,9 +12,14 @@ import { createLogger } from '../../lib/logger/createLogger';
 import { toVnextError } from '../../lib/error/vNextErrorHelpers';
 
 import { buildVnextComponentJson } from '../../vnext-defaults/vnextComponentTemplates.js';
+import { emitFsChangeOnSuccess, emitWorkspaceFsChange } from '../../workspace-fs-events/index.js';
 import { normalizeWorkspaceName, createWorkflowNameSchema } from './ProjectWorkspaceSchema';
 
 const logger = createLogger('WorkspaceApi');
+
+function normalizeFilePath(path: string): string {
+  return path.replace(/\\/g, '/').replace(/\/{2,}/g, '/');
+}
 
 /**
  * Shape returned by `files.browse`. Hosts that render a folder picker (web
@@ -64,31 +69,52 @@ export async function readOptionalFile(path: string): Promise<{ content: string 
 }
 
 export function writeFile(path: string, content: string) {
-  return callApi<void>({
-    method: 'files/write',
-    params: { path: normalizeFilePath(path), content },
-  });
+  const normalized = normalizeFilePath(path);
+  return emitFsChangeOnSuccess(
+    callApi<void>({
+      method: 'files/write',
+      params: { path: normalized, content },
+    }),
+    () => ({ kind: 'write', paths: [normalized], source: 'WorkspaceApi.writeFile' }),
+  );
 }
 
 export function deleteFile(path: string) {
-  return callApi<void>({
-    method: 'files/delete',
-    params: { path: normalizeFilePath(path) },
-  });
+  const normalized = normalizeFilePath(path);
+  return emitFsChangeOnSuccess(
+    callApi<void>({
+      method: 'files/delete',
+      params: { path: normalized },
+    }),
+    () => ({ kind: 'delete', paths: [normalized], source: 'WorkspaceApi.deleteFile' }),
+  );
 }
 
 export function createDirectory(path: string) {
-  return callApi<void>({
-    method: 'files/mkdir',
-    params: { path: normalizeFilePath(path) },
-  });
+  const normalized = normalizeFilePath(path);
+  return emitFsChangeOnSuccess(
+    callApi<void>({
+      method: 'files/mkdir',
+      params: { path: normalized },
+    }),
+    () => ({ kind: 'mkdir', paths: [normalized], source: 'WorkspaceApi.createDirectory' }),
+  );
 }
 
 export function renameFile(oldPath: string, newPath: string) {
-  return callApi<void>({
-    method: 'files/rename',
-    params: { oldPath: normalizeFilePath(oldPath), newPath: normalizeFilePath(newPath) },
-  });
+  const oldNorm = normalizeFilePath(oldPath);
+  const newNorm = normalizeFilePath(newPath);
+  return emitFsChangeOnSuccess(
+    callApi<void>({
+      method: 'files/rename',
+      params: { oldPath: oldNorm, newPath: newNorm },
+    }),
+    () => ({
+      kind: 'rename',
+      paths: [oldNorm, newNorm],
+      source: 'WorkspaceApi.renameFile',
+    }),
+  );
 }
 
 export interface FileSearchOptions {
@@ -187,9 +213,11 @@ export async function scaffoldWorkflow(
     JSON.stringify({ nodePos: {} }, null, 2),
   );
 
-  return success({ groupName, workflowName });
-}
+  emitWorkspaceFsChange({
+    kind: 'scaffold',
+    paths: [normalizeFilePath(groupPath)],
+    source: 'WorkspaceApi.scaffoldWorkflow',
+  });
 
-function normalizeFilePath(path: string): string {
-  return path.replace(/\\/g, '/').replace(/\/{2,}/g, '/');
+  return success({ groupName, workflowName });
 }

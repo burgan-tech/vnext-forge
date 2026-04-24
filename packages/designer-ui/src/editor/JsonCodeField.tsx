@@ -3,6 +3,7 @@ import MonacoEditor, { type OnMount } from '@monaco-editor/react';
 import { cva, type VariantProps } from 'class-variance-authority';
 
 import { cn } from '../lib/utils/cn.js';
+import { useResolvedColorTheme } from '../hooks/useResolvedColorTheme.js';
 import { useEditorValidationStore } from '../store/useEditorValidationStore.js';
 import { subscribeMonacoModelMarkers } from './monacoMarkerSync.js';
 
@@ -98,6 +99,9 @@ function JsonCodeField({
   validationFileKey,
   ...props
 }: JsonCodeFieldProps) {
+  const resolvedColorTheme = useResolvedColorTheme();
+  const monacoTheme = resolvedColorTheme === 'dark' ? 'vs-dark' : 'vs';
+
   const markerDisposableRef = React.useRef<{ dispose: () => void } | null>(null);
   const [mountedKey, setMountedKey] = React.useState<string | null>(null);
   const activeFilePath = useEditorValidationStore((s) => s.activeFilePath);
@@ -149,7 +153,7 @@ function JsonCodeField({
           onChange(next);
         }}
         onMount={handleMount}
-        theme="vs"
+        theme={monacoTheme}
         options={{
           padding: { top: 4, bottom: 10 },
           folding: false,

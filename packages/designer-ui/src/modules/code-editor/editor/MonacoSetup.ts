@@ -158,12 +158,17 @@ export function setupMonaco(monaco: Monaco) {
 export async function setupMonacoWithLsp(
   monaco: Monaco,
   sessionId: string,
+  options?: { disableLsp?: boolean },
 ): Promise<CsharpLspClient | null> {
   // Static completions — register only once per Monaco instance (module-level guard)
   if (!staticProvidersRegistered) {
     registerContextAwareCompletions(monaco);
     registerCSharpSnippets(monaco);
     staticProvidersRegistered = true;
+  }
+
+  if (options?.disableLsp) {
+    return null;
   }
 
   const client = createCsharpLspClient(monaco, sessionId);

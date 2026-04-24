@@ -7,11 +7,17 @@ import { useComponentStore } from '../../store/useComponentStore';
 
 const logger = createLogger('save-component/useSaveComponent');
 
-export function useSaveComponent() {
+export interface UseSaveComponentOptions {
+  /** JSON yazılmadan önce; `false` dönerse kayıt iptal */
+  beforeSave?: () => Promise<boolean>;
+}
+
+export function useSaveComponent(options?: UseSaveComponentOptions) {
   const componentJson = useComponentStore((state) => state.componentJson);
   const filePath = useComponentStore((state) => state.filePath);
   const isDirty = useComponentStore((state) => state.isDirty);
   const markClean = useComponentStore((state) => state.markClean);
+  const beforeSave = options?.beforeSave;
 
   const saveFile = useCallback(
     (nextFilePath: string, content: string) => saveComponentFile(nextFilePath, content),
@@ -33,8 +39,12 @@ export function useSaveComponent() {
 
   const save = useCallback(async () => {
     if (!componentJson || !filePath || !isDirty) return;
+    if (beforeSave) {
+      const ok = await beforeSave();
+      if (!ok) return;
+    }
     await execute(filePath, JSON.stringify(componentJson, null, 2));
-  }, [componentJson, execute, filePath, isDirty]);
+  }, [beforeSave, componentJson, execute, filePath, isDirty]);
 
   useRegisterGlobalSaveShortcut(save);
 

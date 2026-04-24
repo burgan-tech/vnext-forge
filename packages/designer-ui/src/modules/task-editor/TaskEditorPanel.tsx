@@ -1,13 +1,15 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../ui/Card';
+import { ScriptTaskChromeProvider } from './ScriptTaskChromeContext.js';
 import { TaskMetadataForm } from './TaskMetadataForm';
 import { taskFormMap } from './forms';
 
 interface TaskEditorPanelProps {
   json: Record<string, unknown>;
   onChange: (updater: (draft: Record<string, unknown>) => void) => void;
+  onOpenScriptFileInHost?: (absolutePath: string) => void;
 }
 
-export function TaskEditorPanel({ json, onChange }: TaskEditorPanelProps) {
+export function TaskEditorPanel({ json, onChange, onOpenScriptFileInHost }: TaskEditorPanelProps) {
   const attrs = json.attributes as Record<string, unknown> | undefined;
   const taskType = String(attrs?.type || '0');
   const config = (attrs?.config || {}) as Record<string, unknown>;
@@ -44,7 +46,13 @@ export function TaskEditorPanel({ json, onChange }: TaskEditorPanelProps) {
         </CardHeader>
         <CardContent className="px-4 sm:px-6">
           {FormComponent ? (
-            <FormComponent config={config} onChange={onConfigChange} />
+            taskType === '5' ? (
+              <ScriptTaskChromeProvider onOpenScriptFileInHost={onOpenScriptFileInHost}>
+                <FormComponent config={config} onChange={onConfigChange} />
+              </ScriptTaskChromeProvider>
+            ) : (
+              <FormComponent config={config} onChange={onConfigChange} />
+            )
           ) : (
             <div className="text-xs text-muted-foreground">
               No form available for task type &quot;{taskType}&quot;. Edit as JSON.

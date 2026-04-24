@@ -11,8 +11,12 @@ import {
 } from 'react';
 import MonacoEditor, { type OnMount } from '@monaco-editor/react';
 import type { PanelImperativeHandle, PanelSize } from 'react-resizable-panels';
-import { X, Code2, BookOpen, Maximize2, Minimize2 } from 'lucide-react';
-import { useScriptPanelStore } from '../../../modules/code-editor/ScriptPanelStore';
+import { X, Code2, BookOpen, Maximize2, Minimize2, ExternalLink } from 'lucide-react';
+import {
+  useScriptPanelStore,
+  type ActiveScript,
+} from '../../../modules/code-editor/ScriptPanelStore';
+import type { ScriptCode } from '../../../modules/code-editor/CodeEditorTypes';
 import { useEditorPanelsStore } from '../../../store/useEditorPanelsStore';
 import { useWorkflowStore } from '../../../store/useWorkflowStore';
 import {
@@ -29,13 +33,28 @@ import { setupMonacoWithLsp } from '../../../modules/code-editor/editor/MonacoSe
 import { applyScriptValueToWorkflow } from '../../../modules/code-editor/ScriptWorkflowSync';
 import { getScriptLocationError } from '../../../modules/code-editor/ScriptLocationValidation';
 import { subscribeMonacoModelMarkers } from '../../../editor/monacoMarkerSync';
+import { useResolvedColorTheme } from '../../../hooks/useResolvedColorTheme.js';
 import { useEditorValidationStore } from '../../../store/useEditorValidationStore';
-import { Alert, AlertDescription } from '../../../ui/Alert';
 import { Input } from '../../../ui/Input';
 import type { CsharpLspClient } from '../../../modules/code-editor/editor/lspClient';
 
 const MIN_HEIGHT = 200;
 const MAX_HEIGHT = 800;
+
+/** Inline script editing for task editor without workflow store. */
+export type ScriptEditorTaskInlineProps = {
+  value: ScriptCode;
+  onChange: (next: ScriptCode) => void;
+  label?: string;
+  /** Web shell: open in full Monaco editor tab */
+  onOpenInFullEditor?: () => void;
+  /** Task editor inline: return to script picker without saving */
+  onPickAnotherScript?: () => void;
+};
+
+export type ScriptEditorPanelProps = {
+  taskInline?: ScriptEditorTaskInlineProps;
+};
 
 const FLOW_EDITOR_MAIN_COLUMN_ID = 'flow-editor-vertical-main';
 const FLOW_EDITOR_SCRIPT_COLUMN_ID = 'flow-editor-vertical-script';
@@ -49,7 +68,7 @@ function useScriptPanelResizePanelRef() {
 }
 
 /**
- * Flow editöründe canvas (üst) + script paneli (alt) dikey bölünür; script yüksekliği store’da tutulur.
+ * Flow editor: canvas (top) + script panel (bottom); script height persisted in store.
  */
 export function FlowEditorCanvasAndScriptResizableColumn({
   canvas,
@@ -113,10 +132,36 @@ export function FlowEditorCanvasAndScriptResizableColumn({
   );
 }
 
-export function ScriptEditorPanel() {
-  const { activeScript, updateScriptValue, closeScript } = useScriptPanelStore();
+export function ScriptEditorPanel({ taskInline }: ScriptEditorPanelProps = {}) {
+  const resolvedColorTheme = useResolvedColorTheme();
+  const monacoTheme = resolvedColorTheme === 'dark' ? 'vs-dark' : 'vs';
+
+  const { activeScript: storeActive, updateScriptValue, closeScript } = useScriptPanelStore();
   const { setScriptPanelOpen } = useEditorPanelsStore();
   const { updateWorkflow } = useWorkflowStore();
+
+  const activeScript: ActiveScript | null = useMemo(() => {
+    if (taskInline) {
+      return {
+        stateKey: '__task-inline__',
+        listField: 'onEntries',
+        index: 0,
+        scriptField: 'mapping',
+        value: taskInline.value,
+        templateType: 'mapping',
+        label: taskInline.label ?? 'C# Script',
+        taskType: 'ScriptTask',
+      };
+    }
+    return storeActive;
+  }, [
+    taskInline,
+    taskInline?.value.code,
+    taskInline?.value.location,
+    taskInline?.value.encoding,
+    taskInline?.label,
+    storeActive,
+  ]);
   const [showReference, setShowReference] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
   const scriptLayoutPanelRef = useScriptPanelResizePanelRef();
@@ -155,10 +200,14 @@ export function ScriptEditorPanel() {
       const encodedCode = encodeToBase64(newCode);
       const newValue = { ...activeScript.value, code: encodedCode, encoding: 'B64' as const };
 
+      if (taskInline) {
+        taskInline.onChange(newValue);
+        return;
+      }
       updateScriptValue(newValue);
       updateWorkflow((draft: any) => applyScriptValueToWorkflow(draft, activeScript, newValue));
     },
-    [activeScript, updateScriptValue, updateWorkflow],
+    [activeScript, taskInline, updateScriptValue, updateWorkflow],
   );
 
   const handleCodeChange = useCallback(
@@ -189,7 +238,9 @@ export function ScriptEditorPanel() {
         applyDiagnostics(monaco, editor.getModel(), code, activeScript.templateType);
       }
 
-      editor.focus();
+      if (!taskInline) {
+        editor.focus();
+      }
 
       if (activeScript) {
         const key = `csx:${activeScript.stateKey}:${activeScript.templateType}`;
@@ -198,11 +249,13 @@ export function ScriptEditorPanel() {
       }
 
       // Start Roslyn LSP client (static completions registered as fallback inside)
-      setupMonacoWithLsp(monaco, lspSessionId.current).then((client) => {
+      setupMonacoWithLsp(monaco, lspSessionId.current, {
+        disableLsp: Boolean(taskInline),
+      }).then((client) => {
         lspClientRef.current = client;
       });
     },
-    [activeScript],
+    [activeScript, taskInline],
   );
 
   useEffect(() => {
@@ -232,9 +285,10 @@ export function ScriptEditorPanel() {
   }, []);
 
   const handleClose = useCallback(() => {
+    if (taskInline) return;
     closeScript();
     setScriptPanelOpen(false);
-  }, [closeScript, setScriptPanelOpen]);
+  }, [closeScript, setScriptPanelOpen, taskInline]);
 
   const handleLocationChange = useCallback(
     (loc: string) => {
@@ -245,10 +299,14 @@ export function ScriptEditorPanel() {
       if (!activeScript || nextError) return;
 
       const newValue = { ...activeScript.value, location: loc };
+      if (taskInline) {
+        taskInline.onChange(newValue);
+        return;
+      }
       updateScriptValue(newValue);
       updateWorkflow((draft: any) => applyScriptValueToWorkflow(draft, activeScript, newValue));
     },
-    [activeScript, updateScriptValue, updateWorkflow],
+    [activeScript, taskInline, updateScriptValue, updateWorkflow],
   );
 
   const toggleMaximize = useCallback(() => {
@@ -288,68 +346,99 @@ export function ScriptEditorPanel() {
   return (
     <div className="bg-surface flex h-full min-h-0 flex-col">
       {/* Header bar */}
-      <div className="border-border-subtle bg-muted/70 flex shrink-0 items-center gap-2 border-b px-3 py-1.5">
-        <div className="bg-secondary-muted flex size-5 shrink-0 items-center justify-center rounded-md">
-          <Code2 size={12} className="text-secondary-icon" />
+      <div className="border-border-subtle bg-muted/70 flex shrink-0 items-start gap-2 border-b px-3 py-1">
+        <div className="bg-secondary-muted mt-px flex size-4 shrink-0 items-center justify-center rounded-md">
+          <Code2 size={11} className="text-secondary-icon" />
         </div>
-        <span className="text-foreground truncate text-[11px] font-semibold">
+        <span className="text-foreground mt-px truncate text-[11px] font-semibold">
           {activeScript.label}
         </span>
-        <span className="text-muted-foreground truncate font-mono text-[10px]">
-          {activeScript.stateKey}
-        </span>
+        {!taskInline ? (
+          <span className="text-muted-foreground mt-px truncate font-mono text-[10px]">
+            {activeScript.stateKey}
+          </span>
+        ) : null}
 
-        <div className="flex-1" />
+        <div className="min-w-2 flex-1" />
 
-        {/* Location input */}
-        <Input
-          value={locationDraft}
-          onChange={(e) => handleLocationChange(e.target.value)}
-          placeholder="./ScriptName.csx"
-          aria-invalid={locationError ? 'true' : 'false'}
-          size="sm"
-          className="w-52"
-          inputClassName="font-mono text-[11px]"
-        />
+        {/* Location — short error under input (no full-width alert) */}
+        <div className="min-w-0 max-w-[min(280px,40vw)] shrink-0 flex-1">
+          <Input
+            value={locationDraft}
+            onChange={(e) => handleLocationChange(e.target.value)}
+            placeholder="./ScriptName.csx"
+            aria-invalid={locationError ? 'true' : 'false'}
+            aria-describedby={locationError ? 'script-editor-location-hint' : undefined}
+            size="sm"
+            className="w-full"
+            inputClassName="font-mono text-[11px]"
+          />
+          {locationError ? (
+            <p
+              id="script-editor-location-hint"
+              role="alert"
+              className="text-destructive/80 dark:text-destructive/70 mt-1 max-w-full pl-0.5 text-[10px] leading-snug">
+              {locationError}
+            </p>
+          ) : null}
+        </div>
 
-        {/* API Reference toggle */}
-        <button
-          onClick={() => setShowReference(!showReference)}
-          className={`rounded-lg p-1.5 transition-all ${
-            showReference
-              ? 'bg-secondary-surface text-secondary-text'
-              : 'text-muted-foreground hover:bg-muted hover:text-secondary-text'
-          }`}
-          title="API Reference">
-          <BookOpen size={14} />
-        </button>
+        <div className="flex max-w-full shrink-0 flex-wrap items-center justify-end gap-1 pt-0.5">
+          {taskInline?.onPickAnotherScript ? (
+            <button
+              type="button"
+              onClick={taskInline.onPickAnotherScript}
+              className="text-secondary-text hover:bg-secondary-muted shrink-0 rounded-md px-2 py-1 text-[10px] font-medium transition-colors"
+              title="Discard changes and pick another script file">
+              Choose different script
+            </button>
+          ) : null}
+          {taskInline?.onOpenInFullEditor ? (
+            <button
+              type="button"
+              onClick={taskInline.onOpenInFullEditor}
+              className="text-secondary-text hover:bg-secondary-muted flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition-colors"
+              title="Open in full code editor (new tab in this app)">
+              <ExternalLink size={12} className="opacity-80" />
+              <span>Open in full editor</span>
+            </button>
+          ) : null}
+          {/* API Reference toggle */}
+          <button
+            type="button"
+            onClick={() => setShowReference(!showReference)}
+            className={`rounded-lg p-1.5 transition-all ${
+              showReference
+                ? 'bg-secondary-surface text-secondary-text'
+                : 'text-muted-foreground hover:bg-muted hover:text-secondary-text'
+            }`}
+            title="API Reference">
+            <BookOpen size={14} />
+          </button>
 
-        {/* Maximize/Restore */}
-        <button
-          onClick={toggleMaximize}
-          className="text-muted-foreground hover:bg-muted hover:text-foreground rounded-lg p-1.5 transition-all"
-          title={isMaximized ? 'Restore' : 'Maximize'}>
-          {isMaximized ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-        </button>
+          {!taskInline && (
+            <>
+              <button
+                type="button"
+                onClick={toggleMaximize}
+                className="text-muted-foreground hover:bg-muted hover:text-foreground rounded-lg p-1.5 transition-all"
+                title={isMaximized ? 'Restore' : 'Maximize'}>
+                {isMaximized ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+              </button>
 
-        {/* Close */}
-        <button
-          onClick={handleClose}
-          className="text-muted-foreground hover:bg-muted hover:text-foreground rounded-lg p-1.5 transition-all"
-          title="Close">
-          <X size={14} />
-        </button>
+              <button
+                type="button"
+                onClick={handleClose}
+                className="text-muted-foreground hover:bg-muted hover:text-foreground rounded-lg p-1.5 transition-all"
+                title="Close">
+                <X size={14} />
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Snippet toolbar — horizontal, above editor */}
-      {locationError && (
-        <div className="shrink-0 px-3 pt-2">
-          <Alert variant="destructive" className="px-3 py-2 text-xs">
-            <AlertDescription>{locationError}</AlertDescription>
-          </Alert>
-        </div>
-      )}
-
       <div className="border-border-subtle bg-muted/40 shrink-0 border-b">
         <CsxSnippetToolbar templateType={activeScript.templateType} editorRef={editorRef} />
       </div>
@@ -364,7 +453,7 @@ export function ScriptEditorPanel() {
             value={decoded}
             onChange={handleCodeChange}
             onMount={handleEditorMount}
-            theme="vs"
+            theme={monacoTheme}
             options={{
               minimap: { enabled: true, maxColumn: 80 },
               lineNumbers: 'on',

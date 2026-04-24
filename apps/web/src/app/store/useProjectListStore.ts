@@ -2,12 +2,36 @@ import { create } from 'zustand';
 
 import {
   getProjectTree,
+  subscribeWorkspaceFsChange,
   useProjectStore,
   type FileTreeNode,
   type ProjectInfo,
 } from '@vnext-forge/designer-ui';
 
-import { refreshWorkspaceLayoutAndValidateScript } from '../../modules/project-workspace/syncVnextWorkspaceFromDisk';
+import {
+  loadComponentFileTypes,
+  refreshWorkspaceLayoutAndValidateScript,
+} from '../../modules/project-workspace/syncVnextWorkspaceFromDisk';
+
+let workspaceFsSubscription: (() => void) | null = null;
+let workspaceFsRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * Tek seferlik: workspace dosya mutasyonlarında sidebar ağacını ve (bayrak açıksa)
+ * component file types önbelleğini debounced yeniler.
+ */
+export function startWorkspaceFsTreeSync(): void {
+  if (workspaceFsSubscription) return;
+  workspaceFsSubscription = subscribeWorkspaceFsChange(() => {
+    if (workspaceFsRefreshTimer) clearTimeout(workspaceFsRefreshTimer);
+    workspaceFsRefreshTimer = setTimeout(() => {
+      const { activeProject } = useProjectStore.getState();
+      if (!activeProject) return;
+      void useProjectListStore.getState().refreshFileTree();
+      void loadComponentFileTypes(activeProject.id);
+    }, 150);
+  });
+}
 
 /**
  * Web-only project list + file tree state. The web shell lists the user's

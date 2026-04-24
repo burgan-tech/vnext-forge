@@ -2,6 +2,7 @@ import { failureFromError, success, type ApiResponse } from '@vnext-forge/app-co
 import { z } from 'zod';
 import { callApi, unwrapApi } from '../../api/client';
 import { toVnextError } from '../../lib/error/vNextErrorHelpers';
+import { emitFsChangeOnSuccess } from '../../workspace-fs-events/index.js';
 
 export interface LoadComponentFileParams {
   filePath: string;
@@ -20,11 +21,19 @@ function parseComponentObject(content: unknown): Record<string, unknown> {
   return componentDocumentSchema.parse(content);
 }
 
+function normalizeComponentFilePath(filePath: string): string {
+  return filePath.replace(/\\/g, '/').replace(/\/{2,}/g, '/');
+}
+
 export function saveComponentFile(path: string, content: string) {
-  return callApi<void>({
-    method: 'files/write',
-    params: { path, content },
-  });
+  const normalized = normalizeComponentFilePath(path);
+  return emitFsChangeOnSuccess(
+    callApi<void>({
+      method: 'files/write',
+      params: { path: normalized, content },
+    }),
+    () => ({ kind: 'write', paths: [normalized], source: 'SaveComponentApi.saveComponentFile' }),
+  );
 }
 
 export async function loadComponentFile({

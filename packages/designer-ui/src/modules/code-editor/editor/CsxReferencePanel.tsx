@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { ChevronRight, Copy, Search, X } from 'lucide-react';
 import { Input } from '../../../ui/Input';
-import { CSX_API_REFERENCE, type ApiEntry, type ApiSection } from './CsxApiReference';
+import { filterCsxApiReferenceSections, type ApiEntry, type ApiSection } from './CsxApiReference';
 
 interface CsxReferencePanelProps {
   onClose: () => void;
@@ -81,18 +81,7 @@ function ReferenceEntry({ entry, onInsert }: { entry: ApiEntry; onInsert?: (text
 export function CsxReferencePanel({ onClose, onInsert }: CsxReferencePanelProps) {
   const [search, setSearch] = useState('');
 
-  const filteredSections = search.trim()
-    ? CSX_API_REFERENCE
-        .map((section) => ({
-          ...section,
-          entries: section.entries.filter(
-            (entry) =>
-              entry.name.toLowerCase().includes(search.toLowerCase()) ||
-              entry.description.toLowerCase().includes(search.toLowerCase()),
-          ),
-        }))
-        .filter((section) => section.entries.length > 0)
-    : CSX_API_REFERENCE;
+  const filteredSections = filterCsxApiReferenceSections(search);
 
   return (
     <div className="flex h-full flex-col border-l border-border bg-surface">

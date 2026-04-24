@@ -34,7 +34,6 @@ import {
   openVnextWorkspaceConfigTab,
 } from '../openEditorTabFromFileRoute';
 import { resolveFileRoute } from '../FileRouter';
-import { loadComponentFileTypes } from '../syncVnextWorkspaceFromDisk';
 
 const logger = createLogger('useProjectWorkspace');
 
@@ -42,16 +41,8 @@ export function useProjectWorkspace() {
   const activeProject = useProjectStore((s) => s.activeProject);
   const vnextConfig = useProjectStore((s) => s.vnextConfig);
   const fileTree = useProjectListStore((s) => s.fileTree);
-  const refreshFileTree = useProjectListStore((s) => s.refreshFileTree);
   const openTab = useEditorStore((s) => s.openTab);
   const navigate = useNavigate();
-
-  const refreshWorkspaceTree = useCallback(async () => {
-    await refreshFileTree();
-    if (activeProject) {
-      void loadComponentFileTypes(activeProject.id);
-    }
-  }, [refreshFileTree, activeProject]);
 
   /**
    * Single toast owner for workspace tree mutations: `useAsync` treats
@@ -124,7 +115,6 @@ export function useProjectWorkspace() {
       return writeFile(`${parentPath}/${normalizeWorkspaceName(name, 'file')}`, '');
     },
     {
-      onSuccess: refreshWorkspaceTree,
       onError: reportWorkspaceMutationError('File could not be created.'),
       showNotificationOnError: false,
     },
@@ -140,14 +130,12 @@ export function useProjectWorkspace() {
       return createDirectory(`${parentPath}/${normalizeWorkspaceName(name, 'folder')}`);
     },
     {
-      onSuccess: refreshWorkspaceTree,
       onError: reportWorkspaceMutationError('Folder could not be created.'),
       showNotificationOnError: false,
     },
   );
 
   const { execute: handleDeleteFile } = useAsync((path: string) => deleteFile(path), {
-    onSuccess: refreshWorkspaceTree,
     onError: reportWorkspaceMutationError('Item could not be deleted.'),
     showNotificationOnError: false,
   });
@@ -163,7 +151,6 @@ export function useProjectWorkspace() {
       return renameFile(oldPath, `${dir}/${normalizeWorkspaceName(newName, 'rename')}`);
     },
     {
-      onSuccess: refreshWorkspaceTree,
       onError: reportWorkspaceMutationError('Item could not be renamed.'),
       showNotificationOnError: false,
     },
@@ -197,7 +184,6 @@ export function useProjectWorkspace() {
           return false;
         }
         const data = getData(res);
-        await refreshWorkspaceTree();
         if (data) {
           navigate(`/project/${activeProject.id}/flow/${data.groupName}/${data.workflowName}`);
         }
@@ -227,10 +213,9 @@ export function useProjectWorkspace() {
         showNotification({ message: e.toUserMessage().message, kind: 'error' });
         return false;
       }
-      await refreshWorkspaceTree();
       return true;
     },
-    [activeProject, vnextConfig, refreshWorkspaceTree, navigate],
+    [activeProject, vnextConfig, navigate],
   );
 
   const { execute: handleCreateWorkflow } = useAsync(
@@ -257,7 +242,6 @@ export function useProjectWorkspace() {
     {
       onSuccess: async (result) => {
         const data = getData(result);
-        await refreshWorkspaceTree();
         if (activeProject && data) {
           navigate(`/project/${activeProject.id}/flow/${data.groupName}/${data.workflowName}`);
         }

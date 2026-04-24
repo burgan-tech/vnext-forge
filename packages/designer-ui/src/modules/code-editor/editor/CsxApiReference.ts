@@ -120,3 +120,21 @@ export const CSX_API_REFERENCE: ApiSection[] = [
     ],
   },
 ];
+
+/** CsxReferencePanel arama kutusu — ad veya açıklamada alt dizgi eşleşmesi */
+export function filterCsxApiReferenceSections(
+  search: string,
+  sections: ApiSection[] = CSX_API_REFERENCE,
+): ApiSection[] {
+  const q = search.trim().toLowerCase();
+  if (!q) return sections;
+  return sections
+    .map((section) => ({
+      ...section,
+      entries: section.entries.filter(
+        (entry) =>
+          entry.name.toLowerCase().includes(q) || entry.description.toLowerCase().includes(q),
+      ),
+    }))
+    .filter((section) => section.entries.length > 0);
+}
