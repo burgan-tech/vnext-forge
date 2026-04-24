@@ -45,6 +45,9 @@ export function useProjectWorkspacePage(projectId?: string): ProjectWorkspacePag
   const refreshFileTree = useProjectListStore((s) => s.refreshFileTree);
   const clearConfigIssues = useWorkspaceDiagnosticsStore((s) => s.clearConfigIssues);
   const resetVnextWorkspaceUi = useVnextWorkspaceUiStore((s) => s.resetVnextWorkspaceUi);
+  const setTemplateSeedDialogOpen = useVnextWorkspaceUiStore((s) => s.setTemplateSeedDialogOpen);
+  /** Sadece rota proje id'si değiştiğinde template-seed diyaloğunu sıfırla (aynı proje re-fetch'inde açık bırak). */
+  const templateSeedProjectIdRef = useRef<string | undefined>(undefined);
 
   const applyBootstrap = useCallback(
     (bootstrap: ProjectWorkspaceBootstrap) => {
@@ -172,9 +175,15 @@ export function useProjectWorkspacePage(projectId?: string): ProjectWorkspacePag
 
   useEffect(() => {
     if (!projectId) {
+      templateSeedProjectIdRef.current = undefined;
       resetWorkspaceState('Project could not be resolved.');
       setLoading(false);
       return;
+    }
+
+    if (templateSeedProjectIdRef.current !== projectId) {
+      templateSeedProjectIdRef.current = projectId;
+      setTemplateSeedDialogOpen(false);
     }
 
     let cancelled = false;
@@ -183,7 +192,13 @@ export function useProjectWorkspacePage(projectId?: string): ProjectWorkspacePag
     return () => {
       cancelled = true;
     };
-  }, [fetchAndApplyBootstrap, projectId, resetWorkspaceState, setLoading]);
+  }, [
+    fetchAndApplyBootstrap,
+    projectId,
+    resetWorkspaceState,
+    setLoading,
+    setTemplateSeedDialogOpen,
+  ]);
 
   /**
    * HMR / kısmi modül yükü: `fileTree` store sıfırlanabilir, `activeProject` kalabilir;

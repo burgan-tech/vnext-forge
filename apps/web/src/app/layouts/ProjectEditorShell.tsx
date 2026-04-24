@@ -3,6 +3,8 @@ import { Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import { useEditorStore } from '@vnext-forge/designer-ui';
 
+import { useVnextWorkspaceUiStore } from '../store/useVnextWorkspaceUiStore';
+import { VnextTemplateSeedDialog } from '../../modules/project-workspace/components/VnextTemplateSeedDialog';
 import { CodeEditorToolbarProvider, useCodeEditorToolbar } from '../../modules/project-workspace/CodeEditorToolbarContext';
 import { EditorTabBar } from '../../modules/project-workspace/components/EditorTabBar';
 import { activeTabIdFromPathname } from '../../modules/project-workspace/editorTabRouteSync';
@@ -14,6 +16,11 @@ function ProjectEditorShellInner() {
   const location = useLocation();
   const { tabs, activeTabId, setActiveTab, closeTab, clearTabs } = useEditorStore();
   const { toolbar, setToolbar } = useCodeEditorToolbar();
+  const templateSeedDialogOpen = useVnextWorkspaceUiStore((s) => s.templateSeedDialogOpen);
+  const setTemplateSeedDialogOpen = useVnextWorkspaceUiStore((s) => s.setTemplateSeedDialogOpen);
+  const declineTemplatePromptForProject = useVnextWorkspaceUiStore(
+    (s) => s.declineTemplatePromptForProject,
+  );
   const prevProjectIdRef = useRef<string | undefined>(undefined);
 
   /**
@@ -84,6 +91,15 @@ function ProjectEditorShellInner() {
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+      {id ? (
+        <VnextTemplateSeedDialog
+          open={templateSeedDialogOpen}
+          onOpenChange={setTemplateSeedDialogOpen}
+          projectId={id}
+          onDecline={() => declineTemplatePromptForProject(id)}
+        />
+      ) : null}
+
       {showChromeRow ? (
         <div className="border-border bg-muted/25 flex h-9 shrink-0 items-stretch border-b">
           {tabCount > 0 ? (

@@ -88,7 +88,8 @@ const statusBarNotificationVariants = cva(
       {
         variant: 'chip-danger',
         interactive: true,
-        className: 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-brand-surface',
+        className:
+          'hover:brightness-110 active:brightness-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:ring-offset-brand-surface motion-reduce:hover:brightness-100 motion-reduce:active:brightness-100',
       },
       {
         variant: 'chip-muted',

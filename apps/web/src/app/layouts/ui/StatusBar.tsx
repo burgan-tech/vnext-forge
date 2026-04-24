@@ -33,10 +33,12 @@ export function StatusBar() {
     needsTemplateOffer;
 
   const openTemplateDialogFromLayout = () => {
-    const layout = useVnextWorkspaceUiStore.getState().componentLayoutStatus;
-    if (!layout) return;
-    const reason = layout.projectContainsOnlyConfigFile ? 'only_config' : 'incomplete_layout';
-    openTemplateSeedDialog(reason, layout.missingLayoutPaths);
+    queueMicrotask(() => {
+      const layout = useVnextWorkspaceUiStore.getState().componentLayoutStatus;
+      if (!layout) return;
+      const reason = layout.projectContainsOnlyConfigFile ? 'only_config' : 'incomplete_layout';
+      openTemplateSeedDialog(reason, layout.missingLayoutPaths);
+    });
   };
 
   const mergedIssues = [...issues, ...configIssues];

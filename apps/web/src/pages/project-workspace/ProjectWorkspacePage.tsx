@@ -1,21 +1,14 @@
 import { useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 import { useEditorStore, useProjectStore } from '@vnext-forge/designer-ui';
 import { Badge, Button } from '@vnext-forge/designer-ui/ui';
 
 import { useVnextWorkspaceUiStore } from '../../app/store/useVnextWorkspaceUiStore';
-import { VnextTemplateSeedDialog } from '../../modules/project-workspace/components/VnextTemplateSeedDialog';
 export function ProjectWorkspacePage() {
-  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { activeProject, error, loading } = useProjectStore();
   const editorTabCount = useEditorStore((s) => s.tabs.length);
-  const templateSeedDialogOpen = useVnextWorkspaceUiStore((s) => s.templateSeedDialogOpen);
-  const setTemplateSeedDialogOpen = useVnextWorkspaceUiStore((s) => s.setTemplateSeedDialogOpen);
-  const declineTemplatePromptForProject = useVnextWorkspaceUiStore(
-    (s) => s.declineTemplatePromptForProject,
-  );
   const setShowMissingVnextConfigBar = useVnextWorkspaceUiStore(
     (s) => s.setShowMissingVnextConfigBar,
   );
@@ -50,15 +43,6 @@ export function ProjectWorkspacePage() {
 
   return (
     <div className="flex h-full flex-col">
-      {id ? (
-        <VnextTemplateSeedDialog
-          open={templateSeedDialogOpen}
-          onOpenChange={setTemplateSeedDialogOpen}
-          projectId={id}
-          onDecline={() => declineTemplatePromptForProject(id)}
-        />
-      ) : null}
-
       {editorTabCount > 0 ? (
         <div className="border-border flex items-center gap-3 border-b p-3">
           <Button
