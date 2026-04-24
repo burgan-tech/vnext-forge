@@ -90,3 +90,23 @@ export function normalizeWorkspaceName(
 
   return schema.parse(value).trim();
 }
+
+/**
+ * vNext JSON bileşen dosyası için tek bir `.json` eki: sondaki `.json` (büyük/küçük harf)
+ * varsa kaldırılıp yeniden eklenir; yoksa eklenir.
+ */
+export function ensureComponentJsonFileName(raw: string): string | null {
+  const t = raw.trim();
+  const base = t.replace(/\.json$/i, '').trim();
+  if (!base) return null;
+  return `${base}.json`;
+}
+
+/** `ensureComponentJsonFileName` sonrası `getWorkspaceNameError(..., 'file')`. */
+export function getVnextComponentJsonFileNameError(raw: string): string | null {
+  const ensured = ensureComponentJsonFileName(raw);
+  if (!ensured) {
+    return 'Name is required.';
+  }
+  return getWorkspaceNameError(ensured, 'file');
+}

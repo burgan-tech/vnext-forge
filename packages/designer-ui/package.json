@@ -11,7 +11,10 @@
     "./lib": "./src/lib/index.ts",
     "./notification": "./src/notification/index.ts",
     "./api": "./src/api/index.ts",
-    "./styles.css": "./src/styles.css"
+    "./styles.css": "./src/styles.css",
+    "./vnext-defaults": "./src/vnext-defaults/vnextComponentTemplates.ts",
+    "./component-paths": "./src/modules/project-workspace/componentFolderPathUtils.ts",
+    "./project-workspace-schema": "./src/modules/project-workspace/ProjectWorkspaceSchema.ts"
   },
   "main": "./src/index.ts",
   "types": "./src/index.ts",
@@ -19,6 +22,7 @@
   "scripts": {
     "build": "tsc -b",
     "lint": "eslint .",
+    "test": "vitest run",
     "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
   "peerDependencies": {
@@ -59,10 +63,12 @@
     "zustand": "^5.0.0"
   },
   "devDependencies": {
+    "@burgan-tech/vnext-schema": "^0.0.39",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "vitest": "^3.2.4"
   }
 }

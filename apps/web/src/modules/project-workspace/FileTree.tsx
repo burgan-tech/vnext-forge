@@ -4,16 +4,42 @@ import { FileText, Folder } from 'lucide-react';
 
 import {
   cn,
+  getVnextComponentJsonFileNameError,
   getWorkspaceNameError,
   normalizeWorkspaceName,
   type ComponentFolderType,
   type FileTreeNode,
+  type VnextComponentType,
 } from '@vnext-forge/designer-ui';
-import { matchComponentFolderType } from './componentFolderPaths';
+import {
+  classifyComponentTreePath,
+  matchComponentFolderType,
+  matchVnextDomainComponentFolder,
+} from './componentFolderPaths';
 import { FileTreeContextMenu, type FileTreeMenuItem } from './FileTreeContextMenu';
 import { FileTreeNodeRow } from './FileTreeNodeRow';
 
 export type { FileTreeNode };
+
+const KIND_GLYPH: Record<VnextComponentType, string> = {
+  workflow: 'WF',
+  task: 'TK',
+  schema: 'SC',
+  view: 'VW',
+  function: 'FN',
+  extension: 'EX',
+};
+
+const VNEXT_TYPE_CREATE_LABEL: Record<VnextComponentType, string> = {
+  workflow: 'Workflow Create',
+  task: 'Task Create',
+  schema: 'Schema Create',
+  view: 'View Create',
+  function: 'Function Create',
+  extension: 'Extension Create',
+};
+
+type VnextCreateState = { kind: VnextComponentType; parentPath: string };
 
 interface FileTreeProps {
   node: FileTreeNode;
@@ -25,7 +51,7 @@ interface FileTreeProps {
   onCreateFolder?: (parentPath: string, name: string) => void;
   onDeleteFile?: (path: string) => void;
   onRenameFile?: (oldPath: string, newName: string) => void;
-  onCreateWorkflow?: (parentPath: string, name: string) => void;
+  runVnextComponentOnly?: (parentPath: string, name: string, kind: VnextComponentType) => Promise<boolean>;
   projectRoot?: string;
   componentFolderRelPaths?: Partial<Record<ComponentFolderType, string>>;
 }
@@ -39,18 +65,21 @@ export function FileTree({
   onCreateFolder,
   onDeleteFile,
   onRenameFile,
-  onCreateWorkflow,
+  runVnextComponentOnly,
   projectRoot,
   componentFolderRelPaths,
 }: FileTreeProps) {
   const [expanded, setExpanded] = useState(depth < 2);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
-  const [creating, setCreating] = useState<'file' | 'folder' | 'workflow' | null>(null);
+  const [creating, setCreating] = useState<'file' | 'folder' | null>(null);
+  const [vnextCreate, setVnextCreate] = useState<VnextCreateState | null>(null);
   const [newName, setNewName] = useState('');
   const [renaming, setRenaming] = useState(false);
   const [renameName, setRenameName] = useState('');
   const [inputError, setInputError] = useState<string | null>(null);
+  const [vnextInputError, setVnextInputError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const vnextInputRef = useRef<HTMLInputElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const rowPaddingLeft = depth * 14 + 6;
 
@@ -72,8 +101,17 @@ export function FileTree({
   }, [creating, renaming]);
 
   useEffect(() => {
+    if (vnextCreate && vnextInputRef.current) {
+      vnextInputRef.current.focus();
+    }
+  }, [vnextCreate]);
+
+  useEffect(() => {
     setInputError(null);
   }, [creating, renaming]);
+  useEffect(() => {
+    setVnextInputError(null);
+  }, [vnextCreate]);
 
   const handleContextMenu = useCallback((e: ReactMouseEvent) => {
     e.preventDefault();
@@ -98,12 +136,58 @@ export function FileTree({
       onCreateFile(parentPath, normalizedName);
     } else if (creating === 'folder' && onCreateFolder) {
       onCreateFolder(parentPath, normalizedName);
-    } else if (creating === 'workflow' && onCreateWorkflow) {
-      onCreateWorkflow(parentPath, normalizedName);
     }
     setCreating(null);
     setNewName('');
     setInputError(null);
+  };
+
+  const clearVnext = () => {
+    setVnextCreate(null);
+    setNewName('');
+    setVnextInputError(null);
+  };
+
+  const cancelPlainCreate = () => {
+    setCreating(null);
+    setNewName('');
+    setInputError(null);
+  };
+
+  const handleVnextKeyDown = async (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      clearVnext();
+      return;
+    }
+    if (e.key !== 'Enter' || !vnextCreate) return;
+    e.preventDefault();
+
+    if (!runVnextComponentOnly) {
+      clearVnext();
+      return;
+    }
+    if (vnextCreate.kind === 'workflow') {
+      const err = getWorkspaceNameError(newName, 'workflow');
+      if (err) {
+        setVnextInputError(err);
+        return;
+      }
+    } else {
+      const err = getVnextComponentJsonFileNameError(newName);
+      if (err) {
+        setVnextInputError(err);
+        return;
+      }
+    }
+    const ok = await runVnextComponentOnly(
+      vnextCreate.parentPath,
+      vnextCreate.kind === 'workflow'
+        ? normalizeWorkspaceName(newName, 'workflow')
+        : newName.trim(),
+      vnextCreate.kind,
+    );
+    if (ok) clearVnext();
   };
 
   const handleRenameSubmit = () => {
@@ -134,7 +218,15 @@ export function FileTree({
     node.type === 'directory'
       ? matchComponentFolderType(node.path, projectRoot, componentFolderRelPaths)
       : undefined;
-  const isWfCtx = folderType === 'workflows';
+  const treeClass =
+    node.type === 'directory' && projectRoot && componentFolderRelPaths
+      ? classifyComponentTreePath(node.path, projectRoot, componentFolderRelPaths)
+      : null;
+  const vnextDomainClass =
+    node.type === 'directory' && projectRoot && componentFolderRelPaths
+      ? matchVnextDomainComponentFolder(node.path, projectRoot, componentFolderRelPaths)
+      : null;
+
   if (node.type === 'file') {
     if (renaming) {
       return (
@@ -218,12 +310,17 @@ export function FileTree({
   }
 
   const dirMenuItems: FileTreeMenuItem[] = [];
-  if (isWfCtx && onCreateWorkflow) {
+  if (vnextDomainClass && runVnextComponentOnly) {
     dirMenuItems.push({
-      label: 'New Workflow',
+      label: VNEXT_TYPE_CREATE_LABEL[vnextDomainClass.componentKind],
       accent: true,
       action: () => {
-        setCreating('workflow');
+        setCreating(null);
+        setVnextCreate({
+          kind: vnextDomainClass.componentKind,
+          parentPath: node.path,
+        });
+        setNewName('');
         setExpanded(true);
         setContextMenu(null);
       },
@@ -234,6 +331,8 @@ export function FileTree({
     {
       label: 'New File',
       action: () => {
+        setVnextCreate(null);
+        setNewName('');
         setCreating('file');
         setExpanded(true);
         setContextMenu(null);
@@ -242,6 +341,8 @@ export function FileTree({
     {
       label: 'New Folder',
       action: () => {
+        setVnextCreate(null);
+        setNewName('');
         setCreating('folder');
         setExpanded(true);
         setContextMenu(null);
@@ -266,6 +367,14 @@ export function FileTree({
     },
   );
 
+  const vnextKind = vnextCreate?.kind;
+  const vnextPlaceholder =
+    vnextCreate == null
+      ? ''
+      : vnextCreate.kind === 'workflow'
+        ? 'workflow-name'
+        : 'name or name.json';
+
   return (
     <div>
       <FileTreeNodeRow
@@ -283,15 +392,36 @@ export function FileTree({
 
       {expanded && (
         <div>
+          {vnextCreate && vnextKind && (
+            <div style={{ paddingLeft: (depth + 1) * 14 + 6 }}>
+              <div className="flex items-center gap-1.5 px-1.5 py-[3px]">
+                <span className="text-tertiary-icon w-4 shrink-0 text-center text-[9px] font-bold">
+                  {KIND_GLYPH[vnextKind]}
+                </span>
+                <input
+                  ref={vnextInputRef}
+                  type="text"
+                  placeholder={vnextPlaceholder}
+                  value={newName}
+                  onChange={(e) => {
+                    setNewName(e.target.value);
+                    if (vnextInputError) setVnextInputError(null);
+                  }}
+                  onKeyDown={handleVnextKeyDown}
+                  onBlur={clearVnext}
+                  className="text-foreground border-tertiary-border bg-tertiary-surface/40 h-5 flex-1 rounded-md border px-1.5 text-xs outline-none"
+                />
+              </div>
+              {vnextInputError && (
+                <p className="text-destructive-text mt-1 px-2 text-[11px]">{vnextInputError}</p>
+              )}
+            </div>
+          )}
           {creating && (
             <div style={{ paddingLeft: (depth + 1) * 14 + 6 }}>
               <div className="flex items-center gap-1.5 px-1.5 py-[3px]">
                 {creating === 'folder' ? (
                   <Folder className="text-muted-icon size-3.5 shrink-0" />
-                ) : creating === 'workflow' ? (
-                  <span className="text-tertiary-icon w-4 shrink-0 text-center text-[9px] font-bold">
-                    WF
-                  </span>
                 ) : (
                   <span className="text-muted-icon w-4 shrink-0 text-center text-[9px] font-bold">
                     +
@@ -300,13 +430,7 @@ export function FileTree({
                 <input
                   ref={inputRef}
                   type="text"
-                  placeholder={
-                    creating === 'workflow'
-                      ? 'workflow-name'
-                      : creating === 'file'
-                        ? 'filename.ext'
-                        : 'folder-name'
-                  }
+                  placeholder={creating === 'file' ? 'filename.ext' : 'folder-name'}
                   value={newName}
                   onChange={(e) => {
                     setNewName(e.target.value);
@@ -315,18 +439,11 @@ export function FileTree({
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') handleCreateSubmit();
                     if (e.key === 'Escape') {
-                      setCreating(null);
-                      setNewName('');
-                      setInputError(null);
+                      cancelPlainCreate();
                     }
                   }}
-                  onBlur={handleCreateSubmit}
-                  className={cn(
-                    'text-foreground placeholder:text-muted-foreground h-5 flex-1 rounded-md border px-1.5 text-xs outline-none',
-                    creating === 'workflow'
-                      ? 'border-tertiary-border bg-tertiary-surface/40'
-                      : 'border-primary-border bg-primary-surface/60',
-                  )}
+                  onBlur={cancelPlainCreate}
+                  className="text-foreground border-primary-border bg-primary-surface/60 h-5 flex-1 rounded-md border px-1.5 text-xs outline-none"
                 />
               </div>
               {inputError && (
@@ -345,7 +462,7 @@ export function FileTree({
               onCreateFolder={onCreateFolder}
               onDeleteFile={onDeleteFile}
               onRenameFile={onRenameFile}
-              onCreateWorkflow={onCreateWorkflow}
+              runVnextComponentOnly={runVnextComponentOnly}
               projectRoot={projectRoot}
               componentFolderRelPaths={componentFolderRelPaths}
             />

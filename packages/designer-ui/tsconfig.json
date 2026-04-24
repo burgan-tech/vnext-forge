@@ -9,6 +9,7 @@
     "types": []
   },
   "include": ["src"],
+  "exclude": ["src/**/*.vitest.test.ts"],
   "references": [
     { "path": "../vnext-types" },
     { "path": "../app-contracts" },

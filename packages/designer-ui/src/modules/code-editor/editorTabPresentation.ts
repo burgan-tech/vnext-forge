@@ -24,7 +24,7 @@ export {
 export function componentEditorKindToVnextComponentType(
   kind: ComponentEditorKind,
 ): VnextComponentType {
-  return componentTabKindFromSpaRoute(kind as SpaComponentEditorTabRouteKind);
+  return componentTabKindFromSpaRoute(kind as SpaComponentEditorTabRouteKind) as VnextComponentType;
 }
 
 /**

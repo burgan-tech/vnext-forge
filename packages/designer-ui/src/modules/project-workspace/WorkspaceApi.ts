@@ -11,6 +11,7 @@ import { callApi, unwrapApi } from '../../api/client';
 import { createLogger } from '../../lib/logger/createLogger';
 import { toVnextError } from '../../lib/error/vNextErrorHelpers';
 
+import { buildVnextComponentJson } from '../../vnext-defaults/vnextComponentTemplates.js';
 import { normalizeWorkspaceName, createWorkflowNameSchema } from './ProjectWorkspaceSchema';
 
 const logger = createLogger('WorkspaceApi');
@@ -169,28 +170,10 @@ export async function scaffoldWorkflow(
   await createDirectory(groupPath);
   await createDirectory(`${groupPath}/.meta`);
 
-  const workflowTemplate = {
-    $type: 'workflow',
+  const workflowTemplate = buildVnextComponentJson('workflow', {
     key: workflowName,
     domain,
-    version: '1.0.0',
-    flow: 'sys-flows',
-    tags: [],
-    attributes: {
-      type: 'F',
-      labels: [{ label: workflowName, language: 'en' }],
-      startTransition: {
-        key: 'start',
-        target: '',
-        versionStrategy: 'Minor',
-        labels: [{ label: 'Start', language: 'en' }],
-      },
-      states: [],
-      functions: [],
-      features: [],
-      extensions: [],
-    },
-  };
+  });
 
   const writeResult = await writeFile(
     `${groupPath}/${workflowName}.json`,

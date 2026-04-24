@@ -1,0 +1,10 @@
+{
+  "$comment": "Reference shape for task; use buildVnextComponentJson('task', { key, domain }) in code",
+  "key": "example-component",
+  "domain": "openbanking",
+  "version": "1.0.0",
+  "flow": "sys-tasks",
+  "flowVersion": "1.0.0",
+  "tags": [],
+  "attributes": { "type": "7", "config": {} }
+}

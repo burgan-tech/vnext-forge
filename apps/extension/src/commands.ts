@@ -6,6 +6,18 @@ import type {
   WorkspaceService,
   VnextWorkspaceConfig,
 } from '@vnext-forge/services-core';
+import {
+  buildComponentFolderRelPaths,
+  matchVnextDomainComponentFolder,
+} from '@vnext-forge/designer-ui/component-paths';
+import {
+  ensureComponentJsonFileName,
+  getWorkspaceNameError,
+} from '@vnext-forge/designer-ui/project-workspace-schema';
+import {
+  buildVnextComponentJson,
+  type VnextComponentJsonKind,
+} from '@vnext-forge/designer-ui/vnext-defaults';
 import { baseLogger } from './shared/logger.js';
 import { isDesignerEditorRoute, resolveProjectForRoot } from './designer-helpers.js';
 import { resolveFileRoute } from './file-router.js';
@@ -32,6 +44,24 @@ export function registerCommands(context: vscode.ExtensionContext, deps: Command
     vscode.commands.registerCommand('vnextForge.createProject', () => createProjectCommand(deps)),
     vscode.commands.registerCommand('vnextForge.createComponent', () =>
       createComponentCommand(deps),
+    ),
+    vscode.commands.registerCommand('vnextForge.forgeCreateWorkflow', (uri?: vscode.Uri) =>
+      forgeComponentCreateByKind(uri, deps, 'workflow'),
+    ),
+    vscode.commands.registerCommand('vnextForge.forgeCreateTask', (uri?: vscode.Uri) =>
+      forgeComponentCreateByKind(uri, deps, 'task'),
+    ),
+    vscode.commands.registerCommand('vnextForge.forgeCreateSchema', (uri?: vscode.Uri) =>
+      forgeComponentCreateByKind(uri, deps, 'schema'),
+    ),
+    vscode.commands.registerCommand('vnextForge.forgeCreateView', (uri?: vscode.Uri) =>
+      forgeComponentCreateByKind(uri, deps, 'view'),
+    ),
+    vscode.commands.registerCommand('vnextForge.forgeCreateFunction', (uri?: vscode.Uri) =>
+      forgeComponentCreateByKind(uri, deps, 'function'),
+    ),
+    vscode.commands.registerCommand('vnextForge.forgeCreateExtension', (uri?: vscode.Uri) =>
+      forgeComponentCreateByKind(uri, deps, 'extension'),
     ),
   );
 }
@@ -221,6 +251,12 @@ function pathSegmentForKind(config: VnextWorkspaceConfig, kind: ComponentKind): 
       return config.paths.functions;
     case 'extension':
       return config.paths.extensions;
+    case 'config':
+      throw new Error('vnext config is not a component kind');
+    default: {
+      const k: string = String(kind);
+      throw new Error(`Unhandled component kind: ${k}`);
+    }
   }
 }
 
@@ -283,9 +319,10 @@ async function createComponentCommand(deps: CommandDeps): Promise<void> {
   });
   if (!key) return;
   const keyTrimmed = key.trim();
+  const fileBase = keyTrimmed.replace(/\.json$/i, '');
 
   const targetDir = group === '' ? kindFolderAbs : path.join(kindFolderAbs, group);
-  const targetFile = path.join(targetDir, `${keyTrimmed}.json`);
+  const targetFile = path.join(targetDir, `${fileBase}.json`);
 
   try {
     await fs.access(targetFile);
@@ -297,7 +334,10 @@ async function createComponentCommand(deps: CommandDeps): Promise<void> {
     // expected ENOENT
   }
 
-  const stub = buildComponentStub(kind, keyTrimmed, config.domain);
+  const stub = buildVnextComponentJson(
+    kind as VnextComponentJsonKind,
+    { key: fileBase, domain: config.domain },
+  );
 
   try {
     await fs.mkdir(targetDir, { recursive: true });
@@ -326,7 +366,7 @@ async function createComponentCommand(deps: CommandDeps): Promise<void> {
     projectPath: root.folderPath,
     projectDomain: config.domain,
     group,
-    name: keyTrimmed,
+    name: fileBase,
     filePath: targetFile,
     vnextConfig: config,
   });
@@ -393,82 +433,214 @@ async function listSubdirectories(dir: string): Promise<string[]> {
   }
 }
 
-// ── Component stubs ───────────────────────────────────────────────────────────
+// ── Explorer: Forge “{Type} Create” (subfolder only; extension host) ─────────
 
-function buildComponentStub(
-  kind: ComponentKind,
-  key: string,
+async function writeWorkflowScaffoldToDisk(
+  groupPath: string,
+  workflowName: string,
   domain: string,
-): Record<string, unknown> {
-  const base = {
-    key,
-    flow: `sys-${kind}`,
-    domain,
-    version: '1.0.0',
-    tags: [],
-  };
+): Promise<string> {
+  const workflowTemplate = buildVnextComponentJson('workflow', { key: workflowName, domain });
+  const jsonPath = path.join(groupPath, `${workflowName}.json`);
+  const metaPath = path.join(groupPath, '.meta');
+  const diagramPath = path.join(metaPath, `${workflowName}.diagram.json`);
+  await fs.mkdir(groupPath, { recursive: true });
+  await fs.mkdir(metaPath, { recursive: true });
+  await fs.writeFile(jsonPath, JSON.stringify(workflowTemplate, null, 2), 'utf-8');
+  await fs.writeFile(diagramPath, JSON.stringify({ nodePos: {} }, null, 2), 'utf-8');
+  return jsonPath;
+}
 
-  switch (kind) {
-    case 'workflow':
-      return {
-        ...base,
-        flow: 'sys-workflow',
-        attributes: {
-          type: 'F',
-          subFlowType: 'S',
-          timeout: { key: '', domain, flow: '', version: '' },
-          states: [],
-        },
-      };
-    case 'task':
-      return {
-        ...base,
-        flow: 'sys-task',
-        attributes: {
-          type: 5,
-          executionTimeout: 30,
-          config: {},
-        },
-      };
-    case 'schema':
-      return {
-        ...base,
-        flow: 'sys-schema',
-        attributes: {
-          schema: {
-            $schema: 'http://json-schema.org/draft-07/schema#',
-            type: 'object',
-            properties: {},
-          },
-        },
-      };
-    case 'view':
-      return {
-        ...base,
-        flow: 'sys-view',
-        attributes: {
-          type: 'Json',
-          display: 'full-page',
-          content: {},
-        },
-      };
-    case 'function':
-      return {
-        ...base,
-        flow: 'sys-function',
-        attributes: {
-          scope: 'F',
-          task: { key: '', domain, flow: '', version: '' },
-        },
-      };
-    case 'extension':
-      return {
-        ...base,
-        flow: 'sys-extension',
-        attributes: {
-          type: 1,
-          task: { key: '', domain, flow: '', version: '' },
-        },
-      };
+function getExplorerFolderTarget(uri: vscode.Uri | undefined): string | null {
+  if (uri && uri.scheme === 'file') {
+    return uri.fsPath;
+  }
+  return null;
+}
+
+const FORGE_CREATE_TITLE: Record<VnextComponentJsonKind, string> = {
+  workflow: 'Forge: Workflow Create',
+  task: 'Forge: Task Create',
+  schema: 'Forge: Schema Create',
+  view: 'Forge: View Create',
+  function: 'Forge: Function Create',
+  extension: 'Forge: Extension Create',
+};
+
+/**
+ * Web FileTree’deki satır-içi isim gibi: Quick Input, Explorer’da hedef klasöre fokus.
+ * VS Code Explorer ağaçta yerleşik text edit açmayı dışa vermez; bu en yakın entegrasyon.
+ */
+async function promptForgeNewComponentName(
+  resource: vscode.Uri | undefined,
+  folderPath: string,
+  expectedKind: VnextComponentJsonKind,
+): Promise<string | undefined> {
+  if (resource) {
+    try {
+      await vscode.commands.executeCommand('revealInExplorer', resource);
+    } catch {
+      try {
+        await vscode.commands.executeCommand('workbench.view.explorer');
+      } catch {
+        // ignore
+      }
+    }
+  }
+
+  const workspaceFolder = vscode.workspace.getWorkspaceFolder(vscode.Uri.file(folderPath));
+  const relHint =
+    workspaceFolder != null
+      ? path.relative(workspaceFolder.uri.fsPath, folderPath) || path.basename(folderPath)
+      : folderPath;
+
+  return new Promise((resolve) => {
+    const ib = vscode.window.createInputBox();
+    let resolved = false;
+    const finish = (value: string | undefined) => {
+      if (resolved) return;
+      resolved = true;
+      ib.hide();
+      ib.dispose();
+      resolve(value);
+    };
+
+    ib.title = FORGE_CREATE_TITLE[expectedKind];
+    ib.description = relHint;
+    ib.placeholder = expectedKind === 'workflow' ? 'workflow-name' : 'name or name.json (optional .json)';
+
+    const validate = (raw: string): string | undefined => {
+      const t = raw.trim();
+      if (t.length === 0) return undefined;
+      if (expectedKind === 'workflow') {
+        if (t.toLowerCase().endsWith('.json')) {
+          return 'Workflow name must not include .json';
+        }
+        return getWorkspaceNameError(raw, 'workflow') ?? undefined;
+      }
+      const fileName = ensureComponentJsonFileName(raw);
+      if (!fileName) {
+        return 'Name is required';
+      }
+      return getWorkspaceNameError(fileName, 'file') ?? undefined;
+    };
+
+    let accepted = false;
+    ib.onDidChangeValue((v) => {
+      const err = validate(v);
+      ib.validationMessage = err;
+    });
+    ib.onDidAccept(() => {
+      const t = ib.value.trim();
+      if (t.length === 0) {
+        ib.validationMessage = 'Name is required.';
+        return;
+      }
+      const err = validate(ib.value);
+      if (err) {
+        ib.validationMessage = err;
+        return;
+      }
+      accepted = true;
+      finish(ib.value);
+    });
+    ib.onDidHide(() => {
+      if (!accepted) {
+        finish(undefined);
+      }
+    });
+    ib.show();
+  });
+}
+
+async function forgeComponentCreateByKind(
+  resource: vscode.Uri | undefined,
+  deps: CommandDeps,
+  expectedKind: VnextComponentJsonKind,
+): Promise<void> {
+  const folderPath = getExplorerFolderTarget(resource);
+  if (!folderPath) {
+    void vscode.window.showErrorMessage('vnext-forge: Select a folder in the Explorer first.');
+    return;
+  }
+  const root = deps.detector.findOwningRoot(folderPath);
+  if (!root) {
+    void vscode.window.showErrorMessage('vnext-forge: Not inside a vNext workspace.');
+    return;
+  }
+  const status = await deps.workspaceService.readConfigStatus(root.folderPath);
+  if (status.status !== 'ok') {
+    void vscode.window.showErrorMessage('vnext-forge: vnext.config.json is not valid.');
+    return;
+  }
+  const { config } = status;
+  const relPaths = buildComponentFolderRelPaths(config.paths);
+  const c = matchVnextDomainComponentFolder(folderPath, root.folderPath, relPaths);
+  if (!c) {
+    void vscode.window.showErrorMessage(
+      'vnext-forge: Use a domain folder (e.g. Extensions/your-domain or Tasks/your-group), not a nested subfolder (e.g. src).',
+    );
+    return;
+  }
+  if (c.componentKind !== expectedKind) {
+    void vscode.window.showErrorMessage(
+      'vnext-forge: This command does not match the selected folder type.',
+    );
+    return;
+  }
+  const domain = config.domain;
+  const name = await promptForgeNewComponentName(resource, folderPath, expectedKind);
+  if (name == null || !name.trim()) {
+    return;
+  }
+
+  try {
+    if (expectedKind === 'workflow') {
+      if (/\.json$/i.test(name.trim())) {
+        void vscode.window.showErrorMessage('vnext-forge: Workflow name should not include .json.');
+        return;
+      }
+      const json = await writeWorkflowScaffoldToDisk(folderPath, name.trim(), domain);
+      const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(json));
+      await vscode.window.showTextDocument(doc, { preview: true });
+    } else {
+      const fileName = ensureComponentJsonFileName(name);
+      if (!fileName) {
+        void vscode.window.showErrorMessage('vnext-forge: Name is required.');
+        return;
+      }
+      const nameErr = getWorkspaceNameError(fileName, 'file');
+      if (nameErr) {
+        void vscode.window.showErrorMessage(`vnext-forge: ${nameErr}`);
+        return;
+      }
+      const fileBase = fileName.replace(/\.json$/i, '');
+      const target = path.join(folderPath, fileName);
+      try {
+        await fs.access(target);
+        void vscode.window.showErrorMessage('vnext-forge: File already exists.');
+        return;
+      } catch {
+        // ok
+      }
+      const body = buildVnextComponentJson(expectedKind, { key: fileBase, domain });
+      await fs.writeFile(target, JSON.stringify(body, null, 2), 'utf-8');
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    void vscode.window.showErrorMessage(`vnext-forge: ${msg}`);
+    return;
+  }
+  void openOrRefreshProjectForRoot(deps, root);
+}
+
+async function openOrRefreshProjectForRoot(
+  deps: CommandDeps,
+  root: VnextWorkspaceRoot,
+): Promise<void> {
+  try {
+    await deps.projectService.importProject(root.folderPath);
+  } catch (err) {
+    baseLogger.warn({ error: (err as Error).message, folder: root.folderPath }, 'importProject failed');
   }
 }

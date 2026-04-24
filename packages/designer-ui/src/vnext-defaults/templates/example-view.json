@@ -1,0 +1,18 @@
+{
+  "$comment": "Reference shape for view; use buildVnextComponentJson('view', { key, domain }) in code",
+  "key": "example-component",
+  "domain": "openbanking",
+  "version": "1.0.0",
+  "flow": "sys-views",
+  "flowVersion": "1.0.0",
+  "tags": [],
+  "attributes": {
+    "type": 1,
+    "labels": [
+      { "label": "example-component", "language": "tr-TR" },
+      { "label": "example-component", "language": "en-US" }
+    ],
+    "display": "full-page",
+    "content": "{}"
+  }
+}

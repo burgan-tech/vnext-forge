@@ -1,0 +1,23 @@
+{
+  "$comment": "Reference shape for workflow; use buildVnextComponentJson('workflow', { key, domain }) in code",
+  "$type": "workflow",
+  "key": "example-component",
+  "domain": "openbanking",
+  "version": "1.0.0",
+  "flow": "sys-flows",
+  "tags": [],
+  "attributes": {
+    "type": "F",
+    "labels": [{ "label": "example-component", "language": "en" }],
+    "startTransition": {
+      "key": "start",
+      "target": "",
+      "versionStrategy": "Minor",
+      "labels": [{ "label": "Start", "language": "en" }]
+    },
+    "states": [],
+    "functions": [],
+    "features": [],
+    "extensions": []
+  }
+}

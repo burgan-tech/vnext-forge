@@ -22,6 +22,8 @@ export * from './shared/index.js';
 // webview) talks to its backend through the same contract.
 export * from './modules/project-workspace/WorkspaceApi.js';
 export * from './modules/project-workspace/ProjectWorkspaceSchema.js';
+export * from './modules/project-workspace/componentFolderPathUtils.js';
+export * from './vnext-defaults/vnextComponentTemplates.js';
 
 // Router-agnostic editor views: each editor takes
 // `{ projectId, group, name }` props so a host can render it directly

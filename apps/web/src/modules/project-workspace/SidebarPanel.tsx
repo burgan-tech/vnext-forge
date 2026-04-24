@@ -25,7 +25,7 @@ export function ProjectWorkspaceSidebarPanel() {
     handleCreateFolder,
     handleDeleteFile,
     handleRenameFile,
-    handleCreateWorkflow,
+    runVnextComponentOnly,
   } = useProjectWorkspace();
 
   const [filterQuery, setFilterQuery] = useState('');
@@ -129,7 +129,7 @@ export function ProjectWorkspaceSidebarPanel() {
                 onCreateFolder={handleCreateFolder}
                 onDeleteFile={handleDeleteFile}
                 onRenameFile={handleRenameFile}
-                onCreateWorkflow={handleCreateWorkflow}
+                runVnextComponentOnly={runVnextComponentOnly}
                 projectRoot={activeProject.path}
                 componentFolderRelPaths={componentFolderRelPaths}
               />

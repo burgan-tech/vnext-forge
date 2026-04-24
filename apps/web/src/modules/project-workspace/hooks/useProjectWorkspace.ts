@@ -4,10 +4,12 @@ import {
   failureFromCode,
   ERROR_CODES,
   getData,
+  isFailure,
   type VnextForgeError,
 } from '@vnext-forge/app-contracts';
 
 import {
+  buildVnextComponentJson,
   createDirectory,
   createLogger,
   deleteFile,
@@ -21,7 +23,10 @@ import {
   useProjectStore,
   writeFile,
   type FileTreeNode,
+  ensureComponentJsonFileName,
+  type VnextComponentType,
 } from '@vnext-forge/designer-ui';
+import { toVnextError } from '@vnext-forge/designer-ui/lib';
 
 import { useProjectListStore } from '../../../app/store/useProjectListStore';
 import {
@@ -164,6 +169,70 @@ export function useProjectWorkspace() {
     },
   );
 
+  const runVnextComponentOnly = useCallback(
+    async (parentPath: string, name: string, kind: VnextComponentType): Promise<boolean> => {
+      if (!activeProject || !vnextConfig) {
+        showNotification({ message: 'No active project or config loaded', kind: 'error' });
+        return false;
+      }
+      const domain = vnextConfig.domain || activeProject.domain;
+
+      if (kind === 'workflow') {
+        const validationError = getWorkspaceNameError(name, 'workflow');
+        if (validationError) {
+          showNotification({ message: validationError, kind: 'warning' });
+          return false;
+        }
+        const res = await scaffoldWorkflow({
+          parentPath,
+          name: normalizeWorkspaceName(name, 'workflow'),
+          projectPath: activeProject.path,
+          componentsRoot: vnextConfig.paths.componentsRoot,
+          workflowsRelDir: vnextConfig.paths.workflows,
+          domain,
+        });
+        if (isFailure(res)) {
+          const e = toVnextError(res, 'Workflow scaffold failed');
+          showNotification({ message: e.toUserMessage().message, kind: 'error' });
+          return false;
+        }
+        const data = getData(res);
+        await refreshWorkspaceTree();
+        if (data) {
+          navigate(`/project/${activeProject.id}/flow/${data.groupName}/${data.workflowName}`);
+        }
+        return true;
+      }
+
+      const fileName = ensureComponentJsonFileName(name);
+      if (!fileName) {
+        showNotification({ message: 'Name is required.', kind: 'warning' });
+        return false;
+      }
+      const validationError = getWorkspaceNameError(fileName, 'file');
+      if (validationError) {
+        showNotification({ message: validationError, kind: 'warning' });
+        return false;
+      }
+      const key = fileName.replace(/\.json$/i, '');
+      if (!key.trim()) {
+        showNotification({ message: 'Invalid file name.', kind: 'warning' });
+        return false;
+      }
+      const body = buildVnextComponentJson(kind, { key, domain });
+      const target = `${parentPath.replace(/\/+$/, '')}/${fileName}`;
+      const w = await writeFile(target, JSON.stringify(body, null, 2));
+      if (isFailure(w)) {
+        const e = toVnextError(w, 'Write failed');
+        showNotification({ message: e.toUserMessage().message, kind: 'error' });
+        return false;
+      }
+      await refreshWorkspaceTree();
+      return true;
+    },
+    [activeProject, vnextConfig, refreshWorkspaceTree, navigate],
+  );
+
   const { execute: handleCreateWorkflow } = useAsync(
     (parentPath: string, name: string) => {
       const validationError = getWorkspaceNameError(name, 'workflow');
@@ -209,5 +278,6 @@ export function useProjectWorkspace() {
     handleDeleteFile,
     handleRenameFile,
     handleCreateWorkflow,
+    runVnextComponentOnly,
   };
 }
