@@ -1,14 +1,16 @@
-import badgeComponentsRoot from '../../assets/icons/component-badges/components-root.svg?raw';
-import badgeExtension from '../../assets/icons/component-badges/extension.svg?raw';
-import badgeFunction from '../../assets/icons/component-badges/function.svg?raw';
-import badgeSchema from '../../assets/icons/component-badges/schema.svg?raw';
-import badgeTask from '../../assets/icons/component-badges/task.svg?raw';
-import badgeView from '../../assets/icons/component-badges/view.svg?raw';
-import badgeWorkflow from '../../assets/icons/component-badges/workflow.svg?raw';
-import folderClosedSvg from '../../assets/icons/component-folder/closed.svg?raw';
-import folderOpenSvg from '../../assets/icons/component-folder/open.svg?raw';
+import folderClosedSvg from '../../assets/icons/folder-glyphs/closed.svg?raw';
+import folderOpenSvg from '../../assets/icons/folder-glyphs/open.svg?raw';
+import badgeComponentsRoot from '../../assets/icons/component-folder-badges/components-root.svg?raw';
+import badgeExtension from '../../assets/icons/component-folder-badges/extension.svg?raw';
+import badgeFunction from '../../assets/icons/component-folder-badges/function.svg?raw';
+import badgeSchema from '../../assets/icons/component-folder-badges/schema.svg?raw';
+import badgeTask from '../../assets/icons/component-folder-badges/task.svg?raw';
+import badgeView from '../../assets/icons/component-folder-badges/view.svg?raw';
+import badgeWorkflow from '../../assets/icons/component-folder-badges/workflow.svg?raw';
+import { useResolvedColorTheme } from '../../hooks/useResolvedColorTheme.js';
 import { cn } from '../../lib/utils/cn.js';
 import type { ComponentFolderType } from './componentFolderTypes.js';
+import { folderStyleVars, VNEXT_FOLDER_PALETTE } from './folderIconTheme.js';
 import { svgRootWithClass } from './svgRootWithClass.js';
 
 const FOLDER_LAYER_CLASS = 'block h-full w-full';
@@ -30,29 +32,30 @@ interface ComponentFolderIconProps {
 }
 
 /**
- * Icon for a vNext component folder (workflows, tasks, schemas, views,
- * functions, extensions or the configurable components root).
- *
- * Folder glyphs live under `src/assets/icons/component-folder/`; type badges are shared
- * with file icons under `src/assets/icons/component-badges/`.
+ * vNext bileşen klasörü: türe özel renk + tema (light/dark) + sağ altta yüksek kontrast rozet.
  */
 export function ComponentFolderIcon({
   type,
   expanded,
   className = 'size-3.5 shrink-0',
 }: ComponentFolderIconProps) {
+  const theme = useResolvedColorTheme();
+  const pal = VNEXT_FOLDER_PALETTE[type][theme];
   const base = expanded ? folderOpenSvg : folderClosedSvg;
   const badge = FOLDER_BADGE_SVG[type];
 
   return (
-    <span className={cn('relative inline-block', className)} aria-hidden>
+    <span
+      className={cn('relative inline-block', className)}
+      style={folderStyleVars(pal)}
+      aria-hidden>
       <span
         className="absolute inset-0 [&>svg]:block [&>svg]:h-full [&>svg]:w-full"
-        // Local SVG assets only (bundled via Vite `?raw`).
         dangerouslySetInnerHTML={{ __html: svgRootWithClass(base, FOLDER_LAYER_CLASS) }}
       />
       <span
-        className="pointer-events-none absolute inset-0 [&>svg]:block [&>svg]:h-full [&>svg]:w-full"
+        className="pointer-events-none absolute bottom-[6%] right-[6%] flex h-[58%] w-[58%] items-end justify-end [&>svg]:block [&>svg]:h-full [&>svg]:w-full"
+        style={{ color: pal.badge }}
         dangerouslySetInnerHTML={{ __html: svgRootWithClass(badge, FOLDER_LAYER_CLASS) }}
       />
     </span>

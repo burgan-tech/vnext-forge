@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
+  <!-- Arka kapak (kabin): tüm klasör genişliğinde, sekme + arka cep -->
+  <path
+    fill="var(--folder-fill-back, #64748b)"
+    stroke="var(--folder-stroke, #334155)"
+    stroke-width="0.9"
+    stroke-linejoin="round"
+    d="M2 7.5c0-1.1.9-2 2-2h5.05c.45 0 .87.2 1.15.55l1.4 1.7c.28.35.7.55 1.15.55H20c1.1 0 2 .9 2 2v8.2c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V7.5Z"
+  />
+  <!-- Üstte ince koyu çıkıntı (kapak ağzı) — perspektif derinliği -->
+  <path
+    fill="var(--folder-stroke, #334155)"
+    fill-opacity="0.18"
+    stroke="none"
+    d="M2.4 9.3h19.2v1.4H2.4z"
+  />
+  <!-- Ön panel (öne devrilen kapak), sağ alt köşeye doğru genişler -->
+  <path
+    fill="var(--folder-fill, #94a3b8)"
+    stroke="var(--folder-stroke, #334155)"
+    stroke-width="0.9"
+    stroke-linejoin="round"
+    d="M3.4 10.2h17.45c.78 0 1.36.7 1.23 1.46l-1.05 6.3c-.13.78-.81 1.34-1.6 1.34H4.05c-.78 0-1.46-.56-1.59-1.34l-1.05-6.3c-.13-.76.45-1.46 1.23-1.46H3.4Z"
+  />
+  <!-- Ön panelin üstüne ince açık vurgu (sıcak ışık) -->
+  <path
+    fill="#ffffff"
+    fill-opacity="0.18"
+    stroke="none"
+    d="M3.6 10.2h16.8l-.18 1.05H3.78z"
+  />
+</svg>

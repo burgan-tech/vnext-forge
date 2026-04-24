@@ -187,9 +187,9 @@ export class DesignerPanel {
 
   /**
    * VS Code tab ikonları için tema duyarlı `iconPath`.
-   * `currentColor` SVG sekme ikonlarında işlenmediği için light/dark
-   * varyantları ayrı dosyalar olarak `sync-component-tab-icons` betiği
-   * tarafından üretilir (bkz. `apps/extension/scripts/`).
+   * İkon kaynakları `packages/designer-ui/src/assets/icons/`; `sync-component-tab-icons`
+   * betiği VS Code kısıtı için bunları `media/component-tab-icons/*.svg` olarak yazar
+   * (`currentColor` sekme ikonlarında uygulanmadığından light/dark stroke üretilir).
    */
   private buildTabIconPath(kind: VnextComponentTabKind): { light: vscode.Uri; dark: vscode.Uri } {
     const baseName = getVnextComponentTabIconFileName(kind).replace(/\.svg$/i, '');

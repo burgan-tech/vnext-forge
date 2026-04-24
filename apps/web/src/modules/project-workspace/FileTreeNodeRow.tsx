@@ -1,11 +1,12 @@
 import { useCallback, useMemo, type MouseEventHandler } from 'react';
 
-import { ChevronRight, Folder, FolderOpen } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 
 import {
   cn,
   ComponentFileIcon,
   ComponentFolderIcon,
+  RegularFolderIcon,
   useProjectStore,
   VnextConfigFileIcon,
   type ComponentFolderType,
@@ -196,18 +197,9 @@ export function FileTreeNodeRow({
         />
       </span>
       {componentFolderType ? (
-        <ComponentFolderIcon
-          type={componentFolderType}
-          expanded={expanded}
-          className={cn(
-            'size-3.5 shrink-0',
-            expanded ? 'text-secondary-icon' : 'text-muted-icon',
-          )}
-        />
-      ) : expanded ? (
-        <FolderOpen className="text-secondary-icon size-3.5 shrink-0" />
+        <ComponentFolderIcon type={componentFolderType} expanded={expanded} className="size-3.5 shrink-0" />
       ) : (
-        <Folder className="text-muted-icon size-3.5 shrink-0" />
+        <RegularFolderIcon expanded={expanded} className="size-3.5 shrink-0" />
       )}
       <span className="group-hover:text-foreground min-w-0 flex-1 truncate font-medium">
         {node.name}

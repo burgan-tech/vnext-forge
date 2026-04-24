@@ -89,6 +89,16 @@
         "command": "vnextForge.forgeCreateExtension",
         "title": "Forge: Extension Create",
         "category": "Forge"
+      },
+      {
+        "command": "vnextForge.applyMaterialIconAssociations",
+        "title": "Apply Material Icon Associations (User Settings)",
+        "category": "Forge"
+      },
+      {
+        "command": "vnextForge.removeMaterialIconAssociations",
+        "title": "Remove Material Icon Associations (User Settings)",
+        "category": "Forge"
       }
     ],
     "menus": {
@@ -239,6 +249,15 @@
           "type": "boolean",
           "default": true,
           "description": "When true, component .json files under vnext.config.json paths open in the vnext-forge designer by default (Explorer / single-click). Use \"Open in Text Editor\" from the context menu to open the raw file in VS Code."
+        },
+        "vnextForge.materialAssociations.managed": {
+          "type": "object",
+          "default": { "folders": [], "files": [] },
+          "description": "Internal: tracks which entries vnext-forge added to material-icon-theme.{folders,files}.associations so they can be safely removed without touching user-defined associations.",
+          "properties": {
+            "folders": { "type": "array", "items": { "type": "string" } },
+            "files": { "type": "array", "items": { "type": "string" } }
+          }
         }
       }
     }

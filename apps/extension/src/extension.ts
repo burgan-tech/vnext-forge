@@ -9,7 +9,13 @@ import { MessageRouter } from './MessageRouter.js';
 import { createVsCodeOutputChannelLogger } from './adapters/vscode-output-channel-logger.js';
 import { baseLogger } from './shared/logger.js';
 import { DesignerPanel } from './panels/DesignerPanel.js';
-import { VnextWorkspaceDetector } from './workspace-detector.js';
+import { VnextWorkspaceDetector, type VnextWorkspaceRoot } from './workspace-detector.js';
+import {
+  applyMaterialIconAssociationsIfApplicable,
+  removeMaterialIconAssociations,
+  resolveConfigsForMaterial,
+} from './material-icon-associations.js';
+import { clearRemovedFileIconThemeIfSet } from './stale-file-icon-theme.js';
 
 /**
  * vnext-forge extension entry point. Composes the shared `services-core` +
@@ -26,6 +32,14 @@ import { VnextWorkspaceDetector } from './workspace-detector.js';
  */
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   baseLogger.info({}, 'vnext-forge activating');
+
+  const clearedStaleIconTheme = await clearRemovedFileIconThemeIfSet();
+  if (clearedStaleIconTheme) {
+    void vscode.window.showInformationMessage(
+      'vnext-forge: Kaldırılmış dosya ikon teması (vnext-forge-icons) ayarlardan silindi. Klasör ikonları için Komut Paleti → "Preferences: File Icon Theme" → Material Icon Theme seçin.',
+      'Tamam',
+    );
+  }
 
   const outputChannel = vscode.window.createOutputChannel('vnext-forge-core');
   context.subscriptions.push(outputChannel);
@@ -70,13 +84,49 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     projectService: services.projectService,
   });
 
+  // Material Icon Theme aktif kullanicilar icin: bizim spesifik klasor/dosya
+  // isimlerini Material'in kendi ikon kutuphanesinden esleyerek (User Settings'e
+  // yazarak) ozel ikon gosterimi saglar. Material aktif degilse no-op.
+  const refreshMaterial = async (roots: readonly VnextWorkspaceRoot[]) => {
+    try {
+      const configs = await resolveConfigsForMaterial(roots);
+      await applyMaterialIconAssociationsIfApplicable(configs);
+    } catch (error) {
+      baseLogger.warn(
+        { error: (error as Error).message },
+        'Failed to apply Material Icon Theme associations',
+      );
+    }
+  };
+
+  // Komutlar: kullanici manuel calistirmak / geri almak isterse.
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vnextForge.applyMaterialIconAssociations', () =>
+      refreshMaterial(detector.getRoots()),
+    ),
+    vscode.commands.registerCommand('vnextForge.removeMaterialIconAssociations', async () => {
+      await removeMaterialIconAssociations();
+    }),
+  );
+
   context.subscriptions.push(
     detector.onDidChange((roots) => {
       void importDetectedRoots(roots, services.projectService);
+      void refreshMaterial(roots);
+    }),
+  );
+
+  // Kullanici workbench.iconTheme'i Material'a degistirirse de associations'lari uygula.
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeConfiguration((e) => {
+      if (e.affectsConfiguration('workbench.iconTheme')) {
+        void refreshMaterial(detector.getRoots());
+      }
     }),
   );
 
   await detector.refresh();
+  await refreshMaterial(detector.getRoots());
 
   if (detector.getRoots().length > 0) {
     bootstrapLsp(loggerAdapter, lspInstaller);
