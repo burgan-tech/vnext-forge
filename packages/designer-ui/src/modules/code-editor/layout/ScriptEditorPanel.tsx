@@ -54,6 +54,13 @@ export type ScriptEditorTaskInlineProps = {
 
 export type ScriptEditorPanelProps = {
   taskInline?: ScriptEditorTaskInlineProps;
+  /**
+   * Flow editor: absolute workflow directory (`…/Workflows/{group}`) used to resolve
+   * `value.location` into a full path for "Open in full editor".
+   */
+  workflowDirectoryPath?: string;
+  /** Host: open the current script path in the full code editor tab (workflow panel). */
+  onOpenScriptFileInHost?: (absolutePath: string) => void;
 };
 
 const FLOW_EDITOR_MAIN_COLUMN_ID = 'flow-editor-vertical-main';
@@ -132,7 +139,18 @@ export function FlowEditorCanvasAndScriptResizableColumn({
   );
 }
 
-export function ScriptEditorPanel({ taskInline }: ScriptEditorPanelProps = {}) {
+function resolveWorkflowScriptAbsolutePath(workflowDir: string, location: string): string {
+  const trimmed = location.trim();
+  const relativePath = trimmed.startsWith('./') ? trimmed.slice(2) : trimmed;
+  const root = workflowDir.replace(/\\/g, '/').replace(/\/{2,}/g, '/').replace(/\/+$/, '');
+  return `${root}/${relativePath}`.replace(/\/{2,}/g, '/');
+}
+
+export function ScriptEditorPanel({
+  taskInline,
+  workflowDirectoryPath,
+  onOpenScriptFileInHost,
+}: ScriptEditorPanelProps = {}) {
   const resolvedColorTheme = useResolvedColorTheme();
   const monacoTheme = resolvedColorTheme === 'dark' ? 'vs-dark' : 'vs';
 
@@ -290,6 +308,13 @@ export function ScriptEditorPanel({ taskInline }: ScriptEditorPanelProps = {}) {
     setScriptPanelOpen(false);
   }, [closeScript, setScriptPanelOpen, taskInline]);
 
+  const handleOpenWorkflowScriptInFullEditor = useCallback(() => {
+    if (!onOpenScriptFileInHost || !workflowDirectoryPath) return;
+    const loc = locationDraft.trim();
+    if (!loc || getScriptLocationError(loc)) return;
+    onOpenScriptFileInHost(resolveWorkflowScriptAbsolutePath(workflowDirectoryPath, loc));
+  }, [locationDraft, onOpenScriptFileInHost, workflowDirectoryPath]);
+
   const handleLocationChange = useCallback(
     (loc: string) => {
       setLocationDraft(loc);
@@ -398,6 +423,17 @@ export function ScriptEditorPanel({ taskInline }: ScriptEditorPanelProps = {}) {
               type="button"
               onClick={taskInline.onOpenInFullEditor}
               className="text-secondary-text hover:bg-secondary-muted flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition-colors"
+              title="Open in full code editor (new tab in this app)">
+              <ExternalLink size={12} className="opacity-80" />
+              <span>Open in full editor</span>
+            </button>
+          ) : null}
+          {!taskInline && onOpenScriptFileInHost && workflowDirectoryPath ? (
+            <button
+              type="button"
+              onClick={handleOpenWorkflowScriptInFullEditor}
+              disabled={!locationDraft.trim() || Boolean(getScriptLocationError(locationDraft))}
+              className="text-secondary-text hover:bg-secondary-muted flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition-colors disabled:pointer-events-none disabled:opacity-40"
               title="Open in full code editor (new tab in this app)">
               <ExternalLink size={12} className="opacity-80" />
               <span>Open in full editor</span>

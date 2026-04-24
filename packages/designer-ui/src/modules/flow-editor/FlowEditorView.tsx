@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
+import { useProjectStore } from '../../store/useProjectStore';
 import { ReactFlowProvider } from '@xyflow/react';
 import { AlertCircle, ArrowLeft, Loader2 } from 'lucide-react';
 import { useEditorPanelsStore } from '../../store/useEditorPanelsStore';
@@ -62,6 +63,11 @@ export interface FlowEditorViewProps {
    */
   onNavigateBack?: () => void;
   /**
+   * Web shell: open workflow script (.csx) in full Monaco tab (same as task editor).
+   * VS Code webview may omit.
+   */
+  onOpenScriptFileInHost?: (absolutePath: string) => void;
+  /**
    * Web: sekme satırı sağı (`setToolbar`). VS Code webview: verilmez — panel üst şeridi `ComponentEditorLayout` içinde.
    */
   registerToolbar?: HostDocumentToolbarSlot;
@@ -72,8 +78,18 @@ export function FlowEditorView({
   group,
   name,
   onNavigateBack,
+  onOpenScriptFileInHost,
   registerToolbar,
 }: FlowEditorViewProps) {
+  const activeProject = useProjectStore((s) => s.activeProject);
+  const vnextConfig = useProjectStore((s) => s.vnextConfig);
+  const workflowDirectoryPath = useMemo(() => {
+    if (!activeProject || !vnextConfig) return undefined;
+    return `${activeProject.path}/${vnextConfig.paths.componentsRoot}/${vnextConfig.paths.workflows}/${group}`
+      .replace(/\\/g, '/')
+      .replace(/\/{2,}/g, '/');
+  }, [activeProject, vnextConfig, group]);
+
   const { workflowJson, diagramJson, selectedNodeId, selectedEdgeId, isDirty } = useWorkflowStore();
   const undo = useWorkflowStore((s) => s.undo);
   const redo = useWorkflowStore((s) => s.redo);
@@ -163,7 +179,14 @@ export function FlowEditorView({
             )}
           </div>
         }
-        scriptPanel={scriptPanelOpen && activeScript ? <ScriptEditorPanel /> : null}
+        scriptPanel={
+          scriptPanelOpen && activeScript ? (
+            <ScriptEditorPanel
+              workflowDirectoryPath={workflowDirectoryPath}
+              onOpenScriptFileInHost={onOpenScriptFileInHost}
+            />
+          ) : null
+        }
       />
     </div>
   );
