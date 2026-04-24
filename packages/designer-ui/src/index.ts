@@ -23,6 +23,7 @@ export * from './shared/index.js';
 export * from './modules/project-workspace/WorkspaceApi.js';
 export * from './modules/project-workspace/ProjectWorkspaceSchema.js';
 export * from './modules/project-workspace/componentFolderPathUtils.js';
+export * from './modules/vnext-workspace/index.js';
 export * from './vnext-defaults/vnextComponentTemplates.js';
 
 // Router-agnostic editor views: each editor takes

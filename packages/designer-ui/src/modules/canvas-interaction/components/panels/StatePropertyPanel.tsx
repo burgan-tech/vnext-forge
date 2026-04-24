@@ -28,7 +28,7 @@ export const statePropertyPanelResizableProps = {
   autoCollapseBelowMin: true,
   collapseOvershootPx: 30,
   minSize: 200,
-  maxSize: 400,
+  maxSize: 600,
 } as const;
 
 /**

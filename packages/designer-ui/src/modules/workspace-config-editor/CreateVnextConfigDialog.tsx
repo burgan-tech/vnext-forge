@@ -23,13 +23,7 @@ import { readFile } from '../project-workspace/WorkspaceApi.js';
 import { useProjectStore } from '../../store/useProjectStore.js';
 import type { ProjectInfo } from '../../shared/projectTypes.js';
 import { Button } from '../../ui/Button.js';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '../../ui/Card.js';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../ui/Card.js';
 import { Checkbox } from '../../ui/Checkbox.js';
 import {
   Dialog,
@@ -44,7 +38,13 @@ import { Select } from '../../ui/Select.js';
 import { TagEditor } from '../../ui/TagEditor.js';
 import { Textarea } from '../../ui/Textarea.js';
 
+import {
+  discoverAllVnextComponents,
+  type VnextComponentsDiscoveryResult,
+  type VnextExportCategory,
+} from '../vnext-workspace/vnextComponentDiscovery.js';
 import { useWriteVnextWorkspaceConfig } from './useWriteVnextWorkspaceConfig.js';
+import { ExportComponentKeyPicker } from './ExportComponentKeyPicker.js';
 import {
   normalizeVnextWizardPayload,
   rawConfigToEditableValues,
@@ -65,7 +65,9 @@ function multilineToStringArray(text: string): string[] {
   return text.split('\n').map((line) => line.trim());
 }
 
-const exportComponentKeysHelperText = 'One component key per line.';
+/** Exports kart gövdesinde bir kez — kategori başlığı / liste hiyerarşisini şişirmemek için. */
+const exportComponentsIntroText =
+  'Choose definitions to ship with this workspace. Toggle rows on or off; saving updates vnext.config.json.';
 
 function pickWizardFieldError(
   issues: Record<string, string>,
@@ -104,7 +106,11 @@ function friendlyWizardIssuePath(pathParts: readonly PropertyKey[]): string {
     return `Dependencies card: ${b} field`;
   }
 
-  if (a === 'dependencies' && b && (typeof c === 'number' || (typeof c === 'string' && /^\d+$/.test(c)))) {
+  if (
+    a === 'dependencies' &&
+    b &&
+    (typeof c === 'number' || (typeof c === 'string' && /^\d+$/.test(c)))
+  ) {
     const idx = typeof c === 'number' ? c : Number(c);
     return `Dependencies card, ${b} (item ${idx + 1})`;
   }
@@ -325,6 +331,105 @@ function JsonStringArrayLinesField({
   );
 }
 
+function exportCategoryDisplayTitle(cat: VnextExportCategory): string {
+  return cat.charAt(0).toUpperCase() + cat.slice(1);
+}
+
+/** Workspace’tan keşfedilen anahtarlarla exports `string[]` alanını doldurur. */
+function ExportKeysFieldWithPicker({
+  control,
+  name,
+  errorText,
+  category,
+  discovery,
+  discoveryLoading,
+}: {
+  control: Control<VnextWorkspaceConfig>;
+  name: Path<VnextWorkspaceConfig>;
+  errorText?: string;
+  category: VnextExportCategory;
+  discovery: VnextComponentsDiscoveryResult | null;
+  discoveryLoading: boolean;
+}) {
+  const options = discovery?.components[category] ?? [];
+  const headingId = `vnext-export-${category}-heading`;
+  const title = exportCategoryDisplayTitle(category);
+  return (
+    <Controller
+      control={control}
+      name={name}
+      render={({ field }) => {
+        const selectedKeys = Array.isArray(field.value)
+          ? field.value.filter((t): t is string => typeof t === 'string')
+          : [];
+        const optionKeySet = new Set(options.map((o) => o.key));
+        const selectedCount = selectedKeys.filter((k) => optionKeySet.has(k)).length;
+        const totalListed = options.length;
+
+        return (
+        <section
+          className="bg-muted/10 min-w-0 space-y-2.5 rounded-xl px-3 py-3 sm:px-4"
+          aria-labelledby={headingId}>
+          <header className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1.5">
+            <h4
+              id={headingId}
+              className="text-foreground font-sans text-sm font-medium leading-snug tracking-tight">
+              {title}
+            </h4>
+            <p
+              className="text-muted-foreground m-0 max-w-[min(100%,14rem)] text-right text-xs leading-snug tabular-nums sm:max-w-none"
+              aria-live="polite"
+              aria-label={
+                discoveryLoading
+                  ? 'Scanning workspace for components'
+                  : totalListed === 0
+                    ? 'No components in this category'
+                    : `${selectedCount} of ${totalListed} selected for export`
+              }>
+              {discoveryLoading ? (
+                'Scanning…'
+              ) : totalListed === 0 ? (
+                'No items'
+              ) : (
+                <>
+                  <span
+                    className={cn(
+                      'font-medium tabular-nums',
+                      selectedCount > 0 ? 'text-success-text' : 'text-muted-foreground',
+                    )}>
+                    {selectedCount}
+                  </span>
+                  <span className="text-muted-foreground">{' of '}</span>
+                  <span className="text-muted-foreground tabular-nums">{totalListed}</span>
+                  <span className="text-muted-foreground"> selected</span>
+                </>
+              )}
+            </p>
+          </header>
+          <ExportComponentKeyPicker
+            ariaLabelledBy={headingId}
+            options={options}
+            value={
+              Array.isArray(field.value)
+                ? field.value.filter((t): t is string => typeof t === 'string')
+                : []
+            }
+            onChange={(keys) => {
+              field.onChange(keys);
+              void field.onBlur();
+            }}
+            loading={discoveryLoading}
+          />
+          {errorText ? (
+            <p className="text-destructive text-xs leading-normal">{errorText}</p>
+          ) : null}
+        </section>
+        );
+      }}
+    />
+  );
+}
+
 interface CreateVnextConfigDialogProps {
   projectId: string;
   defaultDomain: string;
@@ -366,7 +471,12 @@ export function CreateVnextConfigDialog({
   const { register, control, handleSubmit, reset, setValue, getValues, formState } = form;
   const { isDirty } = formState;
   const domain = useWatch({ control, name: 'domain' });
+  const watchedPaths = useWatch({ control, name: 'paths', defaultValue: seed.paths });
   const watchedForm = useWatch({ control, defaultValue: seed });
+  const pathsKey = useMemo(() => JSON.stringify(watchedPaths), [watchedPaths]);
+  const [debouncedPaths, setDebouncedPaths] = useState(seed.paths);
+  const [discovery, setDiscovery] = useState<VnextComponentsDiscoveryResult | null>(null);
+  const [discoveryLoading, setDiscoveryLoading] = useState(false);
   const [useCustomComponentsRoot, setUseCustomComponentsRoot] = useState(false);
   const [isEditMode, setIsEditMode] = useState(false);
   const [loadingConfig, setLoadingConfig] = useState(false);
@@ -416,6 +526,42 @@ export function CreateVnextConfigDialog({
   );
 
   const { execute: writeConfig, loading: writing } = useWriteVnextWorkspaceConfig(writeOptions);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      setDebouncedPaths(watchedPaths);
+    }, 300);
+    return () => window.clearTimeout(t);
+  }, [pathsKey, watchedPaths]);
+
+  useEffect(() => {
+    if (!open || loadingConfig) {
+      setDiscovery(null);
+      setDiscoveryLoading(false);
+      return;
+    }
+    const projectPath = useProjectStore.getState().activeProject?.path;
+    if (!projectPath) {
+      setDiscovery(null);
+      setDiscoveryLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setDiscoveryLoading(true);
+    void discoverAllVnextComponents(projectId, projectPath, debouncedPaths)
+      .then((res) => {
+        if (!cancelled) setDiscovery(res);
+      })
+      .catch(() => {
+        if (!cancelled) setDiscovery(null);
+      })
+      .finally(() => {
+        if (!cancelled) setDiscoveryLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, loadingConfig, projectId, debouncedPaths]);
 
   useEffect(() => {
     if (!open) {
@@ -945,69 +1091,72 @@ export function CreateVnextConfigDialog({
             <div className={cn('min-w-0', isDialog ? 'space-y-6' : 'space-y-4')}>
               <Card variant={sectionCardVariant} hoverable={false} className={sectionCardClassName}>
                 <CardHeader className={sectionHeaderClassName}>
-                  <CardTitle className={sectionTitleClassName}>
-                    {isDialog ? 'exports' : 'Exports'}
-                  </CardTitle>
-                  {!isDialog ? (
-                    <CardDescription className="text-xs">
-                      Published component keys, visibility, and package metadata.
-                    </CardDescription>
-                  ) : null}
+                  <CardTitle className={sectionTitleClassName}>Exports</CardTitle>
+                  <CardDescription
+                    className={cn(
+                      'text-muted-foreground max-w-prose text-xs leading-relaxed',
+                      isDialog ? 'pt-1' : 'pt-0.5',
+                    )}>
+                    Published component keys, visibility, and package metadata.
+                  </CardDescription>
                 </CardHeader>
-                <CardContent className={cn('space-y-4', sectionContentPad)}>
-                  <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2">
+                <CardContent className={cn('space-y-6', sectionContentPad)}>
+                  <p className="border-border/50 bg-muted/15 text-muted-foreground max-w-2xl rounded-lg border px-3 py-2.5 text-xs leading-relaxed">
+                    {exportComponentsIntroText}
+                  </p>
+                  <div className="grid min-w-0 grid-cols-1 gap-5 sm:grid-cols-2">
                     <div className="min-w-0 sm:col-span-2">
-                      <JsonStringArrayLinesField
-                        label="functions"
+                      <ExportKeysFieldWithPicker
                         control={control}
                         name="exports.functions"
-                        placeholder="my-function-key"
-                        helperText={exportComponentKeysHelperText}
+                        category="functions"
+                        discovery={discovery}
+                        discoveryLoading={discoveryLoading}
                       />
                     </div>
                     <div className="min-w-0 sm:col-span-2">
-                      <JsonStringArrayLinesField
-                        label="workflows"
+                      <ExportKeysFieldWithPicker
                         control={control}
                         name="exports.workflows"
-                        placeholder="my-workflow-key"
-                        helperText={exportComponentKeysHelperText}
+                        category="workflows"
+                        discovery={discovery}
+                        discoveryLoading={discoveryLoading}
                       />
                     </div>
                     <div className="min-w-0 sm:col-span-2">
-                      <JsonStringArrayLinesField
-                        label="tasks"
+                      <ExportKeysFieldWithPicker
                         control={control}
                         name="exports.tasks"
-                        placeholder="my-task-key"
-                        helperText={exportComponentKeysHelperText}
+                        category="tasks"
+                        discovery={discovery}
+                        discoveryLoading={discoveryLoading}
                       />
                     </div>
                     <div className="min-w-0 sm:col-span-2">
-                      <JsonStringArrayLinesField
-                        label="views"
+                      <ExportKeysFieldWithPicker
                         control={control}
                         name="exports.views"
-                        placeholder="my-view-key"
-                        helperText={exportComponentKeysHelperText}
+                        category="views"
+                        discovery={discovery}
+                        discoveryLoading={discoveryLoading}
                       />
                     </div>
                     <div className="min-w-0 sm:col-span-2">
-                      <JsonStringArrayLinesField
-                        label="schemas"
+                      <ExportKeysFieldWithPicker
                         control={control}
                         name="exports.schemas"
-                        placeholder="my-schema-key"
-                        helperText={exportComponentKeysHelperText}
+                        category="schemas"
+                        discovery={discovery}
+                        discoveryLoading={discoveryLoading}
                       />
                     </div>
                     <div className="min-w-0 sm:col-span-2">
-                      <JsonStringArrayLinesField
-                        label="extensions"
+                      <ExportKeysFieldWithPicker
                         control={control}
                         name="exports.extensions"
-                        placeholder="my-extension-key"
-                        helperText={exportComponentKeysHelperText}
+                        category="extensions"
+                        discovery={discovery}
+                        discoveryLoading={discoveryLoading}
                       />
                     </div>
                   </div>

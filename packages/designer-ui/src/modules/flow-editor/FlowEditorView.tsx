@@ -36,7 +36,7 @@ function getWorkflowMetadataVerticalResizeMetrics() {
       : 720;
   const r = (n: number) => Math.round(n * 1000) / 1000;
   const minMetaPx = Math.round(H * 0.12) + 100;
-  let maxMetaPx = Math.round(H * 0.78) - 100;
+  let maxMetaPx = Math.round(H * 0.78);
   maxMetaPx = Math.max(maxMetaPx, minMetaPx + 120);
   let defaultMetaPx = Math.round(H * 0.38) + 100;
   defaultMetaPx = Math.min(maxMetaPx, Math.max(minMetaPx, defaultMetaPx));

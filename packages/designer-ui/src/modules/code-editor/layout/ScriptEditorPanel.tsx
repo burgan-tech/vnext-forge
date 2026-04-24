@@ -35,7 +35,7 @@ import { Input } from '../../../ui/Input';
 import type { CsharpLspClient } from '../../../modules/code-editor/editor/lspClient';
 
 const MIN_HEIGHT = 200;
-const MAX_HEIGHT = 700;
+const MAX_HEIGHT = 800;
 
 const FLOW_EDITOR_MAIN_COLUMN_ID = 'flow-editor-vertical-main';
 const FLOW_EDITOR_SCRIPT_COLUMN_ID = 'flow-editor-vertical-script';
