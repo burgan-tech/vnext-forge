@@ -81,6 +81,13 @@ export {
   EditorDocumentToolbar,
   type EditorDocumentToolbarProps,
 } from './modules/save-component/components/EditorDocumentToolbar.js';
+export {
+  ComponentEditorModalProvider,
+  useOpenComponentEditorModal,
+  useComponentEditorModalState,
+} from './modules/save-component/ComponentEditorModalContext.js';
+export type { AtomicSavedInfo, ComponentEditorTarget } from './modules/save-component/componentEditorModalTypes.js';
+export { OpenVnextComponentInModalButton } from './modules/save-component/components/OpenVnextComponentInModalButton.js';
 
 // Workflow-execution APIs/hooks (runtime health). The whole module lives in
 // designer-ui — host shells (apps/web SPA, apps/extension webview) consume

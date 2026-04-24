@@ -270,7 +270,7 @@ export function ScriptTaskForm({ config, onChange }: Props) {
   const unsavedDiscardDialog = (
     <Dialog open={discardDialogOpen} onOpenChange={setDiscardDialogOpen}>
       <DialogContent className="max-w-md gap-6">
-        <DialogHeader className="gap-0 pr-12 sm:pr-14">
+        <DialogHeader>
           <DialogTitle>Unsaved script changes</DialogTitle>
         </DialogHeader>
         <DialogDescription className="text-center sm:text-left">

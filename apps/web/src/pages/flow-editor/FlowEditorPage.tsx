@@ -1,7 +1,12 @@
 import { useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
-import { FlowEditorView, useEditorStore, useProjectStore } from '@vnext-forge/designer-ui';
+import {
+  ComponentEditorModalProvider,
+  FlowEditorView,
+  useEditorStore,
+  useProjectStore,
+} from '@vnext-forge/designer-ui';
 
 import { useCodeEditorToolbar } from '../../modules/project-workspace/CodeEditorToolbarContext';
 import { useRegisterComponentEditorTab } from '../../modules/project-workspace/hooks/useRegisterComponentEditorTab';
@@ -36,13 +41,15 @@ export function FlowEditorPage() {
   }
 
   return (
-    <FlowEditorView
-      projectId={id}
-      group={group}
-      name={name}
-      onNavigateBack={() => navigate(`/project/${id}`)}
-      onOpenScriptFileInHost={onOpenScriptFileInHost}
-      registerToolbar={setToolbar}
-    />
+    <ComponentEditorModalProvider onOpenScriptFileInHost={onOpenScriptFileInHost}>
+      <FlowEditorView
+        projectId={id}
+        group={group}
+        name={name}
+        onNavigateBack={() => navigate(`/project/${id}`)}
+        onOpenScriptFileInHost={onOpenScriptFileInHost}
+        registerToolbar={setToolbar}
+      />
+    </ComponentEditorModalProvider>
   );
 }

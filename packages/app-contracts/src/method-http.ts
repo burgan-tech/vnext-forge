@@ -30,6 +30,13 @@ export type MethodId =
   | 'projects/getValidateScriptStatus'
   | 'projects/getComponentFileTypes'
   | 'projects/getWorkspaceBootstrap'
+  | 'vnext/components/list'
+  | 'vnext/tasks/list'
+  | 'vnext/workflows/list'
+  | 'vnext/schemas/list'
+  | 'vnext/views/list'
+  | 'vnext/functions/list'
+  | 'vnext/extensions/list'
   | 'templates/validateScriptStatus'
   | 'validate/workflow'
   | 'validate/component'
@@ -62,6 +69,13 @@ export const METHOD_HTTP_METADATA: Readonly<Record<MethodId, MethodHttpSpec>> = 
   'projects/getValidateScriptStatus': { verb: 'GET', paramSource: 'query' },
   'projects/getComponentFileTypes': { verb: 'GET', paramSource: 'query' },
   'projects/getWorkspaceBootstrap': { verb: 'GET', paramSource: 'query' },
+  'vnext/components/list': { verb: 'GET', paramSource: 'query' },
+  'vnext/tasks/list': { verb: 'GET', paramSource: 'query' },
+  'vnext/workflows/list': { verb: 'GET', paramSource: 'query' },
+  'vnext/schemas/list': { verb: 'GET', paramSource: 'query' },
+  'vnext/views/list': { verb: 'GET', paramSource: 'query' },
+  'vnext/functions/list': { verb: 'GET', paramSource: 'query' },
+  'vnext/extensions/list': { verb: 'GET', paramSource: 'query' },
   'templates/validateScriptStatus': { verb: 'POST', paramSource: 'json' },
   'validate/workflow': { verb: 'POST', paramSource: 'json' },
   'validate/component': { verb: 'POST', paramSource: 'json' },

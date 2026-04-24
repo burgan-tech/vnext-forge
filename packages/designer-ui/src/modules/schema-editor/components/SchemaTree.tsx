@@ -138,8 +138,8 @@ export function SchemaTree({ schema, onChange }: SchemaTreeProps) {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Add Property</DialogTitle>
-            <DialogDescription>Enter a name for the new schema property.</DialogDescription>
           </DialogHeader>
+          <DialogDescription>Enter a name for the new schema property.</DialogDescription>
 
           <Input
             type="text"

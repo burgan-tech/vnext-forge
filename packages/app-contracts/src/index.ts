@@ -78,6 +78,17 @@ export type {
   VnextWorkspaceReferenceResolution,
 } from './vnext/vnext-workspace-defaults.js';
 
+export {
+  VNEXT_EXPORT_CATEGORIES,
+  VNEXT_FLOW_TO_EXPORT_CATEGORY,
+} from './vnext/vnext-component-rows.js';
+export type {
+  DiscoveredVnextComponent,
+  VnextComponentsByCategory,
+  VnextComponentsDiscoveryResult,
+  VnextExportCategory,
+} from './vnext/vnext-component-rows.js';
+
 export type {
   MethodHttpVerb,
   MethodHttpParamSource,

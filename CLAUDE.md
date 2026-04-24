@@ -205,6 +205,26 @@ Version constants and `buildVnextWorkspaceConfig()` factory. Also re-exports all
 
 - Depends on `@vnext-forge/vnext-types`
 
+**5. vNext component list (BFF types)** (`vnext/vnext-component-rows.ts`):
+`VnextExportCategory`, `DiscoveredVnextComponent`, `VnextComponentsByCategory`, and `VNEXT_FLOW_TO_EXPORT_CATEGORY` (e.g. `sys-tasks` → `tasks`). Single source of truth for flow-to-export-bucket mapping; consumed by `services-core` scan results and `designer-ui` pickers.
+
+---
+
+### vNext component list (BFF)
+
+Discovery of vNext component JSON (tasks, workflows, functions, etc.) runs **once on the server or extension host** via a filesystem scan. The client must not use `projects/getTree` plus one `files/read` per candidate file.
+
+| Layer | Responsibility |
+|-------|----------------|
+| `packages/services-core` | `vnext-component-scanner.ts` — scans disk through `FileSystemAdapter`; path roots from `vnext-component-folder-paths.ts` (`buildComponentFolderRelPaths` equivalent). `ProjectService.listVnextComponents(id, { category?, previewPaths? })` — resolves `paths` from project config, or optional `previewPaths` (query JSON string, validated with `vnextWorkspacePathsInputSchema` in `project-schemas.ts`) for `CreateVnextConfig` live preview; delegates to `scanVnextComponents`. |
+| `packages/services-core` (registry) | `vnext/components/list` (all buckets, optional `category` filter) and `vnext/tasks/list` … `vnext/extensions/list` (fixed category, returns an array). |
+| `packages/app-contracts` | `MethodId` + `METHOD_HTTP_METADATA`: all use `GET` and `paramSource: 'query'` (required `id`; on `vnext/components/list` optional `category` and `previewPaths`). Shared types: see **5** under `app-contracts` above. |
+| `apps/server` | `api/v1/vnext.routes.ts` — one route per method id, all via `createDispatchHelper`. |
+| `apps/extension` | Same `buildMethodRegistry()` and `MessageRouter` dispatch; no extra per-method host wiring. |
+| `packages/designer-ui` | `vnextComponentDiscovery.ts` — `discoverVnextComponentsByCategory` / `discoverAllVnextComponents` use `unwrapApi` only. `CreateVnextConfigDialog` sends `previewPaths` for preview (server uses edited paths, not only on-disk `vnext.config.json`). Picker UI: `ChooseExistingVnextComponentDialog` (prop `category`), with `ChooseExistingTaskDialog` as a thin `category="tasks"` wrapper. |
+
+**When extending:** Keep `method-registry` + `method-http` + (for the web app) `vnext.routes.ts` in sync; follow `rpc-method-policy.mdc` and the services-core registry contract tests.
+
 ---
 
 ### Current Ownership

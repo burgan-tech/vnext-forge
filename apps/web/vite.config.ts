@@ -9,6 +9,7 @@ export default defineConfig({
     alias: {
       '@shared': fileURLToPath(new URL('./src/shared', import.meta.url)),
     },
+    dedupe: ['react', 'react-dom'],
   },
   plugins: [react(), tailwindcss()],
   optimizeDeps: {

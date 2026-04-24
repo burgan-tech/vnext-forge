@@ -2,7 +2,7 @@ import { Loader2 } from 'lucide-react';
 
 import { cn } from '../../lib/utils/cn.js';
 import { Button } from '../../ui/Button.js';
-import type { DiscoveredVnextComponent } from '../vnext-workspace/vnextComponentDiscovery.js';
+import type { DiscoveredVnextComponent } from '@vnext-forge/app-contracts';
 
 export interface ExportComponentKeyPickerProps {
   /** Keşfedilen bileşenler (genelde `key` sıralı). */

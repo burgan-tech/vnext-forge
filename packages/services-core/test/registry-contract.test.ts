@@ -56,6 +56,13 @@ describe('method registry contract (R-b9 + R-a2)', () => {
         "validate/getAvailableTypes",
         "validate/getSchema",
         "validate/workflow",
+        "vnext/components/list",
+        "vnext/extensions/list",
+        "vnext/functions/list",
+        "vnext/schemas/list",
+        "vnext/tasks/list",
+        "vnext/views/list",
+        "vnext/workflows/list",
       ]
     `)
   })

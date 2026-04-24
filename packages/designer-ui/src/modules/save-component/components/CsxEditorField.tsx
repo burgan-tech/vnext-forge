@@ -162,10 +162,18 @@ export function CsxEditorField({
   return (
     <div
       className={`mt-0.5 border-t transition-colors ${isActive ? 'border-secondary-border bg-secondary-surface' : 'border-border-subtle'}`}>
-      {/* Header — click to open in panel */}
-      <button
+      {/* Header — click to open in panel (div+role: inner Remove must stay a real <button> — no nested buttons) */}
+      <div
+        role="button"
+        tabIndex={0}
         onClick={handleOpenInPanel}
-        className={`group flex w-full items-center gap-2 px-3 py-2 text-left transition-colors ${
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            handleOpenInPanel();
+          }
+        }}
+        className={`group flex w-full cursor-pointer items-center gap-2 px-3 py-2 text-left transition-colors ${
           isActive ? 'bg-secondary-surface' : 'hover:bg-muted-surface'
         }`}>
         <div
@@ -182,6 +190,7 @@ export function CsxEditorField({
         </span>
         {onRemove && (
           <button
+            type="button"
             onClick={(e) => {
               e.stopPropagation();
               onRemove();
@@ -197,7 +206,7 @@ export function CsxEditorField({
             isActive ? 'text-secondary-icon' : 'text-muted-icon group-hover:text-secondary-icon'
           }`}
         />
-      </button>
+      </div>
 
       {/* Code preview (readonly, 3 lines max) */}
       {previewLines.length > 0 && (

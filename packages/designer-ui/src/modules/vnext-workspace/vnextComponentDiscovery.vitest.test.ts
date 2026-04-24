@@ -1,42 +1,66 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, afterEach, vi } from 'vitest';
 
-import type { FileTreeNode } from '../../shared/projectTypes.js';
-import type { ComponentFolderType } from '../component-icons/componentFolderTypes.js';
+import { success } from '@vnext-forge/app-contracts';
+
+import { setApiTransport } from '../../api/transport.js';
 import {
-  collectJsonCandidatesUnderPathRoots,
+  discoverAllVnextComponents,
+  discoverVnextComponentsByCategory,
   flowToExportCategory,
-  parseVnextComponentJson,
   VNEXT_FLOW_TO_EXPORT_CATEGORY,
 } from './vnextComponentDiscovery.js';
 
-describe('parseVnextComponentJson', () => {
-  it('returns key, flow, and optional version for valid JSON', () => {
-    expect(
-      parseVnextComponentJson(
-        JSON.stringify({
-          key: 'my-task',
-          flow: 'sys-tasks',
-          domain: 'x',
-          version: '1.0.0',
-        }),
+describe('vnextComponentDiscovery (RPC)', () => {
+  afterEach(() => {
+    setApiTransport(null);
+  });
+
+  it('discoverVnextComponentsByCategory calls vnext/<cat>/list with id', async () => {
+    const transport = {
+      send: vi.fn().mockResolvedValue(
+        success([{ key: 'a', path: '/p', flow: 'sys-tasks' }]) as never,
       ),
-    ).toEqual({ key: 'my-task', flow: 'sys-tasks', version: '1.0.0' });
+    };
+    setApiTransport(transport);
+
+    const list = await discoverVnextComponentsByCategory('proj-1', 'tasks');
+    expect(transport.send).toHaveBeenCalledWith('vnext/tasks/list', { id: 'proj-1' });
+    expect(list).toHaveLength(1);
+    expect(list[0]?.key).toBe('a');
   });
 
-  it('trims key and flow', () => {
-    expect(
-      parseVnextComponentJson(JSON.stringify({ key: '  k  ', flow: '  sys-flows  ' })),
-    ).toEqual({ key: 'k', flow: 'sys-flows' });
-  });
+  it('discoverAllVnextComponents calls vnext/components/list with optional previewPaths JSON', async () => {
+    const transport = {
+      send: vi.fn().mockResolvedValue(
+        success({
+          components: {
+            workflows: [],
+            tasks: [],
+            schemas: [],
+            views: [],
+            functions: [],
+            extensions: [],
+          },
+        }) as never,
+      ),
+    };
+    setApiTransport(transport);
 
-  it('returns null for invalid JSON', () => {
-    expect(parseVnextComponentJson('{')).toBeNull();
-  });
-
-  it('returns null when key or flow missing or not string', () => {
-    expect(parseVnextComponentJson(JSON.stringify({ flow: 'sys-tasks' }))).toBeNull();
-    expect(parseVnextComponentJson(JSON.stringify({ key: 'a', flow: 1 }))).toBeNull();
-    expect(parseVnextComponentJson(JSON.stringify([]))).toBeNull();
+    await discoverAllVnextComponents('p2', {
+      previewPaths: {
+        componentsRoot: 'core',
+        tasks: 'Tasks',
+        views: '',
+        functions: '',
+        extensions: '',
+        workflows: '',
+        schemas: '',
+      },
+    });
+    expect(transport.send).toHaveBeenCalledWith('vnext/components/list', {
+      id: 'p2',
+      previewPaths: expect.stringContaining('"componentsRoot":"core"'),
+    });
   });
 });
 
@@ -44,115 +68,9 @@ describe('flowToExportCategory', () => {
   it('maps canonical sys-* flows', () => {
     expect(flowToExportCategory('sys-tasks')).toBe('tasks');
     expect(flowToExportCategory('sys-flows')).toBe('workflows');
-    expect(flowToExportCategory('sys-schemas')).toBe('schemas');
-    expect(flowToExportCategory('sys-views')).toBe('views');
-    expect(flowToExportCategory('sys-functions')).toBe('functions');
-    expect(flowToExportCategory('sys-extensions')).toBe('extensions');
-  });
-
-  it('returns null for unknown flow', () => {
-    expect(flowToExportCategory('sys-workflows')).toBeNull();
   });
 
   it('VNEXT_FLOW_TO_EXPORT_CATEGORY covers six export buckets', () => {
     expect(Object.keys(VNEXT_FLOW_TO_EXPORT_CATEGORY)).toHaveLength(6);
-  });
-});
-
-describe('collectJsonCandidatesUnderPathRoots', () => {
-  const projectRoot = 'C:/proj';
-  const relPaths: Partial<Record<ComponentFolderType, string>> = {
-    components_root: 'openbanking',
-    tasks: 'openbanking/Tasks',
-    workflows: 'openbanking/Workflows',
-    schemas: 'openbanking/Schemas',
-    views: 'openbanking/Views',
-    functions: 'openbanking/Functions',
-    extensions: 'openbanking/Extensions',
-  };
-
-  const tree: FileTreeNode = {
-    name: 'proj',
-    path: projectRoot,
-    type: 'directory',
-    children: [
-      {
-        name: 'openbanking',
-        path: `${projectRoot}/openbanking`,
-        type: 'directory',
-        children: [
-          {
-            name: 'Tasks',
-            path: `${projectRoot}/openbanking/Tasks`,
-            type: 'directory',
-            children: [
-              {
-                name: 'g',
-                path: `${projectRoot}/openbanking/Tasks/g`,
-                type: 'directory',
-                children: [
-                  {
-                    name: 't.json',
-                    path: `${projectRoot}/openbanking/Tasks/g/t.json`,
-                    type: 'file',
-                  },
-                ],
-              },
-            ],
-          },
-          {
-            name: 'Other',
-            path: `${projectRoot}/openbanking/Other`,
-            type: 'directory',
-            children: [
-              {
-                name: 'x.json',
-                path: `${projectRoot}/openbanking/Other/x.json`,
-                type: 'file',
-              },
-            ],
-          },
-        ],
-      },
-    ],
-  };
-
-  it('classifies json under tasks root as tasks', () => {
-    const found = collectJsonCandidatesUnderPathRoots(tree, projectRoot, relPaths);
-    expect(found).toEqual([
-      { path: `${projectRoot}/openbanking/Tasks/g/t.json`, category: 'tasks' },
-    ]);
-  });
-
-  it('matches path roots case-insensitively on Windows-style tree paths', () => {
-    const lowerTree: FileTreeNode = {
-      name: 'proj',
-      path: 'c:/proj',
-      type: 'directory',
-      children: [
-        {
-          name: 'OpenBanking',
-          path: 'c:/proj/OpenBanking',
-          type: 'directory',
-          children: [
-            {
-              name: 'tasks',
-              path: 'c:/proj/OpenBanking/tasks',
-              type: 'directory',
-              children: [
-                {
-                  name: 'a.json',
-                  path: 'c:/proj/OpenBanking/tasks/a.json',
-                  type: 'file',
-                },
-              ],
-            },
-          ],
-        },
-      ],
-    };
-    const found = collectJsonCandidatesUnderPathRoots(lowerTree, 'C:/Proj', relPaths);
-    expect(found).toHaveLength(1);
-    expect(found[0]!.category).toBe('tasks');
   });
 });

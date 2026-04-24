@@ -548,7 +548,7 @@ export function CreateVnextConfigDialog({
     }
     let cancelled = false;
     setDiscoveryLoading(true);
-    void discoverAllVnextComponents(projectId, projectPath, debouncedPaths)
+    void discoverAllVnextComponents(projectId, { previewPaths: debouncedPaths })
       .then((res) => {
         if (!cancelled) setDiscovery(res);
       })
@@ -780,8 +780,8 @@ export function CreateVnextConfigDialog({
   const shell = (
     <div className={cn('flex flex-col', isDialog ? 'max-h-[min(90vh,920px)]' : 'h-full min-h-0')}>
       {isDialog ? (
-        <div className="my-1 shrink-0 space-y-2 rounded-xl px-6 py-5">
-          <DialogHeader className="space-y-2 text-left">
+        <div className="my-1 shrink-0">
+          <DialogHeader className="border-0 border-b-0 px-6 py-5 text-left">
             <DialogTitle className="text-primary-text">{titleText}</DialogTitle>
           </DialogHeader>
         </div>

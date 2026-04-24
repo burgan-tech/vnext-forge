@@ -33,6 +33,10 @@ import {
   projectsSeedVnextComponentLayoutResult,
   projectsWriteConfigParams,
   projectsWriteConfigResult,
+  vnextCategoryListParams,
+  vnextCategoryListResult,
+  vnextComponentsListParams,
+  vnextComponentsListResult,
 } from '../services/project/project-schemas.js'
 import type { RuntimeProxyService } from '../services/runtime-proxy/runtime-proxy.service.js'
 import {
@@ -282,6 +286,90 @@ export function buildMethodRegistry(): MethodRegistry {
       resultSchema: projectsGetWorkspaceBootstrapResult,
       handler: async ({ id }, { projectService }, traceId) =>
         projectService.getWorkspaceBootstrap(id, traceId),
+    },
+
+    // ── vNext component discovery (BFF) ────────────────────────────────────
+    'vnext/components/list': {
+      paramsSchema: vnextComponentsListParams,
+      resultSchema: vnextComponentsListResult,
+      handler: async ({ id, category, previewPaths }, { projectService }, traceId) =>
+        projectService.listVnextComponents(
+          id,
+          { category, previewPaths },
+          traceId,
+        ),
+    },
+    'vnext/tasks/list': {
+      paramsSchema: vnextCategoryListParams,
+      resultSchema: vnextCategoryListResult,
+      handler: async ({ id }, { projectService }, traceId) => {
+        const { components } = await projectService.listVnextComponents(
+          id,
+          { category: 'tasks' },
+          traceId,
+        )
+        return components.tasks
+      },
+    },
+    'vnext/workflows/list': {
+      paramsSchema: vnextCategoryListParams,
+      resultSchema: vnextCategoryListResult,
+      handler: async ({ id }, { projectService }, traceId) => {
+        const { components } = await projectService.listVnextComponents(
+          id,
+          { category: 'workflows' },
+          traceId,
+        )
+        return components.workflows
+      },
+    },
+    'vnext/schemas/list': {
+      paramsSchema: vnextCategoryListParams,
+      resultSchema: vnextCategoryListResult,
+      handler: async ({ id }, { projectService }, traceId) => {
+        const { components } = await projectService.listVnextComponents(
+          id,
+          { category: 'schemas' },
+          traceId,
+        )
+        return components.schemas
+      },
+    },
+    'vnext/views/list': {
+      paramsSchema: vnextCategoryListParams,
+      resultSchema: vnextCategoryListResult,
+      handler: async ({ id }, { projectService }, traceId) => {
+        const { components } = await projectService.listVnextComponents(
+          id,
+          { category: 'views' },
+          traceId,
+        )
+        return components.views
+      },
+    },
+    'vnext/functions/list': {
+      paramsSchema: vnextCategoryListParams,
+      resultSchema: vnextCategoryListResult,
+      handler: async ({ id }, { projectService }, traceId) => {
+        const { components } = await projectService.listVnextComponents(
+          id,
+          { category: 'functions' },
+          traceId,
+        )
+        return components.functions
+      },
+    },
+    'vnext/extensions/list': {
+      paramsSchema: vnextCategoryListParams,
+      resultSchema: vnextCategoryListResult,
+      handler: async ({ id }, { projectService }, traceId) => {
+        const { components } = await projectService.listVnextComponents(
+          id,
+          { category: 'extensions' },
+          traceId,
+        )
+        return components.extensions
+      },
     },
 
     // ── templates ────────────────────────────────────────────────────────────

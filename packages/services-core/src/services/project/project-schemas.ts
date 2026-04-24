@@ -167,3 +167,56 @@ export const projectsGetWorkspaceBootstrapResult = z.object({
   validateScriptStatus: projectsGetValidateScriptStatusResult.nullable(),
   componentFileTypes: projectsGetComponentFileTypesResult.nullable(),
 })
+
+// ── vNext bileşen listesi (BFF) ────────────────────────────────────────────
+
+/** Önizleme / RPC: `paths` alanı (CreateVnextConfig formundan JSON). */
+export const vnextWorkspacePathsInputSchema = z.object({
+  componentsRoot: z.string().min(1),
+  tasks: z.string(),
+  views: z.string(),
+  functions: z.string(),
+  extensions: z.string(),
+  workflows: z.string(),
+  schemas: z.string(),
+})
+
+export const vnextExportCategorySchema = z.enum([
+  'workflows',
+  'tasks',
+  'schemas',
+  'views',
+  'functions',
+  'extensions',
+])
+
+const vnextComponentRowShape = z.object({
+  key: z.string(),
+  path: z.string(),
+  flow: z.string(),
+  version: z.string().optional(),
+})
+
+const vnextComponentsByCategoryShape = z.object({
+  workflows: z.array(vnextComponentRowShape),
+  tasks: z.array(vnextComponentRowShape),
+  schemas: z.array(vnextComponentRowShape),
+  views: z.array(vnextComponentRowShape),
+  functions: z.array(vnextComponentRowShape),
+  extensions: z.array(vnextComponentRowShape),
+})
+
+/** `previewPaths`: form önizlemesi için `JSON.stringify(VnextWorkspacePaths)` (GET query). */
+export const vnextComponentsListParams = z.object({
+  id: z.string().min(1, 'Project id is required'),
+  category: vnextExportCategorySchema.optional(),
+  /** JSON string of `VnextWorkspacePaths` (optional; config yerine). */
+  previewPaths: z.string().optional(),
+})
+
+export const vnextComponentsListResult = z.object({
+  components: vnextComponentsByCategoryShape,
+})
+
+export const vnextCategoryListParams = projectIdParam
+export const vnextCategoryListResult = z.array(vnextComponentRowShape)

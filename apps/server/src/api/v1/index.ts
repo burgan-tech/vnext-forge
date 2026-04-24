@@ -8,6 +8,7 @@ import { registerProjectsRoutes } from './projects.routes.js';
 import { registerRuntimeRoutes } from './runtime.routes.js';
 import { registerTemplatesRoutes } from './templates.routes.js';
 import { registerValidateRoutes } from './validate.routes.js';
+import { registerVnextRoutes } from './vnext.routes.js';
 
 export function createApiV1Router(deps: { registry: MethodRegistry; services: ServiceRegistry }) {
   const app = new Hono<{ Variables: Variables }>();
@@ -17,5 +18,6 @@ export function createApiV1Router(deps: { registry: MethodRegistry; services: Se
   registerTemplatesRoutes(app, deps);
   registerRuntimeRoutes(app, deps);
   registerHealthRoutes(app, deps);
+  registerVnextRoutes(app, deps);
   return app;
 }

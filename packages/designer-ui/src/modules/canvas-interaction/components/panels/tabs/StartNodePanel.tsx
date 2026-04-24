@@ -7,6 +7,7 @@ import {
 import { getLabels, getLabel, getTriggerLabel } from './PropertyPanelHelpers';
 import { Badge, Section, InfoRow, SelectField } from './PropertyPanelShared';
 import { Play, Plus, Trash2 } from 'lucide-react';
+import { OpenVnextComponentInModalButton } from '../../../../../modules/save-component/components/OpenVnextComponentInModalButton.js';
 
 export function StartNodePanel({ startTransition }: { startTransition: any }) {
   const { workflowJson, updateWorkflow } = useWorkflowStore();
@@ -117,6 +118,15 @@ export function StartNodePanel({ startTransition }: { startTransition: any }) {
         {/* Editable schema */}
         <Section title="Schema" defaultOpen>
           <SchemaReferenceField value={schema} onChange={updateSchema} />
+          {schema?.key && schema?.flow ? (
+            <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
+              <OpenVnextComponentInModalButton
+                componentKey={String(schema.key)}
+                flow={String(schema.flow)}
+                title="Schema JSON’u modal’da aç"
+              />
+            </div>
+          ) : null}
         </Section>
 
         {/* Editable labels */}

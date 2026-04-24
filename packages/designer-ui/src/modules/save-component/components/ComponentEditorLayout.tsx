@@ -20,6 +20,8 @@ export interface ComponentEditorLayoutProps {
    * Verilmezse: VS Code webview gibi panellerde üst `editor-chrome` şeridi çizilir.
    */
   registerToolbar?: HostDocumentToolbarSlot;
+  /** `modal`: dialog gövdesinde kompakt padding; toolbar `registerToolbar` ile host’ta. */
+  surface?: 'panel' | 'modal';
 }
 
 export function ComponentEditorLayout({
@@ -34,6 +36,7 @@ export function ComponentEditorLayout({
   canRedo,
   children,
   registerToolbar,
+  surface = 'panel',
 }: ComponentEditorLayoutProps) {
   /**
    * Host `ReactNode` slotta (`registerToolbar`) alt ağaç, editör re-render'larında
@@ -117,23 +120,26 @@ export function ComponentEditorLayout({
       </Alert>
     ) : null;
 
+  const bodyScrollClass =
+    surface === 'modal' ? 'flex-1 overflow-y-auto px-2 py-2 sm:px-3' : 'flex-1 overflow-y-auto';
+
   if (registerToolbar) {
     return (
-      <div className="flex h-full flex-col">
+      <div className={surface === 'modal' ? 'flex h-full max-h-full min-h-0 flex-col' : 'flex h-full flex-col'}>
         {errorBlock ? <div className="border-border shrink-0 border-b px-3 py-2">{errorBlock}</div> : null}
-        <div className="flex-1 overflow-y-auto">{children}</div>
+        <div className={bodyScrollClass}>{children}</div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-full flex-col">
+    <div className={surface === 'modal' ? 'flex h-full max-h-full min-h-0 flex-col' : 'flex h-full flex-col'}>
       <div className="border-border bg-background shrink-0 border-b px-3 py-2">
         {embeddedToolbar}
         {errorBlock ? <div className="mt-2">{errorBlock}</div> : null}
       </div>
 
-      <div className="flex-1 overflow-y-auto">{children}</div>
+      <div className={bodyScrollClass}>{children}</div>
     </div>
   );
 }

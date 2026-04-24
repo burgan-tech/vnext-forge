@@ -8,6 +8,7 @@ import {
 import { getLabels, getTriggerKindLabel } from './PropertyPanelHelpers';
 import { Badge, IconPlus, IconTrash } from './PropertyPanelShared';
 import { ArrowRight } from 'lucide-react';
+import { OpenVnextComponentInModalButton } from '../../../../../modules/save-component/components/OpenVnextComponentInModalButton.js';
 
 /* ────────────── TRANSITIONS TAB ────────────── */
 
@@ -244,6 +245,15 @@ function EditableTransitionCard({
                 value={transition.schema}
                 onChange={(ref) => onUpdateSchema(index, ref)}
               />
+              {transition.schema?.key && transition.schema?.flow ? (
+                <div className="mt-2 flex flex-wrap items-center justify-end gap-2">
+                  <OpenVnextComponentInModalButton
+                    componentKey={String(transition.schema.key)}
+                    flow={String(transition.schema.flow)}
+                    title="Schema JSON’u modal’da aç"
+                  />
+                </div>
+              ) : null}
             </div>
           )}
         </div>

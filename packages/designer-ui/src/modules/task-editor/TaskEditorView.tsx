@@ -10,6 +10,8 @@ import { showNotification } from '../../notification/notification-port.js';
 import { useTaskEditor } from './useTaskEditor';
 import { TaskEditorPanel } from './TaskEditorPanel';
 import { persistScriptTaskScriptFile } from './persistScriptTaskScriptFile.js';
+import { buildAtomicComponentJsonPath } from '../vnext-workspace/atomicComponentPaths.js';
+import type { AtomicSavedInfo } from '../save-component/componentEditorModalTypes.js';
 
 export interface TaskEditorViewProps {
   projectId: string;
@@ -18,6 +20,9 @@ export interface TaskEditorViewProps {
   registerToolbar?: HostDocumentToolbarSlot;
   /** Web shell: open script file in full Monaco tab. */
   onOpenScriptFileInHost?: (absolutePath: string) => void;
+  layoutSurface?: 'panel' | 'modal';
+  /** After save (e.g. modal): sync workflow refs from JSON top-level fields. */
+  onAtomicSaved?: (info: AtomicSavedInfo) => void;
 }
 
 export function TaskEditorView({
@@ -26,6 +31,8 @@ export function TaskEditorView({
   name,
   registerToolbar,
   onOpenScriptFileInHost,
+  layoutSurface = 'panel',
+  onAtomicSaved,
 }: TaskEditorViewProps) {
   const { activeProject, vnextConfig } = useProjectStore();
   const componentJson = useComponentStore((state) => state.componentJson);
@@ -57,10 +64,22 @@ export function TaskEditorView({
 
   const { save, saving, saveError } = useSaveComponent({
     beforeSave,
+    afterSaveSuccess: onAtomicSaved
+      ? () => {
+          const j = useComponentStore.getState().componentJson;
+          if (!j) return;
+          onAtomicSaved({
+            key: String(j.key ?? ''),
+            version: String(j.version ?? ''),
+            domain: String(j.domain ?? ''),
+            flow: String(j.flow ?? ''),
+          });
+        }
+      : undefined,
   });
   const filePath =
     id && group && name && activeProject && vnextConfig
-      ? `${activeProject.path}/${vnextConfig.paths.componentsRoot}/${vnextConfig.paths.tasks}/${group}/${name}.json`
+      ? buildAtomicComponentJsonPath(activeProject.path, vnextConfig.paths, 'tasks', group, name)
       : null;
   const { loading, error, isReady } = useTaskEditor({ filePath });
 
@@ -75,6 +94,7 @@ export function TaskEditorView({
   return (
     <ComponentEditorLayout
       registerToolbar={registerToolbar}
+      surface={layoutSurface}
       isDirty={isDirty}
       hasSaved={!isDirty && undoStackLength > 0}
       saving={saving}

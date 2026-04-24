@@ -4,12 +4,16 @@ import { ComponentEditorLayout } from '../../modules/save-component/components/C
 import { SchemaEditorPanel } from './components/SchemaEditorPanel';
 import { useSchemaEditor } from './useSchemaEditor';
 import { useSchemaEditorStore } from './useSchemaEditorStore';
+import { buildAtomicComponentJsonPath } from '../vnext-workspace/atomicComponentPaths.js';
+import type { AtomicSavedInfo } from '../save-component/componentEditorModalTypes.js';
 
 export interface SchemaEditorViewProps {
   projectId: string;
   group: string;
   name: string;
   registerToolbar?: HostDocumentToolbarSlot;
+  layoutSurface?: 'panel' | 'modal';
+  onAtomicSaved?: (info: AtomicSavedInfo) => void;
 }
 
 export function SchemaEditorView({
@@ -17,6 +21,8 @@ export function SchemaEditorView({
   group,
   name,
   registerToolbar,
+  layoutSurface = 'panel',
+  onAtomicSaved,
 }: SchemaEditorViewProps) {
   const { activeProject, vnextConfig } = useProjectStore();
   const {
@@ -30,9 +36,23 @@ export function SchemaEditorView({
   } = useSchemaEditorStore();
   const filePath =
     id && group && name && activeProject && vnextConfig
-      ? `${activeProject.path}/${vnextConfig.paths.componentsRoot}/${vnextConfig.paths.schemas}/${group}/${name}.json`
+      ? buildAtomicComponentJsonPath(activeProject.path, vnextConfig.paths, 'schemas', group, name)
       : null;
-  const { loading, error, isReady, save, saving, saveError } = useSchemaEditor({ filePath });
+  const { loading, error, isReady, save, saving, saveError } = useSchemaEditor({
+    filePath,
+    onSaveSuccess: onAtomicSaved
+      ? () => {
+          const j = useSchemaEditorStore.getState().componentJson;
+          if (!j) return;
+          onAtomicSaved({
+            key: String(j.key ?? ''),
+            version: String(j.version ?? ''),
+            domain: String(j.domain ?? ''),
+            flow: String(j.flow ?? ''),
+          });
+        }
+      : undefined,
+  });
 
   if (loading || !isReady || !componentJson) {
     return (
@@ -45,6 +65,7 @@ export function SchemaEditorView({
   return (
     <ComponentEditorLayout
       registerToolbar={registerToolbar}
+      surface={layoutSurface}
       isDirty={isDirty}
       hasSaved={!isDirty && undoStack.length > 0}
       saving={saving}

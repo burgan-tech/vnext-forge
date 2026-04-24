@@ -1,34 +1,62 @@
 import { useState } from 'react';
 import { useWorkflowStore } from '../../../../../store/useWorkflowStore';
+import { useProjectStore } from '../../../../../store/useProjectStore';
 import { CsxEditorField, type ScriptCode } from '../../../../../modules/save-component/components/CsxEditorField';
-import {
-  Section,
-  EditableInput,
-  IconTask,
-  IconPlus,
-  IconTrash,
-  IconUp,
-  IconDown,
-} from './PropertyPanelShared';
-import { Pencil } from 'lucide-react';
+import { OpenVnextComponentInModalButton } from '../../../../../modules/save-component/components/OpenVnextComponentInModalButton.js';
+import type { AtomicSavedInfo } from '../../../../../modules/save-component/componentEditorModalTypes.js';
+import type { DiscoveredVnextComponent } from '@vnext-forge/app-contracts';
+import { ChooseExistingTaskDialog, ChooseFromExistingTasksButton } from './ChooseExistingTaskDialog';
+import { CreateNewTaskButton, CreateNewTaskDialog } from './CreateNewTaskDialog';
+import { useFlowEditorSave } from '../../../../../modules/flow-editor/FlowEditorSaveContext.js';
+import { Section, IconTask, IconTrash, IconUp, IconDown } from './PropertyPanelShared';
 
 /* ────────────── TASKS TAB ────────────── */
 
 export function TasksTab({ state }: { state: any }) {
   const { updateWorkflow } = useWorkflowStore();
+  const vnextConfig = useProjectStore((s) => s.vnextConfig);
+  const activeProject = useProjectStore((s) => s.activeProject);
+  const [pickerListField, setPickerListField] = useState<'onEntries' | 'onExits' | null>(null);
+  const [createListField, setCreateListField] = useState<'onEntries' | 'onExits' | null>(null);
+  const flowEditorSave = useFlowEditorSave();
   const entries = state.onEntries || [];
   const exits = state.onExits || [];
   const stateKey = state.key;
 
-  const addTask = (listField: 'onEntries' | 'onExits') => {
+  const projectDomain = vnextConfig?.domain ?? activeProject?.domain ?? '';
+  const canPickExisting = Boolean(activeProject && vnextConfig?.paths);
+
+  const addTaskFromDiscovered = (listField: 'onEntries' | 'onExits', task: DiscoveredVnextComponent) => {
     updateWorkflow((draft: any) => {
       const s = draft.attributes?.states?.find((s: any) => s.key === stateKey);
       if (!s) return;
       if (!s[listField]) s[listField] = [];
       s[listField].push({
         order: s[listField].length + 1,
-        task: { key: 'new-task', domain: '', version: '1.0.0', flow: 'sys-tasks' },
+        task: {
+          key: task.key,
+          domain: projectDomain,
+          version: task.version || '1.0.0',
+          flow: task.flow,
+        },
       });
+    });
+  };
+
+  const syncTaskRef = (
+    listField: 'onEntries' | 'onExits',
+    index: number,
+    next: AtomicSavedInfo,
+  ) => {
+    updateWorkflow((draft: any) => {
+      const s = draft.attributes?.states?.find((st: any) => st.key === stateKey);
+      const entry = s?.[listField]?.[index];
+      if (!entry) return;
+      if (!entry.task) entry.task = {};
+      entry.task.key = next.key;
+      entry.task.version = next.version;
+      entry.task.domain = next.domain;
+      entry.task.flow = next.flow;
     });
   };
 
@@ -40,21 +68,6 @@ export function TasksTab({ state }: { state: any }) {
       s[listField].forEach((t: any, i: number) => {
         t.order = i + 1;
       });
-    });
-  };
-
-  const updateTask = (
-    listField: 'onEntries' | 'onExits',
-    index: number,
-    field: string,
-    value: string,
-  ) => {
-    updateWorkflow((draft: any) => {
-      const s = draft.attributes?.states?.find((s: any) => s.key === stateKey);
-      const entry = s?.[listField]?.[index];
-      if (!entry) return;
-      if (!entry.task) entry.task = {};
-      entry.task[field] = value;
     });
   };
 
@@ -96,6 +109,26 @@ export function TasksTab({ state }: { state: any }) {
 
   return (
     <div className="space-y-4">
+      <ChooseExistingTaskDialog
+        open={pickerListField != null}
+        onOpenChange={(open) => {
+          if (!open) setPickerListField(null);
+        }}
+        onSelectTask={(task) => {
+          if (pickerListField) addTaskFromDiscovered(pickerListField, task);
+        }}
+      />
+      <CreateNewTaskDialog
+        open={createListField != null}
+        onOpenChange={(open) => {
+          if (!open) setCreateListField(null);
+        }}
+        onCreated={(created) => {
+          if (!createListField) return;
+          addTaskFromDiscovered(createListField, created);
+          void flowEditorSave?.saveWorkflow();
+        }}
+      />
       <Section title="OnEntry" count={entries.length} icon={<IconTask />} defaultOpen>
         {entries.length === 0 ? (
           <div className="text-muted-foreground py-4 text-center text-[12px]">
@@ -112,19 +145,37 @@ export function TasksTab({ state }: { state: any }) {
                 listField="onEntries"
                 stateKey={stateKey}
                 onRemove={removeTask}
-                onUpdate={updateTask}
                 onMove={moveTask}
                 onUpdateMapping={updateMapping}
                 onRemoveMapping={removeMapping}
+                onAtomicSaved={syncTaskRef}
               />
             ))}
           </div>
         )}
-        <button
-          onClick={() => addTask('onEntries')}
-          className="text-secondary-icon hover:text-secondary-foreground mt-2 flex cursor-pointer items-center gap-1.5 text-[11px] font-semibold">
-          <IconPlus /> Add Entry Task
-        </button>
+        <div
+          className="mt-2 flex w-full min-w-0 flex-wrap items-center justify-between gap-2"
+          role="group"
+          aria-label="Add or attach entry task">
+          <ChooseFromExistingTasksButton
+            onClick={() => setPickerListField('onEntries')}
+            disabled={!canPickExisting}
+            title={
+              canPickExisting
+                ? 'Pick a task from workspace JSON files'
+                : 'Requires an open project and vnext.config.json with paths'
+            }
+          />
+          <CreateNewTaskButton
+            onClick={() => setCreateListField('onEntries')}
+            disabled={!canPickExisting}
+            title={
+              canPickExisting
+                ? 'Create a new task JSON under Tasks/<subdomain>/'
+                : 'Requires an open project and vnext.config.json with paths'
+            }
+          />
+        </div>
       </Section>
 
       <Section title="OnExit" count={exits.length} icon={<IconTask />} defaultOpen>
@@ -143,25 +194,43 @@ export function TasksTab({ state }: { state: any }) {
                 listField="onExits"
                 stateKey={stateKey}
                 onRemove={removeTask}
-                onUpdate={updateTask}
                 onMove={moveTask}
                 onUpdateMapping={updateMapping}
                 onRemoveMapping={removeMapping}
+                onAtomicSaved={syncTaskRef}
               />
             ))}
           </div>
         )}
-        <button
-          onClick={() => addTask('onExits')}
-          className="text-secondary-icon hover:text-secondary-foreground mt-2 flex cursor-pointer items-center gap-1.5 text-[11px] font-semibold">
-          <IconPlus /> Add Exit Task
-        </button>
+        <div
+          className="mt-2 flex w-full min-w-0 flex-wrap items-center justify-between gap-2"
+          role="group"
+          aria-label="Add or attach exit task">
+          <ChooseFromExistingTasksButton
+            onClick={() => setPickerListField('onExits')}
+            disabled={!canPickExisting}
+            title={
+              canPickExisting
+                ? 'Pick a task from workspace JSON files'
+                : 'Requires an open project and vnext.config.json with paths'
+            }
+          />
+          <CreateNewTaskButton
+            onClick={() => setCreateListField('onExits')}
+            disabled={!canPickExisting}
+            title={
+              canPickExisting
+                ? 'Create a new task JSON under Tasks/<subdomain>/'
+                : 'Requires an open project and vnext.config.json with paths'
+            }
+          />
+        </div>
       </Section>
     </div>
   );
 }
 
-/* ────────────── EDITABLE TASK CARD ────────────── */
+/* ────────────── TASK CARD (read-only ref; edit in modal) ────────────── */
 
 function EditableTaskCard({
   entry,
@@ -170,10 +239,10 @@ function EditableTaskCard({
   listField,
   stateKey,
   onRemove,
-  onUpdate,
   onMove,
   onUpdateMapping,
   onRemoveMapping,
+  onAtomicSaved,
 }: {
   entry: any;
   index: number;
@@ -181,17 +250,11 @@ function EditableTaskCard({
   listField: 'onEntries' | 'onExits';
   stateKey: string;
   onRemove: (listField: 'onEntries' | 'onExits', index: number) => void;
-  onUpdate: (
-    listField: 'onEntries' | 'onExits',
-    index: number,
-    field: string,
-    value: string,
-  ) => void;
   onMove: (listField: 'onEntries' | 'onExits', fromIndex: number, toIndex: number) => void;
   onUpdateMapping: (listField: 'onEntries' | 'onExits', index: number, mapping: ScriptCode) => void;
   onRemoveMapping: (listField: 'onEntries' | 'onExits', index: number) => void;
+  onAtomicSaved: (listField: 'onEntries' | 'onExits', index: number, next: AtomicSavedInfo) => void;
 }) {
-  const [showEdit, setShowEdit] = useState(false);
   const ref = entry.task || entry;
   const mapping = entry.mapping;
   const order = entry.order ?? index + 1;
@@ -199,9 +262,9 @@ function EditableTaskCard({
   return (
     <div className="bg-surface border-border hover:border-muted-border-hover overflow-hidden rounded-xl border shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-all hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
       <div className="flex items-start gap-2.5 px-3 py-2.5">
-        {/* Order + Move buttons */}
         <div className="mt-0.5 flex shrink-0 flex-col items-center gap-0.5">
           <button
+            type="button"
             onClick={() => onMove(listField, index, index - 1)}
             disabled={index === 0}
             className="text-subtle hover:text-secondary-icon cursor-pointer p-0.5 transition-colors disabled:cursor-not-allowed disabled:opacity-30"
@@ -212,6 +275,7 @@ function EditableTaskCard({
             {order}
           </span>
           <button
+            type="button"
             onClick={() => onMove(listField, index, index + 1)}
             disabled={index === total - 1}
             className="text-subtle hover:text-secondary-icon cursor-pointer p-0.5 transition-colors disabled:cursor-not-allowed disabled:opacity-30"
@@ -239,12 +303,18 @@ function EditableTaskCard({
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1">
+          {ref.key && ref.flow ? (
+            <OpenVnextComponentInModalButton
+              componentKey={String(ref.key)}
+              flow={String(ref.flow)}
+              className="shrink-0 rounded-lg p-1.5"
+              title="Open task JSON in editor (modal)"
+              iconOnly
+              onAtomicSaved={(next) => onAtomicSaved(listField, index, next)}
+            />
+          ) : null}
           <button
-            onClick={() => setShowEdit(!showEdit)}
-            className={`cursor-pointer rounded-lg p-1.5 transition-all ${showEdit ? 'text-secondary-icon bg-secondary' : 'text-subtle hover:text-secondary-icon hover:bg-secondary'}`}>
-            <Pencil size={12} />
-          </button>
-          <button
+            type="button"
             onClick={() => onRemove(listField, index)}
             className="text-subtle hover:text-destructive-text hover:bg-destructive-surface cursor-pointer rounded-lg p-1.5 transition-all">
             <IconTrash />
@@ -252,48 +322,6 @@ function EditableTaskCard({
         </div>
       </div>
 
-      {showEdit && (
-        <div className="border-border-subtle space-y-2 border-t px-3 pt-2.5 pb-3">
-          <div className="flex gap-2">
-            <div className="flex-1">
-              <label className="text-muted-foreground text-[10px] font-semibold">Key</label>
-              <EditableInput
-                value={ref.key || ''}
-                onChange={(v) => onUpdate(listField, index, 'key', v)}
-                mono
-              />
-            </div>
-            <div className="flex-1">
-              <label className="text-muted-foreground text-[10px] font-semibold">Domain</label>
-              <EditableInput
-                value={ref.domain || ''}
-                onChange={(v) => onUpdate(listField, index, 'domain', v)}
-                mono
-              />
-            </div>
-          </div>
-          <div className="flex gap-2">
-            <div className="flex-1">
-              <label className="text-muted-foreground text-[10px] font-semibold">Version</label>
-              <EditableInput
-                value={ref.version || ''}
-                onChange={(v) => onUpdate(listField, index, 'version', v)}
-                mono
-              />
-            </div>
-            <div className="flex-1">
-              <label className="text-muted-foreground text-[10px] font-semibold">Flow</label>
-              <EditableInput
-                value={ref.flow || ''}
-                onChange={(v) => onUpdate(listField, index, 'flow', v)}
-                mono
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Mapping Script Editor */}
       <CsxEditorField
         value={mapping}
         onChange={(m) => onUpdateMapping(listField, index, m)}

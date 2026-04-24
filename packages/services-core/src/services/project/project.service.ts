@@ -1,4 +1,5 @@
 import { ERROR_CODES, VnextForgeError } from '@vnext-forge/app-contracts'
+import type { VnextComponentsByCategory, VnextExportCategory } from '@vnext-forge/app-contracts'
 import type { z } from 'zod'
 
 import type {
@@ -25,7 +26,8 @@ import type {
   SeedVnextComponentLayoutResult,
   VnextComponentLayoutStatusResult,
 } from './types.js'
-import type { vnextWorkspaceFullConfigSchema } from './project-schemas.js'
+import { vnextWorkspaceFullConfigSchema, vnextWorkspacePathsInputSchema } from './project-schemas.js'
+import { emptyVnextComponentBuckets, scanVnextComponents } from './vnext-component-scanner.js'
 
 const COMPONENT_LAYOUT_PATH_KEYS: (keyof Omit<VnextWorkspacePaths, 'componentsRoot'>)[] = [
   'tasks',
@@ -825,6 +827,48 @@ export function createProjectService(deps: ProjectServiceDeps) {
     }
   }
 
+  // TODO: optional LRU cache keyed by `${id}:${configMTime}` when listVnextComponents is hot.
+  async function listVnextComponents(
+    id: string,
+    input: { category?: VnextExportCategory; previewPaths?: string },
+    traceId?: string,
+  ): Promise<{ components: VnextComponentsByCategory }> {
+    const { projectPath } = await resolveProjectPath(id, traceId)
+    let paths: VnextWorkspacePaths | undefined
+
+    if (input.previewPaths != null && String(input.previewPaths).trim() !== '') {
+      let raw: unknown
+      try {
+        raw = JSON.parse(String(input.previewPaths))
+      } catch {
+        throw new VnextForgeError(
+          ERROR_CODES.PROJECT_INVALID_CONFIG,
+          'previewPaths must be valid JSON',
+          { source: 'ProjectService.listVnextComponents', layer: 'application', details: { id } },
+          traceId,
+        )
+      }
+      const parsed = vnextWorkspacePathsInputSchema.safeParse(raw)
+      if (!parsed.success) {
+        throw new VnextForgeError(
+          ERROR_CODES.PROJECT_INVALID_CONFIG,
+          'Invalid previewPaths shape',
+          { source: 'ProjectService.listVnextComponents', layer: 'application', details: { id } },
+          traceId,
+        )
+      }
+      paths = parsed.data
+    } else {
+      const status = await workspaceService.readConfigStatus(projectPath, traceId)
+      if (status.status !== 'ok') {
+        return { components: emptyVnextComponentBuckets() }
+      }
+      paths = status.config.paths
+    }
+
+    return scanVnextComponents(fs, projectPath, paths, { onlyCategory: input.category })
+  }
+
   return {
     listProjects,
     getProject,
@@ -839,6 +883,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
     seedVnextComponentLayoutFromConfig,
     getComponentFileTypes,
     getWorkspaceBootstrap,
+    listVnextComponents,
     exportProject,
     removeProject,
   }

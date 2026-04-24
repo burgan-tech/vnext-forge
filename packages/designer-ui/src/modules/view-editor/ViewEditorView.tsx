@@ -6,12 +6,16 @@ import { useLoadComponent } from '../../modules/save-component/useLoadComponent'
 import { useSaveComponent } from '../../modules/save-component/useSaveComponent';
 import { loadViewEditor } from './ViewEditorApi';
 import { ViewEditorPanel } from './ViewEditorPanel';
+import { buildAtomicComponentJsonPath } from '../vnext-workspace/atomicComponentPaths.js';
+import type { AtomicSavedInfo } from '../save-component/componentEditorModalTypes.js';
 
 export interface ViewEditorViewProps {
   projectId: string;
   group: string;
   name: string;
   registerToolbar?: HostDocumentToolbarSlot;
+  layoutSurface?: 'panel' | 'modal';
+  onAtomicSaved?: (info: AtomicSavedInfo) => void;
 }
 
 export function ViewEditorView({
@@ -19,14 +23,29 @@ export function ViewEditorView({
   group,
   name,
   registerToolbar,
+  layoutSurface = 'panel',
+  onAtomicSaved,
 }: ViewEditorViewProps) {
   const { activeProject, vnextConfig } = useProjectStore();
   const { componentJson, isDirty, updateComponent, undo, redo, undoStack, redoStack } =
     useComponentStore();
-  const { save, saving, saveError } = useSaveComponent();
+  const { save, saving, saveError } = useSaveComponent({
+    afterSaveSuccess: onAtomicSaved
+      ? () => {
+          const j = useComponentStore.getState().componentJson;
+          if (!j) return;
+          onAtomicSaved({
+            key: String(j.key ?? ''),
+            version: String(j.version ?? ''),
+            domain: String(j.domain ?? ''),
+            flow: String(j.flow ?? ''),
+          });
+        }
+      : undefined,
+  });
   const filePath =
     id && group && name && activeProject && vnextConfig
-      ? `${activeProject.path}/${vnextConfig.paths.componentsRoot}/${vnextConfig.paths.views}/${group}/${name}.json`
+      ? buildAtomicComponentJsonPath(activeProject.path, vnextConfig.paths, 'views', group, name)
       : null;
 
   const { loading, error, isReady } = useLoadComponent({
@@ -48,6 +67,7 @@ export function ViewEditorView({
   return (
     <ComponentEditorLayout
       registerToolbar={registerToolbar}
+      surface={layoutSurface}
       isDirty={isDirty}
       hasSaved={!isDirty && undoStack.length > 0}
       saving={saving}

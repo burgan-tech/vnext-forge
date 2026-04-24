@@ -27,7 +27,7 @@ const FLOW_EDITOR_PROPERTIES_PANEL_ID = 'flow-editor-properties';
 export const statePropertyPanelResizableProps = {
   autoCollapseBelowMin: true,
   collapseOvershootPx: 30,
-  minSize: 200,
+  minSize: 250,
   maxSize: 600,
 } as const;
 
@@ -50,10 +50,7 @@ export function WorkflowPropertySidebarResizableRow({
       } as const;
     }
     const rowEstimatePx = Math.max(480, window.innerWidth - 80);
-    const sidePx = Math.min(
-      maxSize,
-      Math.max(minSize, Math.round(rowEstimatePx * 0.22) + 50),
-    );
+    const sidePx = Math.min(maxSize, Math.max(minSize, Math.round(rowEstimatePx * 0.22) + 150));
     const sidePct = (100 * sidePx) / rowEstimatePx;
     const canvasPct = 100 - sidePct;
     const r = (n: number) => Math.round(n * 1000) / 1000;
@@ -74,7 +71,7 @@ export function WorkflowPropertySidebarResizableRow({
         minSize="35%">
         {canvas}
       </ResizablePanel>
-      <ResizableHandle className="aria-[orientation=vertical]:before:left-auto! aria-[orientation=vertical]:before:right-0!" />
+      <ResizableHandle className="aria-[orientation=vertical]:before:right-0! aria-[orientation=vertical]:before:left-auto!" />
       <ResizablePanel
         className="bg-surface/80 flex min-h-0 min-w-0 flex-col overflow-hidden shadow-[-4px_0_16px_rgba(0,0,0,0.03)] backdrop-blur-sm"
         id={FLOW_EDITOR_PROPERTIES_PANEL_ID}
@@ -158,7 +155,9 @@ export function StatePropertyPanel() {
           </button>
         </div>
         {getLabel(state) && (
-          <div className="text-muted-foreground truncate text-[11px] leading-snug">{getLabel(state)}</div>
+          <div className="text-muted-foreground truncate text-[11px] leading-snug">
+            {getLabel(state)}
+          </div>
         )}
       </div>
 

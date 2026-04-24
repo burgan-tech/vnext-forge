@@ -20,6 +20,7 @@ import {
 import { useScriptPanelStore } from '../../modules/code-editor/ScriptPanelStore';
 import { useFlowEditorPersistence } from '../../modules/flow-editor/useFlowEditorPersistence';
 import { useFlowEditorDocument } from '../../modules/flow-editor/useFlowEditorDocument';
+import { FlowEditorSaveProvider } from '../../modules/flow-editor/FlowEditorSaveContext.js';
 import { Alert, AlertDescription, AlertTitle } from '../../ui/Alert';
 import { Button } from '../../ui/Button';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '../../ui/Resizable.js';
@@ -192,18 +193,19 @@ export function FlowEditorView({
   );
 
   return (
-    <ComponentEditorLayout
-      canRedo={redoStackLength > 0}
-      canUndo={undoStackLength > 0}
-      hasSaved={!isDirty && undoStackLength > 0}
-      isDirty={isDirty}
-      onRedo={redo}
-      onSave={handleSave}
-      onUndo={undo}
-      registerToolbar={registerToolbar}
-      saveErrorMessage={saveError?.toUserMessage().message ?? null}
-      saving={saving}>
-      <div className="bg-background flex h-full min-h-0 min-w-0 flex-col">
+    <FlowEditorSaveProvider saveWorkflow={save}>
+      <ComponentEditorLayout
+        canRedo={redoStackLength > 0}
+        canUndo={undoStackLength > 0}
+        hasSaved={!isDirty && undoStackLength > 0}
+        isDirty={isDirty}
+        onRedo={redo}
+        onSave={handleSave}
+        onUndo={undo}
+        registerToolbar={registerToolbar}
+        saveErrorMessage={saveError?.toUserMessage().message ?? null}
+        saving={saving}>
+        <div className="bg-background flex h-full min-h-0 min-w-0 flex-col">
         {showMetadata ? (
           <ResizablePanelGroup
             className="flex min-h-0 w-full min-w-0 flex-1 flex-col items-stretch overflow-hidden"
@@ -228,7 +230,8 @@ export function FlowEditorView({
         ) : (
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{editorBody}</div>
         )}
-      </div>
-    </ComponentEditorLayout>
+        </div>
+      </ComponentEditorLayout>
+    </FlowEditorSaveProvider>
   );
 }

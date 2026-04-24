@@ -8,8 +8,10 @@ import { useComponentStore } from '../../store/useComponentStore';
 const logger = createLogger('save-component/useSaveComponent');
 
 export interface UseSaveComponentOptions {
-  /** JSON yazılmadan önce; `false` dönerse kayıt iptal */
+  /** Return false to cancel the save. */
   beforeSave?: () => Promise<boolean>;
+  /** Called after a successful write and `markClean()`. */
+  afterSaveSuccess?: () => void;
 }
 
 export function useSaveComponent(options?: UseSaveComponentOptions) {
@@ -18,6 +20,7 @@ export function useSaveComponent(options?: UseSaveComponentOptions) {
   const isDirty = useComponentStore((state) => state.isDirty);
   const markClean = useComponentStore((state) => state.markClean);
   const beforeSave = options?.beforeSave;
+  const afterSaveSuccess = options?.afterSaveSuccess;
 
   const saveFile = useCallback(
     (nextFilePath: string, content: string) => saveComponentFile(nextFilePath, content),
@@ -31,6 +34,7 @@ export function useSaveComponent(options?: UseSaveComponentOptions) {
     errorMessage: 'Component could not be saved.',
     onSuccess: async () => {
       markClean();
+      afterSaveSuccess?.();
     },
     onError: async (saveError) => {
       logger.error('Failed to save component', saveError);

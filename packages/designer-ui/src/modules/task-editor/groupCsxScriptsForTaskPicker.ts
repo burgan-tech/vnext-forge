@@ -1,5 +1,4 @@
-import type { VnextWorkspacePaths } from '@vnext-forge/app-contracts';
-
+import type { DiscoveredVnextComponent, VnextWorkspacePaths } from '@vnext-forge/app-contracts';
 import { normalizePosixPath } from './scriptTaskPaths.js';
 import type { ListedCsxScript } from './services/listProjectCsxScripts.js';
 
@@ -96,6 +95,90 @@ function categorySortRank(category: string, paths: VnextWorkspacePaths): number 
   ];
   const i = order.indexOf(category);
   return i === -1 ? 999 : i;
+}
+
+/** Proje köküne göre dosya yolu → proje-göreli (posix). Eşleşmezse orijinali döner. */
+function absolutePathToProjectRelative(filePath: string, projectRoot: string): string {
+  const n = filePath.replace(/\\/g, '/').replace(/\/+$/, '');
+  const r = projectRoot.replace(/\\/g, '/').replace(/\/+$/, '');
+  if (n.length < r.length) return filePath;
+  if (n.toLowerCase() === r.toLowerCase()) return '';
+  if (!n.toLowerCase().startsWith(`${r.toLowerCase()}/`)) return filePath;
+  return n.slice(r.length + 1);
+}
+
+export interface TaskPickerGroupedItem {
+  task: DiscoveredVnextComponent;
+  displayPath: string;
+}
+
+export interface TaskPickerGroupRow {
+  category: string;
+  subgroup: string;
+  items: TaskPickerGroupedItem[];
+}
+
+/**
+ * `discoverVnextComponentsByCategory` çıktısını, `groupCsxScriptsForTaskPicker` ile aynı
+ * klasör hiyerarşisiyle gruplar (tasks alt klasörleri → başlık satırları).
+ */
+export function groupDiscoveredTasksForPicker(
+  items: DiscoveredVnextComponent[],
+  projectPath: string,
+  paths: VnextWorkspacePaths | null,
+): TaskPickerGroupRow[] {
+  if (!paths) {
+    return [
+      {
+        category: '',
+        subgroup: '',
+        items: items.map((task) => ({ task, displayPath: task.key })),
+      },
+    ];
+  }
+
+  const bucket = new Map<string, Map<string, TaskPickerGroupedItem[]>>();
+
+  for (const task of items) {
+    const rel = absolutePathToProjectRelative(task.path, projectPath);
+    const useRel = rel !== task.path ? rel : task.path;
+    const stripped = stripComponentsRootFromProjectRelative(useRel, paths.componentsRoot);
+    const { category, subgroup, fileLine } = classifyCsxPathAfterRoot(stripped, paths);
+    const displayPath = fileLine || task.key;
+
+    let subMap = bucket.get(category);
+    if (!subMap) {
+      subMap = new Map();
+      bucket.set(category, subMap);
+    }
+    const subKey = subgroup || '\0root';
+    const arr = subMap.get(subKey) ?? [];
+    arr.push({ task, displayPath });
+    subMap.set(subKey, arr);
+  }
+
+  const sortedCategories = [...bucket.keys()].sort((a, b) => {
+    const d = categorySortRank(a, paths) - categorySortRank(b, paths);
+    if (d !== 0) return d;
+    return a.localeCompare(b, undefined, { sensitivity: 'base' });
+  });
+
+  const result: TaskPickerGroupRow[] = [];
+  for (const cat of sortedCategories) {
+    const subMap = bucket.get(cat)!;
+    const sortedSubs = [...subMap.keys()].sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    for (const sub of sortedSubs) {
+      const rowItems = subMap.get(sub)!;
+      rowItems.sort((a, b) => a.task.key.localeCompare(b.task.key, undefined, { sensitivity: 'base' }));
+      result.push({
+        category: cat,
+        subgroup: sub === '\0root' ? '' : sub,
+        items: rowItems,
+      });
+    }
+  }
+
+  return result;
 }
 
 /**

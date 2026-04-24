@@ -53,12 +53,12 @@ export function ImportProjectDialog({ onImported, disabled }: ImportProjectDialo
       <Dialog open={importProject.open} onOpenChange={importProject.setOpen}>
         <DialogContent
           className="border-border bg-surface flex max-h-[calc(100vh-4rem)] max-w-lg flex-col gap-0 overflow-hidden rounded-[28px] p-0">
-          <DialogHeader className="space-y-1 px-6 pt-6 pb-4 text-left">
+          <DialogHeader className="border-0 border-b-0 px-6 pb-2 pt-6 text-left">
             <DialogTitle>Import Project</DialogTitle>
-            <DialogDescription>
-              Browse the workspace and select an existing project folder to link.
-            </DialogDescription>
           </DialogHeader>
+          <DialogDescription className="px-6 text-current/70">
+            Browse the workspace and select an existing project folder to link.
+          </DialogDescription>
 
           <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-6 pb-2">
             <FolderBrowser

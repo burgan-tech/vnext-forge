@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import {
+  ComponentEditorModalProvider,
   createLogger,
   ExtensionEditorView,
   FlowEditorView,
@@ -134,7 +135,11 @@ function ActiveEditor({ payload }: { payload: HostOpenEditorMessage }) {
   const { kind, projectId, group, name } = payload;
   switch (kind) {
     case 'workflow':
-      return <FlowEditorView projectId={projectId} group={group} name={name} />;
+      return (
+        <ComponentEditorModalProvider>
+          <FlowEditorView projectId={projectId} group={group} name={name} />
+        </ComponentEditorModalProvider>
+      );
     case 'task':
       return <TaskEditorView projectId={projectId} group={group} name={name} />;
     case 'schema':

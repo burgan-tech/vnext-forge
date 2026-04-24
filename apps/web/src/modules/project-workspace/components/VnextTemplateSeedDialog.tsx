@@ -96,80 +96,78 @@ export function VnextTemplateSeedDialog({
         onEscapeKeyDown={(e) => { if (pending) e.preventDefault(); }}
         onPointerDownOutside={(e) => { if (pending) e.preventDefault(); }}
         onInteractOutside={(e) => { if (pending) e.preventDefault(); }}>
-        <div className="space-y-4 px-6 pt-6 pb-4">
-          <DialogHeader className="space-y-3 text-left">
-            <div className="flex items-center gap-3">
-              <div className="bg-info-surface border-info-border flex size-10 shrink-0 items-center justify-center rounded-xl border">
-                <FolderPlus className="text-info-icon size-5" />
-              </div>
-              <DialogTitle className="text-base">{title}</DialogTitle>
+        <DialogHeader className="border-0 border-b-0 px-6 pb-2 pt-6 text-left">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="bg-info-surface border-info-border flex size-10 shrink-0 items-center justify-center rounded-xl border">
+              <FolderPlus className="text-info-icon size-5" />
             </div>
-            <DialogDescription asChild>
-              <div className="space-y-3 leading-relaxed">
-                {pending ? (
-                  <div className="flex items-center gap-3 py-2">
-                    <Loader2 className="text-info-icon size-5 animate-spin" />
-                    <p className="text-muted-foreground text-sm">
-                      Creating project template, please wait…
-                    </p>
-                  </div>
-                ) : (
-                  <>
-                    {isOnlyConfig ? (
-                      <p className="text-muted-foreground text-sm">
-                        Only{' '}
-                        <code className="bg-muted rounded px-1 py-0.5 text-xs">vnext.config.json</code>{' '}
-                        exists at the project root. We can use the vnext-template
-                        scaffold to create component folders and project files
-                        automatically. Your custom settings in the configuration
-                        will be preserved.
-                      </p>
-                    ) : isIncomplete ? (
-                      <p className="text-muted-foreground text-sm">
-                        Some files and folders are missing relative to the paths
-                        in{' '}
-                        <code className="bg-muted rounded px-1 py-0.5 text-xs">vnext.config.json</code>.
-                        We can use the vnext-template scaffold to create the
-                        missing files and folders.
-                      </p>
-                    ) : (
-                      <p className="text-muted-foreground text-sm">
-                        Creates missing component folders and project files under{' '}
-                        <code className="bg-muted rounded px-1 py-0.5 text-xs">
-                          paths.componentsRoot
-                        </code>
-                        .
-                      </p>
-                    )}
-
-                    {hasMissingPaths ? (
-                      <div className="space-y-1.5">
-                        <p className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
-                          <FolderTree className="size-3.5 shrink-0 opacity-60" />
-                          Missing files and folders
-                        </p>
-                        <ol className="border-border bg-muted/30 max-h-40 overflow-y-auto rounded-lg border">
-                          {templateSeedMissingPathsPreview!.map((p, idx) => (
-                            <li
-                              key={p}
-                              className="border-border/50 flex items-center gap-2.5 border-b px-3 py-1.5 last:border-b-0">
-                              <span className="text-muted-foreground/50 w-4 shrink-0 text-right font-mono text-[10px]">
-                                {idx + 1}
-                              </span>
-                              <span className="min-w-0 truncate font-mono text-[11px]" title={p}>
-                                {p}
-                              </span>
-                            </li>
-                          ))}
-                        </ol>
-                      </div>
-                    ) : null}
-                  </>
-                )}
+            <DialogTitle className="text-base">{title}</DialogTitle>
+          </div>
+        </DialogHeader>
+        <DialogDescription asChild className="px-6 pb-4 pt-0 text-current/70">
+          <div className="space-y-3 leading-relaxed">
+            {pending ? (
+              <div className="flex items-center gap-3 py-2">
+                <Loader2 className="text-info-icon size-5 animate-spin" />
+                <p className="text-muted-foreground text-sm">
+                  Creating project template, please wait…
+                </p>
               </div>
-            </DialogDescription>
-          </DialogHeader>
-        </div>
+            ) : (
+              <>
+                {isOnlyConfig ? (
+                  <p className="text-muted-foreground text-sm">
+                    Only{' '}
+                    <code className="bg-muted rounded px-1 py-0.5 text-xs">vnext.config.json</code>{' '}
+                    exists at the project root. We can use the vnext-template
+                    scaffold to create component folders and project files
+                    automatically. Your custom settings in the configuration
+                    will be preserved.
+                  </p>
+                ) : isIncomplete ? (
+                  <p className="text-muted-foreground text-sm">
+                    Some files and folders are missing relative to the paths
+                    in{' '}
+                    <code className="bg-muted rounded px-1 py-0.5 text-xs">vnext.config.json</code>.
+                    We can use the vnext-template scaffold to create the
+                    missing files and folders.
+                  </p>
+                ) : (
+                  <p className="text-muted-foreground text-sm">
+                    Creates missing component folders and project files under{' '}
+                    <code className="bg-muted rounded px-1 py-0.5 text-xs">
+                      paths.componentsRoot
+                    </code>
+                    .
+                  </p>
+                )}
+
+                {hasMissingPaths ? (
+                  <div className="space-y-1.5">
+                    <p className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
+                      <FolderTree className="size-3.5 shrink-0 opacity-60" />
+                      Missing files and folders
+                    </p>
+                    <ol className="border-border bg-muted/30 max-h-40 overflow-y-auto rounded-lg border">
+                      {templateSeedMissingPathsPreview.map((p, idx) => (
+                        <li
+                          key={p}
+                          className="border-border/50 flex items-center gap-2.5 border-b px-3 py-1.5 last:border-b-0">
+                          <span className="text-muted-foreground/50 w-4 shrink-0 text-right font-mono text-[10px]">
+                            {idx + 1}
+                          </span>
+                          <span className="min-w-0 truncate font-mono text-[11px]" title={p}>
+                            {p}
+                          </span>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
+                ) : null}
+              </>
+            )}
+          </div>
+        </DialogDescription>
         <DialogFooter className="border-border gap-2 border-t px-6 py-4 sm:flex-row sm:justify-end">
           <Button
             type="button"

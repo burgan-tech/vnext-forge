@@ -9,9 +9,11 @@ const logger = createLogger('schema-editor/useSchemaEditor');
 
 interface UseSchemaEditorParams {
   filePath: string | null;
+  /** After a successful save and `markClean()`. */
+  onSaveSuccess?: () => void;
 }
 
-export function useSchemaEditor({ filePath }: UseSchemaEditorParams) {
+export function useSchemaEditor({ filePath, onSaveSuccess }: UseSchemaEditorParams) {
   const componentJson = useSchemaEditorStore((state) => state.componentJson);
   const componentFilePath = useSchemaEditorStore((state) => state.filePath);
   const isDirty = useSchemaEditorStore((state) => state.isDirty);
@@ -47,6 +49,7 @@ export function useSchemaEditor({ filePath }: UseSchemaEditorParams) {
     errorMessage: 'Schema could not be saved.',
     onSuccess: async () => {
       markClean();
+      onSaveSuccess?.();
     },
     onError: async (nextError) => {
       logger.error('Failed to save schema', nextError);
