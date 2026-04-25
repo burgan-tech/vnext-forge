@@ -1,0 +1,18 @@
+{
+  "$comment": "Reference shape for extension; use buildVnextComponentJson('extension', { key, domain }) in code",
+  "key": "example-component",
+  "domain": "openbanking",
+  "version": "1.0.0",
+  "flow": "sys-extensions",
+  "flowVersion": "1.0.0",
+  "tags": [],
+  "attributes": {
+    "type": 1,
+    "task": {
+      "key": "",
+      "domain": "openbanking",
+      "flow": "sys-tasks",
+      "version": "1.0.0"
+    }
+  }
+}

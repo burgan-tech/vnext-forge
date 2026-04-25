@@ -3,11 +3,18 @@ import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CaseSensitive, Regex, Search, WholeWord } from 'lucide-react';
 
-import { useProjectStore } from '@app/store/useProjectStore';
-import { cn } from '@shared/lib/utils/cn';
-import { useEditorStore } from '@modules/code-editor/EditorStore';
-import { resolveFileRoute } from '@modules/project-workspace/FileRouter';
-import type { FileSearchResult } from '@modules/project-workspace/WorkspaceApi';
+import {
+  cn,
+  useEditorStore,
+  useProjectStore,
+  type FileSearchResult,
+} from '@vnext-forge/designer-ui';
+
+import {
+  openEditorTabForComponentRoute,
+  openVnextWorkspaceConfigTab,
+} from '../project-workspace/openEditorTabFromFileRoute';
+import { resolveFileRoute } from '../project-workspace/FileRouter';
 
 import { SearchResultList } from './SearchResultList';
 import { useProjectSearch } from './useProjectSearch';
@@ -70,6 +77,11 @@ export function SearchPanel() {
       const route = resolveFileRoute(result.path, vnextConfig, activeProject.id, activeProject.path);
 
       if (route.navigateTo) {
+        if (route.type === 'config') {
+          openVnextWorkspaceConfigTab(activeProject.id);
+        } else {
+          openEditorTabForComponentRoute(route, activeProject.id);
+        }
         navigate(route.navigateTo);
         return;
       }
@@ -77,6 +89,7 @@ export function SearchPanel() {
       if (route.editorTab) {
         openTab({
           id: route.editorTab.filePath,
+          kind: 'file',
           title: route.editorTab.title,
           filePath: route.editorTab.filePath,
           language: route.editorTab.language,
@@ -88,6 +101,7 @@ export function SearchPanel() {
       // Fallback: open as generic code tab
       openTab({
         id: fakeNode.path,
+        kind: 'file',
         title: fakeNode.name,
         filePath: fakeNode.path,
         language: 'plaintext',

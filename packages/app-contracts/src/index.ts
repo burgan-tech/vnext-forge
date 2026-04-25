@@ -27,6 +27,16 @@ export type {
 } from './error/vnext-forge-error.js';
 
 export {
+  ERROR_PRESENTATION,
+  getErrorPresentation,
+} from './error/error-presentation.js';
+export type {
+  ErrorPresentation,
+  ErrorRecoveryAction,
+  ErrorSeverity,
+} from './error/error-presentation.js';
+
+export {
   success,
   failure,
   failureFromCode,
@@ -44,6 +54,15 @@ export {
 } from './response/helpers.js';
 
 export {
+  LogLevelSchema,
+  NodeEnvSchema,
+  csvList,
+  coercedBool,
+  isLoopbackHost,
+} from './env/common.js';
+export type { LogLevel, NodeEnv } from './env/common.js';
+
+export {
   VNEXT_WORKSPACE_RUNTIME_VERSION,
   VNEXT_WORKSPACE_SCHEMA_VERSION,
   VNEXT_WORKSPACE_CONFIG_VERSION,
@@ -58,3 +77,26 @@ export type {
   VnextWorkspacePaths,
   VnextWorkspaceReferenceResolution,
 } from './vnext/vnext-workspace-defaults.js';
+
+export {
+  VNEXT_EXPORT_CATEGORIES,
+  VNEXT_FLOW_TO_EXPORT_CATEGORY,
+} from './vnext/vnext-component-rows.js';
+export type {
+  DiscoveredVnextComponent,
+  VnextComponentsByCategory,
+  VnextComponentsDiscoveryResult,
+  VnextExportCategory,
+} from './vnext/vnext-component-rows.js';
+
+export type {
+  MethodHttpVerb,
+  MethodHttpParamSource,
+  MethodHttpSpec,
+  MethodId,
+} from './method-http.js';
+export {
+  METHOD_HTTP_METADATA,
+  getMethodHttpSpec,
+  listMethodHttpSpecs,
+} from './method-http.js';

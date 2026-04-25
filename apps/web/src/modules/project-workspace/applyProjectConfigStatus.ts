@@ -1,10 +1,9 @@
 import type { ApiResponse } from '@vnext-forge/app-contracts';
 
-import { useProjectStore } from '@app/store/useProjectStore';
-import { useVnextWorkspaceUiStore } from '@app/store/useVnextWorkspaceUiStore';
-import { useWorkspaceDiagnosticsStore } from '@app/store/useWorkspaceDiagnosticsStore';
+import { useProjectStore, type ProjectConfigStatus } from '@vnext-forge/designer-ui';
 
-import type { ProjectConfigStatus } from '@modules/project-management/ProjectTypes';
+import { useVnextWorkspaceUiStore } from '../../app/store/useVnextWorkspaceUiStore';
+import { useWorkspaceDiagnosticsStore } from '../../app/store/useWorkspaceDiagnosticsStore';
 
 export interface ApplyProjectConfigStatusOptions {
   /** `missing` durumunda sihirbazı aç */

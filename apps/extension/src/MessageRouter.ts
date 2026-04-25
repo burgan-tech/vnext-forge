@@ -1,103 +1,220 @@
-import { platform } from 'node:os'
-import * as vscode from 'vscode'
-import { VnextForgeError, ERROR_CODES } from '@vnext-forge/app-contracts'
-import type { ApiResponse } from '@vnext-forge/app-contracts'
-import { ProjectService } from '@handlers/project/service'
-import { WorkspaceService } from '@handlers/workspace/service'
-import { validateService } from '@handlers/validate/service'
-import { TemplateService } from '@handlers/template/service'
-import { proxyToRuntime } from '@handlers/runtime-proxy/handler'
-import { baseLogger } from '@ext/shared/logger'
+import * as vscode from 'vscode';
+
+import { ERROR_CODES, VnextForgeError, type ApiResponse } from '@vnext-forge/app-contracts';
 import {
-  WebviewLspManager,
-  isLspWebviewMessage,
-  type LspWebviewMessage,
-} from './lsp/WebviewLspManager'
+  dispatchMethod,
+  type LoggerAdapter,
+  type MethodRegistry,
+  type ServiceRegistry,
+} from '@vnext-forge/services-core';
+import type { LspBridge } from '@vnext-forge/lsp-core';
+
+import { createWebviewLspTransport, type WebviewLspTransport } from './panels/lsp-transport.js';
 
 // ── Message protocol ──────────────────────────────────────────────────────────
 
-/** Webview → Extension Host */
-export interface WebviewRequest {
-  requestId: string
-  type: 'api'
-  method: string
-  params: unknown
+/** Webview → Extension Host (API call) */
+export interface WebviewApiRequest {
+  requestId: string;
+  type: 'api';
+  method: string;
+  params: unknown;
 }
 
-/** Extension Host → Webview */
-export interface WebviewResponse {
-  requestId: string
-  result: ApiResponse<unknown>
+/** Extension Host → Webview (API response) */
+export interface WebviewApiResponse {
+  requestId: string;
+  result: ApiResponse<unknown>;
+}
+
+/** Webview ↔ Extension Host LSP tunnel frame. */
+interface WebviewLspFrame {
+  type: 'lsp';
+  event: 'connect' | 'message' | 'disconnect';
+  sessionId: string;
+  data?: string;
+}
+
+/** Webview → Extension Host: surface a native VS Code notification. */
+interface WebviewNotifyFrame {
+  type: 'host:notify';
+  kind: 'info' | 'success' | 'warning' | 'error';
+  message: string;
+  actionLabel?: string;
+  actionId?: string;
+}
+
+/** Extension Host → Webview: action button on a `host:notify` was pressed. */
+interface WebviewNotifyActionReply {
+  type: 'host:notify:action';
+  actionId: string;
+}
+
+/** Webview → Extension Host: tunnel a designer-ui logger entry. */
+interface WebviewLogFrame {
+  type: 'host:log';
+  level: 'debug' | 'info' | 'warn' | 'error';
+  scope: string;
+  message: string;
+  payload?: unknown;
+  timestamp: string;
 }
 
 // ── Router ────────────────────────────────────────────────────────────────────
 
-export class MessageRouter {
-  private readonly projectService = new ProjectService()
-  private readonly workspaceService = new WorkspaceService()
-  private readonly templateService = new TemplateService()
-  private readonly lspManager = new WebviewLspManager()
-
+export interface MessageRouterDeps {
+  registry: MethodRegistry;
+  services: ServiceRegistry;
+  lspBridge: LspBridge;
+  logger: LoggerAdapter;
   /**
-   * Attach this router to a webview panel. Returns a disposable so it can be
-   * cleaned up when the panel is disposed.
+   * VS Code OutputChannel used to surface webview logs (every `host:log`
+   * frame the webview sends through `createVsCodeLogSink`). Created and
+   * disposed by extension activation; the router only writes to it.
    */
+  webviewLogChannel: vscode.OutputChannel;
+}
+
+/**
+ * Thin router that bridges a VS Code webview to:
+ *   1) the shared `services-core` `methodRegistry` (API calls), and
+ *   2) the shared `lsp-core` bridge (LSP over `postMessage`).
+ *
+ * All business logic lives in the shared packages; this class only owns the
+ * VS Code-specific `postMessage` plumbing and transport lifetime.
+ */
+export class MessageRouter {
+  private readonly activeLspTransports = new Map<string, WebviewLspTransport>();
+  /** Her LSP `sessionId` hangi webview paneline ait — panel kapanınca yalnızca o oturumlar kapanır. */
+  private readonly lspSessionOwner = new Map<string, vscode.WebviewPanel>();
+
+  constructor(private readonly deps: MessageRouterDeps) {}
+
+  /** Attach the router to a webview panel. Returns a disposable. */
   attach(panel: vscode.WebviewPanel): vscode.Disposable {
-    const messageDisposable = panel.webview.onDidReceiveMessage(async (raw: unknown) => {
-      // ── API request ────────────────────────────────────────────────────────
-      if (isWebviewRequest(raw)) {
-        const { requestId, method, params } = raw
-        baseLogger.debug({ method, requestId }, 'webview request received')
-        const result = await this.dispatch(method, params, requestId)
-        const response: WebviewResponse = { requestId, result }
-        panel.webview.postMessage(response)
-        return
-      }
+    const messageDisposable = panel.webview.onDidReceiveMessage((raw: unknown) => {
+      void this.handleIncoming(panel, raw);
+    });
 
-      // ── LSP tunnel ─────────────────────────────────────────────────────────
-      if (isLspWebviewMessage(raw)) {
-        this.routeLsp(panel, raw)
-        return
-      }
-    })
-
-    // Tear down all LSP sessions when the panel closes.
     const disposeDisposable = panel.onDidDispose(() => {
-      this.lspManager.disposeAll()
-    })
+      this.tearDownLspSessionsForPanel(panel);
+    });
 
-    return vscode.Disposable.from(messageDisposable, disposeDisposable)
+    return vscode.Disposable.from(messageDisposable, disposeDisposable);
   }
 
-  private routeLsp(panel: vscode.WebviewPanel, msg: LspWebviewMessage): void {
-    const { event, sessionId } = msg
-    switch (event) {
-      case 'connect':
-        this.lspManager.onConnect(panel, sessionId)
-        break
-      case 'message':
-        this.lspManager.onMessage(sessionId, (msg as any).data as string)
-        break
-      case 'disconnect':
-        this.lspManager.onDisconnect(sessionId)
-        break
+  // ── API dispatch ──────────────────────────────────────────────────────────
+
+  private async handleIncoming(panel: vscode.WebviewPanel, raw: unknown): Promise<void> {
+    if (isApiRequest(raw)) {
+      const response: WebviewApiResponse = {
+        requestId: raw.requestId,
+        result: await this.dispatchApi(raw.method, raw.params, raw.requestId),
+      };
+      void panel.webview.postMessage(response);
+      return;
+    }
+
+    if (isLspFrame(raw)) {
+      this.handleLspFrame(panel, raw);
+      return;
+    }
+
+    if (isNotifyFrame(raw)) {
+      void this.handleNotifyFrame(panel, raw);
+      return;
+    }
+
+    if (isLogFrame(raw)) {
+      this.handleLogFrame(raw);
+      return;
     }
   }
 
-  // ── Dispatch ──────────────────────────────────────────────────────────────
+  // ── Webview log tunnel ────────────────────────────────────────────────────
 
-  private async dispatch(
+  private handleLogFrame(frame: WebviewLogFrame): void {
+    const level = frame.level.toUpperCase();
+    const head = `[${frame.timestamp}] [${level}] [${frame.scope}] ${frame.message}`;
+
+    if (frame.payload === undefined) {
+      this.deps.webviewLogChannel.appendLine(head);
+      return;
+    }
+
+    let payloadText: string;
+    try {
+      payloadText = JSON.stringify(frame.payload);
+    } catch {
+      payloadText = String(frame.payload);
+    }
+    this.deps.webviewLogChannel.appendLine(`${head} ${payloadText}`);
+  }
+
+  // ── Notifications ─────────────────────────────────────────────────────────
+
+  private async handleNotifyFrame(
+    panel: vscode.WebviewPanel,
+    frame: WebviewNotifyFrame,
+  ): Promise<void> {
+    const items: string[] = frame.actionLabel ? [frame.actionLabel] : [];
+    let pick: string | undefined;
+    try {
+      switch (frame.kind) {
+        case 'error':
+          pick = await vscode.window.showErrorMessage(frame.message, ...items);
+          break;
+        case 'warning':
+          pick = await vscode.window.showWarningMessage(frame.message, ...items);
+          break;
+        case 'success':
+        case 'info':
+        default:
+          pick = await vscode.window.showInformationMessage(frame.message, ...items);
+          break;
+      }
+    } catch (error) {
+      this.deps.logger.error(
+        { err: error, kind: frame.kind } as Record<string, unknown>,
+        'Failed to surface webview notification',
+      );
+      return;
+    }
+
+    if (frame.actionId && frame.actionLabel && pick === frame.actionLabel) {
+      const reply: WebviewNotifyActionReply = {
+        type: 'host:notify:action',
+        actionId: frame.actionId,
+      };
+      void panel.webview.postMessage(reply);
+    }
+  }
+
+  private async dispatchApi(
     method: string,
     params: unknown,
     traceId: string,
   ): Promise<ApiResponse<unknown>> {
     try {
-      const data = await this.handle(method, params, traceId)
-      return { success: true, data, error: null }
+      const data = await dispatchMethod(
+        this.deps.registry,
+        this.deps.services,
+        method,
+        params ?? {},
+        // The VS Code extension host is intrinsically trusted: every
+        // caller is either the user's own webview or another extension
+        // the editor has already activated. We bypass the capability
+        // gate with `trusted: true`.
+        { traceId, caller: { trusted: true } },
+      );
+      return { success: true, data, error: null };
     } catch (error) {
-      const forge = toVnextForgeError(error, method, traceId)
-      baseLogger.error(forge.toLogEntry(), 'handler error')
-      const userMessage = forge.toUserMessage()
+      const forge = toVnextForgeError(error, method, traceId);
+      this.deps.logger.error(
+        { ...forge.toLogEntry() } as Record<string, unknown>,
+        'Extension RPC handler error',
+      );
+      const userMessage = forge.toUserMessage();
       return {
         success: false,
         data: null,
@@ -106,192 +223,109 @@ export class MessageRouter {
           message: userMessage.message,
           traceId: forge.traceId ?? traceId,
         },
-      }
+      };
     }
   }
 
-  private async handle(method: string, params: unknown, traceId: string): Promise<unknown> {
-    const p = params as Record<string, unknown>
+  // ── LSP tunnel ────────────────────────────────────────────────────────────
 
-    switch (method) {
-      // ── Projects ────────────────────────────────────────────────────────────
-      case 'projects.list':
-        return this.projectService.listProjects(traceId)
-
-      case 'projects.getById':
-        return this.projectService.getProject(str(p, 'id'), traceId)
-
-      case 'projects.create':
-        return this.projectService.createProject(
-          str(p, 'domain'),
-          optStr(p, 'description'),
-          optStr(p, 'targetPath'),
-          traceId,
-        )
-
-      case 'projects.import':
-        return this.projectService.importProject(str(p, 'path'), traceId)
-
-      case 'projects.getTree':
-        return this.projectService.getFileTree(str(p, 'id'), traceId)
-
-      case 'projects.getConfig':
-        return this.projectService.getConfig(str(p, 'id'), traceId)
-
-      case 'projects.getConfigStatus':
-        return this.projectService.getConfigStatus(str(p, 'id'), traceId)
-
-      case 'projects.writeConfig':
-        return this.projectService.writeProjectConfig(str(p, 'id'), p.config as never, traceId)
-
-      case 'projects.export':
-        return this.projectService.exportProject(str(p, 'id'), str(p, 'targetPath'), traceId)
-
-      case 'projects.remove':
-        return this.projectService.removeProject(str(p, 'id'), traceId)
-
-      case 'projects.getVnextComponentLayoutStatus':
-        return this.projectService.getVnextComponentLayoutStatus(str(p, 'id'), traceId)
-
-      case 'projects.seedVnextComponentLayout':
-        return this.projectService.seedVnextComponentLayoutFromConfig(str(p, 'id'), traceId)
-
-      case 'projects.getValidateScriptStatus':
-        return this.projectService.getValidateScriptStatus(str(p, 'id'), traceId)
-
-      case 'projects.getComponentFileTypes':
-        return this.projectService.getComponentFileTypes(str(p, 'id'), traceId)
-
-      // ── Files (workspace) ───────────────────────────────────────────────────
-      case 'files.read':
-        return { content: await this.workspaceService.readFile(str(p, 'path'), traceId) }
-
-      case 'files.write':
-        await this.workspaceService.writeFile(str(p, 'path'), str(p, 'content'), traceId)
-        return null
-
-      case 'files.delete':
-        await this.workspaceService.deleteFile(str(p, 'path'), traceId)
-        return null
-
-      case 'files.mkdir':
-        await this.workspaceService.createDirectory(str(p, 'path'), traceId)
-        return null
-
-      case 'files.rename':
-        await this.workspaceService.renameFile(str(p, 'oldPath'), str(p, 'newPath'), traceId)
-        return null
-
-      case 'files.browse': {
-        const SYSTEM_ROOT_TOKEN = '::system-root::'
-        const reqPath = optStr(p, 'path')
-        const entries = await this.workspaceService.browseDirs(reqPath, traceId)
-        const folders = entries.filter((e) => e.type === 'directory')
-        const responsePath =
-          reqPath === SYSTEM_ROOT_TOKEN
-            ? platform() === 'win32' ? '' : '/'
-            : (reqPath ?? '')
-        return { path: responsePath, folders }
+  private handleLspFrame(panel: vscode.WebviewPanel, frame: WebviewLspFrame): void {
+    switch (frame.event) {
+      case 'connect':
+        this.openLspSession(panel, frame.sessionId);
+        return;
+      case 'message': {
+        const transport = this.activeLspTransports.get(frame.sessionId);
+        if (transport && typeof frame.data === 'string') {
+          transport.deliverMessage(frame.data);
+        }
+        return;
       }
+      case 'disconnect':
+        this.closeLspSession(frame.sessionId);
+        return;
+    }
+  }
 
-      case 'files.search':
-        return this.workspaceService.searchFiles(
-          str(p, 'project'),
-          str(p, 'q'),
-          {
-            matchCase: p.matchCase as boolean | undefined,
-            matchWholeWord: p.matchWholeWord as boolean | undefined,
-            useRegex: p.useRegex as boolean | undefined,
-            include: optStr(p, 'include'),
-            exclude: optStr(p, 'exclude'),
-          },
-          traceId,
-        )
+  private openLspSession(panel: vscode.WebviewPanel, sessionId: string): void {
+    if (this.activeLspTransports.has(sessionId)) return;
 
-      // ── Validation ──────────────────────────────────────────────────────────
-      case 'validate.workflow':
-        return validateService.validate(p.content)
+    const transport = createWebviewLspTransport(panel, sessionId);
+    this.activeLspTransports.set(sessionId, transport);
+    this.lspSessionOwner.set(sessionId, panel);
 
-      case 'validate.component':
-        return validateService.validateComponent(p.content, str(p, 'type'))
+    void this.deps.lspBridge.connect(sessionId, transport).catch((err) => {
+      this.deps.logger.error({ err, sessionId }, 'LSP bridge connect failed');
+      this.activeLspTransports.delete(sessionId);
+      this.lspSessionOwner.delete(sessionId);
+      transport.close(1011, 'LSP bridge unavailable');
+    });
+  }
 
-      case 'validate.getAvailableTypes':
-        return validateService.getAvailableTypes()
+  private closeLspSession(sessionId: string): void {
+    const transport = this.activeLspTransports.get(sessionId);
+    if (!transport) return;
+    this.activeLspTransports.delete(sessionId);
+    this.lspSessionOwner.delete(sessionId);
+    transport.deliverClose();
+  }
 
-      case 'validate.getAllSchemas':
-        return validateService.getAllSchemas()
-
-      case 'validate.getSchema':
-        return validateService.getSchema(str(p, 'type'))
-
-      // ── Health ──────────────────────────────────────────────────────────────
-      // Extension host is always "alive" — return a static healthy response so
-      // the workflowExecution health check passes without an HTTP round-trip.
-      case 'health.check':
-        return { status: 'ok' }
-
-      // ── Templates ───────────────────────────────────────────────────────────
-      case 'templates.list':
-        return this.templateService.checkValidateScript(str(p, 'projectPath'))
-
-      // ── Runtime proxy ───────────────────────────────────────────────────────
-      case 'runtime.proxy':
-        return proxyToRuntime({
-          method: str(p, 'method'),
-          runtimePath: str(p, 'runtimePath'),
-          query: p.query as Record<string, string> | undefined,
-          body: optStr(p, 'body'),
-          runtimeUrl: optStr(p, 'runtimeUrl'),
-          traceId,
-        })
-
-      default:
-        throw new VnextForgeError(
-          ERROR_CODES.API_NOT_FOUND,
-          `Unknown method: ${method}`,
-          { source: 'MessageRouter.handle', layer: 'presentation', details: { method } },
-          traceId,
-        )
+  private tearDownLspSessionsForPanel(panel: vscode.WebviewPanel): void {
+    const sessionIds = [...this.lspSessionOwner.entries()]
+      .filter(([, owner]) => owner === panel)
+      .map(([id]) => id);
+    for (const sessionId of sessionIds) {
+      this.closeLspSession(sessionId);
     }
   }
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function isWebviewRequest(value: unknown): value is WebviewRequest {
+function isApiRequest(value: unknown): value is WebviewApiRequest {
   return (
     typeof value === 'object' &&
     value !== null &&
-    'requestId' in value &&
     'type' in value &&
-    (value as WebviewRequest).type === 'api' &&
-    'method' in value
-  )
+    (value as { type: unknown }).type === 'api' &&
+    typeof (value as { requestId?: unknown }).requestId === 'string' &&
+    typeof (value as { method?: unknown }).method === 'string'
+  );
 }
 
-function str(params: Record<string, unknown>, key: string): string {
-  const val = params[key]
-  if (typeof val !== 'string') {
-    throw new VnextForgeError(
-      ERROR_CODES.API_BAD_REQUEST,
-      `Missing required parameter: ${key}`,
-      { source: 'MessageRouter.str', layer: 'presentation', details: { key, actual: typeof val } },
-    )
-  }
-  return val
+function isLspFrame(value: unknown): value is WebviewLspFrame {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return (
+    v.type === 'lsp' &&
+    typeof v.sessionId === 'string' &&
+    (v.event === 'connect' || v.event === 'message' || v.event === 'disconnect')
+  );
 }
 
-function optStr(params: Record<string, unknown>, key: string): string | undefined {
-  const val = params[key]
-  return typeof val === 'string' ? val : undefined
+function isNotifyFrame(value: unknown): value is WebviewNotifyFrame {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (v.type !== 'host:notify') return false;
+  if (typeof v.message !== 'string') return false;
+  return v.kind === 'info' || v.kind === 'success' || v.kind === 'warning' || v.kind === 'error';
+}
+
+function isLogFrame(value: unknown): value is WebviewLogFrame {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  if (v.type !== 'host:log') return false;
+  if (typeof v.scope !== 'string' || typeof v.message !== 'string') return false;
+  if (typeof v.timestamp !== 'string') return false;
+  return v.level === 'debug' || v.level === 'info' || v.level === 'warn' || v.level === 'error';
 }
 
 function toVnextForgeError(error: unknown, method: string, traceId: string): VnextForgeError {
-  if (error instanceof VnextForgeError) return error
+  if (error instanceof VnextForgeError) return error;
   return new VnextForgeError(
     ERROR_CODES.INTERNAL_UNEXPECTED,
     error instanceof Error ? error.message : 'Unexpected error',
     { source: `MessageRouter.dispatch[${method}]`, layer: 'presentation' },
     traceId,
-  )
+  );
 }

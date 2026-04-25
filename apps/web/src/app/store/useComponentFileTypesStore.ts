@@ -1,12 +1,8 @@
 import { create } from 'zustand';
 
-export type VnextComponentType =
-  | 'workflow'
-  | 'task'
-  | 'schema'
-  | 'view'
-  | 'function'
-  | 'extension';
+import type { VnextComponentType } from '@vnext-forge/designer-ui';
+
+export type { VnextComponentType };
 
 const FLOW_TO_COMPONENT_TYPE: Record<string, VnextComponentType> = {
   'sys-flows': 'workflow',
@@ -26,16 +22,18 @@ function flowToComponentType(flow: string): VnextComponentType | null {
 }
 
 /**
- * Record<normalizedRelativePath, VnextComponentType> kullanılır.
- * Map yerine plain object: Zustand selector'lar `Object.is` ile karşılaştırır,
- * tek bir key değiştiğinde bile Map referansı değişir ve TÜM subscriber'lar
- * re-render olur. Bu store'da `version` counter tutarak selector'ların
- * sadece ilgili path'in değeri değiştiğinde re-render olmasını sağlıyoruz.
+ * Web-only lookup of `relativePath -> VnextComponentType`, used by the web
+ * FileTree to render the right component icon and by the web code editor to
+ * refresh the icon after a save. The VS Code extension webview does not
+ * render the custom file tree — VS Code's Explorer replaces it — so this
+ * store is not needed there.
+ *
+ * Record<normalizedRelativePath, VnextComponentType>; a monotonically
+ * increasing `version` counter is used so selectors only re-render when the
+ * specific path they care about changes.
  */
 interface ComponentFileTypesState {
-  /** Monoton artan sürüm numarası; her mutasyonda artar, selector invalidation'ı tetikler. */
   version: number;
-  /** path -> component type lookup tablosu */
   fileTypes: Record<string, VnextComponentType>;
   setFileTypes: (types: Record<string, string>) => void;
   setFileType: (path: string, type: VnextComponentType | null) => void;
@@ -82,9 +80,9 @@ export const useComponentFileTypesStore = create<ComponentFileTypesState>((set, 
 }));
 
 /**
- * Belirli bir path için component type dönen selector.
- * Zustand `Object.is` ile karşılaştırır: dönen değer primitive (string | undefined)
- * olduğundan, aynı path'in tipi değişmedikçe component re-render OLMAZ.
+ * Component-type selector for a specific path. Returns a primitive
+ * (string | undefined) so Zustand's `Object.is` comparison prevents
+ * re-renders when unrelated paths change.
  */
 export function selectComponentFileType(relativePath: string) {
   const normalized = normalizePath(relativePath);

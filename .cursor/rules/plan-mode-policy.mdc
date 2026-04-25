@@ -1,0 +1,313 @@
+---
+description: Plan mode policy — how to use subagents while building a plan, how the plan must be debated by architects, when ui-ux-designer joins (in parallel, capped), how implementation parallelism is decided, and which reviewers must close the plan.
+alwaysApply: true
+---
+
+# Plan Mode Policy
+
+This rule governs **how plans are produced and closed out** in this repo,
+both when Cursor's built-in **Plan mode** is active and when the primary
+agent is otherwise authoring a multi-step plan before any writes happen.
+
+It is a companion to `.cursor/rules/subagent-dispatch.mdc` (the general
+dispatch policy). When the two rules overlap, this rule wins **inside Plan
+mode**; outside Plan mode, the general dispatch policy wins.
+
+> **Scope reminder:** Plan mode is read-only. Every subagent dispatched
+> *during* planning must be a read-only / advisory agent (`explorer`,
+> `*-architect`, `ui-ux-designer`, reviewers). Write-capable agents
+> (`backend-developer`, `frontend-developer`, `refactor-cleaner`) are only
+> *referenced* in the plan — they are not dispatched until Plan mode exits
+> and the user approves the plan.
+
+---
+
+## 1. The four phases of a Plan
+
+Every non-trivial plan MUST go through these phases, in order:
+
+```
+Phase A — Discovery
+Phase B — Architect debate
+Phase C — UI/UX shaping (if frontend components are involved)
+Phase D — Implementation strategy + Closing review checklist
+```
+
+Skipping a phase requires a one-sentence justification in the plan itself
+(e.g. "Phase C skipped — no UI surface in this change").
+
+---
+
+## 2. Phase A — Discovery (mandatory, parallel reads)
+
+Before any architect is invited to debate, the planner MUST have a concrete
+picture of the surface being changed.
+
+- Dispatch `explorer` to map the affected files, modules, current patterns,
+  and existing related ADRs / specs.
+- If multiple unrelated slices are touched, dispatch **multiple `explorer`
+  agents in parallel** (one per slice — Rule R1 of `subagent-dispatch.mdc`).
+- Output of this phase is a short "current state" section in the draft plan:
+  files in scope, dominant patterns, known debt, and known constraints.
+
+Do not enter Phase B without this.
+
+---
+
+## 3. Phase B — Architect debate (MANDATORY)
+
+> This is the heart of the rule. **A plan in this repo is not allowed to
+> reach the user without an architect debate phase.**
+
+For any non-trivial plan you MUST dispatch the relevant `*-architect`
+subagent(s) and treat the plan as a **design discussion**, not a checklist.
+
+**Dispatch matrix:**
+
+| Surface touched by the plan | Architect(s) to dispatch | Parallelism |
+|---|---|---|
+| Server / API / data layer only | `backend-architect` | single |
+| Client / UI / app shell only | `frontend-architect` | single |
+| Both server and client (full-stack feature) | `backend-architect` ∥ `frontend-architect` | **parallel** |
+| Pure infra / tooling / config with no domain shape | architect debate may be skipped — document the reason | n/a |
+
+The architect prompts must be framed as a **debate**, not a request for
+sign-off. Each architect is asked, in its dispatch prompt, to:
+
+1. Propose **at least two** viable design options for the plan's subject.
+2. List the trade-offs (cost, risk, evolution, performance, a11y where
+   relevant) for each option.
+3. Recommend one option **with explicit reasoning**, not just preference.
+4. Surface any open questions that block a confident decision.
+
+The planner then synthesizes the architects' outputs into the plan's
+**"Decisions"** section. If two architects disagree (full-stack case), the
+disagreement and its resolution must be written into the plan — it is not
+papered over.
+
+Forbidden in Phase B:
+
+- ❌ Authoring the architecture inline without dispatching the architect.
+- ❌ Dispatching only one architect when both surfaces are clearly affected.
+- ❌ Treating the architect's first option as the answer without recording
+  the alternatives that were considered.
+
+---
+
+## 4. Phase C — UI/UX shaping (when frontend components exist)
+
+This phase runs **only after Phase B settles the frontend architecture**
+(composition slot, state ownership, data contract). The order is non-
+negotiable: architecture first, design second. (Same ordering rule as
+§4a in `subagent-dispatch.mdc`.)
+
+### 4.1 When Phase C is required
+
+Trigger Phase C if the plan introduces or substantially redesigns **one or
+more frontend components** (new component, new states, new variants, new
+responsive behavior, new accessibility model, or new interaction model).
+
+If the only frontend work is a cosmetic tweak (spacing, copy, token swap),
+Phase C may be skipped — note this in the plan.
+
+### 4.2 What `ui-ux-designer` produces in Phase C
+
+For each component in scope, the designer must add the following to the plan:
+
+- The **layout direction** and responsive behavior.
+- All **visual states**: default / hover / focus / active / disabled /
+  loading / empty / error / success.
+- The **microcopy** stance (tone, error messages, empty-state CTAs).
+- The **motion** stance (duration / easing or "no motion").
+- The **WCAG / keyboard / ARIA model** — focus order, roles, live regions,
+  contrast targets.
+- "**What to watch out for**" notes flagged for the implementer
+  (edge cases, locale risks, density risks, RTL, reduced-motion, etc.).
+
+These outputs go into the plan's **"UI/UX direction"** section, indexed per
+component, and become the design contract that `frontend-developer` must
+implement against in Phase D.
+
+### 4.3 Parallelism rule for `ui-ux-designer` (capped at 2)
+
+`ui-ux-designer` may be parallelized **based on the number of frontend
+components in the plan**, with a hard cap:
+
+| Components in the plan | `ui-ux-designer` dispatches |
+|---|---|
+| 1 component | **1** designer (single dispatch) |
+| 2–3 components | **1** designer (handle all in one pass) |
+| 4+ components | **2** designers in **parallel**, with the components split into two disjoint, explicit groups |
+| Any number | **Never more than 2** designers in parallel |
+
+When parallelizing two designers:
+
+1. Split the components into two **disjoint** groups in the dispatch prompt.
+   Each designer owns its group and **must not** spec components outside it.
+2. Each designer must use the **same architectural contract** from Phase B
+   (same composition slot rules, same state-ownership rules, same data
+   contract patterns). Pass that contract verbatim in both dispatch prompts
+   so the two designers stay consistent.
+3. After both return, the planner reconciles them: shared tokens, shared
+   patterns, shared a11y conventions must match across the two outputs. If
+   they conflict, the planner resolves in the plan and notes the resolution.
+
+Forbidden in Phase C:
+
+- ❌ Dispatching `ui-ux-designer` **before** Phase B settles the
+  architecture (mirrors §4a anti-pattern in `subagent-dispatch.mdc`).
+- ❌ Dispatching **3 or more** `ui-ux-designer` agents in parallel.
+- ❌ Splitting one component across two designers.
+- ❌ Letting either designer redesign the architecture chosen in Phase B.
+
+---
+
+## 5. Phase D — Implementation strategy + Closing review checklist
+
+The plan must finish with two concrete sections that the executing agent
+will follow when Plan mode exits.
+
+### 5.1 Implementation strategy (write phase parallelism)
+
+The plan must specify, **per implementation step**, whether it is to be
+executed:
+
+- **Sequentially**, or
+- **In parallel** with another step.
+
+The default is sequential. Parallel implementation steps may be planned
+**only when you are ≥99% confident** that file-set isolation holds — the
+five conditions of **Rule W2** in `subagent-dispatch.mdc` must all be true:
+
+1. Discovery (`explorer`) has enumerated the file scope.
+2. Each parallel step owns a **disjoint, explicit file allowlist**.
+3. No step creates / renames / moves / deletes files outside its allowlist.
+4. No step edits a shared config, lockfile, root manifest, barrel/index
+   file, schema file, or anything imported by another parallel step.
+5. The plan includes the file allowlist for each parallel step verbatim,
+   and forbids touching anything else.
+
+If any of the five is uncertain, the plan **must mark the steps sequential**.
+Bias to serial — Rule W3 in `subagent-dispatch.mdc`.
+
+Typical safe parallel pairings (when isolation is provable):
+
+- `backend-developer` (server slice X) ∥ `frontend-developer` (client
+  slice Y), where X and Y do not share files and do not edit shared
+  contracts in the same step.
+- Two `frontend-developer` dispatches across two unrelated component
+  folders (each with its own allowlist).
+
+If you cannot write the allowlists confidently, **do not plan it as
+parallel**. Write it sequentially.
+
+### 5.2 Closing review checklist (MANDATORY)
+
+Every plan MUST end with an explicit **"Closing review"** section that
+names the reviewer subagents to dispatch *after* implementation and tells
+the executor to dispatch them in **parallel** (Rule R1 in
+`subagent-dispatch.mdc`).
+
+Pick reviewers based on what the plan changed:
+
+| The plan changed… | Add this reviewer |
+|---|---|
+| Any non-trivial code | `code-reviewer` (always) |
+| Auth, input handling, secrets, external I/O, MCP/agent surfaces | `security-reviewer` |
+| SQL, migrations, indexes, RLS, JSONB, Postgres specifics | `database-reviewer` |
+| Module boundaries, integration topology, broad refactor | `architect-reviewer` |
+| Frontend component spec / a11y model | `ui-ux-designer` (spec & a11y conformance pass) |
+
+The closing-review section must say, in one line, **which reviewers run in
+parallel** at the end. For example:
+
+> **Closing review (parallel):** `code-reviewer` ∥ `security-reviewer` ∥
+> `ui-ux-designer` (spec/a11y conformance).
+
+A plan without an explicit closing-review line is incomplete and must be
+sent back to Phase D before exiting Plan mode.
+
+### 5.3 Refactor leftover sweep (MANDATORY when refactoring is in scope)
+
+If the plan includes **any refactor work** — extracting a module, renaming
+a primitive, consolidating duplicates, removing a pattern, replacing an
+abstraction — the closing-review section MUST also include
+`refactor-cleaner` to sweep for leftovers:
+
+- Dead code from the old shape (unused exports, orphan files).
+- Stale imports and barrel re-exports.
+- Outdated comments / TODOs that referred to the removed shape.
+- Duplicate copies of code that the refactor was supposed to consolidate.
+
+`refactor-cleaner` runs **after** the implementation steps and **before**
+or **in parallel with** the other reviewers — but is itself write-capable,
+so it must respect Rule W1 (sequential by default with other writers).
+
+A safe ordering when refactoring is involved:
+
+```
+…implementation steps…
+   →  refactor-cleaner  (sweep leftovers)
+   →  code-reviewer ∥ security-reviewer ∥ architect-reviewer ∥ ui-ux-designer  (parallel)
+```
+
+If the plan touches a refactor and **does not** name `refactor-cleaner`, it
+is incomplete.
+
+---
+
+## 6. The plan document — required sections
+
+When Plan mode is active, the produced plan must contain these sections, in
+this order, so a downstream executor can follow it without guesswork:
+
+1. **Goal** — one paragraph, what we are doing and why.
+2. **Current state** — output of Phase A (`explorer` findings).
+3. **Decisions** — output of Phase B (`*-architect` debate; options
+   considered, option chosen, reasoning, open questions).
+4. **UI/UX direction** — output of Phase C (per-component spec from
+   `ui-ux-designer`), or a one-line note that Phase C was skipped and why.
+5. **Implementation steps** — output of Phase D.1, with each step marked
+   *sequential* or *parallel* (with allowlists if parallel).
+6. **Closing review** — output of Phase D.2, naming the reviewers that the
+   executor must dispatch in parallel after implementation.
+7. **Refactor sweep** *(only if refactor is in scope)* — explicit
+   `refactor-cleaner` step, placed before the final reviewer fan-out.
+
+A plan that is missing any of sections 1–3, 5, or 6 (and 7 when applicable)
+is rejected and must go back through the missing phase.
+
+---
+
+## 7. Quick decision table (Plan mode)
+
+| Situation in Plan mode | Do this |
+|---|---|
+| Unfamiliar surface | Phase A: parallel `explorer` per slice |
+| Pure backend plan | Phase B: `backend-architect` (single) |
+| Pure frontend plan, no new components | Phase B: `frontend-architect` (single); Phase C skipped (note in plan) |
+| Pure frontend plan, 1–3 new components | Phase B: `frontend-architect` → Phase C: `ui-ux-designer` (single) |
+| Pure frontend plan, 4+ new components | Phase B: `frontend-architect` → Phase C: **2× `ui-ux-designer` in parallel** with disjoint component groups |
+| Full-stack plan | Phase B: `backend-architect` ∥ `frontend-architect` (parallel); Phase C as above based on component count |
+| Plan includes a refactor | Phase D MUST include `refactor-cleaner` before the reviewer fan-out |
+| Plan ready to exit Plan mode | Verify §6 — all required sections present, closing-review reviewers named, parallelism explicit |
+
+---
+
+## 8. Anti-patterns specific to Plan mode
+
+- ❌ Producing a plan without a Phase B architect debate ("I just decided
+  the design myself").
+- ❌ Calling only `frontend-architect` on a clearly full-stack plan, or only
+  `backend-architect` on one — both must run in parallel when both surfaces
+  move.
+- ❌ Dispatching `ui-ux-designer` in Phase C **before** Phase B is settled.
+- ❌ Dispatching **3+** `ui-ux-designer` agents in parallel, regardless of
+  how many components are in scope.
+- ❌ Marking implementation steps as parallel without writing the per-step
+  file allowlists into the plan.
+- ❌ Closing the plan without an explicit, parallel **Closing review** line.
+- ❌ Refactor in the plan, no `refactor-cleaner` step in the closing.
+- ❌ Dispatching write-capable agents (`backend-developer`,
+  `frontend-developer`, `refactor-cleaner`) **inside** Plan mode. They are
+  named in the plan and dispatched only after Plan mode exits.

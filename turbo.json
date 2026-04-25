@@ -16,6 +16,10 @@
     "lint": {
       "dependsOn": ["^build"]
     },
+    "test": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    },
     "vnext-forge#package": {
       "dependsOn": ["vnext-forge#build"],
       "outputs": ["*.vsix"],

@@ -1,169 +1,78 @@
 import { z } from 'zod';
-import { createLogger } from '@shared/lib/logger/createLogger';
 
-const logger = createLogger('config');
+/**
+ * Centralized, validated runtime configuration for `@vnext-forge/web`.
+ *
+ * Single source of truth for every env-driven setting:
+ *  - Defaults are baked into the Zod schema, so the SPA boots even when no
+ *    `.env` file is present.
+ *  - When a `.env` file exists at the workspace root, Vite inlines the
+ *    `VITE_*` keys into `import.meta.env` at build time, and those overrides
+ *    win over the defaults below.
+ *  - Validation happens once, at module load. Any typed access goes through
+ *    the exported `config` singleton.
+ *  - The resolved object is also attached to `globalThis.__vnextConfig` (i.e.
+ *    `window.__vnextConfig` in the browser) so it can be inspected from dev
+ *    tools without an extra import.
+ *
+ * NOTE: Only `VITE_*`-prefixed keys are exposed to the browser bundle. Any
+ * non-prefixed env vars in `.env` will be ignored by Vite by design.
+ */
 
-const APP_ENVIRONMENTS = ['DEVELOPMENT', 'PRODUCTION', 'TEST'] as const;
-const appEnvironmentSchema = z.enum(APP_ENVIRONMENTS);
+/**
+ * Mode-aware default for the Hono web-server base URL.
+ *  - In dev the SPA runs on http://localhost:3000 (Vite) and the API on
+ *    http://localhost:3001 (Hono), so we need a fully-qualified URL.
+ *  - In production the SPA is expected to be served from the same origin as
+ *    the API, so the empty string yields same-origin `/api/v1/*` requests.
+ */
+const defaultApiBaseUrl = import.meta.env.DEV ? 'http://localhost:3001' : '';
 
-type AppEnvironment = z.infer<typeof appEnvironmentSchema>;
-
-const DEFAULTS = {
-  API_URL: 'https://api.example.com/api',
-  API_URL_DEVELOPMENT: 'http://localhost:8080/api',
-  ENVIRONMENT: 'DEVELOPMENT' as AppEnvironment,
-  RUNTIME_REVALIDATION_MIN_INTERVAL_SECONDS: 30,
-} as const;
-
-const rawStringSchema = z.string().trim().min(1);
-const urlSchema = rawStringSchema.url();
-const positiveIntegerSchema = z.coerce.number().int().positive();
-
-const appConfigSchema = z.object({
-  ENVIRONMENT: appEnvironmentSchema,
-  API_URL: urlSchema,
-  API_URL_DEVELOPMENT: urlSchema,
-  API_BASE_URL: urlSchema,
-  RUNTIME_REVALIDATION_MIN_INTERVAL_SECONDS: positiveIntegerSchema,
+const ConfigSchema = z.object({
+  /** Base URL of the Hono API server (`${apiBaseUrl}/api/v1/*` REST surface). */
+  apiBaseUrl: z.string().default(defaultApiBaseUrl),
+  /** Standard build-mode markers, surfaced for convenience. */
+  isDev: z.boolean(),
+  isProd: z.boolean(),
 });
 
-export type AppConfig = z.infer<typeof appConfigSchema>;
+export type AppConfig = z.infer<typeof ConfigSchema>;
 
-// Shape injected by the VS Code extension host via window.__VNEXT_CONFIG__.
-// Only the fields actually consumed by the web app need to be present.
-interface VscodeWebviewConfig {
-  ENVIRONMENT?: string;
-  API_URL?: string;
-  API_URL_DEVELOPMENT?: string;
-  RUNTIME_REVALIDATION_MIN_INTERVAL_SECONDS?: number;
-}
+function loadConfig(): AppConfig {
+  const env = import.meta.env;
 
-declare global {
-  interface Window {
-    __VNEXT_CONFIG__?: VscodeWebviewConfig;
-  }
-}
+  const parsed = ConfigSchema.safeParse({
+    apiBaseUrl: env.VITE_API_BASE_URL,
+    isDev: env.DEV,
+    isProd: env.PROD,
+  });
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-function getImportMetaEnv(): Record<string, unknown> {
-  const importMetaValue: unknown = import.meta;
-
-  if (!isRecord(importMetaValue)) {
-    return {};
+  if (!parsed.success) {
+    const formatted = parsed.error.issues
+      .map((issue) => `  - ${issue.path.join('.') || '(root)'}: ${issue.message}`)
+      .join('\n');
+    throw new Error(`Invalid web configuration:\n${formatted}`);
   }
 
-  const env = importMetaValue.env;
-  return isRecord(env) ? env : {};
+  if (env.DEV && !env.VITE_API_BASE_URL) {
+    console.warn(
+      `[vnext-forge/web] VITE_API_BASE_URL not set — using built-in default "${defaultApiBaseUrl}". ` +
+        'Create apps/web/.env (e.g. `VITE_API_BASE_URL=http://localhost:3001`) to override.',
+    );
+  }
+
+  return parsed.data;
 }
 
 /**
- * Returns a flat config bag that merges the VS Code webview injection
- * (`window.__VNEXT_CONFIG__`) over the standard Vite env variables.
- * The injected values take precedence so the extension host can override
- * VITE_* defaults without rebuilding the bundle.
+ * Validated application configuration. Import this object anywhere in the
+ * web app instead of reading `import.meta.env` directly.
  */
-function getRawConfig(): Record<string, unknown> {
-  const metaEnv = getImportMetaEnv();
+export const config: AppConfig = loadConfig();
 
-  const injected: Record<string, unknown> = {};
-  const windowConfig =
-    typeof window !== 'undefined' ? window.__VNEXT_CONFIG__ : undefined;
-  if (isRecord(windowConfig)) {
-    if (windowConfig.ENVIRONMENT !== undefined)
-      injected.VITE_ENVIRONMENT = windowConfig.ENVIRONMENT;
-    if (windowConfig.API_URL !== undefined)
-      injected.VITE_API_URL = windowConfig.API_URL;
-    if (windowConfig.API_URL_DEVELOPMENT !== undefined)
-      injected.VITE_API_URL_DEVELOPMENT = windowConfig.API_URL_DEVELOPMENT;
-    if (windowConfig.RUNTIME_REVALIDATION_MIN_INTERVAL_SECONDS !== undefined)
-      injected.VITE_RUNTIME_REVALIDATION_MIN_INTERVAL_SECONDS =
-        windowConfig.RUNTIME_REVALIDATION_MIN_INTERVAL_SECONDS;
-  }
-
-  return { ...metaEnv, ...injected };
+// Expose a read-only reference on globalThis for dev-tools / REPL inspection.
+// Not intended to be read by application code — always import `config`.
+declare global {
+  var __vnextConfig: AppConfig | undefined;
 }
-
-function normalizeString(value: unknown): string | undefined {
-  if (typeof value !== 'string') {
-    return undefined;
-  }
-
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : undefined;
-}
-
-function warnFallback(key: string, fallback: string | number, value: unknown): void {
-  const metaEnv = getImportMetaEnv();
-  if (metaEnv.DEV === true) {
-    logger.warn(`Invalid or missing ${key}. Falling back to default.`, {
-      key,
-      fallback,
-      received: value,
-    });
-  }
-}
-
-function parseEnvField<T>(
-  key: string,
-  value: unknown,
-  schema: z.ZodType<T>,
-  fallback: T,
-  normalize?: (input: unknown) => unknown,
-): T {
-  const candidate = normalize ? normalize(value) : value;
-  const result = schema.safeParse(candidate);
-
-  if (result.success) {
-    return result.data;
-  }
-
-  warnFallback(key, typeof fallback === 'string' ? fallback : String(fallback), value);
-  return fallback;
-}
-
-const env = getRawConfig();
-
-const environment = parseEnvField(
-  'VITE_ENVIRONMENT',
-  env.VITE_ENVIRONMENT,
-  appEnvironmentSchema,
-  DEFAULTS.ENVIRONMENT,
-  (value) => normalizeString(value)?.toUpperCase(),
-);
-
-const apiUrl = parseEnvField(
-  'VITE_API_URL',
-  env.VITE_API_URL,
-  urlSchema,
-  DEFAULTS.API_URL,
-  normalizeString,
-);
-
-const apiUrlDevelopment = parseEnvField(
-  'VITE_API_URL_DEVELOPMENT',
-  env.VITE_API_URL_DEVELOPMENT,
-  urlSchema,
-  DEFAULTS.API_URL_DEVELOPMENT,
-  normalizeString,
-);
-
-const runtimeRevalidationMinIntervalSeconds = parseEnvField(
-  'VITE_RUNTIME_REVALIDATION_MIN_INTERVAL_SECONDS',
-  env.VITE_RUNTIME_REVALIDATION_MIN_INTERVAL_SECONDS,
-  positiveIntegerSchema,
-  DEFAULTS.RUNTIME_REVALIDATION_MIN_INTERVAL_SECONDS,
-);
-
-export const APP_CONFIG = Object.freeze(
-  appConfigSchema.parse({
-    ENVIRONMENT: environment,
-    API_URL: apiUrl,
-    API_URL_DEVELOPMENT: apiUrlDevelopment,
-    API_BASE_URL: environment === 'DEVELOPMENT' ? apiUrlDevelopment : apiUrl,
-    RUNTIME_REVALIDATION_MIN_INTERVAL_SECONDS: runtimeRevalidationMinIntervalSeconds,
-  }),
-);
-
+globalThis.__vnextConfig = config;

@@ -2,29 +2,54 @@ import { serve } from '@hono/node-server';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { ERROR_CODES, VnextForgeError } from '@vnext-forge/app-contracts';
-import { errorHandler, jsonErrorResponse } from '@shared/middleware/error-handler.js';
-import { baseLogger } from '@shared/lib/logger.js';
-import { requestLoggerMiddleware } from '@shared/middleware/logger.js';
-import { traceIdMiddleware } from '@shared/middleware/trace-id.js';
-import { ok } from '@shared/lib/response-helpers.js';
-import { projectRouter } from '@project/router.js';
-import { workspaceRouter } from '@workspace/router.js';
-import { validateRouter } from '@validate/router.js';
-import { runtimeProxyRouter } from '@runtime-proxy/router.js';
-import { templateRouter } from '@template/router.js';
-import { injectRoslynWebSocket } from '@roslyn-lsp/router.js';
-import { ensureOmniSharp } from '@roslyn-lsp/omnisharp-installer.js';
-import '@shared/types/hono.js';
 
-const app = new Hono()
+import { createPinoLoggerAdapter } from './adapters/pino-logger.js';
+import { composeLspBridge } from './composition/lsp.js';
+import { composeWebServerServices } from './composition/services.js';
+import { injectLspWebSocket } from './lsp/router.js';
+import { createApiV1Router } from './api/v1/index.js';
+import { config } from './shared/config/config.js';
+import { baseLogger } from './shared/lib/logger.js';
+import { ok } from './shared/lib/response-helpers.js';
+import { bodyLimitMiddleware } from './shared/middleware/body-limit.js';
+import { errorHandler, jsonErrorResponse } from './shared/middleware/error-handler.js';
+import { requestLoggerMiddleware } from './shared/middleware/logger.js';
+import { traceIdMiddleware } from './shared/middleware/trace-id.js';
+import type { Variables } from './shared/types/hono.js';
+
+const loggerAdapter = createPinoLoggerAdapter(baseLogger);
+const { services, registry } = composeWebServerServices(loggerAdapter);
+const apiV1Router = createApiV1Router({ registry, services });
+
+// Explicit allowlist — wildcard `*` is only acceptable for fully public APIs
+// and we intentionally do not run this server in that mode. Browser shells
+// must originate from one of `config.corsAllowedOrigins`.
+const corsMiddleware = cors({
+  origin: (origin) => {
+    if (!origin) return origin // non-browser callers (curl, server-to-server)
+    return config.corsAllowedOrigins.includes(origin) ? origin : null;
+  },
+  credentials: false,
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  // `X-Trace-Id` + W3C `traceparent`/`tracestate` are part of the `trace-v1`
+  // contract — see ADR-002 and `apps/web/src/shared/api/trace-headers.ts`.
+  // Browsers reject the preflight if any of these are missing here.
+  allowHeaders: [
+    'Content-Type',
+    'Authorization',
+    'X-Trace-Id',
+    'traceparent',
+    'tracestate',
+  ],
+  exposeHeaders: ['X-Trace-Id'],
+});
+
+const app = new Hono<{ Variables: Variables }>()
   .use('*', traceIdMiddleware)
   .use('*', requestLoggerMiddleware)
-  .use('*', cors())
-  .route('/api/projects', projectRouter)
-  .route('/api/files', workspaceRouter)
-  .route('/api/validate', validateRouter)
-  .route('/api/runtime', runtimeProxyRouter)
-  .route('/api/templates', templateRouter)
+  .use('*', corsMiddleware)
+  .use('*', bodyLimitMiddleware)
+  .route('/api/v1', apiV1Router)
   .get('/api/health', (c) => ok(c, { status: 'ok', traceId: c.get('traceId') }));
 
 app.onError(errorHandler);
@@ -40,16 +65,23 @@ app.notFound((c) =>
   ),
 );
 
-const port = Number(process.env.PORT) || 3001;
-baseLogger.info(`vnext-forge BFF running on port ${port}`);
-
-// Check OmniSharp availability at startup (non-blocking)
-ensureOmniSharp().catch((err) =>
-  baseLogger.warn({ err }, 'OmniSharp not available — Roslyn IntelliSense will be disabled'),
+baseLogger.info(
+  `vnext-forge web-server running on http://${config.host}:${config.port} ` +
+    `(corsAllowedOrigins=${config.corsAllowedOrigins.join(',') || '<none>'}, ` +
+    `maxRequestBodyBytes=${config.maxRequestBodyBytes})`,
 );
 
-const server = serve({ fetch: app.fetch, port });
-injectRoslynWebSocket(server);
+const server = serve({ fetch: app.fetch, port: config.port, hostname: config.host });
+
+const lspBridge = composeLspBridge(loggerAdapter);
+injectLspWebSocket(server, {
+  bridge: lspBridge,
+  logger: loggerAdapter,
+  bindHost: config.host,
+  corsAllowedOrigins: config.corsAllowedOrigins,
+  lspMaxMessageBytes: config.lspMaxMessageBytes,
+  lspMaxConnections: config.lspMaxConnections,
+});
 
 export type AppType = typeof app;
 export default app;

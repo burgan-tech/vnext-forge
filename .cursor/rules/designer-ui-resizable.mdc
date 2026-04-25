@@ -1,0 +1,18 @@
+---
+description: designer-ui Resizable (react-resizable-panels v4) + app shell split. Thin handle, no withHandle, disableCursor default, edge-flush handle, optional autoCollapseBelowMin / collapseOvershootPx.
+globs:
+  - "packages/designer-ui/src/ui/Resizable.tsx"
+  - "apps/web/src/app/layouts/AppLayout.tsx"
+  - "apps/web/src/pages/test/TestPage.tsx"
+alwaysApply: false
+---
+
+# designer-ui Resizable
+
+> **Loads when editing** the files above. Authoritative detail: root **`CLAUDE.DESIGNER-UI.md`** § *Resizable*, and **`.cursor/skills/web/theme-color-system/SKILL.md`** → *Split Pane* + *designer-ui Resizable invariants*.
+
+- **No `withHandle`** on the separator; no thick drag icon.
+- **Narrow** resting affordance (~1px line + hover), adequate hit width without a fat bar.
+- **`ResizablePanelGroup`**: default **`disableCursor: true`** — resize cursors only during active drag, not idle hover.
+- **Handle** visually **flush to the resized panel edge** (not a wide neutral center gutter).
+- **`ResizablePanel`**: optional **`autoCollapseBelowMin`** + **`collapseOvershootPx`** (only with **pixel** `minSize`).

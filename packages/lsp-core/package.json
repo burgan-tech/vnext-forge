@@ -1,0 +1,24 @@
+{
+  "name": "@vnext-forge/lsp-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "description": "Transport-agnostic Roslyn/csharp-ls integration: installer, process, workspace and bridge primitives shared by web-server WebSocket and VS Code extension shells.",
+  "scripts": {
+    "build": "tsc -b",
+    "lint": "eslint .",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
+  },
+  "dependencies": {
+    "@vnext-forge/services-core": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "^5.7.0"
+  }
+}

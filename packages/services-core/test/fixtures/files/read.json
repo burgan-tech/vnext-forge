@@ -1,0 +1,8 @@
+{
+  "params": {
+    "path": "README.md"
+  },
+  "result": {
+    "content": "# Example\n\nFixture body for schema contract tests."
+  }
+}

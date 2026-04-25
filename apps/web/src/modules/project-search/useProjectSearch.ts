@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { useProjectStore } from '@app/store/useProjectStore';
-import { createLogger } from '@shared/lib/logger/createLogger';
+import { createLogger, useProjectStore } from '@vnext-forge/designer-ui';
 
-import { searchFiles, type FileSearchResult } from '@modules/project-workspace/WorkspaceApi';
+import { searchFiles, type FileSearchResult } from '@vnext-forge/designer-ui';
 
 const logger = createLogger('useProjectSearch');
 

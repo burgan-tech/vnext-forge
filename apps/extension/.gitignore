@@ -5,6 +5,6 @@ dist/extension.js.map
 # Packaged extension
 *.vsix
 
-# Note: dist/vendor/ and dist/webview/ are intentionally NOT listed here.
+# Note: dist/vendor/ and dist/webview-ui/ are intentionally NOT listed here.
 # They are build-time artifacts that vsce must copy into the .vsix.
 # They show as untracked in git status after a build — that is expected.

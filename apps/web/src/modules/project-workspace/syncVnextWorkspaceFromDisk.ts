@@ -1,14 +1,16 @@
-import { useComponentFileTypesStore } from '@app/store/useComponentFileTypesStore';
-import { useVnextWorkspaceUiStore } from '@app/store/useVnextWorkspaceUiStore';
+import { createLogger } from '@vnext-forge/designer-ui';
+
+import { useComponentFileTypesStore } from '../../app/store/useComponentFileTypesStore';
+import { useVnextWorkspaceUiStore } from '../../app/store/useVnextWorkspaceUiStore';
 import {
   getComponentFileTypes,
   getProjectConfigStatus,
   getVnextComponentLayoutStatus,
   getValidateScriptStatus,
-} from '@modules/project-management/ProjectApi';
-import { createLogger } from '@shared/lib/logger/createLogger';
+} from '../project-management/ProjectApi';
 
 import { applyProjectConfigStatus } from './applyProjectConfigStatus';
+import { ENABLE_COMPONENT_FLOW_ICONS } from './componentFlowIconsPolicy';
 
 const logger = createLogger('syncVnextWorkspaceFromDisk');
 
@@ -53,10 +55,15 @@ export async function refreshWorkspaceLayoutAndValidateScript(projectId: string)
 
 /**
  * Server'dan componentsRoot altındaki tüm .json dosyalarının flow tiplerini okur.
- * Pahalı bir işlem: sadece proje ilk açıldığında ve yapısal değişikliklerde (dosya oluşturma/silme) çağrılır.
- * Dosya kaydetme (save) sırasında client-side detection kullanılır, bu fonksiyon çağrılmaz.
+ * Pahalı bir işlem: yapısal değişikliklerde (ağaç yenileme) çağrılır.
+ * `ENABLE_COMPONENT_FLOW_ICONS === false` iken RPC yapılmaz, store temizlenir.
+ * Dosya kaydetme sırasında güncelleme `CodeEditorPage` içindeki client parse ile yapılır (o da aynı bayrağa bağlı).
  */
 export async function loadComponentFileTypes(projectId: string): Promise<void> {
+  if (!ENABLE_COMPONENT_FLOW_ICONS) {
+    useComponentFileTypesStore.getState().clearFileTypes();
+    return;
+  }
   try {
     const fileTypesRes = await getComponentFileTypes(projectId);
     if (fileTypesRes.success) {

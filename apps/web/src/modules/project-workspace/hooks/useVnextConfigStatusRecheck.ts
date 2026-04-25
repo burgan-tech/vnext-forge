@@ -1,8 +1,6 @@
 import { useCallback, useState } from 'react';
 
-import { useProjectStore } from '@app/store/useProjectStore';
-import { showNotification } from '@shared/notification/model/notificationStore';
-import { createLogger } from '@shared/lib/logger/createLogger';
+import { createLogger, showNotification, useProjectStore } from '@vnext-forge/designer-ui';
 
 import { syncVnextWorkspaceFromDisk } from '../syncVnextWorkspaceFromDisk';
 
@@ -29,17 +27,15 @@ export function useVnextConfigStatusRecheck() {
 
       if (!result.ok) {
         showNotification({
-          type: 'error',
+          kind: 'error',
           message: result.message,
-          modalType: 'toast',
         });
       }
     } catch (error) {
       logger.error('vnext.config durumu yeniden okunamadı.', { error, projectId });
       showNotification({
-        type: 'error',
-        message: 'Yapılandırma durumu kontrol edilemedi.',
-        modalType: 'toast',
+        kind: 'error',
+        message: 'Configuration status could not be checked.',
       });
     } finally {
       setRechecking(false);

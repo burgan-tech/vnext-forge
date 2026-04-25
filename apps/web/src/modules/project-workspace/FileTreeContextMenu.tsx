@@ -1,4 +1,5 @@
 import { forwardRef } from 'react';
+import { createPortal } from 'react-dom';
 
 export interface FileTreeMenuItem {
   label?: string;
@@ -12,10 +13,19 @@ export const FileTreeContextMenu = forwardRef<
   HTMLDivElement,
   { x: number; y: number; items: FileTreeMenuItem[] }
 >(({ x, y, items }, ref) => {
-  return (
+  /**
+   * Portal: sidebar `<aside>` uses `backdrop-blur` + `overflow-y-auto`, which
+   * creates a containing block and clips `position: fixed` descendants. Rendering
+   * at `document.body` keeps the menu visible when it extends past the sidebar.
+   */
+  if (typeof document === 'undefined') {
+    return null;
+  }
+
+  return createPortal(
     <div
       ref={ref}
-      className="animate-scale-in border-primary-border bg-background/95 fixed z-50 min-w-[160px] rounded-xl border py-1.5 shadow-xl backdrop-blur-xl"
+      className="animate-scale-in border-primary-border bg-background/95 fixed z-200 min-w-[160px] rounded-xl border py-1.5 shadow-xl backdrop-blur-xl"
       style={{ left: x, top: y }}>
       {items.map((item, i) =>
         item.divider ? (
@@ -35,6 +45,7 @@ export const FileTreeContextMenu = forwardRef<
           </button>
         ),
       )}
-    </div>
+    </div>,
+    document.body,
   );
 });

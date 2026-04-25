@@ -1,0 +1,47 @@
+---
+description: Hardening invariants for the active Hono REST backend (`apps/server`). Auto-loads when editing files under `apps/server/src/**`. Body limit, CORS allowlist, capability policy, runtime-proxy SSRF defense, filesystem jail, LSP WebSocket policy, error-handler invariants, and the `trace-v1` contract must stay intact. REST routes under `/api/v1/<methodId>` delegate to `dispatchMethod` via `createDispatchHelper`. See ADR 001 for trust model and ADR 007 for the REST migration.
+globs:
+  - "apps/server/src/**/*.ts"
+alwaysApply: false
+---
+
+# Server Hardening Rule
+
+> **Loads when editing**: any file under `apps/server/src/**`. Authoritative ADR: [`docs/architecture/adr/001-trust-model.md`](../../docs/architecture/adr/001-trust-model.md).
+
+## Hard invariants (do not regress)
+
+1. **Default bind = loopback (`127.0.0.1`).** A non-loopback bind requires explicit config and the items listed under `BLOCKER-FOR-NON-LOOPBACK` in ADR 001. Don't change the default.
+2. **CORS** uses an **explicit allowlist** (no `*` reflection). Lives in `apps/server/src/shared/middleware/cors.ts`. `allowMethods` includes `GET/POST/PUT/DELETE/OPTIONS` to match the per-method REST surface. Adding an origin requires a config entry, not a code default.
+3. **Body limit + JSON parse** middleware (`shared/middleware/body-limit.ts`) runs before any handler that reads JSON. Requests over the limit return `ApiFailure` with `API_PAYLOAD_TOO_LARGE`.
+4. **Trace headers (`trace-v1`)** — `trace-id` middleware runs first; the server generates `X-Trace-Id`; inbound `traceparent` becomes `linkedTraceId` only. See `.cursor/skills/shared/trace-headers/SKILL.md`.
+5. **Error handler** is the **single** translation boundary from `ZodError` / `VnextForgeError` to `ApiResponse<never>`. Route handlers do not hand-craft failure JSON. See `.cursor/skills/shared/error-taxonomy/SKILL.md`.
+6. **Per-method capability policy** is enforced inside `dispatchMethod`; capabilities (`reads-files`, `writes-files`, `spawns-process`, `talks-runtime`) are declared on the registry in `services-core`, not on the route. Adding a capability requires updating the registry, not bypassing the dispatcher. REST route handlers in `apps/server/src/api/v1/**` delegate to `createDispatchHelper` and never re-implement validation or capability checks.
+7. **Runtime-proxy URL allowlist** (`packages/services-core/src/services/runtime-proxy/`) — the proxy resolves the inbound URL against the allowlist and rejects anything else. Don't add a "passthrough" branch.
+8. **Filesystem jail** — file reads/writes go through the workspace-scoped resolver that runs `realpath` and rejects symlinks escaping approved roots.
+9. **LSP WebSocket policy** — max message bytes, max connections, origin check (when not bound to loopback). Live in `apps/server/src/lsp/router.ts` + `lsp-ws-policy.ts`.
+10. **Child processes** use the env allowlist via `buildChildEnv()` — don't spread `process.env` into a child.
+11. **Logging** flows only through the central logger (`baseLogger`, `getRequestLogger`). No `console.*` in app code.
+
+## Adding a new endpoint or method
+
+- Add the method to `packages/services-core` first (registry entry + handler). The HTTP layer is intentionally thin.
+- New methods need: `paramsSchema`, `resultSchema`, capability tag, JSON fixture under `packages/services-core/test/fixtures/<domain>/<action>.json`, a `MethodHttpSpec` entry in `packages/app-contracts/src/method-http.ts`, and pass the registry snapshot + parity tests.
+- Add the REST route in `apps/server/src/api/v1/<domain>.routes.ts` as a one-liner that delegates to `createDispatchHelper`. See [`.cursor/rules/rpc-method-policy.mdc`](./rpc-method-policy.mdc).
+
+## Don'ts
+
+- Don't disable middleware "just for tests" — write the test against the real middleware chain.
+- Don't reintroduce `cors({ origin: '*' })` even temporarily.
+- Don't read or set `X-Trace-Id` from inbound requests except to log it as `linkedTraceId`.
+- Don't bypass the registry's capability check from inside a service or a route handler.
+- Don't reintroduce a single `/api/rpc` entry — REST per-method routes are the authoritative HTTP surface.
+- Don't open a second Zod parser at the route layer; `dispatchMethod` is the only validation point.
+
+## Cross-references
+
+- [`docs/architecture/adr/001-trust-model.md`](../../docs/architecture/adr/001-trust-model.md) — full trust model.
+- [`docs/architecture/adr/002-trace-headers.md`](../../docs/architecture/adr/002-trace-headers.md)
+- [`docs/architecture/adr/005-error-taxonomy.md`](../../docs/architecture/adr/005-error-taxonomy.md)
+- [`docs/architecture/adr/007-rest-migration.md`](../../docs/architecture/adr/007-rest-migration.md) — REST per-method routes + dispatch bridge.
+- `.cursor/skills/shared/error-taxonomy/SKILL.md`, `trace-headers/SKILL.md`.

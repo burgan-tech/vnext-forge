@@ -63,6 +63,7 @@ export const USER_MESSAGES: Partial<Record<ErrorCode, string>> = {
   API_NOT_FOUND: 'The requested resource could not be found.',
   API_CONFLICT: 'This operation conflicts with the current state.',
   API_UNPROCESSABLE: 'The provided data could not be processed.',
+  API_PAYLOAD_TOO_LARGE: 'The request payload is too large.',
   API_RATE_LIMITED: 'Too many requests. Please wait a moment and try again.',
   API_INTERNAL_ERROR: 'A server error occurred. Please try again.',
 

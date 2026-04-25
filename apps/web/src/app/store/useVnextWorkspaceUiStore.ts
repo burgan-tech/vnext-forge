@@ -1,21 +1,27 @@
 import { create } from 'zustand';
 
-import type { VnextComponentLayoutStatus } from '@modules/project-management/ProjectTypes';
+import type { VnextComponentLayoutStatus } from '@vnext-forge/designer-ui';
 
 export type TemplateSeedDialogReason = 'only_config' | 'incomplete_layout';
 
+/**
+ * Web-only workspace chrome state: the vnext.config wizard, the "missing
+ * config" status-bar banner, and the template-seed dialog. The VS Code
+ * extension webview never mounts these UIs — VS Code's own command palette,
+ * Explorer and status bar replace them — so this store lives in `apps/web`.
+ */
 interface VnextWorkspaceUiState {
   vnextConfigWizardOpen: boolean;
   showMissingVnextConfigBar: boolean;
-  /** Son başarılı layout okuması (status bar şablon teklifi için) */
+  /** Last successful component-layout read (feeds the template-seed prompt). */
   componentLayoutStatus: VnextComponentLayoutStatus | null;
   templateSeedDialogOpen: boolean;
   templateSeedDialogReason: TemplateSeedDialogReason | null;
-  /** incomplete_layout için diyalog metninde kısa liste */
+  /** Short list of missing paths used in the `incomplete_layout` copy. */
   templateSeedMissingPathsPreview: string[] | null;
-  /** Kullanıcı şablon teklifini reddettiyse bu proje için otomatik tekrar gösterme */
+  /** If the user declined the seed prompt for a project, we remember it here. */
   templatePromptDeclinedProjectId: string | null;
-  /** validate.js script dosyası projede var mı */
+  /** Whether the project's `validate.js` script is missing on disk. */
   validateScriptMissing: boolean;
 
   setVnextConfigWizardOpen: (open: boolean) => void;

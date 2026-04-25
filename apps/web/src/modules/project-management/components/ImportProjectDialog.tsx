@@ -1,9 +1,9 @@
 import { FolderOpen } from 'lucide-react';
 
-import { FolderBrowser } from '@shared/ui/FolderBrowser';
-import { Alert, AlertDescription } from '@shared/ui/Alert';
-import { Button } from '@shared/ui/Button';
 import {
+  Alert,
+  AlertDescription,
+  Button,
   Dialog,
   DialogCancelButton,
   DialogContent,
@@ -11,13 +11,13 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@shared/ui/Dialog';
+} from '@vnext-forge/designer-ui/ui';
 
+import { FolderBrowser } from './FolderBrowser';
 import { useImportProject } from '../hooks/useImportProject';
+import type { ProjectInfo } from '../ProjectTypes';
 
-type ImportProjectCallback = (
-  project: import('@modules/project-management/ProjectTypes').ProjectInfo,
-) => Promise<void> | void;
+type ImportProjectCallback = (project: ProjectInfo) => Promise<void> | void;
 
 interface ImportProjectDialogProps {
   onImported?: ImportProjectCallback;
@@ -51,15 +51,16 @@ export function ImportProjectDialog({ onImported, disabled }: ImportProjectDialo
       </Button>
 
       <Dialog open={importProject.open} onOpenChange={importProject.setOpen}>
-        <DialogContent className="border-border bg-surface max-w-xl rounded-[28px] p-0">
-          <div className="space-y-5 p-6">
-            <DialogHeader className="space-y-1 text-left">
-              <DialogTitle>Import Project</DialogTitle>
-              <DialogDescription>
-                Browse the workspace and select an existing project folder to link.
-              </DialogDescription>
-            </DialogHeader>
+        <DialogContent
+          className="border-border bg-surface flex max-h-[calc(100vh-4rem)] max-w-lg flex-col gap-0 overflow-hidden rounded-[28px] p-0">
+          <DialogHeader className="border-0 border-b-0 px-6 pb-2 pt-6 text-left">
+            <DialogTitle>Import Project</DialogTitle>
+          </DialogHeader>
+          <DialogDescription className="px-6 text-current/70">
+            Browse the workspace and select an existing project folder to link.
+          </DialogDescription>
 
+          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-6 pb-2">
             <FolderBrowser
               currentPath={importProject.browsePath}
               folders={importProject.folders}
@@ -93,26 +94,26 @@ export function ImportProjectDialog({ onImported, disabled }: ImportProjectDialo
                 </AlertDescription>
               </Alert>
             ) : null}
-
-            <DialogFooter>
-              <DialogCancelButton
-                variant="secondary"
-                onClick={() => importProject.setOpen(false)}
-                className="rounded-xl">
-                Cancel
-              </DialogCancelButton>
-              <Button
-                variant="default"
-                onClick={() => {
-                  void importProject.submit();
-                }}
-                loading={importProject.importing}
-                disabled={!importProject.selectedPath}
-                className="rounded-xl">
-                Import
-              </Button>
-            </DialogFooter>
           </div>
+
+          <DialogFooter className="border-border/60 bg-surface/95 border-t px-6 py-4 backdrop-blur">
+            <DialogCancelButton
+              variant="secondary"
+              onClick={() => importProject.setOpen(false)}
+              className="rounded-xl">
+              Cancel
+            </DialogCancelButton>
+            <Button
+              variant="default"
+              onClick={() => {
+                void importProject.submit();
+              }}
+              loading={importProject.importing}
+              disabled={!importProject.selectedPath}
+              className="rounded-xl">
+              Import
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </>

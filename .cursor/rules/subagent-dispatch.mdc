@@ -1,0 +1,262 @@
+---
+description: Subagent dispatch policy for the .cursor/agents/ catalog — when to delegate, how to maximize parallelism for read agents, and when to serialize write agents.
+alwaysApply: true
+---
+
+# Subagent Dispatch Policy
+
+This repo defines specialist subagents under `.cursor/agents/**/*.md`. Each
+file has YAML frontmatter (`name` + `description`) describing the agent and
+when to use it. Cursor itself orchestrates them via the Task tool — there is
+no JSON protocol and no separate orchestrator agent. This rule **is** the
+dispatch policy.
+
+**Your job as the primary agent:** for every non-trivial task, decide which
+subagents to dispatch, in what order, and what can run in parallel. Do not
+implement specialist work inline when a matching subagent exists.
+
+---
+
+## 1. Agent Catalog (capability + write-permission)
+
+Treat `read-only` as **safe to parallelize**, and `write-capable` as **must be
+serialized** unless file-set isolation is proven (see §3).
+
+The catalog below is the **complete, authoritative list** of subagents that
+exist in `.cursor/agents/`. Do not reference agents outside this list.
+
+### Read-only / advisory agents (parallel-safe by default)
+
+| Agent | Path | Use for |
+|---|---|---|
+| `explorer` | `.cursor/agents/explorer/explorer.md` | Repository discovery — finding files, entry points, modules, references, prior art |
+| `backend-architect` | `.cursor/agents/architectures/backend-architect.md` | Server-side system design, API contracts, layering, data flow, integration (advisory, no edits) |
+| `frontend-architect` | `.cursor/agents/architectures/frontend-architect.md` | Client-side architecture, composition model, state ownership, data fetching, performance topology, a11y topology (advisory, no edits) |
+| `ui-ux-designer` | `.cursor/agents/designers-stilist/ui-ux-designer.md` | UX research framing, IA, journeys, layout, **component specs across all states**, microcopy, motion, design-system stewardship, **WCAG / keyboard / ARIA / contrast** review (single agent covering UI + UX + accessibility) |
+| `architect-reviewer` | `.cursor/agents/reviewers/architect-reviewer.md` | Architecture quality review, coupling, scalability risk, evolution debt |
+| `code-reviewer` | `.cursor/agents/reviewers/code-reviewer.md` | Correctness, maintainability, performance, test-quality review |
+| `security-reviewer` | `.cursor/agents/reviewers/security-reviewer.md` | OWASP-style audit, secrets, authn/authz, input handling, dependency risk, agent/MCP/instruction surfaces |
+| `database-reviewer` | `.cursor/agents/reviewers/database-reviewer.md` | SQL, migrations, indexing, RLS, concurrency, Postgres-specific review |
+
+### Write-capable agents (serialize by default)
+
+| Agent | Path | Owns |
+|---|---|---|
+| `backend-developer` | `.cursor/agents/coding-agents/backend-developer.md` | Server-side code, APIs, services, data layer, auth, queues, observability |
+| `frontend-developer` | `.cursor/agents/coding-agents/frontend-developer.md` | UI implementation, components, hooks, state, data fetching, performance, SSR / RSC, concurrent React features (covers React 18+ depth) |
+| `refactor-cleaner` | `.cursor/agents/spesific/refactor-cleaner.md` | Cleanup, dead-code removal, structural simplification, post-feature hardening |
+
+> If a capability you need (e.g. dedicated planner, docs lookup, websocket
+> engineer, test automator, documentation engineer) is not in this catalog,
+> **do the work inline using Cursor's built-in tools** (Plan mode for
+> planning, WebFetch / WebSearch for docs, etc.) — do not invent a subagent
+> that doesn't exist on disk.
+
+---
+
+## 2. Parallelism rules for READ-ONLY agents
+
+**Rule R1 — MUST parallelize independent reads.**
+If two or more read-only agents are needed and **none of them depends on
+another's output**, you MUST dispatch them in a single message (parallel Task
+calls). Sequential dispatch of independent read work is a defect.
+
+Examples of mandatory parallel patterns:
+
+- `explorer` (find files in backend slice) + `explorer` (find files in
+  frontend slice) — independent.
+- `code-reviewer` + `security-reviewer` + `architect-reviewer` on the same diff — independent.
+- `ui-ux-designer` reviewing a screen + `code-reviewer` reviewing the implementation — independent.
+- `backend-architect` (or `frontend-architect`) design proposal + `explorer` (find existing patterns) — independent.
+
+**Rule R2 — Serialize only on real data dependency.**
+A read agent runs *after* another only if it literally needs the previous
+agent's output. Examples:
+
+- `architect-reviewer` after `backend-architect` or `frontend-architect` when reviewing the proposed design.
+- `ui-ux-designer` after `frontend-architect` when the design spec must conform to the chosen composition model and state ownership (see §4).
+- `code-reviewer` after a write agent finishes.
+
+If you cannot name the data dependency in one sentence, the work is independent
+and MUST be parallel.
+
+---
+
+## 3. Parallelism rules for WRITE-CAPABLE agents
+
+**Rule W1 — Default is strictly sequential (≈99% of the time).**
+Dispatch write-capable agents one at a time, with explicit handoffs.
+
+**Rule W2 — Parallel writes are allowed ONLY when file-set isolation is proven.**
+You may parallelize two write agents in a single message only if **all** of
+these are true:
+
+1. You have already run `explorer` (or otherwise enumerated the file scope).
+2. Each agent owns a **disjoint, explicit file set**.
+3. Neither agent will create, rename, move, or delete files outside its own set.
+4. Neither agent edits a shared config, lockfile, root package manifest,
+   barrel/index file, schema file, or anything imported by the other's scope.
+5. You give each agent its file allowlist in the dispatch prompt and forbid
+   touching anything else.
+
+If any of the five fails, **serialize**.
+
+**Rule W3 — When in doubt, serialize.**
+The cost of sequential writes is small. The cost of two writers stomping the
+same file is a broken commit. Bias to serial.
+
+**Rule W4 — Mixed read+write is allowed.**
+A write agent may run in parallel with read-only agents *as long as* the read
+agents do not depend on the write agent's output. Example: while
+`backend-developer` implements an endpoint, an `explorer` pass on an
+unrelated module can run in parallel.
+
+---
+
+## 4. Mandatory triggers
+
+These are not optional. If the trigger is hit, the agent runs.
+
+- **Repository scanning / unfamiliar code area** → dispatch `explorer` first.
+  Do not start implementation, review, or planning on an unknown surface
+  without an `explorer` pass. `explorer` may run in parallel with other
+  independent reads.
+
+- **Planning is needed** (multi-step, ambiguous, cross-cutting, or user asks
+  for a plan) → use Cursor's built-in **Plan mode** (`SwitchMode` to `plan`).
+  Do not invent ad-hoc plans inline for non-trivial tasks. There is no
+  dedicated planner subagent in this repo.
+
+- **Architecture-level change** (new module boundary, new integration, broad
+  refactor) → `backend-architect` and/or `frontend-architect` (pick by area,
+  run in parallel if both apply) **before** implementation, `architect-reviewer`
+  **after**.
+
+- **Frontend component / UI feature work** → see §4a (mandatory chain).
+
+- **After any write phase on non-trivial code** → dispatch `code-reviewer`.
+  Add `security-reviewer` if the change touches auth, input handling, secrets,
+  or external I/O. Add `database-reviewer` if SQL/migrations/RLS changed.
+  These reviewers run **in parallel** (independent read work — Rule R1).
+
+### 4a. Frontend component development chain (MANDATORY)
+
+Whenever a **new frontend component is being designed or built**, or an
+existing component is **substantially redesigned** (new states, new variants,
+new responsive behavior, new accessibility model, or new interaction model),
+you MUST follow this serialized chain:
+
+```
+explorer  →  frontend-architect  →  ui-ux-designer  →  frontend-developer  →  code-reviewer ∥ ui-ux-designer (spec/a11y conformance)
+```
+
+Why this order is mandatory:
+
+1. **`frontend-architect` first** decides *where* the component lives in the
+   composition model, *who* owns its state, *what* its data contract is, and
+   *how* it fits the performance / a11y topology of the app. This is an
+   architectural decision and must be made before visual or interaction
+   design begins.
+
+2. **`ui-ux-designer` next, after the architect's decision** turns that
+   architectural decision into an implementation-ready UI/UX specification:
+   layout, all visual states (default / hover / focus / active / disabled /
+   loading / empty / error / success), responsive behavior, microcopy,
+   motion, **and the WCAG / keyboard / ARIA model**. The designer works
+   *within* the boundaries the architect set (composition slot, state
+   ownership, data contract) — it does not redesign the architecture.
+
+3. **`frontend-developer` implements** strictly against both outputs: the
+   architect's contract and the designer's spec.
+
+4. **Post-implementation** `code-reviewer` and `ui-ux-designer` run **in
+   parallel** — `code-reviewer` for correctness/maintainability/perf, and
+   `ui-ux-designer` for spec-conformance and a11y conformance.
+
+Exceptions (chain may be shortened, never reordered):
+
+- **Trivial cosmetic tweak** to an existing component (e.g. spacing nudge,
+  copy fix, color token swap) with no new states or interaction changes →
+  `frontend-developer` only, then `code-reviewer`.
+- **Pure refactor** of an existing component with no behavior change →
+  `refactor-cleaner` → `code-reviewer`.
+- **Architecture is already settled** for this slice (recent ADR, recent
+  `frontend-architect` pass) → may skip `frontend-architect` and start at
+  `ui-ux-designer`, but document the decision being relied on.
+- **Design system primitive** (token, base primitive) → still follow the
+  full chain; the architect decides the contribution boundary, the designer
+  owns the spec.
+
+Never skip `ui-ux-designer` to "save time" on a real component. Accessibility
+and state design are not post-hoc concerns — they belong in the spec, before
+code is written.
+
+---
+
+## 5. Selection guide by task shape
+
+| Task shape | Dispatch pattern |
+|---|---|
+| "Find where X is implemented" | `explorer` |
+| "Plan feature X" | `explorer` → Plan mode (built-in) |
+| "Design backend system / API X" | `explorer` → `backend-architect` → `architect-reviewer` |
+| "Design frontend system / app X" | `explorer` → `frontend-architect` → `architect-reviewer` |
+| "Design full-stack feature X" | `explorer` → `backend-architect` ∥ `frontend-architect` → `architect-reviewer` |
+| "Implement backend feature" | `explorer` → `backend-developer` → `code-reviewer` ∥ `security-reviewer` (∥ `database-reviewer` if SQL) |
+| "Build new UI component / UI feature" | **Mandatory chain (§4a):** `explorer` → `frontend-architect` → `ui-ux-designer` → `frontend-developer` → `code-reviewer` ∥ `ui-ux-designer` |
+| "Tweak existing UI component (cosmetic)" | `frontend-developer` → `code-reviewer` |
+| "Audit accessibility / UX of screen S" | `ui-ux-designer` (alone or ∥ with `explorer` if scope is unknown) |
+| "Design / refactor design-system primitive" | `explorer` → `frontend-architect` → `ui-ux-designer` → `frontend-developer` → `code-reviewer` ∥ `ui-ux-designer` |
+| "Refactor / clean up module M" | `explorer` → `refactor-cleaner` → `code-reviewer` |
+| "Review this PR / diff" | `code-reviewer` ∥ `security-reviewer` ∥ `architect-reviewer` ∥ `database-reviewer` (parallel; pick the relevant ones) |
+
+`∥` means **dispatch in the same message as parallel Task calls.**
+`→` means **wait for the previous step's output before dispatching.**
+
+---
+
+## 6. Anti-patterns (do not do these)
+
+- ❌ Sequentially dispatching `code-reviewer` then `security-reviewer` on the
+  same diff. They are independent → must be parallel.
+- ❌ Two write agents (e.g. `backend-developer` + `frontend-developer`) in
+  parallel without proven file-set isolation per Rule W2.
+- ❌ Implementing a non-trivial feature inline when `backend-developer` or
+  `frontend-developer` exists.
+- ❌ Skipping `explorer` on an unfamiliar area "to save a step" — it costs
+  one read call and prevents wrong-file edits.
+- ❌ Skipping the planning step on a multi-step task and discovering
+  contradictions mid-implementation.
+- ❌ **Skipping `ui-ux-designer` on a new frontend component.** §4a is
+  mandatory — accessibility and state design must enter the spec **before**
+  `frontend-developer` writes the component.
+- ❌ **Calling `ui-ux-designer` before `frontend-architect`** on a new
+  component. Visual/interaction design must work inside the composition,
+  state ownership, and data contract that the architect chose.
+- ❌ Splitting UI design and accessibility review across two separate
+  dispatches — `ui-ux-designer` covers both.
+- ❌ Referencing subagents that do not exist in `.cursor/agents/` (e.g.
+  `planner`, `docs-lookup`, `websocket-engineer`, `test-automator`,
+  `documentation-engineer`). Use built-in tools instead — see §1.
+
+---
+
+## 7. How to actually dispatch
+
+- Use the `Task` tool with the matching `subagent_type` (or
+  `generalPurpose` if no specialist `subagent_type` exists in this Cursor
+  install — pass the `.cursor/agents/**/*.md` agent name and instructions
+  in the prompt).
+- Parallel = **multiple Task tool calls in a single message**.
+- Sequential = separate messages, each waiting on the previous result.
+- Always give each subagent: the goal, the relevant file scope, the expected
+  deliverable, and (for write agents) the explicit allowlist of files it may
+  touch.
+- For the frontend component chain (§4a), pass each downstream agent the
+  upstream agent's deliverable explicitly:
+  - `ui-ux-designer` receives the `frontend-architect`'s composition slot,
+    state ownership, and data contract.
+  - `frontend-developer` receives **both** the architect contract **and**
+    the designer spec.
+  - The post-implementation `ui-ux-designer` review receives the designer
+    spec it is checking conformance against.

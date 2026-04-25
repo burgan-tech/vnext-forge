@@ -2,6 +2,72 @@
 
 Workflow designer delivered as a **VS Code extension**. React webview (Vite) + Monaco editor in the webview; Node.js extension host replaces the former BFF server. Monorepo with pnpm workspaces + Turborepo.
 
+## Workspace-specific context (CLAUDE.\*.md)
+
+This file is the repo-wide context. Workspace-specific context lives next to it as
+`CLAUDE.<WORKSPACE>.md` files at the repo root. When working inside a given workspace,
+also load the matching file:
+
+- **`apps/web/`** → see [`./CLAUDE.WEB.md`](./CLAUDE.WEB.md)
+  Web client (React 19 + Vite 6) architecture, module-based vertical slice rules,
+  API access via type-safe Hono `hc<AppType>` REST client, `useAsync` async flows,
+  error handling, logging.
+- **`apps/server/`** → see [`./CLAUDE.SERVER.md`](./CLAUDE.SERVER.md)
+  Active Hono REST backend for the web shell. Per-method REST endpoints under
+  `/api/v1/<domain>/<action>` bridged to `services-core` via `dispatchMethod`.
+  Loopback-bound by default; hardened with body limit, CORS allowlist, capability
+  policy, runtime-proxy SSRF defense, filesystem jail, LSP WebSocket policy,
+  child-env allowlist (Wave 1–3).
+- **`apps/extension/`** → see [`./CLAUDE.EXTENSION.md`](./CLAUDE.EXTENSION.md)
+  VS Code extension host (esbuild bundle) and webview composition; per-shell
+  config, runtime-proxy URL allowlist, LSP installer ownership.
+- **`packages/designer-ui/`** → see [`./CLAUDE.DESIGNER-UI.md`](./CLAUDE.DESIGNER-UI.md)
+  Shared React UI library (canvas, editor, hooks, host adapters, notification
+  port). Public barrels + `./editor` subpath; single global save shortcut owner;
+  HostEditorCapabilities; postMessage origin validation.
+- **`packages/services-core/`** → see [`./CLAUDE.SERVICES-CORE.md`](./CLAUDE.SERVICES-CORE.md)
+  Method registry (slash-separated ids like `files/read`), dispatch, services.
+  Per-method capability policy; runtime-proxy URL allowlist; child-env helper.
+  Imports `@vnext-forge/app-contracts` only.
+- **`packages/lsp-core/`** → see [`./CLAUDE.LSP-CORE.md`](./CLAUDE.LSP-CORE.md)
+  Shared LSP wiring; single extension-host LSP stack factory; consumed by
+  `apps/extension` and `apps/server`.
+- **`packages/app-contracts/`**, **`packages/vnext-types/`** — covered in the
+  "Shared Packages" section below; pure types/schemas, no per-package file.
+
+Skills (auto-loaded by Cursor) live under [`./.cursor/skills/*/SKILL.md`](./.cursor/skills).
+Each skill's frontmatter declares its scope (web, server, or repo-wide); follow only the
+skills whose scope matches the workspace you are editing.
+
+## Architecture references
+
+- [Dependency policy](./docs/architecture/dependency-policy.md)
+- [ADR 001 — Trust model](./docs/architecture/adr/001-trust-model.md)
+- [ADR 002 — Trace headers (`trace-v1`)](./docs/architecture/adr/002-trace-headers.md)
+- [ADR 003 — Runtime health (`degraded` deferred)](./docs/architecture/adr/003-runtime-health-degraded.md)
+- [ADR 004 — Workspace bootstrap aggregation](./docs/architecture/adr/004-bootstrap-aggregation.md)
+- [ADR 005 — Error taxonomy](./docs/architecture/adr/005-error-taxonomy.md)
+- [ADR 006 — Designer root provider order (R-f12 dropped)](./docs/architecture/adr/006-provider-order.md)
+- [ADR 007 — REST migration (`/api/v1/<methodId>` + dispatch bridge)](./docs/architecture/adr/007-rest-migration.md)
+- [Web vs extension parity](./docs/architecture/web-extension-parity.md)
+- [Bundler alignment checklist](./docs/architecture/bundler-checklist.md)
+
+Default deployment is single-developer workstation, server bound to loopback. See [`docs/architecture/adr/001-trust-model.md`](./docs/architecture/adr/001-trust-model.md) for the items required to lift that assumption.
+
+## Conditional rules and skills
+
+In addition to the always-on rules under `.cursor/rules/*.mdc` (subagent dispatch, plan-mode policy), the following **auto-trigger** based on file globs or task content. Read them when their scope matches.
+
+| Type | Path | Auto-trigger | Purpose |
+|------|------|--------------|---------|
+| Rule | `.cursor/rules/config-singleton.mdc` | files matching `**/shared/config/config.ts` or `**/shared/config.ts` | `process.env` / `import.meta.env` only inside the config module |
+| Rule | `.cursor/rules/server-hardening.mdc` | `apps/server/src/**` | Body limit, CORS allowlist, capability policy, error-handler invariants must stay intact |
+| Rule | `.cursor/rules/rpc-method-policy.mdc` | `packages/services-core/src/registry/**`, `apps/server/src/api/v1/**` | Every new method has `paramsSchema`, `resultSchema`, capability tag, fixture (R-b9/R-a2), and `MethodHttpSpec` entry in `@vnext-forge/app-contracts` |
+| Skill | `.cursor/skills/shared/error-taxonomy/SKILL.md` | any error/handler/throw work | `ERROR_CODES`, `VnextForgeError`, `error-presentation` mapping |
+| Skill | `.cursor/skills/shared/trace-headers/SKILL.md` | any HTTP/transport/middleware work | `trace-v1` contract; never adopt `traceparent` |
+| Skill | `.cursor/skills/shared/dependency-policy/SKILL.md` | any cross-package import or barrel change | Allowed import directions, ESLint enforcements |
+| Rule | `.cursor/rules/designer-ui-resizable.mdc` | `packages/designer-ui/src/ui/Resizable.tsx`, `apps/web` shell split | Thin Resizable handle, `disableCursor`, no `withHandle`, `autoCollapseBelowMin` contract |
+
 ## Project Goal
 
 The main purpose of this project is to provide the **workflow design and management interface** for the vnext engine ecosystem, packaged as a VS Code extension (`burgan-tech.vnext-forge`). It is intentionally built and delivered as an independent product — not a library or embedded widget.
@@ -41,14 +107,36 @@ The repo is intended to run the same way on macOS, Linux, and Windows.
 
 **Dev workflow**
 
-- `apps/web` (Vite dev server): default port **3000** — used for isolated UI development only. In extension mode the webview is served from `dist/webview/`, not this server.
+- `apps/web` (Vite dev server): default port **3000** — used for isolated UI development only. In extension mode the webview is served from `dist/webview-ui/`, not this server.
 - `apps/extension` (esbuild watch): `pnpm --filter vnext-forge dev` — rebuilds extension host on save.
 - For a full development loop, build the web bundle once (`pnpm --filter @vnext-forge/web build`) and then use extension host watch mode.
 
-**Environment variables**
+**Environment variables & runtime config**
 
-- **Web** (`apps/web`): validated in `apps/web/src/shared/config/config.ts`. In extension mode config is injected at runtime by the extension host via `window.__VNEXT_CONFIG__` (set in the webview HTML by `WebviewPanelManager`). Vite `import.meta.env` values are used in standalone dev only.
-- **Extension host** (`apps/extension`): no HTTP server, no `PORT`. Logs go to the VS Code Output Channel (`vnext-forge`).
+Each app workspace has a single `.env` file (no mode-specific `.env.dev` /
+`.env.prod` variants) and a single Zod-validated `config` singleton. Defaults
+live in the schema, so a missing `.env` is never fatal — the app boots, logs
+a warning, and uses the built-in defaults.
+
+- All `.env*` files are **git-ignored** (root `.gitignore`). Treat each `.env`
+  as a per-developer override file; commit the defaults to the schema instead.
+- The `config` object is a module-level singleton: importing it from anywhere
+  yields the same validated instance. It is also attached to
+  `globalThis.__vnextConfig` (i.e. `window.__vnextConfig` in the browser) for
+  dev-tools / REPL inspection — application code must always go through the
+  import.
+- To add a new setting: extend `ConfigSchema` (with default), wire it from
+  `process.env` / `import.meta.env` inside `loadConfig()`, and document it in
+  the workspace `.env` file.
+
+| Workspace             | Config module                              | `.env` location          | Default loader                                  |
+| --------------------- | ------------------------------------------ | ------------------------ | ----------------------------------------------- |
+| `apps/server`         | `src/shared/config/config.ts`              | `apps/server/.env`       | `tsx watch --env-file-if-exists=.env src/index.ts` |
+| `apps/web`            | `src/shared/config/config.ts`              | `apps/web/.env`          | Vite (only `VITE_*` keys reach the bundle)      |
+| `apps/extension`      | runtime config injected via `window.__VNEXT_CONFIG__` from `DesignerPanel`; no `.env` file (no HTTP server, no `PORT`). Logs go to the VS Code Output Channel (`vnext-forge`). |
+
+Read settings via `import { config } from '@/shared/config/config'`; do not
+read `process.env` / `import.meta.env` directly outside the config module.
 
 **Filesystem and paths**
 
@@ -97,7 +185,7 @@ ApiSuccess<T>  -> { success: true; data: T }
 ApiFailure     -> { success: false; error: { code, message, traceId } }
 ```
 
-Every handler response is wrapped in this envelope. The web layer performs a discriminated union check via `response.success`. The same envelope is used for both HTTP (legacy) and `postMessage` transport.
+Every handler response is wrapped in this envelope. The web layer performs a discriminated union check via `response.success`. The same envelope is used for both HTTP REST (web ↔ server) and `postMessage` (webview ↔ extension host) transport.
 
 **2. VnextForgeError** (`error/vnext-error.ts`):
 The shared error type used across all application layers. Every `throw` should be a `VnextForgeError`.
@@ -108,10 +196,34 @@ The shared error type used across all application layers. Every `throw` should b
 - `toLogEntry()` — plain object for logging (extension Output Channel)
 - `toUserMessage()` — message safe to show to the user (raw `.message` must never be shown)
 
-**3. Workspace config builder** (`vnext-workspace-defaults.ts`):
+**3. Method HTTP metadata** (`method-http.ts`):
+
+`METHOD_HTTP_METADATA` is the single source of truth that binds each method id (`files/read`, `projects/create`, …) to its HTTP verb (`GET`/`POST`/…), parameter source (`query` vs `json`), and success status (`200` vs `201`). Both `apps/server` (route registration via `createDispatchHelper`) and `apps/web` (`HttpTransport`) read from it; `getMethodHttpSpec(methodId)` is the typed accessor. Changing a method's wire shape happens here once. A contract test in `packages/services-core` enforces parity between this metadata and the registry.
+
+**4. Workspace config builder** (`vnext-workspace-defaults.ts`):
 Version constants and `buildVnextWorkspaceConfig()` factory. Also re-exports all canonical workspace config types from `@vnext-forge/vnext-types`.
 
 - Depends on `@vnext-forge/vnext-types`
+
+**5. vNext component list (BFF types)** (`vnext/vnext-component-rows.ts`):
+`VnextExportCategory`, `DiscoveredVnextComponent`, `VnextComponentsByCategory`, and `VNEXT_FLOW_TO_EXPORT_CATEGORY` (e.g. `sys-tasks` → `tasks`). Single source of truth for flow-to-export-bucket mapping; consumed by `services-core` scan results and `designer-ui` pickers.
+
+---
+
+### vNext component list (BFF)
+
+Discovery of vNext component JSON (tasks, workflows, functions, etc.) runs **once on the server or extension host** via a filesystem scan. The client must not use `projects/getTree` plus one `files/read` per candidate file.
+
+| Layer | Responsibility |
+|-------|----------------|
+| `packages/services-core` | `vnext-component-scanner.ts` — scans disk through `FileSystemAdapter`; path roots from `vnext-component-folder-paths.ts` (`buildComponentFolderRelPaths` equivalent). `ProjectService.listVnextComponents(id, { category?, previewPaths? })` — resolves `paths` from project config, or optional `previewPaths` (query JSON string, validated with `vnextWorkspacePathsInputSchema` in `project-schemas.ts`) for `CreateVnextConfig` live preview; delegates to `scanVnextComponents`. |
+| `packages/services-core` (registry) | `vnext/components/list` (all buckets, optional `category` filter) and `vnext/tasks/list` … `vnext/extensions/list` (fixed category, returns an array). |
+| `packages/app-contracts` | `MethodId` + `METHOD_HTTP_METADATA`: all use `GET` and `paramSource: 'query'` (required `id`; on `vnext/components/list` optional `category` and `previewPaths`). Shared types: see **5** under `app-contracts` above. |
+| `apps/server` | `api/v1/vnext.routes.ts` — one route per method id, all via `createDispatchHelper`. |
+| `apps/extension` | Same `buildMethodRegistry()` and `MessageRouter` dispatch; no extra per-method host wiring. |
+| `packages/designer-ui` | `vnextComponentDiscovery.ts` — `discoverVnextComponentsByCategory` / `discoverAllVnextComponents` use `unwrapApi` only. `CreateVnextConfigDialog` sends `previewPaths` for preview (server uses edited paths, not only on-disk `vnext.config.json`). Picker UI: `ChooseExistingVnextComponentDialog` (prop `category`), with `ChooseExistingTaskDialog` as a thin `category="tasks"` wrapper. |
+
+**When extending:** Keep `method-registry` + `method-http` + (for the web app) `vnext.routes.ts` in sync; follow `rpc-method-policy.mdc` and the services-core registry contract tests.
 
 ---
 
@@ -133,15 +245,34 @@ Web-side module ownership is unchanged:
 - `apps/web/src/modules/workflow-validation/*` — client-side validation UX and editor feedback
 - `apps/web/src/modules/canvas-interaction/*`, `workflow-execution/*`, `save-workflow/*`, `save-component/*` — remaining workflow editing and execution flows
 
-Only `packages/vnext-types` and `packages/app-contracts` remain as shared packages.
+Shared packages are listed below. See [`./docs/architecture/dependency-policy.md`](./docs/architecture/dependency-policy.md) for the canonical rules and Mermaid diagram.
 
-**Package dependency flow:**
+**Package dependency flow (allowed directions only):**
 
 ```text
 vnext-types (leaf, no deps)
-  └─> app-contracts (depends on vnext-types)
+  └─> app-contracts (Zod schemas, ApiResponse, ErrorCode, env primitives,
+                     METHOD_HTTP_METADATA / MethodHttpSpec)
+        ├─> services-core (method registry, dispatch, runtime-proxy, child-env)
+        │     └─> apps/server, apps/extension
+        ├─> lsp-core (extension-host LSP stack factory)
+        │     └─> apps/server, apps/extension
+        ├─> designer-ui (React UI library; ./editor subpath; HostEditorCapabilities;
+        │     transport-agnostic ApiTransport port)
+        │     └─> apps/web, apps/extension/webview-ui
         └─> apps/web, apps/extension
+
+apps/web -- type only (AppType for hc<AppType>) --> apps/server
 ```
+
+**Forbidden directions** (enforced by ESLint where possible):
+
+- `apps/web` must **not** import `@vnext-forge/services-core` or any deep path under it.
+- `apps/web` must **not** import from `@vnext-forge/designer-ui/dist/**`.
+- `apps/*` must not import each other at runtime.
+- `packages/*` must not import `apps/*`.
+
+**Documented exception** — `apps/web` may `import type { AppType } from '@vnext-forge/server'` from a single HTTP API shell module (`apps/web/src/shared/api/client.ts`). Type-only; erased at build time. ESLint `no-restricted-imports` narrows this exception. See [ADR 007](./docs/architecture/adr/007-rest-migration.md) and [dependency-policy doc](./docs/architecture/dependency-policy.md).
 
 ---
 
@@ -172,10 +303,12 @@ src/
     omnisharp-process.ts    -> OmniSharp process management
     WebviewLspManager.ts    -> Bridges LSP socket events to webview postMessage
 
-  webview/
-    WebviewPanelManager.ts  -> Creates/reveals the webview panel; serves webview HTML;
+  panels/
+    DesignerPanel.ts        -> Creates/reveals the designer webview panel; serves webview HTML;
                                injects window.__VNEXT_CONFIG__; rewrites asset URIs;
-                               forwards host-originated `navigate` messages to the webview
+                               forwards host-originated `open-editor` messages to the webview UI
+    lsp-transport.ts        -> Per-session postMessage transport bridging the host's LspBridge
+                               to the webview UI's LSP client
 
   shared/
     logger.ts               -> VS Code OutputChannel logger (replaces pino)
@@ -213,7 +346,7 @@ dist/
 
 ### apps/web
 
-React 19 + Vite 6. The web app uses a simple module-based vertical slice structure. The Vite build outputs to `../extension/dist/webview/` so the extension can serve it as the webview content.
+React 19 + Vite 6. The web app uses a simple module-based vertical slice structure. The Vite build outputs to `../extension/dist/webview-ui/` so the extension can serve it as the webview content.
 
 The active structure is `app / pages / modules / shared`.
 
@@ -253,9 +386,20 @@ modules/              -> user-facing business modules with local UI/state/servic
 
 shared/
   ui/                 -> generic primitives
-  api/                -> postMessage transport client (client.ts, vscodeTransport.ts)
-  config/             -> config.ts (reads window.__VNEXT_CONFIG__ or import.meta.env)
+  api/                -> Hono RPC client (client.ts: hc<AppType>, callApi, unwrapApi),
+                         api-envelope.ts (response shape validation), trace-headers.ts
+                         (X-Trace-Id / traceparent injection), api-v1-client.ts type helper
+  config/             -> config.ts (Zod-validated singleton; reads import.meta.env / .env, falls back to baked-in defaults)
   lib/                -> logger, error helpers, utility modules
+
+services/             -> domain service modules wrapping apiClient.api.v1.*
+                         (files.service.ts, projects.service.ts, validate.service.ts,
+                         templates.service.ts, runtime.service.ts, health.service.ts);
+                         each function returns Promise<ApiResponse<T>>
+
+transport/            -> HttpTransport.ts — implements designer-ui's ApiTransport port;
+                         metadata-driven (reads METHOD_HTTP_METADATA from app-contracts)
+                         and is registered with DesignerUiProvider in main.tsx
 ```
 
 Pages should stay thin. Business logic should usually live in the owning module.
@@ -270,34 +414,86 @@ Current guidance:
 
 ---
 
-### Web ↔ Extension Host Communication (postMessage)
+### Web ↔ Server Communication (HTTP REST)
 
-There is **no HTTP server**. The webview calls `sendToHost({ method, params })` in `shared/api/vscodeTransport.ts`. The extension host's `MessageRouter` receives the message, calls the matching handler, and replies with an `ApiResponse<T>`.
+The web shell communicates with `apps/server` over **per-method REST endpoints** under `/api/v1/<domain>/<action>`. There is no longer a single `/api/rpc` entry. The wire shape (verb, params source, success status) for every method comes from `METHOD_HTTP_METADATA` in `@vnext-forge/app-contracts` — both server (route registration) and client (transport / RPC chain) read from it.
 
 ```ts
 // web side — shared/api/client.ts
-export async function callApi<T>(request: ApiRequest): Promise<ApiResponse<T>>
-export async function unwrapApi<T>(request: ApiRequest, fallbackMessage?: string): Promise<T>
+export const apiClient = hc<AppType>(config.apiBaseUrl, { fetch: createTraceInjectingFetch() });
+export async function callApi<T>(response: Response | Promise<Response>): Promise<ApiResponse<T>>
+export async function unwrapApi<T>(response: Response | Promise<Response>, fallbackMessage?: string): Promise<T>
 
-// message shape (web → host)
+// canonical service call (apps/web/src/services/*)
+import { apiClient, callApi } from '@shared/api/client';
+const projects = await callApi<ProjectInfo[]>(apiClient.api.v1.projects.list.$get());
+```
+
+**Method id convention (one source of truth across both shells):** `<domain>/<action>` (e.g. `projects/list`, `workspace/getConfig`, `validate/workflow`, `files/write`). The slash form aligns the method id with the REST URL path under `/api/v1/`.
+
+When adding a new method:
+
+1. Add the registry entry (`paramsSchema`, `resultSchema`, `capabilities`, `handler`) to `packages/services-core/src/registry/method-registry.ts`.
+2. Add a `MethodHttpSpec` entry (verb, paramSource, successStatus) to `packages/app-contracts/src/method-http.ts` and update `MethodId`.
+3. Add a route in `apps/server/src/api/v1/<domain>.routes.ts` that delegates to `createDispatchHelper`.
+4. Add a fixture under `packages/services-core/test/fixtures/<domain>/<action>.json` and update the snapshot.
+5. Add the typed wrapper in `apps/web/src/services/<domain>.service.ts` for web callers.
+
+### Web ↔ Webview ↔ Extension Host Communication (postMessage)
+
+In **extension mode** the same React app boots inside a VS Code webview. There the webview calls `sendToHost({ method, params })` in the extension-side transport, and the extension host's `MessageRouter` dispatches to handlers via the same `services-core` `dispatchMethod`. The on-the-wire envelope is still `ApiResponse<T>` and method ids use the same slash form.
+
+```ts
+// message shape (webview → host)
 { requestId: string; type: 'api'; method: string; params: unknown }
 
-// reply shape (host → web)
+// reply shape (host → webview)
 { requestId: string; response: ApiResponse<T> }
 ```
 
-**Method naming convention:** `<domain>.<action>`, for example `projects.list`, `workspace.getConfig`, `validate.workflow`, `files.write`.
-
 **LSP messages** use a separate type field:
 ```ts
-// web → host
+// webview → host
 { type: 'lsp'; event: 'connect' | 'message' | 'disconnect'; sessionId: string; data?: unknown }
 
-// host → web
+// host → webview
 { type: 'lsp'; event: 'message' | 'close'; sessionId: string; data?: unknown }
 ```
 
-When adding new capabilities, add a handler in `apps/extension/src/handlers/<domain>/` and register the method string in `MessageRouter.handle()`. Add the corresponding `callApi` call in the appropriate web module's `*Api.ts` file.
+When adding new capabilities for the extension shell, the `MessageRouter` already routes to the same `services-core` registry — no per-method switch case is needed. Add the typed wrapper to the relevant module's `*Api.ts` (or to `apps/web/src/services/*`) for callers.
+
+### designer-ui transport-agnostic port
+
+`packages/designer-ui` ships an `ApiTransport` port and `callApi` / `unwrapApi` helpers. Each shell registers exactly one transport:
+
+- `apps/web` registers `HttpTransport` (REST → server, metadata-driven).
+- `apps/extension/webview-ui` registers `VsCodeTransport` (postMessage → host).
+
+designer-ui itself remains transport-agnostic (no `services-core` import).
+
+### Workspace filesystem change events (SPA file tree sync)
+
+When disk mutations must be reflected in the **web shell sidebar file tree** (and related cheap indexes), use the shared **workspace FS event bus** instead of ad-hoc `refreshFileTree` callbacks on individual pages.
+
+**Emit (in `@vnext-forge/designer-ui`):**
+
+- Module: `packages/designer-ui/src/workspace-fs-events/` — `subscribeWorkspaceFsChange`, `emitWorkspaceFsChange`, `resetWorkspaceFsChangeListeners` (tests), and `emitFsChangeOnSuccess` (emit only when `ApiResponse.success`).
+- Wrapped low-level APIs emit after successful RPCs: `WorkspaceApi` (`writeFile`, `deleteFile`, `createDirectory`, `renameFile`), `CodeEditorApi.writeCodeEditorFile`, `SaveComponentApi.saveComponentFile`. `scaffoldWorkflow` also emits `kind: 'scaffold'` when the scaffold completes successfully (intermediate `writeFile` / `createDirectory` calls emit their own events; debouncing collapses bursts).
+- Callers that already go through `WorkspaceApi.writeFile` (e.g. `FlowEditorApi`, `SchemaEditorApi`, `persistScriptTaskScriptFile`) do **not** need extra emits.
+
+**Subscribe (web shell only):**
+
+- `apps/web/src/app/store/useProjectListStore.ts` — `startWorkspaceFsTreeSync()` registers a single listener (idempotent). Bootstrapped once from `apps/web/src/main.tsx` (alongside transport / theme setup).
+- On each emitted change, the listener schedules a **debounced** refresh (~150ms): `refreshFileTree()` and `loadComponentFileTypes(activeProject.id)` when `useProjectStore` has an `activeProject`.
+
+**Extension webview:**
+
+- No subscriber is registered; VS Code’s Explorer updates via its own file watcher. Emits from shared editor code are no-ops there.
+
+**Agent guidance:**
+
+- Do **not** add per-editor `onAfterSaveSuccess` / `onAfterScriptPersistedToDisk` hooks or duplicate `refreshFileTree` calls for ordinary saves that already use the wrapped file APIs.
+- If a new feature writes workspace files through a path that **bypasses** those wrappers (e.g. a dedicated RPC like `projects/writeConfig` that does not go through `files/write`), either wire that path to emit `emitWorkspaceFsChange` on success or call `refreshFileTree` explicitly where the product still requires it.
 
 **Host → Webview push messages** (not tied to a `requestId`):
 ```ts
@@ -325,6 +521,20 @@ renders the designer that corresponds to the active route.
 
 ---
 
-### apps/server (DEPRECATED)
+### apps/server (active Hono REST backend)
 
-`apps/server` (Hono BFF) is no longer the active delivery target. All server-side logic has been migrated to `apps/extension`. This package is kept as a reference archive. Do not add new features here.
+`apps/server` is the **active Hono REST backend** for the web shell. It exposes per-method REST endpoints under `/api/v1/<domain>/<action>` backed by `packages/services-core`'s method registry, plus auxiliary `/api/health` and LSP WebSocket routes. Each route is a thin handler that delegates to `createDispatchHelper`, which extracts params from query or JSON body (per `MethodHttpSpec`), calls `dispatchMethod`, and maps success to the configured HTTP status (`200` or `201`).
+
+The server is **bound to loopback by default** and is hardened with:
+
+- Body limit + JSON parse middleware (`apps/server/src/shared/middleware/body-limit.ts`)
+- Explicit CORS allowlist with `GET/POST/PUT/DELETE/OPTIONS` (`apps/server/src/shared/middleware/cors.ts`)
+- Per-method capability policy (read-only / writes-files / spawns-process / talks-runtime)
+- Runtime-proxy URL allowlist (SSRF defense; `packages/services-core/src/services/runtime-proxy/`)
+- Filesystem jail (realpath + approved roots; symlinks rejected)
+- LSP WebSocket policy (max message bytes, max connections, origin check)
+- `trace-v1` header contract — server always generates its own `X-Trace-Id`; inbound `traceparent` is recorded as `linkedTraceId` only
+
+When changing anything under `apps/server/src/**`, the **`server-hardening.mdc` rule** auto-loads. See [`./CLAUDE.SERVER.md`](./CLAUDE.SERVER.md) for the full server playbook and [ADR 007](./docs/architecture/adr/007-rest-migration.md) for the REST migration rationale.
+
+`apps/extension/src/MessageRouter.ts` exists in parallel for the VS Code `postMessage` path and shares the **same** `services-core` registry through `dispatchMethod` — no duplicate per-method wiring per shell.

@@ -2,17 +2,23 @@ import type { ChangeEvent, KeyboardEvent } from 'react';
 
 import { AlertCircle, Plus } from 'lucide-react';
 
-import { FolderBrowser } from '@shared/ui/FolderBrowser';
-import { Alert, AlertDescription } from '@shared/ui/Alert';
-import { Button } from '@shared/ui/Button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@shared/ui/Card';
-import { Input } from '@shared/ui/Input';
+import {
+  Alert,
+  AlertDescription,
+  Button,
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+  Input,
+} from '@vnext-forge/designer-ui/ui';
 
+import { FolderBrowser } from './FolderBrowser';
 import { useCreateProject } from '../hooks/useCreateProject';
+import type { ProjectInfo } from '../ProjectTypes';
 
-type CreateProjectCallback = (
-  project: import('@modules/project-management/ProjectTypes').ProjectInfo,
-) => Promise<void> | void;
+type CreateProjectCallback = (project: ProjectInfo) => Promise<void> | void;
 
 interface CreateProjectCardProps {
   onCreated?: CreateProjectCallback;
@@ -20,7 +26,11 @@ interface CreateProjectCardProps {
   onCreatingChange?: (creating: boolean) => void;
 }
 
-export function CreateProjectCard({ onCreated, disabled, onCreatingChange }: CreateProjectCardProps) {
+export function CreateProjectCard({
+  onCreated,
+  disabled,
+  onCreatingChange,
+}: CreateProjectCardProps) {
   const createProject = useCreateProject({ onCreated, onCreatingChange });
   const handleDomainChange = (event: ChangeEvent<HTMLInputElement>) => {
     createProject.setDomain(event.target.value);
@@ -40,7 +50,7 @@ export function CreateProjectCard({ onCreated, disabled, onCreatingChange }: Cre
             <Plus className="size-4" aria-hidden="true" />
           </div>
           <div>
-            <CardTitle className="text-sm text-success-text">Create Project</CardTitle>
+            <CardTitle className="text-success-text text-sm">Create Project</CardTitle>
             <CardDescription>Start a new vnext domain from scratch</CardDescription>
           </div>
         </div>
@@ -52,16 +62,10 @@ export function CreateProjectCard({ onCreated, disabled, onCreatingChange }: Cre
           placeholder="my-domain"
           value={createProject.domain}
           onChange={handleDomainChange}
-          aria-invalid={Boolean(createProject.domainError)}
+          error={createProject.domainError}
           onKeyDown={handleDomainKeyDown}
           disabled={disabled || createProject.creating}
         />
-
-        {createProject.domainError ? (
-          <Alert variant="destructive" className="rounded-xl px-3 py-2 text-xs">
-            <AlertDescription>{createProject.domainError}</AlertDescription>
-          </Alert>
-        ) : null}
 
         <FolderBrowser
           currentPath={createProject.browsePath}
@@ -107,7 +111,7 @@ export function CreateProjectCard({ onCreated, disabled, onCreatingChange }: Cre
           loading={createProject.creating}
           disabled={disabled || !createProject.canSubmit}
           className="h-10 w-full rounded-xl shadow-sm">
-          {createProject.creating ? 'Oluşturuluyor…' : 'Create'}
+          {createProject.creating ? 'Creating…' : 'Create'}
         </Button>
       </CardContent>
     </Card>

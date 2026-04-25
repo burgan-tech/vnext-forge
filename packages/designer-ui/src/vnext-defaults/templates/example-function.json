@@ -1,0 +1,18 @@
+{
+  "$comment": "Reference shape for function; use buildVnextComponentJson('function', { key, domain }) in code",
+  "key": "example-component",
+  "domain": "openbanking",
+  "version": "1.0.0",
+  "flow": "sys-functions",
+  "flowVersion": "1.0.0",
+  "tags": [],
+  "attributes": {
+    "scope": "F",
+    "task": {
+      "key": "",
+      "domain": "openbanking",
+      "flow": "sys-tasks",
+      "version": "1.0.0"
+    }
+  }
+}

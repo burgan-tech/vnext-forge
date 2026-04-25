@@ -1,5 +1,4 @@
-import type { VnextWorkspaceConfig } from '@modules/project-management/ProjectTypes';
-import { createLogger } from '@shared/lib/logger/createLogger';
+import { createLogger, type VnextWorkspaceConfig } from '@vnext-forge/designer-ui';
 
 export type FileRouteType =
   | 'workflow'
@@ -40,11 +39,7 @@ export function resolveFileRoute(
       type: 'config',
       group: '',
       name: 'vnext.config.json',
-      editorTab: {
-        filePath: normalizedFilePath,
-        language: 'json',
-        title: 'vnext.config.json',
-      },
+      navigateTo: `/project/${projectId}/workspace-config`,
     };
   }
 

@@ -1,16 +1,18 @@
-import * as vscode from 'vscode'
-import * as path from 'node:path'
-import * as fs from 'node:fs/promises'
-import type { WorkspaceService } from '@handlers/workspace/service'
-import { CONFIG_FILE } from '@handlers/workspace/constants'
-import { baseLogger } from '@ext/shared/logger'
+import * as fs from 'node:fs/promises';
+import * as path from 'node:path';
 
-export const VNEXT_CONTEXT_KEY = 'vnextForge.isVnextWorkspace'
+import * as vscode from 'vscode';
+
+import { CONFIG_FILE, type WorkspaceService } from '@vnext-forge/services-core';
+
+import { baseLogger } from './shared/logger.js';
+
+export const VNEXT_CONTEXT_KEY = 'vnextForge.isVnextWorkspace';
 
 export interface VnextWorkspaceRoot {
-  folderUri: vscode.Uri
-  folderPath: string
-  configPath: string
+  folderUri: vscode.Uri;
+  folderPath: string;
+  configPath: string;
 }
 
 /**
@@ -18,23 +20,23 @@ export interface VnextWorkspaceRoot {
  * Returns every folder that has the config at its root.
  */
 export async function detectVnextWorkspaceRoots(): Promise<VnextWorkspaceRoot[]> {
-  const folders = vscode.workspace.workspaceFolders ?? []
-  const roots: VnextWorkspaceRoot[] = []
+  const folders = vscode.workspace.workspaceFolders ?? [];
+  const roots: VnextWorkspaceRoot[] = [];
 
   for (const folder of folders) {
-    const folderPath = folder.uri.fsPath
-    const configPath = path.join(folderPath, CONFIG_FILE)
+    const folderPath = folder.uri.fsPath;
+    const configPath = path.join(folderPath, CONFIG_FILE);
     try {
-      const stat = await fs.stat(configPath)
+      const stat = await fs.stat(configPath);
       if (stat.isFile()) {
-        roots.push({ folderUri: folder.uri, folderPath, configPath })
+        roots.push({ folderUri: folder.uri, folderPath, configPath });
       }
     } catch {
       // No config in this folder — skip.
     }
   }
 
-  return roots
+  return roots;
 }
 
 /** Find the workspace root that owns a given file URI/path, if any. */
@@ -42,18 +44,18 @@ export function findOwningRoot(
   targetFsPath: string,
   roots: readonly VnextWorkspaceRoot[],
 ): VnextWorkspaceRoot | undefined {
-  const normalizedTarget = path.resolve(targetFsPath)
-  let best: VnextWorkspaceRoot | undefined
+  const normalizedTarget = path.resolve(targetFsPath);
+  let best: VnextWorkspaceRoot | undefined;
   for (const root of roots) {
-    const normalizedRoot = path.resolve(root.folderPath)
-    const rel = path.relative(normalizedRoot, normalizedTarget)
+    const normalizedRoot = path.resolve(root.folderPath);
+    const rel = path.relative(normalizedRoot, normalizedTarget);
     if (rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel))) {
       if (!best || root.folderPath.length > best.folderPath.length) {
-        best = root
+        best = root;
       }
     }
   }
-  return best
+  return best;
 }
 
 /**
@@ -66,20 +68,26 @@ export async function validateDetectedRoots(
 ): Promise<void> {
   for (const root of roots) {
     try {
-      const status = await workspaceService.readConfigStatus(root.folderPath)
+      const status = await workspaceService.readConfigStatus(root.folderPath);
       if (status.status === 'invalid') {
-        baseLogger.warn({ folder: root.folderPath, message: status.message }, 'vnext.config.json is invalid')
+        baseLogger.warn(
+          { folder: root.folderPath, message: status.message },
+          'vnext.config.json is invalid',
+        );
         void vscode.window.showWarningMessage(
           `vnext-forge: ${path.basename(root.folderPath)}/vnext.config.json is invalid. ${status.message}`,
-        )
+        );
       } else if (status.status === 'ok') {
-        baseLogger.info({ folder: root.folderPath, domain: status.config.domain }, 'vnext workspace detected')
+        baseLogger.info(
+          { folder: root.folderPath, domain: status.config.domain },
+          'vnext workspace detected',
+        );
       }
     } catch (error) {
       baseLogger.error(
         { folder: root.folderPath, error: (error as Error).message },
         'Failed to validate vnext.config.json',
-      )
+      );
     }
   }
 }
@@ -90,50 +98,50 @@ export async function validateDetectedRoots(
  * context key.
  */
 export class VnextWorkspaceDetector implements vscode.Disposable {
-  private roots: VnextWorkspaceRoot[] = []
-  private readonly workspaceService: WorkspaceService
-  private readonly disposables: vscode.Disposable[] = []
-  private readonly watcher: vscode.FileSystemWatcher
-  private readonly onDidChangeEmitter = new vscode.EventEmitter<VnextWorkspaceRoot[]>()
+  private roots: VnextWorkspaceRoot[] = [];
+  private readonly workspaceService: WorkspaceService;
+  private readonly disposables: vscode.Disposable[] = [];
+  private readonly watcher: vscode.FileSystemWatcher;
+  private readonly onDidChangeEmitter = new vscode.EventEmitter<VnextWorkspaceRoot[]>();
 
-  readonly onDidChange = this.onDidChangeEmitter.event
+  readonly onDidChange = this.onDidChangeEmitter.event;
 
   constructor(workspaceService: WorkspaceService) {
-    this.workspaceService = workspaceService
-    this.watcher = vscode.workspace.createFileSystemWatcher(`**/${CONFIG_FILE}`)
+    this.workspaceService = workspaceService;
+    this.watcher = vscode.workspace.createFileSystemWatcher(`**/${CONFIG_FILE}`);
     this.disposables.push(
       this.watcher,
       this.watcher.onDidCreate(() => void this.refresh()),
       this.watcher.onDidDelete(() => void this.refresh()),
       this.watcher.onDidChange(() => void this.refresh()),
       vscode.workspace.onDidChangeWorkspaceFolders(() => void this.refresh()),
-    )
+    );
   }
 
   getRoots(): readonly VnextWorkspaceRoot[] {
-    return this.roots
+    return this.roots;
   }
 
   findOwningRoot(targetFsPath: string): VnextWorkspaceRoot | undefined {
-    return findOwningRoot(targetFsPath, this.roots)
+    return findOwningRoot(targetFsPath, this.roots);
   }
 
   async refresh(): Promise<void> {
-    this.roots = await detectVnextWorkspaceRoots()
-    const isVnext = this.roots.length > 0
-    await vscode.commands.executeCommand('setContext', VNEXT_CONTEXT_KEY, isVnext)
-    await validateDetectedRoots(this.roots, this.workspaceService)
-    this.onDidChangeEmitter.fire(this.roots)
+    this.roots = await detectVnextWorkspaceRoots();
+    const isVnext = this.roots.length > 0;
+    await vscode.commands.executeCommand('setContext', VNEXT_CONTEXT_KEY, isVnext);
+    await validateDetectedRoots(this.roots, this.workspaceService);
+    this.onDidChangeEmitter.fire(this.roots);
   }
 
   dispose(): void {
     for (const d of this.disposables) {
       try {
-        d.dispose()
+        d.dispose();
       } catch {
-        // ignore
+        /* ignore */
       }
     }
-    this.onDidChangeEmitter.dispose()
+    this.onDidChangeEmitter.dispose();
   }
 }

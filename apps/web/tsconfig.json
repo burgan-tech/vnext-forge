@@ -4,25 +4,16 @@
     "jsx": "react-jsx",
     "outDir": "./dist",
     "rootDir": "./src",
+    "noEmit": true,
     "paths": {
-      "@app/*": ["./src/app/*"],
-      "@store/*": ["./src/app/store/*"],
-      "@pages/*": ["./src/pages/*"],
-      "@modules/*": ["./src/modules/*"],
       "@shared/*": ["./src/shared/*"]
-    },
-    "noEmit": true
+    }
   },
   "include": ["src"],
   "references": [
-    {
-      "path": "../../packages/vnext-types"
-    },
-    {
-      "path": "../../packages/app-contracts"
-    },
-    {
-      "path": "../server"
-    }
+    { "path": "../../packages/vnext-types" },
+    { "path": "../../packages/app-contracts" },
+    { "path": "../../packages/designer-ui" },
+    { "path": "../server" }
   ]
 }

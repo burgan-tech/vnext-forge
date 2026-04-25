@@ -1,0 +1,58 @@
+import {
+  MetadataEditableTextInput,
+  MetadataLockedTextInput,
+} from '../component-metadata';
+import { Field } from '../../ui/Field';
+import { TagEditor } from '../../ui/TagEditor';
+import { TaskTypePicker } from './components/TaskTypePicker';
+
+interface TaskMetadataFormProps {
+  json: Record<string, unknown>;
+  onChange: (updater: (draft: Record<string, unknown>) => void) => void;
+}
+
+export function TaskMetadataForm({ json, onChange }: TaskMetadataFormProps) {
+  const taskType = String((json.attributes as Record<string, unknown> | undefined)?.type ?? '6');
+
+  return (
+    <div className="space-y-3">
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Key">
+          <MetadataEditableTextInput
+            value={String(json.key || '')}
+            onChange={(e) => onChange((d) => { d.key = e.target.value; })}
+          />
+        </Field>
+        <Field label="Version">
+          <MetadataEditableTextInput
+            value={String(json.version || '')}
+            onChange={(e) => onChange((d) => { d.version = e.target.value; })}
+          />
+        </Field>
+        <Field label="Domain">
+          <MetadataLockedTextInput value={String(json.domain || '')} />
+        </Field>
+        <Field label="Flow">
+          <MetadataLockedTextInput value={String(json.flow || '')} />
+        </Field>
+      </div>
+
+      <TaskTypePicker
+        value={taskType}
+        onChange={(next) => {
+          onChange((d) => {
+            if (!d.attributes) d.attributes = {};
+            (d.attributes as Record<string, unknown>).type = next;
+          });
+        }}
+      />
+
+      <Field label="Tags">
+        <TagEditor
+          tags={(json.tags as string[]) || []}
+          onChange={(tags) => onChange((d) => { d.tags = tags; })}
+        />
+      </Field>
+    </div>
+  );
+}

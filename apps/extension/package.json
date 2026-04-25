@@ -8,41 +8,97 @@
   "engines": {
     "vscode": "^1.85.0"
   },
-  "categories": ["Other"],
+  "categories": [
+    "Other"
+  ],
   "activationEvents": [
     "workspaceContains:vnext.config.json",
+    "onCustomEditor:vnextForge.componentEditor",
     "onCommand:vnextForge.open",
     "onCommand:vnextForge.openDesigner",
+    "onCommand:vnextForge.openInTextEditor",
     "onCommand:vnextForge.createProject",
-    "onCommand:vnextForge.createComponent"
+    "onCommand:vnextForge.createComponent",
+    "onCommand:vnextForge.forgeCreateWorkflow",
+    "onCommand:vnextForge.forgeCreateTask",
+    "onCommand:vnextForge.forgeCreateSchema",
+    "onCommand:vnextForge.forgeCreateView",
+    "onCommand:vnextForge.forgeCreateFunction",
+    "onCommand:vnextForge.forgeCreateExtension"
   ],
   "main": "./dist/extension.js",
   "files": [
     "dist/extension.js",
     "dist/vendor/**",
-    "dist/webview/**"
+    "dist/webview-ui/**",
+    "media/**"
   ],
   "contributes": {
     "commands": [
       {
         "command": "vnextForge.open",
         "title": "Open Designer",
-        "category": "vnext-forge"
+        "category": "Forge"
       },
       {
         "command": "vnextForge.openDesigner",
-        "title": "Open Designer",
-        "category": "vnext-forge"
+        "title": "Forge: Open with vNext Forge",
+        "category": "Forge"
+      },
+      {
+        "command": "vnextForge.openInTextEditor",
+        "title": "Forge: Open with Text Editor",
+        "category": "Forge"
       },
       {
         "command": "vnextForge.createProject",
         "title": "Create vnext Project",
-        "category": "vnext-forge"
+        "category": "Forge"
       },
       {
         "command": "vnextForge.createComponent",
         "title": "Create vnext Component",
-        "category": "vnext-forge"
+        "category": "Forge"
+      },
+      {
+        "command": "vnextForge.forgeCreateWorkflow",
+        "title": "Forge: Workflow Create",
+        "category": "Forge"
+      },
+      {
+        "command": "vnextForge.forgeCreateTask",
+        "title": "Forge: Task Create",
+        "category": "Forge"
+      },
+      {
+        "command": "vnextForge.forgeCreateSchema",
+        "title": "Forge: Schema Create",
+        "category": "Forge"
+      },
+      {
+        "command": "vnextForge.forgeCreateView",
+        "title": "Forge: View Create",
+        "category": "Forge"
+      },
+      {
+        "command": "vnextForge.forgeCreateFunction",
+        "title": "Forge: Function Create",
+        "category": "Forge"
+      },
+      {
+        "command": "vnextForge.forgeCreateExtension",
+        "title": "Forge: Extension Create",
+        "category": "Forge"
+      },
+      {
+        "command": "vnextForge.applyMaterialIconAssociations",
+        "title": "Apply Material Icon Associations (User Settings)",
+        "category": "Forge"
+      },
+      {
+        "command": "vnextForge.removeMaterialIconAssociations",
+        "title": "Remove Material Icon Associations (User Settings)",
+        "category": "Forge"
       }
     ],
     "menus": {
@@ -56,28 +112,108 @@
           "when": "vnextForge.isVnextWorkspace"
         },
         {
+          "command": "vnextForge.openInTextEditor",
+          "when": "vnextForge.isVnextWorkspace"
+        },
+        {
           "command": "vnextForge.createProject"
         },
         {
           "command": "vnextForge.createComponent",
+          "when": "vnextForge.isVnextWorkspace"
+        },
+        {
+          "command": "vnextForge.forgeCreateWorkflow",
+          "when": "vnextForge.isVnextWorkspace"
+        },
+        {
+          "command": "vnextForge.forgeCreateTask",
+          "when": "vnextForge.isVnextWorkspace"
+        },
+        {
+          "command": "vnextForge.forgeCreateSchema",
+          "when": "vnextForge.isVnextWorkspace"
+        },
+        {
+          "command": "vnextForge.forgeCreateView",
+          "when": "vnextForge.isVnextWorkspace"
+        },
+        {
+          "command": "vnextForge.forgeCreateFunction",
+          "when": "vnextForge.isVnextWorkspace"
+        },
+        {
+          "command": "vnextForge.forgeCreateExtension",
           "when": "vnextForge.isVnextWorkspace"
         }
       ],
       "explorer/context": [
         {
           "command": "vnextForge.openDesigner",
-          "when": "vnextForge.isVnextWorkspace && resourceExtname =~ /^\\.(json|csx|cs|js|ts|xml|ya?ml|md|html?|css|sql|sh|py|txt|http)$/",
+          "when": "vnextForge.isVnextWorkspace && resourceExtname == .json && resourcePath =~ /[\\\\/](Tasks|Views|Functions|Extensions|Workflows|Schemas)[\\\\/]/",
           "group": "navigation@1"
+        },
+        {
+          "command": "vnextForge.openInTextEditor",
+          "when": "vnextForge.isVnextWorkspace && resourceExtname == .json && resourcePath =~ /[\\\\/](Tasks|Views|Functions|Extensions|Workflows|Schemas)[\\\\/]/",
+          "group": "navigation@2"
+        },
+        {
+          "command": "vnextForge.forgeCreateWorkflow",
+          "when": "vnextForge.isVnextWorkspace && explorerResourceIsFolder && resourcePath =~ /[\\\\/]Workflows[\\\\/][^\\\\/]+$/",
+          "group": "1forge@5"
+        },
+        {
+          "command": "vnextForge.forgeCreateTask",
+          "when": "vnextForge.isVnextWorkspace && explorerResourceIsFolder && resourcePath =~ /[\\\\/]Tasks[\\\\/][^\\\\/]+$/",
+          "group": "1forge@6"
+        },
+        {
+          "command": "vnextForge.forgeCreateSchema",
+          "when": "vnextForge.isVnextWorkspace && explorerResourceIsFolder && resourcePath =~ /[\\\\/]Schemas[\\\\/][^\\\\/]+$/",
+          "group": "1forge@7"
+        },
+        {
+          "command": "vnextForge.forgeCreateView",
+          "when": "vnextForge.isVnextWorkspace && explorerResourceIsFolder && resourcePath =~ /[\\\\/]Views[\\\\/][^\\\\/]+$/",
+          "group": "1forge@8"
+        },
+        {
+          "command": "vnextForge.forgeCreateFunction",
+          "when": "vnextForge.isVnextWorkspace && explorerResourceIsFolder && resourcePath =~ /[\\\\/]Functions[\\\\/][^\\\\/]+$/",
+          "group": "1forge@9"
+        },
+        {
+          "command": "vnextForge.forgeCreateExtension",
+          "when": "vnextForge.isVnextWorkspace && explorerResourceIsFolder && resourcePath =~ /[\\\\/]Extensions[\\\\/][^\\\\/]+$/",
+          "group": "1forge@10"
         }
       ],
       "editor/title/context": [
         {
           "command": "vnextForge.openDesigner",
-          "when": "vnextForge.isVnextWorkspace && resourceExtname =~ /^\\.(json|csx|cs|js|ts|xml|ya?ml|md|html?|css|sql|sh|py|txt|http)$/",
+          "when": "vnextForge.isVnextWorkspace && resourceExtname == .json && resourcePath =~ /[\\\\/](Tasks|Views|Functions|Extensions|Workflows|Schemas)[\\\\/]/",
           "group": "navigation@1"
+        },
+        {
+          "command": "vnextForge.openInTextEditor",
+          "when": "vnextForge.isVnextWorkspace && resourceExtname == .json && resourcePath =~ /[\\\\/](Tasks|Views|Functions|Extensions|Workflows|Schemas)[\\\\/]/",
+          "group": "navigation@2"
         }
       ]
     },
+    "customEditors": [
+      {
+        "viewType": "vnextForge.componentEditor",
+        "displayName": "vnext-forge Designer",
+        "selector": [
+          {
+            "filenamePattern": "*.json"
+          }
+        ],
+        "priority": "default"
+      }
+    ],
     "configuration": {
       "title": "vnext-forge",
       "properties": {
@@ -85,13 +221,55 @@
           "type": "boolean",
           "default": true,
           "description": "Automatically install the C# language server (csharp-ls or OmniSharp) when a vnext workspace is detected."
+        },
+        "vnextForge.vnextRuntimeUrl": {
+          "type": "string",
+          "default": "http://localhost:4201",
+          "description": "Default base URL the runtime-proxy service points at. Can be overridden by the VNEXT_RUNTIME_URL env var."
+        },
+        "vnextForge.runtimeAllowedBaseUrls": {
+          "type": "array",
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "description": "Additional base URLs the runtime-proxy is allowed to call. The default vnextRuntimeUrl is always implicitly allowed."
+        },
+        "vnextForge.allowRuntimeUrlOverride": {
+          "type": "boolean",
+          "default": false,
+          "description": "When true, callers may override the runtime-proxy target via the runtimeUrl request parameter. Off by default to avoid SSRF-style misuse."
+        },
+        "vnextForge.runtimeRevalidationMinIntervalSeconds": {
+          "type": "number",
+          "default": 30,
+          "description": "Minimum time (seconds) between background runtime revalidation requests issued by the designer UI."
+        },
+        "vnextForge.openComponentJsonInDesigner": {
+          "type": "boolean",
+          "default": true,
+          "description": "When true, component .json files under vnext.config.json paths open in the vnext-forge designer by default (Explorer / single-click). Use \"Open in Text Editor\" from the context menu to open the raw file in VS Code."
+        },
+        "vnextForge.materialAssociations.managed": {
+          "type": "object",
+          "default": { "folders": [], "files": [] },
+          "description": "Internal: tracks which entries vnext-forge added to material-icon-theme.{folders,files}.associations so they can be safely removed without touching user-defined associations.",
+          "properties": {
+            "folders": { "type": "array", "items": { "type": "string" } },
+            "files": { "type": "array", "items": { "type": "string" } }
+          }
         }
       }
     }
   },
   "scripts": {
     "dev": "node esbuild.config.mjs --watch",
-    "build": "node esbuild.config.mjs --production",
+    "dev:host": "node esbuild.config.mjs --watch",
+    "dev:webview": "vite build --watch --config webview-ui/vite.config.ts",
+    "build": "npm run build:host && npm run build:webview",
+    "sync-tab-icons": "node scripts/sync-component-tab-icons.mjs",
+    "build:host": "npm run sync-tab-icons && node esbuild.config.mjs --production",
+    "build:webview": "vite build --config webview-ui/vite.config.ts",
     "package": "vsce package --no-dependencies --allow-missing-repository --skip-license --allow-unused-files-pattern",
     "lint": "eslint .",
     "clean": "rm -rf dist *.vsix"
@@ -100,16 +278,27 @@
     "@burgan-tech/vnext-schema": "^0.0.39",
     "@burgan-tech/vnext-template": "^0.0.7",
     "@vnext-forge/app-contracts": "workspace:*",
+    "@vnext-forge/designer-ui": "workspace:*",
+    "@vnext-forge/lsp-core": "workspace:*",
+    "@vnext-forge/services-core": "workspace:*",
     "@vnext-forge/vnext-types": "workspace:*",
-    "ajv": "^8.12.0",
-    "ajv-formats": "^2.1.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "react-router-dom": "^7.0.0",
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@tailwindcss/vite": "^4.0.0",
     "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
     "@types/vscode": "^1.85.0",
+    "@vitejs/plugin-react": "^4.3.0",
     "@vscode/vsce": "^2.24.0",
-    "esbuild": "^0.24.0",
-    "typescript": "^5.7.0"
+    "esbuild": "^0.25.12",
+    "tailwindcss": "^4.0.0",
+    "tw-animate-css": "^1.4.0",
+    "typescript": "^5.7.0",
+    "vite": "^6.4.2"
   }
 }

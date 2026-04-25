@@ -1,0 +1,38 @@
+---
+description: Per-shell config singleton rule. Auto-loads when editing a shell's config module so that `process.env` / `import.meta.env` reads stay inside that one file. Defaults live in the Zod schema; missing `.env` is never fatal.
+globs:
+  - "apps/*/src/shared/config/config.ts"
+  - "apps/*/src/shared/config.ts"
+  - "apps/extension/src/shared/config.ts"
+alwaysApply: false
+---
+
+# Config Singleton Rule
+
+> **Loads when editing**: any per-shell config module (`apps/*/src/shared/config/config.ts`, `apps/extension/src/shared/config.ts`).
+
+## Invariants
+
+1. **One config module per shell.** All other code reads `import { config } from '@/shared/config/config'`. No module outside this file may read `process.env`, `import.meta.env`, or `vscode.workspace.getConfiguration` directly.
+2. **Single Zod schema** with **defaults inline.** A missing `.env` is never fatal: the loader logs a warning, attaches `globalThis.__vnextConfig`, and continues with defaults.
+3. **Use shared primitives.** Reuse `LogLevelSchema`, `NodeEnvSchema`, `coercedBool`, `csvList`, `isLoopbackHost` from `@vnext-forge/app-contracts/env/common`. Don't reinvent boolean coercion.
+4. **Per-shell sources of truth (in priority order):**
+   - `apps/server` — `.env` file → `process.env` → defaults.
+   - `apps/web` — `.env` file → `import.meta.env` (only `VITE_*`) → defaults.
+   - `apps/extension` — VS Code settings (`vscode.workspace.getConfiguration('vnextForge')`) → `process.env` → defaults.
+5. **Adding a new setting:**
+   - Extend the Zod schema with a default.
+   - Wire it inside `loadConfig()` from the shell's source.
+   - Document it in the workspace `.env` example comment block (no separate `.env.example` file).
+   - For `apps/extension`, also add a `contributes.configuration.properties` entry in `apps/extension/package.json`.
+
+## Don'ts
+
+- Don't read `process.env.X` outside the config module to "just shortcut" a value.
+- Don't gate runtime behavior on `NODE_ENV` strings outside of the config module; expose a typed boolean from the schema instead.
+- Don't ship a parallel "envHelper" or "configLoader" file. One module per shell.
+
+## Cross-references
+
+- Config landing page: root `CLAUDE.md` → "Environment variables & runtime config".
+- Shared primitives: `packages/app-contracts/src/env/common.ts`.

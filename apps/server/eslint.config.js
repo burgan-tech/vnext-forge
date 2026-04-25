@@ -6,7 +6,10 @@ import { createWorkspaceConfig } from '../../eslint.config.mjs';
 export default createWorkspaceConfig({
   tsconfigRootDir: import.meta.dirname,
   runtime: 'node',
-  loggerConsoleFiles: ['src/shared/lib/logger.ts'],
+  // `config.ts` runs BEFORE the logger is constructed (the logger reads its
+  // level from the validated config), so it has to use bare `console.warn`
+  // for its bootstrap-time `.env not found` message.
+  loggerConsoleFiles: ['src/shared/lib/logger.ts', 'src/shared/config/config.ts'],
   overrides: [
     importPlugin.flatConfigs.recommended,
     importPlugin.flatConfigs.typescript,

@@ -1,0 +1,11 @@
+{
+  "params": {},
+  "result": [
+    {
+      "id": "fixture-project-1",
+      "domain": "fixture-domain",
+      "description": "Contract fixture",
+      "path": "/workspace/fixture-domain"
+    }
+  ]
+}

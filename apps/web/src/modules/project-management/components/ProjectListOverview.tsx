@@ -2,10 +2,16 @@ import { useEffect } from 'react';
 
 import { Link2 } from 'lucide-react';
 
-import type { ProjectInfo } from '@modules/project-management/ProjectTypes';
-import { Alert, AlertDescription, AlertTitle } from '@shared/ui/Alert';
-import { Card, CardContent } from '@shared/ui/Card';
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+  Card,
+  CardContent,
+} from '@vnext-forge/designer-ui/ui';
 import type { VnextForgeError } from '@vnext-forge/app-contracts';
+
+import type { ProjectInfo } from '../ProjectTypes';
 
 import { ProjectListSection } from './ProjectListSection';
 import { useProjectList } from '../hooks/useProjectList';

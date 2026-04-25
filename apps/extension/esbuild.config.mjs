@@ -33,6 +33,10 @@ const buildOptions = {
   bundle: true,
   outfile: 'dist/extension.js',
   plugins: [copyVendorPlugin],
+  // Webview UI is bundled with Vite (`apps/extension/webview-ui`). When adding a
+  // new `package.json#exports` subpath under `@vnext-forge/designer-ui`, align
+  // `vite.config.ts` `optimizeDeps` there (see `docs/architecture/bundler-checklist.md`).
+  //
   // vscode is provided by the extension host at runtime — never bundle it.
   // @burgan-tech/vnext-schema is a plain CJS module and is bundled directly.
   // @burgan-tech/vnext-template is excluded because its init.js is executed as
@@ -43,14 +47,6 @@ const buildOptions = {
   target: 'node18',
   sourcemap: !production,
   minify: production,
-  alias: {
-    '@handlers/project': path.resolve(__dirname, 'src/handlers/project'),
-    '@handlers/workspace': path.resolve(__dirname, 'src/handlers/workspace'),
-    '@handlers/validate': path.resolve(__dirname, 'src/handlers/validate'),
-    '@handlers/template': path.resolve(__dirname, 'src/handlers/template'),
-    '@handlers/runtime-proxy': path.resolve(__dirname, 'src/handlers/runtime-proxy'),
-    '@ext/shared': path.resolve(__dirname, 'src/shared'),
-  },
 };
 
 if (watch) {

@@ -1,360 +1,171 @@
-import { useState } from 'react';
+import type { ReactNode } from 'react';
 import {
-  AlertCircle,
-  Bell,
-  CheckCircle2,
-  ChevronDown,
-  FolderOpen,
-  MoreHorizontal,
-  Settings,
-  Sparkles,
+  Code2,
+  FileJson,
+  LayoutTemplate,
+  SquareSplitHorizontal,
+  SquareSplitVertical,
 } from 'lucide-react';
 
-import Accordion from '@shared/ui/Accordion';
-import { Alert, AlertDescription, AlertTitle } from '@shared/ui/Alert';
-import { Badge } from '@shared/ui/Badge';
-import { Button } from '@shared/ui/Button';
 import {
+  Badge,
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
-} from '@shared/ui/Card';
-import { Checkbox } from '@shared/ui/Checkbox';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@shared/ui/Dialog';
-import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@shared/ui/DropdownMenu';
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+} from '@vnext-forge/designer-ui/ui';
 
-type SurfaceVariant = 'default' | 'secondary' | 'tertiary';
-
-const surfaceVariants: SurfaceVariant[] = ['default', 'secondary', 'tertiary'];
-
+/**
+ * `/test` — yalnızca `@vnext-forge/designer-ui` Resizable (react-resizable-panels v4) denemeleri.
+ */
 export function TestPage() {
-  const [checkboxes, setCheckboxes] = useState<Record<SurfaceVariant, boolean>>({
-    default: true,
-    secondary: false,
-    tertiary: true,
-  });
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [compactMode, setCompactMode] = useState(false);
-
   return (
     <div className="bg-background text-foreground min-h-screen px-6 py-10">
-      <div className="mx-auto flex w-full max-w-7xl flex-col gap-10">
-        <header className="space-y-3">
-            <Badge variant="muted">Shared UI Test Surface</Badge>
-          <div className="space-y-2">
-            <h1 className="text-3xl font-semibold tracking-tight">Primitive Variant Showcase</h1>
-            <p className="text-muted-foreground max-w-3xl text-sm">
-              Button, card, checkbox, dialog, dropdown menu, accordion, alert ve badge icin variant,
-              hover ve border davranislarini ayni sayfada test edebilirsin.
-            </p>
-          </div>
+      <div className="mx-auto flex w-full max-w-5xl flex-col gap-10">
+        <header className="space-y-2">
+          <Badge variant="muted">/test</Badge>
+          <h1 className="text-2xl font-semibold tracking-tight">Resizable</h1>
+          <p className="text-muted-foreground max-w-2xl text-sm">
+            <code className="text-foreground/90">ResizablePanelGroup</code>,{' '}
+            <code className="text-foreground/90">ResizablePanel</code>,{' '}
+            <code className="text-foreground/90">ResizableHandle</code> — yatay ve dikey düzen,
+            ince ayırıcı; aşağıda <code className="text-foreground/90">autoCollapseBelowMin</code> +{' '}
+            <code className="text-foreground/90">collapseOvershootPx</code> (piksel{' '}
+            <code className="text-foreground/90">minSize</code>) ile sınırı aşınca 0 genişliğe kapanma
+            dene.
+          </p>
         </header>
 
-        <section className="grid gap-4 lg:grid-cols-3">
-          {surfaceVariants.map((variant) => (
-            <Card key={variant} variant={variant} hoverable className="gap-4">
-              <CardHeader>
-                <CardTitle className="capitalize">{variant} Card</CardTitle>
-                <CardDescription>
-                  Surface, border ve icon tonu bu card uzerinden kolayca gorulebilir.
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-current/8">
-                    <FolderOpen className="size-5" />
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium">Workspace Preview</p>
-                    <p className="text-xs text-current/70">
-                      Variant family burada body ve icon tonuna yansiyor.
-                    </p>
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Badge variant={variant}>badge</Badge>
-                  <Badge variant={variant} noBorder>
-                    noBorder
-                  </Badge>
-                </div>
-              </CardContent>
-              <CardFooter className="justify-between">
-                <span className="text-xs text-current/70">Hover card</span>
-                <Button size="sm" variant={variant}>
-                  Action
-                </Button>
-              </CardFooter>
-            </Card>
-          ))}
+        <section className="space-y-3">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <SquareSplitHorizontal className="text-muted-foreground size-4" aria-hidden />
+            İki sütun — <span className="text-muted-foreground font-normal">autoCollapseBelowMin</span>
+          </div>
+          <div className="border-border h-[min(24rem,70vh)] min-h-56 overflow-hidden rounded-xl border">
+            <ResizablePanelGroup orientation="horizontal" className="h-full min-h-0 w-full">
+              <ResizablePanel
+                autoCollapseBelowMin
+                className="min-w-0"
+                collapseOvershootPx={30}
+                defaultSize="42%"
+                id="test-resize-col-left"
+                maxSize="55%"
+                minSize={160}>
+                <PanelPlaceholder
+                  title="Sol panel"
+                  description="min 160px; min−30px ~130’a kadar inince tam kapanır (autoCollapseBelowMin)"
+                  icon={<FileJson className="size-5" aria-hidden />}
+                />
+              </ResizablePanel>
+              <ResizableHandle />
+
+              <ResizablePanel defaultSize="58%" minSize="22%">
+                <PanelPlaceholder
+                  title="Sağ panel"
+                  description="Kalan alan; sürükleyerek oranı değiştir."
+                  icon={<Code2 className="size-5" aria-hidden />}
+                />
+              </ResizablePanel>
+            </ResizablePanelGroup>
+          </div>
         </section>
 
-        <section className="grid gap-6 xl:grid-cols-2">
-          <Card className="gap-5">
-            <CardHeader>
-              <CardTitle>Checkbox + Badge</CardTitle>
-              <CardDescription>Variant ve border davranislarini birlikte test et.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {surfaceVariants.map((variant) => (
-                <div
-                  key={variant}
-                  className="border-border/60 flex items-center justify-between rounded-xl border px-4 py-3">
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium capitalize">{variant}</p>
-                    <p className="text-muted-foreground text-xs">
-                      Hover, checked ve noBorder davranisi
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <Checkbox
-                      variant={variant}
-                      checked={checkboxes[variant]}
-                      onCheckedChange={(checked) =>
-                        setCheckboxes((prev) => ({ ...prev, [variant]: checked === true }))
-                      }
-                    />
-                    <Checkbox variant={variant} checked={checkboxes[variant]} noBorder />
-                    <Badge variant={variant}>{checkboxes[variant] ? 'checked' : 'idle'}</Badge>
-                  </div>
+        <section className="space-y-3">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <SquareSplitVertical className="text-muted-foreground size-4" aria-hidden />
+            Üst / alt — <span className="text-muted-foreground font-normal">dikey, autoCollapse</span>
+          </div>
+          <div className="border-border h-[min(22rem,60vh)] min-h-48 overflow-hidden rounded-xl border">
+            <ResizablePanelGroup orientation="vertical" className="h-full min-h-0 w-full">
+              <ResizablePanel
+                autoCollapseBelowMin
+                className="min-h-0"
+                collapseOvershootPx={24}
+                defaultSize="40%"
+                id="test-resize-row-top"
+                minSize={100}>
+                <div className="bg-secondary/30 flex h-full min-h-0 items-center justify-center p-4">
+                  <p className="text-muted-foreground text-center text-sm">
+                    Üst bölge — min 100px, 24px overshoot → ~76px altına inince kapanır
+                  </p>
                 </div>
-              ))}
-            </CardContent>
-          </Card>
-
-          <Card className="gap-5">
-            <CardHeader>
-              <CardTitle>Alert + Badge</CardTitle>
-              <CardDescription>Her variantin metin, icon ve hover dengesi.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Alert variant="default">
-                <Bell />
-                <AlertTitle>Default Alert</AlertTitle>
-                <AlertDescription>
-                  Primary surface ve semantik icon rengi kullanir.
-                </AlertDescription>
-              </Alert>
-              <Alert variant="secondary">
-                <Sparkles />
-                <AlertTitle>Secondary Alert</AlertTitle>
-                <AlertDescription>
-                  Secondary surface daha yumusak ama gorunur kalir.
-                </AlertDescription>
-              </Alert>
-              <Alert variant="tertiary">
-                <CheckCircle2 />
-                <AlertTitle>Tertiary Alert</AlertTitle>
-                <AlertDescription>Success benzeri ama destructive olmayan vurgu.</AlertDescription>
-              </Alert>
-              <Alert variant="destructive">
-                <AlertCircle />
-                <AlertTitle>Destructive Alert</AlertTitle>
-                <AlertDescription>
-                  Kritik aksiyon ve hata yuzeyi icin ayrilmis durumda.
-                </AlertDescription>
-              </Alert>
-            </CardContent>
-          </Card>
+              </ResizablePanel>
+              <ResizableHandle />
+              <ResizablePanel defaultSize="60%" minSize="20%">
+                <div className="bg-muted/40 flex h-full min-h-0 items-center justify-center p-4">
+                  <p className="text-muted-foreground text-sm">Alt bölge</p>
+                </div>
+              </ResizablePanel>
+            </ResizablePanelGroup>
+          </div>
         </section>
 
-        <section className="grid gap-6 xl:grid-cols-2">
-          <Card className="gap-5">
-            <CardHeader>
-              <CardTitle>Dialog Variants</CardTitle>
-              <CardDescription>
-                Content surface, close button hover ve footer aksiyonlarini test et.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-wrap gap-3">
-              {surfaceVariants.map((variant) => (
-                <Dialog key={variant}>
-                  <DialogTrigger asChild>
-                    <Button variant={variant} leftIcon={<FolderOpen />} className="capitalize">
-                      {variant} dialog
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent variant={variant} className="sm:max-w-xl">
-                    <DialogHeader>
-                      <DialogTitle className="capitalize">{variant} Dialog</DialogTitle>
-                      <DialogDescription>
-                        Dialog content ve close button artik shared semantic token yapisini
-                        kullaniyor.
-                      </DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 rounded-2xl border border-current/10 p-4">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-current/8">
-                          <Settings className="size-5" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium">Dialog body content</p>
-                          <p className="text-xs text-current/70">
-                            Hoverable ve border yapisini burada kontrol edebilirsin.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button variant="outline">Cancel</Button>
-                      <Button variant={variant}>Save changes</Button>
-                    </DialogFooter>
-                  </DialogContent>
-                </Dialog>
-              ))}
-            </CardContent>
-          </Card>
-
-          <Card className="gap-5">
-            <CardHeader>
-              <CardTitle>Dropdown Menu</CardTitle>
-              <CardDescription>
-                Content, item ve checkbox item varyasyonlarini bu bloktan acabilirsin.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-wrap gap-3">
-              {surfaceVariants.map((variant) => (
-                <DropdownMenu key={variant}>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant={variant}
-                      rightIcon={<ChevronDown />}
-                      rightIconVariant={variant}
-                      className="capitalize">
-                      {variant} menu
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent variant={variant} className="w-64">
-                    <DropdownMenuLabel variant={variant} className="capitalize">
-                      {variant} actions
-                    </DropdownMenuLabel>
-                    <DropdownMenuSeparator variant={variant} />
-                    <DropdownMenuItem variant={variant}>
-                      <FolderOpen />
-                      Open project
-                    </DropdownMenuItem>
-                    <DropdownMenuItem variant={variant}>
-                      <Settings />
-                      Settings
-                    </DropdownMenuItem>
-                    <DropdownMenuCheckboxItem
-                      variant={variant}
-                      checked={notificationsEnabled}
-                      onCheckedChange={(checked) => setNotificationsEnabled(checked === true)}>
-                      Notifications enabled
-                    </DropdownMenuCheckboxItem>
-                    <DropdownMenuCheckboxItem
-                      variant={variant}
-                      checked={compactMode}
-                      onCheckedChange={(checked) => setCompactMode(checked === true)}>
-                      Compact mode
-                    </DropdownMenuCheckboxItem>
-                    <DropdownMenuSeparator variant={variant} />
-                    <DropdownMenuItem variant="destructive">
-                      <AlertCircle />
-                      Delete item
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              ))}
-            </CardContent>
-          </Card>
-        </section>
-
-        <section className="grid gap-6 xl:grid-cols-2">
-          <Card className="gap-5">
-            <CardHeader>
-              <CardTitle>Accordion</CardTitle>
-              <CardDescription>
-                Trigger hover, left icon motion ve chevron davranisi burada gorunur.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Accordion
-                defaultOpenItemIds={['secondary']}
-                items={surfaceVariants.map((variant) => ({
-                  id: variant,
-                  title: `${variant[0].toUpperCase()}${variant.slice(1)} accordion item`,
-                  badge: variant,
-                  icon: <FolderOpen className="size-5" />,
-                  content: (
-                    <div className="space-y-3">
-                      <p className="text-sm text-current/80">
-                        Bu item {variant} token ailesini kullaniyor. Hoverda icon yuzeyi, chevron ve
-                        trigger yuzeyi birlikte hareket ediyor.
-                      </p>
-                      <div className="flex flex-wrap gap-2">
-                        <Badge variant={variant}>badge</Badge>
-                        <Button size="sm" variant={variant}>
-                          Action
-                        </Button>
-                      </div>
-                    </div>
-                  ),
-                }))}
-              />
-            </CardContent>
-          </Card>
-
-          <Card className="gap-5">
-            <CardHeader>
-              <CardTitle>Badge Strip</CardTitle>
-              <CardDescription>
-                Inline kullanim ve outline/destructive farkini hizli gormek icin.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex flex-wrap gap-2">
-                <Badge variant="default">default</Badge>
-                <Badge variant="secondary">secondary</Badge>
-                <Badge variant="tertiary">tertiary</Badge>
-                <Badge variant="outline">outline</Badge>
-                <Badge variant="destructive">destructive</Badge>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Badge variant="default" noBorder>
-                  default noBorder
-                </Badge>
-                <Badge variant="secondary" noBorder>
-                  secondary noBorder
-                </Badge>
-                <Badge variant="tertiary" noBorder>
-                  tertiary noBorder
-                </Badge>
-              </div>
-              <div className="flex flex-wrap gap-3">
-                <Button variant="default" leftIcon={<Sparkles />}>
-                  Default button
-                </Button>
-                <Button variant="secondary" leftIcon={<FolderOpen />}>
-                  Secondary button
-                </Button>
-                <Button variant="tertiary" rightIcon={<MoreHorizontal />}>
-                  Tertiary button
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+        <section className="space-y-3">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <LayoutTemplate className="text-muted-foreground size-4" aria-hidden />
+            Üç sütun — ince ayırıcı (without handle)
+          </div>
+          <div className="border-border h-48 min-h-40 overflow-hidden rounded-xl border">
+            <ResizablePanelGroup orientation="horizontal" className="h-full min-h-0 w-full">
+              <ResizablePanel defaultSize="25%" minSize="12%">
+                <div className="text-muted-foreground border-border/60 flex h-full items-center justify-center border-r text-xs">
+                  A
+                </div>
+              </ResizablePanel>
+              <ResizableHandle />
+              <ResizablePanel defaultSize="50%" minSize="20%">
+                <div className="text-muted-foreground flex h-full items-center justify-center text-xs">
+                  B
+                </div>
+              </ResizablePanel>
+              <ResizableHandle />
+              <ResizablePanel defaultSize="25%" minSize="12%">
+                <div className="text-muted-foreground border-border/60 flex h-full items-center justify-center border-l text-xs">
+                  C
+                </div>
+              </ResizablePanel>
+            </ResizablePanelGroup>
+          </div>
         </section>
       </div>
+    </div>
+  );
+}
+
+function PanelPlaceholder({
+  title,
+  description,
+  icon,
+}: {
+  title: string;
+  description: string;
+  icon: ReactNode;
+}) {
+  return (
+    <div className="h-full min-h-0 overflow-auto p-3">
+      <Card variant="secondary" className="h-full min-h-0 border-0 shadow-none">
+        <CardHeader className="pb-2">
+          <div className="flex items-start gap-3">
+            <div className="bg-primary-muted text-primary-icon flex size-10 shrink-0 items-center justify-center rounded-lg">
+              {icon}
+            </div>
+            <div className="min-w-0 space-y-1">
+              <CardTitle className="text-base">{title}</CardTitle>
+              <CardDescription className="text-xs">{description}</CardDescription>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <p className="text-muted-foreground text-sm leading-relaxed">
+            Burada form önizleme, özet veya log alanı gibi gerçek içerik olabilir. Yükseklik
+            sınırlandığı için taşan metin bu kart içinde kaydırılır.
+          </p>
+        </CardContent>
+      </Card>
     </div>
   );
 }

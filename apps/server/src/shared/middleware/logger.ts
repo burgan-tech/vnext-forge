@@ -1,5 +1,5 @@
 import type { MiddlewareHandler } from 'hono'
-import { baseLogger, formatBytes, formatDuration } from '@shared/lib/logger.js'
+import { baseLogger, formatBytes, formatDuration } from '../lib/logger.js'
 
 export const requestLoggerMiddleware: MiddlewareHandler = async (c, next) => {
   const startedAt = performance.now()

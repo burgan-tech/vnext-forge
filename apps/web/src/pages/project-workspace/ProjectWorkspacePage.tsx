@@ -1,28 +1,17 @@
 import { useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
-import { useProjectStore } from '@app/store/useProjectStore';
-import { useVnextWorkspaceUiStore } from '@app/store/useVnextWorkspaceUiStore';
-import { Badge } from '@shared/ui/Badge';
-import { Button } from '@shared/ui/Button';
+import { useEditorStore, useProjectStore } from '@vnext-forge/designer-ui';
+import { Badge, Button } from '@vnext-forge/designer-ui/ui';
 
-import { VnextTemplateSeedDialog } from '@modules/project-workspace/components/VnextTemplateSeedDialog';
-import { useProjectWorkspacePage } from '@modules/project-workspace/hooks/useProjectWorkspacePage';
-
+import { useVnextWorkspaceUiStore } from '../../app/store/useVnextWorkspaceUiStore';
 export function ProjectWorkspacePage() {
-  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { activeProject, error, loading } = useProjectStore();
-  const templateSeedDialogOpen = useVnextWorkspaceUiStore((s) => s.templateSeedDialogOpen);
-  const setTemplateSeedDialogOpen = useVnextWorkspaceUiStore((s) => s.setTemplateSeedDialogOpen);
-  const declineTemplatePromptForProject = useVnextWorkspaceUiStore(
-    (s) => s.declineTemplatePromptForProject,
-  );
+  const editorTabCount = useEditorStore((s) => s.tabs.length);
   const setShowMissingVnextConfigBar = useVnextWorkspaceUiStore(
     (s) => s.setShowMissingVnextConfigBar,
   );
-
-  useProjectWorkspacePage(id);
 
   useEffect(() => {
     return () => {
@@ -54,28 +43,21 @@ export function ProjectWorkspacePage() {
 
   return (
     <div className="flex h-full flex-col">
-      {id ? (
-        <VnextTemplateSeedDialog
-          open={templateSeedDialogOpen}
-          onOpenChange={setTemplateSeedDialogOpen}
-          projectId={id}
-          onDecline={() => declineTemplatePromptForProject(id)}
-        />
+      {editorTabCount > 0 ? (
+        <div className="border-border flex items-center gap-3 border-b p-3">
+          <Button
+            className="text-muted-foreground hover:text-foreground px-0 text-xs"
+            noBorder
+            onClick={() => void navigate('/')}
+            size="sm"
+            variant="ghost">
+            Projects
+          </Button>
+          <span className="text-muted-foreground text-xs">/</span>
+          <span className="text-sm font-medium">{activeProject.domain}</span>
+          {activeProject.linked ? <Badge variant="muted">linked</Badge> : null}
+        </div>
       ) : null}
-
-      <div className="border-border flex items-center gap-3 border-b p-3">
-        <Button
-          className="text-muted-foreground hover:text-foreground px-0 text-xs"
-          noBorder
-          onClick={() => void navigate('/')}
-          size="sm"
-          variant="ghost">
-          Projects
-        </Button>
-        <span className="text-muted-foreground text-xs">/</span>
-        <span className="text-sm font-medium">{activeProject.domain}</span>
-        {activeProject.linked ? <Badge variant="muted">linked</Badge> : null}
-      </div>
 
       <div className="flex flex-1 items-center justify-center p-8">
         <div className="max-w-md text-center">
