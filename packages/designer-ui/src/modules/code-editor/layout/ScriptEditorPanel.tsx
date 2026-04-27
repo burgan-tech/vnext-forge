@@ -25,7 +25,10 @@ import {
   ResizablePanelGroup,
   usePanelRef,
 } from '../../../ui/Resizable.js';
-import { encodeToBase64, decodeFromBase64 } from '../../../modules/code-editor/editor/Base64Handler';
+import {
+  encodeToBase64,
+  decodeFromBase64,
+} from '../../../modules/code-editor/editor/Base64Handler';
 import { CsxSnippetToolbar } from '../../../modules/code-editor/editor/CsxSnippetToolbar';
 import { CsxReferencePanel } from '../../../modules/code-editor/editor/CsxReferencePanel';
 import { applyDiagnostics } from '../../../modules/code-editor/editor/CsxDiagnostics';
@@ -142,7 +145,10 @@ export function FlowEditorCanvasAndScriptResizableColumn({
 function resolveWorkflowScriptAbsolutePath(workflowDir: string, location: string): string {
   const trimmed = location.trim();
   const relativePath = trimmed.startsWith('./') ? trimmed.slice(2) : trimmed;
-  const root = workflowDir.replace(/\\/g, '/').replace(/\/{2,}/g, '/').replace(/\/+$/, '');
+  const root = workflowDir
+    .replace(/\\/g, '/')
+    .replace(/\/{2,}/g, '/')
+    .replace(/\/+$/, '');
   return `${root}/${relativePath}`.replace(/\/{2,}/g, '/');
 }
 
@@ -420,7 +426,7 @@ export function ScriptEditorPanel({
         <div className="min-w-2 flex-1" />
 
         {/* Location — short error under input (no full-width alert) */}
-        <div className="min-w-0 max-w-[min(280px,40vw)] shrink-0 flex-1">
+        <div className="max-w-[min(280px,40vw)] min-w-0 flex-1 shrink-0">
           <Input
             value={locationDraft}
             onChange={(e) => handleLocationChange(e.target.value)}
