@@ -74,13 +74,30 @@ export function ScriptTaskForm({ config, onChange }: Props) {
 
   const scriptValue = useMemo(() => configToScriptCode(config), [scriptRaw, scriptLoc, scriptEnc]);
 
-  const [phase, setPhase] = useState<'pick' | 'edit'>('pick');
+  /**
+   * Derive the initial phase synchronously so SSR (and the very first
+   * client paint) lands on the correct screen — without this initializer
+   * the form briefly shows the picker even when the task already has a
+   * script, then snaps to the editor on the first `useEffect` tick. The
+   * existing `useEffect` below still runs on subsequent prop changes.
+   */
+  const [phase, setPhase] = useState<'pick' | 'edit'>(() => {
+    const loc = String(config.location ?? '');
+    const hasScript = Boolean(config.script);
+    return !getScriptLocationError(loc) && hasScript ? 'edit' : 'pick';
+  });
   const [pickLocked, setPickLocked] = useState(false);
   const [listQuery, setListQuery] = useState('');
   const [csxList, setCsxList] = useState<ListedCsxScript[]>([]);
   const [listLoading, setListLoading] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
   const [discardDialogOpen, setDiscardDialogOpen] = useState(false);
+  /**
+   * Edit-phase container height: floored `min(720, max(360, 55vh))` to avoid
+   * fractional CSS pixels that desync Monaco's `layout()` with nested flex/scroll.
+   * Default 400 for SSR; client `useEffect` recalculates when `phase === 'edit'`.
+   */
+  const [scriptEditContainerHeightPx, setScriptEditContainerHeightPx] = useState(400);
 
   const hydrateKeyRef = useRef<string | null>(null);
   /**
@@ -115,6 +132,18 @@ export function ScriptTaskForm({ config, onChange }: Props) {
       userEditedScriptRef.current = false;
     }
     prevPhaseRef.current = phase;
+  }, [phase]);
+
+  useEffect(() => {
+    if (phase !== 'edit' || typeof window === 'undefined') return;
+    const update = () => {
+      setScriptEditContainerHeightPx(
+        Math.floor(Math.min(720, Math.max(360, window.innerHeight * 0.55))),
+      );
+    };
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
   }, [phase]);
 
   useEffect(() => {
@@ -283,8 +312,8 @@ export function ScriptTaskForm({ config, onChange }: Props) {
     return (
       <>
         {unsavedDiscardDialog}
-        <div className="flex h-[min(90vh,1080px)] min-h-[560px] flex-col gap-3 overflow-hidden py-1">
-        <div className="shrink-0 space-y-3">
+        <div className="flex flex-col gap-3 py-1">
+        <div className="space-y-3">
           <div className="text-foreground text-sm font-medium">Choose a script</div>
           <p className="text-muted-foreground text-xs">
             Select an existing .csx file or start from a new script. You must choose before the
@@ -303,13 +332,13 @@ export function ScriptTaskForm({ config, onChange }: Props) {
             </Button>
           </div>
         </div>
-        <div className="flex min-h-0 flex-1 flex-col gap-2">
+        <div className="flex flex-col gap-2">
           {listLoading && (
-            <div className="text-muted-foreground flex flex-1 items-center justify-center text-xs">
+            <div className="text-muted-foreground flex h-32 items-center justify-center text-xs">
               Scanning project…
             </div>
           )}
-          {listError && <div className="text-destructive shrink-0 text-xs">{listError}</div>}
+          {listError && <div className="text-destructive text-xs">{listError}</div>}
           {!listLoading && !listError && (
             <>
               <Input
@@ -319,9 +348,9 @@ export function ScriptTaskForm({ config, onChange }: Props) {
                 onChange={(e) => setListQuery(e.target.value)}
                 variant="muted"
                 size="sm"
-                className="max-w-md shrink-0"
+                className="max-w-md"
               />
-              <div className="border-border bg-surface/30 min-h-0 flex-1 overflow-y-auto rounded-md border">
+              <div className="border-border bg-surface/30 max-h-[480px] min-h-[200px] overflow-y-auto rounded-md border">
                 {filteredCsxList.length === 0 ? (
                   <div className="text-muted-foreground p-3 text-xs">No matching .csx files.</div>
                 ) : isFlatPicker ? (
@@ -371,10 +400,19 @@ export function ScriptTaskForm({ config, onChange }: Props) {
     );
   }
 
+  /**
+   * Edit phase wraps Monaco. Height is a floored
+   * `min(720, max(360, round(0.55 * window.innerHeight)))` via
+   * `scriptEditContainerHeightPx` (not a CSS `clamp`, which can yield
+   * subpixel values) so Monaco's `layout()` and ResizeObserver stay in sync
+   * with the outer scroll surface in the VS Code webview.
+   */
   return (
     <>
       {unsavedDiscardDialog}
-      <div className="border-border flex h-[min(90vh,1080px)] min-h-[560px] flex-1 flex-col overflow-hidden rounded-lg border py-1 shadow-sm">
+      <div
+        className="border-border flex flex-col overflow-hidden rounded-lg border py-1 shadow-sm"
+        style={{ height: scriptEditContainerHeightPx }}>
         <ScriptEditorPanel
           taskInline={{
             value: scriptValue,

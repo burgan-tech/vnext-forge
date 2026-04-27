@@ -192,6 +192,9 @@ export function ScriptEditorPanel({
   const markerDisposableRef = useRef<{ dispose: () => void } | null>(null);
   const lspClientRef = useRef<CsharpLspClient | null>(null);
   const lspSessionId = useRef(crypto.randomUUID());
+  const editorContainerRef = useRef<HTMLDivElement | null>(null);
+  const layoutObserverRef = useRef<ResizeObserver | null>(null);
+  const layoutRafRef = useRef(0);
 
   const decoded = useMemo(() => {
     if (!activeScript?.value?.code) return '';
@@ -277,6 +280,28 @@ export function ScriptEditorPanel({
       }).then((client) => {
         lspClientRef.current = client;
       });
+
+      // Manual layout: `automaticLayout: false` + integer pixel size avoids subpixel
+      // drift in nested flex/overflow (VS Code webview) that stacks view-lines on scroll.
+      layoutObserverRef.current?.disconnect();
+      layoutObserverRef.current = null;
+      cancelAnimationFrame(layoutRafRef.current);
+      const container = editorContainerRef.current;
+      if (container) {
+        const runLayout = () => {
+          cancelAnimationFrame(layoutRafRef.current);
+          layoutRafRef.current = requestAnimationFrame(() => {
+            const rect = container.getBoundingClientRect();
+            const w = Math.max(0, Math.floor(rect.width));
+            const h = Math.max(0, Math.floor(rect.height));
+            editor.layout({ width: w, height: h });
+          });
+        };
+        const ro = new ResizeObserver(runLayout);
+        ro.observe(container);
+        layoutObserverRef.current = ro;
+        runLayout();
+      }
     },
     [activeScript, taskInline],
   );
@@ -368,6 +393,9 @@ export function ScriptEditorPanel({
       markerDisposableRef.current = null;
       lspClientRef.current?.dispose();
       lspClientRef.current = null;
+      layoutObserverRef.current?.disconnect();
+      layoutObserverRef.current = null;
+      cancelAnimationFrame(layoutRafRef.current);
     };
   }, []);
 
@@ -487,7 +515,7 @@ export function ScriptEditorPanel({
       {/* Editor area */}
       <div className="flex min-h-0 flex-1">
         {/* Monaco editor (full width) */}
-        <div className="min-h-0 min-w-0 flex-1">
+        <div ref={editorContainerRef} className="min-h-0 min-w-0 flex-1">
           <MonacoEditor
             height="100%"
             language="csharp"
@@ -502,14 +530,20 @@ export function ScriptEditorPanel({
               fontSize: 13,
               tabSize: 4,
               wordWrap: 'on',
+              wrappingStrategy: 'advanced',
               folding: true,
               glyphMargin: true,
               lineDecorationsWidth: 8,
               lineNumbersMinChars: 3,
               renderLineHighlight: 'line',
               overviewRulerLanes: 2,
-              scrollbar: { verticalScrollbarSize: 8, horizontalScrollbarSize: 8 },
-              automaticLayout: true,
+              scrollbar: {
+                verticalScrollbarSize: 8,
+                horizontalScrollbarSize: 8,
+                alwaysConsumeMouseWheel: true,
+              },
+              automaticLayout: false,
+              fixedOverflowWidgets: true,
               padding: { top: 8, bottom: 8 },
               bracketPairColorization: { enabled: true },
               guides: { bracketPairs: true, indentation: true },
