@@ -158,12 +158,17 @@ const FILE_TO_FOLDER: Record<VnextComponentType, ComponentFolderType> = {
 
 /** Dosya rengi klasör rengi ile birebir; rozet aynı tonun çok açık `badge` değeri. */
 export function getFileColors(
-  type: VnextComponentType | 'config',
-  theme: 'light' | 'dark',
+  type: VnextComponentType | 'config' | undefined,
+  theme: 'light' | 'dark' | undefined,
 ): FileColorSet {
+  const themeKey: 'light' | 'dark' = theme === 'dark' ? 'dark' : 'light';
   const folderType: ComponentFolderType =
-    type === 'config' ? 'components_root' : FILE_TO_FOLDER[type];
-  const pal = VNEXT_FOLDER_PALETTE[folderType][theme];
+    type === 'config'
+      ? 'components_root'
+      : type != null && type in FILE_TO_FOLDER
+        ? FILE_TO_FOLDER[type as VnextComponentType]
+        : 'tasks';
+  const pal = VNEXT_FOLDER_PALETTE[folderType][themeKey];
   return { fill: pal.fill, stroke: pal.stroke, badge: pal.badge };
 }
 
