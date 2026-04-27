@@ -18,7 +18,14 @@ import { Section, IconTask, IconTrash, IconUp, IconDown } from './PropertyPanelS
 
 /* ────────────── TASKS TAB ────────────── */
 
-export function TasksTab({ state }: { state: any }) {
+export function TasksTab({
+  state,
+  defaultTaskFolder,
+}: {
+  state: any;
+  /** Same as the active workflow editor `group` — default Tasks/ subfolder when creating a task. */
+  defaultTaskFolder?: string;
+}) {
   const { updateWorkflow } = useWorkflowStore();
   const vnextConfig = useProjectStore((s) => s.vnextConfig);
   const activeProject = useProjectStore((s) => s.activeProject);
@@ -192,6 +199,7 @@ export function TasksTab({ state }: { state: any }) {
         onOpenChange={(open) => {
           if (!open) setCreateListField(null);
         }}
+        defaultTaskFolder={defaultTaskFolder}
         onCreated={(created) => {
           if (!createListField) return;
           const listField = createListField;

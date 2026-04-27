@@ -231,15 +231,20 @@ export function ScriptEditorPanel({
   const handleCodeChange = useCallback(
     (newCode: string | undefined) => {
       if (!activeScript) return;
-      if ((newCode || '') === decoded) return;
-      syncToWorkflow(newCode || '');
+      const next = newCode || '';
+      // Filter Monaco's first-render EOL normalization echo (CRLF → LF).
+      // If the only difference is line endings, treat as no user edit and
+      // avoid emitting onChange — otherwise upstream "is dirty" trackers
+      // would falsely fire on a freshly loaded script.
+      if (next.replace(/\r\n/g, '\n') === decoded.replace(/\r\n/g, '\n')) return;
+      syncToWorkflow(next);
 
       if (diagnosticTimerRef.current) clearTimeout(diagnosticTimerRef.current);
       diagnosticTimerRef.current = setTimeout(() => {
         const editor = editorRef.current;
         const monaco = monacoRef.current;
         if (editor && monaco) {
-          applyDiagnostics(monaco, editor.getModel(), newCode || '', activeScript.templateType);
+          applyDiagnostics(monaco, editor.getModel(), next, activeScript.templateType);
         }
       }, 300);
     },
@@ -423,7 +428,7 @@ export function ScriptEditorPanel({
               type="button"
               onClick={taskInline.onOpenInFullEditor}
               className="text-secondary-text hover:bg-secondary-muted flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition-colors"
-              title="Open in full code editor (new tab in this app)">
+              title="Open the .csx file in the full editor (new tab)">
               <ExternalLink size={12} className="opacity-80" />
               <span>Open in full editor</span>
             </button>
@@ -434,7 +439,7 @@ export function ScriptEditorPanel({
               onClick={handleOpenWorkflowScriptInFullEditor}
               disabled={!locationDraft.trim() || Boolean(getScriptLocationError(locationDraft))}
               className="text-secondary-text hover:bg-secondary-muted flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition-colors disabled:pointer-events-none disabled:opacity-40"
-              title="Open in full code editor (new tab in this app)">
+              title="Open the .csx file in the full editor (new tab)">
               <ExternalLink size={12} className="opacity-80" />
               <span>Open in full editor</span>
             </button>

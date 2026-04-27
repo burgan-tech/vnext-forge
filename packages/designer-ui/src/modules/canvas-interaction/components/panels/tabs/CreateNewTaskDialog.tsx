@@ -37,13 +37,23 @@ export interface CreateNewTaskDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreated: (created: DiscoveredVnextComponent) => void;
+  /**
+   * When creating a task from a workflow editor, the Tasks/ subfolder that mirrors
+   * the active workflow folder (same as the flow `group`), e.g. `account-opening`.
+   */
+  defaultTaskFolder?: string;
 }
 
 /**
  * Create `Tasks/<folder>/<name>.json` with a minimal script-task template.
  * Parent adds the result to the workflow; user opens the editor from the card.
  */
-export function CreateNewTaskDialog({ open, onOpenChange, onCreated }: CreateNewTaskDialogProps) {
+export function CreateNewTaskDialog({
+  open,
+  onOpenChange,
+  onCreated,
+  defaultTaskFolder,
+}: CreateNewTaskDialogProps) {
   const activeProject = useProjectStore((s) => s.activeProject);
   const vnextConfig = useProjectStore((s) => s.vnextConfig);
   const projectDomain = vnextConfig?.domain ?? activeProject?.domain ?? '';
@@ -88,14 +98,15 @@ export function CreateNewTaskDialog({ open, onOpenChange, onCreated }: CreateNew
 
   useEffect(() => {
     if (!open) return;
-    setFolderInput('');
+    const raw = defaultTaskFolder?.trim();
+    setFolderInput(raw ? toKebabSlug(raw) : '');
     setNameInput('');
     if (activeProject) void load();
     else {
       setItems([]);
       setLoadError(null);
     }
-  }, [open, activeProject, load]);
+  }, [open, activeProject, load, defaultTaskFolder]);
 
   const folderSlug = useMemo(() => toKebabSlug(folderInput), [folderInput]);
   const taskName = useMemo(() => toKebabSlug(nameInput), [nameInput]);

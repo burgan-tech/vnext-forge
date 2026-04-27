@@ -5,12 +5,8 @@ import { cn } from '../lib/utils/cn.js';
 
 const textareaVariants = cva(
   [
-    'flex min-h-24 w-full rounded-md border px-3 py-2 text-sm outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50',
-    'shadow-[inset_0_2px_5px_rgba(15,23,42,0.14),inset_0_-1px_0_rgba(15,23,42,0.08),0_1px_2px_rgba(15,23,42,0.06),0_2px_8px_rgba(15,23,42,0.05)]',
-    'dark:shadow-[inset_0_3px_12px_rgba(0,0,0,0.58),inset_0_1px_0_rgba(255,255,255,0.11),0_1px_0_rgba(255,255,255,0.07),0_2px_6px_rgba(0,0,0,0.22)]',
-    'transition-[box-shadow,background-color,border-color,opacity] duration-200 ease-out',
-    'focus-visible:shadow-[inset_0_2px_6px_rgba(15,23,42,0.11),inset_0_-1px_0_rgba(15,23,42,0.05),0_2px_4px_rgba(15,23,42,0.08),0_4px_14px_rgba(15,23,42,0.07)]',
-    'dark:focus-visible:shadow-[inset_0_3px_14px_rgba(0,0,0,0.62),inset_0_1px_0_rgba(255,255,255,0.14),0_0_0_1px_rgba(255,255,255,0.07),0_3px_12px_rgba(0,0,0,0.32)]',
+    'flex min-h-24 w-full rounded-md border px-3 py-2 text-sm shadow-none outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50',
+    'transition-[background-color,border-color,opacity] duration-200 ease-out',
   ].join(' '),
   {
     variants: {

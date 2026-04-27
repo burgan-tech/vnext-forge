@@ -46,15 +46,6 @@ function taskScriptBodyMatchesDiskFile(config: Record<string, unknown>, fileText
   return body === disk;
 }
 
-/** Stable signature for script fields only (used for “discard script” confirm). */
-function scriptTaskConfigSignature(cfg: Record<string, unknown>): string {
-  return JSON.stringify({
-    location: typeof cfg.location === 'string' ? cfg.location : '',
-    script: typeof cfg.script === 'string' ? cfg.script : '',
-    encoding: cfg.encoding ?? '',
-  });
-}
-
 function configToScriptCode(config: Record<string, unknown>): ScriptCode {
   const raw = config.script;
   const rawStr = typeof raw === 'string' ? raw : '';
@@ -92,14 +83,20 @@ export function ScriptTaskForm({ config, onChange }: Props) {
   const [discardDialogOpen, setDiscardDialogOpen] = useState(false);
 
   const hydrateKeyRef = useRef<string | null>(null);
-  /** Baseline script signature after entering edit or hydrating from disk (avoids false confirm vs global isDirty). */
-  const scriptConfigBaselineRef = useRef<string | null>(null);
+  /**
+   * Panel-local "user typed in the Monaco editor" flag. Independent of the
+   * task's save state — it only becomes true when the script panel reports
+   * a real edit through `handleScriptChange`. Cleared whenever a fresh
+   * script is selected/created, the task file changes, or the hydrate
+   * effect normalizes JSON-vs-disk drift.
+   */
+  const userEditedScriptRef = useRef(false);
   const prevPhaseRef = useRef<'pick' | 'edit'>(phase);
 
   useEffect(() => {
     setPickLocked(false);
     hydrateKeyRef.current = null;
-    scriptConfigBaselineRef.current = null;
+    userEditedScriptRef.current = false;
   }, [filePath]);
 
   useEffect(() => {
@@ -115,14 +112,10 @@ export function ScriptTaskForm({ config, onChange }: Props) {
 
   useEffect(() => {
     if (phase === 'edit' && prevPhaseRef.current !== 'edit') {
-      scriptConfigBaselineRef.current = scriptTaskConfigSignature({
-        location: typeof scriptLoc === 'string' ? scriptLoc : '',
-        script: typeof scriptRaw === 'string' ? scriptRaw : '',
-        encoding: scriptEnc ?? '',
-      });
+      userEditedScriptRef.current = false;
     }
     prevPhaseRef.current = phase;
-  }, [phase, scriptRaw, scriptLoc, scriptEnc]);
+  }, [phase]);
 
   useEffect(() => {
     if (phase !== 'pick') return;
@@ -166,7 +159,6 @@ export function ScriptTaskForm({ config, onChange }: Props) {
         if (cancelled || hydrateKeyRef.current !== myKey) return;
         if (taskScriptBodyMatchesDiskFile(config, content)) {
           hydrateKeyRef.current = key;
-          scriptConfigBaselineRef.current = scriptTaskConfigSignature(config);
           return;
         }
         const enc = encodeToBase64(content);
@@ -174,12 +166,8 @@ export function ScriptTaskForm({ config, onChange }: Props) {
           d.script = enc;
           d.encoding = 'B64';
         });
-        scriptConfigBaselineRef.current = scriptTaskConfigSignature({
-          ...config,
-          location: loc,
-          script: enc,
-          encoding: 'B64',
-        });
+        // Hydrating JSON to match disk is not a user edit.
+        userEditedScriptRef.current = false;
       } catch {
         /* File missing or unreadable — keep JSON content */
       }
@@ -191,6 +179,9 @@ export function ScriptTaskForm({ config, onChange }: Props) {
 
   const handleScriptChange = useCallback(
     (next: ScriptCode) => {
+      // Reaching this callback means ScriptEditorPanel deemed the change
+      // a real user edit (it filters EOL-only echoes from Monaco).
+      userEditedScriptRef.current = true;
       onChange((d: any) => {
         d.location = next.location;
         d.script = next.code;
@@ -216,6 +207,7 @@ export function ScriptTaskForm({ config, onChange }: Props) {
           d.encoding = 'B64';
         });
         hydrateKeyRef.current = `${filePath}\0${rel}`;
+        userEditedScriptRef.current = false;
         setPhase('edit');
       } catch {
         showNotification({ kind: 'error', message: 'Could not read script file.' });
@@ -235,6 +227,7 @@ export function ScriptTaskForm({ config, onChange }: Props) {
     if (filePath) {
       hydrateKeyRef.current = `${filePath}\0${location}`;
     }
+    userEditedScriptRef.current = false;
     setPhase('edit');
   }, [filePath, onChange, taskKey]);
 
@@ -243,21 +236,16 @@ export function ScriptTaskForm({ config, onChange }: Props) {
     setPickLocked(true);
     setPhase('pick');
     setListQuery('');
+    userEditedScriptRef.current = false;
   }, []);
 
   const onDiscardPickAnother = useCallback(() => {
-    const baseline = scriptConfigBaselineRef.current;
-    const current = scriptTaskConfigSignature({
-      location: typeof scriptLoc === 'string' ? scriptLoc : '',
-      script: typeof scriptRaw === 'string' ? scriptRaw : '',
-      encoding: scriptEnc ?? '',
-    });
-    if (baseline != null && current !== baseline) {
+    if (userEditedScriptRef.current) {
       setDiscardDialogOpen(true);
       return;
     }
     proceedDiscardPickAnother();
-  }, [scriptRaw, scriptLoc, scriptEnc, proceedDiscardPickAnother]);
+  }, [proceedDiscardPickAnother]);
 
   const unsavedDiscardDialog = (
     <ConfirmAlertDialog

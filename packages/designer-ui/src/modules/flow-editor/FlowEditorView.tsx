@@ -169,7 +169,9 @@ export function FlowEditorView({
                     </ReactFlowProvider>
                   </div>
                 }
-                sidePanel={selectedNodeId ? <StatePropertyPanel /> : <TransitionPropertyPanel />}
+                sidePanel={
+                  selectedNodeId ? <StatePropertyPanel defaultTaskFolder={group} /> : <TransitionPropertyPanel />
+                }
               />
             ) : (
               <div className="relative h-full min-h-0 flex-1">
