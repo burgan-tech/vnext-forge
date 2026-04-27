@@ -16,6 +16,7 @@ import {
 } from '../../../../../ui/Dialog.js';
 import { Input } from '../../../../../ui/Input.js';
 import { Button } from '../../../../../ui/Button.js';
+import { DropdownSelectComboboxField } from '../../../../../ui/DropdownSelect.js';
 import { showNotification } from '../../../../../notification/notification-port.js';
 
 const KEBAB = /^[a-z0-9]+(-[a-z0-9]+)*$/;
@@ -39,7 +40,7 @@ export interface CreateNewTaskDialogProps {
 }
 
 /**
- * Create `Tasks/<subdomain>/<name>.json` with a minimal script-task template.
+ * Create `Tasks/<folder>/<name>.json` with a minimal script-task template.
  * Parent adds the result to the workflow; user opens the editor from the card.
  */
 export function CreateNewTaskDialog({ open, onOpenChange, onCreated }: CreateNewTaskDialogProps) {
@@ -47,7 +48,7 @@ export function CreateNewTaskDialog({ open, onOpenChange, onCreated }: CreateNew
   const vnextConfig = useProjectStore((s) => s.vnextConfig);
   const projectDomain = vnextConfig?.domain ?? activeProject?.domain ?? '';
 
-  const [subdomainInput, setSubdomainInput] = useState('');
+  const [folderInput, setFolderInput] = useState('');
   const [nameInput, setNameInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -55,7 +56,7 @@ export function CreateNewTaskDialog({ open, onOpenChange, onCreated }: CreateNew
 
   const tasksFolder = vnextConfig?.paths.tasks ?? '';
 
-  const subdomains = useMemo(() => {
+  const existingFolders = useMemo(() => {
     if (!activeProject || !vnextConfig?.paths) return [] as string[];
     const rows = groupDiscoveredTasksForPicker(items, activeProject.path, vnextConfig.paths);
     const set = new Set<string>();
@@ -87,7 +88,7 @@ export function CreateNewTaskDialog({ open, onOpenChange, onCreated }: CreateNew
 
   useEffect(() => {
     if (!open) return;
-    setSubdomainInput('');
+    setFolderInput('');
     setNameInput('');
     if (activeProject) void load();
     else {
@@ -96,13 +97,13 @@ export function CreateNewTaskDialog({ open, onOpenChange, onCreated }: CreateNew
     }
   }, [open, activeProject, load]);
 
-  const subdomain = useMemo(() => toKebabSlug(subdomainInput), [subdomainInput]);
+  const folderSlug = useMemo(() => toKebabSlug(folderInput), [folderInput]);
   const taskName = useMemo(() => toKebabSlug(nameInput), [nameInput]);
 
   const targetPath = useMemo(() => {
-    if (!activeProject || !vnextConfig || !subdomain || !taskName) return null;
-    return buildAtomicComponentJsonPath(activeProject.path, vnextConfig.paths, 'tasks', subdomain, taskName);
-  }, [activeProject, subdomain, taskName, vnextConfig]);
+    if (!activeProject || !vnextConfig || !folderSlug || !taskName) return null;
+    return buildAtomicComponentJsonPath(activeProject.path, vnextConfig.paths, 'tasks', folderSlug, taskName);
+  }, [activeProject, folderSlug, taskName, vnextConfig]);
 
   const pathCollision = useMemo(() => {
     if (!targetPath) return false;
@@ -111,7 +112,7 @@ export function CreateNewTaskDialog({ open, onOpenChange, onCreated }: CreateNew
   }, [items, targetPath]);
 
   const canSubmit =
-    Boolean(activeProject && vnextConfig && subdomain && taskName && KEBAB.test(subdomain) && KEBAB.test(taskName)) &&
+    Boolean(activeProject && vnextConfig && folderSlug && taskName && KEBAB.test(folderSlug) && KEBAB.test(taskName)) &&
     !pathCollision;
 
   const handleCreate = async () => {
@@ -160,7 +161,10 @@ export function CreateNewTaskDialog({ open, onOpenChange, onCreated }: CreateNew
           .replace(/^\//, '')
       : '';
 
-  const datalistId = 'vnext-create-task-subdomains';
+  const folderOptions = useMemo(
+    () => existingFolders.map((f) => ({ value: f, label: f })),
+    [existingFolders],
+  );
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -171,14 +175,14 @@ export function CreateNewTaskDialog({ open, onOpenChange, onCreated }: CreateNew
         closeButtonHoverable
         hoverable={false}>
         <DialogHeader>
-          <DialogTitle className="text-foreground text-base font-semibold tracking-tight">
+          <DialogTitle className="text-foreground pr-3 text-base font-semibold tracking-tight sm:pr-4">
             Create new task
           </DialogTitle>
         </DialogHeader>
 
         <DialogDescription className="text-muted-foreground px-4 text-xs leading-relaxed">
-          Choose a subdomain folder under <span className="font-mono">{tasksFolder || 'Tasks'}</span> and a kebab-case
-          file name. A minimal script task JSON will be written to disk.
+          Choose a folder under <span className="font-mono">{tasksFolder || 'Tasks'}</span> and a kebab-case file name. A
+          minimal script task JSON will be written to disk.
         </DialogDescription>
 
         <div className="flex min-h-0 flex-col gap-3 px-4 pb-4">
@@ -191,26 +195,21 @@ export function CreateNewTaskDialog({ open, onOpenChange, onCreated }: CreateNew
           {loadError && <div className="text-destructive-text text-xs">{loadError}</div>}
 
           <div className="space-y-1">
-            <label className="text-muted-foreground text-[10px] font-semibold" htmlFor="vnext-new-task-sub">
-              Subdomain
+            <label className="text-muted-foreground text-[10px] font-semibold" htmlFor="vnext-new-task-folder">
+              Folder
             </label>
-            <Input
-              id="vnext-new-task-sub"
-              value={subdomainInput}
-              onChange={(e) => setSubdomainInput(e.target.value)}
-              list={datalistId}
-              placeholder="e.g. account-opening"
-              autoComplete="off"
+            <DropdownSelectComboboxField
+              id="vnext-new-task-folder"
+              value={folderInput}
+              onValueChange={setFolderInput}
+              options={folderOptions}
               disabled={!activeProject}
-              variant="muted"
-              size="sm"
+              autoComplete="off"
+              aria-label="Task folder (kebab-case); type or pick from suggestions"
+              className="h-8 min-h-8 w-full text-xs"
+              contentClassName="z-[200]"
             />
-            <datalist id={datalistId}>
-              {subdomains.map((s) => (
-                <option key={s} value={s} />
-              ))}
-            </datalist>
-            {subdomain && !KEBAB.test(subdomain) ? (
+            {folderSlug && !KEBAB.test(folderSlug) ? (
               <p className="text-destructive-text text-[10px]">Use lowercase letters, numbers, and hyphens only.</p>
             ) : null}
           </div>
@@ -243,7 +242,7 @@ export function CreateNewTaskDialog({ open, onOpenChange, onCreated }: CreateNew
             <p className="text-destructive-text text-xs">A task file already exists at this path.</p>
           ) : null}
 
-          <div className="mt-1 flex justify-end gap-2">
+          <div className="mt-1 mr-3 flex justify-end gap-2 sm:mr-4">
             <Button type="button" variant="secondary" size="sm" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
@@ -264,7 +263,7 @@ export function CreateNewTaskDialog({ open, onOpenChange, onCreated }: CreateNew
 export function CreateNewTaskButton({
   onClick,
   disabled,
-  title = 'Create a new task JSON under Tasks/<subdomain>/',
+  title = 'Create a new task JSON under Tasks/<folder>/',
   label = 'Create new task',
 }: {
   onClick: () => void;

@@ -16,15 +16,7 @@ import { resolveTaskScriptAbsolutePath, toTaskRelativeScriptLocation } from '../
 import { listProjectCsxScripts, type ListedCsxScript } from '../services/listProjectCsxScripts';
 import { useScriptTaskChrome } from '../ScriptTaskChromeContext.js';
 import { Button } from '../../../ui/Button';
-import {
-  Dialog,
-  DialogCancelButton,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '../../../ui/Dialog';
+import { ConfirmAlertDialog } from '../../../ui/AlertDialog';
 import { Input } from '../../../ui/Input';
 
 interface Props {
@@ -268,23 +260,16 @@ export function ScriptTaskForm({ config, onChange }: Props) {
   }, [scriptRaw, scriptLoc, scriptEnc, proceedDiscardPickAnother]);
 
   const unsavedDiscardDialog = (
-    <Dialog open={discardDialogOpen} onOpenChange={setDiscardDialogOpen}>
-      <DialogContent className="max-w-md gap-6">
-        <DialogHeader>
-          <DialogTitle>Unsaved script changes</DialogTitle>
-        </DialogHeader>
-        <DialogDescription className="text-center sm:text-left">
-          You have unsaved changes to this script. Go back to the script picker anyway? Your edits stay
-          in the task until you save the task file.
-        </DialogDescription>
-        <DialogFooter>
-          <DialogCancelButton type="button">Stay in editor</DialogCancelButton>
-          <Button type="button" variant="warning" onClick={proceedDiscardPickAnother}>
-            Pick another script
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <ConfirmAlertDialog
+      open={discardDialogOpen}
+      onOpenChange={setDiscardDialogOpen}
+      tone="warning"
+      title="Unsaved script changes"
+      description="You have unsaved changes to this script. Go back to the script picker anyway? Your edits stay in the task until you save the task file."
+      cancelLabel="Stay in editor"
+      confirmLabel="Pick another script"
+      onConfirm={proceedDiscardPickAnother}
+    />
   );
 
   const filteredCsxList = useMemo(() => {

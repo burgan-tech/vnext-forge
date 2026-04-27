@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState, type ReactNode } from 'react';
 
 import { useComponentStore } from '../../../store/useComponentStore.js';
 import { useSchemaEditorStore } from '../../schema-editor/useSchemaEditorStore.js';
+import { ConfirmAlertDialog } from '../../../ui/AlertDialog.js';
 import {
   Dialog,
   DialogContent,
@@ -45,22 +46,32 @@ export function ComponentEditorDialog({
   onOpenScriptFileInHost,
 }: ComponentEditorDialogHostProps) {
   const [toolbar, setToolbar] = useState<ReactNode | null>(null);
+  const [unsavedClosePromptOpen, setUnsavedClosePromptOpen] = useState(false);
 
   useEffect(() => {
     if (!open) setToolbar(null);
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) setUnsavedClosePromptOpen(false);
   }, [open]);
 
   const handleOpenChange = useCallback(
     (next: boolean) => {
       if (next) return;
       if (target && isAtomicEditorDirty(target.kind)) {
-        const ok = window.confirm('You have unsaved changes. Close without saving?');
-        if (!ok) return;
+        setUnsavedClosePromptOpen(true);
+        return;
       }
       onCloseRequest();
     },
     [onCloseRequest, target],
   );
+
+  const handleConfirmCloseWithoutSave = useCallback(() => {
+    setUnsavedClosePromptOpen(false);
+    onCloseRequest();
+  }, [onCloseRequest]);
 
   if (!open || !target) return null;
 
@@ -100,7 +111,18 @@ export function ComponentEditorDialog({
   })();
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <>
+      <ConfirmAlertDialog
+        open={unsavedClosePromptOpen}
+        onOpenChange={setUnsavedClosePromptOpen}
+        tone="warning"
+        title="Unsaved changes"
+        description="You have unsaved changes. Close the editor without saving? Your changes will be lost."
+        cancelLabel="Keep editing"
+        confirmLabel="Close without saving"
+        onConfirm={handleConfirmCloseWithoutSave}
+      />
+      <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
         variant="secondary"
         showCloseButton
@@ -109,7 +131,7 @@ export function ComponentEditorDialog({
         hoverable={false}
         className="border-border bg-background text-foreground flex h-[min(90vh,800px)] w-[min(95vw,1100px)]! max-w-none! flex-col gap-0 overflow-hidden p-0 shadow-lg">
         <DialogHeader className="bg-muted/30 shrink-0 gap-0 border-b px-4 py-3">
-          <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+          <div className="flex min-w-0 flex-col gap-2 pr-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:pr-6">
             <div className="min-w-0 flex-1">
               <DialogTitle className="text-foreground truncate text-left text-base font-semibold">
                 {title}
@@ -119,7 +141,9 @@ export function ComponentEditorDialog({
               </div>
             </div>
             {toolbar ? (
-              <div className="flex min-w-0 shrink-0 items-center justify-end">{toolbar}</div>
+              <div className="ml-auto flex min-w-0 shrink-0 items-center justify-end sm:ml-0">
+                {toolbar}
+              </div>
             ) : null}
           </div>
         </DialogHeader>
@@ -127,5 +151,6 @@ export function ComponentEditorDialog({
         <div className="min-h-0 flex-1 overflow-y-auto">{body}</div>
       </DialogContent>
     </Dialog>
+    </>
   );
 }
