@@ -6,6 +6,12 @@ import { CheckIcon, ChevronDownIcon } from 'lucide-react';
 import { cn } from '../lib/utils/cn.js';
 
 import { selectVariants } from './Select.js';
+import { Input, type InputProps } from './Input.js';
+import { Popover, PopoverAnchor, PopoverContent, PopoverTrigger } from './Popover.js';
+
+/** Default copy for `DropdownSelectComboboxField` when `placeholder` is omitted. */
+export const DROPDOWN_COMBOBOX_DEFAULT_PLACEHOLDER =
+  'Create a new folder or Select an existing folder';
 
 const DropdownSelect = SelectPrimitive.Root;
 
@@ -176,8 +182,237 @@ const DropdownSelectField = React.forwardRef<HTMLButtonElement, DropdownSelectFi
 );
 DropdownSelectField.displayName = 'DropdownSelectField';
 
+export interface DropdownSelectComboboxFieldProps
+  extends Omit<InputProps, 'value' | 'defaultValue' | 'onChange' | 'trailing' | 'leading' | 'error' | 'type'> {
+  value: string;
+  onValueChange: (value: string) => void;
+  /** Same shape as `DropdownSelectField` options — shown in the suggestion list. */
+  options: DropdownSelectOption[];
+  /** Extra classes for the popover list (e.g. `z-[200]` in dialogs). */
+  contentClassName?: string;
+  /**
+   * When true, `options` are filtered by the current value (substring, case-insensitive).
+   * @default true
+   */
+  filterOptions?: boolean;
+}
+
+/**
+ * Combobox: same shell as `Input` (inline), with a trailing chevron that opens a suggestion list.
+ * Text field uses `Input` so styling matches other form fields.
+ */
+const DropdownSelectComboboxField = React.forwardRef<HTMLInputElement, DropdownSelectComboboxFieldProps>(
+  function DropdownSelectComboboxField(
+    {
+      value,
+      onValueChange,
+      options,
+      placeholder = DROPDOWN_COMBOBOX_DEFAULT_PLACEHOLDER,
+      disabled,
+      id,
+      'aria-label': ariaLabel,
+      className,
+      contentClassName,
+      filterOptions = true,
+      variant = 'muted',
+      size = 'sm',
+      hoverable = true,
+      noBorder = false,
+      inputClassName,
+      onKeyDown: onKeyDownFromProps,
+      ...inputRest
+    },
+    ref,
+  ) {
+    const rootRef = React.useRef<HTMLDivElement>(null);
+    const listScrollRef = React.useRef<HTMLDivElement>(null);
+    const [open, setOpen] = React.useState(false);
+    const [menuWidth, setMenuWidth] = React.useState<number | undefined>(undefined);
+    const generatedListId = React.useId();
+    const listId = id ? `${id}-listbox` : `combobox-list-${generatedListId}`;
+
+    const filteredOptions = React.useMemo(() => {
+      if (!filterOptions || options.length === 0) return options;
+      const q = value.trim().toLowerCase();
+      if (!q) return options;
+      return options.filter(
+        (o) => o.value.toLowerCase().includes(q) || o.label.toLowerCase().includes(q),
+      );
+    }, [options, value, filterOptions]);
+
+    React.useLayoutEffect(() => {
+      if (!open || !rootRef.current) return;
+      setMenuWidth(rootRef.current.getBoundingClientRect().width);
+    }, [open]);
+
+    const hasSuggestions = options.length > 0;
+
+    /**
+     * Portaled list: ref exists after a frame. Wheel on inner `div` with `passive: false` so
+     * `preventDefault` + `scrollTop` works in webviews; `stopPropagation` keeps the dialog from scrolling.
+     */
+    React.useLayoutEffect(() => {
+      if (!open || !hasSuggestions) return;
+      let remove: (() => void) | undefined;
+      let cancelled = false;
+      const raf2Id = { current: 0 };
+      const raf1 = requestAnimationFrame(() => {
+        raf2Id.current = requestAnimationFrame(() => {
+          if (cancelled) return;
+          const el = listScrollRef.current;
+          if (!el) return;
+          const onWheel = (e: WheelEvent) => {
+            e.stopPropagation();
+            e.preventDefault();
+            el.scrollTop += e.deltaY;
+          };
+          el.addEventListener('wheel', onWheel, { passive: false });
+          remove = () => el.removeEventListener('wheel', onWheel);
+        });
+      });
+      return () => {
+        cancelled = true;
+        cancelAnimationFrame(raf1);
+        if (raf2Id.current) cancelAnimationFrame(raf2Id.current);
+        remove?.();
+      };
+    }, [open, hasSuggestions, filteredOptions.length]);
+
+    const suggestionTrigger = hasSuggestions ? (
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          disabled={disabled}
+          className="text-primary-icon hover:text-primary-text flex h-full w-full min-h-0 min-w-0 cursor-pointer items-center justify-center rounded-[2px] border-0 bg-transparent p-0 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-ring/40 disabled:cursor-not-allowed disabled:opacity-50"
+          data-state={open ? 'open' : 'closed'}
+          aria-label="Open suggestions"
+          aria-expanded={open}
+          aria-haspopup="listbox"
+          data-slot="combobox-chevron">
+          <ChevronDownIcon
+            aria-hidden
+            className={cn('size-4 shrink-0 opacity-70 transition-transform', open && 'rotate-180')}
+          />
+        </button>
+      </PopoverTrigger>
+    ) : undefined;
+
+    const keepOpenIfComboboxField = (e: { preventDefault: () => void; target: EventTarget | null }) => {
+      const target = e.target;
+      if (target instanceof Node && rootRef.current?.contains(target)) {
+        e.preventDefault();
+      }
+    };
+
+    const listPanel = hasSuggestions && (
+      <PopoverContent
+        id={listId}
+        role="listbox"
+        align="start"
+        side="bottom"
+        sideOffset={2}
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        onCloseAutoFocus={(e) => e.preventDefault()}
+        onPointerDownOutside={keepOpenIfComboboxField}
+        onInteractOutside={keepOpenIfComboboxField}
+        onFocusOutside={keepOpenIfComboboxField}
+        onWheel={(e) => e.stopPropagation()}
+        className={cn(
+          'border-border bg-background text-foreground z-[200] !min-w-0 max-w-[calc(100vw-2rem)] overflow-hidden rounded-md border p-0 shadow-md',
+          'data-[side=bottom]:rounded-t-none data-[side=bottom]:border-t-0 data-[side=bottom]:pt-0',
+          contentClassName,
+        )}
+        style={
+          menuWidth != null
+            ? { width: menuWidth, minWidth: menuWidth, maxWidth: menuWidth }
+            : undefined
+        }>
+        <div
+          ref={listScrollRef}
+          tabIndex={-1}
+          className="max-h-48 min-h-0 touch-pan-y overflow-y-auto overscroll-y-contain p-0 [scrollbar-width:thin]">
+          {filteredOptions.length === 0 ? (
+            <div className="text-muted-foreground px-2.5 py-2.5 text-left text-xs">No matches</div>
+          ) : (
+            filteredOptions.map((opt) => (
+              <button
+                key={opt.value}
+                type="button"
+                role="option"
+                title={opt.label}
+                disabled={opt.disabled}
+                className={cn(
+                  'text-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+                  'relative flex w-full min-w-0 cursor-pointer items-center rounded-none px-2.5 py-2 text-left text-sm outline-none select-none',
+                  'transition-colors duration-150',
+                  'hover:bg-primary-muted/90 focus:bg-primary-muted/90',
+                  'active:bg-primary-muted',
+                  value === opt.value && 'bg-primary-muted/80 font-medium',
+                )}
+                onClick={() => {
+                  onValueChange(opt.value);
+                  setOpen(false);
+                }}>
+                <span className="min-w-0 flex-1 truncate">{opt.label}</span>
+              </button>
+            ))
+          )}
+        </div>
+      </PopoverContent>
+    );
+
+    const fieldProps: InputProps = {
+      ...inputRest,
+      ref,
+      id,
+      type: 'text',
+      role: 'combobox',
+      'aria-label': ariaLabel,
+      'aria-expanded': hasSuggestions ? open : undefined,
+      'aria-autocomplete': hasSuggestions ? 'list' : undefined,
+      'aria-controls': hasSuggestions ? listId : undefined,
+      value,
+      onChange: (e) => onValueChange(e.target.value),
+      onKeyDown: (e) => {
+        if (e.key === 'Escape') setOpen(false);
+        onKeyDownFromProps?.(e);
+      },
+      disabled,
+      placeholder,
+      variant,
+      size,
+      hoverable,
+      noBorder,
+      className: cn('min-w-0', open && hasSuggestions && 'rounded-b-none', className),
+      inputClassName: cn('text-foreground', inputClassName),
+      trailing: suggestionTrigger,
+    };
+
+    return (
+      <div className="w-full min-w-0" data-state={open && hasSuggestions ? 'open' : 'closed'}>
+        {hasSuggestions ? (
+          <Popover open={open} onOpenChange={setOpen} modal={false}>
+            <PopoverAnchor asChild>
+              <div ref={rootRef} className="w-full min-w-0">
+                <Input {...fieldProps} />
+              </div>
+            </PopoverAnchor>
+            {listPanel}
+          </Popover>
+        ) : (
+          <div ref={rootRef} className="w-full min-w-0">
+            <Input {...fieldProps} />
+          </div>
+        )}
+      </div>
+    );
+  },
+);
+DropdownSelectComboboxField.displayName = 'DropdownSelectComboboxField';
+
 export {
   DropdownSelect,
+  DropdownSelectComboboxField,
   DropdownSelectContent,
   DropdownSelectField,
   DropdownSelectGroup,

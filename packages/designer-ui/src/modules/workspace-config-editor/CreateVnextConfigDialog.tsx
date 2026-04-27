@@ -21,7 +21,7 @@ import { createLogger } from '../../lib/logger/createLogger.js';
 import { EditorDocumentToolbar } from '../save-component/components/EditorDocumentToolbar.js';
 import { readFile } from '../project-workspace/WorkspaceApi.js';
 import { useProjectStore } from '../../store/useProjectStore.js';
-import type { ProjectInfo } from '../../shared/projectTypes.js';
+import type { ProjectInfo, VnextComponentType } from '../../shared/projectTypes.js';
 import { Button } from '../../ui/Button.js';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../ui/Card.js';
 import { Checkbox } from '../../ui/Checkbox.js';
@@ -335,6 +335,16 @@ function exportCategoryDisplayTitle(cat: VnextExportCategory): string {
   return cat.charAt(0).toUpperCase() + cat.slice(1);
 }
 
+/** `ChooseExistingVnextComponentDialog` ile aynı kategori → dosya ikonu eşlemesi. */
+const EXPORT_CATEGORY_ICON: Record<VnextExportCategory, VnextComponentType> = {
+  workflows: 'workflow',
+  tasks: 'task',
+  schemas: 'schema',
+  views: 'view',
+  functions: 'function',
+  extensions: 'extension',
+};
+
 /** Workspace’tan keşfedilen anahtarlarla exports `string[]` alanını doldurur. */
 function ExportKeysFieldWithPicker({
   control,
@@ -407,6 +417,7 @@ function ExportKeysFieldWithPicker({
             </p>
           </header>
           <ExportComponentKeyPicker
+            iconType={EXPORT_CATEGORY_ICON[category]}
             ariaLabelledBy={headingId}
             options={options}
             value={

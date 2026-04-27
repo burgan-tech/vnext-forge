@@ -3,7 +3,13 @@ import { useWorkflowStore } from '../../../../../store/useWorkflowStore';
 import { useProjectStore } from '../../../../../store/useProjectStore';
 import { CsxEditorField, type ScriptCode } from '../../../../../modules/save-component/components/CsxEditorField';
 import { OpenVnextComponentInModalButton } from '../../../../../modules/save-component/components/OpenVnextComponentInModalButton.js';
+import { useOpenComponentEditorModal } from '../../../../../modules/save-component/ComponentEditorModalContext.js';
 import type { AtomicSavedInfo } from '../../../../../modules/save-component/componentEditorModalTypes.js';
+import {
+  componentPathToEditorRoute,
+  resolveComponentEditorTargetByKeyFlowResult,
+} from '../../../../../modules/vnext-workspace/resolveComponentEditorRoute.js';
+import { showNotification } from '../../../../../notification/notification-port.js';
 import type { DiscoveredVnextComponent } from '@vnext-forge/app-contracts';
 import { ChooseExistingTaskDialog, ChooseFromExistingTasksButton } from './ChooseExistingTaskDialog';
 import { CreateNewTaskButton, CreateNewTaskDialog } from './CreateNewTaskDialog';
@@ -12,13 +18,21 @@ import { Section, IconTask, IconTrash, IconUp, IconDown } from './PropertyPanelS
 
 /* ────────────── TASKS TAB ────────────── */
 
-export function TasksTab({ state }: { state: any }) {
+export function TasksTab({
+  state,
+  defaultTaskFolder,
+}: {
+  state: any;
+  /** Same as the active workflow editor `group` — default Tasks/ subfolder when creating a task. */
+  defaultTaskFolder?: string;
+}) {
   const { updateWorkflow } = useWorkflowStore();
   const vnextConfig = useProjectStore((s) => s.vnextConfig);
   const activeProject = useProjectStore((s) => s.activeProject);
   const [pickerListField, setPickerListField] = useState<'onEntries' | 'onExits' | null>(null);
   const [createListField, setCreateListField] = useState<'onEntries' | 'onExits' | null>(null);
   const flowEditorSave = useFlowEditorSave();
+  const openComponentEditor = useOpenComponentEditorModal();
   const entries = state.onEntries || [];
   const exits = state.onExits || [];
   const stateKey = state.key;
@@ -58,6 +72,68 @@ export function TasksTab({ state }: { state: any }) {
       entry.task.domain = next.domain;
       entry.task.flow = next.flow;
     });
+  };
+
+  /** After "Create new task", open the atomic task editor so the user can edit JSON immediately. */
+  const openTaskEditorForCreated = (
+    created: DiscoveredVnextComponent,
+    listField: 'onEntries' | 'onExits',
+    newRowIndex: number,
+  ) => {
+    const projectId = activeProject?.id;
+    const projectPath = activeProject?.path;
+    if (!projectId || !projectPath || !vnextConfig?.paths) return;
+
+    const onAtomicSaved = (next: AtomicSavedInfo) => syncTaskRef(listField, newRowIndex, next);
+
+    if (created.path) {
+      const route = componentPathToEditorRoute(created.path, projectPath, vnextConfig.paths, 'tasks');
+      if (route) {
+        openComponentEditor({
+          kind: 'task',
+          projectId,
+          group: route.group,
+          name: route.name,
+          onAtomicSaved,
+        });
+        return;
+      }
+    }
+
+    const k = created.key?.trim();
+    const f = created.flow?.trim();
+    if (!k || !f) return;
+
+    void (async () => {
+      try {
+        const res = await resolveComponentEditorTargetByKeyFlowResult(
+          projectId,
+          projectPath,
+          vnextConfig.paths,
+          k,
+          f,
+        );
+        if (!res.ok) {
+          showNotification({
+            kind: 'error',
+            message:
+              res.failure === 'not_found'
+                ? 'Could not open the task editor. Open it from the task card.'
+                : 'Could not map the task file to the editor.',
+          });
+          return;
+        }
+        openComponentEditor({
+          kind: res.target.kind,
+          projectId,
+          group: res.target.group,
+          name: res.target.name,
+          onAtomicSaved,
+        });
+      } catch {
+        showNotification({ kind: 'error', message: 'Could not open the task editor.' });
+      }
+    })();
   };
 
   const removeTask = (listField: 'onEntries' | 'onExits', index: number) => {
@@ -123,10 +199,14 @@ export function TasksTab({ state }: { state: any }) {
         onOpenChange={(open) => {
           if (!open) setCreateListField(null);
         }}
+        defaultTaskFolder={defaultTaskFolder}
         onCreated={(created) => {
           if (!createListField) return;
-          addTaskFromDiscovered(createListField, created);
+          const listField = createListField;
+          const newRowIndex = listField === 'onEntries' ? entries.length : exits.length;
+          addTaskFromDiscovered(listField, created);
           void flowEditorSave?.saveWorkflow();
+          openTaskEditorForCreated(created, listField, newRowIndex);
         }}
       />
       <Section title="OnEntry" count={entries.length} icon={<IconTask />} defaultOpen>
@@ -171,7 +251,7 @@ export function TasksTab({ state }: { state: any }) {
             disabled={!canPickExisting}
             title={
               canPickExisting
-                ? 'Create a new task JSON under Tasks/<subdomain>/'
+                ? 'Create a new task JSON under Tasks/<folder>/'
                 : 'Requires an open project and vnext.config.json with paths'
             }
           />
@@ -220,7 +300,7 @@ export function TasksTab({ state }: { state: any }) {
             disabled={!canPickExisting}
             title={
               canPickExisting
-                ? 'Create a new task JSON under Tasks/<subdomain>/'
+                ? 'Create a new task JSON under Tasks/<folder>/'
                 : 'Requires an open project and vnext.config.json with paths'
             }
           />

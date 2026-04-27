@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import type { VsCodeWebviewApi } from './VsCodeTransport';
+
 import {
   ComponentEditorModalProvider,
   createLogger,
@@ -17,8 +19,6 @@ import {
 } from '@vnext-forge/designer-ui';
 
 import { resolveWebviewPostMessageAllowedOrigins } from './host/webviewMessageOrigins.js';
-import type { VsCodeWebviewApi } from './VsCodeTransport';
-
 const logger = createLogger('extension/HostEditorBridge');
 
 /**
@@ -125,23 +125,42 @@ export function HostEditorBridge({ api }: HostEditorBridgeProps) {
   return (
     <div className="bg-background text-foreground flex h-screen w-screen min-h-0 flex-col overflow-hidden">
       <div className="min-h-0 flex-1 overflow-hidden">
-        {active ? <ActiveEditor payload={active} /> : <EmptyState />}
+        {active ? <ActiveEditor api={api} payload={active} /> : <EmptyState />}
       </div>
     </div>
   );
 }
 
-function ActiveEditor({ payload }: { payload: HostOpenEditorMessage }) {
+function ActiveEditor({ api, payload }: { api: VsCodeWebviewApi; payload: HostOpenEditorMessage }) {
+  const onOpenScriptFileInHost = useCallback(
+    (absolutePath: string) => {
+      api.postMessage({ type: 'host:open-workspace-file', absolutePath });
+    },
+    [api],
+  );
+
   const { kind, projectId, group, name } = payload;
   switch (kind) {
     case 'workflow':
       return (
-        <ComponentEditorModalProvider>
-          <FlowEditorView projectId={projectId} group={group} name={name} />
+        <ComponentEditorModalProvider onOpenScriptFileInHost={onOpenScriptFileInHost}>
+          <FlowEditorView
+            projectId={projectId}
+            group={group}
+            name={name}
+            onOpenScriptFileInHost={onOpenScriptFileInHost}
+          />
         </ComponentEditorModalProvider>
       );
     case 'task':
-      return <TaskEditorView projectId={projectId} group={group} name={name} />;
+      return (
+        <TaskEditorView
+          projectId={projectId}
+          group={group}
+          name={name}
+          onOpenScriptFileInHost={onOpenScriptFileInHost}
+        />
+      );
     case 'schema':
       return <SchemaEditorView projectId={projectId} group={group} name={name} />;
     case 'view':
