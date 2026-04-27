@@ -13,6 +13,7 @@
   ],
   "activationEvents": [
     "workspaceContains:vnext.config.json",
+    "onLanguage:csharp",
     "onCustomEditor:vnextForge.componentEditor",
     "onCommand:vnextForge.open",
     "onCommand:vnextForge.openDesigner",
@@ -34,6 +35,18 @@
     "media/**"
   ],
   "contributes": {
+    "languages": [
+      {
+        "id": "csharp",
+        "extensions": [
+          ".csx"
+        ],
+        "aliases": [
+          "C# Script",
+          "csx"
+        ]
+      }
+    ],
     "commands": [
       {
         "command": "vnextForge.open",
@@ -222,6 +235,11 @@
           "default": true,
           "description": "Automatically install the C# language server (csharp-ls or OmniSharp) when a vnext workspace is detected."
         },
+        "vnextForge.lsp.enableNativeEditor": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable C# IntelliSense and diagnostics for .csx files opened in VS Code's native editor (in addition to the designer's Monaco editor). Only active when the workspace contains vnext.config.json."
+        },
         "vnextForge.vnextRuntimeUrl": {
           "type": "string",
           "default": "http://localhost:4201",
@@ -285,6 +303,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.0.0",
+    "vscode-languageclient": "^9.0.1",
     "zod": "^4.3.6"
   },
   "devDependencies": {

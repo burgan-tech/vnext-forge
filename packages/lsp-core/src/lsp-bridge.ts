@@ -93,6 +93,90 @@ export function createLspBridge(deps: LspBridgeDeps) {
     }
   }
 
+  /**
+   * Expand a glob pattern that targets `*.cs` so it also matches `*.csx`.
+   * csharp-ls / OmniSharp register their providers (didOpen, completion,
+   * hover, file watchers, …) with `**\/*.cs` because that is the only file
+   * extension Roslyn recognises out of the box. Without expansion, native
+   * VS Code language clients silently drop notifications for `.csx` files
+   * even though our document selector matches them — the LSP runtime honours
+   * the server's dynamic registration filter on top of the client filter.
+   *
+   * Pure string transformation:
+   *   `**\/*.cs`                        -> `**\/*.{cs,csx}`
+   *   `**\/*.{cs,csproj,sln,slnx}`      -> `**\/*.{cs,csx,csproj,sln,slnx}`
+   * Other patterns (no `cs` extension reference) are returned unchanged.
+   */
+  function expandCsxPattern(pattern: string): string {
+    if (/(^|[/\\])\*\.cs$/.test(pattern)) {
+      return pattern.replace(/(^|[/\\])\*\.cs$/, '$1*.{cs,csx}')
+    }
+    const braceMatch = /\{([^}]+)\}/.exec(pattern)
+    if (braceMatch) {
+      const exts = braceMatch[1].split(',').map((s) => s.trim())
+      if (exts.includes('cs') && !exts.includes('csx')) {
+        const next = [...exts]
+        next.splice(next.indexOf('cs') + 1, 0, 'csx')
+        return pattern.replace(braceMatch[0], `{${next.join(',')}}`)
+      }
+    }
+    return pattern
+  }
+
+  /**
+   * `client/registerCapability` requests come from csharp-ls/OmniSharp with
+   * `pattern: '**\/*.cs'`. Rewrite each registration so `.csx` files are
+   * also covered by didOpen/didChange/completion/hover/etc. — otherwise the
+   * native VS Code LanguageClient skips our `.csx` documents entirely.
+   * The Monaco webview client ignores this notification today, so this
+   * change is a no-op for that transport.
+   */
+  function rewriteRegistrations(msg: LspMessage): LspMessage {
+    if (msg.method !== 'client/registerCapability') return msg
+    const registrations = msg.params?.registrations as Record<string, unknown>[] | undefined
+    if (!Array.isArray(registrations)) return msg
+
+    function mapFilter(filter: unknown): unknown {
+      if (filter && typeof filter === 'object' && typeof (filter as { pattern?: unknown }).pattern === 'string') {
+        const f = filter as { pattern: string }
+        return { ...f, pattern: expandCsxPattern(f.pattern) }
+      }
+      return filter
+    }
+
+    function mapWatcher(watcher: unknown): unknown {
+      if (
+        watcher &&
+        typeof watcher === 'object' &&
+        typeof (watcher as { globPattern?: unknown }).globPattern === 'string'
+      ) {
+        const w = watcher as { globPattern: string }
+        return { ...w, globPattern: expandCsxPattern(w.globPattern) }
+      }
+      return watcher
+    }
+
+    const next: Record<string, unknown>[] = registrations.map((reg) => {
+      const opts = reg.registerOptions as Record<string, unknown> | undefined
+      if (!opts) return reg
+      const newOpts: Record<string, unknown> = { ...opts }
+      const sel = opts.documentSelector
+      if (Array.isArray(sel)) {
+        newOpts.documentSelector = (sel as unknown[]).map(mapFilter)
+      }
+      const watchers = opts.watchers
+      if (Array.isArray(watchers)) {
+        newOpts.watchers = (watchers as unknown[]).map(mapWatcher)
+      }
+      return { ...reg, registerOptions: newOpts }
+    })
+
+    return {
+      ...msg,
+      params: { ...msg.params, registrations: next as unknown as never },
+    }
+  }
+
   function rewriteOutgoing(msg: LspMessage, session: BridgeSession): LspMessage {
     const uri = msg.params?.textDocument?.uri
     if (!uri) return msg
@@ -198,7 +282,8 @@ export function createLspBridge(deps: LspBridgeDeps) {
             'publishDiagnostics received from LSP server',
           )
         }
-        const msg = rewriteIncoming(incoming, session)
+        let msg = rewriteIncoming(incoming, session)
+        msg = rewriteRegistrations(msg)
         if (msg.method === 'textDocument/publishDiagnostics') {
           logger.info(
             {

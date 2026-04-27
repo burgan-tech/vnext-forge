@@ -5,6 +5,7 @@ import { VnextComponentCustomTextEditorProvider } from './vnext-component-custom
 import { createExtensionHostLspStack } from './composition/lsp.js';
 import { composeExtensionServices } from './composition/services.js';
 import { bootstrapLsp } from './lsp-bootstrap.js';
+import { createNativeCsxLanguageClient } from './lsp/native-csx-language-client.js';
 import { MessageRouter } from './MessageRouter.js';
 import { createVsCodeOutputChannelLogger } from './adapters/vscode-output-channel-logger.js';
 import { baseLogger } from './shared/logger.js';
@@ -66,6 +67,23 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   const detector = new VnextWorkspaceDetector(services.workspaceService);
   context.subscriptions.push(detector);
+
+  // Native VS Code editor LSP client for .csx files. Reuses the same
+  // `lspBridge` (and thus the same OmniSharp/csharp-ls + temp workspace +
+  // BBT.Workflow.Domain setup) as the designer Monaco webview, but talks to
+  // the workbench TextEditor through the native `vscode-languageclient`. The
+  // client only attaches when the workspace contains `vnext.config.json` and
+  // can be opted out via `vnextForge.lsp.enableNativeEditor`.
+  const csxNativeLspChannel = vscode.window.createOutputChannel('vnext-forge:csx-native-lsp');
+  context.subscriptions.push(csxNativeLspChannel);
+  context.subscriptions.push(
+    createNativeCsxLanguageClient({
+      lspBridge,
+      workspaceDetector: detector,
+      logger: loggerAdapter,
+      outputChannel: csxNativeLspChannel,
+    }),
+  );
 
   registerCommands(context, {
     projectService: services.projectService,

@@ -99,6 +99,15 @@ function lspCompletionKindToMonaco(kind: number | undefined, monaco: Monaco): nu
 // ── WS URL (standalone web app only) ─────────────────────────────────────────
 
 function getWsUrl(sessionId: string): string {
+  const baseUrl = getHostEditorCapabilities().lspWebSocketBaseUrl;
+  // When the host injected an explicit API origin (e.g. apps/web in dev mode
+  // talking to apps/server on :3001), use that. Otherwise fall back to the
+  // page's own origin (production same-origin deployments).
+  if (baseUrl) {
+    const url = new URL(baseUrl);
+    const protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+    return `${protocol}//${url.host}/api/lsp/csharp?session=${encodeURIComponent(sessionId)}`;
+  }
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   return `${protocol}//${window.location.host}/api/lsp/csharp?session=${encodeURIComponent(sessionId)}`;
 }

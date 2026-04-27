@@ -20,8 +20,10 @@ The product is a VS Code extension built as a monorepo:
 ```
 apps/
   extension/   # VS Code extension (extension host + bundled business logic)
-  web/         # React webview UI (Vite → bundled into extension/dist/webview-ui/)
-  server/      # [DEPRECATED] Former standalone BFF — logic moved to extension
+  web/         # React UI — runs in two modes:
+               #   - extension webview (Vite → bundled into extension/dist/webview-ui/)
+               #   - standalone browser SPA against apps/server (local dev)
+  server/      # Hono REST backend (apps/web shell talks to it on :3001)
 
 packages/
   vnext-types/       # Shared domain model types (@vnext-forge/vnext-types)
@@ -103,6 +105,65 @@ pnpm --filter vnext-forge package
 ```bash
 code --install-extension apps/extension/vnext-forge-0.1.0.vsix
 ```
+
+## Run the web shell locally (browser + Hono backend)
+
+The React UI in `apps/web` can also run as a standalone browser SPA against
+the `apps/server` Hono backend. Use this mode when you want to iterate on the
+UI without packaging the VS Code extension.
+
+| App | URL | Purpose |
+|---|---|---|
+| `apps/server` (Hono REST) | `http://127.0.0.1:3001` | Bound to loopback by default. Exposes `/api/v1/*`, `/api/health`, and the LSP WebSocket at `/api/lsp/csharp`. |
+| `apps/web` (Vite dev server) | `http://localhost:3000` | Hot-reloading SPA that talks to the server above. CORS allowlist already includes `:3000`. |
+
+### Start both processes
+
+In two separate terminals:
+
+```bash
+# terminal 1 — backend
+pnpm --filter @vnext-forge/server dev
+
+# terminal 2 — web shell
+pnpm --filter @vnext-forge/web dev
+```
+
+Then open <http://localhost:3000> in a browser. The web shell will issue REST
+calls against `http://127.0.0.1:3001/api/v1/*` (default; configurable via
+`apps/web/.env` → `VITE_API_BASE_URL`). C# script (`.csx`) IntelliSense uses
+the `/api/lsp/csharp` WebSocket on the same host.
+
+### Smoke check
+
+```bash
+curl http://127.0.0.1:3001/api/health
+# → {"success":true,"data":{"status":"ok","traceId":"..."},"error":null}
+```
+
+### Optional configuration
+
+Both apps boot with sane defaults from their Zod schemas — no `.env` is
+required. To override:
+
+```bash
+# apps/server/.env  (copy any keys you want to change)
+PORT=3001
+HOST=127.0.0.1
+VNEXT_RUNTIME_URL=http://localhost:4201
+LOG_LEVEL=info
+CORS_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001
+
+# apps/web/.env  (only VITE_*-prefixed keys reach the browser bundle)
+VITE_API_BASE_URL=http://localhost:3001
+```
+
+`.env` files are git-ignored. Restart the dev process after changing them.
+
+### Stop the processes
+
+`Ctrl+C` in each terminal. Both processes are watch-mode (`tsx watch` /
+Vite HMR) and will reload on source changes.
 
 ## Using the extension
 

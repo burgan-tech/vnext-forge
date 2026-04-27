@@ -10,4 +10,11 @@ export interface HostEditorCapabilities {
    * Empty means "no origin filter" (standalone web — WebSocket path only).
    */
   postMessageAllowedOrigins: readonly string[];
+  /**
+   * Base origin (e.g. `http://localhost:3001`) for the Roslyn LSP WebSocket.
+   * The client rewrites the scheme to `ws://` / `wss://` automatically.
+   * Leave undefined to fall back to the page's own origin (works when the
+   * SPA is served same-origin with the API in production builds).
+   */
+  lspWebSocketBaseUrl?: string;
 }
