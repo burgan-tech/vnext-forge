@@ -82,7 +82,7 @@ export function WorkflowPropertySidebarResizableRow({
   );
 }
 
-export function StatePropertyPanel() {
+export function StatePropertyPanel({ defaultTaskFolder }: { defaultTaskFolder?: string } = {}) {
   const { workflowJson, selectedNodeId, updateWorkflow, setSelectedNode } = useWorkflowStore();
   const [activeTab, setActiveTab] = useState<Tab>('general');
 
@@ -192,7 +192,7 @@ export function StatePropertyPanel() {
       {/* Content */}
       <div className="flex-1 space-y-3 overflow-y-auto p-3">
         {activeTab === 'general' && <GeneralTab state={state} updateWorkflow={updateWorkflow} />}
-        {activeTab === 'tasks' && <TasksTab state={state} />}
+        {activeTab === 'tasks' && <TasksTab state={state} defaultTaskFolder={defaultTaskFolder} />}
         {activeTab === 'transitions' && <TransitionsTab state={state} />}
         {activeTab === 'subflow' && <SubFlowTab state={state} />}
         {activeTab === 'error-boundary' && <ErrorBoundaryTab state={state} />}

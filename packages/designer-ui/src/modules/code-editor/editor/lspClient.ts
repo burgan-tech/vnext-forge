@@ -195,18 +195,62 @@ export function createCsharpLspClient(monaco: Monaco, sessionId: string): Csharp
 
   // ── Monaco provider registration ─────────────────────────────────────────
 
+  /**
+   * Wrap an LSP request with Monaco's CancellationToken so the provider does
+   * not hold its async result open after the user has moved on (typed another
+   * character, dismissed the suggest widget, …). Without this, every
+   * in-flight `textDocument/completion` keeps the suggest widget in a
+   * loading state and the next keystroke (e.g. plain space) ends up queued
+   * behind the stale request.
+   */
+  function sendCancellableRequest(
+    method: string,
+    params: unknown,
+    token: { isCancellationRequested: boolean; onCancellationRequested(cb: () => void): { dispose(): void } } | undefined,
+  ): Promise<unknown> {
+    if (token?.isCancellationRequested) return Promise.resolve(null);
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const cancelSub = token?.onCancellationRequested(() => {
+        if (settled) return;
+        settled = true;
+        resolve(null);
+      });
+      sendRequest(method, params).then(
+        (result) => {
+          if (settled) return;
+          settled = true;
+          cancelSub?.dispose();
+          resolve(result);
+        },
+        (err) => {
+          if (settled) return;
+          settled = true;
+          cancelSub?.dispose();
+          reject(err);
+        },
+      );
+    });
+  }
+
   function registerProviders(): void {
     // ── Completions ──────────────────────────────────────────────────────
+    // Trigger characters: `.` for member access, `(` for method invocation.
+    // Space is intentionally NOT a trigger — registering it forces an LSP
+    // round-trip on every space keystroke, which makes typing feel frozen
+    // because Monaco's suggest widget waits for the response before
+    // committing the keystroke.
     disposables.push(
       monaco.languages.registerCompletionItemProvider('csharp', {
-        triggerCharacters: ['.', ' ', '('],
-        async provideCompletionItems(model: any, position: any) {
+        triggerCharacters: ['.', '('],
+        async provideCompletionItems(model: any, position: any, _context: any, token: any) {
           try {
-            const result = await sendRequest('textDocument/completion', {
+            const result = await sendCancellableRequest('textDocument/completion', {
               textDocument: { uri: model.uri.toString() },
               position: monacoPositionToLsp(position),
-            }) as any;
+            }, token) as any;
 
+            if (token?.isCancellationRequested) return { suggestions: [] };
             if (!result) return { suggestions: [] };
 
             const items: any[] = Array.isArray(result) ? result : result.items ?? [];
@@ -245,13 +289,14 @@ export function createCsharpLspClient(monaco: Monaco, sessionId: string): Csharp
     // ── Hover ────────────────────────────────────────────────────────────
     disposables.push(
       monaco.languages.registerHoverProvider('csharp', {
-        async provideHover(model: any, position: any) {
+        async provideHover(model: any, position: any, token: any) {
           try {
-            const result = await sendRequest('textDocument/hover', {
+            const result = await sendCancellableRequest('textDocument/hover', {
               textDocument: { uri: model.uri.toString() },
               position: monacoPositionToLsp(position),
-            }) as any;
+            }, token) as any;
 
+            if (token?.isCancellationRequested) return null;
             if (!result?.contents) return null;
 
             const contents = Array.isArray(result.contents)
@@ -276,13 +321,14 @@ export function createCsharpLspClient(monaco: Monaco, sessionId: string): Csharp
     disposables.push(
       monaco.languages.registerSignatureHelpProvider('csharp', {
         signatureHelpTriggerCharacters: ['(', ','],
-        async provideSignatureHelp(model: any, position: any) {
+        async provideSignatureHelp(model: any, position: any, token: any) {
           try {
-            const result = await sendRequest('textDocument/signatureHelp', {
+            const result = await sendCancellableRequest('textDocument/signatureHelp', {
               textDocument: { uri: model.uri.toString() },
               position: monacoPositionToLsp(position),
-            }) as any;
+            }, token) as any;
 
+            if (token?.isCancellationRequested) return null;
             if (!result?.signatures?.length) return null;
 
             return {
@@ -442,12 +488,13 @@ export function createCsharpLspClient(monaco: Monaco, sessionId: string): Csharp
   // ── postMessage transport (VS Code webview) ──────────────────────────────
 
   async function startWithPostMessage(): Promise<void> {
-    const api = (window as any).acquireVsCodeApi() as {
-      postMessage(msg: unknown): void;
-    };
-
-    // Receive LSP messages forwarded from the extension host bridge
     const caps = getHostEditorCapabilities();
+    const sendToHost = caps.postMessageToHost;
+    if (!sendToHost) {
+      throw new Error(
+        'LSP postMessage transport requested but HostEditorCapabilities.postMessageToHost is not set',
+      );
+    }
 
     const windowListener = (event: MessageEvent) => {
       if (!isMessageOriginAllowed(event.origin, caps.postMessageAllowedOrigins)) {
@@ -481,17 +528,17 @@ export function createCsharpLspClient(monaco: Monaco, sessionId: string): Csharp
 
     // Wire send: each call forwards raw JSON to the extension host bridge
     doSend = (rawJson: string) => {
-      api.postMessage({ type: 'lsp', event: 'message', sessionId, data: rawJson });
+      sendToHost({ type: 'lsp', event: 'message', sessionId, data: rawJson });
     };
 
     doDisconnect = () => {
       connected = false;
       window.removeEventListener('message', windowListener);
-      api.postMessage({ type: 'lsp', event: 'disconnect', sessionId });
+      sendToHost({ type: 'lsp', event: 'disconnect', sessionId });
     };
 
     // Signal the extension host to open an LSP session
-    api.postMessage({ type: 'lsp', event: 'connect', sessionId });
+    sendToHost({ type: 'lsp', event: 'connect', sessionId });
     connected = true;
 
     await initialize();

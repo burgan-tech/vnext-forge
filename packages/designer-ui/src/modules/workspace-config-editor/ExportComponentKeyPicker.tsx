@@ -1,10 +1,14 @@
 import { Loader2 } from 'lucide-react';
 
-import { cn } from '../../lib/utils/cn.js';
-import { Button } from '../../ui/Button.js';
 import type { DiscoveredVnextComponent } from '@vnext-forge/app-contracts';
 
+import { ComponentFileIcon } from '../component-icons/ComponentFileIcon.js';
+import { cn } from '../../lib/utils/cn.js';
+import type { VnextComponentType } from '../../shared/projectTypes.js';
+
 export interface ExportComponentKeyPickerProps {
+  /** Satır ikonu — `ChooseExistingVnextComponentDialog` ile aynı rozetler. */
+  iconType?: VnextComponentType;
   /** Keşfedilen bileşenler (genelde `key` sıralı). */
   options: DiscoveredVnextComponent[];
   /** Seçili export `key` listesi (form ile senkron). */
@@ -29,6 +33,7 @@ function toggleKey(keys: readonly string[], key: string): string[] {
  * Çoklu seçim: satırlar ince ayırıcılarla birleşik liste; seçili satır success yüzeyi + sol çizgi ile okunur.
  */
 export function ExportComponentKeyPicker({
+  iconType = 'task',
   options,
   value,
   onChange,
@@ -47,7 +52,7 @@ export function ExportComponentKeyPicker({
     <div className={cn(className)}>
       <div
         className={cn(
-          'border-border/60 bg-muted/20 flex flex-col overflow-hidden rounded-lg border',
+          'border-border-subtle bg-surface/30 flex flex-col overflow-hidden rounded-md border p-0.5',
           capsHeight && 'max-h-52 min-h-0',
           disabled && 'pointer-events-none opacity-60',
         )}
@@ -61,53 +66,58 @@ export function ExportComponentKeyPicker({
             capsHeight && 'min-h-0 flex-1',
           )}>
           {loading ? (
-            <div className="text-muted-foreground flex items-center justify-center gap-2 px-4 py-8 text-sm">
+            <div className="text-muted-foreground flex items-center justify-center gap-2 px-4 py-8 text-xs">
               <Loader2 className="size-4 shrink-0 animate-spin motion-reduce:animate-none" aria-hidden />
               Scanning…
             </div>
           ) : isEmpty ? (
-            <p className="text-muted-foreground px-4 py-6 text-center text-sm leading-normal sm:py-7">
+            <p className="text-muted-foreground px-4 py-6 text-center text-xs leading-normal sm:py-7">
               {emptyHint}
             </p>
           ) : (
-            <ul className="divide-border divide-y">
+            <ul className="space-y-0.5">
               {options.map((opt) => {
                 const isOn = selected.has(opt.key);
                 return (
-                  <li key={`${opt.path}:${opt.key}`}>
-                    <Button
+                  <li
+                    key={`${opt.path}:${opt.key}`}
+                    className="border-border-subtle/80 bg-background/40 overflow-hidden rounded-md border">
+                    <button
                       type="button"
                       role="option"
                       aria-selected={isOn}
-                      variant="ghost"
-                      size="sm"
-                      hoverable
-                      noBorder
                       disabled={disabled}
                       onClick={() => onChange(toggleKey(value, opt.key))}
                       className={cn(
-                        'motion-safe:transition-colors motion-safe:duration-200 motion-safe:ease-out',
-                        'h-auto min-h-0 w-full shrink justify-start rounded-none px-0 py-0 shadow-none',
-                        'border-l-[3px] border-l-transparent font-normal',
-                        '[&>span]:flex [&>span]:w-full [&>span]:min-w-0 [&>span]:items-center [&>span]:justify-between [&>span]:gap-2',
-                        'focus-visible:ring-offset-background',
+                        'motion-safe:transition-colors flex w-full min-h-0 cursor-pointer items-center gap-1.5 px-2 py-1 text-left duration-200',
+                        'focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-offset-1 focus-visible:outline-none',
+                        'border-l-[3px] border-l-transparent',
                         isOn
-                          ? 'bg-success-surface text-success-text border-l-success-border hover:!bg-success-hover/15'
-                          : 'text-foreground hover:!bg-muted/40',
+                          ? 'bg-success-surface text-success-text border-l-success-border hover:bg-success-hover/15'
+                          : 'hover:border-border hover:bg-muted/60 border border-transparent',
                       )}>
-                      <span className="min-w-0 flex-1 truncate text-left font-mono text-sm font-medium leading-snug tracking-tight">
-                        {opt.key}
-                      </span>
-                      {opt.version ? (
+                      <ComponentFileIcon type={iconType} className="size-3.5 shrink-0" />
+                      <span className="min-w-0 flex-1">
                         <span
                           className={cn(
-                            'shrink-0 tabular-nums text-xs font-normal leading-none',
-                            isOn ? 'text-success-icon' : 'text-muted-foreground',
+                            'flex flex-wrap items-baseline gap-x-1.5 gap-y-0 font-mono leading-tight',
+                            isOn ? 'text-success-text' : 'text-foreground',
                           )}>
-                          v{opt.version}
+                          <span className="text-[11px] font-normal tabular-nums">{opt.key}</span>
+                          {opt.version ? (
+                            <span
+                              className={cn(
+                                'rounded px-0.5 py-0 text-[9px] font-normal leading-none tabular-nums',
+                                isOn
+                                  ? 'bg-success-surface text-success-icon'
+                                  : 'text-muted-foreground bg-muted/50',
+                              )}>
+                              v{opt.version}
+                            </span>
+                          ) : null}
                         </span>
-                      ) : null}
-                    </Button>
+                      </span>
+                    </button>
                   </li>
                 );
               })}

@@ -307,6 +307,8 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "monaco-editor": "^0.55.1",
+    "@monaco-editor/react": "^4.7.0",
     "@tailwindcss/vite": "^4.0.0",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",

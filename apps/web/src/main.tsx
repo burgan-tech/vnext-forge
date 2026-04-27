@@ -1,8 +1,11 @@
+import './monacoEnvironment';
+
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
   DesignerUiProvider,
   setHostEditorCapabilities,
+  setupMonacoLoader,
   syncColorThemeFromSettingsStore,
 } from '@vnext-forge/designer-ui';
 
@@ -17,6 +20,7 @@ import { webHostEditorCapabilities } from './shared/host/webHostEditorCapabiliti
 
 const transport = createHttpTransport({ baseUrl: config.apiBaseUrl });
 setHostEditorCapabilities(webHostEditorCapabilities());
+setupMonacoLoader();
 
 syncColorThemeFromSettingsStore();
 startWorkspaceFsTreeSync();

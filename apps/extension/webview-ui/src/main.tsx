@@ -1,3 +1,5 @@
+import './monacoEnvironment';
+
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 
@@ -6,6 +8,7 @@ import {
   registerLogSink,
   registerNotificationSink,
   setHostEditorCapabilities,
+  setupMonacoLoader,
   syncColorThemeFromSettingsStore,
 } from '@vnext-forge/designer-ui';
 
@@ -34,7 +37,8 @@ function getVsCodeApi(): VsCodeWebviewApi {
 
 const vsCodeApi = getVsCodeApi();
 const transport = createVsCodeTransport(vsCodeApi);
-setHostEditorCapabilities(extensionHostEditorCapabilities());
+setHostEditorCapabilities(extensionHostEditorCapabilities(vsCodeApi));
+setupMonacoLoader();
 
 // Route every designer-ui `showNotification(...)` call to the host so the
 // user sees a native `vscode.window.show*` notification rather than an

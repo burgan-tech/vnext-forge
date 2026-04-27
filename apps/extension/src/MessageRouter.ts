@@ -1,3 +1,5 @@
+import * as path from 'node:path';
+
 import * as vscode from 'vscode';
 
 import { ERROR_CODES, VnextForgeError, type ApiResponse } from '@vnext-forge/app-contracts';
@@ -60,6 +62,12 @@ interface WebviewLogFrame {
   timestamp: string;
 }
 
+/** Webview → Extension Host: open a workspace file in the built-in text editor (e.g. .csx from task script panel). */
+interface WebviewOpenWorkspaceFileFrame {
+  type: 'host:open-workspace-file';
+  absolutePath: string;
+}
+
 // ── Router ────────────────────────────────────────────────────────────────────
 
 export interface MessageRouterDeps {
@@ -120,6 +128,11 @@ export class MessageRouter {
       return;
     }
 
+    if (isOpenWorkspaceFileFrame(raw)) {
+      void this.handleOpenWorkspaceFile(raw);
+      return;
+    }
+
     if (isNotifyFrame(raw)) {
       void this.handleNotifyFrame(panel, raw);
       return;
@@ -128,6 +141,49 @@ export class MessageRouter {
     if (isLogFrame(raw)) {
       this.handleLogFrame(raw);
       return;
+    }
+  }
+
+  private async handleOpenWorkspaceFile(frame: WebviewOpenWorkspaceFileFrame): Promise<void> {
+    const rawPath = frame.absolutePath?.trim();
+    if (!rawPath) return;
+
+    let normalized: string;
+    try {
+      normalized = path.normalize(rawPath);
+    } catch {
+      return;
+    }
+
+    const uri = vscode.Uri.file(normalized);
+    const workspaceOk =
+      vscode.workspace.workspaceFolders?.some((folder) => {
+        const root = path.normalize(folder.uri.fsPath);
+        const candidate = path.normalize(normalized);
+        const rel = path.relative(root, candidate);
+        return rel === '' || (!rel.startsWith('..') && !path.isAbsolute(rel));
+      }) ?? false;
+
+    if (!workspaceOk) {
+      this.deps.logger.warn(
+        { path: normalized } as Record<string, unknown>,
+        'host:open-workspace-file rejected: path outside workspace',
+      );
+      return;
+    }
+
+    try {
+      await vscode.commands.executeCommand('vscode.openWith', uri, 'default');
+    } catch {
+      try {
+        const document = await vscode.workspace.openTextDocument(uri);
+        await vscode.window.showTextDocument(document, { preview: false });
+      } catch (error) {
+        this.deps.logger.warn(
+          { path: normalized, err: (error as Error).message } as Record<string, unknown>,
+          'host:open-workspace-file failed',
+        );
+      }
     }
   }
 
@@ -301,6 +357,12 @@ function isLspFrame(value: unknown): value is WebviewLspFrame {
     typeof v.sessionId === 'string' &&
     (v.event === 'connect' || v.event === 'message' || v.event === 'disconnect')
   );
+}
+
+function isOpenWorkspaceFileFrame(value: unknown): value is WebviewOpenWorkspaceFileFrame {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return v.type === 'host:open-workspace-file' && typeof v.absolutePath === 'string';
 }
 
 function isNotifyFrame(value: unknown): value is WebviewNotifyFrame {

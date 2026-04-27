@@ -73,6 +73,24 @@ export class VnextComponentCustomTextEditorProvider implements vscode.CustomText
   ): Promise<void> {
     const uri = document.uri
 
+    try {
+      await this.resolveCustomTextEditorSafe(uri, webviewPanel)
+    } catch (error) {
+      baseLogger.warn(
+        {
+          path: uri.fsPath,
+          error: error instanceof Error ? error.message : String(error),
+        },
+        'Failed to resolve vnext component custom editor; falling back to text editor',
+      )
+      await this.openInTextEditor(uri, webviewPanel)
+    }
+  }
+
+  private async resolveCustomTextEditorSafe(
+    uri: vscode.Uri,
+    webviewPanel: vscode.WebviewPanel,
+  ): Promise<void> {
     // We only register for `*.json` selector but VS Code may still hand
     // us non-file schemes (git diff, untitled, etc.). For anything that
     // isn't a real on-disk file, fall back to the text editor.
@@ -155,26 +173,63 @@ export class VnextComponentCustomTextEditorProvider implements vscode.CustomText
       /* ignore */
     }
 
+    let openedInTextEditor = false
     try {
-      await vscode.commands.executeCommand(
-        'vscode.openWith',
-        uri,
-        'default',
-        webviewPanel.viewColumn ?? vscode.ViewColumn.Active,
-      )
-    } catch (error) {
+      const viewColumn = getConcreteViewColumn(webviewPanel)
+      if (viewColumn === undefined) {
+        await vscode.commands.executeCommand('vscode.openWith', uri, 'default')
+      } else {
+        await vscode.commands.executeCommand('vscode.openWith', uri, 'default', viewColumn)
+      }
+      openedInTextEditor = true
+    } catch (openWithError) {
       baseLogger.warn(
-        { path: uri.fsPath, error: (error as Error).message },
+        {
+          path: uri.fsPath,
+          error: openWithError instanceof Error ? openWithError.message : String(openWithError),
+        },
         'Failed to redirect non-component JSON to the text editor',
       )
-    } finally {
+
       try {
-        webviewPanel.dispose()
-      } catch {
-        /* ignore */
+        const document = await vscode.workspace.openTextDocument(uri)
+        const viewColumn = getConcreteViewColumn(webviewPanel)
+        if (viewColumn === undefined) {
+          await vscode.window.showTextDocument(document, { preview: false })
+        } else {
+          await vscode.window.showTextDocument(document, { preview: false, viewColumn })
+        }
+        openedInTextEditor = true
+      } catch (fallbackError) {
+        baseLogger.warn(
+          {
+            path: uri.fsPath,
+            error: fallbackError instanceof Error ? fallbackError.message : String(fallbackError),
+          },
+          'Fallback openTextDocument failed for non-component JSON',
+        )
+        void vscode.window.showWarningMessage(
+          'vnext-forge: Could not open this file in the text editor. See the vnext-forge-core output for details.',
+        )
+      }
+    } finally {
+      if (openedInTextEditor) {
+        try {
+          webviewPanel.dispose()
+        } catch {
+          /* ignore */
+        }
       }
     }
   }
+}
+
+function getConcreteViewColumn(panel: vscode.WebviewPanel): vscode.ViewColumn | undefined {
+  const viewColumn = panel.viewColumn
+  if (typeof viewColumn !== 'number' || viewColumn < vscode.ViewColumn.One) {
+    return undefined
+  }
+  return viewColumn
 }
 
 /**

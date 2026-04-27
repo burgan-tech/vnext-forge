@@ -25,7 +25,10 @@ import {
   ResizablePanelGroup,
   usePanelRef,
 } from '../../../ui/Resizable.js';
-import { encodeToBase64, decodeFromBase64 } from '../../../modules/code-editor/editor/Base64Handler';
+import {
+  encodeToBase64,
+  decodeFromBase64,
+} from '../../../modules/code-editor/editor/Base64Handler';
 import { CsxSnippetToolbar } from '../../../modules/code-editor/editor/CsxSnippetToolbar';
 import { CsxReferencePanel } from '../../../modules/code-editor/editor/CsxReferencePanel';
 import { applyDiagnostics } from '../../../modules/code-editor/editor/CsxDiagnostics';
@@ -142,7 +145,10 @@ export function FlowEditorCanvasAndScriptResizableColumn({
 function resolveWorkflowScriptAbsolutePath(workflowDir: string, location: string): string {
   const trimmed = location.trim();
   const relativePath = trimmed.startsWith('./') ? trimmed.slice(2) : trimmed;
-  const root = workflowDir.replace(/\\/g, '/').replace(/\/{2,}/g, '/').replace(/\/+$/, '');
+  const root = workflowDir
+    .replace(/\\/g, '/')
+    .replace(/\/{2,}/g, '/')
+    .replace(/\/+$/, '');
   return `${root}/${relativePath}`.replace(/\/{2,}/g, '/');
 }
 
@@ -192,6 +198,9 @@ export function ScriptEditorPanel({
   const markerDisposableRef = useRef<{ dispose: () => void } | null>(null);
   const lspClientRef = useRef<CsharpLspClient | null>(null);
   const lspSessionId = useRef(crypto.randomUUID());
+  const editorContainerRef = useRef<HTMLDivElement | null>(null);
+  const layoutObserverRef = useRef<ResizeObserver | null>(null);
+  const layoutRafRef = useRef(0);
 
   const decoded = useMemo(() => {
     if (!activeScript?.value?.code) return '';
@@ -231,15 +240,20 @@ export function ScriptEditorPanel({
   const handleCodeChange = useCallback(
     (newCode: string | undefined) => {
       if (!activeScript) return;
-      if ((newCode || '') === decoded) return;
-      syncToWorkflow(newCode || '');
+      const next = newCode || '';
+      // Filter Monaco's first-render EOL normalization echo (CRLF → LF).
+      // If the only difference is line endings, treat as no user edit and
+      // avoid emitting onChange — otherwise upstream "is dirty" trackers
+      // would falsely fire on a freshly loaded script.
+      if (next.replace(/\r\n/g, '\n') === decoded.replace(/\r\n/g, '\n')) return;
+      syncToWorkflow(next);
 
       if (diagnosticTimerRef.current) clearTimeout(diagnosticTimerRef.current);
       diagnosticTimerRef.current = setTimeout(() => {
         const editor = editorRef.current;
         const monaco = monacoRef.current;
         if (editor && monaco) {
-          applyDiagnostics(monaco, editor.getModel(), newCode || '', activeScript.templateType);
+          applyDiagnostics(monaco, editor.getModel(), next, activeScript.templateType);
         }
       }, 300);
     },
@@ -272,6 +286,28 @@ export function ScriptEditorPanel({
       }).then((client) => {
         lspClientRef.current = client;
       });
+
+      // Manual layout: `automaticLayout: false` + integer pixel size avoids subpixel
+      // drift in nested flex/overflow (VS Code webview) that stacks view-lines on scroll.
+      layoutObserverRef.current?.disconnect();
+      layoutObserverRef.current = null;
+      cancelAnimationFrame(layoutRafRef.current);
+      const container = editorContainerRef.current;
+      if (container) {
+        const runLayout = () => {
+          cancelAnimationFrame(layoutRafRef.current);
+          layoutRafRef.current = requestAnimationFrame(() => {
+            const rect = container.getBoundingClientRect();
+            const w = Math.max(0, Math.floor(rect.width));
+            const h = Math.max(0, Math.floor(rect.height));
+            editor.layout({ width: w, height: h });
+          });
+        };
+        const ro = new ResizeObserver(runLayout);
+        ro.observe(container);
+        layoutObserverRef.current = ro;
+        runLayout();
+      }
     },
     [activeScript, taskInline],
   );
@@ -363,6 +399,9 @@ export function ScriptEditorPanel({
       markerDisposableRef.current = null;
       lspClientRef.current?.dispose();
       lspClientRef.current = null;
+      layoutObserverRef.current?.disconnect();
+      layoutObserverRef.current = null;
+      cancelAnimationFrame(layoutRafRef.current);
     };
   }, []);
 
@@ -387,7 +426,7 @@ export function ScriptEditorPanel({
         <div className="min-w-2 flex-1" />
 
         {/* Location — short error under input (no full-width alert) */}
-        <div className="min-w-0 max-w-[min(280px,40vw)] shrink-0 flex-1">
+        <div className="max-w-[min(280px,40vw)] min-w-0 flex-1 shrink-0">
           <Input
             value={locationDraft}
             onChange={(e) => handleLocationChange(e.target.value)}
@@ -423,7 +462,7 @@ export function ScriptEditorPanel({
               type="button"
               onClick={taskInline.onOpenInFullEditor}
               className="text-secondary-text hover:bg-secondary-muted flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition-colors"
-              title="Open in full code editor (new tab in this app)">
+              title="Open the .csx file in the full editor (new tab)">
               <ExternalLink size={12} className="opacity-80" />
               <span>Open in full editor</span>
             </button>
@@ -434,7 +473,7 @@ export function ScriptEditorPanel({
               onClick={handleOpenWorkflowScriptInFullEditor}
               disabled={!locationDraft.trim() || Boolean(getScriptLocationError(locationDraft))}
               className="text-secondary-text hover:bg-secondary-muted flex shrink-0 items-center gap-1 rounded-md px-2 py-1 text-[10px] font-medium transition-colors disabled:pointer-events-none disabled:opacity-40"
-              title="Open in full code editor (new tab in this app)">
+              title="Open the .csx file in the full editor (new tab)">
               <ExternalLink size={12} className="opacity-80" />
               <span>Open in full editor</span>
             </button>
@@ -482,7 +521,7 @@ export function ScriptEditorPanel({
       {/* Editor area */}
       <div className="flex min-h-0 flex-1">
         {/* Monaco editor (full width) */}
-        <div className="min-h-0 min-w-0 flex-1">
+        <div ref={editorContainerRef} className="min-h-0 min-w-0 flex-1">
           <MonacoEditor
             height="100%"
             language="csharp"
@@ -497,14 +536,20 @@ export function ScriptEditorPanel({
               fontSize: 13,
               tabSize: 4,
               wordWrap: 'on',
+              wrappingStrategy: 'advanced',
               folding: true,
               glyphMargin: true,
               lineDecorationsWidth: 8,
               lineNumbersMinChars: 3,
               renderLineHighlight: 'line',
               overviewRulerLanes: 2,
-              scrollbar: { verticalScrollbarSize: 8, horizontalScrollbarSize: 8 },
-              automaticLayout: true,
+              scrollbar: {
+                verticalScrollbarSize: 8,
+                horizontalScrollbarSize: 8,
+                alwaysConsumeMouseWheel: true,
+              },
+              automaticLayout: false,
+              fixedOverflowWidgets: true,
               padding: { top: 8, bottom: 8 },
               bracketPairColorization: { enabled: true },
               guides: { bracketPairs: true, indentation: true },

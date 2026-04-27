@@ -16,15 +16,7 @@ import { resolveTaskScriptAbsolutePath, toTaskRelativeScriptLocation } from '../
 import { listProjectCsxScripts, type ListedCsxScript } from '../services/listProjectCsxScripts';
 import { useScriptTaskChrome } from '../ScriptTaskChromeContext.js';
 import { Button } from '../../../ui/Button';
-import {
-  Dialog,
-  DialogCancelButton,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '../../../ui/Dialog';
+import { ConfirmAlertDialog } from '../../../ui/AlertDialog';
 import { Input } from '../../../ui/Input';
 
 interface Props {
@@ -52,15 +44,6 @@ function taskScriptBodyMatchesDiskFile(config: Record<string, unknown>, fileText
     body = normalizeCsxText(rawStr);
   }
   return body === disk;
-}
-
-/** Stable signature for script fields only (used for “discard script” confirm). */
-function scriptTaskConfigSignature(cfg: Record<string, unknown>): string {
-  return JSON.stringify({
-    location: typeof cfg.location === 'string' ? cfg.location : '',
-    script: typeof cfg.script === 'string' ? cfg.script : '',
-    encoding: cfg.encoding ?? '',
-  });
 }
 
 function configToScriptCode(config: Record<string, unknown>): ScriptCode {
@@ -91,23 +74,46 @@ export function ScriptTaskForm({ config, onChange }: Props) {
 
   const scriptValue = useMemo(() => configToScriptCode(config), [scriptRaw, scriptLoc, scriptEnc]);
 
-  const [phase, setPhase] = useState<'pick' | 'edit'>('pick');
+  /**
+   * Derive the initial phase synchronously so SSR (and the very first
+   * client paint) lands on the correct screen — without this initializer
+   * the form briefly shows the picker even when the task already has a
+   * script, then snaps to the editor on the first `useEffect` tick. The
+   * existing `useEffect` below still runs on subsequent prop changes.
+   */
+  const [phase, setPhase] = useState<'pick' | 'edit'>(() => {
+    const loc = String(config.location ?? '');
+    const hasScript = Boolean(config.script);
+    return !getScriptLocationError(loc) && hasScript ? 'edit' : 'pick';
+  });
   const [pickLocked, setPickLocked] = useState(false);
   const [listQuery, setListQuery] = useState('');
   const [csxList, setCsxList] = useState<ListedCsxScript[]>([]);
   const [listLoading, setListLoading] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
   const [discardDialogOpen, setDiscardDialogOpen] = useState(false);
+  /**
+   * Edit-phase container height: floored `min(720, max(360, 55vh))` to avoid
+   * fractional CSS pixels that desync Monaco's `layout()` with nested flex/scroll.
+   * Default 400 for SSR; client `useEffect` recalculates when `phase === 'edit'`.
+   */
+  const [scriptEditContainerHeightPx, setScriptEditContainerHeightPx] = useState(400);
 
   const hydrateKeyRef = useRef<string | null>(null);
-  /** Baseline script signature after entering edit or hydrating from disk (avoids false confirm vs global isDirty). */
-  const scriptConfigBaselineRef = useRef<string | null>(null);
+  /**
+   * Panel-local "user typed in the Monaco editor" flag. Independent of the
+   * task's save state — it only becomes true when the script panel reports
+   * a real edit through `handleScriptChange`. Cleared whenever a fresh
+   * script is selected/created, the task file changes, or the hydrate
+   * effect normalizes JSON-vs-disk drift.
+   */
+  const userEditedScriptRef = useRef(false);
   const prevPhaseRef = useRef<'pick' | 'edit'>(phase);
 
   useEffect(() => {
     setPickLocked(false);
     hydrateKeyRef.current = null;
-    scriptConfigBaselineRef.current = null;
+    userEditedScriptRef.current = false;
   }, [filePath]);
 
   useEffect(() => {
@@ -123,14 +129,22 @@ export function ScriptTaskForm({ config, onChange }: Props) {
 
   useEffect(() => {
     if (phase === 'edit' && prevPhaseRef.current !== 'edit') {
-      scriptConfigBaselineRef.current = scriptTaskConfigSignature({
-        location: typeof scriptLoc === 'string' ? scriptLoc : '',
-        script: typeof scriptRaw === 'string' ? scriptRaw : '',
-        encoding: scriptEnc ?? '',
-      });
+      userEditedScriptRef.current = false;
     }
     prevPhaseRef.current = phase;
-  }, [phase, scriptRaw, scriptLoc, scriptEnc]);
+  }, [phase]);
+
+  useEffect(() => {
+    if (phase !== 'edit' || typeof window === 'undefined') return;
+    const update = () => {
+      setScriptEditContainerHeightPx(
+        Math.floor(Math.min(720, Math.max(360, window.innerHeight * 0.55))),
+      );
+    };
+    update();
+    window.addEventListener('resize', update);
+    return () => window.removeEventListener('resize', update);
+  }, [phase]);
 
   useEffect(() => {
     if (phase !== 'pick') return;
@@ -174,7 +188,6 @@ export function ScriptTaskForm({ config, onChange }: Props) {
         if (cancelled || hydrateKeyRef.current !== myKey) return;
         if (taskScriptBodyMatchesDiskFile(config, content)) {
           hydrateKeyRef.current = key;
-          scriptConfigBaselineRef.current = scriptTaskConfigSignature(config);
           return;
         }
         const enc = encodeToBase64(content);
@@ -182,12 +195,8 @@ export function ScriptTaskForm({ config, onChange }: Props) {
           d.script = enc;
           d.encoding = 'B64';
         });
-        scriptConfigBaselineRef.current = scriptTaskConfigSignature({
-          ...config,
-          location: loc,
-          script: enc,
-          encoding: 'B64',
-        });
+        // Hydrating JSON to match disk is not a user edit.
+        userEditedScriptRef.current = false;
       } catch {
         /* File missing or unreadable — keep JSON content */
       }
@@ -199,6 +208,9 @@ export function ScriptTaskForm({ config, onChange }: Props) {
 
   const handleScriptChange = useCallback(
     (next: ScriptCode) => {
+      // Reaching this callback means ScriptEditorPanel deemed the change
+      // a real user edit (it filters EOL-only echoes from Monaco).
+      userEditedScriptRef.current = true;
       onChange((d: any) => {
         d.location = next.location;
         d.script = next.code;
@@ -224,6 +236,7 @@ export function ScriptTaskForm({ config, onChange }: Props) {
           d.encoding = 'B64';
         });
         hydrateKeyRef.current = `${filePath}\0${rel}`;
+        userEditedScriptRef.current = false;
         setPhase('edit');
       } catch {
         showNotification({ kind: 'error', message: 'Could not read script file.' });
@@ -243,6 +256,7 @@ export function ScriptTaskForm({ config, onChange }: Props) {
     if (filePath) {
       hydrateKeyRef.current = `${filePath}\0${location}`;
     }
+    userEditedScriptRef.current = false;
     setPhase('edit');
   }, [filePath, onChange, taskKey]);
 
@@ -251,40 +265,28 @@ export function ScriptTaskForm({ config, onChange }: Props) {
     setPickLocked(true);
     setPhase('pick');
     setListQuery('');
+    userEditedScriptRef.current = false;
   }, []);
 
   const onDiscardPickAnother = useCallback(() => {
-    const baseline = scriptConfigBaselineRef.current;
-    const current = scriptTaskConfigSignature({
-      location: typeof scriptLoc === 'string' ? scriptLoc : '',
-      script: typeof scriptRaw === 'string' ? scriptRaw : '',
-      encoding: scriptEnc ?? '',
-    });
-    if (baseline != null && current !== baseline) {
+    if (userEditedScriptRef.current) {
       setDiscardDialogOpen(true);
       return;
     }
     proceedDiscardPickAnother();
-  }, [scriptRaw, scriptLoc, scriptEnc, proceedDiscardPickAnother]);
+  }, [proceedDiscardPickAnother]);
 
   const unsavedDiscardDialog = (
-    <Dialog open={discardDialogOpen} onOpenChange={setDiscardDialogOpen}>
-      <DialogContent className="max-w-md gap-6">
-        <DialogHeader>
-          <DialogTitle>Unsaved script changes</DialogTitle>
-        </DialogHeader>
-        <DialogDescription className="text-center sm:text-left">
-          You have unsaved changes to this script. Go back to the script picker anyway? Your edits stay
-          in the task until you save the task file.
-        </DialogDescription>
-        <DialogFooter>
-          <DialogCancelButton type="button">Stay in editor</DialogCancelButton>
-          <Button type="button" variant="warning" onClick={proceedDiscardPickAnother}>
-            Pick another script
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <ConfirmAlertDialog
+      open={discardDialogOpen}
+      onOpenChange={setDiscardDialogOpen}
+      tone="warning"
+      title="Unsaved script changes"
+      description="You have unsaved changes to this script. Go back to the script picker anyway? Your edits stay in the task until you save the task file."
+      cancelLabel="Stay in editor"
+      confirmLabel="Pick another script"
+      onConfirm={proceedDiscardPickAnother}
+    />
   );
 
   const filteredCsxList = useMemo(() => {
@@ -310,8 +312,8 @@ export function ScriptTaskForm({ config, onChange }: Props) {
     return (
       <>
         {unsavedDiscardDialog}
-        <div className="flex h-[min(90vh,1080px)] min-h-[560px] flex-col gap-3 overflow-hidden py-1">
-        <div className="shrink-0 space-y-3">
+        <div className="flex flex-col gap-3 py-1">
+        <div className="space-y-3">
           <div className="text-foreground text-sm font-medium">Choose a script</div>
           <p className="text-muted-foreground text-xs">
             Select an existing .csx file or start from a new script. You must choose before the
@@ -330,13 +332,13 @@ export function ScriptTaskForm({ config, onChange }: Props) {
             </Button>
           </div>
         </div>
-        <div className="flex min-h-0 flex-1 flex-col gap-2">
+        <div className="flex flex-col gap-2">
           {listLoading && (
-            <div className="text-muted-foreground flex flex-1 items-center justify-center text-xs">
+            <div className="text-muted-foreground flex h-32 items-center justify-center text-xs">
               Scanning project…
             </div>
           )}
-          {listError && <div className="text-destructive shrink-0 text-xs">{listError}</div>}
+          {listError && <div className="text-destructive text-xs">{listError}</div>}
           {!listLoading && !listError && (
             <>
               <Input
@@ -346,9 +348,9 @@ export function ScriptTaskForm({ config, onChange }: Props) {
                 onChange={(e) => setListQuery(e.target.value)}
                 variant="muted"
                 size="sm"
-                className="max-w-md shrink-0"
+                className="max-w-md"
               />
-              <div className="border-border bg-surface/30 min-h-0 flex-1 overflow-y-auto rounded-md border">
+              <div className="border-border bg-surface/30 max-h-[480px] min-h-[200px] overflow-y-auto rounded-md border">
                 {filteredCsxList.length === 0 ? (
                   <div className="text-muted-foreground p-3 text-xs">No matching .csx files.</div>
                 ) : isFlatPicker ? (
@@ -398,10 +400,19 @@ export function ScriptTaskForm({ config, onChange }: Props) {
     );
   }
 
+  /**
+   * Edit phase wraps Monaco. Height is a floored
+   * `min(720, max(360, round(0.55 * window.innerHeight)))` via
+   * `scriptEditContainerHeightPx` (not a CSS `clamp`, which can yield
+   * subpixel values) so Monaco's `layout()` and ResizeObserver stay in sync
+   * with the outer scroll surface in the VS Code webview.
+   */
   return (
     <>
       {unsavedDiscardDialog}
-      <div className="border-border flex h-[min(90vh,1080px)] min-h-[560px] flex-1 flex-col overflow-hidden rounded-lg border py-1 shadow-sm">
+      <div
+        className="border-border flex flex-col overflow-hidden rounded-lg border py-1 shadow-sm"
+        style={{ height: scriptEditContainerHeightPx }}>
         <ScriptEditorPanel
           taskInline={{
             value: scriptValue,

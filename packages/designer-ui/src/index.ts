@@ -123,6 +123,7 @@ export {
 export { useSaveFile } from './modules/code-editor/useSaveFile.js';
 export { setupMonacoWithLsp } from './modules/code-editor/editor/MonacoSetup.js';
 export type { CsharpLspClient } from './modules/code-editor/editor/lspClient.js';
+export { setupMonacoLoader } from './editor/setupMonacoLoader.js';
 
 // Shared workflow-validation primitives. Surfaced so host shells can render
 // aggregated diagnostics (e.g. the web StatusBar popover).

@@ -59,6 +59,7 @@ interface ManagedWebview {
   panel: vscode.WebviewPanel;
   webviewReady: boolean;
   pendingOpen: DesignerOpenEditorMessage | undefined;
+  lifecycleDisposable?: vscode.Disposable;
   /**
    * `true` when the panel was created by VS Code (custom editor) — in that
    * case the panel lifecycle is owned by VS Code and we must not call
@@ -142,8 +143,9 @@ export class DesignerPanel {
 
     // Defensive: if we somehow already track a panel for this file (e.g.
     // an old webview-panel from `openEditor`), the new VS Code-owned
-    // panel takes over — drop the stale entry without disposing the
+    // panel takes over. Detach our old listeners without disposing the
     // existing panel (VS Code will close duplicates as it sees fit).
+    this.panels.get(fileKey)?.lifecycleDisposable?.dispose();
     this.panels.delete(fileKey);
 
     this.setPanelLabelForComponent(panel, message);
@@ -161,7 +163,9 @@ export class DesignerPanel {
     };
     this.panels.set(fileKey, managed);
 
-    return this.attachWebviewLifecycle(fileKey, managed);
+    const lifecycleDisposable = this.attachWebviewLifecycle(fileKey, managed);
+    managed.lifecycleDisposable = lifecycleDisposable;
+    return lifecycleDisposable;
   }
 
   private revealAndSendOpen(managed: ManagedWebview, message: DesignerOpenEditorMessage): void {
@@ -234,7 +238,7 @@ export class DesignerPanel {
     };
     this.panels.set(key, managed);
 
-    this.attachWebviewLifecycle(key, managed);
+    managed.lifecycleDisposable = this.attachWebviewLifecycle(key, managed);
   }
 
   /**
@@ -248,49 +252,54 @@ export class DesignerPanel {
    */
   private attachWebviewLifecycle(key: string, managed: ManagedWebview): vscode.Disposable {
     const { panel } = managed;
-    const routerDisposable = this.router.attach(panel);
-
-    const readyDisposable = panel.webview.onDidReceiveMessage((raw: unknown) => {
-      if (isWebviewReadyMessage(raw)) {
-        managed.webviewReady = true;
-        if (managed.pendingOpen) {
-          void panel.webview.postMessage(managed.pendingOpen);
-          managed.pendingOpen = undefined;
-        }
-      }
-    });
-
-    const chromeDisposable = panel.webview.onDidReceiveMessage((raw: unknown) => {
-      this.applyWebviewTabChromeIfHostFrame(panel, raw);
-    });
-
-    panel.webview.html = this.buildHtml(panel.webview);
-
+    const disposables: vscode.Disposable[] = [];
     let detached = false;
+
     const detach = () => {
       if (detached) return;
       detached = true;
-      try {
-        routerDisposable.dispose();
-      } catch {
-        /* ignore */
-      }
-      try {
-        readyDisposable.dispose();
-      } catch {
-        /* ignore */
-      }
-      try {
-        chromeDisposable.dispose();
-      } catch {
-        /* ignore */
+      for (const disposable of disposables) {
+        try {
+          disposable.dispose();
+        } catch {
+          /* ignore */
+        }
       }
       if (this.panels.get(key) === managed) {
         this.panels.delete(key);
       }
     };
 
-    panel.onDidDispose(detach, null, this.context.subscriptions);
+    disposables.push(this.router.attach(panel));
+
+    disposables.push(
+      panel.webview.onDidReceiveMessage((raw: unknown) => {
+        if (isWebviewReadyMessage(raw)) {
+          managed.webviewReady = true;
+          if (managed.pendingOpen) {
+            void panel.webview.postMessage(managed.pendingOpen);
+            managed.pendingOpen = undefined;
+          }
+        }
+      }),
+    );
+
+    disposables.push(
+      panel.webview.onDidReceiveMessage((raw: unknown) => {
+        this.applyWebviewTabChromeIfHostFrame(panel, raw);
+      }),
+    );
+
+    const disposeDisposable = panel.onDidDispose(detach);
+    disposables.push(disposeDisposable);
+    this.context.subscriptions.push(disposeDisposable);
+
+    try {
+      panel.webview.html = this.buildHtml(panel.webview);
+    } catch (error) {
+      detach();
+      throw error;
+    }
 
     return new vscode.Disposable(detach);
   }
@@ -329,7 +338,7 @@ export class DesignerPanel {
       (_match, prefix, assetPath, suffix) => {
         const cleanPath = (assetPath as string).replace(/^\.?\/?/, '');
         const assetUri = webview.asWebviewUri(vscode.Uri.joinPath(webviewDistPath, cleanPath));
-        return `${prefix}${assetUri}${suffix}`;
+        return `${prefix}${assetUri.toString()}${suffix}`;
       },
     );
 
@@ -339,7 +348,7 @@ export class DesignerPanel {
       `default-src 'none'`,
       `style-src ${webview.cspSource} 'unsafe-inline'`,
       `script-src 'nonce-${nonce}' 'unsafe-eval' 'strict-dynamic'`,
-      `worker-src blob:`,
+      `worker-src ${webview.cspSource} blob:`,
       `font-src ${webview.cspSource} data:`,
       `img-src ${webview.cspSource} data:`,
       `connect-src ${webview.cspSource}`,
@@ -364,7 +373,7 @@ export class DesignerPanel {
 
     const loadingMarkup = `<div class="vnext-forge-boot" id="vnext-forge-boot" role="status" aria-live="polite">
   <div class="vnext-forge-spinner" aria-hidden="true"></div>
-  <div>vnext-forge Designer yükleniyor…</div>
+  <div>Loading vnext-forge Designer...</div>
 </div>`;
 
     const loadingTeardownScript = `<script nonce="${nonce}">
@@ -391,10 +400,11 @@ export class DesignerPanel {
   })();
 </script>`;
 
-    html = html.replace(/<script(\s[^>]*)?>/g, (match, attrs = '') => {
-      if (/nonce=/.test(attrs)) return match;
-      if (/src=/.test(attrs)) return `<script${attrs} nonce="${nonce}">`;
-      return `<script${attrs} nonce="${nonce}">`;
+    html = html.replace(/<script(\s[^>]*)?>/g, (match: string, attrs?: string) => {
+      const scriptAttrs = attrs ?? '';
+      if (scriptAttrs.includes('nonce=')) return match;
+      if (scriptAttrs.includes('src=')) return `<script${scriptAttrs} nonce="${nonce}">`;
+      return `<script${scriptAttrs} nonce="${nonce}">`;
     });
 
     html = html.replace(

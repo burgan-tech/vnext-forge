@@ -14,7 +14,10 @@ function subscribe(onChange: () => void) {
 }
 
 function getSnapshot(): 'light' | 'dark' {
-  return resolveColorTheme(useSettingsStore.getState().colorTheme);
+  const pref = useSettingsStore.getState().colorTheme;
+  return resolveColorTheme(
+    pref === 'light' || pref === 'dark' || pref === 'system' ? pref : 'system',
+  );
 }
 
 function getServerSnapshot(): 'light' | 'dark' {

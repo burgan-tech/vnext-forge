@@ -319,12 +319,15 @@ function DialogContent({
   hoverable = false,
   closeButtonHoverable = true,
   noBorder,
+  overlayClassName,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean;
   /** `true` (önerilen): kapatma `DialogHeader` satırında; `false`: eski sağ-üst mutlak X. */
   closeInHeader?: boolean;
   closeButtonHoverable?: boolean;
+  /** Overlay only: use a higher z-index when stacking dialogs (e.g. alert over editor modal). */
+  overlayClassName?: string;
 } & VariantProps<typeof dialogContentVariants>) {
   const resolvedVariant = variant ?? 'default';
   const chrome: DialogChromeContextValue = {
@@ -337,7 +340,7 @@ function DialogContent({
 
   return (
     <DialogPortal>
-      <DialogOverlay />
+      <DialogOverlay className={overlayClassName} />
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(dialogContentVariants({ variant, hoverable, noBorder }), className)}

@@ -11,7 +11,10 @@ export function resolveColorTheme(preference: ColorThemePreference): 'light' | '
   if (preference === 'system') {
     return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   }
-  return preference;
+  if (preference === 'light' || preference === 'dark') {
+    return preference;
+  }
+  return 'light';
 }
 
 /**

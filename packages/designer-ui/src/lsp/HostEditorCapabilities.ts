@@ -17,4 +17,11 @@ export interface HostEditorCapabilities {
    * SPA is served same-origin with the API in production builds).
    */
   lspWebSocketBaseUrl?: string;
+  /**
+   * Sender for outbound LSP frames over `postMessage`. The webview shell owns
+   * the single `acquireVsCodeApi()` instance and exposes its `postMessage`
+   * here so the LSP client never tries to re-acquire (VS Code throws on a
+   * second call).
+   */
+  postMessageToHost?: (message: unknown) => void;
 }

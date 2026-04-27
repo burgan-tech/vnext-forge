@@ -121,7 +121,9 @@ export function ComponentEditorLayout({
     ) : null;
 
   const bodyScrollClass =
-    surface === 'modal' ? 'flex-1 overflow-y-auto px-2 py-2 sm:px-3' : 'flex-1 overflow-y-auto';
+    surface === 'modal'
+      ? 'min-h-0 min-w-0 flex-1 overflow-y-auto px-2 py-2 sm:px-3'
+      : 'min-h-0 min-w-0 flex-1 overflow-y-auto';
 
   if (registerToolbar) {
     return (

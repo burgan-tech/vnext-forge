@@ -1,6 +1,7 @@
 export { default as Accordion } from './Accordion.js';
 export type { AccordionDensity, AccordionItem, AccordionProps } from './Accordion.js';
 export * from './Alert.js';
+export * from './AlertDialog.js';
 export * from './Badge.js';
 export * from './Button.js';
 export * from './Card.js';
