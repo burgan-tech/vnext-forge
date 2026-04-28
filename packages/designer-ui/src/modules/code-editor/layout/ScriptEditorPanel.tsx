@@ -554,6 +554,11 @@ export function ScriptEditorPanel({
               bracketPairColorization: { enabled: true },
               guides: { bracketPairs: true, indentation: true },
               suggestOnTriggerCharacters: true,
+              // VS Code webview iframe keyboard dispatch interferes with the
+              // EditContext API (Monaco >= 0.53 default). Fall back to the
+              // legacy hidden-textarea input so Space and other keys reach
+              // the editor reliably. See monaco-editor#5059.
+              editContext: false,
             }}
           />
         </div>

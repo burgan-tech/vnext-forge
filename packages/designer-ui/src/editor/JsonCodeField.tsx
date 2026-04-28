@@ -170,6 +170,11 @@ function JsonCodeField({
           scrollbar: { horizontalScrollbarSize: 6, verticalScrollbarSize: 6 },
           tabSize: 2,
           wordWrap: 'on',
+          // VS Code webview iframe keyboard dispatch interferes with the
+          // EditContext API (Monaco >= 0.53 default). Fall back to the
+          // legacy hidden-textarea input so Space and other keys reach
+          // the editor reliably. See monaco-editor#5059.
+          editContext: false,
         }}
         className={cn('min-h-0', !readOnly && 'ring-1 ring-current/5')}
         />
