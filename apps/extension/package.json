@@ -32,7 +32,8 @@
     "dist/extension.js",
     "dist/vendor/**",
     "dist/webview-ui/**",
-    "media/**"
+    "media/**",
+    "snippets/**"
   ],
   "contributes": {
     "languages": [
@@ -45,6 +46,12 @@
           "C# Script",
           "csx"
         ]
+      }
+    ],
+    "snippets": [
+      {
+        "language": "csharp",
+        "path": "./snippets/csx.code-snippets"
       }
     ],
     "commands": [
