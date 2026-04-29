@@ -15,69 +15,161 @@ export interface TaskDefinition {
 }
 
 export interface HttpTaskConfig {
+  /** HTTP method (required) */
   method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
+  /** Request URL (required) */
   url: string;
   headers?: Record<string, string>;
   body?: unknown;
+  /** Default: 30 */
   timeoutSeconds?: number;
+  /** Default: true */
   validateSsl?: boolean;
+  /** Status codes treated as successful, e.g. "403", "4xx" */
+  acceptedStatusCodes?: string[];
+}
+
+export interface DaprServiceTaskConfig {
+  /** Dapr App ID (required) */
+  appId: string;
+  /** Method name to invoke (required) */
+  methodName: string;
+  /** HTTP verb (required). Default: "POST" */
+  httpVerb: string;
+  body?: unknown;
+  headers?: Record<string, string>;
+  queryString?: string;
+  /** Default: 30 */
+  timeoutSeconds?: number;
+  /** Status codes treated as successful, e.g. "403", "4xx" */
+  acceptedStatusCodes?: string[];
 }
 
 export interface DaprPubSubTaskConfig {
+  /** PubSub name (required) */
   pubSubName: string;
+  /** Topic name (required) */
   topic: string;
   data?: unknown;
   metadata?: Record<string, string>;
 }
 
-export interface DaprServiceTaskConfig {
-  appId: string;
-  methodName: string;
-  httpMethod?: string;
-  body?: unknown;
-}
-
 export interface DaprBindingTaskConfig {
+  /** Binding name (required) */
   bindingName: string;
+  /** Operation name (required) */
   operation: string;
   data?: unknown;
   metadata?: Record<string, string>;
 }
 
-export interface GetInstancesTaskConfig {
-  domain: string;
-  flow: string;
-  page?: number;
-  pageSize?: number;
-  sort?: string;
-  filter?: string[];
-  useDapr?: boolean;
-}
-
 export interface StartTaskConfig {
-  domain: string;
-  flow: string;
+  /** Domain of the target workflow (required) */
+  triggerDomain: string;
+  /** Flow name of the target workflow (required) */
+  triggerFlow: string;
   body?: unknown;
+  /** Default: true */
+  triggerSync?: boolean;
+  triggerVersion?: string;
+  triggerKey?: string;
+  triggerTags?: string[];
+  /** Default: false */
+  useDapr?: boolean;
+  /** Default: true */
+  validateSsl?: boolean;
+  headers?: Record<string, string>;
+  /** Default: 30 */
+  timeoutSeconds?: number;
+  /** Status codes treated as successful, e.g. "403", "4xx" */
+  acceptedStatusCodes?: string[];
 }
 
 export interface DirectTriggerTaskConfig {
-  domain: string;
-  flow: string;
+  /** Transition name to execute (required) */
   transitionName: string;
-  instanceId?: string;
+  /** Domain of the target workflow (required) */
+  triggerDomain: string;
+  /** Flow name of the target workflow (required) */
+  triggerFlow: string;
+  triggerKey?: string;
+  triggerInstanceId?: string;
+  /** Default: true */
+  triggerSync?: boolean;
+  triggerTags?: string[];
   body?: unknown;
-}
-
-export interface GetInstanceDataTaskConfig {
-  domain: string;
-  flow: string;
-  instanceId: string;
-  extensions?: string;
+  /** Default: false */
+  useDapr?: boolean;
+  /** Default: true */
+  validateSsl?: boolean;
+  headers?: Record<string, string>;
+  /** Default: 30 */
+  timeoutSeconds?: number;
+  /** Status codes treated as successful, e.g. "403", "4xx" */
+  acceptedStatusCodes?: string[];
 }
 
 export interface SubProcessTaskConfig {
-  domain: string;
-  key: string;
-  version?: string;
+  /** Domain of the target workflow (required) */
+  triggerDomain: string;
+  /** Flow name of the target workflow (required) */
+  triggerFlow: string;
+  triggerKey?: string;
+  triggerVersion?: string;
+  /** Default: false */
+  triggerSync?: boolean;
   body?: unknown;
+  triggerTags?: string[];
+  /** Default: false */
+  useDapr?: boolean;
+  /** Default: true */
+  validateSsl?: boolean;
+  headers?: Record<string, string>;
+  /** Default: 30 */
+  timeoutSeconds?: number;
+  /** Status codes treated as successful, e.g. "403", "4xx" */
+  acceptedStatusCodes?: string[];
+}
+
+export interface GetInstancesTaskConfig {
+  /** Domain of the target workflow (required) */
+  triggerDomain: string;
+  /** Flow name of the target workflow (required) */
+  triggerFlow: string;
+  /** Default: 1 */
+  page?: number;
+  /** Default: 10 */
+  pageSize?: number;
+  sort?: string;
+  filter?: string;
+  /** Default: false */
+  useDapr?: boolean;
+  /** Default: true */
+  validateSsl?: boolean;
+  headers?: Record<string, string>;
+  /** Default: 30 */
+  timeoutSeconds?: number;
+  /** Status codes treated as successful, e.g. "403", "4xx" */
+  acceptedStatusCodes?: string[];
+}
+
+export interface GetInstanceDataTaskConfig {
+  /** Domain of the target workflow (required) */
+  triggerDomain: string;
+  /** Flow name of the target workflow (required) */
+  triggerFlow: string;
+  /** Flow key (required when triggerInstanceId is absent) */
+  triggerKey?: string;
+  /** Instance ID (required when triggerKey is absent) */
+  triggerInstanceId?: string;
+  extensions?: string[];
+  /** Default: false */
+  useDapr?: boolean;
+  /** Default: true */
+  validateSsl?: boolean;
+  headers?: Record<string, string>;
+  /** Default: 30 */
+  timeoutSeconds?: number;
+  /** Status codes treated as successful, e.g. "403", "4xx" */
+  acceptedStatusCodes?: string[];
 }
