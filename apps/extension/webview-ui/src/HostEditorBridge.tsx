@@ -166,9 +166,23 @@ function ActiveEditor({ api, payload }: { api: VsCodeWebviewApi; payload: HostOp
     case 'view':
       return <ViewEditorView projectId={projectId} group={group} name={name} />;
     case 'function':
-      return <FunctionEditorView projectId={projectId} group={group} name={name} />;
+      return (
+        <FunctionEditorView
+          projectId={projectId}
+          group={group}
+          name={name}
+          onOpenScriptFileInHost={onOpenScriptFileInHost}
+        />
+      );
     case 'extension':
-      return <ExtensionEditorView projectId={projectId} group={group} name={name} />;
+      return (
+        <ExtensionEditorView
+          projectId={projectId}
+          group={group}
+          name={name}
+          onOpenScriptFileInHost={onOpenScriptFileInHost}
+        />
+      );
     case 'config':
       return <WorkspaceConfigEditorView />;
   }

@@ -5,9 +5,10 @@ import { FunctionMetadataForm } from './FunctionMetadataForm';
 interface FunctionEditorPanelProps {
   json: Record<string, unknown>;
   onChange: (updater: (draft: Record<string, unknown>) => void) => void;
+  onBeforeOpenModal?: () => void;
 }
 
-export function FunctionEditorPanel({ json, onChange }: FunctionEditorPanelProps) {
+export function FunctionEditorPanel({ json, onChange, onBeforeOpenModal }: FunctionEditorPanelProps) {
   const tasks = Array.isArray(json.tasks) ? json.tasks : [];
 
   return (
@@ -38,6 +39,7 @@ export function FunctionEditorPanel({ json, onChange }: FunctionEditorPanelProps
                 updater(draft.tasks as any[]);
               });
             }}
+            onBeforeOpenModal={onBeforeOpenModal}
           />
         </CardContent>
       </Card>

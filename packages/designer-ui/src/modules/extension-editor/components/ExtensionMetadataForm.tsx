@@ -60,6 +60,16 @@ export function ExtensionMetadataForm({ json, onChange }: ExtensionMetadataFormP
       draft.scope = parsed.data.scope;
       draft.definedFlows = parsed.data.definedFlows;
       draft.tags = parsed.data.tags;
+
+      const attrs = (draft.attributes ?? {}) as Record<string, unknown>;
+      attrs.type = parsed.data.type;
+      attrs.scope = parsed.data.scope;
+      if (parsed.data.definedFlows.length > 0) {
+        attrs.definedFlows = parsed.data.definedFlows;
+      } else {
+        delete attrs.definedFlows;
+      }
+      draft.attributes = attrs;
     });
   }, [json, onChange, values]);
 

@@ -1,17 +1,5 @@
 import { z } from 'zod';
 
-export const taskExecutionFormSchema = z.object({
-  order: z.coerce.number().int('Order must be an integer.').min(0, 'Order cannot be negative.'),
-});
-
-export type TaskExecutionFormValues = z.infer<typeof taskExecutionFormSchema>;
-
-export function toTaskExecutionFormValues(execution: Record<string, unknown>): TaskExecutionFormValues {
-  return {
-    order: typeof execution.order === 'number' ? execution.order : 0,
-  };
-}
-
 export const retryPolicyFormSchema = z.object({
   maxRetries: z.coerce.number().int('Max retries must be an integer.').min(1, 'Minimum is 1.').max(100, 'Maximum is 100.'),
   initialDelay: z.coerce.number().int('Initial delay must be an integer.').min(100, 'Minimum is 100 ms.'),
