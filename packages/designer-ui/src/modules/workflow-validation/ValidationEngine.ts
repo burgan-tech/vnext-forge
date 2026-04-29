@@ -204,14 +204,37 @@ export function validateWorkflow(workflow: unknown): ValidationIssue[] {
   }
 
   for (const state of states) {
-    if (state.stateType === 4 && !state.subFlow) {
-      results.push({
-        id: makeId(),
-        severity: 'warning',
-        message: `SubFlow state "${state.key}" has no SubFlow configuration`,
-        rule: 'subflow-config-required',
-        nodeId: state.key,
-      });
+    if (state.stateType === 4) {
+      const sf = state.subFlow as Record<string, unknown> | undefined;
+      if (!sf) {
+        results.push({
+          id: makeId(),
+          severity: 'warning',
+          message: `SubFlow state "${state.key}" has no SubFlow configuration`,
+          rule: 'subflow-config-required',
+          nodeId: state.key,
+        });
+      } else {
+        const process = sf.process as Record<string, unknown> | undefined;
+        if (!process?.key) {
+          results.push({
+            id: makeId(),
+            severity: 'warning',
+            message: `SubFlow state "${state.key}" is missing a process key`,
+            rule: 'subflow-process-key-required',
+            nodeId: state.key,
+          });
+        }
+        if (!process?.flow) {
+          results.push({
+            id: makeId(),
+            severity: 'warning',
+            message: `SubFlow state "${state.key}" is missing a process flow`,
+            rule: 'subflow-process-flow-required',
+            nodeId: state.key,
+          });
+        }
+      }
     }
   }
 

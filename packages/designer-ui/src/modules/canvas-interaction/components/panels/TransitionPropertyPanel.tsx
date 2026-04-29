@@ -1,20 +1,20 @@
-import { useMemo } from 'react';
+import { useMemo, useCallback } from 'react';
+import type { Transition } from '@vnext-forge/vnext-types';
 import { useWorkflowStore } from '../../../../store/useWorkflowStore';
-import { CsxEditorField, type ScriptCode } from '../../../../modules/save-component/components/CsxEditorField';
-import { SchemaReferenceField } from '../../../../modules/save-component/components/SchemaReferenceField';
 import {
-  getLabels,
   getTriggerLabel,
   getTriggerColor,
   getTriggerKindLabel,
 } from './tabs/PropertyPanelHelpers';
-import { Badge, SelectField, Section, IconPlus, IconTrash } from './tabs/PropertyPanelShared';
-import { ArrowRight, MousePointer2 } from 'lucide-react';
+import { Badge, SelectField } from './tabs/PropertyPanelShared';
+import { ArrowRight, MousePointer2, X } from 'lucide-react';
+import { TransitionCard } from './tabs/transition/TransitionCard';
+import { useTransitionMutations } from './tabs/transition/useTransitionMutations';
+import { useTransitionDialogs, TransitionDialogsHost } from './tabs/transition/TransitionDialogsHost';
 
 /* ────────────── Parse Edge ID ────────────── */
 
 function parseEdgeId(edgeId: string): { sourceKey: string; transitionKey: string } | null {
-  // Edge ID format: "stateKey->targetKey::transitionKey"  or "start->targetKey"
   const arrowIdx = edgeId.indexOf('->');
   const colonIdx = edgeId.indexOf('::');
   if (arrowIdx < 0) return null;
@@ -26,34 +26,60 @@ function parseEdgeId(edgeId: string): { sourceKey: string; transitionKey: string
 /* ────────────── MAIN COMPONENT ────────────── */
 
 export function TransitionPropertyPanel() {
-  const { workflowJson, selectedEdgeId, updateWorkflow } = useWorkflowStore();
+  const { workflowJson, selectedEdgeId, updateWorkflow, setSelectedEdge } = useWorkflowStore();
 
   const parsed = useMemo(() => {
     if (!selectedEdgeId) return null;
     return parseEdgeId(selectedEdgeId);
   }, [selectedEdgeId]);
 
-  const { state, transition, transitionIndex } = useMemo(() => {
-    if (!workflowJson || !parsed) return { state: null, transition: null, transitionIndex: -1 };
-    const attrs = (workflowJson as any).attributes;
-    if (!attrs?.states) return { state: null, transition: null, transitionIndex: -1 };
+  const isStartTransition = parsed?.sourceKey === '__start__' || parsed?.sourceKey === 'start';
 
-    // Handle start transition
-    if (parsed.sourceKey === '__start__' || parsed.sourceKey === 'start') {
+  const { transition, transitionIndex } = useMemo(() => {
+    if (!workflowJson || !parsed) return { transition: null, transitionIndex: -1 };
+    const attrs = (workflowJson as any).attributes;
+    if (!attrs?.states) return { transition: null, transitionIndex: -1 };
+
+    if (isStartTransition) {
       const st = attrs.startTransition || attrs.start;
-      return { state: null, transition: st, transitionIndex: -1 };
+      return { transition: st as Transition | null, transitionIndex: -1 };
     }
 
     const s = attrs.states.find((s: any) => s.key === parsed.sourceKey);
-    if (!s?.transitions) return { state: null, transition: null, transitionIndex: -1 };
+    if (!s?.transitions) return { transition: null, transitionIndex: -1 };
     const idx = s.transitions.findIndex((t: any) => t.key === parsed.transitionKey);
-    return { state: null, transition: idx >= 0 ? s.transitions[idx] : null, transitionIndex: idx };
-  }, [workflowJson, parsed]);
+    return { transition: idx >= 0 ? (s.transitions[idx] as Transition) : null, transitionIndex: idx };
+  }, [workflowJson, parsed, isStartTransition]);
 
-  const allStateKeys = useMemo(() => {
+  const sourceKey = parsed?.sourceKey ?? '';
+
+  const findTransition = useCallback(
+    (draft: any) => {
+      if (isStartTransition) {
+        const st = draft.attributes?.startTransition || draft.attributes?.start;
+        if (!st) return null;
+        return { container: draft.attributes, transitions: [st] };
+      }
+      const s = draft.attributes?.states?.find((s: any) => s.key === sourceKey);
+      if (!s) return null;
+      if (!s.transitions) s.transitions = [];
+      return { container: s, transitions: s.transitions };
+    },
+    [sourceKey, isStartTransition],
+  );
+
+  const mutations = useTransitionMutations(findTransition);
+  const { dialogState, ...openers } = useTransitionDialogs();
+
+  const getTransitions = useCallback((): Transition[] => {
+    if (!transition) return [];
+    if (isStartTransition) return [transition];
     const attrs = (workflowJson as any)?.attributes;
-    return (attrs?.states || []).map((s: any) => s.key) as string[];
-  }, [workflowJson]);
+    const s = attrs?.states?.find((s: any) => s.key === sourceKey);
+    return s?.transitions ?? [];
+  }, [transition, isStartTransition, workflowJson, sourceKey]);
+
+  const triggerKindLabel = getTriggerKindLabel(transition?.triggerKind ?? 0);
 
   if (!transition || !parsed) {
     return (
@@ -69,87 +95,92 @@ export function TransitionPropertyPanel() {
     );
   }
 
-  const isStartTransition = parsed.sourceKey === '__start__' || parsed.sourceKey === 'start';
-  const target = transition.target || transition.to || '';
-  const labels = getLabels(transition);
-  const triggerKindLabel = getTriggerKindLabel(transition.triggerKind);
+  const effectiveIndex = isStartTransition ? 0 : transitionIndex;
 
-  const updateField = (field: string, value: any) => {
-    if (isStartTransition) {
+  /* ── Start transition: reduced UI ── */
+  if (isStartTransition) {
+    const target = transition.target || '';
+    const updateField = (field: string, value: any) => {
       updateWorkflow((draft: any) => {
         const st = draft.attributes?.startTransition || draft.attributes?.start;
         if (st) st[field] = value;
       });
-    } else {
-      updateWorkflow((draft: any) => {
-        const s = draft.attributes?.states?.find((s: any) => s.key === parsed!.sourceKey);
-        if (s?.transitions?.[transitionIndex]) {
-          s.transitions[transitionIndex][field] = value;
-        }
-      });
-    }
-  };
+    };
 
-  const updateScript = (scriptField: 'rule' | 'condition' | 'timer', script: ScriptCode) => {
-    updateWorkflow((draft: any) => {
-      const s = draft.attributes?.states?.find((s: any) => s.key === parsed!.sourceKey);
-      if (!s?.transitions?.[transitionIndex]) return;
-      s.transitions[transitionIndex][scriptField] = script;
-      if (scriptField === 'rule') s.transitions[transitionIndex].condition = script;
-      if (scriptField === 'condition') s.transitions[transitionIndex].rule = script;
-    });
-  };
+    return (
+      <div className="flex h-full flex-col">
+        <div className="border-border-subtle bg-surface border-b px-3 py-2">
+          <div className="mb-0.5 flex items-center gap-1.5">
+            <div className="bg-initial/10 flex size-7 shrink-0 items-center justify-center rounded-lg">
+              <ArrowRight size={13} className="text-initial" />
+            </div>
+            <span className="text-foreground truncate font-mono text-[13px] font-bold tracking-tight flex-1">
+              Start transition
+            </span>
+            <button
+              type="button"
+              onClick={() => setSelectedEdge(null)}
+              className="text-muted-foreground hover:bg-muted hover:text-foreground shrink-0 rounded-md p-1 transition-colors"
+              title="Close panel"
+              aria-label="Close panel">
+              <X size={14} strokeWidth={2} aria-hidden />
+            </button>
+          </div>
+        </div>
+        <div className="flex-1 space-y-4 overflow-y-auto p-4">
+          <div>
+            <label className="text-muted-foreground mb-1 block text-[10px] font-semibold tracking-wide">
+              Target
+            </label>
+            <select
+              value={target}
+              onChange={(e) => updateField('target', e.target.value)}
+              className="border-border bg-muted-surface text-foreground focus:ring-ring/20 focus:border-primary-border focus:bg-surface w-full cursor-pointer rounded-lg border px-2.5 py-1.5 font-mono text-xs transition-all focus:ring-2 focus:outline-none">
+              {mutations.allStateKeys.map((k) => (
+                <option key={k} value={k}>{k}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="text-muted-foreground mb-1 block text-[10px] font-semibold tracking-wide">
+              Version Strategy
+            </label>
+            <SelectField
+              value={transition.versionStrategy || 'Minor'}
+              onChange={(v) => updateField('versionStrategy', v)}
+              options={[
+                { value: 'Minor', label: 'Minor' },
+                { value: 'Major', label: 'Major' },
+              ]}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-  const removeScript = (scriptField: 'rule' | 'condition' | 'timer') => {
-    updateWorkflow((draft: any) => {
-      const s = draft.attributes?.states?.find((s: any) => s.key === parsed!.sourceKey);
-      if (!s?.transitions?.[transitionIndex]) return;
-      delete s.transitions[transitionIndex][scriptField];
-      if (scriptField === 'rule') delete s.transitions[transitionIndex].condition;
-      if (scriptField === 'condition') delete s.transitions[transitionIndex].rule;
-    });
-  };
-
-  /* Label editing */
-  const addLabel = () => {
-    updateWorkflow((draft: any) => {
-      const s = draft.attributes?.states?.find((s: any) => s.key === parsed!.sourceKey);
-      const t = s?.transitions?.[transitionIndex];
-      if (!t) return;
-      if (!t.labels) t.labels = [];
-      t.labels.push({ label: '', language: 'en' });
-    });
-  };
-
-  const removeLabel = (index: number) => {
-    updateWorkflow((draft: any) => {
-      const s = draft.attributes?.states?.find((s: any) => s.key === parsed!.sourceKey);
-      const t = s?.transitions?.[transitionIndex];
-      t?.labels?.splice(index, 1);
-    });
-  };
-
-  const updateLabelField = (index: number, field: string, value: string) => {
-    updateWorkflow((draft: any) => {
-      const s = draft.attributes?.states?.find((s: any) => s.key === parsed!.sourceKey);
-      const t = s?.transitions?.[transitionIndex];
-      if (t?.labels?.[index]) t.labels[index][field] = value;
-    });
-  };
-
+  /* ── Regular transition: full card ── */
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
-      <div className="border-border-subtle bg-surface border-b px-4 py-3.5">
-        <div className="mb-1 flex items-center gap-2">
-          <div className="bg-initial/10 flex size-8 shrink-0 items-center justify-center rounded-xl">
-            <ArrowRight size={14} className="text-initial" />
+      <div className="border-border-subtle bg-surface border-b px-3 py-2">
+        <div className="mb-0.5 flex items-center gap-1.5">
+          <div className="bg-initial/10 flex size-7 shrink-0 items-center justify-center rounded-lg">
+            <ArrowRight size={13} className="text-initial" />
           </div>
-          <span className="text-foreground truncate font-mono text-[14px] font-bold tracking-tight">
+          <span className="text-foreground truncate font-mono text-[13px] font-bold tracking-tight flex-1">
             {transition.key || 'transition'}
           </span>
+          <button
+            type="button"
+            onClick={() => setSelectedEdge(null)}
+            className="text-muted-foreground hover:bg-muted hover:text-foreground shrink-0 rounded-md p-1 transition-colors"
+            title="Close panel"
+            aria-label="Close panel">
+            <X size={14} strokeWidth={2} aria-hidden />
+          </button>
         </div>
-        <div className="ml-10 flex items-center gap-2">
+        <div className="ml-9 flex items-center gap-2">
           <Badge className={getTriggerColor(transition.triggerType ?? 0)}>
             {getTriggerLabel(transition.triggerType ?? 0)}
           </Badge>
@@ -157,181 +188,54 @@ export function TransitionPropertyPanel() {
             <Badge className="bg-muted text-muted-foreground">{triggerKindLabel}</Badge>
           )}
           <span className="text-muted-foreground text-[11px]">
-            from <span className="font-mono font-semibold">{parsed.sourceKey}</span>
+            from <span className="font-mono font-semibold">{sourceKey}</span>
           </span>
         </div>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 space-y-4 overflow-y-auto p-4">
-        {/* Key */}
-        {!isStartTransition && (
-          <div>
-            <label className="text-muted-foreground mb-1 block text-[10px] font-semibold tracking-wide">
-              Key
-            </label>
-            <input
-              type="text"
-              value={transition.key || ''}
-              onChange={(e) => updateField('key', e.target.value)}
-              className="border-border bg-muted-surface text-foreground focus:ring-ring/20 focus:border-primary-border focus:bg-surface w-full rounded-lg border px-2.5 py-1.5 font-mono text-xs transition-all focus:ring-2 focus:outline-none"
-            />
-          </div>
-        )}
+      {/* Dialogs */}
+      <TransitionDialogsHost
+        mutations={mutations}
+        findTransition={findTransition}
+        dialogState={dialogState}
+        getTransitions={getTransitions}
+      />
 
-        {/* Target */}
-        <div>
-          <label className="text-muted-foreground mb-1 block text-[10px] font-semibold tracking-wide">
-            Target
-          </label>
-          <select
-            value={target}
-            onChange={(e) => updateField('target', e.target.value)}
-            className="border-border bg-muted-surface text-secondary-icon focus:ring-ring/20 focus:border-primary-border focus:bg-surface w-full cursor-pointer rounded-lg border px-2.5 py-1.5 font-mono text-xs transition-all focus:ring-2 focus:outline-none">
-            <option value="$self">$self (current state)</option>
-            {!allStateKeys.includes(target) && target && target !== '$self' && (
-              <option value={target}>{target}</option>
-            )}
-            {allStateKeys.map((k) => (
-              <option key={k} value={k}>
-                {k}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Trigger Type */}
-        {!isStartTransition && (
-          <>
-            <div>
-              <label className="text-muted-foreground mb-1 block text-[10px] font-semibold tracking-wide">
-                Trigger Type
-              </label>
-              <SelectField
-                value={transition.triggerType ?? 0}
-                onChange={(v) => updateField('triggerType', Number(v))}
-                options={[
-                  { value: 0, label: 'Manual' },
-                  { value: 1, label: 'Auto' },
-                  { value: 2, label: 'Scheduled' },
-                  { value: 3, label: 'Event' },
-                ]}
-              />
-            </div>
-
-            <div>
-              <label className="text-muted-foreground mb-1 block text-[10px] font-semibold tracking-wide">
-                Trigger Kind
-              </label>
-              <SelectField
-                value={transition.triggerKind ?? 0}
-                onChange={(v) => {
-                  const val = Number(v);
-                  updateField('triggerKind', val === 0 ? undefined : val);
-                }}
-                options={[
-                  { value: 0, label: 'Standard' },
-                  { value: 10, label: 'Default / Fallback' },
-                ]}
-              />
-            </div>
-          </>
-        )}
-
-        {/* Version Strategy */}
-        <div>
-          <label className="text-muted-foreground mb-1 block text-[10px] font-semibold tracking-wide">
-            Version Strategy
-          </label>
-          <SelectField
-            value={transition.versionStrategy || 'Minor'}
-            onChange={(v) => updateField('versionStrategy', v)}
-            options={[
-              { value: 'Minor', label: 'Minor' },
-              { value: 'Major', label: 'Major' },
-            ]}
-          />
-        </div>
-
-        {/* Schema */}
-        {!isStartTransition && (
-          <Section title="Schema" defaultOpen={!!transition.schema}>
-            <SchemaReferenceField
-              value={transition.schema}
-              onChange={(ref) => updateField('schema', ref)}
-            />
-          </Section>
-        )}
-
-        {/* Labels */}
-        {!isStartTransition && (
-          <Section title="Labels" count={labels.length} defaultOpen>
-            <div className="space-y-2">
-              {labels.map((l: any, i: number) => (
-                <div key={i} className="flex items-center gap-2">
-                  <input
-                    type="text"
-                    value={l.language}
-                    onChange={(e) => updateLabelField(i, 'language', e.target.value)}
-                    className="text-muted-foreground border-border bg-muted focus:ring-ring/20 w-10 shrink-0 rounded-lg border px-2 py-1.5 text-center font-mono text-[11px] focus:ring-2 focus:outline-none"
-                  />
-                  <input
-                    type="text"
-                    value={l.label}
-                    onChange={(e) => updateLabelField(i, 'label', e.target.value)}
-                    className="border-border bg-muted-surface text-foreground focus:ring-ring/20 focus:border-primary-border focus:bg-surface flex-1 rounded-lg border px-2.5 py-1.5 text-xs transition-all focus:ring-2 focus:outline-none"
-                  />
-                  <button
-                    onClick={() => removeLabel(i)}
-                    className="text-subtle hover:text-destructive-text hover:bg-destructive-surface cursor-pointer rounded-lg p-1 transition-all">
-                    <IconTrash />
-                  </button>
-                </div>
-              ))}
-              <button
-                onClick={addLabel}
-                className="text-secondary-icon hover:text-secondary-foreground mt-1 flex cursor-pointer items-center gap-1.5 text-[11px] font-semibold">
-                <IconPlus /> Add Label
-              </button>
-            </div>
-          </Section>
-        )}
-
-        {/* Condition Script */}
-        {!isStartTransition && (
-          <Section title="Condition / Rule" defaultOpen={!!transition.rule}>
-            <CsxEditorField
-              value={transition.rule}
-              onChange={(s) => updateScript('rule', s)}
-              onRemove={() => removeScript('rule')}
-              templateType="condition"
-              contextName={`${parsed.sourceKey}-${transition.key || 'rule'}`}
-              label="Condition"
-              stateKey={parsed.sourceKey}
-              listField="transitions"
-              index={transitionIndex}
-              scriptField="rule"
-            />
-          </Section>
-        )}
-
-        {/* Timer Script */}
-        {!isStartTransition && (transition.triggerType === 2 || transition.timer) && (
-          <Section title="Timer" defaultOpen={!!transition.timer}>
-            <CsxEditorField
-              value={transition.timer}
-              onChange={(s) => updateScript('timer', s)}
-              onRemove={() => removeScript('timer')}
-              templateType="timer"
-              contextName={`${parsed.sourceKey}-${transition.key || 'timer'}`}
-              label="Timer"
-              stateKey={parsed.sourceKey}
-              listField="transitions"
-              index={transitionIndex}
-              scriptField="timer"
-            />
-          </Section>
-        )}
+      {/* Content: reuse TransitionCard */}
+      <div className="flex-1 overflow-y-auto p-3">
+        <TransitionCard
+          transition={transition}
+          index={effectiveIndex}
+          currentStateKey={sourceKey}
+          allStateKeys={mutations.allStateKeys}
+          onUpdate={mutations.updateTransition}
+          onRemove={() => {}}
+          onUpdateScript={mutations.updateTransitionScript}
+          onRemoveScript={mutations.removeTransitionScript}
+          onUpdateSchema={mutations.updateTransitionSchema}
+          onUpdateMapping={mutations.updateTransitionMapping}
+          onRemoveMapping={mutations.removeTransitionMapping}
+          onUpdateRoles={mutations.updateTransitionRoles}
+          onUpdateView={mutations.updateTransitionView}
+          onUpdateViews={mutations.updateTransitionViews}
+          onUpdateLabels={mutations.updateTransitionLabels}
+          onAddTask={mutations.addTask}
+          onRemoveTask={mutations.removeTask}
+          onMoveTask={mutations.moveTask}
+          onUpdateTaskMapping={mutations.updateTaskMapping}
+          onRemoveTaskMapping={mutations.removeTaskMapping}
+          onSyncTaskRef={mutations.syncTaskRef}
+          onOpenSchemaPicker={openers.openSchemaPicker}
+          onOpenSchemaCreator={openers.openSchemaCreator}
+          onOpenTaskPicker={openers.openTaskPicker}
+          onOpenTaskCreator={openers.openTaskCreator}
+          onOpenViewPicker={openers.openViewPicker}
+          onOpenViewCreator={openers.openViewCreator}
+          onOpenExtensionPicker={openers.openExtensionPicker}
+          canPickExisting={mutations.canPickExisting}
+          projectDomain={mutations.projectDomain}
+          standalone
+        />
       </div>
     </div>
   );

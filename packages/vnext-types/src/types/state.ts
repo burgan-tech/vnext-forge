@@ -3,6 +3,8 @@ import { TriggerType, TriggerKind } from '../constants/trigger-types';
 import { ErrorBoundary } from './error-boundary';
 import { Label } from './label';
 import { MappingCode } from './mapping';
+import type { RoleGrant } from './role';
+import type { ViewBinding } from './view-binding';
 
 export interface ResourceReference {
   key: string;
@@ -30,19 +32,38 @@ export interface Transition {
   schema?: ResourceReference;
   mapping?: MappingCode;
   onExecutionTasks?: TaskExecution[];
-  view?: ResourceReference;
+  roles?: RoleGrant[];
+  view?: ViewBinding;
+  views?: ViewBinding[];
 }
 
 export interface SharedTransition extends Transition {
   availableIn: string[];
 }
 
-export interface SubFlowConfig {
+export interface SubFlowTimerConfig {
+  reset?: string;
+  duration?: string;
+}
+
+export interface SubFlowTimeoutOverride {
   key: string;
-  domain: string;
-  version: string;
-  flow: string;
+  target: string;
+  versionStrategy?: string;
+  timer?: SubFlowTimerConfig;
+}
+
+export interface SubFlowOverrides {
+  timeout?: SubFlowTimeoutOverride;
+  transitions?: Record<string, { roles?: RoleGrant[] }>;
+  states?: Record<string, { queryRoles?: RoleGrant[] }>;
+}
+
+export interface SubFlowConfig {
+  type?: string;
+  process: ResourceReference;
   mapping?: MappingCode;
+  overrides?: SubFlowOverrides;
 }
 
 export interface State {

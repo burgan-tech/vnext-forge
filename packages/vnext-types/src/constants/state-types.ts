@@ -14,4 +14,6 @@ export enum StateSubType {
   Suspended = 4,
   Busy = 5,
   Human = 6,
+  Cancelled = 7,
+  Timeout = 8
 }

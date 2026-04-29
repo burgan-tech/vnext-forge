@@ -89,6 +89,7 @@ export function FlowEditorCanvasAndScriptResizableColumn({
 }) {
   const setScriptPanelHeight = useEditorPanelsStore((s) => s.setScriptPanelHeight);
   const scriptPanelPanelRef = usePanelRef();
+  const hasScript = scriptPanel != null;
 
   const defaultLayout = useMemo(() => {
     const scriptPx = Math.min(
@@ -108,10 +109,6 @@ export function FlowEditorCanvasAndScriptResizableColumn({
     } as const;
   }, []);
 
-  if (!scriptPanel) {
-    return <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{canvas}</div>;
-  }
-
   return (
     <ResizablePanelGroup
       className="flex min-h-0 flex-1 flex-col overflow-hidden"
@@ -121,23 +118,27 @@ export function FlowEditorCanvasAndScriptResizableColumn({
       <ResizablePanel
         className="flex min-h-0 min-w-0 flex-col overflow-hidden"
         id={FLOW_EDITOR_MAIN_COLUMN_ID}
-        minSize="20%">
+        minSize={hasScript ? '20%' : '100%'}>
         {canvas}
       </ResizablePanel>
-      <ResizableHandle className="aria-[orientation=horizontal]:before:top-auto! aria-[orientation=horizontal]:before:bottom-0!" />
-      <ResizablePanel
-        className="border-border bg-surface relative z-40 flex min-h-0 flex-col overflow-hidden"
-        id={FLOW_EDITOR_SCRIPT_COLUMN_ID}
-        maxSize={MAX_HEIGHT}
-        minSize={MIN_HEIGHT}
-        panelRef={scriptPanelPanelRef}
-        onResize={(size) => {
-          setScriptPanelHeight(Math.round(size.inPixels));
-        }}>
-        <ScriptPanelResizeContext.Provider value={scriptPanelPanelRef}>
-          {scriptPanel}
-        </ScriptPanelResizeContext.Provider>
-      </ResizablePanel>
+      {hasScript && (
+        <>
+          <ResizableHandle className="aria-[orientation=horizontal]:before:top-auto! aria-[orientation=horizontal]:before:bottom-0!" />
+          <ResizablePanel
+            className="border-border bg-surface relative z-40 flex min-h-0 flex-col overflow-hidden"
+            id={FLOW_EDITOR_SCRIPT_COLUMN_ID}
+            maxSize={MAX_HEIGHT}
+            minSize={MIN_HEIGHT}
+            panelRef={scriptPanelPanelRef}
+            onResize={(size) => {
+              setScriptPanelHeight(Math.round(size.inPixels));
+            }}>
+            <ScriptPanelResizeContext.Provider value={scriptPanelPanelRef}>
+              {scriptPanel}
+            </ScriptPanelResizeContext.Provider>
+          </ResizablePanel>
+        </>
+      )}
     </ResizablePanelGroup>
   );
 }
