@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import type { Transition, RoleGrant, ViewBinding } from '@vnext-forge/vnext-types';
 import type { ScriptCode } from '../../../../../../modules/save-component/components/CsxEditorField';
 import type { SchemaReference } from '../../../../../../modules/save-component/components/SchemaReferenceField';
@@ -5,7 +6,7 @@ import type { DiscoveredVnextComponent } from '@vnext-forge/app-contracts';
 import type { AtomicSavedInfo } from '../../../../../../modules/save-component/componentEditorModalTypes.js';
 import { getTriggerKindLabel } from '../PropertyPanelHelpers';
 import { Badge, IconTrash } from '../PropertyPanelShared';
-import { ArrowRight } from 'lucide-react';
+import { ArrowRight, ChevronRight } from 'lucide-react';
 import { TriggerType } from '@vnext-forge/vnext-types';
 
 import { TransitionExecutionTasksSection } from './TransitionExecutionTasksSection';
@@ -89,6 +90,7 @@ export function TransitionCard({
   canPickExisting,
   standalone,
 }: TransitionCardProps) {
+  const [expanded, setExpanded] = useState(!standalone);
   const target = transition.target || '';
   const triggerKindLabel = getTriggerKindLabel(transition.triggerKind ?? 0);
   const triggerType = transition.triggerType ?? TriggerType.Manual;
@@ -97,32 +99,56 @@ export function TransitionCard({
 
   return (
     <div className="bg-surface border-border hover:border-muted-border-hover overflow-hidden rounded-xl border shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-all hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
-      <div className="px-3 py-2.5">
-        {/* Header: icon + key + badges + delete */}
-        <div className="mb-2.5 flex items-center gap-2">
+      {/* Header: always visible, toggles expand */}
+      <div className="flex items-center gap-1.5 px-3 py-2">
+        <button
+          type="button"
+          onClick={() => setExpanded((v) => !v)}
+          className="flex flex-1 items-center gap-2 text-left cursor-pointer min-w-0"
+          aria-expanded={expanded}
+          aria-label={`Toggle transition ${transition.key}`}>
           <div className="bg-initial/10 flex size-6 shrink-0 items-center justify-center rounded-lg">
             <ArrowRight size={12} className="text-initial" />
           </div>
+          <span className="text-foreground min-w-0 flex-1 truncate font-mono text-[12px] font-semibold tracking-tight">
+            {transition.key || 'unnamed'}
+          </span>
+          <span className="text-muted-foreground text-[9px] shrink-0">
+            {target === '$self' ? '$self' : target}
+          </span>
+          {triggerKindLabel && (
+            <Badge className="bg-muted text-muted-foreground">{triggerKindLabel}</Badge>
+          )}
+          <ChevronRight
+            size={14}
+            className={`text-muted-foreground shrink-0 transition-transform duration-150 ${expanded ? 'rotate-90' : ''}`}
+          />
+        </button>
+        {!standalone && (
+          <button
+            type="button"
+            onClick={() => onRemove(index)}
+            className="text-subtle hover:text-destructive-text hover:bg-destructive-surface shrink-0 cursor-pointer rounded-lg p-1.5 transition-all"
+            aria-label={`Remove transition ${transition.key}`}>
+            <IconTrash />
+          </button>
+        )}
+      </div>
+
+      {expanded && (
+        <>
+      <div className="px-3 pb-2.5">
+        {/* Editable key */}
+        <div className="mb-2">
+          <label className="text-[10px] font-medium text-muted-foreground mb-0.5 block">Key</label>
           <input
             type="text"
             value={transition.key}
             onChange={(e) => onUpdate(index, 'key', e.target.value)}
             placeholder="e.g. approve-to-review"
-            className="text-foreground min-w-0 flex-1 border-none bg-transparent p-0 font-mono text-[12px] font-semibold tracking-tight focus:ring-0 focus:outline-none"
+            className="w-full px-3 py-2 text-xs border border-border rounded-xl bg-muted-surface text-foreground font-mono focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary-border focus:bg-surface transition-all"
             aria-label="Transition key"
           />
-          {triggerKindLabel && (
-            <Badge className="bg-muted text-muted-foreground">{triggerKindLabel}</Badge>
-          )}
-          {!standalone && (
-            <button
-              type="button"
-              onClick={() => onRemove(index)}
-              className="text-subtle hover:text-destructive-text hover:bg-destructive-surface shrink-0 cursor-pointer rounded-lg p-1.5 transition-all"
-              aria-label={`Remove transition ${transition.key}`}>
-              <IconTrash />
-            </button>
-          )}
         </div>
 
         {/* Identity fields: stacked layout */}
@@ -279,6 +305,8 @@ export function TransitionCard({
           onChange={(labels) => onUpdateLabels(index, labels)}
         />
       </div>
+        </>
+      )}
     </div>
   );
 }

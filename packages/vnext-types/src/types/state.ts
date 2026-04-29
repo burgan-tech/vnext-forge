@@ -71,11 +71,13 @@ export interface State {
   stateType: StateType;
   subType?: StateSubType;
   versionStrategy?: string;
+  queryRoles?: RoleGrant[];
   labels?: Label[];
   onEntries?: TaskExecution[];
   onExits?: TaskExecution[];
   transitions?: Transition[];
   errorBoundary?: ErrorBoundary;
-  view?: ResourceReference;
+  view?: ViewBinding;
+  views?: ViewBinding[];
   subFlow?: SubFlowConfig;
 }
