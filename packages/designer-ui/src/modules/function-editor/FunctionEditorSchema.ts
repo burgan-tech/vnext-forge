@@ -23,7 +23,7 @@ export const functionEditorDocumentSchema = z
     flow: z.string().optional(),
     scope: functionScopeSchema.optional(),
     tags: z.array(z.string()).optional(),
-    tasks: z.array(z.unknown()).optional(),
+    attributes: z.object({}).passthrough().optional(),
   })
   .passthrough();
 

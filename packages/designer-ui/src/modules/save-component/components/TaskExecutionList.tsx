@@ -22,6 +22,8 @@ interface TaskExecutionListProps {
   listField?: string;
   /** Called right before the modal opens so the parent can snapshot the component store. */
   onBeforeOpenModal?: () => void;
+  /** When true, hides the error boundary section on each task card. */
+  hideErrorBoundary?: boolean;
 }
 
 export function TaskExecutionList({
@@ -30,6 +32,7 @@ export function TaskExecutionList({
   stateKey = 'component',
   listField = 'tasks',
   onBeforeOpenModal,
+  hideErrorBoundary,
 }: TaskExecutionListProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [creatorOpen, setCreatorOpen] = useState(false);
@@ -108,6 +111,7 @@ export function TaskExecutionList({
               stateKey={stateKey}
               listField={listField}
               onBeforeOpenModal={onBeforeOpenModal}
+              hideErrorBoundary={hideErrorBoundary}
             />
           ))}
         </div>

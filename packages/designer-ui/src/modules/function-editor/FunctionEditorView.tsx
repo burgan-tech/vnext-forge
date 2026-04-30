@@ -112,14 +112,37 @@ export function FunctionEditorView({
     return useScriptPanelStore.subscribe((state, prev) => {
       if (!state.activeScript?.value || state.activeScript.value === prev.activeScript?.value) return;
       const script = state.activeScript;
-      if (script.listField !== 'tasks') return;
 
       const { updateComponent: update } = useComponentStore.getState();
-      update((draft) => {
-        const tasks = draft.tasks as Record<string, unknown>[] | undefined;
-        if (!Array.isArray(tasks) || !tasks[script.index]) return;
-        tasks[script.index][script.scriptField] = script.value;
-      });
+
+      if (script.listField === 'attributes' && script.scriptField === 'task.mapping') {
+        update((draft) => {
+          const attrs = (draft.attributes ?? {}) as Record<string, unknown>;
+          const t = (attrs.task ?? {}) as Record<string, unknown>;
+          t.mapping = script.value;
+          attrs.task = t;
+          draft.attributes = attrs;
+        });
+        return;
+      }
+
+      if (script.listField === 'onExecutionTasks') {
+        update((draft) => {
+          const attrs = (draft.attributes ?? {}) as Record<string, unknown>;
+          const tasks = attrs.onExecutionTasks as Record<string, unknown>[] | undefined;
+          if (!Array.isArray(tasks) || !tasks[script.index]) return;
+          tasks[script.index][script.scriptField] = script.value;
+        });
+        return;
+      }
+
+      if (script.listField === 'functionOutputMapping') {
+        update((draft) => {
+          const attrs = (draft.attributes ?? {}) as Record<string, unknown>;
+          attrs.output = script.value;
+          draft.attributes = attrs;
+        });
+      }
     });
   }, []);
 

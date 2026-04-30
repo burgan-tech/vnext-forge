@@ -21,6 +21,8 @@ interface TaskExecutionFormProps {
   listField: string;
   /** Called right before the modal opens so the parent can snapshot the component store. */
   onBeforeOpenModal?: () => void;
+  /** When true, the error boundary / workflow failure handlers section is hidden. */
+  hideErrorBoundary?: boolean;
 }
 
 export function TaskExecutionForm({
@@ -34,6 +36,7 @@ export function TaskExecutionForm({
   stateKey,
   listField,
   onBeforeOpenModal,
+  hideErrorBoundary,
 }: TaskExecutionFormProps) {
   const [showErrorBoundary, setShowErrorBoundary] = useState(false);
 
@@ -145,41 +148,43 @@ export function TaskExecutionForm({
         scriptField="mapping"
       />
 
-      <div className="px-2.5 pb-2">
-        <div className="flex items-center gap-2">
-          <Button
-            onClick={() => setShowErrorBoundary(!showErrorBoundary)}
-            type="button"
-            variant="default"
-            size="sm"
-            leftIconType="splitaccent"
-            leftIconVariant="destructive"
-            leftIcon={
-              showErrorBoundary ? (
-                <ChevronDown className="size-3.5" aria-hidden />
-              ) : (
-                <ChevronRight className="size-3.5" aria-hidden />
-              )
-            }
-            className="w-fit">
-            Workflow failure handlers
-          </Button>
-          {execution.errorBoundary?.handlers?.length ? (
-            <Badge variant="destructive">{execution.errorBoundary.handlers.length} handlers</Badge>
-          ) : null}
+      {!hideErrorBoundary && (
+        <div className="px-2.5 pb-2">
+          <div className="flex items-center gap-2">
+            <Button
+              onClick={() => setShowErrorBoundary(!showErrorBoundary)}
+              type="button"
+              variant="default"
+              size="sm"
+              leftIconType="splitaccent"
+              leftIconVariant="destructive"
+              leftIcon={
+                showErrorBoundary ? (
+                  <ChevronDown className="size-3.5" aria-hidden />
+                ) : (
+                  <ChevronRight className="size-3.5" aria-hidden />
+                )
+              }
+              className="w-fit">
+              Workflow failure handlers
+            </Button>
+            {execution.errorBoundary?.handlers?.length ? (
+              <Badge variant="destructive">{execution.errorBoundary.handlers.length} handlers</Badge>
+            ) : null}
+          </div>
+          {showErrorBoundary && (
+            <VnextWorkflowErrorHandlersPanel
+              errorBoundary={execution.errorBoundary || {}}
+              onChange={(updater) =>
+                onChange((d) => {
+                  if (!d.errorBoundary) d.errorBoundary = {};
+                  updater(d.errorBoundary);
+                })
+              }
+            />
+          )}
         </div>
-        {showErrorBoundary && (
-          <VnextWorkflowErrorHandlersPanel
-            errorBoundary={execution.errorBoundary || {}}
-            onChange={(updater) =>
-              onChange((d) => {
-                if (!d.errorBoundary) d.errorBoundary = {};
-                updater(d.errorBoundary);
-              })
-            }
-          />
-        )}
-      </div>
+      )}
     </div>
   );
 }
