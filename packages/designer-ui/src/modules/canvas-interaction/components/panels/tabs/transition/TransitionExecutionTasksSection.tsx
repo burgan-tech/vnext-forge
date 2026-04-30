@@ -1,4 +1,4 @@
-import type { TaskExecution } from '@vnext-forge/vnext-types';
+import type { TaskExecution, ErrorBoundary } from '@vnext-forge/vnext-types';
 import type { DiscoveredVnextComponent } from '@vnext-forge/app-contracts';
 import type { ScriptCode } from '../../../../../../modules/save-component/components/CsxEditorField';
 import { CsxEditorField } from '../../../../../../modules/save-component/components/CsxEditorField';
@@ -7,6 +7,7 @@ import type { AtomicSavedInfo } from '../../../../../../modules/save-component/c
 import { ChooseFromExistingTasksButton } from '../ChooseExistingTaskDialog';
 import { CreateNewTaskButton } from '../CreateNewTaskDialog';
 import { Section, IconTask, IconTrash, IconUp, IconDown } from '../PropertyPanelShared';
+import { TaskErrorBoundaryCollapsible } from '../shared/TaskErrorBoundaryCollapsible';
 
 interface TransitionExecutionTasksSectionProps {
   tasks: TaskExecution[];
@@ -17,6 +18,7 @@ interface TransitionExecutionTasksSectionProps {
   onMoveTask: (fromIndex: number, toIndex: number) => void;
   onUpdateMapping: (taskIndex: number, mapping: ScriptCode) => void;
   onRemoveMapping: (taskIndex: number) => void;
+  onUpdateErrorBoundary: (taskIndex: number, eb: ErrorBoundary | undefined) => void;
   onSyncTaskRef: (taskIndex: number, next: AtomicSavedInfo) => void;
   onOpenPicker: () => void;
   onOpenCreator: () => void;
@@ -31,6 +33,7 @@ export function TransitionExecutionTasksSection({
   onMoveTask,
   onUpdateMapping,
   onRemoveMapping,
+  onUpdateErrorBoundary,
   onSyncTaskRef,
   onOpenPicker,
   onOpenCreator,
@@ -62,6 +65,7 @@ export function TransitionExecutionTasksSection({
               onMoveDown={() => onMoveTask(i, i + 1)}
               onUpdateMapping={(m) => onUpdateMapping(i, m)}
               onRemoveMapping={() => onRemoveMapping(i)}
+              onUpdateErrorBoundary={(eb) => onUpdateErrorBoundary(i, eb)}
               onAtomicSaved={(next) => onSyncTaskRef(i, next)}
             />
           ))}
@@ -106,6 +110,7 @@ function ExecutionTaskCard({
   onMoveDown,
   onUpdateMapping,
   onRemoveMapping,
+  onUpdateErrorBoundary,
   onAtomicSaved,
 }: {
   entry: TaskExecution;
@@ -118,6 +123,7 @@ function ExecutionTaskCard({
   onMoveDown: () => void;
   onUpdateMapping: (mapping: ScriptCode) => void;
   onRemoveMapping: () => void;
+  onUpdateErrorBoundary: (eb: ErrorBoundary | undefined) => void;
   onAtomicSaved: (next: AtomicSavedInfo) => void;
 }) {
   const ref = entry.task;
@@ -202,6 +208,11 @@ function ExecutionTaskCard({
         listField="transitions"
         index={transitionIndex}
         scriptField={`onExecutionTasks.${index}.mapping`}
+      />
+
+      <TaskErrorBoundaryCollapsible
+        errorBoundary={entry.errorBoundary}
+        onChange={onUpdateErrorBoundary}
       />
     </div>
   );

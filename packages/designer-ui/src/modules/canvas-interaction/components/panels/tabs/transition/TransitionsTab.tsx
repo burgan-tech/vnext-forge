@@ -96,6 +96,7 @@ export function TransitionsTab({ state }: { state: any }) {
             onMoveTask={mutations.moveTask}
             onUpdateTaskMapping={mutations.updateTaskMapping}
             onRemoveTaskMapping={mutations.removeTaskMapping}
+            onUpdateTaskErrorBoundary={mutations.updateTaskErrorBoundary}
             onSyncTaskRef={mutations.syncTaskRef}
             onOpenSchemaPicker={openers.openSchemaPicker}
             onOpenSchemaCreator={openers.openSchemaCreator}

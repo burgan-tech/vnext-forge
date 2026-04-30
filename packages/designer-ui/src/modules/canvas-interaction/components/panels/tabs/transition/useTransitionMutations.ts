@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import type { Label, TaskExecution, ViewBinding } from '@vnext-forge/vnext-types';
+import type { Label, TaskExecution, ViewBinding, ErrorBoundary } from '@vnext-forge/vnext-types';
 import type { RoleGrant } from '@vnext-forge/vnext-types';
 import type { DiscoveredVnextComponent } from '@vnext-forge/app-contracts';
 import type { ScriptCode } from '../../../../../../modules/save-component/components/CsxEditorField';
@@ -26,6 +26,7 @@ export interface TransitionMutations {
   moveTask: (transitionIndex: number, fromIndex: number, toIndex: number) => void;
   updateTaskMapping: (transitionIndex: number, taskIndex: number, mapping: ScriptCode) => void;
   removeTaskMapping: (transitionIndex: number, taskIndex: number) => void;
+  updateTaskErrorBoundary: (transitionIndex: number, taskIndex: number, eb: ErrorBoundary | undefined) => void;
   syncTaskRef: (transitionIndex: number, taskIndex: number, next: AtomicSavedInfo) => void;
   allStateKeys: string[];
   canPickExisting: boolean;
@@ -217,6 +218,23 @@ export function useTransitionMutations(findTransition: FindTransition): Transiti
     });
   }, [updateWorkflow, findTransition]);
 
+  const updateTaskErrorBoundary = useCallback((
+    transitionIndex: number,
+    taskIndex: number,
+    eb: ErrorBoundary | undefined,
+  ) => {
+    updateWorkflow((draft: any) => {
+      const ctx = findTransition(draft);
+      const entry = ctx?.transitions?.[transitionIndex]?.onExecutionTasks?.[taskIndex];
+      if (!entry) return;
+      if (eb) {
+        entry.errorBoundary = eb;
+      } else {
+        delete entry.errorBoundary;
+      }
+    });
+  }, [updateWorkflow, findTransition]);
+
   const syncTaskRef = useCallback((
     transitionIndex: number,
     taskIndex: number,
@@ -250,6 +268,7 @@ export function useTransitionMutations(findTransition: FindTransition): Transiti
     moveTask,
     updateTaskMapping,
     removeTaskMapping,
+    updateTaskErrorBoundary,
     syncTaskRef,
     allStateKeys,
     canPickExisting,

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Transition, RoleGrant, ViewBinding } from '@vnext-forge/vnext-types';
+import type { Transition, RoleGrant, ViewBinding, ErrorBoundary } from '@vnext-forge/vnext-types';
 import type { ScriptCode } from '../../../../../../modules/save-component/components/CsxEditorField';
 import type { SchemaReference } from '../../../../../../modules/save-component/components/SchemaReferenceField';
 import type { DiscoveredVnextComponent } from '@vnext-forge/app-contracts';
@@ -43,6 +43,7 @@ export interface TransitionCardProps {
   onMoveTask: (transitionIndex: number, fromIndex: number, toIndex: number) => void;
   onUpdateTaskMapping: (transitionIndex: number, taskIndex: number, mapping: ScriptCode) => void;
   onRemoveTaskMapping: (transitionIndex: number, taskIndex: number) => void;
+  onUpdateTaskErrorBoundary: (transitionIndex: number, taskIndex: number, eb: ErrorBoundary | undefined) => void;
   onSyncTaskRef: (transitionIndex: number, taskIndex: number, next: AtomicSavedInfo) => void;
   onOpenSchemaPicker: (transitionIndex: number) => void;
   onOpenSchemaCreator: (transitionIndex: number) => void;
@@ -79,6 +80,7 @@ export function TransitionCard({
   onMoveTask,
   onUpdateTaskMapping,
   onRemoveTaskMapping,
+  onUpdateTaskErrorBoundary,
   onSyncTaskRef,
   onOpenSchemaPicker,
   onOpenSchemaCreator,
@@ -227,6 +229,7 @@ export function TransitionCard({
           onMoveTask={(from, to) => onMoveTask(index, from, to)}
           onUpdateMapping={(taskIndex, mapping) => onUpdateTaskMapping(index, taskIndex, mapping)}
           onRemoveMapping={(taskIndex) => onRemoveTaskMapping(index, taskIndex)}
+          onUpdateErrorBoundary={(taskIndex, eb) => onUpdateTaskErrorBoundary(index, taskIndex, eb)}
           onSyncTaskRef={(taskIndex, next) => onSyncTaskRef(index, taskIndex, next)}
           onOpenPicker={() => onOpenTaskPicker(index)}
           onOpenCreator={() => onOpenTaskCreator(index)}

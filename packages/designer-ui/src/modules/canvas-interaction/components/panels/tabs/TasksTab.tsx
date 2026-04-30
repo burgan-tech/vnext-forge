@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { ErrorBoundary } from '@vnext-forge/vnext-types';
 import { useWorkflowStore } from '../../../../../store/useWorkflowStore';
 import { useProjectStore } from '../../../../../store/useProjectStore';
 import { CsxEditorField, type ScriptCode } from '../../../../../modules/save-component/components/CsxEditorField';
@@ -15,6 +16,7 @@ import { ChooseExistingTaskDialog, ChooseFromExistingTasksButton } from './Choos
 import { CreateNewTaskButton, CreateNewTaskDialog } from './CreateNewTaskDialog';
 import { useFlowEditorSave } from '../../../../../modules/flow-editor/FlowEditorSaveContext.js';
 import { Section, IconTask, IconTrash, IconUp, IconDown } from './PropertyPanelShared';
+import { TaskErrorBoundaryCollapsible } from './shared/TaskErrorBoundaryCollapsible';
 
 /* ────────────── TASKS TAB ────────────── */
 
@@ -183,6 +185,23 @@ export function TasksTab({
     });
   };
 
+  const updateErrorBoundary = (
+    listField: 'onEntries' | 'onExits',
+    index: number,
+    eb: ErrorBoundary | undefined,
+  ) => {
+    updateWorkflow((draft: any) => {
+      const s = draft.attributes?.states?.find((s: any) => s.key === stateKey);
+      const entry = s?.[listField]?.[index];
+      if (!entry) return;
+      if (eb) {
+        entry.errorBoundary = eb;
+      } else {
+        delete entry.errorBoundary;
+      }
+    });
+  };
+
   return (
     <div className="space-y-4">
       <ChooseExistingTaskDialog
@@ -228,6 +247,7 @@ export function TasksTab({
                 onMove={moveTask}
                 onUpdateMapping={updateMapping}
                 onRemoveMapping={removeMapping}
+                onUpdateErrorBoundary={updateErrorBoundary}
                 onAtomicSaved={syncTaskRef}
               />
             ))}
@@ -277,6 +297,7 @@ export function TasksTab({
                 onMove={moveTask}
                 onUpdateMapping={updateMapping}
                 onRemoveMapping={removeMapping}
+                onUpdateErrorBoundary={updateErrorBoundary}
                 onAtomicSaved={syncTaskRef}
               />
             ))}
@@ -322,6 +343,7 @@ function EditableTaskCard({
   onMove,
   onUpdateMapping,
   onRemoveMapping,
+  onUpdateErrorBoundary,
   onAtomicSaved,
 }: {
   entry: any;
@@ -333,6 +355,7 @@ function EditableTaskCard({
   onMove: (listField: 'onEntries' | 'onExits', fromIndex: number, toIndex: number) => void;
   onUpdateMapping: (listField: 'onEntries' | 'onExits', index: number, mapping: ScriptCode) => void;
   onRemoveMapping: (listField: 'onEntries' | 'onExits', index: number) => void;
+  onUpdateErrorBoundary: (listField: 'onEntries' | 'onExits', index: number, eb: ErrorBoundary | undefined) => void;
   onAtomicSaved: (listField: 'onEntries' | 'onExits', index: number, next: AtomicSavedInfo) => void;
 }) {
   const ref = entry.task || entry;
@@ -413,6 +436,11 @@ function EditableTaskCard({
         listField={listField}
         index={index}
         scriptField="mapping"
+      />
+
+      <TaskErrorBoundaryCollapsible
+        errorBoundary={entry.errorBoundary}
+        onChange={(eb) => onUpdateErrorBoundary(listField, index, eb)}
       />
     </div>
   );
