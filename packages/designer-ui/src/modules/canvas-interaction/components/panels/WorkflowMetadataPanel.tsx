@@ -6,6 +6,7 @@ import { WorkflowUpdateDataSection } from './sections/WorkflowUpdateDataSection'
 import { WorkflowQueryRolesSection } from './sections/WorkflowQueryRolesSection';
 import { WorkflowSharedTransitionsSection } from './sections/WorkflowSharedTransitionsSection';
 import { WorkflowCancelSection } from './sections/WorkflowCancelSection';
+import { WorkflowExitSection } from './sections/WorkflowExitSection';
 import { WorkflowTimeoutSection } from './sections/WorkflowTimeoutSection';
 import { WorkflowErrorBoundarySection } from './sections/WorkflowErrorBoundarySection';
 import { WorkflowFunctionsSection } from './sections/WorkflowFunctionsSection';
@@ -44,6 +45,7 @@ export function WorkflowMetadataPanel({ onClose }: WorkflowMetadataPanelProps) {
           <WorkflowQueryRolesSection />
           <WorkflowSharedTransitionsSection />
           <WorkflowCancelSection />
+          <WorkflowExitSection />
           <WorkflowTimeoutSection />
           <WorkflowErrorBoundarySection />
           <WorkflowFunctionsSection />

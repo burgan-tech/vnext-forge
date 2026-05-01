@@ -4,8 +4,8 @@ import type { ScriptCode } from '../../../../../../modules/save-component/compon
 import type { SchemaReference } from '../../../../../../modules/save-component/components/SchemaReferenceField';
 import type { DiscoveredVnextComponent } from '@vnext-forge/app-contracts';
 import type { AtomicSavedInfo } from '../../../../../../modules/save-component/componentEditorModalTypes.js';
-import { getTriggerKindLabel } from '../PropertyPanelHelpers';
-import { Badge, IconTrash, Section } from '../PropertyPanelShared';
+import { getTriggerLabel, getTriggerKindLabel } from '../PropertyPanelHelpers';
+import { Badge, IconTrash, Section, InfoRow } from '../PropertyPanelShared';
 import { ArrowRight, ChevronRight } from 'lucide-react';
 import { TriggerType } from '@vnext-forge/vnext-types';
 
@@ -18,6 +18,11 @@ import { TransitionRolesSection } from './TransitionRolesSection';
 import { TransitionViewSection } from './TransitionViewSection';
 import { TransitionLabelsSection } from './TransitionLabelsSection';
 import { AvailableInMultiSelect, type StateOption } from '../shared/AvailableInMultiSelect';
+import {
+  resolveFieldPolicy,
+  getAllowedTriggerTypes,
+  type TransitionEditorKind,
+} from './transitionFieldPolicy';
 
 export interface TransitionCardProps {
   transition: Transition;
@@ -63,7 +68,14 @@ export interface TransitionCardProps {
   onUpdateAvailableIn?: (keys: string[]) => void;
   /** State options for the availableIn multi-select dropdown. */
   availableInStateOptions?: StateOption[];
+  /** Controls field visibility per the transition matrix. Defaults to 'state'. */
+  editorKind?: TransitionEditorKind;
+  /** When set, renders target as read-only text instead of a select. */
+  lockedTarget?: string;
 }
+
+const selectClass =
+  'w-full px-3 py-2 text-xs border border-border rounded-xl bg-muted-surface text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary-border focus:bg-surface transition-all cursor-pointer';
 
 export function TransitionCard({
   transition,
@@ -100,13 +112,17 @@ export function TransitionCard({
   availableIn,
   onUpdateAvailableIn,
   availableInStateOptions,
+  editorKind = 'state',
+  lockedTarget,
 }: TransitionCardProps) {
   const [expanded, setExpanded] = useState(!standalone);
-  const target = transition.target || '';
+  const target = lockedTarget ?? transition.target ?? '';
   const triggerKindLabel = getTriggerKindLabel(transition.triggerKind ?? 0);
   const triggerType = transition.triggerType ?? TriggerType.Manual;
-  const isAuto = triggerType === TriggerType.Automatic;
-  const isScheduled = triggerType === TriggerType.Scheduled;
+
+  const policy = resolveFieldPolicy(editorKind, triggerType, transition.triggerKind);
+  const allowedTriggers = getAllowedTriggerTypes(editorKind);
+  const isTriggerLocked = allowedTriggers.length === 1;
 
   return (
     <div className="bg-surface border-border hover:border-muted-border-hover overflow-hidden rounded-xl border shadow-[0_1px_3px_rgba(0,0,0,0.04)] transition-all hover:shadow-[0_2px_8px_rgba(0,0,0,0.06)]">
@@ -169,43 +185,54 @@ export function TransitionCard({
             <label className="text-[10px] font-medium text-muted-foreground mb-0.5 block">
               Target state
             </label>
-            <select
-              value={target}
-              onChange={(e) => onUpdate(index, 'target', e.target.value)}
-              className="w-full px-3 py-2 text-xs border border-border rounded-xl bg-muted-surface text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary-border focus:bg-surface transition-all cursor-pointer"
-              aria-label="Target state">
-              <option value="$self">$self (current state)</option>
-              {!allStateKeys.includes(target) && target && target !== '$self' && (
-                <option value={target}>{target}</option>
-              )}
-              {allStateKeys.map((k) => (
-                <option key={k} value={k}>
-                  {k}
-                  {k === currentStateKey ? ' (self)' : ''}
-                </option>
-              ))}
-            </select>
+            {lockedTarget ? (
+              <div className="bg-muted text-muted-foreground rounded-xl px-3 py-2 font-mono text-xs">
+                {lockedTarget}
+              </div>
+            ) : (
+              <select
+                value={target}
+                onChange={(e) => onUpdate(index, 'target', e.target.value)}
+                className={selectClass}
+                aria-label="Target state">
+                <option value="$self">$self (current state)</option>
+                {!allStateKeys.includes(target) && target && target !== '$self' && (
+                  <option value={target}>{target}</option>
+                )}
+                {allStateKeys.map((k) => (
+                  <option key={k} value={k}>
+                    {k}
+                    {k === currentStateKey ? ' (self)' : ''}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
 
           {/* Trigger type */}
-          <div>
-            <label className="text-[10px] font-medium text-muted-foreground mb-0.5 block">
-              Trigger type
-            </label>
-            <select
-              value={triggerType}
-              onChange={(e) => onUpdate(index, 'triggerType', Number(e.target.value))}
-              className="w-full px-3 py-2 text-xs border border-border rounded-xl bg-muted-surface text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary-border focus:bg-surface transition-all cursor-pointer"
-              aria-label="Trigger type">
-              <option value={0}>Manual</option>
-              <option value={1}>Auto</option>
-              <option value={2}>Scheduled</option>
-              <option value={3}>Event</option>
-            </select>
-          </div>
+          {policy.triggerType.visible && (
+            <div>
+              <label className="text-[10px] font-medium text-muted-foreground mb-0.5 block">
+                Trigger type
+              </label>
+              {isTriggerLocked ? (
+                <InfoRow label="" value={getTriggerLabel(allowedTriggers[0])} />
+              ) : (
+                <select
+                  value={triggerType}
+                  onChange={(e) => onUpdate(index, 'triggerType', Number(e.target.value))}
+                  className={selectClass}
+                  aria-label="Trigger type">
+                  {allowedTriggers.map((t) => (
+                    <option key={t} value={t}>{getTriggerLabel(t)}</option>
+                  ))}
+                </select>
+              )}
+            </div>
+          )}
 
-          {/* Trigger kind — only meaningful for Auto */}
-          {!isAuto && (
+          {/* Trigger kind */}
+          {policy.triggerKind.visible && (
             <div>
               <label className="text-[10px] font-medium text-muted-foreground mb-0.5 block">
                 Trigger kind
@@ -216,7 +243,7 @@ export function TransitionCard({
                   const v = Number(e.target.value);
                   onUpdate(index, 'triggerKind', v === 0 ? undefined : v);
                 }}
-                className="w-full px-3 py-2 text-xs border border-border rounded-xl bg-muted-surface text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary-border focus:bg-surface transition-all cursor-pointer"
+                className={selectClass}
                 aria-label="Trigger kind">
                 <option value={0}>Standard</option>
                 <option value={10}>Default / Fallback</option>
@@ -228,44 +255,50 @@ export function TransitionCard({
 
       {/* Collapsible sections — domain-driven order */}
       <div className="px-3 pb-3 space-y-2">
-        {/* 1. On Execution Tasks */}
-        <TransitionExecutionTasksSection
-          tasks={transition.onExecutionTasks ?? []}
-          stateKey={currentStateKey}
-          transitionIndex={index}
-          onAddTask={(task) => onAddTask(index, task)}
-          onRemoveTask={(taskIndex) => onRemoveTask(index, taskIndex)}
-          onMoveTask={(from, to) => onMoveTask(index, from, to)}
-          onUpdateMapping={(taskIndex, mapping) => onUpdateTaskMapping(index, taskIndex, mapping)}
-          onRemoveMapping={(taskIndex) => onRemoveTaskMapping(index, taskIndex)}
-          onUpdateErrorBoundary={(taskIndex, eb) => onUpdateTaskErrorBoundary(index, taskIndex, eb)}
-          onSyncTaskRef={(taskIndex, next) => onSyncTaskRef(index, taskIndex, next)}
-          onOpenPicker={() => onOpenTaskPicker(index)}
-          onOpenCreator={() => onOpenTaskCreator(index)}
-          canPickExisting={canPickExisting}
-        />
+        {/* On Execution Tasks */}
+        {policy.onExecutionTasks.visible && (
+          <TransitionExecutionTasksSection
+            tasks={transition.onExecutionTasks ?? []}
+            stateKey={currentStateKey}
+            transitionIndex={index}
+            onAddTask={(task) => onAddTask(index, task)}
+            onRemoveTask={(taskIndex) => onRemoveTask(index, taskIndex)}
+            onMoveTask={(from, to) => onMoveTask(index, from, to)}
+            onUpdateMapping={(taskIndex, mapping) => onUpdateTaskMapping(index, taskIndex, mapping)}
+            onRemoveMapping={(taskIndex) => onRemoveTaskMapping(index, taskIndex)}
+            onUpdateErrorBoundary={(taskIndex, eb) => onUpdateTaskErrorBoundary(index, taskIndex, eb)}
+            onSyncTaskRef={(taskIndex, next) => onSyncTaskRef(index, taskIndex, next)}
+            onOpenPicker={() => onOpenTaskPicker(index)}
+            onOpenCreator={() => onOpenTaskCreator(index)}
+            canPickExisting={canPickExisting}
+          />
+        )}
 
-        {/* 2. Schema */}
-        <TransitionSchemaSection
-          schema={transition.schema ?? null}
-          onChange={(ref) => onUpdateSchema(index, ref)}
-          onBrowse={() => onOpenSchemaPicker(index)}
-          onCreateNew={() => onOpenSchemaCreator(index)}
-          canPickExisting={canPickExisting}
-        />
+        {/* Schema */}
+        {policy.schema.visible && (
+          <TransitionSchemaSection
+            schema={transition.schema ?? null}
+            onChange={(ref) => onUpdateSchema(index, ref)}
+            onBrowse={() => onOpenSchemaPicker(index)}
+            onCreateNew={() => onOpenSchemaCreator(index)}
+            canPickExisting={canPickExisting}
+          />
+        )}
 
-        {/* 3. Mapping */}
-        <TransitionMappingSection
-          mapping={(transition.mapping as ScriptCode | undefined) ?? null}
-          stateKey={currentStateKey}
-          transitionKey={transition.key}
-          index={index}
-          onChange={(m) => onUpdateMapping(index, m)}
-          onRemove={() => onRemoveMapping(index)}
-        />
+        {/* Mapping */}
+        {policy.mapping.visible && (
+          <TransitionMappingSection
+            mapping={(transition.mapping as ScriptCode | undefined) ?? null}
+            stateKey={currentStateKey}
+            transitionKey={transition.key}
+            index={index}
+            onChange={(m) => onUpdateMapping(index, m)}
+            onRemove={() => onRemoveMapping(index)}
+          />
+        )}
 
-        {/* 4. Condition (Auto only) */}
-        {isAuto && (
+        {/* Condition (rule) */}
+        {policy.rule.visible && (
           <TransitionConditionSection
             rule={(transition.rule as ScriptCode | undefined) ?? null}
             triggerKind={transition.triggerKind}
@@ -278,8 +311,8 @@ export function TransitionCard({
           />
         )}
 
-        {/* 5. Timer (Scheduled only) */}
-        {isScheduled && (
+        {/* Timer */}
+        {policy.timer.visible && (
           <TransitionTimerSection
             timer={(transition.timer as ScriptCode | undefined) ?? null}
             stateKey={currentStateKey}
@@ -290,29 +323,33 @@ export function TransitionCard({
           />
         )}
 
-        {/* 6. Roles */}
-        <TransitionRolesSection
-          roles={transition.roles ?? []}
-          onChange={(roles) => onUpdateRoles(index, roles)}
-        />
+        {/* Roles */}
+        {policy.roles.visible && (
+          <TransitionRolesSection
+            roles={transition.roles ?? []}
+            onChange={(roles) => onUpdateRoles(index, roles)}
+          />
+        )}
 
-        {/* 7. Views */}
-        <TransitionViewSection
-          view={transition.view ?? null}
-          views={transition.views ?? []}
-          onUpdateView={(view) => onUpdateView(index, view)}
-          onUpdateViews={(views) => onUpdateViews(index, views)}
-          onBrowseView={(bindingIndex) => onOpenViewPicker(index, bindingIndex)}
-          onCreateView={(bindingIndex) => onOpenViewCreator(index, bindingIndex)}
-          onBrowseExtension={(bindingIndex) => onOpenExtensionPicker(index, bindingIndex)}
-          canPickExisting={canPickExisting}
-          stateKey={currentStateKey}
-          transitionKey={transition.key}
-          transitionIndex={index}
-        />
+        {/* Views */}
+        {policy.view.visible && (
+          <TransitionViewSection
+            view={transition.view ?? null}
+            views={transition.views ?? []}
+            onUpdateView={(view) => onUpdateView(index, view)}
+            onUpdateViews={(views) => onUpdateViews(index, views)}
+            onBrowseView={(bindingIndex) => onOpenViewPicker(index, bindingIndex)}
+            onCreateView={(bindingIndex) => onOpenViewCreator(index, bindingIndex)}
+            onBrowseExtension={(bindingIndex) => onOpenExtensionPicker(index, bindingIndex)}
+            canPickExisting={canPickExisting}
+            stateKey={currentStateKey}
+            transitionKey={transition.key}
+            transitionIndex={index}
+          />
+        )}
 
-        {/* 8. Available In (shared / cancel transitions only) */}
-        {availableIn && onUpdateAvailableIn && availableInStateOptions && (
+        {/* Available In */}
+        {policy.availableIn.visible && availableIn && onUpdateAvailableIn && availableInStateOptions && (
           <Section title="Available in states" count={availableIn.length} defaultOpen={availableIn.length > 0}>
             <p className="text-[10px] text-muted-foreground mb-2 leading-relaxed">
               Limit this transition to specific states. Leave empty to apply everywhere.
@@ -325,11 +362,13 @@ export function TransitionCard({
           </Section>
         )}
 
-        {/* 9. Labels */}
-        <TransitionLabelsSection
-          labels={transition.labels ?? []}
-          onChange={(labels) => onUpdateLabels(index, labels)}
-        />
+        {/* Labels */}
+        {policy.labels.visible && (
+          <TransitionLabelsSection
+            labels={transition.labels ?? []}
+            onChange={(labels) => onUpdateLabels(index, labels)}
+          />
+        )}
       </div>
         </>
       )}

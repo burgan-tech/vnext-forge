@@ -1,44 +1,179 @@
-import { useMemo } from 'react';
+import { useMemo, useCallback, useState } from 'react';
+import type { DiscoveredVnextComponent } from '@vnext-forge/app-contracts';
+import type { RoleGrant } from '@vnext-forge/vnext-types';
 import { useWorkflowStore } from '../../../../../store/useWorkflowStore';
+import { useProjectStore } from '../../../../../store/useProjectStore';
 import {
   SchemaReferenceField,
   type SchemaReference,
 } from '../../../../../modules/save-component/components/SchemaReferenceField';
+import type { ScriptCode } from '../../../../../modules/save-component/components/CsxEditorField';
+import type { AtomicSavedInfo } from '../../../../../modules/save-component/componentEditorModalTypes';
 import { getLabels, getLabel, getTriggerLabel } from './PropertyPanelHelpers';
 import { Badge, Section, InfoRow, SelectField } from './PropertyPanelShared';
 import { Play, Plus, Trash2 } from 'lucide-react';
 import { OpenVnextComponentInModalButton } from '../../../../../modules/save-component/components/OpenVnextComponentInModalButton.js';
+import { TransitionMappingSection } from './transition/TransitionMappingSection';
+import { TransitionRolesSection } from './transition/TransitionRolesSection';
+import { TransitionExecutionTasksSection } from './transition/TransitionExecutionTasksSection';
+import { ChooseExistingTaskDialog } from './ChooseExistingTaskDialog';
 
 export function StartNodePanel({ startTransition }: { startTransition: any }) {
   const { workflowJson, updateWorkflow } = useWorkflowStore();
+  const vnextConfig = useProjectStore((s) => s.vnextConfig);
+  const activeProject = useProjectStore((s) => s.activeProject);
   const target = startTransition.target || startTransition.to || '';
   const schema = startTransition.schema;
   const labels = getLabels(startTransition);
+  const canPickExisting = Boolean(activeProject && vnextConfig?.paths);
 
-  // All state keys for target dropdown
   const allStateKeys = useMemo(() => {
     type Attrs = { states?: Array<{ key: string }> };
     const attrs = workflowJson?.attributes as Attrs | undefined;
     return (attrs?.states || []).map((s) => s.key);
   }, [workflowJson]);
 
+  const resolveStart = (draft: any) =>
+    draft.attributes?.startTransition || draft.attributes?.start;
+
   const updateStartField = (field: string, value: any) => {
     updateWorkflow((draft: any) => {
-      const st = draft.attributes?.startTransition || draft.attributes?.start;
+      const st = resolveStart(draft);
       if (st) st[field] = value;
     });
   };
 
   const updateSchema = (ref: SchemaReference | null) => {
     updateWorkflow((draft: any) => {
-      const st = draft.attributes?.startTransition || draft.attributes?.start;
+      const st = resolveStart(draft);
       if (st) st.schema = ref;
     });
   };
 
+  const updateMapping = useCallback(
+    (mapping: ScriptCode) => {
+      updateWorkflow((draft: any) => {
+        const st = resolveStart(draft);
+        if (st) st.mapping = mapping;
+      });
+    },
+    [updateWorkflow],
+  );
+
+  const removeMapping = useCallback(() => {
+    updateWorkflow((draft: any) => {
+      const st = resolveStart(draft);
+      if (st) delete st.mapping;
+    });
+  }, [updateWorkflow]);
+
+  const updateRoles = useCallback(
+    (roles: RoleGrant[]) => {
+      updateWorkflow((draft: any) => {
+        const st = resolveStart(draft);
+        if (st) st.roles = roles;
+      });
+    },
+    [updateWorkflow],
+  );
+
+  const projectDomain = vnextConfig?.domain ?? activeProject?.domain ?? '';
+
+  const addTask = useCallback(
+    (task: DiscoveredVnextComponent) => {
+      updateWorkflow((draft: any) => {
+        const st = resolveStart(draft);
+        if (!st) return;
+        if (!st.onExecutionTasks) st.onExecutionTasks = [];
+        st.onExecutionTasks.push({
+          order: st.onExecutionTasks.length,
+          task: {
+            key: task.key,
+            domain: projectDomain,
+            version: task.version ?? '1.0.0',
+            flow: task.flow || 'sys-tasks',
+          },
+        });
+      });
+    },
+    [updateWorkflow, projectDomain],
+  );
+
+  const removeTask = useCallback(
+    (taskIndex: number) => {
+      updateWorkflow((draft: any) => {
+        const st = resolveStart(draft);
+        st?.onExecutionTasks?.splice(taskIndex, 1);
+      });
+    },
+    [updateWorkflow],
+  );
+
+  const moveTask = useCallback(
+    (fromIndex: number, toIndex: number) => {
+      updateWorkflow((draft: any) => {
+        const st = resolveStart(draft);
+        const tasks = st?.onExecutionTasks;
+        if (!tasks) return;
+        const [item] = tasks.splice(fromIndex, 1);
+        tasks.splice(toIndex, 0, item);
+      });
+    },
+    [updateWorkflow],
+  );
+
+  const updateTaskMapping = useCallback(
+    (taskIndex: number, mapping: ScriptCode) => {
+      updateWorkflow((draft: any) => {
+        const st = resolveStart(draft);
+        const task = st?.onExecutionTasks?.[taskIndex];
+        if (task) task.mapping = mapping;
+      });
+    },
+    [updateWorkflow],
+  );
+
+  const removeTaskMapping = useCallback(
+    (taskIndex: number) => {
+      updateWorkflow((draft: any) => {
+        const st = resolveStart(draft);
+        const task = st?.onExecutionTasks?.[taskIndex];
+        if (task) delete task.mapping;
+      });
+    },
+    [updateWorkflow],
+  );
+
+  const updateTaskErrorBoundary = useCallback(
+    (taskIndex: number, eb: any) => {
+      updateWorkflow((draft: any) => {
+        const st = resolveStart(draft);
+        const task = st?.onExecutionTasks?.[taskIndex];
+        if (task) task.errorBoundary = eb;
+      });
+    },
+    [updateWorkflow],
+  );
+
+  const syncTaskRef = useCallback(
+    (taskIndex: number, next: AtomicSavedInfo) => {
+      updateWorkflow((draft: any) => {
+        const st = resolveStart(draft);
+        const task = st?.onExecutionTasks?.[taskIndex];
+        if (!task?.task) return;
+        task.task.key = next.key;
+        task.task.domain = next.domain;
+        task.task.version = next.version;
+      });
+    },
+    [updateWorkflow],
+  );
+
+  const [taskPickerOpen, setTaskPickerOpen] = useState(false);
+
   const addLabel = () => {
     updateWorkflow((draft: any) => {
-      const st = draft.attributes?.startTransition || draft.attributes?.start;
+      const st = resolveStart(draft);
       if (!st) return;
       if (!st.labels) st.labels = [];
       st.labels.push({ label: '', language: 'en' });
@@ -47,7 +182,7 @@ export function StartNodePanel({ startTransition }: { startTransition: any }) {
 
   const removeLabel = (index: number) => {
     updateWorkflow((draft: any) => {
-      const st = draft.attributes?.startTransition || draft.attributes?.start;
+      const st = resolveStart(draft);
       if (!st?.labels) return;
       st.labels.splice(index, 1);
     });
@@ -55,7 +190,7 @@ export function StartNodePanel({ startTransition }: { startTransition: any }) {
 
   const updateLabel = (index: number, field: 'label' | 'language', value: string) => {
     updateWorkflow((draft: any) => {
-      const st = draft.attributes?.startTransition || draft.attributes?.start;
+      const st = resolveStart(draft);
       if (!st?.labels?.[index]) return;
       st.labels[index][field] = value;
     });
@@ -123,11 +258,44 @@ export function StartNodePanel({ startTransition }: { startTransition: any }) {
               <OpenVnextComponentInModalButton
                 componentKey={String(schema.key)}
                 flow={String(schema.flow)}
-                title="Schema JSON’u modal’da aç"
+                title="Open schema JSON in modal"
               />
             </div>
           ) : null}
         </Section>
+
+        {/* Mapping */}
+        <TransitionMappingSection
+          mapping={(startTransition.mapping as ScriptCode | undefined) ?? null}
+          stateKey="__start__"
+          transitionKey={startTransition.key || 'start'}
+          index={0}
+          onChange={updateMapping}
+          onRemove={removeMapping}
+        />
+
+        {/* On execution tasks */}
+        <TransitionExecutionTasksSection
+          tasks={startTransition.onExecutionTasks ?? []}
+          stateKey="__start__"
+          transitionIndex={0}
+          onAddTask={addTask}
+          onRemoveTask={removeTask}
+          onMoveTask={moveTask}
+          onUpdateMapping={updateTaskMapping}
+          onRemoveMapping={removeTaskMapping}
+          onUpdateErrorBoundary={updateTaskErrorBoundary}
+          onSyncTaskRef={syncTaskRef}
+          onOpenPicker={() => setTaskPickerOpen(true)}
+          onOpenCreator={() => setTaskPickerOpen(true)}
+          canPickExisting={canPickExisting}
+        />
+
+        {/* Roles */}
+        <TransitionRolesSection
+          roles={startTransition.roles ?? []}
+          onChange={updateRoles}
+        />
 
         {/* Editable labels */}
         <Section title="Labels" count={labels.length} defaultOpen>
@@ -161,6 +329,12 @@ export function StartNodePanel({ startTransition }: { startTransition: any }) {
           </div>
         </Section>
       </div>
+
+      <ChooseExistingTaskDialog
+        open={taskPickerOpen}
+        onOpenChange={setTaskPickerOpen}
+        onSelectTask={addTask}
+      />
     </div>
   );
 }

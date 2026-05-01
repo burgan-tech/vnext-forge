@@ -6,7 +6,7 @@ import {
   getTriggerColor,
   getTriggerKindLabel,
 } from './tabs/PropertyPanelHelpers';
-import { Badge, SelectField } from './tabs/PropertyPanelShared';
+import { Badge } from './tabs/PropertyPanelShared';
 import { ArrowRight, MousePointer2, X } from 'lucide-react';
 import { TransitionCard } from './tabs/transition/TransitionCard';
 import { useTransitionMutations } from './tabs/transition/useTransitionMutations';
@@ -97,16 +97,8 @@ export function TransitionPropertyPanel() {
 
   const effectiveIndex = isStartTransition ? 0 : transitionIndex;
 
-  /* ── Start transition: reduced UI ── */
+  /* ── Start transition: full card with start policy ── */
   if (isStartTransition) {
-    const target = transition.target || '';
-    const updateField = (field: string, value: any) => {
-      updateWorkflow((draft: any) => {
-        const st = draft.attributes?.startTransition || draft.attributes?.start;
-        if (st) st[field] = value;
-      });
-    };
-
     return (
       <div className="flex h-full flex-col">
         <div className="border-border-subtle bg-surface border-b px-3 py-2">
@@ -127,33 +119,50 @@ export function TransitionPropertyPanel() {
             </button>
           </div>
         </div>
-        <div className="flex-1 space-y-4 overflow-y-auto p-4">
-          <div>
-            <label className="text-muted-foreground mb-1 block text-[10px] font-semibold tracking-wide">
-              Target
-            </label>
-            <select
-              value={target}
-              onChange={(e) => updateField('target', e.target.value)}
-              className="border-border bg-muted-surface text-foreground focus:ring-ring/20 focus:border-primary-border focus:bg-surface w-full cursor-pointer rounded-lg border px-2.5 py-1.5 font-mono text-xs transition-all focus:ring-2 focus:outline-none">
-              {mutations.allStateKeys.map((k) => (
-                <option key={k} value={k}>{k}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="text-muted-foreground mb-1 block text-[10px] font-semibold tracking-wide">
-              Version Strategy
-            </label>
-            <SelectField
-              value={transition.versionStrategy || 'Minor'}
-              onChange={(v) => updateField('versionStrategy', v)}
-              options={[
-                { value: 'Minor', label: 'Minor' },
-                { value: 'Major', label: 'Major' },
-              ]}
-            />
-          </div>
+
+        <TransitionDialogsHost
+          mutations={mutations}
+          findTransition={findTransition}
+          dialogState={dialogState}
+          getTransitions={getTransitions}
+        />
+
+        <div className="flex-1 overflow-y-auto p-3">
+          <TransitionCard
+            transition={transition}
+            index={effectiveIndex}
+            currentStateKey=""
+            allStateKeys={mutations.allStateKeys}
+            onUpdate={mutations.updateTransition}
+            onRemove={() => {}}
+            onUpdateScript={mutations.updateTransitionScript}
+            onRemoveScript={mutations.removeTransitionScript}
+            onUpdateSchema={mutations.updateTransitionSchema}
+            onUpdateMapping={mutations.updateTransitionMapping}
+            onRemoveMapping={mutations.removeTransitionMapping}
+            onUpdateRoles={mutations.updateTransitionRoles}
+            onUpdateView={mutations.updateTransitionView}
+            onUpdateViews={mutations.updateTransitionViews}
+            onUpdateLabels={mutations.updateTransitionLabels}
+            onAddTask={mutations.addTask}
+            onRemoveTask={mutations.removeTask}
+            onMoveTask={mutations.moveTask}
+            onUpdateTaskMapping={mutations.updateTaskMapping}
+            onRemoveTaskMapping={mutations.removeTaskMapping}
+            onUpdateTaskErrorBoundary={mutations.updateTaskErrorBoundary}
+            onSyncTaskRef={mutations.syncTaskRef}
+            onOpenSchemaPicker={openers.openSchemaPicker}
+            onOpenSchemaCreator={openers.openSchemaCreator}
+            onOpenTaskPicker={openers.openTaskPicker}
+            onOpenTaskCreator={openers.openTaskCreator}
+            onOpenViewPicker={openers.openViewPicker}
+            onOpenViewCreator={openers.openViewCreator}
+            onOpenExtensionPicker={openers.openExtensionPicker}
+            canPickExisting={mutations.canPickExisting}
+            projectDomain={mutations.projectDomain}
+            standalone
+            editorKind="start"
+          />
         </div>
       </div>
     );
