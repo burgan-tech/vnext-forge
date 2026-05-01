@@ -5,6 +5,7 @@ import {
   Controls,
   MiniMap,
   Panel,
+  ConnectionMode,
   useNodesState,
   useEdgesState,
   useReactFlow,
@@ -24,13 +25,17 @@ import {
   toDiagramData,
   toVnextWorkflow,
 } from './utils/Conversion';
-import { autoLayout } from './utils/Layout';
+import { layoutFlow } from './utils/Layout';
 import { CanvasToolbar } from './components/panels/CanvasToolbar';
 import {
   CanvasContextMenu,
   NodeContextMenu,
   EdgeContextMenu,
 } from './components/menus/CanvasContextMenu';
+import {
+  CanvasViewSettingsProvider,
+  useCanvasViewSettings,
+} from './context/CanvasViewSettingsContext';
 
 interface FlowCanvasProps {
   workflowJson: Record<string, unknown>;
@@ -75,6 +80,7 @@ function FlowCanvasInner({
     changeTransitionTrigger,
   } = useWorkflowStore();
   const { fitView, screenToFlowPosition, getViewport } = useReactFlow();
+  const { settings } = useCanvasViewSettings();
   const autoLayoutDone = useRef(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState>(null);
 
@@ -103,25 +109,48 @@ function FlowCanvasInner({
   useEffect(() => {
     if (needsLayout && !autoLayoutDone.current && computedNodes.length > 0) {
       autoLayoutDone.current = true;
-      autoLayout(computedNodes, computedEdges).then((layoutedNodes) => {
+      layoutFlow(computedNodes, computedEdges, {
+        algorithm: settings.algorithm,
+        direction: settings.direction,
+      }).then((layoutedNodes) => {
         setNodes(layoutedNodes);
         const positions = reactFlowToPositions(layoutedNodes);
         updateDiagram((draft: Record<string, unknown>) => {
           draft.nodePos = positions.nodePos;
         });
-        // İlk otomatik yerleşim kullanıcı düzenlemesi değil; "Modified" gösterme.
         markClean();
         setTimeout(() => fitView({ padding: 0.2 }), 50);
       });
     }
-  }, [needsLayout, computedNodes, computedEdges, setNodes, updateDiagram, fitView, markClean]);
+  }, [needsLayout, computedNodes, computedEdges, setNodes, updateDiagram, fitView, markClean, settings.algorithm, settings.direction]);
 
-  // ─── Node changes (position, selection, etc.) ───
+  // ─── Node changes (position, selection, resize, etc.) ───
   const handleNodesChange: OnNodesChange = useCallback(
     (changes) => {
       onNodesChange(changes);
+
+      for (const change of changes) {
+        if (change.type === 'dimensions' && change.dimensions && change.resizing === false) {
+          const nodeId = change.id;
+          const { width, height } = change.dimensions;
+          updateDiagram((draft: Record<string, unknown>) => {
+            const prev = draft.nodePos;
+            const nodePos =
+              prev && typeof prev === 'object' && !Array.isArray(prev)
+                ? { ...(prev as Record<string, Record<string, unknown>>) }
+                : {};
+            const existing = nodePos[nodeId] ?? {};
+            nodePos[nodeId] = {
+              ...existing,
+              width: Math.round(width),
+              height: Math.round(height),
+            };
+            draft.nodePos = nodePos;
+          });
+        }
+      }
     },
-    [onNodesChange],
+    [onNodesChange, updateDiagram],
   );
 
   // ─── Node drag → update diagram positions ───
@@ -131,9 +160,11 @@ function FlowCanvasInner({
         const prev = draft.nodePos;
         const nodePos =
           prev && typeof prev === 'object' && !Array.isArray(prev)
-            ? { ...(prev as Record<string, { x: number; y: number }>) }
+            ? { ...(prev as Record<string, Record<string, unknown>>) }
             : {};
+        const existing = nodePos[node.id] ?? {};
         nodePos[node.id] = {
+          ...existing,
           x: Math.round(node.position.x),
           y: Math.round(node.position.y),
         };
@@ -243,14 +274,17 @@ function FlowCanvasInner({
 
   // ─── Auto Layout ───
   const handleAutoLayout = useCallback(async () => {
-    const layoutedNodes = await autoLayout(nodes, edges);
+    const layoutedNodes = await layoutFlow(nodes, edges, {
+      algorithm: settings.algorithm,
+      direction: settings.direction,
+    });
     setNodes(layoutedNodes);
     const positions = reactFlowToPositions(layoutedNodes);
     updateDiagram((draft: Record<string, unknown>) => {
       draft.nodePos = positions.nodePos;
     });
     setTimeout(() => fitView({ padding: 0.2 }), 50);
-  }, [nodes, edges, setNodes, updateDiagram, fitView]);
+  }, [nodes, edges, setNodes, updateDiagram, fitView, settings.algorithm, settings.direction]);
 
   // ─── Add state from toolbar (center of viewport) ───
   const handleToolbarAddState = useCallback(
@@ -302,6 +336,7 @@ function FlowCanvasInner({
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         defaultEdgeOptions={defaultEdgeOptions}
+        connectionMode={ConnectionMode.Loose}
         deleteKeyCode={['Backspace', 'Delete']}
         fitView
         snapToGrid
@@ -359,7 +394,11 @@ function FlowCanvasInner({
   );
 }
 
-// Wrapper that must be inside ReactFlowProvider
+// Wrapper that must be inside ReactFlowProvider — provides CanvasViewSettings context
 export function FlowCanvas(props: FlowCanvasProps) {
-  return <FlowCanvasInner {...props} />;
+  return (
+    <CanvasViewSettingsProvider>
+      <FlowCanvasInner {...props} />
+    </CanvasViewSettingsProvider>
+  );
 }

@@ -1,8 +1,16 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Plus, Wand2, Play, Square, CheckCircle2, XCircle,
   StopCircle, PauseCircle, Repeat2, ChevronDown, Settings2,
+  SlidersHorizontal,
 } from 'lucide-react';
+import {
+  useCanvasViewSettings,
+  type LayoutAlgorithm,
+  type LayoutDirection,
+  type EdgePathStyle,
+} from '../../context/CanvasViewSettingsContext';
+
 interface CanvasToolbarProps {
   onAddState: (stateType: number, subType: number) => void;
   onAutoLayout: () => void;
@@ -17,16 +25,19 @@ export function CanvasToolbar({
   onToggleWorkflowSettings,
 }: CanvasToolbarProps) {
   const [open, setOpen] = useState(false);
+  const [canvasOptionsOpen, setCanvasOptionsOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const canvasOptionsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open && !canvasOptionsOpen) return;
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (open && ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (canvasOptionsOpen && canvasOptionsRef.current && !canvasOptionsRef.current.contains(e.target as Node)) setCanvasOptionsOpen(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [open]);
+  }, [open, canvasOptionsOpen]);
 
   const add = (stateType: number, subType = 0) => {
     onAddState(stateType, subType);
@@ -74,6 +85,29 @@ export function CanvasToolbar({
         <span>Layout</span>
       </button>
 
+      <div className="h-5 w-px bg-border" />
+
+      {/* Canvas Options */}
+      <div className="relative" ref={canvasOptionsRef}>
+        <button
+          onClick={() => setCanvasOptionsOpen(!canvasOptionsOpen)}
+          className={`flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium transition-all duration-150 active:scale-[0.97] ${
+            canvasOptionsOpen
+              ? 'border border-secondary-border bg-secondary-surface text-secondary-text'
+              : 'border border-transparent text-muted-foreground hover:border-muted-border-hover hover:bg-muted hover:text-foreground'
+          }`}
+          aria-haspopup="true"
+          aria-expanded={canvasOptionsOpen}
+        >
+          <SlidersHorizontal size={14} />
+          <span>Canvas</span>
+        </button>
+
+        {canvasOptionsOpen && (
+          <CanvasOptionsPanel onClose={() => setCanvasOptionsOpen(false)} />
+        )}
+      </div>
+
       {onToggleWorkflowSettings && (
         <>
           <div className="h-5 w-px bg-border" />
@@ -92,6 +126,126 @@ export function CanvasToolbar({
           </div>
         </>
       )}
+    </div>
+  );
+}
+
+// ─── Canvas Options Panel ───
+
+function CanvasOptionsPanel({ onClose }: { onClose: () => void }) {
+  const { settings, updateSettings } = useCanvasViewSettings();
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        onClose();
+      }
+    },
+    [onClose],
+  );
+
+  useEffect(() => {
+    const el = panelRef.current;
+    if (el) {
+      const firstFocusable = el.querySelector<HTMLElement>('button, [tabindex], input');
+      firstFocusable?.focus();
+    }
+  }, []);
+
+  return (
+    <div
+      ref={panelRef}
+      role="dialog"
+      aria-label="Canvas options"
+      onKeyDown={handleKeyDown}
+      className="absolute bottom-full mb-2.5 right-0 w-72 bg-surface/95 backdrop-blur-xl rounded-2xl border border-border shadow-[0_20px_60px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.05)] py-3 animate-scale-in origin-bottom"
+    >
+      <div className="px-4 pb-2">
+        <h3 className="text-[11px] font-semibold text-foreground uppercase tracking-widest">Canvas Options</h3>
+        <p className="text-[10px] text-muted-foreground mt-0.5">Not saved to the workflow file.</p>
+      </div>
+
+      {/* Layout Engine */}
+      <OptionSection title="Auto-layout Engine">
+        <SegmentedControl<LayoutAlgorithm>
+          value={settings.algorithm}
+          onChange={(v) => updateSettings({ algorithm: v })}
+          options={[
+            { value: 'dagre', label: 'Dagre' },
+            { value: 'elk', label: 'ELK' },
+          ]}
+        />
+      </OptionSection>
+
+      {/* Flow Direction */}
+      <OptionSection title="Flow Direction">
+        <SegmentedControl<LayoutDirection>
+          value={settings.direction}
+          onChange={(v) => updateSettings({ direction: v })}
+          options={[
+            { value: 'DOWN', label: 'Top to bottom' },
+            { value: 'RIGHT', label: 'Left to right' },
+          ]}
+        />
+      </OptionSection>
+
+      {/* Edge Path */}
+      <OptionSection title="Edge Path">
+        <SegmentedControl<EdgePathStyle>
+          value={settings.edgePathStyle}
+          onChange={(v) => updateSettings({ edgePathStyle: v })}
+          options={[
+            { value: 'smoothstep', label: 'Smooth step' },
+            { value: 'bezier', label: 'Curved' },
+            { value: 'straight', label: 'Straight' },
+          ]}
+        />
+      </OptionSection>
+    </div>
+  );
+}
+
+// ─── Shared UI pieces ───
+
+function OptionSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="px-4 py-2">
+      <label className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5 block">
+        {title}
+      </label>
+      {children}
+    </div>
+  );
+}
+
+function SegmentedControl<T extends string>({
+  value,
+  onChange,
+  options,
+}: {
+  value: T;
+  onChange: (value: T) => void;
+  options: Array<{ value: T; label: string }>;
+}) {
+  return (
+    <div className="flex rounded-lg bg-muted p-0.5 gap-0.5" role="radiogroup">
+      {options.map((opt) => (
+        <button
+          key={opt.value}
+          role="radio"
+          aria-checked={value === opt.value}
+          onClick={() => onChange(opt.value)}
+          className={`flex-1 rounded-md px-2.5 py-1.5 text-[11px] font-medium transition-all duration-150 cursor-pointer ${
+            value === opt.value
+              ? 'bg-surface text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          {opt.label}
+        </button>
+      ))}
     </div>
   );
 }

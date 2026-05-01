@@ -6,6 +6,7 @@ import { useEditorPanelsStore } from '../../store/useEditorPanelsStore';
 import { useWorkflowStore } from '../../store/useWorkflowStore';
 import { ComponentEditorLayout } from '../../modules/save-component/components/ComponentEditorLayout';
 import type { HostDocumentToolbarSlot } from '../../modules/save-component/components/hostDocumentToolbarSlot';
+import { usePublish } from '../../modules/save-component/PublishContext.js';
 import { FlowCanvas } from '../../modules/canvas-interaction/FlowCanvas';
 import {
   StatePropertyPanel,
@@ -112,6 +113,16 @@ export function FlowEditorView({
     void save();
   }, [save]);
 
+  const workflowFilePath = useMemo(() => {
+    if (!workflowDirectoryPath) return null;
+    return `${workflowDirectoryPath}/${name}.json`;
+  }, [workflowDirectoryPath, name]);
+
+  const { publish: publishFile, publishing, canPublish } = usePublish();
+  const handlePublish = useCallback(() => {
+    void publishFile(save, workflowFilePath);
+  }, [publishFile, save, workflowFilePath]);
+
   if (loading) {
     return (
       <div className="bg-background flex h-full flex-col items-center justify-center gap-3">
@@ -206,6 +217,8 @@ export function FlowEditorView({
         onRedo={redo}
         onSave={handleSave}
         onUndo={undo}
+        onPublish={canPublish ? handlePublish : undefined}
+        publishing={publishing}
         registerToolbar={registerToolbar}
         saveErrorMessage={saveError?.toUserMessage().message ?? null}
         saving={saving}>

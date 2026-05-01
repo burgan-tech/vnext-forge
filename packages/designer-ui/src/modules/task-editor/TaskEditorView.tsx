@@ -6,6 +6,7 @@ import { useComponentStore } from '../../store/useComponentStore';
 import { useSaveComponent } from '../../modules/save-component/useSaveComponent';
 import { ComponentEditorLayout } from '../../modules/save-component/components/ComponentEditorLayout';
 import type { HostDocumentToolbarSlot } from '../../modules/save-component/components/hostDocumentToolbarSlot';
+import { usePublish } from '../../modules/save-component/PublishContext.js';
 import { showNotification } from '../../notification/notification-port.js';
 import { useTaskEditor } from './useTaskEditor';
 import { TaskEditorPanel } from './TaskEditorPanel';
@@ -83,6 +84,11 @@ export function TaskEditorView({
       : null;
   const { loading, error, isReady } = useTaskEditor({ filePath });
 
+  const { publish: publishFile, publishing, canPublish } = usePublish();
+  const handlePublish = useCallback(() => {
+    void publishFile(save, filePath);
+  }, [publishFile, save, filePath]);
+
   if (loading || !isReady || !componentJson) {
     return (
       <div className="text-muted-foreground flex h-full items-center justify-center text-sm">
@@ -103,7 +109,9 @@ export function TaskEditorView({
       onUndo={undo}
       onRedo={redo}
       canUndo={undoStackLength > 0}
-      canRedo={redoStackLength > 0}>
+      canRedo={redoStackLength > 0}
+      onPublish={canPublish ? handlePublish : undefined}
+      publishing={publishing}>
       <TaskEditorPanel
         json={componentJson}
         onChange={updateComponent}

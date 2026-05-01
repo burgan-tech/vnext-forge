@@ -15,6 +15,11 @@
     "workspaceContains:vnext.config.json",
     "onLanguage:csharp",
     "onCustomEditor:vnextForge.componentEditor",
+    "onView:vnextForge.tools.globalSettings",
+    "onView:vnextForge.tools.project",
+    "onView:vnextForge.tools.createProject",
+    "onView:vnextForge.tools.environments",
+    "onView:vnextForge.tools.packageDeploy",
     "onCommand:vnextForge.open",
     "onCommand:vnextForge.openDesigner",
     "onCommand:vnextForge.openInTextEditor",
@@ -36,6 +41,49 @@
     "snippets/**"
   ],
   "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "vnextForgeTools",
+          "title": "vNext Forge Tools",
+          "icon": "media/forge-tools.svg"
+        }
+      ]
+    },
+    "views": {
+      "vnextForgeTools": [
+        {
+          "id": "vnextForge.tools.globalSettings",
+          "name": "Settings"
+        },
+        {
+          "id": "vnextForge.tools.project",
+          "name": "Project",
+          "when": "vnextForge.isVnextWorkspace"
+        },
+        {
+          "id": "vnextForge.tools.createProject",
+          "name": "Create Project",
+          "when": "!vnextForge.isVnextWorkspace"
+        },
+        {
+          "id": "vnextForge.tools.environments",
+          "name": "Environments",
+          "when": "vnextForge.isVnextWorkspace"
+        },
+        {
+          "id": "vnextForge.tools.packageDeploy",
+          "name": "Package Deploy",
+          "when": "vnextForge.isVnextWorkspace"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "vnextForge.tools.createProject",
+        "contents": "No vNext project detected in this workspace.\n\nCreate a new vNext project to get started.\n[Create Project](command:vnextForge.tools.createProjectFromSidebar)"
+      }
+    ],
     "languages": [
       {
         "id": "csharp",
@@ -119,9 +167,147 @@
         "command": "vnextForge.removeMaterialIconAssociations",
         "title": "Remove Material Icon Associations (User Settings)",
         "category": "Forge"
+      },
+      {
+        "command": "vnextForge.tools.changeSetting",
+        "title": "Change Setting",
+        "category": "Forge",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "vnextForge.tools.validateProject",
+        "title": "Validate Project",
+        "category": "Forge",
+        "icon": "$(check-all)"
+      },
+      {
+        "command": "vnextForge.tools.buildRuntime",
+        "title": "Build Runtime",
+        "category": "Forge",
+        "icon": "$(package)"
+      },
+      {
+        "command": "vnextForge.tools.buildReference",
+        "title": "Build Reference",
+        "category": "Forge",
+        "icon": "$(references)"
+      },
+      {
+        "command": "vnextForge.tools.createProjectFromSidebar",
+        "title": "Create vNext Project",
+        "category": "Forge",
+        "icon": "$(add)"
+      },
+      {
+        "command": "vnextForge.tools.addEnvironment",
+        "title": "Add Environment",
+        "category": "Forge",
+        "icon": "$(add)"
+      },
+      {
+        "command": "vnextForge.tools.editEnvironment",
+        "title": "Edit Environment",
+        "category": "Forge",
+        "icon": "$(edit)"
+      },
+      {
+        "command": "vnextForge.tools.deleteEnvironment",
+        "title": "Delete Environment",
+        "category": "Forge",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "vnextForge.tools.setActiveEnvironment",
+        "title": "Set Active Environment",
+        "category": "Forge",
+        "icon": "$(check)"
+      },
+      {
+        "command": "vnextForge.tools.switchEnvironment",
+        "title": "Switch Environment",
+        "category": "Forge"
+      },
+      {
+        "command": "vnextForge.tools.checkHealth",
+        "title": "Check Environment Health",
+        "category": "Forge",
+        "icon": "$(pulse)"
+      },
+      {
+        "command": "vnextForge.tools.wfUpdateAll",
+        "title": "Deploy All (wf update --all)",
+        "category": "Forge",
+        "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "vnextForge.tools.wfUpdate",
+        "title": "Deploy Changed (wf update)",
+        "category": "Forge",
+        "icon": "$(diff)"
+      },
+      {
+        "command": "vnextForge.tools.wfCsxAll",
+        "title": "CSX Update All (wf csx --all)",
+        "category": "Forge",
+        "icon": "$(file-code)"
+      },
+      {
+        "command": "vnextForge.tools.installWfCli",
+        "title": "Install Workflow CLI",
+        "category": "Forge",
+        "icon": "$(desktop-download)"
       }
     ],
     "menus": {
+      "view/title": [
+        {
+          "command": "vnextForge.tools.addEnvironment",
+          "when": "view == vnextForge.tools.environments",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "vnextForge.tools.changeSetting",
+          "when": "view == vnextForge.tools.globalSettings && viewItem == settingItem",
+          "group": "inline"
+        },
+        {
+          "command": "vnextForge.tools.validateProject",
+          "when": "view == vnextForge.tools.project && viewItem == projectAction_validate",
+          "group": "inline"
+        },
+        {
+          "command": "vnextForge.tools.buildRuntime",
+          "when": "view == vnextForge.tools.project && viewItem == projectAction_buildRuntime",
+          "group": "inline"
+        },
+        {
+          "command": "vnextForge.tools.buildReference",
+          "when": "view == vnextForge.tools.project && viewItem == projectAction_buildReference",
+          "group": "inline"
+        },
+        {
+          "command": "vnextForge.tools.setActiveEnvironment",
+          "when": "view == vnextForge.tools.environments && viewItem == environment",
+          "group": "inline@1"
+        },
+        {
+          "command": "vnextForge.tools.editEnvironment",
+          "when": "view == vnextForge.tools.environments && viewItem == environment",
+          "group": "inline@2"
+        },
+        {
+          "command": "vnextForge.tools.deleteEnvironment",
+          "when": "view == vnextForge.tools.environments && viewItem == environment",
+          "group": "inline@3"
+        },
+        {
+          "command": "vnextForge.tools.checkHealth",
+          "when": "view == vnextForge.tools.environments && viewItem == environment",
+          "group": "inline@4"
+        }
+      ],
       "commandPalette": [
         {
           "command": "vnextForge.open",
@@ -165,6 +351,30 @@
         {
           "command": "vnextForge.forgeCreateExtension",
           "when": "vnextForge.isVnextWorkspace"
+        },
+        {
+          "command": "vnextForge.tools.changeSetting",
+          "when": "false"
+        },
+        {
+          "command": "vnextForge.tools.editEnvironment",
+          "when": "false"
+        },
+        {
+          "command": "vnextForge.tools.deleteEnvironment",
+          "when": "false"
+        },
+        {
+          "command": "vnextForge.tools.setActiveEnvironment",
+          "when": "false"
+        },
+        {
+          "command": "vnextForge.tools.checkHealth",
+          "when": "false"
+        },
+        {
+          "command": "vnextForge.tools.installWfCli",
+          "when": "false"
         }
       ],
       "explorer/context": [

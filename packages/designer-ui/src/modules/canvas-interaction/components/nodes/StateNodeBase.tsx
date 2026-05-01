@@ -1,9 +1,10 @@
-import { Handle, Position, type NodeProps } from '@xyflow/react';
+import { Handle, Position, NodeResizer, type NodeProps } from '@xyflow/react';
 import { memo } from 'react';
 import {
   Play, Square, CheckCircle2, XCircle, StopCircle,
   PauseCircle, Circle, Repeat2, LayoutGrid, Activity,
 } from 'lucide-react';
+import { useCanvasViewSettings } from '../../context/CanvasViewSettingsContext';
 
 interface StateNodeData {
   label: string;
@@ -54,19 +55,33 @@ export const StateNodeBase = memo(function StateNodeBase({ data, selected }: Nod
   const d = data as StateNodeData;
   const config = getConfig(d.stateType, d.subType);
   const totalActions = d.onEntryCount + d.onExitCount;
+  const { settings } = useCanvasViewSettings();
+
+  const targetPosition = settings.direction === 'DOWN' ? Position.Top : Position.Left;
+  const sourcePosition = settings.direction === 'DOWN' ? Position.Bottom : Position.Right;
 
   return (
     <div
-      className={`group w-[220px] rounded-2xl transition-all duration-200 ${config.borderStyle || 'border-solid'} ${
+      className={`group h-full min-h-0 min-w-0 rounded-2xl transition-all duration-200 ${config.borderStyle || 'border-solid'} ${
         selected
           ? `bg-surface border-[1.5px] border-primary-border-hover shadow-xl ring-4 ${config.ring}`
           : 'bg-surface border border-border shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] hover:border-muted-border-hover'
       }`}
     >
+      <NodeResizer
+        minWidth={160}
+        maxWidth={480}
+        minHeight={64}
+        maxHeight={320}
+        isVisible={selected ?? false}
+        lineClassName="!border-primary-border-hover/40"
+        handleClassName="!w-2.5 !h-2.5 !rounded-sm !border !border-primary-border-hover !bg-surface"
+      />
+
       <Handle
         type="target"
-        position={Position.Left}
-        className="w-3! h-3! rounded-full! bg-surface! border-2! border-muted-border! hover:border-primary-border! hover:bg-muted! -left-1.75! transition-all! duration-150!"
+        position={targetPosition}
+        className="w-4! h-4! rounded-full! bg-surface! border-2! border-muted-border! hover:border-primary-border! hover:bg-primary-border/20! hover:scale-125! transition-all! duration-150!"
       />
 
       {/* Color accent strip */}
@@ -74,7 +89,7 @@ export const StateNodeBase = memo(function StateNodeBase({ data, selected }: Nod
 
       {/* Header */}
       <div className="flex items-center gap-3 px-3.5 pt-3 pb-2">
-        <div className={`size-9 rounded-xl ${config.bg} flex items-center justify-center shrink-0`}>
+        <div className={`size-9 shrink-0 rounded-xl ${config.bg} flex items-center justify-center`}>
           <span className={config.text}>{config.icon}</span>
         </div>
         <div className="min-w-0 flex-1">
@@ -115,8 +130,8 @@ export const StateNodeBase = memo(function StateNodeBase({ data, selected }: Nod
 
       <Handle
         type="source"
-        position={Position.Right}
-        className="w-3! h-3! rounded-full! bg-surface! border-2! border-muted-border! hover:border-primary-border! hover:bg-muted! -right-1.75! transition-all! duration-150!"
+        position={sourcePosition}
+        className="w-4! h-4! rounded-full! bg-surface! border-2! border-muted-border! hover:border-primary-border! hover:bg-primary-border/20! hover:scale-125! transition-all! duration-150!"
       />
     </div>
   );

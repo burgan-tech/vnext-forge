@@ -3,6 +3,8 @@ import type { Node, Edge } from '@xyflow/react';
 export interface DiagramNodePos {
   x: number;
   y: number;
+  width?: number;
+  height?: number;
 }
 
 export interface DiagramData {
@@ -98,6 +100,9 @@ function getEdgeType(triggerType?: number): string {
   }
 }
 
+const DEFAULT_STATE_WIDTH = 220;
+const DEFAULT_STATE_HEIGHT = 100;
+
 export function workflowToReactFlow(
   workflow: VnextWorkflow,
   diagram: DiagramData
@@ -135,7 +140,7 @@ export function workflowToReactFlow(
   // State nodes
   for (const state of states) {
     const pos = diagram.nodePos?.[state.key] || { x: 200, y: 200 };
-    nodes.push({
+    const nodeData: Node = {
       id: state.key,
       type: getNodeType(state.stateType),
       position: pos,
@@ -151,7 +156,12 @@ export function workflowToReactFlow(
         hasErrorBoundary: !!state.errorBoundary,
         hasSubFlow: !!state.subFlow,
       },
-    });
+    };
+
+    if (pos.width) nodeData.width = pos.width;
+    if (pos.height) nodeData.height = pos.height;
+
+    nodes.push(nodeData);
 
     // State transitions -> edges
     if (state.transitions) {
@@ -208,7 +218,21 @@ export function workflowToReactFlow(
 export function reactFlowToPositions(nodes: Node[]): DiagramData {
   const nodePos: Record<string, DiagramNodePos> = {};
   for (const node of nodes) {
-    nodePos[node.id] = { x: Math.round(node.position.x), y: Math.round(node.position.y) };
+    const entry: DiagramNodePos = {
+      x: Math.round(node.position.x),
+      y: Math.round(node.position.y),
+    };
+
+    const width = node.width ?? node.measured?.width;
+    const height = node.height ?? node.measured?.height;
+    if (width && width !== DEFAULT_STATE_WIDTH && node.id !== '__start__') {
+      entry.width = Math.round(width);
+    }
+    if (height && height !== DEFAULT_STATE_HEIGHT && node.id !== '__start__') {
+      entry.height = Math.round(height);
+    }
+
+    nodePos[node.id] = entry;
   }
   return { nodePos };
 }
@@ -227,7 +251,10 @@ export function toDiagramData(diagram: Record<string, unknown>): DiagramData {
       if (v && typeof v === 'object' && !Array.isArray(v)) {
         const o = v as Record<string, unknown>;
         if (typeof o.x === 'number' && typeof o.y === 'number') {
-          nodePos[k] = { x: o.x, y: o.y };
+          const entry: DiagramNodePos = { x: o.x, y: o.y };
+          if (typeof o.width === 'number') entry.width = o.width;
+          if (typeof o.height === 'number') entry.height = o.height;
+          nodePos[k] = entry;
         }
       }
     }

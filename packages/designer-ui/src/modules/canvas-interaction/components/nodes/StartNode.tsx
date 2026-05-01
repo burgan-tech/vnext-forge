@@ -1,8 +1,12 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react';
 import { memo } from 'react';
 import { Play } from 'lucide-react';
+import { useCanvasViewSettings } from '../../context/CanvasViewSettingsContext';
 
 export const StartNode = memo(function StartNode({ selected }: NodeProps) {
+  const { settings } = useCanvasViewSettings();
+  const sourcePosition = settings.direction === 'DOWN' ? Position.Bottom : Position.Right;
+
   return (
     <div
       className={`size-12 rounded-2xl bg-initial flex items-center justify-center text-white transition-all duration-200 ${
@@ -14,8 +18,8 @@ export const StartNode = memo(function StartNode({ selected }: NodeProps) {
       <Play size={18} fill="currentColor" strokeWidth={0} />
       <Handle
         type="source"
-        position={Position.Right}
-        className="w-3! h-3! rounded-full! bg-surface! border-2! border-initial! hover:border-initial! -right-1.75! transition-all! duration-150!"
+        position={sourcePosition}
+        className="w-4! h-4! rounded-full! bg-surface! border-2! border-initial! hover:border-initial! hover:bg-initial/20! hover:scale-125! transition-all! duration-150!"
       />
     </div>
   );

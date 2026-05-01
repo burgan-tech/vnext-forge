@@ -6,6 +6,7 @@ import { useEditorPanelsStore } from '../../store/useEditorPanelsStore';
 import { useScriptPanelStore } from '../../modules/code-editor/ScriptPanelStore';
 import { useSaveComponent } from '../../modules/save-component/useSaveComponent';
 import { ComponentEditorLayout } from '../../modules/save-component/components/ComponentEditorLayout';
+import { usePublish } from '../../modules/save-component/PublishContext.js';
 import {
   ComponentEditorModalProvider,
   useComponentEditorModalState,
@@ -104,6 +105,11 @@ export function FunctionEditorView({
       .replace(/\/{2,}/g, '/');
   }, [activeProject, vnextConfig, group]);
 
+  const { publish: publishFile, publishing, canPublish } = usePublish();
+  const handlePublish = useCallback(() => {
+    void publishFile(save, filePath);
+  }, [publishFile, save, filePath]);
+
   const handleBeforeOpenModal = useCallback(() => {
     useComponentStore.getState().snapshotState();
   }, []);
@@ -165,7 +171,9 @@ export function FunctionEditorView({
             onUndo={undo}
             onRedo={redo}
             canUndo={undoStack.length > 0}
-            canRedo={redoStack.length > 0}>
+            canRedo={redoStack.length > 0}
+            onPublish={canPublish ? handlePublish : undefined}
+            publishing={publishing}>
             <FunctionEditorPanel
               json={componentJson}
               onChange={updateComponent}

@@ -1,4 +1,4 @@
-import { Redo2, Save, Undo2 } from 'lucide-react';
+import { Redo2, Rocket, Save, Undo2 } from 'lucide-react';
 import { Button } from '../../../ui/Button';
 
 export type EditorDocumentToolbarArrangement = 'host-row' | 'editor-chrome';
@@ -45,16 +45,19 @@ export interface EditorDocumentToolbarProps {
   onRedo?: () => void;
   canUndo?: boolean;
   canRedo?: boolean;
+  /** Save the current file and deploy it via `wf update -f <path>`. */
+  onPublish?: () => void;
+  publishing?: boolean;
   /**
-   * - `host-row`: Web’deki sekme satırı sağı (kompakt).
-   * - `editor-chrome`: Extension webview’da panelin üst şeridi (daha geniş).
+   * - `host-row`: Web'deki sekme satırı sağı (kompakt).
+   * - `editor-chrome`: Extension webview'da panelin üst şeridi (daha geniş).
    */
   arrangement: EditorDocumentToolbarArrangement;
 }
 
 /**
  * vNext component editörlerinde paylaşılan Save / durum / geri al çubuğu.
- * `ComponentEditorLayout` bu bileşeni hem web “host slota” hem panel içi chrome’a basar.
+ * `ComponentEditorLayout` bu bileşeni hem web "host slota" hem panel içi chrome'a basar.
  */
 export function EditorDocumentToolbar({
   isDirty,
@@ -65,6 +68,8 @@ export function EditorDocumentToolbar({
   onRedo,
   canUndo,
   canRedo,
+  onPublish,
+  publishing,
   arrangement,
 }: EditorDocumentToolbarProps) {
   const compact = arrangement === 'host-row';
@@ -119,6 +124,21 @@ export function EditorDocumentToolbar({
     </Button>
   );
 
+  const publishButton =
+    onPublish != null ? (
+      <Button
+        type="button"
+        onClick={onPublish}
+        disabled={saving || publishing}
+        variant="default"
+        size="sm"
+        className={compact ? 'h-6 min-h-6 gap-1 px-2 text-[11px]' : ''}
+        leftIconComponent={<Rocket size={iconSm} />}
+        title="Save and deploy via wf CLI">
+        {publishing ? 'Publishing...' : 'Publish'}
+      </Button>
+    ) : null;
+
   if (arrangement === 'host-row') {
     return (
       <div className="flex max-w-full shrink-0 items-center gap-1 sm:gap-1.5">
@@ -126,6 +146,7 @@ export function EditorDocumentToolbar({
         {saving ? savingLabel : null}
         {historyGroup}
         {saveButton}
+        {publishButton}
       </div>
     );
   }
@@ -139,6 +160,7 @@ export function EditorDocumentToolbar({
       <div className="flex shrink-0 items-center gap-2">
         {historyGroup}
         {saveButton}
+        {publishButton}
       </div>
     </div>
   );

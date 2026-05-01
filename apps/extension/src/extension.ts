@@ -17,6 +17,15 @@ import {
   resolveConfigsForMaterial,
 } from './material-icon-associations.js';
 import { clearRemovedFileIconThemeIfSet } from './stale-file-icon-theme.js';
+import { ForgeToolsSettingsService } from './tools/forge-tools-settings.js';
+import { ForgeTerminalManager } from './tools/forge-terminal.js';
+import { EnvironmentHealthMonitor } from './tools/environment-health-monitor.js';
+import { EnvironmentStatusBar, switchEnvironmentQuickPick } from './tools/environment-status-bar.js';
+import { GlobalSettingsProvider } from './tools/providers/global-settings-provider.js';
+import { ProjectActionsProvider } from './tools/providers/project-actions-provider.js';
+import { CreateProjectProvider } from './tools/providers/create-project-provider.js';
+import { EnvironmentsProvider } from './tools/providers/environments-provider.js';
+import { PackageDeployProvider } from './tools/providers/package-deploy-provider.js';
 
 /**
  * vnext-forge extension entry point. Composes the shared `services-core` +
@@ -37,8 +46,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const clearedStaleIconTheme = await clearRemovedFileIconThemeIfSet();
   if (clearedStaleIconTheme) {
     void vscode.window.showInformationMessage(
-      'vnext-forge: Kaldırılmış dosya ikon teması (vnext-forge-icons) ayarlardan silindi. Klasör ikonları için Komut Paleti → "Preferences: File Icon Theme" → Material Icon Theme seçin.',
-      'Tamam',
+      'vnext-forge: Removed stale file icon theme (vnext-forge-icons) from settings. For folder icons, use Command Palette → "Preferences: File Icon Theme" → Material Icon Theme.',
+      'OK',
     );
   }
 
@@ -65,6 +74,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   statusBarItem.show();
   context.subscriptions.push(statusBarItem);
 
+  const forgeTerminal = new ForgeTerminalManager();
+  context.subscriptions.push(forgeTerminal);
+
   const router = new MessageRouter({
     registry,
     services,
@@ -73,6 +85,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     webviewLogChannel,
     diagnosticCollection,
     statusBarItem,
+    terminal: forgeTerminal,
   });
   const designerPanel = new DesignerPanel(context, router);
 
@@ -95,6 +108,113 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       outputChannel: csxNativeLspChannel,
     }),
   );
+
+  // ── Forge Tools Sidebar ──────────────────────────────────────────────────
+
+  const forgeToolsSettings = new ForgeToolsSettingsService(context.globalStorageUri);
+  context.subscriptions.push(forgeToolsSettings);
+
+  // Pre-load settings so DesignerPanel can inject them synchronously
+  await forgeToolsSettings.loadSettings();
+  await forgeToolsSettings.loadEnvironments();
+
+  designerPanel.setForgeToolsSettings(forgeToolsSettings);
+
+  const healthMonitor = new EnvironmentHealthMonitor(forgeToolsSettings);
+  context.subscriptions.push(healthMonitor);
+
+  const envStatusBar = new EnvironmentStatusBar(forgeToolsSettings, healthMonitor);
+  context.subscriptions.push(envStatusBar);
+
+  const globalSettingsProvider = new GlobalSettingsProvider(forgeToolsSettings);
+  const projectActionsProvider = new ProjectActionsProvider(detector, forgeTerminal);
+  const createProjectProvider = new CreateProjectProvider(detector, forgeTerminal);
+  const environmentsProvider = new EnvironmentsProvider(forgeToolsSettings, healthMonitor);
+  const packageDeployProvider = new PackageDeployProvider(detector, forgeTerminal);
+
+  context.subscriptions.push(
+    vscode.window.createTreeView('vnextForge.tools.globalSettings', {
+      treeDataProvider: globalSettingsProvider,
+      showCollapseAll: false,
+    }),
+    vscode.window.createTreeView('vnextForge.tools.project', {
+      treeDataProvider: projectActionsProvider,
+    }),
+    vscode.window.createTreeView('vnextForge.tools.createProject', {
+      treeDataProvider: createProjectProvider,
+    }),
+    vscode.window.createTreeView('vnextForge.tools.environments', {
+      treeDataProvider: environmentsProvider,
+    }),
+    vscode.window.createTreeView('vnextForge.tools.packageDeploy', {
+      treeDataProvider: packageDeployProvider,
+    }),
+  );
+
+  // Sidebar commands — wrapped to prevent unhandled rejections
+  const safeAsync = (fn: (...args: unknown[]) => Promise<unknown>) =>
+    (...args: unknown[]) => {
+      void fn(...args).catch((err) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        baseLogger.error({ error: msg }, 'Forge Tools command failed');
+        void vscode.window.showErrorMessage(`vnext-forge: ${msg}`);
+      });
+    };
+
+  context.subscriptions.push(
+    vscode.commands.registerCommand('vnextForge.tools.changeSetting', safeAsync((settingId) =>
+      globalSettingsProvider.handleChangeSetting(settingId as Parameters<typeof globalSettingsProvider.handleChangeSetting>[0]),
+    )),
+    vscode.commands.registerCommand('vnextForge.tools.validateProject', () =>
+      projectActionsProvider.runAction('validate'),
+    ),
+    vscode.commands.registerCommand('vnextForge.tools.buildRuntime', () =>
+      projectActionsProvider.runAction('buildRuntime'),
+    ),
+    vscode.commands.registerCommand('vnextForge.tools.buildReference', () =>
+      projectActionsProvider.runAction('buildReference'),
+    ),
+    vscode.commands.registerCommand('vnextForge.tools.createProjectFromSidebar', safeAsync(() =>
+      createProjectProvider.createProject(),
+    )),
+    vscode.commands.registerCommand('vnextForge.tools.addEnvironment', safeAsync(() =>
+      environmentsProvider.addEnvironment(),
+    )),
+    vscode.commands.registerCommand('vnextForge.tools.editEnvironment', safeAsync((envId) =>
+      environmentsProvider.editEnvironment(envId as string),
+    )),
+    vscode.commands.registerCommand('vnextForge.tools.deleteEnvironment', safeAsync((envId) =>
+      environmentsProvider.deleteEnvironment(envId as string),
+    )),
+    vscode.commands.registerCommand('vnextForge.tools.setActiveEnvironment', safeAsync((envId) =>
+      environmentsProvider.setActiveEnvironment(envId as string),
+    )),
+    vscode.commands.registerCommand('vnextForge.tools.switchEnvironment', safeAsync(() =>
+      switchEnvironmentQuickPick(forgeToolsSettings),
+    )),
+    vscode.commands.registerCommand('vnextForge.tools.checkHealth', safeAsync(async () => {
+      const status = await healthMonitor.checkNow();
+      void vscode.window.showInformationMessage(`vnext-forge: Environment health: ${status}`);
+    })),
+    vscode.commands.registerCommand('vnextForge.tools.wfUpdateAll', safeAsync(() =>
+      packageDeployProvider.runDeployAction('wfUpdateAll'),
+    )),
+    vscode.commands.registerCommand('vnextForge.tools.wfUpdate', safeAsync(() =>
+      packageDeployProvider.runDeployAction('wfUpdate'),
+    )),
+    vscode.commands.registerCommand('vnextForge.tools.wfCsxAll', safeAsync(() =>
+      packageDeployProvider.runDeployAction('wfCsxAll'),
+    )),
+    vscode.commands.registerCommand('vnextForge.tools.installWfCli', safeAsync(() =>
+      packageDeployProvider.runDeployAction('installWfCli'),
+    )),
+  );
+
+  // Start health polling and status bar for the active environment
+  await healthMonitor.syncActiveEnvironment();
+  await envStatusBar.initialize();
+
+  // ── End Forge Tools Sidebar ────────────────────────────────────────────
 
   registerCommands(context, {
     projectService: services.projectService,
