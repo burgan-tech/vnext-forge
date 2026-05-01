@@ -5,7 +5,7 @@ import type { SchemaReference } from '../../../../../../modules/save-component/c
 import type { DiscoveredVnextComponent } from '@vnext-forge/app-contracts';
 import type { AtomicSavedInfo } from '../../../../../../modules/save-component/componentEditorModalTypes.js';
 import { getTriggerKindLabel } from '../PropertyPanelHelpers';
-import { Badge, IconTrash } from '../PropertyPanelShared';
+import { Badge, IconTrash, Section } from '../PropertyPanelShared';
 import { ArrowRight, ChevronRight } from 'lucide-react';
 import { TriggerType } from '@vnext-forge/vnext-types';
 
@@ -17,6 +17,7 @@ import { TransitionTimerSection } from './TransitionTimerSection';
 import { TransitionRolesSection } from './TransitionRolesSection';
 import { TransitionViewSection } from './TransitionViewSection';
 import { TransitionLabelsSection } from './TransitionLabelsSection';
+import { AvailableInMultiSelect, type StateOption } from '../shared/AvailableInMultiSelect';
 
 export interface TransitionCardProps {
   transition: Transition;
@@ -57,6 +58,11 @@ export interface TransitionCardProps {
   defaultTaskFolder?: string;
   /** Hide remove button when rendering a single transition (edge panel). */
   standalone?: boolean;
+  /** When provided, renders the AvailableIn multi-select inside the card. */
+  availableIn?: string[];
+  onUpdateAvailableIn?: (keys: string[]) => void;
+  /** State options for the availableIn multi-select dropdown. */
+  availableInStateOptions?: StateOption[];
 }
 
 export function TransitionCard({
@@ -91,6 +97,9 @@ export function TransitionCard({
   onOpenExtensionPicker,
   canPickExisting,
   standalone,
+  availableIn,
+  onUpdateAvailableIn,
+  availableInStateOptions,
 }: TransitionCardProps) {
   const [expanded, setExpanded] = useState(!standalone);
   const target = transition.target || '';
@@ -302,7 +311,21 @@ export function TransitionCard({
           transitionIndex={index}
         />
 
-        {/* 8. Labels */}
+        {/* 8. Available In (shared / cancel transitions only) */}
+        {availableIn && onUpdateAvailableIn && availableInStateOptions && (
+          <Section title="Available in states" count={availableIn.length} defaultOpen={availableIn.length > 0}>
+            <p className="text-[10px] text-muted-foreground mb-2 leading-relaxed">
+              Limit this transition to specific states. Leave empty to apply everywhere.
+            </p>
+            <AvailableInMultiSelect
+              value={availableIn}
+              onChange={onUpdateAvailableIn}
+              stateOptions={availableInStateOptions}
+            />
+          </Section>
+        )}
+
+        {/* 9. Labels */}
         <TransitionLabelsSection
           labels={transition.labels ?? []}
           onChange={(labels) => onUpdateLabels(index, labels)}

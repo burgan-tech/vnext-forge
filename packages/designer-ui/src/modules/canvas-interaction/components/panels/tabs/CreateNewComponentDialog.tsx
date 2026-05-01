@@ -71,9 +71,20 @@ const CATEGORY_META: Record<
       attributes: {},
     }),
   },
+  functions: {
+    singular: 'function',
+    flow: 'sys-functions',
+    template: (key, domain) => ({
+      key,
+      version: '1.0.0',
+      domain,
+      flow: 'sys-functions',
+      attributes: {},
+    }),
+  },
 };
 
-type SupportedCategory = 'schemas' | 'views' | 'extensions';
+type SupportedCategory = 'schemas' | 'views' | 'extensions' | 'functions';
 
 export interface CreateNewComponentDialogProps {
   open: boolean;
