@@ -9,6 +9,7 @@ import {
   FlowEditorView,
   FunctionEditorView,
   isMessageOriginAllowed,
+  PublishProvider,
   SchemaEditorView,
   TaskEditorView,
   useEditorStore,
@@ -73,6 +74,13 @@ export function HostEditorBridge({ api }: HostEditorBridgeProps) {
   const setActiveProject = useProjectStore((s) => s.setActiveProject);
   const setVnextConfig = useProjectStore((s) => s.setVnextConfig);
 
+  const onPublishFile = useCallback(
+    (filePath: string) => {
+      api.postMessage({ type: 'host:publish', filePath });
+    },
+    [api],
+  );
+
   const applyOpenEditor = useCallback(
     (data: HostOpenEditorMessage) => {
       setActiveProject({
@@ -123,11 +131,13 @@ export function HostEditorBridge({ api }: HostEditorBridgeProps) {
   }, [api, applyOpenEditor]);
 
   return (
-    <div className="bg-background text-foreground flex h-screen w-screen min-h-0 flex-col overflow-hidden">
-      <div className="min-h-0 flex-1 overflow-hidden">
-        {active ? <ActiveEditor api={api} payload={active} /> : <EmptyState />}
+    <PublishProvider onPublishFile={onPublishFile}>
+      <div className="bg-background text-foreground flex h-screen w-screen min-h-0 flex-col overflow-hidden">
+        <div className="min-h-0 flex-1 overflow-hidden">
+          {active ? <ActiveEditor api={api} payload={active} /> : <EmptyState />}
+        </div>
       </div>
-    </div>
+    </PublishProvider>
   );
 }
 

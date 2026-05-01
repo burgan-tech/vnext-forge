@@ -1,9 +1,11 @@
+import { useCallback } from 'react';
 import type { HostDocumentToolbarSlot } from '../../modules/save-component/components/hostDocumentToolbarSlot';
 import { useComponentStore } from '../../store/useComponentStore';
 import { useProjectStore } from '../../store/useProjectStore';
 import { ComponentEditorLayout } from '../../modules/save-component/components/ComponentEditorLayout';
 import { useLoadComponent } from '../../modules/save-component/useLoadComponent';
 import { useSaveComponent } from '../../modules/save-component/useSaveComponent';
+import { usePublish } from '../../modules/save-component/PublishContext.js';
 import { loadViewEditor } from './ViewEditorApi';
 import { ViewEditorPanel } from './ViewEditorPanel';
 import { buildAtomicComponentJsonPath } from '../vnext-workspace/atomicComponentPaths.js';
@@ -56,6 +58,11 @@ export function ViewEditorView({
     errorMessage: 'View could not be loaded.',
   });
 
+  const { publish: publishFile, publishing, canPublish } = usePublish();
+  const handlePublish = useCallback(() => {
+    void publishFile(save, filePath);
+  }, [publishFile, save, filePath]);
+
   if (loading || !isReady || !componentJson) {
     return (
       <div className="text-muted-foreground flex h-full items-center justify-center text-sm">
@@ -77,6 +84,8 @@ export function ViewEditorView({
       onRedo={redo}
       canUndo={undoStack.length > 0}
       canRedo={redoStack.length > 0}
+      onPublish={canPublish ? handlePublish : undefined}
+      publishing={publishing}
     >
       <ViewEditorPanel json={componentJson} onChange={updateComponent} />
     </ComponentEditorLayout>

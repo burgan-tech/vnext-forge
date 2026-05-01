@@ -1,6 +1,8 @@
+import { useCallback } from 'react';
 import type { HostDocumentToolbarSlot } from '../../modules/save-component/components/hostDocumentToolbarSlot';
 import { useProjectStore } from '../../store/useProjectStore';
 import { ComponentEditorLayout } from '../../modules/save-component/components/ComponentEditorLayout';
+import { usePublish } from '../../modules/save-component/PublishContext.js';
 import { SchemaEditorPanel } from './components/SchemaEditorPanel';
 import { useSchemaEditor } from './useSchemaEditor';
 import { useSchemaEditorStore } from './useSchemaEditorStore';
@@ -54,6 +56,11 @@ export function SchemaEditorView({
       : undefined,
   });
 
+  const { publish: publishFile, publishing, canPublish } = usePublish();
+  const handlePublish = useCallback(() => {
+    void publishFile(save, filePath);
+  }, [publishFile, save, filePath]);
+
   if (loading || !isReady || !componentJson) {
     return (
       <div className="text-muted-foreground flex h-full items-center justify-center text-sm">
@@ -75,6 +82,8 @@ export function SchemaEditorView({
       onRedo={redo}
       canUndo={undoStack.length > 0}
       canRedo={redoStack.length > 0}
+      onPublish={canPublish ? handlePublish : undefined}
+      publishing={publishing}
     >
       <SchemaEditorPanel json={componentJson} onChange={updateComponent} />
     </ComponentEditorLayout>

@@ -14,13 +14,16 @@ export interface ComponentEditorLayoutProps {
   onRedo?: () => void;
   canUndo?: boolean;
   canRedo?: boolean;
+  /** Save the current file and deploy it via `wf update -f <path>`. */
+  onPublish?: () => void;
+  publishing?: boolean;
   children: ReactNode;
   /**
-   * Dış “host”ta (yalnızca web sekme satırı) Save çubuğunu nereye takacağımız.
+   * Dış "host"ta (yalnızca web sekme satırı) Save çubuğunu nereye takacağımız.
    * Verilmezse: VS Code webview gibi panellerde üst `editor-chrome` şeridi çizilir.
    */
   registerToolbar?: HostDocumentToolbarSlot;
-  /** `modal`: dialog gövdesinde kompakt padding; toolbar `registerToolbar` ile host’ta. */
+  /** `modal`: dialog gövdesinde kompakt padding; toolbar `registerToolbar` ile host'ta. */
   surface?: 'panel' | 'modal';
 }
 
@@ -34,6 +37,8 @@ export function ComponentEditorLayout({
   onRedo,
   canUndo,
   canRedo,
+  onPublish,
+  publishing,
   children,
   registerToolbar,
   surface = 'panel',
@@ -45,9 +50,11 @@ export function ComponentEditorLayout({
   const onSaveRef = useRef(onSave);
   const onUndoRef = useRef(onUndo);
   const onRedoRef = useRef(onRedo);
+  const onPublishRef = useRef(onPublish);
   onSaveRef.current = onSave;
   onUndoRef.current = onUndo;
   onRedoRef.current = onRedo;
+  onPublishRef.current = onPublish;
 
   const stableOnSave = useCallback(() => {
     onSaveRef.current();
@@ -58,9 +65,13 @@ export function ComponentEditorLayout({
   const stableOnRedo = useCallback(() => {
     onRedoRef.current?.();
   }, []);
+  const stableOnPublish = useCallback(() => {
+    onPublishRef.current?.();
+  }, []);
 
   const hasUndoGroup = Boolean(onUndo);
   const hasRedoButton = Boolean(onRedo);
+  const hasPublish = Boolean(onPublish);
 
   const hostToolbar = useMemo(
     () => (
@@ -73,6 +84,8 @@ export function ComponentEditorLayout({
         onRedo={hasRedoButton ? stableOnRedo : undefined}
         canUndo={canUndo}
         canRedo={canRedo}
+        onPublish={hasPublish ? stableOnPublish : undefined}
+        publishing={publishing}
         arrangement="host-row"
       />
     ),
@@ -84,9 +97,12 @@ export function ComponentEditorLayout({
       canRedo,
       hasUndoGroup,
       hasRedoButton,
+      hasPublish,
+      publishing,
       stableOnSave,
       stableOnUndo,
       stableOnRedo,
+      stableOnPublish,
     ],
   );
 
@@ -100,6 +116,8 @@ export function ComponentEditorLayout({
       onRedo={onRedo}
       canUndo={canUndo}
       canRedo={canRedo}
+      onPublish={onPublish}
+      publishing={publishing}
       arrangement="editor-chrome"
     />
   );

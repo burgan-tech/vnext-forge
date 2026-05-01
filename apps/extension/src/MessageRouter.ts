@@ -12,6 +12,7 @@ import {
 import type { LspBridge } from '@vnext-forge/lsp-core';
 
 import { createWebviewLspTransport, type WebviewLspTransport } from './panels/lsp-transport.js';
+import type { ForgeTerminalManager } from './tools/forge-terminal.js';
 
 // ── Message protocol ──────────────────────────────────────────────────────────
 
@@ -91,6 +92,12 @@ interface WebviewStatusFrame {
   };
 }
 
+/** Webview → Extension Host: save and deploy a component file via `wf update -f`. */
+interface WebviewPublishFrame {
+  type: 'host:publish';
+  filePath: string;
+}
+
 // ── Router ────────────────────────────────────────────────────────────────────
 
 export interface MessageRouterDeps {
@@ -108,6 +115,8 @@ export interface MessageRouterDeps {
   diagnosticCollection: vscode.DiagnosticCollection;
   /** Native Status Bar item showing runtime and validation summary. */
   statusBarItem: vscode.StatusBarItem;
+  /** Shared terminal pool for running CLI commands from webview requests. */
+  terminal?: ForgeTerminalManager;
 }
 
 /**
@@ -172,6 +181,11 @@ export class MessageRouter {
 
     if (isStatusFrame(raw)) {
       this.handleStatusFrame(raw);
+      return;
+    }
+
+    if (isPublishFrame(raw)) {
+      this.handlePublishFrame(raw);
       return;
     }
 
@@ -322,6 +336,35 @@ export class MessageRouter {
     item.tooltip = `vnext-forge: ${status.runtimeLabel} | ${errors} errors, ${warnings} warnings`;
     item.command = 'workbench.actions.view.problems';
     item.show();
+  }
+
+  // ── Publish ──────────────────────────────────────────────────────────────
+
+  private handlePublishFrame(frame: WebviewPublishFrame): void {
+    const terminal = this.deps.terminal;
+    if (!terminal) {
+      this.deps.logger.warn({}, 'host:publish received but no terminal manager configured');
+      return;
+    }
+
+    const rawPath = frame.filePath?.trim();
+    if (!rawPath) return;
+
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    if (workspaceRoot) {
+      const normalized = path.normalize(rawPath);
+      const rel = path.relative(workspaceRoot, normalized);
+      if (rel.startsWith('..') || path.isAbsolute(rel)) {
+        this.deps.logger.warn(
+          { path: normalized } as Record<string, unknown>,
+          'host:publish rejected: path outside workspace',
+        );
+        return;
+      }
+    }
+
+    const escapedPath = rawPath.includes(' ') ? `"${rawPath}"` : rawPath;
+    terminal.run(`wf update -f ${escapedPath}`, { cwd: workspaceRoot });
   }
 
   // ── Notifications ─────────────────────────────────────────────────────────
@@ -509,6 +552,12 @@ function isStatusFrame(value: unknown): value is WebviewStatusFrame {
   if (typeof value !== 'object' || value === null) return false;
   const v = value as Record<string, unknown>;
   return v.type === 'host:status' && typeof v.status === 'object' && v.status !== null;
+}
+
+function isPublishFrame(value: unknown): value is WebviewPublishFrame {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return v.type === 'host:publish' && typeof v.filePath === 'string';
 }
 
 function toVnextForgeError(error: unknown, method: string, traceId: string): VnextForgeError {

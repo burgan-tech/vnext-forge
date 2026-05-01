@@ -87,6 +87,7 @@ export {
   useOpenComponentEditorModal,
   useComponentEditorModalState,
 } from './modules/save-component/ComponentEditorModalContext.js';
+export { PublishProvider, usePublish } from './modules/save-component/PublishContext.js';
 export type { AtomicSavedInfo, ComponentEditorTarget } from './modules/save-component/componentEditorModalTypes.js';
 export { OpenVnextComponentInModalButton } from './modules/save-component/components/OpenVnextComponentInModalButton.js';
 

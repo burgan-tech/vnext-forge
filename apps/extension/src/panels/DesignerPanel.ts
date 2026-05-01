@@ -10,6 +10,7 @@ import {
 
 import type { FileRouteKind } from '../file-router';
 import type { MessageRouter } from '../MessageRouter';
+import type { ForgeToolsSettingsService } from '../tools/forge-tools-settings.js';
 
 /**
  * Editor kinds the designer panel knows how to render. `'unknown'` is
@@ -76,10 +77,34 @@ export class DesignerPanel {
   private readonly panels = new Map<string, ManagedWebview>();
   private readonly context: vscode.ExtensionContext;
   private readonly router: MessageRouter;
+  private forgeToolsSettings: ForgeToolsSettingsService | undefined;
+  private settingsChangeDisposable: vscode.Disposable | undefined;
 
   constructor(context: vscode.ExtensionContext, router: MessageRouter) {
     this.context = context;
     this.router = router;
+  }
+
+  /**
+   * Wire the sidebar settings service so canvas/theme changes are
+   * injected into new webviews and broadcast to already-open ones.
+   */
+  setForgeToolsSettings(service: ForgeToolsSettingsService): void {
+    this.settingsChangeDisposable?.dispose();
+    this.forgeToolsSettings = service;
+    this.settingsChangeDisposable = service.onDidChangeSettings((settings) => {
+      const message = {
+        type: 'host:canvas-settings-changed',
+        canvasViewSettings: settings.canvas,
+        themeMode: settings.themeMode,
+      };
+      for (const managed of this.panels.values()) {
+        if (managed.webviewReady) {
+          void managed.panel.webview.postMessage(message);
+        }
+      }
+    });
+    this.context.subscriptions.push(this.settingsChangeDisposable);
   }
 
   /**
@@ -354,8 +379,9 @@ export class DesignerPanel {
       `connect-src ${webview.cspSource}`,
     ].join('; ');
 
+    const webviewConfig = this.buildWebviewConfig();
     const configScript = `<script nonce="${nonce}">
-  window.__VNEXT_CONFIG__ = ${JSON.stringify(buildWebviewConfig())};
+  window.__VNEXT_CONFIG__ = ${JSON.stringify(webviewConfig)};
 </script>`;
 
     const cspMeta = `<meta http-equiv="Content-Security-Policy" content="${csp}" />`;
@@ -416,25 +442,30 @@ export class DesignerPanel {
 
     return html;
   }
-}
 
-/**
- * Build the runtime config blob injected into the webview as
- * `window.__VNEXT_CONFIG__`. The webview communicates with the host
- * over `postMessage` (no HTTP), so we deliberately do NOT inject any
- * URL-shaped fields — older versions hardcoded `https://localhost/api`
- * here, which gave security reviewers a false signal that the webview
- * was talking to a real network endpoint.
- */
-function buildWebviewConfig(): Record<string, unknown> {
-  const revalidationSeconds = vscode.workspace
-    .getConfiguration('vnextForge')
-    .get<number>('runtimeRevalidationMinIntervalSeconds', 30);
-  return {
-    RUNTIME_REVALIDATION_MIN_INTERVAL_SECONDS: revalidationSeconds,
-    /** Webview `postMessage` origin allowlist (API + LSP); merged with defaults in webview boot. */
-    POST_MESSAGE_ALLOWED_ORIGINS: ['vscode-webview:', 'vscode-file://vscode-app'],
-  };
+  /**
+   * Build the runtime config blob injected into the webview as
+   * `window.__VNEXT_CONFIG__`. The webview communicates with the host
+   * over `postMessage` (no HTTP), so we deliberately do NOT inject any
+   * URL-shaped fields.
+   */
+  private buildWebviewConfig(): Record<string, unknown> {
+    const revalidationSeconds = vscode.workspace
+      .getConfiguration('vnextForge')
+      .get<number>('runtimeRevalidationMinIntervalSeconds', 30);
+    const config: Record<string, unknown> = {
+      RUNTIME_REVALIDATION_MIN_INTERVAL_SECONDS: revalidationSeconds,
+      POST_MESSAGE_ALLOWED_ORIGINS: ['vscode-webview:', 'vscode-file://vscode-app'],
+    };
+
+    const cached = this.forgeToolsSettings?.getCachedSettings();
+    if (cached) {
+      config.canvasViewSettings = cached.canvas;
+      config.themeMode = cached.themeMode;
+    }
+
+    return config;
+  }
 }
 
 function generateNonce(): string {
