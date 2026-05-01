@@ -17,5 +17,6 @@ export function extensionHostEditorCapabilities(
     csharpLspUsesPostMessageTransport: true,
     postMessageAllowedOrigins: resolveWebviewPostMessageAllowedOrigins(),
     postMessageToHost: (message: unknown) => api.postMessage(message),
+    nativeStatusBar: true,
   };
 }

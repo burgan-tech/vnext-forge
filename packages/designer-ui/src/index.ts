@@ -9,6 +9,7 @@ export * from './api/index.js';
 export * from './hooks/index.js';
 export * from './lib/index.js';
 export * from './notification/index.js';
+export * from './workspace-surface/index.js';
 export * from './workspace-fs-events/index.js';
 export * from './ui/index.js';
 export * from './store/index.js';
@@ -132,6 +133,7 @@ export type {
   WorkflowValidationResult,
   WorkflowValidationResponse,
 } from './modules/workflow-validation/WorkflowValidationTypes.js';
+export { WorkflowValidationSync } from './modules/workflow-validation/WorkflowValidationSync.js';
 
 export type { HostEditorCapabilities } from './lsp/HostEditorCapabilities.js';
 export {

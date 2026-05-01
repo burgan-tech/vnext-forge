@@ -24,4 +24,10 @@ export interface HostEditorCapabilities {
    * second call).
    */
   postMessageToHost?: (message: unknown) => void;
+  /**
+   * When `true`, the host provides a native status bar (e.g. VS Code Status
+   * Bar item + Problems panel). The designer-ui webview should hide its own
+   * custom status bar strip to avoid duplication.
+   */
+  nativeStatusBar?: boolean;
 }

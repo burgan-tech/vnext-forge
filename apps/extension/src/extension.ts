@@ -56,12 +56,23 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const { services, registry } = composeExtensionServices(loggerAdapter);
   const { bridge: lspBridge, installer: lspInstaller } = createExtensionHostLspStack(loggerAdapter);
 
+  const diagnosticCollection = vscode.languages.createDiagnosticCollection('vnext-forge');
+  context.subscriptions.push(diagnosticCollection);
+
+  const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 50);
+  statusBarItem.text = '$(loading~spin) vnext-forge';
+  statusBarItem.tooltip = 'vnext-forge: Initializing...';
+  statusBarItem.show();
+  context.subscriptions.push(statusBarItem);
+
   const router = new MessageRouter({
     registry,
     services,
     lspBridge,
     logger: loggerAdapter,
     webviewLogChannel,
+    diagnosticCollection,
+    statusBarItem,
   });
   const designerPanel = new DesignerPanel(context, router);
 
@@ -149,6 +160,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   if (detector.getRoots().length > 0) {
     bootstrapLsp(loggerAdapter, lspInstaller);
   }
+
+  statusBarItem.text = '$(check) vnext-forge';
+  statusBarItem.tooltip = 'vnext-forge: Ready';
+  void vscode.window.showInformationMessage(
+    'vnext-forge is ready — workflow designer available for this workspace.',
+  );
 }
 
 async function importDetectedRoots(

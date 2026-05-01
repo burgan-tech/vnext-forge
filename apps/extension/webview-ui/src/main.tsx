@@ -7,9 +7,11 @@ import {
   DesignerUiProvider,
   registerLogSink,
   registerNotificationSink,
+  registerWorkspaceSurfaceSink,
   setHostEditorCapabilities,
   setupMonacoLoader,
   syncColorThemeFromSettingsStore,
+  WorkspaceSurfaceSync,
 } from '@vnext-forge/designer-ui';
 
 import './index.css';
@@ -18,6 +20,7 @@ import { HostEditorBridge } from './HostEditorBridge';
 import { createVsCodeLogSink } from './logging/vscode-log-sink';
 import { createVsCodeNotificationSink } from './notifications/vscode-notification-sink';
 import { createVsCodeTransport, type VsCodeWebviewApi } from './VsCodeTransport';
+import { createVsCodeWorkspaceSurfaceSink } from './workspace-surface/vscode-workspace-surface-sink';
 
 /**
  * Resolve the VS Code webview API. Outside the webview runtime we fall back
@@ -45,6 +48,10 @@ setupMonacoLoader();
 // in-webview toast (the VS Code shell deliberately has no chrome).
 registerNotificationSink(createVsCodeNotificationSink(vsCodeApi));
 
+// Push validation diagnostics and runtime status to the extension host so it
+// can drive VS Code's native Problems panel and Status Bar item.
+registerWorkspaceSurfaceSink(createVsCodeWorkspaceSurfaceSink(vsCodeApi));
+
 // Tunnel every designer-ui `createLogger(...)` entry to a native VS Code
 // OutputChannel via the extension host. Without this the webview logs end
 // up in the (hidden) Webview Developer Tools console only.
@@ -61,6 +68,7 @@ syncColorThemeFromSettingsStore();
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <DesignerUiProvider transport={transport}>
+      <WorkspaceSurfaceSync />
       <HostEditorBridge api={vsCodeApi} />
     </DesignerUiProvider>
   </StrictMode>,
