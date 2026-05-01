@@ -68,6 +68,29 @@ interface WebviewOpenWorkspaceFileFrame {
   absolutePath: string;
 }
 
+/** Webview → Extension Host: push validation diagnostics for the Problems panel. */
+interface WebviewDiagnosticsFrame {
+  type: 'host:diagnostics';
+  diagnostics: {
+    filePath: string;
+    severity: 'error' | 'warning' | 'info';
+    message: string;
+    source: string;
+    range?: { startLine: number; startCol: number; endLine: number; endCol: number };
+  }[];
+}
+
+/** Webview → Extension Host: push workspace/runtime status for the Status Bar. */
+interface WebviewStatusFrame {
+  type: 'host:status';
+  status: {
+    runtimeConnected: boolean;
+    runtimeLabel: string;
+    validationErrorCount: number;
+    validationWarningCount: number;
+  };
+}
+
 // ── Router ────────────────────────────────────────────────────────────────────
 
 export interface MessageRouterDeps {
@@ -81,6 +104,10 @@ export interface MessageRouterDeps {
    * disposed by extension activation; the router only writes to it.
    */
   webviewLogChannel: vscode.OutputChannel;
+  /** Native Problems panel collection for workflow/workspace diagnostics. */
+  diagnosticCollection: vscode.DiagnosticCollection;
+  /** Native Status Bar item showing runtime and validation summary. */
+  statusBarItem: vscode.StatusBarItem;
 }
 
 /**
@@ -135,6 +162,16 @@ export class MessageRouter {
 
     if (isNotifyFrame(raw)) {
       void this.handleNotifyFrame(panel, raw);
+      return;
+    }
+
+    if (isDiagnosticsFrame(raw)) {
+      this.handleDiagnosticsFrame(raw);
+      return;
+    }
+
+    if (isStatusFrame(raw)) {
+      this.handleStatusFrame(raw);
       return;
     }
 
@@ -205,6 +242,86 @@ export class MessageRouter {
       payloadText = String(frame.payload);
     }
     this.deps.webviewLogChannel.appendLine(`${head} ${payloadText}`);
+  }
+
+  // ── Diagnostics & Status ──────────────────────────────────────────────────
+
+  private handleDiagnosticsFrame(frame: WebviewDiagnosticsFrame): void {
+    const collection = this.deps.diagnosticCollection;
+    collection.clear();
+
+    const byUri = new Map<string, vscode.Diagnostic[]>();
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+
+    for (const item of frame.diagnostics) {
+      if (!item.filePath) continue;
+
+      const absPath = workspaceRoot
+        ? path.resolve(workspaceRoot, item.filePath)
+        : item.filePath;
+
+      const rel = workspaceRoot ? path.relative(workspaceRoot, absPath) : absPath;
+      if (rel.startsWith('..') || path.isAbsolute(rel)) continue;
+
+      const uri = vscode.Uri.file(absPath);
+      const key = uri.toString();
+
+      const range = item.range
+        ? new vscode.Range(
+            item.range.startLine,
+            item.range.startCol,
+            item.range.endLine,
+            item.range.endCol,
+          )
+        : new vscode.Range(0, 0, 0, 0);
+
+      const severity =
+        item.severity === 'error'
+          ? vscode.DiagnosticSeverity.Error
+          : item.severity === 'warning'
+            ? vscode.DiagnosticSeverity.Warning
+            : vscode.DiagnosticSeverity.Information;
+
+      const diagnostic = new vscode.Diagnostic(range, item.message, severity);
+      diagnostic.source = item.source;
+
+      const existing = byUri.get(key) ?? [];
+      existing.push(diagnostic);
+      byUri.set(key, existing);
+    }
+
+    for (const [key, diagnostics] of byUri) {
+      collection.set(vscode.Uri.parse(key), diagnostics);
+    }
+  }
+
+  private handleStatusFrame(frame: WebviewStatusFrame): void {
+    const { status } = frame;
+    const item = this.deps.statusBarItem;
+
+    const errors = status.validationErrorCount;
+    const warnings = status.validationWarningCount;
+
+    let text: string;
+    if (errors > 0) {
+      text = `$(error) ${errors} ${errors === 1 ? 'error' : 'errors'}`;
+      if (warnings > 0) {
+        text += `, $(warning) ${warnings}`;
+      }
+    } else if (warnings > 0) {
+      text = `$(warning) ${warnings} ${warnings === 1 ? 'warning' : 'warnings'}`;
+    } else {
+      text = '$(check) vnext-forge';
+    }
+
+    if (status.runtimeConnected) {
+      text += '  $(plug) Connected';
+    }
+
+    item.text = text;
+    item.tooltip = `vnext-forge: ${status.runtimeLabel} | ${errors} errors, ${warnings} warnings`;
+    item.command = 'workbench.actions.view.problems';
+    item.show();
   }
 
   // ── Notifications ─────────────────────────────────────────────────────────
@@ -380,6 +497,18 @@ function isLogFrame(value: unknown): value is WebviewLogFrame {
   if (typeof v.scope !== 'string' || typeof v.message !== 'string') return false;
   if (typeof v.timestamp !== 'string') return false;
   return v.level === 'debug' || v.level === 'info' || v.level === 'warn' || v.level === 'error';
+}
+
+function isDiagnosticsFrame(value: unknown): value is WebviewDiagnosticsFrame {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return v.type === 'host:diagnostics' && Array.isArray(v.diagnostics);
+}
+
+function isStatusFrame(value: unknown): value is WebviewStatusFrame {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return v.type === 'host:status' && typeof v.status === 'object' && v.status !== null;
 }
 
 function toVnextForgeError(error: unknown, method: string, traceId: string): VnextForgeError {

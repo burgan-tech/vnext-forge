@@ -21,6 +21,7 @@ import { useScriptPanelStore } from '../../modules/code-editor/ScriptPanelStore'
 import { useFlowEditorPersistence } from '../../modules/flow-editor/useFlowEditorPersistence';
 import { useFlowEditorDocument } from '../../modules/flow-editor/useFlowEditorDocument';
 import { FlowEditorSaveProvider } from '../../modules/flow-editor/FlowEditorSaveContext.js';
+import { WorkflowValidationSync } from '../../modules/workflow-validation/WorkflowValidationSync.js';
 import { Alert, AlertDescription, AlertTitle } from '../../ui/Alert';
 import { Button } from '../../ui/Button';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '../../ui/Resizable.js';
@@ -196,6 +197,7 @@ export function FlowEditorView({
 
   return (
     <FlowEditorSaveProvider saveWorkflow={save}>
+      <WorkflowValidationSync />
       <ComponentEditorLayout
         canRedo={redoStackLength > 0}
         canUndo={undoStackLength > 0}
