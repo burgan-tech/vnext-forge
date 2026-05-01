@@ -4,6 +4,7 @@ import { MappingCode } from './mapping';
 import { RoleGrant } from './role';
 import { State, SharedTransition, ResourceReference, TaskExecution } from './state';
 import { TriggerType } from '../constants/trigger-types';
+import type { ViewBinding } from './view-binding';
 
 export type WorkflowType = 'F' | 'S' | 'P' | 'C';
 
@@ -15,6 +16,8 @@ export interface StartTransition {
   schema?: ResourceReference;
   labels?: Label[];
   mapping?: MappingCode;
+  onExecutionTasks?: TaskExecution[];
+  roles?: RoleGrant[];
 }
 
 export interface WorkflowTimerConfig {
@@ -36,8 +39,46 @@ export interface CancelTransition {
   triggerType?: TriggerType;
   versionStrategy?: string;
   labels?: Label[];
+  schema?: ResourceReference;
+  view?: ViewBinding;
+  mapping?: MappingCode;
   onExecutionTasks?: TaskExecution[];
+  roles?: RoleGrant[];
   availableIn?: string[];
+  from?: string;
+  _comment?: string;
+}
+
+export interface ExitTransition {
+  key: string;
+  target: string;
+  triggerType?: TriggerType;
+  versionStrategy?: string;
+  labels?: Label[];
+  schema?: ResourceReference;
+  view?: ViewBinding;
+  mapping?: MappingCode;
+  onExecutionTasks?: TaskExecution[];
+  roles?: RoleGrant[];
+  availableIn?: string[];
+  from?: string;
+  _comment?: string;
+}
+
+export interface UpdateDataTransition {
+  key: string;
+  target: string;
+  triggerType?: TriggerType;
+  versionStrategy?: string;
+  labels?: Label[];
+  schema?: ResourceReference;
+  view?: ViewBinding;
+  mapping?: MappingCode;
+  onExecutionTasks?: TaskExecution[];
+  roles?: RoleGrant[];
+  availableIn?: string[];
+  from?: string;
+  _comment?: string;
 }
 
 export interface WorkflowAttributes {
@@ -48,7 +89,8 @@ export interface WorkflowAttributes {
   sharedTransitions?: SharedTransition[];
   timeout?: TimeoutTransition;
   cancel?: CancelTransition;
-  updateData?: SharedTransition;
+  exit?: ExitTransition;
+  updateData?: UpdateDataTransition;
   functions?: ResourceReference[];
   extensions?: ResourceReference[];
   schema?: ResourceReference;

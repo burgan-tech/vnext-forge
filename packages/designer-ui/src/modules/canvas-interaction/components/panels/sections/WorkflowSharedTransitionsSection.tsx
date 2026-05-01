@@ -108,6 +108,7 @@ export function WorkflowSharedTransitionsSection() {
             availableIn={st.availableIn || []}
             onUpdateAvailableIn={(keys) => updateAvailableIn(i, keys)}
             availableInStateOptions={stateOptions}
+            editorKind="shared"
           />
         ))}
         <button

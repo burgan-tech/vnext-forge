@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { Plus, Ban } from 'lucide-react';
+import { Plus, LogOut } from 'lucide-react';
 import type { Transition } from '@vnext-forge/vnext-types';
 import { useWorkflowStore } from '../../../../../store/useWorkflowStore';
 import {
@@ -12,56 +12,56 @@ import {
 import { MetadataSection } from './MetadataSection';
 import { useStateOptions } from './useStateOptions';
 
-export function WorkflowCancelSection() {
+export function WorkflowExitSection() {
   const { workflowJson, updateWorkflow } = useWorkflowStore();
   if (!workflowJson) return null;
 
   const attrs = (workflowJson as any).attributes || {};
-  const cancel = attrs.cancel;
+  const exit = attrs.exit;
   const stateOptions = useStateOptions();
 
-  const findCancelTransition: FindTransition = useCallback((draft: any) => {
+  const findExitTransition: FindTransition = useCallback((draft: any) => {
     const a = draft?.attributes;
-    if (!a?.cancel) return null;
-    return { container: a, transitions: [a.cancel] };
+    if (!a?.exit) return null;
+    return { container: a, transitions: [a.exit] };
   }, []);
 
-  const mutations = useTransitionMutations(findCancelTransition);
+  const mutations = useTransitionMutations(findExitTransition);
   const { dialogState, ...dialogOpeners } = useTransitionDialogs();
 
   const getTransitions = useCallback(
     () => {
-      const c = (workflowJson as any)?.attributes?.cancel;
-      return c ? [c as Transition] : [];
+      const e = (workflowJson as any)?.attributes?.exit;
+      return e ? [e as Transition] : [];
     },
     [workflowJson],
   );
 
-  const createCancel = () => {
+  const createExit = () => {
     updateWorkflow((draft: any) => {
-      draft.attributes.cancel = {
-        key: 'cancel',
+      draft.attributes.exit = {
+        key: 'exit',
         target: '',
         triggerType: 0,
         versionStrategy: 'Minor',
-        labels: [{ language: 'en', label: 'Cancel' }],
+        labels: [{ language: 'en', label: 'Exit' }],
         onExecutionTasks: [],
         availableIn: [],
       };
     });
   };
 
-  const removeCancel = () => {
+  const removeExit = () => {
     updateWorkflow((draft: any) => {
-      delete draft.attributes.cancel;
+      delete draft.attributes.exit;
     });
   };
 
   const updateAvailableIn = useCallback(
     (keys: string[]) => {
       updateWorkflow((draft: any) => {
-        if (draft.attributes?.cancel) {
-          draft.attributes.cancel.availableIn = keys;
+        if (draft.attributes?.exit) {
+          draft.attributes.exit.availableIn = keys;
         }
       });
     },
@@ -69,30 +69,30 @@ export function WorkflowCancelSection() {
   );
 
   return (
-    <MetadataSection title="Cancel" icon={<Ban size={13} />} defaultOpen={!!cancel}>
-      {cancel ? (
+    <MetadataSection title="Exit" icon={<LogOut size={13} />} defaultOpen={!!exit}>
+      {exit ? (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-foreground text-xs font-semibold">
-              Cancel Transition
+              Exit Transition
             </span>
             <button
-              onClick={removeCancel}
+              onClick={removeExit}
               className="text-destructive-text hover:text-destructive-icon cursor-pointer text-[11px] font-semibold">
               Remove
             </button>
           </div>
           <TransitionCard
-            transition={cancel}
+            transition={exit}
             index={0}
             currentStateKey=""
             allStateKeys={mutations.allStateKeys}
             onUpdate={(_, field, value) => {
               updateWorkflow((draft: any) => {
-                if (draft.attributes?.cancel) draft.attributes.cancel[field] = value;
+                if (draft.attributes?.exit) draft.attributes.exit[field] = value;
               });
             }}
-            onRemove={() => removeCancel()}
+            onRemove={() => removeExit()}
             onUpdateScript={mutations.updateTransitionScript}
             onRemoveScript={mutations.removeTransitionScript}
             onUpdateSchema={mutations.updateTransitionSchema}
@@ -119,14 +119,14 @@ export function WorkflowCancelSection() {
             canPickExisting={mutations.canPickExisting}
             projectDomain={mutations.projectDomain}
             standalone
-            availableIn={cancel.availableIn || []}
+            availableIn={exit.availableIn || []}
             onUpdateAvailableIn={updateAvailableIn}
             availableInStateOptions={stateOptions}
-            editorKind="cancel"
+            editorKind="exit"
           />
           <TransitionDialogsHost
             mutations={mutations}
-            findTransition={findCancelTransition}
+            findTransition={findExitTransition}
             dialogState={dialogState}
             getTransitions={getTransitions}
           />
@@ -134,12 +134,12 @@ export function WorkflowCancelSection() {
       ) : (
         <div className="space-y-2">
           <p className="text-[11px] text-muted-foreground leading-relaxed">
-            Cancel defines how the workflow handles cancellation. One cancel configuration per workflow.
+            Defines how the workflow handles exit. One exit configuration per workflow.
           </p>
           <button
-            onClick={createCancel}
+            onClick={createExit}
             className="text-secondary-icon hover:text-secondary-foreground flex cursor-pointer items-center gap-1.5 text-[11px] font-semibold">
-            <Plus size={13} /> Create Cancel Transition
+            <Plus size={13} /> Create Exit Transition
           </button>
         </div>
       )}
