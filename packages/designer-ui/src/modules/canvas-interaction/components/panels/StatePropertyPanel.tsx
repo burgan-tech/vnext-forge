@@ -123,12 +123,14 @@ export function StatePropertyPanel({ defaultTaskFolder }: { defaultTaskFolder?: 
   const exits = state.onExits || [];
   const transitions = state.transitions || [];
 
+  const errorHandlerCount = state.errorBoundary?.onError?.length ?? 0;
+
   const tabs: { key: Tab; label: string; count?: number; show: boolean }[] = [
     { key: 'general', label: 'General', show: true },
     { key: 'tasks', label: 'Tasks', count: entries.length + exits.length, show: true },
     { key: 'transitions', label: 'Transitions', count: transitions.length, show: true },
     { key: 'subflow', label: 'SubFlow', show: stateType === 4 },
-    { key: 'error-boundary', label: 'vNext failure', show: !!state.errorBoundary },
+    { key: 'error-boundary', label: 'Error Boundary', count: errorHandlerCount, show: true },
   ];
 
   return (
@@ -195,7 +197,7 @@ export function StatePropertyPanel({ defaultTaskFolder }: { defaultTaskFolder?: 
         {activeTab === 'tasks' && <TasksTab state={state} defaultTaskFolder={defaultTaskFolder} />}
         {activeTab === 'transitions' && <TransitionsTab state={state} />}
         {activeTab === 'subflow' && <SubFlowTab state={state} />}
-        {activeTab === 'error-boundary' && <ErrorBoundaryTab state={state} />}
+        {activeTab === 'error-boundary' && <ErrorBoundaryTab state={state} updateWorkflow={updateWorkflow} />}
       </div>
     </div>
   );

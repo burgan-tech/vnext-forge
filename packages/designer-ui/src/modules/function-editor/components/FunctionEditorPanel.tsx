@@ -1,15 +1,14 @@
-import { TaskExecutionList } from '../../../modules/save-component/components/TaskExecutionList';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../ui/Card';
 import { FunctionMetadataForm } from './FunctionMetadataForm';
+import { FunctionTaskModeSection } from './FunctionTaskModeSection';
 
 interface FunctionEditorPanelProps {
   json: Record<string, unknown>;
   onChange: (updater: (draft: Record<string, unknown>) => void) => void;
+  onBeforeOpenModal?: () => void;
 }
 
-export function FunctionEditorPanel({ json, onChange }: FunctionEditorPanelProps) {
-  const tasks = Array.isArray(json.tasks) ? json.tasks : [];
-
+export function FunctionEditorPanel({ json, onChange, onBeforeOpenModal }: FunctionEditorPanelProps) {
   return (
     <div className="space-y-4 p-4">
       <Card variant="default" className="gap-3">
@@ -26,18 +25,14 @@ export function FunctionEditorPanel({ json, onChange }: FunctionEditorPanelProps
         <CardHeader className="border-border border-b">
           <CardTitle className="text-base">Task Execution</CardTitle>
           <CardDescription className="text-xs">
-            Manage task step behavior and order.
+            Choose between a single task or multiple ordered tasks.
           </CardDescription>
         </CardHeader>
         <CardContent className="px-4 sm:px-6">
-          <TaskExecutionList
-            tasks={tasks}
-            onChange={(updater) => {
-              onChange((draft) => {
-                if (!Array.isArray(draft.tasks)) draft.tasks = [];
-                updater(draft.tasks as any[]);
-              });
-            }}
+          <FunctionTaskModeSection
+            json={json}
+            onChange={onChange}
+            onBeforeOpenModal={onBeforeOpenModal}
           />
         </CardContent>
       </Card>

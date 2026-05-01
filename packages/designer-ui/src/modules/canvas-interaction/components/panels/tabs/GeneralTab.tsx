@@ -1,10 +1,36 @@
+import { useState, useCallback } from 'react';
+import type { RoleGrant, ViewBinding } from '@vnext-forge/vnext-types';
+import type { DiscoveredVnextComponent } from '@vnext-forge/app-contracts';
 import { getLabels } from './PropertyPanelHelpers';
 import { SelectField, Section, InfoRow, SummaryCard } from './PropertyPanelShared';
+import { RoleGrantEditor } from './subflow/RoleGrantEditor';
+import { ViewBindingsSection } from './shared/ViewBindingsSection';
+import { ChooseExistingVnextComponentDialog } from './ChooseExistingTaskDialog';
+import { CreateNewComponentDialog } from './CreateNewComponentDialog';
+import { useWorkflowStore } from '../../../../../store/useWorkflowStore';
+import { useProjectStore } from '../../../../../store/useProjectStore';
 import { Trash2, Plus } from 'lucide-react';
 
-export function GeneralTab({ state, updateWorkflow }: { state: any; updateWorkflow: any }) {
+interface GeneralTabProps {
+  state: any;
+  updateWorkflow: any;
+}
+
+export function GeneralTab({ state, updateWorkflow }: GeneralTabProps) {
   const labels = getLabels(state);
   const stateKey = state.key;
+  const queryRoles: RoleGrant[] = state.queryRoles ?? [];
+
+  const activeProject = useProjectStore((s) => s.activeProject);
+  const projectDomain = activeProject?.domain ?? '';
+
+  const [viewPickerBindingIndex, setViewPickerBindingIndex] = useState<number | null | undefined>(undefined);
+  const [viewCreatorBindingIndex, setViewCreatorBindingIndex] = useState<number | null | undefined>(undefined);
+  const [extensionPickerBindingIndex, setExtensionPickerBindingIndex] = useState<number | null | undefined>(undefined);
+
+  const viewPickerOpen = viewPickerBindingIndex !== undefined;
+  const viewCreatorOpen = viewCreatorBindingIndex !== undefined;
+  const extensionPickerOpen = extensionPickerBindingIndex !== undefined;
 
   const updateField = (field: string, value: any) => {
     updateWorkflow((draft: any) => {
@@ -12,6 +38,99 @@ export function GeneralTab({ state, updateWorkflow }: { state: any; updateWorkfl
       if (s) s[field] = value;
     });
   };
+
+  const updateQueryRoles = useCallback((roles: RoleGrant[]) => {
+    updateWorkflow((draft: any) => {
+      const s = draft.attributes?.states?.find((s: any) => s.key === stateKey);
+      if (s) s.queryRoles = roles.length > 0 ? roles : undefined;
+    });
+  }, [updateWorkflow, stateKey]);
+
+  const updateStateView = useCallback((view: ViewBinding | null) => {
+    updateWorkflow((draft: any) => {
+      const s = draft.attributes?.states?.find((s: any) => s.key === stateKey);
+      if (!s) return;
+      if (view) {
+        s.view = view;
+        delete s.views;
+      } else {
+        delete s.view;
+      }
+    });
+  }, [updateWorkflow, stateKey]);
+
+  const updateStateViews = useCallback((views: ViewBinding[]) => {
+    updateWorkflow((draft: any) => {
+      const s = draft.attributes?.states?.find((s: any) => s.key === stateKey);
+      if (!s) return;
+      if (views.length > 0) {
+        s.views = views;
+        delete s.view;
+      } else {
+        delete s.views;
+      }
+    });
+  }, [updateWorkflow, stateKey]);
+
+  const handleViewPickerSelect = useCallback((component: DiscoveredVnextComponent) => {
+    const ref = {
+      key: component.key,
+      domain: projectDomain,
+      version: component.version || '1.0.0',
+      flow: component.flow || 'sys-views',
+    };
+    const bindingIndex = viewPickerBindingIndex;
+    if (bindingIndex != null) {
+      updateWorkflow((draft: any) => {
+        const s = draft.attributes?.states?.find((s: any) => s.key === stateKey);
+        if (!s?.views?.[bindingIndex]) return;
+        s.views[bindingIndex].view = ref;
+      });
+    } else {
+      updateStateView({ view: ref, loadData: false });
+    }
+  }, [viewPickerBindingIndex, projectDomain, updateWorkflow, stateKey, updateStateView]);
+
+  const handleViewCreated = useCallback((created: DiscoveredVnextComponent) => {
+    const ref = {
+      key: created.key,
+      domain: projectDomain,
+      version: created.version || '1.0.0',
+      flow: created.flow || 'sys-views',
+    };
+    const bindingIndex = viewCreatorBindingIndex;
+    if (bindingIndex != null) {
+      updateWorkflow((draft: any) => {
+        const s = draft.attributes?.states?.find((s: any) => s.key === stateKey);
+        if (!s?.views?.[bindingIndex]) return;
+        s.views[bindingIndex].view = ref;
+      });
+    } else {
+      updateStateView({ view: ref, loadData: false });
+    }
+  }, [viewCreatorBindingIndex, projectDomain, updateWorkflow, stateKey, updateStateView]);
+
+  const handleExtensionPickerSelect = useCallback((component: DiscoveredVnextComponent) => {
+    const bindingIndex = extensionPickerBindingIndex;
+    updateWorkflow((draft: any) => {
+      const s = draft.attributes?.states?.find((s: any) => s.key === stateKey);
+      if (!s) return;
+      if (bindingIndex != null) {
+        const binding = s.views?.[bindingIndex];
+        if (!binding) return;
+        if (!binding.extensions) binding.extensions = [];
+        if (!binding.extensions.includes(component.key)) {
+          binding.extensions.push(component.key);
+        }
+      } else {
+        if (!s.view) return;
+        if (!s.view.extensions) s.view.extensions = [];
+        if (!s.view.extensions.includes(component.key)) {
+          s.view.extensions.push(component.key);
+        }
+      }
+    });
+  }, [extensionPickerBindingIndex, updateWorkflow, stateKey]);
 
   const updateLabel = (index: number, text: string) => {
     updateWorkflow((draft: any) => {
@@ -39,6 +158,8 @@ export function GeneralTab({ state, updateWorkflow }: { state: any; updateWorkfl
       if (lbls) lbls.splice(index, 1);
     });
   };
+
+  const canPickExisting = Boolean(activeProject);
 
   return (
     <div className="space-y-3">
@@ -89,6 +210,34 @@ export function GeneralTab({ state, updateWorkflow }: { state: any; updateWorkfl
         />
       </div>
 
+      {/* Query Roles */}
+      <Section title="Query Roles" count={queryRoles.length} defaultOpen={queryRoles.length > 0}>
+        <p className="text-[10px] text-muted-foreground mb-2 leading-relaxed">
+          Control which roles can query this state.
+        </p>
+        <RoleGrantEditor
+          roles={queryRoles}
+          onChange={updateQueryRoles}
+          contextLabel="state"
+        />
+      </Section>
+
+      {/* Views */}
+      <ViewBindingsSection
+        view={state.view ?? null}
+        views={state.views ?? []}
+        onUpdateView={updateStateView}
+        onUpdateViews={updateStateViews}
+        onBrowseView={(bindingIndex) => setViewPickerBindingIndex(bindingIndex)}
+        onCreateView={(bindingIndex) => setViewCreatorBindingIndex(bindingIndex)}
+        onBrowseExtension={(bindingIndex) => setExtensionPickerBindingIndex(bindingIndex)}
+        canPickExisting={canPickExisting}
+        contextId={stateKey}
+        scriptFieldPrefix="views"
+        stateKey={stateKey}
+        description="Assign a view to this state. Use rule-based mode for conditional view selection."
+      />
+
       <Section title="Labels" count={labels.length} defaultOpen>
         <div className="space-y-2">
           {labels.map((l: any, i: number) => (
@@ -131,6 +280,26 @@ export function GeneralTab({ state, updateWorkflow }: { state: any; updateWorkfl
           <SummaryCard label="Transitions" value={state.transitions?.length || 0} color="text-initial bg-initial/10" />
         </div>
       </div>
+
+      {/* View picker/creator dialogs */}
+      <ChooseExistingVnextComponentDialog
+        open={viewPickerOpen}
+        onOpenChange={(open) => { if (!open) setViewPickerBindingIndex(undefined); }}
+        category="views"
+        onSelect={handleViewPickerSelect}
+      />
+      <CreateNewComponentDialog
+        open={viewCreatorOpen}
+        onOpenChange={(open) => { if (!open) setViewCreatorBindingIndex(undefined); }}
+        category="views"
+        onCreated={handleViewCreated}
+      />
+      <ChooseExistingVnextComponentDialog
+        open={extensionPickerOpen}
+        onOpenChange={(open) => { if (!open) setExtensionPickerBindingIndex(undefined); }}
+        category="extensions"
+        onSelect={handleExtensionPickerSelect}
+      />
     </div>
   );
 }

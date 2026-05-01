@@ -1,33 +1,89 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
+import { ViewType } from '@vnext-forge/vnext-types';
 import { LabelEditor } from '../../modules/save-component/components/LabelEditor';
 import { getViewEditorFieldError } from '../../modules/view-editor/ViewEditorSchema';
 import {
   MetadataEditableTextInput,
   MetadataLockedTextInput,
 } from '../component-metadata';
-import { Button } from '../../ui/Button';
+import { ConfirmAlertDialog } from '../../ui/AlertDialog';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../ui/Card';
 import { Field } from '../../ui/Field';
 import { JsonCodeField } from '../../ui/JsonCodeField';
 import { TagEditor } from '../../ui/TagEditor';
 import { ViewDisplayStrategyPicker } from './components/ViewDisplayStrategyPicker';
+import { ViewTypePicker } from './components/ViewTypePicker';
+import { HrefUrnField } from './components/HrefUrnField';
+import {
+  viewTypeToMonacoLanguage,
+  scaffoldContentForViewType,
+  isContentEmpty,
+  isLinkType,
+} from './viewContentHelpers';
 
 interface ViewEditorPanelProps {
   json: Record<string, unknown>;
   onChange: (updater: (draft: Record<string, unknown>) => void) => void;
 }
 
-const PLATFORMS = ['default', 'web', 'ios', 'android'] as const;
+const VIEW_TYPE_LABELS: Record<number, string> = {
+  [ViewType.Json]: 'JSON',
+  [ViewType.Html]: 'HTML',
+  [ViewType.Markdown]: 'Markdown',
+  [ViewType.DeepLink]: 'Deep Link',
+  [ViewType.Http]: 'HTTP',
+  [ViewType.URN]: 'URN',
+};
 
 export function ViewEditorPanel({ json, onChange }: ViewEditorPanelProps) {
-  const [platform, setPlatform] = useState<'default' | 'web' | 'ios' | 'android'>('default');
+  const [pendingType, setPendingType] = useState<number | null>(null);
+
   const attrs = (json.attributes || {}) as Record<string, unknown>;
+  const currentType = Number(attrs.type ?? ViewType.Json);
   const version = String(json.version || '');
   const domain = String(json.domain || '');
   const flow = String(json.flow || '');
   const versionError = getViewEditorFieldError('version', version);
   const domainError = getViewEditorFieldError('domain', domain);
   const flowError = getViewEditorFieldError('flow', flow);
+
+  const monacoLanguage = viewTypeToMonacoLanguage(currentType);
+  const contentValue = String(attrs.content || '');
+
+  const applyTypeChange = useCallback(
+    (nextType: number) => {
+      onChange((draft) => {
+        if (!draft.attributes) draft.attributes = {};
+        const a = draft.attributes as Record<string, unknown>;
+        a.type = nextType;
+        a.content = scaffoldContentForViewType(nextType);
+      });
+    },
+    [onChange],
+  );
+
+  const handleTypeChange = useCallback(
+    (nextType: number) => {
+      if (nextType === currentType) return;
+
+      if (isContentEmpty(contentValue)) {
+        applyTypeChange(nextType);
+      } else {
+        setPendingType(nextType);
+      }
+    },
+    [currentType, contentValue, applyTypeChange],
+  );
+
+  const handleContentChange = useCallback(
+    (value: string) => {
+      onChange((draft) => {
+        if (!draft.attributes) draft.attributes = {};
+        (draft.attributes as Record<string, unknown>).content = value;
+      });
+    },
+    [onChange],
+  );
 
   return (
     <div className="space-y-4 p-4">
@@ -94,72 +150,49 @@ export function ViewEditorPanel({ json, onChange }: ViewEditorPanelProps) {
       </Card>
 
       <Card variant="default" className="gap-3">
-        <CardHeader className="border-border border-b flex-row items-center">
-          <div>
-            <CardTitle className="text-base">Content</CardTitle>
-            <CardDescription className="text-xs">Platform-specific HTML content.</CardDescription>
-          </div>
-          <div className="ml-auto flex gap-1">
-            {PLATFORMS.map((p) => (
-              <Button
-                key={p}
-                type="button"
-                variant={platform === p ? 'success' : 'default'}
-                size="sm"
-                aria-pressed={platform === p}
-                onClick={() => setPlatform(p)}
-                className="h-6 px-2 text-[10px]">
-                {p}
-              </Button>
-            ))}
-          </div>
+        <CardHeader className="border-border border-b">
+          <CardTitle className="text-base">Content</CardTitle>
+          <CardDescription className="text-xs">
+            Choose what kind of payload this view carries.
+          </CardDescription>
         </CardHeader>
-        <CardContent className="px-4 sm:px-6">
-          <JsonCodeField
-            value={getContentForPlatform(attrs, platform)}
-            onChange={(value) =>
-              onChange((draft) => {
-                if (!draft.attributes) draft.attributes = {};
-                setContentForPlatform(draft.attributes as Record<string, unknown>, platform, value);
-              })
-            }
-            language="json"
-            height={300}
-          />
+        <CardContent className="space-y-4 px-4 sm:px-6">
+          <Field label="Content Type">
+            <ViewTypePicker value={currentType} onChange={handleTypeChange} />
+          </Field>
+
+          {isLinkType(currentType) ? (
+            <HrefUrnField
+              viewType={currentType}
+              value={contentValue}
+              onChange={handleContentChange}
+            />
+          ) : (
+            <JsonCodeField
+              value={contentValue}
+              onChange={handleContentChange}
+              language={monacoLanguage}
+              height={300}
+            />
+          )}
         </CardContent>
       </Card>
+
+      <ConfirmAlertDialog
+        open={pendingType !== null}
+        onOpenChange={(open) => { if (!open) setPendingType(null); }}
+        tone="warning"
+        title="Change content type?"
+        description={`Switching to ${VIEW_TYPE_LABELS[pendingType ?? ViewType.Json]} will replace the current content with a template. This can be undone.`}
+        confirmLabel="Replace"
+        cancelLabel="Cancel"
+        onConfirm={() => {
+          if (pendingType !== null) {
+            applyTypeChange(pendingType);
+            setPendingType(null);
+          }
+        }}
+      />
     </div>
   );
-}
-
-function getContentForPlatform(attrs: Record<string, unknown>, platform: string): string {
-  if (platform === 'default') {
-    return String(attrs.content || '');
-  }
-
-  const overrides = (attrs.platformOverrides || {}) as Record<string, Record<string, unknown>>;
-  return String(overrides[platform]?.content || attrs.content || '');
-}
-
-function setContentForPlatform(
-  attrs: Record<string, unknown>,
-  platform: string,
-  content: string,
-) {
-  if (platform === 'default') {
-    attrs.content = content;
-    return;
-  }
-
-  if (!attrs.platformOverrides) {
-    attrs.platformOverrides = {};
-  }
-
-  const overrides = attrs.platformOverrides as Record<string, Record<string, unknown>>;
-
-  if (!overrides[platform]) {
-    overrides[platform] = {};
-  }
-
-  overrides[platform].content = content;
 }

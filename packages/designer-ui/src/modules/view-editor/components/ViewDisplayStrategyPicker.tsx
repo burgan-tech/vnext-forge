@@ -14,7 +14,7 @@ interface ViewDisplayStrategyPickerProps {
   onChange: (strategy: string) => void;
 }
 
-/** Kart başlığı dışarıda olduğu için burada yalnızca RadioCardGroup (Extension Type ile aynı kalıp). */
+/** Card title is rendered outside; only RadioCardGroup here (same pattern as Extension Type). */
 export function ViewDisplayStrategyPicker({ value, onChange }: ViewDisplayStrategyPickerProps) {
   return (
     <RadioCardGroup

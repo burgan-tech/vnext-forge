@@ -135,6 +135,7 @@ interface FieldRootProps extends React.ComponentProps<'div'>, VariantProps<typeo
   label: React.ReactNode;
   hint?: React.ReactNode;
   errorMsg?: React.ReactNode;
+  required?: boolean;
   labelProps?: React.ComponentProps<typeof FieldLabel>;
   hintProps?: React.ComponentProps<typeof FieldHint>;
   errorProps?: React.ComponentProps<typeof FieldError>;
@@ -144,6 +145,7 @@ interface LegacyFieldProps extends React.ComponentProps<'div'>, VariantProps<typ
   label?: React.ReactNode;
   hint?: React.ReactNode;
   errorMsg?: React.ReactNode;
+  required?: boolean;
 }
 
 type FieldCompatProps =
@@ -165,6 +167,7 @@ function FieldRoot({
   hintProps,
   label,
   labelProps,
+  required,
   variant,
   ...props
 }: FieldRootProps) {
@@ -172,6 +175,7 @@ function FieldRoot({
     <Field className={className} variant={variant} {...props}>
       <FieldLabel variant={variant} {...labelProps}>
         {label}
+        {required ? <span aria-hidden="true" className="ml-0.5 text-destructive-text">*</span> : null}
       </FieldLabel>
       {children}
       {hint ? (
@@ -190,10 +194,10 @@ function FieldRoot({
 
 function FieldCompat(props: FieldCompatProps) {
   if (hasLegacyFieldProps(props)) {
-    const { errorMsg, hint, label, ...restProps } = props;
+    const { errorMsg, hint, label, required, ...restProps } = props;
 
     if (label !== undefined) {
-      return <FieldRoot label={label} hint={hint} errorMsg={errorMsg} {...restProps} />;
+      return <FieldRoot label={label} hint={hint} errorMsg={errorMsg} required={required} {...restProps} />;
     }
   }
 

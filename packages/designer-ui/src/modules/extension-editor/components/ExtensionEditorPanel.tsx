@@ -1,14 +1,17 @@
 import { ExtensionMetadataForm } from './ExtensionMetadataForm';
-import { TaskExecutionList } from '../../../modules/save-component/components/TaskExecutionList';
+import { ExtensionTaskSection } from './ExtensionTaskSection';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../ui/Card';
 
 interface ExtensionEditorPanelProps {
   json: Record<string, unknown>;
   onChange: (updater: (draft: Record<string, unknown>) => void) => void;
+  onBeforeOpenModal?: () => void;
 }
 
-export function ExtensionEditorPanel({ json, onChange }: ExtensionEditorPanelProps) {
-  const tasks = Array.isArray(json.tasks) ? json.tasks : [];
+export function ExtensionEditorPanel({ json, onChange, onBeforeOpenModal }: ExtensionEditorPanelProps) {
+  const attrs = (json.attributes ?? {}) as Record<string, unknown>;
+  const task = attrs.task as Record<string, unknown> | null | undefined;
+  const extensionKey = typeof json.key === 'string' ? json.key : 'extension';
 
   return (
     <div className="space-y-4 p-4">
@@ -24,20 +27,17 @@ export function ExtensionEditorPanel({ json, onChange }: ExtensionEditorPanelPro
 
       <Card variant="default" className="gap-3">
         <CardHeader className="border-border border-b">
-          <CardTitle className="text-base">Task Execution</CardTitle>
+          <CardTitle className="text-base">Task</CardTitle>
           <CardDescription className="text-xs">
-            Manage task step behavior and order.
+            The task that runs when this extension is invoked.
           </CardDescription>
         </CardHeader>
         <CardContent className="px-4 sm:px-6">
-          <TaskExecutionList
-            tasks={tasks}
-            onChange={(updater) => {
-              onChange((draft) => {
-                if (!Array.isArray(draft.tasks)) draft.tasks = [];
-                updater(draft.tasks as any[]);
-              });
-            }}
+          <ExtensionTaskSection
+            task={task as any}
+            onChange={onChange}
+            extensionKey={extensionKey}
+            onBeforeOpenModal={onBeforeOpenModal}
           />
         </CardContent>
       </Card>

@@ -39,22 +39,27 @@ export const extensionEditorDocumentSchema = z
     scope: extensionScopeSchema.optional(),
     definedFlows: z.array(z.string()).optional(),
     tags: z.array(z.string()).optional(),
-    tasks: z.array(z.unknown()).optional(),
+    attributes: z.object({}).passthrough().optional(),
   })
   .passthrough();
 
 export function toExtensionMetadataFormValues(
   json: Record<string, unknown>,
 ): ExtensionMetadataFormValues {
-  const rawType = json.type;
+  const attrs = (json.attributes ?? {}) as Record<string, unknown>;
+
+  const rawType = json.type ?? attrs.type;
   const type = (EXTENSION_TYPE_VALUES as readonly number[]).includes(rawType as number)
     ? (rawType as ExtensionMetadataFormValues['type'])
     : 1;
 
-  const rawScope = json.scope;
+  const rawScope = json.scope ?? attrs.scope;
   const scope = (EXTENSION_SCOPE_VALUES as readonly number[]).includes(rawScope as number)
     ? (rawScope as ExtensionMetadataFormValues['scope'])
     : 1;
+
+  const rawDefinedFlows = json.definedFlows ?? attrs.definedFlows;
+  const rawTags = json.tags ?? attrs.tags;
 
   return {
     key: typeof json.key === 'string' ? json.key : '',
@@ -63,11 +68,11 @@ export function toExtensionMetadataFormValues(
     flow: typeof json.flow === 'string' ? json.flow : '',
     type,
     scope,
-    definedFlows: Array.isArray(json.definedFlows)
-      ? json.definedFlows.filter((f): f is string => typeof f === 'string')
+    definedFlows: Array.isArray(rawDefinedFlows)
+      ? rawDefinedFlows.filter((f): f is string => typeof f === 'string')
       : [],
-    tags: Array.isArray(json.tags)
-      ? json.tags.filter((t): t is string => typeof t === 'string')
+    tags: Array.isArray(rawTags)
+      ? rawTags.filter((t): t is string => typeof t === 'string')
       : [],
   };
 }

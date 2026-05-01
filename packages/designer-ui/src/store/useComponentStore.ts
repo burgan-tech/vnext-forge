@@ -1,13 +1,18 @@
 import { create } from 'zustand';
 import { produce } from 'immer';
 
-export interface ComponentState {
+export interface ComponentSnapshot {
   componentJson: Record<string, unknown> | null;
   componentType: string | null;
   filePath: string | null;
   isDirty: boolean;
   undoStack: Record<string, unknown>[];
   redoStack: Record<string, unknown>[];
+}
+
+export interface ComponentState extends ComponentSnapshot {
+  /** Stashed parent state while a modal editor temporarily owns the store. */
+  _snapshot: ComponentSnapshot | null;
 
   setComponent: (json: Record<string, unknown>, type: string, filePath: string) => void;
   updateComponent: (updater: (draft: Record<string, unknown>) => void) => void;
@@ -15,6 +20,10 @@ export interface ComponentState {
   redo: () => void;
   markClean: () => void;
   clear: () => void;
+  /** Save current data fields so a modal editor can temporarily take over the store. */
+  snapshotState: () => void;
+  /** Restore previously saved snapshot and discard the modal editor's state. */
+  restoreSnapshot: () => void;
 }
 
 export const useComponentStore = create<ComponentState>((set, get) => ({
@@ -24,6 +33,7 @@ export const useComponentStore = create<ComponentState>((set, get) => ({
   isDirty: false,
   undoStack: [],
   redoStack: [],
+  _snapshot: null,
 
   setComponent: (componentJson, componentType, filePath) =>
     set({ componentJson, componentType, filePath, isDirty: false, undoStack: [], redoStack: [] }),
@@ -77,4 +87,15 @@ export const useComponentStore = create<ComponentState>((set, get) => ({
 
   clear: () =>
     set({ componentJson: null, componentType: null, filePath: null, isDirty: false, undoStack: [], redoStack: [] }),
+
+  snapshotState: () => {
+    const { componentJson, componentType, filePath, isDirty, undoStack, redoStack } = get();
+    set({ _snapshot: { componentJson, componentType, filePath, isDirty, undoStack, redoStack } });
+  },
+
+  restoreSnapshot: () => {
+    const snap = get()._snapshot;
+    if (!snap) return;
+    set({ ...snap, _snapshot: null });
+  },
 }));

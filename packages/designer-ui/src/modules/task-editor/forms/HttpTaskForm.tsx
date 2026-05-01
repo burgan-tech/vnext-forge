@@ -2,6 +2,7 @@ import { Field } from '../../../ui/Field';
 import { Input } from '../../../ui/Input';
 import { KVEditor } from '../../../ui/KeyValueEditor';
 import { Select } from '../../../ui/Select';
+import { AcceptedStatusCodesField, BodyJsonField } from './shared';
 
 interface HttpTaskFormProps {
   config: Record<string, unknown>;
@@ -16,7 +17,7 @@ export function HttpTaskForm({ config, onChange }: HttpTaskFormProps) {
 
   return (
     <div className="space-y-3">
-      <Field label="Method">
+      <Field label="Method" required>
         <Select value={String(config.method || 'GET')}
           onChange={(e) => onChange((d: any) => { d.method = e.target.value; })}
           className="text-xs">
@@ -27,23 +28,29 @@ export function HttpTaskForm({ config, onChange }: HttpTaskFormProps) {
           <option value="PATCH">PATCH</option>
         </Select>
       </Field>
-      <Field label="URL">
+      <Field label="URL" required>
         <Input type="text" value={String(config.url || '')}
           onChange={(e) => onChange((d: any) => { d.url = e.target.value; })}
           placeholder="https://..."
           size="sm"
           inputClassName="font-mono text-xs" />
       </Field>
+      <BodyJsonField value={config.body} onChange={onChange} />
       <Field label="Headers">
         <KVEditor pairs={headerPairs}
           onChange={(pairs) => onChange((d: any) => {
-            d.headers = Object.fromEntries(pairs.map((p) => [p.key, p.value]));
+            d.headers = pairs.length > 0
+              ? Object.fromEntries(pairs.map((p) => [p.key, p.value]))
+              : undefined;
           })} />
       </Field>
       <div className="grid grid-cols-2 gap-3">
         <Field label="Timeout (seconds)">
-          <Input type="number" value={Number(config.timeoutSeconds || 30)}
-            onChange={(e) => onChange((d: any) => { d.timeoutSeconds = Number(e.target.value); })}
+          <Input type="number" value={Number(config.timeoutSeconds ?? 30)}
+            onChange={(e) => {
+              const n = Number(e.target.value);
+              onChange((d: any) => { d.timeoutSeconds = Number.isFinite(n) ? n : undefined; });
+            }}
             size="sm"
             inputClassName="text-xs" />
         </Field>
@@ -56,7 +63,10 @@ export function HttpTaskForm({ config, onChange }: HttpTaskFormProps) {
           </Select>
         </Field>
       </div>
+      <AcceptedStatusCodesField
+        value={config.acceptedStatusCodes as string[] | undefined}
+        onChange={onChange}
+      />
     </div>
   );
 }
-
