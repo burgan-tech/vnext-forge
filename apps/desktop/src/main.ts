@@ -60,6 +60,12 @@ async function createWindow(port: number): Promise<void> {
     mainWindow = null;
   });
 
+  // Open DevTools automatically in development so the renderer can be
+  // inspected without the keyboard shortcut.
+  if (!app.isPackaged) {
+    mainWindow.webContents.openDevTools({ mode: 'detach' });
+  }
+
   await mainWindow.loadURL(`http://127.0.0.1:${port}/`);
 }
 

@@ -1,0 +1,27 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Desktop: Build",
+      "type": "shell",
+      "command": "pnpm build && pnpm --filter vnext-forge-desktop build",
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Desktop: Build (incremental)",
+      "type": "shell",
+      "command": "pnpm --filter vnext-forge-desktop build",
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": []
+    }
+  ]
+}

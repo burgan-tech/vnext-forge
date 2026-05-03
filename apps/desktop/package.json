@@ -6,7 +6,11 @@
   "main": "dist/main.js",
   "scripts": {
     "build": "node esbuild.desktop.mjs && node scripts/copy-assets.mjs",
+    "build:watch": "node esbuild.desktop.mjs --watch",
+    "dev": "electron dist/main.js",
     "package": "electron-builder",
+    "package:mac": "electron-builder --mac",
+    "package:win": "electron-builder --win",
     "clean": "rm -rf dist"
   },
   "dependencies": {

@@ -20,8 +20,10 @@ vnext-flow-studio-web/node_modules
 .env
 .env.*
 
-# IDE
-.vscode/
+# IDE — personal settings are ignored; shared debug/task configs are committed
+.vscode/*
+!.vscode/launch.json
+!.vscode/tasks.json
 .idea/
 *.swp
 *.swo

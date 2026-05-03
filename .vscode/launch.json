@@ -1,0 +1,87 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    // ─── Desktop App ──────────────────────────────────────────────────────────
+    {
+      "name": "Desktop: Main Process",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "${workspaceFolder}/apps/desktop/node_modules/.bin/electron",
+      "runtimeArgs": [
+        "--remote-debugging-port=9223",
+        "dist/main.js"
+      ],
+      "cwd": "${workspaceFolder}/apps/desktop",
+      "sourceMaps": true,
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/apps/desktop/dist/**"
+      ],
+      "outFiles": [
+        "${workspaceFolder}/apps/desktop/dist/*.js"
+      ],
+      "env": {
+        "NODE_ENV": "development"
+      },
+      "preLaunchTask": "Desktop: Build"
+    },
+    {
+      "name": "Desktop: Renderer (attach)",
+      "type": "chrome",
+      "request": "attach",
+      "port": 9223,
+      "webRoot": "${workspaceFolder}/apps/web/src",
+      "sourceMaps": true,
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/apps/web/src/**",
+        "!**/node_modules/**"
+      ]
+    },
+    {
+      "name": "Desktop: Main + Renderer",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "${workspaceFolder}/apps/desktop/node_modules/.bin/electron",
+      "runtimeArgs": [
+        "--remote-debugging-port=9223",
+        "dist/main.js"
+      ],
+      "cwd": "${workspaceFolder}/apps/desktop",
+      "sourceMaps": true,
+      "outFiles": [
+        "${workspaceFolder}/apps/desktop/dist/*.js"
+      ],
+      "env": {
+        "NODE_ENV": "development"
+      },
+      "serverReadyAction": {
+        "pattern": "vnext-forge web-server running on http://127.0.0.1:(\\d+)",
+        "action": "debugWithChrome",
+        "webRoot": "${workspaceFolder}/apps/web/src",
+        "uriFormat": "http://127.0.0.1:%s"
+      }
+    },
+    // ─── VS Code Extension ────────────────────────────────────────────────────
+    {
+      "name": "Extension: Run & Debug",
+      "type": "extensionHost",
+      "request": "launch",
+      "args": [
+        "--extensionDevelopmentPath=${workspaceFolder}/apps/extension"
+      ],
+      "outFiles": [
+        "${workspaceFolder}/apps/extension/dist/**/*.js"
+      ],
+      "preLaunchTask": "${defaultBuildTask}"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Desktop: Full (Main + Renderer)",
+      "configurations": [
+        "Desktop: Main Process",
+        "Desktop: Renderer (attach)"
+      ],
+      "stopAll": true
+    }
+  ]
+}

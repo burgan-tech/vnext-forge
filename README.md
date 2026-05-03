@@ -1,6 +1,6 @@
 # vnext-forge
 
-Workflow designer and management interface for the vnext engine ecosystem — delivered as a **VS Code extension**.
+Workflow designer and management interface for the vnext engine ecosystem — delivered as a **VS Code extension** and a **standalone desktop app** (Windows / macOS).
 
 ## What is it?
 
@@ -15,22 +15,36 @@ A Visual Studio Code extension that gives developers and business analysts a fir
 
 ## Architecture
 
-The product is a VS Code extension built as a monorepo:
+The product is built as a monorepo with three delivery shells that all share the
+same React UI (`apps/web`) and business logic (`packages/services-core`):
 
 ```
 apps/
   extension/   # VS Code extension (extension host + bundled business logic)
-  web/         # React UI — runs in two modes:
-               #   - extension webview (Vite → bundled into extension/dist/webview-ui/)
-               #   - standalone browser SPA against apps/server (local dev)
-  server/      # Hono REST backend (apps/web shell talks to it on :3001)
+  desktop/     # Electron desktop app (Windows / macOS)
+  web/         # React UI — shared across all shells:
+               #   extension webview  → bundled into extension/dist/webview-ui/
+               #   desktop renderer   → served by embedded Hono server
+               #   standalone browser → against apps/server (local dev only)
+  server/      # Hono REST backend — used by web shell (dev) and desktop shell
 
 packages/
   vnext-types/       # Shared domain model types (@vnext-forge/vnext-types)
-  app-contracts/     # ApiResponse envelope, VnextForgeError, config builder
+  app-contracts/     # ApiResponse envelope, VnextForgeError, METHOD_HTTP_METADATA
+  services-core/     # Method registry, dispatch, all services (file, project, LSP…)
+  designer-ui/       # Shared React component library
+  lsp-core/          # OmniSharp / csharp-ls wiring (shared by server + extension)
 ```
 
-### How it works
+### Shell comparison
+
+| Shell | Transport | How services run |
+|---|---|---|
+| **VS Code Extension** | `postMessage` (acquireVsCodeApi) | Extension host Node.js process; `MessageRouter` dispatches to `services-core` |
+| **Desktop (Electron)** | HTTP REST (same-origin `http://127.0.0.1:<port>`) | Hono server spawned as `utilityProcess`; React SPA served from same port |
+| **Web (browser)** | HTTP REST (`http://127.0.0.1:3001`) | `apps/server` Hono process; CORS allows `localhost:3000` |
+
+### VS Code Extension — how it works
 
 The extension has two runtime contexts:
 
@@ -39,7 +53,7 @@ The extension has two runtime contexts:
 | Extension Host | Node.js (CommonJS, esbuild bundle) | File I/O, validation, template scaffolding, LSP bridge |
 | Webview | Sandboxed Chromium (Vite bundle) | React UI — React Flow canvas + Monaco editor |
 
-The webview communicates with the extension host exclusively via VS Code's `postMessage` API. There is no HTTP server. All API calls that previously went over Hono RPC now go through `postMessage`, routed by `MessageRouter` in the extension host.
+The webview communicates with the extension host exclusively via VS Code's `postMessage` API. There is no HTTP server in extension mode.
 
 ```
 Webview (React)
@@ -57,13 +71,26 @@ Extension Host
     └── lsp.*           → lsp/WebviewLspManager (OmniSharp bridge)
 ```
 
+### Desktop (Electron) — how it works
+
+```
+Electron Main Process
+  ├── Finds a free loopback port
+  ├── Spawns apps/server bundle (utilityProcess)
+  │     ├── GET /api/v1/*         →  services-core method registry
+  │     ├── GET /api/health       →  health check
+  │     ├── WS  /api/lsp/csharp  →  OmniSharp LSP bridge
+  │     └── GET /*                →  serveStatic (apps/web production build)
+  └── Opens BrowserWindow → http://127.0.0.1:<port>/
+```
+
 ## Getting Started
 
 ### Prerequisites
 
-- Node.js LTS
+- Node.js LTS (20 or newer)
 - pnpm (see `packageManager` in root `package.json` — enable with Corepack)
-- Visual Studio Code ≥ 1.85
+- Visual Studio Code ≥ 1.85 (for the extension shell)
 
 ### Install dependencies
 
@@ -71,7 +98,11 @@ Extension Host
 pnpm install
 ```
 
-### Build for development (extension host only, watch mode)
+---
+
+## VS Code Extension
+
+### Build for development (extension host watch mode)
 
 ```bash
 pnpm --filter vnext-forge dev
@@ -80,17 +111,15 @@ pnpm --filter vnext-forge dev
 ### Full build (web UI + extension host)
 
 ```bash
-# 1. Build the React webview — outputs to apps/extension/dist/webview-ui/
-pnpm --filter @vnext-forge/web build
-
-# 2. Build the extension host (also copies vnext-template vendor to dist/vendor/)
-pnpm --filter vnext-forge build
-```
-
-Or via Turborepo (handles ordering automatically):
-
-```bash
+# Build everything in dependency order (recommended)
 pnpm build
+
+# Or step by step:
+# 1. Build shared packages
+# 2. Build the React webview → apps/extension/dist/webview-ui/
+pnpm --filter @vnext-forge/web build
+# 3. Build the extension host (also copies vnext-template vendor to dist/vendor/)
+pnpm --filter vnext-forge build
 ```
 
 ### Package the extension as a .vsix
@@ -106,7 +135,51 @@ pnpm --filter vnext-forge package
 code --install-extension apps/extension/vnext-forge-0.1.0.vsix
 ```
 
-## Run the web shell locally (browser + Hono backend)
+---
+
+## Desktop App (Electron)
+
+> Full documentation: [apps/desktop/README.md](apps/desktop/README.md)
+
+### Quick start
+
+```bash
+# 1. Build everything (packages + web + desktop bundles)
+pnpm build && pnpm --filter vnext-forge-desktop build
+
+# 2. Launch
+pnpm --filter vnext-forge-desktop dev
+# DevTools open automatically in development mode
+```
+
+### Package for distribution
+
+```bash
+# macOS (run on a macOS machine)
+pnpm --filter vnext-forge-desktop package:mac
+# → apps/desktop/dist/release/vnext-forge-0.1.0-arm64.dmg  (Apple Silicon)
+# → apps/desktop/dist/release/vnext-forge-0.1.0-x64.dmg    (Intel)
+
+# Windows (run on a Windows machine)
+pnpm --filter vnext-forge-desktop package:win
+# → apps/desktop/dist/release/vnext-forge-Setup-0.1.0.exe
+```
+
+### Automated CI release (GitHub Actions)
+
+Tag a commit to trigger a multi-platform build on `macos-latest` + `windows-latest`:
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+# → .github/workflows/release-desktop.yml creates a draft GitHub Release with DMG + EXE
+```
+
+Trigger manually from the GitHub Actions tab without a tag as well.
+
+---
+
+## Web Shell (browser + Hono backend)
 
 The React UI in `apps/web` can also run as a standalone browser SPA against
 the `apps/server` Hono backend. Use this mode when you want to iterate on the
