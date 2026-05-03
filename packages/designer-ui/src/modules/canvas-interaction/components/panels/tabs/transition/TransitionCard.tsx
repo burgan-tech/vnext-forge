@@ -185,7 +185,7 @@ export function TransitionCard({
           <div className="mb-2">
             <label className="text-[10px] font-medium text-muted-foreground mb-0.5 block">Description</label>
             <textarea
-              value={String((transition as Record<string, unknown>)._comment ?? '')}
+              value={String((transition as unknown as Record<string, unknown>)._comment ?? '')}
               onChange={(e) => onUpdate(index, '_comment', e.target.value || undefined)}
               placeholder="Transition description..."
               rows={2}

@@ -59,16 +59,23 @@ const redactedPaths = [
   'details.body.apiKey',
 ]
 
-const transport = pino.transport({
-  target: 'pino-pretty',
-  options: {
-    colorize: process.stdout.isTTY,
-    translateTime: 'SYS:HH:MM:ss',
-    // In default mode show only time + level + message; verbose mode shows all fields
-    ignore: config.verbose ? 'pid,hostname' : 'pid,hostname,service,env,traceId,source,method,path',
-    singleLine: true,
-  },
-})
+// pino.transport() resolves the target module via worker threads at runtime.
+// Inside the desktop (Electron) bundle, pino-pretty is inlined by esbuild and
+// unavailable as a standalone module — skip the transport and fall back to
+// pino's default JSON output, which the main process already prefixes.
+const isDesktopBundle = Boolean(config.desktopStaticDir)
+
+const transport = isDesktopBundle
+  ? undefined
+  : pino.transport({
+      target: 'pino-pretty',
+      options: {
+        colorize: process.stdout.isTTY,
+        translateTime: 'SYS:HH:MM:ss',
+        ignore: config.verbose ? 'pid,hostname' : 'pid,hostname,service,env,traceId,source,method,path',
+        singleLine: true,
+      },
+    })
 
 export const baseLogger: AppLogger = pino(
   {

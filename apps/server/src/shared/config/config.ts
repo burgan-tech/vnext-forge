@@ -90,6 +90,13 @@ const ConfigSchema = z.object({
   lspMaxMessageBytes: z.coerce.number().int().positive().default(1_048_576),
   /** Max concurrent LSP WebSocket connections. */
   lspMaxConnections: z.coerce.number().int().positive().default(8),
+  /**
+   * When set, the server serves the SPA from this directory in addition to the
+   * API routes. Used exclusively by the desktop (Electron) shell so both the
+   * web app and the API are on the same origin — no CORS negotiation needed.
+   * Leave unset for the standalone web shell.
+   */
+  desktopStaticDir: z.string().optional(),
 });
 
 export type AppConfig = z.infer<typeof ConfigSchema>;
@@ -122,6 +129,7 @@ function loadConfig(): AppConfig {
     nodeEnv: process.env.NODE_ENV,
     lspMaxMessageBytes: process.env.LSP_MAX_MESSAGE_BYTES,
     lspMaxConnections: process.env.LSP_MAX_CONNECTIONS,
+    desktopStaticDir: process.env.DESKTOP_STATIC_DIR,
   });
 
   if (!parsed.success) {
