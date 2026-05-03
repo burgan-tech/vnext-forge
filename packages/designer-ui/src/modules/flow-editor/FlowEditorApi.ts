@@ -1,12 +1,20 @@
 import { failureFromError, isFailure, success, type ApiResponse } from '@vnext-forge/app-contracts';
 import { decodeFromBase64 } from '../../modules/code-editor/editor/Base64Handler';
-import { readFile, readOptionalFile, writeFile } from '../../modules/project-workspace/WorkspaceApi';
+import {
+  createDirectory,
+  readFile,
+  readOptionalFile,
+  writeFile,
+} from '../../modules/project-workspace/WorkspaceApi';
+import { createLogger } from '../../lib/logger/createLogger';
 import { toVnextError } from '../../lib/error/vNextErrorHelpers';
 import {
   flowEditorDocumentSchema,
   flowEditorScriptSchema,
   type FlowEditorScriptEntry,
 } from './FlowEditorSchema';
+
+const logger = createLogger('flow-editor/FlowEditorApi');
 
 export interface LoadFlowEditorParams {
   workflowFilePath: string;
@@ -18,6 +26,13 @@ export interface LoadFlowEditorResult {
   diagram: Record<string, unknown>;
 }
 
+export interface SaveWorkflowDocumentParams {
+  workflowDir: string;
+  workflowFilePath: string;
+  workflowJson: Record<string, unknown>;
+}
+
+/** @deprecated Use {@link SaveWorkflowDocumentParams} + {@link persistDiagramSnapshot} instead. */
 export interface SaveFlowEditorParams {
   workflowDir: string;
   workflowFilePath: string;
@@ -63,24 +78,38 @@ export async function loadFlowEditorDocument({
   }
 }
 
-export async function saveFlowEditorDocument({
+/**
+ * Ensures the `.meta` directory and an empty diagram file exist on disk.
+ * Intended to be called fire-and-forget after a workflow is opened so that
+ * externally-created workflows (not scaffolded by the designer) also get
+ * the diagram infrastructure.
+ */
+export async function ensureDiagramInfrastructure(diagramFilePath: string): Promise<void> {
+  const metaDirPath = diagramFilePath.replace(/\/[^/]+$/, '');
+  await createDirectory(metaDirPath);
+
+  const existing = await readOptionalFile(diagramFilePath);
+  if (!existing) {
+    await writeFile(diagramFilePath, JSON.stringify({ nodePos: {} }, null, 2));
+  }
+}
+
+/**
+ * Saves the workflow JSON and any embedded `.csx` scripts.
+ * This is the **awaited** save path — `markClean()` should fire on success.
+ * Diagram persistence is handled separately via {@link persistDiagramSnapshot}.
+ */
+export async function saveWorkflowDocument({
   workflowDir,
   workflowFilePath,
-  diagramFilePath,
   workflowJson,
-  diagramJson,
-}: SaveFlowEditorParams): Promise<ApiResponse<void>> {
+}: SaveWorkflowDocumentParams): Promise<ApiResponse<void>> {
   try {
     const nextWorkflowJson = parseFlowEditorDocument(workflowJson, 'Workflow document is invalid.');
-    const nextDiagramJson = parseFlowEditorDocument(diagramJson, 'Workflow diagram is invalid.');
 
     await ensureWriteSucceeded(
       writeFile(workflowFilePath, JSON.stringify(nextWorkflowJson, null, 2)),
       'Workflow could not be saved.',
-    );
-    await ensureWriteSucceeded(
-      writeFile(diagramFilePath, JSON.stringify(nextDiagramJson, null, 2)),
-      'Workflow diagram could not be saved.',
     );
 
     const scripts = extractScripts(nextWorkflowJson);
@@ -102,6 +131,39 @@ export async function saveFlowEditorDocument({
   } catch (value) {
     return failureFromError(toVnextError(value, 'Workflow could not be saved.'));
   }
+}
+
+/**
+ * Writes the diagram JSON to disk. Fire-and-forget — errors are logged,
+ * never propagated to the caller. Diagram data is layout metadata, not
+ * authoritative business content; silent failure is acceptable.
+ */
+export async function persistDiagramSnapshot(
+  diagramFilePath: string,
+  diagramJson: Record<string, unknown>,
+): Promise<void> {
+  try {
+    const nextDiagramJson = parseFlowEditorDocument(diagramJson, 'Workflow diagram is invalid.');
+    await ensureWriteSucceeded(
+      writeFile(diagramFilePath, JSON.stringify(nextDiagramJson, null, 2)),
+      'Workflow diagram could not be saved.',
+    );
+  } catch (value) {
+    logger.warn('Diagram persistence failed (non-fatal)', value);
+  }
+}
+
+/** @deprecated Use {@link saveWorkflowDocument} + {@link persistDiagramSnapshot} instead. */
+export async function saveFlowEditorDocument({
+  workflowDir,
+  workflowFilePath,
+  diagramFilePath,
+  workflowJson,
+  diagramJson,
+}: SaveFlowEditorParams): Promise<ApiResponse<void>> {
+  const result = await saveWorkflowDocument({ workflowDir, workflowFilePath, workflowJson });
+  void persistDiagramSnapshot(diagramFilePath, diagramJson);
+  return result;
 }
 
 async function ensureWriteSucceeded(
