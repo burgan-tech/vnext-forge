@@ -4,6 +4,7 @@
   "description": "Workflow designer for the vnext engine ecosystem",
   "version": "0.1.0",
   "publisher": "burgan-tech",
+  "icon": "media/forge-tools.svg",
   "private": true,
   "engines": {
     "vscode": "^1.85.0"
@@ -30,7 +31,8 @@
     "onCommand:vnextForge.forgeCreateSchema",
     "onCommand:vnextForge.forgeCreateView",
     "onCommand:vnextForge.forgeCreateFunction",
-    "onCommand:vnextForge.forgeCreateExtension"
+    "onCommand:vnextForge.forgeCreateExtension",
+    "onCommand:vnextForge.openQuickRun"
   ],
   "main": "./dist/extension.js",
   "files": [
@@ -75,6 +77,11 @@
           "id": "vnextForge.tools.packageDeploy",
           "name": "Package Deploy",
           "when": "vnextForge.isVnextWorkspace"
+        },
+        {
+          "id": "vnextForge.tools.quickRun",
+          "name": "Quick Run",
+          "when": "vnextForge.isVnextWorkspace"
         }
       ]
     },
@@ -82,6 +89,10 @@
       {
         "view": "vnextForge.tools.createProject",
         "contents": "No vNext project detected in this workspace.\n\nCreate a new vNext project to get started.\n[Create Project](command:vnextForge.tools.createProjectFromSidebar)"
+      },
+      {
+        "view": "vnextForge.tools.quickRun",
+        "contents": "Start a workflow run to simulate and debug workflows.\n\n[▶ Open Quick Run](command:vnextForge.openQuickRun)"
       }
     ],
     "languages": [
@@ -256,6 +267,18 @@
         "title": "Install Workflow CLI",
         "category": "Forge",
         "icon": "$(desktop-download)"
+      },
+      {
+        "command": "vnextForge.openQuickRun",
+        "title": "Quick Run",
+        "category": "Forge",
+        "icon": "$(play)"
+      },
+      {
+        "command": "vnextForge.openQuickRunFromFile",
+        "title": "Open Quick Run",
+        "category": "Forge",
+        "icon": "$(play)"
       }
     ],
     "menus": {
@@ -375,6 +398,14 @@
         {
           "command": "vnextForge.tools.installWfCli",
           "when": "false"
+        },
+        {
+          "command": "vnextForge.openQuickRun",
+          "when": "vnextForge.isVnextWorkspace"
+        },
+        {
+          "command": "vnextForge.openQuickRunFromFile",
+          "when": "false"
         }
       ],
       "explorer/context": [
@@ -417,6 +448,11 @@
           "command": "vnextForge.forgeCreateExtension",
           "when": "vnextForge.isVnextWorkspace && explorerResourceIsFolder && resourcePath =~ /[\\\\/]Extensions[\\\\/][^\\\\/]+$/",
           "group": "1forge@10"
+        },
+        {
+          "command": "vnextForge.openQuickRunFromFile",
+          "when": "vnextForge.isVnextWorkspace && resourceExtname == .json && resourcePath =~ /[\\\\/]Workflows[\\\\/]/",
+          "group": "navigation@3"
         }
       ],
       "editor/title/context": [
@@ -429,6 +465,11 @@
           "command": "vnextForge.openInTextEditor",
           "when": "vnextForge.isVnextWorkspace && resourceExtname == .json && resourcePath =~ /[\\\\/](Tasks|Views|Functions|Extensions|Workflows|Schemas)[\\\\/]/",
           "group": "navigation@2"
+        },
+        {
+          "command": "vnextForge.openQuickRunFromFile",
+          "when": "vnextForge.isVnextWorkspace && resourceExtname == .json && resourcePath =~ /[\\\\/]Workflows[\\\\/]/",
+          "group": "navigation@3"
         }
       ]
     },
@@ -493,6 +534,16 @@
             "folders": { "type": "array", "items": { "type": "string" } },
             "files": { "type": "array", "items": { "type": "string" } }
           }
+        },
+        "vnextForge.quickRun.pollingRetryCount": {
+          "type": "number",
+          "default": 6,
+          "description": "Number of polling retries for QuickRun state queries (awaiting stable status)."
+        },
+        "vnextForge.quickRun.pollingIntervalMs": {
+          "type": "number",
+          "default": 10,
+          "description": "Interval in milliseconds between QuickRun polling attempts."
         }
       }
     }

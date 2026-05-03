@@ -11,6 +11,7 @@ export interface ResponseError {
   code: ErrorCode;
   message: string;
   traceId?: string;
+  details?: Record<string, unknown>;
 }
 
 export type ApiSuccess<T, M extends ResponseMeta = ResponseMeta> = {

@@ -315,6 +315,17 @@ export class DesignerPanel {
       }),
     );
 
+    disposables.push(
+      panel.webview.onDidReceiveMessage((raw: unknown) => {
+        if (typeof raw === 'object' && raw !== null && (raw as { type?: unknown }).type === 'host:open-quickrun') {
+          const filePath = (raw as { filePath?: string }).filePath;
+          if (filePath) {
+            void vscode.commands.executeCommand('vnextForge.openQuickRunFromFile', vscode.Uri.file(filePath));
+          }
+        }
+      }),
+    );
+
     const disposeDisposable = panel.onDidDispose(detach);
     disposables.push(disposeDisposable);
     this.context.subscriptions.push(disposeDisposable);

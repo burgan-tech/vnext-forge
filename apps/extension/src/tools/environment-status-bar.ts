@@ -35,7 +35,7 @@ export class EnvironmentStatusBar implements vscode.Disposable {
 
     if (!env) {
       this.item.text = '$(warning) No Environment';
-      this.item.tooltip = 'vnext-forge: No runtime environment configured. Click to open Tools.';
+      this.item.tooltip = 'vNext Forge: No runtime environment configured. Click to open Tools.';
       this.item.command = SIDEBAR_VIEW_COMMAND;
       this.item.backgroundColor = undefined;
       this.item.color = new vscode.ThemeColor('statusBarItem.warningForeground');
@@ -75,11 +75,13 @@ export class EnvironmentStatusBar implements vscode.Disposable {
   }
 
   private buildTooltip(env: RuntimeEnvironment, health: HealthStatus): string {
+    const version = this.healthMonitor.getRuntimeVersion();
+    const healthDisplay = version ? `${health} (v${version})` : health;
     const lines = [
-      `vnext-forge Runtime Environment`,
+      `vNext Forge Runtime Environment`,
       `Name: ${env.name}`,
       `URL: ${env.baseUrl}`,
-      `Health: ${health}`,
+      `Health: ${healthDisplay}`,
     ];
     return lines.join('\n');
   }

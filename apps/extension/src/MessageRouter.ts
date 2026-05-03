@@ -438,6 +438,7 @@ export class MessageRouter {
           code: userMessage.code,
           message: userMessage.message,
           traceId: forge.traceId ?? traceId,
+          details: forge.context?.details as Record<string, unknown> | undefined,
         },
       };
     }

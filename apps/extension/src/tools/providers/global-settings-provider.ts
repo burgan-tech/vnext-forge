@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import type {
   ForgeToolsSettingsService,
   ForgeSettings,
+  QuickRunSettings,
   LayoutAlgorithm,
   LayoutDirection,
   EdgePathStyle,
@@ -14,13 +15,16 @@ type SettingNodeId =
   | 'canvas.direction'
   | 'canvas.edgePathStyle'
   | 'theme'
-  | 'theme.mode';
+  | 'theme.mode'
+  | 'quickrun'
+  | 'quickrun.retryCount'
+  | 'quickrun.intervalMs';
 
 interface SettingNode {
   id: SettingNodeId;
   label: string;
   parentId?: SettingNodeId;
-  getValue: (s: ForgeSettings) => string;
+  getValue: (s: ForgeSettings, qr: QuickRunSettings) => string;
 }
 
 const SETTING_NODES: SettingNode[] = [
@@ -30,6 +34,9 @@ const SETTING_NODES: SettingNode[] = [
   { id: 'canvas.edgePathStyle', label: 'Edge Path Style', parentId: 'canvas', getValue: (s) => s.canvas.edgePathStyle },
   { id: 'theme', label: 'Theme', getValue: () => '' },
   { id: 'theme.mode', label: 'Mode', parentId: 'theme', getValue: (s) => s.themeMode },
+  { id: 'quickrun', label: 'Quick Run Polling', getValue: () => '' },
+  { id: 'quickrun.retryCount', label: 'Retry Count', parentId: 'quickrun', getValue: (_s, qr) => String(qr.polling.retryCount) },
+  { id: 'quickrun.intervalMs', label: 'Interval (ms)', parentId: 'quickrun', getValue: (_s, qr) => String(qr.polling.intervalMs) },
 ];
 
 const ALGORITHM_OPTIONS: { label: string; value: LayoutAlgorithm }[] = [
@@ -59,10 +66,12 @@ export class GlobalSettingsProvider implements vscode.TreeDataProvider<SettingNo
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
   private settings: ForgeSettings | undefined;
+  private quickRunSettings: QuickRunSettings | undefined;
 
   constructor(private readonly settingsService: ForgeToolsSettingsService) {
     settingsService.onDidChangeSettings(() => {
       this.settings = undefined;
+      this.quickRunSettings = undefined;
       this._onDidChangeTreeData.fire(undefined);
     });
   }
@@ -72,6 +81,7 @@ export class GlobalSettingsProvider implements vscode.TreeDataProvider<SettingNo
     if (!node) return new vscode.TreeItem('Unknown');
     const isParent = SETTING_NODES.some((n) => n.parentId === element);
     const settings = await this.getSettings();
+    const qrSettings = await this.getQuickRunSettings();
 
     const item = new vscode.TreeItem(
       node.label,
@@ -79,7 +89,7 @@ export class GlobalSettingsProvider implements vscode.TreeDataProvider<SettingNo
     );
 
     if (!isParent) {
-      item.description = node.getValue(settings);
+      item.description = node.getValue(settings, qrSettings);
       item.contextValue = 'settingItem';
       item.command = {
         command: 'vnextForge.tools.changeSetting',
@@ -88,9 +98,13 @@ export class GlobalSettingsProvider implements vscode.TreeDataProvider<SettingNo
       };
       item.iconPath = new vscode.ThemeIcon('settings-gear');
     } else {
-      item.iconPath = element === 'canvas'
-        ? new vscode.ThemeIcon('symbol-misc')
-        : new vscode.ThemeIcon('color-mode');
+      if (element === 'canvas') {
+        item.iconPath = new vscode.ThemeIcon('symbol-misc');
+      } else if (element === 'theme') {
+        item.iconPath = new vscode.ThemeIcon('color-mode');
+      } else if (element === 'quickrun') {
+        item.iconPath = new vscode.ThemeIcon('debug-start');
+      }
     }
 
     return item;
@@ -167,6 +181,44 @@ export class GlobalSettingsProvider implements vscode.TreeDataProvider<SettingNo
         }
         break;
       }
+      case 'quickrun.retryCount': {
+        const qr = await this.getQuickRunSettings();
+        const input = await vscode.window.showInputBox({
+          title: 'Polling Retry Count',
+          prompt: 'Number of polling attempts for state function',
+          value: String(qr.polling.retryCount),
+          validateInput: (v) => {
+            const n = Number(v);
+            if (!Number.isInteger(n) || n < 1) return 'Enter a positive integer';
+            return undefined;
+          },
+        });
+        if (input != null) {
+          await this.settingsService.saveQuickRunSettings({ polling: { ...qr.polling, retryCount: Number(input) } });
+          this.quickRunSettings = undefined;
+          this._onDidChangeTreeData.fire(undefined);
+        }
+        break;
+      }
+      case 'quickrun.intervalMs': {
+        const qr = await this.getQuickRunSettings();
+        const input = await vscode.window.showInputBox({
+          title: 'Polling Interval (ms)',
+          prompt: 'Delay in milliseconds between state function polls',
+          value: String(qr.polling.intervalMs),
+          validateInput: (v) => {
+            const n = Number(v);
+            if (!Number.isInteger(n) || n < 0) return 'Enter a non-negative integer';
+            return undefined;
+          },
+        });
+        if (input != null) {
+          await this.settingsService.saveQuickRunSettings({ polling: { ...qr.polling, intervalMs: Number(input) } });
+          this.quickRunSettings = undefined;
+          this._onDidChangeTreeData.fire(undefined);
+        }
+        break;
+      }
     }
   }
 
@@ -175,5 +227,12 @@ export class GlobalSettingsProvider implements vscode.TreeDataProvider<SettingNo
       this.settings = await this.settingsService.loadSettings();
     }
     return this.settings;
+  }
+
+  private async getQuickRunSettings(): Promise<QuickRunSettings> {
+    if (!this.quickRunSettings) {
+      this.quickRunSettings = await this.settingsService.loadQuickRunSettings();
+    }
+    return this.quickRunSettings;
   }
 }

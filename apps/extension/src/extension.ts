@@ -1,3 +1,4 @@
+import * as path from 'path';
 import * as vscode from 'vscode';
 
 import { registerCommands } from './commands.js';
@@ -10,6 +11,7 @@ import { MessageRouter } from './MessageRouter.js';
 import { createVsCodeOutputChannelLogger } from './adapters/vscode-output-channel-logger.js';
 import { baseLogger } from './shared/logger.js';
 import { DesignerPanel } from './panels/DesignerPanel.js';
+import { QuickRunPanel } from './panels/QuickRunPanel.js';
 import { VnextWorkspaceDetector, type VnextWorkspaceRoot } from './workspace-detector.js';
 import {
   applyMaterialIconAssociationsIfApplicable,
@@ -26,6 +28,7 @@ import { ProjectActionsProvider } from './tools/providers/project-actions-provid
 import { CreateProjectProvider } from './tools/providers/create-project-provider.js';
 import { EnvironmentsProvider } from './tools/providers/environments-provider.js';
 import { PackageDeployProvider } from './tools/providers/package-deploy-provider.js';
+import { QuickRunProvider } from './tools/providers/quickrun-provider.js';
 
 /**
  * vnext-forge extension entry point. Composes the shared `services-core` +
@@ -40,13 +43,30 @@ import { PackageDeployProvider } from './tools/providers/package-deploy-provider
  * background pre-download — there is no second installer factory in the
  * extension host (R-b8).
  */
+async function readWorkflowJson(uri: vscode.Uri): Promise<{ domain: string; workflowKey: string } | undefined> {
+  try {
+    const bytes = await vscode.workspace.fs.readFile(uri);
+    const json = JSON.parse(Buffer.from(bytes).toString('utf-8')) as Record<string, unknown>;
+    const domain = typeof json.domain === 'string' ? json.domain : '';
+    const workflowKey = typeof json.key === 'string' ? json.key : '';
+    if (!domain || !workflowKey) {
+      void vscode.window.showWarningMessage('Workflow file is missing "domain" or "key" fields.');
+      return undefined;
+    }
+    return { domain, workflowKey };
+  } catch {
+    void vscode.window.showWarningMessage('Failed to read workflow JSON file.');
+    return undefined;
+  }
+}
+
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   baseLogger.info({}, 'vnext-forge activating');
 
   const clearedStaleIconTheme = await clearRemovedFileIconThemeIfSet();
   if (clearedStaleIconTheme) {
     void vscode.window.showInformationMessage(
-      'vnext-forge: Removed stale file icon theme (vnext-forge-icons) from settings. For folder icons, use Command Palette → "Preferences: File Icon Theme" → Material Icon Theme.',
+      'vNext Forge: Removed stale file icon theme (vnext-forge-icons) from settings. For folder icons, use Command Palette → "Preferences: File Icon Theme" → Material Icon Theme.',
       'OK',
     );
   }
@@ -69,8 +89,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   context.subscriptions.push(diagnosticCollection);
 
   const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 50);
-  statusBarItem.text = '$(loading~spin) vnext-forge';
-  statusBarItem.tooltip = 'vnext-forge: Initializing...';
+  statusBarItem.text = '$(loading~spin) vNext Forge';
+  statusBarItem.tooltip = 'vNext Forge: Initializing...';
   statusBarItem.show();
   context.subscriptions.push(statusBarItem);
 
@@ -123,6 +143,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const healthMonitor = new EnvironmentHealthMonitor(forgeToolsSettings);
   context.subscriptions.push(healthMonitor);
 
+  const quickRunPanel = new QuickRunPanel(context, router, forgeToolsSettings, healthMonitor);
+  context.subscriptions.push({ dispose: () => quickRunPanel.dispose() });
+
   const envStatusBar = new EnvironmentStatusBar(forgeToolsSettings, healthMonitor);
   context.subscriptions.push(envStatusBar);
 
@@ -131,6 +154,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const createProjectProvider = new CreateProjectProvider(detector, forgeTerminal);
   const environmentsProvider = new EnvironmentsProvider(forgeToolsSettings, healthMonitor);
   const packageDeployProvider = new PackageDeployProvider(detector, forgeTerminal);
+  const quickRunProvider = new QuickRunProvider();
 
   context.subscriptions.push(
     vscode.window.createTreeView('vnextForge.tools.globalSettings', {
@@ -148,6 +172,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }),
     vscode.window.createTreeView('vnextForge.tools.packageDeploy', {
       treeDataProvider: packageDeployProvider,
+    }),
+    vscode.window.createTreeView('vnextForge.tools.quickRun', {
+      treeDataProvider: quickRunProvider,
     }),
   );
 
@@ -194,7 +221,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     )),
     vscode.commands.registerCommand('vnextForge.tools.checkHealth', safeAsync(async () => {
       const status = await healthMonitor.checkNow();
-      void vscode.window.showInformationMessage(`vnext-forge: Environment health: ${status}`);
+      void vscode.window.showInformationMessage(`vNext Forge: Environment health: ${status}`);
     })),
     vscode.commands.registerCommand('vnextForge.tools.wfUpdateAll', safeAsync(() =>
       packageDeployProvider.runDeployAction('wfUpdateAll'),
@@ -208,11 +235,52 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     vscode.commands.registerCommand('vnextForge.tools.installWfCli', safeAsync(() =>
       packageDeployProvider.runDeployAction('installWfCli'),
     )),
+    vscode.commands.registerCommand('vnextForge.openQuickRun', safeAsync(async () => {
+      const workflowFiles = await vscode.workspace.findFiles('**/Workflows/**/*.json', '**/node_modules/**', 50);
+      if (workflowFiles.length === 0) {
+        void vscode.window.showWarningMessage('No workflow files found in the workspace.');
+        return;
+      }
+      const items = workflowFiles.map((f) => ({
+        label: path.basename(f.fsPath, '.json'),
+        description: vscode.workspace.asRelativePath(f),
+        uri: f,
+      }));
+      const picked = await vscode.window.showQuickPick(items, {
+        placeHolder: 'Select a workflow to run',
+      });
+      if (!picked) return;
+      const wfJson = await readWorkflowJson(picked.uri);
+      if (!wfJson) return;
+      const activeEnv = await forgeToolsSettings.getActiveEnvironment();
+      quickRunPanel.open({
+        domain: wfJson.domain,
+        workflowKey: wfJson.workflowKey,
+        projectId: '',
+        projectPath: picked.uri.fsPath,
+        environmentName: activeEnv?.name,
+        environmentUrl: activeEnv?.baseUrl,
+      });
+    })),
+    vscode.commands.registerCommand('vnextForge.openQuickRunFromFile', safeAsync(async (uri: vscode.Uri) => {
+      if (!uri) return;
+      const wfJson = await readWorkflowJson(uri);
+      if (!wfJson) return;
+      const activeEnv = await forgeToolsSettings.getActiveEnvironment();
+      quickRunPanel.open({
+        domain: wfJson.domain,
+        workflowKey: wfJson.workflowKey,
+        projectId: '',
+        projectPath: uri.fsPath,
+        environmentName: activeEnv?.name,
+        environmentUrl: activeEnv?.baseUrl,
+      });
+    })),
   );
 
-  // Start health polling and status bar for the active environment
-  await healthMonitor.syncActiveEnvironment();
-  await envStatusBar.initialize();
+  // Start health polling and status bar for the active environment (non-blocking)
+  void healthMonitor.syncActiveEnvironment();
+  void envStatusBar.initialize();
 
   // ── End Forge Tools Sidebar ────────────────────────────────────────────
 
@@ -281,10 +349,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     bootstrapLsp(loggerAdapter, lspInstaller);
   }
 
-  statusBarItem.text = '$(check) vnext-forge';
-  statusBarItem.tooltip = 'vnext-forge: Ready';
+  statusBarItem.text = '$(check) vNext Forge';
+  statusBarItem.tooltip = 'vNext Forge: Ready';
   void vscode.window.showInformationMessage(
-    'vnext-forge is ready — workflow designer available for this workspace.',
+    'vNext Forge is ready — workflow designer available for this workspace.',
   );
 }
 

@@ -1,4 +1,4 @@
-import { Redo2, Rocket, Save, Undo2 } from 'lucide-react';
+import { Play, Redo2, Rocket, Save, Undo2 } from 'lucide-react';
 import { Button } from '../../../ui/Button';
 
 export type EditorDocumentToolbarArrangement = 'host-row' | 'editor-chrome';
@@ -48,6 +48,8 @@ export interface EditorDocumentToolbarProps {
   /** Save the current file and deploy it via `wf update -f <path>`. */
   onPublish?: () => void;
   publishing?: boolean;
+  /** Opens QuickRun panel for this workflow. Only shown for flow editors. */
+  onOpenQuickRun?: () => void;
   /**
    * - `host-row`: Web'deki sekme satırı sağı (kompakt).
    * - `editor-chrome`: Extension webview'da panelin üst şeridi (daha geniş).
@@ -70,6 +72,7 @@ export function EditorDocumentToolbar({
   canRedo,
   onPublish,
   publishing,
+  onOpenQuickRun,
   arrangement,
 }: EditorDocumentToolbarProps) {
   const compact = arrangement === 'host-row';
@@ -124,6 +127,20 @@ export function EditorDocumentToolbar({
     </Button>
   );
 
+  const quickRunButton =
+    onOpenQuickRun != null ? (
+      <Button
+        type="button"
+        onClick={onOpenQuickRun}
+        variant="muted"
+        size="sm"
+        className={compact ? 'h-6 min-h-6 gap-1 px-2 text-[11px]' : ''}
+        leftIconComponent={<Play size={iconSm} />}
+        title="Open Quick Run panel">
+        Quick Run
+      </Button>
+    ) : null;
+
   const publishButton =
     onPublish != null ? (
       <Button
@@ -146,6 +163,7 @@ export function EditorDocumentToolbar({
         {saving ? savingLabel : null}
         {historyGroup}
         {saveButton}
+        {quickRunButton}
         {publishButton}
       </div>
     );
@@ -160,6 +178,7 @@ export function EditorDocumentToolbar({
       <div className="flex shrink-0 items-center gap-2">
         {historyGroup}
         {saveButton}
+        {quickRunButton}
         {publishButton}
       </div>
     </div>

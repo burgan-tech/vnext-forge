@@ -74,6 +74,11 @@ export interface FlowEditorViewProps {
    * Web: sekme satırı sağı (`setToolbar`). VS Code webview: verilmez — panel üst şeridi `ComponentEditorLayout` içinde.
    */
   registerToolbar?: HostDocumentToolbarSlot;
+  /**
+   * Opens the QuickRun panel for this workflow. Wired by the host shell
+   * (extension webview sends a postMessage command; web SPA may omit).
+   */
+  onOpenQuickRun?: () => void;
 }
 
 export function FlowEditorView({
@@ -83,6 +88,7 @@ export function FlowEditorView({
   onNavigateBack,
   onOpenScriptFileInHost,
   registerToolbar,
+  onOpenQuickRun,
 }: FlowEditorViewProps) {
   const activeProject = useProjectStore((s) => s.activeProject);
   const vnextConfig = useProjectStore((s) => s.vnextConfig);
@@ -219,6 +225,7 @@ export function FlowEditorView({
         onUndo={undo}
         onPublish={canPublish ? handlePublish : undefined}
         publishing={publishing}
+        onOpenQuickRun={onOpenQuickRun}
         registerToolbar={registerToolbar}
         saveErrorMessage={saveError?.toUserMessage().message ?? null}
         saving={saving}>
