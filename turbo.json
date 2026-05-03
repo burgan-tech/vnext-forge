@@ -25,6 +25,15 @@
       "outputs": ["*.vsix"],
       "cache": false
     },
+    "vnext-forge-desktop#build": {
+      "dependsOn": ["^build", "@vnext-forge/web#build"],
+      "outputs": ["dist/**"]
+    },
+    "vnext-forge-desktop#package": {
+      "dependsOn": ["vnext-forge-desktop#build"],
+      "outputs": ["dist/release/**"],
+      "cache": false
+    },
     "clean": {
       "cache": false
     }

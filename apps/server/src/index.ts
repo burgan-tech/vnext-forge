@@ -1,4 +1,5 @@
 import { serve } from '@hono/node-server';
+import { serveStatic } from '@hono/node-server/serve-static';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { ERROR_CODES, VnextForgeError } from '@vnext-forge/app-contracts';
@@ -51,6 +52,17 @@ const app = new Hono<{ Variables: Variables }>()
   .use('*', bodyLimitMiddleware)
   .route('/api/v1', apiV1Router)
   .get('/api/health', (c) => ok(c, { status: 'ok', traceId: c.get('traceId') }));
+
+// Desktop (Electron) shell only: serve the SPA bundle from the same origin so
+// the renderer and API share a single port — no CORS negotiation required.
+// The API routes above are registered first, so /api/v1/* and /api/health take
+// precedence and are never shadowed by the static handler.
+if (config.desktopStaticDir) {
+  baseLogger.info(`[desktop] serving static files from ${config.desktopStaticDir}`);
+  app.use('*', serveStatic({ root: config.desktopStaticDir }));
+  // SPA fallback: any unmatched path serves index.html so React Router handles routing.
+  app.use('*', serveStatic({ root: config.desktopStaticDir, rewriteRequestPath: () => '/index.html' }));
+}
 
 app.onError(errorHandler);
 app.notFound((c) =>

@@ -1,0 +1,27 @@
+{
+  "name": "vnext-forge-desktop",
+  "version": "0.1.0",
+  "description": "vnext-forge desktop application",
+  "private": true,
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "node esbuild.desktop.mjs && node scripts/copy-assets.mjs",
+    "package": "electron-builder",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@vnext-forge/app-contracts": "workspace:*",
+    "@vnext-forge/services-core": "workspace:*",
+    "@vnext-forge/lsp-core": "workspace:*",
+    "@vnext-forge/vnext-types": "workspace:*",
+    "@burgan-tech/vnext-schema": "*",
+    "@burgan-tech/vnext-template": "*",
+    "electron": "^35.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "electron-builder": "^26.0.0",
+    "esbuild": "^0.25.0",
+    "typescript": "^5.8.0"
+  }
+}
