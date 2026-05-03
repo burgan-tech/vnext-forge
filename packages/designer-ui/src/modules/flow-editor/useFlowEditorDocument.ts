@@ -2,7 +2,10 @@ import { useEffect, useMemo } from 'react';
 import { useProjectStore } from '../../store/useProjectStore';
 import { useWorkflowStore } from '../../store/useWorkflowStore';
 import { useAsync } from '../../hooks/useAsync';
-import { loadFlowEditorDocument } from './FlowEditorApi';
+import { createLogger } from '../../lib/logger/createLogger';
+import { ensureDiagramInfrastructure, loadFlowEditorDocument } from './FlowEditorApi';
+
+const logger = createLogger('flow-editor/useFlowEditorDocument');
 
 interface UseFlowEditorDocumentOptions {
   group: string;
@@ -38,6 +41,12 @@ export function useFlowEditorDocument({ group, name }: UseFlowEditorDocumentOpti
       }
 
       setWorkflow(result.data.workflow, result.data.diagram);
+
+      if (paths) {
+        void ensureDiagramInfrastructure(paths.diagramFilePath).catch((err) =>
+          logger.warn('Failed to ensure diagram infrastructure', err),
+        );
+      }
     },
   });
 
