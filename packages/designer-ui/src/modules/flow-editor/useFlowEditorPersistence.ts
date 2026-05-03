@@ -4,7 +4,7 @@ import { useWorkflowStore } from '../../store/useWorkflowStore';
 import { useAsync } from '../../hooks/useAsync';
 import { useRegisterGlobalSaveShortcut } from '../../hooks/useRegisterGlobalSaveShortcut';
 import { createLogger } from '../../lib/logger/createLogger';
-import { saveFlowEditorDocument } from './FlowEditorApi';
+import { persistDiagramSnapshot, saveWorkflowDocument } from './FlowEditorApi';
 
 const logger = createLogger('flow-editor/useFlowEditorPersistence');
 
@@ -17,7 +17,7 @@ export function useFlowEditorPersistence({ group, name }: UseFlowEditorPersisten
   const isDirty = useWorkflowStore((s) => s.isDirty);
   const markClean = useWorkflowStore((s) => s.markClean);
 
-  const { execute, loading, error } = useAsync(saveFlowEditorDocument, {
+  const { execute, loading, error } = useAsync(saveWorkflowDocument, {
     showNotificationOnSuccess: false,
     showNotificationOnError: false,
     errorMessage: 'Workflow could not be saved.',
@@ -30,11 +30,10 @@ export function useFlowEditorPersistence({ group, name }: UseFlowEditorPersisten
   });
 
   /**
-   * `workflowJson` / `diagramJson` her düzenlemede değişir; `save`'i buna
-   * bağımlı tutmak `ComponentEditorLayout` + `registerToolbar` içindeki
-   * `useLayoutEffect`'i her güncellemede tetikleyip üstte `setToolbar` ile
-   * sonsuz güncelleme döngüsüne yol açabiliyor. Anlık snapshot için
-   * `getState()` kullan.
+   * `workflowJson` / `diagramJson` change on every edit; binding `save` to
+   * them would retrigger `ComponentEditorLayout` + `registerToolbar`'s
+   * `useLayoutEffect` on every update, causing an infinite `setToolbar` loop.
+   * Use `getState()` for a point-in-time snapshot instead.
    */
   const save = useCallback(async () => {
     const { workflowJson, diagramJson, isDirty: dirty } = useWorkflowStore.getState();
@@ -44,14 +43,15 @@ export function useFlowEditorPersistence({ group, name }: UseFlowEditorPersisten
     }
 
     const workflowDir = `${activeProject.path}/${vnextConfig.paths.componentsRoot}/${vnextConfig.paths.workflows}/${group}`;
+    const diagramFilePath = `${workflowDir}/.meta/${name}.diagram.json`;
 
     await execute({
       workflowDir,
       workflowFilePath: `${workflowDir}/${name}.json`,
-      diagramFilePath: `${workflowDir}/.meta/${name}.diagram.json`,
       workflowJson,
-      diagramJson,
     });
+
+    void persistDiagramSnapshot(diagramFilePath, diagramJson);
   }, [execute, group, name]);
 
   useRegisterGlobalSaveShortcut(save);
