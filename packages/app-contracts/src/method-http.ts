@@ -43,6 +43,14 @@ export type MethodId =
   | 'validate/getAvailableTypes'
   | 'validate/getAllSchemas'
   | 'validate/getSchema'
+  | 'quickrun/startInstance'
+  | 'quickrun/fireTransition'
+  | 'quickrun/getState'
+  | 'quickrun/getView'
+  | 'quickrun/getData'
+  | 'quickrun/getSchema'
+  | 'quickrun/getHistory'
+  | 'quickrun/listInstances'
   | 'runtime/proxy'
   | 'health/check'
 
@@ -82,6 +90,14 @@ export const METHOD_HTTP_METADATA: Readonly<Record<MethodId, MethodHttpSpec>> = 
   'validate/getAvailableTypes': { verb: 'GET', paramSource: 'query' },
   'validate/getAllSchemas': { verb: 'GET', paramSource: 'query' },
   'validate/getSchema': { verb: 'GET', paramSource: 'query' },
+  'quickrun/startInstance': { verb: 'POST', paramSource: 'json' },
+  'quickrun/fireTransition': { verb: 'POST', paramSource: 'json' },
+  'quickrun/getState': { verb: 'POST', paramSource: 'json' },
+  'quickrun/getView': { verb: 'POST', paramSource: 'json' },
+  'quickrun/getData': { verb: 'POST', paramSource: 'json' },
+  'quickrun/getSchema': { verb: 'POST', paramSource: 'json' },
+  'quickrun/getHistory': { verb: 'POST', paramSource: 'json' },
+  'quickrun/listInstances': { verb: 'POST', paramSource: 'json' },
   'runtime/proxy': { verb: 'POST', paramSource: 'json' },
   'health/check': { verb: 'GET', paramSource: 'query' },
 })

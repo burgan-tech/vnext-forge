@@ -38,6 +38,27 @@ import {
   vnextComponentsListParams,
   vnextComponentsListResult,
 } from '../services/project/project-schemas.js'
+import type { QuickRunService } from '../services/quickrun/quickrun.service.js'
+import {
+  quickrunFireTransitionParams,
+  quickrunFireTransitionResult,
+  quickrunGetDataParams,
+  quickrunGetDataResult,
+  quickrunGetHistoryParams,
+  quickrunGetHistoryResult,
+  quickrunGetSchemaParams,
+  quickrunGetSchemaResult,
+  quickrunGetStateParams,
+  quickrunGetStateResult,
+  quickrunGetViewParams,
+  quickrunGetViewResult,
+  quickrunListInstancesParams,
+  quickrunListInstancesResult,
+  quickrunRetryInstanceParams,
+  quickrunRetryInstanceResult,
+  quickrunStartInstanceParams,
+  quickrunStartInstanceResult,
+} from '../services/quickrun/quickrun-schemas.js'
 import type { RuntimeProxyService } from '../services/runtime-proxy/runtime-proxy.service.js'
 import {
   runtimeProxyParams,
@@ -84,6 +105,7 @@ export interface ServiceRegistry {
   templateService: TemplateService
   validateService: ValidateService
   runtimeProxyService: RuntimeProxyService
+  quickRunService: QuickRunService
 }
 
 /**
@@ -414,6 +436,62 @@ export function buildMethodRegistry(): MethodRegistry {
       resultSchema: runtimeProxyResult,
       handler: async (params, { runtimeProxyService }, traceId) =>
         runtimeProxyService.proxy(params, traceId),
+    },
+
+    // ── quickrun ─────────────────────────────────────────────────────────────
+    'quickrun/startInstance': {
+      paramsSchema: quickrunStartInstanceParams,
+      resultSchema: quickrunStartInstanceResult,
+      handler: async (params, { quickRunService }, traceId) =>
+        quickRunService.startInstance(params, traceId),
+    },
+    'quickrun/fireTransition': {
+      paramsSchema: quickrunFireTransitionParams,
+      resultSchema: quickrunFireTransitionResult,
+      handler: async (params, { quickRunService }, traceId) =>
+        quickRunService.fireTransition(params, traceId),
+    },
+    'quickrun/getState': {
+      paramsSchema: quickrunGetStateParams,
+      resultSchema: quickrunGetStateResult,
+      handler: async (params, { quickRunService }, traceId) =>
+        quickRunService.getState(params, traceId),
+    },
+    'quickrun/getView': {
+      paramsSchema: quickrunGetViewParams,
+      resultSchema: quickrunGetViewResult,
+      handler: async (params, { quickRunService }, traceId) =>
+        quickRunService.getView(params, traceId),
+    },
+    'quickrun/getData': {
+      paramsSchema: quickrunGetDataParams,
+      resultSchema: quickrunGetDataResult,
+      handler: async (params, { quickRunService }, traceId) =>
+        quickRunService.getData(params, traceId),
+    },
+    'quickrun/getSchema': {
+      paramsSchema: quickrunGetSchemaParams,
+      resultSchema: quickrunGetSchemaResult,
+      handler: async (params, { quickRunService }, traceId) =>
+        quickRunService.getSchema(params, traceId),
+    },
+    'quickrun/getHistory': {
+      paramsSchema: quickrunGetHistoryParams,
+      resultSchema: quickrunGetHistoryResult,
+      handler: async (params, { quickRunService }, traceId) =>
+        quickRunService.getHistory(params, traceId),
+    },
+    'quickrun/retryInstance': {
+      paramsSchema: quickrunRetryInstanceParams,
+      resultSchema: quickrunRetryInstanceResult,
+      handler: async (params, { quickRunService }, traceId) =>
+        quickRunService.retryInstance(params, traceId),
+    },
+    'quickrun/listInstances': {
+      paramsSchema: quickrunListInstancesParams,
+      resultSchema: quickrunListInstancesResult,
+      handler: async (params, { quickRunService }, traceId) =>
+        quickRunService.listInstances(params, traceId),
     },
 
     // ── health ───────────────────────────────────────────────────────────────

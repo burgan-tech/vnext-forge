@@ -17,5 +17,6 @@ export interface NetworkRequestInit {
 export interface NetworkResponse {
   status: number
   contentType: string
+  headers?: Record<string, string>
   text(): Promise<string>
 }

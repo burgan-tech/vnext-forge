@@ -17,6 +17,8 @@ export interface ComponentEditorLayoutProps {
   /** Save the current file and deploy it via `wf update -f <path>`. */
   onPublish?: () => void;
   publishing?: boolean;
+  /** Opens QuickRun panel for this workflow (flow editors only). */
+  onOpenQuickRun?: () => void;
   children: ReactNode;
   /**
    * Dış "host"ta (yalnızca web sekme satırı) Save çubuğunu nereye takacağımız.
@@ -39,6 +41,7 @@ export function ComponentEditorLayout({
   canRedo,
   onPublish,
   publishing,
+  onOpenQuickRun,
   children,
   registerToolbar,
   surface = 'panel',
@@ -51,10 +54,12 @@ export function ComponentEditorLayout({
   const onUndoRef = useRef(onUndo);
   const onRedoRef = useRef(onRedo);
   const onPublishRef = useRef(onPublish);
+  const onOpenQuickRunRef = useRef(onOpenQuickRun);
   onSaveRef.current = onSave;
   onUndoRef.current = onUndo;
   onRedoRef.current = onRedo;
   onPublishRef.current = onPublish;
+  onOpenQuickRunRef.current = onOpenQuickRun;
 
   const stableOnSave = useCallback(() => {
     onSaveRef.current();
@@ -68,10 +73,14 @@ export function ComponentEditorLayout({
   const stableOnPublish = useCallback(() => {
     onPublishRef.current?.();
   }, []);
+  const stableOnOpenQuickRun = useCallback(() => {
+    onOpenQuickRunRef.current?.();
+  }, []);
 
   const hasUndoGroup = Boolean(onUndo);
   const hasRedoButton = Boolean(onRedo);
   const hasPublish = Boolean(onPublish);
+  const hasQuickRun = Boolean(onOpenQuickRun);
 
   const hostToolbar = useMemo(
     () => (
@@ -86,6 +95,7 @@ export function ComponentEditorLayout({
         canRedo={canRedo}
         onPublish={hasPublish ? stableOnPublish : undefined}
         publishing={publishing}
+        onOpenQuickRun={hasQuickRun ? stableOnOpenQuickRun : undefined}
         arrangement="host-row"
       />
     ),
@@ -98,11 +108,13 @@ export function ComponentEditorLayout({
       hasUndoGroup,
       hasRedoButton,
       hasPublish,
+      hasQuickRun,
       publishing,
       stableOnSave,
       stableOnUndo,
       stableOnRedo,
       stableOnPublish,
+      stableOnOpenQuickRun,
     ],
   );
 
@@ -118,6 +130,7 @@ export function ComponentEditorLayout({
       canRedo={canRedo}
       onPublish={onPublish}
       publishing={publishing}
+      onOpenQuickRun={onOpenQuickRun}
       arrangement="editor-chrome"
     />
   );

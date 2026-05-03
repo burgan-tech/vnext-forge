@@ -99,6 +99,7 @@ export const runtimeProxyResult = z.object({
   status: z.number().int(),
   contentType: z.string(),
   data: z.string(),
+  responseHeaders: z.record(z.string(), z.string()).optional(),
 })
 
 export function createRuntimeProxyService(deps: RuntimeProxyServiceDeps) {
@@ -183,6 +184,7 @@ export function createRuntimeProxyService(deps: RuntimeProxyServiceDeps) {
         status: response.status,
         contentType: response.contentType ?? 'application/json',
         data,
+        responseHeaders: response.headers,
       }
     } catch (error) {
       throw new VnextForgeError(

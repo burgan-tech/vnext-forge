@@ -16,6 +16,7 @@ export class EnvironmentHealthMonitor implements vscode.Disposable {
 
   private readonly envChangeSubscription: vscode.Disposable;
   private health: HealthStatus = 'unknown';
+  private runtimeVersion: string | null = null;
   private currentEnv: RuntimeEnvironment | null = null;
   private timer: ReturnType<typeof setTimeout> | undefined;
   private retryCount = 0;
@@ -36,6 +37,10 @@ export class EnvironmentHealthMonitor implements vscode.Disposable {
 
   getHealth(): HealthStatus {
     return this.health;
+  }
+
+  getRuntimeVersion(): string | null {
+    return this.runtimeVersion;
   }
 
   getCurrentEnvironment(): RuntimeEnvironment | null {
@@ -65,8 +70,8 @@ export class EnvironmentHealthMonitor implements vscode.Disposable {
 
   /**
    * Perform a single on-demand health check. Updates shared state and
-   * status bar. If healthy, stops any pending retries. If unhealthy,
-   * starts the retry cycle from scratch.
+   * status bar. Always fires the change event so subscribers (like the
+   * status bar) re-read the latest value even if the status was the same.
    */
   async checkNow(): Promise<HealthStatus> {
     if (!this.currentEnv) return 'unknown';
@@ -74,7 +79,8 @@ export class EnvironmentHealthMonitor implements vscode.Disposable {
     this.retryCount = 0;
     this.setHealth('checking');
     const status = await this.performCheck(this.currentEnv.baseUrl);
-    this.setHealth(status);
+    this.health = status;
+    this._onDidChangeHealth.fire(status);
 
     if (status !== 'healthy') {
       this.scheduleRetry();
@@ -127,30 +133,51 @@ export class EnvironmentHealthMonitor implements vscode.Disposable {
 
   private performCheck(baseUrl: string): Promise<HealthStatus> {
     return new Promise((resolve) => {
+      let resolved = false;
+      const done = (status: HealthStatus) => {
+        if (resolved) return;
+        resolved = true;
+        resolve(status);
+      };
+
       try {
-        const url = new URL('/healthy', baseUrl);
+        const url = new URL('/health', baseUrl);
         const requester = url.protocol === 'https:' ? https : http;
 
         const req = requester.get(url, { timeout: REQUEST_TIMEOUT_MS }, (res) => {
           const isOk = res.statusCode != null && res.statusCode >= 200 && res.statusCode < 300;
-          res.resume();
+          const chunks: Buffer[] = [];
+
+          res.on('data', (chunk: Buffer) => { chunks.push(chunk); });
           res.on('end', () => {
-            resolve(isOk ? 'healthy' : 'unhealthy');
+            if (!isOk) { done('unhealthy'); return; }
+
+            try {
+              const body = Buffer.concat(chunks).toString('utf-8');
+              const parsed = JSON.parse(body) as { status?: string; version?: string };
+              if (parsed.version) this.runtimeVersion = parsed.version;
+              const isHealthy = parsed.status === 'Healthy' || parsed.status === 'healthy';
+              done(isHealthy ? 'healthy' : 'unhealthy');
+            } catch {
+              done('healthy');
+            }
           });
+          res.on('error', () => done('unhealthy'));
+          res.on('aborted', () => done('unhealthy'));
         });
 
         req.on('error', (err) => {
           baseLogger.info({ url: url.toString(), error: err.message }, 'Health check failed');
-          resolve('unhealthy');
+          done('unhealthy');
         });
 
         req.on('timeout', () => {
           req.destroy();
-          resolve('unhealthy');
+          done('unhealthy');
         });
       } catch (err) {
         baseLogger.warn({ baseUrl, error: (err as Error).message }, 'Invalid health check URL');
-        resolve('unhealthy');
+        done('unhealthy');
       }
     });
   }

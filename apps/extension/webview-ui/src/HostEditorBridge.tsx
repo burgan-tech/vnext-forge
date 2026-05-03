@@ -149,6 +149,10 @@ function ActiveEditor({ api, payload }: { api: VsCodeWebviewApi; payload: HostOp
     [api],
   );
 
+  const onOpenQuickRun = useCallback(() => {
+    api.postMessage({ type: 'host:open-quickrun', filePath: payload.filePath });
+  }, [api, payload.filePath]);
+
   const { kind, projectId, group, name } = payload;
   switch (kind) {
     case 'workflow':
@@ -159,6 +163,7 @@ function ActiveEditor({ api, payload }: { api: VsCodeWebviewApi; payload: HostOp
             group={group}
             name={name}
             onOpenScriptFileInHost={onOpenScriptFileInHost}
+            onOpenQuickRun={onOpenQuickRun}
           />
         </ComponentEditorModalProvider>
       );

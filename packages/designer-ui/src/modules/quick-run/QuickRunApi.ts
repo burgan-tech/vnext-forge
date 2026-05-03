@@ -1,0 +1,211 @@
+import { callApi } from '../../api/client';
+import type {
+  DataResponse,
+  HistoryResponse,
+  InstanceListResponse,
+  SchemaResponse,
+  StateResponse,
+  ViewResponse,
+} from './types/quickrun.types';
+
+type ApiResponse<T> =
+  | { success: true; data: T }
+  | { success: false; error: { code: string; message: string; details?: Record<string, unknown> } };
+
+interface StartInstanceParams {
+  domain: string;
+  workflowKey: string;
+  sync?: boolean;
+  version?: string;
+  key?: string;
+  tags?: string[];
+  attributes?: Record<string, unknown>;
+  headers?: Record<string, string>;
+  runtimeUrl?: string;
+}
+
+interface FireTransitionParams {
+  domain: string;
+  workflowKey: string;
+  instanceId: string;
+  transitionKey: string;
+  sync?: boolean;
+  key?: string;
+  tags?: string[];
+  attributes?: Record<string, unknown>;
+  headers?: Record<string, string>;
+  runtimeUrl?: string;
+}
+
+interface GetStateParams {
+  domain: string;
+  workflowKey: string;
+  instanceId: string;
+  headers?: Record<string, string>;
+  runtimeUrl?: string;
+}
+
+interface GetViewParams {
+  domain: string;
+  workflowKey: string;
+  instanceId: string;
+  transitionKey?: string;
+  headers?: Record<string, string>;
+  runtimeUrl?: string;
+}
+
+interface GetDataParams {
+  domain: string;
+  workflowKey: string;
+  instanceId: string;
+  extensions?: string;
+  ifNoneMatch?: string;
+  headers?: Record<string, string>;
+  runtimeUrl?: string;
+}
+
+interface GetSchemaParams {
+  domain: string;
+  workflowKey: string;
+  instanceId: string;
+  transitionKey?: string;
+  headers?: Record<string, string>;
+  runtimeUrl?: string;
+}
+
+interface GetHistoryParams {
+  domain: string;
+  workflowKey: string;
+  instanceId: string;
+  headers?: Record<string, string>;
+  runtimeUrl?: string;
+}
+
+interface RetryInstanceParams {
+  domain: string;
+  workflowKey: string;
+  instanceId: string;
+  key?: string;
+  tags?: string[];
+  attributes?: Record<string, unknown>;
+  headers?: Record<string, string>;
+  runtimeUrl?: string;
+}
+
+interface ListInstancesParams {
+  domain: string;
+  workflowKey: string;
+  page?: number;
+  pageSize?: number;
+  filter?: string;
+  orderBy?: string;
+  sort?: string;
+  headers?: Record<string, string>;
+  runtimeUrl?: string;
+}
+
+export async function startInstance(params: StartInstanceParams): Promise<ApiResponse<{ id: string; key: string; status: string }>> {
+  return callApi({ method: 'quickrun/startInstance', params });
+}
+
+export async function fireTransition(params: FireTransitionParams): Promise<ApiResponse<{ id: string; key: string; status: string }>> {
+  return callApi({ method: 'quickrun/fireTransition', params });
+}
+
+export async function getState(params: GetStateParams): Promise<ApiResponse<StateResponse>> {
+  return callApi({ method: 'quickrun/getState', params });
+}
+
+export async function getView(params: GetViewParams): Promise<ApiResponse<ViewResponse>> {
+  return callApi({ method: 'quickrun/getView', params });
+}
+
+export async function getData(params: GetDataParams): Promise<ApiResponse<DataResponse>> {
+  return callApi({ method: 'quickrun/getData', params });
+}
+
+export async function getSchema(params: GetSchemaParams): Promise<ApiResponse<SchemaResponse>> {
+  return callApi({ method: 'quickrun/getSchema', params });
+}
+
+export async function getHistory(params: GetHistoryParams): Promise<ApiResponse<HistoryResponse>> {
+  return callApi({ method: 'quickrun/getHistory', params });
+}
+
+export async function retryInstance(params: RetryInstanceParams): Promise<ApiResponse<{ id: string; key: string; status: string }>> {
+  return callApi({ method: 'quickrun/retryInstance', params });
+}
+
+export async function listInstances(params: ListInstancesParams): Promise<ApiResponse<InstanceListResponse>> {
+  return callApi({ method: 'quickrun/listInstances', params });
+}
+
+// ── Workflow Config Persistence (direct postMessage, extension-host only) ─────
+
+export interface TransitionBucketEntry {
+  key: string;
+  headers: Record<string, string>;
+  queryStrings: Record<string, unknown>;
+  body: {
+    key?: string;
+    tags?: string[];
+    attributes: Record<string, unknown>;
+  };
+}
+
+export interface WorkflowBucketConfig {
+  key: string;
+  globalHeaders: Record<string, string>;
+  start: {
+    headers: Record<string, string>;
+    queryStrings: { sync?: boolean; version?: string };
+    body: {
+      key?: string;
+      tags?: string[];
+      attributes: Record<string, unknown>;
+    };
+  };
+  transitions: TransitionBucketEntry[];
+}
+
+type PostMessageFn = (msg: unknown) => void;
+let _postMessage: PostMessageFn | null = null;
+
+export function setDataBucketPostMessage(fn: PostMessageFn): void {
+  _postMessage = fn;
+}
+
+function postMessageRpc<T>(type: string, payload: Record<string, unknown>): Promise<T | null> {
+  if (!_postMessage) return Promise.resolve(null);
+
+  const requestId = crypto.randomUUID();
+  return new Promise((resolve) => {
+    const handler = (event: MessageEvent) => {
+      const msg = event.data as { type?: string; requestId?: string };
+      if (msg?.requestId === requestId && msg?.type === `${type}:response`) {
+        window.removeEventListener('message', handler);
+        resolve((event.data as { config?: T; success?: boolean }).config ?? null);
+      }
+    };
+    window.addEventListener('message', handler);
+    _postMessage!({ type, requestId, ...payload });
+    setTimeout(() => { window.removeEventListener('message', handler); resolve(null); }, 5_000);
+  });
+}
+
+export async function saveWorkflowConfig(domain: string, workflowKey: string, config: WorkflowBucketConfig): Promise<void> {
+  await postMessageRpc('databucket:saveConfig', { domain, workflowKey, config });
+}
+
+export async function loadWorkflowConfig(domain: string, workflowKey: string): Promise<WorkflowBucketConfig | null> {
+  return postMessageRpc<WorkflowBucketConfig>('databucket:loadConfig', { domain, workflowKey });
+}
+
+export function createEmptyConfig(workflowKey: string): WorkflowBucketConfig {
+  return {
+    key: workflowKey,
+    globalHeaders: {},
+    start: { headers: {}, queryStrings: {}, body: { attributes: {} } },
+    transitions: [],
+  };
+}

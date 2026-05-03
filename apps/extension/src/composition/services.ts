@@ -1,6 +1,7 @@
 import {
   buildMethodRegistry,
   createProjectService,
+  createQuickRunService,
   createRuntimeProxyService,
   createTemplateService,
   createValidateService,
@@ -84,12 +85,15 @@ export function composeExtensionServices(logger: LoggerAdapter): ComposedService
     allowRuntimeUrlOverride: extensionConfig.allowRuntimeUrlOverride,
   });
 
+  const quickRunService = createQuickRunService(runtimeProxyService);
+
   const services: ServiceRegistry = {
     workspaceService,
     projectService,
     templateService,
     validateService,
     runtimeProxyService,
+    quickRunService,
   };
 
   return { services, registry: buildMethodRegistry() };

@@ -52,8 +52,35 @@ const DEFAULT_ENVIRONMENTS: EnvironmentsConfig = {
   activeEnvironmentId: null,
 };
 
+// ── QuickRun types ───────────────────────────────────────────────────────────
+
+export interface QuickRunHeader {
+  name: string;
+  value: string;
+  isSecret?: boolean;
+}
+
+export interface QuickRunPollingConfig {
+  retryCount: number;
+  intervalMs: number;
+}
+
+export interface QuickRunSettings {
+  globalHeaders: QuickRunHeader[];
+  polling: QuickRunPollingConfig;
+}
+
+const DEFAULT_QUICKRUN_SETTINGS: QuickRunSettings = {
+  globalHeaders: [],
+  polling: {
+    retryCount: 12,
+    intervalMs: 500,
+  },
+};
+
 const SETTINGS_FILE = 'forge-settings.json';
 const ENVIRONMENTS_FILE = 'environments.json';
+const QUICKRUN_SETTINGS_FILE = 'quickrun-settings.json';
 
 const ALLOWED_URL_SCHEMES = new Set(['http:', 'https:']);
 
@@ -103,6 +130,44 @@ function parseSettings(raw: unknown): ForgeSettings {
     },
     themeMode: isValidTheme(obj.themeMode) ? obj.themeMode : defaults.themeMode,
   };
+}
+
+function parseQuickRunSettings(raw: unknown): QuickRunSettings {
+  if (raw == null || typeof raw !== 'object') {
+    return { globalHeaders: [], polling: { ...DEFAULT_QUICKRUN_SETTINGS.polling } };
+  }
+  const obj = raw as Record<string, unknown>;
+
+  const globalHeaders: QuickRunHeader[] = [];
+  if (Array.isArray(obj.globalHeaders)) {
+    for (const item of obj.globalHeaders) {
+      if (
+        item != null &&
+        typeof item === 'object' &&
+        typeof (item as Record<string, unknown>).name === 'string' &&
+        typeof (item as Record<string, unknown>).value === 'string'
+      ) {
+        globalHeaders.push({
+          name: (item as Record<string, unknown>).name as string,
+          value: (item as Record<string, unknown>).value as string,
+          isSecret: (item as Record<string, unknown>).isSecret === true,
+        });
+      }
+    }
+  }
+
+  const polling = { ...DEFAULT_QUICKRUN_SETTINGS.polling };
+  if (typeof obj.polling === 'object' && obj.polling != null) {
+    const p = obj.polling as Record<string, unknown>;
+    if (typeof p.retryCount === 'number' && p.retryCount > 0) {
+      polling.retryCount = p.retryCount;
+    }
+    if (typeof p.intervalMs === 'number' && p.intervalMs > 0) {
+      polling.intervalMs = p.intervalMs;
+    }
+  }
+
+  return { globalHeaders, polling };
 }
 
 function parseEnvironments(raw: unknown): EnvironmentsConfig {
@@ -256,6 +321,28 @@ export class ForgeToolsSettingsService implements vscode.Disposable {
 
   static generateId(): string {
     return crypto.randomUUID();
+  }
+
+  // ── QuickRun Settings ───────────────────────────────────────────────────
+
+  private quickRunCache: QuickRunSettings | undefined;
+
+  async loadQuickRunSettings(): Promise<QuickRunSettings> {
+    if (this.quickRunCache) return this.quickRunCache;
+    const raw = await this.readJsonFile(QUICKRUN_SETTINGS_FILE);
+    this.quickRunCache = parseQuickRunSettings(raw);
+    return this.quickRunCache;
+  }
+
+  async saveQuickRunSettings(patch: Partial<QuickRunSettings>): Promise<QuickRunSettings> {
+    const current = await this.loadQuickRunSettings();
+    const merged: QuickRunSettings = {
+      globalHeaders: patch.globalHeaders ?? current.globalHeaders,
+      polling: patch.polling ? { ...current.polling, ...patch.polling } : current.polling,
+    };
+    await this.writeJsonFile(QUICKRUN_SETTINGS_FILE, merged);
+    this.quickRunCache = merged;
+    return merged;
   }
 
   // ── File I/O ─────────────────────────────────────────────────────────────

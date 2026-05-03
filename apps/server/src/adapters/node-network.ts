@@ -19,9 +19,12 @@ export function createNodeNetworkAdapter(): NetworkAdapter {
       });
 
       const contentType = response.headers.get('content-type') ?? '';
+      const headers: Record<string, string> = {};
+      response.headers.forEach((value, key) => { headers[key] = value; });
       return {
         status: response.status,
         contentType,
+        headers,
         text: () => response.text(),
       };
     },

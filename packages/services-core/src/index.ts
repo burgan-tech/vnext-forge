@@ -21,6 +21,7 @@ export * from './services/workspace/index.js'
 export * from './services/template/index.js'
 export * from './services/validate/index.js'
 export * from './services/runtime-proxy/index.js'
+export * from './services/quickrun/index.js'
 export * from './services/file-router/index.js'
 export * from './services/project/index.js'
 
