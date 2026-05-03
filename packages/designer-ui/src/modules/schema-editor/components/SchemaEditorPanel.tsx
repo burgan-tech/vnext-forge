@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Tabs, TabsList, TabsTrigger } from '../../../ui/Tabs';
+import { ComponentDescriptionField } from '../../../ui/ComponentDescriptionField';
 import { Field } from '../../../ui/Field';
 import { JsonCodeField } from '../../../ui/JsonCodeField';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../ui/Card';
@@ -44,6 +45,12 @@ export function SchemaEditorPanel({ json, onChange }: SchemaEditorPanelProps) {
         </CardHeader>
         <CardContent className="px-4 sm:px-6">
           <SchemaMetadataForm json={json} onChange={onChange} />
+          <div className="mt-3">
+            <ComponentDescriptionField
+              value={String(json._comment || '')}
+              onChange={(value) => onChange((d) => { d._comment = value || undefined; })}
+            />
+          </div>
         </CardContent>
       </Card>
 

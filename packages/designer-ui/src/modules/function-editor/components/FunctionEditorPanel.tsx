@@ -1,4 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../ui/Card';
+import { ComponentDescriptionField } from '../../../ui/ComponentDescriptionField';
 import { FunctionMetadataForm } from './FunctionMetadataForm';
 import { FunctionTaskModeSection } from './FunctionTaskModeSection';
 
@@ -18,6 +19,12 @@ export function FunctionEditorPanel({ json, onChange, onBeforeOpenModal }: Funct
         </CardHeader>
         <CardContent className="px-4 sm:px-6">
           <FunctionMetadataForm json={json} onChange={onChange} />
+          <div className="mt-3">
+            <ComponentDescriptionField
+              value={String(json._comment || '')}
+              onChange={(value) => onChange((d) => { d._comment = value || undefined; })}
+            />
+          </div>
         </CardContent>
       </Card>
 

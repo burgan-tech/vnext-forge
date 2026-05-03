@@ -24,6 +24,7 @@ export interface TransitionMutations {
   addTask: (transitionIndex: number, task: DiscoveredVnextComponent) => void;
   removeTask: (transitionIndex: number, taskIndex: number) => void;
   moveTask: (transitionIndex: number, fromIndex: number, toIndex: number) => void;
+  updateTaskComment: (transitionIndex: number, taskIndex: number, comment: string | undefined) => void;
   updateTaskMapping: (transitionIndex: number, taskIndex: number, mapping: ScriptCode) => void;
   removeTaskMapping: (transitionIndex: number, taskIndex: number) => void;
   updateTaskErrorBoundary: (transitionIndex: number, taskIndex: number, eb: ErrorBoundary | undefined) => void;
@@ -196,6 +197,23 @@ export function useTransitionMutations(findTransition: FindTransition): Transiti
     });
   }, [updateWorkflow, findTransition]);
 
+  const updateTaskComment = useCallback((
+    transitionIndex: number,
+    taskIndex: number,
+    comment: string | undefined,
+  ) => {
+    updateWorkflow((draft: any) => {
+      const ctx = findTransition(draft);
+      const entry = ctx?.transitions?.[transitionIndex]?.onExecutionTasks?.[taskIndex];
+      if (!entry) return;
+      if (comment) {
+        entry._comment = comment;
+      } else {
+        delete entry._comment;
+      }
+    });
+  }, [updateWorkflow, findTransition]);
+
   const updateTaskMapping = useCallback((
     transitionIndex: number,
     taskIndex: number,
@@ -266,6 +284,7 @@ export function useTransitionMutations(findTransition: FindTransition): Transiti
     addTask,
     removeTask,
     moveTask,
+    updateTaskComment,
     updateTaskMapping,
     removeTaskMapping,
     updateTaskErrorBoundary,

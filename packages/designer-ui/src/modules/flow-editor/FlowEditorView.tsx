@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { useProjectStore } from '../../store/useProjectStore';
 import { ReactFlowProvider } from '@xyflow/react';
 import { AlertCircle, ArrowLeft, Loader2 } from 'lucide-react';
+import { PreviewDocumentDialog } from './components/PreviewDocumentDialog';
 import { useEditorPanelsStore } from '../../store/useEditorPanelsStore';
 import { useWorkflowStore } from '../../store/useWorkflowStore';
 import { ComponentEditorLayout } from '../../modules/save-component/components/ComponentEditorLayout';
@@ -107,6 +108,7 @@ export function FlowEditorView({
   const { propertiesPanelOpen, scriptPanelOpen } = useEditorPanelsStore();
   const { activeScript } = useScriptPanelStore();
   const [showMetadata, setShowMetadata] = useState(false);
+  const [showPreviewDoc, setShowPreviewDoc] = useState(false);
 
   const workflowMetadataResizeMetrics = useMemo(
     () => getWorkflowMetadataVerticalResizeMetrics(),
@@ -226,6 +228,7 @@ export function FlowEditorView({
         onPublish={canPublish ? handlePublish : undefined}
         publishing={publishing}
         onOpenQuickRun={onOpenQuickRun}
+        onPreviewDocument={() => setShowPreviewDoc(true)}
         registerToolbar={registerToolbar}
         saveErrorMessage={saveError?.toUserMessage().message ?? null}
         saving={saving}>
@@ -256,6 +259,11 @@ export function FlowEditorView({
         )}
         </div>
       </ComponentEditorLayout>
+      <PreviewDocumentDialog
+        open={showPreviewDoc}
+        onOpenChange={setShowPreviewDoc}
+        workflowJson={workflowJson}
+      />
     </FlowEditorSaveProvider>
   );
 }

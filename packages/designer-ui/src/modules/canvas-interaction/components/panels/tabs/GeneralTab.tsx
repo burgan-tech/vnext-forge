@@ -200,6 +200,18 @@ export function GeneralTab({ state, updateWorkflow }: GeneralTabProps) {
       )}
 
       <div>
+        <label className="text-[10px] text-muted-foreground block mb-1 font-semibold tracking-wide">Description</label>
+        <textarea
+          value={state._comment ?? ''}
+          onChange={(e) => updateField('_comment', e.target.value || undefined)}
+          placeholder="State description..."
+          rows={2}
+          aria-label="State description"
+          className="w-full px-3 py-2 text-xs border border-border rounded-xl bg-muted-surface text-foreground font-mono focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary-border focus:bg-surface transition-all resize-y"
+        />
+      </div>
+
+      <div>
         <label className="text-[10px] text-muted-foreground block mb-1 font-semibold tracking-wide">Version Strategy</label>
         <SelectField
           value={state.versionStrategy || 'Minor'}

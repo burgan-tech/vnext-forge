@@ -201,6 +201,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     vscode.commands.registerCommand('vnextForge.tools.buildReference', () =>
       projectActionsProvider.runAction('buildReference'),
     ),
+    vscode.commands.registerCommand('vnextForge.tools.generateDocs', safeAsync(() =>
+      projectActionsProvider.runAction('generateDocs'),
+    )),
     vscode.commands.registerCommand('vnextForge.tools.createProjectFromSidebar', safeAsync(() =>
       createProjectProvider.createProject(),
     )),

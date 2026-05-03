@@ -1,6 +1,7 @@
 import { ExtensionMetadataForm } from './ExtensionMetadataForm';
 import { ExtensionTaskSection } from './ExtensionTaskSection';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../ui/Card';
+import { ComponentDescriptionField } from '../../../ui/ComponentDescriptionField';
 
 interface ExtensionEditorPanelProps {
   json: Record<string, unknown>;
@@ -22,6 +23,12 @@ export function ExtensionEditorPanel({ json, onChange, onBeforeOpenModal }: Exte
         </CardHeader>
         <CardContent className="px-4 sm:px-6">
           <ExtensionMetadataForm json={json} onChange={onChange} />
+          <div className="mt-3">
+            <ComponentDescriptionField
+              value={String(json._comment || '')}
+              onChange={(value) => onChange((d) => { d._comment = value || undefined; })}
+            />
+          </div>
         </CardContent>
       </Card>
 

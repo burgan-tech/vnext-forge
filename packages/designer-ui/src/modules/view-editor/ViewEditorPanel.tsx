@@ -8,6 +8,7 @@ import {
 } from '../component-metadata';
 import { ConfirmAlertDialog } from '../../ui/AlertDialog';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../ui/Card';
+import { ComponentDescriptionField } from '../../ui/ComponentDescriptionField';
 import { Field } from '../../ui/Field';
 import { JsonCodeField } from '../../ui/JsonCodeField';
 import { TagEditor } from '../../ui/TagEditor';
@@ -127,6 +128,10 @@ export function ViewEditorPanel({ json, onChange }: ViewEditorPanelProps) {
                 onChange={(tags) => onChange((draft) => { draft.tags = tags; })}
               />
             </Field>
+            <ComponentDescriptionField
+              value={String(json._comment || '')}
+              onChange={(value) => onChange((d) => { d._comment = value || undefined; })}
+            />
           </div>
         </CardContent>
       </Card>

@@ -16,6 +16,7 @@ interface TransitionExecutionTasksSectionProps {
   onAddTask: (task: DiscoveredVnextComponent) => void;
   onRemoveTask: (taskIndex: number) => void;
   onMoveTask: (fromIndex: number, toIndex: number) => void;
+  onUpdateTaskComment?: (taskIndex: number, comment: string | undefined) => void;
   onUpdateMapping: (taskIndex: number, mapping: ScriptCode) => void;
   onRemoveMapping: (taskIndex: number) => void;
   onUpdateErrorBoundary: (taskIndex: number, eb: ErrorBoundary | undefined) => void;
@@ -31,6 +32,7 @@ export function TransitionExecutionTasksSection({
   transitionIndex,
   onRemoveTask,
   onMoveTask,
+  onUpdateTaskComment,
   onUpdateMapping,
   onRemoveMapping,
   onUpdateErrorBoundary,
@@ -63,6 +65,7 @@ export function TransitionExecutionTasksSection({
               onRemove={() => onRemoveTask(i)}
               onMoveUp={() => onMoveTask(i, i - 1)}
               onMoveDown={() => onMoveTask(i, i + 1)}
+              onUpdateComment={onUpdateTaskComment ? (c) => onUpdateTaskComment(i, c) : undefined}
               onUpdateMapping={(m) => onUpdateMapping(i, m)}
               onRemoveMapping={() => onRemoveMapping(i)}
               onUpdateErrorBoundary={(eb) => onUpdateErrorBoundary(i, eb)}
@@ -108,6 +111,7 @@ function ExecutionTaskCard({
   onRemove,
   onMoveUp,
   onMoveDown,
+  onUpdateComment,
   onUpdateMapping,
   onRemoveMapping,
   onUpdateErrorBoundary,
@@ -121,6 +125,7 @@ function ExecutionTaskCard({
   onRemove: () => void;
   onMoveUp: () => void;
   onMoveDown: () => void;
+  onUpdateComment?: (comment: string | undefined) => void;
   onUpdateMapping: (mapping: ScriptCode) => void;
   onRemoveMapping: () => void;
   onUpdateErrorBoundary: (eb: ErrorBoundary | undefined) => void;
@@ -196,6 +201,20 @@ function ExecutionTaskCard({
           </button>
         </div>
       </div>
+
+      {onUpdateComment && (
+        <div className="px-2.5 pb-2">
+          <label className="text-muted-foreground text-[10px] font-semibold mb-0.5 block">Description</label>
+          <textarea
+            value={(entry as Record<string, unknown>)._comment as string ?? ''}
+            onChange={(e) => onUpdateComment(e.target.value || undefined)}
+            placeholder="Task execution description..."
+            rows={1}
+            aria-label="Task execution description"
+            className="w-full px-2.5 py-1.5 text-xs font-mono border border-border rounded-lg bg-muted-surface text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary-border focus:bg-surface transition-all resize-y placeholder:text-subtle"
+          />
+        </div>
+      )}
 
       <CsxEditorField
         value={mapping as ScriptCode | null | undefined}

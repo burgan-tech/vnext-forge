@@ -204,6 +204,12 @@
         "icon": "$(references)"
       },
       {
+        "command": "vnextForge.tools.generateDocs",
+        "title": "Generate Documents",
+        "category": "Forge",
+        "icon": "$(book)"
+      },
+      {
         "command": "vnextForge.tools.createProjectFromSidebar",
         "title": "Create vNext Project",
         "category": "Forge",
@@ -311,6 +317,11 @@
           "group": "inline"
         },
         {
+          "command": "vnextForge.tools.generateDocs",
+          "when": "view == vnextForge.tools.project && viewItem == projectAction_generateDocs",
+          "group": "inline"
+        },
+        {
           "command": "vnextForge.tools.setActiveEnvironment",
           "when": "view == vnextForge.tools.environments && viewItem == environment",
           "group": "inline@1"
@@ -398,6 +409,10 @@
         {
           "command": "vnextForge.tools.installWfCli",
           "when": "false"
+        },
+        {
+          "command": "vnextForge.tools.generateDocs",
+          "when": "vnextForge.isVnextWorkspace"
         },
         {
           "command": "vnextForge.openQuickRun",
@@ -565,6 +580,7 @@
     "@burgan-tech/vnext-template": "^0.0.7",
     "@vnext-forge/app-contracts": "workspace:*",
     "@vnext-forge/designer-ui": "workspace:*",
+    "@vnext-forge/doc-gen": "workspace:*",
     "@vnext-forge/lsp-core": "workspace:*",
     "@vnext-forge/services-core": "workspace:*",
     "@vnext-forge/vnext-types": "workspace:*",

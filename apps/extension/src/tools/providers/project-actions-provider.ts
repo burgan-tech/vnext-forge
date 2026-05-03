@@ -1,8 +1,9 @@
 import * as vscode from 'vscode';
 import type { VnextWorkspaceDetector } from '../../workspace-detector.js';
 import type { ForgeTerminalManager } from '../forge-terminal.js';
+import { generateProjectDocumentation } from '../doc-generator.js';
 
-type ProjectActionId = 'validate' | 'buildRuntime' | 'buildReference';
+type ProjectActionId = 'validate' | 'buildRuntime' | 'buildReference' | 'generateDocs';
 
 interface ProjectAction {
   id: ProjectActionId;
@@ -34,9 +35,17 @@ const PROJECT_ACTIONS: ProjectAction[] = [
     icon: 'references',
     contextValue: 'projectAction_buildReference',
   },
+  {
+    id: 'generateDocs',
+    label: 'Generate Documents',
+    description: 'Generate Markdown documentation',
+    icon: 'book',
+    contextValue: 'projectAction_generateDocs',
+  },
 ];
 
-const TERMINAL_COMMANDS: Record<ProjectActionId, string> = {
+type TerminalActionId = Exclude<ProjectActionId, 'generateDocs'>;
+const TERMINAL_COMMANDS: Record<TerminalActionId, string> = {
   validate: 'npm run validate',
   buildRuntime: 'npm run build:runtime',
   buildReference: 'npm run build:reference',
@@ -57,8 +66,14 @@ export class ProjectActionsProvider implements vscode.TreeDataProvider<ProjectAc
     item.description = action.description;
     item.iconPath = new vscode.ThemeIcon(action.icon);
     item.contextValue = action.contextValue;
+    const commandMap: Record<ProjectActionId, string> = {
+      validate: 'vnextForge.tools.validateProject',
+      buildRuntime: 'vnextForge.tools.buildRuntime',
+      buildReference: 'vnextForge.tools.buildReference',
+      generateDocs: 'vnextForge.tools.generateDocs',
+    };
     item.command = {
-      command: `vnextForge.tools.${action.id === 'validate' ? 'validateProject' : action.id === 'buildRuntime' ? 'buildRuntime' : 'buildReference'}`,
+      command: commandMap[action.id],
       title: action.label,
     };
     return item;
@@ -69,7 +84,7 @@ export class ProjectActionsProvider implements vscode.TreeDataProvider<ProjectAc
     return PROJECT_ACTIONS.map((a) => a.id);
   }
 
-  runAction(actionId: ProjectActionId): void {
+  async runAction(actionId: ProjectActionId): Promise<void> {
     const roots = this.detector.getRoots();
     if (roots.length === 0) {
       void vscode.window.showWarningMessage('vnext-forge: No vnext workspace found.');
@@ -77,6 +92,12 @@ export class ProjectActionsProvider implements vscode.TreeDataProvider<ProjectAc
     }
 
     const cwd = roots[0].folderPath;
+
+    if (actionId === 'generateDocs') {
+      await generateProjectDocumentation(cwd);
+      return;
+    }
+
     const command = TERMINAL_COMMANDS[actionId];
     this.terminal.run(command, { cwd });
   }

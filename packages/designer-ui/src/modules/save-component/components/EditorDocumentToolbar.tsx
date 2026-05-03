@@ -1,7 +1,45 @@
-import { Play, Redo2, Rocket, Save, Undo2 } from 'lucide-react';
+import type { ReactNode } from 'react';
+import { FileText, Play, Redo2, Rocket, Save, Undo2 } from 'lucide-react';
 import { Button } from '../../../ui/Button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../../../ui/Tooltip';
 
 export type EditorDocumentToolbarArrangement = 'host-row' | 'editor-chrome';
+
+interface IconButtonProps {
+  icon: ReactNode;
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  variant?: 'default' | 'success' | 'muted' | 'ghost';
+  className?: string;
+}
+
+function IconButton({ icon, label, onClick, disabled, variant = 'muted', className }: IconButtonProps) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          type="button"
+          onClick={onClick}
+          disabled={disabled}
+          variant={variant}
+          size="icon"
+          className={`size-7 min-h-7 ${className ?? ''}`}
+          aria-label={label}>
+          {icon}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" className="text-[11px]">
+        {label}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
 
 function StatusBadge({
   isDirty,
@@ -16,7 +54,7 @@ function StatusBadge({
     return (
       <span
         className="border-warning-border bg-warning-surface text-warning-text max-w-36 truncate rounded-full border px-1.5 py-px text-[9px] font-medium leading-none"
-        title="Kaydedilmemiş değişiklikler">
+        title="Unsaved changes">
         Modified
       </span>
     );
@@ -45,22 +83,17 @@ export interface EditorDocumentToolbarProps {
   onRedo?: () => void;
   canUndo?: boolean;
   canRedo?: boolean;
-  /** Save the current file and deploy it via `wf update -f <path>`. */
   onPublish?: () => void;
   publishing?: boolean;
-  /** Opens QuickRun panel for this workflow. Only shown for flow editors. */
   onOpenQuickRun?: () => void;
+  onPreviewDocument?: () => void;
   /**
-   * - `host-row`: Web'deki sekme satırı sağı (kompakt).
-   * - `editor-chrome`: Extension webview'da panelin üst şeridi (daha geniş).
+   * - `host-row`: compact row in the web tab bar.
+   * - `editor-chrome`: wider panel chrome in extension webview.
    */
   arrangement: EditorDocumentToolbarArrangement;
 }
 
-/**
- * vNext component editörlerinde paylaşılan Save / durum / geri al çubuğu.
- * `ComponentEditorLayout` bu bileşeni hem web "host slota" hem panel içi chrome'a basar.
- */
 export function EditorDocumentToolbar({
   isDirty,
   hasSaved,
@@ -73,10 +106,11 @@ export function EditorDocumentToolbar({
   onPublish,
   publishing,
   onOpenQuickRun,
+  onPreviewDocument,
   arrangement,
 }: EditorDocumentToolbarProps) {
   const compact = arrangement === 'host-row';
-  const iconSm = compact ? 12 : 14;
+  const iconSize = compact ? 13 : 14;
 
   const savingLabel = (
     <span className="text-info-text text-[10px] font-medium">Saving…</span>
@@ -87,100 +121,112 @@ export function EditorDocumentToolbar({
       <div
         className="border-border bg-muted/30 flex items-center gap-px rounded border p-px"
         role="group"
-        aria-label="Geçmiş">
-        <Button
-          type="button"
-          onClick={onUndo}
-          disabled={!canUndo}
-          variant="muted"
-          size="sm"
-          className={compact ? 'h-6 min-h-6 min-w-6 px-0' : 'min-w-8'}
-          title="Geri al">
-          <Undo2 size={iconSm} />
-        </Button>
+        aria-label="History">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              type="button"
+              onClick={onUndo}
+              disabled={!canUndo}
+              variant="muted"
+              size="sm"
+              className={compact ? 'h-6 min-h-6 min-w-6 px-0' : 'min-w-8'}
+              aria-label="Undo">
+              <Undo2 size={iconSize} />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom" className="text-[11px]">Undo</TooltipContent>
+        </Tooltip>
         {onRedo != null ? (
-          <Button
-            type="button"
-            onClick={onRedo}
-            disabled={!canRedo}
-            variant="muted"
-            size="sm"
-            className={compact ? 'h-6 min-h-6 min-w-6 px-0' : 'min-w-8'}
-            title="Yinele">
-            <Redo2 size={iconSm} />
-          </Button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                onClick={onRedo}
+                disabled={!canRedo}
+                variant="muted"
+                size="sm"
+                className={compact ? 'h-6 min-h-6 min-w-6 px-0' : 'min-w-8'}
+                aria-label="Redo">
+                <Redo2 size={iconSize} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-[11px]">Redo</TooltipContent>
+          </Tooltip>
         ) : null}
       </div>
     ) : null;
 
-  const saveButton = (
-    <Button
-      type="button"
+  const saveBtn = (
+    <IconButton
+      icon={<Save size={iconSize} />}
+      label={saving ? 'Saving...' : 'Save (Cmd+S)'}
       onClick={onSave}
       disabled={!isDirty || saving}
       variant="success"
-      size="sm"
-      className={compact ? 'h-6 min-h-6 gap-1 px-2 text-[11px]' : ''}
-      leftIconComponent={<Save size={iconSm} />}
-      title="Save (Cmd+S)">
-      {saving ? 'Saving...' : 'Save'}
-    </Button>
+    />
   );
 
-  const quickRunButton =
-    onOpenQuickRun != null ? (
-      <Button
-        type="button"
-        onClick={onOpenQuickRun}
-        variant="muted"
-        size="sm"
-        className={compact ? 'h-6 min-h-6 gap-1 px-2 text-[11px]' : ''}
-        leftIconComponent={<Play size={iconSm} />}
-        title="Open Quick Run panel">
-        Quick Run
-      </Button>
+  const previewDocBtn =
+    onPreviewDocument != null ? (
+      <IconButton
+        icon={<FileText size={iconSize} />}
+        label="Preview Document"
+        onClick={onPreviewDocument}
+      />
     ) : null;
 
-  const publishButton =
+  const quickRunBtn =
+    onOpenQuickRun != null ? (
+      <IconButton
+        icon={<Play size={iconSize} />}
+        label="Quick Run"
+        onClick={onOpenQuickRun}
+      />
+    ) : null;
+
+  const publishBtn =
     onPublish != null ? (
-      <Button
-        type="button"
+      <IconButton
+        icon={<Rocket size={iconSize} />}
+        label={publishing ? 'Publishing...' : 'Publish'}
         onClick={onPublish}
         disabled={saving || publishing}
         variant="default"
-        size="sm"
-        className={compact ? 'h-6 min-h-6 gap-1 px-2 text-[11px]' : ''}
-        leftIconComponent={<Rocket size={iconSm} />}
-        title="Save and deploy via wf CLI">
-        {publishing ? 'Publishing...' : 'Publish'}
-      </Button>
+      />
     ) : null;
 
   if (arrangement === 'host-row') {
     return (
-      <div className="flex max-w-full shrink-0 items-center gap-1 sm:gap-1.5">
-        <StatusBadge isDirty={isDirty} hasSaved={hasSaved} compact={compact} />
-        {saving ? savingLabel : null}
-        {historyGroup}
-        {saveButton}
-        {quickRunButton}
-        {publishButton}
-      </div>
+      <TooltipProvider delayDuration={300}>
+        <div className="flex max-w-full shrink-0 items-center gap-1 sm:gap-1.5">
+          <StatusBadge isDirty={isDirty} hasSaved={hasSaved} compact={compact} />
+          {saving ? savingLabel : null}
+          {historyGroup}
+          {saveBtn}
+          {previewDocBtn}
+          {quickRunBtn}
+          {publishBtn}
+        </div>
+      </TooltipProvider>
     );
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
-      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-        <StatusBadge isDirty={isDirty} hasSaved={hasSaved} compact={false} />
-        {saving ? savingLabel : null}
+    <TooltipProvider delayDuration={300}>
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+          <StatusBadge isDirty={isDirty} hasSaved={hasSaved} compact={false} />
+          {saving ? savingLabel : null}
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
+          {historyGroup}
+          {saveBtn}
+          {previewDocBtn}
+          {quickRunBtn}
+          {publishBtn}
+        </div>
       </div>
-      <div className="flex shrink-0 items-center gap-2">
-        {historyGroup}
-        {saveButton}
-        {quickRunButton}
-        {publishButton}
-      </div>
-    </div>
+    </TooltipProvider>
   );
 }
