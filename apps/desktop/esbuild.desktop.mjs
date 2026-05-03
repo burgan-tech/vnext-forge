@@ -72,7 +72,7 @@ await esbuild.build({
 await esbuild.build({
   ...sharedOptions,
   entryPoints: [path.join(monorepoRoot, 'apps/server/src/index.ts')],
-  outfile: 'dist/server.bundle.js',
+  outfile: path.join(__dirname, 'dist/server.bundle.js'),
   plugins: [copyVendorPlugin],
   external: ['@burgan-tech/vnext-template'],
   // esbuild's `define` only accepts JS literals or identifiers, not arbitrary
