@@ -2,6 +2,7 @@ import {
   MetadataEditableTextInput,
   MetadataLockedTextInput,
 } from '../component-metadata';
+import { ComponentDescriptionField } from '../../ui/ComponentDescriptionField';
 import { Field } from '../../ui/Field';
 import { TagEditor } from '../../ui/TagEditor';
 import { TaskTypePicker } from './components/TaskTypePicker';
@@ -53,6 +54,11 @@ export function TaskMetadataForm({ json, onChange }: TaskMetadataFormProps) {
           onChange={(tags) => onChange((d) => { d.tags = tags; })}
         />
       </Field>
+
+      <ComponentDescriptionField
+        value={String(json._comment || '')}
+        onChange={(value) => onChange((d) => { d._comment = value || undefined; })}
+      />
     </div>
   );
 }

@@ -110,6 +110,18 @@ export function WorkflowTimeoutSection() {
           </div>
 
           <div>
+            <label className="text-muted-foreground text-[10px] font-semibold">Description</label>
+            <textarea
+              value={timeout._comment ?? ''}
+              onChange={(e) => updateField('_comment', e.target.value || undefined)}
+              placeholder="Timeout description..."
+              rows={2}
+              aria-label="Timeout description"
+              className={inputClass + ' resize-y'}
+            />
+          </div>
+
+          <div>
             <label className="text-muted-foreground text-[10px] font-semibold">
               Version Strategy
             </label>

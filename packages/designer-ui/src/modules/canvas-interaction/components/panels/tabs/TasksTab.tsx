@@ -185,6 +185,23 @@ export function TasksTab({
     });
   };
 
+  const updateTaskComment = (
+    listField: 'onEntries' | 'onExits',
+    index: number,
+    comment: string | undefined,
+  ) => {
+    updateWorkflow((draft: any) => {
+      const s = draft.attributes?.states?.find((s: any) => s.key === stateKey);
+      const entry = s?.[listField]?.[index];
+      if (!entry) return;
+      if (comment) {
+        entry._comment = comment;
+      } else {
+        delete entry._comment;
+      }
+    });
+  };
+
   const updateErrorBoundary = (
     listField: 'onEntries' | 'onExits',
     index: number,
@@ -245,6 +262,7 @@ export function TasksTab({
                 stateKey={stateKey}
                 onRemove={removeTask}
                 onMove={moveTask}
+                onUpdateComment={updateTaskComment}
                 onUpdateMapping={updateMapping}
                 onRemoveMapping={removeMapping}
                 onUpdateErrorBoundary={updateErrorBoundary}
@@ -295,6 +313,7 @@ export function TasksTab({
                 stateKey={stateKey}
                 onRemove={removeTask}
                 onMove={moveTask}
+                onUpdateComment={updateTaskComment}
                 onUpdateMapping={updateMapping}
                 onRemoveMapping={removeMapping}
                 onUpdateErrorBoundary={updateErrorBoundary}
@@ -341,6 +360,7 @@ function EditableTaskCard({
   stateKey,
   onRemove,
   onMove,
+  onUpdateComment,
   onUpdateMapping,
   onRemoveMapping,
   onUpdateErrorBoundary,
@@ -353,6 +373,7 @@ function EditableTaskCard({
   stateKey: string;
   onRemove: (listField: 'onEntries' | 'onExits', index: number) => void;
   onMove: (listField: 'onEntries' | 'onExits', fromIndex: number, toIndex: number) => void;
+  onUpdateComment: (listField: 'onEntries' | 'onExits', index: number, comment: string | undefined) => void;
   onUpdateMapping: (listField: 'onEntries' | 'onExits', index: number, mapping: ScriptCode) => void;
   onRemoveMapping: (listField: 'onEntries' | 'onExits', index: number) => void;
   onUpdateErrorBoundary: (listField: 'onEntries' | 'onExits', index: number, eb: ErrorBoundary | undefined) => void;
@@ -423,6 +444,19 @@ function EditableTaskCard({
             <IconTrash />
           </button>
         </div>
+      </div>
+
+      {/* Task execution description */}
+      <div className="px-3 pb-2">
+        <label className="text-muted-foreground text-[10px] font-semibold mb-0.5 block">Description</label>
+        <textarea
+          value={entry._comment ?? ''}
+          onChange={(e) => onUpdateComment(listField, index, e.target.value || undefined)}
+          placeholder="Task execution description..."
+          rows={1}
+          aria-label="Task execution description"
+          className="w-full px-2.5 py-1.5 text-xs font-mono border border-border rounded-lg bg-muted-surface text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary-border focus:bg-surface transition-all resize-y placeholder:text-subtle"
+        />
       </div>
 
       <CsxEditorField

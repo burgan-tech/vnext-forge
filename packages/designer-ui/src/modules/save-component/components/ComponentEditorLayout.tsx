@@ -19,6 +19,8 @@ export interface ComponentEditorLayoutProps {
   publishing?: boolean;
   /** Opens QuickRun panel for this workflow (flow editors only). */
   onOpenQuickRun?: () => void;
+  /** Opens the documentation preview dialog (flow editors only). */
+  onPreviewDocument?: () => void;
   children: ReactNode;
   /**
    * Dış "host"ta (yalnızca web sekme satırı) Save çubuğunu nereye takacağımız.
@@ -42,6 +44,7 @@ export function ComponentEditorLayout({
   onPublish,
   publishing,
   onOpenQuickRun,
+  onPreviewDocument,
   children,
   registerToolbar,
   surface = 'panel',
@@ -55,11 +58,13 @@ export function ComponentEditorLayout({
   const onRedoRef = useRef(onRedo);
   const onPublishRef = useRef(onPublish);
   const onOpenQuickRunRef = useRef(onOpenQuickRun);
+  const onPreviewDocumentRef = useRef(onPreviewDocument);
   onSaveRef.current = onSave;
   onUndoRef.current = onUndo;
   onRedoRef.current = onRedo;
   onPublishRef.current = onPublish;
   onOpenQuickRunRef.current = onOpenQuickRun;
+  onPreviewDocumentRef.current = onPreviewDocument;
 
   const stableOnSave = useCallback(() => {
     onSaveRef.current();
@@ -76,11 +81,15 @@ export function ComponentEditorLayout({
   const stableOnOpenQuickRun = useCallback(() => {
     onOpenQuickRunRef.current?.();
   }, []);
+  const stableOnPreviewDocument = useCallback(() => {
+    onPreviewDocumentRef.current?.();
+  }, []);
 
   const hasUndoGroup = Boolean(onUndo);
   const hasRedoButton = Boolean(onRedo);
   const hasPublish = Boolean(onPublish);
   const hasQuickRun = Boolean(onOpenQuickRun);
+  const hasPreviewDocument = Boolean(onPreviewDocument);
 
   const hostToolbar = useMemo(
     () => (
@@ -96,6 +105,7 @@ export function ComponentEditorLayout({
         onPublish={hasPublish ? stableOnPublish : undefined}
         publishing={publishing}
         onOpenQuickRun={hasQuickRun ? stableOnOpenQuickRun : undefined}
+        onPreviewDocument={hasPreviewDocument ? stableOnPreviewDocument : undefined}
         arrangement="host-row"
       />
     ),
@@ -109,12 +119,14 @@ export function ComponentEditorLayout({
       hasRedoButton,
       hasPublish,
       hasQuickRun,
+      hasPreviewDocument,
       publishing,
       stableOnSave,
       stableOnUndo,
       stableOnRedo,
       stableOnPublish,
       stableOnOpenQuickRun,
+      stableOnPreviewDocument,
     ],
   );
 
@@ -131,6 +143,7 @@ export function ComponentEditorLayout({
       onPublish={onPublish}
       publishing={publishing}
       onOpenQuickRun={onOpenQuickRun}
+      onPreviewDocument={onPreviewDocument}
       arrangement="editor-chrome"
     />
   );

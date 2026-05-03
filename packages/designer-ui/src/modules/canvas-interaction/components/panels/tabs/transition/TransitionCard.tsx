@@ -47,6 +47,7 @@ export interface TransitionCardProps {
   onAddTask: (index: number, task: DiscoveredVnextComponent) => void;
   onRemoveTask: (transitionIndex: number, taskIndex: number) => void;
   onMoveTask: (transitionIndex: number, fromIndex: number, toIndex: number) => void;
+  onUpdateTaskComment?: (transitionIndex: number, taskIndex: number, comment: string | undefined) => void;
   onUpdateTaskMapping: (transitionIndex: number, taskIndex: number, mapping: ScriptCode) => void;
   onRemoveTaskMapping: (transitionIndex: number, taskIndex: number) => void;
   onUpdateTaskErrorBoundary: (transitionIndex: number, taskIndex: number, eb: ErrorBoundary | undefined) => void;
@@ -96,6 +97,7 @@ export function TransitionCard({
   onAddTask,
   onRemoveTask,
   onMoveTask,
+  onUpdateTaskComment,
   onUpdateTaskMapping,
   onRemoveTaskMapping,
   onUpdateTaskErrorBoundary,
@@ -177,6 +179,21 @@ export function TransitionCard({
             aria-label="Transition key"
           />
         </div>
+
+        {/* Description */}
+        {policy._comment.visible && (
+          <div className="mb-2">
+            <label className="text-[10px] font-medium text-muted-foreground mb-0.5 block">Description</label>
+            <textarea
+              value={String((transition as Record<string, unknown>)._comment ?? '')}
+              onChange={(e) => onUpdate(index, '_comment', e.target.value || undefined)}
+              placeholder="Transition description..."
+              rows={2}
+              aria-label="Transition description"
+              className="w-full px-3 py-2 text-xs border border-border rounded-xl bg-muted-surface text-foreground font-mono focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary-border focus:bg-surface transition-all resize-y"
+            />
+          </div>
+        )}
 
         {/* Identity fields: stacked layout */}
         <div className="space-y-2">
@@ -264,6 +281,7 @@ export function TransitionCard({
             onAddTask={(task) => onAddTask(index, task)}
             onRemoveTask={(taskIndex) => onRemoveTask(index, taskIndex)}
             onMoveTask={(from, to) => onMoveTask(index, from, to)}
+            onUpdateTaskComment={onUpdateTaskComment ? (taskIndex, comment) => onUpdateTaskComment(index, taskIndex, comment) : undefined}
             onUpdateMapping={(taskIndex, mapping) => onUpdateTaskMapping(index, taskIndex, mapping)}
             onRemoveMapping={(taskIndex) => onRemoveTaskMapping(index, taskIndex)}
             onUpdateErrorBoundary={(taskIndex, eb) => onUpdateTaskErrorBoundary(index, taskIndex, eb)}

@@ -13,6 +13,7 @@
   "references": [
     { "path": "../vnext-types" },
     { "path": "../app-contracts" },
-    { "path": "../services-core" }
+    { "path": "../services-core" },
+    { "path": "../doc-gen" }
   ]
 }

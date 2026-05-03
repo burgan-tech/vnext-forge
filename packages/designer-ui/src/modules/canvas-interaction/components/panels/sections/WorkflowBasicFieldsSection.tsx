@@ -1,5 +1,6 @@
 import { Plus, Trash2, X, Tag, Globe } from 'lucide-react';
 import { useWorkflowStore } from '../../../../../store/useWorkflowStore';
+import { ComponentDescriptionField } from '../../../../../ui/ComponentDescriptionField';
 
 const inputClass =
   'w-full px-2.5 py-1.5 text-xs font-mono border border-border rounded-lg bg-muted-surface text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary-border focus:bg-surface transition-all placeholder:text-subtle';
@@ -119,19 +120,10 @@ export function WorkflowBasicFieldsSection() {
         </div>
       </div>
 
-      {/* Comment */}
-      <div>
-        <label className="text-muted-foreground mb-1 block text-[10px] font-semibold tracking-wide">
-          Documentation
-        </label>
-        <textarea
-          value={wf._comment || ''}
-          onChange={(e) => updateRoot('_comment', e.target.value)}
-          placeholder="Workflow description (markdown)"
-          rows={3}
-          className="border-border bg-muted-surface text-foreground focus:ring-ring/20 focus:border-primary-border focus:bg-surface placeholder:text-subtle w-full resize-y rounded-xl border px-2.5 py-2 font-mono text-xs transition-all focus:ring-2 focus:outline-none"
-        />
-      </div>
+      <ComponentDescriptionField
+        value={wf._comment || ''}
+        onChange={(value) => updateRoot('_comment', value)}
+      />
 
       {/* Tags */}
       <div>
