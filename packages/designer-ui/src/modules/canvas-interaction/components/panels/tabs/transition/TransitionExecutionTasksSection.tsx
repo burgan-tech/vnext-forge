@@ -206,7 +206,7 @@ function ExecutionTaskCard({
         <div className="px-2.5 pb-2">
           <label className="text-muted-foreground text-[10px] font-semibold mb-0.5 block">Description</label>
           <textarea
-            value={(entry as Record<string, unknown>)._comment as string ?? ''}
+            value={(entry as unknown as Record<string, unknown>)._comment as string ?? ''}
             onChange={(e) => onUpdateComment(e.target.value || undefined)}
             placeholder="Task execution description..."
             rows={1}

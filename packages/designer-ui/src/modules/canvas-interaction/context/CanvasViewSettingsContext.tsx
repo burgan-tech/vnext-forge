@@ -35,7 +35,7 @@ function applyThemeModeIfValid(themeMode: unknown): void {
 
 function readInitialSettings(): CanvasViewSettings {
   try {
-    const config = (window as Record<string, unknown>).__VNEXT_CONFIG__ as
+    const config = (window as unknown as Record<string, unknown>).__VNEXT_CONFIG__ as
       | Record<string, unknown>
       | undefined;
     if (!config) return defaultSettings;
