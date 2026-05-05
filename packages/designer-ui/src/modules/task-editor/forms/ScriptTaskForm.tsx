@@ -4,7 +4,8 @@ import { FileCode, Plus } from 'lucide-react';
 
 import { ScriptEditorPanel } from '../../code-editor/layout/ScriptEditorPanel';
 import type { ScriptCode } from '../../code-editor/CodeEditorTypes';
-import { decodeFromBase64, encodeToBase64, isBase64 } from '../../code-editor/editor/Base64Handler';
+import { encodeToBase64, isBase64 } from '../../code-editor/editor/Base64Handler';
+import { decodeScriptCode } from '../../code-editor/editor/ScriptCodec';
 import { generateTemplate } from '../../code-editor/editor/CsxTemplates';
 import { getScriptLocationError } from '../../code-editor/ScriptLocationValidation';
 import { readFile } from '../../project-workspace/WorkspaceApi';
@@ -37,12 +38,8 @@ function taskScriptBodyMatchesDiskFile(config: Record<string, unknown>, fileText
   if (!rawStr) {
     return disk.length === 0;
   }
-  let body: string;
-  if (config.encoding === 'B64' || isBase64(rawStr)) {
-    body = normalizeCsxText(decodeFromBase64(rawStr));
-  } else {
-    body = normalizeCsxText(rawStr);
-  }
+  const encoding = config.encoding === 'NAT' ? 'NAT' : (isBase64(rawStr) ? 'B64' : undefined);
+  const body = normalizeCsxText(decodeScriptCode(rawStr, encoding));
   return body === disk;
 }
 
@@ -50,6 +47,9 @@ function configToScriptCode(config: Record<string, unknown>): ScriptCode {
   const raw = config.script;
   const rawStr = typeof raw === 'string' ? raw : '';
   const location = typeof config.location === 'string' ? config.location : '';
+  if (config.encoding === 'NAT') {
+    return { location, code: rawStr, encoding: 'NAT' };
+  }
   if (!rawStr) {
     return { location, code: encodeToBase64(''), encoding: 'B64' };
   }
@@ -84,7 +84,8 @@ export function ScriptTaskForm({ config, onChange }: Props) {
   const [phase, setPhase] = useState<'pick' | 'edit'>(() => {
     const loc = String(config.location ?? '');
     const hasScript = Boolean(config.script);
-    return !getScriptLocationError(loc) && hasScript ? 'edit' : 'pick';
+    const isNat = config.encoding === 'NAT';
+    return (isNat || !getScriptLocationError(loc)) && hasScript ? 'edit' : 'pick';
   });
   const [pickLocked, setPickLocked] = useState(false);
   const [listQuery, setListQuery] = useState('');
@@ -120,12 +121,13 @@ export function ScriptTaskForm({ config, onChange }: Props) {
     if (pickLocked) return;
     const loc = String(config.location ?? '');
     const hasScript = Boolean(config.script);
-    if (!getScriptLocationError(loc) && hasScript) {
+    const isNat = config.encoding === 'NAT';
+    if ((isNat || !getScriptLocationError(loc)) && hasScript) {
       setPhase('edit');
     } else {
       setPhase('pick');
     }
-  }, [filePath, scriptRaw, scriptLoc, pickLocked, config.script, config.location]);
+  }, [filePath, scriptRaw, scriptLoc, scriptEnc, pickLocked, config.script, config.location, config.encoding]);
 
   useEffect(() => {
     if (phase === 'edit' && prevPhaseRef.current !== 'edit') {
@@ -174,6 +176,7 @@ export function ScriptTaskForm({ config, onChange }: Props) {
 
   useEffect(() => {
     if (phase !== 'edit' || pickLocked || !filePath) return;
+    if (config.encoding === 'NAT') return;
     const loc = String(config.location ?? '');
     if (getScriptLocationError(loc)) return;
     const key = `${filePath}\0${loc}`;

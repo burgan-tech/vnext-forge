@@ -1,7 +1,12 @@
 import type { ReactNode } from 'react';
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useWorkflowStore } from '../../../../store/useWorkflowStore';
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '../../../../ui/Resizable.js';
+import {
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+  usePanelRef,
+} from '../../../../ui/Resizable.js';
 import {
   getStateTypeLabel,
   getStateTypeColor,
@@ -16,7 +21,7 @@ import { TransitionsTab } from './tabs/TransitionsTab';
 import { SubFlowTab } from './tabs/SubFlowTab';
 import { ErrorBoundaryTab } from './tabs/ErrorBoundaryTab';
 import { StartNodePanel } from './tabs/StartNodePanel';
-import { MousePointer2, X } from 'lucide-react';
+import { MousePointer2, PanelRightOpen, X } from 'lucide-react';
 
 type Tab = 'general' | 'tasks' | 'transitions' | 'subflow' | 'error-boundary';
 
@@ -41,6 +46,9 @@ export function WorkflowPropertySidebarResizableRow({
   canvas: ReactNode;
   sidePanel: ReactNode;
 }) {
+  const propertiesPanelRef = usePanelRef();
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
   const defaultLayout = useMemo(() => {
     const { minSize, maxSize } = statePropertyPanelResizableProps;
     if (typeof window === 'undefined') {
@@ -60,6 +68,16 @@ export function WorkflowPropertySidebarResizableRow({
     } as const;
   }, []);
 
+  const handlePropertiesResize = useCallback(() => {
+    const api = propertiesPanelRef.current;
+    if (!api) return;
+    setIsCollapsed(api.isCollapsed());
+  }, [propertiesPanelRef]);
+
+  const handleExpand = useCallback(() => {
+    propertiesPanelRef.current?.expand();
+  }, [propertiesPanelRef]);
+
   return (
     <ResizablePanelGroup
       className="flex h-full min-h-0 w-full flex-1"
@@ -70,11 +88,23 @@ export function WorkflowPropertySidebarResizableRow({
         id={FLOW_EDITOR_CANVAS_PANEL_ID}
         minSize="35%">
         {canvas}
+        {isCollapsed && (
+          <button
+            type="button"
+            onClick={handleExpand}
+            className="bg-surface/90 border-border-subtle text-muted-foreground hover:bg-secondary-muted hover:text-secondary-icon hover:border-secondary-border absolute top-1/2 right-2 z-30 flex size-8 -translate-y-1/2 items-center justify-center rounded-lg border shadow-sm backdrop-blur-sm transition-all"
+            title="Show properties panel"
+            aria-label="Show properties panel">
+            <PanelRightOpen size={16} />
+          </button>
+        )}
       </ResizablePanel>
       <ResizableHandle className="aria-[orientation=vertical]:before:right-0! aria-[orientation=vertical]:before:left-auto!" />
       <ResizablePanel
         className="bg-surface/80 flex min-h-0 min-w-0 flex-col overflow-hidden shadow-[-4px_0_16px_rgba(0,0,0,0.03)] backdrop-blur-sm"
         id={FLOW_EDITOR_PROPERTIES_PANEL_ID}
+        panelRef={propertiesPanelRef}
+        onResize={handlePropertiesResize}
         {...statePropertyPanelResizableProps}>
         {sidePanel}
       </ResizablePanel>

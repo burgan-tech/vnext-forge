@@ -1,20 +1,16 @@
 import { useCallback, useMemo } from 'react';
-import { encodeToBase64, decodeFromBase64 } from '../../../modules/code-editor/editor/Base64Handler';
+import { encodeToBase64 } from '../../../modules/code-editor/editor/Base64Handler';
+import { decodeScriptCode } from '../../../modules/code-editor/editor/ScriptCodec';
 import { generateTemplate, type TemplateType } from '../../../modules/code-editor/editor/CsxTemplates';
 import { useScriptPanelStore, type ActiveScript } from '../../../modules/code-editor/ScriptPanelStore';
 import { useEditorPanelsStore } from '../../../store/useEditorPanelsStore';
 import type { CsxTaskType } from '../../../modules/code-editor/editor/CsxContext';
+import type { ScriptCode } from '../../../modules/code-editor/CodeEditorTypes';
 import { Code2, Plus, Trash2, ExternalLink } from 'lucide-react';
 
 /* ────────────── Types ────────────── */
 
-export interface ScriptCode {
-  location: string;
-  code: string;
-  encoding?: string;
-}
-
-export type { TemplateType };
+export type { ScriptCode, TemplateType };
 
 interface CsxEditorFieldProps {
   value: ScriptCode | null | undefined;
@@ -54,8 +50,8 @@ export function CsxEditorField({
 
   const decoded = useMemo(() => {
     if (!value?.code) return '';
-    return decodeFromBase64(value.code);
-  }, [value?.code]);
+    return decodeScriptCode(value.code, value.encoding);
+  }, [value?.code, value?.encoding]);
 
   // Preview: first 3 non-empty lines of the script
   const previewLines = useMemo(() => {
@@ -80,7 +76,42 @@ export function CsxEditorField({
     };
     onChange(newValue);
 
-    // Open in bottom panel immediately
+    const script: ActiveScript = {
+      stateKey,
+      listField,
+      index,
+      scriptField,
+      value: newValue,
+      templateType,
+      label: label || templateType,
+      contextName,
+      taskType,
+    };
+    openScript(script);
+    setScriptPanelOpen(true);
+  }, [
+    templateType,
+    contextName,
+    taskType,
+    onChange,
+    stateKey,
+    listField,
+    index,
+    scriptField,
+    label,
+    openScript,
+    setScriptPanelOpen,
+  ]);
+
+  const handleCreateNat = useCallback(() => {
+    const { code } = generateTemplate(templateType, contextName, taskType);
+    const newValue: ScriptCode = {
+      location: '',
+      code,
+      encoding: 'NAT',
+    };
+    onChange(newValue);
+
     const script: ActiveScript = {
       stateKey,
       listField,
@@ -144,15 +175,24 @@ export function CsxEditorField({
     activeScript?.index === index &&
     activeScript?.scriptField === scriptField;
 
-  /* ── No script → Create button ── */
+  /* ── No script → Create buttons ── */
   if (!value || !value.code) {
     return (
-      <div className="mt-2">
+      <div className="mt-2 flex flex-col gap-1.5">
         <button
+          type="button"
           onClick={handleCreate}
           className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-primary-border px-3 py-2.5 text-[12px] font-semibold text-primary-text transition-all hover:border-primary-border-hover hover:bg-primary-hover">
           <Plus size={14} />
           <span>Create {label || templateType}</span>
+        </button>
+        <button
+          type="button"
+          onClick={handleCreateNat}
+          title="Script stored inline in the workflow file (not a separate .csx path)"
+          className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border-subtle px-3 py-1.5 text-[11px] font-medium text-muted-foreground transition-all hover:border-primary-border hover:text-primary-text">
+          <Code2 size={12} />
+          <span>Create Native Script</span>
         </button>
       </div>
     );
@@ -184,6 +224,9 @@ export function CsxEditorField({
         </div>
         <span className="flex-1 truncate font-mono text-[11px] font-medium text-foreground">
           {value.location || label || templateType}
+        </span>
+        <span className="shrink-0 rounded bg-muted px-1 py-0.5 font-mono text-[9px] font-medium uppercase tracking-wide text-muted-foreground">
+          {value.encoding === 'NAT' ? 'NAT' : 'B64'}
         </span>
         <span className="shrink-0 font-mono text-[10px] text-muted-foreground tabular-nums">
           {lineCount}L

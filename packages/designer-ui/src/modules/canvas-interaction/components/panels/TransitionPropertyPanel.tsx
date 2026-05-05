@@ -16,10 +16,11 @@ import { useTransitionDialogs, TransitionDialogsHost } from './tabs/transition/T
 
 function parseEdgeId(edgeId: string): { sourceKey: string; transitionKey: string } | null {
   const arrowIdx = edgeId.indexOf('->');
-  const colonIdx = edgeId.indexOf('::');
   if (arrowIdx < 0) return null;
   const sourceKey = edgeId.substring(0, arrowIdx);
-  const transitionKey = colonIdx >= 0 ? edgeId.substring(colonIdx + 2) : edgeId;
+  // Use the last '::' separator to extract transitionKey (handles nested '::' in $self virtual ids)
+  const lastColonIdx = edgeId.lastIndexOf('::');
+  const transitionKey = lastColonIdx >= 0 ? edgeId.substring(lastColonIdx + 2) : edgeId;
   return { sourceKey, transitionKey };
 }
 
@@ -68,7 +69,26 @@ export function TransitionPropertyPanel() {
     [sourceKey, isStartTransition],
   );
 
-  const mutations = useTransitionMutations(findTransition);
+  const rawMutations = useTransitionMutations(findTransition);
+
+  const updateTransitionWithEdgeSync = useCallback(
+    (index: number, field: string, value: unknown) => {
+      rawMutations.updateTransition(index, field, value);
+      if (field === 'key' && typeof value === 'string' && selectedEdgeId) {
+        const lastSep = selectedEdgeId.lastIndexOf('::');
+        if (lastSep >= 0) {
+          setSelectedEdge(selectedEdgeId.substring(0, lastSep + 2) + value);
+        }
+      }
+    },
+    [rawMutations, selectedEdgeId, setSelectedEdge],
+  );
+
+  const mutations = useMemo(
+    () => ({ ...rawMutations, updateTransition: updateTransitionWithEdgeSync }),
+    [rawMutations, updateTransitionWithEdgeSync],
+  );
+
   const { dialogState, ...openers } = useTransitionDialogs();
 
   const getTransitions = useCallback((): Transition[] => {

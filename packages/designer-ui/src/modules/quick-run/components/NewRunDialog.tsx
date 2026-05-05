@@ -93,7 +93,7 @@ export function NewRunDialog({ open, onClose, configRef, persistConfig }: NewRun
           domain,
           workflowKey,
           environmentName,
-          label: workflowKey,
+          label: result.data.key || result.data.id.slice(0, 8),
         });
 
         void pollState({

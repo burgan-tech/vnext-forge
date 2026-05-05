@@ -90,13 +90,67 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
     [config.retryCount, config.intervalMs],
   );
 
+  /**
+   * Single-shot state fetch (no retry loop). Used when switching between
+   * already-opened instance tabs to refresh activeState + stateView.
+   */
+  const fetchInstanceState = useCallback(
+    async (params: {
+      domain: string;
+      workflowKey: string;
+      instanceId: string;
+      headers?: Record<string, string>;
+    }) => {
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      const {
+        setActiveState,
+        setActiveStateLoading,
+        updateInstanceState,
+        setStateView,
+        setStateViewError,
+      } = store.getState();
+
+      setActiveStateLoading(true);
+      setStateView(null);
+      setStateViewError(false);
+
+      let response;
+      try {
+        response = await QuickRunApi.getState(params);
+      } catch {
+        setActiveStateLoading(false);
+        return null;
+      }
+      if (controller.signal.aborted) return null;
+
+      if (response.success) {
+        const stateData = response.data;
+        setActiveState(stateData);
+        updateInstanceState(params.instanceId, stateData);
+        setActiveStateLoading(false);
+
+        if (stateData.view?.hasView && (stateData.status === 'A' || stateData.status === 'C')) {
+          void fetchStateView(params, controller.signal);
+        }
+        return stateData;
+      }
+
+      setActiveStateLoading(false);
+      return null;
+    },
+    [],
+  );
+
   const cancelPolling = useCallback(() => {
     abortRef.current?.abort();
     abortRef.current = null;
     store.getState().setPollingInstanceId(null);
   }, []);
 
-  return { pollState, cancelPolling };
+  return { pollState, fetchInstanceState, cancelPolling };
 }
 
 async function fetchStateView(

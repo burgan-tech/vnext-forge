@@ -13,7 +13,7 @@ export function getStateTypeLabel(t: number): string {
 
 export function getStateTypeColor(t: number): string {
   switch (t) {
-    case 1: return 'bg-emerald-100 text-emerald-700';
+    case 1: return 'bg-cyan-100 text-cyan-700';
     case 2: return 'bg-indigo-100 text-indigo-700';
     case 3: return 'bg-slate-100 text-slate-700';
     case 4: return 'bg-violet-100 text-violet-700';
@@ -30,6 +30,8 @@ export function getSubTypeLabel(t: number): string {
     case 4: return 'Suspended';
     case 5: return 'Busy';
     case 6: return 'Human';
+    case 7: return 'Cancelled';
+    case 8: return 'Timeout';
     default: return '';
   }
 }
@@ -42,6 +44,8 @@ export function getSubTypeBadge(t: number): string {
     case 4: return 'bg-yellow-100 text-yellow-700';
     case 5: return 'bg-sky-100 text-sky-700';
     case 6: return 'bg-indigo-100 text-indigo-700';
+    case 7: return 'bg-rose-100 text-rose-700';
+    case 8: return 'bg-amber-100 text-amber-700';
     default: return 'bg-slate-100 text-slate-600';
   }
 }

@@ -21,6 +21,8 @@ interface TransitionEdgeData {
   triggerType?: number;
   triggerKind?: number;
   isShared?: boolean;
+  isSelfLoop?: boolean;
+  isSelfKeyword?: boolean;
   waypoints?: Waypoint[];
   [key: string]: unknown;
 }
@@ -160,6 +162,7 @@ export const TransitionEdge = memo(function TransitionEdge(props: EdgeProps) {
   const triggerType = d.triggerType ?? 0;
   const triggerKind = d.triggerKind ?? 0;
   const isShared = d.isShared ?? false;
+  const isSelfLoop = d.isSelfLoop ?? false;
   const waypoints: Waypoint[] = d.waypoints ?? [];
 
   const { settings } = useCanvasViewSettings();
@@ -173,7 +176,22 @@ export const TransitionEdge = memo(function TransitionEdge(props: EdgeProps) {
   let labelX: number;
   let labelY: number;
 
-  if (hasWaypoints) {
+  if (isSelfLoop) {
+    // Oval loopback from the top-right of the node back to the bottom-right
+    const loopW = 70;
+    const loopH = 45;
+    edgePath = [
+      `M ${sourceX} ${sourceY - 12}`,
+      `C ${sourceX + loopW * 0.6} ${sourceY - loopH - 20},`,
+      `  ${sourceX + loopW + 10} ${sourceY - loopH + 5},`,
+      `  ${sourceX + loopW} ${sourceY}`,
+      `C ${sourceX + loopW + 10} ${sourceY + loopH - 5},`,
+      `  ${sourceX + loopW * 0.6} ${sourceY + loopH + 20},`,
+      `  ${sourceX} ${sourceY + 12}`,
+    ].join(' ');
+    labelX = sourceX + loopW + 16;
+    labelY = sourceY;
+  } else if (hasWaypoints) {
     const result = buildWaypointPath(sourceX, sourceY, targetX, targetY, waypoints);
     edgePath = result.path;
     labelX = result.labelX;
@@ -337,7 +355,7 @@ export const TransitionEdge = memo(function TransitionEdge(props: EdgeProps) {
         path={edgePath}
         style={{
           stroke: color,
-          strokeWidth: selected ? 2.5 : 1.5,
+          strokeWidth: selected ? 3 : 2,
           strokeDasharray: dash,
           transition: 'stroke-width 0.15s ease',
         }}

@@ -173,7 +173,7 @@
   --color-filetype-python: #2563eb; /* blue-600 */
 
   /* ── Node state colors ── */
-  --color-initial: #10b981;
+  --color-initial: #06b6d4;
   --color-intermediate: #6366f1;
   --color-final-success: #22c55e;
   --color-final-error: #f43f5e;
@@ -412,6 +412,12 @@ html.dark {
   --color-brand-surface-status-danger: #450a0a; /* red-950 */
   --color-brand-surface-status-danger-border: #f87171;
   --color-brand-surface-status-danger-foreground: #fee2e2;
+
+  /* ── Edge / transition colors — brighter for dark canvas ── */
+  --color-final-terminated: #94a3b8; /* slate-400 */
+  --color-trigger-auto: #34d399; /* emerald-400 */
+  --color-trigger-scheduled: #fbbf24; /* amber-400 */
+  --color-trigger-event: #a78bfa; /* violet-400 */
 }
 
 /* ── Dark mode: scrollbar — yüzey üzerinde görünür ama gürültüsüz ── */

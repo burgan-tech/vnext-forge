@@ -133,7 +133,8 @@ export class QuickRunPanel {
 
   private postHealthToWebview(status: 'healthy' | 'unhealthy' | 'unknown'): void {
     if (!this.panel || !this.webviewReady) return;
-    void this.panel.webview.postMessage({ type: 'quickrun:health', status });
+    const runtimeDomain = this.healthMonitor?.getRuntimeDomain() ?? undefined;
+    void this.panel.webview.postMessage({ type: 'quickrun:health', status, runtimeDomain });
   }
 
   private sendContext(ctx: QuickRunContext): void {

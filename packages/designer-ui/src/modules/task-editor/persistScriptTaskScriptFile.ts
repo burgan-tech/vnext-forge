@@ -1,17 +1,10 @@
 import { isFailure, success, type ApiResponse } from '@vnext-forge/app-contracts';
 
-import { decodeFromBase64, isBase64 } from '../code-editor/editor/Base64Handler.js';
+import { decodeScriptCode } from '../code-editor/editor/ScriptCodec.js';
 import { readOptionalFile, writeFile } from '../project-workspace/WorkspaceApi.js';
 import { resolveTaskScriptAbsolutePath } from './scriptTaskPaths.js';
 
 const SCRIPT_TASK_TYPE = '5';
-
-function decodeConfigScript(script: string, encoding: unknown): string {
-  if (encoding === 'B64' || isBase64(script)) {
-    return decodeFromBase64(script);
-  }
-  return script;
-}
 
 /**
  * For script tasks (type 5), writes base64 script body from `config` to disk.
@@ -34,7 +27,7 @@ export async function persistScriptTaskScriptFile(
   }
 
   const resolved = resolveTaskScriptAbsolutePath(taskJsonPath, location);
-  const source = decodeConfigScript(scriptRaw, config.encoding);
+  const source = decodeScriptCode(scriptRaw, config.encoding as string | undefined);
 
   const prior = await readOptionalFile(resolved);
   const created = prior === null;

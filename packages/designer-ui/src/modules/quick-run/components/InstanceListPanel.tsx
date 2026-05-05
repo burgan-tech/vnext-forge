@@ -52,7 +52,7 @@ export function InstanceListPanel() {
       domain: item.domain,
       workflowKey: item.flow,
       environmentName,
-      label: item.flow,
+      label: item.key || item.id.slice(0, 8),
     });
     void pollState({
       domain: item.domain,

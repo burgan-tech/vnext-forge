@@ -167,22 +167,63 @@ export function workflowToReactFlow(
     if (state.transitions) {
       for (const t of state.transitions) {
         let target = getTransitionTarget(t);
-        // Resolve $self to the current state key (self-loop)
-        if (target === '$self') target = state.key;
-        if (target) {
+        const isSelfKeyword = target === '$self';
+
+        if (isSelfKeyword) {
+          // Create a virtual $self node connected to the source state
+          const virtualId = `${state.key}::$self::${t.key}`;
+          const sourcePos = diagram.nodePos?.[state.key] || { x: 200, y: 200 };
+          nodes.push({
+            id: virtualId,
+            type: 'selfRefNode',
+            position: { x: (sourcePos.x ?? 200) + 180, y: (sourcePos.y ?? 200) + 60 },
+            data: { label: `$self (${state.key})` },
+            selectable: false,
+            deletable: false,
+          });
           edges.push({
-            id: `${state.key}->${target}::${t.key}`,
+            id: `${state.key}->${virtualId}::${t.key}`,
             source: state.key,
-            target: target,
+            target: virtualId,
             type: getEdgeType(t.triggerType),
             data: {
               label: getTransitionLabel(t),
               transitionKey: t.key,
               triggerType: t.triggerType || 0,
               triggerKind: t.triggerKind || 0,
-              isSelfRef: t.target === '$self' || target === state.key,
+              isSelfKeyword: true,
             },
           });
+        } else {
+          if (target === state.key) {
+            // Explicit self-loop (target equals own state key)
+            edges.push({
+              id: `${state.key}->${target}::${t.key}`,
+              source: state.key,
+              target: target,
+              type: getEdgeType(t.triggerType),
+              data: {
+                label: getTransitionLabel(t),
+                transitionKey: t.key,
+                triggerType: t.triggerType || 0,
+                triggerKind: t.triggerKind || 0,
+                isSelfLoop: true,
+              },
+            });
+          } else if (target) {
+            edges.push({
+              id: `${state.key}->${target}::${t.key}`,
+              source: state.key,
+              target: target,
+              type: getEdgeType(t.triggerType),
+              data: {
+                label: getTransitionLabel(t),
+                transitionKey: t.key,
+                triggerType: t.triggerType || 0,
+                triggerKind: t.triggerKind || 0,
+              },
+            });
+          }
         }
       }
     }

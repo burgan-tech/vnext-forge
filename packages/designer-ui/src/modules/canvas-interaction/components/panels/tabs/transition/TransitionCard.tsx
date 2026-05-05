@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { Transition, RoleGrant, ViewBinding, ErrorBoundary } from '@vnext-forge/vnext-types';
 import type { ScriptCode } from '../../../../../../modules/save-component/components/CsxEditorField';
 import type { SchemaReference } from '../../../../../../modules/save-component/components/SchemaReferenceField';
@@ -77,6 +77,41 @@ export interface TransitionCardProps {
 
 const selectClass =
   'w-full px-3 py-2 text-xs border border-border rounded-xl bg-muted-surface text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary-border focus:bg-surface transition-all cursor-pointer';
+
+function TransitionKeyInput({ value, onCommit }: { value: string; onCommit: (v: string) => void }) {
+  const [local, setLocal] = useState(value);
+  const committedRef = useRef(value);
+
+  useEffect(() => {
+    if (value !== committedRef.current) {
+      committedRef.current = value;
+      setLocal(value);
+    }
+  }, [value]);
+
+  const commit = () => {
+    if (local !== committedRef.current) {
+      committedRef.current = local;
+      onCommit(local);
+    }
+  };
+
+  return (
+    <div className="mb-2">
+      <label className="text-[10px] font-medium text-muted-foreground mb-0.5 block">Key</label>
+      <input
+        type="text"
+        value={local}
+        onChange={(e) => setLocal(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => { if (e.key === 'Enter') commit(); }}
+        placeholder="e.g. approve-to-review"
+        className="w-full px-3 py-2 text-xs border border-border rounded-xl bg-muted-surface text-foreground font-mono focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary-border focus:bg-surface transition-all"
+        aria-label="Transition key"
+      />
+    </div>
+  );
+}
 
 export function TransitionCard({
   transition,
@@ -167,18 +202,11 @@ export function TransitionCard({
       {expanded && (
         <>
       <div className="px-3 pb-2.5">
-        {/* Editable key */}
-        <div className="mb-2">
-          <label className="text-[10px] font-medium text-muted-foreground mb-0.5 block">Key</label>
-          <input
-            type="text"
-            value={transition.key}
-            onChange={(e) => onUpdate(index, 'key', e.target.value)}
-            placeholder="e.g. approve-to-review"
-            className="w-full px-3 py-2 text-xs border border-border rounded-xl bg-muted-surface text-foreground font-mono focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary-border focus:bg-surface transition-all"
-            aria-label="Transition key"
-          />
-        </div>
+        {/* Editable key — committed on blur/Enter to avoid re-render cascade */}
+        <TransitionKeyInput
+          value={transition.key}
+          onCommit={(v) => onUpdate(index, 'key', v)}
+        />
 
         {/* Description */}
         {policy._comment.visible && (

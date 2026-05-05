@@ -4,25 +4,25 @@ overview: Add NAT (Native) encoding support to the CSX editor pipeline so that w
 todos:
   - id: codec-module
     content: Create ScriptCodec.ts — pure encoding-aware decode/encode helpers
-    status: pending
+    status: completed
   - id: tighten-type
     content: Tighten ScriptCode.encoding type from string to 'B64' | 'NAT'; remove duplicate in CsxEditorField
-    status: pending
+    status: completed
   - id: panel-update
     content: Update ScriptEditorPanel for encoding-aware read/write + conditional location + status bar indicator
-    status: pending
+    status: completed
   - id: field-update
     content: "Update CsxEditorField: NAT creation, encoding badge, codec-based preview"
-    status: pending
+    status: completed
   - id: save-pipeline
     content: "Update FlowEditorSchema + FlowEditorApi: NAT-aware sidecar extraction, optional location"
-    status: pending
+    status: completed
   - id: task-editor
     content: Align ScriptTaskForm and persistScriptTaskScriptFile with unified codec
-    status: pending
+    status: completed
   - id: closing-review
     content: Dispatch code-reviewer and ui-ux-designer for spec/a11y conformance
-    status: pending
+    status: completed
 isProject: false
 ---
 
