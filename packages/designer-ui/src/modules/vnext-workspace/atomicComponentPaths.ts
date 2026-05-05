@@ -9,7 +9,7 @@ function norm(p: string): string {
 
 type AtomicCategoryFolder = 'tasks' | 'schemas' | 'views' | 'functions' | 'extensions';
 
-/** Build absolute `.json` path for an atomic component (`group` may be VNEXT_ATOMIC_FLAT_GROUP). */
+/** Build absolute `.json` path for an atomic component (`group` may be empty or VNEXT_ATOMIC_FLAT_GROUP for flat layout). */
 export function buildAtomicComponentJsonPath(
   projectRoot: string,
   paths: VnextWorkspacePaths,
@@ -21,7 +21,7 @@ export function buildAtomicComponentJsonPath(
   const cr = norm(String(paths.componentsRoot || ''));
   const sub = norm(String(paths[category] || ''));
   const base = norm(`${root}/${cr}/${sub}`);
-  if (group === VNEXT_ATOMIC_FLAT_GROUP) {
+  if (!group || group === VNEXT_ATOMIC_FLAT_GROUP) {
     return `${base}/${name}.json`;
   }
   return `${base}/${group}/${name}.json`;

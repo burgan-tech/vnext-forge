@@ -20,6 +20,7 @@ export function ContextPanel() {
   const domain = useQuickRunStore((s) => s.domain);
   const workflowKey = useQuickRunStore((s) => s.workflowKey);
   const globalHeaders = useQuickRunStore((s) => s.globalHeaders);
+  const activeStateLoading = useQuickRunStore((s) => s.activeStateLoading);
 
   const activeView = useQuickRunStore((s) => s.activeView);
   const activeViewLoading = useQuickRunStore((s) => s.activeViewLoading);
@@ -97,6 +98,16 @@ export function ContextPanel() {
       case 'history': loadHistory(); break;
     }
   }, [contextPanelTab, activeTabId, loadData, loadView, loadHistory]);
+
+  const prevStateLoadingRef = useRef(activeStateLoading);
+  useEffect(() => {
+    const wasLoading = prevStateLoadingRef.current;
+    prevStateLoadingRef.current = activeStateLoading;
+    if (wasLoading && !activeStateLoading && activeTabId) {
+      if (contextPanelTab === 'history') loadHistory();
+      if (contextPanelTab === 'data') loadData();
+    }
+  }, [activeStateLoading, activeTabId, contextPanelTab, loadHistory, loadData]);
 
   if (!activeTabId) {
     return (

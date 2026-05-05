@@ -1,16 +1,17 @@
 {
   "name": "vnext-forge",
-  "displayName": "vnext-forge",
-  "description": "Workflow designer for the vnext engine ecosystem",
+  "displayName": "vNext Forge Extensions",
+  "description": "Workflow designer for the vNext engine ecosystem",
   "version": "0.1.0",
   "publisher": "burgan-tech",
-  "icon": "media/forge-tools.svg",
+  "icon": "media/forge-tools.png",
   "private": true,
   "engines": {
     "vscode": "^1.85.0"
   },
   "categories": [
-    "Other"
+    "Other",
+    "Visualization"
   ],
   "activationEvents": [
     "workspaceContains:vnext.config.json",
@@ -436,32 +437,32 @@
         },
         {
           "command": "vnextForge.forgeCreateWorkflow",
-          "when": "vnextForge.isVnextWorkspace && explorerResourceIsFolder && resourcePath =~ /[\\\\/]Workflows[\\\\/][^\\\\/]+$/",
+          "when": "vnextForge.isVnextWorkspace && explorerResourceIsFolder && resourcePath =~ /[\\\\/]Workflows([\\\\/][^\\\\/]+)?$/",
           "group": "1forge@5"
         },
         {
           "command": "vnextForge.forgeCreateTask",
-          "when": "vnextForge.isVnextWorkspace && explorerResourceIsFolder && resourcePath =~ /[\\\\/]Tasks[\\\\/][^\\\\/]+$/",
+          "when": "vnextForge.isVnextWorkspace && explorerResourceIsFolder && resourcePath =~ /[\\\\/]Tasks([\\\\/][^\\\\/]+)?$/",
           "group": "1forge@6"
         },
         {
           "command": "vnextForge.forgeCreateSchema",
-          "when": "vnextForge.isVnextWorkspace && explorerResourceIsFolder && resourcePath =~ /[\\\\/]Schemas[\\\\/][^\\\\/]+$/",
+          "when": "vnextForge.isVnextWorkspace && explorerResourceIsFolder && resourcePath =~ /[\\\\/]Schemas([\\\\/][^\\\\/]+)?$/",
           "group": "1forge@7"
         },
         {
           "command": "vnextForge.forgeCreateView",
-          "when": "vnextForge.isVnextWorkspace && explorerResourceIsFolder && resourcePath =~ /[\\\\/]Views[\\\\/][^\\\\/]+$/",
+          "when": "vnextForge.isVnextWorkspace && explorerResourceIsFolder && resourcePath =~ /[\\\\/]Views([\\\\/][^\\\\/]+)?$/",
           "group": "1forge@8"
         },
         {
           "command": "vnextForge.forgeCreateFunction",
-          "when": "vnextForge.isVnextWorkspace && explorerResourceIsFolder && resourcePath =~ /[\\\\/]Functions[\\\\/][^\\\\/]+$/",
+          "when": "vnextForge.isVnextWorkspace && explorerResourceIsFolder && resourcePath =~ /[\\\\/]Functions([\\\\/][^\\\\/]+)?$/",
           "group": "1forge@9"
         },
         {
           "command": "vnextForge.forgeCreateExtension",
-          "when": "vnextForge.isVnextWorkspace && explorerResourceIsFolder && resourcePath =~ /[\\\\/]Extensions[\\\\/][^\\\\/]+$/",
+          "when": "vnextForge.isVnextWorkspace && explorerResourceIsFolder && resourcePath =~ /[\\\\/]Extensions([\\\\/][^\\\\/]+)?$/",
           "group": "1forge@10"
         },
         {

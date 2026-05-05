@@ -1,7 +1,7 @@
 {
   "name": "vnext-forge-desktop",
   "version": "0.1.0",
-  "description": "vnext-forge desktop application",
+  "description": "vNext Forge desktop application",
   "private": true,
   "main": "dist/main.js",
   "scripts": {

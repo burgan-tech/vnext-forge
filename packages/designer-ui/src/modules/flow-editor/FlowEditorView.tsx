@@ -95,7 +95,8 @@ export function FlowEditorView({
   const vnextConfig = useProjectStore((s) => s.vnextConfig);
   const workflowDirectoryPath = useMemo(() => {
     if (!activeProject || !vnextConfig) return undefined;
-    return `${activeProject.path}/${vnextConfig.paths.componentsRoot}/${vnextConfig.paths.workflows}/${group}`
+    const base = `${activeProject.path}/${vnextConfig.paths.componentsRoot}/${vnextConfig.paths.workflows}`;
+    return (group ? `${base}/${group}` : base)
       .replace(/\\/g, '/')
       .replace(/\/{2,}/g, '/');
   }, [activeProject, vnextConfig, group]);

@@ -83,6 +83,7 @@ interface QuickRunState {
   setInstanceListLoading: (loading: boolean) => void;
 
   openTransitionDialog: (transition: TransitionInfo) => void;
+  openManualTransitionDialog: () => void;
   closeTransitionDialog: () => void;
 
   setGlobalHeaders: (headers: Record<string, string>) => void;
@@ -227,6 +228,7 @@ export const useQuickRunStore = create<QuickRunState>((set) => ({
   setInstanceListLoading: (instanceListLoading) => set({ instanceListLoading }),
 
   openTransitionDialog: (transition) => set({ transitionDialogOpen: true, transitionDialogTarget: transition }),
+  openManualTransitionDialog: () => set({ transitionDialogOpen: true, transitionDialogTarget: null }),
   closeTransitionDialog: () => set({ transitionDialogOpen: false, transitionDialogTarget: null }),
 
   setGlobalHeaders: (globalHeaders) => set({ globalHeaders }),

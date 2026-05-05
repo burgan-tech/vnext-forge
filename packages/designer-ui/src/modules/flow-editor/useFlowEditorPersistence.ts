@@ -42,7 +42,9 @@ export function useFlowEditorPersistence({ group, name }: UseFlowEditorPersisten
       return;
     }
 
-    const workflowDir = `${activeProject.path}/${vnextConfig.paths.componentsRoot}/${vnextConfig.paths.workflows}/${group}`;
+    const workflowDir = group
+      ? `${activeProject.path}/${vnextConfig.paths.componentsRoot}/${vnextConfig.paths.workflows}/${group}`
+      : `${activeProject.path}/${vnextConfig.paths.componentsRoot}/${vnextConfig.paths.workflows}`;
     const diagramFilePath = `${workflowDir}/.meta/${name}.diagram.json`;
 
     await execute({

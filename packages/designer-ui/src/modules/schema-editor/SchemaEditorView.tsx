@@ -37,7 +37,7 @@ export function SchemaEditorView({
     redoStack,
   } = useSchemaEditorStore();
   const filePath =
-    id && group && name && activeProject && vnextConfig
+    id && group != null && name && activeProject && vnextConfig
       ? buildAtomicComponentJsonPath(activeProject.path, vnextConfig.paths, 'schemas', group, name)
       : null;
   const { loading, error, isReady, save, saving, saveError } = useSchemaEditor({

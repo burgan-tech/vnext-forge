@@ -80,7 +80,7 @@ export function ExtensionEditorView({
       : undefined,
   });
   const filePath =
-    id && group && name && activeProject && vnextConfig
+    id && group != null && name && activeProject && vnextConfig
       ? buildAtomicComponentJsonPath(activeProject.path, vnextConfig.paths, 'extensions', group, name)
       : null;
   const { loading, error, isReady } = useLoadComponent({
@@ -96,7 +96,8 @@ export function ExtensionEditorView({
 
   const componentDirectoryPath = useMemo(() => {
     if (!activeProject || !vnextConfig) return undefined;
-    return `${activeProject.path}/${vnextConfig.paths.componentsRoot}/${vnextConfig.paths.extensions}/${group}`
+    const base = `${activeProject.path}/${vnextConfig.paths.componentsRoot}/${vnextConfig.paths.extensions}`;
+    return (group ? `${base}/${group}` : base)
       .replace(/\\/g, '/')
       .replace(/\/{2,}/g, '/');
   }, [activeProject, vnextConfig, group]);

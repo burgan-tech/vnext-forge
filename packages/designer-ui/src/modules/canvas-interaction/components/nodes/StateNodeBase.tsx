@@ -128,11 +128,13 @@ export const StateNodeBase = memo(function StateNodeBase({ data, selected }: Nod
         </div>
       )}
 
-      <Handle
-        type="source"
-        position={sourcePosition}
-        className="w-4! h-4! rounded-full! bg-surface! border-2! border-muted-border! hover:border-primary-border! hover:bg-primary-border/20! hover:scale-125! transition-all! duration-150!"
-      />
+      {d.stateType !== 3 && (
+        <Handle
+          type="source"
+          position={sourcePosition}
+          className="w-4! h-4! rounded-full! bg-surface! border-2! border-muted-border! hover:border-primary-border! hover:bg-primary-border/20! hover:scale-125! transition-all! duration-150!"
+        />
+      )}
     </div>
   );
 });

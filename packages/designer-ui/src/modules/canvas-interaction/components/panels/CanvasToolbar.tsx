@@ -16,6 +16,7 @@ interface CanvasToolbarProps {
   onAutoLayout: () => void;
   workflowSettingsActive?: boolean;
   onToggleWorkflowSettings?: () => void;
+  hasInitialState?: boolean;
 }
 
 export function CanvasToolbar({
@@ -23,6 +24,7 @@ export function CanvasToolbar({
   onAutoLayout,
   workflowSettingsActive,
   onToggleWorkflowSettings,
+  hasInitialState,
 }: CanvasToolbarProps) {
   const [open, setOpen] = useState(false);
   const [canvasOptionsOpen, setCanvasOptionsOpen] = useState(false);
@@ -62,7 +64,7 @@ export function CanvasToolbar({
 
         {open && (
           <div className="absolute bottom-full mb-2.5 left-0 bg-surface/95 backdrop-blur-xl rounded-2xl border border-border shadow-[0_20px_60px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.05)] py-2 min-w-55 animate-scale-in">
-            <DropdownItem label="Initial State" icon={<Play size={14} />} color="text-initial" bg="bg-initial/10" onClick={() => add(1)} />
+            <DropdownItem label="Initial State" icon={<Play size={14} />} color="text-initial" bg="bg-initial/10" onClick={() => add(1)} disabled={hasInitialState} />
             <DropdownItem label="Intermediate" icon={<Square size={14} />} color="text-intermediate" bg="bg-intermediate/10" onClick={() => add(2)} />
             <div className="h-px bg-border-subtle my-1.5 mx-3" />
             <div className="px-3.5 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Final States</div>
@@ -250,18 +252,24 @@ function SegmentedControl<T extends string>({
   );
 }
 
-function DropdownItem({ label, icon, color, bg, indent, onClick }: {
+function DropdownItem({ label, icon, color, bg, indent, onClick, disabled }: {
   label: string;
   icon: React.ReactNode;
   color: string;
   bg: string;
   indent?: boolean;
   onClick: () => void;
+  disabled?: boolean;
 }) {
   return (
     <button
-      onClick={onClick}
-      className={`w-full text-left px-3 py-1.5 text-[13px] flex items-center gap-2.5 text-foreground hover:bg-muted-surface transition-colors cursor-pointer ${indent ? 'pl-7' : ''}`}
+      onClick={disabled ? undefined : onClick}
+      disabled={disabled}
+      className={`w-full text-left px-3 py-1.5 text-[13px] flex items-center gap-2.5 transition-colors ${indent ? 'pl-7' : ''} ${
+        disabled
+          ? 'text-muted-foreground/50 cursor-not-allowed opacity-50'
+          : 'text-foreground hover:bg-muted-surface cursor-pointer'
+      }`}
     >
       <span className={`size-7 rounded-lg ${bg} flex items-center justify-center shrink-0`}>
         <span className={color}>{icon}</span>
