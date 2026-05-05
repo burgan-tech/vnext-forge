@@ -12,12 +12,14 @@ import { QuickRunStatusBar } from './components/QuickRunStatusBar';
 import { QuickRunTabBar } from './components/QuickRunTabBar';
 import { ResizableHandle } from './components/ResizableHandle';
 import { TransitionDialog } from './components/TransitionDialog';
+import { useQuickRunPolling } from './hooks/useQuickRunPolling';
 import { useQuickRunStore } from './store/quickRunStore';
 import { extractLabelsMap } from './utils/extractLabelsMap';
 
 interface HealthMessage {
   type: 'quickrun:health';
   status: 'healthy' | 'unhealthy' | 'unknown';
+  runtimeDomain?: string;
 }
 
 interface QuickRunShellProps {
@@ -102,16 +104,47 @@ export function QuickRunShell({
     void QuickRunApi.saveWorkflowConfig(domain, workflowKey, cfg);
   }, [domain, workflowKey]);
 
+  const setRuntimeDomain = useQuickRunStore((s) => s.setRuntimeDomain);
+
   useEffect(() => {
     const handler = (event: MessageEvent) => {
       const msg = event.data as HealthMessage | undefined;
       if (msg?.type === 'quickrun:health') {
         setRuntimeHealth(msg.status);
+        if (msg.runtimeDomain) {
+          setRuntimeDomain(msg.runtimeDomain);
+        }
       }
     };
     window.addEventListener('message', handler);
     return () => window.removeEventListener('message', handler);
-  }, [setRuntimeHealth]);
+  }, [setRuntimeHealth, setRuntimeDomain]);
+
+  // --- Re-fetch state when active tab changes to a different instance ---
+  const activeTabId = useQuickRunStore((s) => s.activeTabId);
+  const instances = useQuickRunStore((s) => s.instances);
+  const globalHeaders = useQuickRunStore((s) => s.globalHeaders);
+  const pollingConfig = useQuickRunStore((s) => s.pollingConfig);
+  const { fetchInstanceState } = useQuickRunPolling(pollingConfig);
+  const prevActiveTabRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!activeTabId || activeTabId === prevActiveTabRef.current) {
+      prevActiveTabRef.current = activeTabId;
+      return;
+    }
+    prevActiveTabRef.current = activeTabId;
+
+    const instance = instances.get(activeTabId);
+    if (!instance) return;
+
+    void fetchInstanceState({
+      domain: instance.domain,
+      workflowKey: instance.workflowKey,
+      instanceId: instance.id,
+      headers: globalHeaders,
+    });
+  }, [activeTabId, instances, globalHeaders, fetchInstanceState]);
 
   return (
     <div className="flex h-screen flex-col bg-[var(--vscode-editor-background)] text-[var(--vscode-foreground)]" role="application" aria-label="Quick Run — workflow manager">

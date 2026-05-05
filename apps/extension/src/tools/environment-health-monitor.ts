@@ -17,6 +17,7 @@ export class EnvironmentHealthMonitor implements vscode.Disposable {
   private readonly envChangeSubscription: vscode.Disposable;
   private health: HealthStatus = 'unknown';
   private runtimeVersion: string | null = null;
+  private runtimeDomain: string | null = null;
   private currentEnv: RuntimeEnvironment | null = null;
   private timer: ReturnType<typeof setTimeout> | undefined;
   private retryCount = 0;
@@ -41,6 +42,10 @@ export class EnvironmentHealthMonitor implements vscode.Disposable {
 
   getRuntimeVersion(): string | null {
     return this.runtimeVersion;
+  }
+
+  getRuntimeDomain(): string | null {
+    return this.runtimeDomain;
   }
 
   getCurrentEnvironment(): RuntimeEnvironment | null {
@@ -154,8 +159,9 @@ export class EnvironmentHealthMonitor implements vscode.Disposable {
 
             try {
               const body = Buffer.concat(chunks).toString('utf-8');
-              const parsed = JSON.parse(body) as { status?: string; version?: string };
+              const parsed = JSON.parse(body) as { status?: string; version?: string; domain?: string };
               if (parsed.version) this.runtimeVersion = parsed.version;
+              if (parsed.domain) this.runtimeDomain = parsed.domain;
               const isHealthy = parsed.status === 'Healthy' || parsed.status === 'healthy';
               done(isHealthy ? 'healthy' : 'unhealthy');
             } catch {

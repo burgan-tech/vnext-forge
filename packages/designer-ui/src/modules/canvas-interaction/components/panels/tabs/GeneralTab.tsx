@@ -219,9 +219,7 @@ export function GeneralTab({ state, updateWorkflow }: GeneralTabProps) {
         <SelectField
           value={state.stateType || 2}
           onChange={(v) => {
-            const val = Number(v);
-            updateField('stateType', val);
-            if (val !== 3) updateField('subType', undefined);
+            updateField('stateType', Number(v));
           }}
           options={[
             { value: 1, label: 'Initial', disabled: hasOtherInitialState }, { value: 2, label: 'Intermediate' },
@@ -230,20 +228,19 @@ export function GeneralTab({ state, updateWorkflow }: GeneralTabProps) {
         />
       </div>
 
-      {(state.stateType === 3) && (
-        <div>
-          <label className="text-[10px] text-muted-foreground block mb-1 font-semibold tracking-wide">Sub Type</label>
-          <SelectField
-            value={state.subType || 0}
-            onChange={(v) => updateField('subType', Number(v))}
-            options={[
-              { value: 0, label: 'None' }, { value: 1, label: 'Success' }, { value: 2, label: 'Error' },
-              { value: 3, label: 'Terminated' }, { value: 4, label: 'Suspended' },
-              { value: 5, label: 'Busy' }, { value: 6, label: 'Human' },
-            ]}
-          />
-        </div>
-      )}
+      <div>
+        <label className="text-[10px] text-muted-foreground block mb-1 font-semibold tracking-wide">Sub Type</label>
+        <SelectField
+          value={state.subType || 0}
+          onChange={(v) => updateField('subType', Number(v))}
+          options={[
+            { value: 0, label: 'None' }, { value: 1, label: 'Success' }, { value: 2, label: 'Error' },
+            { value: 3, label: 'Terminated' }, { value: 4, label: 'Suspended' },
+            { value: 5, label: 'Busy' }, { value: 6, label: 'Human' },
+            { value: 7, label: 'Cancelled' }, { value: 8, label: 'Timeout' },
+          ]}
+        />
+      </div>
 
       <div>
         <label className="text-[10px] text-muted-foreground block mb-1 font-semibold tracking-wide">Description</label>

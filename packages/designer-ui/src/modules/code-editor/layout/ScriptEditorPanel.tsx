@@ -26,9 +26,10 @@ import {
   usePanelRef,
 } from '../../../ui/Resizable.js';
 import {
-  encodeToBase64,
-  decodeFromBase64,
-} from '../../../modules/code-editor/editor/Base64Handler';
+  decodeScriptCode,
+  encodeScriptCode,
+  getScriptEncoding,
+} from '../../../modules/code-editor/editor/ScriptCodec';
 import { CsxSnippetToolbar } from '../../../modules/code-editor/editor/CsxSnippetToolbar';
 import { CsxReferencePanel } from '../../../modules/code-editor/editor/CsxReferencePanel';
 import { applyDiagnostics } from '../../../modules/code-editor/editor/CsxDiagnostics';
@@ -203,10 +204,12 @@ export function ScriptEditorPanel({
   const layoutObserverRef = useRef<ResizeObserver | null>(null);
   const layoutRafRef = useRef(0);
 
+  const currentEncoding = getScriptEncoding(activeScript?.value?.encoding);
+
   const decoded = useMemo(() => {
     if (!activeScript?.value?.code) return '';
-    return decodeFromBase64(activeScript.value.code);
-  }, [activeScript?.value?.code]);
+    return decodeScriptCode(activeScript.value.code, activeScript.value.encoding);
+  }, [activeScript?.value?.code, activeScript?.value?.encoding]);
 
   const scriptValidationKey = activeScript
     ? `csx:${activeScript.stateKey}:${activeScript.templateType}`
@@ -225,8 +228,8 @@ export function ScriptEditorPanel({
   const syncToWorkflow = useCallback(
     (newCode: string) => {
       if (!activeScript) return;
-      const encodedCode = encodeToBase64(newCode);
-      const newValue = { ...activeScript.value, code: encodedCode, encoding: 'B64' as const };
+      const encodedCode = encodeScriptCode(newCode, currentEncoding);
+      const newValue = { ...activeScript.value, code: encodedCode, encoding: currentEncoding };
 
       if (taskInline) {
         taskInline.onChange(newValue);
@@ -235,7 +238,7 @@ export function ScriptEditorPanel({
       updateScriptValue(newValue);
       updateWorkflow((draft: any) => applyScriptValueToWorkflow(draft, activeScript, newValue));
     },
-    [activeScript, taskInline, updateScriptValue, updateWorkflow],
+    [activeScript, currentEncoding, taskInline, updateScriptValue, updateWorkflow],
   );
 
   const handleCodeChange = useCallback(
@@ -426,27 +429,34 @@ export function ScriptEditorPanel({
 
         <div className="min-w-2 flex-1" />
 
-        {/* Location — short error under input (no full-width alert) */}
-        <div className="max-w-[min(280px,40vw)] min-w-0 flex-1 shrink-0">
-          <Input
-            value={locationDraft}
-            onChange={(e) => handleLocationChange(e.target.value)}
-            placeholder="./ScriptName.csx"
-            aria-invalid={locationError ? 'true' : 'false'}
-            aria-describedby={locationError ? 'script-editor-location-hint' : undefined}
-            size="sm"
-            className="w-full"
-            inputClassName="font-mono text-[11px]"
-          />
-          {locationError ? (
-            <p
-              id="script-editor-location-hint"
-              role="alert"
-              className="text-destructive/80 dark:text-destructive/70 mt-1 max-w-full pl-0.5 text-[10px] leading-snug">
-              {locationError}
-            </p>
-          ) : null}
-        </div>
+        {/* Encoding badge */}
+        <span className="text-muted-foreground bg-muted mt-px shrink-0 rounded px-1.5 py-0.5 font-mono text-[9px] font-medium uppercase tracking-wide">
+          {currentEncoding === 'NAT' ? 'Native' : 'Base64'}
+        </span>
+
+        {/* Location — short error under input (no full-width alert); hidden for NAT (inline-only) */}
+        {currentEncoding !== 'NAT' && (
+          <div className="max-w-[min(280px,40vw)] min-w-0 flex-1 shrink-0">
+            <Input
+              value={locationDraft}
+              onChange={(e) => handleLocationChange(e.target.value)}
+              placeholder="./ScriptName.csx"
+              aria-invalid={locationError ? 'true' : 'false'}
+              aria-describedby={locationError ? 'script-editor-location-hint' : undefined}
+              size="sm"
+              className="w-full"
+              inputClassName="font-mono text-[11px]"
+            />
+            {locationError ? (
+              <p
+                id="script-editor-location-hint"
+                role="alert"
+                className="text-destructive/80 dark:text-destructive/70 mt-1 max-w-full pl-0.5 text-[10px] leading-snug">
+                {locationError}
+              </p>
+            ) : null}
+          </div>
+        )}
 
         <div className="flex max-w-full shrink-0 flex-wrap items-center justify-end gap-1 pt-0.5">
           {taskInline?.onPickAnotherScript ? (
@@ -468,7 +478,7 @@ export function ScriptEditorPanel({
               <span>Open in full editor</span>
             </button>
           ) : null}
-          {!taskInline && onOpenScriptFileInHost && workflowDirectoryPath ? (
+          {!taskInline && onOpenScriptFileInHost && workflowDirectoryPath && currentEncoding !== 'NAT' ? (
             <button
               type="button"
               onClick={handleOpenWorkflowScriptInFullEditor}
@@ -597,7 +607,7 @@ export function ScriptEditorPanel({
             )}
         </span>
         <span className="text-muted-foreground font-mono text-[10px]">
-          C# Script &middot; UTF-8
+          C# Script &middot; {currentEncoding === 'NAT' ? 'NAT' : 'B64'} &middot; UTF-8
         </span>
       </div>
     </div>

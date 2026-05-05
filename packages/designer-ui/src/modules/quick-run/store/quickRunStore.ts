@@ -54,12 +54,15 @@ interface QuickRunState {
   pollingConfig: { retryCount: number; intervalMs: number };
 
   runtimeHealth: 'healthy' | 'unhealthy' | 'unknown';
+  runtimeDomain: string | null;
 
   flowLabels: FlowLabelsMap | null;
 
   setWorkflowContext: (domain: string, workflowKey: string, envName?: string, envUrl?: string) => void;
   addTab: (tab: QuickRunTab) => void;
   removeTab: (instanceId: string) => void;
+  removeAllTabs: () => void;
+  removeOtherTabs: (instanceId: string) => void;
   setActiveTab: (instanceId: string) => void;
   setContextPanelTab: (tab: ContextPanelTab) => void;
 
@@ -91,6 +94,7 @@ interface QuickRunState {
   setPollingInstanceId: (id: string | null) => void;
   setPollingConfig: (config: { retryCount: number; intervalMs: number }) => void;
   setRuntimeHealth: (health: 'healthy' | 'unhealthy' | 'unknown') => void;
+  setRuntimeDomain: (domain: string | null) => void;
   setFlowLabels: (labels: FlowLabelsMap | null) => void;
 }
 
@@ -135,6 +139,7 @@ export const useQuickRunStore = create<QuickRunState>((set) => ({
   pollingConfig: { retryCount: 12, intervalMs: 500 },
 
   runtimeHealth: 'unknown',
+  runtimeDomain: null,
 
   flowLabels: null,
 
@@ -174,6 +179,15 @@ export const useQuickRunStore = create<QuickRunState>((set) => ({
           ? (tabs[tabs.length - 1]?.instanceId ?? null)
           : state.activeTabId;
       return { tabs, activeTabId };
+    }),
+
+  removeAllTabs: () =>
+    set({ tabs: [], activeTabId: null, activeState: null, stateView: null, activeView: null, activeData: null, activeHistory: null }),
+
+  removeOtherTabs: (instanceId) =>
+    set((state) => {
+      const tabs = state.tabs.filter((t) => t.instanceId === instanceId);
+      return { tabs, activeTabId: instanceId };
     }),
 
   setActiveTab: (instanceId) => set({ activeTabId: instanceId }),
@@ -236,5 +250,6 @@ export const useQuickRunStore = create<QuickRunState>((set) => ({
   setPollingInstanceId: (pollingInstanceId) => set({ pollingInstanceId }),
   setPollingConfig: (pollingConfig) => set({ pollingConfig }),
   setRuntimeHealth: (runtimeHealth) => set({ runtimeHealth }),
+  setRuntimeDomain: (runtimeDomain) => set({ runtimeDomain }),
   setFlowLabels: (flowLabels) => set({ flowLabels }),
 }));

@@ -1,5 +1,5 @@
 import { failureFromError, isFailure, success, type ApiResponse } from '@vnext-forge/app-contracts';
-import { decodeFromBase64 } from '../../modules/code-editor/editor/Base64Handler';
+import { decodeScriptCode } from '../../modules/code-editor/editor/ScriptCodec';
 import {
   createDirectory,
   readFile,
@@ -115,9 +115,13 @@ export async function saveWorkflowDocument({
     const scripts = extractScripts(nextWorkflowJson);
 
     for (const script of scripts) {
-      const decoded = decodeFromBase64(script.code);
+      if (script.encoding === 'NAT' || !script.location) {
+        continue;
+      }
 
-      if (!decoded || decoded === '// Unable to decode') {
+      const decoded = decodeScriptCode(script.code, script.encoding);
+
+      if (!decoded) {
         continue;
       }
 

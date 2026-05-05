@@ -14,6 +14,7 @@ export function QuickRunStatusBar() {
   const activeState = useQuickRunStore((s) => s.activeState);
   const pollingInstanceId = useQuickRunStore((s) => s.pollingInstanceId);
   const runtimeHealth = useQuickRunStore((s) => s.runtimeHealth);
+  const runtimeDomain = useQuickRunStore((s) => s.runtimeDomain);
 
   const activeCount = Array.from(instances.values()).filter(
     (i) => i.status === 'A' || i.status === 'B',
@@ -34,6 +35,11 @@ export function QuickRunStatusBar() {
       {environmentName && (
         <span className="rounded bg-[var(--vscode-badge-background)] px-1.5 py-0.5 text-[10px] text-[var(--vscode-badge-foreground)]">
           {environmentName}
+        </span>
+      )}
+      {runtimeDomain && (
+        <span className="rounded bg-[var(--vscode-badge-background)] px-1.5 py-0.5 text-[10px] text-[var(--vscode-badge-foreground)]" title="Runtime domain">
+          {runtimeDomain}
         </span>
       )}
       <span>{domain}/{workflowKey}</span>

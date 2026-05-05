@@ -205,10 +205,19 @@ function FlowCanvasInner({
   // ─── Selection ───
   const onNodeClick = useCallback(
     (_: unknown, node: { id: string }) => {
+      // Virtual $self nodes: select the edge pointing to them instead
+      if (node.id.includes('::$self::')) {
+        const targetEdge = edges.find((e) => e.target === node.id);
+        if (targetEdge) {
+          setSelectedEdge(targetEdge.id);
+          setContextMenu(null);
+          return;
+        }
+      }
       setSelectedNode(node.id);
       setContextMenu(null);
     },
-    [setSelectedNode],
+    [setSelectedNode, setSelectedEdge, edges],
   );
 
   const onEdgeClick = useCallback(
@@ -220,9 +229,8 @@ function FlowCanvasInner({
   );
 
   const onPaneClick = useCallback(() => {
-    setSelectedNode(null);
     setContextMenu(null);
-  }, [setSelectedNode]);
+  }, []);
 
   // ─── Context Menus ───
   const onPaneContextMenu = useCallback(
