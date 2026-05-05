@@ -22,7 +22,7 @@ export function EditableInput({ value, onChange, mono = false, placeholder = '' 
 }
 
 export function SelectField({ value, onChange, options }: {
-  value: string | number; onChange: (v: string) => void; options: Array<{ value: string | number; label: string }>;
+  value: string | number; onChange: (v: string) => void; options: Array<{ value: string | number; label: string; disabled?: boolean }>;
 }) {
   return (
     <select
@@ -30,7 +30,7 @@ export function SelectField({ value, onChange, options }: {
       onChange={(e) => onChange(e.target.value)}
       className="w-full px-3 py-2 text-xs border border-border rounded-xl bg-muted-surface text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary-border focus:bg-surface transition-all cursor-pointer"
     >
-      {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+      {options.map((o) => <option key={o.value} value={o.value} disabled={o.disabled}>{o.label}</option>)}
     </select>
   );
 }

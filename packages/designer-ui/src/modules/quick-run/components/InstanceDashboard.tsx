@@ -22,6 +22,7 @@ export function InstanceDashboard() {
   const sessionHeaders = useQuickRunStore((s) => s.sessionHeaders);
   const setContextPanelTab = useQuickRunStore((s) => s.setContextPanelTab);
   const openTransitionDialog = useQuickRunStore((s) => s.openTransitionDialog);
+  const openManualTransitionDialog = useQuickRunStore((s) => s.openManualTransitionDialog);
   const flowLabels = useQuickRunStore((s) => s.flowLabels);
 
   const stateView = useQuickRunStore((s) => s.stateView);
@@ -290,7 +291,7 @@ export function InstanceDashboard() {
       )}
 
       {/* Transition Buttons — placed above State View */}
-      {transitions.length > 0 && (
+      {(transitions.length > 0 || isActive) && (
         <section className="flex flex-col gap-2">
           <p className="text-xs font-semibold uppercase text-[var(--vscode-descriptionForeground)]">
             Available Transitions
@@ -306,6 +307,16 @@ export function InstanceDashboard() {
                 ▶ {flowLabels?.transitions[t.name] ?? t.name}
               </button>
             ))}
+            {isActive && (
+              <button
+                className="rounded border border-dashed border-[var(--vscode-panel-border)] px-3 py-1.5 text-xs text-[var(--vscode-descriptionForeground)] hover:border-[var(--vscode-focusBorder)] hover:text-[var(--vscode-foreground)] disabled:opacity-50"
+                onClick={openManualTransitionDialog}
+                disabled={activeStateLoading}
+                title="Fire a transition by name (session-only, not persisted)"
+              >
+                + Manual
+              </button>
+            )}
           </div>
           {sharedTransitions.length > 0 && (
             <div className="flex flex-wrap gap-2">

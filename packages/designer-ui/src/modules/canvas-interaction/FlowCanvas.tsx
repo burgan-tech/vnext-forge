@@ -84,6 +84,12 @@ function FlowCanvasInner({
   const autoLayoutDone = useRef(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState>(null);
 
+  const hasInitialState = useMemo(() => {
+    const attrs = (workflowJson as any)?.attributes;
+    const states: any[] = attrs?.states ?? [];
+    return states.some((s: any) => s.stateType === 1);
+  }, [workflowJson]);
+
   // Convert workflow JSON to ReactFlow nodes/edges
   const {
     nodes: computedNodes,
@@ -172,6 +178,19 @@ function FlowCanvasInner({
       });
     },
     [updateDiagram],
+  );
+
+  // ─── Connection validation: block edges from final states ───
+  const isValidConnection = useCallback(
+    (connection: { source: string | null; target: string | null }) => {
+      if (!connection.source) return false;
+      const attrs = (workflowJson as any)?.attributes;
+      const states: any[] = attrs?.states ?? [];
+      const sourceState = states.find((s: any) => s.key === connection.source);
+      if (sourceState?.stateType === 3) return false;
+      return true;
+    },
+    [workflowJson],
   );
 
   // ─── Connect: Create transition in workflowJson ───
@@ -324,6 +343,7 @@ function FlowCanvasInner({
         onNodesChange={handleNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        isValidConnection={isValidConnection}
         onNodeClick={onNodeClick}
         onEdgeClick={onEdgeClick}
         onPaneClick={onPaneClick}
@@ -358,6 +378,7 @@ function FlowCanvasInner({
             onAutoLayout={handleAutoLayout}
             workflowSettingsActive={workflowSettingsActive}
             onToggleWorkflowSettings={onToggleWorkflowSettings}
+            hasInitialState={hasInitialState}
           />
         </Panel>
       </ReactFlow>
@@ -368,6 +389,7 @@ function FlowCanvasInner({
           position={contextMenu}
           onClose={closeContextMenu}
           onAddState={handleContextMenuAddState}
+          hasInitialState={hasInitialState}
         />
       )}
       {contextMenu?.type === 'node' && (
@@ -378,6 +400,7 @@ function FlowCanvasInner({
           onDeleteState={removeState}
           onDuplicateState={handleDuplicateState}
           onChangeType={changeStateType}
+          hasInitialState={hasInitialState}
         />
       )}
       {contextMenu?.type === 'edge' && (

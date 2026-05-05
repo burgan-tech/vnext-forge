@@ -40,13 +40,15 @@ export function TransitionDialog({ configRef, persistConfig }: TransitionDialogP
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errorDetails, setErrorDetails] = useState<Record<string, unknown> | null>(null);
+  const [manualTransitionName, setManualTransitionName] = useState('');
 
-  const transitionName = transition?.name ?? '';
+  const isManualMode = open && transition === null;
+  const transitionName = isManualMode ? manualTransitionName : (transition?.name ?? '');
   const hasSchema = transition?.schema?.hasSchema ?? false;
   const hasView = transition?.view?.hasView ?? false;
 
   useEffect(() => {
-    if (!open || !transition || !activeTabId) return;
+    if (!open || !activeTabId) return;
 
     setSchema(null);
     setTransitionView(null);
@@ -56,57 +58,61 @@ export function TransitionDialog({ configRef, persistConfig }: TransitionDialogP
     setError(null);
     setErrorDetails(null);
     setSubmitting(false);
+    setManualTransitionName('');
 
     const inherited = { ...globalHeaders, ...sessionHeaders };
     const rows: { name: string; value: string }[] = Object.entries(inherited).map(([name, value]) => ({ name, value }));
 
-    const savedTransition = configRef.current.transitions.find((t) => t.key === transition.name);
-    if (savedTransition) {
-      if (savedTransition.body?.key) setInstanceKey(savedTransition.body.key);
-      if (savedTransition.body?.tags?.length) setTags(savedTransition.body.tags.join(', '));
-      if (savedTransition.body?.attributes && Object.keys(savedTransition.body.attributes).length > 0) {
-        setAttributes(JSON.stringify(savedTransition.body.attributes, null, 2));
-      }
-      if (savedTransition.headers) {
-        for (const [name, value] of Object.entries(savedTransition.headers)) {
-          const existing = rows.find((r) => r.name === name);
-          if (existing) {
-            existing.value = value;
-          } else {
-            rows.push({ name, value });
+    if (transition) {
+      const savedTransition = configRef.current.transitions.find((t) => t.key === transition.name);
+      if (savedTransition) {
+        if (savedTransition.body?.key) setInstanceKey(savedTransition.body.key);
+        if (savedTransition.body?.tags?.length) setTags(savedTransition.body.tags.join(', '));
+        if (savedTransition.body?.attributes && Object.keys(savedTransition.body.attributes).length > 0) {
+          setAttributes(JSON.stringify(savedTransition.body.attributes, null, 2));
+        }
+        if (savedTransition.headers) {
+          for (const [name, value] of Object.entries(savedTransition.headers)) {
+            const existing = rows.find((r) => r.name === name);
+            if (existing) {
+              existing.value = value;
+            } else {
+              rows.push({ name, value });
+            }
           }
         }
       }
+
+      const fetchParams = {
+        domain,
+        workflowKey,
+        instanceId: activeTabId,
+        transitionKey: transition.name,
+        headers: inherited,
+      };
+
+      if (hasSchema) {
+        setSchemaLoading(true);
+        QuickRunApi.getSchema(fetchParams)
+          .then((res) => {
+            if (res.success) setSchema(res.data);
+          })
+          .catch(() => { /* schema not available */ })
+          .finally(() => setSchemaLoading(false));
+      }
+
+      if (hasView) {
+        setViewLoading(true);
+        QuickRunApi.getView(fetchParams)
+          .then((res) => {
+            if (res.success) setTransitionView(res.data);
+          })
+          .catch(() => { /* view not available */ })
+          .finally(() => setViewLoading(false));
+      }
     }
+
     setHeaderRows(rows);
-
-    const fetchParams = {
-      domain,
-      workflowKey,
-      instanceId: activeTabId,
-      transitionKey: transition.name,
-      headers: inherited,
-    };
-
-    if (hasSchema) {
-      setSchemaLoading(true);
-      QuickRunApi.getSchema(fetchParams)
-        .then((res) => {
-          if (res.success) setSchema(res.data);
-        })
-        .catch(() => { /* schema not available */ })
-        .finally(() => setSchemaLoading(false));
-    }
-
-    if (hasView) {
-      setViewLoading(true);
-      QuickRunApi.getView(fetchParams)
-        .then((res) => {
-          if (res.success) setTransitionView(res.data);
-        })
-        .catch(() => { /* view not available */ })
-        .finally(() => setViewLoading(false));
-    }
   }, [open, transition?.name]);
 
   useEffect(() => {
@@ -134,6 +140,10 @@ export function TransitionDialog({ configRef, persistConfig }: TransitionDialogP
 
   const handleSubmit = useCallback(async () => {
     if (!activeTabId) return;
+    if (isManualMode && !manualTransitionName.trim()) {
+      setError('Transition name is required');
+      return;
+    }
     setSubmitting(true);
     setError(null);
     setErrorDetails(null);
@@ -175,34 +185,36 @@ export function TransitionDialog({ configRef, persistConfig }: TransitionDialogP
           headers: mergedHeaders,
         });
 
-        const inherited = { ...globalHeaders, ...sessionHeaders };
-        const localOverrides: Record<string, string> = {};
-        for (const h of headerRows) {
-          if (h.name.trim() && !(h.name.trim() in inherited && inherited[h.name.trim()] === h.value)) {
-            localOverrides[h.name.trim()] = h.value;
+        if (!isManualMode) {
+          const inherited = { ...globalHeaders, ...sessionHeaders };
+          const localOverrides: Record<string, string> = {};
+          for (const h of headerRows) {
+            if (h.name.trim() && !(h.name.trim() in inherited && inherited[h.name.trim()] === h.value)) {
+              localOverrides[h.name.trim()] = h.value;
+            }
           }
-        }
 
-        const cfg = configRef.current;
-        const existingIdx = cfg.transitions.findIndex((t) => t.key === transitionName);
-        const entry = {
-          key: transitionName,
-          headers: localOverrides,
-          queryStrings: {},
-          body: {
-            key: instanceKey || undefined,
-            tags: tagsList.length > 0 ? tagsList : undefined,
-            attributes: Object.keys(attrs).length > 0 ? attrs : {},
-          },
-        };
+          const cfg = configRef.current;
+          const existingIdx = cfg.transitions.findIndex((t) => t.key === transitionName);
+          const entry = {
+            key: transitionName,
+            headers: localOverrides,
+            queryStrings: {},
+            body: {
+              key: instanceKey || undefined,
+              tags: tagsList.length > 0 ? tagsList : undefined,
+              attributes: Object.keys(attrs).length > 0 ? attrs : {},
+            },
+          };
 
-        const transitions = [...cfg.transitions];
-        if (existingIdx >= 0) {
-          transitions[existingIdx] = entry;
-        } else {
-          transitions.push(entry);
+          const transitions = [...cfg.transitions];
+          if (existingIdx >= 0) {
+            transitions[existingIdx] = entry;
+          } else {
+            transitions.push(entry);
+          }
+          persistConfig({ ...cfg, transitions });
         }
-        persistConfig({ ...cfg, transitions });
 
         closeDialog();
       } else {
@@ -213,9 +225,9 @@ export function TransitionDialog({ configRef, persistConfig }: TransitionDialogP
       setError('Failed to fire transition. Please try again.');
     }
     setSubmitting(false);
-  }, [activeTabId, domain, workflowKey, transitionName, instanceKey, tags, headerRows, globalHeaders, sessionHeaders, buildAttributes, pollState, closeDialog, configRef, persistConfig]);
+  }, [activeTabId, domain, workflowKey, transitionName, isManualMode, manualTransitionName, instanceKey, tags, headerRows, globalHeaders, sessionHeaders, buildAttributes, pollState, closeDialog, configRef, persistConfig]);
 
-  if (!open || !transition) return null;
+  if (!open) return null;
 
   return (
     <div
@@ -231,7 +243,7 @@ export function TransitionDialog({ configRef, persistConfig }: TransitionDialogP
       >
         <header className="flex items-center justify-between border-b border-[var(--vscode-panel-border)] px-4 py-3">
           <h2 id="transition-dialog-title" className="text-sm font-semibold">
-            Transition: {transitionName}
+            {isManualMode ? 'Manual Transition' : `Transition: ${transitionName}`}
           </h2>
           <button
             className="text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]"
@@ -243,12 +255,34 @@ export function TransitionDialog({ configRef, persistConfig }: TransitionDialogP
         </header>
 
         <div className="flex-1 overflow-y-auto p-4">
+          {isManualMode && (
+            <div className="mb-3 flex flex-col gap-1">
+              <label className="text-xs font-medium">
+                Transition Name <span className="text-[var(--vscode-errorForeground)]">*</span>
+              </label>
+              <input
+                type="text"
+                value={manualTransitionName}
+                onChange={(e) => setManualTransitionName(e.target.value)}
+                placeholder="Enter transition name"
+                autoFocus
+                className="rounded border border-[var(--vscode-input-border)] bg-[var(--vscode-input-background)] px-2 py-1.5 text-xs text-[var(--vscode-input-foreground)] placeholder:text-[var(--vscode-input-placeholderForeground)]"
+              />
+              {!manualTransitionName.trim() && (
+                <p className="text-[10px] text-[var(--vscode-descriptionForeground)]">
+                  Transition name is required to fire
+                </p>
+              )}
+            </div>
+          )}
+
           <TransitionViewInfo view={transitionView} loading={viewLoading} />
 
           <HeaderOverrideSection rows={headerRows} setRows={setHeaderRows} />
 
           <TransitionInputStep
             transitionName={transitionName}
+            isManualMode={isManualMode}
             schema={schema}
             schemaLoading={schemaLoading}
             hasSchema={hasSchema}
@@ -278,9 +312,9 @@ export function TransitionDialog({ configRef, persistConfig }: TransitionDialogP
           <button
             className="rounded bg-[var(--vscode-button-background)] px-3 py-1.5 text-xs text-[var(--vscode-button-foreground)] hover:bg-[var(--vscode-button-hoverBackground)] disabled:opacity-50"
             onClick={handleSubmit}
-            disabled={submitting || schemaLoading}
+            disabled={submitting || schemaLoading || (isManualMode && !manualTransitionName.trim())}
           >
-            {submitting ? 'Submitting...' : 'Submit'}
+            {submitting ? 'Submitting...' : 'Fire Transition'}
           </button>
         </footer>
       </div>
@@ -331,6 +365,7 @@ function TransitionViewInfo({
 
 function TransitionInputStep({
   transitionName,
+  isManualMode,
   schema,
   schemaLoading,
   hasSchema,
@@ -344,6 +379,7 @@ function TransitionInputStep({
   setSync,
 }: {
   transitionName: string;
+  isManualMode: boolean;
   schema: SchemaResponse | null;
   schemaLoading: boolean;
   hasSchema: boolean;
@@ -358,9 +394,11 @@ function TransitionInputStep({
 }) {
   return (
     <div className="flex flex-col gap-3">
-      <div className="text-xs text-[var(--vscode-descriptionForeground)]">
-        Firing transition <strong>{transitionName}</strong>
-      </div>
+      {!isManualMode && (
+        <div className="text-xs text-[var(--vscode-descriptionForeground)]">
+          Firing transition <strong>{transitionName}</strong>
+        </div>
+      )}
 
       <details className="text-xs">
         <summary className="cursor-pointer text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]">

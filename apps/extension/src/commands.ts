@@ -8,7 +8,7 @@ import type {
 } from '@vnext-forge/services-core';
 import {
   buildComponentFolderRelPaths,
-  matchVnextDomainComponentFolder,
+  classifyComponentTreePath,
 } from '@vnext-forge/designer-ui/component-paths';
 import {
   ensureComponentJsonFileName,
@@ -384,6 +384,9 @@ async function pickWorkspaceRoot(
 
 async function pickGroup(kindFolderAbs: string): Promise<string | undefined> {
   const existing = await listSubdirectories(kindFolderAbs);
+
+  if (existing.length === 0) return '';
+
   const createNewLabel = '$(add) Create new group…';
   const rootLabel = '$(root-folder) (no group — place at root)';
 
@@ -558,41 +561,69 @@ async function forgeComponentCreateByKind(
   deps: CommandDeps,
   expectedKind: VnextComponentJsonKind,
 ): Promise<void> {
-  const folderPath = getExplorerFolderTarget(resource);
-  if (!folderPath) {
-    void vscode.window.showErrorMessage('vnext-forge: Select a folder in the Explorer first.');
-    return;
-  }
-  const root = deps.detector.findOwningRoot(folderPath);
-  if (!root) {
-    void vscode.window.showErrorMessage('vnext-forge: Not inside a vNext workspace.');
-    return;
-  }
-  const status = await deps.workspaceService.readConfigStatus(root.folderPath);
-  if (status.status !== 'ok') {
-    void vscode.window.showErrorMessage('vnext-forge: vnext.config.json is not valid.');
-    return;
-  }
-  const { config } = status;
-  const relPaths = buildComponentFolderRelPaths(config.paths);
-  const c = matchVnextDomainComponentFolder(folderPath, root.folderPath, relPaths);
-  if (!c) {
-    void vscode.window.showErrorMessage(
-      'vnext-forge: Use a domain folder (e.g. Extensions/your-domain or Tasks/your-group), not a nested subfolder (e.g. src).',
+  let folderPath = getExplorerFolderTarget(resource);
+  let root: VnextWorkspaceRoot | undefined;
+  let config: VnextWorkspaceConfig;
+
+  if (folderPath) {
+    root = deps.detector.findOwningRoot(folderPath);
+    if (!root) {
+      void vscode.window.showErrorMessage('vnext-forge: Not inside a vNext workspace.');
+      return;
+    }
+    const status = await deps.workspaceService.readConfigStatus(root.folderPath);
+    if (status.status !== 'ok') {
+      void vscode.window.showErrorMessage('vnext-forge: vnext.config.json is not valid.');
+      return;
+    }
+    config = status.config;
+    const relPaths = buildComponentFolderRelPaths(config.paths);
+    const c = classifyComponentTreePath(folderPath, root.folderPath, relPaths);
+    if (!c) {
+      void vscode.window.showErrorMessage(
+        'vnext-forge: Use a component folder (e.g. Extensions, Tasks/your-group), not a nested subfolder (e.g. src).',
+      );
+      return;
+    }
+    if (c.componentKind !== expectedKind) {
+      void vscode.window.showErrorMessage(
+        'vnext-forge: This command does not match the selected folder type.',
+      );
+      return;
+    }
+  } else {
+    const roots = deps.detector.getRoots();
+    if (roots.length === 0) {
+      void vscode.window.showErrorMessage('vnext-forge: Open a folder containing vnext.config.json first.');
+      return;
+    }
+    root = roots.length === 1 ? roots[0] : await pickWorkspaceRoot(roots);
+    if (!root) return;
+    const status = await deps.workspaceService.readConfigStatus(root.folderPath);
+    if (status.status !== 'ok') {
+      void vscode.window.showErrorMessage('vnext-forge: vnext.config.json is not valid.');
+      return;
+    }
+    config = status.config;
+    const kindFolderAbs = path.resolve(
+      root.folderPath,
+      config.paths.componentsRoot,
+      pathSegmentForKind(config, expectedKind as ComponentKind),
     );
-    return;
+    const group = await pickGroup(kindFolderAbs);
+    if (group === undefined) return;
+    folderPath = group === '' ? kindFolderAbs : path.join(kindFolderAbs, group);
+    await fs.mkdir(folderPath, { recursive: true });
   }
-  if (c.componentKind !== expectedKind) {
-    void vscode.window.showErrorMessage(
-      'vnext-forge: This command does not match the selected folder type.',
-    );
-    return;
-  }
+
   const domain = config.domain;
   const name = await promptForgeNewComponentName(resource, folderPath, expectedKind);
   if (name == null || !name.trim()) {
     return;
   }
+
+  let createdFilePath: string;
+  let fileBase: string;
 
   try {
     if (expectedKind === 'workflow') {
@@ -600,9 +631,8 @@ async function forgeComponentCreateByKind(
         void vscode.window.showErrorMessage('vnext-forge: Workflow name should not include .json.');
         return;
       }
-      const json = await writeWorkflowScaffoldToDisk(folderPath, name.trim(), domain);
-      const doc = await vscode.workspace.openTextDocument(vscode.Uri.file(json));
-      await vscode.window.showTextDocument(doc, { preview: true });
+      fileBase = name.trim();
+      createdFilePath = await writeWorkflowScaffoldToDisk(folderPath, fileBase, domain);
     } else {
       const fileName = ensureComponentJsonFileName(name);
       if (!fileName) {
@@ -614,7 +644,7 @@ async function forgeComponentCreateByKind(
         void vscode.window.showErrorMessage(`vnext-forge: ${nameErr}`);
         return;
       }
-      const fileBase = fileName.replace(/\.json$/i, '');
+      fileBase = fileName.replace(/\.json$/i, '');
       const target = path.join(folderPath, fileName);
       try {
         await fs.access(target);
@@ -625,13 +655,35 @@ async function forgeComponentCreateByKind(
       }
       const body = buildVnextComponentJson(expectedKind, { key: fileBase, domain });
       await fs.writeFile(target, JSON.stringify(body, null, 2), 'utf-8');
+      createdFilePath = target;
     }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     void vscode.window.showErrorMessage(`vnext-forge: ${msg}`);
     return;
   }
-  void openOrRefreshProjectForRoot(deps, root);
+
+  await openOrRefreshProjectForRoot(deps, root);
+
+  const kindFolderAbs = path.resolve(
+    root.folderPath,
+    config.paths.componentsRoot,
+    pathSegmentForKind(config, expectedKind as ComponentKind),
+  );
+  const relToKindFolder = path.relative(kindFolderAbs, folderPath).split(path.sep).join('/');
+  const group = relToKindFolder === '.' || relToKindFolder === '' ? '' : relToKindFolder;
+
+  deps.designerPanel.openEditor({
+    type: 'open-editor',
+    kind: expectedKind as ComponentKind,
+    projectId: domain,
+    projectPath: root.folderPath,
+    projectDomain: domain,
+    group,
+    name: fileBase,
+    filePath: createdFilePath,
+    vnextConfig: config,
+  });
 }
 
 async function openOrRefreshProjectForRoot(

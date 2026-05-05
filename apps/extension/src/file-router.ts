@@ -89,11 +89,12 @@ function extractRest(relativePath: string, componentsRoot: string, segment: stri
 
 function parseGroupName(rest: string, ext = '.json'): { group: string; name: string } | null {
   const parts = rest.split('/')
-  if (parts.length < 2) return null
+  if (parts.length === 0) return null
   const fileName = parts[parts.length - 1]
   if (!fileName.toLowerCase().endsWith(ext.toLowerCase())) return null
   const name = fileName.slice(0, fileName.length - ext.length)
-  const group = parts.slice(0, -1).join('/')
+  if (!name) return null
+  const group = parts.length > 1 ? parts.slice(0, -1).join('/') : ''
   return { group, name }
 }
 

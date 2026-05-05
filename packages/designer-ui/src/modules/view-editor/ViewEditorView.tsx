@@ -46,7 +46,7 @@ export function ViewEditorView({
       : undefined,
   });
   const filePath =
-    id && group && name && activeProject && vnextConfig
+    id && group != null && name && activeProject && vnextConfig
       ? buildAtomicComponentJsonPath(activeProject.path, vnextConfig.paths, 'views', group, name)
       : null;
 

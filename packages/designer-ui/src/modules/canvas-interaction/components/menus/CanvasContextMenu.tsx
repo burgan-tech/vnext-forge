@@ -11,9 +11,10 @@ interface CanvasContextMenuProps {
   position: MenuPosition;
   onClose: () => void;
   onAddState: (stateType: number, subType: number, position: { x: number; y: number }) => void;
+  hasInitialState?: boolean;
 }
 
-export function CanvasContextMenu({ position, onClose, onAddState }: CanvasContextMenuProps) {
+export function CanvasContextMenu({ position, onClose, onAddState, hasInitialState }: CanvasContextMenuProps) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -36,7 +37,7 @@ export function CanvasContextMenu({ position, onClose, onAddState }: CanvasConte
       style={{ left: position.screenX, top: position.screenY }}
     >
       <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">Add State</div>
-      <MenuItem label="Initial State" color="bg-initial" onClick={() => add(1)} />
+      <MenuItem label="Initial State" color="bg-initial" onClick={() => add(1)} disabled={hasInitialState} />
       <MenuItem label="Intermediate State" color="bg-intermediate" onClick={() => add(2)} />
       <div className="border-t border-border-subtle my-1 mx-2" />
       <div className="px-3 py-1 text-[10px] text-muted-foreground font-medium">Final States</div>
@@ -57,9 +58,10 @@ interface NodeContextMenuProps {
   onDeleteState: (key: string) => void;
   onDuplicateState: (key: string) => void;
   onChangeType: (key: string, stateType: number, subType?: number) => void;
+  hasInitialState?: boolean;
 }
 
-export function NodeContextMenu({ position, nodeId, onClose, onDeleteState, onDuplicateState, onChangeType }: NodeContextMenuProps) {
+export function NodeContextMenu({ position, nodeId, onClose, onDeleteState, onDuplicateState, onChangeType, hasInitialState }: NodeContextMenuProps) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -80,7 +82,7 @@ export function NodeContextMenu({ position, nodeId, onClose, onDeleteState, onDu
       <MenuItem label="Duplicate" onClick={() => { onDuplicateState(nodeId); onClose(); }} />
       <div className="border-t border-border-subtle my-1 mx-2" />
       <div className="px-3 py-1 text-[10px] text-muted-foreground font-medium">Change Type</div>
-      <MenuItem label="Initial" color="bg-initial" indent onClick={() => { onChangeType(nodeId, 1); onClose(); }} />
+      <MenuItem label="Initial" color="bg-initial" indent onClick={() => { onChangeType(nodeId, 1); onClose(); }} disabled={hasInitialState} />
       <MenuItem label="Intermediate" color="bg-intermediate" indent onClick={() => { onChangeType(nodeId, 2); onClose(); }} />
       <MenuItem label="Final - Success" color="bg-final-success" indent onClick={() => { onChangeType(nodeId, 3, 1); onClose(); }} />
       <MenuItem label="Final - Error" color="bg-final-error" indent onClick={() => { onChangeType(nodeId, 3, 2); onClose(); }} />
@@ -129,19 +131,27 @@ export function EdgeContextMenu({ position, sourceStateKey, transitionKey, onClo
   );
 }
 
-function MenuItem({ label, color, indent, danger, onClick }: {
+function MenuItem({ label, color, indent, danger, onClick, disabled }: {
   label: string;
   color?: string;
   indent?: boolean;
   danger?: boolean;
   onClick: () => void;
+  disabled?: boolean;
 }) {
   return (
     <button
-      onClick={onClick}
-      className={`w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 transition-colors cursor-pointer ${
+      onClick={disabled ? undefined : onClick}
+      disabled={disabled}
+      className={`w-full text-left px-3 py-1.5 text-xs flex items-center gap-2 transition-colors ${
         indent ? 'pl-5' : ''
-      } ${danger ? 'text-destructive-text hover:bg-destructive-surface' : 'text-foreground hover:bg-muted-surface'}`}
+      } ${
+        disabled
+          ? 'text-muted-foreground/50 cursor-not-allowed opacity-50'
+          : danger
+            ? 'text-destructive-text hover:bg-destructive-surface cursor-pointer'
+            : 'text-foreground hover:bg-muted-surface cursor-pointer'
+      }`}
     >
       {color && <span className={`w-2 h-2 rounded-full ${color} shrink-0`} />}
       {label}

@@ -23,6 +23,7 @@ export interface WorkflowState {
   clearWorkflow: () => void;
 
   addState: (stateType: number, subType: number, position: { x: number; y: number }) => string;
+  renameState: (oldKey: string, newKey: string) => boolean;
   removeState: (key: string) => void;
   duplicateState: (key: string, position: { x: number; y: number }) => string | null;
   changeStateType: (key: string, stateType: number, subType?: number) => void;
@@ -148,6 +149,55 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     return key;
   },
 
+  renameState: (oldKey, newKey) => {
+    const trimmed = newKey.trim();
+    if (!trimmed || trimmed === oldKey || trimmed === '__start__') return false;
+
+    const { workflowJson } = get();
+    if (!workflowJson) return false;
+    const attrs = (workflowJson as any).attributes;
+    const states: any[] = attrs?.states ?? [];
+    if (states.some((s: any) => s.key === trimmed)) return false;
+
+    get().updateWorkflow((draft: any) => {
+      const draftAttrs = draft.attributes;
+      if (!draftAttrs?.states) return;
+
+      for (const s of draftAttrs.states) {
+        if (s.key === oldKey) {
+          s.key = trimmed;
+        }
+        if (s.transitions) {
+          for (const t of s.transitions) {
+            if (t.target === oldKey) t.target = trimmed;
+            if (t.to === oldKey) t.to = trimmed;
+            if (typeof t.key === 'string' && t.key.includes(oldKey)) {
+              t.key = t.key.replaceAll(oldKey, trimmed);
+            }
+          }
+        }
+      }
+
+      const st = draftAttrs.startTransition || draftAttrs.start;
+      if (st) {
+        if (st.target === oldKey) st.target = trimmed;
+        if (st.to === oldKey) st.to = trimmed;
+      }
+    });
+
+    get().updateDiagram((draft: any) => {
+      if (draft.nodePos && draft.nodePos[oldKey]) {
+        draft.nodePos[trimmed] = draft.nodePos[oldKey];
+        delete draft.nodePos[oldKey];
+      }
+    });
+
+    const { selectedNodeId } = get();
+    if (selectedNodeId === oldKey) set({ selectedNodeId: trimmed });
+
+    return true;
+  },
+
   removeState: (key) => {
     get().updateWorkflow((draft: any) => {
       const attrs = draft.attributes;
@@ -208,6 +258,9 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       state.stateType = stateType;
       if (subType !== undefined) state.subType = subType;
       else if (stateType !== 3) delete state.subType;
+      if (stateType === 3 && state.transitions?.length) {
+        state.transitions = [];
+      }
     });
   },
 

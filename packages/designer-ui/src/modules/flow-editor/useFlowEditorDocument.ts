@@ -23,7 +23,9 @@ export function useFlowEditorDocument({ group, name }: UseFlowEditorDocumentOpti
       return null;
     }
 
-    const workflowRoot = `${activeProject.path}/${vnextConfig.paths.componentsRoot}/${vnextConfig.paths.workflows}/${group}`;
+    const workflowRoot = group
+      ? `${activeProject.path}/${vnextConfig.paths.componentsRoot}/${vnextConfig.paths.workflows}/${group}`
+      : `${activeProject.path}/${vnextConfig.paths.componentsRoot}/${vnextConfig.paths.workflows}`;
     const workflowFilePath = `${workflowRoot}/${name}.json`;
     const diagramFilePath = `${workflowRoot}/.meta/${name}.diagram.json`;
 

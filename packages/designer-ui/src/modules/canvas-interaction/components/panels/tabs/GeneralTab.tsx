@@ -1,8 +1,8 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import type { RoleGrant, ViewBinding } from '@vnext-forge/vnext-types';
 import type { DiscoveredVnextComponent } from '@vnext-forge/app-contracts';
 import { getLabels } from './PropertyPanelHelpers';
-import { SelectField, Section, InfoRow, SummaryCard } from './PropertyPanelShared';
+import { SelectField, Section, SummaryCard } from './PropertyPanelShared';
 import { RoleGrantEditor } from './subflow/RoleGrantEditor';
 import { ViewBindingsSection } from './shared/ViewBindingsSection';
 import { ChooseExistingVnextComponentDialog } from './ChooseExistingTaskDialog';
@@ -23,6 +23,37 @@ export function GeneralTab({ state, updateWorkflow }: GeneralTabProps) {
 
   const activeProject = useProjectStore((s) => s.activeProject);
   const projectDomain = activeProject?.domain ?? '';
+
+  const renameState = useWorkflowStore((s) => s.renameState);
+  const hasOtherInitialState = useWorkflowStore((s) => {
+    const attrs = (s.workflowJson as any)?.attributes;
+    const states: any[] = attrs?.states ?? [];
+    return states.some((st: any) => st.stateType === 1 && st.key !== stateKey);
+  });
+  const [editingKey, setEditingKey] = useState(stateKey);
+  const [keyError, setKeyError] = useState<string | null>(null);
+  const keyInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setEditingKey(stateKey);
+    setKeyError(null);
+  }, [stateKey]);
+
+  const commitKeyRename = useCallback(() => {
+    const trimmed = editingKey.trim();
+    if (!trimmed || trimmed === stateKey) {
+      setEditingKey(stateKey);
+      setKeyError(null);
+      return;
+    }
+    const ok = renameState(stateKey, trimmed);
+    if (!ok) {
+      setKeyError('Key already exists or is invalid');
+      keyInputRef.current?.focus();
+    } else {
+      setKeyError(null);
+    }
+  }, [editingKey, stateKey, renameState]);
 
   const [viewPickerBindingIndex, setViewPickerBindingIndex] = useState<number | null | undefined>(undefined);
   const [viewCreatorBindingIndex, setViewCreatorBindingIndex] = useState<number | null | undefined>(undefined);
@@ -165,7 +196,22 @@ export function GeneralTab({ state, updateWorkflow }: GeneralTabProps) {
     <div className="space-y-3">
       <div>
         <label className="text-[10px] text-muted-foreground block mb-1 font-semibold tracking-wide">Key</label>
-        <InfoRow label="" value={state.key} mono copyable />
+        <input
+          ref={keyInputRef}
+          type="text"
+          value={editingKey}
+          onChange={(e) => { setEditingKey(e.target.value); setKeyError(null); }}
+          onBlur={commitKeyRename}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') { e.currentTarget.blur(); }
+            if (e.key === 'Escape') { setEditingKey(stateKey); setKeyError(null); e.currentTarget.blur(); }
+          }}
+          aria-label="State key"
+          className={`w-full px-3 py-1.5 text-xs font-mono border rounded-lg bg-muted-surface text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary-border focus:bg-surface transition-all ${
+            keyError ? 'border-destructive-border' : 'border-border'
+          }`}
+        />
+        {keyError && <p className="text-[10px] text-destructive-text mt-0.5">{keyError}</p>}
       </div>
 
       <div>
@@ -178,7 +224,7 @@ export function GeneralTab({ state, updateWorkflow }: GeneralTabProps) {
             if (val !== 3) updateField('subType', undefined);
           }}
           options={[
-            { value: 1, label: 'Initial' }, { value: 2, label: 'Intermediate' },
+            { value: 1, label: 'Initial', disabled: hasOtherInitialState }, { value: 2, label: 'Intermediate' },
             { value: 3, label: 'Final' }, { value: 4, label: 'SubFlow' }, { value: 5, label: 'Wizard' },
           ]}
         />
