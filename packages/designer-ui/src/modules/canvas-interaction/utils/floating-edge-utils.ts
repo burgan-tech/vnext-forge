@@ -132,6 +132,6 @@ export function getFloatingHandleIds(
   const params = getFloatingEdgeParams(sourceNode, targetNode);
   return {
     sourceHandle: positionToHandleId(params.sourcePos),
-    targetHandle: positionToHandleId(params.targetPos),
+    targetHandle: `${positionToHandleId(params.targetPos)}-target`,
   };
 }

@@ -277,6 +277,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         const state = draft.attributes?.states?.find((s: any) => s.key === sourceKey);
         if (!state) return;
         if (!state.transitions) state.transitions = [];
+        if (state.transitions.some((t: any) => t.key === transitionKey)) return;
         const newTransition: any = {
           key: transitionKey,
           target: targetKey,
@@ -284,7 +285,6 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
           versionStrategy: 'Minor',
           labels: [{ label: transitionKey, language: 'en' }],
         };
-        // Add timer scaffold for scheduled transitions
         if (triggerType === 2) {
           newTransition.timer = { location: '', code: '', encoding: 'B64' };
         }

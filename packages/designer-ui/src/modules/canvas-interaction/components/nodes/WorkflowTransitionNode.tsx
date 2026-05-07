@@ -86,10 +86,16 @@ export const WorkflowTransitionNode = memo(function WorkflowTransitionNode({
       }`}
       title={label}
     >
-      <Handle type="target" id="top"    position={Position.Top}    style={hs.top}    className={stripCls} />
-      <Handle type="target" id="left"   position={Position.Left}   style={hs.left}   className={stripCls} />
+      {/* Source handles (visible) */}
+      <Handle type="source" id="top"    position={Position.Top}    style={hs.top}    className={stripCls} />
       <Handle type="source" id="bottom" position={Position.Bottom} style={hs.bottom} className={stripCls} />
+      <Handle type="source" id="left"   position={Position.Left}   style={hs.left}   className={stripCls} />
       <Handle type="source" id="right"  position={Position.Right}  style={hs.right}  className={stripCls} />
+      {/* Hidden target handles for floating edge routing */}
+      <Handle type="target" id="top-target"    position={Position.Top}    style={hs.top}    className={`${stripCls} !opacity-0 !pointer-events-none`} />
+      <Handle type="target" id="bottom-target" position={Position.Bottom} style={hs.bottom} className={`${stripCls} !opacity-0 !pointer-events-none`} />
+      <Handle type="target" id="left-target"   position={Position.Left}   style={hs.left}   className={`${stripCls} !opacity-0 !pointer-events-none`} />
+      <Handle type="target" id="right-target"  position={Position.Right}  style={hs.right}  className={`${stripCls} !opacity-0 !pointer-events-none`} />
 
       <div className={`flex size-5 shrink-0 items-center justify-center rounded ${config.iconColor}`}>
         <Icon size={13} strokeWidth={2} />
