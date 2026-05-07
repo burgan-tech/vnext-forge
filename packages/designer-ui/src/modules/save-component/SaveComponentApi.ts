@@ -1,4 +1,4 @@
-import { failureFromError, success, type ApiResponse } from '@vnext-forge/app-contracts';
+import { failureFromError, success, type ApiResponse } from '@vnext-forge-studio/app-contracts';
 import { z } from 'zod';
 import { callApi, unwrapApi } from '../../api/client';
 import { toVnextError } from '../../lib/error/vNextErrorHelpers';

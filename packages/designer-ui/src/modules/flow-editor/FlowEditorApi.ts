@@ -1,4 +1,4 @@
-import { failureFromError, isFailure, success, type ApiResponse } from '@vnext-forge/app-contracts';
+import { failureFromError, isFailure, success, type ApiResponse } from '@vnext-forge-studio/app-contracts';
 import { decodeScriptCode } from '../../modules/code-editor/editor/ScriptCodec';
 import {
   createDirectory,

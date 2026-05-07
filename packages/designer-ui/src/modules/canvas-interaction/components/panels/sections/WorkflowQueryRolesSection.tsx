@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { Shield } from 'lucide-react';
-import type { RoleGrant } from '@vnext-forge/vnext-types';
+import type { RoleGrant } from '@vnext-forge-studio/vnext-types';
 import { useWorkflowStore } from '../../../../../store/useWorkflowStore';
 import { RoleGrantEditor } from '../tabs/subflow/RoleGrantEditor';
 import { MetadataSection } from './MetadataSection';

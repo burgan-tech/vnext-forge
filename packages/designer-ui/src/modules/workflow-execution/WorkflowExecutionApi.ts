@@ -3,7 +3,7 @@ import {
   failureFromCode,
   success,
   type ApiResponse,
-} from '@vnext-forge/app-contracts';
+} from '@vnext-forge-studio/app-contracts';
 import { z } from 'zod';
 
 import { callApi } from '../../api/client';

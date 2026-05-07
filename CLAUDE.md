@@ -1,4 +1,4 @@
-# vnext-forge - Project Context
+# vnext-forge-studio - Project Context
 
 Workflow designer delivered as a **VS Code extension**. React webview (Vite) + Monaco editor in the webview; Node.js extension host replaces the former BFF server. Monorepo with pnpm workspaces + Turborepo.
 
@@ -28,7 +28,7 @@ also load the matching file:
 - **`packages/services-core/`** → see [`./CLAUDE.SERVICES-CORE.md`](./CLAUDE.SERVICES-CORE.md)
   Method registry (slash-separated ids like `files/read`), dispatch, services.
   Per-method capability policy; runtime-proxy URL allowlist; child-env helper.
-  Imports `@vnext-forge/app-contracts` only.
+  Imports `@vnext-forge-studio/app-contracts` only.
 - **`packages/lsp-core/`** → see [`./CLAUDE.LSP-CORE.md`](./CLAUDE.LSP-CORE.md)
   Shared LSP wiring; single extension-host LSP stack factory; consumed by
   `apps/extension` and `apps/server`.
@@ -62,7 +62,7 @@ In addition to the always-on rules under `.cursor/rules/*.mdc` (subagent dispatc
 |------|------|--------------|---------|
 | Rule | `.cursor/rules/config-singleton.mdc` | files matching `**/shared/config/config.ts` or `**/shared/config.ts` | `process.env` / `import.meta.env` only inside the config module |
 | Rule | `.cursor/rules/server-hardening.mdc` | `apps/server/src/**` | Body limit, CORS allowlist, capability policy, error-handler invariants must stay intact |
-| Rule | `.cursor/rules/rpc-method-policy.mdc` | `packages/services-core/src/registry/**`, `apps/server/src/api/v1/**` | Every new method has `paramsSchema`, `resultSchema`, capability tag, fixture (R-b9/R-a2), and `MethodHttpSpec` entry in `@vnext-forge/app-contracts` |
+| Rule | `.cursor/rules/rpc-method-policy.mdc` | `packages/services-core/src/registry/**`, `apps/server/src/api/v1/**` | Every new method has `paramsSchema`, `resultSchema`, capability tag, fixture (R-b9/R-a2), and `MethodHttpSpec` entry in `@vnext-forge-studio/app-contracts` |
 | Skill | `.cursor/skills/shared/error-taxonomy/SKILL.md` | any error/handler/throw work | `ERROR_CODES`, `VnextForgeError`, `error-presentation` mapping |
 | Skill | `.cursor/skills/shared/trace-headers/SKILL.md` | any HTTP/transport/middleware work | `trace-v1` contract; never adopt `traceparent` |
 | Skill | `.cursor/skills/shared/dependency-policy/SKILL.md` | any cross-package import or barrel change | Allowed import directions, ESLint enforcements |
@@ -70,7 +70,7 @@ In addition to the always-on rules under `.cursor/rules/*.mdc` (subagent dispatc
 
 ## Project Goal
 
-The main purpose of this project is to provide the **workflow design and management interface** for the vnext engine ecosystem, packaged as a VS Code extension (`burgan-tech.vnext-forge`). It is intentionally built and delivered as an independent product — not a library or embedded widget.
+The main purpose of this project is to provide the **workflow design and management interface** for the vnext engine ecosystem, packaged as a VS Code extension (`burgan-tech.vnext-forge-studio`). It is intentionally built and delivered as an independent product — not a library or embedded widget.
 
 The UI covers end-to-end workflow management: creating and editing workflow definitions in JSON, visual canvas design, Monaco-based code editing, real-time validation, runtime connection, simulation, and project scaffolding.
 
@@ -108,8 +108,8 @@ The repo is intended to run the same way on macOS, Linux, and Windows.
 **Dev workflow**
 
 - `apps/web` (Vite dev server): default port **3000** — used for isolated UI development only. In extension mode the webview is served from `dist/webview-ui/`, not this server.
-- `apps/extension` (esbuild watch): `pnpm --filter vnext-forge dev` — rebuilds extension host on save.
-- For a full development loop, build the web bundle once (`pnpm --filter @vnext-forge/web build`) and then use extension host watch mode.
+- `apps/extension` (esbuild watch): `pnpm --filter vnext-forge-studio dev` — rebuilds extension host on save.
+- For a full development loop, build the web bundle once (`pnpm --filter @vnext-forge-studio/web build`) and then use extension host watch mode.
 
 **Environment variables & runtime config**
 
@@ -133,7 +133,7 @@ a warning, and uses the built-in defaults.
 | --------------------- | ------------------------------------------ | ------------------------ | ----------------------------------------------- |
 | `apps/server`         | `src/shared/config/config.ts`              | `apps/server/.env`       | `tsx watch --env-file-if-exists=.env src/index.ts` |
 | `apps/web`            | `src/shared/config/config.ts`              | `apps/web/.env`          | Vite (only `VITE_*` keys reach the bundle)      |
-| `apps/extension`      | runtime config injected via `window.__VNEXT_CONFIG__` from `DesignerPanel`; no `.env` file (no HTTP server, no `PORT`). Logs go to the VS Code Output Channel (`vnext-forge`). |
+| `apps/extension`      | runtime config injected via `window.__VNEXT_CONFIG__` from `DesignerPanel`; no `.env` file (no HTTP server, no `PORT`). Logs go to the VS Code Output Channel (`vnext-forge-studio`). |
 
 Read settings via `import { config } from '@/shared/config/config'`; do not
 read `process.env` / `import.meta.env` directly outside the config module.
@@ -158,7 +158,7 @@ read `process.env` / `import.meta.env` directly outside the config module.
 
 ### Shared Packages
 
-#### `packages/vnext-types` → `@vnext-forge/vnext-types`
+#### `packages/vnext-types` → `@vnext-forge-studio/vnext-types`
 
 Domain model types. Workflow, State, Transition, Task, Schema, View, Function, Extension, Diagram, and Config types, plus constants (state-types, trigger-types, task-types) and utilities (csx-codec, version).
 
@@ -167,14 +167,14 @@ Domain model types. Workflow, State, Transition, Task, Schema, View, Function, E
 - `VnextWorkspaceConfig` — full normalized config
 - `VnextWorkspacePaths`, `VnextWorkspaceExports`, `VnextWorkspaceExportsMeta`, `VnextWorkspaceDependencies`, `VnextWorkspaceReferenceResolution` — sub-shapes
 
-Do not duplicate these types in app-local code. Extension handler files import them via `@workspace/types.js`; web consumer files import them via `@vnext-forge/app-contracts`.
+Do not duplicate these types in app-local code. Extension handler files import them via `@workspace/types.js`; web consumer files import them via `@vnext-forge-studio/app-contracts`.
 
 - Depends on no other package (leaf node)
 - Used by `apps/web` and `apps/extension`
 
 ---
 
-#### `packages/app-contracts` → `@vnext-forge/app-contracts`
+#### `packages/app-contracts` → `@vnext-forge-studio/app-contracts`
 
 Shared contracts used by both the web app and the extension host.
 
@@ -201,9 +201,9 @@ The shared error type used across all application layers. Every `throw` should b
 `METHOD_HTTP_METADATA` is the single source of truth that binds each method id (`files/read`, `projects/create`, …) to its HTTP verb (`GET`/`POST`/…), parameter source (`query` vs `json`), and success status (`200` vs `201`). Both `apps/server` (route registration via `createDispatchHelper`) and `apps/web` (`HttpTransport`) read from it; `getMethodHttpSpec(methodId)` is the typed accessor. Changing a method's wire shape happens here once. A contract test in `packages/services-core` enforces parity between this metadata and the registry.
 
 **4. Workspace config builder** (`vnext-workspace-defaults.ts`):
-Version constants and `buildVnextWorkspaceConfig()` factory. Also re-exports all canonical workspace config types from `@vnext-forge/vnext-types`.
+Version constants and `buildVnextWorkspaceConfig()` factory. Also re-exports all canonical workspace config types from `@vnext-forge-studio/vnext-types`.
 
-- Depends on `@vnext-forge/vnext-types`
+- Depends on `@vnext-forge-studio/vnext-types`
 
 **5. vNext component list (BFF types)** (`vnext/vnext-component-rows.ts`):
 `VnextExportCategory`, `DiscoveredVnextComponent`, `VnextComponentsByCategory`, and `VNEXT_FLOW_TO_EXPORT_CATEGORY` (e.g. `sys-tasks` → `tasks`). Single source of truth for flow-to-export-bucket mapping; consumed by `services-core` scan results and `designer-ui` pickers.
@@ -267,12 +267,12 @@ apps/web -- type only (AppType for hc<AppType>) --> apps/server
 
 **Forbidden directions** (enforced by ESLint where possible):
 
-- `apps/web` must **not** import `@vnext-forge/services-core` or any deep path under it.
-- `apps/web` must **not** import from `@vnext-forge/designer-ui/dist/**`.
+- `apps/web` must **not** import `@vnext-forge-studio/services-core` or any deep path under it.
+- `apps/web` must **not** import from `@vnext-forge-studio/designer-ui/dist/**`.
 - `apps/*` must not import each other at runtime.
 - `packages/*` must not import `apps/*`.
 
-**Documented exception** — `apps/web` may `import type { AppType } from '@vnext-forge/server'` from a single HTTP API shell module (`apps/web/src/shared/api/client.ts`). Type-only; erased at build time. ESLint `no-restricted-imports` narrows this exception. See [ADR 007](./docs/architecture/adr/007-rest-migration.md) and [dependency-policy doc](./docs/architecture/dependency-policy.md).
+**Documented exception** — `apps/web` may `import type { AppType } from '@vnext-forge-studio/server'` from a single HTTP API shell module (`apps/web/src/shared/api/client.ts`). Type-only; erased at build time. ESLint `no-restricted-imports` narrows this exception. See [ADR 007](./docs/architecture/adr/007-rest-migration.md) and [dependency-policy doc](./docs/architecture/dependency-policy.md).
 
 ---
 
@@ -416,7 +416,7 @@ Current guidance:
 
 ### Web ↔ Server Communication (HTTP REST)
 
-The web shell communicates with `apps/server` over **per-method REST endpoints** under `/api/v1/<domain>/<action>`. There is no longer a single `/api/rpc` entry. The wire shape (verb, params source, success status) for every method comes from `METHOD_HTTP_METADATA` in `@vnext-forge/app-contracts` — both server (route registration) and client (transport / RPC chain) read from it.
+The web shell communicates with `apps/server` over **per-method REST endpoints** under `/api/v1/<domain>/<action>`. There is no longer a single `/api/rpc` entry. The wire shape (verb, params source, success status) for every method comes from `METHOD_HTTP_METADATA` in `@vnext-forge-studio/app-contracts` — both server (route registration) and client (transport / RPC chain) read from it.
 
 ```ts
 // web side — shared/api/client.ts
@@ -475,7 +475,7 @@ designer-ui itself remains transport-agnostic (no `services-core` import).
 
 When disk mutations must be reflected in the **web shell sidebar file tree** (and related cheap indexes), use the shared **workspace FS event bus** instead of ad-hoc `refreshFileTree` callbacks on individual pages.
 
-**Emit (in `@vnext-forge/designer-ui`):**
+**Emit (in `@vnext-forge-studio/designer-ui`):**
 
 - Module: `packages/designer-ui/src/workspace-fs-events/` — `subscribeWorkspaceFsChange`, `emitWorkspaceFsChange`, `resetWorkspaceFsChangeListeners` (tests), and `emitFsChangeOnSuccess` (emit only when `ApiResponse.success`).
 - Wrapped low-level APIs emit after successful RPCs: `WorkspaceApi` (`writeFile`, `deleteFile`, `createDirectory`, `renameFile`), `CodeEditorApi.writeCodeEditorFile`, `SaveComponentApi.saveComponentFile`. `scaffoldWorkflow` also emits `kind: 'scaffold'` when the scaffold completes successfully (intermediate `writeFile` / `createDirectory` calls emit their own events; debouncing collapses bursts).

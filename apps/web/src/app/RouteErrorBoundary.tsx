@@ -1,6 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from 'react';
 
-import { createLogger } from '@vnext-forge/designer-ui';
+import { createLogger } from '@vnext-forge-studio/designer-ui';
 
 const logger = createLogger('web/RouteErrorBoundary');
 

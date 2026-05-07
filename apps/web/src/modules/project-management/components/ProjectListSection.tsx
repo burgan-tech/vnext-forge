@@ -1,4 +1,4 @@
-import { Section } from '@vnext-forge/designer-ui/ui';
+import { Section } from '@vnext-forge-studio/designer-ui/ui';
 
 import type { ProjectInfo } from '../ProjectTypes';
 

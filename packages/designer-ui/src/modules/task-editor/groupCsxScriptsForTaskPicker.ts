@@ -1,4 +1,4 @@
-import type { DiscoveredVnextComponent, VnextWorkspacePaths } from '@vnext-forge/app-contracts';
+import type { DiscoveredVnextComponent, VnextWorkspacePaths } from '@vnext-forge-studio/app-contracts';
 import { normalizePosixPath } from './scriptTaskPaths.js';
 import type { ListedCsxScript } from './services/listProjectCsxScripts.js';
 

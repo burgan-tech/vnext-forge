@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import type { MethodRegistry, ServiceRegistry } from '@vnext-forge/services-core';
+import type { MethodRegistry, ServiceRegistry } from '@vnext-forge-studio/services-core';
 
 import type { Variables } from '../../shared/types/hono.js';
 import { registerFilesRoutes } from './files.routes.js';

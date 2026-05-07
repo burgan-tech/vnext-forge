@@ -1,4 +1,4 @@
-import type { LoggerAdapter } from '@vnext-forge/services-core'
+import type { LoggerAdapter } from '@vnext-forge-studio/services-core'
 
 import {
   type LspWorkspace,

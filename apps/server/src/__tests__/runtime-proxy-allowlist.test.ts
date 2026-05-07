@@ -1,11 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { ERROR_CODES, VnextForgeError } from '@vnext-forge/app-contracts'
+import { ERROR_CODES, VnextForgeError } from '@vnext-forge-studio/app-contracts'
 import {
   createRuntimeProxyService,
   type LoggerAdapter,
   type NetworkAdapter,
-} from '@vnext-forge/services-core'
+} from '@vnext-forge-studio/services-core'
 
 const noopLogger: LoggerAdapter = {
   info: vi.fn(),

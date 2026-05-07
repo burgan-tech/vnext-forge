@@ -1,6 +1,6 @@
 import { useState, useCallback, useId } from 'react';
 import { ChevronRight, ShieldAlert, Plus } from 'lucide-react';
-import type { ErrorBoundary, ErrorHandler } from '@vnext-forge/vnext-types';
+import type { ErrorBoundary, ErrorHandler } from '@vnext-forge-studio/vnext-types';
 import { ErrorHandlerCard } from './ErrorHandlerCard';
 import { IconPlus, IconTrash } from '../PropertyPanelShared';
 import { getErrorActionLabel } from '../PropertyPanelHelpers';

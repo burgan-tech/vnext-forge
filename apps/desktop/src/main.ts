@@ -38,7 +38,7 @@ async function createWindow(port: number): Promise<void> {
     height: 900,
     minWidth: 900,
     minHeight: 600,
-    title: 'vnext-forge',
+    title: 'vnext-forge-studio',
     webPreferences: {
       preload: preloadPath,
       contextIsolation: true,

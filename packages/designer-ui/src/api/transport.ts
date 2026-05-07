@@ -1,4 +1,4 @@
-import type { ApiResponse } from '@vnext-forge/app-contracts';
+import type { ApiResponse } from '@vnext-forge-studio/app-contracts';
 
 /**
  * Platform-agnostic transport contract for designer-ui modules.
@@ -8,7 +8,7 @@ import type { ApiResponse } from '@vnext-forge/app-contracts';
  *  - apps/web -> HttpTransport (Hono RPC over fetch)
  *  - apps/extension webview -> VsCodeTransport (postMessage to extension host)
  *
- * Modules inside @vnext-forge/designer-ui never construct a transport
+ * Modules inside @vnext-forge-studio/designer-ui never construct a transport
  * themselves; they call `callApi()` / `unwrapApi()` which delegate to
  * whatever transport the host shell registered via `setApiTransport()`.
  */

@@ -2,7 +2,7 @@ import type {
   WorkspaceDiagnosticDto,
   WorkspaceStatusDto,
   WorkspaceSurfaceSink,
-} from '@vnext-forge/designer-ui';
+} from '@vnext-forge-studio/designer-ui';
 
 import type { VsCodeWebviewApi } from '../VsCodeTransport';
 

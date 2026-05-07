@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from 'react';
-import type { Label, TaskExecution, ViewBinding, ErrorBoundary } from '@vnext-forge/vnext-types';
-import type { RoleGrant } from '@vnext-forge/vnext-types';
-import type { DiscoveredVnextComponent } from '@vnext-forge/app-contracts';
+import type { Label, TaskExecution, ViewBinding, ErrorBoundary } from '@vnext-forge-studio/vnext-types';
+import type { RoleGrant } from '@vnext-forge-studio/vnext-types';
+import type { DiscoveredVnextComponent } from '@vnext-forge-studio/app-contracts';
 import type { ScriptCode } from '../../../../../../modules/save-component/components/CsxEditorField';
 import type { SchemaReference } from '../../../../../../modules/save-component/components/SchemaReferenceField';
 import type { AtomicSavedInfo } from '../../../../../../modules/save-component/componentEditorModalTypes.js';

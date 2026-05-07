@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-import type { ValidationIssue } from '@vnext-forge/designer-ui';
+import type { ValidationIssue } from '@vnext-forge-studio/designer-ui';
 
 /**
  * Web-only status-bar diagnostics for the currently open workspace. Surfaces

@@ -1,4 +1,4 @@
-import type { FileTreeNode } from '@vnext-forge/designer-ui';
+import type { FileTreeNode } from '@vnext-forge-studio/designer-ui';
 
 /**
  * Recursively filters a FileTreeNode tree keeping only nodes whose name matches

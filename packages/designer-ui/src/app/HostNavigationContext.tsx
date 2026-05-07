@@ -12,7 +12,7 @@ import { createContext, useContext, type ReactNode } from 'react';
  *   editor view, "navigate back to project" is meaningless — the user
  *   simply closes the panel or clicks a different file in the explorer.
  *
- * Components inside `@vnext-forge/designer-ui` therefore do not import
+ * Components inside `@vnext-forge-studio/designer-ui` therefore do not import
  * `react-router-dom` directly. Instead they ask for the optional
  * navigation contract via {@link useProjectNavigation}. If the host wires
  * a provider, navigation is enabled; otherwise the corresponding UI

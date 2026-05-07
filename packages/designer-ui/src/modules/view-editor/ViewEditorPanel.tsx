@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { ViewType } from '@vnext-forge/vnext-types';
+import { ViewType } from '@vnext-forge-studio/vnext-types';
 import { LabelEditor } from '../../modules/save-component/components/LabelEditor';
 import { getViewEditorFieldError } from '../../modules/view-editor/ViewEditorSchema';
 import {

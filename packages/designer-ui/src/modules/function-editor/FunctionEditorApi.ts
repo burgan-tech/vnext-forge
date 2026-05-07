@@ -1,4 +1,4 @@
-import { failureFromError, success, type ApiResponse } from '@vnext-forge/app-contracts';
+import { failureFromError, success, type ApiResponse } from '@vnext-forge-studio/app-contracts';
 import { readFile } from '../../modules/project-workspace/WorkspaceApi';
 import { toVnextError } from '../../lib/error/vNextErrorHelpers';
 import { functionEditorDocumentSchema } from './FunctionEditorSchema';

@@ -4,7 +4,7 @@ import type { ProjectInfo, VnextWorkspaceConfig } from '../shared/projectTypes';
 
 /**
  * Shared "currently-open project" slice consumed by editor views in
- * `@vnext-forge/designer-ui`. Both host shells populate this slice:
+ * `@vnext-forge-studio/designer-ui`. Both host shells populate this slice:
  *
  * - Web SPA: `useProjectWorkspacePage` hook (in `apps/web`) calls
  *   `setActiveProject` / `setVnextConfig` after loading the workspace.

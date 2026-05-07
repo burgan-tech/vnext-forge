@@ -4,7 +4,7 @@ import {
   componentEditorTabId,
   vnextWorkspaceConfigTabId,
   type ComponentEditorKind,
-} from '@vnext-forge/designer-ui';
+} from '@vnext-forge-studio/designer-ui';
 
 /**
  * Mevcut URL'den `useEditorStore` activeTabId değerini türetir (dosya yolu veya component tab id).

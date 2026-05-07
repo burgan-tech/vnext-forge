@@ -1,5 +1,5 @@
 import type { Monaco } from '@monaco-editor/react';
-import type { VnextWorkspacePaths } from '@vnext-forge/app-contracts';
+import type { VnextWorkspacePaths } from '@vnext-forge-studio/app-contracts';
 import { fetchVnextSchemas, getCachedSchemas } from './JsonSchemaRegistry';
 import { createLogger } from '../../../lib/logger/createLogger';
 

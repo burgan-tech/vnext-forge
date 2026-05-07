@@ -1,5 +1,11 @@
 import { type MutableRefObject, useCallback, useEffect, useRef, useState } from 'react';
 
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../../../ui/Tooltip';
 import * as QuickRunApi from '../QuickRunApi';
 import type { WorkflowBucketConfig } from '../QuickRunApi';
 import { useQuickRunPolling } from '../hooks/useQuickRunPolling';
@@ -200,13 +206,22 @@ export function NewRunDialog({ open, onClose, configRef, persistConfig }: NewRun
           <h2 id="new-run-title" className="text-sm font-semibold">
             Start Flow Run
           </h2>
-          <button
-            className="text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]"
-            onClick={onClose}
-            aria-label="Close"
-          >
-            ✕
-          </button>
+          <TooltipProvider delayDuration={300}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className="text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]"
+                  onClick={onClose}
+                  aria-label="Close"
+                >
+                  ✕
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-[11px]">
+                Close
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </header>
 
         <div className="flex flex-col gap-3 p-4">
@@ -348,13 +363,22 @@ function HeaderOverrideSection({
               placeholder="Value"
               className="flex-1 rounded border border-[var(--vscode-input-border)] bg-[var(--vscode-input-background)] px-1.5 py-1 text-[10px] text-[var(--vscode-input-foreground)] placeholder:text-[var(--vscode-input-placeholderForeground)]"
             />
-            <button
-              className="text-[var(--vscode-errorForeground)] hover:text-[var(--vscode-foreground)]"
-              onClick={() => setRows(rows.filter((_, j) => j !== i))}
-              title="Remove"
-            >
-              ✕
-            </button>
+            <TooltipProvider delayDuration={300}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    className="text-[var(--vscode-errorForeground)] hover:text-[var(--vscode-foreground)]"
+                    onClick={() => setRows(rows.filter((_, j) => j !== i))}
+                    aria-label="Remove"
+                  >
+                    ✕
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="right" className="text-[11px]">
+                  Remove
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         ))}
         <button

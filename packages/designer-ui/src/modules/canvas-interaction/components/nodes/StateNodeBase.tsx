@@ -1,11 +1,13 @@
 import { Handle, Position, NodeResizer, type NodeProps } from '@xyflow/react';
-import { memo } from 'react';
+import { memo, useCallback } from 'react';
 import {
   Play, Square, CheckCircle2, XCircle, StopCircle,
   PauseCircle, Circle, Repeat2, LayoutGrid, Activity,
-  Loader2, UserCircle, Ban, TimerOff,
+  Loader2, UserCircle, Ban, TimerOff, ArrowUpRight,
 } from 'lucide-react';
 import { useCanvasViewSettings } from '../../context/CanvasViewSettingsContext';
+import { useSubFlowNavigation } from '../../context/SubFlowNavigationContext';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../../../ui/Tooltip';
 
 interface StateNodeData {
   label: string;
@@ -18,6 +20,8 @@ interface StateNodeData {
   hasView: boolean;
   hasErrorBoundary: boolean;
   hasSubFlow: boolean;
+  subFlowProcessKey: string;
+  subFlowProcessDomain: string;
   [key: string]: unknown;
 }
 
@@ -61,13 +65,24 @@ export const StateNodeBase = memo(function StateNodeBase({ data, selected }: Nod
   const config = getConfig(d.stateType, d.subType);
   const totalActions = d.onEntryCount + d.onExitCount;
   const { settings } = useCanvasViewSettings();
+  const { onOpenSubFlow } = useSubFlowNavigation();
 
   const targetPosition = settings.direction === 'DOWN' ? Position.Top : Position.Left;
   const sourcePosition = settings.direction === 'DOWN' ? Position.Bottom : Position.Right;
 
+  const showSubFlowButton = d.stateType === 4 && Boolean(d.subFlowProcessKey);
+
+  const handleOpenSubFlow = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      onOpenSubFlow(d.subFlowProcessKey, d.subFlowProcessDomain);
+    },
+    [onOpenSubFlow, d.subFlowProcessKey, d.subFlowProcessDomain],
+  );
+
   return (
     <div
-      className={`group h-full min-h-0 min-w-0 rounded-2xl transition-all duration-200 ${config.borderStyle || 'border-solid'} ${
+      className={`group relative h-full min-h-0 min-w-0 rounded-2xl transition-all duration-200 ${config.borderStyle || 'border-solid'} ${
         selected
           ? `bg-surface border-[1.5px] border-primary-border-hover shadow-xl ring-4 ${config.ring}`
           : 'bg-surface border border-border shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] hover:border-muted-border-hover'
@@ -131,6 +146,26 @@ export const StateNodeBase = memo(function StateNodeBase({ data, selected }: Nod
             {d.hasSubFlow && <span className="size-1.5 rounded-full bg-subflow" title="SubFlow" />}
           </div>
         </div>
+      )}
+
+      {showSubFlowButton && (
+        <TooltipProvider delayDuration={300}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                className="nodrag nopan absolute right-2 bottom-2 flex size-6 items-center justify-center rounded-md border border-subflow/30 bg-subflow/15 text-subflow transition-all duration-150 hover:bg-subflow/25 hover:border-subflow/50 hover:scale-110 cursor-pointer"
+                onClick={handleOpenSubFlow}
+                aria-label="Open SubFlow"
+              >
+                <ArrowUpRight size={12} />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top" variant="default">
+              Open SubFlow
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       )}
 
       {d.stateType !== 3 && (

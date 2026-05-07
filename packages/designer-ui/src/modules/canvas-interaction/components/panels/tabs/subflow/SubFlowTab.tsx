@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
-import type { DiscoveredVnextComponent } from '@vnext-forge/app-contracts';
-import type { SubFlowOverrides } from '@vnext-forge/vnext-types';
+import type { DiscoveredVnextComponent } from '@vnext-forge-studio/app-contracts';
+import type { SubFlowOverrides } from '@vnext-forge-studio/vnext-types';
 import { useWorkflowStore } from '../../../../../../store/useWorkflowStore';
 import { useProjectStore } from '../../../../../../store/useProjectStore';
 import type { ScriptCode } from '../../../../../../modules/save-component/components/CsxEditorField';

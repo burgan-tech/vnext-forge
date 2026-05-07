@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Loader2, Plus } from 'lucide-react';
 
-import { isFailure, type DiscoveredVnextComponent, type VnextExportCategory } from '@vnext-forge/app-contracts';
+import { isFailure, type DiscoveredVnextComponent, type VnextExportCategory } from '@vnext-forge-studio/app-contracts';
 import { saveComponentFile } from '../../../../save-component/SaveComponentApi.js';
 import { useProjectStore } from '../../../../../store/useProjectStore.js';
 import { buildAtomicComponentJsonPath } from '../../../../vnext-workspace/atomicComponentPaths.js';

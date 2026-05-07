@@ -6,7 +6,7 @@ import {
   type ErrorCode,
   VnextForgeError,
   internalFailure,
-} from '@vnext-forge/app-contracts'
+} from '@vnext-forge-studio/app-contracts'
 import { baseLogger } from '../lib/logger.js'
 
 function statusFromErrorCode(code: ErrorCode): ContentfulStatusCode {

@@ -1,6 +1,6 @@
-import type { ApiResponse } from '@vnext-forge/app-contracts';
+import type { ApiResponse } from '@vnext-forge-studio/app-contracts';
 
-import { useProjectStore, type ProjectConfigStatus } from '@vnext-forge/designer-ui';
+import { useProjectStore, type ProjectConfigStatus } from '@vnext-forge-studio/designer-ui';
 
 import { useVnextWorkspaceUiStore } from '../../app/store/useVnextWorkspaceUiStore';
 import { useWorkspaceDiagnosticsStore } from '../../app/store/useWorkspaceDiagnosticsStore';

@@ -1,6 +1,6 @@
 import { useMemo, useCallback, useState } from 'react';
-import type { DiscoveredVnextComponent } from '@vnext-forge/app-contracts';
-import type { RoleGrant } from '@vnext-forge/vnext-types';
+import type { DiscoveredVnextComponent } from '@vnext-forge-studio/app-contracts';
+import type { RoleGrant } from '@vnext-forge-studio/vnext-types';
 import { useWorkflowStore } from '../../../../../store/useWorkflowStore';
 import { useProjectStore } from '../../../../../store/useProjectStore';
 import {
@@ -12,6 +12,12 @@ import type { AtomicSavedInfo } from '../../../../../modules/save-component/comp
 import { getLabels, getLabel, getTriggerLabel } from './PropertyPanelHelpers';
 import { Badge, Section, InfoRow, SelectField } from './PropertyPanelShared';
 import { Play, Plus, Trash2 } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../../../../../ui/Tooltip';
 import { OpenVnextComponentInModalButton } from '../../../../../modules/save-component/components/OpenVnextComponentInModalButton.js';
 import { TransitionMappingSection } from './transition/TransitionMappingSection';
 import { TransitionRolesSection } from './transition/TransitionRolesSection';
@@ -314,11 +320,21 @@ export function StartNodePanel({ startTransition }: { startTransition: any }) {
                   onChange={(e) => updateLabel(i, 'label', e.target.value)}
                   className="border-border bg-muted-surface text-foreground focus:ring-ring/20 focus:border-primary-border focus:bg-surface flex-1 rounded-lg border px-2.5 py-1.5 text-xs transition-all focus:ring-2 focus:outline-none"
                 />
-                <button
-                  onClick={() => removeLabel(i)}
-                  className="text-subtle hover:text-destructive-text hover:bg-destructive-surface cursor-pointer rounded-lg p-1 transition-all">
-                  <Trash2 size={13} />
-                </button>
+                <TooltipProvider delayDuration={300}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={() => removeLabel(i)}
+                        className="text-subtle hover:text-destructive-text hover:bg-destructive-surface cursor-pointer rounded-lg p-1 transition-all"
+                        aria-label="Remove label">
+                        <Trash2 size={13} />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="text-[11px]">
+                      Remove label
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
             ))}
             <button

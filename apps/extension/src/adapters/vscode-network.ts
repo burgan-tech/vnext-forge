@@ -2,7 +2,7 @@ import type {
   NetworkAdapter,
   NetworkRequestInit,
   NetworkResponse,
-} from '@vnext-forge/services-core';
+} from '@vnext-forge-studio/services-core';
 
 /**
  * VS Code extension host `NetworkAdapter`. Uses the platform `fetch` provided

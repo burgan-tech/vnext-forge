@@ -3,7 +3,7 @@ import path from 'node:path';
 
 import * as vscode from 'vscode';
 
-import type { WorkspaceRootResolver } from '@vnext-forge/services-core';
+import type { WorkspaceRootResolver } from '@vnext-forge-studio/services-core';
 
 /**
  * VS Code `WorkspaceRootResolver`.

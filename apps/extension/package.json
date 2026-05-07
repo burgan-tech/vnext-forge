@@ -1,8 +1,8 @@
 {
-  "name": "vnext-forge",
-  "displayName": "vNext Forge Extensions",
+  "name": "vnext-forge-studio",
+  "displayName": "vNext Forge Studio Extensions",
   "description": "Workflow designer for the vNext engine ecosystem",
-  "version": "0.1.0",
+  "version": "0.1.3",
   "publisher": "burgan-tech",
   "icon": "media/forge-tools.png",
   "private": true,
@@ -492,7 +492,7 @@
     "customEditors": [
       {
         "viewType": "vnextForge.componentEditor",
-        "displayName": "vnext-forge Designer",
+        "displayName": "vnext-forge-studio Designer",
         "selector": [
           {
             "filenamePattern": "*.json"
@@ -502,7 +502,7 @@
       }
     ],
     "configuration": {
-      "title": "vnext-forge",
+      "title": "vnext-forge-studio",
       "properties": {
         "vnextForge.lsp.autoInstall": {
           "type": "boolean",
@@ -540,12 +540,12 @@
         "vnextForge.openComponentJsonInDesigner": {
           "type": "boolean",
           "default": true,
-          "description": "When true, component .json files under vnext.config.json paths open in the vnext-forge designer by default (Explorer / single-click). Use \"Open in Text Editor\" from the context menu to open the raw file in VS Code."
+          "description": "When true, component .json files under vnext.config.json paths open in the vnext-forge-studio designer by default (Explorer / single-click). Use \"Open in Text Editor\" from the context menu to open the raw file in VS Code."
         },
         "vnextForge.materialAssociations.managed": {
           "type": "object",
           "default": { "folders": [], "files": [] },
-          "description": "Internal: tracks which entries vnext-forge added to material-icon-theme.{folders,files}.associations so they can be safely removed without touching user-defined associations.",
+          "description": "Internal: tracks which entries vnext-forge-studio added to material-icon-theme.{folders,files}.associations so they can be safely removed without touching user-defined associations.",
           "properties": {
             "folders": { "type": "array", "items": { "type": "string" } },
             "files": { "type": "array", "items": { "type": "string" } }
@@ -579,12 +579,12 @@
   "dependencies": {
     "@burgan-tech/vnext-schema": "^0.0.39",
     "@burgan-tech/vnext-template": "^0.0.7",
-    "@vnext-forge/app-contracts": "workspace:*",
-    "@vnext-forge/designer-ui": "workspace:*",
-    "@vnext-forge/doc-gen": "workspace:*",
-    "@vnext-forge/lsp-core": "workspace:*",
-    "@vnext-forge/services-core": "workspace:*",
-    "@vnext-forge/vnext-types": "workspace:*",
+    "@vnext-forge-studio/app-contracts": "workspace:*",
+    "@vnext-forge-studio/designer-ui": "workspace:*",
+    "@vnext-forge-studio/doc-gen": "workspace:*",
+    "@vnext-forge-studio/lsp-core": "workspace:*",
+    "@vnext-forge-studio/services-core": "workspace:*",
+    "@vnext-forge-studio/vnext-types": "workspace:*",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.0.0",

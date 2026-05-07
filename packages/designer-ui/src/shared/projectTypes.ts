@@ -2,13 +2,13 @@
  * Shared project/workspace types consumed by BOTH editor views (shared
  * designer UI) and the web shell (project list, file tree, wizards).
  *
- * `VnextWorkspaceConfig` is re-exported from `@vnext-forge/app-contracts` so
+ * `VnextWorkspaceConfig` is re-exported from `@vnext-forge-studio/app-contracts` so
  * every consumer has a single import source regardless of whether it lives in
  * a shared editor, the web shell, or the VS Code extension webview.
  */
-import type { VnextWorkspaceConfig } from '@vnext-forge/app-contracts';
+import type { VnextWorkspaceConfig } from '@vnext-forge-studio/app-contracts';
 
-export type { VnextWorkspaceConfig } from '@vnext-forge/app-contracts';
+export type { VnextWorkspaceConfig } from '@vnext-forge-studio/app-contracts';
 
 export interface ProjectInfo {
   id: string;

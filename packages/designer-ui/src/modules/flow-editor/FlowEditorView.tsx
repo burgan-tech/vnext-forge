@@ -24,6 +24,8 @@ import { useFlowEditorPersistence } from '../../modules/flow-editor/useFlowEdito
 import { useFlowEditorDocument } from '../../modules/flow-editor/useFlowEditorDocument';
 import { FlowEditorSaveProvider } from '../../modules/flow-editor/FlowEditorSaveContext.js';
 import { WorkflowValidationSync } from '../../modules/workflow-validation/WorkflowValidationSync.js';
+import { SubFlowNavigationProvider } from '../../modules/canvas-interaction/context/SubFlowNavigationContext';
+import { useSubFlowNavigation } from './useSubFlowNavigation.js';
 import { Alert, AlertDescription, AlertTitle } from '../../ui/Alert';
 import { Button } from '../../ui/Button';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '../../ui/Resizable.js';
@@ -80,6 +82,16 @@ export interface FlowEditorViewProps {
    * (extension webview sends a postMessage command; web SPA may omit).
    */
   onOpenQuickRun?: () => void;
+  /**
+   * Web shell: navigate to another workflow editor route by group/name.
+   * Used by subflow "open workflow" button.
+   */
+  onNavigateToWorkflow?: (group: string, name: string) => void;
+  /**
+   * Extension webview: open a workflow file by absolute path in the host.
+   * Used by subflow "open workflow" button.
+   */
+  onOpenWorkflowFile?: (absolutePath: string) => void;
 }
 
 export function FlowEditorView({
@@ -90,6 +102,8 @@ export function FlowEditorView({
   onOpenScriptFileInHost,
   registerToolbar,
   onOpenQuickRun,
+  onNavigateToWorkflow,
+  onOpenWorkflowFile,
 }: FlowEditorViewProps) {
   const activeProject = useProjectStore((s) => s.activeProject);
   const vnextConfig = useProjectStore((s) => s.vnextConfig);
@@ -101,6 +115,8 @@ export function FlowEditorView({
       .replace(/\/{2,}/g, '/');
   }, [activeProject, vnextConfig, group]);
 
+  const onOpenSubFlow = useSubFlowNavigation({ onNavigateToWorkflow, onOpenWorkflowFile });
+
   const { workflowJson, diagramJson, selectedNodeId, selectedEdgeId, isDirty } = useWorkflowStore();
   const undo = useWorkflowStore((s) => s.undo);
   const redo = useWorkflowStore((s) => s.redo);
@@ -110,6 +126,12 @@ export function FlowEditorView({
   const { activeScript } = useScriptPanelStore();
   const [showMetadata, setShowMetadata] = useState(false);
   const [showPreviewDoc, setShowPreviewDoc] = useState(false);
+  const [metadataScrollTarget, setMetadataScrollTarget] = useState<string | null>(null);
+
+  const handleOpenWorkflowSettings = useCallback((section?: string) => {
+    setShowMetadata(true);
+    setMetadataScrollTarget(section || null);
+  }, []);
 
   const workflowMetadataResizeMetrics = useMemo(
     () => getWorkflowMetadataVerticalResizeMetrics(),
@@ -174,6 +196,7 @@ export function FlowEditorView({
     diagramJson,
     workflowSettingsActive: showMetadata,
     onToggleWorkflowSettings: () => setShowMetadata((v) => !v),
+    onOpenWorkflowSettings: handleOpenWorkflowSettings,
   } as const;
 
   const editorBody = (
@@ -181,26 +204,28 @@ export function FlowEditorView({
       <FlowEditorCanvasAndScriptResizableColumn
         canvas={
           <div className="flex min-h-0 flex-1 overflow-hidden">
-            {showSidePanel ? (
-              <WorkflowPropertySidebarResizableRow
-                canvas={
-                  <div className="relative h-full min-h-0 w-full">
-                    <ReactFlowProvider>
-                      <FlowCanvas {...flowCanvasProps} />
-                    </ReactFlowProvider>
-                  </div>
-                }
-                sidePanel={
-                  selectedNodeId ? <StatePropertyPanel defaultTaskFolder={group} /> : <TransitionPropertyPanel />
-                }
-              />
-            ) : (
-              <div className="relative h-full min-h-0 flex-1">
-                <ReactFlowProvider>
-                  <FlowCanvas {...flowCanvasProps} />
-                </ReactFlowProvider>
-              </div>
-            )}
+            <SubFlowNavigationProvider onOpenSubFlow={onOpenSubFlow}>
+              {showSidePanel ? (
+                <WorkflowPropertySidebarResizableRow
+                  canvas={
+                    <div className="relative h-full min-h-0 w-full">
+                      <ReactFlowProvider>
+                        <FlowCanvas {...flowCanvasProps} />
+                      </ReactFlowProvider>
+                    </div>
+                  }
+                  sidePanel={
+                    selectedNodeId ? <StatePropertyPanel defaultTaskFolder={group} /> : <TransitionPropertyPanel />
+                  }
+                />
+              ) : (
+                <div className="relative h-full min-h-0 flex-1">
+                  <ReactFlowProvider>
+                    <FlowCanvas {...flowCanvasProps} />
+                  </ReactFlowProvider>
+                </div>
+              )}
+            </SubFlowNavigationProvider>
           </div>
         }
         scriptPanel={
@@ -245,7 +270,11 @@ export function FlowEditorView({
               id={WORKFLOW_METADATA_RESIZE_PANEL_ID}
               maxSize={workflowMetadataResizeMetrics.maxMetaPx}
               minSize={workflowMetadataResizeMetrics.minMetaPx}>
-              <WorkflowMetadataPanel onClose={() => setShowMetadata(false)} />
+              <WorkflowMetadataPanel
+                onClose={() => setShowMetadata(false)}
+                scrollToSection={metadataScrollTarget}
+                onScrollComplete={() => setMetadataScrollTarget(null)}
+              />
             </ResizablePanel>
             <ResizableHandle className="-mt-px box-border w-full max-w-none shrink-0 aria-[orientation=horizontal]:before:top-auto aria-[orientation=horizontal]:before:bottom-0" />
             <ResizablePanel

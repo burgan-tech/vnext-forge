@@ -1,6 +1,6 @@
 import { hc } from 'hono/client';
-import type { AppType } from '@vnext-forge/server';
-import { isFailure, type ApiResponse } from '@vnext-forge/app-contracts';
+import type { AppType } from '@vnext-forge-studio/server';
+import { isFailure, type ApiResponse } from '@vnext-forge-studio/app-contracts';
 import { toVnextError } from '@shared/lib/error/vNextErrorHelpers';
 import { config } from '@shared/config/config';
 import {

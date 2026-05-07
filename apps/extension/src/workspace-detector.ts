@@ -3,7 +3,7 @@ import * as path from 'node:path';
 
 import * as vscode from 'vscode';
 
-import { CONFIG_FILE, type WorkspaceService } from '@vnext-forge/services-core';
+import { CONFIG_FILE, type WorkspaceService } from '@vnext-forge-studio/services-core';
 
 import { baseLogger } from './shared/logger.js';
 
@@ -75,7 +75,7 @@ export async function validateDetectedRoots(
           'vnext.config.json is invalid',
         );
         void vscode.window.showWarningMessage(
-          `vnext-forge: ${path.basename(root.folderPath)}/vnext.config.json is invalid. ${status.message}`,
+          `vnext-forge-studio: ${path.basename(root.folderPath)}/vnext.config.json is invalid. ${status.message}`,
         );
       } else if (status.status === 'ok') {
         baseLogger.info(

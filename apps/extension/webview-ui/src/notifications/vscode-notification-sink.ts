@@ -1,7 +1,7 @@
 import type {
   NotificationKind,
   NotificationSink,
-} from '@vnext-forge/designer-ui';
+} from '@vnext-forge-studio/designer-ui';
 
 import type { VsCodeWebviewApi } from '../VsCodeTransport';
 

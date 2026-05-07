@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 
-const outputChannel = vscode.window.createOutputChannel('vnext-forge');
+const outputChannel = vscode.window.createOutputChannel('vnext-forge-studio');
 
 function format(data: unknown, message?: string): string {
   const msg = message ?? '';

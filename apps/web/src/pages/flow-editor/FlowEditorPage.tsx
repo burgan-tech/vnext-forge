@@ -6,7 +6,7 @@ import {
   FlowEditorView,
   useEditorStore,
   useProjectStore,
-} from '@vnext-forge/designer-ui';
+} from '@vnext-forge-studio/designer-ui';
 
 import { useCodeEditorToolbar } from '../../modules/project-workspace/CodeEditorToolbarContext';
 import { useRegisterComponentEditorTab } from '../../modules/project-workspace/hooks/useRegisterComponentEditorTab';
@@ -36,6 +36,15 @@ export function FlowEditorPage() {
     [activeProject, navigate, openTab],
   );
 
+  const onNavigateToWorkflow = useCallback(
+    (wfGroup: string, wfName: string) => {
+      if (!id) return;
+      const g = wfGroup || '_';
+      navigate(`/project/${id}/flow/${encodeURIComponent(g)}/${encodeURIComponent(wfName)}`);
+    },
+    [id, navigate],
+  );
+
   if (!id || !group || !name) {
     return null;
   }
@@ -48,6 +57,7 @@ export function FlowEditorPage() {
         name={name}
         onNavigateBack={() => navigate(`/project/${id}`)}
         onOpenScriptFileInHost={onOpenScriptFileInHost}
+        onNavigateToWorkflow={onNavigateToWorkflow}
         registerToolbar={setToolbar}
       />
     </ComponentEditorModalProvider>

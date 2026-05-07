@@ -1,4 +1,4 @@
-import type { ApiResponse } from '@vnext-forge/app-contracts';
+import type { ApiResponse } from '@vnext-forge-studio/app-contracts';
 import type { ValidationSeverity } from './WorkflowValidationSchema';
 
 export interface ValidationIssue {

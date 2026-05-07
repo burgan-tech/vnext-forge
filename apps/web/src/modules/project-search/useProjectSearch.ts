@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import { createLogger, useProjectStore } from '@vnext-forge/designer-ui';
+import { createLogger, useProjectStore } from '@vnext-forge-studio/designer-ui';
 
-import { searchFiles, type FileSearchResult } from '@vnext-forge/designer-ui';
+import { searchFiles, type FileSearchResult } from '@vnext-forge-studio/designer-ui';
 
 const logger = createLogger('useProjectSearch');
 

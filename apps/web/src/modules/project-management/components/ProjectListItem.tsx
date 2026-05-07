@@ -1,6 +1,6 @@
 import { ArrowRight, Folder, Trash2 } from 'lucide-react';
 
-import { Button } from '@vnext-forge/designer-ui/ui';
+import { Button } from '@vnext-forge-studio/designer-ui/ui';
 
 import type { ProjectInfo } from '../ProjectTypes';
 

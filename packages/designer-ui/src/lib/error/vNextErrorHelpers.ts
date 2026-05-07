@@ -5,7 +5,7 @@ import {
   type ApiResponse,
   VnextForgeError,
   type ErrorCode,
-} from '@vnext-forge/app-contracts';
+} from '@vnext-forge-studio/app-contracts';
 
 const ERROR_SOURCE = 'designer-ui/lib/error/toVnextError';
 

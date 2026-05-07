@@ -5,7 +5,7 @@ description: Scope is repo-wide. Authoritative guide for the error contract buil
 
 # Error Taxonomy
 
-> **Scope:** Repo-wide. Always reference `@vnext-forge/app-contracts` as the single source of truth.
+> **Scope:** Repo-wide. Always reference `@vnext-forge-studio/app-contracts` as the single source of truth.
 
 ## Source of truth
 
@@ -39,7 +39,7 @@ description: Scope is repo-wide. Authoritative guide for the error contract buil
 
 ```ts
 // service / handler
-import { VnextForgeError, ERROR_CODES } from '@vnext-forge/app-contracts';
+import { VnextForgeError, ERROR_CODES } from '@vnext-forge-studio/app-contracts';
 
 throw new VnextForgeError(ERROR_CODES.RUNTIME_CONNECTION_FAILED, {
   source: 'RuntimeProxyService.proxy',

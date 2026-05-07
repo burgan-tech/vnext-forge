@@ -1,5 +1,5 @@
 {
-  "name": "@vnext-forge/app-contracts",
+  "name": "@vnext-forge-studio/app-contracts",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -16,7 +16,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@vnext-forge/vnext-types": "workspace:*",
+    "@vnext-forge-studio/vnext-types": "workspace:*",
     "zod": "^4.3.6"
   },
   "devDependencies": {

@@ -1,5 +1,5 @@
 import { useMemo, useCallback } from 'react';
-import type { Transition } from '@vnext-forge/vnext-types';
+import type { Transition } from '@vnext-forge-studio/vnext-types';
 import { useWorkflowStore } from '../../../../store/useWorkflowStore';
 import {
   getTriggerLabel,
@@ -8,6 +8,12 @@ import {
 } from './tabs/PropertyPanelHelpers';
 import { Badge } from './tabs/PropertyPanelShared';
 import { ArrowRight, MousePointer2, X } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../../../../ui/Tooltip';
 import { TransitionCard } from './tabs/transition/TransitionCard';
 import { useTransitionMutations } from './tabs/transition/useTransitionMutations';
 import { useTransitionDialogs, TransitionDialogsHost } from './tabs/transition/TransitionDialogsHost';
@@ -129,14 +135,22 @@ export function TransitionPropertyPanel() {
             <span className="text-foreground truncate font-mono text-[13px] font-bold tracking-tight flex-1">
               Start transition
             </span>
-            <button
-              type="button"
-              onClick={() => setSelectedEdge(null)}
-              className="text-muted-foreground hover:bg-muted hover:text-foreground shrink-0 rounded-md p-1 transition-colors"
-              title="Close panel"
-              aria-label="Close panel">
-              <X size={14} strokeWidth={2} aria-hidden />
-            </button>
+            <TooltipProvider delayDuration={300}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedEdge(null)}
+                    className="text-muted-foreground hover:bg-muted hover:text-foreground shrink-0 rounded-md p-1 transition-colors"
+                    aria-label="Close panel">
+                    <X size={14} strokeWidth={2} aria-hidden />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-[11px]">
+                  Close panel
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </div>
 
@@ -201,14 +215,22 @@ export function TransitionPropertyPanel() {
           <span className="text-foreground truncate font-mono text-[13px] font-bold tracking-tight flex-1">
             {transition.key || 'transition'}
           </span>
-          <button
-            type="button"
-            onClick={() => setSelectedEdge(null)}
-            className="text-muted-foreground hover:bg-muted hover:text-foreground shrink-0 rounded-md p-1 transition-colors"
-            title="Close panel"
-            aria-label="Close panel">
-            <X size={14} strokeWidth={2} aria-hidden />
-          </button>
+          <TooltipProvider delayDuration={300}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={() => setSelectedEdge(null)}
+                  className="text-muted-foreground hover:bg-muted hover:text-foreground shrink-0 rounded-md p-1 transition-colors"
+                  aria-label="Close panel">
+                  <X size={14} strokeWidth={2} aria-hidden />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-[11px]">
+                Close panel
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
         <div className="ml-9 flex items-center gap-2">
           <Badge className={getTriggerColor(transition.triggerType ?? 0)}>

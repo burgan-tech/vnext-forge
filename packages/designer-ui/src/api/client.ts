@@ -1,4 +1,4 @@
-import { isFailure, type ApiResponse } from '@vnext-forge/app-contracts';
+import { isFailure, type ApiResponse } from '@vnext-forge-studio/app-contracts';
 import { toVnextError } from '../lib/error/vNextErrorHelpers.js';
 import { getApiTransport } from './transport.js';
 

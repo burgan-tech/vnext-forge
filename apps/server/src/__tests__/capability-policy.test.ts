@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { ERROR_CODES, VnextForgeError } from '@vnext-forge/app-contracts'
+import { ERROR_CODES, VnextForgeError } from '@vnext-forge-studio/app-contracts'
 import {
   assertCapabilityAllowed,
   methodCapability,
-} from '@vnext-forge/services-core'
+} from '@vnext-forge-studio/services-core'
 
 describe('capability policy', () => {
   it('classifies privileged FS / proxy methods correctly', () => {

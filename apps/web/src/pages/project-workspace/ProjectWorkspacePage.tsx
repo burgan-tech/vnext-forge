@@ -1,8 +1,8 @@
 import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { useEditorStore, useProjectStore } from '@vnext-forge/designer-ui';
-import { Badge, Button } from '@vnext-forge/designer-ui/ui';
+import { useEditorStore, useProjectStore } from '@vnext-forge-studio/designer-ui';
+import { Badge, Button } from '@vnext-forge-studio/designer-ui/ui';
 
 import { useVnextWorkspaceUiStore } from '../../app/store/useVnextWorkspaceUiStore';
 export function ProjectWorkspacePage() {

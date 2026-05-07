@@ -5,19 +5,19 @@ import type {
   ProjectService,
   WorkspaceService,
   VnextWorkspaceConfig,
-} from '@vnext-forge/services-core';
+} from '@vnext-forge-studio/services-core';
 import {
   buildComponentFolderRelPaths,
   classifyComponentTreePath,
-} from '@vnext-forge/designer-ui/component-paths';
+} from '@vnext-forge-studio/designer-ui/component-paths';
 import {
   ensureComponentJsonFileName,
   getWorkspaceNameError,
-} from '@vnext-forge/designer-ui/project-workspace-schema';
+} from '@vnext-forge-studio/designer-ui/project-workspace-schema';
 import {
   buildVnextComponentJson,
   type VnextComponentJsonKind,
-} from '@vnext-forge/designer-ui/vnext-defaults';
+} from '@vnext-forge-studio/designer-ui/vnext-defaults';
 import { baseLogger } from './shared/logger.js';
 import { isDesignerEditorRoute, resolveProjectForRoot } from './designer-helpers.js';
 import { resolveFileRoute } from './file-router.js';
@@ -31,7 +31,7 @@ interface CommandDeps {
   designerPanel: DesignerPanel;
 }
 
-/** Register all VS Code commands for vnext-forge. */
+/** Register all VS Code commands for vnext-forge-studio. */
 export function registerCommands(context: vscode.ExtensionContext, deps: CommandDeps): void {
   context.subscriptions.push(
     vscode.commands.registerCommand('vnextForge.open', () => openCommand(deps)),
@@ -77,7 +77,7 @@ function openCommand({ designerPanel }: CommandDeps): void {
 async function openDesignerCommand(uri: vscode.Uri | undefined, deps: CommandDeps): Promise<void> {
   const targetUri = uri ?? vscode.window.activeTextEditor?.document.uri;
   if (!targetUri) {
-    void vscode.window.showWarningMessage('vnext-forge: No file selected to open in the designer.');
+    void vscode.window.showWarningMessage('vnext-forge-studio: No file selected to open in the designer.');
     return;
   }
 
@@ -85,7 +85,7 @@ async function openDesignerCommand(uri: vscode.Uri | undefined, deps: CommandDep
   const root = deps.detector.findOwningRoot(target);
   if (!root) {
     void vscode.window.showWarningMessage(
-      'vnext-forge: The selected file is not inside a vnext workspace (no vnext.config.json found).',
+      'vnext-forge-studio: The selected file is not inside a vnext workspace (no vnext.config.json found).',
     );
     return;
   }
@@ -132,12 +132,12 @@ async function openInTextEditorCommand(uri: vscode.Uri | undefined): Promise<voi
   const targetUri = uri ?? vscode.window.activeTextEditor?.document.uri;
   if (!targetUri) {
     void vscode.window.showWarningMessage(
-      'vnext-forge: No file selected to open in the text editor.',
+      'vnext-forge-studio: No file selected to open in the text editor.',
     );
     return;
   }
 
-  // `vscode.openWith` + `default` viewType, custom editor'ı (vnext-forge
+  // `vscode.openWith` + `default` viewType, custom editor'ı (vnext-forge-studio
   // designer) atlayıp dosyayı doğrudan VS Code'un yerleşik metin
   // editöründe açar. `openTextDocument` + `showTextDocument` çoğu
   // sürümde çalışsa da, custom editor priority `default` iken bazı
@@ -202,7 +202,7 @@ async function createProjectCommand({ projectService, detector }: CommandDeps): 
     await detector.refresh();
 
     const action = await vscode.window.showInformationMessage(
-      `vnext-forge: Project "${project.domain}" created at ${project.path}.`,
+      `vnext-forge-studio: Project "${project.domain}" created at ${project.path}.`,
       'Open in New Window',
       'Add to Workspace',
     );
@@ -220,7 +220,7 @@ async function createProjectCommand({ projectService, detector }: CommandDeps): 
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     baseLogger.error({ domain, message }, 'Failed to create vnext project');
-    void vscode.window.showErrorMessage(`vnext-forge: Failed to create project. ${message}`);
+    void vscode.window.showErrorMessage(`vnext-forge-studio: Failed to create project. ${message}`);
   }
 }
 
@@ -265,7 +265,7 @@ async function createComponentCommand(deps: CommandDeps): Promise<void> {
   const roots = detector.getRoots();
   if (roots.length === 0) {
     void vscode.window.showWarningMessage(
-      'vnext-forge: Open a folder containing vnext.config.json first.',
+      'vnext-forge-studio: Open a folder containing vnext.config.json first.',
     );
     return;
   }
@@ -276,7 +276,7 @@ async function createComponentCommand(deps: CommandDeps): Promise<void> {
   const status = await workspaceService.readConfigStatus(root.folderPath);
   if (status.status !== 'ok') {
     void vscode.window.showWarningMessage(
-      `vnext-forge: vnext.config.json in ${path.basename(root.folderPath)} is not valid.`,
+      `vnext-forge-studio: vnext.config.json in ${path.basename(root.folderPath)} is not valid.`,
     );
     return;
   }
@@ -327,7 +327,7 @@ async function createComponentCommand(deps: CommandDeps): Promise<void> {
   try {
     await fs.access(targetFile);
     void vscode.window.showErrorMessage(
-      `vnext-forge: ${path.basename(targetFile)} already exists.`,
+      `vnext-forge-studio: ${path.basename(targetFile)} already exists.`,
     );
     return;
   } catch {
@@ -344,7 +344,7 @@ async function createComponentCommand(deps: CommandDeps): Promise<void> {
     await fs.writeFile(targetFile, JSON.stringify(stub, null, 2), 'utf-8');
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    void vscode.window.showErrorMessage(`vnext-forge: Failed to write component file. ${message}`);
+    void vscode.window.showErrorMessage(`vnext-forge-studio: Failed to write component file. ${message}`);
     return;
   }
 
@@ -568,12 +568,12 @@ async function forgeComponentCreateByKind(
   if (folderPath) {
     root = deps.detector.findOwningRoot(folderPath);
     if (!root) {
-      void vscode.window.showErrorMessage('vnext-forge: Not inside a vNext workspace.');
+      void vscode.window.showErrorMessage('vnext-forge-studio: Not inside a vNext workspace.');
       return;
     }
     const status = await deps.workspaceService.readConfigStatus(root.folderPath);
     if (status.status !== 'ok') {
-      void vscode.window.showErrorMessage('vnext-forge: vnext.config.json is not valid.');
+      void vscode.window.showErrorMessage('vnext-forge-studio: vnext.config.json is not valid.');
       return;
     }
     config = status.config;
@@ -581,27 +581,27 @@ async function forgeComponentCreateByKind(
     const c = classifyComponentTreePath(folderPath, root.folderPath, relPaths);
     if (!c) {
       void vscode.window.showErrorMessage(
-        'vnext-forge: Use a component folder (e.g. Extensions, Tasks/your-group), not a nested subfolder (e.g. src).',
+        'vnext-forge-studio: Use a component folder (e.g. Extensions, Tasks/your-group), not a nested subfolder (e.g. src).',
       );
       return;
     }
     if (c.componentKind !== expectedKind) {
       void vscode.window.showErrorMessage(
-        'vnext-forge: This command does not match the selected folder type.',
+        'vnext-forge-studio: This command does not match the selected folder type.',
       );
       return;
     }
   } else {
     const roots = deps.detector.getRoots();
     if (roots.length === 0) {
-      void vscode.window.showErrorMessage('vnext-forge: Open a folder containing vnext.config.json first.');
+      void vscode.window.showErrorMessage('vnext-forge-studio: Open a folder containing vnext.config.json first.');
       return;
     }
     root = roots.length === 1 ? roots[0] : await pickWorkspaceRoot(roots);
     if (!root) return;
     const status = await deps.workspaceService.readConfigStatus(root.folderPath);
     if (status.status !== 'ok') {
-      void vscode.window.showErrorMessage('vnext-forge: vnext.config.json is not valid.');
+      void vscode.window.showErrorMessage('vnext-forge-studio: vnext.config.json is not valid.');
       return;
     }
     config = status.config;
@@ -628,7 +628,7 @@ async function forgeComponentCreateByKind(
   try {
     if (expectedKind === 'workflow') {
       if (/\.json$/i.test(name.trim())) {
-        void vscode.window.showErrorMessage('vnext-forge: Workflow name should not include .json.');
+        void vscode.window.showErrorMessage('vnext-forge-studio: Workflow name should not include .json.');
         return;
       }
       fileBase = name.trim();
@@ -636,19 +636,19 @@ async function forgeComponentCreateByKind(
     } else {
       const fileName = ensureComponentJsonFileName(name);
       if (!fileName) {
-        void vscode.window.showErrorMessage('vnext-forge: Name is required.');
+        void vscode.window.showErrorMessage('vnext-forge-studio: Name is required.');
         return;
       }
       const nameErr = getWorkspaceNameError(fileName, 'file');
       if (nameErr) {
-        void vscode.window.showErrorMessage(`vnext-forge: ${nameErr}`);
+        void vscode.window.showErrorMessage(`vnext-forge-studio: ${nameErr}`);
         return;
       }
       fileBase = fileName.replace(/\.json$/i, '');
       const target = path.join(folderPath, fileName);
       try {
         await fs.access(target);
-        void vscode.window.showErrorMessage('vnext-forge: File already exists.');
+        void vscode.window.showErrorMessage('vnext-forge-studio: File already exists.');
         return;
       } catch {
         // ok
@@ -659,7 +659,7 @@ async function forgeComponentCreateByKind(
     }
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
-    void vscode.window.showErrorMessage(`vnext-forge: ${msg}`);
+    void vscode.window.showErrorMessage(`vnext-forge-studio: ${msg}`);
     return;
   }
 

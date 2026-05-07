@@ -40,7 +40,8 @@ function getEdgeColor(triggerType: number, triggerKind: number, isShared: boolea
   }
 }
 
-function getEdgeDash(triggerType: number, triggerKind: number, isShared: boolean): string | undefined {
+function getEdgeDash(triggerType: number, triggerKind: number, isShared: boolean, isWorkflowLevel?: boolean): string | undefined {
+  if (isWorkflowLevel) return '5 3';
   if (isShared) return '6 4';
   if (triggerType === 1 && triggerKind === 10) return '4 4';
   if (triggerType === 2) return '3 4';
@@ -162,6 +163,7 @@ export const TransitionEdge = memo(function TransitionEdge(props: EdgeProps) {
   const triggerType = d.triggerType ?? 0;
   const triggerKind = d.triggerKind ?? 0;
   const isShared = d.isShared ?? false;
+  const isWorkflowLevel = (d.isWorkflowLevel as boolean) ?? false;
   const isSelfLoop = d.isSelfLoop ?? false;
   const waypoints: Waypoint[] = d.waypoints ?? [];
 
@@ -208,7 +210,7 @@ export const TransitionEdge = memo(function TransitionEdge(props: EdgeProps) {
   }
 
   const color = getEdgeColor(triggerType, triggerKind, isShared);
-  const dash = getEdgeDash(triggerType, triggerKind, isShared);
+  const dash = getEdgeDash(triggerType, triggerKind, isShared, isWorkflowLevel);
   const badge = getTriggerBadge(triggerType, triggerKind);
 
   // Double-click on edge path to add a waypoint at that position

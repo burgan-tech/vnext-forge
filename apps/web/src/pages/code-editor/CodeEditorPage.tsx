@@ -4,17 +4,21 @@ import Editor, { type OnMount } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
 import { Redo2, Save, Undo2 } from 'lucide-react';
 
-import { isFailure } from '@vnext-forge/app-contracts';
+import { isFailure } from '@vnext-forge-studio/app-contracts';
 import {
   Button,
   readFile,
   setupMonacoWithLsp,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
   useEditorStore,
   useProjectStore,
   writeFile,
   type CsharpLspClient,
   type EditorTab,
-} from '@vnext-forge/designer-ui';
+} from '@vnext-forge-studio/designer-ui';
 
 import {
   flowToComponentType,
@@ -275,11 +279,11 @@ export function CodeEditorPage() {
       return;
     }
     setToolbar(
-      <>
+      <TooltipProvider delayDuration={300}>
         {activeFileTab?.isDirty ? (
           <span
             className="border-warning-border bg-warning-surface text-warning-text max-w-36 truncate rounded-full border px-1.5 py-px text-[9px] font-medium leading-none"
-            title="Kaydedilmemiş değişiklikler">
+            title="Unsaved changes">
             Modified
           </span>
         ) : null}
@@ -292,34 +296,47 @@ export function CodeEditorPage() {
         <div
           className="border-border bg-muted/30 flex items-center gap-px rounded border p-px"
           role="group"
-          aria-label="Geçmiş">
-          <Button
-            type="button"
-            variant="muted"
-            size="sm"
-            className="h-6 min-h-6 min-w-6 px-0"
-            title="Geri al"
-            disabled={!monacoUndoRedo.canUndo}
-            onClick={handleUndo}>
-            <Undo2 size={12} />
-          </Button>
-          <Button
-            type="button"
-            variant="muted"
-            size="sm"
-            className="h-6 min-h-6 min-w-6 px-0"
-            title="Yinele"
-            disabled={!monacoUndoRedo.canRedo}
-            onClick={handleRedo}>
-            <Redo2 size={12} />
-          </Button>
+          aria-label="History">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="muted"
+                size="sm"
+                className="h-6 min-h-6 min-w-6 px-0"
+                aria-label="Undo (Cmd+Z)"
+                disabled={!monacoUndoRedo.canUndo}
+                onClick={handleUndo}>
+                <Undo2 size={12} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-[11px]">
+              Undo (Cmd+Z)
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                type="button"
+                variant="muted"
+                size="sm"
+                className="h-6 min-h-6 min-w-6 px-0"
+                aria-label="Redo (Cmd+Shift+Z)"
+                disabled={!monacoUndoRedo.canRedo}
+                onClick={handleRedo}>
+                <Redo2 size={12} />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-[11px]">
+              Redo (Cmd+Shift+Z)
+            </TooltipContent>
+          </Tooltip>
         </div>
         <Button
           type="button"
           variant="success"
           size="sm"
           className="h-6 min-h-6 gap-1 px-2 text-[11px]"
-          title="Kaydet (Ctrl+S)"
           disabled={!activeFileTab?.isDirty || saving}
           leftIconComponent={<Save size={12} />}
           onClick={() => {
@@ -327,7 +344,7 @@ export function CodeEditorPage() {
           }}>
           {saving ? 'Saving…' : 'Save'}
         </Button>
-      </>,
+      </TooltipProvider>,
     );
     return () => {
       setToolbar(null);

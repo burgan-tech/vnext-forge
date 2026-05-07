@@ -2,14 +2,14 @@ import * as path from 'node:path';
 
 import * as vscode from 'vscode';
 
-import { ERROR_CODES, VnextForgeError, type ApiResponse } from '@vnext-forge/app-contracts';
+import { ERROR_CODES, VnextForgeError, type ApiResponse } from '@vnext-forge-studio/app-contracts';
 import {
   dispatchMethod,
   type LoggerAdapter,
   type MethodRegistry,
   type ServiceRegistry,
-} from '@vnext-forge/services-core';
-import type { LspBridge } from '@vnext-forge/lsp-core';
+} from '@vnext-forge-studio/services-core';
+import type { LspBridge } from '@vnext-forge-studio/lsp-core';
 
 import { createWebviewLspTransport, type WebviewLspTransport } from './panels/lsp-transport.js';
 import type { ForgeTerminalManager } from './tools/forge-terminal.js';
@@ -66,6 +66,12 @@ interface WebviewLogFrame {
 /** Webview → Extension Host: open a workspace file in the built-in text editor (e.g. .csx from task script panel). */
 interface WebviewOpenWorkspaceFileFrame {
   type: 'host:open-workspace-file';
+  absolutePath: string;
+}
+
+/** Webview → Extension Host: open a workflow/component file in the layout designer (not raw JSON). */
+interface WebviewOpenDesignerFrame {
+  type: 'host:open-designer';
   absolutePath: string;
 }
 
@@ -169,6 +175,11 @@ export class MessageRouter {
       return;
     }
 
+    if (isOpenDesignerFrame(raw)) {
+      void this.handleOpenDesigner(raw);
+      return;
+    }
+
     if (isNotifyFrame(raw)) {
       void this.handleNotifyFrame(panel, raw);
       return;
@@ -235,6 +246,28 @@ export class MessageRouter {
           'host:open-workspace-file failed',
         );
       }
+    }
+  }
+
+  private async handleOpenDesigner(frame: WebviewOpenDesignerFrame): Promise<void> {
+    const rawPath = frame.absolutePath?.trim();
+    if (!rawPath) return;
+
+    let normalized: string;
+    try {
+      normalized = path.normalize(rawPath);
+    } catch {
+      return;
+    }
+
+    const uri = vscode.Uri.file(normalized);
+    try {
+      await vscode.commands.executeCommand('vnextForge.openDesigner', uri);
+    } catch (error) {
+      this.deps.logger.warn(
+        { path: normalized, err: (error as Error).message } as Record<string, unknown>,
+        'host:open-designer failed',
+      );
     }
   }
 
@@ -325,7 +358,7 @@ export class MessageRouter {
     } else if (warnings > 0) {
       text = `$(warning) ${warnings} ${warnings === 1 ? 'warning' : 'warnings'}`;
     } else {
-      text = '$(check) vnext-forge';
+      text = '$(check) vnext-forge-studio';
     }
 
     if (status.runtimeConnected) {
@@ -333,7 +366,7 @@ export class MessageRouter {
     }
 
     item.text = text;
-    item.tooltip = `vnext-forge: ${status.runtimeLabel} | ${errors} errors, ${warnings} warnings`;
+    item.tooltip = `vnext-forge-studio: ${status.runtimeLabel} | ${errors} errors, ${warnings} warnings`;
     item.command = 'workbench.actions.view.problems';
     item.show();
   }
@@ -524,6 +557,12 @@ function isOpenWorkspaceFileFrame(value: unknown): value is WebviewOpenWorkspace
   if (typeof value !== 'object' || value === null) return false;
   const v = value as Record<string, unknown>;
   return v.type === 'host:open-workspace-file' && typeof v.absolutePath === 'string';
+}
+
+function isOpenDesignerFrame(value: unknown): value is WebviewOpenDesignerFrame {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return v.type === 'host:open-designer' && typeof v.absolutePath === 'string';
 }
 
 function isNotifyFrame(value: unknown): value is WebviewNotifyFrame {

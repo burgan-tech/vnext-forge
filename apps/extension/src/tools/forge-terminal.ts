@@ -1,9 +1,9 @@
 import * as vscode from 'vscode';
 
-const TERMINAL_NAME = 'vnext-forge';
+const TERMINAL_NAME = 'vnext-forge-studio';
 
 /**
- * Manages a pool of VS Code terminals under the "vnext-forge" name.
+ * Manages a pool of VS Code terminals under the "vnext-forge-studio" name.
  * Reuses an existing idle terminal when possible; creates a new one
  * only when every managed terminal is either busy or closed.
  *

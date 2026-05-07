@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { generateWorkflowMarkdown } from '@vnext-forge/doc-gen';
+import { generateWorkflowMarkdown } from '@vnext-forge-studio/doc-gen';
 import {
   Dialog,
   DialogContent,
@@ -153,10 +153,11 @@ const markdownStyles = `
 
 /* Links */
 .md-preview a {
-  color: var(--color-primary, #3b82f6);
-  text-decoration: none;
+  color: var(--color-action, #6366f1);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }
-.md-preview a:hover { text-decoration: underline; }
+.md-preview a:hover { opacity: 0.8; }
 
 /* Strong / emphasis */
 .md-preview strong { font-weight: 600; }

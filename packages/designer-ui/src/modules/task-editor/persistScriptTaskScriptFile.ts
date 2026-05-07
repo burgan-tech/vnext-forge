@@ -1,4 +1,4 @@
-import { isFailure, success, type ApiResponse } from '@vnext-forge/app-contracts';
+import { isFailure, success, type ApiResponse } from '@vnext-forge-studio/app-contracts';
 
 import { decodeScriptCode } from '../code-editor/editor/ScriptCodec.js';
 import { readOptionalFile, writeFile } from '../project-workspace/WorkspaceApi.js';

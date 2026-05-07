@@ -1,13 +1,13 @@
 import { useMemo } from 'react';
 import { matchPath, Outlet, useLocation } from 'react-router-dom';
 
-import { RuntimeHealthSync, useProjectStore } from '@vnext-forge/designer-ui';
+import { RuntimeHealthSync, useProjectStore } from '@vnext-forge-studio/designer-ui';
 import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
   useGroupRef,
-} from '@vnext-forge/designer-ui/ui';
+} from '@vnext-forge-studio/designer-ui/ui';
 
 import { useProjectListStore } from '../store/useProjectListStore';
 import { useVnextWorkspaceUiStore } from '../store/useVnextWorkspaceUiStore';

@@ -34,7 +34,7 @@ const buildOptions = {
   outfile: 'dist/extension.js',
   plugins: [copyVendorPlugin],
   // Webview UI is bundled with Vite (`apps/extension/webview-ui`). When adding a
-  // new `package.json#exports` subpath under `@vnext-forge/designer-ui`, align
+  // new `package.json#exports` subpath under `@vnext-forge-studio/designer-ui`, align
   // `vite.config.ts` `optimizeDeps` there (see `docs/architecture/bundler-checklist.md`).
   //
   // vscode is provided by the extension host at runtime — never bundle it.

@@ -1,6 +1,6 @@
 import type { VnextWorkspacePaths } from '../workspace/types.js';
 
-import type { VnextExportCategory } from '@vnext-forge/app-contracts';
+import type { VnextExportCategory } from '@vnext-forge-studio/app-contracts';
 
 /**
  * designer-ui `componentFolderPathUtils.buildComponentFolderRelPaths` ile aynı mantık:

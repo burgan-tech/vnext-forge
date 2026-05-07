@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { ErrorBoundary } from '@vnext-forge/vnext-types';
+import type { ErrorBoundary } from '@vnext-forge-studio/vnext-types';
 import { useWorkflowStore } from '../../../../../store/useWorkflowStore';
 import { useProjectStore } from '../../../../../store/useProjectStore';
 import { CsxEditorField, type ScriptCode } from '../../../../../modules/save-component/components/CsxEditorField';
@@ -11,7 +11,7 @@ import {
   resolveComponentEditorTargetByKeyFlowResult,
 } from '../../../../../modules/vnext-workspace/resolveComponentEditorRoute.js';
 import { showNotification } from '../../../../../notification/notification-port.js';
-import type { DiscoveredVnextComponent } from '@vnext-forge/app-contracts';
+import type { DiscoveredVnextComponent } from '@vnext-forge-studio/app-contracts';
 import { ChooseExistingTaskDialog, ChooseFromExistingTasksButton } from './ChooseExistingTaskDialog';
 import { CreateNewTaskButton, CreateNewTaskDialog } from './CreateNewTaskDialog';
 import { useFlowEditorSave } from '../../../../../modules/flow-editor/FlowEditorSaveContext.js';

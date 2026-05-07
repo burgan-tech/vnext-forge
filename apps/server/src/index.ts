@@ -2,7 +2,7 @@ import { serve } from '@hono/node-server';
 import { serveStatic } from '@hono/node-server/serve-static';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { ERROR_CODES, VnextForgeError } from '@vnext-forge/app-contracts';
+import { ERROR_CODES, VnextForgeError } from '@vnext-forge-studio/app-contracts';
 
 import { createPinoLoggerAdapter } from './adapters/pino-logger.js';
 import { composeLspBridge } from './composition/lsp.js';
@@ -78,7 +78,7 @@ app.notFound((c) =>
 );
 
 baseLogger.info(
-  `vnext-forge web-server running on http://${config.host}:${config.port} ` +
+  `vnext-forge-studio web-server running on http://${config.host}:${config.port} ` +
     `(corsAllowedOrigins=${config.corsAllowedOrigins.join(',') || '<none>'}, ` +
     `maxRequestBodyBytes=${config.maxRequestBodyBytes})`,
 );

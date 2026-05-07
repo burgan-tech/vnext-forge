@@ -1,6 +1,6 @@
 import { useParams } from 'react-router-dom';
 
-import { ViewEditorView } from '@vnext-forge/designer-ui';
+import { ViewEditorView } from '@vnext-forge-studio/designer-ui';
 
 import { useCodeEditorToolbar } from '../../modules/project-workspace/CodeEditorToolbarContext';
 import { useRegisterComponentEditorTab } from '../../modules/project-workspace/hooks/useRegisterComponentEditorTab';

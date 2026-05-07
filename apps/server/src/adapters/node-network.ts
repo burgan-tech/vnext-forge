@@ -2,7 +2,7 @@ import type {
   NetworkAdapter,
   NetworkRequestInit,
   NetworkResponse,
-} from '@vnext-forge/services-core';
+} from '@vnext-forge-studio/services-core';
 
 /**
  * Concrete `NetworkAdapter` for Node-based shells. Thin wrapper around the

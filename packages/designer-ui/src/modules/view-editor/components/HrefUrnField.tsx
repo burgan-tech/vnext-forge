@@ -1,6 +1,6 @@
 import { useId, useState } from 'react';
 import { ChevronRight } from 'lucide-react';
-import { ViewType } from '@vnext-forge/vnext-types';
+import { ViewType } from '@vnext-forge-studio/vnext-types';
 
 import { cn } from '../../../lib/utils/cn.js';
 import { Button } from '../../../ui/Button';

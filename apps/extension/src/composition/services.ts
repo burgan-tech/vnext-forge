@@ -11,7 +11,7 @@ import {
   type ServiceRegistry,
   type TemplateInitScriptResolver,
   type VnextSchemaLoader,
-} from '@vnext-forge/services-core';
+} from '@vnext-forge-studio/services-core';
 
 import { createVsCodeFileSystemAdapter } from '../adapters/vscode-file-system.js';
 import { createVsCodeNetworkAdapter } from '../adapters/vscode-network.js';

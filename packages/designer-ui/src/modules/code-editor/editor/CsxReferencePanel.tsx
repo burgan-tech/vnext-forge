@@ -1,5 +1,11 @@
 import { useCallback, useState } from 'react';
 import { ChevronRight, Copy, Search, X } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../../../ui/Tooltip';
 import { Input } from '../../../ui/Input';
 import { filterCsxApiReferenceSections, type ApiEntry, type ApiSection } from './CsxApiReference';
 
@@ -87,12 +93,22 @@ export function CsxReferencePanel({ onClose, onInsert }: CsxReferencePanelProps)
     <div className="flex h-full flex-col border-l border-border bg-surface">
       <div className="flex shrink-0 items-center gap-2 border-b border-border-subtle px-3 py-2">
         <span className="flex-1 text-[11px] font-bold tracking-tight text-foreground">C# API</span>
-        <button
-          onClick={onClose}
-          className="flex size-6 items-center justify-center rounded-md text-muted-foreground transition-all hover:bg-muted hover:text-foreground"
-        >
-          <X size={12} />
-        </button>
+        <TooltipProvider delayDuration={300}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={onClose}
+                className="flex size-6 items-center justify-center rounded-md text-muted-foreground transition-all hover:bg-muted hover:text-foreground"
+                aria-label="Close">
+                <X size={12} />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-[11px]">
+              Close
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
 
       <div className="shrink-0 border-b border-border-subtle px-2 py-1.5">

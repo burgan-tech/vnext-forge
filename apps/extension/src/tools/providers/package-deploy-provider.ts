@@ -101,7 +101,7 @@ export class PackageDeployProvider implements vscode.TreeDataProvider<DeployNode
     const installed = await this.checkWfInstalled();
     if (!installed) {
       const action = await vscode.window.showWarningMessage(
-        'vnext-forge: Workflow CLI (wf) is not installed.',
+        'vnext-forge-studio: Workflow CLI (wf) is not installed.',
         'Install Now',
       );
       if (action === 'Install Now') {
@@ -112,7 +112,7 @@ export class PackageDeployProvider implements vscode.TreeDataProvider<DeployNode
 
     const roots = this.detector.getRoots();
     if (roots.length === 0) {
-      void vscode.window.showWarningMessage('vnext-forge: No vnext workspace found.');
+      void vscode.window.showWarningMessage('vnext-forge-studio: No vnext workspace found.');
       return;
     }
 
@@ -127,7 +127,7 @@ export class PackageDeployProvider implements vscode.TreeDataProvider<DeployNode
     this.terminal.run('npm install -g @burgan-tech/vnext-workflow-cli');
 
     void vscode.window.showInformationMessage(
-      'vnext-forge: Installing Workflow CLI globally. Refresh the sidebar after installation completes.',
+      'vnext-forge-studio: Installing Workflow CLI globally. Refresh the sidebar after installation completes.',
     );
 
     this.wfInstalled = undefined;

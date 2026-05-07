@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { failureFromCode, success, ERROR_CODES } from '@vnext-forge/app-contracts';
+import { failureFromCode, success, ERROR_CODES } from '@vnext-forge-studio/app-contracts';
 
 import { emitFsChangeOnSuccess } from './emitFsChangeOnSuccess.js';
 import { resetWorkspaceFsChangeListeners, subscribeWorkspaceFsChange } from './workspace-fs-events.js';

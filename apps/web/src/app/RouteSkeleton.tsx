@@ -1,4 +1,4 @@
-import { cn } from '@vnext-forge/designer-ui';
+import { cn } from '@vnext-forge-studio/designer-ui';
 
 /**
  * Lightweight placeholder while lazy route chunks load.

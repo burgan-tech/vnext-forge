@@ -1,6 +1,6 @@
 import { BrowserRouter, Route, Routes, useNavigate } from 'react-router-dom';
 
-import { ProjectNavigationProvider } from '@vnext-forge/designer-ui';
+import { ProjectNavigationProvider } from '@vnext-forge-studio/designer-ui';
 import { lazy, Suspense, type ReactNode } from 'react';
 
 import { RouteSkeleton } from './RouteSkeleton';

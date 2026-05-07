@@ -22,7 +22,7 @@ export default defineConfig({
   },
   plugins: [react(), tailwindcss()],
   optimizeDeps: {
-    include: ['@vnext-forge/designer-ui/editor', '@monaco-editor/react', 'monaco-editor'],
+    include: ['@vnext-forge-studio/designer-ui/editor', '@monaco-editor/react', 'monaco-editor'],
   },
   build: {
     outDir: '../dist/webview-ui',

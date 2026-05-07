@@ -1,4 +1,4 @@
-import { useProjectStore } from '@vnext-forge/designer-ui';
+import { useProjectStore } from '@vnext-forge-studio/designer-ui';
 
 import { useVnextWorkspaceUiStore } from '../../app/store/useVnextWorkspaceUiStore';
 import { useWorkspaceDiagnosticsStore } from '../../app/store/useWorkspaceDiagnosticsStore';

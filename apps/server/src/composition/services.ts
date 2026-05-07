@@ -14,7 +14,7 @@ import {
   type ServiceRegistry,
   type TemplateInitScriptResolver,
   type VnextSchemaLoader,
-} from '@vnext-forge/services-core';
+} from '@vnext-forge-studio/services-core';
 
 import { createNodeFileSystemAdapter } from '../adapters/node-file-system.js';
 import { createNodeNetworkAdapter } from '../adapters/node-network.js';

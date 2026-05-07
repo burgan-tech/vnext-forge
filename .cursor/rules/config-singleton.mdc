@@ -15,7 +15,7 @@ alwaysApply: false
 
 1. **One config module per shell.** All other code reads `import { config } from '@/shared/config/config'`. No module outside this file may read `process.env`, `import.meta.env`, or `vscode.workspace.getConfiguration` directly.
 2. **Single Zod schema** with **defaults inline.** A missing `.env` is never fatal: the loader logs a warning, attaches `globalThis.__vnextConfig`, and continues with defaults.
-3. **Use shared primitives.** Reuse `LogLevelSchema`, `NodeEnvSchema`, `coercedBool`, `csvList`, `isLoopbackHost` from `@vnext-forge/app-contracts/env/common`. Don't reinvent boolean coercion.
+3. **Use shared primitives.** Reuse `LogLevelSchema`, `NodeEnvSchema`, `coercedBool`, `csvList`, `isLoopbackHost` from `@vnext-forge-studio/app-contracts/env/common`. Don't reinvent boolean coercion.
 4. **Per-shell sources of truth (in priority order):**
    - `apps/server` — `.env` file → `process.env` → defaults.
    - `apps/web` — `.env` file → `import.meta.env` (only `VITE_*`) → defaults.

@@ -1,4 +1,4 @@
-import type { RetryPolicy, BackoffType } from '@vnext-forge/vnext-types';
+import type { RetryPolicy, BackoffType } from '@vnext-forge-studio/vnext-types';
 import { EditableInput, SelectField } from '../PropertyPanelShared';
 
 interface RetryPolicyEditorProps {

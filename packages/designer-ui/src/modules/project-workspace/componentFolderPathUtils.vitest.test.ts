@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { buildComponentFolderRelPaths, matchVnextDomainComponentFolder } from './componentFolderPathUtils.js';
-import type { VnextWorkspacePaths } from '@vnext-forge/app-contracts';
+import type { VnextWorkspacePaths } from '@vnext-forge-studio/app-contracts';
 
 const mockPaths: VnextWorkspacePaths = {
   componentsRoot: 'openbanking',

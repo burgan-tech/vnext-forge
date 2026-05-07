@@ -2,8 +2,8 @@ import { WebSocketServer } from 'ws';
 import type { Server as HttpServer } from 'node:http';
 import type { Http2Server, Http2SecureServer } from 'node:http2';
 
-import type { LspBridge } from '@vnext-forge/lsp-core';
-import type { LoggerAdapter } from '@vnext-forge/services-core';
+import type { LspBridge } from '@vnext-forge-studio/lsp-core';
+import type { LoggerAdapter } from '@vnext-forge-studio/services-core';
 
 import { createWsLspTransport } from '../adapters/ws-lsp-transport.js';
 import {

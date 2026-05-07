@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
-import { isMessageOriginAllowed } from '@vnext-forge/designer-ui';
-import { QuickRunApi, QuickRunShell } from '@vnext-forge/designer-ui/quickrun';
+import { isMessageOriginAllowed } from '@vnext-forge-studio/designer-ui';
+import { QuickRunApi, QuickRunShell } from '@vnext-forge-studio/designer-ui/quickrun';
 
 import { resolveWebviewPostMessageAllowedOrigins } from '../host/webviewMessageOrigins';
 import type { VsCodeWebviewApi } from '../VsCodeTransport';

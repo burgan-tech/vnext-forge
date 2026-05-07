@@ -1,5 +1,5 @@
-import { useSettingsStore } from '@vnext-forge/designer-ui';
-import { Accordion, ColorThemeSwitchSidebar, Input } from '@vnext-forge/designer-ui/ui';
+import { useSettingsStore } from '@vnext-forge-studio/designer-ui';
+import { Accordion, ColorThemeSwitchSidebar, Input } from '@vnext-forge-studio/designer-ui/ui';
 import { Palette } from 'lucide-react';
 
 import { ProjectWorkspaceSidebarPanel } from '../../../modules/project-workspace';

@@ -1,6 +1,6 @@
 import type { NavigateFunction } from 'react-router-dom';
 
-import { useEditorStore, type EditorTab } from '@vnext-forge/designer-ui';
+import { useEditorStore, type EditorTab } from '@vnext-forge-studio/designer-ui';
 
 export function buildNavigatePathForTab(projectId: string, tab: EditorTab): string | null {
   if (tab.kind === 'file' && tab.filePath) {

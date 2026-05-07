@@ -1,5 +1,11 @@
 import { AlertTriangle, FolderTree, Home, Search, Settings } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@vnext-forge-studio/designer-ui';
 
 import { useWebShellStore, type SidebarView } from '../../store/useWebShellStore';
 
@@ -50,41 +56,55 @@ export function ActivityBar() {
   }
 
   return (
-    <div className="bg-chrome flex w-[52px] shrink-0 flex-col items-center py-2">
-      <div className="flex flex-1 flex-col items-center gap-1">
-        {topItems.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => handleClick(item)}
-            title={item.title}
-            className={`relative flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-150 ${
-              isActive(item)
-                ? 'bg-chrome-item text-chrome-foreground'
-                : 'text-chrome-muted hover:bg-chrome-item-hover hover:text-chrome-foreground'
-            }`}>
-            {isActive(item) && (
-              <span className="bg-chrome-accent absolute top-1/2 left-0 h-5 w-0.75 -translate-y-1/2 rounded-r-full" />
-            )}
-            {item.icon}
-          </button>
-        ))}
-      </div>
+    <TooltipProvider delayDuration={300}>
+      <div className="bg-chrome flex w-[52px] shrink-0 flex-col items-center py-2">
+        <div className="flex flex-1 flex-col items-center gap-1">
+          {topItems.map((item) => (
+            <Tooltip key={item.id}>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => handleClick(item)}
+                  aria-label={item.title}
+                  className={`relative flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-150 ${
+                    isActive(item)
+                      ? 'bg-chrome-item text-chrome-foreground'
+                      : 'text-chrome-muted hover:bg-chrome-item-hover hover:text-chrome-foreground'
+                  }`}>
+                  {isActive(item) && (
+                    <span className="bg-chrome-accent absolute top-1/2 left-0 h-5 w-0.75 -translate-y-1/2 rounded-r-full" />
+                  )}
+                  {item.icon}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="text-[11px]">
+                {item.title}
+              </TooltipContent>
+            </Tooltip>
+          ))}
+        </div>
 
-      <div className="flex flex-col items-center gap-1 pb-1">
-        {bottomItems.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => handleClick(item)}
-            title={item.title}
-            className={`flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-150 ${
-              isActive(item)
-                ? 'bg-chrome-item text-chrome-foreground'
-                : 'text-chrome-muted hover:bg-chrome-item-hover hover:text-chrome-foreground'
-            }`}>
-            {item.icon}
-          </button>
-        ))}
+        <div className="flex flex-col items-center gap-1 pb-1">
+          {bottomItems.map((item) => (
+            <Tooltip key={item.id}>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => handleClick(item)}
+                  aria-label={item.title}
+                  className={`flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-150 ${
+                    isActive(item)
+                      ? 'bg-chrome-item text-chrome-foreground'
+                      : 'text-chrome-muted hover:bg-chrome-item-hover hover:text-chrome-foreground'
+                  }`}>
+                  {item.icon}
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="text-[11px]">
+                {item.title}
+              </TooltipContent>
+            </Tooltip>
+          ))}
+        </div>
       </div>
-    </div>
+    </TooltipProvider>
   );
 }

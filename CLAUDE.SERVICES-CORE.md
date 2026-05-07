@@ -58,12 +58,12 @@ Each method **must** have a corresponding `MethodHttpSpec` entry in [`packages/a
 
 ## Contract tests
 
-- **`packages/services-core/test/registry-contract.test.ts`** — snapshot of sorted method names; per-method validation against `paramsSchema` and `resultSchema` using JSON fixtures under **`packages/services-core/test/fixtures/<domain>/<action>.json`** (hierarchical to match the slash-form id); plus a parity test that ensures every registry key has a matching `MethodHttpSpec` entry in `@vnext-forge/app-contracts` and vice versa.
+- **`packages/services-core/test/registry-contract.test.ts`** — snapshot of sorted method names; per-method validation against `paramsSchema` and `resultSchema` using JSON fixtures under **`packages/services-core/test/fixtures/<domain>/<action>.json`** (hierarchical to match the slash-form id); plus a parity test that ensures every registry key has a matching `MethodHttpSpec` entry in `@vnext-forge-studio/app-contracts` and vice versa.
 - **New methods** MUST add a fixture, update the snapshot, and add the `MethodHttpSpec` entry in the **same PR**.
 
 ## Dependency policy
 
-This package may depend on **`@vnext-forge/app-contracts`** only. No imports from `apps/*` or other workspace packages. Details: [dependency-policy skill](./.cursor/skills/shared/dependency-policy/SKILL.md).
+This package may depend on **`@vnext-forge-studio/app-contracts`** only. No imports from `apps/*` or other workspace packages. Details: [dependency-policy skill](./.cursor/skills/shared/dependency-policy/SKILL.md).
 
 ## Don'ts
 

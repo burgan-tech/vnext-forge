@@ -1,5 +1,5 @@
 import * as vscode from 'vscode'
-import type { ProjectService } from '@vnext-forge/services-core'
+import type { ProjectService } from '@vnext-forge-studio/services-core'
 
 import { isDesignerEditorRoute } from './designer-helpers.js'
 import { resolveFileRoute } from './file-router.js'
@@ -168,7 +168,7 @@ export class VnextComponentCustomTextEditorProvider implements vscode.CustomText
     // editor. CSP-strict empty document is fine.
     try {
       webviewPanel.webview.html =
-        '<!doctype html><meta charset="utf-8" /><title>vnext-forge</title>'
+        '<!doctype html><meta charset="utf-8" /><title>vnext-forge-studio</title>'
     } catch {
       /* ignore */
     }
@@ -209,7 +209,7 @@ export class VnextComponentCustomTextEditorProvider implements vscode.CustomText
           'Fallback openTextDocument failed for non-component JSON',
         )
         void vscode.window.showWarningMessage(
-          'vnext-forge: Could not open this file in the text editor. See the vnext-forge-core output for details.',
+          'vnext-forge-studio: Could not open this file in the text editor. See the vnext-forge-studio-core output for details.',
         )
       }
     } finally {
@@ -237,7 +237,7 @@ function getConcreteViewColumn(panel: vscode.WebviewPanel): vscode.ViewColumn | 
  * **preview** tab'ında açılır (başlık italik) ve başka bir dosyaya
  * tıklanınca aynı tab'ı ele geçirir — yani her dosya için yeni bir tab
  * AÇILMAZ. Bu davranış metin dosyaları için bile aynı olduğundan,
- * varsayılan VS Code ayarına saygılı olmak isterdik; ancak vnext-forge
+ * varsayılan VS Code ayarına saygılı olmak isterdik; ancak vnext-forge-studio
  * tasarımcısının tab başına ağır bir webview booting maliyeti var
  * (loading ekranı, React mount, store hydration) ve preview tab'ının
  * silinmesi bu maliyeti boşa harcatıyor.

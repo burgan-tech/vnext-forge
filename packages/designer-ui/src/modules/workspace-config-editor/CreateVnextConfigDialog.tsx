@@ -14,7 +14,7 @@ import {
   isSuccess,
   type ApiResponse,
   type VnextWorkspaceConfig,
-} from '@vnext-forge/app-contracts';
+} from '@vnext-forge-studio/app-contracts';
 
 import { cn } from '../../lib/utils/cn.js';
 import { createLogger } from '../../lib/logger/createLogger.js';

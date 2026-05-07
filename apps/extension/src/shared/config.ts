@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import * as vscode from 'vscode'
 
-import { coercedBool, csvList } from '@vnext-forge/app-contracts'
+import { coercedBool, csvList } from '@vnext-forge-studio/app-contracts'
 
 /**
  * Centralized config for the VS Code extension host.

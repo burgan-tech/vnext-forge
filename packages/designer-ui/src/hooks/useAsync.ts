@@ -5,7 +5,7 @@ import {
   type ApiResponse,
   type ErrorSeverity,
   VnextForgeError,
-} from '@vnext-forge/app-contracts';
+} from '@vnext-forge-studio/app-contracts';
 import { toVnextError } from '../lib/error/vNextErrorHelpers.js';
 import { showNotification, type NotificationKind } from '../notification/notification-port.js';
 import { createLogger } from '../lib/logger/createLogger.js';

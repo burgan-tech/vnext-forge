@@ -1,4 +1,4 @@
-import { isLoopbackHost } from '@vnext-forge/app-contracts'
+import { isLoopbackHost } from '@vnext-forge-studio/app-contracts'
 
 /**
  * Pure policy helpers for the LSP WebSocket upgrade and inbound frames (R-b16).

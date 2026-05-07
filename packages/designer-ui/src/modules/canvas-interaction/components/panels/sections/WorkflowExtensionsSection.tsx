@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { Puzzle, Trash2, Plus } from 'lucide-react';
-import type { DiscoveredVnextComponent } from '@vnext-forge/app-contracts';
+import type { DiscoveredVnextComponent } from '@vnext-forge-studio/app-contracts';
 import { useWorkflowStore } from '../../../../../store/useWorkflowStore';
 import { useProjectStore } from '../../../../../store/useProjectStore';
 import { ChooseExistingVnextComponentDialog } from '../tabs/ChooseExistingTaskDialog';

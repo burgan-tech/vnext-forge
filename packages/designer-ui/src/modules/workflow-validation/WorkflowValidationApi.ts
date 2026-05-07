@@ -4,7 +4,7 @@ import {
   failureFromError,
   isFailure,
   success,
-} from '@vnext-forge/app-contracts';
+} from '@vnext-forge-studio/app-contracts';
 import { callApi } from '../../api/client';
 import { toVnextError } from '../../lib/error/vNextErrorHelpers';
 import { validateWorkflow } from './ValidationEngine';

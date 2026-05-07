@@ -101,6 +101,10 @@ async function layoutWithElk(
   });
 }
 
+function isWorkflowLevelNode(node: Node): boolean {
+  return node.type === 'workflowTransitionNode';
+}
+
 export async function layoutFlow(
   nodes: Node[],
   edges: Edge[],
@@ -108,10 +112,29 @@ export async function layoutFlow(
 ): Promise<Node[]> {
   const { algorithm = 'dagre', direction = 'DOWN' } = options;
 
+  const layoutNodes = nodes.filter((n) => !isWorkflowLevelNode(n));
+  const wfNodes = nodes.filter(isWorkflowLevelNode);
+  const wfNodeIds = new Set(wfNodes.map((n) => n.id));
+  const layoutEdges = edges.filter((e) => !wfNodeIds.has(e.source) && !wfNodeIds.has(e.target));
+
+  let result: Node[];
   if (algorithm === 'elk') {
-    return layoutWithElk(nodes, edges, direction);
+    result = await layoutWithElk(layoutNodes, layoutEdges, direction);
+  } else {
+    result = layoutWithDagre(layoutNodes, layoutEdges, direction);
   }
-  return layoutWithDagre(nodes, edges, direction);
+
+  // Position workflow-level nodes in a column to the left of the main graph
+  if (wfNodes.length > 0) {
+    const minX = result.reduce((min, n) => Math.min(min, n.position.x), Infinity);
+    const minY = result.reduce((min, n) => Math.min(min, n.position.y), Infinity);
+    const offsetX = minX - 200;
+    wfNodes.forEach((n, i) => {
+      result.push({ ...n, position: { x: offsetX, y: minY + i * 55 } });
+    });
+  }
+
+  return result;
 }
 
 /** @deprecated Use `layoutFlow` instead. Kept for backward compatibility. */

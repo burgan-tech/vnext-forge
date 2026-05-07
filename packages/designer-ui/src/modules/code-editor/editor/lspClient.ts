@@ -167,7 +167,7 @@ export function createCsharpLspClient(monaco: Monaco, sessionId: string): Csharp
   async function initialize(): Promise<void> {
     await sendRequest('initialize', {
       processId: null,
-      clientInfo: { name: 'vnext-forge', version: '1.0.0' },
+      clientInfo: { name: 'vnext-forge-studio', version: '1.0.0' },
       rootUri: null,
       capabilities: {
         textDocument: {

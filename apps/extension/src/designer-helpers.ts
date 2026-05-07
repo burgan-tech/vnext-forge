@@ -1,6 +1,6 @@
 import * as path from 'node:path'
 import * as vscode from 'vscode'
-import type { ProjectService, WorkspaceService, VnextWorkspaceConfig } from '@vnext-forge/services-core'
+import type { ProjectService, WorkspaceService, VnextWorkspaceConfig } from '@vnext-forge-studio/services-core'
 import { baseLogger } from './shared/logger.js'
 import type { FileRoute, FileRouteKind } from './file-router.js'
 import type { VnextWorkspaceRoot } from './workspace-detector.js'
@@ -45,17 +45,17 @@ export async function resolveProjectForRoot(
     }
     if (status.status === 'invalid') {
       void vscode.window.showWarningMessage(
-        `vnext-forge: ${path.basename(root.folderPath)}/vnext.config.json is invalid. ${status.message}`,
+        `vnext-forge-studio: ${path.basename(root.folderPath)}/vnext.config.json is invalid. ${status.message}`,
       )
       return null
     }
     void vscode.window.showWarningMessage(
-      `vnext-forge: vnext.config.json is missing in ${root.folderPath}.`,
+      `vnext-forge-studio: vnext.config.json is missing in ${root.folderPath}.`,
     )
     return null
   } catch (error) {
     baseLogger.error({ error: (error as Error).message }, 'Failed to read vnext.config.json')
-    void vscode.window.showErrorMessage('vnext-forge: Failed to read workspace configuration.')
+    void vscode.window.showErrorMessage('vnext-forge-studio: Failed to read workspace configuration.')
     return null
   }
 }

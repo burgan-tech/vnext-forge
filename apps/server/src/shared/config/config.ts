@@ -8,11 +8,11 @@ import {
   coercedBool,
   csvList,
   isLoopbackHost as isLoopbackHostShared,
-} from '@vnext-forge/app-contracts';
+} from '@vnext-forge-studio/app-contracts';
 import { z } from 'zod';
 
 /**
- * Centralized, validated runtime configuration for `@vnext-forge/server`.
+ * Centralized, validated runtime configuration for `@vnext-forge-studio/server`.
  *
  * Single source of truth for every env-driven setting:
  *  - Defaults are baked into the Zod schema, so the server boots even when no
@@ -141,7 +141,7 @@ function loadConfig(): AppConfig {
 
   if (!envExists) {
     console.warn(
-      `[vnext-forge/server] No .env file found at ${envPath}. ` +
+      `[vnext-forge-studio/server] No .env file found at ${envPath}. ` +
         'Using built-in defaults: ' +
         `host=${parsed.data.host}, port=${parsed.data.port}, ` +
         `vnextRuntimeUrl=${parsed.data.vnextRuntimeUrl}, ` +
@@ -155,7 +155,7 @@ function loadConfig(): AppConfig {
   // the deployer needs to know they have left the local-only trust model.
   if (!isLoopbackHost(parsed.data.host)) {
     console.warn(
-      `[vnext-forge/server] HOST=${parsed.data.host} is NOT loopback. ` +
+      `[vnext-forge-studio/server] HOST=${parsed.data.host} is NOT loopback. ` +
         'Capability gating will deny privileged REST methods (files/*, ' +
         'runtime/proxy, projects/create|import|remove, files/browse) unless ' +
         'the request originates from an allow-listed origin. Make sure ' +
@@ -169,7 +169,7 @@ function loadConfig(): AppConfig {
 /**
  * Re-export the shared loopback predicate so existing callers keep their
  * `import { isLoopbackHost } from './config.js'` path working. Implementation
- * lives in `@vnext-forge/app-contracts/env/common.ts` (R-b7).
+ * lives in `@vnext-forge-studio/app-contracts/env/common.ts` (R-b7).
  */
 export const isLoopbackHost = isLoopbackHostShared;
 

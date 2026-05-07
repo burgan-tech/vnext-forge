@@ -1,8 +1,8 @@
 import { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { useResolvedColorTheme, useSettingsStore } from '@vnext-forge/designer-ui';
-import { ColorThemeSwitch } from '@vnext-forge/designer-ui/ui';
+import { useResolvedColorTheme, useSettingsStore } from '@vnext-forge-studio/designer-ui';
+import { ColorThemeSwitch } from '@vnext-forge-studio/designer-ui/ui';
 
 import { ProjectListActions } from './components/ProjectListActions';
 import { ProjectListHero } from './components/ProjectListHero';

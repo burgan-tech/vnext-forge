@@ -10,7 +10,7 @@ import {
   generateIndexMarkdown,
   resolveLabelOrKey,
   type ComponentDocEntry,
-} from '@vnext-forge/doc-gen';
+} from '@vnext-forge-studio/doc-gen';
 
 type ComponentCategory = 'workflows' | 'tasks' | 'functions' | 'extensions' | 'schemas' | 'views';
 

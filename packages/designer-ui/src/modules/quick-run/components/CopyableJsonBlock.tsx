@@ -1,4 +1,8 @@
-import { type ChangeEvent, type ReactNode, useCallback, useState } from 'react';
+import { type ReactNode, useCallback, useRef, useState } from 'react';
+import MonacoEditor, { type OnMount } from '@monaco-editor/react';
+import type { editor } from 'monaco-editor';
+
+import { useResolvedColorTheme } from '../../../hooks/useResolvedColorTheme';
 
 interface CopyableJsonBlockProps {
   value: unknown;
@@ -123,6 +127,11 @@ interface JsonEditorWithCopyProps {
 
 export function JsonEditorWithCopy({ value, onChange, rows = 8, label }: JsonEditorWithCopyProps) {
   const [copied, setCopied] = useState(false);
+  const [formatError, setFormatError] = useState<string | null>(null);
+  const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
+  const resolvedColorTheme = useResolvedColorTheme();
+  const monacoTheme = resolvedColorTheme === 'dark' ? 'vs-dark' : 'vs';
+  const height = Math.max(rows * 19, 100);
 
   const handleCopy = useCallback(() => {
     void navigator.clipboard.writeText(value).then(() => {
@@ -131,38 +140,100 @@ export function JsonEditorWithCopy({ value, onChange, rows = 8, label }: JsonEdi
     });
   }, [value]);
 
-  const handleChange = useCallback(
-    (e: ChangeEvent<HTMLTextAreaElement>) => onChange(e.target.value),
-    [onChange],
-  );
+  const handleAutoFix = useCallback(() => {
+    try {
+      const parsed = JSON.parse(value);
+      const formatted = JSON.stringify(parsed, null, 2);
+      onChange(formatted);
+      setFormatError(null);
+    } catch {
+      setFormatError('Invalid JSON — cannot format');
+      setTimeout(() => setFormatError(null), 3000);
+    }
+  }, [value, onChange]);
+
+  const handleMount = useCallback<OnMount>((editor) => {
+    editorRef.current = editor;
+  }, []);
 
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center justify-between">
         {label && <label className="text-xs font-medium">{label}</label>}
-        <button
-          type="button"
-          className="flex items-center gap-1 text-[10px] text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]"
-          onClick={handleCopy}
-          title={copied ? 'Copied!' : 'Copy to clipboard'}
-          aria-label="Copy JSON"
-        >
-          {copied ? (
-            <span className="text-[var(--vscode-charts-green)]">Copied!</span>
-          ) : (
-            <>
-              <CopyIcon />
-              <span>Copy</span>
-            </>
-          )}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            className="flex items-center gap-1 text-[10px] text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]"
+            onClick={handleAutoFix}
+            title="Format JSON"
+            aria-label="Auto-fix JSON formatting"
+          >
+            <FormatIcon />
+            <span>Auto-Fix</span>
+          </button>
+          <button
+            type="button"
+            className="flex items-center gap-1 text-[10px] text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]"
+            onClick={handleCopy}
+            title={copied ? 'Copied!' : 'Copy to clipboard'}
+            aria-label="Copy JSON"
+          >
+            {copied ? (
+              <span className="text-[var(--vscode-charts-green)]">Copied!</span>
+            ) : (
+              <>
+                <CopyIcon />
+                <span>Copy</span>
+              </>
+            )}
+          </button>
+        </div>
       </div>
-      <textarea
-        value={value}
-        onChange={handleChange}
-        rows={rows}
-        className="rounded border border-[var(--vscode-input-border)] bg-[var(--vscode-input-background)] px-2 py-1.5 font-mono text-[11px] text-[var(--vscode-input-foreground)]"
-      />
+      {formatError && (
+        <span className="text-[10px] text-[var(--vscode-errorForeground)]">{formatError}</span>
+      )}
+      <div
+        className="overflow-hidden rounded border border-[var(--vscode-input-border)]"
+        style={{ height }}
+      >
+        <MonacoEditor
+          height="100%"
+          language="json"
+          value={value}
+          onChange={(nextValue) => {
+            const next = nextValue ?? '';
+            if (next === value) return;
+            onChange(next);
+          }}
+          onMount={handleMount}
+          theme={monacoTheme}
+          options={{
+            padding: { top: 4, bottom: 4 },
+            folding: false,
+            fontSize: 11,
+            glyphMargin: false,
+            lineDecorationsWidth: 0,
+            lineNumbers: 'off',
+            lineNumbersMinChars: 0,
+            minimap: { enabled: false },
+            overviewRulerLanes: 0,
+            renderLineHighlight: 'none',
+            scrollBeyondLastLine: false,
+            scrollbar: { horizontalScrollbarSize: 4, verticalScrollbarSize: 4 },
+            tabSize: 2,
+            wordWrap: 'on',
+            editContext: false,
+          }}
+        />
+      </div>
     </div>
+  );
+}
+
+function FormatIcon() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" className="text-[var(--vscode-descriptionForeground)]">
+      <path d="M2 3h12v1H2V3zm2 3h8v1H4V6zm-1 3h10v1H3V9zm2 3h6v1H5v-1z" />
+    </svg>
   );
 }

@@ -9,7 +9,7 @@ import {
   Monitor,
 } from 'lucide-react';
 
-import { Button, cn } from '@vnext-forge/designer-ui';
+import { Button, cn } from '@vnext-forge-studio/designer-ui';
 
 import type { WorkspaceFolder } from '../ProjectTypes';
 

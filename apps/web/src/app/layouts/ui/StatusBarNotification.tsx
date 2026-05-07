@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 
-import { cn } from '@vnext-forge/designer-ui/lib';
+import { cn } from '@vnext-forge-studio/designer-ui/lib';
 
 /**
  * Status bar / dark chrome strip: compact pill notifications.

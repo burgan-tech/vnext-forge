@@ -1,4 +1,4 @@
-import type { ViewBinding } from '@vnext-forge/vnext-types';
+import type { ViewBinding } from '@vnext-forge-studio/vnext-types';
 import { ViewBindingsSection } from '../shared/ViewBindingsSection';
 
 export interface TransitionViewSectionProps {

@@ -12,7 +12,7 @@ import {
   setupMonacoLoader,
   syncColorThemeFromSettingsStore,
   WorkspaceSurfaceSync,
-} from '@vnext-forge/designer-ui';
+} from '@vnext-forge-studio/designer-ui';
 
 import './index.css';
 import { extensionHostEditorCapabilities } from './host/extensionHostEditorCapabilities';

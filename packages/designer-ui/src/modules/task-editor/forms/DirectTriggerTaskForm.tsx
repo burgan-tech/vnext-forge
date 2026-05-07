@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import type { DiscoveredVnextComponent } from '@vnext-forge/app-contracts';
+import type { DiscoveredVnextComponent } from '@vnext-forge-studio/app-contracts';
 import { Field } from '../../../ui/Field';
 import { Input } from '../../../ui/Input';
 import { Select } from '../../../ui/Select';

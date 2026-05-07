@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 /**
- * Centralized, validated runtime configuration for `@vnext-forge/web`.
+ * Centralized, validated runtime configuration for `@vnext-forge-studio/web`.
  *
  * Single source of truth for every env-driven setting:
  *  - Defaults are baked into the Zod schema, so the SPA boots even when no
@@ -56,7 +56,7 @@ function loadConfig(): AppConfig {
 
   if (env.DEV && !env.VITE_API_BASE_URL) {
     console.warn(
-      `[vnext-forge/web] VITE_API_BASE_URL not set — using built-in default "${defaultApiBaseUrl}". ` +
+      `[vnext-forge-studio/web] VITE_API_BASE_URL not set — using built-in default "${defaultApiBaseUrl}". ` +
         'Create apps/web/.env (e.g. `VITE_API_BASE_URL=http://localhost:3001`) to override.',
     );
   }

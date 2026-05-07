@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
-import type { Transition, ViewBinding } from '@vnext-forge/vnext-types';
-import type { DiscoveredVnextComponent } from '@vnext-forge/app-contracts';
+import type { Transition, ViewBinding } from '@vnext-forge-studio/vnext-types';
+import type { DiscoveredVnextComponent } from '@vnext-forge-studio/app-contracts';
 import type { AtomicSavedInfo } from '../../../../../../modules/save-component/componentEditorModalTypes.js';
 import { useWorkflowStore } from '../../../../../../store/useWorkflowStore';
 import { useProjectStore } from '../../../../../../store/useProjectStore';

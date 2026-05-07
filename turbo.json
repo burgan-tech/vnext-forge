@@ -9,8 +9,8 @@
       "dependsOn": ["^build"],
       "outputs": ["dist/**"]
     },
-    "vnext-forge#build": {
-      "dependsOn": ["^build", "@vnext-forge/web#build"],
+    "vnext-forge-studio#build": {
+      "dependsOn": ["^build", "@vnext-forge-studio/web#build"],
       "outputs": ["dist/**"]
     },
     "lint": {
@@ -20,17 +20,17 @@
       "dependsOn": ["^build"],
       "outputs": []
     },
-    "vnext-forge#package": {
-      "dependsOn": ["vnext-forge#build"],
+    "vnext-forge-studio#package": {
+      "dependsOn": ["vnext-forge-studio#build"],
       "outputs": ["*.vsix"],
       "cache": false
     },
-    "vnext-forge-desktop#build": {
-      "dependsOn": ["^build", "@vnext-forge/web#build"],
+    "vnext-forge-studio-desktop#build": {
+      "dependsOn": ["^build", "@vnext-forge-studio/web#build"],
       "outputs": ["dist/**"]
     },
-    "vnext-forge-desktop#package": {
-      "dependsOn": ["vnext-forge-desktop#build"],
+    "vnext-forge-studio-desktop#package": {
+      "dependsOn": ["vnext-forge-studio-desktop#build"],
       "outputs": ["dist/release/**"],
       "cache": false
     },

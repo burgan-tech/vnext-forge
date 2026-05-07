@@ -1,13 +1,13 @@
 /**
  * Web module-local re-export for backwards-compat. The canonical source for
- * these types is `@vnext-forge/designer-ui` (see `shared/projectTypes`).
+ * these types is `@vnext-forge-studio/designer-ui` (see `shared/projectTypes`).
  */
 import type {
   FileTreeNode,
   ProjectConfigStatus,
   ProjectInfo,
   VnextComponentLayoutStatus,
-} from '@vnext-forge/designer-ui';
+} from '@vnext-forge-studio/designer-ui';
 
 export type {
   FileTreeNode,
@@ -17,7 +17,7 @@ export type {
   VnextComponentLayoutStatus,
   VnextWorkspaceConfig,
   WriteProjectConfigPayload,
-} from '@vnext-forge/designer-ui';
+} from '@vnext-forge-studio/designer-ui';
 
 /**
  * Single round-trip payload for opening a project workspace. Mirrors the

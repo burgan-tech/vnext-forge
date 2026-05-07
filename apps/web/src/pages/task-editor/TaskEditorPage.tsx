@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
-import { TaskEditorView, useEditorStore, useProjectStore } from '@vnext-forge/designer-ui';
+import { TaskEditorView, useEditorStore, useProjectStore } from '@vnext-forge-studio/designer-ui';
 
 import { useCodeEditorToolbar } from '../../modules/project-workspace/CodeEditorToolbarContext';
 import { useRegisterComponentEditorTab } from '../../modules/project-workspace/hooks/useRegisterComponentEditorTab';

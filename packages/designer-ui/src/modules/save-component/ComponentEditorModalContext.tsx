@@ -78,7 +78,7 @@ export function useOpenComponentEditorModal(): (target: ComponentEditorTarget) =
           typeof import.meta !== 'undefined' &&
           (import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV
         ) {
-          // Often indicates duplicate @vnext-forge/designer-ui copies (stale context).
+          // Often indicates duplicate @vnext-forge-studio/designer-ui copies (stale context).
           console.error(
             'useOpenComponentEditorModal: no ComponentEditorModalProvider; openModal is a no-op.',
           );

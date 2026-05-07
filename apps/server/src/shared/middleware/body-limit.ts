@@ -1,5 +1,5 @@
 import type { MiddlewareHandler } from 'hono'
-import { ERROR_CODES, VnextForgeError } from '@vnext-forge/app-contracts'
+import { ERROR_CODES, VnextForgeError } from '@vnext-forge-studio/app-contracts'
 import { config } from '../config/config.js'
 
 /**

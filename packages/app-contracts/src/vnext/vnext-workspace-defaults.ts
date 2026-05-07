@@ -2,14 +2,14 @@
  * Merkezi vNext workspace (vnext.config.json) varsayılanları.
  * Sürüm değerleri tek kaynakta tutulur; runtime / şema hizası buradan yönetilir.
  *
- * Kanonik tip tanımları `@vnext-forge/vnext-types` paketinde yaşar.
+ * Kanonik tip tanımları `@vnext-forge-studio/vnext-types` paketinde yaşar.
  * Bu dosya yalnızca versiyon sabitleri, builder girdisi ve builder fonksiyonunu barındırır.
  */
 import type {
   VnextWorkspaceConfig,
   VnextWorkspaceExportsMeta,
   VnextWorkspaceReferenceResolution,
-} from '@vnext-forge/vnext-types'
+} from '@vnext-forge-studio/vnext-types'
 
 export type {
   VnextWorkspaceConfig,
@@ -18,7 +18,7 @@ export type {
   VnextWorkspaceExportsMeta,
   VnextWorkspacePaths,
   VnextWorkspaceReferenceResolution,
-} from '@vnext-forge/vnext-types'
+} from '@vnext-forge-studio/vnext-types'
 
 // ── Version constants ─────────────────────────────────────────────────────────
 

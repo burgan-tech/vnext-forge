@@ -1,6 +1,6 @@
 import path from 'node:path'
 
-import { ERROR_CODES, VnextForgeError } from '@vnext-forge/app-contracts'
+import { ERROR_CODES, VnextForgeError } from '@vnext-forge-studio/app-contracts'
 
 import type { FileSystemAdapter, LoggerAdapter } from '../adapters/index.js'
 

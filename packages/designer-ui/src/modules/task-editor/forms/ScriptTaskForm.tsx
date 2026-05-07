@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { isFailure } from '@vnext-forge/app-contracts';
+import { isFailure } from '@vnext-forge-studio/app-contracts';
 import { FileCode, Plus } from 'lucide-react';
 
 import { ScriptEditorPanel } from '../../code-editor/layout/ScriptEditorPanel';

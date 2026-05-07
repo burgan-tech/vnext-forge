@@ -1,6 +1,6 @@
 ---
 name: eslint-config-change
-description: Scope is the entire monorepo (root + all workspaces under apps/* and packages/*). Update the monorepo ESLint configuration in vnext-forge. Use when changing shared lint rules, workspace-specific ESLint behavior, runtime globals, or logger/no-console overrides. Trigger this skill for any ESLint config work in `eslint.config.mjs` at the repo root or in any workspace.
+description: Scope is the entire monorepo (root + all workspaces under apps/* and packages/*). Update the monorepo ESLint configuration in vnext-forge-studio. Use when changing shared lint rules, workspace-specific ESLint behavior, runtime globals, or logger/no-console overrides. Trigger this skill for any ESLint config work in `eslint.config.mjs` at the repo root or in any workspace.
 ---
 
 # ESLint Config Change

@@ -1,4 +1,4 @@
-import type { Label } from '@vnext-forge/vnext-types';
+import type { Label } from '@vnext-forge-studio/vnext-types';
 import { EditableInput, IconPlus, IconTrash, Section } from '../PropertyPanelShared';
 
 interface TransitionLabelsSectionProps {

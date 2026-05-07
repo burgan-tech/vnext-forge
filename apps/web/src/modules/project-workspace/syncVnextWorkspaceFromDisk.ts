@@ -1,4 +1,4 @@
-import { createLogger } from '@vnext-forge/designer-ui';
+import { createLogger } from '@vnext-forge-studio/designer-ui';
 
 import { useComponentFileTypesStore } from '../../app/store/useComponentFileTypesStore';
 import { useVnextWorkspaceUiStore } from '../../app/store/useVnextWorkspaceUiStore';

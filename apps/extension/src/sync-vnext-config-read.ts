@@ -4,8 +4,8 @@ import {
   CONFIG_FILE,
   normalizeWorkspaceRootToConfig,
   workspaceRootConfigSchema,
-} from '@vnext-forge/services-core'
-import type { WorkspaceConfigReadStatus } from '@vnext-forge/services-core'
+} from '@vnext-forge-studio/services-core'
+import type { WorkspaceConfigReadStatus } from '@vnext-forge-studio/services-core'
 
 type Cached = { mtimeMs: number; status: WorkspaceConfigReadStatus }
 const byRoot = new Map<string, Cached>()

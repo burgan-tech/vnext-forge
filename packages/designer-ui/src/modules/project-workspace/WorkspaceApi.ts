@@ -5,7 +5,7 @@ import {
   ERROR_CODES,
   type ApiResponse,
   VnextForgeError,
-} from '@vnext-forge/app-contracts';
+} from '@vnext-forge-studio/app-contracts';
 import type { FileTreeNode } from '../../shared/projectTypes';
 import { callApi, unwrapApi } from '../../api/client';
 import { createLogger } from '../../lib/logger/createLogger';

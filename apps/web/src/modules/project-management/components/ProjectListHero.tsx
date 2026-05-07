@@ -1,6 +1,6 @@
 import { Layers, Link2 } from 'lucide-react';
 
-import { Badge } from '@vnext-forge/designer-ui/ui';
+import { Badge } from '@vnext-forge-studio/designer-ui/ui';
 
 export function ProjectListHero() {
   return (

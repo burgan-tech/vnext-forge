@@ -1,4 +1,4 @@
-import type { RoleGrant } from '@vnext-forge/vnext-types';
+import type { RoleGrant } from '@vnext-forge-studio/vnext-types';
 import { EditableInput, SelectField, IconPlus, IconTrash } from '../PropertyPanelShared';
 
 const GRANT_OPTIONS = [

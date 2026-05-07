@@ -9,6 +9,7 @@ export interface CanvasViewSettings {
   algorithm: LayoutAlgorithm;
   direction: LayoutDirection;
   edgePathStyle: EdgePathStyle;
+  showWorkflowEdges: boolean;
 }
 
 interface CanvasViewSettingsContextValue {
@@ -25,6 +26,7 @@ const defaultSettings: CanvasViewSettings = {
   algorithm: 'dagre',
   direction: 'DOWN',
   edgePathStyle: 'smoothstep',
+  showWorkflowEdges: true,
 };
 
 function applyThemeModeIfValid(themeMode: unknown): void {
@@ -57,6 +59,9 @@ function readInitialSettings(): CanvasViewSettings {
       edgePathStyle: VALID_EDGE_STYLES.includes(host.edgePathStyle as string)
         ? (host.edgePathStyle as EdgePathStyle)
         : defaultSettings.edgePathStyle,
+      showWorkflowEdges: typeof host.showWorkflowEdges === 'boolean'
+        ? host.showWorkflowEdges
+        : defaultSettings.showWorkflowEdges,
     };
   } catch {
     return defaultSettings;
@@ -93,6 +98,9 @@ export function CanvasViewSettingsProvider({ children }: { children: ReactNode }
         edgePathStyle: VALID_EDGE_STYLES.includes(incoming.edgePathStyle as string)
           ? (incoming.edgePathStyle as EdgePathStyle)
           : prev.edgePathStyle,
+        showWorkflowEdges: typeof incoming.showWorkflowEdges === 'boolean'
+          ? incoming.showWorkflowEdges
+          : prev.showWorkflowEdges,
       }));
     }
 

@@ -3,7 +3,7 @@ import {
   formatHyphenatedTabTitle,
   getVnextComponentEditorTabDisplayTitle,
   type SpaComponentEditorTabRouteKind,
-} from '@vnext-forge/vnext-types';
+} from '@vnext-forge-studio/vnext-types';
 
 import type { ComponentEditorKind } from './EditorStore.js';
 import type { EditorTab } from './EditorStore.js';
@@ -15,7 +15,7 @@ export {
   getVnextComponentEditorTabDisplayTitle,
   type SpaComponentEditorTabRouteKind,
   type VnextComponentTabKind,
-} from '@vnext-forge/vnext-types';
+} from '@vnext-forge-studio/vnext-types';
 
 /**
  * URL / sekme kimliğinde kullanılan `flow` ile dosya ikonlarındaki `workflow`

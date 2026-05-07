@@ -11,7 +11,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@vnext-forge/designer-ui/ui';
+} from '@vnext-forge-studio/designer-ui/ui';
 
 import { FolderBrowser } from './FolderBrowser';
 import { useImportProject } from '../hooks/useImportProject';

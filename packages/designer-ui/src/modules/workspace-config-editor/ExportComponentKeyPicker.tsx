@@ -1,6 +1,6 @@
 import { Loader2 } from 'lucide-react';
 
-import type { DiscoveredVnextComponent } from '@vnext-forge/app-contracts';
+import type { DiscoveredVnextComponent } from '@vnext-forge-studio/app-contracts';
 
 import { ComponentFileIcon } from '../component-icons/ComponentFileIcon.js';
 import { cn } from '../../lib/utils/cn.js';

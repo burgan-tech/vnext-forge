@@ -10,7 +10,7 @@
  *
  *   @import 'tailwindcss';
  *   @import 'tw-animate-css';
- *   @import '@vnext-forge/designer-ui/styles.css';
+ *   @import '@vnext-forge-studio/designer-ui/styles.css';
  *
  * The `@source` directive below points Tailwind at the designer-ui sources
  * so utility classes used inside shared components/modules are generated

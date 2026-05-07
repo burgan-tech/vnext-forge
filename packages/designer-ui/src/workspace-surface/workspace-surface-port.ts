@@ -15,7 +15,7 @@ export interface WorkspaceDiagnosticDto {
   filePath: string;
   severity: 'error' | 'warning' | 'info';
   message: string;
-  /** Source identifier shown in the Problems panel (e.g. 'vnext-forge'). */
+  /** Source identifier shown in the Problems panel (e.g. 'vnext-forge-studio'). */
   source: string;
   range?: {
     startLine: number;

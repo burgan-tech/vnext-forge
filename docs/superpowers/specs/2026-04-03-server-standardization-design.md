@@ -10,7 +10,7 @@
 
 Transform `apps/server` from a bare-bones Hono skeleton into a properly layered BFF:
 
-- All responses use `ApiResponse<T>` from `@vnext-forge/app-contracts`
+- All responses use `ApiResponse<T>` from `@vnext-forge-studio/app-contracts`
 - All errors are `VnextForgeError` — no raw `Error` throws or `{ error: String(e) }` responses
 - A single `error-handler` middleware owns the translation boundary
 - `workspace-service` package is implemented and consumed by the server
@@ -181,7 +181,7 @@ export class WorkspaceAnalyzer {
 ```json
 {
   "dependencies": {
-    "@vnext-forge/app-contracts": "workspace:*"
+    "@vnext-forge-studio/app-contracts": "workspace:*"
   }
 }
 ```
@@ -216,8 +216,8 @@ apps/server/src/
 ```json
 {
   "dependencies": {
-    "@vnext-forge/app-contracts": "workspace:*",
-    "@vnext-forge/workspace-service": "workspace:*"
+    "@vnext-forge-studio/app-contracts": "workspace:*",
+    "@vnext-forge-studio/workspace-service": "workspace:*"
   }
 }
 ```

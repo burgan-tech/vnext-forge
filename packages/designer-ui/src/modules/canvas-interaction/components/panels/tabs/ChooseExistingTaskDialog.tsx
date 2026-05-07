@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Loader2, Search } from 'lucide-react';
 
-import type { DiscoveredVnextComponent, VnextExportCategory } from '@vnext-forge/app-contracts';
+import type { DiscoveredVnextComponent, VnextExportCategory } from '@vnext-forge-studio/app-contracts';
 import { ComponentFileIcon } from '../../../../../modules/component-icons/ComponentFileIcon.js';
 import { groupDiscoveredTasksForPicker } from '../../../../task-editor/groupCsxScriptsForTaskPicker.js';
 import { useProjectStore } from '../../../../../store/useProjectStore.js';

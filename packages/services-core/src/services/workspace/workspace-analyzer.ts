@@ -1,4 +1,4 @@
-import { ERROR_CODES, VnextForgeError } from '@vnext-forge/app-contracts'
+import { ERROR_CODES, VnextForgeError } from '@vnext-forge-studio/app-contracts'
 import type { FileSystemAdapter } from '../../adapters/index.js'
 import { getErrnoCode } from '../../internal/errno.js'
 import { basename, joinPosix } from '../../internal/paths.js'

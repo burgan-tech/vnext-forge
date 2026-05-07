@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
 
-import type { WorkspaceRootResolver } from '@vnext-forge/services-core';
+import type { WorkspaceRootResolver } from '@vnext-forge-studio/services-core';
 
 /**
  * `WorkspaceRootResolver` for the standalone web server. Returns

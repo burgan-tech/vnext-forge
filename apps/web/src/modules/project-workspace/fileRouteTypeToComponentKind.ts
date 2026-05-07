@@ -1,4 +1,4 @@
-import type { ComponentEditorKind } from '@vnext-forge/designer-ui';
+import type { ComponentEditorKind } from '@vnext-forge-studio/designer-ui';
 
 import type { FileRouteType } from './FileRouter';
 

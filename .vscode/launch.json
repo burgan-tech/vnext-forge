@@ -54,7 +54,7 @@
         "NODE_ENV": "development"
       },
       "serverReadyAction": {
-        "pattern": "vnext-forge web-server running on http://127.0.0.1:(\\d+)",
+        "pattern": "vnext-forge-studio web-server running on http://127.0.0.1:(\\d+)",
         "action": "debugWithChrome",
         "webRoot": "${workspaceFolder}/apps/web/src",
         "uriFormat": "http://127.0.0.1:%s"

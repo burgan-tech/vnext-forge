@@ -59,7 +59,7 @@ Full enforcement: [`.cursor/rules/rpc-method-policy.mdc`](./.cursor/rules/rpc-me
 
 ## Config
 
-Single Zod-validated singleton: [`./apps/server/src/shared/config/config.ts`](./apps/server/src/shared/config/config.ts). Read [`.cursor/rules/config-singleton.mdc`](./.cursor/rules/config-singleton.mdc). Defaults live in the schema; a missing `.env` logs a warning and the process continues with defaults. Reuses primitives from `@vnext-forge/app-contracts/env/common` (`LogLevelSchema`, `NodeEnvSchema`, `coercedBool`, `csvList`, `isLoopbackHost`).
+Single Zod-validated singleton: [`./apps/server/src/shared/config/config.ts`](./apps/server/src/shared/config/config.ts). Read [`.cursor/rules/config-singleton.mdc`](./.cursor/rules/config-singleton.mdc). Defaults live in the schema; a missing `.env` logs a warning and the process continues with defaults. Reuses primitives from `@vnext-forge-studio/app-contracts/env/common` (`LogLevelSchema`, `NodeEnvSchema`, `coercedBool`, `csvList`, `isLoopbackHost`).
 
 ## Logging
 
@@ -69,9 +69,9 @@ Single Zod-validated singleton: [`./apps/server/src/shared/config/config.ts`](./
 
 ## Workspace config types
 
-- Canonical workspace config types (`VnextWorkspaceConfig` and related) live in **`@vnext-forge/vnext-types`**.
-- `apps/server/src/slices/workspace/types.ts` re-exports those types via `export type { ... } from '@vnext-forge/vnext-types'`. Server-only types (`IWorkspace`, `WorkspaceAnalysisResult`, `SearchResult`, `DirectoryEntry`, etc.) stay in that same file.
-- When importing workspace config types in `apps/server`, prefer the **`@workspace/types.js`** path alias over importing `@vnext-forge/vnext-types` directly so server-only and canonical types share one entry point.
+- Canonical workspace config types (`VnextWorkspaceConfig` and related) live in **`@vnext-forge-studio/vnext-types`**.
+- `apps/server/src/slices/workspace/types.ts` re-exports those types via `export type { ... } from '@vnext-forge-studio/vnext-types'`. Server-only types (`IWorkspace`, `WorkspaceAnalysisResult`, `SearchResult`, `DirectoryEntry`, etc.) stay in that same file.
+- When importing workspace config types in `apps/server`, prefer the **`@workspace/types.js`** path alias over importing `@vnext-forge-studio/vnext-types` directly so server-only and canonical types share one entry point.
 - Do **not** define a parallel local interface for workspace config; use the canonical / re-exported types.
 
 ## Tests
@@ -81,7 +81,7 @@ Families under [`./apps/server/src/__tests__/`](./apps/server/src/__tests__/) in
 Run:
 
 ```bash
-pnpm --filter @vnext-forge/server test
+pnpm --filter @vnext-forge-studio/server test
 ```
 
 Write tests against the **real middleware chain**; do not disable middleware “just for tests.”

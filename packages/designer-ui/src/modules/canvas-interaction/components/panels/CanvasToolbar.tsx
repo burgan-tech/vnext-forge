@@ -5,6 +5,12 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../../../../ui/Tooltip';
+import {
   useCanvasViewSettings,
   type LayoutAlgorithm,
   type LayoutDirection,
@@ -17,6 +23,7 @@ interface CanvasToolbarProps {
   workflowSettingsActive?: boolean;
   onToggleWorkflowSettings?: () => void;
   hasInitialState?: boolean;
+  closeSignal?: number;
 }
 
 export function CanvasToolbar({
@@ -25,6 +32,7 @@ export function CanvasToolbar({
   workflowSettingsActive,
   onToggleWorkflowSettings,
   hasInitialState,
+  closeSignal,
 }: CanvasToolbarProps) {
   const [open, setOpen] = useState(false);
   const [canvasOptionsOpen, setCanvasOptionsOpen] = useState(false);
@@ -40,6 +48,13 @@ export function CanvasToolbar({
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [open, canvasOptionsOpen]);
+
+  useEffect(() => {
+    if (closeSignal && closeSignal > 0) {
+      setOpen(false);
+      setCanvasOptionsOpen(false);
+    }
+  }, [closeSignal]);
 
   const add = (stateType: number, subType = 0) => {
     onAddState(stateType, subType);
@@ -84,7 +99,7 @@ export function CanvasToolbar({
         onClick={onAutoLayout}
         className="text-muted-foreground hover:bg-muted flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium transition-all duration-150 active:scale-[0.97]">
         <Wand2 size={14} className="text-muted-icon" />
-        <span>Layout</span>
+        <span>Auto-Fix</span>
       </button>
 
       <div className="h-5 w-px bg-border" />
@@ -114,17 +129,26 @@ export function CanvasToolbar({
         <>
           <div className="h-5 w-px bg-border" />
           <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={onToggleWorkflowSettings}
-              className={`shrink-0 rounded-xl p-1.5 transition-all duration-150 ${
-                workflowSettingsActive
-                  ? 'border border-secondary-border bg-secondary-surface text-secondary-text'
-                  : 'border border-transparent text-muted-foreground hover:border-muted-border-hover hover:bg-muted hover:text-foreground'
-              }`}
-              title="Workflow Settings">
-              <Settings2 size={16} />
-            </button>
+            <TooltipProvider delayDuration={300}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={onToggleWorkflowSettings}
+                    className={`shrink-0 rounded-xl p-1.5 transition-all duration-150 ${
+                      workflowSettingsActive
+                        ? 'border border-secondary-border bg-secondary-surface text-secondary-text'
+                        : 'border border-transparent text-muted-foreground hover:border-muted-border-hover hover:bg-muted hover:text-foreground'
+                    }`}
+                    aria-label="Workflow Settings">
+                    <Settings2 size={16} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="text-[11px]">
+                  Workflow Settings
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </div>
         </>
       )}
@@ -204,6 +228,19 @@ function CanvasOptionsPanel({ onClose }: { onClose: () => void }) {
             { value: 'straight', label: 'Straight' },
           ]}
         />
+      </OptionSection>
+
+      {/* Workflow Edges Visibility */}
+      <OptionSection title="Workflow Edges">
+        <label className="flex cursor-pointer items-center gap-2 text-[11px] font-medium text-foreground">
+          <input
+            type="checkbox"
+            checked={settings.showWorkflowEdges}
+            onChange={(e) => updateSettings({ showWorkflowEdges: e.target.checked })}
+            className="size-3.5 cursor-pointer rounded accent-[var(--color-action)]"
+          />
+          Show workflow-level edges
+        </label>
       </OptionSection>
     </div>
   );

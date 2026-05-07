@@ -1,4 +1,4 @@
-# vnext-forge
+# vnext-forge-studio
 
 Workflow designer and management interface for the vnext engine ecosystem — delivered as a **VS Code extension** and a **standalone desktop app** (Windows / macOS).
 
@@ -29,7 +29,7 @@ apps/
   server/      # Hono REST backend — used by web shell (dev) and desktop shell
 
 packages/
-  vnext-types/       # Shared domain model types (@vnext-forge/vnext-types)
+  vnext-types/       # Shared domain model types (@vnext-forge-studio/vnext-types)
   app-contracts/     # ApiResponse envelope, VnextForgeError, METHOD_HTTP_METADATA
   services-core/     # Method registry, dispatch, all services (file, project, LSP…)
   designer-ui/       # Shared React component library
@@ -105,7 +105,7 @@ pnpm install
 ### Build for development (extension host watch mode)
 
 ```bash
-pnpm --filter vnext-forge dev
+pnpm --filter vnext-forge-studio dev
 ```
 
 ### Full build (web UI + extension host)
@@ -117,22 +117,22 @@ pnpm build
 # Or step by step:
 # 1. Build shared packages
 # 2. Build the React webview → apps/extension/dist/webview-ui/
-pnpm --filter @vnext-forge/web build
+pnpm --filter @vnext-forge-studio/web build
 # 3. Build the extension host (also copies vnext-template vendor to dist/vendor/)
-pnpm --filter vnext-forge build
+pnpm --filter vnext-forge-studio build
 ```
 
 ### Package the extension as a .vsix
 
 ```bash
-pnpm --filter vnext-forge package
-# → apps/extension/vnext-forge-0.1.0.vsix
+pnpm --filter vnext-forge-studio package
+# → apps/extension/vnext-forge-studio-0.1.0.vsix
 ```
 
 ### Install the .vsix in VS Code
 
 ```bash
-code --install-extension apps/extension/vnext-forge-0.1.0.vsix
+code --install-extension apps/extension/vnext-forge-studio-0.1.0.vsix
 ```
 
 ---
@@ -145,10 +145,10 @@ code --install-extension apps/extension/vnext-forge-0.1.0.vsix
 
 ```bash
 # 1. Build everything (packages + web + desktop bundles)
-pnpm build && pnpm --filter vnext-forge-desktop build
+pnpm build && pnpm --filter vnext-forge-studio-desktop build
 
 # 2. Launch
-pnpm --filter vnext-forge-desktop dev
+pnpm --filter vnext-forge-studio-desktop dev
 # DevTools open automatically in development mode
 ```
 
@@ -156,13 +156,13 @@ pnpm --filter vnext-forge-desktop dev
 
 ```bash
 # macOS (run on a macOS machine)
-pnpm --filter vnext-forge-desktop package:mac
-# → apps/desktop/dist/release/vnext-forge-0.1.0-arm64.dmg  (Apple Silicon)
-# → apps/desktop/dist/release/vnext-forge-0.1.0-x64.dmg    (Intel)
+pnpm --filter vnext-forge-studio-desktop package:mac
+# → apps/desktop/dist/release/vnext-forge-studio-0.1.0-arm64.dmg  (Apple Silicon)
+# → apps/desktop/dist/release/vnext-forge-studio-0.1.0-x64.dmg    (Intel)
 
 # Windows (run on a Windows machine)
-pnpm --filter vnext-forge-desktop package:win
-# → apps/desktop/dist/release/vnext-forge-Setup-0.1.0.exe
+pnpm --filter vnext-forge-studio-desktop package:win
+# → apps/desktop/dist/release/vnext-forge-studio-Setup-0.1.0.exe
 ```
 
 ### Automated CI release (GitHub Actions)
@@ -196,10 +196,10 @@ In two separate terminals:
 
 ```bash
 # terminal 1 — backend
-pnpm --filter @vnext-forge/server dev
+pnpm --filter @vnext-forge-studio/server dev
 
 # terminal 2 — web shell
-pnpm --filter @vnext-forge/web dev
+pnpm --filter @vnext-forge-studio/web dev
 ```
 
 Then open <http://localhost:3000> in a browser. The web shell will issue REST
@@ -248,11 +248,11 @@ Once activated, the following entry points are available:
 - **Right-click** any `.json` file in the Explorer (or from the editor tab) and
   choose **Open Designer** to jump to the matching designer view (workflow,
   task, schema, view, function, extension, or raw JSON editor).
-- **Command Palette → vnext-forge: Open Designer** — opens (or reveals) the
+- **Command Palette → vnext-forge-studio: Open Designer** — opens (or reveals) the
   webview panel.
-- **Command Palette → vnext-forge: Create vnext Project** — scaffolds a new
+- **Command Palette → vnext-forge-studio: Create vnext Project** — scaffolds a new
   project in a folder of your choice via `@burgan-tech/vnext-template`.
-- **Command Palette → vnext-forge: Create vnext Component** — interactively
+- **Command Palette → vnext-forge-studio: Create vnext Component** — interactively
   picks type + group + key, writes a minimal stub JSON into the right folder
   (resolved from `vnext.config.json` paths), and opens the designer.
 

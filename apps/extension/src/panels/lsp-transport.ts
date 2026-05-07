@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 
-import type { LspClientTransport } from '@vnext-forge/lsp-core';
+import type { LspClientTransport } from '@vnext-forge-studio/lsp-core';
 
 /**
  * LSP transport wired to a VS Code webview `postMessage` channel. Replaces

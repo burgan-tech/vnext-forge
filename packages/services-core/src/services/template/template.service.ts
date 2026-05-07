@@ -1,4 +1,4 @@
-import { ERROR_CODES, VnextForgeError } from '@vnext-forge/app-contracts'
+import { ERROR_CODES, VnextForgeError } from '@vnext-forge-studio/app-contracts'
 import { z } from 'zod'
 
 import type {

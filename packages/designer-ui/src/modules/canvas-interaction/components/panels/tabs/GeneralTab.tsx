@@ -1,6 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import type { RoleGrant, ViewBinding } from '@vnext-forge/vnext-types';
-import type { DiscoveredVnextComponent } from '@vnext-forge/app-contracts';
+import type { RoleGrant, ViewBinding } from '@vnext-forge-studio/vnext-types';
+import type { DiscoveredVnextComponent } from '@vnext-forge-studio/app-contracts';
 import { getLabels } from './PropertyPanelHelpers';
 import { SelectField, Section, SummaryCard } from './PropertyPanelShared';
 import { RoleGrantEditor } from './subflow/RoleGrantEditor';

@@ -1,5 +1,5 @@
 import { ZodError, type ZodTypeAny, type infer as zInfer } from 'zod'
-import { ERROR_CODES, VnextForgeError } from '@vnext-forge/app-contracts'
+import { ERROR_CODES, VnextForgeError } from '@vnext-forge-studio/app-contracts'
 
 import type { MethodHandler, MethodRegistry, ServiceRegistry } from './method-registry.js'
 import { assertCapabilityAllowed, type CallerContext } from './policy.js'

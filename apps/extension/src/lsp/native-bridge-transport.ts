@@ -9,7 +9,7 @@ import {
   type MessageWriter,
 } from 'vscode-languageclient/node';
 
-import type { LspClientTransport } from '@vnext-forge/lsp-core';
+import type { LspClientTransport } from '@vnext-forge-studio/lsp-core';
 
 /**
  * Adapter that exposes a `vscode-languageclient`-compatible

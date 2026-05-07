@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { toVnextError, useProjectStore } from '@vnext-forge/designer-ui';
-import type { VnextForgeError } from '@vnext-forge/app-contracts';
+import { toVnextError, useProjectStore } from '@vnext-forge-studio/designer-ui';
+import type { VnextForgeError } from '@vnext-forge-studio/app-contracts';
 
 import { useProjectListStore } from '../../../app/store/useProjectListStore';
 import { listProjects } from '../ProjectApi';

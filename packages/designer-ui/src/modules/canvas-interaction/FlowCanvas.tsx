@@ -31,6 +31,7 @@ import {
   CanvasContextMenu,
   NodeContextMenu,
   EdgeContextMenu,
+  WfNodeContextMenu,
 } from './components/menus/CanvasContextMenu';
 import {
   CanvasViewSettingsProvider,
@@ -42,6 +43,7 @@ interface FlowCanvasProps {
   diagramJson: Record<string, unknown>;
   workflowSettingsActive?: boolean;
   onToggleWorkflowSettings?: () => void;
+  onOpenWorkflowSettings?: (section?: string) => void;
 }
 
 const defaultEdgeOptions = {
@@ -52,6 +54,7 @@ type ContextMenuState =
   | null
   | { type: 'pane'; screenX: number; screenY: number; flowX: number; flowY: number }
   | { type: 'node'; screenX: number; screenY: number; nodeId: string }
+  | { type: 'wfNode'; screenX: number; screenY: number; nodeId: string; sectionKind: string }
   | {
       type: 'edge';
       screenX: number;
@@ -65,6 +68,7 @@ function FlowCanvasInner({
   diagramJson,
   workflowSettingsActive,
   onToggleWorkflowSettings,
+  onOpenWorkflowSettings,
 }: FlowCanvasProps) {
   const {
     setSelectedNode,
@@ -104,6 +108,11 @@ function FlowCanvasInner({
 
   const [nodes, setNodes, onNodesChange] = useNodesState(computedNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(computedEdges);
+
+  const visibleEdges = useMemo(() => {
+    if (settings.showWorkflowEdges) return edges;
+    return edges.filter((e) => !(e.data as Record<string, unknown> | undefined)?.isWorkflowLevel);
+  }, [edges, settings.showWorkflowEdges]);
 
   // ─── SYNC: workflowJson/diagramJson → ReactFlow nodes/edges ───
   useEffect(() => {
@@ -214,6 +223,11 @@ function FlowCanvasInner({
           return;
         }
       }
+      // Workflow-level transition nodes: no-op on single click (use right-click menu)
+      if (node.id.startsWith('__wf_')) {
+        setContextMenu(null);
+        return;
+      }
       setSelectedNode(node.id);
       setContextMenu(null);
     },
@@ -228,8 +242,21 @@ function FlowCanvasInner({
     [setSelectedEdge],
   );
 
+  const onNodeDoubleClick = useCallback(
+    (_: unknown, node: { id: string }) => {
+      if (node.id.startsWith('__wf_')) {
+        const kind = node.id.replace(/^__wf_/, '').replace(/__$/, '').replace(/^shared_.*/, 'sharedTransitions');
+        onOpenWorkflowSettings?.(kind);
+      }
+    },
+    [onOpenWorkflowSettings],
+  );
+
+  const [toolbarCloseSignal, setToolbarCloseSignal] = useState(0);
+
   const onPaneClick = useCallback(() => {
     setContextMenu(null);
+    setToolbarCloseSignal((s) => s + 1);
   }, []);
 
   // ─── Context Menus ───
@@ -251,6 +278,17 @@ function FlowCanvasInner({
   const onNodeContextMenu = useCallback((event: React.MouseEvent, node: { id: string }) => {
     event.preventDefault();
     if (node.id === '__start__') return;
+    if (node.id.startsWith('__wf_')) {
+      const kind = node.id.replace(/^__wf_/, '').replace(/__$/, '').replace(/^shared_.*/, 'sharedTransitions');
+      setContextMenu({
+        type: 'wfNode',
+        screenX: event.clientX,
+        screenY: event.clientY,
+        nodeId: node.id,
+        sectionKind: kind,
+      });
+      return;
+    }
     setContextMenu({
       type: 'node',
       screenX: event.clientX,
@@ -280,7 +318,7 @@ function FlowCanvasInner({
   const onNodesDelete = useCallback(
     (deletedNodes: Array<{ id: string }>) => {
       for (const node of deletedNodes) {
-        if (node.id === '__start__') continue;
+        if (node.id === '__start__' || node.id.startsWith('__wf_')) continue;
         removeState(node.id);
       }
     },
@@ -347,12 +385,13 @@ function FlowCanvasInner({
     <div className="h-full w-full">
       <ReactFlow
         nodes={nodes}
-        edges={edges}
+        edges={visibleEdges}
         onNodesChange={handleNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
         isValidConnection={isValidConnection}
         onNodeClick={onNodeClick}
+        onNodeDoubleClick={onNodeDoubleClick}
         onEdgeClick={onEdgeClick}
         onPaneClick={onPaneClick}
         onNodeDragStop={onNodeDragStop}
@@ -387,6 +426,7 @@ function FlowCanvasInner({
             workflowSettingsActive={workflowSettingsActive}
             onToggleWorkflowSettings={onToggleWorkflowSettings}
             hasInitialState={hasInitialState}
+            closeSignal={toolbarCloseSignal}
           />
         </Panel>
       </ReactFlow>
@@ -409,6 +449,17 @@ function FlowCanvasInner({
           onDuplicateState={handleDuplicateState}
           onChangeType={changeStateType}
           hasInitialState={hasInitialState}
+        />
+      )}
+      {contextMenu?.type === 'wfNode' && (
+        <WfNodeContextMenu
+          position={contextMenu}
+          sectionKind={contextMenu.sectionKind}
+          onClose={closeContextMenu}
+          onOpenSettings={() => {
+            onOpenWorkflowSettings?.(contextMenu.sectionKind);
+            closeContextMenu();
+          }}
         />
       )}
       {contextMenu?.type === 'edge' && (
