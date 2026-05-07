@@ -1,0 +1,76 @@
+/*
+ * React Flow reconnect updater circles.
+ * Source updater: hidden.
+ * Target updater: the actual interactive reconnect button. Styled as a vivid
+ * sky-blue circle on edge hover. Handle sync effect in FlowCanvas ensures
+ * the updater appears on the correct side of the target node.
+ */
+.react-flow__edgeupdater-source {
+  fill: transparent;
+  stroke: transparent;
+  r: 0;
+  pointer-events: none;
+}
+
+.react-flow__edgeupdater-target {
+  fill: transparent;
+  stroke: transparent;
+  r: 16;
+  cursor: grab;
+  transition: fill 0.15s ease, stroke 0.15s ease, r 0.15s ease, filter 0.15s ease;
+}
+
+.react-flow__edge:hover .react-flow__edgeupdater-target,
+.react-flow__edge.selected .react-flow__edgeupdater-target {
+  fill: #38bdf8;
+  stroke: #fff;
+  stroke-width: 2.5;
+  r: 9;
+  filter: drop-shadow(0 0 4px rgba(56, 189, 248, 0.5));
+}
+
+.react-flow__edgeupdater-target:hover {
+  fill: #0ea5e9 !important;
+  stroke: #fff !important;
+  stroke-width: 2.5;
+  r: 11 !important;
+  filter: drop-shadow(0 0 8px rgba(14, 165, 233, 0.7)) !important;
+  cursor: grab;
+}
+
+/* ─── EasyConnect handle strips ─── */
+
+.react-flow__handle.edge-handle-strip {
+  background: transparent !important;
+  border: none !important;
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+
+/* Node hovered → strips light up */
+.react-flow__node:hover .react-flow__handle.edge-handle-strip {
+  background: rgba(56, 189, 248, 0.35) !important; /* sky-400 */
+  box-shadow: inset 0 0 6px rgba(56, 189, 248, 0.25);
+}
+
+/* Direct handle hover → even brighter */
+.react-flow__node:hover .react-flow__handle.edge-handle-strip:hover {
+  background: rgba(56, 189, 248, 0.6) !important;
+  box-shadow: inset 0 0 8px rgba(56, 189, 248, 0.4), 0 0 6px rgba(56, 189, 248, 0.3);
+}
+
+/* Arrow icon inside handle — hidden by default, shown on node hover */
+.react-flow__handle.edge-handle-strip .edge-handle-icon {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  pointer-events: none;
+  color: #38bdf8; /* sky-400 */
+}
+
+.react-flow__node:hover .react-flow__handle.edge-handle-strip .edge-handle-icon {
+  opacity: 0.9;
+}
+
+.react-flow__node:hover .react-flow__handle.edge-handle-strip:hover .edge-handle-icon {
+  opacity: 1;
+  color: #fff;
+}

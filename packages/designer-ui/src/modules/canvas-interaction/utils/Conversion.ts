@@ -141,7 +141,7 @@ export function workflowToReactFlow(
         source: '__start__',
         target: startTarget,
         type: 'manualEdge',
-        data: { label: start.key, triggerType: 0 },
+        data: { label: start.key, transitionKey: start.key, triggerType: 0 },
       });
     }
   }
@@ -253,6 +253,7 @@ export function workflowToReactFlow(
           source: source.key,
           target: sharedTarget,
           type: 'sharedEdge',
+          reconnectable: false,
           data: {
             label: getTransitionLabel(st),
             transitionKey: st.key,
@@ -297,6 +298,7 @@ export function workflowToReactFlow(
         source: wt.id,
         target,
         type: 'manualEdge',
+        reconnectable: false,
         data: { label: wt.data.key || wt.kind, triggerType: 0, isWorkflowLevel: true },
       });
     }
@@ -308,6 +310,7 @@ export function workflowToReactFlow(
         source: stateKey,
         target: wt.id,
         type: 'manualEdge',
+        reconnectable: false,
         data: { label: '', triggerType: 0, isWorkflowLevel: true, isAvailableIn: true },
       });
     }
@@ -334,6 +337,7 @@ export function workflowToReactFlow(
         source: nodeId,
         target: sharedTarget,
         type: 'sharedEdge',
+        reconnectable: false,
         data: { label: getTransitionLabel(st), transitionKey: st.key, triggerType: 0, isShared: true, isWorkflowLevel: true },
       });
     }
@@ -345,6 +349,7 @@ export function workflowToReactFlow(
         source: stateKey,
         target: nodeId,
         type: 'manualEdge',
+        reconnectable: false,
         data: { label: '', triggerType: 0, isWorkflowLevel: true, isAvailableIn: true },
       });
     }

@@ -9,15 +9,20 @@ import {
   useNodesState,
   useEdgesState,
   useReactFlow,
+  reconnectEdge,
   type OnConnect,
   type OnNodesChange,
   type Connection,
+  type Edge,
   MarkerType,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import './canvas-overrides.css';
 
 import { nodeTypes } from './components/nodes';
 import { edgeTypes } from './components/edges';
+import { FloatingConnectionLine } from './components/edges/FloatingConnectionLine';
+import { getFloatingHandleIds } from './utils/floating-edge-utils';
 import { useWorkflowStore } from '../../store/useWorkflowStore';
 import {
   workflowToReactFlow,
@@ -48,6 +53,7 @@ interface FlowCanvasProps {
 
 const defaultEdgeOptions = {
   markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16 },
+  reconnectable: 'target' as const,
 };
 
 type ContextMenuState =
@@ -82,8 +88,9 @@ function FlowCanvasInner({
     addTransition,
     removeTransition,
     changeTransitionTrigger,
+    reconnectTransition,
   } = useWorkflowStore();
-  const { fitView, screenToFlowPosition, getViewport } = useReactFlow();
+  const { fitView, screenToFlowPosition, getViewport, getInternalNode } = useReactFlow();
   const { settings } = useCanvasViewSettings();
   const autoLayoutDone = useRef(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState>(null);
@@ -138,6 +145,26 @@ function FlowCanvasInner({
       });
     }
   }, [needsLayout, computedNodes, computedEdges, setNodes, updateDiagram, fitView, markClean, settings.algorithm, settings.direction]);
+
+  // ─── Keep edge sourceHandle/targetHandle in sync with node positions
+  // so the React Flow reconnect updater circle appears on the correct side ───
+  useEffect(() => {
+    setEdges((eds) => {
+      let changed = false;
+      const next = eds.map((edge) => {
+        if (edge.source === edge.target) return edge;
+        const sn = getInternalNode(edge.source);
+        const tn = getInternalNode(edge.target);
+        if (!sn || !tn) return edge;
+
+        const { sourceHandle, targetHandle } = getFloatingHandleIds(sn, tn);
+        if (edge.sourceHandle === sourceHandle && edge.targetHandle === targetHandle) return edge;
+        changed = true;
+        return { ...edge, sourceHandle, targetHandle };
+      });
+      return changed ? next : eds;
+    });
+  }, [nodes, setEdges, getInternalNode]);
 
   // ─── Node changes (position, selection, resize, etc.) ───
   const handleNodesChange: OnNodesChange = useCallback(
@@ -209,6 +236,37 @@ function FlowCanvasInner({
       addTransition(connection.source, connection.target, 0);
     },
     [addTransition],
+  );
+
+  // ─── Reconnect: Drag edge endpoint to a different node ───
+  const reconnectSuccessful = useRef(true);
+
+  const onReconnect = useCallback(
+    (oldEdge: Edge, newConnection: Connection) => {
+      reconnectSuccessful.current = true;
+      setEdges((eds) => reconnectEdge(oldEdge, newConnection, eds));
+
+      const transitionKey = (oldEdge.data as Record<string, unknown> | undefined)?.transitionKey as string | undefined;
+      const newTarget = newConnection.target;
+      if (transitionKey && oldEdge.source && newTarget) {
+        reconnectTransition(oldEdge.source, transitionKey, newTarget);
+      }
+    },
+    [setEdges, reconnectTransition],
+  );
+
+  const onReconnectStart = useCallback(() => {
+    reconnectSuccessful.current = false;
+  }, []);
+
+  const onReconnectEnd = useCallback(
+    (_: MouseEvent | TouchEvent, edge: Edge) => {
+      if (!reconnectSuccessful.current) {
+        // Reconnection failed (dropped on empty space) -- keep edge as-is
+      }
+      reconnectSuccessful.current = true;
+    },
+    [],
   );
 
   // ─── Selection ───
@@ -389,6 +447,11 @@ function FlowCanvasInner({
         onNodesChange={handleNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onReconnect={onReconnect}
+        onReconnectStart={onReconnectStart}
+        onReconnectEnd={onReconnectEnd}
+        edgesReconnectable
+        reconnectRadius={25}
         isValidConnection={isValidConnection}
         onNodeClick={onNodeClick}
         onNodeDoubleClick={onNodeDoubleClick}
@@ -404,6 +467,7 @@ function FlowCanvasInner({
         edgeTypes={edgeTypes}
         defaultEdgeOptions={defaultEdgeOptions}
         connectionMode={ConnectionMode.Loose}
+        connectionLineComponent={FloatingConnectionLine}
         deleteKeyCode={['Backspace', 'Delete']}
         fitView
         snapToGrid

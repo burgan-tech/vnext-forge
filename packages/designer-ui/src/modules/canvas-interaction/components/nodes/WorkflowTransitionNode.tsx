@@ -1,5 +1,5 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react';
-import { memo } from 'react';
+import { memo, type CSSProperties } from 'react';
 import {
   RefreshCw,
   Ban,
@@ -7,8 +7,6 @@ import {
   LogOut,
   Share2,
 } from 'lucide-react';
-import { useCanvasViewSettings } from '../../context/CanvasViewSettingsContext';
-
 type WorkflowTransitionKind = 'updateData' | 'cancel' | 'timeout' | 'exit' | 'shared';
 
 interface WorkflowTransitionNodeData {
@@ -65,39 +63,40 @@ export const WorkflowTransitionNode = memo(function WorkflowTransitionNode({
   data,
   selected,
 }: NodeProps) {
-  const { settings } = useCanvasViewSettings();
-  const sourcePosition = settings.direction === 'DOWN' ? Position.Bottom : Position.Right;
-  const targetPosition = settings.direction === 'DOWN' ? Position.Top : Position.Left;
-
   const nodeData = data as unknown as WorkflowTransitionNodeData;
   const kind = nodeData.kind || 'updateData';
   const label = nodeData.label || kind;
   const config = kindConfig[kind] || kindConfig.updateData;
   const Icon = config.icon;
 
+  const stripCls = 'edge-handle-strip';
+
+  const r = 8;
+  const hs: Record<string, CSSProperties> = {
+    top:    { transform: 'none', top: 0, left: 0, right: 0, width: '100%', height: 8, borderRadius: `${r}px ${r}px 3px 3px` },
+    bottom: { transform: 'none', bottom: 0, top: 'auto', left: 0, right: 0, width: '100%', height: 8, borderRadius: `3px 3px ${r}px ${r}px` },
+    left:   { transform: 'none', top: 0, bottom: 0, left: 0, height: '100%', width: 8, borderRadius: `${r}px 3px 3px ${r}px` },
+    right:  { transform: 'none', top: 0, bottom: 0, right: 0, left: 'auto', height: '100%', width: 8, borderRadius: `3px ${r}px ${r}px 3px` },
+  };
+
   return (
     <div
-      className={`flex items-center gap-1.5 rounded-lg border border-dashed px-2.5 py-1.5 shadow-sm transition-all duration-150 ${config.bg} ${config.border} ${
+      className={`group flex items-center gap-1.5 rounded-lg border border-dashed px-2.5 py-1.5 shadow-sm transition-all duration-150 ${config.bg} ${config.border} ${
         selected ? 'ring-2 ring-offset-1 ring-current/20 scale-105' : 'hover:scale-[1.02] hover:shadow-md'
       }`}
       title={label}
     >
-      <Handle
-        type="target"
-        position={targetPosition}
-        className="!size-2 !rounded-full !border !border-current/30 !bg-surface"
-      />
+      <Handle type="target" id="top"    position={Position.Top}    style={hs.top}    className={stripCls} />
+      <Handle type="target" id="left"   position={Position.Left}   style={hs.left}   className={stripCls} />
+      <Handle type="source" id="bottom" position={Position.Bottom} style={hs.bottom} className={stripCls} />
+      <Handle type="source" id="right"  position={Position.Right}  style={hs.right}  className={stripCls} />
+
       <div className={`flex size-5 shrink-0 items-center justify-center rounded ${config.iconColor}`}>
         <Icon size={13} strokeWidth={2} />
       </div>
       <span className={`text-[10px] font-semibold leading-tight ${config.text}`}>
         {label}
       </span>
-      <Handle
-        type="source"
-        position={sourcePosition}
-        className="!size-2 !rounded-full !border !border-current/30 !bg-surface"
-      />
     </div>
   );
 });

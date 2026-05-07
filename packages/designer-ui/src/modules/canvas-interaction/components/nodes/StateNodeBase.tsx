@@ -4,8 +4,8 @@ import {
   Play, Square, CheckCircle2, XCircle, StopCircle,
   PauseCircle, Circle, Repeat2, LayoutGrid, Activity,
   Loader2, UserCircle, Ban, TimerOff, ArrowUpRight,
+  ArrowUp, ArrowDown, ArrowLeft, ArrowRight,
 } from 'lucide-react';
-import { useCanvasViewSettings } from '../../context/CanvasViewSettingsContext';
 import { useSubFlowNavigation } from '../../context/SubFlowNavigationContext';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../../../ui/Tooltip';
 
@@ -60,16 +60,42 @@ function getConfig(stateType: number, subType: number): StateNodeConfig {
   }
 }
 
+const ARROW_ICON = { [Position.Top]: ArrowUp, [Position.Bottom]: ArrowDown, [Position.Left]: ArrowLeft, [Position.Right]: ArrowRight } as const;
+
+const NODE_RADIUS = 16;
+
+const HANDLE_STYLE: Record<string, React.CSSProperties> = {
+  [Position.Top]:    { transform: 'none', top: 0, left: 0, right: 0, width: '100%', height: 12, borderRadius: `${NODE_RADIUS}px ${NODE_RADIUS}px 6px 6px` },
+  [Position.Bottom]: { transform: 'none', bottom: 0, top: 'auto', left: 0, right: 0, width: '100%', height: 12, borderRadius: `6px 6px ${NODE_RADIUS}px ${NODE_RADIUS}px` },
+  [Position.Left]:   { transform: 'none', top: 0, bottom: 0, left: 0, height: '100%', width: 12, borderRadius: `${NODE_RADIUS}px 6px 6px ${NODE_RADIUS}px` },
+  [Position.Right]:  { transform: 'none', top: 0, bottom: 0, right: 0, left: 'auto', height: '100%', width: 12, borderRadius: `6px ${NODE_RADIUS}px ${NODE_RADIUS}px 6px` },
+};
+
+function EdgeHandle({ position, type, id }: { position: Position; type: 'source' | 'target'; id: string }) {
+  const Icon = ARROW_ICON[position];
+
+  return (
+    <Handle
+      type={type}
+      position={position}
+      id={id}
+      style={HANDLE_STYLE[position]}
+      className="edge-handle-strip !flex !items-center !justify-center"
+    >
+      <span className="edge-handle-icon">
+        <Icon size={12} strokeWidth={3} />
+      </span>
+    </Handle>
+  );
+}
+
 export const StateNodeBase = memo(function StateNodeBase({ data, selected }: NodeProps) {
   const d = data as StateNodeData;
   const config = getConfig(d.stateType, d.subType);
   const totalActions = d.onEntryCount + d.onExitCount;
-  const { settings } = useCanvasViewSettings();
   const { onOpenSubFlow } = useSubFlowNavigation();
 
-  const targetPosition = settings.direction === 'DOWN' ? Position.Top : Position.Left;
-  const sourcePosition = settings.direction === 'DOWN' ? Position.Bottom : Position.Right;
-
+  const isFinal = d.stateType === 3;
   const showSubFlowButton = d.stateType === 4 && Boolean(d.subFlowProcessKey);
 
   const handleOpenSubFlow = useCallback(
@@ -98,11 +124,11 @@ export const StateNodeBase = memo(function StateNodeBase({ data, selected }: Nod
         handleClassName="!w-2.5 !h-2.5 !rounded-sm !border !border-primary-border-hover !bg-surface"
       />
 
-      <Handle
-        type="target"
-        position={targetPosition}
-        className="w-4! h-4! rounded-full! bg-surface! border-2! border-muted-border! hover:border-primary-border! hover:bg-primary-border/20! hover:scale-125! transition-all! duration-150!"
-      />
+      {/* 4 edge handles — target on top & left, source on bottom & right */}
+      <EdgeHandle position={Position.Top}    type="target" id="top" />
+      <EdgeHandle position={Position.Left}   type="target" id="left" />
+      {!isFinal && <EdgeHandle position={Position.Bottom} type="source" id="bottom" />}
+      {!isFinal && <EdgeHandle position={Position.Right}  type="source" id="right" />}
 
       {/* Color accent strip */}
       <div className={`h-[3px] ${config.accent} rounded-t-2xl`} />
@@ -166,14 +192,6 @@ export const StateNodeBase = memo(function StateNodeBase({ data, selected }: Nod
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
-      )}
-
-      {d.stateType !== 3 && (
-        <Handle
-          type="source"
-          position={sourcePosition}
-          className="w-4! h-4! rounded-full! bg-surface! border-2! border-muted-border! hover:border-primary-border! hover:bg-primary-border/20! hover:scale-125! transition-all! duration-150!"
-        />
       )}
     </div>
   );
