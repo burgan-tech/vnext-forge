@@ -170,6 +170,7 @@ export const TransitionEdge = memo(function TransitionEdge(props: EdgeProps) {
   const isWorkflowLevel = (d.isWorkflowLevel as boolean) ?? false;
   const isSelfLoop = d.isSelfLoop ?? false;
   const waypoints: Waypoint[] = d.waypoints ?? [];
+  const isSpotlight = Boolean(d.spotlight);
 
   const { settings } = useCanvasViewSettings();
   const { setEdges } = useReactFlow();
@@ -386,6 +387,15 @@ export const TransitionEdge = memo(function TransitionEdge(props: EdgeProps) {
         }}
         markerEnd={`url(#marker-${id})`}
       />
+      {isSpotlight && (
+        <path
+          d={edgePath}
+          fill="none"
+          stroke="var(--color-action)"
+          strokeLinecap="round"
+          className="animate-spotlight-edge-pulse"
+        />
+      )}
       {/* Wider invisible path for easier double-click to add waypoints */}
       <path
         d={edgePath}

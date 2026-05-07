@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   Plus, Wand2, Play, Square, CheckCircle2, XCircle,
   StopCircle, PauseCircle, Repeat2, ChevronDown, Settings2,
-  SlidersHorizontal,
+  SlidersHorizontal, Search,
 } from 'lucide-react';
 import {
   Tooltip,
@@ -20,6 +20,7 @@ import {
 interface CanvasToolbarProps {
   onAddState: (stateType: number, subType: number) => void;
   onAutoLayout: () => void;
+  onOpenSearch?: () => void;
   workflowSettingsActive?: boolean;
   onToggleWorkflowSettings?: () => void;
   hasInitialState?: boolean;
@@ -29,6 +30,7 @@ interface CanvasToolbarProps {
 export function CanvasToolbar({
   onAddState,
   onAutoLayout,
+  onOpenSearch,
   workflowSettingsActive,
   onToggleWorkflowSettings,
   hasInitialState,
@@ -101,6 +103,29 @@ export function CanvasToolbar({
         <Wand2 size={14} className="text-muted-icon" />
         <span>Auto-Fix</span>
       </button>
+
+      <div className="h-5 w-px bg-border" />
+
+      <TooltipProvider delayDuration={300}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onClick={onOpenSearch}
+              className="text-muted-foreground hover:bg-muted flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium transition-all duration-150 active:scale-[0.97]"
+              aria-label="Search states and transitions"
+            >
+              <Search size={14} className="text-muted-icon" />
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top" className="text-[11px]">
+            <span>Search</span>
+            <kbd className="ml-1.5 rounded border border-border bg-muted px-1 py-0.5 text-[9px] font-medium text-muted-foreground">
+              {typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform) ? '⌘' : 'Ctrl'}+F
+            </kbd>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
 
       <div className="h-5 w-px bg-border" />
 

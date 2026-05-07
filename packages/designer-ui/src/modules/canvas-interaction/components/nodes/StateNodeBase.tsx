@@ -106,13 +106,15 @@ export const StateNodeBase = memo(function StateNodeBase({ data, selected }: Nod
     [onOpenSubFlow, d.subFlowProcessKey, d.subFlowProcessDomain],
   );
 
+  const isSpotlight = Boolean(d.spotlight);
+
   return (
     <div
       className={`group relative h-full min-h-0 min-w-0 rounded-2xl transition-all duration-200 ${config.borderStyle || 'border-solid'} ${
         selected
           ? `bg-surface border-[1.5px] border-primary-border-hover shadow-xl ring-4 ${config.ring}`
           : 'bg-surface border border-border shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] hover:border-muted-border-hover'
-      }`}
+      } ${isSpotlight ? 'animate-spotlight-pulse' : ''}`}
     >
       <NodeResizer
         minWidth={160}

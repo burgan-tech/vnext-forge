@@ -74,7 +74,7 @@ export class VnextComponentCustomTextEditorProvider implements vscode.CustomText
     const uri = document.uri
 
     try {
-      await this.resolveCustomTextEditorSafe(uri, webviewPanel)
+      await this.resolveCustomTextEditorSafe(document, webviewPanel)
     } catch (error) {
       baseLogger.warn(
         {
@@ -88,12 +88,24 @@ export class VnextComponentCustomTextEditorProvider implements vscode.CustomText
   }
 
   private async resolveCustomTextEditorSafe(
-    uri: vscode.Uri,
+    document: vscode.TextDocument,
     webviewPanel: vscode.WebviewPanel,
   ): Promise<void> {
-    // We only register for `*.json` selector but VS Code may still hand
-    // us non-file schemes (git diff, untitled, etc.). For anything that
-    // isn't a real on-disk file, fall back to the text editor.
+    const uri = document.uri
+
+    // Git diff and Timeline resolve both sides (git: original + file:
+    // modified) through our custom editor. Rendering the designer in
+    // either side breaks the diff composite, so detect the diff context
+    // first and render raw document text instead. This check must come
+    // before the scheme guard so both sides are handled uniformly.
+    if (isInDiffContext(uri)) {
+      baseLogger.debug({ path: uri.fsPath }, 'Diff context detected — bypassing designer')
+      renderDocumentAsPlainText(document, webviewPanel)
+      return
+    }
+
+    // Non-file schemes outside a diff context (e.g. untitled:) are not
+    // candidates for the designer. Fall back to the text editor.
     if (uri.scheme !== 'file') {
       await this.openInTextEditor(uri, webviewPanel)
       return
@@ -222,6 +234,86 @@ export class VnextComponentCustomTextEditorProvider implements vscode.CustomText
       }
     }
   }
+}
+
+/**
+ * Renders the document's text content as read-only plain text inside the
+ * webview panel. Used in diff contexts where the designer must not load
+ * but the webview panel cannot be disposed (disposing would break VS
+ * Code's diff composite). Updates when the document changes so the diff
+ * stays accurate.
+ */
+function renderDocumentAsPlainText(
+  document: vscode.TextDocument,
+  webviewPanel: vscode.WebviewPanel,
+): void {
+  const setHtml = (): void => {
+    const text = escapeHtml(document.getText())
+    webviewPanel.webview.html = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'none'; style-src 'unsafe-inline';" />
+<style>
+  body {
+    margin: 0;
+    padding: 8px 12px;
+    font-family: var(--vscode-editor-font-family, monospace);
+    font-size: var(--vscode-editor-font-size, 13px);
+    line-height: var(--vscode-editor-line-height, 1.5);
+    color: var(--vscode-editor-foreground);
+    background: var(--vscode-editor-background);
+    white-space: pre;
+    overflow: auto;
+    tab-size: 2;
+  }
+</style>
+</head>
+<body>${text}</body>
+</html>`
+  }
+
+  setHtml()
+
+  const onChange = vscode.workspace.onDidChangeTextDocument((e) => {
+    if (e.document.uri.toString() === document.uri.toString()) {
+      setHtml()
+    }
+  })
+  webviewPanel.onDidDispose(() => onChange.dispose())
+}
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+}
+
+/**
+ * Checks whether the given URI is being opened as part of a diff view
+ * (Git diff, Timeline, etc.). VS Code's Tab API exposes
+ * `TabInputTextDiff` for side-by-side text diffs — if we find a tab
+ * whose original or modified URI matches, the user clicked through a
+ * diff context and we should NOT hijack the editor with the designer.
+ */
+function isInDiffContext(uri: vscode.Uri): boolean {
+  const uriString = uri.toString()
+  for (const group of vscode.window.tabGroups.all) {
+    for (const tab of group.tabs) {
+      if (tab.input instanceof vscode.TabInputTextDiff) {
+        if (
+          tab.input.original.toString() === uriString ||
+          tab.input.modified.toString() === uriString
+        ) {
+          return true
+        }
+      }
+    }
+  }
+  return false
 }
 
 function getConcreteViewColumn(panel: vscode.WebviewPanel): vscode.ViewColumn | undefined {

@@ -32,6 +32,8 @@ import {
 } from './utils/Conversion';
 import { layoutFlow } from './utils/Layout';
 import { CanvasToolbar } from './components/panels/CanvasToolbar';
+import { CanvasSearchSpotlight } from './components/panels/CanvasSearchSpotlight';
+import { buildCanvasSearchIndex } from './utils/canvas-search-index';
 import {
   CanvasContextMenu,
   NodeContextMenu,
@@ -94,6 +96,15 @@ function FlowCanvasInner({
   const { settings } = useCanvasViewSettings();
   const autoLayoutDone = useRef(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const spotlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fitViewFollowUpRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const canvasWrapperRef = useRef<HTMLDivElement>(null);
+
+  const searchItems = useMemo(
+    () => buildCanvasSearchIndex(workflowJson),
+    [workflowJson],
+  );
 
   const hasInitialState = useMemo(() => {
     const attrs = (workflowJson as any)?.attributes;
@@ -312,10 +323,50 @@ function FlowCanvasInner({
 
   const [toolbarCloseSignal, setToolbarCloseSignal] = useState(0);
 
+  // ─── Canvas Search: spotlight lifecycle ───
+  const clearSpotlight = useCallback(() => {
+    if (spotlightTimerRef.current) {
+      clearTimeout(spotlightTimerRef.current);
+      spotlightTimerRef.current = null;
+    }
+    setNodes((nds) => {
+      let changed = false;
+      const next = nds.map((n) => {
+        if ((n.data as Record<string, unknown> | undefined)?.spotlight) {
+          changed = true;
+          const { spotlight: _, ...rest } = n.data as Record<string, unknown>;
+          return { ...n, data: rest };
+        }
+        return n;
+      });
+      return changed ? next : nds;
+    });
+    setEdges((eds) => {
+      let changed = false;
+      const next = eds.map((e) => {
+        if ((e.data as Record<string, unknown> | undefined)?.spotlight) {
+          changed = true;
+          const { spotlight: _, ...rest } = (e.data || {}) as Record<string, unknown>;
+          return { ...e, data: rest };
+        }
+        return e;
+      });
+      return changed ? next : eds;
+    });
+  }, [setNodes, setEdges]);
+
+  useEffect(() => {
+    return () => {
+      if (spotlightTimerRef.current) clearTimeout(spotlightTimerRef.current);
+      if (fitViewFollowUpRef.current) clearTimeout(fitViewFollowUpRef.current);
+    };
+  }, []);
+
   const onPaneClick = useCallback(() => {
     setContextMenu(null);
     setToolbarCloseSignal((s) => s + 1);
-  }, []);
+    clearSpotlight();
+  }, [clearSpotlight]);
 
   // ─── Context Menus ───
   const onPaneContextMenu = useCallback(
@@ -439,8 +490,69 @@ function FlowCanvasInner({
     [duplicateState, diagramJson],
   );
 
+  // ─── Canvas Search: Ctrl/Cmd+F shortcut ───
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+        e.preventDefault();
+        e.stopPropagation();
+        setSearchOpen(true);
+      }
+    };
+    const el = canvasWrapperRef.current;
+    if (el) {
+      el.addEventListener('keydown', handler, true);
+      return () => el.removeEventListener('keydown', handler, true);
+    }
+  }, []);
+
+  const applySpotlight = useCallback(
+    (kind: 'node' | 'edge', id: string) => {
+      clearSpotlight();
+      if (kind === 'node') {
+        setNodes((nds) =>
+          nds.map((n) =>
+            n.id === id ? { ...n, data: { ...n.data, spotlight: true }, selected: true } : { ...n, selected: false },
+          ),
+        );
+      } else {
+        setEdges((eds) =>
+          eds.map((e) =>
+            e.id === id ? { ...e, data: { ...e.data, spotlight: true }, selected: true } : { ...e, selected: false },
+          ),
+        );
+      }
+      spotlightTimerRef.current = setTimeout(clearSpotlight, 1500);
+    },
+    [clearSpotlight, setNodes, setEdges],
+  );
+
+  const handleSearchSelectState = useCallback(
+    (nodeId: string) => {
+      setSelectedNode(nodeId);
+      fitView({ nodes: [{ id: nodeId }], padding: 0.3, duration: 400 });
+      if (fitViewFollowUpRef.current) clearTimeout(fitViewFollowUpRef.current);
+      fitViewFollowUpRef.current = setTimeout(() => applySpotlight('node', nodeId), 420);
+    },
+    [setSelectedNode, fitView, applySpotlight],
+  );
+
+  const handleSearchSelectTransition = useCallback(
+    (edgeId: string, sourceKey: string, targetKey: string) => {
+      setSelectedEdge(edgeId);
+      const nodeIds = [{ id: sourceKey }];
+      if (targetKey && targetKey !== sourceKey) {
+        nodeIds.push({ id: targetKey });
+      }
+      fitView({ nodes: nodeIds, padding: 0.3, duration: 400 });
+      if (fitViewFollowUpRef.current) clearTimeout(fitViewFollowUpRef.current);
+      fitViewFollowUpRef.current = setTimeout(() => applySpotlight('edge', edgeId), 420);
+    },
+    [setSelectedEdge, fitView, applySpotlight],
+  );
+
   return (
-    <div className="h-full w-full">
+    <div ref={canvasWrapperRef} className="h-full w-full" tabIndex={-1}>
       <ReactFlow
         nodes={nodes}
         edges={visibleEdges}
@@ -487,6 +599,7 @@ function FlowCanvasInner({
           <CanvasToolbar
             onAddState={handleToolbarAddState}
             onAutoLayout={handleAutoLayout}
+            onOpenSearch={() => setSearchOpen(true)}
             workflowSettingsActive={workflowSettingsActive}
             onToggleWorkflowSettings={onToggleWorkflowSettings}
             hasInitialState={hasInitialState}
@@ -536,6 +649,14 @@ function FlowCanvasInner({
           onChangeTrigger={changeTransitionTrigger}
         />
       )}
+
+      <CanvasSearchSpotlight
+        open={searchOpen}
+        onOpenChange={setSearchOpen}
+        onSelectState={handleSearchSelectState}
+        onSelectTransition={handleSearchSelectTransition}
+        searchItems={searchItems}
+      />
     </div>
   );
 }

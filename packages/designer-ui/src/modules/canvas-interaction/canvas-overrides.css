@@ -74,3 +74,22 @@
   opacity: 1;
   color: #fff;
 }
+
+/* ─── Canvas Search Spotlight (cmdk) ─── */
+
+[cmdk-group-heading] {
+  padding: 6px 10px 4px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--color-muted-foreground);
+}
+
+[cmdk-list] {
+  scrollbar-width: thin;
+}
+
+[cmdk-input]::placeholder {
+  color: var(--color-muted-foreground);
+}

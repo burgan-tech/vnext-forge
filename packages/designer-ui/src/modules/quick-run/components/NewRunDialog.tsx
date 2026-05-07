@@ -200,7 +200,7 @@ export function NewRunDialog({ open, onClose, configRef, persistConfig }: NewRun
       <div
         ref={dialogRef}
         tabIndex={-1}
-        className="w-[560px] flex flex-col rounded border border-[var(--vscode-widget-border)] bg-[var(--vscode-editor-background)] shadow-lg focus:outline-none"
+        className="w-[560px] max-h-[80vh] flex flex-col rounded border border-[var(--vscode-widget-border)] bg-[var(--vscode-editor-background)] shadow-lg focus:outline-none"
       >
         <header className="flex items-center justify-between border-b border-[var(--vscode-panel-border)] px-4 py-3">
           <h2 id="new-run-title" className="text-sm font-semibold">
@@ -224,7 +224,7 @@ export function NewRunDialog({ open, onClose, configRef, persistConfig }: NewRun
           </TooltipProvider>
         </header>
 
-        <div className="flex flex-col gap-3 p-4">
+        <div className="flex-1 overflow-y-auto flex flex-col gap-3 p-4">
           <div className="text-xs text-[var(--vscode-descriptionForeground)]">
             Starting instance for <strong>{domain}/{workflowKey}</strong>
           </div>
