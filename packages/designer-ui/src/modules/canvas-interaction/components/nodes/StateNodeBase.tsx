@@ -71,14 +71,41 @@ const HANDLE_STYLE: Record<string, React.CSSProperties> = {
   [Position.Right]:  { transform: 'none', top: 0, bottom: 0, right: 0, left: 'auto', height: '100%', width: 12, borderRadius: `6px ${NODE_RADIUS}px ${NODE_RADIUS}px 6px` },
 };
 
-function EdgeHandle({ position, type, id }: { position: Position; type: 'source' | 'target'; id: string }) {
+function EdgeHandle({ position, id }: { position: Position; id: string }) {
+  const Icon = ARROW_ICON[position];
+
+  return (
+    <>
+      <Handle
+        type="source"
+        position={position}
+        id={id}
+        style={HANDLE_STYLE[position]}
+        className="edge-handle-strip !flex !items-center !justify-center"
+      >
+        <span className="edge-handle-icon">
+          <Icon size={12} strokeWidth={3} />
+        </span>
+      </Handle>
+      <Handle
+        type="target"
+        position={position}
+        id={`${id}-target`}
+        style={HANDLE_STYLE[position]}
+        className="edge-handle-strip !flex !items-center !justify-center !opacity-0 !pointer-events-none"
+      />
+    </>
+  );
+}
+
+function TargetOnlyHandle({ position, id }: { position: Position; id: string }) {
   const Icon = ARROW_ICON[position];
 
   return (
     <Handle
-      type={type}
+      type="target"
       position={position}
-      id={id}
+      id={`${id}-target`}
       style={HANDLE_STYLE[position]}
       className="edge-handle-strip !flex !items-center !justify-center"
     >
@@ -126,11 +153,22 @@ export const StateNodeBase = memo(function StateNodeBase({ data, selected }: Nod
         handleClassName="!w-2.5 !h-2.5 !rounded-sm !border !border-primary-border-hover !bg-surface"
       />
 
-      {/* 4 edge handles — target on top & left, source on bottom & right */}
-      <EdgeHandle position={Position.Top}    type="target" id="top" />
-      <EdgeHandle position={Position.Left}   type="target" id="left" />
-      {!isFinal && <EdgeHandle position={Position.Bottom} type="source" id="bottom" />}
-      {!isFinal && <EdgeHandle position={Position.Right}  type="source" id="right" />}
+      {/* Dual source+target handles at each position for floating edge compatibility */}
+      {isFinal ? (
+        <>
+          <TargetOnlyHandle position={Position.Top}    id="top" />
+          <TargetOnlyHandle position={Position.Left}   id="left" />
+          <TargetOnlyHandle position={Position.Bottom} id="bottom" />
+          <TargetOnlyHandle position={Position.Right}  id="right" />
+        </>
+      ) : (
+        <>
+          <EdgeHandle position={Position.Top}    id="top" />
+          <EdgeHandle position={Position.Bottom} id="bottom" />
+          <EdgeHandle position={Position.Left}   id="left" />
+          <EdgeHandle position={Position.Right}  id="right" />
+        </>
+      )}
 
       {/* Color accent strip */}
       <div className={`h-[3px] ${config.accent} rounded-t-2xl`} />
