@@ -36,7 +36,7 @@ notification-port (active sink dispatch)
 
 ### Port (`packages/designer-ui/src/notification/notification-port.ts`)
 
-Public surface re-exported from `@vnext-forge/designer-ui`:
+Public surface re-exported from `@vnext-forge-studio/designer-ui`:
 
 - `showNotification(options: NotificationOptions): void` — call this from anywhere; the active sink decides how to surface it. Calls before any sink is registered are silently dropped.
 - `registerNotificationSink(sink: NotificationSink): void` — called once at shell bootstrap.

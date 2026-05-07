@@ -1,1 +1,1 @@
-export { toVnextError } from '@vnext-forge/designer-ui/lib';
+export { toVnextError } from '@vnext-forge-studio/designer-ui/lib';

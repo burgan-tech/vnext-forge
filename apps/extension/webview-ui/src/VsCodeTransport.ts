@@ -1,5 +1,5 @@
-import type { ApiResponse } from '@vnext-forge/app-contracts';
-import { createLogger, isMessageOriginAllowed, type ApiTransport } from '@vnext-forge/designer-ui';
+import type { ApiResponse } from '@vnext-forge-studio/app-contracts';
+import { createLogger, isMessageOriginAllowed, type ApiTransport } from '@vnext-forge-studio/designer-ui';
 
 import { resolveWebviewPostMessageAllowedOrigins } from './host/webviewMessageOrigins.js';
 

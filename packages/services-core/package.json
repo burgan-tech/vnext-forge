@@ -1,5 +1,5 @@
 {
-  "name": "@vnext-forge/services-core",
+  "name": "@vnext-forge-studio/services-core",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -9,7 +9,7 @@
   },
   "main": "./src/index.ts",
   "types": "./src/index.ts",
-  "description": "Platform-agnostic services, adapters, zod method contracts and methodRegistry for vnext-forge backends.",
+  "description": "Platform-agnostic services, adapters, zod method contracts and methodRegistry for vnext-forge-studio backends.",
   "scripts": {
     "build": "tsc -b",
     "lint": "eslint .",
@@ -17,8 +17,8 @@
     "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
   "dependencies": {
-    "@vnext-forge/app-contracts": "workspace:*",
-    "@vnext-forge/vnext-types": "workspace:*",
+    "@vnext-forge-studio/app-contracts": "workspace:*",
+    "@vnext-forge-studio/vnext-types": "workspace:*",
     "ajv": "^8.12.0",
     "ajv-formats": "^2.1.1",
     "zod": "^4.3.6"

@@ -9,15 +9,20 @@ import {
   useNodesState,
   useEdgesState,
   useReactFlow,
+  reconnectEdge,
   type OnConnect,
   type OnNodesChange,
   type Connection,
+  type Edge,
   MarkerType,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import './canvas-overrides.css';
 
 import { nodeTypes } from './components/nodes';
 import { edgeTypes } from './components/edges';
+import { FloatingConnectionLine } from './components/edges/FloatingConnectionLine';
+import { getFloatingHandleIds } from './utils/floating-edge-utils';
 import { useWorkflowStore } from '../../store/useWorkflowStore';
 import {
   workflowToReactFlow,
@@ -27,10 +32,13 @@ import {
 } from './utils/Conversion';
 import { layoutFlow } from './utils/Layout';
 import { CanvasToolbar } from './components/panels/CanvasToolbar';
+import { CanvasSearchSpotlight } from './components/panels/CanvasSearchSpotlight';
+import { buildCanvasSearchIndex } from './utils/canvas-search-index';
 import {
   CanvasContextMenu,
   NodeContextMenu,
   EdgeContextMenu,
+  WfNodeContextMenu,
 } from './components/menus/CanvasContextMenu';
 import {
   CanvasViewSettingsProvider,
@@ -42,16 +50,19 @@ interface FlowCanvasProps {
   diagramJson: Record<string, unknown>;
   workflowSettingsActive?: boolean;
   onToggleWorkflowSettings?: () => void;
+  onOpenWorkflowSettings?: (section?: string) => void;
 }
 
 const defaultEdgeOptions = {
   markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16 },
+  reconnectable: 'target' as const,
 };
 
 type ContextMenuState =
   | null
   | { type: 'pane'; screenX: number; screenY: number; flowX: number; flowY: number }
   | { type: 'node'; screenX: number; screenY: number; nodeId: string }
+  | { type: 'wfNode'; screenX: number; screenY: number; nodeId: string; sectionKind: string }
   | {
       type: 'edge';
       screenX: number;
@@ -65,6 +76,7 @@ function FlowCanvasInner({
   diagramJson,
   workflowSettingsActive,
   onToggleWorkflowSettings,
+  onOpenWorkflowSettings,
 }: FlowCanvasProps) {
   const {
     setSelectedNode,
@@ -78,11 +90,21 @@ function FlowCanvasInner({
     addTransition,
     removeTransition,
     changeTransitionTrigger,
+    reconnectTransition,
   } = useWorkflowStore();
-  const { fitView, screenToFlowPosition, getViewport } = useReactFlow();
+  const { fitView, screenToFlowPosition, getViewport, getInternalNode } = useReactFlow();
   const { settings } = useCanvasViewSettings();
   const autoLayoutDone = useRef(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const spotlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const fitViewFollowUpRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const canvasWrapperRef = useRef<HTMLDivElement>(null);
+
+  const searchItems = useMemo(
+    () => buildCanvasSearchIndex(workflowJson),
+    [workflowJson],
+  );
 
   const hasInitialState = useMemo(() => {
     const attrs = (workflowJson as any)?.attributes;
@@ -104,6 +126,11 @@ function FlowCanvasInner({
 
   const [nodes, setNodes, onNodesChange] = useNodesState(computedNodes);
   const [edges, setEdges, onEdgesChange] = useEdgesState(computedEdges);
+
+  const visibleEdges = useMemo(() => {
+    if (settings.showWorkflowEdges) return edges;
+    return edges.filter((e) => !(e.data as Record<string, unknown> | undefined)?.isWorkflowLevel);
+  }, [edges, settings.showWorkflowEdges]);
 
   // ─── SYNC: workflowJson/diagramJson → ReactFlow nodes/edges ───
   useEffect(() => {
@@ -129,6 +156,26 @@ function FlowCanvasInner({
       });
     }
   }, [needsLayout, computedNodes, computedEdges, setNodes, updateDiagram, fitView, markClean, settings.algorithm, settings.direction]);
+
+  // ─── Keep edge sourceHandle/targetHandle in sync with node positions
+  // so the React Flow reconnect updater circle appears on the correct side ───
+  useEffect(() => {
+    setEdges((eds) => {
+      let changed = false;
+      const next = eds.map((edge) => {
+        if (edge.source === edge.target) return edge;
+        const sn = getInternalNode(edge.source);
+        const tn = getInternalNode(edge.target);
+        if (!sn || !tn) return edge;
+
+        const { sourceHandle, targetHandle } = getFloatingHandleIds(sn, tn);
+        if (edge.sourceHandle === sourceHandle && edge.targetHandle === targetHandle) return edge;
+        changed = true;
+        return { ...edge, sourceHandle, targetHandle };
+      });
+      return changed ? next : eds;
+    });
+  }, [nodes, setEdges, getInternalNode]);
 
   // ─── Node changes (position, selection, resize, etc.) ───
   const handleNodesChange: OnNodesChange = useCallback(
@@ -202,6 +249,37 @@ function FlowCanvasInner({
     [addTransition],
   );
 
+  // ─── Reconnect: Drag edge endpoint to a different node ───
+  const reconnectSuccessful = useRef(true);
+
+  const onReconnect = useCallback(
+    (oldEdge: Edge, newConnection: Connection) => {
+      reconnectSuccessful.current = true;
+      setEdges((eds) => reconnectEdge(oldEdge, newConnection, eds));
+
+      const transitionKey = (oldEdge.data as Record<string, unknown> | undefined)?.transitionKey as string | undefined;
+      const newTarget = newConnection.target;
+      if (transitionKey && oldEdge.source && newTarget) {
+        reconnectTransition(oldEdge.source, transitionKey, newTarget);
+      }
+    },
+    [setEdges, reconnectTransition],
+  );
+
+  const onReconnectStart = useCallback(() => {
+    reconnectSuccessful.current = false;
+  }, []);
+
+  const onReconnectEnd = useCallback(
+    (_: MouseEvent | TouchEvent, edge: Edge) => {
+      if (!reconnectSuccessful.current) {
+        // Reconnection failed (dropped on empty space) -- keep edge as-is
+      }
+      reconnectSuccessful.current = true;
+    },
+    [],
+  );
+
   // ─── Selection ───
   const onNodeClick = useCallback(
     (_: unknown, node: { id: string }) => {
@@ -213,6 +291,11 @@ function FlowCanvasInner({
           setContextMenu(null);
           return;
         }
+      }
+      // Workflow-level transition nodes: no-op on single click (use right-click menu)
+      if (node.id.startsWith('__wf_')) {
+        setContextMenu(null);
+        return;
       }
       setSelectedNode(node.id);
       setContextMenu(null);
@@ -228,9 +311,62 @@ function FlowCanvasInner({
     [setSelectedEdge],
   );
 
+  const onNodeDoubleClick = useCallback(
+    (_: unknown, node: { id: string }) => {
+      if (node.id.startsWith('__wf_')) {
+        const kind = node.id.replace(/^__wf_/, '').replace(/__$/, '').replace(/^shared_.*/, 'sharedTransitions');
+        onOpenWorkflowSettings?.(kind);
+      }
+    },
+    [onOpenWorkflowSettings],
+  );
+
+  const [toolbarCloseSignal, setToolbarCloseSignal] = useState(0);
+
+  // ─── Canvas Search: spotlight lifecycle ───
+  const clearSpotlight = useCallback(() => {
+    if (spotlightTimerRef.current) {
+      clearTimeout(spotlightTimerRef.current);
+      spotlightTimerRef.current = null;
+    }
+    setNodes((nds) => {
+      let changed = false;
+      const next = nds.map((n) => {
+        if ((n.data as Record<string, unknown> | undefined)?.spotlight) {
+          changed = true;
+          const { spotlight: _, ...rest } = n.data as Record<string, unknown>;
+          return { ...n, data: rest };
+        }
+        return n;
+      });
+      return changed ? next : nds;
+    });
+    setEdges((eds) => {
+      let changed = false;
+      const next = eds.map((e) => {
+        if ((e.data as Record<string, unknown> | undefined)?.spotlight) {
+          changed = true;
+          const { spotlight: _, ...rest } = (e.data || {}) as Record<string, unknown>;
+          return { ...e, data: rest };
+        }
+        return e;
+      });
+      return changed ? next : eds;
+    });
+  }, [setNodes, setEdges]);
+
+  useEffect(() => {
+    return () => {
+      if (spotlightTimerRef.current) clearTimeout(spotlightTimerRef.current);
+      if (fitViewFollowUpRef.current) clearTimeout(fitViewFollowUpRef.current);
+    };
+  }, []);
+
   const onPaneClick = useCallback(() => {
     setContextMenu(null);
-  }, []);
+    setToolbarCloseSignal((s) => s + 1);
+    clearSpotlight();
+  }, [clearSpotlight]);
 
   // ─── Context Menus ───
   const onPaneContextMenu = useCallback(
@@ -251,6 +387,17 @@ function FlowCanvasInner({
   const onNodeContextMenu = useCallback((event: React.MouseEvent, node: { id: string }) => {
     event.preventDefault();
     if (node.id === '__start__') return;
+    if (node.id.startsWith('__wf_')) {
+      const kind = node.id.replace(/^__wf_/, '').replace(/__$/, '').replace(/^shared_.*/, 'sharedTransitions');
+      setContextMenu({
+        type: 'wfNode',
+        screenX: event.clientX,
+        screenY: event.clientY,
+        nodeId: node.id,
+        sectionKind: kind,
+      });
+      return;
+    }
     setContextMenu({
       type: 'node',
       screenX: event.clientX,
@@ -280,7 +427,7 @@ function FlowCanvasInner({
   const onNodesDelete = useCallback(
     (deletedNodes: Array<{ id: string }>) => {
       for (const node of deletedNodes) {
-        if (node.id === '__start__') continue;
+        if (node.id === '__start__' || node.id.startsWith('__wf_')) continue;
         removeState(node.id);
       }
     },
@@ -343,16 +490,83 @@ function FlowCanvasInner({
     [duplicateState, diagramJson],
   );
 
+  // ─── Canvas Search: Ctrl/Cmd+F shortcut ───
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'f') {
+        e.preventDefault();
+        e.stopPropagation();
+        setSearchOpen(true);
+      }
+    };
+    const el = canvasWrapperRef.current;
+    if (el) {
+      el.addEventListener('keydown', handler, true);
+      return () => el.removeEventListener('keydown', handler, true);
+    }
+  }, []);
+
+  const applySpotlight = useCallback(
+    (kind: 'node' | 'edge', id: string) => {
+      clearSpotlight();
+      if (kind === 'node') {
+        setNodes((nds) =>
+          nds.map((n) =>
+            n.id === id ? { ...n, data: { ...n.data, spotlight: true }, selected: true } : { ...n, selected: false },
+          ),
+        );
+      } else {
+        setEdges((eds) =>
+          eds.map((e) =>
+            e.id === id ? { ...e, data: { ...e.data, spotlight: true }, selected: true } : { ...e, selected: false },
+          ),
+        );
+      }
+      spotlightTimerRef.current = setTimeout(clearSpotlight, 1500);
+    },
+    [clearSpotlight, setNodes, setEdges],
+  );
+
+  const handleSearchSelectState = useCallback(
+    (nodeId: string) => {
+      setSelectedNode(nodeId);
+      fitView({ nodes: [{ id: nodeId }], padding: 0.3, duration: 400 });
+      if (fitViewFollowUpRef.current) clearTimeout(fitViewFollowUpRef.current);
+      fitViewFollowUpRef.current = setTimeout(() => applySpotlight('node', nodeId), 420);
+    },
+    [setSelectedNode, fitView, applySpotlight],
+  );
+
+  const handleSearchSelectTransition = useCallback(
+    (edgeId: string, sourceKey: string, targetKey: string) => {
+      setSelectedEdge(edgeId);
+      const nodeIds = [{ id: sourceKey }];
+      if (targetKey && targetKey !== sourceKey) {
+        nodeIds.push({ id: targetKey });
+      }
+      fitView({ nodes: nodeIds, padding: 0.3, duration: 400 });
+      if (fitViewFollowUpRef.current) clearTimeout(fitViewFollowUpRef.current);
+      fitViewFollowUpRef.current = setTimeout(() => applySpotlight('edge', edgeId), 420);
+    },
+    [setSelectedEdge, fitView, applySpotlight],
+  );
+
   return (
-    <div className="h-full w-full">
+    <div ref={canvasWrapperRef} className="h-full w-full" tabIndex={-1}>
       <ReactFlow
         nodes={nodes}
-        edges={edges}
+        edges={visibleEdges}
         onNodesChange={handleNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
+        onReconnect={onReconnect}
+        onReconnectStart={onReconnectStart}
+        onReconnectEnd={onReconnectEnd}
+        edgesReconnectable
+        reconnectRadius={25}
         isValidConnection={isValidConnection}
         onNodeClick={onNodeClick}
+        onNodeDoubleClick={onNodeDoubleClick}
         onEdgeClick={onEdgeClick}
         onPaneClick={onPaneClick}
         onNodeDragStop={onNodeDragStop}
@@ -365,6 +579,7 @@ function FlowCanvasInner({
         edgeTypes={edgeTypes}
         defaultEdgeOptions={defaultEdgeOptions}
         connectionMode={ConnectionMode.Loose}
+        connectionLineComponent={FloatingConnectionLine}
         deleteKeyCode={['Backspace', 'Delete']}
         fitView
         snapToGrid
@@ -384,9 +599,11 @@ function FlowCanvasInner({
           <CanvasToolbar
             onAddState={handleToolbarAddState}
             onAutoLayout={handleAutoLayout}
+            onOpenSearch={() => setSearchOpen(true)}
             workflowSettingsActive={workflowSettingsActive}
             onToggleWorkflowSettings={onToggleWorkflowSettings}
             hasInitialState={hasInitialState}
+            closeSignal={toolbarCloseSignal}
           />
         </Panel>
       </ReactFlow>
@@ -411,6 +628,17 @@ function FlowCanvasInner({
           hasInitialState={hasInitialState}
         />
       )}
+      {contextMenu?.type === 'wfNode' && (
+        <WfNodeContextMenu
+          position={contextMenu}
+          sectionKind={contextMenu.sectionKind}
+          onClose={closeContextMenu}
+          onOpenSettings={() => {
+            onOpenWorkflowSettings?.(contextMenu.sectionKind);
+            closeContextMenu();
+          }}
+        />
+      )}
       {contextMenu?.type === 'edge' && (
         <EdgeContextMenu
           position={contextMenu}
@@ -421,6 +649,14 @@ function FlowCanvasInner({
           onChangeTrigger={changeTransitionTrigger}
         />
       )}
+
+      <CanvasSearchSpotlight
+        open={searchOpen}
+        onOpenChange={setSearchOpen}
+        onSelectState={handleSearchSelectState}
+        onSelectTransition={handleSearchSelectTransition}
+        searchItems={searchItems}
+      />
     </div>
   );
 }

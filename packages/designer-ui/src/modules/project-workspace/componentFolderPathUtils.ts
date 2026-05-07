@@ -1,4 +1,4 @@
-import type { VnextWorkspacePaths } from '@vnext-forge/app-contracts';
+import type { VnextWorkspacePaths } from '@vnext-forge-studio/app-contracts';
 
 import type { ComponentFolderType } from '../component-icons/componentFolderTypes.js';
 import type { VnextComponentType } from '../../shared/projectTypes.js';

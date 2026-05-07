@@ -3,8 +3,8 @@ import type {
   VnextComponentsByCategory,
   VnextComponentsDiscoveryResult,
   VnextExportCategory,
-} from '@vnext-forge/app-contracts';
-import { VNEXT_FLOW_TO_EXPORT_CATEGORY } from '@vnext-forge/app-contracts';
+} from '@vnext-forge-studio/app-contracts';
+import { VNEXT_FLOW_TO_EXPORT_CATEGORY } from '@vnext-forge-studio/app-contracts';
 import type { VnextWorkspacePaths } from '../workspace/types.js';
 
 import type { FileSystemAdapter } from '../../adapters/file-system.js';

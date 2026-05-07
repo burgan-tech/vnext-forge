@@ -1,6 +1,6 @@
 import { CsxEditorField, type ScriptCode } from '../../../../../../modules/save-component/components/CsxEditorField';
 import { Section, SelectField } from '../PropertyPanelShared';
-import { TriggerKind } from '@vnext-forge/vnext-types';
+import { TriggerKind } from '@vnext-forge-studio/vnext-types';
 
 interface TransitionConditionSectionProps {
   rule: ScriptCode | null;

@@ -4,7 +4,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 /**
  * `localStorage` anahtarı — shell ilk boyaması için `documentTheme` ile aynı isim kullanılmalıdır.
  */
-export const SETTINGS_PERSIST_KEY = 'vnext-forge-settings';
+export const SETTINGS_PERSIST_KEY = 'vnext-forge-studio-settings';
 
 /**
  * Host-agnostic shell ayarları (web SPA, VS Code webview). Renk teması tercihi

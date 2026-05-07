@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { Plus, LogOut } from 'lucide-react';
-import type { Transition } from '@vnext-forge/vnext-types';
+import type { Transition } from '@vnext-forge-studio/vnext-types';
 import { useWorkflowStore } from '../../../../../store/useWorkflowStore';
 import {
   TransitionCard,

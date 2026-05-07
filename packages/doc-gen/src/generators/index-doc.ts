@@ -1,4 +1,4 @@
-import { heading, table, inlineCode, lines } from '../utils/markdown-helpers.js';
+import { heading, table, inlineCode, lines, bold } from '../utils/markdown-helpers.js';
 
 export interface ComponentDocEntry {
   key: string;
@@ -6,6 +6,12 @@ export interface ComponentDocEntry {
   label: string;
   description?: string;
   relativePath: string;
+}
+
+export interface IndexExtraLink {
+  label: string;
+  relativePath: string;
+  description: string;
 }
 
 const CATEGORY_ORDER = [
@@ -24,6 +30,7 @@ function categoryTitle(category: string): string {
 export function generateIndexMarkdown(
   components: ComponentDocEntry[],
   projectName?: string,
+  extraLinks?: IndexExtraLink[],
 ): string {
   const sections: (string | null | undefined | false)[] = [];
 
@@ -31,6 +38,15 @@ export function generateIndexMarkdown(
   sections.push(
     'This document provides an index of all vNext components in the project.',
   );
+
+  if (extraLinks?.length) {
+    sections.push(heading(2, 'Additional Documents'));
+    sections.push(
+      extraLinks
+        .map((l) => `- ${bold(`[${l.label}](${l.relativePath})`)} — ${l.description}`)
+        .join('\n'),
+    );
+  }
 
   const grouped = new Map<string, ComponentDocEntry[]>();
   for (const c of components) {

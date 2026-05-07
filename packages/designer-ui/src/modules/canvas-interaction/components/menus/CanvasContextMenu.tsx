@@ -131,6 +131,46 @@ export function EdgeContextMenu({ position, sourceStateKey, transitionKey, onClo
   );
 }
 
+interface WfNodeContextMenuProps {
+  position: { screenX: number; screenY: number };
+  sectionKind: string;
+  onClose: () => void;
+  onOpenSettings: () => void;
+}
+
+const WF_SECTION_LABELS: Record<string, string> = {
+  updateData: 'Update Data',
+  cancel: 'Cancel',
+  timeout: 'Timeout',
+  exit: 'Exit',
+  sharedTransitions: 'Shared Transitions',
+};
+
+export function WfNodeContextMenu({ position, sectionKind, onClose, onOpenSettings }: WfNodeContextMenuProps) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) onClose();
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [onClose]);
+
+  const label = WF_SECTION_LABELS[sectionKind] || sectionKind;
+
+  return (
+    <div
+      ref={ref}
+      className="fixed z-[100] bg-surface/95 backdrop-blur-xl rounded-xl border border-border shadow-xl shadow-black/10 py-1.5 min-w-[180px] animate-scale-in"
+      style={{ left: position.screenX, top: position.screenY }}
+    >
+      <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground truncate">{label}</div>
+      <MenuItem label="Open in Workflow Settings" onClick={onOpenSettings} />
+    </div>
+  );
+}
+
 function MenuItem({ label, color, indent, danger, onClick, disabled }: {
   label: string;
   color?: string;

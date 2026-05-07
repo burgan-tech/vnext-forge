@@ -4,7 +4,7 @@ import os from 'node:os'
 import { execFile } from 'node:child_process'
 import { promisify } from 'node:util'
 
-import type { LoggerAdapter } from '@vnext-forge/services-core'
+import type { LoggerAdapter } from '@vnext-forge-studio/services-core'
 
 const execFileAsync = promisify(execFile)
 

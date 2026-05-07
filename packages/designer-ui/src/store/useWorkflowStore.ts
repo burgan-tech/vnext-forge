@@ -30,6 +30,7 @@ export interface WorkflowState {
   addTransition: (sourceKey: string, targetKey: string, triggerType?: number) => void;
   removeTransition: (sourceStateKey: string, transitionKey: string) => void;
   changeTransitionTrigger: (sourceStateKey: string, transitionKey: string, triggerType: number) => void;
+  reconnectTransition: (sourceStateKey: string, transitionKey: string, newTargetKey: string) => void;
 }
 
 let stateCounter = 0;
@@ -309,5 +310,21 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
       const t = state.transitions.find((t: any) => t.key === transitionKey);
       if (t) t.triggerType = triggerType;
     });
+  },
+
+  reconnectTransition: (sourceStateKey, transitionKey, newTargetKey) => {
+    if (sourceStateKey === '__start__') {
+      get().updateWorkflow((draft: any) => {
+        const st = draft.attributes?.startTransition || draft.attributes?.start;
+        if (st) st.target = newTargetKey;
+      });
+    } else {
+      get().updateWorkflow((draft: any) => {
+        const state = draft.attributes?.states?.find((s: any) => s.key === sourceStateKey);
+        if (!state?.transitions) return;
+        const t = state.transitions.find((t: any) => t.key === transitionKey);
+        if (t) t.target = newTargetKey;
+      });
+    }
   },
 }));

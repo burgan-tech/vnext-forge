@@ -1,5 +1,5 @@
 {
-  "name": "@vnext-forge/doc-gen",
+  "name": "@vnext-forge-studio/doc-gen",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -14,7 +14,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@vnext-forge/vnext-types": "workspace:*"
+    "@vnext-forge-studio/vnext-types": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

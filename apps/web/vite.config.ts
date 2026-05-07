@@ -13,7 +13,8 @@ export default defineConfig({
   },
   plugins: [react(), tailwindcss()],
   optimizeDeps: {
-    include: ['@vnext-forge/designer-ui/editor', '@monaco-editor/react', 'monaco-editor'],
+    include: ['@monaco-editor/react', 'monaco-editor'],
+    exclude: ['@vnext-forge-studio/designer-ui/editor'],
   },
   build: {
     outDir: './dist',

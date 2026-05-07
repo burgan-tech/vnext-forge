@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { FolderPlus, FolderTree, Loader2 } from 'lucide-react';
 
-import { showNotification, toVnextError } from '@vnext-forge/designer-ui';
+import { showNotification, toVnextError } from '@vnext-forge-studio/designer-ui';
 import {
   Button,
   Dialog,
@@ -10,7 +10,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@vnext-forge/designer-ui/ui';
+} from '@vnext-forge-studio/designer-ui/ui';
 
 import { useProjectListStore } from '../../../app/store/useProjectListStore';
 import { useVnextWorkspaceUiStore } from '../../../app/store/useVnextWorkspaceUiStore';

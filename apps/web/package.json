@@ -1,5 +1,5 @@
 {
-  "name": "@vnext-forge/web",
+  "name": "@vnext-forge-studio/web",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -12,9 +12,9 @@
   },
   "dependencies": {
     "@monaco-editor/react": "^4.7.0",
-    "@vnext-forge/app-contracts": "workspace:*",
-    "@vnext-forge/designer-ui": "workspace:*",
-    "@vnext-forge/vnext-types": "workspace:*",
+    "@vnext-forge-studio/app-contracts": "workspace:*",
+    "@vnext-forge-studio/designer-ui": "workspace:*",
+    "@vnext-forge-studio/vnext-types": "workspace:*",
     "class-variance-authority": "^0.7.1",
     "hono": "^4.12.10",
     "lucide-react": "^0.468.0",
@@ -28,7 +28,7 @@
     "zustand": "^5.0.0"
   },
   "devDependencies": {
-    "@vnext-forge/server": "workspace:*",
+    "@vnext-forge-studio/server": "workspace:*",
     "@tailwindcss/vite": "^4.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",

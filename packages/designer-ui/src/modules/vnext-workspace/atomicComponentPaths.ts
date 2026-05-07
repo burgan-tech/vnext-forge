@@ -1,4 +1,4 @@
-import type { VnextWorkspacePaths } from '@vnext-forge/app-contracts';
+import type { VnextWorkspacePaths } from '@vnext-forge-studio/app-contracts';
 
 /** When JSON sits directly under the category folder, editor `group` is this sentinel (path has no subfolder). */
 export const VNEXT_ATOMIC_FLAT_GROUP = '__flat__' as const;

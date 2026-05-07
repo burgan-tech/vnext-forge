@@ -1,6 +1,6 @@
 /**
  * Re-exports vNext project-folder path helpers (shared with the VS Code host).
- * Implementation: `@vnext-forge/designer-ui`
+ * Implementation: `@vnext-forge-studio/designer-ui`
  */
 export {
   buildComponentFolderRelPaths,
@@ -8,4 +8,4 @@ export {
   matchComponentFolderType,
   matchVnextDomainComponentFolder,
   type ComponentTreeClassification,
-} from '@vnext-forge/designer-ui';
+} from '@vnext-forge-studio/designer-ui';

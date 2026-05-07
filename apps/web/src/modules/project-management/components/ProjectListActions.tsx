@@ -1,4 +1,4 @@
-import { Separator } from '@vnext-forge/designer-ui/ui';
+import { Separator } from '@vnext-forge-studio/designer-ui/ui';
 
 import type { ProjectInfo } from '../ProjectTypes';
 

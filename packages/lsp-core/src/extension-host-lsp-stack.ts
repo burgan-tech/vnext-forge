@@ -1,4 +1,4 @@
-import type { LoggerAdapter } from '@vnext-forge/services-core';
+import type { LoggerAdapter } from '@vnext-forge-studio/services-core';
 
 import { createLspBridge, type LspBridge } from './lsp-bridge.js';
 import { createLspWorkspaceManager } from './lsp-workspace.js';

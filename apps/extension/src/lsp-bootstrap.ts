@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
 
-import type { OmniSharpInstaller } from '@vnext-forge/lsp-core';
-import type { LoggerAdapter } from '@vnext-forge/services-core';
+import type { OmniSharpInstaller } from '@vnext-forge-studio/lsp-core';
+import type { LoggerAdapter } from '@vnext-forge-studio/services-core';
 
 import { baseLogger } from './shared/logger.js';
 
@@ -26,7 +26,7 @@ export function bootstrapLsp(
   void vscode.window.withProgress(
     {
       location: vscode.ProgressLocation.Window,
-      title: 'Preparing vnext-forge language services',
+      title: 'Preparing vnext-forge-studio language services',
     },
     async (progress) => {
       progress.report({ message: 'Locating C# language server…' });

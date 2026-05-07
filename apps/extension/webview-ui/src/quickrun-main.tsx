@@ -5,7 +5,7 @@ import {
   DesignerUiProvider,
   registerLogSink,
   registerNotificationSink,
-} from '@vnext-forge/designer-ui';
+} from '@vnext-forge-studio/designer-ui';
 
 import './index.css';
 import { createVsCodeLogSink } from './logging/vscode-log-sink';

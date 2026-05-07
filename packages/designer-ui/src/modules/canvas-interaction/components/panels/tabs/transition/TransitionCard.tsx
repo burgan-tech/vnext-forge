@@ -1,13 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
-import type { Transition, RoleGrant, ViewBinding, ErrorBoundary } from '@vnext-forge/vnext-types';
+import type { Transition, RoleGrant, ViewBinding, ErrorBoundary } from '@vnext-forge-studio/vnext-types';
 import type { ScriptCode } from '../../../../../../modules/save-component/components/CsxEditorField';
 import type { SchemaReference } from '../../../../../../modules/save-component/components/SchemaReferenceField';
-import type { DiscoveredVnextComponent } from '@vnext-forge/app-contracts';
+import type { DiscoveredVnextComponent } from '@vnext-forge-studio/app-contracts';
 import type { AtomicSavedInfo } from '../../../../../../modules/save-component/componentEditorModalTypes.js';
 import { getTriggerLabel, getTriggerKindLabel } from '../PropertyPanelHelpers';
 import { Badge, IconTrash, Section, InfoRow } from '../PropertyPanelShared';
 import { ArrowRight, ChevronRight } from 'lucide-react';
-import { TriggerType } from '@vnext-forge/vnext-types';
+import { TriggerType } from '@vnext-forge-studio/vnext-types';
 
 import { TransitionExecutionTasksSection } from './TransitionExecutionTasksSection';
 import { TransitionSchemaSection } from './TransitionSchemaSection';

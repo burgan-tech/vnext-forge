@@ -12,7 +12,7 @@ import {
   CardHeader,
   CardTitle,
   Input,
-} from '@vnext-forge/designer-ui/ui';
+} from '@vnext-forge-studio/designer-ui/ui';
 
 import { FolderBrowser } from './FolderBrowser';
 import { useCreateProject } from '../hooks/useCreateProject';

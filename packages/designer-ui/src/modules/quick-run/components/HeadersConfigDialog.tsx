@@ -1,4 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../../../ui/Tooltip';
 
 interface HeaderEntry {
   name: string;
@@ -72,13 +78,22 @@ export function HeadersConfigDialog({ open, onClose, initialHeaders, onSave }: H
           <h2 id="headers-dialog-title" className="text-sm font-semibold">
             Runtime Headers
           </h2>
-          <button
-            className="text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]"
-            onClick={onClose}
-            aria-label="Close"
-          >
-            ✕
-          </button>
+          <TooltipProvider delayDuration={300}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className="text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]"
+                  onClick={onClose}
+                  aria-label="Close"
+                >
+                  ✕
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-[11px]">
+                Close
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </header>
 
         <div className="flex-1 overflow-y-auto p-4">
@@ -113,13 +128,22 @@ export function HeadersConfigDialog({ open, onClose, initialHeaders, onSave }: H
                   />
                   Secret
                 </label>
-                <button
-                  className="text-[var(--vscode-errorForeground)] hover:opacity-70"
-                  onClick={() => removeHeader(index)}
-                  aria-label="Remove header"
-                >
-                  ✕
-                </button>
+                <TooltipProvider delayDuration={300}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        className="text-[var(--vscode-errorForeground)] hover:opacity-70"
+                        onClick={() => removeHeader(index)}
+                        aria-label="Remove header"
+                      >
+                        ✕
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="text-[11px]">
+                      Remove
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
             ))}
           </div>

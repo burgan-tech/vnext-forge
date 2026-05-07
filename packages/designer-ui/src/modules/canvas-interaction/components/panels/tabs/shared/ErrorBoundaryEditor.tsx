@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import type { ErrorBoundary, ErrorHandler } from '@vnext-forge/vnext-types';
+import type { ErrorBoundary, ErrorHandler } from '@vnext-forge-studio/vnext-types';
 import { ErrorHandlerCard } from './ErrorHandlerCard';
 import { IconPlus, IconTrash } from '../PropertyPanelShared';
 import { ShieldAlert, Plus } from 'lucide-react';

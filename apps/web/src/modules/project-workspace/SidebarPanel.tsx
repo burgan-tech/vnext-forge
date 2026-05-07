@@ -2,8 +2,8 @@ import { useMemo, useState } from 'react';
 
 import { Search, X } from 'lucide-react';
 
-import { cn } from '@vnext-forge/designer-ui';
-import { Badge } from '@vnext-forge/designer-ui/ui';
+import { cn } from '@vnext-forge-studio/designer-ui';
+import { Badge } from '@vnext-forge-studio/designer-ui/ui';
 
 import { useProjectListStore } from '../../app/store/useProjectListStore';
 import { buildComponentFolderRelPaths } from './componentFolderPaths';

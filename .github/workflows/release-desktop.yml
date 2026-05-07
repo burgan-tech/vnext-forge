@@ -51,10 +51,10 @@ jobs:
         run: pnpm build
 
       - name: Build desktop app
-        run: pnpm --filter vnext-forge-desktop build
+        run: pnpm --filter vnext-forge-studio-desktop build
 
       - name: Package desktop app
-        run: pnpm --filter vnext-forge-desktop package
+        run: pnpm --filter vnext-forge-studio-desktop package
         env:
           # Disable code signing for unsigned builds.
           # For signed production releases set CSC_LINK / CSC_KEY_PASSWORD (macOS)

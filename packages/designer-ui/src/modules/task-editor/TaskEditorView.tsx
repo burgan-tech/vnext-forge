@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { isFailure } from '@vnext-forge/app-contracts';
+import { isFailure } from '@vnext-forge-studio/app-contracts';
 
 import { useProjectStore } from '../../store/useProjectStore';
 import { useComponentStore } from '../../store/useComponentStore';

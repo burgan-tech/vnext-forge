@@ -87,7 +87,7 @@ export class ProjectActionsProvider implements vscode.TreeDataProvider<ProjectAc
   async runAction(actionId: ProjectActionId): Promise<void> {
     const roots = this.detector.getRoots();
     if (roots.length === 0) {
-      void vscode.window.showWarningMessage('vnext-forge: No vnext workspace found.');
+      void vscode.window.showWarningMessage('vnext-forge-studio: No vnext workspace found.');
       return;
     }
 

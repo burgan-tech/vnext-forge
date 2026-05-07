@@ -18,7 +18,7 @@ const dest = path.join(desktopRoot, 'dist', 'webview');
 
 if (!fs.existsSync(src)) {
   console.error(`[copy-assets] web app dist not found at ${src}`);
-  console.error('[copy-assets] Run `pnpm --filter @vnext-forge/web build` first.');
+  console.error('[copy-assets] Run `pnpm --filter @vnext-forge-studio/web build` first.');
   process.exit(1);
 }
 

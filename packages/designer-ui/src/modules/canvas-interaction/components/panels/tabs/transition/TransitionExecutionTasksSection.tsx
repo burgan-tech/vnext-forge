@@ -1,5 +1,5 @@
-import type { TaskExecution, ErrorBoundary } from '@vnext-forge/vnext-types';
-import type { DiscoveredVnextComponent } from '@vnext-forge/app-contracts';
+import type { TaskExecution, ErrorBoundary } from '@vnext-forge-studio/vnext-types';
+import type { DiscoveredVnextComponent } from '@vnext-forge-studio/app-contracts';
 import type { ScriptCode } from '../../../../../../modules/save-component/components/CsxEditorField';
 import { CsxEditorField } from '../../../../../../modules/save-component/components/CsxEditorField';
 import { OpenVnextComponentInModalButton } from '../../../../../../modules/save-component/components/OpenVnextComponentInModalButton.js';

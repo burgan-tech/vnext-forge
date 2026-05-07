@@ -6,7 +6,7 @@ import {
   useProjectStore,
   type FileTreeNode,
   type ProjectInfo,
-} from '@vnext-forge/designer-ui';
+} from '@vnext-forge-studio/designer-ui';
 
 import {
   loadComponentFileTypes,

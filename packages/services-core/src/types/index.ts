@@ -1,9 +1,9 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// Type-only entrypoint for `@vnext-forge/services-core/types`.
+// Type-only entrypoint for `@vnext-forge-studio/services-core/types`.
 //
 // This file MUST NOT export anything that pulls in Node.js-only modules
 // (file system, child_process, Ajv, ...). It is consumed by the browser
-// bundle of `@vnext-forge/designer-ui` so the React layer can speak the same
+// bundle of `@vnext-forge-studio/designer-ui` so the React layer can speak the same
 // vocabulary as the backend services without dragging in implementation code.
 // ─────────────────────────────────────────────────────────────────────────────
 

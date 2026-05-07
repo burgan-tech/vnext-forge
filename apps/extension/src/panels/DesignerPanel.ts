@@ -1,12 +1,12 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
-import type { VnextWorkspaceConfig } from '@vnext-forge/services-core';
+import type { VnextWorkspaceConfig } from '@vnext-forge-studio/services-core';
 import {
   getVnextComponentEditorTabDisplayTitle,
   getVnextComponentTabIconFileName,
   type VnextComponentTabKind,
-} from '@vnext-forge/vnext-types';
+} from '@vnext-forge-studio/vnext-types';
 
 import type { FileRouteKind } from '../file-router';
 import type { MessageRouter } from '../MessageRouter';
@@ -117,7 +117,7 @@ export class DesignerPanel {
       existing.panel.reveal(vscode.ViewColumn.Active);
       return;
     }
-    this.createWebviewForKey(EMPTY_DESIGNER_PANEL_KEY, 'vnext-forge Designer', undefined);
+    this.createWebviewForKey(EMPTY_DESIGNER_PANEL_KEY, 'vnext-forge-studio Designer', undefined);
   }
 
   /**
@@ -402,21 +402,21 @@ export class DesignerPanel {
     // editor takes over a JSON tab) that the user sees while the webview
     // bundle downloads, parses and hydrates.
     const loadingStyle = `<style nonce="${nonce}">
-  .vnext-forge-boot { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 12px; background: var(--vscode-editor-background, #1e1e1e); color: var(--vscode-foreground, #cccccc); font-family: var(--vscode-font-family, system-ui, sans-serif); font-size: 12px; z-index: 0; transition: opacity 160ms ease-out; }
-  .vnext-forge-boot.is-fading { opacity: 0; pointer-events: none; }
-  .vnext-forge-boot .vnext-forge-spinner { width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--vscode-editorWidget-border, #3c3c3c); border-top-color: var(--vscode-progressBar-background, #0e639c); animation: vnext-forge-spin 0.9s linear infinite; }
-  @keyframes vnext-forge-spin { to { transform: rotate(360deg); } }
+  .vnext-forge-studio-boot { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 12px; background: var(--vscode-editor-background, #1e1e1e); color: var(--vscode-foreground, #cccccc); font-family: var(--vscode-font-family, system-ui, sans-serif); font-size: 12px; z-index: 0; transition: opacity 160ms ease-out; }
+  .vnext-forge-studio-boot.is-fading { opacity: 0; pointer-events: none; }
+  .vnext-forge-studio-boot .vnext-forge-studio-spinner { width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--vscode-editorWidget-border, #3c3c3c); border-top-color: var(--vscode-progressBar-background, #0e639c); animation: vnext-forge-studio-spin 0.9s linear infinite; }
+  @keyframes vnext-forge-studio-spin { to { transform: rotate(360deg); } }
 </style>`;
 
-    const loadingMarkup = `<div class="vnext-forge-boot" id="vnext-forge-boot" role="status" aria-live="polite">
-  <div class="vnext-forge-spinner" aria-hidden="true"></div>
-  <div>Loading vnext-forge Designer...</div>
+    const loadingMarkup = `<div class="vnext-forge-studio-boot" id="vnext-forge-studio-boot" role="status" aria-live="polite">
+  <div class="vnext-forge-studio-spinner" aria-hidden="true"></div>
+  <div>Loading vnext-forge-studio Designer...</div>
 </div>`;
 
     const loadingTeardownScript = `<script nonce="${nonce}">
   (function () {
     function dismiss() {
-      var el = document.getElementById('vnext-forge-boot');
+      var el = document.getElementById('vnext-forge-studio-boot');
       if (!el) return;
       el.classList.add('is-fading');
       setTimeout(function () { if (el && el.parentNode) el.parentNode.removeChild(el); }, 220);

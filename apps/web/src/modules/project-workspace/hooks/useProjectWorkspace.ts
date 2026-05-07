@@ -6,7 +6,7 @@ import {
   getData,
   isFailure,
   type VnextForgeError,
-} from '@vnext-forge/app-contracts';
+} from '@vnext-forge-studio/app-contracts';
 
 import {
   buildVnextComponentJson,
@@ -25,8 +25,8 @@ import {
   type FileTreeNode,
   ensureComponentJsonFileName,
   type VnextComponentType,
-} from '@vnext-forge/designer-ui';
-import { toVnextError } from '@vnext-forge/designer-ui/lib';
+} from '@vnext-forge-studio/designer-ui';
+import { toVnextError } from '@vnext-forge-studio/designer-ui/lib';
 
 import { useProjectListStore } from '../../../app/store/useProjectListStore';
 import {

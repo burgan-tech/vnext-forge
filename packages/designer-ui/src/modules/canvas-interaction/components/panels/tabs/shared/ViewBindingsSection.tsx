@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { ChevronRight, X } from 'lucide-react';
-import type { MappingCode, ResourceReference, ViewBinding } from '@vnext-forge/vnext-types';
+import type { MappingCode, ResourceReference, ViewBinding } from '@vnext-forge-studio/vnext-types';
 import type { ScriptCode } from '../../../../../../modules/save-component/components/CsxEditorField';
 import { CsxEditorField } from '../../../../../../modules/save-component/components/CsxEditorField';
 import { OpenVnextComponentInModalButton } from '../../../../../../modules/save-component/components/OpenVnextComponentInModalButton.js';

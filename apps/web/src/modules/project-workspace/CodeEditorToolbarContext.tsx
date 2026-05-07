@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from 'react';
 
-import type { HostDocumentToolbarSlot } from '@vnext-forge/designer-ui';
+import type { HostDocumentToolbarSlot } from '@vnext-forge-studio/designer-ui';
 
 type CodeEditorToolbarContextValue = {
   toolbar: ReactNode | null;

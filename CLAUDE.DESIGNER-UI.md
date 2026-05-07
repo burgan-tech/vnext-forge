@@ -12,14 +12,14 @@ Shared **primitives**, **canvas**, **editor**, and **LSP** plumbing with a **hos
 
 | Subpath | Role (summary) |
 |---------|----------------|
-| `@vnext-forge/designer-ui` | Root barrel — default entry |
-| `@vnext-forge/designer-ui/editor` | Monaco-bearing editor components |
-| `@vnext-forge/designer-ui/ui` | Non-Monaco UI primitives |
-| `@vnext-forge/designer-ui/hooks` | Shared hooks barrel |
-| `@vnext-forge/designer-ui/lib` | Shared lib barrel |
-| `@vnext-forge/designer-ui/notification` | Notification port wiring |
-| `@vnext-forge/designer-ui/api` | Transport / API surface |
-| `@vnext-forge/designer-ui/styles.css` | Styles entry |
+| `@vnext-forge-studio/designer-ui` | Root barrel — default entry |
+| `@vnext-forge-studio/designer-ui/editor` | Monaco-bearing editor components |
+| `@vnext-forge-studio/designer-ui/ui` | Non-Monaco UI primitives |
+| `@vnext-forge-studio/designer-ui/hooks` | Shared hooks barrel |
+| `@vnext-forge-studio/designer-ui/lib` | Shared lib barrel |
+| `@vnext-forge-studio/designer-ui/notification` | Notification port wiring |
+| `@vnext-forge-studio/designer-ui/api` | Transport / API surface |
+| `@vnext-forge-studio/designer-ui/styles.css` | Styles entry |
 
 **Rules**
 
@@ -92,7 +92,7 @@ See [`docs/architecture/useAsync-callsite-inventory.md`](./docs/architecture/use
 
 ## Error presentation
 
-User-visible error copy must go through **`toErrorPresentation()`** (and related helpers) from **`@vnext-forge/app-contracts`** — not raw `error.message`. Full contract: [`.cursor/skills/shared/error-taxonomy/SKILL.md`](./.cursor/skills/shared/error-taxonomy/SKILL.md), [ADR 005](./docs/architecture/adr/005-error-taxonomy.md).
+User-visible error copy must go through **`toErrorPresentation()`** (and related helpers) from **`@vnext-forge-studio/app-contracts`** — not raw `error.message`. Full contract: [`.cursor/skills/shared/error-taxonomy/SKILL.md`](./.cursor/skills/shared/error-taxonomy/SKILL.md), [ADR 005](./docs/architecture/adr/005-error-taxonomy.md).
 
 ## Internationalization
 
@@ -114,8 +114,8 @@ Deeper split-pane UX: [theme-color-system — Split pane](./.cursor/skills/web/t
 
 | Allowed | Forbidden |
 |---------|-----------|
-| `@vnext-forge/app-contracts`, `@vnext-forge/vnext-types` | `apps/*` |
-| Package-internal modules | **`@vnext-forge/services-core`** — designer-ui stays **transport-agnostic**; do not import it here. See [dependency-policy](./.cursor/skills/shared/dependency-policy/SKILL.md). |
+| `@vnext-forge-studio/app-contracts`, `@vnext-forge-studio/vnext-types` | `apps/*` |
+| Package-internal modules | **`@vnext-forge-studio/services-core`** — designer-ui stays **transport-agnostic**; do not import it here. See [dependency-policy](./.cursor/skills/shared/dependency-policy/SKILL.md). |
 
 ## Webview CSP note
 

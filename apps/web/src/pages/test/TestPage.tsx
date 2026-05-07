@@ -17,10 +17,10 @@ import {
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,
-} from '@vnext-forge/designer-ui/ui';
+} from '@vnext-forge-studio/designer-ui/ui';
 
 /**
- * `/test` — yalnızca `@vnext-forge/designer-ui` Resizable (react-resizable-panels v4) denemeleri.
+ * `/test` — yalnızca `@vnext-forge-studio/designer-ui` Resizable (react-resizable-panels v4) denemeleri.
  */
 export function TestPage() {
   return (

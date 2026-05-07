@@ -11,7 +11,7 @@ import {
   VnextConfigFileIcon,
   type ComponentFolderType,
   type FileTreeNode,
-} from '@vnext-forge/designer-ui';
+} from '@vnext-forge-studio/designer-ui';
 
 import {
   useComponentFileTypesStore,

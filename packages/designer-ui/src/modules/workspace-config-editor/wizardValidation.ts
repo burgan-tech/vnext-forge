@@ -1,4 +1,4 @@
-import type { VnextWorkspaceConfig } from '@vnext-forge/app-contracts';
+import type { VnextWorkspaceConfig } from '@vnext-forge-studio/app-contracts';
 import { z } from 'zod';
 
 /** Kayıt öncesi: boş / yalnızca whitespace satırlarını at. */

@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { ERROR_CODES, VnextForgeError } from '@vnext-forge/app-contracts';
+import { ERROR_CODES, VnextForgeError } from '@vnext-forge-studio/app-contracts';
 
 const schemaNodeSchema: z.ZodType<Record<string, unknown>> = z.lazy(() =>
   z.record(z.string(), z.unknown()),

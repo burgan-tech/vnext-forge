@@ -1,5 +1,5 @@
 {
-  "name": "vnext-flow-studio-web",
+  "name": "vnext-forge-studio",
   "version": "0.1.0",
   "private": true,
   "description": "Standalone workflow design platform for vnext-runtime",

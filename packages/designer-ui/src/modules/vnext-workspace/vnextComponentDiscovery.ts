@@ -3,8 +3,8 @@ import type {
   VnextComponentsByCategory,
   VnextComponentsDiscoveryResult,
   VnextExportCategory,
-} from '@vnext-forge/app-contracts';
-import { VNEXT_FLOW_TO_EXPORT_CATEGORY as VNEXT_FLOW_TO_EXPORT_CATEGORY_MAP } from '@vnext-forge/app-contracts';
+} from '@vnext-forge-studio/app-contracts';
+import { VNEXT_FLOW_TO_EXPORT_CATEGORY as VNEXT_FLOW_TO_EXPORT_CATEGORY_MAP } from '@vnext-forge-studio/app-contracts';
 
 import { unwrapApi } from '../../api/client.js';
 

@@ -1,4 +1,4 @@
-import type { HostEditorCapabilities } from '@vnext-forge/designer-ui';
+import type { HostEditorCapabilities } from '@vnext-forge-studio/designer-ui';
 
 import type { VsCodeWebviewApi } from '../VsCodeTransport.js';
 import { resolveWebviewPostMessageAllowedOrigins } from './webviewMessageOrigins.js';

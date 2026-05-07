@@ -2,7 +2,7 @@ import {
   componentEditorTabId,
   useEditorStore,
   vnextWorkspaceConfigTabId,
-} from '@vnext-forge/designer-ui';
+} from '@vnext-forge-studio/designer-ui';
 
 import type { FileRoute } from './FileRouter';
 import { fileRouteTypeToComponentKind } from './fileRouteTypeToComponentKind';

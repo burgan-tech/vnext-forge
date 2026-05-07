@@ -1,5 +1,5 @@
 {
-  "name": "vnext-forge-desktop",
+  "name": "vnext-forge-studio-desktop",
   "version": "0.1.0",
   "description": "vNext Forge desktop application",
   "private": true,
@@ -14,10 +14,10 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@vnext-forge/app-contracts": "workspace:*",
-    "@vnext-forge/services-core": "workspace:*",
-    "@vnext-forge/lsp-core": "workspace:*",
-    "@vnext-forge/vnext-types": "workspace:*",
+    "@vnext-forge-studio/app-contracts": "workspace:*",
+    "@vnext-forge-studio/services-core": "workspace:*",
+    "@vnext-forge-studio/lsp-core": "workspace:*",
+    "@vnext-forge-studio/vnext-types": "workspace:*",
     "@burgan-tech/vnext-schema": "*",
     "@burgan-tech/vnext-template": "*",
     "electron": "^35.0.0"

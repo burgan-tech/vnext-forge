@@ -1,5 +1,5 @@
-import type { ApiResponse } from '@vnext-forge/app-contracts';
-import type { FileTreeNode } from '@vnext-forge/designer-ui';
+import type { ApiResponse } from '@vnext-forge-studio/app-contracts';
+import type { FileTreeNode } from '@vnext-forge-studio/designer-ui';
 
 import { callApi, unwrapApi } from '@shared/api';
 import type {

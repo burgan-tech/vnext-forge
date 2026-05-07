@@ -80,7 +80,7 @@ packages/vnext-types/src/
   index.ts
 ```
 
-**Dışa aktarım:** `@vnext-forge/types`  
+**Dışa aktarım:** `@vnext-forge-studio/types`  
 **Bağımlılıklar:** Hiçbir pakete bağımlı değil (leaf node)
 
 ---
@@ -281,7 +281,7 @@ export type ResponseMeta = {
 };
 ```
 
-**Dışa aktarım:** `@vnext-forge/app-contracts`  
+**Dışa aktarım:** `@vnext-forge-studio/app-contracts`  
 **Bağımlılıklar:** Hiçbir pakete bağımlı değil (leaf node)
 
 ---
@@ -327,8 +327,8 @@ packages/workflow-system/src/
   index.ts
 ```
 
-**Dışa aktarım:** `@vnext-forge/workflow-system`  
-**Bağımlılıklar:** `@vnext-forge/types`, `@vnext-forge/app-contracts`, `zod`
+**Dışa aktarım:** `@vnext-forge-studio/workflow-system`  
+**Bağımlılıklar:** `@vnext-forge-studio/types`, `@vnext-forge-studio/app-contracts`, `zod`
 
 ---
 
@@ -388,8 +388,8 @@ export const WORKSPACE_PATHS = {
 } as const;
 ```
 
-**Dışa aktarım:** `@vnext-forge/workspace-service`  
-**Bağımlılıklar:** `@vnext-forge/types`, `@vnext-forge/app-contracts`
+**Dışa aktarım:** `@vnext-forge-studio/workspace-service`  
+**Bağımlılıklar:** `@vnext-forge-studio/types`, `@vnext-forge-studio/app-contracts`
 
 > **Not:** `workspace-service/rules/` ve `workspace-service/analyzer/` server-side'da (`apps/server`) çalışır.  
 > `workspace-service/interfaces/` ve `workspace-service/paths/` hem web hem server tarafından kullanılır.  
@@ -463,8 +463,8 @@ export interface EditorLanguageContext {
 }
 ```
 
-**Dışa aktarım:** `@vnext-forge/editor-kit`  
-**Bağımlılıklar:** `@vnext-forge/types`, `monaco-editor` (peer dep)
+**Dışa aktarım:** `@vnext-forge-studio/editor-kit`  
+**Bağımlılıklar:** `@vnext-forge-studio/types`, `monaco-editor` (peer dep)
 
 > **Not:** Bu paket şimdilik sadece `apps/web` tarafından kullanılır.  
 > İleride desktop app geldiğinde aynı paketi tüketir — paketin değerini o zaman kanıtlar.
@@ -738,8 +738,8 @@ apps/server/src/
 
 ```typescript
 // middleware/error-handler.ts
-import { VnextError, ErrorCode } from "@vnext-forge/app-contracts";
-import type { ApiResponse } from "@vnext-forge/app-contracts";
+import { VnextError, ErrorCode } from "@vnext-forge-studio/app-contracts";
+import type { ApiResponse } from "@vnext-forge-studio/app-contracts";
 
 export function errorMiddleware(err: unknown, c: Context): Response {
   if (err instanceof VnextError) {
@@ -903,12 +903,12 @@ Response'lar `ApiResponse<T>` envelope'una sarılır. Web tarafı `app-contracts
 
 | Paket                        | npm adı                          |
 | ---------------------------- | -------------------------------- |
-| `packages/vnext-types`       | `@vnext-forge/types`             |
-| `packages/app-contracts`     | `@vnext-forge/app-contracts`     |
-| `packages/workflow-system`   | `@vnext-forge/workflow-system`   |
-| `packages/workspace-service` | `@vnext-forge/workspace-service` |
-| `packages/editor-kit`        | `@vnext-forge/editor-kit`        |
-| `apps/web`                   | `@vnext-forge/web`               |
-| `apps/server`                | `@vnext-forge/server`            |
+| `packages/vnext-types`       | `@vnext-forge-studio/types`             |
+| `packages/app-contracts`     | `@vnext-forge-studio/app-contracts`     |
+| `packages/workflow-system`   | `@vnext-forge-studio/workflow-system`   |
+| `packages/workspace-service` | `@vnext-forge-studio/workspace-service` |
+| `packages/editor-kit`        | `@vnext-forge-studio/editor-kit`        |
+| `apps/web`                   | `@vnext-forge-studio/web`               |
+| `apps/server`                | `@vnext-forge-studio/server`            |
 > Obsolete: This document is no longer the active web architecture plan.
 > Current reference: [web-vertical-slice-migration-plan.md](./web-vertical-slice-migration-plan.md)

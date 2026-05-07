@@ -1,4 +1,4 @@
-import { ERROR_CODES, VnextForgeError } from '@vnext-forge/app-contracts'
+import { ERROR_CODES, VnextForgeError } from '@vnext-forge-studio/app-contracts'
 import { z, type ZodTypeAny } from 'zod'
 
 import type { ProjectService } from '../services/project/index.js'
@@ -147,7 +147,7 @@ export function defineMethod<P extends ZodTypeAny, R extends ZodTypeAny>(
  * The keys here are the wire identifiers used by:
  *  - the VS Code extension `MessageRouter` (`message.method`),
  *  - the Hono REST surface in `apps/server` (`/api/v1/<methodId>`),
- *  - the React `ApiTransport` in `@vnext-forge/designer-ui`.
+ *  - the React `ApiTransport` in `@vnext-forge-studio/designer-ui`.
  *
  * Adding a new shared method is a one-line entry below; transports never need
  * to be touched.

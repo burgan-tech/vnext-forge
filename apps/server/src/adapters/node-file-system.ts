@@ -6,7 +6,7 @@ import type {
   DirectoryEntryStat,
   FileStat,
   FileSystemAdapter,
-} from '@vnext-forge/services-core';
+} from '@vnext-forge-studio/services-core';
 
 /**
  * Concrete `FileSystemAdapter` implementation for Node.js shells (apps/server).

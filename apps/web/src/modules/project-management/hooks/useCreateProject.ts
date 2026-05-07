@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 
-import { browseWorkspace, showNotification, toVnextError } from '@vnext-forge/designer-ui';
-import type { VnextForgeError } from '@vnext-forge/app-contracts';
+import { browseWorkspace, showNotification, toVnextError } from '@vnext-forge-studio/designer-ui';
+import type { VnextForgeError } from '@vnext-forge-studio/app-contracts';
 
 import { createProject } from '../ProjectApi';
 import { getProjectDomainError, normalizeProjectDomain } from '../ProjectManagementSchema';

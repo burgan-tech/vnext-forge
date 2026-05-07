@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-import type { VnextComponentType } from '@vnext-forge/designer-ui';
+import type { VnextComponentType } from '@vnext-forge-studio/designer-ui';
 
 export type { VnextComponentType };
 

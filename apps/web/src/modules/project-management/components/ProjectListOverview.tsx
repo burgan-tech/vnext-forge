@@ -8,8 +8,8 @@ import {
   AlertTitle,
   Card,
   CardContent,
-} from '@vnext-forge/designer-ui/ui';
-import type { VnextForgeError } from '@vnext-forge/app-contracts';
+} from '@vnext-forge-studio/designer-ui/ui';
+import type { VnextForgeError } from '@vnext-forge-studio/app-contracts';
 
 import type { ProjectInfo } from '../ProjectTypes';
 

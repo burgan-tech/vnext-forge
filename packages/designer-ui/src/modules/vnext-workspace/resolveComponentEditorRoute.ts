@@ -1,4 +1,4 @@
-import type { VnextExportCategory, VnextWorkspacePaths } from '@vnext-forge/app-contracts';
+import type { VnextExportCategory, VnextWorkspacePaths } from '@vnext-forge-studio/app-contracts';
 
 import type { ComponentFolderType } from '../component-icons/componentFolderTypes.js';
 import { buildComponentFolderRelPaths } from '../project-workspace/componentFolderPathUtils.js';

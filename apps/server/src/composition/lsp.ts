@@ -3,8 +3,8 @@ import {
   createLspWorkspaceManager,
   createOmniSharpInstaller,
   type LspBridge,
-} from '@vnext-forge/lsp-core';
-import type { LoggerAdapter } from '@vnext-forge/services-core';
+} from '@vnext-forge-studio/lsp-core';
+import type { LoggerAdapter } from '@vnext-forge-studio/services-core';
 
 /**
  * Wire up the shared LSP core for the standalone web server. The bridge

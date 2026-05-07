@@ -8,7 +8,7 @@ import {
   useEditorStore,
   useProjectStore,
   type FileSearchResult,
-} from '@vnext-forge/designer-ui';
+} from '@vnext-forge-studio/designer-ui';
 
 import {
   openEditorTabForComponentRoute,

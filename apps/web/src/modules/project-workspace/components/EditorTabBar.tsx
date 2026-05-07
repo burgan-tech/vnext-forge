@@ -1,4 +1,4 @@
-import { EditorTabLabel, type EditorTab } from '@vnext-forge/designer-ui';
+import { EditorTabLabel, type EditorTab } from '@vnext-forge-studio/designer-ui';
 
 function FileIcon({ language }: { language: string }) {
   const colors: Record<string, string> = {

@@ -1,5 +1,5 @@
 {
-  "name": "@vnext-forge/lsp-core",
+  "name": "@vnext-forge-studio/lsp-core",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -15,7 +15,7 @@
     "clean": "rm -rf dist tsconfig.tsbuildinfo"
   },
   "dependencies": {
-    "@vnext-forge/services-core": "workspace:*"
+    "@vnext-forge-studio/services-core": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

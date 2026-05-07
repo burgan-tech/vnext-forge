@@ -132,7 +132,7 @@ Pure business logic. No Hono dependency. Throws `VnextForgeError`, never catches
 Zod schemas for this slice's HTTP contract only. No cross-slice schema imports.
 
 ### `types.ts`
-Types specific to this slice. Does not duplicate types from `@vnext-forge/app-contracts` or `@vnext-forge/types`.
+Types specific to this slice. Does not duplicate types from `@vnext-forge-studio/app-contracts` or `@vnext-forge-studio/types`.
 
 ---
 

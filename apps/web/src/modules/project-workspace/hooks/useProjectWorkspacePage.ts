@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { unstable_batchedUpdates as batchedUpdates } from 'react-dom';
 
-import { createLogger, useEditorStore, useProjectStore } from '@vnext-forge/designer-ui';
-import { success, type ApiResponse } from '@vnext-forge/app-contracts';
+import { createLogger, useEditorStore, useProjectStore } from '@vnext-forge-studio/designer-ui';
+import { success, type ApiResponse } from '@vnext-forge-studio/app-contracts';
 
 import { useComponentFileTypesStore } from '../../../app/store/useComponentFileTypesStore';
 import { useProjectListStore } from '../../../app/store/useProjectListStore';

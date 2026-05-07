@@ -1,4 +1,4 @@
-import { TriggerType, TriggerKind } from '@vnext-forge/vnext-types';
+import { TriggerType, TriggerKind } from '@vnext-forge-studio/vnext-types';
 
 export type TransitionEditorKind =
   | 'state'

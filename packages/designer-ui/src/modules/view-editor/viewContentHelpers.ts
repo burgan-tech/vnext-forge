@@ -1,4 +1,4 @@
-import { ViewType } from '@vnext-forge/vnext-types';
+import { ViewType } from '@vnext-forge-studio/vnext-types';
 
 export function viewTypeToMonacoLanguage(type: number): string {
   switch (type) {

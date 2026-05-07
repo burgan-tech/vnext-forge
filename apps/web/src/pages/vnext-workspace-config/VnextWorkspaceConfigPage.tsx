@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
-import { useEditorStore, useProjectStore, vnextWorkspaceConfigTabId } from '@vnext-forge/designer-ui';
+import { useEditorStore, useProjectStore, vnextWorkspaceConfigTabId } from '@vnext-forge-studio/designer-ui';
 
 import { useProjectListStore } from '../../app/store/useProjectListStore';
 import { useCodeEditorToolbar } from '../../modules/project-workspace/CodeEditorToolbarContext';

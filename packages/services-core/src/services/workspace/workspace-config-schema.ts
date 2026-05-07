@@ -1,7 +1,7 @@
 import {
   VNEXT_WORKSPACE_RUNTIME_VERSION,
   VNEXT_WORKSPACE_SCHEMA_VERSION,
-} from '@vnext-forge/app-contracts'
+} from '@vnext-forge-studio/app-contracts'
 import { z } from 'zod'
 
 import type {

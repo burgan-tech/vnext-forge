@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ChevronRight, X } from 'lucide-react';
-import type { ErrorHandler, ErrorAction, RetryPolicy } from '@vnext-forge/vnext-types';
+import type { ErrorHandler, ErrorAction, RetryPolicy } from '@vnext-forge-studio/vnext-types';
 import { getErrorActionLabel, getErrorActionColor } from '../PropertyPanelHelpers';
 import { SelectField, EditableInput, IconTrash, Badge } from '../PropertyPanelShared';
 import { RetryPolicyEditor } from './RetryPolicyEditor';

@@ -1,4 +1,10 @@
 import { useCallback, useState } from 'react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../../../ui/Tooltip';
 
 type FilterOperator =
   | 'eq' | 'ne'
@@ -145,13 +151,22 @@ export function InstanceFilterPanel({ onApply, onClose }: InstanceFilterPanelPro
         <span className="text-[10px] font-semibold uppercase text-[var(--vscode-descriptionForeground)]">
           Filter & Sort
         </span>
-        <button
-          className="text-[10px] text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]"
-          onClick={onClose}
-          title="Close filter panel"
-        >
-          ✕
-        </button>
+        <TooltipProvider delayDuration={300}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                className="text-[10px] text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]"
+                onClick={onClose}
+                aria-label="Close filter panel"
+              >
+                ✕
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-[11px]">
+              Close
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
 
       {conditions.map((c, i) => (
@@ -332,13 +347,22 @@ function FilterRow({
         />
       )}
 
-      <button
-        className="shrink-0 text-[var(--vscode-errorForeground)] hover:text-[var(--vscode-foreground)]"
-        onClick={onRemove}
-        title="Remove"
-      >
-        ✕
-      </button>
+      <TooltipProvider delayDuration={300}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              className="shrink-0 text-[var(--vscode-errorForeground)] hover:text-[var(--vscode-foreground)]"
+              onClick={onRemove}
+              aria-label="Remove"
+            >
+              ✕
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="right" className="text-[11px]">
+            Remove
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     </div>
   );
 }

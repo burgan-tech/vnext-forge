@@ -1,11 +1,11 @@
-import type { LogLevel, LogSink } from '@vnext-forge/designer-ui';
+import type { LogLevel, LogSink } from '@vnext-forge-studio/designer-ui';
 
 import type { VsCodeWebviewApi } from '../VsCodeTransport';
 
 /**
  * Frame envelope sent from the webview to the extension host for every
  * `createLogger(...)` call. The host MessageRouter forwards each entry to a
- * native VS Code OutputChannel (`vnext-forge:webview`) so devs can read
+ * native VS Code OutputChannel (`vnext-forge-studio:webview`) so devs can read
  * webview logs alongside the host logs in one place.
  */
 export interface HostLogFrame {

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
-import { browseWorkspace, toVnextError } from '@vnext-forge/designer-ui';
-import type { VnextForgeError } from '@vnext-forge/app-contracts';
+import { browseWorkspace, toVnextError } from '@vnext-forge-studio/designer-ui';
+import type { VnextForgeError } from '@vnext-forge-studio/app-contracts';
 
 import { importProject } from '../ProjectApi';
 import type { ProjectInfo, WorkspaceFolder } from '../ProjectTypes';

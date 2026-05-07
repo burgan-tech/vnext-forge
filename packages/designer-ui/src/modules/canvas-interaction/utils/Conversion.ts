@@ -38,19 +38,28 @@ interface WorkflowTransition {
   // vnext uses "labels" (plural)
   labels?: Array<{ language: string; label: string }>;
   label?: Array<{ language: string; label: string }>;
+  availableIn?: string[];
+}
+
+interface WorkflowLevelTransition {
+  key: string;
+  target?: string;
+  to?: string;
+  [k: string]: unknown;
 }
 
 export interface VnextWorkflow {
   key: string;
   tags?: string[];
   attributes?: {
-    // vnext uses "startTransition" not "start"
     startTransition?: { key: string; target?: string; to?: string };
     start?: { key: string; target?: string; to?: string };
     states?: WorkflowState[];
     sharedTransitions?: WorkflowTransition[];
-    timeout?: unknown;
-    cancel?: unknown;
+    updateData?: WorkflowLevelTransition;
+    cancel?: WorkflowLevelTransition;
+    timeout?: WorkflowLevelTransition;
+    exit?: WorkflowLevelTransition;
   };
 }
 
@@ -132,7 +141,7 @@ export function workflowToReactFlow(
         source: '__start__',
         target: startTarget,
         type: 'manualEdge',
-        data: { label: start.key, triggerType: 0 },
+        data: { label: start.key, transitionKey: start.key, triggerType: 0 },
       });
     }
   }
@@ -155,6 +164,8 @@ export function workflowToReactFlow(
         hasView: !!state.view,
         hasErrorBoundary: !!state.errorBoundary,
         hasSubFlow: !!state.subFlow,
+        subFlowProcessKey: (state.subFlow as any)?.process?.key || '',
+        subFlowProcessDomain: (state.subFlow as any)?.process?.domain || '',
       },
     };
 
@@ -242,6 +253,7 @@ export function workflowToReactFlow(
           source: source.key,
           target: sharedTarget,
           type: 'sharedEdge',
+          reconnectable: false,
           data: {
             label: getTransitionLabel(st),
             transitionKey: st.key,
@@ -250,6 +262,96 @@ export function workflowToReactFlow(
           },
         });
       }
+    }
+  }
+
+  // Workflow-level transition pseudo-nodes
+  const wfTransitions: Array<{
+    id: string;
+    kind: string;
+    label: string;
+    data: WorkflowLevelTransition | undefined;
+    defaultOffset: { x: number; y: number };
+  }> = [
+    { id: '__wf_updateData__', kind: 'updateData', label: 'Update Data', data: workflow.attributes?.updateData, defaultOffset: { x: -180, y: 0 } },
+    { id: '__wf_cancel__', kind: 'cancel', label: 'Cancel', data: workflow.attributes?.cancel, defaultOffset: { x: -180, y: 60 } },
+    { id: '__wf_timeout__', kind: 'timeout', label: 'Timeout', data: workflow.attributes?.timeout, defaultOffset: { x: -180, y: 120 } },
+    { id: '__wf_exit__', kind: 'exit', label: 'Exit', data: workflow.attributes?.exit, defaultOffset: { x: -180, y: 180 } },
+  ];
+
+  for (const wt of wfTransitions) {
+    if (!wt.data) continue;
+    const pos = diagram.nodePos?.[wt.id] || wt.defaultOffset;
+    nodes.push({
+      id: wt.id,
+      type: 'workflowTransitionNode',
+      position: pos,
+      data: { kind: wt.kind, label: wt.label },
+      selectable: true,
+      deletable: false,
+    });
+
+    const target = wt.data.target || wt.data.to || '';
+    if (target && target !== '$self') {
+      edges.push({
+        id: `${wt.id}->${target}`,
+        source: wt.id,
+        target,
+        type: 'manualEdge',
+        reconnectable: false,
+        data: { label: wt.data.key || wt.kind, triggerType: 0, isWorkflowLevel: true },
+      });
+    }
+
+    const availableIn = (wt.data.availableIn as string[] | undefined) || [];
+    for (const stateKey of availableIn) {
+      edges.push({
+        id: `${stateKey}->${wt.id}::availableIn`,
+        source: stateKey,
+        target: wt.id,
+        type: 'manualEdge',
+        reconnectable: false,
+        data: { label: '', triggerType: 0, isWorkflowLevel: true, isAvailableIn: true },
+      });
+    }
+  }
+
+  // Shared transitions as workflow-level nodes (visual representation)
+  for (let i = 0; i < sharedTransitions.length; i++) {
+    const st = sharedTransitions[i];
+    const nodeId = `__wf_shared_${st.key}__`;
+    const pos = diagram.nodePos?.[nodeId] || { x: -180, y: 240 + i * 60 };
+    nodes.push({
+      id: nodeId,
+      type: 'workflowTransitionNode',
+      position: pos,
+      data: { kind: 'shared', label: `Shared: ${st.key}` },
+      selectable: true,
+      deletable: false,
+    });
+
+    const sharedTarget = getTransitionTarget(st);
+    if (sharedTarget) {
+      edges.push({
+        id: `${nodeId}->${sharedTarget}`,
+        source: nodeId,
+        target: sharedTarget,
+        type: 'sharedEdge',
+        reconnectable: false,
+        data: { label: getTransitionLabel(st), transitionKey: st.key, triggerType: 0, isShared: true, isWorkflowLevel: true },
+      });
+    }
+
+    const availableIn = st.availableIn || [];
+    for (const stateKey of availableIn) {
+      edges.push({
+        id: `${stateKey}->${nodeId}::availableIn`,
+        source: stateKey,
+        target: nodeId,
+        type: 'manualEdge',
+        reconnectable: false,
+        data: { label: '', triggerType: 0, isWorkflowLevel: true, isAvailableIn: true },
+      });
     }
   }
 

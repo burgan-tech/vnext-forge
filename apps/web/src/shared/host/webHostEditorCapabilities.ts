@@ -1,4 +1,4 @@
-import type { HostEditorCapabilities } from '@vnext-forge/designer-ui';
+import type { HostEditorCapabilities } from '@vnext-forge-studio/designer-ui';
 
 import { config } from '@shared/config/config';
 

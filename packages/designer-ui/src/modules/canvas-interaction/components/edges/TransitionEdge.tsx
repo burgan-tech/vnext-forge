@@ -5,10 +5,12 @@ import {
   getSmoothStepPath,
   getStraightPath,
   useReactFlow,
+  useInternalNode,
   type EdgeProps,
 } from '@xyflow/react';
 import { memo, useCallback, useRef } from 'react';
 import { useCanvasViewSettings, type EdgePathStyle } from '../../context/CanvasViewSettingsContext';
+import { getFloatingEdgeParams } from '../../utils/floating-edge-utils';
 
 export interface Waypoint {
   x: number;
@@ -40,7 +42,8 @@ function getEdgeColor(triggerType: number, triggerKind: number, isShared: boolea
   }
 }
 
-function getEdgeDash(triggerType: number, triggerKind: number, isShared: boolean): string | undefined {
+function getEdgeDash(triggerType: number, triggerKind: number, isShared: boolean, isWorkflowLevel?: boolean): string | undefined {
+  if (isWorkflowLevel) return '5 3';
   if (isShared) return '6 4';
   if (triggerType === 1 && triggerKind === 10) return '4 4';
   if (triggerType === 2) return '3 4';
@@ -148,12 +151,14 @@ function buildWaypointPath(
 export const TransitionEdge = memo(function TransitionEdge(props: EdgeProps) {
   const {
     id,
-    sourceX,
-    sourceY,
-    targetX,
-    targetY,
-    sourcePosition,
-    targetPosition,
+    source,
+    target,
+    sourceX: propSourceX,
+    sourceY: propSourceY,
+    targetX: propTargetX,
+    targetY: propTargetY,
+    sourcePosition: propSourcePosition,
+    targetPosition: propTargetPosition,
     selected,
     data,
   } = props;
@@ -162,35 +167,56 @@ export const TransitionEdge = memo(function TransitionEdge(props: EdgeProps) {
   const triggerType = d.triggerType ?? 0;
   const triggerKind = d.triggerKind ?? 0;
   const isShared = d.isShared ?? false;
+  const isWorkflowLevel = (d.isWorkflowLevel as boolean) ?? false;
   const isSelfLoop = d.isSelfLoop ?? false;
   const waypoints: Waypoint[] = d.waypoints ?? [];
+  const isSpotlight = Boolean(d.spotlight);
 
   const { settings } = useCanvasViewSettings();
   const { setEdges } = useReactFlow();
   const dragRef = useRef<{ idx: number; startX: number; startY: number; origWp: Waypoint } | null>(null);
 
+  const sourceNode = useInternalNode(source);
+  const targetNode = useInternalNode(target);
+
+  // Floating edge: compute border intersection points instead of fixed handle positions
+  let sourceX = propSourceX;
+  let sourceY = propSourceY;
+  let targetX = propTargetX;
+  let targetY = propTargetY;
+  let sourcePosition = propSourcePosition;
+  let targetPosition = propTargetPosition;
+
+  if (!isSelfLoop && sourceNode && targetNode && source !== target) {
+    const params = getFloatingEdgeParams(sourceNode, targetNode);
+    sourceX = params.sx;
+    sourceY = params.sy;
+    targetX = params.tx;
+    targetY = params.ty;
+    sourcePosition = params.sourcePos;
+    targetPosition = params.targetPos;
+  }
+
   const hasWaypoints = waypoints.length > 0;
 
-  // Compute edge path: use waypoints if present, otherwise use standard path
   let edgePath: string;
   let labelX: number;
   let labelY: number;
 
   if (isSelfLoop) {
-    // Oval loopback from the top-right of the node back to the bottom-right
     const loopW = 70;
     const loopH = 45;
     edgePath = [
-      `M ${sourceX} ${sourceY - 12}`,
-      `C ${sourceX + loopW * 0.6} ${sourceY - loopH - 20},`,
-      `  ${sourceX + loopW + 10} ${sourceY - loopH + 5},`,
-      `  ${sourceX + loopW} ${sourceY}`,
-      `C ${sourceX + loopW + 10} ${sourceY + loopH - 5},`,
-      `  ${sourceX + loopW * 0.6} ${sourceY + loopH + 20},`,
-      `  ${sourceX} ${sourceY + 12}`,
+      `M ${propSourceX} ${propSourceY - 12}`,
+      `C ${propSourceX + loopW * 0.6} ${propSourceY - loopH - 20},`,
+      `  ${propSourceX + loopW + 10} ${propSourceY - loopH + 5},`,
+      `  ${propSourceX + loopW} ${propSourceY}`,
+      `C ${propSourceX + loopW + 10} ${propSourceY + loopH - 5},`,
+      `  ${propSourceX + loopW * 0.6} ${propSourceY + loopH + 20},`,
+      `  ${propSourceX} ${propSourceY + 12}`,
     ].join(' ');
-    labelX = sourceX + loopW + 16;
-    labelY = sourceY;
+    labelX = propSourceX + loopW + 16;
+    labelY = propSourceY;
   } else if (hasWaypoints) {
     const result = buildWaypointPath(sourceX, sourceY, targetX, targetY, waypoints);
     edgePath = result.path;
@@ -208,7 +234,7 @@ export const TransitionEdge = memo(function TransitionEdge(props: EdgeProps) {
   }
 
   const color = getEdgeColor(triggerType, triggerKind, isShared);
-  const dash = getEdgeDash(triggerType, triggerKind, isShared);
+  const dash = getEdgeDash(triggerType, triggerKind, isShared, isWorkflowLevel);
   const badge = getTriggerBadge(triggerType, triggerKind);
 
   // Double-click on edge path to add a waypoint at that position
@@ -361,6 +387,15 @@ export const TransitionEdge = memo(function TransitionEdge(props: EdgeProps) {
         }}
         markerEnd={`url(#marker-${id})`}
       />
+      {isSpotlight && (
+        <path
+          d={edgePath}
+          fill="none"
+          stroke="var(--color-action)"
+          strokeLinecap="round"
+          className="animate-spotlight-edge-pulse"
+        />
+      )}
       {/* Wider invisible path for easier double-click to add waypoints */}
       <path
         d={edgePath}
@@ -370,6 +405,8 @@ export const TransitionEdge = memo(function TransitionEdge(props: EdgeProps) {
         onDoubleClick={handleEdgeDoubleClick}
         style={{ cursor: 'crosshair' }}
       />
+
+
       <defs>
         <marker
           id={`marker-${id}`}

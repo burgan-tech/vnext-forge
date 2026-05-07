@@ -31,13 +31,13 @@ import { PackageDeployProvider } from './tools/providers/package-deploy-provider
 import { QuickRunProvider } from './tools/providers/quickrun-provider.js';
 
 /**
- * vnext-forge extension entry point. Composes the shared `services-core` +
+ * vnext-forge-studio extension entry point. Composes the shared `services-core` +
  * `lsp-core` packages with VS Code-specific adapters (workspace root
  * resolver, OutputChannel logger, webview `postMessage` transport) and wires
  * the resulting services to commands and the webview `MessageRouter`.
  *
  * LSP / OmniSharp lifecycle owner: `createExtensionHostLspStack` in
- * `@vnext-forge/lsp-core` constructs the single shared `OmniSharpInstaller` and
+ * `@vnext-forge-studio/lsp-core` constructs the single shared `OmniSharpInstaller` and
  * `LspBridge`. The extension only re-exports that factory from
  * `composition/lsp.ts` and passes the same installer into `bootstrapLsp` for
  * background pre-download — there is no second installer factory in the
@@ -61,7 +61,7 @@ async function readWorkflowJson(uri: vscode.Uri): Promise<{ domain: string; work
 }
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
-  baseLogger.info({}, 'vnext-forge activating');
+  baseLogger.info({}, 'vnext-forge-studio activating');
 
   const clearedStaleIconTheme = await clearRemovedFileIconThemeIfSet();
   if (clearedStaleIconTheme) {
@@ -71,7 +71,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     );
   }
 
-  const outputChannel = vscode.window.createOutputChannel('vnext-forge-core');
+  const outputChannel = vscode.window.createOutputChannel('vnext-forge-studio-core');
   context.subscriptions.push(outputChannel);
   const loggerAdapter = createVsCodeOutputChannelLogger(outputChannel);
 
@@ -79,13 +79,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // `host:log` postMessage tunnel. Keeping it separate from the core channel
   // makes it trivial to filter "what happened in the editor UI" vs "what
   // happened in the extension host".
-  const webviewLogChannel = vscode.window.createOutputChannel('vnext-forge:webview');
+  const webviewLogChannel = vscode.window.createOutputChannel('vnext-forge-studio:webview');
   context.subscriptions.push(webviewLogChannel);
 
   const { services, registry } = composeExtensionServices(loggerAdapter);
   const { bridge: lspBridge, installer: lspInstaller } = createExtensionHostLspStack(loggerAdapter);
 
-  const diagnosticCollection = vscode.languages.createDiagnosticCollection('vnext-forge');
+  const diagnosticCollection = vscode.languages.createDiagnosticCollection('vnext-forge-studio');
   context.subscriptions.push(diagnosticCollection);
 
   const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 50);
@@ -118,7 +118,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // the workbench TextEditor through the native `vscode-languageclient`. The
   // client only attaches when the workspace contains `vnext.config.json` and
   // can be opted out via `vnextForge.lsp.enableNativeEditor`.
-  const csxNativeLspChannel = vscode.window.createOutputChannel('vnext-forge:csx-native-lsp');
+  const csxNativeLspChannel = vscode.window.createOutputChannel('vnext-forge-studio:csx-native-lsp');
   context.subscriptions.push(csxNativeLspChannel);
   context.subscriptions.push(
     createNativeCsxLanguageClient({
@@ -184,7 +184,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       void fn(...args).catch((err) => {
         const msg = err instanceof Error ? err.message : String(err);
         baseLogger.error({ error: msg }, 'Forge Tools command failed');
-        void vscode.window.showErrorMessage(`vnext-forge: ${msg}`);
+        void vscode.window.showErrorMessage(`vnext-forge-studio: ${msg}`);
       });
     };
 

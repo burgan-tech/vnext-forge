@@ -1,7 +1,7 @@
 import type { RawData, WebSocket } from 'ws';
 
-import type { LspClientTransport } from '@vnext-forge/lsp-core';
-import type { LoggerAdapter } from '@vnext-forge/services-core';
+import type { LspClientTransport } from '@vnext-forge-studio/lsp-core';
+import type { LoggerAdapter } from '@vnext-forge-studio/services-core';
 
 import {
   assertLspInboundMessageSizeOk,
@@ -28,7 +28,7 @@ export interface WsLspTransportOptions {
 
 /**
  * Adapt a `ws.WebSocket` to the transport-agnostic `LspClientTransport`
- * contract consumed by `@vnext-forge/lsp-core`.
+ * contract consumed by `@vnext-forge-studio/lsp-core`.
  *
  * Enforces a max inbound message size (R-b16); oversize frames close with
  * WebSocket code 1009.

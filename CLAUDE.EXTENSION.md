@@ -8,7 +8,7 @@ VS Code extension that **hosts the designer webview**, runs the **shared LSP sta
 
 ## Composition root
 
-`src/composition/services.ts` constructs services from **`@vnext-forge/services-core`**, wired with **`extensionConfig`** from the extension's validated singleton. This is the composition root for service lifetime and dependencies. `src/MessageRouter.ts` then bridges webview `postMessage` requests to **`dispatchMethod`** using the same registry consumed by `apps/server` — there is no per-method switch case in the extension shell. Method ids on the wire use the canonical slash-form `<domain>/<action>` (e.g. `projects/list`, `files/read`).
+`src/composition/services.ts` constructs services from **`@vnext-forge-studio/services-core`**, wired with **`extensionConfig`** from the extension's validated singleton. This is the composition root for service lifetime and dependencies. `src/MessageRouter.ts` then bridges webview `postMessage` requests to **`dispatchMethod`** using the same registry consumed by `apps/server` — there is no per-method switch case in the extension shell. Method ids on the wire use the canonical slash-form `<domain>/<action>` (e.g. `projects/list`, `files/read`).
 
 ## Per-shell config
 
@@ -34,7 +34,7 @@ Orientation only — **`apps/extension/package.json`** is authoritative.
 
 ## LSP wiring
 
-`src/extension.ts` uses **`createExtensionHostLspStack`** from **`@vnext-forge/lsp-core`** — **single LSP installer owner** for the extension host. Details: [`./CLAUDE.LSP-CORE.md`](./CLAUDE.LSP-CORE.md).
+`src/extension.ts` uses **`createExtensionHostLspStack`** from **`@vnext-forge-studio/lsp-core`** — **single LSP installer owner** for the extension host. Details: [`./CLAUDE.LSP-CORE.md`](./CLAUDE.LSP-CORE.md).
 
 ## Webview composition
 
@@ -44,7 +44,7 @@ Orientation only — **`apps/extension/package.json`** is authoritative.
 
 ## Child processes
 
-`src/adapters/vscode-process.ts` uses **`buildChildEnv`** from `@vnext-forge/services-core/lib/child-env`. **Never** spread full `process.env` into children.
+`src/adapters/vscode-process.ts` uses **`buildChildEnv`** from `@vnext-forge-studio/services-core/lib/child-env`. **Never** spread full `process.env` into children.
 
 ## Activation events + commands
 
@@ -65,7 +65,7 @@ Method handlers throw **`VnextForgeError`**; **`MessageRouter`** catches via `di
 
 ## Dependency boundaries
 
-[Dependency policy skill](./.cursor/skills/shared/dependency-policy/SKILL.md). Allowed packages include `@vnext-forge/app-contracts`, `@vnext-forge/vnext-types`, `@vnext-forge/services-core`, `@vnext-forge/lsp-core`; webview imports **`@vnext-forge/designer-ui`**. **`apps/extension`** is the natural place that combines **`services-core`**, **`lsp-core`**, and the **`vscode`** API.
+[Dependency policy skill](./.cursor/skills/shared/dependency-policy/SKILL.md). Allowed packages include `@vnext-forge-studio/app-contracts`, `@vnext-forge-studio/vnext-types`, `@vnext-forge-studio/services-core`, `@vnext-forge-studio/lsp-core`; webview imports **`@vnext-forge-studio/designer-ui`**. **`apps/extension`** is the natural place that combines **`services-core`**, **`lsp-core`**, and the **`vscode`** API.
 
 ## Don'ts
 

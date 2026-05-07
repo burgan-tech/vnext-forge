@@ -1,4 +1,4 @@
-import type { LoggerAdapter, LogPayload } from '@vnext-forge/services-core';
+import type { LoggerAdapter, LogPayload } from '@vnext-forge-studio/services-core';
 
 interface PinoLikeLogger {
   debug(message: string): void;

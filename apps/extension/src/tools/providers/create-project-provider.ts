@@ -50,7 +50,7 @@ export class CreateProjectProvider implements vscode.TreeDataProvider<CreateProj
 
     const cwd = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
     if (!cwd) {
-      void vscode.window.showWarningMessage('vnext-forge: Open a folder first.');
+      void vscode.window.showWarningMessage('vnext-forge-studio: Open a folder first.');
       return;
     }
 

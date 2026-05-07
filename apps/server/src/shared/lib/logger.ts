@@ -81,7 +81,7 @@ export const baseLogger: AppLogger = pino(
   {
     level: config.logLevel,
     base: {
-      service: '@vnext-forge/server',
+      service: '@vnext-forge-studio/server',
       env: config.nodeEnv,
     },
     redact: {

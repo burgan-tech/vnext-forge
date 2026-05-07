@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { DiscoveredVnextComponent } from '@vnext-forge/app-contracts';
+import type { DiscoveredVnextComponent } from '@vnext-forge-studio/app-contracts';
 import { Badge } from '../../../ui/Badge';
 import { Alert, AlertDescription, AlertTitle } from '../../../ui/Alert';
 import { useProjectStore } from '../../../store/useProjectStore';

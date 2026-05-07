@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-import type { VnextComponentLayoutStatus } from '@vnext-forge/designer-ui';
+import type { VnextComponentLayoutStatus } from '@vnext-forge-studio/designer-ui';
 
 export type TemplateSeedDialogReason = 'only_config' | 'incomplete_layout';
 

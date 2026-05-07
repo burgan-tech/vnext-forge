@@ -36,7 +36,7 @@ function useDiagnosticsSync() {
         filePath: issue.path ?? '',
         severity: issue.severity,
         message: issue.message,
-        source: 'vnext-forge',
+        source: 'vnext-forge-studio',
         range: undefined,
       }));
       pushDiagnosticsToHost(diagnostics);

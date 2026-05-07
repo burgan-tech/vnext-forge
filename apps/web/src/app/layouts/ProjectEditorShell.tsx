@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef } from 'react';
 import { Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
 
-import { useEditorStore } from '@vnext-forge/designer-ui';
+import { useEditorStore } from '@vnext-forge-studio/designer-ui';
 
 import { useVnextWorkspaceUiStore } from '../store/useVnextWorkspaceUiStore';
 import { VnextTemplateSeedDialog } from '../../modules/project-workspace/components/VnextTemplateSeedDialog';

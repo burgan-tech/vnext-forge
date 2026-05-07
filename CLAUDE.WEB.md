@@ -2,7 +2,7 @@
 
 > **Scope:** `apps/web` (web frontend). Load with the repo-wide [`./CLAUDE.md`](./CLAUDE.md) whenever editing under `apps/web`. The app talks to the **active `apps/server` Hono REST backend** through the type-safe `hc<AppType>` client at `apps/web/src/shared/api/client.ts`; designer-ui modules use the package's transport-agnostic `ApiTransport` port, which `apps/web` registers via `HttpTransport` (REST). When editing **`packages/designer-ui`**, also load [`./CLAUDE.DESIGNER-UI.md`](./CLAUDE.DESIGNER-UI.md). **Skills:** web — [theme-color-system](./.cursor/skills/web/theme-color-system/SKILL.md), [icon-creation](./.cursor/skills/web/icon-creation/SKILL.md), [notification-container-pattern](./.cursor/skills/web/notification-container-pattern/SKILL.md); shared — [error-taxonomy](./.cursor/skills/shared/error-taxonomy/SKILL.md), [trace-headers](./.cursor/skills/shared/trace-headers/SKILL.md), [dependency-policy](./.cursor/skills/shared/dependency-policy/SKILL.md). Architecture, API access, routing, error handling, async flows, state, components, and forms below always apply here.
 
-`apps/web` is the web client of vnext-forge. The standalone product framing belongs to the monorepo and product as a whole, not to `apps/web` as an isolated application.
+`apps/web` is the web client of vnext-forge-studio. The standalone product framing belongs to the monorepo and product as a whole, not to `apps/web` as an isolated application.
 
 ## Goal
 
@@ -83,16 +83,16 @@ Two slices touch the same project surface. Do not collapse them into one shared 
 
 | Constraint | Rule |
 |------------|------|
-| `@vnext-forge/services-core` | **Do not import** from `apps/web` (no deep paths). |
-| `@vnext-forge/designer-ui/dist/**` | **Do not import.** Use `@vnext-forge/designer-ui` or `@vnext-forge/designer-ui/editor`. |
-| `@vnext-forge/server` | **Type-only** imports allowed **only** in `apps/web/src/shared/api/**` (specifically `client.ts` for `AppType`). No runtime imports — see [ADR 007](./docs/architecture/adr/007-rest-migration.md). |
+| `@vnext-forge-studio/services-core` | **Do not import** from `apps/web` (no deep paths). |
+| `@vnext-forge-studio/designer-ui/dist/**` | **Do not import.** Use `@vnext-forge-studio/designer-ui` or `@vnext-forge-studio/designer-ui/editor`. |
+| `@vnext-forge-studio/server` | **Type-only** imports allowed **only** in `apps/web/src/shared/api/**` (specifically `client.ts` for `AppType`). No runtime imports — see [ADR 007](./docs/architecture/adr/007-rest-migration.md). |
 
 Enforced by `apps/web/eslint.config.js` (`no-restricted-imports`, narrowed for the `shared/api/**` exception). Full policy: [`.cursor/skills/shared/dependency-policy/SKILL.md`](./.cursor/skills/shared/dependency-policy/SKILL.md), [`docs/architecture/dependency-policy.md`](./docs/architecture/dependency-policy.md).
 
 ## Workspace Config Types
 
-- Canonical workspace config types (`VnextWorkspaceConfig`, `VnextWorkspacePaths`, `VnextWorkspaceExports`, `VnextWorkspaceExportsMeta`, `VnextWorkspaceDependencies`, `VnextWorkspaceReferenceResolution`) are defined in `@vnext-forge/vnext-types` and re-exported through `@vnext-forge/app-contracts`.
-- Web code imports these types from `@vnext-forge/app-contracts`. The `buildVnextWorkspaceConfig()` builder also lives there.
+- Canonical workspace config types (`VnextWorkspaceConfig`, `VnextWorkspacePaths`, `VnextWorkspaceExports`, `VnextWorkspaceExportsMeta`, `VnextWorkspaceDependencies`, `VnextWorkspaceReferenceResolution`) are defined in `@vnext-forge-studio/vnext-types` and re-exported through `@vnext-forge-studio/app-contracts`.
+- Web code imports these types from `@vnext-forge-studio/app-contracts`. The `buildVnextWorkspaceConfig()` builder also lives there.
 - `modules/project-management/ProjectTypes.ts` re-exports `VnextWorkspaceConfig`; module-local consumers can import from one place.
 - Do not define duplicate workspace config interfaces in module-local or page-local code.
 - Legacy names (`VnextWorkspaceConfigJson`, `VnextConfig`, `WorkspaceConfig`) are retired; always use `VnextWorkspaceConfig`.
@@ -101,7 +101,7 @@ Enforced by `apps/web/eslint.config.js` (`no-restricted-imports`, narrowed for t
 
 All server communication goes through the type-safe Hono client `apiClient = hc<AppType>(...)` in `shared/api/client.ts`. The client's **base URL** comes from the **per-shell config singleton**, not a hardcoded origin. The client wraps fetch with `createTraceInjectingFetch()` so every outbound request carries `X-Trace-Id` and W3C `traceparent` headers (see [ADR 002](./docs/architecture/adr/002-trace-headers.md)).
 
-**Wire shape per method** is defined once in `@vnext-forge/app-contracts/method-http.ts` (`METHOD_HTTP_METADATA` / `getMethodHttpSpec`) and consumed by both the server route registration and the web `HttpTransport` adapter (`apps/web/src/transport/HttpTransport.ts`) used by `designer-ui`.
+**Wire shape per method** is defined once in `@vnext-forge-studio/app-contracts/method-http.ts` (`METHOD_HTTP_METADATA` / `getMethodHttpSpec`) and consumed by both the server route registration and the web `HttpTransport` adapter (`apps/web/src/transport/HttpTransport.ts`) used by `designer-ui`.
 
 **Bootstrap:** load initial workspace-shaped data via **`projects.getWorkspaceBootstrap`** once where the product needs aggregation — see [ADR 004](./docs/architecture/adr/004-bootstrap-aggregation.md). **Do not** fan out multiple parallel "initial load" calls for the same aggregated payload.
 
@@ -136,15 +136,15 @@ Both helpers route through `shared/api/api-envelope.ts` for response shape valid
 - Do not use raw `fetch` anywhere in the web app.
 - Service functions return `Promise<ApiResponse<T>>` for normal flows.
 - Name service functions by business intent (`list`, `create`, `getWorkspaceBootstrap`), not HTTP verbs alone.
-- Use response helpers from `@vnext-forge/app-contracts` (`isSuccess`, `isFailure`, `fold`, `getData`, `getError`, `unwrap`, `unwrapOr`) for branching.
-- Type-only imports from `@vnext-forge/server` are allowed **only** under `shared/api/**` (specifically `client.ts` for the `AppType` Hono `hc` typing) — see [ADR 007](./docs/architecture/adr/007-rest-migration.md). Runtime imports from the server are forbidden.
+- Use response helpers from `@vnext-forge-studio/app-contracts` (`isSuccess`, `isFailure`, `fold`, `getData`, `getError`, `unwrap`, `unwrapOr`) for branching.
+- Type-only imports from `@vnext-forge-studio/server` are allowed **only** under `shared/api/**` (specifically `client.ts` for the `AppType` Hono `hc` typing) — see [ADR 007](./docs/architecture/adr/007-rest-migration.md). Runtime imports from the server are forbidden.
 
 ### Default service pattern
 
 ```ts
 // apps/web/src/services/projects.service.ts
 import { apiClient, callApi } from '@shared/api/client';
-import type { ApiResponse } from '@vnext-forge/app-contracts';
+import type { ApiResponse } from '@vnext-forge-studio/app-contracts';
 
 export const projectsService = {
   list(): Promise<ApiResponse<ProjectInfo[]>> {
@@ -163,7 +163,7 @@ Module-local `*Api.ts` files (e.g. `modules/project-management/ProjectApi.ts`) a
 - Lazy routes sit under a single **`<Suspense fallback={<RouteSkeleton />}>`** around `<Routes>` (`src/app/RouteSkeleton.tsx`).
 - **`RouteErrorBoundary`** (`src/app/RouteErrorBoundary.tsx`) wraps the layout: it **logs** the error and surfaces **`traceId`** for support.
 
-**App shell split (sidebar / main):** use `@vnext-forge/designer-ui/ui` `Resizable*`; follow **`CLAUDE.DESIGNER-UI.md`** (§ Resizable) and **theme-color-system** split-pane + *designer-ui Resizable* invariants (thin handle, `disableCursor`, optional `autoCollapseBelowMin` / `collapseOvershootPx`).
+**App shell split (sidebar / main):** use `@vnext-forge-studio/designer-ui/ui` `Resizable*`; follow **`CLAUDE.DESIGNER-UI.md`** (§ Resizable) and **theme-color-system** split-pane + *designer-ui Resizable* invariants (thin handle, `disableCursor`, optional `autoCollapseBelowMin` / `collapseOvershootPx`).
 
 ## Async UI Flows
 
@@ -217,7 +217,7 @@ useAsync(asyncFunction, options?) -> { execute, retry, reset, loading, error, da
 
 Full contract: [`.cursor/skills/shared/error-taxonomy/SKILL.md`](./.cursor/skills/shared/error-taxonomy/SKILL.md), [ADR 005](./docs/architecture/adr/005-error-taxonomy.md). **`traceId`** on failures follows [ADR 002](./docs/architecture/adr/002-trace-headers.md) (`ApiFailure` correlation).
 
-The shared error type is `VnextForgeError` from `@vnext-forge/app-contracts`.
+The shared error type is `VnextForgeError` from `@vnext-forge-studio/app-contracts`.
 
 Key fields:
 
@@ -250,7 +250,7 @@ Hono RPC Response
 
 ### Adding a new error type
 
-1. Add the code to `@vnext-forge/app-contracts`.
+1. Add the code to `@vnext-forge-studio/app-contracts`.
 2. Normalize it in the server or transport boundary where the failure is first understood.
 3. Branch on `error.code` in the module only if behavior must differ.
 4. Keep presentation text flowing through `toUserMessage()`.
@@ -313,7 +313,7 @@ All new UI implementation must use Tailwind CSS utilities. Do not introduce CSS 
 - Do not place transport calls directly in page components or view components.
 - Build new component styling with Tailwind utility classes.
 - During migration, move callers to the new owner directly instead of leaving backward-compat wrapper files.
-- **Monaco / editor-related** UI: import from **`@vnext-forge/designer-ui/editor`**, not the package root. New `package.json#exports` subpaths follow [`docs/architecture/bundler-checklist.md`](./docs/architecture/bundler-checklist.md).
+- **Monaco / editor-related** UI: import from **`@vnext-forge-studio/designer-ui/editor`**, not the package root. New `package.json#exports` subpaths follow [`docs/architecture/bundler-checklist.md`](./docs/architecture/bundler-checklist.md).
 
 ### Default variants
 
@@ -335,7 +335,7 @@ Use `React Hook Form` and `Zod` for form-facing validation.
 ### Ownership
 
 - Web form layer owns field-level UX, correction flow, and submit readiness.
-- `@vnext-forge/app-contracts` and `@vnext-forge/vnext-types` own shared cross-app contracts.
+- `@vnext-forge-studio/app-contracts` and `@vnext-forge-studio/vnext-types` own shared cross-app contracts.
 - Module-local schemas own web-only validation behavior by default.
 - API or adapter boundaries own response and payload trust checks.
 

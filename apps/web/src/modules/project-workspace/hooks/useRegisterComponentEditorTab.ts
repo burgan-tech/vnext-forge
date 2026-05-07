@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 
-import { componentEditorTabId, useEditorStore, type ComponentEditorKind } from '@vnext-forge/designer-ui';
+import { componentEditorTabId, useEditorStore, type ComponentEditorKind } from '@vnext-forge-studio/designer-ui';
 
 /**
  * Doğrudan URL ile açılan component editör sayfalarında sekmeyi store'a ekler / etkinleştirir.

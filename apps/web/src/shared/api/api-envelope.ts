@@ -3,7 +3,7 @@ import {
   type ApiResponse,
   type ErrorCode,
   type ResponseError,
-} from '@vnext-forge/app-contracts';
+} from '@vnext-forge-studio/app-contracts';
 
 export function isApiResponseShape(value: unknown): value is ApiResponse<unknown> {
   if (typeof value !== 'object' || value === null) return false;

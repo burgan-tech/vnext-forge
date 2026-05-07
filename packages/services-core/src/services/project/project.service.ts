@@ -1,5 +1,5 @@
-import { ERROR_CODES, VnextForgeError } from '@vnext-forge/app-contracts'
-import type { VnextComponentsByCategory, VnextExportCategory } from '@vnext-forge/app-contracts'
+import { ERROR_CODES, VnextForgeError } from '@vnext-forge-studio/app-contracts'
+import type { VnextComponentsByCategory, VnextExportCategory } from '@vnext-forge-studio/app-contracts'
 import type { z } from 'zod'
 
 import type {

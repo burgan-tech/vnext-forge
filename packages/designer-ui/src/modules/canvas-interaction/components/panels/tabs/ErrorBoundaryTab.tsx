@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import type { ErrorBoundary } from '@vnext-forge/vnext-types';
+import type { ErrorBoundary } from '@vnext-forge-studio/vnext-types';
 import { ErrorBoundaryEditor } from './shared/ErrorBoundaryEditor';
 
 interface ErrorBoundaryTabProps {

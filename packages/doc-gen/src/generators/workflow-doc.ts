@@ -9,6 +9,11 @@ import {
 } from '../utils/markdown-helpers.js';
 import { buildStateDiagram } from '../utils/mermaid-builder.js';
 import { buildFeatureMatrix } from '../utils/feature-matrix.js';
+import {
+  extractWorkflowDependencies,
+  type WorkflowDependencyReport,
+  type DependencyKind,
+} from '../analysis/dependency-extractor.js';
 
 interface LabelEntry {
   language: string;
@@ -254,6 +259,75 @@ function buildStateSection(state: StateDef): string {
   return parts.join('\n\n');
 }
 
+const DEPENDENCY_KIND_LABELS: Record<DependencyKind, string> = {
+  task: 'Tasks',
+  view: 'Views',
+  subflow: 'Subflows',
+  function: 'Functions',
+  extension: 'Extensions',
+  schema: 'Schemas',
+};
+
+const DEPENDENCY_KIND_ORDER: DependencyKind[] = [
+  'task',
+  'view',
+  'subflow',
+  'function',
+  'extension',
+  'schema',
+];
+
+function buildDependencyTreeSection(report: WorkflowDependencyReport): string | null {
+  if (report.refs.length === 0) return null;
+
+  const parts: string[] = [];
+  parts.push(heading(2, 'Dependency Tree'));
+
+  const crossDomainRefs = report.refs.filter((r) => r.crossDomain);
+  if (crossDomainRefs.length > 0) {
+    const externalDomains = [...new Set(crossDomainRefs.map((r) => r.domain))].sort();
+    parts.push(
+      callout(
+        'Cross-Domain Dependencies',
+        `This workflow references ${crossDomainRefs.length} component(s) from external domain(s): ${externalDomains.map((d) => inlineCode(d)).join(', ')}`,
+      ),
+    );
+  }
+
+  const grouped = new Map<DependencyKind, typeof report.refs>();
+  for (const ref of report.refs) {
+    const list = grouped.get(ref.kind) ?? [];
+    list.push(ref);
+    grouped.set(ref.kind, list);
+  }
+
+  for (const kind of DEPENDENCY_KIND_ORDER) {
+    const refs = grouped.get(kind);
+    if (!refs?.length) continue;
+
+    // Deduplicate by (key, domain, flow, version) for the table display
+    const seen = new Set<string>();
+    const unique = refs.filter((r) => {
+      const id = `${r.key}|${r.domain}|${r.flow}|${r.version}`;
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+
+    parts.push(heading(3, DEPENDENCY_KIND_LABELS[kind]));
+    const rows = unique.map((r) => [
+      inlineCode(r.key),
+      r.domain || '-',
+      r.version || '-',
+      r.crossDomain ? 'Yes' : '-',
+      r.sourcePath,
+    ]);
+    parts.push(table(['Key', 'Domain', 'Version', 'Cross-domain', 'Source'], rows));
+  }
+
+  return parts.join('\n\n');
+}
+
 export function generateWorkflowMarkdown(workflowJson: unknown): string {
   const wf = workflowJson as WorkflowJson;
   const attrs = wf.attributes;
@@ -292,6 +366,12 @@ export function generateWorkflowMarkdown(workflowJson: unknown): string {
 
   sections.push(heading(2, 'Feature Matrix'));
   sections.push(buildFeatureMatrix(attrs));
+
+  const depReport = extractWorkflowDependencies(workflowJson);
+  const depSection = buildDependencyTreeSection(depReport);
+  if (depSection) {
+    sections.push(depSection);
+  }
 
   if (attrs?.startTransition) {
     sections.push(heading(2, 'Start Transition'));
@@ -347,42 +427,6 @@ export function generateWorkflowMarkdown(workflowJson: unknown): string {
     if (to.timer?.reset) toParts.push(`${bold('Reset:')} ${to.timer.reset}`);
     if (to._comment) toParts.push(to._comment);
     sections.push(toParts.join('\n\n'));
-  }
-
-  const allRefs: Reference[] = [
-    ...(attrs?.functions ?? []),
-    ...(attrs?.extensions ?? []),
-    ...(attrs?.features ?? []),
-  ];
-  if (allRefs.length) {
-    sections.push(heading(2, 'Referenced Functions and Extensions'));
-    const refRows = allRefs.map((r) => [
-      refDisplay(r),
-      r.flow ?? '-',
-      r.domain ?? '-',
-      r.version ?? '-',
-    ]);
-    sections.push(table(['Reference', 'Flow', 'Domain', 'Version'], refRows));
-  }
-
-  if (attrs?.schema?.schema) {
-    sections.push(heading(2, 'Master Schema'));
-    sections.push(`Schema Reference: ${refDisplay(attrs.schema.schema)}`);
-  }
-
-  const subFlowStates = attrs?.states?.filter((s) => s.subFlow?.process) ?? [];
-  if (subFlowStates.length) {
-    sections.push(heading(2, 'SubFlow References'));
-    for (const s of subFlowStates) {
-      const sf = s.subFlow!;
-      const sfType = sf.type === 'P' ? 'Sub Process' : 'SubFlow';
-      sections.push(
-        callout(
-          `${sfType}: ${resolveLabelOrKey(s.labels, s.key)}`,
-          `State: ${inlineCode(s.key)}\nProcess: ${refDisplay(sf.process)}`,
-        ),
-      );
-    }
   }
 
   sections.push(

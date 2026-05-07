@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 
-import type { LoggerAdapter, LogPayload } from '@vnext-forge/services-core';
+import type { LoggerAdapter, LogPayload } from '@vnext-forge-studio/services-core';
 
 /**
  * VS Code `LoggerAdapter` that writes structured lines into an OutputChannel.

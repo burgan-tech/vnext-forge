@@ -1,4 +1,4 @@
-import type { ApiResponse } from '@vnext-forge/app-contracts';
+import type { ApiResponse } from '@vnext-forge-studio/app-contracts';
 
 import { emitWorkspaceFsChange, type WorkspaceFsChangeEvent } from './workspace-fs-events.js';
 

@@ -4,7 +4,7 @@
  * Tailwind v4 must be loaded inside the consuming shell (the plugin resolves
  * `@import 'tailwindcss'` against the package that owns the CSS file). The
  * shared theme tokens, animations and Monaco overrides live in the
- * `@vnext-forge/designer-ui` package and are layered on top.
+ * `@vnext-forge-studio/designer-ui` package and are layered on top.
  */
 @import 'tailwindcss';
 
@@ -12,4 +12,4 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @import 'tw-animate-css';
-@import '@vnext-forge/designer-ui/styles.css';
+@import '@vnext-forge-studio/designer-ui/styles.css';

@@ -48,16 +48,16 @@ importers:
       '@burgan-tech/vnext-template':
         specifier: '*'
         version: 0.0.7
-      '@vnext-forge/app-contracts':
+      '@vnext-forge-studio/app-contracts':
         specifier: workspace:*
         version: link:../../packages/app-contracts
-      '@vnext-forge/lsp-core':
+      '@vnext-forge-studio/lsp-core':
         specifier: workspace:*
         version: link:../../packages/lsp-core
-      '@vnext-forge/services-core':
+      '@vnext-forge-studio/services-core':
         specifier: workspace:*
         version: link:../../packages/services-core
-      '@vnext-forge/vnext-types':
+      '@vnext-forge-studio/vnext-types':
         specifier: workspace:*
         version: link:../../packages/vnext-types
       electron:
@@ -85,22 +85,22 @@ importers:
       '@burgan-tech/vnext-template':
         specifier: ^0.0.7
         version: 0.0.7
-      '@vnext-forge/app-contracts':
+      '@vnext-forge-studio/app-contracts':
         specifier: workspace:*
         version: link:../../packages/app-contracts
-      '@vnext-forge/designer-ui':
+      '@vnext-forge-studio/designer-ui':
         specifier: workspace:*
         version: link:../../packages/designer-ui
-      '@vnext-forge/doc-gen':
+      '@vnext-forge-studio/doc-gen':
         specifier: workspace:*
         version: link:../../packages/doc-gen
-      '@vnext-forge/lsp-core':
+      '@vnext-forge-studio/lsp-core':
         specifier: workspace:*
         version: link:../../packages/lsp-core
-      '@vnext-forge/services-core':
+      '@vnext-forge-studio/services-core':
         specifier: workspace:*
         version: link:../../packages/services-core
-      '@vnext-forge/vnext-types':
+      '@vnext-forge-studio/vnext-types':
         specifier: workspace:*
         version: link:../../packages/vnext-types
       react:
@@ -173,16 +173,16 @@ importers:
       '@hono/node-server':
         specifier: ^1.19.13
         version: 1.19.14(hono@4.12.14)
-      '@vnext-forge/app-contracts':
+      '@vnext-forge-studio/app-contracts':
         specifier: workspace:*
         version: link:../../packages/app-contracts
-      '@vnext-forge/lsp-core':
+      '@vnext-forge-studio/lsp-core':
         specifier: workspace:*
         version: link:../../packages/lsp-core
-      '@vnext-forge/services-core':
+      '@vnext-forge-studio/services-core':
         specifier: workspace:*
         version: link:../../packages/services-core
-      '@vnext-forge/vnext-types':
+      '@vnext-forge-studio/vnext-types':
         specifier: workspace:*
         version: link:../../packages/vnext-types
       hono:
@@ -234,13 +234,13 @@ importers:
       '@monaco-editor/react':
         specifier: ^4.7.0
         version: 4.7.0(monaco-editor@0.55.1)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      '@vnext-forge/app-contracts':
+      '@vnext-forge-studio/app-contracts':
         specifier: workspace:*
         version: link:../../packages/app-contracts
-      '@vnext-forge/designer-ui':
+      '@vnext-forge-studio/designer-ui':
         specifier: workspace:*
         version: link:../../packages/designer-ui
-      '@vnext-forge/vnext-types':
+      '@vnext-forge-studio/vnext-types':
         specifier: workspace:*
         version: link:../../packages/vnext-types
       class-variance-authority:
@@ -289,7 +289,7 @@ importers:
       '@vitejs/plugin-react':
         specifier: ^4.3.0
         version: 4.7.0(vite@6.4.2(@types/node@22.19.17)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0))
-      '@vnext-forge/server':
+      '@vnext-forge-studio/server':
         specifier: workspace:*
         version: link:../server
       autoprefixer:
@@ -322,7 +322,7 @@ importers:
 
   packages/app-contracts:
     dependencies:
-      '@vnext-forge/vnext-types':
+      '@vnext-forge-studio/vnext-types':
         specifier: workspace:*
         version: link:../vnext-types
       zod:
@@ -380,16 +380,16 @@ importers:
       '@radix-ui/react-tooltip':
         specifier: ^1.1.0
         version: 1.2.8(@types/react-dom@19.2.3(@types/react@19.2.14))(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      '@vnext-forge/app-contracts':
+      '@vnext-forge-studio/app-contracts':
         specifier: workspace:*
         version: link:../app-contracts
-      '@vnext-forge/doc-gen':
+      '@vnext-forge-studio/doc-gen':
         specifier: workspace:*
         version: link:../doc-gen
-      '@vnext-forge/services-core':
+      '@vnext-forge-studio/services-core':
         specifier: workspace:*
         version: link:../services-core
-      '@vnext-forge/vnext-types':
+      '@vnext-forge-studio/vnext-types':
         specifier: workspace:*
         version: link:../vnext-types
       '@xyflow/react':
@@ -474,7 +474,7 @@ importers:
 
   packages/doc-gen:
     dependencies:
-      '@vnext-forge/vnext-types':
+      '@vnext-forge-studio/vnext-types':
         specifier: workspace:*
         version: link:../vnext-types
     devDependencies:
@@ -487,7 +487,7 @@ importers:
 
   packages/lsp-core:
     dependencies:
-      '@vnext-forge/services-core':
+      '@vnext-forge-studio/services-core':
         specifier: workspace:*
         version: link:../services-core
     devDependencies:
@@ -500,10 +500,10 @@ importers:
 
   packages/services-core:
     dependencies:
-      '@vnext-forge/app-contracts':
+      '@vnext-forge-studio/app-contracts':
         specifier: workspace:*
         version: link:../app-contracts
-      '@vnext-forge/vnext-types':
+      '@vnext-forge-studio/vnext-types':
         specifier: workspace:*
         version: link:../vnext-types
       ajv:

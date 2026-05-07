@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import { AlertCircle, ChevronDown, ExternalLink } from 'lucide-react';
 
-import { cn, Popover, PopoverContent, PopoverTrigger } from '@vnext-forge/designer-ui';
+import { cn, Popover, PopoverContent, PopoverTrigger } from '@vnext-forge-studio/designer-ui';
 
 import {
   StatusBarNotificationLabel,

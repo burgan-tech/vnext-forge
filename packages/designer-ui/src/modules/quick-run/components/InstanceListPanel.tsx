@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../../../ui/Tooltip';
 import * as QuickRunApi from '../QuickRunApi';
 import { useQuickRunPolling } from '../hooks/useQuickRunPolling';
 import { useQuickRunStore } from '../store/quickRunStore';
@@ -102,26 +108,42 @@ export function InstanceListPanel() {
         <h2 className="text-[11px] font-semibold uppercase tracking-wide text-[var(--vscode-sideBarTitle-foreground)]">
           Flow Instances
         </h2>
-        <div className="flex items-center gap-1">
-          <button
-            className={`flex h-5 w-5 items-center justify-center rounded hover:bg-[var(--vscode-list-hoverBackground)] ${
-              showFilter || activeFilter ? 'text-[var(--vscode-textLink-foreground)]' : 'text-[var(--vscode-foreground)]'
-            }`}
-            title="Filter & Sort"
-            onClick={() => setShowFilter((v) => !v)}
-          >
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
-              <path d="M6 10.5a.5.5 0 01.5-.5h3a.5.5 0 010 1h-3a.5.5 0 01-.5-.5zm-2-3a.5.5 0 01.5-.5h7a.5.5 0 010 1h-7a.5.5 0 01-.5-.5zm-2-3a.5.5 0 01.5-.5h11a.5.5 0 010 1h-11a.5.5 0 01-.5-.5z"/>
-            </svg>
-          </button>
-          <button
-            className="flex h-5 w-5 items-center justify-center rounded text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]"
-            title="Refresh instances"
-            onClick={loadInstances}
-          >
-            ↻
-          </button>
-        </div>
+        <TooltipProvider delayDuration={300}>
+          <div className="flex items-center gap-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className={`flex h-5 w-5 items-center justify-center rounded hover:bg-[var(--vscode-list-hoverBackground)] ${
+                    showFilter || activeFilter ? 'text-[var(--vscode-textLink-foreground)]' : 'text-[var(--vscode-foreground)]'
+                  }`}
+                  aria-label="Filter & Sort"
+                  onClick={() => setShowFilter((v) => !v)}
+                >
+                  <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+                    <path d="M6 10.5a.5.5 0 01.5-.5h3a.5.5 0 010 1h-3a.5.5 0 01-.5-.5zm-2-3a.5.5 0 01.5-.5h7a.5.5 0 010 1h-7a.5.5 0 01-.5-.5zm-2-3a.5.5 0 01.5-.5h11a.5.5 0 010 1h-11a.5.5 0 01-.5-.5z"/>
+                  </svg>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-[11px]">
+                Filter & Sort
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  className="flex h-5 w-5 items-center justify-center rounded text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]"
+                  aria-label="Refresh"
+                  onClick={loadInstances}
+                >
+                  ↻
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-[11px]">
+                Refresh
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        </TooltipProvider>
       </header>
 
       {showFilter && (

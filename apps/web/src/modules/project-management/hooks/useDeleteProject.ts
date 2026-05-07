@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
-import { toVnextError } from '@vnext-forge/designer-ui';
-import type { VnextForgeError } from '@vnext-forge/app-contracts';
+import { toVnextError } from '@vnext-forge-studio/designer-ui';
+import type { VnextForgeError } from '@vnext-forge-studio/app-contracts';
 
 import { deleteProject } from '../ProjectApi';
 import type { ProjectInfo } from '../ProjectTypes';

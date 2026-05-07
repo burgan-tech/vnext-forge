@@ -7,7 +7,7 @@ import {
   setHostEditorCapabilities,
   setupMonacoLoader,
   syncColorThemeFromSettingsStore,
-} from '@vnext-forge/designer-ui';
+} from '@vnext-forge-studio/designer-ui';
 
 import './index.css';
 import { AppRouter } from './app/AppRouter';

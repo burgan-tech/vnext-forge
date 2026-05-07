@@ -10,7 +10,7 @@
  *
  *   @import 'tailwindcss';
  *   @import 'tw-animate-css';
- *   @import '@vnext-forge/designer-ui/styles.css';
+ *   @import '@vnext-forge-studio/designer-ui/styles.css';
  *
  * The `@source` directive below points Tailwind at the designer-ui sources
  * so utility classes used inside shared components/modules are generated
@@ -575,6 +575,54 @@ body {
 
 .animate-scale-in {
   animation: scale-in 0.15s ease-out;
+}
+
+/* ── Spotlight pulse — canvas search "found element" highlight ── */
+@keyframes spotlight-pulse {
+  0% {
+    box-shadow: 0 0 0 0 var(--spotlight-color, rgba(99, 102, 241, 0.5));
+  }
+  50% {
+    box-shadow: 0 0 0 12px var(--spotlight-color, rgba(99, 102, 241, 0));
+  }
+  100% {
+    box-shadow: 0 0 0 0 var(--spotlight-color, rgba(99, 102, 241, 0));
+  }
+}
+
+@keyframes spotlight-edge-pulse {
+  0% {
+    stroke-opacity: 1;
+    stroke-width: 6;
+  }
+  50% {
+    stroke-opacity: 0.4;
+    stroke-width: 8;
+  }
+  100% {
+    stroke-opacity: 1;
+    stroke-width: 6;
+  }
+}
+
+.animate-spotlight-pulse {
+  animation: spotlight-pulse 600ms ease-out 2;
+}
+
+.animate-spotlight-edge-pulse {
+  animation: spotlight-edge-pulse 600ms ease-out 2;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-spotlight-pulse {
+    animation: none;
+    box-shadow: 0 0 0 4px var(--spotlight-color, rgba(99, 102, 241, 0.35));
+  }
+  .animate-spotlight-edge-pulse {
+    animation: none;
+    stroke-width: 6;
+    stroke-opacity: 1;
+  }
 }
 
 [data-slot='tag-editor'] > .tag-editor-chip {

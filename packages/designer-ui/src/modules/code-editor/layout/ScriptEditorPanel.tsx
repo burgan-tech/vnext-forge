@@ -13,6 +13,12 @@ import MonacoEditor, { type OnMount } from '@monaco-editor/react';
 import type { PanelImperativeHandle, PanelSize } from 'react-resizable-panels';
 import { X, Code2, BookOpen, Maximize2, Minimize2, ExternalLink } from 'lucide-react';
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../../../ui/Tooltip';
+import {
   useScriptPanelStore,
   type ActiveScript,
 } from '../../../modules/code-editor/ScriptPanelStore';
@@ -489,38 +495,61 @@ export function ScriptEditorPanel({
               <span>Open in full editor</span>
             </button>
           ) : null}
-          {/* API Reference toggle */}
-          <button
-            type="button"
-            onClick={() => setShowReference(!showReference)}
-            className={`rounded-lg p-1.5 transition-all ${
-              showReference
-                ? 'bg-secondary-surface text-secondary-text'
-                : 'text-muted-foreground hover:bg-muted hover:text-secondary-text'
-            }`}
-            title="API Reference">
-            <BookOpen size={14} />
-          </button>
+          <TooltipProvider delayDuration={300}>
+            {/* API Reference toggle */}
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={() => setShowReference(!showReference)}
+                  className={`rounded-lg p-1.5 transition-all ${
+                    showReference
+                      ? 'bg-secondary-surface text-secondary-text'
+                      : 'text-muted-foreground hover:bg-muted hover:text-secondary-text'
+                  }`}
+                  aria-label="API Reference">
+                  <BookOpen size={14} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-[11px]">
+                API Reference
+              </TooltipContent>
+            </Tooltip>
 
-          {!taskInline && (
-            <>
-              <button
-                type="button"
-                onClick={toggleMaximize}
-                className="text-muted-foreground hover:bg-muted hover:text-foreground rounded-lg p-1.5 transition-all"
-                title={isMaximized ? 'Restore' : 'Maximize'}>
-                {isMaximized ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
-              </button>
+            {!taskInline && (
+              <>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={toggleMaximize}
+                      className="text-muted-foreground hover:bg-muted hover:text-foreground rounded-lg p-1.5 transition-all"
+                      aria-label={isMaximized ? 'Restore' : 'Maximize'}>
+                      {isMaximized ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-[11px]">
+                    {isMaximized ? 'Restore' : 'Maximize'}
+                  </TooltipContent>
+                </Tooltip>
 
-              <button
-                type="button"
-                onClick={handleClose}
-                className="text-muted-foreground hover:bg-muted hover:text-foreground rounded-lg p-1.5 transition-all"
-                title="Close">
-                <X size={14} />
-              </button>
-            </>
-          )}
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={handleClose}
+                      className="text-muted-foreground hover:bg-muted hover:text-foreground rounded-lg p-1.5 transition-all"
+                      aria-label="Close">
+                      <X size={14} />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom" className="text-[11px]">
+                    Close
+                  </TooltipContent>
+                </Tooltip>
+              </>
+            )}
+          </TooltipProvider>
         </div>
       </div>
 

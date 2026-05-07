@@ -1,4 +1,4 @@
-// Top-level barrel for @vnext-forge/designer-ui.
+// Top-level barrel for @vnext-forge-studio/designer-ui.
 // Host shells (apps/web SPA, apps/extension webview) import from here OR from
 // the more specific subpath exports declared in package.json (./ui, ./hooks,
 // ./lib, ./notification, ./api, ./styles.css).

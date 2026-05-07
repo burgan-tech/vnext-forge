@@ -1,4 +1,4 @@
-import { createLogger, type VnextWorkspaceConfig } from '@vnext-forge/designer-ui';
+import { createLogger, type VnextWorkspaceConfig } from '@vnext-forge-studio/designer-ui';
 
 export type FileRouteType =
   | 'workflow'

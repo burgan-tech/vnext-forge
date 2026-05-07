@@ -1,7 +1,7 @@
 import {
   ERROR_CODES,
   VnextForgeError,
-} from '@vnext-forge/app-contracts';
+} from '@vnext-forge-studio/app-contracts';
 import type { ValidationIssue } from './WorkflowValidationTypes';
 
 type WorkflowStateNode = {

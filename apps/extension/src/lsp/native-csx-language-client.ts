@@ -8,8 +8,8 @@ import {
   type ServerOptions,
 } from 'vscode-languageclient/node';
 
-import type { LspBridge } from '@vnext-forge/lsp-core';
-import type { LoggerAdapter } from '@vnext-forge/services-core';
+import type { LspBridge } from '@vnext-forge-studio/lsp-core';
+import type { LoggerAdapter } from '@vnext-forge-studio/services-core';
 
 import type { VnextWorkspaceDetector } from '../workspace-detector.js';
 import {
@@ -106,7 +106,7 @@ export function createNativeCsxLanguageClient(
 
     const client = new LanguageClient(
       'vnextForge.csxNative',
-      'vnext-forge C# Script (.csx)',
+      'vnext-forge-studio C# Script (.csx)',
       serverOptions,
       clientOptions,
     );
@@ -167,7 +167,7 @@ export function createNativeCsxLanguageClient(
     if (installFailureNotified) return;
     installFailureNotified = true;
     void vscode.window.showInformationMessage(
-      'vnext-forge: .csx IntelliSense is unavailable. Install .NET SDK / csharp-ls or check the "vnext-forge: csx Native LSP" output channel for details.',
+      'vnext-forge-studio: .csx IntelliSense is unavailable. Install .NET SDK / csharp-ls or check the "vnext-forge-studio: csx Native LSP" output channel for details.',
     );
     logger.info({ detail }, 'native csx install/start failure surfaced to user');
   }

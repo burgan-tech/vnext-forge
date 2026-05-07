@@ -6,8 +6,8 @@
  * works for both the Node-fs adapter (web-server) and the VS Code FS adapter
  * (extension), which exposes `code` strings in a compatible format.
  */
-import { ERROR_CODES, VnextForgeError } from '@vnext-forge/app-contracts'
-import type { ErrorCode } from '@vnext-forge/app-contracts'
+import { ERROR_CODES, VnextForgeError } from '@vnext-forge-studio/app-contracts'
+import type { ErrorCode } from '@vnext-forge-studio/app-contracts'
 
 interface NodeStyleError {
   code?: string

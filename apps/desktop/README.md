@@ -1,4 +1,4 @@
-# vnext-forge Desktop App
+# vnext-forge-studio Desktop App
 
 Standalone desktop application for Windows and macOS. Packages the same React
 UI (`apps/web`) and Hono backend (`apps/server`) into a single Electron shell —
@@ -58,7 +58,7 @@ pnpm build
 ### 3. Build the desktop bundles
 
 ```bash
-pnpm --filter vnext-forge-desktop build
+pnpm --filter vnext-forge-studio-desktop build
 ```
 
 This runs two steps:
@@ -68,7 +68,7 @@ This runs two steps:
 ### 4. Launch
 
 ```bash
-pnpm --filter vnext-forge-desktop dev
+pnpm --filter vnext-forge-studio-desktop dev
 # equivalent to: cd apps/desktop && electron dist/main.js
 ```
 
@@ -81,17 +81,17 @@ When you change TypeScript source in `apps/desktop/src/`:
 
 ```bash
 # Rebuild only the desktop bundles (fast, skips web + packages)
-pnpm --filter vnext-forge-desktop build
+pnpm --filter vnext-forge-studio-desktop build
 # then relaunch
-pnpm --filter vnext-forge-desktop dev
+pnpm --filter vnext-forge-studio-desktop dev
 ```
 
 When you change `apps/web` source:
 
 ```bash
-pnpm --filter @vnext-forge/web build
-pnpm --filter vnext-forge-desktop build  # re-copies webview assets
-pnpm --filter vnext-forge-desktop dev
+pnpm --filter @vnext-forge-studio/web build
+pnpm --filter vnext-forge-studio-desktop build  # re-copies webview assets
+pnpm --filter vnext-forge-studio-desktop dev
 ```
 
 ---
@@ -146,13 +146,13 @@ prefixed with `[server]`. They appear in:
 | Command | Description |
 |---|---|
 | `pnpm build` | Build all packages + web app + desktop bundles (from monorepo root) |
-| `pnpm --filter vnext-forge-desktop build` | Build only the desktop bundles (requires packages + web already built) |
-| `pnpm --filter vnext-forge-desktop build:watch` | esbuild in watch mode (re-bundles on source change; does **not** re-copy web assets) |
-| `pnpm --filter vnext-forge-desktop dev` | Launch Electron against the built `dist/` |
-| `pnpm --filter vnext-forge-desktop package` | Package for the current platform |
-| `pnpm --filter vnext-forge-desktop package:mac` | Package macOS DMG only |
-| `pnpm --filter vnext-forge-desktop package:win` | Package Windows NSIS installer only |
-| `pnpm --filter vnext-forge-desktop clean` | Delete `dist/` |
+| `pnpm --filter vnext-forge-studio-desktop build` | Build only the desktop bundles (requires packages + web already built) |
+| `pnpm --filter vnext-forge-studio-desktop build:watch` | esbuild in watch mode (re-bundles on source change; does **not** re-copy web assets) |
+| `pnpm --filter vnext-forge-studio-desktop dev` | Launch Electron against the built `dist/` |
+| `pnpm --filter vnext-forge-studio-desktop package` | Package for the current platform |
+| `pnpm --filter vnext-forge-studio-desktop package:mac` | Package macOS DMG only |
+| `pnpm --filter vnext-forge-studio-desktop package:win` | Package Windows NSIS installer only |
+| `pnpm --filter vnext-forge-studio-desktop clean` | Delete `dist/` |
 
 ---
 
@@ -165,12 +165,12 @@ prefixed with `[server]`. They appear in:
 
 ```bash
 # Build everything first
-pnpm build && pnpm --filter vnext-forge-desktop build
+pnpm build && pnpm --filter vnext-forge-studio-desktop build
 
 # Package
-pnpm --filter vnext-forge-desktop package:mac
-# → apps/desktop/dist/release/vnext-forge-0.1.0-x64.dmg  (Intel)
-# → apps/desktop/dist/release/vnext-forge-0.1.0-arm64.dmg (Apple Silicon)
+pnpm --filter vnext-forge-studio-desktop package:mac
+# → apps/desktop/dist/release/vnext-forge-studio-0.1.0-x64.dmg  (Intel)
+# → apps/desktop/dist/release/vnext-forge-studio-0.1.0-arm64.dmg (Apple Silicon)
 ```
 
 Open the `.dmg`, drag the app to `/Applications`, and launch it.
@@ -178,9 +178,9 @@ Open the `.dmg`, drag the app to `/Applications`, and launch it.
 ### Windows
 
 ```bash
-pnpm build && pnpm --filter vnext-forge-desktop build
-pnpm --filter vnext-forge-desktop package:win
-# → apps/desktop/dist/release/vnext-forge-Setup-0.1.0.exe
+pnpm build && pnpm --filter vnext-forge-studio-desktop build
+pnpm --filter vnext-forge-studio-desktop package:win
+# → apps/desktop/dist/release/vnext-forge-studio-Setup-0.1.0.exe
 ```
 
 Run the installer. The NSIS installer lets you choose the installation directory
@@ -193,7 +193,7 @@ By default `electron-builder` skips code signing (the CI workflow sets
 warning:
 
 - **macOS Gatekeeper**: right-click the app → Open to bypass the first-launch
-  warning, or `xattr -cr vnext-forge.app` from the terminal.
+  warning, or `xattr -cr vnext-forge-studio.app` from the terminal.
 - **Windows SmartScreen**: click "More info" → "Run anyway".
 
 For signed production builds, set the signing secrets described in the
@@ -216,7 +216,7 @@ git push origin v0.2.0
 The workflow:
 1. Installs dependencies with `pnpm install --frozen-lockfile`
 2. Builds all packages (`pnpm build`)
-3. Builds the desktop app (`pnpm --filter vnext-forge-desktop build`)
+3. Builds the desktop app (`pnpm --filter vnext-forge-studio-desktop build`)
 4. Packages with `electron-builder`
 5. Uploads `.dmg` and `.exe` as GitHub Actions artifacts
 6. Creates a **draft** GitHub Release with the artifacts attached

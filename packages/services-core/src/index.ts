@@ -1,8 +1,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// `@vnext-forge/services-core` - runtime entrypoint.
+// `@vnext-forge-studio/services-core` - runtime entrypoint.
 //
 // Intended for Node-side shells only (web-server, extension host). The web
-// frontend bundle MUST import from `@vnext-forge/services-core/types` to avoid
+// frontend bundle MUST import from `@vnext-forge-studio/services-core/types` to avoid
 // pulling Node-only dependencies (Ajv, child_process based template runner...)
 // into the browser.
 // ─────────────────────────────────────────────────────────────────────────────

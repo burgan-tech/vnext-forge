@@ -1,6 +1,6 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 
-import type { LoggerAdapter } from '@vnext-forge/services-core'
+import type { LoggerAdapter } from '@vnext-forge-studio/services-core'
 import type { LspServerType } from './omnisharp-installer.js'
 
 // ── LSP Content-Length framing ───────────────────────────────────────────────

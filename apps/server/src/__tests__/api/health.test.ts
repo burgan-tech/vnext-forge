@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { Hono } from 'hono';
 
-import { ERROR_CODES, VnextForgeError } from '@vnext-forge/app-contracts';
-import { buildMethodRegistry, type ServiceRegistry } from '@vnext-forge/services-core';
+import { ERROR_CODES, VnextForgeError } from '@vnext-forge-studio/app-contracts';
+import { buildMethodRegistry, type ServiceRegistry } from '@vnext-forge-studio/services-core';
 
 import { createApiV1Router } from '../../api/v1/index.js';
 import { errorHandler } from '../../shared/middleware/error-handler.js';

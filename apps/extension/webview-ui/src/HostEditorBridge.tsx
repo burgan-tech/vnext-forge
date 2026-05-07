@@ -17,7 +17,7 @@ import {
   ViewEditorView,
   WorkspaceConfigEditorView,
   type VnextWorkspaceConfig,
-} from '@vnext-forge/designer-ui';
+} from '@vnext-forge-studio/designer-ui';
 
 import { resolveWebviewPostMessageAllowedOrigins } from './host/webviewMessageOrigins.js';
 const logger = createLogger('extension/HostEditorBridge');
@@ -149,6 +149,13 @@ function ActiveEditor({ api, payload }: { api: VsCodeWebviewApi; payload: HostOp
     [api],
   );
 
+  const onOpenWorkflowFile = useCallback(
+    (absolutePath: string) => {
+      api.postMessage({ type: 'host:open-designer', absolutePath });
+    },
+    [api],
+  );
+
   const onOpenQuickRun = useCallback(() => {
     api.postMessage({ type: 'host:open-quickrun', filePath: payload.filePath });
   }, [api, payload.filePath]);
@@ -163,6 +170,7 @@ function ActiveEditor({ api, payload }: { api: VsCodeWebviewApi; payload: HostOp
             group={group}
             name={name}
             onOpenScriptFileInHost={onOpenScriptFileInHost}
+            onOpenWorkflowFile={onOpenWorkflowFile}
             onOpenQuickRun={onOpenQuickRun}
           />
         </ComponentEditorModalProvider>
@@ -207,7 +215,7 @@ function EmptyState() {
   return (
     <div className="bg-background text-foreground flex h-full w-full items-center justify-center">
       <div className="max-w-md text-center">
-        <h1 className="text-2xl font-semibold">vnext-forge Designer</h1>
+        <h1 className="text-2xl font-semibold">vnext-forge-studio Designer</h1>
         <p className="text-muted-foreground mt-3 text-sm">
           vNext bileşen .json dosyaları Explorer’da açıldığında burada görünür; sağ tık ile
           metin editöründe açabilirsiniz. Sekmeler yalnızca VS Code başlık çubuğundadır.

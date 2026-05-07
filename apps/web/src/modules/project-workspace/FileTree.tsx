@@ -10,7 +10,7 @@ import {
   type ComponentFolderType,
   type FileTreeNode,
   type VnextComponentType,
-} from '@vnext-forge/designer-ui';
+} from '@vnext-forge-studio/designer-ui';
 import {
   classifyComponentTreePath,
   matchComponentFolderType,

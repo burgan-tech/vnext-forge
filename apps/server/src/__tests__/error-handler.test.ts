@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { Hono } from 'hono'
 import { z } from 'zod'
 
-import { ERROR_CODES, VnextForgeError } from '@vnext-forge/app-contracts'
+import { ERROR_CODES, VnextForgeError } from '@vnext-forge-studio/app-contracts'
 
 import { errorHandler } from '../shared/middleware/error-handler.js'
 import { traceIdMiddleware } from '../shared/middleware/trace-id.js'

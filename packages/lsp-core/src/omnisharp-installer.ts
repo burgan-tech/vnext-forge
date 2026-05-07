@@ -6,13 +6,13 @@ import fs from 'node:fs/promises'
 import { createWriteStream } from 'node:fs'
 import { pipeline } from 'node:stream/promises'
 
-import type { LoggerAdapter } from '@vnext-forge/services-core'
+import type { LoggerAdapter } from '@vnext-forge-studio/services-core'
 
 const execFileAsync = promisify(execFile)
 const execAsync = promisify(exec)
 
 const OMNISHARP_VERSION = '1.39.11'
-const INSTALL_DIR = path.join(homedir(), '.vnext-forge', 'omnisharp')
+const INSTALL_DIR = path.join(homedir(), '.vnext-forge-studio', 'omnisharp')
 
 export type LspServerType = 'csharp-ls' | 'omnisharp'
 
@@ -143,7 +143,7 @@ export function createOmniSharpInstaller(deps: OmniSharpInstallerDeps) {
     await fs.mkdir(INSTALL_DIR, { recursive: true })
 
     const response = await fetch(url, {
-      headers: { 'User-Agent': 'vnext-forge/1.0' },
+      headers: { 'User-Agent': 'vnext-forge-studio/1.0' },
       redirect: 'follow',
     })
 
@@ -178,7 +178,7 @@ export function createOmniSharpInstaller(deps: OmniSharpInstallerDeps) {
    *   2. `dotnet tool install -g csharp-ls` (auto-install if dotnet exists)
    *   3. OMNISHARP_PATH env override
    *   4. omnisharp / OmniSharp on system PATH
-   *   5. Previously cached OmniSharp under `~/.vnext-forge/omnisharp`
+   *   5. Previously cached OmniSharp under `~/.vnext-forge-studio/omnisharp`
    *   6. Auto-download OmniSharp self-contained build from GitHub releases
    */
   async function ensureLspServer(): Promise<LspServerInfo> {

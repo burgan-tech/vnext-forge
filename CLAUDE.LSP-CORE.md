@@ -38,7 +38,7 @@ Includes **max message bytes**, **max connections**, and **origin check** when t
 
 ## Dependency policy
 
-Depends on **`@vnext-forge/app-contracts`** only. **No `apps/*` imports.** See [dependency-policy skill](./.cursor/skills/shared/dependency-policy/SKILL.md).
+Depends on **`@vnext-forge-studio/app-contracts`** only. **No `apps/*` imports.** See [dependency-policy skill](./.cursor/skills/shared/dependency-policy/SKILL.md).
 
 ## Cross-references
 

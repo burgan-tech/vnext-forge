@@ -1,4 +1,4 @@
-import type { VnextWorkspaceConfig } from '@vnext-forge/vnext-types'
+import type { VnextWorkspaceConfig } from '@vnext-forge-studio/vnext-types'
 
 export type {
   VnextWorkspaceConfig,
@@ -7,7 +7,7 @@ export type {
   VnextWorkspaceExportsMeta,
   VnextWorkspacePaths,
   VnextWorkspaceReferenceResolution,
-} from '@vnext-forge/vnext-types'
+} from '@vnext-forge-studio/vnext-types'
 
 export interface SearchResult {
   path: string

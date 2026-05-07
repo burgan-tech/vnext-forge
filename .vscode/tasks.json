@@ -4,7 +4,7 @@
     {
       "label": "Desktop: Build",
       "type": "shell",
-      "command": "pnpm build && pnpm --filter vnext-forge-desktop build",
+      "command": "pnpm build && pnpm --filter vnext-forge-studio-desktop build",
       "group": "build",
       "presentation": {
         "reveal": "always",
@@ -15,7 +15,7 @@
     {
       "label": "Desktop: Build (incremental)",
       "type": "shell",
-      "command": "pnpm --filter vnext-forge-desktop build",
+      "command": "pnpm --filter vnext-forge-studio-desktop build",
       "group": "build",
       "presentation": {
         "reveal": "always",

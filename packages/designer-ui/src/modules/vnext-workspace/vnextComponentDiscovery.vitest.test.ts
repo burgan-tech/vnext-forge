@@ -1,6 +1,6 @@
 import { describe, expect, it, afterEach, vi } from 'vitest';
 
-import { success } from '@vnext-forge/app-contracts';
+import { success } from '@vnext-forge-studio/app-contracts';
 
 import { setApiTransport } from '../../api/transport.js';
 import {

@@ -8,7 +8,7 @@ Clients need **stable machine-readable codes** for branching, telemetry, and UX 
 
 ## Decision
 
-1. **`ERROR_CODES`** in `@vnext-forge/app-contracts` (`packages/app-contracts/src/error/error-codes.ts`) is the **single source of truth** for stable failure codes.
+1. **`ERROR_CODES`** in `@vnext-forge-studio/app-contracts` (`packages/app-contracts/src/error/error-codes.ts`) is the **single source of truth** for stable failure codes.
 2. Domain/service failures throw **`VnextForgeError`** with `code`, `layer`, `message`, optional `details` (`packages/app-contracts/src/error/vnext-forge-error.ts`). `ErrorLayer` documents architectural origin (`transport`, `application`, `domain`, `infrastructure`).
 3. **Presentation mapping** lives in `packages/app-contracts/src/error/error-presentation.ts` (`code → severity`, recovery hints, copy helpers). UI never string-matches messages.
 4. **Contract:** server error paths return JSON **`ApiResponse`** failures whose `error.code` is always a known **`ERROR_CODES`** value (validation / infrastructure mapping centralized in `apps/server/src/shared/middleware/error-handler.ts`).

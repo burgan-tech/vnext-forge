@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { ShieldAlert } from 'lucide-react';
-import type { ErrorBoundary } from '@vnext-forge/vnext-types';
+import type { ErrorBoundary } from '@vnext-forge-studio/vnext-types';
 import { useWorkflowStore } from '../../../../../store/useWorkflowStore';
 import { ErrorBoundaryEditor } from '../tabs/shared/ErrorBoundaryEditor';
 import { MetadataSection } from './MetadataSection';

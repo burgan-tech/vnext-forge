@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { RoleGrant, SubFlowOverrides, SubFlowTimeoutOverride } from '@vnext-forge/vnext-types';
+import type { RoleGrant, SubFlowOverrides, SubFlowTimeoutOverride } from '@vnext-forge-studio/vnext-types';
 import { Section, EditableInput, IconPlus, IconTrash } from '../PropertyPanelShared';
 import { RoleGrantEditor } from './RoleGrantEditor';
 

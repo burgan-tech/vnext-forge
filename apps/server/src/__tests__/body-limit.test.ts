@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { Hono } from 'hono'
 
-import { ERROR_CODES, VnextForgeError } from '@vnext-forge/app-contracts'
+import { ERROR_CODES, VnextForgeError } from '@vnext-forge-studio/app-contracts'
 
 import { bodyLimitMiddleware } from '../shared/middleware/body-limit.js'
 import { errorHandler } from '../shared/middleware/error-handler.js'

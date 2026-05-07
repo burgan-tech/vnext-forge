@@ -16,7 +16,7 @@ The refactored skills should consistently teach these repo rules:
 6. Web transport must move behind the shared Hono RPC client.
 7. Raw `fetch` should disappear from `pages`, `widgets`, `features`, and `entities`.
 8. Error handling should align with `VnextError`, `ErrorCode`, `ErrorCategory`, `traceId`, and `ApiResponse<T>`.
-9. Skills should teach the target package vocabulary such as `@vnext-forge/*`, even if migration debt still exists.
+9. Skills should teach the target package vocabulary such as `@vnext-forge-studio/*`, even if migration debt still exists.
 10. Skills should treat `useAsync` as an allowed shared abstraction for reusable async UI flows, but not as a mandatory wrapper for every request.
 
 ## Repo Reality To Reflect

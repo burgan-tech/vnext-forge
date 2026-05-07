@@ -1,5 +1,5 @@
-import { ERROR_CODES, VnextForgeError, getMethodHttpSpec } from '@vnext-forge/app-contracts';
-import { dispatchMethod, type MethodRegistry, type ServiceRegistry } from '@vnext-forge/services-core';
+import { ERROR_CODES, VnextForgeError, getMethodHttpSpec } from '@vnext-forge-studio/app-contracts';
+import { dispatchMethod, type MethodRegistry, type ServiceRegistry } from '@vnext-forge-studio/services-core';
 import type { Context } from 'hono';
 
 import { config, isLoopbackHost } from '../../../shared/config/config.js';

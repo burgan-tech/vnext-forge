@@ -22,6 +22,12 @@ import { SubFlowTab } from './tabs/SubFlowTab';
 import { ErrorBoundaryTab } from './tabs/ErrorBoundaryTab';
 import { StartNodePanel } from './tabs/StartNodePanel';
 import { MousePointer2, PanelRightOpen, X } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '../../../../ui/Tooltip';
 
 type Tab = 'general' | 'tasks' | 'transitions' | 'subflow' | 'error-boundary';
 
@@ -89,14 +95,22 @@ export function WorkflowPropertySidebarResizableRow({
         minSize="35%">
         {canvas}
         {isCollapsed && (
-          <button
-            type="button"
-            onClick={handleExpand}
-            className="bg-surface/90 border-border-subtle text-muted-foreground hover:bg-secondary-muted hover:text-secondary-icon hover:border-secondary-border absolute top-1/2 right-2 z-30 flex size-8 -translate-y-1/2 items-center justify-center rounded-lg border shadow-sm backdrop-blur-sm transition-all"
-            title="Show properties panel"
-            aria-label="Show properties panel">
-            <PanelRightOpen size={16} />
-          </button>
+          <TooltipProvider delayDuration={300}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={handleExpand}
+                  className="bg-surface/90 border-border-subtle text-muted-foreground hover:bg-secondary-muted hover:text-secondary-icon hover:border-secondary-border absolute top-1/2 right-2 z-30 flex size-8 -translate-y-1/2 items-center justify-center rounded-lg border shadow-sm backdrop-blur-sm transition-all"
+                  aria-label="Show properties">
+                  <PanelRightOpen size={16} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="left" className="text-[11px]">
+                Show properties
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         )}
       </ResizablePanel>
       <ResizableHandle className="aria-[orientation=vertical]:before:right-0! aria-[orientation=vertical]:before:left-auto!" />
@@ -177,14 +191,22 @@ export function StatePropertyPanel({ defaultTaskFolder }: { defaultTaskFolder?: 
               <Badge className={getSubTypeBadge(subType)}>{getSubTypeLabel(subType)}</Badge>
             )}
           </div>
-          <button
-            type="button"
-            onClick={() => setSelectedNode(null)}
-            className="text-muted-foreground hover:bg-muted hover:text-foreground shrink-0 rounded-md p-1 transition-colors"
-            title="Close panel"
-            aria-label="Close panel">
-            <X size={14} strokeWidth={2} aria-hidden />
-          </button>
+          <TooltipProvider delayDuration={300}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={() => setSelectedNode(null)}
+                  className="text-muted-foreground hover:bg-muted hover:text-foreground shrink-0 rounded-md p-1 transition-colors"
+                  aria-label="Close panel">
+                  <X size={14} strokeWidth={2} aria-hidden />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-[11px]">
+                Close panel
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
         {getLabel(state) && (
           <div className="text-muted-foreground truncate text-[11px] leading-snug">

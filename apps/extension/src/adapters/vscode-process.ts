@@ -4,7 +4,7 @@ import {
   buildChildEnv,
   DEFAULT_CHILD_PROCESS_ENV_ALLOWLIST,
   type ProcessAdapter,
-} from '@vnext-forge/services-core';
+} from '@vnext-forge-studio/services-core';
 
 /**
  * VS Code extension host `ProcessAdapter`.

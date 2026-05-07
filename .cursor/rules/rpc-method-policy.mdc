@@ -42,7 +42,7 @@ The `MethodId` union must include the new id so the typed client (`hc<AppType>`)
 - A snapshot test in `packages/services-core/test/registry-contract.test.ts` pins the **sorted method names**. Adding/removing/renaming a method requires updating the snapshot in the same PR.
 - For each method, place a JSON fixture under `packages/services-core/test/fixtures/<domain>/<action>.json` with `{ params, result }`. The fixture is validated against `paramsSchema` and `resultSchema` automatically.
 - A parity test enforces that every registry key has a `MethodHttpSpec` entry and vice versa — drift fails the build.
-- Run `pnpm --filter @vnext-forge/services-core test` after any registry or metadata change.
+- Run `pnpm --filter @vnext-forge-studio/services-core test` after any registry or metadata change.
 
 ## Server route registration
 

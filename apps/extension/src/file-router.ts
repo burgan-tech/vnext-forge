@@ -1,5 +1,5 @@
 import * as path from 'node:path'
-import type { VnextWorkspaceConfig } from '@vnext-forge/services-core'
+import type { VnextWorkspaceConfig } from '@vnext-forge-studio/services-core'
 
 /**
  * Editor "kinds" the webview can render.

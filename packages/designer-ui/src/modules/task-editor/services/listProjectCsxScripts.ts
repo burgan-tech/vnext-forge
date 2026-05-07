@@ -1,4 +1,4 @@
-import { isFailure, success, type ApiResponse } from '@vnext-forge/app-contracts';
+import { isFailure, success, type ApiResponse } from '@vnext-forge-studio/app-contracts';
 
 import type { FileTreeNode } from '../../../shared/projectTypes.js';
 import { getProjectTree } from '../../project-workspace/WorkspaceApi.js';

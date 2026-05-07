@@ -7,7 +7,7 @@ import {
   type NotificationKind,
   type NotificationOptions,
   type NotificationSink,
-} from '@vnext-forge/designer-ui';
+} from '@vnext-forge-studio/designer-ui';
 
 import { Toaster } from './Sonner';
 
