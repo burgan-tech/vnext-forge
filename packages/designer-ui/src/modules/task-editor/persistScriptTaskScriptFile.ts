@@ -4,10 +4,10 @@ import { decodeScriptCode } from '../code-editor/editor/ScriptCodec.js';
 import { readOptionalFile, writeFile } from '../project-workspace/WorkspaceApi.js';
 import { resolveTaskScriptAbsolutePath } from './scriptTaskPaths.js';
 
-const SCRIPT_TASK_TYPE = '5';
+const SCRIPT_TASK_TYPE = '7';
 
 /**
- * For script tasks (type 5), writes base64 script body from `config` to disk.
+ * For script tasks (type 7), writes base64 script body from `config` to disk.
  * Call before persisting task JSON.
  */
 export async function persistScriptTaskScriptFile(

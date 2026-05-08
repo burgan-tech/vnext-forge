@@ -82,12 +82,12 @@ Launch Quick Run from the sidebar (see [Runtime Connection](./08-runtime-connect
 
 ## Custom Editor
 
-vNext Forge registers a custom editor (`vnextForge.componentEditor`) for `.json` files. When `vnextForge.openComponentJsonInDesigner` is `true` (default), double-clicking a component JSON file opens the visual designer instead of the text editor.
+vNext Forge registers a custom editor (`vnextForge.componentEditor`) for `.json` files as an optional editor. Clicking a component JSON file opens the native text editor by default.
 
-To open as text instead:
+To open in the designer instead:
 
-- Right-click → **Forge: Open with Text Editor**
-- Or set `vnextForge.openComponentJsonInDesigner` to `false`
+- Right-click → **Open with vNext Forge**
+- Or use **Reopen Editor With...** and select **vnext-forge-studio Designer**
 
 ## Material Icon Associations
 

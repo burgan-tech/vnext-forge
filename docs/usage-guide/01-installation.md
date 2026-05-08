@@ -49,6 +49,5 @@ Open **Settings** → search for `vnextForge` to see all available options:
 | `vnextForge.lsp.enableNativeEditor` | `true` | IntelliSense for `.csx` files |
 | `vnextForge.vnextRuntimeUrl` | `http://localhost:4201` | Runtime engine base URL |
 | `vnextForge.runtimeAllowedBaseUrls` | `[]` | Additional allowed runtime URLs |
-| `vnextForge.openComponentJsonInDesigner` | `true` | Open JSON files in designer by default |
 | `vnextForge.quickRun.pollingRetryCount` | `6` | Quick Run polling retries |
 | `vnextForge.quickRun.pollingIntervalMs` | `10` | Quick Run polling interval (ms) |

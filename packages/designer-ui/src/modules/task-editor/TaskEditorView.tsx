@@ -19,8 +19,6 @@ export interface TaskEditorViewProps {
   group: string;
   name: string;
   registerToolbar?: HostDocumentToolbarSlot;
-  /** Web shell: open script file in full Monaco tab. */
-  onOpenScriptFileInHost?: (absolutePath: string) => void;
   layoutSurface?: 'panel' | 'modal';
   /** After save (e.g. modal): sync workflow refs from JSON top-level fields. */
   onAtomicSaved?: (info: AtomicSavedInfo) => void;
@@ -31,7 +29,6 @@ export function TaskEditorView({
   group,
   name,
   registerToolbar,
-  onOpenScriptFileInHost,
   layoutSurface = 'panel',
   onAtomicSaved,
 }: TaskEditorViewProps) {
@@ -115,7 +112,6 @@ export function TaskEditorView({
       <TaskEditorPanel
         json={componentJson}
         onChange={updateComponent}
-        onOpenScriptFileInHost={onOpenScriptFileInHost}
       />
     </ComponentEditorLayout>
   );

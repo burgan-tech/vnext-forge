@@ -40,6 +40,7 @@ export function TransitionDialog({ configRef, persistConfig }: TransitionDialogP
   const [viewLoading, setViewLoading] = useState(false);
   const [attributes, setAttributes] = useState('{}');
   const [instanceKey, setInstanceKey] = useState('');
+  const [stage, setStage] = useState('');
   const [tags, setTags] = useState('');
   const [headerRows, setHeaderRows] = useState<{ name: string; value: string }[]>([]);
   const [sync, setSync] = useState(true);
@@ -60,6 +61,7 @@ export function TransitionDialog({ configRef, persistConfig }: TransitionDialogP
     setTransitionView(null);
     setAttributes('{}');
     setInstanceKey('');
+    setStage('');
     setTags('');
     setError(null);
     setErrorDetails(null);
@@ -73,6 +75,7 @@ export function TransitionDialog({ configRef, persistConfig }: TransitionDialogP
       const savedTransition = configRef.current.transitions.find((t) => t.key === transition.name);
       if (savedTransition) {
         if (savedTransition.body?.key) setInstanceKey(savedTransition.body.key);
+        if (savedTransition.body?.stage) setStage(savedTransition.body.stage);
         if (savedTransition.body?.tags?.length) setTags(savedTransition.body.tags.join(', '));
         if (savedTransition.body?.attributes && Object.keys(savedTransition.body.attributes).length > 0) {
           setAttributes(JSON.stringify(savedTransition.body.attributes, null, 2));
@@ -178,6 +181,7 @@ export function TransitionDialog({ configRef, persistConfig }: TransitionDialogP
         transitionKey: transitionName,
         sync,
         key: instanceKey || undefined,
+        stage: stage.trim() || undefined,
         tags: tagsList.length > 0 ? tagsList : undefined,
         attributes: Object.keys(attrs).length > 0 ? attrs : undefined,
         headers: mergedHeaders,
@@ -208,6 +212,7 @@ export function TransitionDialog({ configRef, persistConfig }: TransitionDialogP
             queryStrings: {},
             body: {
               key: instanceKey || undefined,
+              stage: stage.trim() || undefined,
               tags: tagsList.length > 0 ? tagsList : undefined,
               attributes: Object.keys(attrs).length > 0 ? attrs : {},
             },
@@ -231,7 +236,7 @@ export function TransitionDialog({ configRef, persistConfig }: TransitionDialogP
       setError('Failed to fire transition. Please try again.');
     }
     setSubmitting(false);
-  }, [activeTabId, domain, workflowKey, transitionName, isManualMode, manualTransitionName, instanceKey, tags, headerRows, globalHeaders, sessionHeaders, buildAttributes, pollState, closeDialog, configRef, persistConfig]);
+  }, [activeTabId, domain, workflowKey, transitionName, isManualMode, manualTransitionName, instanceKey, stage, tags, headerRows, globalHeaders, sessionHeaders, buildAttributes, pollState, closeDialog, configRef, persistConfig]);
 
   if (!open) return null;
 
@@ -305,6 +310,8 @@ export function TransitionDialog({ configRef, persistConfig }: TransitionDialogP
             setAttributes={setAttributes}
             instanceKey={instanceKey}
             setInstanceKey={setInstanceKey}
+            stage={stage}
+            setStage={setStage}
             tags={tags}
             setTags={setTags}
             sync={sync}
@@ -344,6 +351,8 @@ function TransitionViewInfo({
   view: ViewResponse | null;
   loading: boolean;
 }) {
+  const [collapsed, setCollapsed] = useState(true);
+
   if (loading) {
     return (
       <div className="mb-3 flex items-center justify-center rounded border border-[var(--vscode-panel-border)] bg-[var(--vscode-textCodeBlock-background)] py-3 text-xs text-[var(--vscode-descriptionForeground)]">
@@ -359,20 +368,34 @@ function TransitionViewInfo({
   try { jsonValue = JSON.parse(displayContent); } catch { /* not JSON */ }
 
   return (
-    <div className="mb-3 rounded border border-[var(--vscode-panel-border)] p-3">
-      <div className="mb-2 flex items-center gap-2 text-xs">
-        <span className="font-medium">{view.key}</span>
-        <span className="rounded bg-[var(--vscode-badge-background)] px-1 py-0.5 text-[9px] text-[var(--vscode-badge-foreground)]">
-          {view.type}
+    <div className="mb-3 rounded border border-[var(--vscode-panel-border)]">
+      <button
+        type="button"
+        className="flex w-full items-center justify-between px-3 py-2 text-left hover:bg-[var(--vscode-list-hoverBackground)]"
+        onClick={() => setCollapsed((prev) => !prev)}
+        aria-expanded={!collapsed}
+      >
+        <div className="flex items-center gap-2 text-xs">
+          <span className="font-medium">{view.key}</span>
+          <span className="rounded bg-[var(--vscode-badge-background)] px-1 py-0.5 text-[9px] text-[var(--vscode-badge-foreground)]">
+            {view.type}
+          </span>
+          {view.label && (
+            <span className="text-[var(--vscode-descriptionForeground)]">{view.label}</span>
+          )}
+        </div>
+        <span className="text-[10px] text-[var(--vscode-descriptionForeground)]">
+          {collapsed ? '▸' : '▾'}
         </span>
-        {view.label && (
-          <span className="text-[var(--vscode-descriptionForeground)]">{view.label}</span>
-        )}
-      </div>
-      {jsonValue != null ? (
-        <CopyableJsonBlock value={jsonValue} />
-      ) : (
-        <CopyableJsonBlock value={displayContent || '(empty)'} />
+      </button>
+      {!collapsed && (
+        <div className="border-t border-[var(--vscode-panel-border)] p-3">
+          {jsonValue != null ? (
+            <CopyableJsonBlock value={jsonValue} />
+          ) : (
+            <CopyableJsonBlock value={displayContent || '(empty)'} />
+          )}
+        </div>
       )}
     </div>
   );
@@ -388,6 +411,8 @@ function TransitionInputStep({
   setAttributes,
   instanceKey,
   setInstanceKey,
+  stage,
+  setStage,
   tags,
   setTags,
   sync,
@@ -402,6 +427,8 @@ function TransitionInputStep({
   setAttributes: (v: string) => void;
   instanceKey: string;
   setInstanceKey: (v: string) => void;
+  stage: string;
+  setStage: (v: string) => void;
   tags: string;
   setTags: (v: string) => void;
   sync: boolean;
@@ -417,7 +444,7 @@ function TransitionInputStep({
 
       <details className="text-xs">
         <summary className="cursor-pointer text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]">
-          Advanced (Key, Tags, Sync)
+          Advanced (Key, State, Tags, Sync)
         </summary>
         <div className="mt-2 flex flex-col gap-2">
           <div className="flex flex-col gap-1">
@@ -438,6 +465,16 @@ function TransitionInputStep({
                 Generate
               </button>
             </div>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium">State</label>
+            <input
+              type="text"
+              value={stage}
+              onChange={(e) => setStage(e.target.value)}
+              placeholder="Target state name"
+              className="rounded border border-[var(--vscode-input-border)] bg-[var(--vscode-input-background)] px-2 py-1.5 text-xs text-[var(--vscode-input-foreground)] placeholder:text-[var(--vscode-input-placeholderForeground)]"
+            />
           </div>
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium">Tags (comma-separated)</label>
@@ -480,7 +517,7 @@ function TransitionInputStep({
           label="Attributes (JSON)"
           value={attributes}
           onChange={setAttributes}
-          rows={8}
+          rows={12}
         />
       )}
     </div>
@@ -533,7 +570,7 @@ function SchemaFormRenderer({
           label="Attributes (JSON)"
           value={value}
           onChange={onChange}
-          rows={8}
+          rows={12}
         />
       </div>
     );
@@ -547,7 +584,7 @@ function SchemaFormRenderer({
         label="Attributes (JSON)"
         value={value}
         onChange={onChange}
-        rows={8}
+        rows={12}
       />
     );
   }

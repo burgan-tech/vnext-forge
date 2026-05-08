@@ -111,15 +111,6 @@ export class VnextComponentCustomTextEditorProvider implements vscode.CustomText
       return
     }
 
-    const userPrefersDesigner = vscode.workspace
-      .getConfiguration('vnextForge')
-      .get<boolean>('openComponentJsonInDesigner', true)
-
-    if (!userPrefersDesigner) {
-      await this.openInTextEditor(uri, webviewPanel)
-      return
-    }
-
     const target = uri.fsPath
     const root = this.detector.findOwningRoot(target)
     if (!root) {

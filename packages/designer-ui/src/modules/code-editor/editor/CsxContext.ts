@@ -21,11 +21,11 @@ export type CsxTaskType =
  * Source: task-editor/forms/index.ts
  */
 export const TASK_TYPE_MAP: Record<string, CsxTaskType> = {
+  '2': 'DaprBindingTask',
   '3': 'DaprServiceTask',
   '4': 'DaprPubSubTask',
-  '5': 'ScriptTask',
   '6': 'HttpTask',
-  '7': 'DaprBindingTask',
+  '7': 'ScriptTask',
   '11': 'StartTask',
   '12': 'DirectTriggerTask',
   '13': 'GetInstanceDataTask',

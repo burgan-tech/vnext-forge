@@ -32,6 +32,7 @@ export function NewRunDialog({ open, onClose, configRef, persistConfig }: NewRun
   const { pollState } = useQuickRunPolling(pollingConfig);
 
   const [instanceKey, setInstanceKey] = useState('');
+  const [stage, setStage] = useState('');
   const [tags, setTags] = useState('');
   const [attributes, setAttributes] = useState('{}');
   const [sync, setSync] = useState(true);
@@ -78,6 +79,7 @@ export function NewRunDialog({ open, onClose, configRef, persistConfig }: NewRun
         sync,
         version: version.trim() || undefined,
         key: instanceKey || undefined,
+        stage: stage.trim() || undefined,
         tags: tagsList.length > 0 ? tagsList : undefined,
         attributes: Object.keys(parsedAttributes).length > 0 ? parsedAttributes : undefined,
         headers: mergedHeaders,
@@ -123,6 +125,7 @@ export function NewRunDialog({ open, onClose, configRef, persistConfig }: NewRun
             queryStrings: { sync, version: version.trim() || undefined },
             body: {
               key: instanceKey || undefined,
+              stage: stage.trim() || undefined,
               tags: tagsList.length > 0 ? tagsList : undefined,
               attributes: Object.keys(parsedAttributes).length > 0 ? parsedAttributes : {},
             },
@@ -132,6 +135,7 @@ export function NewRunDialog({ open, onClose, configRef, persistConfig }: NewRun
 
         onClose();
         setInstanceKey('');
+        setStage('');
         setTags('');
         setAttributes('{}');
         setSync(true);
@@ -146,7 +150,7 @@ export function NewRunDialog({ open, onClose, configRef, persistConfig }: NewRun
     }
 
     setLoading(false);
-  }, [domain, workflowKey, instanceKey, tags, attributes, sync, version, headerRows, globalHeaders, environmentName, addInstance, addTab, pollState, onClose, configRef, persistConfig]);
+  }, [domain, workflowKey, instanceKey, stage, tags, attributes, sync, version, headerRows, globalHeaders, environmentName, addInstance, addTab, pollState, onClose, configRef, persistConfig]);
 
   const dialogRef = useRef<HTMLDivElement>(null);
 
@@ -158,6 +162,7 @@ export function NewRunDialog({ open, onClose, configRef, persistConfig }: NewRun
     const startCfg = cfg.start;
 
     if (startCfg.body?.key) setInstanceKey(startCfg.body.key);
+    if (startCfg.body?.stage) setStage(startCfg.body.stage);
     if (startCfg.body?.tags?.length) setTags(startCfg.body.tags.join(', '));
     if (startCfg.body?.attributes && Object.keys(startCfg.body.attributes).length > 0) {
       setAttributes(JSON.stringify(startCfg.body.attributes, null, 2));
@@ -250,6 +255,18 @@ export function NewRunDialog({ open, onClose, configRef, persistConfig }: NewRun
             </div>
           </div>
 
+          {/* State */}
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium">State (optional)</label>
+            <input
+              type="text"
+              value={stage}
+              onChange={(e) => setStage(e.target.value)}
+              placeholder="Target state name"
+              className="rounded border border-[var(--vscode-input-border)] bg-[var(--vscode-input-background)] px-2 py-1.5 text-xs text-[var(--vscode-input-foreground)] placeholder:text-[var(--vscode-input-placeholderForeground)]"
+            />
+          </div>
+
           {/* Tags */}
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium">Tags (optional, comma-separated)</label>
@@ -267,7 +284,7 @@ export function NewRunDialog({ open, onClose, configRef, persistConfig }: NewRun
             label="Attributes (JSON)"
             value={attributes}
             onChange={setAttributes}
-            rows={5}
+            rows={8}
           />
 
           {/* Headers */}

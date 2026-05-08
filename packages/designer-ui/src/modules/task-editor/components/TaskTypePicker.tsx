@@ -2,11 +2,11 @@ import { Field } from '../../../ui/Field';
 import { RadioCard, RadioCardGroup } from '../../../ui/RadioCard';
 
 const TASK_TYPES = [
+  { value: '2', label: 'Dapr Binding', desc: 'Binding invocation' },
   { value: '3', label: 'Dapr Service Invocation', desc: 'Invoke a Dapr service' },
   { value: '4', label: 'Dapr PubSub', desc: 'Publish / subscribe' },
-  { value: '5', label: 'Script (C#)', desc: 'C# script task' },
   { value: '6', label: 'HTTP Request', desc: 'Outbound HTTP call' },
-  { value: '7', label: 'Dapr Binding', desc: 'Binding invocation' },
+  { value: '7', label: 'Script (C#)', desc: 'C# script task' },
   { value: '11', label: 'Start Workflow', desc: 'Start another workflow' },
   { value: '12', label: 'Direct Trigger', desc: 'Direct transition trigger' },
   { value: '13', label: 'Get Instance Data', desc: 'Read instance payload' },
