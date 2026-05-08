@@ -1,9 +1,11 @@
 import { useCallback } from 'react';
 import { createLogger } from '../../lib/logger/createLogger';
 import { useAsync } from '../../hooks/useAsync';
+import { useDebouncedAutoSave } from '../../hooks/useDebouncedAutoSave';
 import { useRegisterGlobalSaveShortcut } from '../../hooks/useRegisterGlobalSaveShortcut';
 import { saveComponentFile } from './SaveComponentApi';
 import { useComponentStore } from '../../store/useComponentStore';
+import { useSettingsStore } from '../../store/useSettingsStore';
 
 const logger = createLogger('save-component/useSaveComponent');
 
@@ -19,6 +21,7 @@ export function useSaveComponent(options?: UseSaveComponentOptions) {
   const filePath = useComponentStore((state) => state.filePath);
   const isDirty = useComponentStore((state) => state.isDirty);
   const markClean = useComponentStore((state) => state.markClean);
+  const autoSaveEnabled = useSettingsStore((state) => state.autoSaveEnabled);
   const beforeSave = options?.beforeSave;
   const afterSaveSuccess = options?.afterSaveSuccess;
 
@@ -50,7 +53,20 @@ export function useSaveComponent(options?: UseSaveComponentOptions) {
     await execute(filePath, JSON.stringify(componentJson, null, 2));
   }, [beforeSave, componentJson, execute, filePath, isDirty]);
 
-  useRegisterGlobalSaveShortcut(save);
+  const { autoSavePending, autoSaved, cancelAutoSave } = useDebouncedAutoSave({
+    isDirty,
+    saving: loading,
+    save,
+    enabled: autoSaveEnabled,
+    changeSignal: componentJson,
+  });
 
-  return { save, isDirty, saving: loading, saveError: error };
+  const manualSave = useCallback(async () => {
+    cancelAutoSave();
+    await save();
+  }, [cancelAutoSave, save]);
+
+  useRegisterGlobalSaveShortcut(manualSave);
+
+  return { save: manualSave, isDirty, saving: loading, saveError: error, autoSavePending, autoSaved };
 }

@@ -41,6 +41,7 @@ export type AppConfig = z.infer<typeof appConfigSchema>;
  */
 interface HostInjectedConfig {
   RUNTIME_REVALIDATION_MIN_INTERVAL_SECONDS?: number;
+  autoSaveEnabled?: boolean;
 }
 
 declare global {

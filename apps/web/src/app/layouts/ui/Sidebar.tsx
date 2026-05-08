@@ -1,6 +1,6 @@
 import { useSettingsStore } from '@vnext-forge-studio/designer-ui';
-import { Accordion, ColorThemeSwitchSidebar, Input } from '@vnext-forge-studio/designer-ui/ui';
-import { Palette } from 'lucide-react';
+import { Accordion, Checkbox, ColorThemeSwitchSidebar, Input, Label } from '@vnext-forge-studio/designer-ui/ui';
+import { Palette, Save } from 'lucide-react';
 
 import { ProjectWorkspaceSidebarPanel } from '../../../modules/project-workspace';
 import { useWebShellStore } from '../../store/useWebShellStore';
@@ -9,6 +9,8 @@ export function Sidebar() {
   const sidebarView = useWebShellStore((s) => s.sidebarView);
   const colorTheme = useSettingsStore((s) => s.colorTheme);
   const setColorTheme = useSettingsStore((s) => s.setColorTheme);
+  const autoSaveEnabled = useSettingsStore((s) => s.autoSaveEnabled);
+  const setAutoSaveEnabled = useSettingsStore((s) => s.setAutoSaveEnabled);
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col">
@@ -56,6 +58,25 @@ export function Sidebar() {
                       value={colorTheme}
                       onChange={setColorTheme}
                     />
+                  ),
+                },
+                {
+                  id: 'editor',
+                  title: 'Editor',
+                  icon: <Save className="size-3.5" strokeWidth={2} aria-hidden />,
+                  content: (
+                    <div className="flex items-center gap-2 py-1">
+                      <Checkbox
+                        id="auto-save-toggle"
+                        checked={autoSaveEnabled}
+                        onCheckedChange={(checked) => setAutoSaveEnabled(checked === true)}
+                      />
+                      <Label
+                        htmlFor="auto-save-toggle"
+                        className="text-[11px] font-medium leading-tight cursor-pointer select-none">
+                        Enable Auto Save
+                      </Label>
+                    </div>
                   ),
                 },
               ]}

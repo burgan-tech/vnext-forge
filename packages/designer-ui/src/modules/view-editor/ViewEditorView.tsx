@@ -31,7 +31,7 @@ export function ViewEditorView({
   const { activeProject, vnextConfig } = useProjectStore();
   const { componentJson, isDirty, updateComponent, undo, redo, undoStack, redoStack } =
     useComponentStore();
-  const { save, saving, saveError } = useSaveComponent({
+  const { save, saving, saveError, autoSavePending, autoSaved } = useSaveComponent({
     afterSaveSuccess: onAtomicSaved
       ? () => {
           const j = useComponentStore.getState().componentJson;
@@ -86,6 +86,8 @@ export function ViewEditorView({
       canRedo={redoStack.length > 0}
       onPublish={canPublish ? handlePublish : undefined}
       publishing={publishing}
+      autoSavePending={autoSavePending}
+      autoSaved={autoSaved}
     >
       <ViewEditorPanel json={componentJson} onChange={updateComponent} />
     </ComponentEditorLayout>

@@ -21,6 +21,8 @@ export interface ComponentEditorLayoutProps {
   onOpenQuickRun?: () => void;
   /** Opens the documentation preview dialog (flow editors only). */
   onPreviewDocument?: () => void;
+  autoSavePending?: boolean;
+  autoSaved?: boolean;
   children: ReactNode;
   /**
    * Dış "host"ta (yalnızca web sekme satırı) Save çubuğunu nereye takacağımız.
@@ -45,6 +47,8 @@ export function ComponentEditorLayout({
   publishing,
   onOpenQuickRun,
   onPreviewDocument,
+  autoSavePending,
+  autoSaved,
   children,
   registerToolbar,
   surface = 'panel',
@@ -106,6 +110,8 @@ export function ComponentEditorLayout({
         publishing={publishing}
         onOpenQuickRun={hasQuickRun ? stableOnOpenQuickRun : undefined}
         onPreviewDocument={hasPreviewDocument ? stableOnPreviewDocument : undefined}
+        autoSavePending={autoSavePending}
+        autoSaved={autoSaved}
         arrangement="host-row"
       />
     ),
@@ -121,6 +127,8 @@ export function ComponentEditorLayout({
       hasQuickRun,
       hasPreviewDocument,
       publishing,
+      autoSavePending,
+      autoSaved,
       stableOnSave,
       stableOnUndo,
       stableOnRedo,
@@ -144,6 +152,8 @@ export function ComponentEditorLayout({
       publishing={publishing}
       onOpenQuickRun={onOpenQuickRun}
       onPreviewDocument={onPreviewDocument}
+      autoSavePending={autoSavePending}
+      autoSaved={autoSaved}
       arrangement="editor-chrome"
     />
   );

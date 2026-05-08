@@ -16,6 +16,8 @@ type SettingNodeId =
   | 'canvas.edgePathStyle'
   | 'theme'
   | 'theme.mode'
+  | 'editor'
+  | 'editor.autoSave'
   | 'quickrun'
   | 'quickrun.retryCount'
   | 'quickrun.intervalMs';
@@ -34,6 +36,8 @@ const SETTING_NODES: SettingNode[] = [
   { id: 'canvas.edgePathStyle', label: 'Edge Path Style', parentId: 'canvas', getValue: (s) => s.canvas.edgePathStyle },
   { id: 'theme', label: 'Theme', getValue: () => '' },
   { id: 'theme.mode', label: 'Mode', parentId: 'theme', getValue: (s) => s.themeMode },
+  { id: 'editor', label: 'Editor', getValue: () => '' },
+  { id: 'editor.autoSave', label: 'Auto Save', parentId: 'editor', getValue: (s) => (s.autoSaveEnabled ? 'Enabled' : 'Disabled') },
   { id: 'quickrun', label: 'Quick Run Polling', getValue: () => '' },
   { id: 'quickrun.retryCount', label: 'Retry Count', parentId: 'quickrun', getValue: (_s, qr) => String(qr.polling.retryCount) },
   { id: 'quickrun.intervalMs', label: 'Interval (ms)', parentId: 'quickrun', getValue: (_s, qr) => String(qr.polling.intervalMs) },
@@ -102,6 +106,8 @@ export class GlobalSettingsProvider implements vscode.TreeDataProvider<SettingNo
         item.iconPath = new vscode.ThemeIcon('symbol-misc');
       } else if (element === 'theme') {
         item.iconPath = new vscode.ThemeIcon('color-mode');
+      } else if (element === 'editor') {
+        item.iconPath = new vscode.ThemeIcon('edit');
       } else if (element === 'quickrun') {
         item.iconPath = new vscode.ThemeIcon('debug-start');
       }
@@ -178,6 +184,19 @@ export class GlobalSettingsProvider implements vscode.TreeDataProvider<SettingNo
         );
         if (picked) {
           await this.settingsService.saveSettings({ themeMode: picked.value });
+        }
+        break;
+      }
+      case 'editor.autoSave': {
+        const picked = await vscode.window.showQuickPick(
+          [
+            { label: 'Enable', description: settings.autoSaveEnabled ? '(current)' : '', value: true },
+            { label: 'Disable', description: !settings.autoSaveEnabled ? '(current)' : '', value: false },
+          ],
+          { title: 'Enable Auto Save' },
+        );
+        if (picked != null) {
+          await this.settingsService.saveSettings({ autoSaveEnabled: picked.value });
         }
         break;
       }

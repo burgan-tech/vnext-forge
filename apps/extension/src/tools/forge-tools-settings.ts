@@ -19,6 +19,7 @@ export interface CanvasSettings {
 export interface ForgeSettings {
   canvas: CanvasSettings;
   themeMode: ThemeMode;
+  autoSaveEnabled: boolean;
 }
 
 // ── Environment types ────────────────────────────────────────────────────────
@@ -44,6 +45,7 @@ const DEFAULT_SETTINGS: ForgeSettings = {
     edgePathStyle: 'smoothstep',
   },
   themeMode: 'system',
+  autoSaveEnabled: false,
 };
 
 const DEFAULT_ENVIRONMENTS: EnvironmentsConfig = {
@@ -129,6 +131,7 @@ function parseSettings(raw: unknown): ForgeSettings {
       edgePathStyle: isValidEdgeStyle(canvas.edgePathStyle) ? canvas.edgePathStyle : defaults.canvas.edgePathStyle,
     },
     themeMode: isValidTheme(obj.themeMode) ? obj.themeMode : defaults.themeMode,
+    autoSaveEnabled: typeof obj.autoSaveEnabled === 'boolean' ? obj.autoSaveEnabled : defaults.autoSaveEnabled,
   };
 }
 
@@ -250,6 +253,7 @@ export class ForgeToolsSettingsService implements vscode.Disposable {
     const merged: ForgeSettings = {
       canvas: patch.canvas ? { ...current.canvas, ...patch.canvas } : current.canvas,
       themeMode: patch.themeMode ?? current.themeMode,
+      autoSaveEnabled: patch.autoSaveEnabled ?? current.autoSaveEnabled,
     };
     await this.writeJsonFile(SETTINGS_FILE, merged);
     this.settingsCache = merged;

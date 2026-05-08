@@ -1,9 +1,11 @@
 import { useCallback, useEffect } from 'react';
 import { useRegisterGlobalSaveShortcut } from '../../hooks/useRegisterGlobalSaveShortcut';
+import { useDebouncedAutoSave } from '../../hooks/useDebouncedAutoSave';
 import { createLogger } from '../../lib/logger/createLogger';
 import { useAsync } from '../../hooks/useAsync';
 import { loadSchemaEditor, saveSchemaEditor } from './SchemaEditorApi';
 import { useSchemaEditorStore } from './useSchemaEditorStore';
+import { useSettingsStore } from '../../store/useSettingsStore';
 
 const logger = createLogger('schema-editor/useSchemaEditor');
 
@@ -20,6 +22,7 @@ export function useSchemaEditor({ filePath, onSaveSuccess }: UseSchemaEditorPara
   const markClean = useSchemaEditorStore((state) => state.markClean);
   const setComponent = useSchemaEditorStore((state) => state.setComponent);
   const clear = useSchemaEditorStore((state) => state.clear);
+  const autoSaveEnabled = useSettingsStore((state) => state.autoSaveEnabled);
 
   const {
     execute: executeLoad,
@@ -78,7 +81,20 @@ export function useSchemaEditor({ filePath, onSaveSuccess }: UseSchemaEditorPara
     });
   }, [componentFilePath, componentJson, executeSave, isDirty]);
 
-  useRegisterGlobalSaveShortcut(save);
+  const { autoSavePending, autoSaved, cancelAutoSave } = useDebouncedAutoSave({
+    isDirty,
+    saving,
+    save,
+    enabled: autoSaveEnabled,
+    changeSignal: componentJson,
+  });
+
+  const manualSave = useCallback(async () => {
+    cancelAutoSave();
+    await save();
+  }, [cancelAutoSave, save]);
+
+  useRegisterGlobalSaveShortcut(manualSave);
 
   const isReady = Boolean(data && componentJson && componentFilePath === filePath);
 
@@ -86,8 +102,10 @@ export function useSchemaEditor({ filePath, onSaveSuccess }: UseSchemaEditorPara
     loading,
     error,
     isReady,
-    save,
+    save: manualSave,
     saving,
     saveError,
+    autoSavePending,
+    autoSaved,
   };
 }
