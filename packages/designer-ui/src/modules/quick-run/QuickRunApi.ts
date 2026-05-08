@@ -18,6 +18,7 @@ interface StartInstanceParams {
   sync?: boolean;
   version?: string;
   key?: string;
+  stage?: string;
   tags?: string[];
   attributes?: Record<string, unknown>;
   headers?: Record<string, string>;
@@ -31,6 +32,7 @@ interface FireTransitionParams {
   transitionKey: string;
   sync?: boolean;
   key?: string;
+  stage?: string;
   tags?: string[];
   attributes?: Record<string, unknown>;
   headers?: Record<string, string>;
@@ -148,6 +150,7 @@ export interface TransitionBucketEntry {
   queryStrings: Record<string, unknown>;
   body: {
     key?: string;
+    stage?: string;
     tags?: string[];
     attributes: Record<string, unknown>;
   };
@@ -161,6 +164,7 @@ export interface WorkflowBucketConfig {
     queryStrings: { sync?: boolean; version?: string };
     body: {
       key?: string;
+      stage?: string;
       tags?: string[];
       attributes: Record<string, unknown>;
     };

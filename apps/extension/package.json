@@ -2,7 +2,7 @@
   "name": "vnext-forge-studio",
   "displayName": "vNext Forge Studio Extensions",
   "description": "Workflow designer for the vNext engine ecosystem",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "publisher": "burgan-tech",
   "icon": "media/forge-tools.png",
   "private": true,

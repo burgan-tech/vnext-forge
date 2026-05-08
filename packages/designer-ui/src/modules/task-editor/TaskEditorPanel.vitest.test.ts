@@ -38,7 +38,7 @@ describe('TaskEditorPanel layout', () => {
    * task types and let ScriptTaskForm own its own stable height.
    */
   it('uses the block layout (space-y-4 p-4) for script tasks so Metadata cannot squeeze the script editor card to zero height', () => {
-    const html = renderTaskEditorPanel('5');
+    const html = renderTaskEditorPanel('7');
     const rootClasses = getRootClasses(html);
     expect(rootClasses).toEqual(expect.arrayContaining(['space-y-4', 'p-4']));
     expect(rootClasses).not.toContain('h-full');
@@ -52,15 +52,8 @@ describe('TaskEditorPanel layout', () => {
     expect(rootClasses).not.toContain('h-full');
   });
 
-  /**
-   * Both cards must keep their default natural sizing — no `flex-1`, no
-   * `min-h-0`, no `overflow-hidden`. If we force any of those on the
-   * Configuration card the script form inside cannot expand to its
-   * clamped height (it instead matches whatever the flex algorithm gave
-   * the card, which can be 0 when Metadata is tall).
-   */
-  it('does not pin the Configuration card to a flex-1 / overflow-hidden chain (the script form owns its own stable height)', () => {
-    const html = renderTaskEditorPanel('5');
+  it('does not pin the Configuration card to a flex-1 / overflow-hidden chain', () => {
+    const html = renderTaskEditorPanel('7');
     const cardClassLists = Array.from(html.matchAll(/data-slot="card" class="([^"]+)"/g)).map(
       (m) => (m[1] ?? '').split(' '),
     );

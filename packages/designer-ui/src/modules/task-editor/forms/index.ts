@@ -16,11 +16,11 @@ interface TaskFormProps {
 }
 
 export const taskFormMap: Record<string, ComponentType<TaskFormProps>> = {
+  '2': DaprBindingTaskForm,
   '3': DaprServiceTaskForm,
   '4': DaprPubSubTaskForm,
-  '5': ScriptTaskForm,
   '6': HttpTaskForm,
-  '7': DaprBindingTaskForm,
+  '7': ScriptTaskForm,
   '11': StartTaskForm,
   '12': DirectTriggerTaskForm,
   '13': GetInstanceDataTaskForm,

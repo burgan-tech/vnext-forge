@@ -94,7 +94,6 @@ export function ComponentEditorDialog({
           <TaskEditorView
             key={editorKey}
             {...common}
-            onOpenScriptFileInHost={onOpenScriptFileInHost}
           />
         );
       case 'schema':
