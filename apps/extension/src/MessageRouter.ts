@@ -231,19 +231,38 @@ export class MessageRouter {
         { path: normalized } as Record<string, unknown>,
         'host:open-workspace-file rejected: path outside workspace',
       );
+      void vscode.window.showWarningMessage(
+        `Cannot open file: path is outside the workspace.`,
+      );
       return;
     }
 
     try {
-      await vscode.commands.executeCommand('vscode.openWith', uri, 'default');
+      await vscode.workspace.fs.stat(uri);
+    } catch {
+      this.deps.logger.warn(
+        { path: normalized } as Record<string, unknown>,
+        'host:open-workspace-file: file does not exist on disk',
+      );
+      void vscode.window.showWarningMessage(
+        `Script file not found: ${path.basename(normalized)}. Save the workflow first to persist the script to disk.`,
+      );
+      return;
+    }
+
+    try {
+      const document = await vscode.workspace.openTextDocument(uri);
+      await vscode.window.showTextDocument(document, { preview: false });
     } catch {
       try {
-        const document = await vscode.workspace.openTextDocument(uri);
-        await vscode.window.showTextDocument(document, { preview: false });
+        await vscode.commands.executeCommand('vscode.open', uri);
       } catch (error) {
         this.deps.logger.warn(
           { path: normalized, err: (error as Error).message } as Record<string, unknown>,
           'host:open-workspace-file failed',
+        );
+        void vscode.window.showErrorMessage(
+          `Could not open file: ${path.basename(normalized)}`,
         );
       }
     }

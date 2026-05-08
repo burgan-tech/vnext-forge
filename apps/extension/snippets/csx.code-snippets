@@ -315,5 +315,35 @@
       "    }",
       "}"
     ]
+  },
+  "vnext-fromresult": {
+    "scope": "csharp",
+    "prefix": "vnext-fromresult",
+    "description": "Return with Task.FromResult (non-async)",
+    "body": [
+      "return Task.FromResult(new ScriptResponse",
+      "{",
+      "    Data = new",
+      "    {",
+      "        ${1:property} = ${2:value}$0",
+      "    }",
+      "});"
+    ]
+  },
+  "vnext-fromresult-bool": {
+    "scope": "csharp",
+    "prefix": "vnext-fromresult-bool",
+    "description": "Return bool with Task.FromResult (non-async condition)",
+    "body": [
+      "return Task.FromResult(${1|true,false|});$0"
+    ]
+  },
+  "vnext-fromresult-timer": {
+    "scope": "csharp",
+    "prefix": "vnext-fromresult-timer",
+    "description": "Return TimerSchedule with Task.FromResult (non-async timer)",
+    "body": [
+      "return Task.FromResult(TimerSchedule.FromDuration(TimeSpan.From${1|Minutes,Hours,Seconds,Days|}(${2:5})));$0"
+    ]
   }
 }

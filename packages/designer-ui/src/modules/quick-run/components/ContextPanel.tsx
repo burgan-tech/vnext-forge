@@ -143,7 +143,7 @@ export function ContextPanel() {
 
       {/* Tab content */}
       <div
-        className="flex-1 overflow-y-auto p-3"
+        className="flex flex-1 flex-col overflow-hidden p-3"
         role="tabpanel"
         id={`quickrun-tabpanel-${contextPanelTab}`}
         aria-labelledby={`quickrun-tab-${contextPanelTab}`}
@@ -175,17 +175,17 @@ function ViewTabContent({ view, loading, notFound }: { view: ReturnType<typeof u
   try { jsonValue = JSON.parse(displayContent); } catch { /* not JSON */ }
 
   return (
-    <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-2 text-xs">
+    <div className="flex flex-1 flex-col gap-2 min-h-0">
+      <div className="flex items-center gap-2 text-xs shrink-0">
         <span className="font-medium">{view.key}</span>
         <span className="rounded bg-[var(--vscode-badge-background)] px-1 py-0.5 text-[9px] text-[var(--vscode-badge-foreground)]">
           {view.type}
         </span>
       </div>
       {jsonValue != null ? (
-        <CopyableJsonBlock value={jsonValue} />
+        <CopyableJsonBlock value={jsonValue} fillHeight />
       ) : (
-        <CopyableJsonBlock value={displayContent || '(empty)'} />
+        <CopyableJsonBlock value={displayContent || '(empty)'} fillHeight />
       )}
     </div>
   );
@@ -194,7 +194,11 @@ function ViewTabContent({ view, loading, notFound }: { view: ReturnType<typeof u
 function DataTabContent({ data, loading }: { data: ReturnType<typeof useQuickRunStore.getState>['activeData']; loading: boolean }) {
   if (loading) return <LoadingPlaceholder />;
   if (!data) return <EmptyState message="No data available" />;
-  return <CopyableJsonBlock value={data.data} />;
+  return (
+    <div className="flex flex-1 flex-col min-h-0">
+      <CopyableJsonBlock value={data.data} fillHeight />
+    </div>
+  );
 }
 
 
@@ -223,7 +227,7 @@ function HistoryTabContent({ history, loading }: { history: ReturnType<typeof us
   if (!history || history.transitions.length === 0) return <EmptyState message="No transition history yet" />;
   return (
     <>
-      <div className="flex flex-col gap-1">
+      <div className="flex flex-1 flex-col gap-1 overflow-y-auto min-h-0">
         {history.transitions.map((t) => (
           <div
             key={t.id}
@@ -370,7 +374,7 @@ function CorrelationsTabContent() {
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-1 flex-col gap-2 overflow-y-auto min-h-0">
       {correlations.map((c) => (
         <div
           key={c.correlationId}

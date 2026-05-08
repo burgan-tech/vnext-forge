@@ -498,7 +498,7 @@
             "filenamePattern": "*.json"
           }
         ],
-        "priority": "default"
+        "priority": "option"
       }
     ],
     "configuration": {
@@ -536,11 +536,6 @@
           "type": "number",
           "default": 30,
           "description": "Minimum time (seconds) between background runtime revalidation requests issued by the designer UI."
-        },
-        "vnextForge.openComponentJsonInDesigner": {
-          "type": "boolean",
-          "default": true,
-          "description": "When true, component .json files under vnext.config.json paths open in the vnext-forge-studio designer by default (Explorer / single-click). Use \"Open in Text Editor\" from the context menu to open the raw file in VS Code."
         },
         "vnextForge.materialAssociations.managed": {
           "type": "object",

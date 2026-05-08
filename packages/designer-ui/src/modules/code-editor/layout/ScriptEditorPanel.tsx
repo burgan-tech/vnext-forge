@@ -343,9 +343,29 @@ export function ScriptEditorPanel({
     const editor = editorRef.current;
     if (!editor) return;
     editor.focus();
-    requestAnimationFrame(() => {
-      editor.trigger('reference', 'editor.action.insertSnippet', { snippet: text });
-    });
+    setTimeout(() => {
+      try {
+        const contribution = editor.getContribution?.('snippetController2');
+        if (contribution) {
+          contribution.insert?.(text);
+          return;
+        }
+      } catch { /* fallback below */ }
+
+      try {
+        editor.trigger('reference', 'editor.action.insertSnippet', { snippet: text });
+      } catch {
+        const selection = editor.getSelection();
+        if (selection) {
+          const plainText = text
+            .replace(/\$\{\d+:([^}]*)}/g, '$1')
+            .replace(/\$\d+/g, '');
+          editor.executeEdits('reference-panel', [
+            { range: selection, text: plainText, forceMoveMarkers: true },
+          ]);
+        }
+      }
+    }, 50);
   }, []);
 
   const handleClose = useCallback(() => {

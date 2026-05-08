@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback, useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 import MonacoEditor, { type OnMount } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
 
@@ -7,24 +7,33 @@ import { useResolvedColorTheme } from '../../../hooks/useResolvedColorTheme';
 interface CopyableJsonBlockProps {
   value: unknown;
   maxHeight?: string;
+  fillHeight?: boolean;
 }
 
-export function CopyableJsonBlock({ value, maxHeight }: CopyableJsonBlockProps) {
+export function CopyableJsonBlock({ value, maxHeight, fillHeight }: CopyableJsonBlockProps) {
   const [copied, setCopied] = useState(false);
+  const resolvedColorTheme = useResolvedColorTheme();
+  const monacoTheme = resolvedColorTheme === 'dark' ? 'vs-dark' : 'vs';
+
+  const text = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+  const lineCount = text.split('\n').length;
+  const computedHeight = fillHeight
+    ? undefined
+    : Math.min(Math.max(lineCount * 19 + 8, 60), maxHeight ? parseInt(maxHeight, 10) || 300 : 300);
 
   const handleCopy = useCallback(() => {
-    const text = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
-    void navigator.clipboard.writeText(text).then(() => {
+    const copyText = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+    void navigator.clipboard.writeText(copyText).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     });
   }, [value]);
 
   return (
-    <div className="group relative overflow-x-auto rounded bg-[var(--vscode-textCodeBlock-background)] p-2 text-[11px]">
+    <div className={`group relative rounded bg-[var(--vscode-textCodeBlock-background)] text-[11px]${fillHeight ? ' flex-1 min-h-0' : ''}`}>
       <button
         type="button"
-        className="absolute top-1 right-1 flex h-5 w-5 items-center justify-center rounded opacity-0 transition-opacity group-hover:opacity-100 hover:bg-[var(--vscode-list-hoverBackground)]"
+        className="absolute top-1 right-1 z-10 flex h-5 w-5 items-center justify-center rounded opacity-0 transition-opacity group-hover:opacity-100 hover:bg-[var(--vscode-list-hoverBackground)]"
         onClick={handleCopy}
         title={copied ? 'Copied!' : 'Copy to clipboard'}
         aria-label="Copy JSON"
@@ -35,9 +44,34 @@ export function CopyableJsonBlock({ value, maxHeight }: CopyableJsonBlockProps) 
           <CopyIcon />
         )}
       </button>
-      <pre className={`whitespace-pre-wrap ${maxHeight ? `max-h-[${maxHeight}] overflow-y-auto` : ''}`}>
-        <JsonHighlighter value={value} />
-      </pre>
+      <div style={fillHeight ? { height: '100%' } : { height: computedHeight }}>
+        <MonacoEditor
+          height="100%"
+          language="json"
+          value={text}
+          theme={monacoTheme}
+          options={{
+            readOnly: true,
+            padding: { top: 4, bottom: 4 },
+            folding: true,
+            showFoldingControls: 'always',
+            fontSize: 11,
+            glyphMargin: false,
+            lineDecorationsWidth: 16,
+            lineNumbers: 'off',
+            lineNumbersMinChars: 0,
+            minimap: { enabled: false },
+            overviewRulerLanes: 0,
+            renderLineHighlight: 'none',
+            scrollBeyondLastLine: false,
+            scrollbar: { horizontalScrollbarSize: 4, verticalScrollbarSize: 4 },
+            tabSize: 2,
+            wordWrap: 'on',
+            domReadOnly: true,
+            contextmenu: false,
+          }}
+        />
+      </div>
     </div>
   );
 }
@@ -50,73 +84,6 @@ function CopyIcon() {
   );
 }
 
-export function JsonHighlighter({ value }: { value: unknown }) {
-  const lines = renderJsonLines(value, 0);
-  return <>{lines}</>;
-}
-
-type JsonNode = ReactNode;
-
-function renderJsonLines(value: unknown, indent: number): JsonNode[] {
-  const pad = '  '.repeat(indent);
-
-  if (value === null) {
-    return [<span key="null" style={{ color: 'var(--vscode-debugTokenExpression-name, #569cd6)' }}>null</span>];
-  }
-
-  if (typeof value === 'boolean') {
-    return [<span key="bool" style={{ color: 'var(--vscode-debugTokenExpression-name, #569cd6)' }}>{String(value)}</span>];
-  }
-
-  if (typeof value === 'number') {
-    return [<span key="num" style={{ color: 'var(--vscode-debugTokenExpression-number, #b5cea8)' }}>{String(value)}</span>];
-  }
-
-  if (typeof value === 'string') {
-    return [<span key="str" style={{ color: 'var(--vscode-debugTokenExpression-string, #ce9178)' }}>{`"${escapeJsonString(value)}"`}</span>];
-  }
-
-  if (Array.isArray(value)) {
-    if (value.length === 0) return [<span key="arr">{'[]'}</span>];
-    const result: JsonNode[] = [];
-    result.push('[\n');
-    value.forEach((item, i) => {
-      result.push(pad + '  ');
-      result.push(...renderJsonLines(item, indent + 1));
-      if (i < value.length - 1) result.push(',');
-      result.push('\n');
-    });
-    result.push(pad + ']');
-    return result;
-  }
-
-  if (typeof value === 'object') {
-    const entries = Object.entries(value as Record<string, unknown>);
-    if (entries.length === 0) return [<span key="obj">{'{}'}</span>];
-    const result: JsonNode[] = [];
-    result.push('{\n');
-    entries.forEach(([key, val], i) => {
-      result.push(pad + '  ');
-      result.push(
-        <span key={`k-${key}`} style={{ color: 'var(--vscode-symbolIcon-propertyForeground, #9cdcfe)' }}>
-          {`"${escapeJsonString(key)}"`}
-        </span>,
-      );
-      result.push(': ');
-      result.push(...renderJsonLines(val, indent + 1));
-      if (i < entries.length - 1) result.push(',');
-      result.push('\n');
-    });
-    result.push(pad + '}');
-    return result;
-  }
-
-  return [String(value)];
-}
-
-function escapeJsonString(s: string): string {
-  return s.replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n').replace(/\r/g, '\\r').replace(/\t/g, '\\t');
-}
 
 interface JsonEditorWithCopyProps {
   value: string;
@@ -209,10 +176,11 @@ export function JsonEditorWithCopy({ value, onChange, rows = 8, label }: JsonEdi
           theme={monacoTheme}
           options={{
             padding: { top: 4, bottom: 4 },
-            folding: false,
+            folding: true,
+            showFoldingControls: 'always',
             fontSize: 11,
             glyphMargin: false,
-            lineDecorationsWidth: 0,
+            lineDecorationsWidth: 16,
             lineNumbers: 'off',
             lineNumbersMinChars: 0,
             minimap: { enabled: false },

@@ -267,7 +267,7 @@ export function NewRunDialog({ open, onClose, configRef, persistConfig }: NewRun
             label="Attributes (JSON)"
             value={attributes}
             onChange={setAttributes}
-            rows={5}
+            rows={8}
           />
 
           {/* Headers */}

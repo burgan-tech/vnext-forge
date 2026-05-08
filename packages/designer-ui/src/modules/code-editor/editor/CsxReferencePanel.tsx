@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { ChevronRight, Copy, Search, X } from 'lucide-react';
+import { Check, ChevronRight, Copy, Search, X } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -51,20 +51,36 @@ function ReferenceSection({
 }
 
 function ReferenceEntry({ entry, onInsert }: { entry: ApiEntry; onInsert?: (text: string) => void }) {
+  const [copied, setCopied] = useState(false);
+
   const handleInsert = useCallback(() => {
     if (onInsert && entry.insertText) {
       onInsert(entry.insertText);
     }
   }, [entry.insertText, onInsert]);
 
+  const handleCopy = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!entry.insertText) return;
+    const plain = entry.insertText
+      .replace(/\$\{\d+:([^}]*)}/g, '$1')
+      .replace(/\$\d+/g, '');
+    void navigator.clipboard.writeText(plain).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  }, [entry.insertText]);
+
   return (
-    <button
-      onMouseDown={(e) => e.preventDefault()}
-      onClick={handleInsert}
+    <div
       className="group flex w-full items-center gap-2 px-4 py-1.5 text-left transition-colors hover:bg-secondary-surface/80"
-      title={entry.description}
     >
-      <div className="min-w-0 flex-1">
+      <button
+        onMouseDown={(e) => e.preventDefault()}
+        onClick={handleInsert}
+        className="min-w-0 flex-1 text-left"
+        title={`${entry.description} — click to insert`}
+      >
         <div className="flex items-center gap-1.5">
           <span className="truncate font-mono text-[11px] font-semibold text-foreground transition-colors group-hover:text-secondary-text">
             {entry.name}
@@ -75,12 +91,26 @@ function ReferenceEntry({ entry, onInsert }: { entry: ApiEntry; onInsert?: (text
             </span>
           )}
         </div>
-      </div>
-      <Copy
-        size={10}
-        className="shrink-0 text-muted-icon transition-colors group-hover:text-secondary-icon"
-      />
-    </button>
+      </button>
+      <TooltipProvider delayDuration={300}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              type="button"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={handleCopy}
+              className="flex size-5 shrink-0 items-center justify-center rounded text-muted-icon transition-colors hover:bg-muted hover:text-foreground"
+              aria-label="Copy to clipboard"
+            >
+              {copied ? <Check size={10} className="text-green-500" /> : <Copy size={10} />}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="left" className="text-[11px]">
+            {copied ? 'Copied!' : 'Copy to clipboard'}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    </div>
   );
 }
 

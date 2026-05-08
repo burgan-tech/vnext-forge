@@ -344,6 +344,8 @@ function TransitionViewInfo({
   view: ViewResponse | null;
   loading: boolean;
 }) {
+  const [collapsed, setCollapsed] = useState(true);
+
   if (loading) {
     return (
       <div className="mb-3 flex items-center justify-center rounded border border-[var(--vscode-panel-border)] bg-[var(--vscode-textCodeBlock-background)] py-3 text-xs text-[var(--vscode-descriptionForeground)]">
@@ -359,20 +361,34 @@ function TransitionViewInfo({
   try { jsonValue = JSON.parse(displayContent); } catch { /* not JSON */ }
 
   return (
-    <div className="mb-3 rounded border border-[var(--vscode-panel-border)] p-3">
-      <div className="mb-2 flex items-center gap-2 text-xs">
-        <span className="font-medium">{view.key}</span>
-        <span className="rounded bg-[var(--vscode-badge-background)] px-1 py-0.5 text-[9px] text-[var(--vscode-badge-foreground)]">
-          {view.type}
+    <div className="mb-3 rounded border border-[var(--vscode-panel-border)]">
+      <button
+        type="button"
+        className="flex w-full items-center justify-between px-3 py-2 text-left hover:bg-[var(--vscode-list-hoverBackground)]"
+        onClick={() => setCollapsed((prev) => !prev)}
+        aria-expanded={!collapsed}
+      >
+        <div className="flex items-center gap-2 text-xs">
+          <span className="font-medium">{view.key}</span>
+          <span className="rounded bg-[var(--vscode-badge-background)] px-1 py-0.5 text-[9px] text-[var(--vscode-badge-foreground)]">
+            {view.type}
+          </span>
+          {view.label && (
+            <span className="text-[var(--vscode-descriptionForeground)]">{view.label}</span>
+          )}
+        </div>
+        <span className="text-[10px] text-[var(--vscode-descriptionForeground)]">
+          {collapsed ? '▸' : '▾'}
         </span>
-        {view.label && (
-          <span className="text-[var(--vscode-descriptionForeground)]">{view.label}</span>
-        )}
-      </div>
-      {jsonValue != null ? (
-        <CopyableJsonBlock value={jsonValue} />
-      ) : (
-        <CopyableJsonBlock value={displayContent || '(empty)'} />
+      </button>
+      {!collapsed && (
+        <div className="border-t border-[var(--vscode-panel-border)] p-3">
+          {jsonValue != null ? (
+            <CopyableJsonBlock value={jsonValue} />
+          ) : (
+            <CopyableJsonBlock value={displayContent || '(empty)'} />
+          )}
+        </div>
       )}
     </div>
   );
@@ -480,7 +496,7 @@ function TransitionInputStep({
           label="Attributes (JSON)"
           value={attributes}
           onChange={setAttributes}
-          rows={8}
+          rows={12}
         />
       )}
     </div>
@@ -533,7 +549,7 @@ function SchemaFormRenderer({
           label="Attributes (JSON)"
           value={value}
           onChange={onChange}
-          rows={8}
+          rows={12}
         />
       </div>
     );
@@ -547,7 +563,7 @@ function SchemaFormRenderer({
         label="Attributes (JSON)"
         value={value}
         onChange={onChange}
-        rows={8}
+        rows={12}
       />
     );
   }
