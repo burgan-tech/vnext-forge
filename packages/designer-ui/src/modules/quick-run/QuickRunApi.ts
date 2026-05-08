@@ -142,6 +142,45 @@ export async function listInstances(params: ListInstancesParams): Promise<ApiRes
   return callApi({ method: 'quickrun/listInstances', params });
 }
 
+interface GetInstanceParams {
+  domain: string;
+  workflowKey: string;
+  instanceId: string;
+  headers?: Record<string, string>;
+  runtimeUrl?: string;
+}
+
+export interface InstanceDetailResponse {
+  id: string;
+  key: string;
+  flow: string;
+  domain: string;
+  flowVersion?: string;
+  eTag?: string;
+  entityEtag?: string;
+  tags?: string[];
+  metadata: {
+    currentState: string;
+    effectiveState: string;
+    status: string;
+    effectiveStateType?: string;
+    effectiveStateSubType?: string;
+    currentStateType?: string;
+    currentStateSubType?: string;
+    stage?: string;
+    createdAt: string;
+    modifiedAt?: string;
+    createdBy?: string;
+    createdByBehalfOf?: string;
+    modifiedBy?: string;
+    modifiedByBehalfOf?: string;
+  };
+}
+
+export async function getInstance(params: GetInstanceParams): Promise<ApiResponse<InstanceDetailResponse>> {
+  return callApi({ method: 'quickrun/getInstance', params });
+}
+
 // ── Workflow Config Persistence (direct postMessage, extension-host only) ─────
 
 export interface TransitionBucketEntry {

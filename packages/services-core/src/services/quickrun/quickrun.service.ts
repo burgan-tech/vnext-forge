@@ -9,6 +9,8 @@ import {
   quickrunGetDataResult,
   quickrunGetHistoryParams,
   quickrunGetHistoryResult,
+  quickrunGetInstanceParams,
+  quickrunGetInstanceResult,
   quickrunGetSchemaParams,
   quickrunGetSchemaResult,
   quickrunGetStateParams,
@@ -296,6 +298,25 @@ export function createQuickRunService(runtimeProxyService: RuntimeProxyService) 
     return parseJsonResponse(result.data, result.status, 'QuickRunService.listInstances', traceId)
   }
 
+  async function getInstance(
+    params: z.infer<typeof quickrunGetInstanceParams>,
+    traceId?: string,
+  ): Promise<z.infer<typeof quickrunGetInstanceResult>> {
+    const base = buildBasePath(params.domain, params.workflowKey)
+
+    const result = await proxyCall(
+      {
+        method: 'GET',
+        runtimePath: `${base}/instances/${params.instanceId}`,
+        headers: params.headers,
+        runtimeUrl: params.runtimeUrl,
+      },
+      traceId,
+    )
+
+    return parseJsonResponse(result.data, result.status, 'QuickRunService.getInstance', traceId)
+  }
+
   return {
     startInstance,
     fireTransition,
@@ -306,6 +327,7 @@ export function createQuickRunService(runtimeProxyService: RuntimeProxyService) 
     getHistory,
     retryInstance,
     listInstances,
+    getInstance,
   }
 }
 

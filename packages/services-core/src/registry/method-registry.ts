@@ -46,6 +46,8 @@ import {
   quickrunGetDataResult,
   quickrunGetHistoryParams,
   quickrunGetHistoryResult,
+  quickrunGetInstanceParams,
+  quickrunGetInstanceResult,
   quickrunGetSchemaParams,
   quickrunGetSchemaResult,
   quickrunGetStateParams,
@@ -492,6 +494,12 @@ export function buildMethodRegistry(): MethodRegistry {
       resultSchema: quickrunListInstancesResult,
       handler: async (params, { quickRunService }, traceId) =>
         quickRunService.listInstances(params, traceId),
+    },
+    'quickrun/getInstance': {
+      paramsSchema: quickrunGetInstanceParams,
+      resultSchema: quickrunGetInstanceResult,
+      handler: async (params, { quickRunService }, traceId) =>
+        quickRunService.getInstance(params, traceId),
     },
 
     // ── health ───────────────────────────────────────────────────────────────

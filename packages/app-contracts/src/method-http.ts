@@ -51,6 +51,7 @@ export type MethodId =
   | 'quickrun/getSchema'
   | 'quickrun/getHistory'
   | 'quickrun/listInstances'
+  | 'quickrun/getInstance'
   | 'runtime/proxy'
   | 'health/check'
 
@@ -98,6 +99,7 @@ export const METHOD_HTTP_METADATA: Readonly<Record<MethodId, MethodHttpSpec>> = 
   'quickrun/getSchema': { verb: 'POST', paramSource: 'json' },
   'quickrun/getHistory': { verb: 'POST', paramSource: 'json' },
   'quickrun/listInstances': { verb: 'POST', paramSource: 'json' },
+  'quickrun/getInstance': { verb: 'POST', paramSource: 'json' },
   'runtime/proxy': { verb: 'POST', paramSource: 'json' },
   'health/check': { verb: 'GET', paramSource: 'query' },
 })

@@ -255,14 +255,14 @@ export function NewRunDialog({ open, onClose, configRef, persistConfig }: NewRun
             </div>
           </div>
 
-          {/* State */}
+          {/* Stage */}
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium">State (optional)</label>
+            <label className="text-xs font-medium">Stage (optional)</label>
             <input
               type="text"
               value={stage}
               onChange={(e) => setStage(e.target.value)}
-              placeholder="Target state name"
+              placeholder="e.g. approval, review, payment"
               className="rounded border border-[var(--vscode-input-border)] bg-[var(--vscode-input-background)] px-2 py-1.5 text-xs text-[var(--vscode-input-foreground)] placeholder:text-[var(--vscode-input-placeholderForeground)]"
             />
           </div>

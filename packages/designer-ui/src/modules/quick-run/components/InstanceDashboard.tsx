@@ -1,6 +1,7 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import * as QuickRunApi from '../QuickRunApi';
+import type { InstanceDetailResponse } from '../QuickRunApi';
 import { useQuickRunPolling } from '../hooks/useQuickRunPolling';
 import { useQuickRunStore } from '../store/quickRunStore';
 import type { TransitionInfo } from '../types/quickrun.types';
@@ -39,6 +40,10 @@ export function InstanceDashboard() {
   const [cancelling, setCancelling] = useState(false);
   const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
   const [retryDialogOpen, setRetryDialogOpen] = useState(false);
+  const [metaDialogOpen, setMetaDialogOpen] = useState(false);
+  const [metaLoading, setMetaLoading] = useState(false);
+  const [metaData, setMetaData] = useState<InstanceDetailResponse | null>(null);
+  const [metaError, setMetaError] = useState<string | null>(null);
 
   const activeInstance = activeTabId ? instances.get(activeTabId) : undefined;
 
@@ -104,6 +109,31 @@ export function InstanceDashboard() {
     setRetryDialogOpen(false);
   }, [activeTabId, domain, workflowKey, pollState]);
 
+  const handleFetchMeta = useCallback(async () => {
+    if (!activeTabId || !domain || !workflowKey) return;
+    setMetaDialogOpen(true);
+    setMetaLoading(true);
+    setMetaError(null);
+    try {
+      const merged = { ...globalHeaders, ...sessionHeaders };
+      const response = await QuickRunApi.getInstance({
+        domain,
+        workflowKey,
+        instanceId: activeTabId,
+        headers: merged,
+      });
+      if (response.success) {
+        setMetaData(response.data);
+      } else {
+        setMetaError(response.error.message);
+      }
+    } catch (err) {
+      setMetaError(err instanceof Error ? err.message : 'Failed to fetch instance details');
+    } finally {
+      setMetaLoading(false);
+    }
+  }, [activeTabId, domain, workflowKey, globalHeaders, sessionHeaders]);
+
   if (!activeInstance) {
     return (
       <main className="flex h-full flex-1 items-center justify-center text-[var(--vscode-descriptionForeground)]">
@@ -152,6 +182,15 @@ export function InstanceDashboard() {
                 ) : (
                   <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M4 4v-1.5A1.5 1.5 0 015.5 1h5A1.5 1.5 0 0112 2.5v7A1.5 1.5 0 0110.5 11H9v1.5A1.5 1.5 0 017.5 14h-5A1.5 1.5 0 011 12.5v-7A1.5 1.5 0 012.5 4H4zm1 0h2.5A1.5 1.5 0 019 5.5V10h1.5a.5.5 0 00.5-.5v-7a.5.5 0 00-.5-.5h-5a.5.5 0 00-.5.5V4zm-2.5 1a.5.5 0 00-.5.5v7a.5.5 0 00.5.5h5a.5.5 0 00.5-.5v-7a.5.5 0 00-.5-.5h-5z"/></svg>
                 )}
+              </button>
+              <button
+                className="inline-flex items-center rounded p-0.5 text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] hover:text-[var(--vscode-foreground)]"
+                title="Instance Details"
+                onClick={handleFetchMeta}
+              >
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor">
+                  <path d="M7.5 1a6.5 6.5 0 100 13 6.5 6.5 0 000-13zm0 12a5.5 5.5 0 110-11 5.5 5.5 0 010 11zm.5-9H7v1h1V4zm0 2H7v5h1V6z"/>
+                </svg>
               </button>
             </span>
             <span>STARTED {new Date(activeInstance.startedAt).toLocaleTimeString()}</span>
@@ -382,6 +421,16 @@ export function InstanceDashboard() {
           sessionHeaders={sessionHeaders}
           onSubmit={handleRetryInstanceSubmit}
           onClose={() => setRetryDialogOpen(false)}
+        />
+      )}
+
+      {metaDialogOpen && (
+        <InstanceMetaDialog
+          loading={metaLoading}
+          data={metaData}
+          error={metaError}
+          onRetry={handleFetchMeta}
+          onClose={() => { setMetaDialogOpen(false); setMetaData(null); setMetaError(null); }}
         />
       )}
     </main>
@@ -739,4 +788,158 @@ function StateViewContent({ view }: { view: NonNullable<ReturnType<typeof useQui
       )}
     </div>
   );
+}
+
+function InstanceMetaDialog({
+  loading,
+  data,
+  error,
+  onRetry,
+  onClose,
+}: {
+  loading: boolean;
+  data: InstanceDetailResponse | null;
+  error: string | null;
+  onRetry: () => void;
+  onClose: () => void;
+}) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [copiedKey, setCopiedKey] = useState(false);
+
+  useEffect(() => {
+    panelRef.current?.focus();
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [onClose]);
+
+  const copyKey = (value: string) => {
+    void navigator.clipboard.writeText(value).then(() => {
+      setCopiedKey(true);
+      setTimeout(() => setCopiedKey(false), 1500);
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" role="dialog" aria-modal="true">
+      <div
+        ref={panelRef}
+        tabIndex={-1}
+        className="flex w-[480px] max-h-[80vh] flex-col rounded border border-[var(--vscode-widget-border)] bg-[var(--vscode-editor-background)] shadow-lg outline-none"
+      >
+        <header className="flex items-center justify-between border-b border-[var(--vscode-panel-border)] px-4 py-3">
+          <h2 className="text-sm font-semibold">Instance Details</h2>
+          <button className="text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]" onClick={onClose}>✕</button>
+        </header>
+
+        <div className="flex-1 overflow-y-auto p-4">
+          {loading && (
+            <div className="flex items-center justify-center py-8 text-xs text-[var(--vscode-descriptionForeground)]">
+              <span className="animate-pulse">Loading instance details...</span>
+            </div>
+          )}
+
+          {!loading && error && (
+            <div className="flex flex-col items-center gap-2 py-6">
+              <p className="text-xs text-[var(--vscode-errorForeground)]">{error}</p>
+              <button
+                className="rounded border border-[var(--vscode-panel-border)] px-3 py-1.5 text-xs hover:bg-[var(--vscode-list-hoverBackground)]"
+                onClick={onRetry}
+              >
+                Retry
+              </button>
+            </div>
+          )}
+
+          {!loading && !error && data && (
+            <div className="flex flex-col gap-4">
+              {/* Key & Version */}
+              <section className="flex flex-col gap-2">
+                <MetaRow label="Key">
+                  <span className="flex items-center gap-1">
+                    <code className="text-[var(--vscode-textLink-foreground)]">{data.key}</code>
+                    <button
+                      className="inline-flex rounded p-0.5 text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]"
+                      onClick={() => copyKey(data.key)}
+                      title={copiedKey ? 'Copied!' : 'Copy key'}
+                    >
+                      {copiedKey ? '✓' : '⧉'}
+                    </button>
+                  </span>
+                </MetaRow>
+                <MetaRow label="Flow Version">
+                  <span>{data.flowVersion ?? '—'}</span>
+                </MetaRow>
+              </section>
+
+              {/* Tags */}
+              {data.tags && data.tags.length > 0 && (
+                <section className="flex flex-col gap-1">
+                  <p className="text-[10px] font-semibold uppercase text-[var(--vscode-descriptionForeground)]">Tags</p>
+                  <div className="flex flex-wrap gap-1">
+                    {data.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded bg-[var(--vscode-badge-background)] px-1.5 py-0.5 text-[10px] text-[var(--vscode-badge-foreground)]"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {/* State Info */}
+              <section className="flex flex-col gap-1">
+                <p className="text-[10px] font-semibold uppercase text-[var(--vscode-descriptionForeground)]">State</p>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                  <MetaRow label="Current State"><span>{data.metadata.currentState}</span></MetaRow>
+                  <MetaRow label="Effective State"><span>{data.metadata.effectiveState}</span></MetaRow>
+                  <MetaRow label="Status"><span>{data.metadata.status}</span></MetaRow>
+                  {data.metadata.stage && <MetaRow label="Stage"><span>{data.metadata.stage}</span></MetaRow>}
+                  {data.metadata.currentStateType && <MetaRow label="State Type"><span>{data.metadata.currentStateType}</span></MetaRow>}
+                  {data.metadata.currentStateSubType && <MetaRow label="State Sub-Type"><span>{data.metadata.currentStateSubType}</span></MetaRow>}
+                  {data.metadata.effectiveStateType && <MetaRow label="Effective Type"><span>{data.metadata.effectiveStateType}</span></MetaRow>}
+                  {data.metadata.effectiveStateSubType && <MetaRow label="Effective Sub-Type"><span>{data.metadata.effectiveStateSubType}</span></MetaRow>}
+                </div>
+              </section>
+
+              {/* Audit Info */}
+              <section className="flex flex-col gap-1">
+                <p className="text-[10px] font-semibold uppercase text-[var(--vscode-descriptionForeground)]">Audit</p>
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                  <MetaRow label="Created At"><span>{formatDateTime(data.metadata.createdAt)}</span></MetaRow>
+                  {data.metadata.modifiedAt && <MetaRow label="Modified At"><span>{formatDateTime(data.metadata.modifiedAt)}</span></MetaRow>}
+                  {data.metadata.createdBy && <MetaRow label="Created By"><span>{data.metadata.createdBy}</span></MetaRow>}
+                  {data.metadata.createdByBehalfOf && <MetaRow label="On Behalf Of"><span>{data.metadata.createdByBehalfOf}</span></MetaRow>}
+                  {data.metadata.modifiedBy && <MetaRow label="Modified By"><span>{data.metadata.modifiedBy}</span></MetaRow>}
+                  {data.metadata.modifiedByBehalfOf && <MetaRow label="Mod. On Behalf Of"><span>{data.metadata.modifiedByBehalfOf}</span></MetaRow>}
+                </div>
+              </section>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MetaRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col gap-0.5 text-xs">
+      <span className="text-[10px] text-[var(--vscode-descriptionForeground)]">{label}</span>
+      <span className="text-[var(--vscode-foreground)]">{children}</span>
+    </div>
+  );
+}
+
+function formatDateTime(iso: string): string {
+  try {
+    const d = new Date(iso);
+    return d.toLocaleString();
+  } catch {
+    return iso;
+  }
 }

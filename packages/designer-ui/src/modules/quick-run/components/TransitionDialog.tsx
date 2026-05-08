@@ -444,7 +444,7 @@ function TransitionInputStep({
 
       <details className="text-xs">
         <summary className="cursor-pointer text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]">
-          Advanced (Key, State, Tags, Sync)
+          Advanced (Key, Stage, Tags, Sync)
         </summary>
         <div className="mt-2 flex flex-col gap-2">
           <div className="flex flex-col gap-1">
@@ -467,12 +467,12 @@ function TransitionInputStep({
             </div>
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium">State</label>
+            <label className="text-xs font-medium">Stage</label>
             <input
               type="text"
               value={stage}
               onChange={(e) => setStage(e.target.value)}
-              placeholder="Target state name"
+              placeholder="e.g. approval, review, payment"
               className="rounded border border-[var(--vscode-input-border)] bg-[var(--vscode-input-background)] px-2 py-1.5 text-xs text-[var(--vscode-input-foreground)] placeholder:text-[var(--vscode-input-placeholderForeground)]"
             />
           </div>
