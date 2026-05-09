@@ -22,6 +22,8 @@ export type {
 
 export type {
   DirectoryEntry,
+  FileSearchHit,
+  FileSearchResponse,
   FileTreeNode,
   SearchResult,
   VnextWorkspaceConfig,

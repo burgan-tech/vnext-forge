@@ -14,5 +14,62 @@
 @import 'tw-animate-css';
 @import '@vnext-forge-studio/designer-ui/styles.css';
 
+/*
+ * VS Code CSS variable shim for desktop / web shells.
+ *
+ * QuickRun components use `var(--vscode-*)` tokens that VS Code injects into
+ * the extension webview. Outside that context (desktop Electron + standalone
+ * web) the variables are undefined, causing buttons, borders and text to
+ * disappear. This block maps each variable to its Tailwind theme-token
+ * equivalent so the QuickRun UI renders correctly in every shell.
+ *
+ * In the extension webview VS Code injects these variables as inline styles
+ * on <html>, which take precedence over stylesheet declarations — so these
+ * fallbacks are inert when running inside VS Code.
+ */
+:root {
+  --vscode-editor-background: var(--color-background);
+  --vscode-foreground: var(--color-foreground);
+  --vscode-descriptionForeground: var(--color-muted-foreground);
+  --vscode-panel-border: var(--color-border);
+  --vscode-widget-border: var(--color-border);
+  --vscode-focusBorder: var(--color-ring);
+  --vscode-editorWidget-border: var(--color-border);
+
+  --vscode-button-background: #2563eb;
+  --vscode-button-foreground: #ffffff;
+  --vscode-button-hoverBackground: #1d4ed8;
+  --vscode-button-secondaryBackground: var(--color-muted);
+  --vscode-button-secondaryForeground: var(--color-foreground);
+  --vscode-button-secondaryHoverBackground: var(--color-muted-hover);
+
+  --vscode-input-background: var(--color-surface);
+  --vscode-input-border: var(--color-border);
+  --vscode-input-foreground: var(--color-foreground);
+  --vscode-input-placeholderForeground: var(--color-muted-foreground);
+
+  --vscode-list-hoverBackground: var(--color-muted);
+  --vscode-list-activeSelectionBackground: #2563eb;
+  --vscode-list-activeSelectionForeground: #ffffff;
+
+  --vscode-sideBar-background: var(--color-background);
+  --vscode-sideBarTitle-foreground: var(--color-foreground);
+
+  --vscode-errorForeground: var(--color-destructive);
+  --vscode-inputValidation-errorBackground: color-mix(in srgb, var(--color-destructive) 12%, transparent);
+  --vscode-inputValidation-errorBorder: var(--color-destructive);
+  --vscode-inputValidation-warningBackground: color-mix(in srgb, #f59e0b 12%, transparent);
+
+  --vscode-textLink-foreground: var(--color-ring);
+  --vscode-textCodeBlock-background: var(--color-muted);
+  --vscode-progressBar-background: var(--color-ring);
+
+  --vscode-badge-background: #2563eb;
+  --vscode-badge-foreground: #ffffff;
+
+  --vscode-charts-green: #22c55e;
+  --vscode-charts-orange: #f59e0b;
+}
+
 * {
 }

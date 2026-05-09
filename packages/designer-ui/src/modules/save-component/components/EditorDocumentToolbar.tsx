@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { FileText, Play, Redo2, Rocket, Save, Undo2 } from 'lucide-react';
+import { FileText, Loader2, Play, Redo2, Save, Undo2, Upload } from 'lucide-react';
 import { Button } from '../../../ui/Button';
 import {
   Tooltip,
@@ -220,7 +220,13 @@ export function EditorDocumentToolbar({
   const publishBtn =
     onPublish != null ? (
       <IconButton
-        icon={<Rocket size={iconSize} />}
+        icon={
+          publishing ? (
+            <Loader2 size={iconSize} className="animate-spin" aria-hidden />
+          ) : (
+            <Upload size={iconSize} aria-hidden />
+          )
+        }
         label={publishing ? 'Publishing...' : 'Publish'}
         onClick={onPublish}
         disabled={saving || publishing}

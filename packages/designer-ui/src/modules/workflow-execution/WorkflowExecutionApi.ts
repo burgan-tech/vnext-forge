@@ -15,8 +15,14 @@ export interface RuntimeHealthSnapshot {
   lastHealthCheck: string;
 }
 
-export async function checkRuntimeHealth(): Promise<ApiResponse<RuntimeHealthSnapshot>> {
-  const response = await callApi<unknown>({ method: 'health/check' });
+export async function checkRuntimeHealth(
+  runtimeUrl?: string,
+): Promise<ApiResponse<RuntimeHealthSnapshot>> {
+  const trimmed = runtimeUrl?.trim();
+  const response = await callApi<unknown>({
+    method: 'health/check',
+    params: trimmed ? { runtimeUrl: trimmed.replace(/\/+$/, '') } : {},
+  });
 
   if (!response.success) {
     return response;

@@ -28,6 +28,7 @@ export function InstanceListPanel() {
   const addTab = useQuickRunStore((s) => s.addTab);
   const globalHeaders = useQuickRunStore((s) => s.globalHeaders);
   const environmentName = useQuickRunStore((s) => s.environmentName);
+  const environmentUrl = useQuickRunStore((s) => s.environmentUrl);
 
   const pollingConfig = useQuickRunStore((s) => s.pollingConfig);
   const { pollState } = useQuickRunPolling(pollingConfig);
@@ -65,8 +66,9 @@ export function InstanceListPanel() {
       workflowKey: item.flow,
       instanceId: item.id,
       headers: globalHeaders,
+      runtimeUrl: environmentUrl,
     });
-  }, [instances, addInstance, addTab, setActiveTab, environmentName, globalHeaders, pollState]);
+  }, [instances, addInstance, addTab, setActiveTab, environmentName, environmentUrl, globalHeaders, pollState]);
 
   const loadInstances = useCallback(async () => {
     if (!domain || !workflowKey) return;
@@ -80,6 +82,7 @@ export function InstanceListPanel() {
         filter: activeFilter,
         orderBy: activeOrderBy,
         headers: globalHeaders,
+        runtimeUrl: environmentUrl,
       });
       if (response.success) {
         setInstanceList(response.data.items);
@@ -88,7 +91,7 @@ export function InstanceListPanel() {
       /* network error — keep existing list */
     }
     setInstanceListLoading(false);
-  }, [domain, workflowKey, globalHeaders, activeFilter, activeOrderBy, setInstanceList, setInstanceListLoading]);
+  }, [domain, workflowKey, globalHeaders, environmentUrl, activeFilter, activeOrderBy, setInstanceList, setInstanceListLoading]);
 
   const handleFilterApply = useCallback((filter?: string, orderBy?: string) => {
     setActiveFilter(filter);

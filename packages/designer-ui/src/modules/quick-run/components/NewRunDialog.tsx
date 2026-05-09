@@ -24,6 +24,7 @@ export function NewRunDialog({ open, onClose, configRef, persistConfig }: NewRun
   const domain = useQuickRunStore((s) => s.domain);
   const workflowKey = useQuickRunStore((s) => s.workflowKey);
   const environmentName = useQuickRunStore((s) => s.environmentName);
+  const environmentUrl = useQuickRunStore((s) => s.environmentUrl);
   const globalHeaders = useQuickRunStore((s) => s.globalHeaders);
   const addInstance = useQuickRunStore((s) => s.addInstance);
   const addTab = useQuickRunStore((s) => s.addTab);
@@ -83,6 +84,7 @@ export function NewRunDialog({ open, onClose, configRef, persistConfig }: NewRun
         tags: tagsList.length > 0 ? tagsList : undefined,
         attributes: Object.keys(parsedAttributes).length > 0 ? parsedAttributes : undefined,
         headers: mergedHeaders,
+        runtimeUrl: environmentUrl,
       });
 
       if (result.success) {
@@ -109,6 +111,7 @@ export function NewRunDialog({ open, onClose, configRef, persistConfig }: NewRun
           workflowKey,
           instanceId: result.data.id,
           headers: mergedHeaders,
+          runtimeUrl: environmentUrl,
         });
 
         const localOverrides: Record<string, string> = {};
@@ -150,7 +153,7 @@ export function NewRunDialog({ open, onClose, configRef, persistConfig }: NewRun
     }
 
     setLoading(false);
-  }, [domain, workflowKey, instanceKey, stage, tags, attributes, sync, version, headerRows, globalHeaders, environmentName, addInstance, addTab, pollState, onClose, configRef, persistConfig]);
+  }, [domain, workflowKey, instanceKey, stage, tags, attributes, sync, version, headerRows, globalHeaders, environmentName, environmentUrl, addInstance, addTab, pollState, onClose, configRef, persistConfig]);
 
   const dialogRef = useRef<HTMLDivElement>(null);
 
@@ -197,7 +200,7 @@ export function NewRunDialog({ open, onClose, configRef, persistConfig }: NewRun
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
       role="dialog"
       aria-modal="true"
       aria-labelledby="new-run-title"
@@ -205,7 +208,7 @@ export function NewRunDialog({ open, onClose, configRef, persistConfig }: NewRun
       <div
         ref={dialogRef}
         tabIndex={-1}
-        className="w-[560px] max-h-[80vh] flex flex-col rounded border border-[var(--vscode-widget-border)] bg-[var(--vscode-editor-background)] shadow-lg focus:outline-none"
+        className="w-[560px] max-h-[80vh] flex flex-col rounded border border-[var(--vscode-widget-border)] bg-background bg-[var(--vscode-editor-background,_theme(colors.background))] shadow-lg focus:outline-none"
       >
         <header className="flex items-center justify-between border-b border-[var(--vscode-panel-border)] px-4 py-3">
           <h2 id="new-run-title" className="text-sm font-semibold">

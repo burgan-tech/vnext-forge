@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { Search, X } from 'lucide-react';
 
@@ -10,6 +10,10 @@ import { buildComponentFolderRelPaths } from './componentFolderPaths';
 import { FileTree } from './FileTree';
 import { filterFileTree } from './filterFileTree';
 import { useProjectWorkspace } from './hooks/useProjectWorkspace';
+import {
+  NewVnextComponentFromTreeDialog,
+  type NewVnextComponentDialogState,
+} from './NewVnextComponentFromTreeDialog';
 
 export function ProjectWorkspaceSidebarPanel() {
   const fileTreeProjectId = useProjectListStore((s) => s.fileTreeProjectId);
@@ -29,6 +33,15 @@ export function ProjectWorkspaceSidebarPanel() {
   } = useProjectWorkspace();
 
   const [filterQuery, setFilterQuery] = useState('');
+  const [newComponentDialog, setNewComponentDialog] = useState<NewVnextComponentDialogState | null>(
+    null,
+  );
+  const [newComponentNonce, setNewComponentNonce] = useState(0);
+
+  const requestNewComponentDialog = useCallback((payload: NewVnextComponentDialogState) => {
+    setNewComponentNonce((n) => n + 1);
+    setNewComponentDialog(payload);
+  }, []);
 
   const componentFolderRelPaths = useMemo(
     () => buildComponentFolderRelPaths(vnextConfig?.paths),
@@ -37,6 +50,58 @@ export function ProjectWorkspaceSidebarPanel() {
 
   const treeMatchesProject =
     Boolean(fileTree) && fileTreeProjectId != null && fileTreeProjectId === activeProject?.id;
+
+  const filteredFileTreeBranch = useMemo(() => {
+    if (!treeMatchesProject || !fileTree || !activeProject) {
+      return null;
+    }
+
+    const displayed = filterQuery ? filterFileTree(fileTree, filterQuery) : fileTree;
+
+    if (!displayed) {
+      return (
+        <div className="text-muted-foreground px-4 py-6 text-center text-[11px]">
+          No files matching <span className="font-medium">"{filterQuery}"</span>
+        </div>
+      );
+    }
+    return (
+      <FileTree
+        node={displayed}
+        depth={0}
+        onFileClick={handleFileClick}
+        onOpenFileInCodeEditor={handleOpenFileInCodeEditor}
+        onCreateFile={(parentPath, name) => {
+          void handleCreateFile(parentPath, name);
+        }}
+        onCreateFolder={(parentPath, name) => {
+          void handleCreateFolder(parentPath, name);
+        }}
+        onDeleteFile={(path) => {
+          void handleDeleteFile(path);
+        }}
+        onRenameFile={(oldPath, newName) => {
+          void handleRenameFile(oldPath, newName);
+        }}
+        onRequestNewComponentDialog={requestNewComponentDialog}
+        projectRoot={activeProject.path}
+        componentFolderRelPaths={componentFolderRelPaths}
+      />
+    );
+  }, [
+    treeMatchesProject,
+    fileTree,
+    activeProject,
+    filterQuery,
+    handleFileClick,
+    handleOpenFileInCodeEditor,
+    handleCreateFile,
+    handleCreateFolder,
+    handleDeleteFile,
+    handleRenameFile,
+    componentFolderRelPaths,
+    requestNewComponentDialog,
+  ]);
 
   if (!activeProject) {
     return (
@@ -107,36 +172,20 @@ export function ProjectWorkspaceSidebarPanel() {
           <div className="text-muted-foreground px-4 py-6 text-center text-[11px]">
             Loading files…
           </div>
-        ) : fileTree ? (
-          (() => {
-            const displayed = filterQuery ? filterFileTree(fileTree, filterQuery) : fileTree;
-
-            if (!displayed) {
-              return (
-                <div className="text-muted-foreground px-4 py-6 text-center text-[11px]">
-                  No files matching <span className="font-medium">"{filterQuery}"</span>
-                </div>
-              );
-            }
-
-            return (
-              <FileTree
-                node={displayed}
-                depth={0}
-                onFileClick={handleFileClick}
-                onOpenFileInCodeEditor={handleOpenFileInCodeEditor}
-                onCreateFile={handleCreateFile}
-                onCreateFolder={handleCreateFolder}
-                onDeleteFile={handleDeleteFile}
-                onRenameFile={handleRenameFile}
-                runVnextComponentOnly={runVnextComponentOnly}
-                projectRoot={activeProject.path}
-                componentFolderRelPaths={componentFolderRelPaths}
-              />
-            );
-          })()
-        ) : null}
+        ) : (
+          filteredFileTreeBranch
+        )}
       </div>
+      <NewVnextComponentFromTreeDialog
+        key={newComponentNonce}
+        open={newComponentDialog != null}
+        state={newComponentDialog}
+        projectRoot={activeProject.path}
+        onOpenChange={(next) => {
+          if (!next) setNewComponentDialog(null);
+        }}
+        runVnextComponentOnly={runVnextComponentOnly}
+      />
     </div>
   );
 }

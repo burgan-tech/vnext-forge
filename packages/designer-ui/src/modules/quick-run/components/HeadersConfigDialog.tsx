@@ -64,7 +64,7 @@ export function HeadersConfigDialog({ open, onClose, initialHeaders, onSave }: H
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
       role="dialog"
       aria-modal="true"
       aria-labelledby="headers-dialog-title"
@@ -72,7 +72,7 @@ export function HeadersConfigDialog({ open, onClose, initialHeaders, onSave }: H
       <div
         ref={dialogRef}
         tabIndex={-1}
-        className="w-[500px] max-h-[80vh] flex flex-col rounded border border-[var(--vscode-widget-border)] bg-[var(--vscode-editor-background)] shadow-lg focus:outline-none"
+        className="w-[500px] max-h-[80vh] flex flex-col rounded border border-[var(--vscode-widget-border)] bg-background bg-[var(--vscode-editor-background,_theme(colors.background))] shadow-lg focus:outline-none"
       >
         <header className="flex items-center justify-between border-b border-[var(--vscode-panel-border)] px-4 py-3">
           <h2 id="headers-dialog-title" className="text-sm font-semibold">

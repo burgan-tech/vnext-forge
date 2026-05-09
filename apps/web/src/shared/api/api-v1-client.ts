@@ -55,6 +55,12 @@ export interface ApiV1Client {
   health: {
     check: { $get: (args?: QueryArg) => Promise<Response> };
   };
+  cli: {
+    check: { $post: (args: JsonArg) => Promise<Response> };
+    checkUpdate: { $post: (args: JsonArg) => Promise<Response> };
+    execute: { $post: (args: JsonArg) => Promise<Response> };
+    updateGlobal: { $post: (args: JsonArg) => Promise<Response> };
+  };
 }
 
 export function asApiV1Client(client: ApiClient): ApiV1Client {

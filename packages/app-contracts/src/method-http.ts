@@ -8,6 +8,10 @@ export interface MethodHttpSpec {
 }
 
 export type MethodId =
+  | 'cli/check'
+  | 'cli/checkUpdate'
+  | 'cli/execute'
+  | 'cli/updateGlobal'
   | 'files/read'
   | 'files/write'
   | 'files/delete'
@@ -15,6 +19,7 @@ export type MethodId =
   | 'files/rename'
   | 'files/browse'
   | 'files/search'
+  | 'files/search/stream'
   | 'projects/list'
   | 'projects/getById'
   | 'projects/create'
@@ -52,17 +57,23 @@ export type MethodId =
   | 'quickrun/getHistory'
   | 'quickrun/listInstances'
   | 'quickrun/getInstance'
+  | 'quickrun/retryInstance'
   | 'runtime/proxy'
   | 'health/check'
 
 export const METHOD_HTTP_METADATA: Readonly<Record<MethodId, MethodHttpSpec>> = Object.freeze({
+  'cli/check': { verb: 'POST', paramSource: 'json' },
+  'cli/checkUpdate': { verb: 'POST', paramSource: 'json' },
+  'cli/execute': { verb: 'POST', paramSource: 'json' },
+  'cli/updateGlobal': { verb: 'POST', paramSource: 'json' },
   'files/read': { verb: 'GET', paramSource: 'query' },
   'files/write': { verb: 'PUT', paramSource: 'json' },
   'files/delete': { verb: 'DELETE', paramSource: 'query' },
   'files/mkdir': { verb: 'POST', paramSource: 'json' },
   'files/rename': { verb: 'POST', paramSource: 'json' },
   'files/browse': { verb: 'GET', paramSource: 'query' },
-  'files/search': { verb: 'GET', paramSource: 'query' },
+  'files/search': { verb: 'POST', paramSource: 'json' },
+  'files/search/stream': { verb: 'POST', paramSource: 'json' },
   'projects/list': { verb: 'GET', paramSource: 'query' },
   'projects/getById': { verb: 'GET', paramSource: 'query' },
   'projects/create': { verb: 'POST', paramSource: 'json', successStatus: 201 },
@@ -100,6 +111,7 @@ export const METHOD_HTTP_METADATA: Readonly<Record<MethodId, MethodHttpSpec>> = 
   'quickrun/getHistory': { verb: 'POST', paramSource: 'json' },
   'quickrun/listInstances': { verb: 'POST', paramSource: 'json' },
   'quickrun/getInstance': { verb: 'POST', paramSource: 'json' },
+  'quickrun/retryInstance': { verb: 'POST', paramSource: 'json' },
   'runtime/proxy': { verb: 'POST', paramSource: 'json' },
   'health/check': { verb: 'GET', paramSource: 'query' },
 })

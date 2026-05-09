@@ -143,8 +143,9 @@ export function QuickRunShell({
       workflowKey: instance.workflowKey,
       instanceId: instance.id,
       headers: globalHeaders,
+      runtimeUrl: environmentUrl,
     });
-  }, [activeTabId, instances, globalHeaders, fetchInstanceState]);
+  }, [activeTabId, instances, globalHeaders, environmentUrl, fetchInstanceState]);
 
   return (
     <div className="flex h-screen flex-col bg-[var(--vscode-editor-background)] text-[var(--vscode-foreground)]" role="application" aria-label="Quick Run — workflow manager">

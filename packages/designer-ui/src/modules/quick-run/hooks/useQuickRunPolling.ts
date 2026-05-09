@@ -100,6 +100,7 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
       workflowKey: string;
       instanceId: string;
       headers?: Record<string, string>;
+      runtimeUrl?: string;
     }) => {
       abortRef.current?.abort();
       const controller = new AbortController();
@@ -154,7 +155,7 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
 }
 
 async function fetchStateView(
-  params: { domain: string; workflowKey: string; instanceId: string; headers?: Record<string, string> },
+  params: { domain: string; workflowKey: string; instanceId: string; headers?: Record<string, string>; runtimeUrl?: string },
   signal: AbortSignal,
 ): Promise<void> {
   const { setStateView, setStateViewLoading, setStateViewError } = useQuickRunStore.getState();
@@ -167,6 +168,7 @@ async function fetchStateView(
       workflowKey: params.workflowKey,
       instanceId: params.instanceId,
       headers: params.headers,
+      runtimeUrl: params.runtimeUrl,
     });
 
     if (signal.aborted) return;

@@ -2,19 +2,20 @@ interface EnvBadgeProps {
   name: string;
 }
 
-const ENV_COLORS: Record<string, string> = {
-  DEV: 'bg-[var(--vscode-charts-blue)]',
-  TEST: 'bg-[var(--vscode-charts-orange)]',
-  PROD: 'bg-[var(--vscode-errorForeground)]',
+const ENV_STYLES: Record<string, string> = {
+  DEV: 'border-info-border bg-info text-info-foreground',
+  TEST: 'border-warning-border bg-warning text-warning-foreground',
+  PROD: 'border-destructive-border bg-destructive-muted text-destructive-text',
 };
 
 export function EnvBadge({ name }: EnvBadgeProps) {
   const upper = name.toUpperCase();
-  const colorClass = ENV_COLORS[upper] ?? 'bg-[var(--vscode-badge-background)]';
+  const styleClass =
+    ENV_STYLES[upper] ?? 'border-muted-border bg-muted text-muted-foreground';
 
   return (
     <span
-      className={`inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white ${colorClass}`}
+      className={`inline-flex items-center rounded border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide ${styleClass}`}
     >
       {upper}
     </span>

@@ -4,8 +4,7 @@ import * as QuickRunApi from '../QuickRunApi';
 import type { InstanceDetailResponse } from '../QuickRunApi';
 import { useQuickRunPolling } from '../hooks/useQuickRunPolling';
 import { useQuickRunStore } from '../store/quickRunStore';
-import type { TransitionInfo } from '../types/quickrun.types';
-import { safeViewContent } from '../types/quickrun.types';
+import { safeViewContent, type TransitionInfo } from '../types/quickrun.types';
 import { CopyableJsonBlock } from './CopyableJsonBlock';
 import { EnvBadge } from './EnvBadge';
 import { ProgressStepper } from './ProgressStepper';
@@ -21,6 +20,7 @@ export function InstanceDashboard() {
   const environmentName = useQuickRunStore((s) => s.environmentName);
   const globalHeaders = useQuickRunStore((s) => s.globalHeaders);
   const sessionHeaders = useQuickRunStore((s) => s.sessionHeaders);
+  const environmentUrl = useQuickRunStore((s) => s.environmentUrl);
   const setContextPanelTab = useQuickRunStore((s) => s.setContextPanelTab);
   const openTransitionDialog = useQuickRunStore((s) => s.openTransitionDialog);
   const openManualTransitionDialog = useQuickRunStore((s) => s.openManualTransitionDialog);
@@ -64,10 +64,10 @@ export function InstanceDashboard() {
     for (const h of retryHeaders) {
       if (h.name.trim()) merged[h.name.trim()] = h.value;
     }
-    await pollState({ domain, workflowKey, instanceId: activeTabId, headers: merged });
+    await pollState({ domain, workflowKey, instanceId: activeTabId, headers: merged, runtimeUrl: environmentUrl });
     setRetrying(false);
     setRetryHeadersOpen(false);
-  }, [activeTabId, domain, workflowKey, retryHeaders, pollState]);
+  }, [activeTabId, domain, workflowKey, retryHeaders, environmentUrl, pollState]);
 
   const handleCancelConfirmed = useCallback(async () => {
     if (!activeTabId || !domain || !workflowKey) return;
@@ -81,13 +81,14 @@ export function InstanceDashboard() {
         transitionKey: 'cancel',
         sync: true,
         headers: merged,
+        runtimeUrl: environmentUrl,
       });
-      await pollState({ domain, workflowKey, instanceId: activeTabId, headers: merged });
+      await pollState({ domain, workflowKey, instanceId: activeTabId, headers: merged, runtimeUrl: environmentUrl });
     } finally {
       setCancelling(false);
       setCancelConfirmOpen(false);
     }
-  }, [activeTabId, domain, workflowKey, globalHeaders, sessionHeaders, pollState]);
+  }, [activeTabId, domain, workflowKey, globalHeaders, sessionHeaders, environmentUrl, pollState]);
 
   const handleRetryInstanceSubmit = useCallback(async (params: {
     headers: Record<string, string>;
@@ -104,10 +105,11 @@ export function InstanceDashboard() {
       attributes: params.attributes,
       key: params.key,
       tags: params.tags,
+      runtimeUrl: environmentUrl,
     });
-    await pollState({ domain, workflowKey, instanceId: activeTabId, headers: params.headers });
+    await pollState({ domain, workflowKey, instanceId: activeTabId, headers: params.headers, runtimeUrl: environmentUrl });
     setRetryDialogOpen(false);
-  }, [activeTabId, domain, workflowKey, pollState]);
+  }, [activeTabId, domain, workflowKey, environmentUrl, pollState]);
 
   const handleFetchMeta = useCallback(async () => {
     if (!activeTabId || !domain || !workflowKey) return;
@@ -121,6 +123,7 @@ export function InstanceDashboard() {
         workflowKey,
         instanceId: activeTabId,
         headers: merged,
+        runtimeUrl: environmentUrl,
       });
       if (response.success) {
         setMetaData(response.data);
@@ -132,7 +135,7 @@ export function InstanceDashboard() {
     } finally {
       setMetaLoading(false);
     }
-  }, [activeTabId, domain, workflowKey, globalHeaders, sessionHeaders]);
+  }, [activeTabId, domain, workflowKey, globalHeaders, sessionHeaders, environmentUrl]);
 
   if (!activeInstance) {
     return (
@@ -447,8 +450,8 @@ function CancelConfirmDialog({
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" role="dialog" aria-modal="true">
-      <div className="flex w-[360px] flex-col rounded border border-[var(--vscode-widget-border)] bg-[var(--vscode-editor-background)] shadow-lg">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" role="dialog" aria-modal="true">
+      <div className="flex w-[360px] flex-col rounded border border-[var(--vscode-widget-border)] bg-background bg-[var(--vscode-editor-background,_theme(colors.background))] shadow-lg">
         <header className="flex items-center justify-between border-b border-[var(--vscode-panel-border)] px-4 py-3">
           <h2 className="text-sm font-semibold">Cancel Instance</h2>
           <button className="text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]" onClick={onClose}>✕</button>
@@ -527,8 +530,8 @@ function RetryInstanceDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" role="dialog" aria-modal="true">
-      <div className="flex w-[480px] max-h-[80vh] flex-col rounded border border-[var(--vscode-widget-border)] bg-[var(--vscode-editor-background)] shadow-lg">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" role="dialog" aria-modal="true">
+      <div className="flex w-[480px] max-h-[80vh] flex-col rounded border border-[var(--vscode-widget-border)] bg-background bg-[var(--vscode-editor-background,_theme(colors.background))] shadow-lg">
         <header className="flex items-center justify-between border-b border-[var(--vscode-panel-border)] px-4 py-3">
           <h2 className="text-sm font-semibold">Retry Faulted Instance</h2>
           <button className="text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]" onClick={onClose}>✕</button>
@@ -823,11 +826,11 @@ function InstanceMetaDialog({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" role="dialog" aria-modal="true">
       <div
         ref={panelRef}
         tabIndex={-1}
-        className="flex w-[480px] max-h-[80vh] flex-col rounded border border-[var(--vscode-widget-border)] bg-[var(--vscode-editor-background)] shadow-lg outline-none"
+        className="flex w-[480px] max-h-[80vh] flex-col rounded border border-[var(--vscode-widget-border)] bg-background bg-[var(--vscode-editor-background,_theme(colors.background))] shadow-lg outline-none"
       >
         <header className="flex items-center justify-between border-b border-[var(--vscode-panel-border)] px-4 py-3">
           <h2 className="text-sm font-semibold">Instance Details</h2>

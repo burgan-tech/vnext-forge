@@ -125,7 +125,11 @@ export function createRuntimeProxyService(deps: RuntimeProxyServiceDeps) {
   ): Promise<z.infer<typeof runtimeProxyResult>> {
     let runtimeUrl: string
     if (req.runtimeUrl) {
-      if (!allowRuntimeUrlOverride) {
+      const candidate = normalize(req.runtimeUrl)
+
+      // When the caller sends the same URL as the default, treat it as a
+      // no-op — it is not an override and does not require the flag.
+      if (candidate !== normalize(defaultRuntimeUrl) && !allowRuntimeUrlOverride) {
         throw new VnextForgeError(
           ERROR_CODES.API_FORBIDDEN,
           'runtimeUrl override is disabled on this server. ' +
@@ -139,8 +143,8 @@ export function createRuntimeProxyService(deps: RuntimeProxyServiceDeps) {
           traceId,
         )
       }
-      const candidate = normalize(req.runtimeUrl)
-      if (!allowed.has(candidate)) {
+      const hasExplicitAllowlist = allowedBaseUrls.length > 0
+      if (hasExplicitAllowlist && !allowed.has(candidate)) {
         throw new VnextForgeError(
           ERROR_CODES.API_FORBIDDEN,
           `runtimeUrl ${req.runtimeUrl} is not in the allow-list.`,

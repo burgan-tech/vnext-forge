@@ -47,6 +47,9 @@ const VnextWorkspaceConfigPage = lazy(() =>
     default: m.VnextWorkspaceConfigPage,
   })),
 );
+const QuickRunPage = lazy(() =>
+  import('../pages/quickrun/QuickRunPage').then((m) => ({ default: m.QuickRunPage })),
+);
 const TestPage = lazy(() => import('../pages/test/TestPage').then((m) => ({ default: m.TestPage })));
 
 /**
@@ -89,6 +92,7 @@ export function AppRouter() {
                 <Route path=":id" element={<ProjectEditorShell />}>
                   <Route index element={<ProjectWorkspacePage />} />
                   <Route path="flow/:group/:name" element={<FlowEditorPage />} />
+                  <Route path="quickrun/:group/:name" element={<QuickRunPage />} />
                   <Route path="task/:group/:name" element={<TaskEditorPage />} />
                   <Route path="schema/:group/:name" element={<SchemaEditorPage />} />
                   <Route path="view/:group/:name" element={<ViewEditorPage />} />

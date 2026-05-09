@@ -1,0 +1,19 @@
+{
+  "params": {
+    "domain": "TestDomain",
+    "workflowKey": "SampleFlow",
+    "instanceId": "wf-instance-001"
+  },
+  "result": {
+    "id": "wf-instance-001",
+    "key": "instance-key-1",
+    "flow": "SampleFlow",
+    "domain": "TestDomain",
+    "metadata": {
+      "currentState": "Draft",
+      "effectiveState": "Draft",
+      "status": "A",
+      "createdAt": "2026-01-01T00:00:00.000Z"
+    }
+  }
+}

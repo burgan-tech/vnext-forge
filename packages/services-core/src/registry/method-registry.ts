@@ -38,6 +38,17 @@ import {
   vnextComponentsListParams,
   vnextComponentsListResult,
 } from '../services/project/project-schemas.js'
+import {
+  cliCheckParams,
+  cliCheckResult,
+  cliCheckUpdateParams,
+  cliCheckUpdateResult,
+  cliExecuteParams,
+  cliExecuteResult,
+  cliUpdateGlobalParams,
+  cliUpdateGlobalResult,
+} from '../services/cli/cli-schemas.js'
+import type { CliService } from '../services/cli/cli.service.js'
 import type { QuickRunService } from '../services/quickrun/quickrun.service.js'
 import {
   quickrunFireTransitionParams,
@@ -108,6 +119,11 @@ export interface ServiceRegistry {
   validateService: ValidateService
   runtimeProxyService: RuntimeProxyService
   quickRunService: QuickRunService
+  /**
+   * Used by `cli/*` methods. Optional so hosts that invoke `wf` only via other
+   * means (for example an integrated terminal) can omit wiring.
+   */
+  cliService?: CliService
 }
 
 /**
@@ -208,14 +224,78 @@ export function buildMethodRegistry(): MethodRegistry {
       paramsSchema: filesSearchParams,
       resultSchema: filesSearchResult,
       handler: async (
-        { project, q, matchCase, matchWholeWord, useRegex, include, exclude },
-        { workspaceService },
+        {
+          projectId,
+          projectPath,
+          query,
+          caseSensitive,
+          wholeWord,
+          useRegex,
+          includePatterns,
+          excludePatterns,
+          limit,
+          cursor,
+        },
+        { workspaceService, projectService },
         traceId,
       ) => {
+        const rootPath =
+          projectId && projectId.length > 0
+            ? (await projectService.getProject(projectId, traceId)).path
+            : projectPath
+
         return workspaceService.searchFiles(
-          project,
-          q,
-          { matchCase, matchWholeWord, useRegex, include, exclude },
+          rootPath,
+          query,
+          {
+            caseSensitive,
+            wholeWord,
+            useRegex,
+            includePatterns,
+            excludePatterns,
+            limit,
+            cursor,
+          },
+          traceId,
+        )
+      },
+    },
+    'files/search/stream': {
+      paramsSchema: filesSearchParams,
+      resultSchema: filesSearchResult,
+      handler: async (
+        {
+          projectId,
+          projectPath,
+          query,
+          caseSensitive,
+          wholeWord,
+          useRegex,
+          includePatterns,
+          excludePatterns,
+          limit,
+          cursor,
+        },
+        { workspaceService, projectService },
+        traceId,
+      ) => {
+        const rootPath =
+          projectId && projectId.length > 0
+            ? (await projectService.getProject(projectId, traceId)).path
+            : projectPath
+
+        return workspaceService.searchFiles(
+          rootPath,
+          query,
+          {
+            caseSensitive,
+            wholeWord,
+            useRegex,
+            includePatterns,
+            excludePatterns,
+            limit,
+            cursor,
+          },
           traceId,
         )
       },
@@ -502,6 +582,79 @@ export function buildMethodRegistry(): MethodRegistry {
         quickRunService.getInstance(params, traceId),
     },
 
+    // ── wf CLI ───────────────────────────────────────────────────────────────
+    'cli/check': {
+      paramsSchema: cliCheckParams,
+      resultSchema: cliCheckResult,
+      handler: async (_params, { cliService }) => {
+        if (!cliService) {
+          throw new VnextForgeError(
+            ERROR_CODES.INTERNAL_NOT_IMPLEMENTED,
+            'Workflow CLI is not available in this shell.',
+            { source: 'method-registry.cli/check', layer: 'application' },
+          )
+        }
+        return cliService.checkCliAvailable()
+      },
+    },
+    'cli/execute': {
+      paramsSchema: cliExecuteParams,
+      resultSchema: cliExecuteResult,
+      handler: async (params, { cliService, projectService }, traceId) => {
+        if (!cliService) {
+          throw new VnextForgeError(
+            ERROR_CODES.INTERNAL_NOT_IMPLEMENTED,
+            'Workflow CLI is not available in this shell.',
+            { source: 'method-registry.cli/execute', layer: 'application' },
+            traceId,
+          )
+        }
+        const id = params.projectId?.trim() ?? ''
+        const rootFromClient = params.projectPath?.trim() ?? ''
+        const projectPath =
+          id.length > 0 ? (await projectService.getProject(id, traceId)).path : rootFromClient
+
+        return cliService.executeCommand(
+          {
+            command: params.command,
+            projectPath,
+            filePath: params.filePath,
+            timeoutMs: params.timeoutMs,
+          },
+          traceId,
+        )
+      },
+    },
+    'cli/checkUpdate': {
+      paramsSchema: cliCheckUpdateParams,
+      resultSchema: cliCheckUpdateResult,
+      handler: async (_params, { cliService }) => {
+        if (!cliService) {
+          throw new VnextForgeError(
+            ERROR_CODES.INTERNAL_NOT_IMPLEMENTED,
+            'Workflow CLI is not available in this shell.',
+            { source: 'method-registry.cli/checkUpdate', layer: 'application' },
+          )
+        }
+        return cliService.checkForUpdate()
+      },
+    },
+    'cli/updateGlobal': {
+      paramsSchema: cliUpdateGlobalParams,
+      resultSchema: cliUpdateGlobalResult,
+      handler: async (_params, { cliService }, traceId) => {
+        if (!cliService) {
+          throw new VnextForgeError(
+            ERROR_CODES.INTERNAL_NOT_IMPLEMENTED,
+            'Workflow CLI is not available in this shell.',
+            { source: 'method-registry.cli/updateGlobal', layer: 'application' },
+            traceId,
+          )
+        }
+        return cliService.updateGlobal(traceId)
+      },
+    },
+
     // ── health ───────────────────────────────────────────────────────────────
     // Lightweight wrapper around the runtime engine's `/health` endpoint.
     //
@@ -512,14 +665,26 @@ export function buildMethodRegistry(): MethodRegistry {
     // quiet (no ERROR / 502) and lets the UI render its disconnected state
     // without surfacing a warning per poll.
     'health/check': {
-      paramsSchema: z.object({}).optional(),
+      paramsSchema: z
+        .object({
+          runtimeUrl: z.string().optional(),
+        })
+        .optional(),
       resultSchema: z.object({
         status: z.enum(['ok', 'down']),
       }),
-      handler: async (_p, { runtimeProxyService }, traceId) => {
+      handler: async (params, { runtimeProxyService }, traceId) => {
+        const runtimeUrl =
+          typeof params?.runtimeUrl === 'string' && params.runtimeUrl.length > 0
+            ? params.runtimeUrl
+            : undefined
         try {
           const proxied = await runtimeProxyService.proxy(
-            { method: 'GET', runtimePath: '/health' },
+            {
+              method: 'GET',
+              runtimePath: '/health',
+              ...(runtimeUrl ? { runtimeUrl } : {}),
+            },
             traceId,
           )
           return {
@@ -530,7 +695,8 @@ export function buildMethodRegistry(): MethodRegistry {
         } catch (error) {
           if (
             error instanceof VnextForgeError &&
-            error.code === ERROR_CODES.RUNTIME_CONNECTION_FAILED
+            (error.code === ERROR_CODES.RUNTIME_CONNECTION_FAILED ||
+              error.code === ERROR_CODES.API_FORBIDDEN)
           ) {
             return { status: 'down' as const }
           }

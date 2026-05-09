@@ -11,6 +11,7 @@ export {
 export { EditorTabLabel, type EditorTabLabelProps } from './EditorTabLabel.js';
 export {
   componentEditorTabId,
+  quickRunTabId,
   vnextWorkspaceConfigTabId,
   useEditorStore,
   type ComponentEditorKind,

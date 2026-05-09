@@ -9,6 +9,11 @@ export function buildNavigatePathForTab(projectId: string, tab: EditorTab): stri
   if (tab.kind === 'workspace-config') {
     return `/project/${projectId}/workspace-config`;
   }
+  if (tab.kind === 'quickrun' && tab.group && tab.name) {
+    const g = encodeURIComponent(tab.group);
+    const n = encodeURIComponent(tab.name);
+    return `/project/${projectId}/quickrun/${g}/${n}`;
+  }
   if (tab.kind === 'component' && tab.componentKind && tab.group && tab.name) {
     const g = encodeURIComponent(tab.group);
     const n = encodeURIComponent(tab.name);

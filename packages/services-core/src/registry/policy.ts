@@ -38,6 +38,7 @@ const METHOD_CAPABILITIES: Readonly<Record<string, MethodCapability>> = Object.f
   'files/rename': 'privileged',
   'files/browse': 'privileged',
   'files/search': 'privileged',
+  'files/search/stream': 'privileged',
 
   // ── projects — listing / reading a project record is `public`; anything
   // that materializes new artefacts on disk or removes them is privileged.
@@ -70,6 +71,23 @@ const METHOD_CAPABILITIES: Readonly<Record<string, MethodCapability>> = Object.f
   // is the most SSRF-sensitive surface in the registry.
   'runtime/proxy': 'privileged',
   'health/check': 'public',
+
+  // ── quickrun — all methods proxy to the runtime engine.
+  'quickrun/startInstance': 'privileged',
+  'quickrun/fireTransition': 'privileged',
+  'quickrun/getState': 'privileged',
+  'quickrun/getView': 'privileged',
+  'quickrun/getData': 'privileged',
+  'quickrun/getSchema': 'privileged',
+  'quickrun/getHistory': 'privileged',
+  'quickrun/retryInstance': 'privileged',
+  'quickrun/listInstances': 'privileged',
+  'quickrun/getInstance': 'privileged',
+
+  'cli/check': 'privileged',
+  'cli/checkUpdate': 'privileged',
+  'cli/execute': 'privileged',
+  'cli/updateGlobal': 'privileged',
 })
 
 /**

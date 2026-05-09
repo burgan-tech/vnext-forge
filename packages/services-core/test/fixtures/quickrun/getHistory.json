@@ -1,0 +1,20 @@
+{
+  "params": {
+    "domain": "TestDomain",
+    "workflowKey": "SampleFlow",
+    "instanceId": "wf-instance-001"
+  },
+  "result": {
+    "transitions": [
+      {
+        "id": "hist-1",
+        "transitionId": "tr-1",
+        "fromState": "Draft",
+        "toState": "Submitted",
+        "startedAt": "2026-01-01T00:00:00.000Z",
+        "triggerType": "manual",
+        "createdAt": "2026-01-01T00:00:00.000Z"
+      }
+    ]
+  }
+}

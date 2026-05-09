@@ -1,4 +1,4 @@
-import { useCallback, useMemo, type MouseEventHandler } from 'react';
+import { useCallback, useMemo, type MouseEventHandler, type Ref } from 'react';
 
 import { ChevronRight } from 'lucide-react';
 
@@ -18,18 +18,19 @@ import {
   type VnextComponentType,
 } from '../../app/store/useComponentFileTypesStore';
 
-type FileTone = {
+interface FileTone {
   label: string;
   toneClassName: string;
-};
+}
 
 interface FileTreeNodeRowProps {
+  ref?: Ref<HTMLDivElement>;
   node: FileTreeNode;
   depth: number;
   expanded?: boolean;
   componentFolderType?: ComponentFolderType;
   onClick: () => void;
-  onContextMenu: MouseEventHandler<HTMLDivElement>;
+  onContextMenu?: MouseEventHandler<HTMLDivElement>;
 }
 
 function getFileTone(name: string): FileTone {
@@ -146,6 +147,7 @@ function useComponentFileType(nodePath: string, isJson: boolean): VnextComponent
 }
 
 export function FileTreeNodeRow({
+  ref,
   node,
   depth,
   expanded = false,
@@ -163,6 +165,7 @@ export function FileTreeNodeRow({
 
     return (
       <div
+        ref={ref}
         className="text-muted-foreground hover:bg-primary-hover hover:text-foreground group flex cursor-pointer items-center gap-1.5 rounded-md px-1.5 py-[3px] text-xs transition-colors"
         style={{ paddingLeft: rowPaddingLeft }}
         onClick={onClick}
@@ -187,6 +190,7 @@ export function FileTreeNodeRow({
 
   return (
     <div
+      ref={ref}
       className="text-muted-foreground hover:bg-primary-hover hover:text-foreground group flex cursor-pointer items-center gap-1.5 rounded-md px-1.5 py-[3px] text-xs transition-colors"
       style={{ paddingLeft: rowPaddingLeft }}
       onClick={onClick}
