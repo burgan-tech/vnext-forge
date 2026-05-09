@@ -72,7 +72,7 @@ export function FunctionEditorView({
     undoStack,
     redoStack,
   } = useComponentStore();
-  const { save, saving, saveError } = useSaveComponent({
+  const { save, saving, saveError, autoSavePending, autoSaved } = useSaveComponent({
     afterSaveSuccess: onAtomicSaved
       ? () => {
           const j = useComponentStore.getState().componentJson;
@@ -174,7 +174,9 @@ export function FunctionEditorView({
             canUndo={undoStack.length > 0}
             canRedo={redoStack.length > 0}
             onPublish={canPublish ? handlePublish : undefined}
-            publishing={publishing}>
+            publishing={publishing}
+            autoSavePending={autoSavePending}
+            autoSaved={autoSaved}>
             <FunctionEditorPanel
               json={componentJson}
               onChange={updateComponent}

@@ -37,6 +37,8 @@ import { resolveFileRoute } from '../FileRouter';
 
 const logger = createLogger('useProjectWorkspace');
 
+export type RunVnextComponentResult = { ok: true } | { ok: false; message: string };
+
 export function useProjectWorkspace() {
   const activeProject = useProjectStore((s) => s.activeProject);
   const vnextConfig = useProjectStore((s) => s.vnextConfig);
@@ -157,18 +159,30 @@ export function useProjectWorkspace() {
   );
 
   const runVnextComponentOnly = useCallback(
-    async (parentPath: string, name: string, kind: VnextComponentType): Promise<boolean> => {
+    async (
+      parentPath: string,
+      name: string,
+      kind: VnextComponentType,
+      options?: { suppressNotifications?: boolean },
+    ): Promise<RunVnextComponentResult> => {
+      const silent = options?.suppressNotifications === true;
+
+      const fail = (message: string, kind: 'warning' | 'error'): RunVnextComponentResult => {
+        if (!silent) {
+          showNotification({ message, kind });
+        }
+        return { ok: false, message };
+      };
+
       if (!activeProject || !vnextConfig) {
-        showNotification({ message: 'No active project or config loaded', kind: 'error' });
-        return false;
+        return fail('No active project or config loaded.', 'error');
       }
       const domain = vnextConfig.domain || activeProject.domain;
 
       if (kind === 'workflow') {
         const validationError = getWorkspaceNameError(name, 'workflow');
         if (validationError) {
-          showNotification({ message: validationError, kind: 'warning' });
-          return false;
+          return fail(validationError, 'warning');
         }
         const res = await scaffoldWorkflow({
           parentPath,
@@ -180,40 +194,35 @@ export function useProjectWorkspace() {
         });
         if (isFailure(res)) {
           const e = toVnextError(res, 'Workflow scaffold failed');
-          showNotification({ message: e.toUserMessage().message, kind: 'error' });
-          return false;
+          return fail(e.toUserMessage().message, 'error');
         }
         const data = getData(res);
         if (data) {
           navigate(`/project/${activeProject.id}/flow/${data.groupName}/${data.workflowName}`);
         }
-        return true;
+        return { ok: true };
       }
 
       const fileName = ensureComponentJsonFileName(name);
       if (!fileName) {
-        showNotification({ message: 'Name is required.', kind: 'warning' });
-        return false;
+        return fail('Name is required.', 'warning');
       }
       const validationError = getWorkspaceNameError(fileName, 'file');
       if (validationError) {
-        showNotification({ message: validationError, kind: 'warning' });
-        return false;
+        return fail(validationError, 'warning');
       }
       const key = fileName.replace(/\.json$/i, '');
       if (!key.trim()) {
-        showNotification({ message: 'Invalid file name.', kind: 'warning' });
-        return false;
+        return fail('Invalid file name.', 'warning');
       }
       const body = buildVnextComponentJson(kind, { key, domain });
       const target = `${parentPath.replace(/\/+$/, '')}/${fileName}`;
       const w = await writeFile(target, JSON.stringify(body, null, 2));
       if (isFailure(w)) {
         const e = toVnextError(w, 'Write failed');
-        showNotification({ message: e.toUserMessage().message, kind: 'error' });
-        return false;
+        return fail(e.toUserMessage().message, 'error');
       }
-      return true;
+      return { ok: true };
     },
     [activeProject, vnextConfig, navigate],
   );
@@ -240,7 +249,7 @@ export function useProjectWorkspace() {
       });
     },
     {
-      onSuccess: async (result) => {
+      onSuccess: (result) => {
         const data = getData(result);
         if (activeProject && data) {
           navigate(`/project/${activeProject.id}/flow/${data.groupName}/${data.workflowName}`);

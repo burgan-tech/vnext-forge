@@ -1,7 +1,7 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { matchPath, Outlet, useLocation } from 'react-router-dom';
 
-import { RuntimeHealthSync, useProjectStore } from '@vnext-forge-studio/designer-ui';
+import { RuntimeHealthSync, useProjectStore, useRuntimeStore } from '@vnext-forge-studio/designer-ui';
 import {
   ResizableHandle,
   ResizablePanel,
@@ -16,6 +16,7 @@ import { useWorkspaceDiagnosticsStore } from '../store/useWorkspaceDiagnosticsSt
 import { CreateVnextConfigDialog } from '../../modules/project-workspace/components/CreateVnextConfigDialog';
 import { useProjectWorkspacePage } from '../../modules/project-workspace/hooks/useProjectWorkspacePage';
 import { syncVnextWorkspaceFromDisk } from '../../modules/project-workspace/syncVnextWorkspaceFromDisk';
+import { FALLBACK_RUNTIME_URL, useEnvironmentStore } from '../store/useEnvironmentStore';
 
 import { RouteErrorBoundary } from '../RouteErrorBoundary';
 import { ActivityBar } from './ui/ActivityBar';
@@ -26,6 +27,20 @@ function routeProjectIdFromPathname(pathname: string): string | undefined {
   const m = matchPath({ path: '/project/:id', end: false }, pathname);
   const raw = m?.params.id;
   return raw && raw.length > 0 ? raw : undefined;
+}
+
+/** Sync persisted web environments into the shared designer-ui runtime URL (health checks, proxies). */
+function useEnvironmentRuntimeSync(): void {
+  const activeEnvironment = useEnvironmentStore((s) =>
+    !s.activeEnvironmentId
+      ? null
+      : (s.environments.find((e) => e.id === s.activeEnvironmentId) ?? null),
+  );
+  const setRuntimeUrl = useRuntimeStore((state) => state.setRuntimeUrl);
+
+  useEffect(() => {
+    setRuntimeUrl(activeEnvironment?.baseUrl ?? FALLBACK_RUNTIME_URL);
+  }, [activeEnvironment?.baseUrl, setRuntimeUrl]);
 }
 
 /**
@@ -46,6 +61,7 @@ export function AppLayout() {
   const projectId = activeProject?.id ?? routeProjectId;
   const resizableShellGroupRef = useGroupRef();
 
+  useEnvironmentRuntimeSync();
   useProjectWorkspacePage(routeProjectId);
 
   /**

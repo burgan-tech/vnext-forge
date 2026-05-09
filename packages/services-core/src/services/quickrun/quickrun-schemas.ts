@@ -203,6 +203,44 @@ export const quickrunRetryInstanceResult = z.object({
   status: instanceStatusSchema,
 })
 
+// ── Get Instance ─────────────────────────────────────────────────────────────
+
+export const quickrunGetInstanceParams = z.object({
+  ...workflowIdentifier,
+  instanceId: z.string().min(1),
+  headers: headersSchema,
+  runtimeUrl: z.string().optional(),
+})
+
+const getInstanceMetadataSchema = z.object({
+  currentState: z.string(),
+  effectiveState: z.string(),
+  status: instanceStatusSchema,
+  effectiveStateType: z.string().optional(),
+  effectiveStateSubType: z.string().optional(),
+  currentStateType: z.string().optional(),
+  currentStateSubType: z.string().optional(),
+  stage: z.string().optional(),
+  createdAt: z.string(),
+  modifiedAt: z.string().optional(),
+  createdBy: z.string().optional(),
+  createdByBehalfOf: z.string().optional(),
+  modifiedBy: z.string().optional(),
+  modifiedByBehalfOf: z.string().optional(),
+})
+
+export const quickrunGetInstanceResult = z.object({
+  id: z.string(),
+  key: z.string(),
+  flow: z.string(),
+  domain: z.string(),
+  flowVersion: z.string().optional(),
+  eTag: z.string().optional(),
+  entityEtag: z.string().optional(),
+  tags: z.array(z.string()).optional(),
+  metadata: getInstanceMetadataSchema,
+})
+
 // ── List Instances ───────────────────────────────────────────────────────────
 
 export const quickrunListInstancesParams = z.object({

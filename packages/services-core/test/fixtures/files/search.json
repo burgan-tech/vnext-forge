@@ -1,0 +1,23 @@
+{
+  "params": {
+    "project": "/srv/project",
+    "q": "needle",
+    "limit": 200,
+    "include": ["**/*.txt"],
+    "exclude": "**/dist/**"
+  },
+  "result": {
+    "items": [
+      {
+        "path": "/srv/project/src/note.txt",
+        "line": 2,
+        "column": 12,
+        "text": "line with needle suffix",
+        "matchLength": 6
+      }
+    ],
+    "nextCursor": "eyJ2IjoxLCJzIjoyMDB9",
+    "totalFiles": 42,
+    "truncated": false
+  }
+}

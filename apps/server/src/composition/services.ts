@@ -2,6 +2,7 @@ import { createRequire } from 'node:module';
 
 import {
   buildMethodRegistry,
+  createCliService,
   createPathPolicy,
   createProjectService,
   createQuickRunService,
@@ -91,6 +92,8 @@ export function composeWebServerServices(logger: LoggerAdapter): ComposedService
 
   const quickRunService = createQuickRunService(runtimeProxyService);
 
+  const cliService = createCliService({ pathPolicy });
+
   const services: ServiceRegistry = {
     workspaceService,
     projectService,
@@ -98,6 +101,7 @@ export function composeWebServerServices(logger: LoggerAdapter): ComposedService
     validateService,
     runtimeProxyService,
     quickRunService,
+    cliService,
   };
 
   return { services, registry: buildMethodRegistry() };

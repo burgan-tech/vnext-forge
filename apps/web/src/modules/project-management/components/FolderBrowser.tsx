@@ -41,6 +41,8 @@ export function FolderBrowser({
   onSelect,
 }: FolderBrowserProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const displayPath =
+    selectedPath && selectedPath.trim().length > 0 ? selectedPath : currentPath.trim().length > 0 ? currentPath : '';
   const isWindowsPath = /^[A-Za-z]:[\\/]/.test(currentPath);
   const isWindowsDriveList =
     !currentPath && folders.some((folder) => /^[A-Za-z]:\\?$/.test(folder.path));
@@ -110,9 +112,11 @@ export function FolderBrowser({
           )}>
           <span className="flex w-full min-w-0 items-center gap-2">
             <FolderSearch size={16} className="text-primary-icon shrink-0" aria-hidden />
-            {selectedPath ? (
-              <span className="text-foreground min-w-0 flex-1 truncate font-mono text-sm font-semibold">
-                {selectedPath}
+            {displayPath ? (
+              <span
+                className="text-foreground min-w-0 flex-1 truncate font-mono text-sm font-semibold"
+                title={displayPath}>
+                {displayPath}
               </span>
             ) : (
               <span className="text-foreground min-w-0 flex-1 truncate text-sm font-semibold">
@@ -141,13 +145,13 @@ export function FolderBrowser({
           {inline ? (
             <div className="border-border-subtle bg-muted text-muted-foreground flex items-center gap-2 border-b px-3 py-2 text-xs">
               <FolderSearch size={14} className="text-muted-icon shrink-0" />
-              {selectedPath ? (
+              {displayPath ? (
                 <>
-                  <span className="text-muted-foreground font-semibold">Selected:</span>
+                  <span className="text-muted-foreground font-semibold">Path:</span>
                   <span
                     className="text-foreground truncate font-mono text-sm font-semibold"
-                    title={selectedPath}>
-                    {selectedPath}
+                    title={displayPath}>
+                    {displayPath}
                   </span>
                 </>
               ) : (

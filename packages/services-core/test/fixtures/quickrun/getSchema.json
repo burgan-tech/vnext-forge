@@ -1,0 +1,15 @@
+{
+  "params": {
+    "domain": "TestDomain",
+    "workflowKey": "SampleFlow",
+    "instanceId": "wf-instance-001"
+  },
+  "result": {
+    "key": "schema-1",
+    "type": "json-schema",
+    "schema": {
+      "type": "object",
+      "properties": {}
+    }
+  }
+}

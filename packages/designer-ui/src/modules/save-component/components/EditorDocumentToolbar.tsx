@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { FileText, Play, Redo2, Rocket, Save, Undo2 } from 'lucide-react';
+import { FileText, Loader2, Play, Redo2, Save, Undo2, Upload } from 'lucide-react';
 import { Button } from '../../../ui/Button';
 import {
   Tooltip,
@@ -44,22 +44,50 @@ function IconButton({ icon, label, onClick, disabled, variant = 'muted', classNa
 function StatusBadge({
   isDirty,
   hasSaved,
+  autoSaved,
+  autoSavePending,
   compact,
 }: {
   isDirty: boolean;
   hasSaved: boolean;
+  autoSaved?: boolean;
+  autoSavePending?: boolean;
   compact: boolean;
 }) {
   if (isDirty) {
+    const title = autoSavePending ? 'Auto-save in a moment\u2026' : 'Unsaved changes';
     return (
       <span
         className="border-warning-border bg-warning-surface text-warning-text max-w-36 truncate rounded-full border px-1.5 py-px text-[9px] font-medium leading-none"
-        title="Unsaved changes">
+        title={title}
+        aria-live="polite">
         Modified
       </span>
     );
   }
-  if (compact) return null;
+  if (compact) {
+    if (autoSaved) {
+      return (
+        <span
+          className="border-success-border bg-success-surface text-success-text max-w-36 truncate rounded-full border px-1.5 py-px text-[9px] font-medium leading-none"
+          title="Changes saved automatically"
+          aria-live="polite">
+          Auto-saved
+        </span>
+      );
+    }
+    return null;
+  }
+  if (autoSaved) {
+    return (
+      <span
+        className="border-success-border bg-success-surface rounded-full border px-3 py-1 font-medium text-success-text"
+        title="Changes saved automatically"
+        aria-live="polite">
+        Auto-saved
+      </span>
+    );
+  }
   if (hasSaved) {
     return (
       <span className="border-success-border bg-success-surface rounded-full border px-3 py-1 font-medium text-success-text">
@@ -87,6 +115,8 @@ export interface EditorDocumentToolbarProps {
   publishing?: boolean;
   onOpenQuickRun?: () => void;
   onPreviewDocument?: () => void;
+  autoSavePending?: boolean;
+  autoSaved?: boolean;
   /**
    * - `host-row`: compact row in the web tab bar.
    * - `editor-chrome`: wider panel chrome in extension webview.
@@ -107,6 +137,8 @@ export function EditorDocumentToolbar({
   publishing,
   onOpenQuickRun,
   onPreviewDocument,
+  autoSavePending,
+  autoSaved,
   arrangement,
 }: EditorDocumentToolbarProps) {
   const compact = arrangement === 'host-row';
@@ -188,7 +220,13 @@ export function EditorDocumentToolbar({
   const publishBtn =
     onPublish != null ? (
       <IconButton
-        icon={<Rocket size={iconSize} />}
+        icon={
+          publishing ? (
+            <Loader2 size={iconSize} className="animate-spin" aria-hidden />
+          ) : (
+            <Upload size={iconSize} aria-hidden />
+          )
+        }
         label={publishing ? 'Publishing...' : 'Publish'}
         onClick={onPublish}
         disabled={saving || publishing}
@@ -200,7 +238,7 @@ export function EditorDocumentToolbar({
     return (
       <TooltipProvider delayDuration={300}>
         <div className="flex max-w-full shrink-0 items-center gap-1 sm:gap-1.5">
-          <StatusBadge isDirty={isDirty} hasSaved={hasSaved} compact={compact} />
+          <StatusBadge isDirty={isDirty} hasSaved={hasSaved} autoSaved={autoSaved} autoSavePending={autoSavePending} compact={compact} />
           {saving ? savingLabel : null}
           {historyGroup}
           {saveBtn}
@@ -216,7 +254,7 @@ export function EditorDocumentToolbar({
     <TooltipProvider delayDuration={300}>
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-          <StatusBadge isDirty={isDirty} hasSaved={hasSaved} compact={false} />
+          <StatusBadge isDirty={isDirty} hasSaved={hasSaved} autoSaved={autoSaved} autoSavePending={autoSavePending} compact={false} />
           {saving ? savingLabel : null}
         </div>
         <div className="flex shrink-0 items-center gap-1.5">

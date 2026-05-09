@@ -35,6 +35,12 @@ function applyThemeModeIfValid(themeMode: unknown): void {
   }
 }
 
+function applyAutoSaveIfPresent(value: unknown): void {
+  if (typeof value === 'boolean') {
+    useSettingsStore.getState().setAutoSaveEnabled(value);
+  }
+}
+
 function readInitialSettings(): CanvasViewSettings {
   try {
     const config = (window as unknown as Record<string, unknown>).__VNEXT_CONFIG__ as
@@ -45,6 +51,8 @@ function readInitialSettings(): CanvasViewSettings {
     if (config.themeMode) {
       applyThemeModeIfValid(config.themeMode);
     }
+
+    applyAutoSaveIfPresent(config.autoSaveEnabled);
 
     if (!config.canvasViewSettings) return defaultSettings;
 
@@ -84,6 +92,8 @@ export function CanvasViewSettingsProvider({ children }: { children: ReactNode }
       if (data.themeMode) {
         applyThemeModeIfValid(data.themeMode);
       }
+
+      applyAutoSaveIfPresent(data.autoSaveEnabled);
 
       const incoming = data.canvasViewSettings as Record<string, unknown> | undefined;
       if (!incoming) return;

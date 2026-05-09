@@ -40,7 +40,7 @@ export function SchemaEditorView({
     id && group != null && name && activeProject && vnextConfig
       ? buildAtomicComponentJsonPath(activeProject.path, vnextConfig.paths, 'schemas', group, name)
       : null;
-  const { loading, error, isReady, save, saving, saveError } = useSchemaEditor({
+  const { loading, error, isReady, save, saving, saveError, autoSavePending, autoSaved } = useSchemaEditor({
     filePath,
     onSaveSuccess: onAtomicSaved
       ? () => {
@@ -84,6 +84,8 @@ export function SchemaEditorView({
       canRedo={redoStack.length > 0}
       onPublish={canPublish ? handlePublish : undefined}
       publishing={publishing}
+      autoSavePending={autoSavePending}
+      autoSaved={autoSaved}
     >
       <SchemaEditorPanel json={componentJson} onChange={updateComponent} />
     </ComponentEditorLayout>

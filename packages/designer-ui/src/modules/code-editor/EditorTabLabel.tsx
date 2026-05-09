@@ -1,5 +1,7 @@
 import type { ReactNode } from 'react';
 
+import { Play } from 'lucide-react';
+
 import { ComponentFileIcon } from '../component-icons/ComponentFileIcon.js';
 import { VnextConfigFileIcon } from '../component-icons/VnextConfigFileIcon.js';
 
@@ -34,6 +36,8 @@ export function EditorTabLabel({ tab, renderFileLeading, titleClassName }: Edito
     );
   } else if (tab.kind === 'workspace-config') {
     leading = <VnextConfigFileIcon className="size-4 shrink-0" />;
+  } else if (tab.kind === 'quickrun') {
+    leading = <Play className="text-primary size-4 shrink-0" aria-hidden />;
   }
 
   return (

@@ -1,24 +1,41 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MutableRefObject,
+} from 'react';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import Editor, { type OnMount } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
-import { Redo2, Save, Undo2 } from 'lucide-react';
+import { BookOpen, Columns2, FileCode, Redo2, Save, Undo2 } from 'lucide-react';
 
 import { isFailure } from '@vnext-forge-studio/app-contracts';
 import {
   Button,
+  cn,
   readFile,
+  ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
   setupMonacoWithLsp,
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
   useEditorStore,
+  useGroupRef,
   useProjectStore,
+  useResolvedColorTheme,
   writeFile,
   type CsharpLspClient,
   type EditorTab,
 } from '@vnext-forge-studio/designer-ui';
+
+import { DebouncedMarkdownPreview, MarkdownPreview } from '../../modules/code-editor/MarkdownPreview';
+import type { MarkdownPreviewMode } from '../../modules/code-editor/markdownPreviewMode';
 
 import {
   flowToComponentType,
@@ -86,6 +103,9 @@ function getMonacoUndoRedoState(ed: editor.IStandaloneCodeEditor): {
   };
 }
 
+const MARKDOWN_EDITOR_PANEL_ID = 'code-editor-markdown-pane';
+const MARKDOWN_PREVIEW_PANEL_ID = 'code-editor-markdown-preview-pane';
+
 function detectLanguage(fileName: string): string {
   const ext = fileName.split('.').pop()?.toLowerCase();
   switch (ext) {
@@ -123,9 +143,61 @@ function detectLanguage(fileName: string): string {
   }
 }
 
+function tryApplyWorkspaceSearchHitNavigation(opts: {
+  editor: editor.IStandaloneCodeEditor;
+  filePath: string;
+  searchParams: URLSearchParams;
+  setSearchParams: (next: URLSearchParams, init?: { replace?: boolean }) => void;
+  appliedKeyRef: MutableRefObject<string | null>;
+}): void {
+  const { editor: ed, filePath, searchParams, setSearchParams, appliedKeyRef } = opts;
+  const lineRaw = searchParams.get('line');
+  if (lineRaw === null) return;
+
+  const colRaw = searchParams.get('column');
+  const lenRaw = searchParams.get('matchLen');
+  const lineNum = Number.parseInt(lineRaw, 10);
+  const colNum = colRaw !== null && colRaw !== '' ? Number.parseInt(colRaw, 10) : 1;
+  const matchLen = lenRaw !== null && lenRaw !== '' ? Number.parseInt(lenRaw, 10) : 0;
+
+  if (Number.isNaN(lineNum) || lineNum < 1 || Number.isNaN(colNum) || colNum < 1) return;
+
+  const revealKey = `${filePath}:${lineNum}:${colNum}:${matchLen}`;
+  if (appliedKeyRef.current === revealKey) return;
+
+  const model = ed.getModel();
+  if (!model) return;
+
+  const maxCol = Math.max(1, model.getLineMaxColumn(lineNum));
+  const safeStart = Math.min(colNum, maxCol);
+  const endPreferred = matchLen > 0 ? colNum + matchLen : colNum;
+  const safeEnd = Math.min(Math.max(safeStart, endPreferred), maxCol);
+
+  ed.revealLineInCenter(lineNum);
+  if (matchLen > 0 && safeEnd > safeStart) {
+    ed.setSelection({
+      startLineNumber: lineNum,
+      startColumn: safeStart,
+      endLineNumber: lineNum,
+      endColumn: safeEnd,
+    });
+  } else {
+    ed.setPosition({ lineNumber: lineNum, column: safeStart });
+  }
+
+  appliedKeyRef.current = revealKey;
+
+  const next = new URLSearchParams(searchParams);
+  next.delete('line');
+  next.delete('column');
+  next.delete('matchLen');
+  setSearchParams(next, { replace: true });
+}
+
 export function CodeEditorPage() {
   const { id, '*': encodedFilePath } = useParams<{ id: string; '*': string }>();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { setActiveProject } = useProjectStore();
   const { tabs, openTab, updateTabContent, markTabClean } = useEditorStore();
   const [content, setContent] = useState<string | null>(null);
@@ -136,14 +208,64 @@ export function CodeEditorPage() {
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const lspClientRef = useRef<CsharpLspClient | null>(null);
   const lspSessionId = useRef(crypto.randomUUID());
+  const searchHitNavAppliedRef = useRef<string | null>(null);
+  const searchParamsRef = useRef(searchParams);
+  searchParamsRef.current = searchParams;
   const { setToolbar } = useCodeEditorToolbar();
+  const resolvedColorTheme = useResolvedColorTheme();
+  const monacoTheme = resolvedColorTheme === 'dark' ? 'vs-dark' : 'vs';
+  const markdownLayoutGroupRef = useGroupRef();
+  const [markdownPreviewMode, setMarkdownPreviewMode] = useState<MarkdownPreviewMode>('edit');
 
   const filePath = encodedFilePath ? decodeURIComponent(encodedFilePath) : null;
   const fileName = filePath?.split('/').pop() ?? 'unknown';
   const language = detectLanguage(fileName);
+  const isMarkdownDoc = language === 'markdown';
   const activeFileTab: EditorTab | undefined = filePath
     ? tabs.find((t) => t.kind === 'file' && t.filePath === filePath)
     : undefined;
+  const liveMarkdownSource = activeFileTab?.content ?? content ?? '';
+
+  const markdownPanelsDefaultLayout = useMemo(
+    () => ({
+      [MARKDOWN_EDITOR_PANEL_ID]: 100,
+      [MARKDOWN_PREVIEW_PANEL_ID]: 0,
+    }),
+    [],
+  );
+
+  useEffect(() => {
+    searchHitNavAppliedRef.current = null;
+    // eslint-disable-next-line react-x/set-state-in-effect -- reset markdown preview mode when opening another file
+    setMarkdownPreviewMode('edit');
+  }, [filePath]);
+
+  useLayoutEffect(() => {
+    if (!isMarkdownDoc || loading) return;
+    const group = markdownLayoutGroupRef.current;
+    if (!group) return;
+    const layout =
+      markdownPreviewMode === 'edit'
+        ? { [MARKDOWN_EDITOR_PANEL_ID]: 100, [MARKDOWN_PREVIEW_PANEL_ID]: 0 }
+        : markdownPreviewMode === 'preview'
+          ? { [MARKDOWN_EDITOR_PANEL_ID]: 0, [MARKDOWN_PREVIEW_PANEL_ID]: 100 }
+          : { [MARKDOWN_EDITOR_PANEL_ID]: 52, [MARKDOWN_PREVIEW_PANEL_ID]: 48 };
+    group.setLayout(layout);
+  }, [isMarkdownDoc, loading, markdownPreviewMode, filePath, markdownLayoutGroupRef]);
+
+  const applyWorkspaceSearchHitFromUrl = useCallback(
+    (ed: editor.IStandaloneCodeEditor) => {
+      if (!filePath) return;
+      tryApplyWorkspaceSearchHitNavigation({
+        editor: ed,
+        filePath,
+        searchParams: searchParamsRef.current,
+        setSearchParams,
+        appliedKeyRef: searchHitNavAppliedRef,
+      });
+    },
+    [filePath, setSearchParams],
+  );
 
   useEffect(() => {
     if (!id) return;
@@ -245,6 +367,26 @@ export function CodeEditorPage() {
     };
   }, [filePath, loading]);
 
+  useEffect(() => {
+    if (loading || !filePath || !searchParams.get('line')) return;
+    const ed = editorRef.current;
+    if (!ed) return;
+    let raf1 = 0;
+    let raf2 = 0;
+    let cancelled = false;
+    raf1 = window.requestAnimationFrame(() => {
+      raf2 = window.requestAnimationFrame(() => {
+        if (cancelled) return;
+        applyWorkspaceSearchHitFromUrl(ed);
+      });
+    });
+    return () => {
+      cancelled = true;
+      window.cancelAnimationFrame(raf1);
+      window.cancelAnimationFrame(raf2);
+    };
+  }, [applyWorkspaceSearchHitFromUrl, filePath, loading, searchParams]);
+
   const handleUndo = useCallback(() => {
     editorRef.current?.trigger('editor', 'editor.action.undo', undefined);
   }, []);
@@ -254,8 +396,8 @@ export function CodeEditorPage() {
   }, []);
 
   const handleMount: OnMount = useCallback(
-    (editor, monaco) => {
-      editorRef.current = editor;
+    (editorInstance, monaco) => {
+      editorRef.current = editorInstance;
       if (!lspClientRef.current) {
         setupMonacoWithLsp(monaco, lspSessionId.current).then((client) => {
           lspClientRef.current = client;
@@ -265,12 +407,18 @@ export function CodeEditorPage() {
         KeyMod: { CtrlCmd: number };
         KeyCode: { KeyS: number };
       };
-      editor.addCommand(keys.KeyMod.CtrlCmd | keys.KeyCode.KeyS, () => {
+      editorInstance.addCommand(keys.KeyMod.CtrlCmd | keys.KeyCode.KeyS, () => {
         void handleSave();
       });
-      setMonacoUndoRedo(getMonacoUndoRedoState(editor));
+      setMonacoUndoRedo(getMonacoUndoRedoState(editorInstance));
+
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => {
+          applyWorkspaceSearchHitFromUrl(editorInstance);
+        });
+      });
     },
-    [handleSave],
+    [applyWorkspaceSearchHitFromUrl, handleSave],
   );
 
   useLayoutEffect(() => {
@@ -293,6 +441,64 @@ export function CodeEditorPage() {
         <span className="text-muted-foreground hidden rounded border border-border/80 bg-muted/40 px-1 py-px font-mono text-[9px] uppercase leading-none tracking-wide sm:inline">
           {language}
         </span>
+        {language === 'markdown' ? (
+          <div
+            className="border-border bg-muted/30 flex items-center gap-px rounded border p-px"
+            role="toolbar"
+            aria-label="Markdown preview mode">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant={markdownPreviewMode === 'edit' ? 'secondary' : 'muted'}
+                  size="sm"
+                  className="h-6 min-h-6 min-w-6 px-0"
+                  aria-label="Edit Markdown source"
+                  aria-pressed={markdownPreviewMode === 'edit'}
+                  onClick={() => setMarkdownPreviewMode('edit')}>
+                  <FileCode size={12} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-[11px]">
+                Edit Markdown source
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant={markdownPreviewMode === 'split' ? 'secondary' : 'muted'}
+                  size="sm"
+                  className="h-6 min-h-6 min-w-6 px-0"
+                  aria-label="Edit and preview side by side"
+                  aria-pressed={markdownPreviewMode === 'split'}
+                  onClick={() => setMarkdownPreviewMode('split')}>
+                  <Columns2 size={12} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-[11px]">
+                Edit and preview side by side
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant={markdownPreviewMode === 'preview' ? 'secondary' : 'muted'}
+                  size="sm"
+                  className="h-6 min-h-6 min-w-6 px-0"
+                  aria-label="Preview rendered Markdown"
+                  aria-pressed={markdownPreviewMode === 'preview'}
+                  onClick={() => setMarkdownPreviewMode('preview')}>
+                  <BookOpen size={12} />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-[11px]">
+                Preview rendered Markdown
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        ) : null}
         <div
           className="border-border bg-muted/30 flex items-center gap-px rounded border p-px"
           role="group"
@@ -358,6 +564,7 @@ export function CodeEditorPage() {
     handleUndo,
     language,
     loading,
+    markdownPreviewMode,
     monacoUndoRedo.canRedo,
     monacoUndoRedo.canUndo,
     saving,
@@ -388,41 +595,90 @@ export function CodeEditorPage() {
     );
   }
 
+  const codeEditor = (
+    <Editor
+      height="100%"
+      path={filePath ?? undefined}
+      language={language}
+      value={activeFileTab?.content ?? content ?? ''}
+      theme={monacoTheme}
+      onChange={(value) => {
+        if (value !== undefined && filePath) {
+          updateTabContent(filePath, value);
+        }
+      }}
+      onMount={handleMount}
+      options={{
+        fontSize: 13,
+        fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, monospace",
+        minimap: { enabled: true, scale: 2 },
+        wordWrap: 'on',
+        lineNumbers: 'on',
+        renderWhitespace: 'selection',
+        scrollBeyondLastLine: false,
+        automaticLayout: true,
+        tabSize: 2,
+        suggestOnTriggerCharacters: true,
+        smoothScrolling: true,
+        cursorSmoothCaretAnimation: 'on',
+        cursorBlinking: 'smooth',
+        bracketPairColorization: { enabled: true },
+        padding: { top: 12 },
+        overviewRulerBorder: false,
+        scrollbar: { verticalScrollbarSize: 10, horizontalScrollbarSize: 10 },
+      }}
+    />
+  );
+
   return (
-    <div className="flex h-full flex-col">
-      <div className="min-h-0 flex-1">
-        <Editor
-          height="100%"
-          path={filePath ?? undefined}
-          language={language}
-          value={activeFileTab?.content ?? content ?? ''}
-          theme="vs"
-          onChange={(value) => {
-            if (value !== undefined && filePath) {
-              updateTabContent(filePath, value);
-            }
-          }}
-          onMount={handleMount}
-          options={{
-            fontSize: 13,
-            fontFamily: "'JetBrains Mono', 'Fira Code', Consolas, monospace",
-            minimap: { enabled: true, scale: 2 },
-            wordWrap: 'on',
-            lineNumbers: 'on',
-            renderWhitespace: 'selection',
-            scrollBeyondLastLine: false,
-            automaticLayout: true,
-            tabSize: 2,
-            suggestOnTriggerCharacters: true,
-            smoothScrolling: true,
-            cursorSmoothCaretAnimation: 'on',
-            cursorBlinking: 'smooth',
-            bracketPairColorization: { enabled: true },
-            padding: { top: 12 },
-            overviewRulerBorder: false,
-            scrollbar: { verticalScrollbarSize: 10, horizontalScrollbarSize: 10 },
-          }}
-        />
+    <div
+      className={cn(
+        'flex h-full flex-col transition-opacity duration-200 ease-out motion-reduce:transition-none motion-reduce:duration-0',
+      )}>
+      <div className="relative min-h-0 flex-1 overflow-hidden">
+        {!isMarkdownDoc ? (
+          codeEditor
+        ) : (
+          <ResizablePanelGroup
+            className="h-full min-h-0 w-full"
+            defaultLayout={markdownPanelsDefaultLayout}
+            disabled={markdownPreviewMode !== 'split'}
+            groupRef={markdownLayoutGroupRef}
+            id="code-editor-markdown-split"
+            orientation="horizontal">
+            <ResizablePanel
+              className="flex min-h-0 min-w-0 flex-col overflow-hidden"
+              id={MARKDOWN_EDITOR_PANEL_ID}
+              minSize={markdownPreviewMode === 'split' ? '25%' : 0}>
+              <div
+                className={cn(
+                  'relative min-h-0 min-w-0 flex-1 transition-opacity duration-200 ease-out motion-reduce:transition-none motion-reduce:duration-0',
+                  markdownPreviewMode === 'preview' && 'hidden',
+                )}>
+                {codeEditor}
+              </div>
+            </ResizablePanel>
+            <ResizableHandle
+              className="aria-[orientation=vertical]:before:right-0! aria-[orientation=vertical]:before:left-auto!"
+              disabled={markdownPreviewMode !== 'split'}
+            />
+            <ResizablePanel
+              className={cn(
+                'bg-surface flex min-h-0 min-w-0 flex-col overflow-hidden transition-opacity duration-200 ease-out motion-reduce:transition-none motion-reduce:duration-0',
+                markdownPreviewMode === 'split' && 'border-border border-l',
+              )}
+              id={MARKDOWN_PREVIEW_PANEL_ID}
+              minSize={markdownPreviewMode === 'split' ? '280px' : 0}>
+              {markdownPreviewMode !== 'edit' ? (
+                markdownPreviewMode === 'split' ? (
+                  <DebouncedMarkdownPreview markdown={liveMarkdownSource} debounceMs={200} />
+                ) : (
+                  <MarkdownPreview markdown={liveMarkdownSource} />
+                )
+              ) : null}
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        )}
       </div>
     </div>
   );

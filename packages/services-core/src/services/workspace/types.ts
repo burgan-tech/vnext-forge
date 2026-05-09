@@ -9,6 +9,23 @@ export type {
   VnextWorkspaceReferenceResolution,
 } from '@vnext-forge-studio/vnext-types'
 
+/** One occurrence returned by enhanced project file search. */
+export interface FileSearchHit {
+  path: string
+  line: number
+  column: number
+  text: string
+  matchLength: number
+}
+
+export interface FileSearchResponse {
+  items: FileSearchHit[]
+  nextCursor?: string
+  totalFiles: number
+  truncated: boolean
+}
+
+/** @deprecated Use {@link FileSearchHit} instead. */
 export interface SearchResult {
   path: string
   line: number

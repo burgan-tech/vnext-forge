@@ -65,7 +65,7 @@ export function ExtensionEditorView({
   const { activeProject, vnextConfig } = useProjectStore();
   const { componentJson, isDirty, updateComponent, undo, redo, undoStack, redoStack } =
     useComponentStore();
-  const { save, saving, saveError } = useSaveComponent({
+  const { save, saving, saveError, autoSavePending, autoSaved } = useSaveComponent({
     afterSaveSuccess: onAtomicSaved
       ? () => {
           const j = useComponentStore.getState().componentJson;
@@ -149,7 +149,9 @@ export function ExtensionEditorView({
             canUndo={undoStack.length > 0}
             canRedo={redoStack.length > 0}
             onPublish={canPublish ? handlePublish : undefined}
-            publishing={publishing}>
+            publishing={publishing}
+            autoSavePending={autoSavePending}
+            autoSaved={autoSaved}>
             <ExtensionEditorPanel
               json={componentJson}
               onChange={updateComponent}

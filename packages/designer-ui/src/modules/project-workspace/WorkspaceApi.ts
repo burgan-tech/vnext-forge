@@ -120,30 +120,49 @@ export function renameFile(oldPath: string, newPath: string) {
 export interface FileSearchOptions {
   query: string;
   projectPath: string;
+  /** When set, takes precedence over `projectPath` (registry resolves the path server-side). */
+  projectId?: string;
   matchCase?: boolean;
   matchWholeWord?: boolean;
   useRegex?: boolean;
-  include?: string;
-  exclude?: string;
+  /** Glob patterns (comma string or array) applied with picomatch. */
+  include?: string | string[];
+  exclude?: string | string[];
+  limit?: number;
+  cursor?: string;
 }
 
+/** One search hit returned from `files/search`. */
 export interface FileSearchResult {
   path: string;
   line: number;
+  column: number;
   text: string;
+  matchLength: number;
+}
+
+export interface FileSearchResponseBody {
+  items: FileSearchResult[];
+  nextCursor?: string;
+  totalFiles: number;
+  truncated: boolean;
 }
 
 export function searchFiles(opts: FileSearchOptions) {
-  return callApi<FileSearchResult[]>({
+  return callApi<FileSearchResponseBody>({
     method: 'files/search',
     params: {
       q: opts.query,
-      project: opts.projectPath,
+      ...(opts.projectId !== undefined && opts.projectId !== ''
+        ? { projectId: opts.projectId }
+        : { project: opts.projectPath }),
       ...(opts.matchCase !== undefined && { matchCase: opts.matchCase }),
       ...(opts.matchWholeWord !== undefined && { matchWholeWord: opts.matchWholeWord }),
       ...(opts.useRegex !== undefined && { useRegex: opts.useRegex }),
-      ...(opts.include ? { include: opts.include } : {}),
-      ...(opts.exclude ? { exclude: opts.exclude } : {}),
+      ...(opts.include !== undefined && opts.include !== '' ? { include: opts.include } : {}),
+      ...(opts.exclude !== undefined && opts.exclude !== '' ? { exclude: opts.exclude } : {}),
+      ...(opts.limit !== undefined && { limit: opts.limit }),
+      ...(opts.cursor !== undefined ? { cursor: opts.cursor } : {}),
     },
   });
 }

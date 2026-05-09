@@ -139,7 +139,7 @@ export function FlowEditorView({
   );
 
   const { loading, error } = useFlowEditorDocument({ group, name });
-  const { save, saveError, saving } = useFlowEditorPersistence({ group, name });
+  const { save, saveError, saving, autoSavePending, autoSaved } = useFlowEditorPersistence({ group, name });
   const handleSave = useCallback(() => {
     void save();
   }, [save]);
@@ -257,7 +257,9 @@ export function FlowEditorView({
         onPreviewDocument={() => setShowPreviewDoc(true)}
         registerToolbar={registerToolbar}
         saveErrorMessage={saveError?.toUserMessage().message ?? null}
-        saving={saving}>
+        saving={saving}
+        autoSavePending={autoSavePending}
+        autoSaved={autoSaved}>
         <div className="bg-background flex h-full min-h-0 min-w-0 flex-col">
         {showMetadata ? (
           <ResizablePanelGroup

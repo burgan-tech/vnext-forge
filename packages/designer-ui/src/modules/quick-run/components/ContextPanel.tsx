@@ -2,8 +2,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import * as QuickRunApi from '../QuickRunApi';
 import { useQuickRunStore } from '../store/quickRunStore';
-import type { ContextPanelTab, CorrelationInfo, HistoryTransition } from '../types/quickrun.types';
-import { safeViewContent } from '../types/quickrun.types';
+import {
+  safeViewContent,
+  type ContextPanelTab,
+  type CorrelationInfo,
+  type HistoryTransition,
+} from '../types/quickrun.types';
 import { CopyableJsonBlock } from './CopyableJsonBlock';
 
 const TABS: { id: ContextPanelTab; label: string }[] = [
@@ -20,6 +24,7 @@ export function ContextPanel() {
   const domain = useQuickRunStore((s) => s.domain);
   const workflowKey = useQuickRunStore((s) => s.workflowKey);
   const globalHeaders = useQuickRunStore((s) => s.globalHeaders);
+  const environmentUrl = useQuickRunStore((s) => s.environmentUrl);
   const activeStateLoading = useQuickRunStore((s) => s.activeStateLoading);
 
   const activeView = useQuickRunStore((s) => s.activeView);
@@ -43,7 +48,7 @@ export function ContextPanel() {
     if (!activeTabId || !domain || !workflowKey) return;
     setActiveDataLoading(true);
     try {
-      const response = await QuickRunApi.getData({ domain, workflowKey, instanceId: activeTabId, headers: globalHeaders });
+      const response = await QuickRunApi.getData({ domain, workflowKey, instanceId: activeTabId, headers: globalHeaders, runtimeUrl: environmentUrl });
       if (response.success) {
         setActiveData(response.data);
       } else {
@@ -53,14 +58,14 @@ export function ContextPanel() {
       setActiveData(null);
     }
     setActiveDataLoading(false);
-  }, [activeTabId, domain, workflowKey, globalHeaders, setActiveData, setActiveDataLoading]);
+  }, [activeTabId, domain, workflowKey, globalHeaders, environmentUrl, setActiveData, setActiveDataLoading]);
 
   const loadView = useCallback(async () => {
     if (!activeTabId || !domain || !workflowKey) return;
     setActiveViewLoading(true);
     setViewNotFound(false);
     try {
-      const response = await QuickRunApi.getView({ domain, workflowKey, instanceId: activeTabId, headers: globalHeaders });
+      const response = await QuickRunApi.getView({ domain, workflowKey, instanceId: activeTabId, headers: globalHeaders, runtimeUrl: environmentUrl });
       if (response.success) {
         setActiveView(response.data);
       } else {
@@ -72,13 +77,13 @@ export function ContextPanel() {
       setViewNotFound(true);
     }
     setActiveViewLoading(false);
-  }, [activeTabId, domain, workflowKey, globalHeaders, setActiveView, setActiveViewLoading]);
+  }, [activeTabId, domain, workflowKey, globalHeaders, environmentUrl, setActiveView, setActiveViewLoading]);
 
   const loadHistory = useCallback(async () => {
     if (!activeTabId || !domain || !workflowKey) return;
     setActiveHistoryLoading(true);
     try {
-      const response = await QuickRunApi.getHistory({ domain, workflowKey, instanceId: activeTabId, headers: globalHeaders });
+      const response = await QuickRunApi.getHistory({ domain, workflowKey, instanceId: activeTabId, headers: globalHeaders, runtimeUrl: environmentUrl });
       if (response.success) {
         setActiveHistory(response.data);
       } else {
@@ -88,14 +93,20 @@ export function ContextPanel() {
       setActiveHistory(null);
     }
     setActiveHistoryLoading(false);
-  }, [activeTabId, domain, workflowKey, globalHeaders, setActiveHistory, setActiveHistoryLoading]);
+  }, [activeTabId, domain, workflowKey, globalHeaders, environmentUrl, setActiveHistory, setActiveHistoryLoading]);
 
   useEffect(() => {
     if (!activeTabId) return;
     switch (contextPanelTab) {
-      case 'data': loadData(); break;
-      case 'view': loadView(); break;
-      case 'history': loadHistory(); break;
+      case 'data':
+        void loadData();
+        break;
+      case 'view':
+        void loadView();
+        break;
+      case 'history':
+        void loadHistory();
+        break;
     }
   }, [contextPanelTab, activeTabId, loadData, loadView, loadHistory]);
 
@@ -104,8 +115,8 @@ export function ContextPanel() {
     const wasLoading = prevStateLoadingRef.current;
     prevStateLoadingRef.current = activeStateLoading;
     if (wasLoading && !activeStateLoading && activeTabId) {
-      if (contextPanelTab === 'history') loadHistory();
-      if (contextPanelTab === 'data') loadData();
+      if (contextPanelTab === 'history') void loadHistory();
+      if (contextPanelTab === 'data') void loadData();
     }
   }, [activeStateLoading, activeTabId, contextPanelTab, loadHistory, loadData]);
 
@@ -202,19 +213,42 @@ function DataTabContent({ data, loading }: { data: ReturnType<typeof useQuickRun
 }
 
 
+/** manual=info, timer=warning, signal=accent; other known types preserved; unknown = Badge muted. */
 const TRIGGER_TYPE_STYLES: Record<string, string> = {
-  Manual:    'bg-[var(--vscode-charts-blue)] text-white',
-  Timer:     'bg-[var(--vscode-charts-orange)] text-white',
-  Signal:    'bg-[var(--vscode-charts-purple)] text-white',
-  Auto:      'bg-[var(--vscode-charts-green)] text-white',
-  Error:     'bg-[var(--vscode-errorForeground)] text-white',
-  SubFlow:   'bg-[var(--vscode-charts-yellow)] text-black',
+  Manual: 'border-info-border bg-info text-info-foreground',
+  Timer: 'border-warning-border bg-warning text-warning-foreground',
+  Signal: 'border-muted-border bg-accent text-accent-foreground',
+  Auto: 'border-success-border bg-success text-success-foreground',
+  Error: 'border-destructive-border bg-destructive-muted text-destructive-text',
+  SubFlow: 'border-tertiary-border bg-tertiary text-tertiary-foreground',
 };
 
+function triggerTypeBadgeClass(triggerType: string): string {
+  const raw = triggerType.trim();
+  const direct = TRIGGER_TYPE_STYLES[raw];
+  if (direct) return direct;
+  switch (raw.toLowerCase()) {
+    case 'manual':
+      return TRIGGER_TYPE_STYLES.Manual;
+    case 'timer':
+      return TRIGGER_TYPE_STYLES.Timer;
+    case 'signal':
+      return TRIGGER_TYPE_STYLES.Signal;
+    case 'auto':
+      return TRIGGER_TYPE_STYLES.Auto;
+    case 'error':
+      return TRIGGER_TYPE_STYLES.Error;
+    case 'subflow':
+      return TRIGGER_TYPE_STYLES.SubFlow;
+    default:
+      return 'border-muted-border bg-muted text-muted-foreground';
+  }
+}
+
 function TriggerTypeBadge({ triggerType }: { triggerType: string }) {
-  const style = TRIGGER_TYPE_STYLES[triggerType] ?? 'bg-[var(--vscode-badge-background)] text-[var(--vscode-badge-foreground)]';
+  const style = triggerTypeBadgeClass(triggerType);
   return (
-    <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-medium ${style}`}>
+    <span className={`inline-flex items-center rounded border px-1.5 py-0.5 text-[9px] font-medium ${style}`}>
       {triggerType}
     </span>
   );
@@ -285,7 +319,7 @@ function TransitionDetailModal({ item, onClose }: { item: HistoryTransition; onC
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
       role="dialog"
       aria-modal="true"
       aria-labelledby="transition-detail-title"
@@ -293,7 +327,7 @@ function TransitionDetailModal({ item, onClose }: { item: HistoryTransition; onC
       <div
         ref={dialogRef}
         tabIndex={-1}
-        className="flex w-[500px] max-h-[80vh] flex-col rounded border border-[var(--vscode-widget-border)] bg-[var(--vscode-editor-background)] shadow-lg focus:outline-none"
+        className="flex w-[500px] max-h-[80vh] flex-col rounded border border-[var(--vscode-widget-border)] bg-background bg-[var(--vscode-editor-background,_theme(colors.background))] shadow-lg focus:outline-none"
       >
         <header className="flex items-center justify-between border-b border-[var(--vscode-panel-border)] px-4 py-3">
           <h2 id="transition-detail-title" className="text-sm font-semibold">

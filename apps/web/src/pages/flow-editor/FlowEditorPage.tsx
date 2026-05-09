@@ -45,6 +45,13 @@ export function FlowEditorPage() {
     [id, navigate],
   );
 
+  const onOpenQuickRun = useCallback(() => {
+    if (!id || !group || !name) return;
+    navigate(
+      `/project/${id}/quickrun/${encodeURIComponent(group)}/${encodeURIComponent(name)}`,
+    );
+  }, [id, group, name, navigate]);
+
   if (!id || !group || !name) {
     return null;
   }
@@ -58,6 +65,7 @@ export function FlowEditorPage() {
         onNavigateBack={() => navigate(`/project/${id}`)}
         onOpenScriptFileInHost={onOpenScriptFileInHost}
         onNavigateToWorkflow={onNavigateToWorkflow}
+        onOpenQuickRun={onOpenQuickRun}
         registerToolbar={setToolbar}
       />
     </ComponentEditorModalProvider>

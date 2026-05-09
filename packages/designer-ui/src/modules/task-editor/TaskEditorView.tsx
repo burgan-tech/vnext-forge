@@ -60,7 +60,7 @@ export function TaskEditorView({
     return true;
   }, []);
 
-  const { save, saving, saveError } = useSaveComponent({
+  const { save, saving, saveError, autoSavePending, autoSaved } = useSaveComponent({
     beforeSave,
     afterSaveSuccess: onAtomicSaved
       ? () => {
@@ -108,7 +108,9 @@ export function TaskEditorView({
       canUndo={undoStackLength > 0}
       canRedo={redoStackLength > 0}
       onPublish={canPublish ? handlePublish : undefined}
-      publishing={publishing}>
+      publishing={publishing}
+      autoSavePending={autoSavePending}
+      autoSaved={autoSaved}>
       <TaskEditorPanel
         json={componentJson}
         onChange={updateComponent}

@@ -97,6 +97,7 @@ export class DesignerPanel {
         type: 'host:canvas-settings-changed',
         canvasViewSettings: settings.canvas,
         themeMode: settings.themeMode,
+        autoSaveEnabled: settings.autoSaveEnabled,
       };
       for (const managed of this.panels.values()) {
         if (managed.webviewReady) {
@@ -473,6 +474,7 @@ export class DesignerPanel {
     if (cached) {
       config.canvasViewSettings = cached.canvas;
       config.themeMode = cached.themeMode;
+      config.autoSaveEnabled = cached.autoSaveEnabled;
     }
 
     return config;

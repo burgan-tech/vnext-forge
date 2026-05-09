@@ -6,6 +6,7 @@ export * from './Badge.js';
 export * from './Button.js';
 export * from './Card.js';
 export * from './Checkbox.js';
+export * from './ContextMenu.js';
 export * from './ColorThemeSwitch.js';
 export * from './ColorThemeSwitchSidebar.js';
 export * from './Dialog.js';

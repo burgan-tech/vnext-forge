@@ -28,6 +28,8 @@ export {
 } from './workspace-config-schema.js'
 export type {
   DirectoryEntry,
+  FileSearchHit,
+  FileSearchResponse,
   FileTreeNode,
   SearchResult,
   VnextWorkspaceConfig,

@@ -18,6 +18,8 @@ export type ColorThemePreference = 'light' | 'dark' | 'system';
 interface SettingsState {
   colorTheme: ColorThemePreference;
   setColorTheme: (colorTheme: ColorThemePreference) => void;
+  autoSaveEnabled: boolean;
+  setAutoSaveEnabled: (enabled: boolean) => void;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -25,12 +27,23 @@ export const useSettingsStore = create<SettingsState>()(
     (set) => ({
       colorTheme: 'system',
       setColorTheme: (colorTheme) => set({ colorTheme }),
+      autoSaveEnabled: false,
+      setAutoSaveEnabled: (autoSaveEnabled) => set({ autoSaveEnabled }),
     }),
     {
       name: SETTINGS_PERSIST_KEY,
       storage: createJSONStorage(() => localStorage),
-      partialize: (state) => ({ colorTheme: state.colorTheme }),
-      version: 0,
+      partialize: (state) => ({
+        colorTheme: state.colorTheme,
+        autoSaveEnabled: state.autoSaveEnabled,
+      }),
+      version: 1,
+      migrate: (persisted, version) => {
+        if (version === 0) {
+          return { ...(persisted as Record<string, unknown>), autoSaveEnabled: false };
+        }
+        return persisted as SettingsState;
+      },
     },
   ),
 );

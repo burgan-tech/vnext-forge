@@ -2,7 +2,9 @@ import { useCallback } from 'react';
 import { useProjectStore } from '../../store/useProjectStore';
 import { useWorkflowStore } from '../../store/useWorkflowStore';
 import { useAsync } from '../../hooks/useAsync';
+import { useDebouncedAutoSave } from '../../hooks/useDebouncedAutoSave';
 import { useRegisterGlobalSaveShortcut } from '../../hooks/useRegisterGlobalSaveShortcut';
+import { useSettingsStore } from '../../store/useSettingsStore';
 import { createLogger } from '../../lib/logger/createLogger';
 import { persistDiagramSnapshot, saveWorkflowDocument } from './FlowEditorApi';
 
@@ -16,6 +18,8 @@ interface UseFlowEditorPersistenceOptions {
 export function useFlowEditorPersistence({ group, name }: UseFlowEditorPersistenceOptions) {
   const isDirty = useWorkflowStore((s) => s.isDirty);
   const markClean = useWorkflowStore((s) => s.markClean);
+  const workflowJson = useWorkflowStore((s) => s.workflowJson);
+  const autoSaveEnabled = useSettingsStore((s) => s.autoSaveEnabled);
 
   const { execute, loading, error } = useAsync(saveWorkflowDocument, {
     showNotificationOnSuccess: false,
@@ -56,7 +60,20 @@ export function useFlowEditorPersistence({ group, name }: UseFlowEditorPersisten
     void persistDiagramSnapshot(diagramFilePath, diagramJson);
   }, [execute, group, name]);
 
-  useRegisterGlobalSaveShortcut(save);
+  const { autoSavePending, autoSaved, cancelAutoSave } = useDebouncedAutoSave({
+    isDirty,
+    saving: loading,
+    save,
+    enabled: autoSaveEnabled,
+    changeSignal: workflowJson,
+  });
 
-  return { isDirty, save, saving: loading, saveError: error };
+  const manualSave = useCallback(async () => {
+    cancelAutoSave();
+    await save();
+  }, [cancelAutoSave, save]);
+
+  useRegisterGlobalSaveShortcut(manualSave);
+
+  return { isDirty, save: manualSave, saving: loading, saveError: error, autoSavePending, autoSaved };
 }

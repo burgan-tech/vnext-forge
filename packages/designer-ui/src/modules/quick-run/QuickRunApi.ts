@@ -142,6 +142,45 @@ export async function listInstances(params: ListInstancesParams): Promise<ApiRes
   return callApi({ method: 'quickrun/listInstances', params });
 }
 
+interface GetInstanceParams {
+  domain: string;
+  workflowKey: string;
+  instanceId: string;
+  headers?: Record<string, string>;
+  runtimeUrl?: string;
+}
+
+export interface InstanceDetailResponse {
+  id: string;
+  key: string;
+  flow: string;
+  domain: string;
+  flowVersion?: string;
+  eTag?: string;
+  entityEtag?: string;
+  tags?: string[];
+  metadata: {
+    currentState: string;
+    effectiveState: string;
+    status: string;
+    effectiveStateType?: string;
+    effectiveStateSubType?: string;
+    currentStateType?: string;
+    currentStateSubType?: string;
+    stage?: string;
+    createdAt: string;
+    modifiedAt?: string;
+    createdBy?: string;
+    createdByBehalfOf?: string;
+    modifiedBy?: string;
+    modifiedByBehalfOf?: string;
+  };
+}
+
+export async function getInstance(params: GetInstanceParams): Promise<ApiResponse<InstanceDetailResponse>> {
+  return callApi({ method: 'quickrun/getInstance', params });
+}
+
 // ── Workflow Config Persistence (direct postMessage, extension-host only) ─────
 
 export interface TransitionBucketEntry {
@@ -172,6 +211,18 @@ export interface WorkflowBucketConfig {
   transitions: TransitionBucketEntry[];
 }
 
+/** Web SPA / alternate persistence (e.g. localStorage); takes precedence when set. */
+export interface DataBucketAdapter {
+  save(domain: string, workflowKey: string, config: WorkflowBucketConfig): Promise<void>;
+  load(domain: string, workflowKey: string): Promise<WorkflowBucketConfig | null>;
+}
+
+let _dataBucketAdapter: DataBucketAdapter | null = null;
+
+export function setDataBucketAdapter(adapter: DataBucketAdapter | null): void {
+  _dataBucketAdapter = adapter;
+}
+
 type PostMessageFn = (msg: unknown) => void;
 let _postMessage: PostMessageFn | null = null;
 
@@ -198,10 +249,19 @@ function postMessageRpc<T>(type: string, payload: Record<string, unknown>): Prom
 }
 
 export async function saveWorkflowConfig(domain: string, workflowKey: string, config: WorkflowBucketConfig): Promise<void> {
+  const adapter = _dataBucketAdapter;
+  if (adapter) {
+    await adapter.save(domain, workflowKey, config);
+    return;
+  }
   await postMessageRpc('databucket:saveConfig', { domain, workflowKey, config });
 }
 
 export async function loadWorkflowConfig(domain: string, workflowKey: string): Promise<WorkflowBucketConfig | null> {
+  const adapter = _dataBucketAdapter;
+  if (adapter) {
+    return adapter.load(domain, workflowKey);
+  }
   return postMessageRpc<WorkflowBucketConfig>('databucket:loadConfig', { domain, workflowKey });
 }
 

@@ -1,0 +1,12 @@
+{
+  "params": {
+    "command": "check",
+    "projectPath": "/tmp/sample-vnext-project",
+    "timeoutMs": 60000
+  },
+  "result": {
+    "exitCode": 0,
+    "stdout": "ok\n",
+    "stderr": ""
+  }
+}

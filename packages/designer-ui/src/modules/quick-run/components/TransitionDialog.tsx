@@ -10,8 +10,7 @@ import * as QuickRunApi from '../QuickRunApi';
 import type { WorkflowBucketConfig } from '../QuickRunApi';
 import { useQuickRunPolling } from '../hooks/useQuickRunPolling';
 import { useQuickRunStore } from '../store/quickRunStore';
-import type { SchemaResponse, ViewResponse } from '../types/quickrun.types';
-import { safeViewContent } from '../types/quickrun.types';
+import { safeViewContent, type SchemaResponse, type ViewResponse } from '../types/quickrun.types';
 import { CopyableJsonBlock, JsonEditorWithCopy } from './CopyableJsonBlock';
 import { ValidationErrorBlock } from './ValidationErrorBlock';
 
@@ -29,6 +28,7 @@ export function TransitionDialog({ configRef, persistConfig }: TransitionDialogP
   const workflowKey = useQuickRunStore((s) => s.workflowKey);
   const globalHeaders = useQuickRunStore((s) => s.globalHeaders);
   const sessionHeaders = useQuickRunStore((s) => s.sessionHeaders);
+  const environmentUrl = useQuickRunStore((s) => s.environmentUrl);
   const pollingConfig = useQuickRunStore((s) => s.pollingConfig);
 
   const { pollState } = useQuickRunPolling(pollingConfig);
@@ -98,6 +98,7 @@ export function TransitionDialog({ configRef, persistConfig }: TransitionDialogP
         instanceId: activeTabId,
         transitionKey: transition.name,
         headers: inherited,
+        runtimeUrl: environmentUrl,
       };
 
       if (hasSchema) {
@@ -185,6 +186,7 @@ export function TransitionDialog({ configRef, persistConfig }: TransitionDialogP
         tags: tagsList.length > 0 ? tagsList : undefined,
         attributes: Object.keys(attrs).length > 0 ? attrs : undefined,
         headers: mergedHeaders,
+        runtimeUrl: environmentUrl,
       });
 
       if (result.success) {
@@ -193,6 +195,7 @@ export function TransitionDialog({ configRef, persistConfig }: TransitionDialogP
           workflowKey,
           instanceId: activeTabId,
           headers: mergedHeaders,
+          runtimeUrl: environmentUrl,
         });
 
         if (!isManualMode) {
@@ -236,13 +239,13 @@ export function TransitionDialog({ configRef, persistConfig }: TransitionDialogP
       setError('Failed to fire transition. Please try again.');
     }
     setSubmitting(false);
-  }, [activeTabId, domain, workflowKey, transitionName, isManualMode, manualTransitionName, instanceKey, stage, tags, headerRows, globalHeaders, sessionHeaders, buildAttributes, pollState, closeDialog, configRef, persistConfig]);
+  }, [activeTabId, domain, workflowKey, transitionName, isManualMode, manualTransitionName, instanceKey, stage, tags, headerRows, globalHeaders, sessionHeaders, environmentUrl, buildAttributes, pollState, closeDialog, configRef, persistConfig]);
 
   if (!open) return null;
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
       role="dialog"
       aria-modal="true"
       aria-labelledby="transition-dialog-title"
@@ -250,7 +253,7 @@ export function TransitionDialog({ configRef, persistConfig }: TransitionDialogP
       <div
         ref={dialogRef}
         tabIndex={-1}
-        className="flex w-[620px] max-h-[80vh] flex-col rounded border border-[var(--vscode-widget-border)] bg-[var(--vscode-editor-background)] shadow-lg focus:outline-none"
+        className="flex w-[620px] max-h-[80vh] flex-col rounded border border-[var(--vscode-widget-border)] bg-background bg-[var(--vscode-editor-background,_theme(colors.background))] shadow-lg focus:outline-none"
       >
         <header className="flex items-center justify-between border-b border-[var(--vscode-panel-border)] px-4 py-3">
           <h2 id="transition-dialog-title" className="text-sm font-semibold">
@@ -333,7 +336,7 @@ export function TransitionDialog({ configRef, persistConfig }: TransitionDialogP
           </button>
           <button
             className="rounded bg-[var(--vscode-button-background)] px-3 py-1.5 text-xs text-[var(--vscode-button-foreground)] hover:bg-[var(--vscode-button-hoverBackground)] disabled:opacity-50"
-            onClick={handleSubmit}
+            onClick={() => void handleSubmit()}
             disabled={submitting || schemaLoading || (isManualMode && !manualTransitionName.trim())}
           >
             {submitting ? 'Submitting...' : 'Fire Transition'}
@@ -444,7 +447,7 @@ function TransitionInputStep({
 
       <details className="text-xs">
         <summary className="cursor-pointer text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]">
-          Advanced (Key, State, Tags, Sync)
+          Advanced (Key, Stage, Tags, Sync)
         </summary>
         <div className="mt-2 flex flex-col gap-2">
           <div className="flex flex-col gap-1">
@@ -467,12 +470,12 @@ function TransitionInputStep({
             </div>
           </div>
           <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium">State</label>
+            <label className="text-xs font-medium">Stage</label>
             <input
               type="text"
               value={stage}
               onChange={(e) => setStage(e.target.value)}
-              placeholder="Target state name"
+              placeholder="e.g. approval, review, payment"
               className="rounded border border-[var(--vscode-input-border)] bg-[var(--vscode-input-background)] px-2 py-1.5 text-xs text-[var(--vscode-input-foreground)] placeholder:text-[var(--vscode-input-placeholderForeground)]"
             />
           </div>
@@ -690,7 +693,7 @@ interface JsonSchemaProperty {
   type?: string;
   title?: string;
   description?: string;
-  oneOf?: Array<{ const: string; description?: string }>;
+  oneOf?: { const: string; description?: string }[];
   enum?: string[];
   default?: unknown;
   properties?: Record<string, JsonSchemaProperty>;

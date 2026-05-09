@@ -1,0 +1,12 @@
+{
+  "params": {
+    "domain": "TestDomain",
+    "workflowKey": "SampleFlow",
+    "instanceId": "wf-instance-001"
+  },
+  "result": {
+    "id": "wf-instance-001",
+    "key": "instance-key-1",
+    "status": "A"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "params": {
+    "domain": "TestDomain",
+    "workflowKey": "SampleFlow"
+  },
+  "result": {
+    "links": {
+      "self": "https://runtime.example/workflows/instances?page=1"
+    },
+    "items": [
+      {
+        "id": "wf-instance-001",
+        "key": "instance-key-1",
+        "flow": "SampleFlow",
+        "domain": "TestDomain",
+        "metadata": {
+          "currentState": "Draft",
+          "effectiveState": "Draft",
+          "status": "A",
+          "createdAt": "2026-01-01T00:00:00.000Z"
+        }
+      }
+    ]
+  }
+}

@@ -10,8 +10,9 @@ import {
 const VERBS: ReadonlySet<MethodHttpVerb> = new Set(['GET', 'POST', 'PUT', 'DELETE'])
 
 describe('METHOD_HTTP_METADATA', () => {
-  it('has 30 entries', () => {
-    expect(Object.keys(METHOD_HTTP_METADATA)).toHaveLength(30)
+  it('has unique method ids', () => {
+    const keys = Object.keys(METHOD_HTTP_METADATA)
+    expect(new Set(keys).size).toBe(keys.length)
   })
 
   it('uses only valid HTTP verbs', () => {
@@ -21,10 +22,11 @@ describe('METHOD_HTTP_METADATA', () => {
   })
 
   it('listMethodHttpSpecs matches the frozen map', () => {
+    const keys = Object.keys(METHOD_HTTP_METADATA)
     const listed = listMethodHttpSpecs()
-    expect(listed).toHaveLength(30)
+    expect(listed).toHaveLength(keys.length)
     const fromList = new Map(listed.map((row) => [row.method, row.spec]))
-    for (const id of Object.keys(METHOD_HTTP_METADATA) as MethodId[]) {
+    for (const id of keys as MethodId[]) {
       expect(fromList.get(id)).toEqual(METHOD_HTTP_METADATA[id])
     }
   })

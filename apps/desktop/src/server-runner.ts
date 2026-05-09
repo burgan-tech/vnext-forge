@@ -63,6 +63,7 @@ export async function startServer(options: ServerRunnerOptions): Promise<Running
       HOST: '127.0.0.1',
       NODE_ENV: 'production',
       DESKTOP_STATIC_DIR: webviewDir,
+      ALLOW_RUNTIME_URL_OVERRIDE: 'true',
     },
   });
 

@@ -1,4 +1,12 @@
-import { EditorTabLabel, type EditorTab } from '@vnext-forge-studio/designer-ui';
+import {
+  EditorTabLabel,
+  type EditorTab,
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from '@vnext-forge-studio/designer-ui';
 
 function FileIcon({ language }: { language: string }) {
   const colors: Record<string, string> = {
@@ -44,52 +52,88 @@ interface EditorTabBarProps {
   activeTabId: string | null;
   onTabClick: (tabId: string) => void;
   onTabClose: (tabId: string) => void;
+  onCloseOtherTabs: (tabId: string) => void;
+  onCloseAllTabs: () => void;
+  onCloseSavedTabs: () => void;
 }
 
-export function EditorTabBar({ tabs, activeTabId, onTabClick, onTabClose }: EditorTabBarProps) {
+export function EditorTabBar({
+  tabs,
+  activeTabId,
+  onTabClick,
+  onTabClose,
+  onCloseOtherTabs,
+  onCloseAllTabs,
+  onCloseSavedTabs,
+}: EditorTabBarProps) {
   if (tabs.length === 0) return null;
+
+  const hasCloseSavedTarget = tabs.some((t) => !t.isDirty);
 
   return (
     <div className="flex min-w-0 flex-1 overflow-x-auto">
       {tabs.map((tab) => (
-          <div
-            key={tab.id}
-            role="tab"
-            className={`flex min-h-0 min-w-0 cursor-pointer items-center gap-1 border-r border-border/70 px-2.5 py-1 text-[11px] leading-tight transition-colors duration-150 ${
-              tab.id === activeTabId
-                ? 'bg-background border-b-2 border-b-primary font-medium text-foreground'
-                : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
-            }`}
-            onClick={() => onTabClick(tab.id)}
-            onMouseDown={(event) => {
-              if (event.button === 1) {
-                event.preventDefault();
-              }
-            }}
-            onAuxClick={(event) => {
-              if (event.button === 1) {
-                event.preventDefault();
-                event.stopPropagation();
-                onTabClose(tab.id);
-              }
-            }}>
-            <EditorTabLabel
-              tab={tab}
-              titleClassName="max-w-[140px] truncate"
-              renderFileLeading={(language) => <FileIcon language={language} />}
-            />
-            {tab.isDirty && <span className="text-[10px] font-medium text-amber-600">*</span>}
-            <button
-              type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                onTabClose(tab.id);
+        <ContextMenu key={tab.id}>
+          <ContextMenuTrigger asChild>
+            <div
+              role="tab"
+              className={`flex min-h-0 min-w-0 cursor-pointer items-center gap-1 border-r border-border/70 px-2.5 py-1 text-[11px] leading-tight transition-colors duration-150 ${
+                tab.id === activeTabId
+                  ? 'bg-background border-b-2 border-b-primary font-medium text-foreground'
+                  : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
+              }`}
+              onClick={() => onTabClick(tab.id)}
+              onMouseDown={(event) => {
+                if (event.button === 1) {
+                  event.preventDefault();
+                }
               }}
-              className="text-muted-foreground hover:text-foreground ml-0.5 shrink-0 rounded px-0.5 transition-colors">
-              ×
-            </button>
-          </div>
-        ))}
+              onAuxClick={(event) => {
+                if (event.button === 1) {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onTabClose(tab.id);
+                }
+              }}>
+              <EditorTabLabel
+                tab={tab}
+                titleClassName="max-w-[140px] truncate"
+                renderFileLeading={(language) => <FileIcon language={language} />}
+              />
+              {tab.isDirty && <span className="text-[10px] font-medium text-amber-600">*</span>}
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onTabClose(tab.id);
+                }}
+                className="text-muted-foreground hover:text-foreground ml-0.5 shrink-0 rounded px-0.5 transition-colors">
+                ×
+              </button>
+            </div>
+          </ContextMenuTrigger>
+          <ContextMenuContent className="w-52" variant="secondary">
+            <ContextMenuItem variant="secondary" onSelect={() => onTabClose(tab.id)}>
+              Close Tab
+            </ContextMenuItem>
+            <ContextMenuItem variant="secondary" onSelect={() => onCloseOtherTabs(tab.id)}>
+              Close Other Tabs
+            </ContextMenuItem>
+            <ContextMenuSeparator variant="secondary" />
+            <ContextMenuItem variant="secondary" onSelect={() => onCloseAllTabs()}>
+              Close All Tabs
+            </ContextMenuItem>
+            <ContextMenuItem
+              variant="secondary"
+              disabled={!hasCloseSavedTarget}
+              onSelect={() => {
+                if (hasCloseSavedTarget) onCloseSavedTabs();
+              }}>
+              Close Saved Tabs
+            </ContextMenuItem>
+          </ContextMenuContent>
+        </ContextMenu>
+      ))}
     </div>
   );
 }
