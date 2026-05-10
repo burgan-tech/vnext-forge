@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { ResizableDialogShell } from '../../../ui/ResizableDialogShell';
 import {
   Tooltip,
   TooltipContent,
@@ -63,18 +64,19 @@ export function HeadersConfigDialog({ open, onClose, initialHeaders, onSave }: H
   if (!open) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="headers-dialog-title"
-    >
-      <div
-        ref={dialogRef}
-        tabIndex={-1}
-        className="w-[500px] max-h-[80vh] flex flex-col rounded border border-[var(--vscode-widget-border)] bg-background bg-[var(--vscode-editor-background,_theme(colors.background))] shadow-lg focus:outline-none"
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <ResizableDialogShell
+        containerRef={dialogRef}
+        defaultWidth={520}
+        defaultHeight={Math.min(640, Math.round(window.innerHeight * 0.8))}
+        storageKey="vnext-forge.dialog.headers-config"
+        ariaLabelledBy="headers-dialog-title"
       >
-        <header className="flex items-center justify-between border-b border-[var(--vscode-panel-border)] px-4 py-3">
+        <header
+          data-dialog-handle="drag"
+          className="flex select-none items-center justify-between border-b border-[var(--vscode-panel-border)] px-4 py-3"
+          style={{ cursor: 'move' }}
+        >
           <h2 id="headers-dialog-title" className="text-sm font-semibold">
             Runtime Headers
           </h2>
@@ -170,7 +172,7 @@ export function HeadersConfigDialog({ open, onClose, initialHeaders, onSave }: H
             Save
           </button>
         </footer>
-      </div>
+      </ResizableDialogShell>
     </div>
   );
 }

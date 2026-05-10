@@ -128,8 +128,15 @@ export function ComponentEditorDialog({
         closeInHeader
         closeButtonHoverable
         hoverable={false}
-        className="border-border bg-background text-foreground flex h-[min(90vh,800px)] w-[min(95vw,1100px)]! max-w-none! flex-col gap-0 overflow-hidden p-0 shadow-lg">
-        <DialogHeader className="bg-muted/30 shrink-0 gap-0 border-b px-4 py-3">
+        enableResize
+        resizeStorageKey="vnext-forge.dialog.component-editor"
+        resizeDefaultWidth={1100}
+        resizeDefaultHeight={800}
+        className="border-border bg-background text-foreground flex max-w-none! flex-col gap-0 overflow-hidden p-0 shadow-lg">
+        <DialogHeader
+          data-dialog-handle="drag"
+          style={{ cursor: 'move' }}
+          className="bg-muted/30 shrink-0 select-none gap-0 border-b px-4 py-3">
           <div className="flex min-w-0 flex-col gap-2 pr-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3 sm:pr-6">
             <div className="min-w-0 flex-1">
               <DialogTitle className="text-foreground truncate text-left text-base font-semibold">

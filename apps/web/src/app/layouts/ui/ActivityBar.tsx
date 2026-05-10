@@ -1,4 +1,11 @@
-import { AlertTriangle, FolderTree, Home, Search, Settings } from 'lucide-react';
+import {
+  AlertTriangle,
+  Code2,
+  FolderTree,
+  Home,
+  Search,
+  Settings,
+} from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Tooltip,
@@ -19,6 +26,7 @@ const topItems: ActivityItem[] = [
   { id: 'home', icon: <Home size={20} />, title: 'Home' },
   { id: 'project', icon: <FolderTree size={20} />, title: 'Explorer' },
   { id: 'search', icon: <Search size={20} />, title: 'Search' },
+  { id: 'snippets', icon: <Code2 size={20} />, title: 'Snippets' },
   { id: 'validation', icon: <AlertTriangle size={20} />, title: 'Problems' },
 ];
 

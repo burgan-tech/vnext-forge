@@ -8,6 +8,7 @@ import { createPinoLoggerAdapter } from './adapters/pino-logger.js';
 import { composeLspBridge } from './composition/lsp.js';
 import { composeWebServerServices } from './composition/services.js';
 import { injectLspWebSocket } from './lsp/router.js';
+import { injectPtyWebSocket } from './pty/router.js';
 import { createApiV1Router } from './api/v1/index.js';
 import { config } from './shared/config/config.js';
 import { baseLogger } from './shared/lib/logger.js';
@@ -93,6 +94,14 @@ injectLspWebSocket(server, {
   corsAllowedOrigins: config.corsAllowedOrigins,
   lspMaxMessageBytes: config.lspMaxMessageBytes,
   lspMaxConnections: config.lspMaxConnections,
+});
+
+injectPtyWebSocket(server, {
+  logger: loggerAdapter,
+  bindHost: config.host,
+  corsAllowedOrigins: config.corsAllowedOrigins,
+  ptyMaxMessageBytes: config.ptyMaxMessageBytes,
+  ptyMaxConnections: config.ptyMaxConnections,
 });
 
 export type AppType = typeof app;

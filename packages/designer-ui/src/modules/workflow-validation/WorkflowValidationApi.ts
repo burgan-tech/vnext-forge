@@ -16,12 +16,20 @@ import type { ValidationIssue, WorkflowValidationResponse } from './WorkflowVali
 
 export async function validateWorkflowDefinition(
   workflow: unknown,
+  /**
+   * Project's `vnext.config.json#schemaVersion`. When supplied, the
+   * server resolves that exact version of `@burgan-tech/vnext-schema`
+   * from the user-data cache (downloading on first miss) instead of
+   * always validating with the bundled version. Optional — callers
+   * without project context can still validate against the bundle.
+   */
+  schemaVersion?: string,
 ): Promise<WorkflowValidationResponse> {
   try {
     const localIssues = validateWorkflow(workflow);
     const remoteResult = await callApi<unknown>({
       method: 'validate/workflow',
-      params: { content: workflow },
+      params: schemaVersion ? { content: workflow, schemaVersion } : { content: workflow },
     });
 
     if (isFailure(remoteResult)) {

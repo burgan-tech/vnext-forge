@@ -1,17 +1,20 @@
 import { type MutableRefObject, useCallback, useEffect, useRef, useState } from 'react';
 
+import { ResizableDialogShell } from '../../../ui/ResizableDialogShell';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '../../../ui/Tooltip';
+import { SchemaForm } from '../../schema-form';
+import type { JsonSchemaRoot } from '../../schema-form';
 import * as QuickRunApi from '../QuickRunApi';
 import type { WorkflowBucketConfig } from '../QuickRunApi';
 import { useQuickRunPolling } from '../hooks/useQuickRunPolling';
 import { useQuickRunStore } from '../store/quickRunStore';
 import { safeViewContent, type SchemaResponse, type ViewResponse } from '../types/quickrun.types';
-import { CopyableJsonBlock, JsonEditorWithCopy } from './CopyableJsonBlock';
+import { CopyableJsonBlock } from './CopyableJsonBlock';
 import { ValidationErrorBlock } from './ValidationErrorBlock';
 
 interface TransitionDialogProps {
@@ -244,18 +247,19 @@ export function TransitionDialog({ configRef, persistConfig }: TransitionDialogP
   if (!open) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="transition-dialog-title"
-    >
-      <div
-        ref={dialogRef}
-        tabIndex={-1}
-        className="flex w-[620px] max-h-[80vh] flex-col rounded border border-[var(--vscode-widget-border)] bg-background bg-[var(--vscode-editor-background,_theme(colors.background))] shadow-lg focus:outline-none"
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <ResizableDialogShell
+        containerRef={dialogRef}
+        defaultWidth={620}
+        defaultHeight={Math.min(720, Math.round(window.innerHeight * 0.8))}
+        storageKey="vnext-forge.dialog.transition"
+        ariaLabelledBy="transition-dialog-title"
       >
-        <header className="flex items-center justify-between border-b border-[var(--vscode-panel-border)] px-4 py-3">
+        <header
+          data-dialog-handle="drag"
+          className="flex select-none items-center justify-between border-b border-[var(--vscode-panel-border)] px-4 py-3"
+          style={{ cursor: 'move' }}
+        >
           <h2 id="transition-dialog-title" className="text-sm font-semibold">
             {isManualMode ? 'Manual Transition' : `Transition: ${transitionName}`}
           </h2>
@@ -342,7 +346,7 @@ export function TransitionDialog({ configRef, persistConfig }: TransitionDialogP
             {submitting ? 'Submitting...' : 'Fire Transition'}
           </button>
         </footer>
-      </div>
+      </ResizableDialogShell>
     </div>
   );
 }
@@ -507,118 +511,19 @@ function TransitionInputStep({
         </div>
       )}
 
-      {!schemaLoading && hasSchema && schema && (
-        <SchemaFormRenderer
-          schema={schema}
+      {!schemaLoading && (
+        <SchemaForm
+          schema={
+            hasSchema && schema
+              ? (schema.schema as JsonSchemaRoot)
+              : null
+          }
           value={attributes}
           onChange={setAttributes}
+          jsonEditorLabel="Attributes (JSON)"
+          jsonEditorRows={12}
         />
       )}
-
-      {!schemaLoading && (!hasSchema || !schema) && (
-        <JsonEditorWithCopy
-          label="Attributes (JSON)"
-          value={attributes}
-          onChange={setAttributes}
-          rows={12}
-        />
-      )}
-    </div>
-  );
-}
-
-function SchemaFormRenderer({
-  schema,
-  value,
-  onChange,
-}: {
-  schema: SchemaResponse;
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  const schemaDef = schema.schema as {
-    properties?: Record<string, JsonSchemaProperty>;
-    required?: string[];
-    title?: string;
-    description?: string;
-  };
-
-  const properties = schemaDef.properties ?? {};
-  const required = new Set(schemaDef.required ?? []);
-
-  let parsed: Record<string, unknown> = {};
-  try {
-    parsed = JSON.parse(value) as Record<string, unknown>;
-  } catch { /* keep empty */ }
-
-  const [showRaw, setShowRaw] = useState(false);
-
-  const updateField = (key: string, fieldValue: unknown) => {
-    const next = { ...parsed, [key]: fieldValue };
-    onChange(JSON.stringify(next, null, 2));
-  };
-
-  if (showRaw) {
-    return (
-      <div className="flex flex-col gap-1">
-        <div className="flex items-center justify-end">
-          <button
-            className="text-[10px] text-[var(--vscode-textLink-foreground)] hover:underline"
-            onClick={() => setShowRaw(false)}
-          >
-            Switch to Form
-          </button>
-        </div>
-        <JsonEditorWithCopy
-          label="Attributes (JSON)"
-          value={value}
-          onChange={onChange}
-          rows={12}
-        />
-      </div>
-    );
-  }
-
-  const propEntries = Object.entries(properties);
-
-  if (propEntries.length === 0) {
-    return (
-      <JsonEditorWithCopy
-        label="Attributes (JSON)"
-        value={value}
-        onChange={onChange}
-        rows={12}
-      />
-    );
-  }
-
-  return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <div>
-          {schemaDef.title && <p className="text-xs font-semibold">{schemaDef.title}</p>}
-          {schemaDef.description && (
-            <p className="text-[10px] text-[var(--vscode-descriptionForeground)]">{schemaDef.description}</p>
-          )}
-        </div>
-        <button
-          className="text-[10px] text-[var(--vscode-textLink-foreground)] hover:underline"
-          onClick={() => setShowRaw(true)}
-        >
-          Switch to JSON
-        </button>
-      </div>
-
-      {propEntries.map(([key, prop]) => (
-        <SchemaField
-          key={key}
-          name={key}
-          prop={prop}
-          required={required.has(key)}
-          value={parsed[key]}
-          onChange={(v) => updateField(key, v)}
-        />
-      ))}
     </div>
   );
 }
@@ -689,107 +594,7 @@ function HeaderOverrideSection({
   );
 }
 
-interface JsonSchemaProperty {
-  type?: string;
-  title?: string;
-  description?: string;
-  oneOf?: { const: string; description?: string }[];
-  enum?: string[];
-  default?: unknown;
-  properties?: Record<string, JsonSchemaProperty>;
-  required?: string[];
-}
-
-function SchemaField({
-  name,
-  prop,
-  required,
-  value,
-  onChange,
-}: {
-  name: string;
-  prop: JsonSchemaProperty;
-  required: boolean;
-  value: unknown;
-  onChange: (v: unknown) => void;
-}) {
-  const label = prop.title ?? name;
-  const isSelect = prop.oneOf && prop.oneOf.length > 0;
-  const isEnum = prop.enum && prop.enum.length > 0;
-
-  return (
-    <div className="flex flex-col gap-1">
-      <label className="text-xs font-medium">
-        {label}
-        {required && <span className="ml-0.5 text-[var(--vscode-errorForeground)]">*</span>}
-      </label>
-      {prop.description && (
-        <p className="text-[10px] text-[var(--vscode-descriptionForeground)]">{prop.description}</p>
-      )}
-      {isSelect ? (
-        <select
-          value={typeof value === 'string' ? value : ''}
-          onChange={(e) => onChange(e.target.value)}
-          className="rounded border border-[var(--vscode-input-border)] bg-[var(--vscode-input-background)] px-2 py-1.5 text-xs text-[var(--vscode-input-foreground)]"
-        >
-          <option value="">-- Select --</option>
-          {prop.oneOf!.map((opt) => (
-            <option key={opt.const} value={opt.const}>
-              {opt.description ?? opt.const}
-            </option>
-          ))}
-        </select>
-      ) : isEnum ? (
-        <select
-          value={typeof value === 'string' ? value : ''}
-          onChange={(e) => onChange(e.target.value)}
-          className="rounded border border-[var(--vscode-input-border)] bg-[var(--vscode-input-background)] px-2 py-1.5 text-xs text-[var(--vscode-input-foreground)]"
-        >
-          <option value="">-- Select --</option>
-          {prop.enum!.map((v) => (
-            <option key={v} value={v}>{v}</option>
-          ))}
-        </select>
-      ) : prop.type === 'object' && prop.properties ? (
-        <fieldset className="ml-2 flex flex-col gap-2 border-l-2 border-[var(--vscode-panel-border)] pl-3">
-          {Object.entries(prop.properties).map(([nestedKey, nestedProp]) => (
-            <SchemaField
-              key={nestedKey}
-              name={nestedKey}
-              prop={nestedProp}
-              required={prop.required?.includes(nestedKey) ?? false}
-              value={(value as Record<string, unknown> | undefined)?.[nestedKey]}
-              onChange={(v) => {
-                const obj = (value as Record<string, unknown>) ?? {};
-                onChange({ ...obj, [nestedKey]: v });
-              }}
-            />
-          ))}
-        </fieldset>
-      ) : prop.type === 'boolean' ? (
-        <label className="flex items-center gap-2 text-xs">
-          <input
-            type="checkbox"
-            checked={value === true}
-            onChange={(e) => onChange(e.target.checked)}
-          />
-          {label}
-        </label>
-      ) : prop.type === 'number' || prop.type === 'integer' ? (
-        <input
-          type="number"
-          value={typeof value === 'number' ? value : ''}
-          onChange={(e) => onChange(e.target.value ? Number(e.target.value) : undefined)}
-          className="rounded border border-[var(--vscode-input-border)] bg-[var(--vscode-input-background)] px-2 py-1.5 text-xs text-[var(--vscode-input-foreground)]"
-        />
-      ) : (
-        <input
-          type="text"
-          value={typeof value === 'string' ? value : ''}
-          onChange={(e) => onChange(e.target.value)}
-          className="rounded border border-[var(--vscode-input-border)] bg-[var(--vscode-input-background)] px-2 py-1.5 text-xs text-[var(--vscode-input-foreground)] placeholder:text-[var(--vscode-input-placeholderForeground)]"
-        />
-      )}
-    </div>
-  );
-}
+// `JsonSchemaProperty` + `SchemaField` previously lived here as an inline
+// renderer. They are now centralized in `../../schema-form/` and consumed
+// via `<SchemaForm>` so other dialogs (NewRunDialog, future component
+// metadata editors) can share the same widget set + extension surface.

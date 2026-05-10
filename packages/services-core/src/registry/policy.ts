@@ -67,6 +67,19 @@ const METHOD_CAPABILITIES: Readonly<Record<string, MethodCapability>> = Object.f
   'validate/getAllSchemas': 'public',
   'validate/getSchema': 'public',
 
+  // ── test-data — `generate` is pure (schema in → instance out), the
+  // others read a project file (component or referenced schema).
+  'test-data/generate': 'public',
+  'test-data/generateForSchemaComponent': 'privileged',
+  'test-data/generateForSchemaReference': 'privileged',
+
+  // ── quickrun-presets — read/write user-managed templates inside
+  // `<userData>/quickrun-presets/`. Per-user state, not project-tracked.
+  'quickrun-presets/list': 'privileged',
+  'quickrun-presets/get': 'privileged',
+  'quickrun-presets/save': 'privileged',
+  'quickrun-presets/delete': 'privileged',
+
   // ── runtime / health — proxying network traffic to an external runtime
   // is the most SSRF-sensitive surface in the registry.
   'runtime/proxy': 'privileged',

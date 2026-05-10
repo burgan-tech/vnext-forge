@@ -1,7 +1,9 @@
 import * as path from 'node:path';
-import { app, BrowserWindow, shell } from 'electron';
+import { app, BrowserWindow, dialog, shell } from 'electron';
 import { findFreePort } from './find-free-port';
 import { startServer } from './server-runner';
+import { installApplicationMenu } from './menu';
+import { createWindowState } from './window-state';
 
 /**
  * Resolves a path under dist/ whether running from source (development) or
@@ -32,13 +34,12 @@ let serverPort: number | null = null;
 
 async function createWindow(port: number): Promise<void> {
   const preloadPath = resolveDistAsset('preload.js');
+  const windowState = createWindowState();
 
   mainWindow = new BrowserWindow({
-    width: 1440,
-    height: 900,
-    minWidth: 900,
-    minHeight: 600,
+    ...windowState.windowOptions,
     title: 'vnext-forge-studio',
+    show: false,
     webPreferences: {
       preload: preloadPath,
       contextIsolation: true,
@@ -47,12 +48,21 @@ async function createWindow(port: number): Promise<void> {
     },
   });
 
+  // Persist size/position changes across launches.
+  windowState.manage(mainWindow);
+
+  // Show window only after it's ready to render — avoids visible flash of
+  // unstyled content during startup.
+  mainWindow.once('ready-to-show', () => {
+    mainWindow?.show();
+  });
+
   // Open external links in the system browser, not in the app window.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('http://127.0.0.1') || url.startsWith('http://localhost')) {
       return { action: 'allow' };
     }
-    shell.openExternal(url);
+    shell.openExternal(url).catch(() => undefined);
     return { action: 'deny' };
   });
 
@@ -97,19 +107,44 @@ app.on('will-quit', () => {
   serverKill?.();
 });
 
+/**
+ * Reports a fatal startup error to the user via a native dialog and quits the
+ * app. Logs the full error details for support before quitting.
+ */
+function reportFatalStartupError(err: unknown): void {
+  const message = err instanceof Error ? err.message : String(err);
+  const stack = err instanceof Error && err.stack ? `\n\n${err.stack}` : '';
+  console.error('[desktop] failed to start:', err);
+  // dialog.showErrorBox is synchronous and works before any window exists.
+  dialog.showErrorBox(
+    'vnext-forge-studio could not start',
+    `${message}${stack}\n\nPlease share this dialog with the vnext-forge-studio team.`,
+  );
+  app.quit();
+}
+
 app.whenReady().then(async () => {
+  installApplicationMenu();
+
   try {
     const port = await findFreePort();
     const serverBundlePath = resolveDistAsset('server.bundle.js');
     const webviewDir = resolveDistAsset('webview');
 
-    const server = await startServer({ port, webviewDir, serverBundlePath });
+    // OS-canonical app-data location — Electron resolves it per platform:
+    //   macOS  → ~/Library/Application Support/vnext-forge-studio/
+    //   Linux  → ~/.config/vnext-forge-studio/
+    //   Win    → %APPDATA%\vnext-forge-studio\
+    // The server uses this for sessions and any future per-user state.
+    // Single fixed-size files per project — never accumulates.
+    const userDataDir = app.getPath('userData');
+
+    const server = await startServer({ port, webviewDir, serverBundlePath, userDataDir });
     serverKill = server.kill;
     serverPort = port;
 
     await createWindow(port);
   } catch (err) {
-    console.error('[desktop] failed to start:', err);
-    app.quit();
+    reportFatalStartupError(err);
   }
 });

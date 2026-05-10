@@ -59,7 +59,7 @@ export function InstanceListPanel() {
       domain: item.domain,
       workflowKey: item.flow,
       environmentName,
-      label: item.key || item.id.slice(0, 8),
+      label: item.key || (item.id ?? '').slice(0, 8),
     });
     void pollState({
       domain: item.domain,
@@ -240,7 +240,7 @@ export function InstanceListPanel() {
                 onClick={() => openInstance(item)}
               >
                 <div className="flex-1 truncate">
-                  <span className="truncate">{item.key.slice(0, 8)}</span>
+                  <span className="truncate">{(item.key ?? item.id ?? '').slice(0, 8)}</span>
                   <div className="text-[10px] text-[var(--vscode-descriptionForeground)]">
                     {item.metadata.currentState}
                   </div>

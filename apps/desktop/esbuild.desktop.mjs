@@ -74,7 +74,14 @@ await esbuild.build({
   entryPoints: [path.join(monorepoRoot, 'apps/server/src/index.ts')],
   outfile: path.join(__dirname, 'dist/server.bundle.js'),
   plugins: [copyVendorPlugin],
-  external: ['@burgan-tech/vnext-template'],
+  external: [
+    '@burgan-tech/vnext-template',
+    // Native module — must NOT be inlined. node-pty's loader uses its own
+    // module location to find `prebuilds/<platform>/pty.node`; if esbuild
+    // inlines the JS, that path resolves relative to dist/ (where the .node
+    // file is missing) and the require throws on first use.
+    'node-pty',
+  ],
   // esbuild's `define` only accepts JS literals or identifiers, not arbitrary
   // expressions. The two-step approach below polyfills `import.meta.url` for
   // the CJS bundle without touching server source code:

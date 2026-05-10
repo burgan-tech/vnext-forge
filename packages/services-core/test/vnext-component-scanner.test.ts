@@ -19,6 +19,9 @@ function createTestFs(): FileSystemAdapter {
     readFile: (p) => fsp.readFile(p, 'utf-8') as Promise<string>,
     writeFile: async (p, c) => fsp.writeFile(p, c, 'utf-8'),
     deleteFile: (p) => fsp.unlink(p),
+    chmod: async (p, m) => {
+      await fsp.chmod(p, m)
+    },
     rename: (a, b) => fsp.rename(a, b),
     mkdir: async (p, o) => {
       await fsp.mkdir(p, { recursive: o?.recursive ?? false })

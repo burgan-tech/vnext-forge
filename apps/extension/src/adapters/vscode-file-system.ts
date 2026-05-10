@@ -35,6 +35,10 @@ export function createVsCodeFileSystemAdapter(): FileSystemAdapter {
       await fs.unlink(filePath);
     },
 
+    async chmod(filePath, mode) {
+      await fs.chmod(filePath, mode);
+    },
+
     async rename(oldPath, newPath) {
       await fs.rename(oldPath, newPath);
     },

@@ -142,3 +142,101 @@ export {
   setHostEditorCapabilities,
   getHostEditorCapabilities,
 } from './lsp/hostEditorCapabilitiesRegistry.js';
+
+// Quick Switcher (Cmd+P) — semantic palette across all vNext entries in the
+// active project (workflows, states, transitions, tasks, schemas, views,
+// functions, extensions). Host shell mounts <QuickSwitcher onSelect={...}>
+// and registers `useGlobalQuickSwitcherShortcut({ projectId })`.
+export {
+  QuickSwitcher,
+  type QuickSwitcherProps,
+  useQuickSwitcherStore,
+  useGlobalQuickSwitcherShortcut,
+  type QuickSwitcherShortcutOptions,
+  buildQuickSwitcherIndex,
+  type QuickSwitchEntry,
+  type QuickSwitchEntryType,
+  type QuickswitcherIndexResult,
+} from './modules/quick-switcher/index.js';
+
+// Workspace Sessions — per-project shell-state snapshot persisted as
+// `<project>/.vnextstudio/session.json`. The web shell consumes the API
+// helpers from a host hook (apps/web/src/modules/sessions/...).
+export {
+  getSession,
+  saveSession,
+  clearSession,
+  DEFAULT_WORKSPACE_SESSION,
+  type SessionEditorState,
+  type SessionEditorTab,
+  type SessionPaletteState,
+  type SessionRuntimeState,
+  type SessionSidebarState,
+  type WorkspaceSession,
+} from './modules/sessions/index.js';
+
+// Test Data Generators (Cmd+Shift+G) — schema-driven random JSON
+// instances for vNext component schemas. Host shell mounts
+// <TestDataPicker projectId={...} loadSchemas={...} /> and registers
+// `useGlobalTestDataPickerShortcut({ projectId })`.
+export {
+  TestDataPicker,
+  type TestDataPickerProps,
+  useTestDataStore,
+  generateTestData,
+  generateTestDataForSchemaComponent,
+  useGlobalTestDataPickerShortcut,
+  type TestDataPickerShortcutOptions,
+  type SchemaComponentEntry,
+  type TestDataGenerateForComponentResult,
+  type TestDataGenerateOptions,
+  type TestDataGenerateResult,
+} from './modules/test-data/index.js';
+
+// Integrated Terminal — bottom panel xterm.js wrapper paired with the
+// `/api/pty` WebSocket on the host. Host shell mounts <TerminalPanel
+// defaultCwd={projectPath} apiBaseUrl={...} /> and registers
+// `useGlobalTerminalToggleShortcut()`.
+export {
+  TerminalPanel,
+  type TerminalPanelProps,
+  TerminalTabs,
+  TerminalView,
+  useTerminalStore,
+  TERMINAL_PANEL_BOUNDS,
+  useGlobalTerminalToggleShortcut,
+  type TerminalToggleShortcutOptions,
+  TerminalSocket,
+  buildTerminalWsUrl,
+  type TerminalConnectionState,
+  type TerminalSession,
+  type TerminalSocketEvents,
+  type TerminalSocketStartOptions,
+} from './modules/terminal/index.js';
+
+// Snippets Library (Cmd+Shift+S) — file-based personal/project snippets.
+// Host shell mounts <SnippetPicker projectId={...} /> and
+// <SnippetsSidebarPanel projectId={...} /> in its activity sidebar.
+export {
+  SnippetPicker,
+  type SnippetPickerProps,
+  SnippetEditor,
+  type SnippetEditorProps,
+  SnippetsSidebarPanel,
+  type SnippetsSidebarPanelProps,
+  useSnippetsStore,
+  useGlobalSnippetPickerShortcut,
+  type SnippetPickerShortcutOptions,
+  listAllSnippets,
+  getSnippet,
+  saveSnippet,
+  deleteSnippet,
+  openSnippetLocation,
+  insertSnippetViaClipboard,
+  type Snippet,
+  type SnippetFile,
+  type SnippetLanguage,
+  type SnippetScope,
+  type SnippetsListAllResult,
+  type SnippetsSaveResult,
+} from './modules/snippets/index.js';
