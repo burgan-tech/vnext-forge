@@ -5,6 +5,10 @@
   "version": "0.1.4",
   "publisher": "burgan-tech",
   "icon": "media/forge-tools.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/burgan-tech/vnext-forge"
+  },
   "private": true,
   "engines": {
     "vscode": "^1.85.0"
@@ -431,8 +435,18 @@
           "group": "navigation@1"
         },
         {
+          "command": "vnextForge.openDesigner",
+          "when": "vnextForge.isVnextWorkspace && resourceFilename == vnext.config.json",
+          "group": "navigation@1"
+        },
+        {
           "command": "vnextForge.openInTextEditor",
           "when": "vnextForge.isVnextWorkspace && resourceExtname == .json && resourcePath =~ /[\\\\/](Tasks|Views|Functions|Extensions|Workflows|Schemas)[\\\\/]/",
+          "group": "navigation@2"
+        },
+        {
+          "command": "vnextForge.openInTextEditor",
+          "when": "vnextForge.isVnextWorkspace && resourceFilename == vnext.config.json",
           "group": "navigation@2"
         },
         {
@@ -478,8 +492,18 @@
           "group": "navigation@1"
         },
         {
+          "command": "vnextForge.openDesigner",
+          "when": "vnextForge.isVnextWorkspace && resourceFilename == vnext.config.json",
+          "group": "navigation@1"
+        },
+        {
           "command": "vnextForge.openInTextEditor",
           "when": "vnextForge.isVnextWorkspace && resourceExtname == .json && resourcePath =~ /[\\\\/](Tasks|Views|Functions|Extensions|Workflows|Schemas)[\\\\/]/",
+          "group": "navigation@2"
+        },
+        {
+          "command": "vnextForge.openInTextEditor",
+          "when": "vnextForge.isVnextWorkspace && resourceFilename == vnext.config.json",
           "group": "navigation@2"
         },
         {
@@ -501,6 +525,11 @@
         "priority": "option"
       }
     ],
+    "configurationDefaults": {
+      "workbench.editorAssociations": {
+        "vnext.config.json": "vnextForge.componentEditor"
+      }
+    },
     "configuration": {
       "title": "vnext-forge-studio",
       "properties": {

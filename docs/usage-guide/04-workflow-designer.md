@@ -1,124 +1,184 @@
 # Workflow Designer
 
-The Workflow Designer is the primary visual editor for vNext workflow definitions. It provides a canvas-based interface for designing state machines with states, transitions, tasks, and routing logic.
-
-## Opening a Workflow
-
-- Double-click a workflow `.json` file in the Explorer.
-- Or right-click → **Forge: Open with vNext Forge**.
+The workflow designer provides a visual canvas for designing state machine workflows. States are represented as nodes and transitions as directed edges between them.
 
 ## Canvas Overview
 
-![Workflow Canvas](./screenshots/04-workflow-canvas-full.png)
+![Workflow Designer](./screenshots/flow-designer-layout.png)
 
-The canvas displays:
+The designer opens as a VS Code editor tab. The tab title shows the workflow name, and a **Modified** badge appears when there are unsaved changes. The canvas includes:
 
-- **State nodes** — rectangular cards representing workflow states
-- **Transition edges** — arrows connecting states, labeled with transition keys
-- **Start node** — green circle indicating the workflow entry point
-- **Minimap** — bottom-right overview for large workflows
+- A zoomable, pannable flow diagram
+- A minimap in the bottom-right corner for navigation
+- A top toolbar for actions
+- A bottom bar for state creation and canvas controls
 
-### Canvas Controls
+## Top Toolbar
 
-| Control | Location | Action |
-|---------|----------|--------|
-| **+ Add State** | Bottom toolbar | Add a new state to the workflow |
-| **Layout** | Bottom toolbar | Auto-arrange nodes using the layout engine |
-| **Canvas** | Bottom toolbar | Canvas display settings |
-| **Workflow Settings** | Bottom toolbar (gear icon) | Workflow-level metadata |
-| **Zoom In/Out** | Left floating panel | Adjust zoom level |
-| **Fit View** | Left floating panel | Fit all nodes in viewport |
-| **Toggle Interactivity** | Left floating panel | Lock/unlock node dragging |
+![Top Toolbar](./screenshots/component-layout-top-bar.png)
 
-### Toolbar (Top Right)
+The toolbar provides the following actions (left to right):
 
 | Button | Action |
 |--------|--------|
-| **Undo** | Undo last change |
-| **Redo** | Redo undone change |
-| **Save (Cmd+S)** | Save workflow to disk |
-| **Preview Document** | View the raw JSON output |
+| Undo | Revert the last change |
+| Redo | Re-apply a reverted change |
+| Save | Save the workflow to disk |
+| Save As | Save a copy of the workflow |
+| Quick Run | Open Quick Run for this workflow |
+| Publish | Deploy this workflow to the runtime (`wf update -f`) |
+| Preview Document | Open the workflow documentation preview |
+
+## Bottom Bar
+
+![Bottom Bar](./screenshots/flow-designer-bottom-bar.png)
+
+The bottom bar contains:
+
+- **+ Add State** — Dropdown to add a new state of any type to the canvas
+- **Auto-Fix** — Automatically fix layout issues and validation errors where possible
+- **Search** — Open the state/transition search panel
+- **Canvas** — Open canvas display options
+- **Settings** — Toggle the workflow settings overlay
+
+## State Types
+
+![State Types](./screenshots/flow-designer-state-bar.png)
+
+When adding a state via **+ Add State**, choose from the following types:
+
+| Type | Icon | Description |
+|------|------|-------------|
+| **Initial State** | Play (green) | The entry point of the workflow; exactly one per workflow |
+| **Intermediate** | Square (blue) | A processing state with entry/exit tasks and outgoing transitions |
+| **Success** | Checkmark (green) | Final state indicating successful completion |
+| **Error** | X (red) | Final state indicating failure |
+| **Terminated** | Target (gray) | Final state for external termination |
+| **Suspended** | Pause (orange) | Final state for suspended instances |
+| **SubFlow** | Loop (purple) | Invokes a child workflow and waits for completion |
+
+## State Context Menu
+
+![State Context Menu](./screenshots/flow-designer-state-context-menu.png)
+
+Right-click any state on the canvas to access:
+
+- **Duplicate** — Create a copy of the state with all its configuration
+- **Change Type** — Convert the state to a different type (Initial, Intermediate, Final - Success, Final - Error, SubFlow)
+- **Delete State** — Remove the state and its connected transitions
 
 ## State Property Panel
 
-Click any state node to open its property panel on the right:
+![State Property Panel](./screenshots/flow-designer-properties-sidebar.png)
 
-![State Property Panel](./screenshots/05-state-property-panel.png)
+Click a state to open its property panel on the right side. The panel has four tabs:
 
-### General Tab
+### General
 
-- **Key** — unique state identifier (e.g., `account-details-input`)
-- **State Type** — Initial, Intermediate, Final, SubFlow, or Wizard
-- **Sub Type** — None, Success, Error, Terminated, Suspended, Busy, Human, Cancelled, Timeout
-- **Description** — optional state description
-- **Version Strategy** — Minor, Major, or Patch
-- **Query Roles** — access control rules (Allow/Deny per role)
-- **Views** — assign a view (single or rule-based)
-- **Labels** — multi-language display names (e.g., en-US, tr-TR)
+Basic state configuration:
+- State key (identifier)
+- Display name
+- State type badge
+- Description
 
-### Tasks Tab
+### Tasks
 
-![Tasks Tab](./screenshots/06-state-tasks-tab.png)
+Manage tasks executed when entering or exiting the state:
 
-Configure tasks that execute when entering or exiting a state:
+- **OnEntry** — Tasks executed when the workflow enters this state
+- **OnExit** — Tasks executed when the workflow leaves this state
 
-- **OnEntry** — tasks that run when the state is entered
-- **OnExit** — tasks that run when leaving the state
+Each task entry shows:
+- Task name and source (e.g. `state-change @core`)
+- Version and flow reference
+- Description field
+- Linked CSX script preview (with line count and encoding info)
+- Error boundary configuration
 
-For each section, you can:
-- **Choose from existing tasks** — reference a task already defined in the project
-- **Create new task** — scaffold a new task definition
+Actions available:
+- **Choose from existing tasks** — Search and select from project tasks
+- **+ Create new task** — Scaffold a new task definition
+- Open task in editor (edit icon)
+- Remove task (trash icon)
 
-### Transitions Tab
+### Transitions
 
-![Transitions Tab](./screenshots/07-state-transitions-tab.png)
+Define outgoing transitions from this state. Each transition specifies:
+- Transition key and display name
+- Target state
+- Trigger type (manual, automatic, timer, etc.)
+- Conditions and mappings
 
-Each transition defines how the workflow moves between states:
+### Error Boundary
 
-- **Key** — transition identifier (e.g., `submit-account-details`)
-- **Description** — optional description
-- **Target state** — destination state
-- **Trigger type** — Manual, Auto, Scheduled, or Event
-- **Trigger kind** — Standard or Default/Fallback
-- **On execution tasks** — tasks to run during the transition
-- **Schema** — input data schema for the transition
-- **Mapping** — C# script mapping rules
-- **Roles** — access control (Allow/Deny per role)
-- **Views** — transition-specific view assignment
-- **Labels** — multi-language display names
+Configure error handling behavior for the state — what happens when a task throws an unhandled exception.
 
-### Error Boundary Tab
+## Search Panel
 
-Configure error handling behavior for the state, including retry policies and fallback transitions.
+![Search Panel](./screenshots/flow-designer-search-panel.png)
 
-## Working with the Canvas
+Click the search icon in the bottom bar to open a searchable list of all states and transitions in the workflow. Each entry shows:
 
-### Adding a State
+- State display name
+- State key
+- State type icon with color coding
 
-1. Click **+ Add State** in the bottom toolbar.
-2. Choose the state type from the dropdown.
-3. The new state appears on the canvas — drag to position it.
+Selecting an item navigates to and highlights it on the canvas.
 
-### Creating Transitions
+## Canvas Options
 
-1. Hover over a state node to reveal connection handles.
-2. Drag from an output handle to the target state.
-3. A new transition is created and can be configured in the property panel.
+![Canvas Options](./screenshots/flow-designer-canvas-options.png)
 
-### Auto Layout
+The canvas options overlay controls visual presentation (these settings are not saved to the workflow file):
 
-Click **Layout** to automatically arrange all nodes using the built-in layout algorithm. This is useful after adding multiple states or when the layout becomes cluttered.
+### Auto-Layout Engine
 
-### Deleting Elements
+Choose between two layout algorithms:
+- **Dagre** — Fast hierarchical layout (default)
+- **ELK** — More advanced layout with better edge routing for complex workflows
 
-- Select a state or transition, then press `Delete` / `Backspace`.
-- Or use the remove button in the property panel.
+### Flow Direction
 
-## Workflow Metadata
+- **Top to bottom** — States flow vertically (default)
+- **Left to right** — States flow horizontally
 
-Click the **Workflow Settings** (gear icon) in the bottom toolbar to configure:
+### Edge Path
 
-- Workflow key and version
-- Domain and flow bindings
-- Global workflow description
-- Tags and labels
+- **Smooth step** — Right-angle edges with rounded corners (default)
+- **Curved** — Bezier curve edges
+- **Straight** — Direct lines between states
+
+### Workflow Edges
+
+- **Show workflow-level edges** — Toggle visibility of workflow-level shared transitions (e.g. cancel, timeout edges)
+
+## Workflow Settings
+
+![Workflow Settings](./screenshots/flow-designer-settings.png)
+
+Click the settings icon in the bottom bar to open the workflow settings overlay. This configures workflow-level properties:
+
+| Section | Description |
+|---------|-------------|
+| **Master Schema** | The primary JSON schema for workflow instance data |
+| **Update Data** | Configure how instance data is updated between states |
+| **Query Roles** | Define roles allowed to query workflow instances |
+| **Shared Transitions** | Transitions available from any state (e.g. cancel, timeout) |
+| **Cancel** | Cancel behavior configuration |
+| **Exit** | Exit behavior configuration |
+| **Timeout** | Workflow-level timeout settings |
+| **Error Boundary** | Global error handling strategy |
+| **Functions** | Function references used by the workflow |
+| **Extensions** | Extension references used by the workflow |
+
+Each shared transition shows its key and scope indicator (`$self` for workflow-level).
+
+## Working with Transitions
+
+Transitions connect states on the canvas. To create a transition:
+
+1. Hover over a state to reveal connection handles
+2. Drag from a handle to the target state
+3. Configure the transition in the property panel
+
+Transitions are shown as directed edges with labels. Click a transition edge to select it and view/edit its properties.

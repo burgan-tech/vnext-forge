@@ -23,9 +23,9 @@ interface ProviderDeps {
 
 /**
  * Custom text editor provider that hijacks `*.json` opens inside vnext
- * workspaces so that bileşen JSON dosyaları doğrudan tasarımcı webview'inde
- * açılır — kullanıcı önce metin editörünü görmez. Bileşen olmayan JSON'lar
- * (örn. `vnext.config.json`, `package.json`, `tsconfig.json`) algılanır
+ * workspaces so that bileşen JSON dosyaları ve `vnext.config.json` doğrudan
+ * tasarımcı webview'inde açılır — kullanıcı önce metin editörünü görmez.
+ * Bileşen olmayan JSON'lar (örn. `package.json`, `tsconfig.json`) algılanır
  * algılanmaz VS Code'un yerleşik metin editörüne devredilir.
  *
  * Loading durumu için `DesignerPanel.buildHtml`, React mount olana kadar
@@ -126,8 +126,6 @@ export class VnextComponentCustomTextEditorProvider implements vscode.CustomText
 
     const route = resolveFileRoute(target, status.config, root.folderPath)
     if (!isDesignerEditorRoute(route)) {
-      // `vnext.config.json` ve tanınmayan dosyalar VS Code'un metin
-      // editöründe açılır — webview burada anlamlı bir UI sunmuyor.
       await this.openInTextEditor(uri, webviewPanel)
       return
     }

@@ -45,6 +45,8 @@ const hopByHopLower = new Set(
   RUNTIME_PROXY_HOP_BY_HOP_HEADER_NAMES.map((name) => name.toLowerCase()),
 )
 
+const RUNTIME_PROXY_USER_AGENT = 'vnext-forge-studio/0.1.0'
+
 function stripHopByHopHeaders(
   headers: Record<string, string> | undefined,
 ): Record<string, string> {
@@ -69,6 +71,7 @@ export function buildRuntimeProxyOutboundHeaders(params: {
 }): Record<string, string> {
   const method = params.method.toUpperCase()
   const headers: Record<string, string> = {
+    'User-Agent': RUNTIME_PROXY_USER_AGENT,
     Accept: 'application/json, text/plain, */*',
     ...stripHopByHopHeaders(params.callerHeaders),
   }

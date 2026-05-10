@@ -294,10 +294,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     designerPanel,
   });
 
-  // Custom editor: bileşen JSON dosyaları doğrudan tasarımcı webview'inde
-  // açılır (text editor flash'ı yok). Bileşen olmayan JSON'lar (örn.
-  // vnext.config.json, package.json) provider içinde algılanıp anında
-  // VS Code'un yerleşik metin editörüne devredilir.
+  // Custom editor: bileşen JSON dosyaları ve vnext.config.json doğrudan
+  // tasarımcı webview'inde açılır (text editor flash'ı yok). Bileşen olmayan
+  // JSON'lar (örn. package.json, tsconfig.json) provider içinde algılanıp
+  // anında VS Code'un yerleşik metin editörüne devredilir.
   VnextComponentCustomTextEditorProvider.register(context, {
     detector,
     designerPanel,
