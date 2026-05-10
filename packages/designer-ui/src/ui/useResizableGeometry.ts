@@ -295,20 +295,21 @@ export function useResizableGeometry({
   }, [computeDefaultGeometry, storageKey]);
 
   const containerStyle = useMemo<CSSProperties>(() => {
-    const style: CSSProperties = {
-      width: geometry.width,
-      height: geometry.height,
+    const viewportW = typeof window !== 'undefined' ? window.innerWidth : 1280;
+    const viewportH = typeof window !== 'undefined' ? window.innerHeight : 800;
+    const w = geometry.width;
+    const h = geometry.height;
+    return {
+      position: 'fixed',
+      left: geometry.x ?? Math.max(0, Math.round((viewportW - w) / 2)),
+      top: geometry.y ?? Math.max(0, Math.round((viewportH - h) / 2)),
+      width: w,
+      height: h,
       maxWidth: '95vw',
       maxHeight: '95vh',
+      transform: 'none',
+      translate: 'none',
     };
-    if (geometry.x !== undefined && geometry.y !== undefined) {
-      style.position = 'fixed';
-      style.left = geometry.x;
-      style.top = geometry.y;
-      // Override Radix's default `translate(-50%,-50%)` centering.
-      style.transform = 'none';
-    }
-    return style;
   }, [geometry]);
 
   return {
