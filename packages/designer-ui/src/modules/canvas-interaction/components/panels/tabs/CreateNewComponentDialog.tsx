@@ -211,10 +211,14 @@ export function CreateNewComponentDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         variant="secondary"
-        className="border-border bg-surface text-foreground max-h-[min(88vh,560px)] max-w-md gap-0 p-0 shadow-sm"
+        className="border-border bg-surface text-foreground gap-0 p-0 shadow-sm"
         showCloseButton
         closeButtonHoverable
-        hoverable={false}>
+        hoverable={false}
+        enableResize
+        resizeStorageKey="vnext-forge.dialog.create-new-component"
+        resizeDefaultWidth={520}
+        resizeDefaultHeight={560}>
         <DialogHeader>
           <DialogTitle className="text-foreground pr-3 text-base font-semibold tracking-tight sm:pr-4">
             Create new {meta.singular}

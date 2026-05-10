@@ -1,4 +1,12 @@
-import { BrowserRouter, Route, Routes, useNavigate } from 'react-router-dom';
+import {
+  BrowserRouter,
+  Link,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+  useParams,
+} from 'react-router-dom';
 
 import { ProjectNavigationProvider } from '@vnext-forge-studio/designer-ui';
 import { lazy, Suspense, type ReactNode } from 'react';
@@ -74,6 +82,46 @@ function WebProjectNavigationAdapter({ children }: { children: ReactNode }) {
 }
 
 /**
+ * Catch-all panel rendered when a route inside `/project/:id/*` (or at the
+ * very root) doesn't match any registered editor.
+ *
+ * Without this, React Router emits `No routes matched location ...` and
+ * leaves a blank screen — the failure mode users hit when the file-tree
+ * resolver navigates to e.g. `/project/messaging-gateway/flow/test` for a
+ * stray top-level workflow file (no `<group>/` folder). The blank-screen
+ * has no UI affordances to recover from; only Cmd+R / native menu reload
+ * brings the app back. This panel turns that into a clear, recoverable
+ * state.
+ */
+function NotFoundPanel() {
+  const location = useLocation();
+  const params = useParams();
+  const projectId = (params as Record<string, string | undefined>).id;
+  const goHome = projectId ? `/project/${projectId}` : '/';
+  return (
+    <div className="flex h-full min-h-[60vh] flex-col items-center justify-center gap-3 p-8 text-center">
+      <div className="text-foreground/80 text-base font-semibold">
+        Editor not available for this path
+      </div>
+      <div className="text-foreground/60 max-w-xl text-xs">
+        <code className="rounded bg-zinc-800/40 px-1.5 py-0.5 font-mono">
+          {location.pathname}
+        </code>{' '}
+        doesn&apos;t map to a known editor route. The file may be at the project
+        root (component editors require <code className="font-mono">&lt;type&gt;/&lt;group&gt;/&lt;name&gt;.json</code>),
+        or live outside the configured component folders in{' '}
+        <code className="font-mono">vnext.config.json</code>.
+      </div>
+      <Link
+        to={goHome}
+        className="text-foreground/90 hover:bg-foreground/10 mt-2 rounded border border-zinc-700/60 px-3 py-1.5 text-xs">
+        {projectId ? 'Back to project workspace' : 'Back to project list'}
+      </Link>
+    </div>
+  );
+}
+
+/**
  * Web SPA route tree. Mirrors the original (pre-extension) layout:
  *   - `/`                                  → project list (no chrome)
  *   - `/project/:id`                       → project workspace + chrome
@@ -100,10 +148,17 @@ export function AppRouter() {
                   <Route path="extension/:group/:name" element={<ExtensionEditorPage />} />
                   <Route path="workspace-config" element={<VnextWorkspaceConfigPage />} />
                   <Route path="code/*" element={<CodeEditorPage />} />
+                  {/* Project-scoped catch-all: keeps shell chrome, shows
+                      a Back button + clear "no editor for this path"
+                      message instead of a blank screen. */}
+                  <Route path="*" element={<NotFoundPanel />} />
                 </Route>
               </Route>
             </Route>
             <Route path="/test" element={<TestPage />} />
+            {/* Top-level catch-all: shown when a page outside the project
+                shell can't be matched (rare; protects against typo URLs). */}
+            <Route path="*" element={<NotFoundPanel />} />
           </Routes>
         </Suspense>
       </WebProjectNavigationAdapter>

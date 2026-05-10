@@ -135,10 +135,14 @@ export function ChooseExistingVnextComponentDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         variant="secondary"
-        className="border-border bg-surface text-foreground max-h-[min(88vh,600px)] max-w-md gap-0 p-0 shadow-sm"
+        className="border-border bg-surface text-foreground gap-0 p-0 shadow-sm"
         showCloseButton
         closeButtonHoverable
-        hoverable={false}>
+        hoverable={false}
+        enableResize
+        resizeStorageKey="vnext-forge.dialog.choose-existing-task"
+        resizeDefaultWidth={520}
+        resizeDefaultHeight={600}>
         <DialogHeader>
           <DialogTitle className="text-foreground text-base font-semibold tracking-tight">{title}</DialogTitle>
         </DialogHeader>

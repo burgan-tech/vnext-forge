@@ -50,6 +50,53 @@ import {
 } from '../services/cli/cli-schemas.js'
 import type { CliService } from '../services/cli/cli.service.js'
 import type { QuickRunService } from '../services/quickrun/quickrun.service.js'
+import type { QuickswitcherService } from '../services/quickswitcher/quickswitcher.service.js'
+import {
+  quickswitcherBuildIndexParams,
+  quickswitcherBuildIndexResult,
+} from '../services/quickswitcher/quickswitcher-schemas.js'
+import type { SessionsService } from '../services/sessions/sessions.service.js'
+import {
+  sessionsClearParams,
+  sessionsClearResult,
+  sessionsGetParams,
+  sessionsGetResult,
+  sessionsSaveParams,
+  sessionsSaveResult,
+} from '../services/sessions/sessions-schemas.js'
+import type { SnippetsService } from '../services/snippets/snippets.service.js'
+import {
+  snippetsDeleteParams,
+  snippetsDeleteResult,
+  snippetsGetOneParams,
+  snippetsGetOneResult,
+  snippetsListAllParams,
+  snippetsListAllResult,
+  snippetsOpenLocationParams,
+  snippetsOpenLocationResult,
+  snippetsSaveParams,
+  snippetsSaveResult,
+} from '../services/snippets/snippets-schemas.js'
+import type { TestDataService } from '../services/test-data/test-data.service.js'
+import {
+  testDataGenerateForSchemaComponentParamsSchema,
+  testDataGenerateForSchemaComponentResultSchema,
+  testDataGenerateForSchemaReferenceParamsSchema,
+  testDataGenerateForSchemaReferenceResultSchema,
+  testDataGenerateParamsSchema,
+  testDataGenerateResultSchema,
+} from '../services/test-data/test-data-schemas.js'
+import type { QuickRunPresetsService } from '../services/quickrun-presets/quickrun-presets.service.js'
+import {
+  presetsDeleteParamsSchema,
+  presetsDeleteResultSchema,
+  presetsGetParamsSchema,
+  presetsGetResultSchema,
+  presetsListParamsSchema,
+  presetsListResultSchema,
+  presetsSaveParamsSchema,
+  presetsSaveResultSchema,
+} from '../services/quickrun-presets/quickrun-presets-schemas.js'
 import {
   quickrunFireTransitionParams,
   quickrunFireTransitionResult,
@@ -124,6 +171,11 @@ export interface ServiceRegistry {
    * means (for example an integrated terminal) can omit wiring.
    */
   cliService?: CliService
+  quickswitcherService: QuickswitcherService
+  sessionsService: SessionsService
+  snippetsService: SnippetsService
+  testDataService: TestDataService
+  quickRunPresetsService: QuickRunPresetsService
 }
 
 /**
@@ -488,13 +540,18 @@ export function buildMethodRegistry(): MethodRegistry {
     'validate/workflow': {
       paramsSchema: validateWorkflowParams,
       resultSchema: validationResultShape,
-      handler: async ({ content }, { validateService }) => validateService.validate(content),
+      // Workflow validation always uses the dedicated 'workflow' AJV
+      // schema. When a `schemaVersion` arrives we route through the
+      // version-aware path so validators come from the cached package
+      // matching the project's vnext.config.
+      handler: async ({ content, schemaVersion }, { validateService }) =>
+        validateService.validateComponentVersioned(content, 'workflow', schemaVersion),
     },
     'validate/component': {
       paramsSchema: validateComponentParams,
       resultSchema: validationResultShape,
-      handler: async ({ content, type }, { validateService }) =>
-        validateService.validateComponent(content, type),
+      handler: async ({ content, type, schemaVersion }, { validateService }) =>
+        validateService.validateComponentVersioned(content, type, schemaVersion),
     },
     'validate/getAvailableTypes': {
       paramsSchema: validateGetAvailableTypesParams,
@@ -509,7 +566,13 @@ export function buildMethodRegistry(): MethodRegistry {
     'validate/getSchema': {
       paramsSchema: validateGetSchemaParams,
       resultSchema: validateGetSchemaResult,
-      handler: async ({ type }, { validateService }) => validateService.getSchema(type),
+      // Routes through `getSchemaVersioned` so callers that pass the
+      // project's `schemaVersion` see the exact `@burgan-tech/vnext-schema`
+      // contract pinned in `vnext.config.json`. When the version is
+      // omitted (or no schemaCacheService is wired) it transparently
+      // falls back to the bundled module — same shape as before.
+      handler: async ({ type, schemaVersion }, { validateService }) =>
+        validateService.getSchemaVersioned(type, schemaVersion),
     },
 
     // ── runtime proxy ────────────────────────────────────────────────────────
@@ -653,6 +716,125 @@ export function buildMethodRegistry(): MethodRegistry {
         }
         return cliService.updateGlobal(traceId)
       },
+    },
+
+    // ── quickswitcher ────────────────────────────────────────────────────────
+    // Smart Search (Cmd+P) index builder. Walks a project's vnext component
+    // folders + parses workflow JSONs for state/transition entries. Returns
+    // the full flat list; client does fuzzy matching locally.
+    'quickswitcher/buildIndex': {
+      paramsSchema: quickswitcherBuildIndexParams,
+      resultSchema: quickswitcherBuildIndexResult,
+      handler: async (params, { quickswitcherService }, traceId) =>
+        quickswitcherService.buildIndex(params, traceId),
+    },
+
+    // ── snippets ──────────────────────────────────────────────────────────────
+    // File-based snippet library. Personal snippets live under
+    // `~/.vnext-studio/snippets/`, project snippets under
+    // `<project>/.vnextstudio/snippets/` (Git-tracked, team-shared).
+    'snippets/listAll': {
+      paramsSchema: snippetsListAllParams,
+      resultSchema: snippetsListAllResult,
+      handler: async (params, { snippetsService }, traceId) =>
+        snippetsService.listAll(params, traceId),
+    },
+    'snippets/getOne': {
+      paramsSchema: snippetsGetOneParams,
+      resultSchema: snippetsGetOneResult,
+      handler: async (params, { snippetsService }, traceId) =>
+        snippetsService.getOne(params, traceId),
+    },
+    'snippets/save': {
+      paramsSchema: snippetsSaveParams,
+      resultSchema: snippetsSaveResult,
+      handler: async (params, { snippetsService }, traceId) =>
+        snippetsService.save(params, traceId),
+    },
+    'snippets/delete': {
+      paramsSchema: snippetsDeleteParams,
+      resultSchema: snippetsDeleteResult,
+      handler: async (params, { snippetsService }, traceId) =>
+        snippetsService.deleteOne(params, traceId),
+    },
+    'snippets/openLocation': {
+      paramsSchema: snippetsOpenLocationParams,
+      resultSchema: snippetsOpenLocationResult,
+      handler: async (params, { snippetsService }, traceId) =>
+        snippetsService.openLocation(params, traceId),
+    },
+
+    // ── sessions ──────────────────────────────────────────────────────────────
+    // Per-project workspace session — open tabs, sidebar view, runtime
+    // connection, palette queries. Persisted as `<project>/.vnextstudio/session.json`.
+    'sessions/get': {
+      paramsSchema: sessionsGetParams,
+      resultSchema: sessionsGetResult,
+      handler: async (params, { sessionsService }, traceId) =>
+        sessionsService.get(params, traceId),
+    },
+    'sessions/save': {
+      paramsSchema: sessionsSaveParams,
+      resultSchema: sessionsSaveResult,
+      handler: async (params, { sessionsService }, traceId) =>
+        sessionsService.save(params, traceId),
+    },
+    'sessions/clear': {
+      paramsSchema: sessionsClearParams,
+      resultSchema: sessionsClearResult,
+      handler: async (params, { sessionsService }, traceId) =>
+        sessionsService.clear(params, traceId),
+    },
+
+    // ── test-data ─────────────────────────────────────────────────────────────
+    // Schema-driven random JSON generator. Two entry points: generic (caller
+    // supplies any JSON Schema) and component-aware (caller picks a project's
+    // `Schemas/<group>/<name>.json` and we extract `attributes.schema`).
+    'test-data/generate': {
+      paramsSchema: testDataGenerateParamsSchema,
+      resultSchema: testDataGenerateResultSchema,
+      handler: async (params, { testDataService }) => testDataService.generate(params),
+    },
+    'test-data/generateForSchemaComponent': {
+      paramsSchema: testDataGenerateForSchemaComponentParamsSchema,
+      resultSchema: testDataGenerateForSchemaComponentResultSchema,
+      handler: async (params, { testDataService }) =>
+        testDataService.generateForSchemaComponent(params),
+    },
+    'test-data/generateForSchemaReference': {
+      paramsSchema: testDataGenerateForSchemaReferenceParamsSchema,
+      resultSchema: testDataGenerateForSchemaReferenceResultSchema,
+      handler: async (params, { testDataService }) =>
+        testDataService.generateForSchemaReference(params),
+    },
+
+    // ── quickrun-presets ────────────────────────────────────────────────
+    // Named start-payload templates per workflow. Stored in
+    // `<userData>/quickrun-presets/<projectId>/<workflowKey>/<slug>.json`.
+    // Useful for "happy path", "blacklisted user", "missing subject" scenarios.
+    'quickrun-presets/list': {
+      paramsSchema: presetsListParamsSchema,
+      resultSchema: presetsListResultSchema,
+      handler: async (params, { quickRunPresetsService }) =>
+        quickRunPresetsService.list(params),
+    },
+    'quickrun-presets/get': {
+      paramsSchema: presetsGetParamsSchema,
+      resultSchema: presetsGetResultSchema,
+      handler: async (params, { quickRunPresetsService }) =>
+        quickRunPresetsService.get(params),
+    },
+    'quickrun-presets/save': {
+      paramsSchema: presetsSaveParamsSchema,
+      resultSchema: presetsSaveResultSchema,
+      handler: async (params, { quickRunPresetsService }) =>
+        quickRunPresetsService.save(params),
+    },
+    'quickrun-presets/delete': {
+      paramsSchema: presetsDeleteParamsSchema,
+      resultSchema: presetsDeleteResultSchema,
+      handler: async (params, { quickRunPresetsService }) =>
+        quickRunPresetsService.delete(params),
     },
 
     // ── health ───────────────────────────────────────────────────────────────

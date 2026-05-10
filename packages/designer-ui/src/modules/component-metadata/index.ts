@@ -5,3 +5,9 @@ export {
   MetadataLockedTextInput,
   type ComponentMetadataTextInputProps,
 } from './ComponentMetadataInputs';
+
+export {
+  useComponentTypeSchema,
+  resetComponentTypeSchemaCache,
+  type ComponentTypeSchemaState,
+} from './useComponentTypeSchema';

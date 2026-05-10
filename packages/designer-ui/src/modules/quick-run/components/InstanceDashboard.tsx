@@ -169,7 +169,7 @@ export function InstanceDashboard() {
             )}
             <span className="flex items-center gap-1">
               INSTANCE{' '}
-              <code className="text-[var(--vscode-textLink-foreground)]">{activeInstance.id.slice(0, 8)}…</code>
+              <code className="text-[var(--vscode-textLink-foreground)]">{(activeInstance.id ?? '').slice(0, 8)}…</code>
               <button
                 className="inline-flex items-center rounded p-0.5 text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]"
                 title={idCopied ? 'Copied!' : `Copy full ID: ${activeInstance.id}`}

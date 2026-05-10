@@ -8,6 +8,15 @@ interface ServerRunnerOptions {
   port: number;
   webviewDir: string;
   serverBundlePath: string;
+  /**
+   * `app.getPath('userData')` from Electron — the OS-canonical app-data
+   * directory. The server uses this for sessions and any other per-user
+   * state we add later. Per-platform layouts:
+   *   macOS  → ~/Library/Application Support/vnext-forge-studio/
+   *   Linux  → ~/.config/vnext-forge-studio/
+   *   Win    → %APPDATA%\vnext-forge-studio\
+   */
+  userDataDir: string;
 }
 
 interface RunningServer {
@@ -50,7 +59,7 @@ function pollHealth(port: number, timeoutMs: number): Promise<void> {
 }
 
 export async function startServer(options: ServerRunnerOptions): Promise<RunningServer> {
-  const { port, webviewDir, serverBundlePath } = options;
+  const { port, webviewDir, serverBundlePath, userDataDir } = options;
 
   // utilityProcess.fork() runs the script inside Electron's Node.js runtime —
   // no separate Node.js binary required. The server bundle is CJS and uses only
@@ -63,7 +72,12 @@ export async function startServer(options: ServerRunnerOptions): Promise<Running
       HOST: '127.0.0.1',
       NODE_ENV: 'production',
       DESKTOP_STATIC_DIR: webviewDir,
+      // QuickRun manual transition + environment switching needs runtime URL
+      // overrides allowed; OK on desktop because the server is loopback-only.
       ALLOW_RUNTIME_URL_OVERRIDE: 'true',
+      // Sessions + future per-user state files write here. Electron
+      // resolves the OS-canonical location automatically.
+      VNEXT_USER_DATA_DIR: userDataDir,
     },
   });
 

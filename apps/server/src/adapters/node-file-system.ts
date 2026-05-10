@@ -33,6 +33,10 @@ export function createNodeFileSystemAdapter(): FileSystemAdapter {
       await fs.unlink(filePath);
     },
 
+    async chmod(filePath, mode) {
+      await fs.chmod(filePath, mode);
+    },
+
     async rename(oldPath, newPath) {
       await fs.rename(oldPath, newPath);
     },

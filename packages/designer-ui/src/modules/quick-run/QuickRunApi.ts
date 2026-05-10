@@ -273,3 +273,102 @@ export function createEmptyConfig(workflowKey: string): WorkflowBucketConfig {
     transitions: [],
   };
 }
+
+// ── Test Data + Presets — companion API for NewRunDialog ──────────────────
+// These helpers power the auto-fill / regenerate / preset save-load workflow
+// inside the start-instance dialog. Test-data calls reach the same
+// `test-data/*` registry the standalone Cmd+Shift+G overlay uses; presets
+// are stored at `<userData>/quickrun-presets/<projectId>/<workflowKey>/`.
+
+export interface SchemaReference {
+  key: string;
+  flow?: string;
+  domain?: string;
+  version: string;
+}
+
+export interface GenerateOptions {
+  seed?: number | string;
+  alwaysFakeOptionals?: boolean;
+}
+
+export interface GenerateForSchemaReferenceResult {
+  instance: unknown;
+  schema: Record<string, unknown>;
+  schemaSourcePath: string;
+  warnings: string[];
+}
+
+/**
+ * Generate a faker-driven JSON instance against a workflow's
+ * `startTransition.schema` reference. Backend resolves the reference to a
+ * Schema component file under `Schemas/`, extracts `attributes.schema`,
+ * runs json-schema-faker.
+ */
+export async function generateForSchemaReference(args: {
+  projectId: string;
+  schemaRef: SchemaReference;
+  options?: GenerateOptions;
+}): Promise<ApiResponse<GenerateForSchemaReferenceResult>> {
+  return callApi<GenerateForSchemaReferenceResult>({
+    method: 'test-data/generateForSchemaReference',
+    params: {
+      projectId: args.projectId,
+      schemaRef: args.schemaRef,
+      ...(args.options ? { options: args.options } : {}),
+    },
+  });
+}
+
+export interface PresetEntry {
+  id: string;
+  name: string;
+  description?: string;
+  payload: unknown;
+  createdAt: string;
+  lastUsedAt?: string;
+}
+
+export async function listPresets(args: {
+  projectId: string;
+  workflowKey: string;
+}): Promise<ApiResponse<{ presets: PresetEntry[] }>> {
+  return callApi<{ presets: PresetEntry[] }>({
+    method: 'quickrun-presets/list',
+    params: { projectId: args.projectId, workflowKey: args.workflowKey },
+  });
+}
+
+export async function getPreset(args: {
+  projectId: string;
+  workflowKey: string;
+  presetId: string;
+}): Promise<ApiResponse<{ preset: PresetEntry | null }>> {
+  return callApi<{ preset: PresetEntry | null }>({
+    method: 'quickrun-presets/get',
+    params: args,
+  });
+}
+
+export async function savePreset(args: {
+  projectId: string;
+  workflowKey: string;
+  presetId?: string;
+  data: { name: string; description?: string; payload: unknown };
+}): Promise<ApiResponse<{ preset: PresetEntry; created: boolean }>> {
+  return callApi<{ preset: PresetEntry; created: boolean }>({
+    method: 'quickrun-presets/save',
+    params: args,
+  });
+}
+
+export async function deletePreset(args: {
+  projectId: string;
+  workflowKey: string;
+  presetId: string;
+}): Promise<ApiResponse<{ deleted: boolean }>> {
+  return callApi<{ deleted: boolean }>({
+    method: 'quickrun-presets/delete',
+    params: args,
+  });
+}
