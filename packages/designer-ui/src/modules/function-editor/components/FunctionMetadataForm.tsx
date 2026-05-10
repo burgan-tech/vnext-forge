@@ -3,6 +3,7 @@ import { Controller, useForm, useWatch } from 'react-hook-form';
 import {
   MetadataEditableTextInput,
   MetadataLockedTextInput,
+  useComponentTypeSchema,
 } from '../../component-metadata';
 import { Field } from '../../../ui/Field';
 import { TagEditor } from '../../../ui/TagEditor';
@@ -19,6 +20,9 @@ interface FunctionMetadataFormProps {
 }
 
 export function FunctionMetadataForm({ json, onChange }: FunctionMetadataFormProps) {
+  // `required` markers come from `@burgan-tech/vnext-schema/function`
+  // matching the project's pinned schema version (or bundled fallback).
+  const { requiredFields } = useComponentTypeSchema('function');
   const form = useForm<FunctionMetadataFormValues>({
     mode: 'onChange',
     defaultValues: toFunctionMetadataFormValues(json),
@@ -90,25 +94,41 @@ export function FunctionMetadataForm({ json, onChange }: FunctionMetadataFormPro
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Key" hint={form.formState.errors.key?.message}>
+        <Field
+          label="Key"
+          required={requiredFields.has('key')}
+          hint={form.formState.errors.key?.message}
+        >
           <MetadataEditableTextInput
             {...keyValidation}
             aria-invalid={Boolean(form.formState.errors.key)}
           />
         </Field>
-        <Field label="Version" hint={form.formState.errors.version?.message}>
+        <Field
+          label="Version"
+          required={requiredFields.has('version')}
+          hint={form.formState.errors.version?.message}
+        >
           <MetadataEditableTextInput
             {...versionValidation}
             aria-invalid={Boolean(form.formState.errors.version)}
           />
         </Field>
-        <Field label="Domain" hint={form.formState.errors.domain?.message}>
+        <Field
+          label="Domain"
+          required={requiredFields.has('domain')}
+          hint={form.formState.errors.domain?.message}
+        >
           <MetadataLockedTextInput
             {...domainValidation}
             aria-invalid={Boolean(form.formState.errors.domain)}
           />
         </Field>
-        <Field label="Flow" hint={form.formState.errors.flow?.message}>
+        <Field
+          label="Flow"
+          required={requiredFields.has('flow')}
+          hint={form.formState.errors.flow?.message}
+        >
           <MetadataLockedTextInput
             {...flowValidation}
             placeholder="(optional)"

@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { useProjectStore } from '../../store/useProjectStore';
 import { useValidationStore } from '../../store/useValidationStore';
 import { useWorkflowStore } from '../../store/useWorkflowStore';
 import { useAsync } from '../../hooks/useAsync';
@@ -9,6 +10,11 @@ export function useWorkflowValidation() {
   const setIssues = useValidationStore((state) => state.setIssues);
   const clearIssues = useValidationStore((state) => state.clearIssues);
   const issues = useValidationStore((state) => state.issues);
+  // Project's `vnext.config.json#schemaVersion`, threaded through so the
+  // server validates against the matching `@burgan-tech/vnext-schema`
+  // version (downloaded + cached on first use) rather than always using
+  // whatever the desktop app shipped with.
+  const schemaVersion = useProjectStore((state) => state.vnextConfig?.schemaVersion);
 
   const { execute, loading, error, reset } = useAsync(validateWorkflowDefinition, {
     showNotificationOnError: false,
@@ -32,8 +38,8 @@ export function useWorkflowValidation() {
       return;
     }
 
-    void execute(workflowJson);
-  }, [clearIssues, execute, reset, workflowJson]);
+    void execute(workflowJson, schemaVersion);
+  }, [clearIssues, execute, reset, schemaVersion, workflowJson]);
 
   return {
     issues,

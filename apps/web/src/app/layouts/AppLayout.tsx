@@ -19,6 +19,11 @@ import { syncVnextWorkspaceFromDisk } from '../../modules/project-workspace/sync
 import { FALLBACK_RUNTIME_URL, useEnvironmentStore } from '../store/useEnvironmentStore';
 
 import { RouteErrorBoundary } from '../RouteErrorBoundary';
+import { QuickSwitcherMount } from '../../modules/quick-switcher/QuickSwitcherMount';
+import { useWorkspaceSession } from '../../modules/sessions/useWorkspaceSession';
+import { SnippetsMount } from '../../modules/snippets/SnippetsMount';
+import { TerminalMount } from '../../modules/terminal/TerminalMount';
+import { TestDataMount } from '../../modules/test-data/TestDataMount';
 import { ActivityBar } from './ui/ActivityBar';
 import { Sidebar } from './ui/Sidebar';
 import { StatusBar } from './ui/StatusBar';
@@ -63,6 +68,7 @@ export function AppLayout() {
 
   useEnvironmentRuntimeSync();
   useProjectWorkspacePage(routeProjectId);
+  useWorkspaceSession(projectId ?? null);
 
   /**
    * `react-resizable-panels` ilk ölçümde panel toplam genişliği 0 iken
@@ -113,6 +119,10 @@ export function AppLayout() {
         } as React.CSSProperties
       }>
       <RuntimeHealthSync />
+
+      <QuickSwitcherMount />
+      <SnippetsMount />
+      <TestDataMount />
 
       {projectId ? (
         <CreateVnextConfigDialog
@@ -167,6 +177,8 @@ export function AppLayout() {
           </main>
         )}
       </div>
+
+      <TerminalMount />
 
       <StatusBar />
     </div>

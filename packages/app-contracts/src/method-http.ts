@@ -58,6 +58,22 @@ export type MethodId =
   | 'quickrun/listInstances'
   | 'quickrun/getInstance'
   | 'quickrun/retryInstance'
+  | 'quickswitcher/buildIndex'
+  | 'snippets/listAll'
+  | 'snippets/getOne'
+  | 'snippets/save'
+  | 'snippets/delete'
+  | 'snippets/openLocation'
+  | 'sessions/get'
+  | 'sessions/save'
+  | 'sessions/clear'
+  | 'test-data/generate'
+  | 'test-data/generateForSchemaComponent'
+  | 'test-data/generateForSchemaReference'
+  | 'quickrun-presets/list'
+  | 'quickrun-presets/get'
+  | 'quickrun-presets/save'
+  | 'quickrun-presets/delete'
   | 'runtime/proxy'
   | 'health/check'
 
@@ -112,6 +128,22 @@ export const METHOD_HTTP_METADATA: Readonly<Record<MethodId, MethodHttpSpec>> = 
   'quickrun/listInstances': { verb: 'POST', paramSource: 'json' },
   'quickrun/getInstance': { verb: 'POST', paramSource: 'json' },
   'quickrun/retryInstance': { verb: 'POST', paramSource: 'json' },
+  'quickswitcher/buildIndex': { verb: 'POST', paramSource: 'json' },
+  'snippets/listAll': { verb: 'POST', paramSource: 'json' },
+  'snippets/getOne': { verb: 'POST', paramSource: 'json' },
+  'snippets/save': { verb: 'POST', paramSource: 'json', successStatus: 201 },
+  'snippets/delete': { verb: 'POST', paramSource: 'json' },
+  'snippets/openLocation': { verb: 'POST', paramSource: 'json' },
+  'sessions/get': { verb: 'POST', paramSource: 'json' },
+  'sessions/save': { verb: 'POST', paramSource: 'json' },
+  'sessions/clear': { verb: 'POST', paramSource: 'json' },
+  'test-data/generate': { verb: 'POST', paramSource: 'json' },
+  'test-data/generateForSchemaComponent': { verb: 'POST', paramSource: 'json' },
+  'test-data/generateForSchemaReference': { verb: 'POST', paramSource: 'json' },
+  'quickrun-presets/list': { verb: 'POST', paramSource: 'json' },
+  'quickrun-presets/get': { verb: 'POST', paramSource: 'json' },
+  'quickrun-presets/save': { verb: 'POST', paramSource: 'json', successStatus: 201 },
+  'quickrun-presets/delete': { verb: 'POST', paramSource: 'json' },
   'runtime/proxy': { verb: 'POST', paramSource: 'json' },
   'health/check': { verb: 'GET', paramSource: 'query' },
 })

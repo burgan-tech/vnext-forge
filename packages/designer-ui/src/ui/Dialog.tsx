@@ -5,6 +5,7 @@ import { XIcon } from 'lucide-react';
 
 import { cn } from '../lib/utils/cn.js';
 import { Button } from './Button';
+import { useResizableGeometry } from './useResizableGeometry';
 
 const dialogContentVariants = cva(
   'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 fixed top-[50%] left-[50%] z-50 grid w-[calc(100%-2rem)] max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 rounded-xl border p-6 shadow-lg duration-200 sm:w-full',
@@ -231,6 +232,13 @@ export interface DialogChromeContextValue {
   closeInHeader: boolean;
   closeButtonHoverable: boolean;
   noBorder: boolean | null | undefined;
+  /**
+   * Forwarded from `DialogContent`. When true, `DialogHeader` adds the
+   * `data-dialog-handle="drag"` marker + a `cursor: move` style so the
+   * user can drag the modal by its header band — same UX as the custom
+   * `ResizableDialogShell`.
+   */
+  resizable: boolean;
 }
 
 const DialogChromeContext = React.createContext<DialogChromeContextValue | null>(null);
@@ -320,6 +328,12 @@ function DialogContent({
   closeButtonHoverable = true,
   noBorder,
   overlayClassName,
+  enableResize = false,
+  resizeStorageKey,
+  resizeDefaultWidth,
+  resizeDefaultHeight,
+  resizeMinWidth,
+  resizeMinHeight,
   ...props
 }: React.ComponentProps<typeof DialogPrimitive.Content> & {
   showCloseButton?: boolean;
@@ -328,6 +342,21 @@ function DialogContent({
   closeButtonHoverable?: boolean;
   /** Overlay only: use a higher z-index when stacking dialogs (e.g. alert over editor modal). */
   overlayClassName?: string;
+  /**
+   * When `true`, the dialog frame becomes fully user-resizable: 8 edge
+   * / corner drag handles, drag-move from the header (any element with
+   * `data-dialog-handle="drag"`), and persistence to localStorage when
+   * `resizeStorageKey` is provided. This replaces the previous native
+   * CSS `resize` shortcut so behaviour matches `ResizableDialogShell`
+   * (used by `TransitionDialog`, `NewRunDialog`, `HeadersConfigDialog`).
+   */
+  enableResize?: boolean;
+  /** Persisted geometry key (e.g. `vnext-forge.dialog.component-editor`). */
+  resizeStorageKey?: string;
+  resizeDefaultWidth?: number;
+  resizeDefaultHeight?: number;
+  resizeMinWidth?: number;
+  resizeMinHeight?: number;
 } & VariantProps<typeof dialogContentVariants>) {
   const resolvedVariant = variant ?? 'default';
   const chrome: DialogChromeContextValue = {
@@ -336,15 +365,39 @@ function DialogContent({
     closeInHeader,
     closeButtonHoverable,
     noBorder,
+    resizable: enableResize,
   };
+
+  // Geometry state is owned by the hook even when `enableResize` is
+  // false (cheap; React skips the renders that would be wasted). We
+  // gate JSX side-effects (handles + style + drag listener) on the
+  // flag so non-resizable dialogs are unaffected.
+  const geom = useResizableGeometry({
+    storageKey: enableResize ? resizeStorageKey : undefined,
+    ...(resizeDefaultWidth !== undefined ? { defaultWidth: resizeDefaultWidth } : {}),
+    ...(resizeDefaultHeight !== undefined ? { defaultHeight: resizeDefaultHeight } : {}),
+    ...(resizeMinWidth !== undefined ? { minWidth: resizeMinWidth } : {}),
+    ...(resizeMinHeight !== undefined ? { minHeight: resizeMinHeight } : {}),
+  });
 
   return (
     <DialogPortal>
       <DialogOverlay className={overlayClassName} />
       <DialogPrimitive.Content
         data-slot="dialog-content"
-        className={cn(dialogContentVariants({ variant, hoverable, noBorder }), className)}
-        {...props}>
+        className={cn(
+          dialogContentVariants({ variant, hoverable, noBorder }),
+          // When resize mode is active, override Radix's center-positioning
+          // utilities (`fixed top-[50%] left-[50%] translate-...`) so the
+          // hook's `containerStyle` can pin the box manually. Width / height
+          // caps are lifted; minimums come from the hook.
+          enableResize &&
+            '!translate-x-0 !translate-y-0 !left-auto !top-auto !max-w-none',
+          className,
+        )}
+        style={enableResize ? { ...geom.containerStyle, ...(props.style ?? {}) } : props.style}
+        onMouseDown={enableResize ? geom.handleDragMouseDown : props.onMouseDown}
+        {...(({ style: _s, onMouseDown: _o, ...rest }) => rest)(props)}>
         <DialogChromeContext.Provider value={chrome}>
           {children}
           {showCloseButton && !closeInHeader ? (
@@ -354,9 +407,83 @@ function DialogContent({
               noBorder={noBorder}
             />
           ) : null}
+          {enableResize ? <DialogResizeAffordances geom={geom} /> : null}
         </DialogChromeContext.Provider>
       </DialogPrimitive.Content>
     </DialogPortal>
+  );
+}
+
+/**
+ * Resize / reset overlay for `enableResize` dialogs. Lives outside the
+ * normal flow — 8 hit-targets along the edges + corners + a small reset
+ * affordance in the top-right (only after the user has resized once).
+ */
+function DialogResizeAffordances({
+  geom,
+}: {
+  geom: ReturnType<typeof useResizableGeometry>;
+}) {
+  return (
+    <>
+      {geom.showReset ? (
+        <button
+          type="button"
+          onClick={geom.handleReset}
+          className="absolute right-12 top-2 z-10 rounded border border-transparent px-1.5 py-0.5 text-[10px] text-[var(--vscode-descriptionForeground)] hover:border-[var(--vscode-panel-border)] hover:text-[var(--vscode-foreground)]"
+          title="Reset dialog size and position"
+          aria-label="Reset dialog size and position">
+          ⟲
+        </button>
+      ) : null}
+      {/* Edges */}
+      <div
+        onMouseDown={geom.handleResizeStart('n')}
+        className="absolute left-2 right-2 top-0 h-1 cursor-ns-resize hover:bg-[var(--vscode-focusBorder)]/30"
+        aria-hidden="true"
+      />
+      <div
+        onMouseDown={geom.handleResizeStart('s')}
+        className="absolute bottom-0 left-2 right-2 h-1 cursor-ns-resize hover:bg-[var(--vscode-focusBorder)]/30"
+        aria-hidden="true"
+      />
+      <div
+        onMouseDown={geom.handleResizeStart('w')}
+        className="absolute bottom-2 left-0 top-2 w-1 cursor-ew-resize hover:bg-[var(--vscode-focusBorder)]/30"
+        aria-hidden="true"
+      />
+      <div
+        onMouseDown={geom.handleResizeStart('e')}
+        className="absolute bottom-2 right-0 top-2 w-1 cursor-ew-resize hover:bg-[var(--vscode-focusBorder)]/30"
+        aria-hidden="true"
+      />
+      {/* Corners */}
+      <div
+        onMouseDown={geom.handleResizeStart('nw')}
+        className="absolute left-0 top-0 h-2 w-2 cursor-nwse-resize hover:bg-[var(--vscode-focusBorder)]/40"
+        aria-hidden="true"
+      />
+      <div
+        onMouseDown={geom.handleResizeStart('ne')}
+        className="absolute right-0 top-0 h-2 w-2 cursor-nesw-resize hover:bg-[var(--vscode-focusBorder)]/40"
+        aria-hidden="true"
+      />
+      <div
+        onMouseDown={geom.handleResizeStart('sw')}
+        className="absolute bottom-0 left-0 h-2 w-2 cursor-nesw-resize hover:bg-[var(--vscode-focusBorder)]/40"
+        aria-hidden="true"
+      />
+      <div
+        onMouseDown={geom.handleResizeStart('se')}
+        className="absolute bottom-0 right-0 h-3 w-3 cursor-nwse-resize hover:bg-[var(--vscode-focusBorder)]/40"
+        aria-hidden="true">
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute bottom-0 right-0 text-[8px] leading-none text-[var(--vscode-descriptionForeground)]">
+          ◢
+        </span>
+      </div>
+    </>
   );
 }
 
@@ -364,17 +491,28 @@ function DialogHeader({
   className,
   showClose: showCloseInHeader = true,
   children,
+  style,
   ...rest
 }: React.ComponentProps<'div'> & { showClose?: boolean }) {
   const ctx = useDialogChromeOptional();
   const showX = Boolean(
     ctx?.showCloseButton && showCloseInHeader && ctx.closeInHeader,
   );
+  // When the surrounding DialogContent is resizable, the header doubles
+  // as the drag-move handle. Marker attribute + `cursor: move` are
+  // applied here so individual dialogs don't need to opt in by hand.
+  const dragProps = ctx?.resizable
+    ? {
+        'data-dialog-handle': 'drag',
+        style: { cursor: 'move', ...style } as React.CSSProperties,
+      }
+    : { style };
   if (!ctx) {
     return (
       <div
         data-slot="dialog-header"
         className={cn('flex flex-col gap-2 text-center sm:text-left', className)}
+        style={style}
         {...rest}>
         {children}
       </div>
@@ -385,8 +523,10 @@ function DialogHeader({
       data-slot="dialog-header"
       className={cn(
         'border-border-subtle text-foreground/95 flex w-full min-w-0 flex-row items-center justify-between gap-3 border-b px-4 py-3 text-left',
+        ctx.resizable && 'select-none',
         className,
       )}
+      {...dragProps}
       {...rest}>
       <div className="min-w-0 flex-1">{children}</div>
       {showX ? (

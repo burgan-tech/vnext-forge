@@ -6,6 +6,7 @@ import {
   QuickRunApi,
   QuickRunShell,
   type DataBucketAdapter,
+  type SchemaReference,
   type WorkflowBucketConfig,
 } from '@vnext-forge-studio/designer-ui/quickrun';
 
@@ -55,10 +56,16 @@ export function QuickRunPage() {
 
   const [workflowKey, setWorkflowKey] = useState<string | null>(null);
   const [loadError, setLoadError] = useState(false);
+  // Captured from `attributes.startTransition.schema` of the loaded workflow.
+  // NewRunDialog uses it to faker-fill the start payload via the
+  // `test-data/generateForSchemaReference` backend method. Optional —
+  // workflows without an attached start schema simply skip auto-fill.
+  const [startSchemaRef, setStartSchemaRef] = useState<SchemaReference | undefined>(undefined);
 
   useEffect(() => {
     setWorkflowKey(null);
     setLoadError(false);
+    setStartSchemaRef(undefined);
     if (!workflowFilePath) return;
 
     void filesService.read(workflowFilePath).then((res) => {
@@ -73,6 +80,26 @@ export function QuickRunPage() {
           setWorkflowKey(key);
         } else {
           setLoadError(true);
+          return;
+        }
+        // Pull the start schema reference for the test-data auto-fill.
+        const attrs = json.attributes;
+        if (attrs && typeof attrs === 'object') {
+          const start = (attrs as { startTransition?: unknown }).startTransition;
+          if (start && typeof start === 'object') {
+            const schema = (start as { schema?: unknown }).schema;
+            if (schema && typeof schema === 'object') {
+              const ref = schema as Record<string, unknown>;
+              if (typeof ref.key === 'string' && typeof ref.version === 'string') {
+                setStartSchemaRef({
+                  key: ref.key,
+                  version: ref.version,
+                  ...(typeof ref.flow === 'string' ? { flow: ref.flow } : {}),
+                  ...(typeof ref.domain === 'string' ? { domain: ref.domain } : {}),
+                });
+              }
+            }
+          }
         }
       } catch {
         setLoadError(true);
@@ -134,6 +161,8 @@ export function QuickRunPage() {
       environmentName={activeEnv?.name}
       environmentUrl={activeEnv?.baseUrl}
       projectPath={workflowFilePath ?? undefined}
+      projectId={id}
+      {...(startSchemaRef ? { startSchemaRef } : {})}
       pollingRetryCount={pollingRetryCount}
       pollingIntervalMs={pollingIntervalMs}
     />

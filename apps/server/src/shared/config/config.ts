@@ -91,6 +91,14 @@ const ConfigSchema = z.object({
   /** Max concurrent LSP WebSocket connections. */
   lspMaxConnections: z.coerce.number().int().positive().default(8),
   /**
+   * Max inbound WebSocket frame size for the integrated terminal endpoint
+   * (bytes). User keystrokes are tiny; this only caps a misbehaving client
+   * pushing arbitrary buffers at the host process.
+   */
+  ptyMaxMessageBytes: z.coerce.number().int().positive().default(65_536),
+  /** Max concurrent integrated-terminal WebSocket connections. */
+  ptyMaxConnections: z.coerce.number().int().positive().default(16),
+  /**
    * When set, the server serves the SPA from this directory in addition to the
    * API routes. Used exclusively by the desktop (Electron) shell so both the
    * web app and the API are on the same origin — no CORS negotiation needed.
@@ -129,6 +137,8 @@ function loadConfig(): AppConfig {
     nodeEnv: process.env.NODE_ENV,
     lspMaxMessageBytes: process.env.LSP_MAX_MESSAGE_BYTES,
     lspMaxConnections: process.env.LSP_MAX_CONNECTIONS,
+    ptyMaxMessageBytes: process.env.PTY_MAX_MESSAGE_BYTES,
+    ptyMaxConnections: process.env.PTY_MAX_CONNECTIONS,
     desktopStaticDir: process.env.DESKTOP_STATIC_DIR,
   });
 

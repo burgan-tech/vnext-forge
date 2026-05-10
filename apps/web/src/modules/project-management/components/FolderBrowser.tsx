@@ -207,45 +207,70 @@ export function FolderBrowser({
                 const isFolderSelected = folder.path === selectedPath;
 
                 return (
-                  <button
-                    type="button"
+                  <div
                     key={folder.path}
-                    onClick={() => onNavigate(folder.path)}
-                    onDoubleClick={() => onSelect(folder.path)}
                     className={
-                      'flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left text-xs transition-colors duration-150 ease-out ' +
+                      'flex w-full items-center gap-1 px-1.5 py-0.5 transition-colors duration-150 ease-out ' +
                       (isFolderSelected
                         ? 'bg-primary-muted text-foreground hover:bg-primary-muted-hover'
                         : 'text-foreground hover:bg-muted')
                     }>
-                    {isWindowsDriveList ? (
-                      <HardDrive
-                        size={13}
-                        className={
-                          isFolderSelected
-                            ? 'text-primary-icon shrink-0'
-                            : 'text-muted-icon shrink-0'
-                        }
-                      />
-                    ) : (
-                      <FolderOpen
-                        size={13}
-                        className={
-                          isFolderSelected
-                            ? 'text-primary-icon shrink-0'
-                            : 'text-muted-icon shrink-0'
-                        }
-                      />
-                    )}
-                    <span className="truncate">{folder.name}</span>
-                    {isFolderSelected ? (
-                      <Check
-                        size={12}
-                        className="text-primary-icon ml-auto shrink-0"
-                        aria-hidden="true"
-                      />
-                    ) : null}
-                  </button>
+                    {/*
+                     * Single-click = SELECT the folder (intuitive default
+                     * for project picker UX). Double-click also drills in
+                     * (Finder/Explorer convention) so power users keep
+                     * their habit. The dedicated chevron button on the
+                     * right is the explicit "drill in" affordance for
+                     * mouse users who don't want to risk a double click.
+                     */}
+                    <button
+                      type="button"
+                      onClick={() => onSelect(folder.path)}
+                      onDoubleClick={() => onNavigate(folder.path)}
+                      aria-pressed={isFolderSelected}
+                      title={
+                        isFolderSelected
+                          ? 'Selected. Double-click to open.'
+                          : 'Click to select. Double-click to open.'
+                      }
+                      className="flex flex-1 cursor-pointer items-center gap-2 rounded-md px-1.5 py-1 text-left text-xs">
+                      {isWindowsDriveList ? (
+                        <HardDrive
+                          size={13}
+                          className={
+                            isFolderSelected
+                              ? 'text-primary-icon shrink-0'
+                              : 'text-muted-icon shrink-0'
+                          }
+                        />
+                      ) : (
+                        <FolderOpen
+                          size={13}
+                          className={
+                            isFolderSelected
+                              ? 'text-primary-icon shrink-0'
+                              : 'text-muted-icon shrink-0'
+                          }
+                        />
+                      )}
+                      <span className="truncate">{folder.name}</span>
+                      {isFolderSelected ? (
+                        <Check
+                          size={12}
+                          className="text-primary-icon ml-auto shrink-0"
+                          aria-hidden="true"
+                        />
+                      ) : null}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onNavigate(folder.path)}
+                      title="Open folder"
+                      aria-label={`Open folder ${folder.name}`}
+                      className="text-muted-foreground hover:bg-muted-hover hover:text-foreground inline-flex h-6 w-6 shrink-0 cursor-pointer items-center justify-center rounded-md">
+                      <ChevronRight size={14} className="shrink-0" aria-hidden="true" />
+                    </button>
+                  </div>
                 );
               })
             ) : (

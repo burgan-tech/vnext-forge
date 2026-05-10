@@ -1275,7 +1275,11 @@ export function CreateVnextConfigDialog({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent
           variant="default"
-          className="w-full max-w-[min(72rem,calc(100vw-1.5rem))] gap-0 rounded-2xl p-0 sm:max-w-[min(72rem,calc(100vw-1.5rem))]">
+          enableResize
+          resizeStorageKey="vnext-forge.dialog.create-vnext-config"
+          resizeDefaultWidth={1100}
+          resizeDefaultHeight={720}
+          className="gap-0 rounded-2xl p-0">
           {shell}
         </DialogContent>
       </Dialog>

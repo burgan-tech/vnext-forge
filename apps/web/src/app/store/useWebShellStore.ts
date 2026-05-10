@@ -1,6 +1,11 @@
 import { create } from 'zustand';
 
-export type SidebarView = 'project' | 'search' | 'validation' | 'templates';
+export type SidebarView =
+  | 'project'
+  | 'search'
+  | 'validation'
+  | 'templates'
+  | 'snippets';
 
 interface WebShellState {
   sidebarOpen: boolean;
@@ -10,11 +15,22 @@ interface WebShellState {
   settingsAccordionBootToken: number;
   /** One-shot `defaultOpenItemIds`; cleared after Settings panel reads it. */
   pendingSettingsAccordionOpenIds: string[] | null;
+  /**
+   * Monotonically incremented every time something asks the search input to
+   * grab focus (e.g. global Cmd+Shift+F shortcut). The SearchPanel watches
+   * this counter and refocuses its input on every change.
+   */
+  searchFocusNonce: number;
   toggleSidebar: () => void;
   setSidebarView: (view: SidebarView) => void;
   setSidebarWidth: (width: number) => void;
   focusSettingsAccordionSection: (sectionIds: string[]) => void;
   clearPendingSettingsAccordionOpen: () => void;
+  /**
+   * Open the Search sidebar panel and request input focus. Idempotent —
+   * always bumps `searchFocusNonce` so a second press re-selects the input.
+   */
+  requestSearchFocus: () => void;
 }
 
 /**
@@ -29,6 +45,7 @@ export const useWebShellStore = create<WebShellState>((set) => ({
   sidebarView: 'project',
   settingsAccordionBootToken: 0,
   pendingSettingsAccordionOpenIds: null,
+  searchFocusNonce: 0,
   toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),
   setSidebarView: (sidebarView) => set({ sidebarView, sidebarOpen: true }),
   setSidebarWidth: (sidebarWidth) => set({ sidebarWidth }),
@@ -40,4 +57,10 @@ export const useWebShellStore = create<WebShellState>((set) => ({
       settingsAccordionBootToken: s.settingsAccordionBootToken + 1,
     })),
   clearPendingSettingsAccordionOpen: () => set({ pendingSettingsAccordionOpenIds: null }),
+  requestSearchFocus: () =>
+    set((s) => ({
+      sidebarOpen: true,
+      sidebarView: 'search',
+      searchFocusNonce: s.searchFocusNonce + 1,
+    })),
 }));

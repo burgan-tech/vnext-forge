@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { callApi } from '../../api/client';
 import * as QuickRunApi from './QuickRunApi';
-import type { WorkflowBucketConfig } from './QuickRunApi';
+import type { SchemaReference, WorkflowBucketConfig } from './QuickRunApi';
 import { ContextPanel } from './components/ContextPanel';
 import { HeadersConfigDialog } from './components/HeadersConfigDialog';
 import { InstanceDashboard } from './components/InstanceDashboard';
@@ -28,6 +28,19 @@ interface QuickRunShellProps {
   environmentName?: string;
   environmentUrl?: string;
   projectPath?: string;
+  /**
+   * Project id — supplied by the host shell. NewRunDialog needs it for the
+   * test-data + presets backend calls. When absent those features are
+   * disabled and the dialog falls back to manual JSON entry.
+   */
+  projectId?: string;
+  /**
+   * Workflow's `attributes.startTransition.schema` reference. NewRunDialog
+   * uses this to auto-fill / regenerate the payload via the
+   * `test-data/generateForSchemaReference` method. Optional — workflows
+   * without an attached start schema simply don't get auto-fill.
+   */
+  startSchemaRef?: SchemaReference;
   pollingRetryCount?: number;
   pollingIntervalMs?: number;
 }
@@ -38,6 +51,8 @@ export function QuickRunShell({
   environmentName,
   environmentUrl,
   projectPath,
+  projectId,
+  startSchemaRef,
   pollingRetryCount,
   pollingIntervalMs,
 }: QuickRunShellProps) {
@@ -190,7 +205,14 @@ export function QuickRunShell({
       </div>
       <QuickRunStatusBar />
 
-      <NewRunDialog open={showNewRun} onClose={() => setShowNewRun(false)} configRef={configRef} persistConfig={persistConfig} />
+      <NewRunDialog
+        open={showNewRun}
+        onClose={() => setShowNewRun(false)}
+        configRef={configRef}
+        persistConfig={persistConfig}
+        {...(projectId ? { projectId } : {})}
+        {...(startSchemaRef ? { startSchemaRef } : {})}
+      />
       <TransitionDialog configRef={configRef} persistConfig={persistConfig} />
       <HeadersConfigDialog
         open={showHeaders}

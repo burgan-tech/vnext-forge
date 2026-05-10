@@ -5,27 +5,34 @@
   "private": true,
   "main": "dist/main.js",
   "scripts": {
-    "build": "node esbuild.desktop.mjs && node scripts/copy-assets.mjs",
+    "build": "node scripts/ensure-icons.mjs && node esbuild.desktop.mjs && node scripts/copy-assets.mjs",
     "build:watch": "node esbuild.desktop.mjs --watch",
     "dev": "electron dist/main.js",
+    "icons": "node scripts/generate-icons.mjs",
+    "icons:check": "node scripts/ensure-icons.mjs",
     "package": "electron-builder",
     "package:mac": "electron-builder --mac",
     "package:win": "electron-builder --win",
+    "package:linux": "electron-builder --linux",
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@vnext-forge-studio/app-contracts": "workspace:*",
-    "@vnext-forge-studio/services-core": "workspace:*",
-    "@vnext-forge-studio/lsp-core": "workspace:*",
-    "@vnext-forge-studio/vnext-types": "workspace:*",
     "@burgan-tech/vnext-schema": "*",
     "@burgan-tech/vnext-template": "*",
-    "electron": "^35.0.0"
+    "@vnext-forge-studio/app-contracts": "workspace:*",
+    "@vnext-forge-studio/lsp-core": "workspace:*",
+    "@vnext-forge-studio/services-core": "workspace:*",
+    "@vnext-forge-studio/vnext-types": "workspace:*",
+    "electron": "^35.0.0",
+    "electron-window-state": "^5.0.3",
+    "node-pty": "^1.1.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
     "electron-builder": "^26.0.0",
     "esbuild": "^0.25.0",
+    "png-to-ico": "^2.1.8",
+    "sharp": "^0.33.5",
     "typescript": "^5.8.0"
   }
 }

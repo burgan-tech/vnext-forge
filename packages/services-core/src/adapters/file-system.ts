@@ -38,6 +38,17 @@ export interface FileSystemAdapter {
    */
   realpath(targetPath: string): Promise<string>
 
+  /**
+   * Set the POSIX permission bits on a path. Used by services that author
+   * shell scripts (e.g. `git-hooks/install` writing `.git/hooks/pre-commit`)
+   * — without `+x` git silently ignores the hook.
+   *
+   * Implementations on platforms that don't support POSIX modes (notably
+   * VS Code's `workspace.fs`) MAY no-op; the desktop `apps/server` shell is
+   * the only consumer today.
+   */
+  chmod(filePath: string, mode: number): Promise<void>
+
   /** True only if the running platform exposes Windows-style drive letters. */
   readonly isWindows: boolean
   /** Resolve `~` and absolute paths consistently. */

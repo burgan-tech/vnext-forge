@@ -202,10 +202,14 @@ export function PreviewDocumentDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <style dangerouslySetInnerHTML={{ __html: markdownStyles }} />
       <DialogContent
+        enableResize={!fullScreen}
+        resizeStorageKey="vnext-forge.dialog.document-preview"
+        resizeDefaultWidth={900}
+        resizeDefaultHeight={700}
         className={`flex flex-col gap-0 p-0 transition-all duration-200 ${
           fullScreen
             ? 'h-screen max-h-screen w-screen max-w-none rounded-none'
-            : 'max-h-[80vh] w-full max-w-[900px]'
+            : ''
         }`}>
         <DialogHeader className="border-border shrink-0 border-b px-6 py-4">
           <div className="flex items-center justify-between">
