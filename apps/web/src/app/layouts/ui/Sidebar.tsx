@@ -26,6 +26,7 @@ import { isFailure } from '@vnext-forge-studio/app-contracts';
 import { executeCliCommand } from '../../../services/cli.service';
 import { ProjectWorkspaceSidebarPanel } from '../../../modules/project-workspace';
 import { SearchPanel } from '../../../modules/project-search/SearchPanel';
+import { SnippetsSidebarPanel } from '@vnext-forge-studio/designer-ui';
 import { useCliStore } from '../../store/useCliStore';
 import { useCliOutputStore } from '../../store/useCliOutputStore';
 import {
@@ -461,6 +462,10 @@ function WorkflowCliSection() {
 
 export function Sidebar() {
   const sidebarView = useWebShellStore((s) => s.sidebarView);
+  // `Snippets` sidebar panel needs the active project so it can ask the
+  // host for project-scoped entries (the `Personal` scope works without
+  // it). Other sub-sections that need this id resolve it locally.
+  const activeProjectId = useProjectStore((s) => s.activeProject?.id);
   const settingsAccordionBootToken = useWebShellStore((s) => s.settingsAccordionBootToken);
   const pendingSettingsAccordionOpenIds = useWebShellStore((s) => s.pendingSettingsAccordionOpenIds);
   const clearPendingSettingsAccordionOpen = useWebShellStore(
@@ -486,6 +491,7 @@ export function Sidebar() {
         {sidebarView === 'search' && 'Search'}
         {sidebarView === 'validation' && 'Problems'}
         {sidebarView === 'templates' && 'Settings'}
+        {sidebarView === 'snippets' && 'Snippets'}
       </div>
 
       <div className="flex-1 overflow-y-auto">
@@ -495,6 +501,10 @@ export function Sidebar() {
           <div className="mt-1 flex h-full min-h-0 flex-col">
             <SearchPanel />
           </div>
+        )}
+
+        {sidebarView === 'snippets' && (
+          <SnippetsSidebarPanel projectId={activeProjectId ?? null} />
         )}
 
         {sidebarView === 'validation' && (

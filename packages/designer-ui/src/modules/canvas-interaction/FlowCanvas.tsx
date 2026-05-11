@@ -271,10 +271,18 @@ function FlowCanvasInner({
   }, []);
 
   const onReconnectEnd = useCallback(
-    (_: MouseEvent | TouchEvent, edge: Edge) => {
-      if (!reconnectSuccessful.current) {
-        // Reconnection failed (dropped on empty space) -- keep edge as-is
-      }
+    (_: MouseEvent | TouchEvent, _edge: Edge) => {
+      // Drop-on-empty → revert: when the user drags an edge endpoint
+      // and releases it on empty canvas (no valid node under cursor),
+      // we do nothing. React Flow's drag preview disappears and the
+      // edge stays bound to its original source/target — visually a
+      // "snap back" to the starting position. The user explicitly
+      // asked us NOT to delete on empty-drop. Deletion is still
+      // available through the edge context-menu and (future) keyboard
+      // Backspace/Delete.
+      //
+      // We still reset the success ref so the next reconnect gesture
+      // starts from a clean slate.
       reconnectSuccessful.current = true;
     },
     [],
@@ -564,6 +572,16 @@ function FlowCanvasInner({
         onReconnectEnd={onReconnectEnd}
         edgesReconnectable
         reconnectRadius={25}
+        /*
+         * `connectionRadius` controls how far from a handle a pointer
+         * release still counts as a "drop on that handle". Default 20px
+         * forces users to land on (or right next to) one of the four
+         * edge dots. Bumping it to 220 means the pointer can land
+         * anywhere on the target node's body and React Flow will pick
+         * the closest handle automatically — same UX as Easy Connect's
+         * "drag onto the node, not the dot" behavior.
+         */
+        connectionRadius={220}
         isValidConnection={isValidConnection}
         onNodeClick={onNodeClick}
         onNodeDoubleClick={onNodeDoubleClick}

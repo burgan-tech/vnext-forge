@@ -94,45 +94,80 @@ export function QuickRunTabBar() {
       </div>
 
       {contextMenu && (
+        // Inline context menu — earlier iterations used `--vscode-menu-*`
+        // and then theme tokens (`bg-popover`), both of which still
+        // rendered transparent in the Electron shell when the host
+        // didn't have the underlying CSS variables wired up. To make
+        // this menu robust regardless of theme variable plumbing we
+        // hard-code VS Code dark palette values inline.
         <div
           ref={menuRef}
-          className="fixed z-[9999] min-w-[160px] rounded border border-[var(--vscode-menu-border)] bg-[var(--vscode-menu-background)] py-1 shadow-lg"
-          style={{ left: contextMenu.x, top: contextMenu.y }}
           role="menu"
+          style={{
+            left: contextMenu.x,
+            top: contextMenu.y,
+            backgroundColor: '#252526',
+            border: '1px solid #3c3c3c',
+            color: '#cccccc',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.4)',
+          }}
+          className="fixed z-[9999] min-w-[160px] rounded-md py-1"
         >
-          <button
-            role="menuitem"
-            className="w-full px-3 py-1.5 text-left text-xs text-[var(--vscode-menu-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]"
+          <ContextMenuRow
+            label="Close"
             onClick={() => {
               removeTab(contextMenu.instanceId);
               closeMenu();
             }}
-          >
-            Close
-          </button>
-          <button
-            role="menuitem"
-            className="w-full px-3 py-1.5 text-left text-xs text-[var(--vscode-menu-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]"
+          />
+          <ContextMenuRow
+            label="Close Others"
             onClick={() => {
               removeOtherTabs(contextMenu.instanceId);
               closeMenu();
             }}
-          >
-            Close Others
-          </button>
-          <div className="my-1 border-t border-[var(--vscode-menu-separatorBackground)]" />
-          <button
-            role="menuitem"
-            className="w-full px-3 py-1.5 text-left text-xs text-[var(--vscode-menu-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]"
+          />
+          <div style={{ borderTop: '1px solid #3c3c3c' }} className="my-1" />
+          <ContextMenuRow
+            label="Close All"
             onClick={() => {
               removeAllTabs();
               closeMenu();
             }}
-          >
-            Close All
-          </button>
+          />
         </div>
       )}
     </>
+  );
+}
+
+/**
+ * Single context-menu row with explicit hover handling — `:hover` via
+ * the `style` prop isn't possible, so we manage hover state here. Hard-
+ * coded VS Code dark palette to match the surrounding menu container.
+ */
+function ContextMenuRow({
+  label,
+  onClick,
+}: {
+  label: string;
+  onClick: () => void;
+}) {
+  const [hover, setHover] = useState(false);
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
+      onClick={onClick}
+      style={{
+        backgroundColor: hover ? '#094771' : 'transparent',
+        color: hover ? '#ffffff' : '#cccccc',
+      }}
+      className="w-full px-3 py-1.5 text-left text-xs"
+    >
+      {label}
+    </button>
   );
 }

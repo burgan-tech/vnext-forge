@@ -11,3 +11,5 @@ export {
   resetComponentTypeSchemaCache,
   type ComponentTypeSchemaState,
 } from './useComponentTypeSchema';
+
+export { useFieldValidationError } from './useFieldValidationError';

@@ -66,6 +66,7 @@ export function ExtensionEditorView({
   const { componentJson, isDirty, updateComponent, undo, redo, undoStack, redoStack } =
     useComponentStore();
   const { save, saving, saveError, autoSavePending, autoSaved } = useSaveComponent({
+    componentType: 'extension',
     afterSaveSuccess: onAtomicSaved
       ? () => {
           const j = useComponentStore.getState().componentJson;

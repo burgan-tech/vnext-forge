@@ -43,7 +43,19 @@ import { QuickRunProvider } from './tools/providers/quickrun-provider.js';
  * background pre-download — there is no second installer factory in the
  * extension host (R-b8).
  */
-async function readWorkflowJson(uri: vscode.Uri): Promise<{ domain: string; workflowKey: string } | undefined> {
+async function readWorkflowJson(uri: vscode.Uri): Promise<
+  | {
+      domain: string;
+      workflowKey: string;
+      startSchemaRef?: {
+        key: string;
+        version: string;
+        flow?: string;
+        domain?: string;
+      };
+    }
+  | undefined
+> {
   try {
     const bytes = await vscode.workspace.fs.readFile(uri);
     const json = JSON.parse(Buffer.from(bytes).toString('utf-8')) as Record<string, unknown>;
@@ -53,7 +65,35 @@ async function readWorkflowJson(uri: vscode.Uri): Promise<{ domain: string; work
       void vscode.window.showWarningMessage('Workflow file is missing "domain" or "key" fields.');
       return undefined;
     }
-    return { domain, workflowKey };
+
+    // Extract `attributes.startTransition.schema` reference so the
+    // QuickRun NewRunDialog can fire `test-data/generateForSchemaReference`
+    // for faker-driven auto-fill. Mirrors `apps/web/QuickRunPage.tsx`.
+    let startSchemaRef: { key: string; version: string; flow?: string; domain?: string } | undefined;
+    const attrs = json.attributes;
+    if (attrs && typeof attrs === 'object') {
+      const start = (attrs as { startTransition?: unknown }).startTransition;
+      if (start && typeof start === 'object') {
+        const schema = (start as { schema?: unknown }).schema;
+        if (schema && typeof schema === 'object') {
+          const ref = schema as Record<string, unknown>;
+          if (typeof ref.key === 'string' && typeof ref.version === 'string') {
+            startSchemaRef = {
+              key: ref.key,
+              version: ref.version,
+              ...(typeof ref.flow === 'string' ? { flow: ref.flow } : {}),
+              ...(typeof ref.domain === 'string' ? { domain: ref.domain } : {}),
+            };
+          }
+        }
+      }
+    }
+
+    return {
+      domain,
+      workflowKey,
+      ...(startSchemaRef ? { startSchemaRef } : {}),
+    };
   } catch {
     void vscode.window.showWarningMessage('Failed to read workflow JSON file.');
     return undefined;
@@ -256,13 +296,20 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       const wfJson = await readWorkflowJson(picked.uri);
       if (!wfJson) return;
       const activeEnv = await forgeToolsSettings.getActiveEnvironment();
+      // The extension shell doesn't have a project picker (workspace == project),
+      // so we derive a stable per-workspace projectId from the workspace
+      // folder path. The backend's test-data service uses this to resolve
+      // Schemas/ files relative to the workspace root.
+      const projectId =
+        vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? picked.uri.fsPath;
       quickRunPanel.open({
         domain: wfJson.domain,
         workflowKey: wfJson.workflowKey,
-        projectId: '',
+        projectId,
         projectPath: picked.uri.fsPath,
         environmentName: activeEnv?.name,
         environmentUrl: activeEnv?.baseUrl,
+        ...(wfJson.startSchemaRef ? { startSchemaRef: wfJson.startSchemaRef } : {}),
       });
     })),
     vscode.commands.registerCommand('vnextForge.openQuickRunFromFile', safeAsync(async (uri: vscode.Uri) => {
@@ -270,13 +317,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       const wfJson = await readWorkflowJson(uri);
       if (!wfJson) return;
       const activeEnv = await forgeToolsSettings.getActiveEnvironment();
+      const projectId =
+        vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? uri.fsPath;
       quickRunPanel.open({
         domain: wfJson.domain,
         workflowKey: wfJson.workflowKey,
-        projectId: '',
+        projectId,
         projectPath: uri.fsPath,
         environmentName: activeEnv?.name,
         environmentUrl: activeEnv?.baseUrl,
+        ...(wfJson.startSchemaRef ? { startSchemaRef: wfJson.startSchemaRef } : {}),
       });
     })),
   );

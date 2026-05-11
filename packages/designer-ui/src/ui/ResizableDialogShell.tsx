@@ -358,17 +358,6 @@ export function ResizableDialogShell({
     >
       {children}
 
-      {showReset ? (
-        <button
-          type="button"
-          onClick={handleReset}
-          className="absolute right-1 top-1 z-10 rounded border border-transparent px-1.5 py-0.5 text-[9px] text-[var(--vscode-descriptionForeground)] hover:border-[var(--vscode-panel-border)] hover:text-[var(--vscode-foreground)]"
-          title="Reset dialog size and position"
-        >
-          ⟲
-        </button>
-      ) : null}
-
       {/* ── Resize handles ──────────────────────────────────────── */}
       {/* Edges */}
       <div

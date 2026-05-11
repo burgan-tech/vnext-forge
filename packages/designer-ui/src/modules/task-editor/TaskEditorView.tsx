@@ -61,6 +61,7 @@ export function TaskEditorView({
   }, []);
 
   const { save, saving, saveError, autoSavePending, autoSaved } = useSaveComponent({
+    componentType: 'task',
     beforeSave,
     afterSaveSuccess: onAtomicSaved
       ? () => {

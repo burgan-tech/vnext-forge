@@ -32,6 +32,7 @@ export function ViewEditorView({
   const { componentJson, isDirty, updateComponent, undo, redo, undoStack, redoStack } =
     useComponentStore();
   const { save, saving, saveError, autoSavePending, autoSaved } = useSaveComponent({
+    componentType: 'view',
     afterSaveSuccess: onAtomicSaved
       ? () => {
           const j = useComponentStore.getState().componentJson;

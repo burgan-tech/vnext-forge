@@ -89,6 +89,13 @@ export function createProjectService(deps: ProjectServiceDeps) {
     id: string,
     traceId?: string,
   ): Promise<{ projectPath: string; linked: boolean }> {
+    // Extension shell convention: workspace folder IS the project, so we
+    // pass its absolute path as the projectId. Honour that shortcut and
+    // skip the projects-root link file lookup — there is no separate
+    // project registry on that shell.
+    if (id.startsWith('/') || /^[A-Za-z]:[\\/]/.test(id)) {
+      return { projectPath: toPosix(id), linked: false }
+    }
     const root = await getProjectsRoot()
     const linkPath = joinPosix(root, `${id}.link.json`)
     try {

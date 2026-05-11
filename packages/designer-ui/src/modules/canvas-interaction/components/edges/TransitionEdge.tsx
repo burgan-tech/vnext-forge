@@ -223,14 +223,42 @@ export const TransitionEdge = memo(function TransitionEdge(props: EdgeProps) {
     labelX = result.labelX;
     labelY = result.labelY;
   } else {
-    [edgePath, labelX, labelY] = computeEdgePath(settings.edgePathStyle, {
-      sourceX,
-      sourceY,
-      sourcePosition,
-      targetX,
-      targetY,
-      targetPosition,
-    });
+    // Parallel-edge fan-out: when multiple transitions exist between
+    // the same two states, `Conversion.workflowToReactFlow` tags each
+    // edge with `parallelIndex` / `parallelCount`. We offset the path
+    // along the perpendicular normal so they ribbon out side-by-side
+    // instead of overlapping.
+    const data = (props.data ?? {}) as { parallelIndex?: number; parallelCount?: number };
+    const parallelCount = typeof data.parallelCount === 'number' ? data.parallelCount : 1;
+    const parallelIndex = typeof data.parallelIndex === 'number' ? data.parallelIndex : 0;
+
+    if (parallelCount > 1 && !hasWaypoints) {
+      // Quadratic bezier with a single perpendicular-offset control
+      // point. Spacing between lanes is fixed (28 px) which reads well
+      // for the 1.75 px / 2 px stroke widths we use.
+      const dx = targetX - sourceX;
+      const dy = targetY - sourceY;
+      const length = Math.hypot(dx, dy) || 1;
+      // Perpendicular unit normal (rotated 90° from the source→target vector).
+      const nx = -dy / length;
+      const ny = dx / length;
+      const spacing = 28;
+      const offset = (parallelIndex - (parallelCount - 1) / 2) * spacing;
+      const midX = (sourceX + targetX) / 2 + nx * offset;
+      const midY = (sourceY + targetY) / 2 + ny * offset;
+      edgePath = `M ${sourceX} ${sourceY} Q ${midX} ${midY} ${targetX} ${targetY}`;
+      labelX = midX;
+      labelY = midY;
+    } else {
+      [edgePath, labelX, labelY] = computeEdgePath(settings.edgePathStyle, {
+        sourceX,
+        sourceY,
+        sourcePosition,
+        targetX,
+        targetY,
+        targetPosition,
+      });
+    }
   }
 
   const color = getEdgeColor(triggerType, triggerKind, isShared);
@@ -396,14 +424,20 @@ export const TransitionEdge = memo(function TransitionEdge(props: EdgeProps) {
           className="animate-spotlight-edge-pulse"
         />
       )}
-      {/* Wider invisible path for easier double-click to add waypoints */}
+      {/*
+       * Wider invisible path = click / double-click hit-area. We don't
+       * set a custom cursor — React Flow's native default kicks in
+       * (browser SVG default = arrow), matching the official
+       * `delete-edge-on-drop` example. The endpoint dots have their
+       * own `grab` cursor; that's the only spot where the cursor
+       * changes, signalling "this is the draggable part".
+       */}
       <path
         d={edgePath}
         fill="none"
         stroke="transparent"
         strokeWidth={20}
         onDoubleClick={handleEdgeDoubleClick}
-        style={{ cursor: 'crosshair' }}
       />
 
 

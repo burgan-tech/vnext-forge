@@ -213,7 +213,11 @@ export function QuickRunShell({
         {...(projectId ? { projectId } : {})}
         {...(startSchemaRef ? { startSchemaRef } : {})}
       />
-      <TransitionDialog configRef={configRef} persistConfig={persistConfig} />
+      <TransitionDialog
+        configRef={configRef}
+        persistConfig={persistConfig}
+        {...(projectId ? { projectId } : {})}
+      />
       <HeadersConfigDialog
         open={showHeaders}
         onClose={() => setShowHeaders(false)}

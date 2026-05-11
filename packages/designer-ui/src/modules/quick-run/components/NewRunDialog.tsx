@@ -566,26 +566,22 @@ export function NewRunDialog({
             {/* Action buttons row */}
             <div className="flex items-center gap-1 flex-wrap">
               {canGenerate ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => void runGenerate()}
-                    disabled={generating}
-                    className="rounded border border-[var(--vscode-panel-border)] px-2 py-0.5 text-[10px] hover:bg-[var(--vscode-list-hoverBackground)] disabled:opacity-50"
-                    title="Generate a fresh faker-driven JSON instance from the workflow's start schema"
-                  >
-                    ✨ Generate
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void runGenerate({ seed: Date.now() })}
-                    disabled={generating}
-                    className="rounded border border-[var(--vscode-panel-border)] px-2 py-0.5 text-[10px] hover:bg-[var(--vscode-list-hoverBackground)] disabled:opacity-50"
-                    title="Regenerate with a fresh random seed"
-                  >
-                    🔄 Regenerate
-                  </button>
-                </>
+                /*
+                 * Single Generate button — each click feeds a fresh
+                 * `Date.now()` seed to the faker so consecutive presses
+                 * produce visibly different payloads. The previous UI
+                 * had a separate "Regenerate" button that did the same
+                 * thing; merging them removes the redundant control.
+                 */
+                <button
+                  type="button"
+                  onClick={() => void runGenerate({ seed: Date.now() })}
+                  disabled={generating}
+                  className="rounded border border-[var(--vscode-panel-border)] px-2 py-0.5 text-[10px] hover:bg-[var(--vscode-list-hoverBackground)] disabled:opacity-50"
+                  title="Generate a fresh faker-driven JSON instance from the workflow's start schema (re-click for a new payload)"
+                >
+                  ✨ Generate
+                </button>
               ) : null}
               <button
                 type="button"

@@ -736,3 +736,60 @@ html.dark [data-slot='tag-editor'] > .tag-editor-chip:nth-child(6n) {
   border-color: var(--color-destructive-border-hover) !important;
   color: var(--color-destructive-foreground) !important;
 }
+
+/*
+ * `aria-invalid` driven visual feedback. Forms set
+ * `aria-invalid="true"` on inputs whose value violates the schema
+ * (required missing, pattern mismatch, format error). The browser
+ * already exposes this to assistive tech; this rule adds the matching
+ * visual cue (red border + subtle red wash) so the user can spot the
+ * invalid field at a glance — both inside the inline `<Input>` wrapper
+ * (which still has its own `invalid` variant) and inside any plain
+ * `<input>` / `<textarea>` / `<select>` / Radix Select trigger that
+ * isn't wrapped by `<Input>`.
+ */
+input[aria-invalid='true'],
+textarea[aria-invalid='true'],
+select[aria-invalid='true'],
+button[aria-invalid='true'],
+[data-slot='select-trigger'][aria-invalid='true'] {
+  border-color: var(--color-destructive-border) !important;
+  background-color: color-mix(in srgb, var(--color-destructive) 5%, transparent) !important;
+}
+
+input[aria-invalid='true']:focus,
+input[aria-invalid='true']:focus-visible,
+textarea[aria-invalid='true']:focus,
+textarea[aria-invalid='true']:focus-visible,
+select[aria-invalid='true']:focus,
+select[aria-invalid='true']:focus-visible,
+button[aria-invalid='true']:focus,
+button[aria-invalid='true']:focus-visible,
+[data-slot='select-trigger'][aria-invalid='true']:focus,
+[data-slot='select-trigger'][aria-invalid='true']:focus-visible {
+  outline: none !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-destructive) 25%, transparent) !important;
+}
+
+/*
+ * The `<Input>` primitive wraps its inner `<input>` in a
+ * `data-slot="input-root"` container that carries the visible
+ * border. Aria-invalid lives on the inner element, so we use
+ * `:has()` to lift the invalid state up to the wrapper and paint
+ * its border / background red. Same treatment for textarea / select
+ * wrappers (Radix Select renders its trigger as a button inside a
+ * wrapper, but the trigger itself is the bordered element so it's
+ * already handled by the rule above).
+ */
+[data-slot='input-root']:has(input[aria-invalid='true']),
+[data-slot='input-root']:has(textarea[aria-invalid='true']) {
+  border-color: var(--color-destructive-border) !important;
+  background-color: color-mix(in srgb, var(--color-destructive) 5%, transparent) !important;
+}
+
+[data-slot='input-root']:has(input[aria-invalid='true']:focus),
+[data-slot='input-root']:has(input[aria-invalid='true']:focus-visible),
+[data-slot='input-root']:has(textarea[aria-invalid='true']:focus),
+[data-slot='input-root']:has(textarea[aria-invalid='true']:focus-visible) {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-destructive) 25%, transparent) !important;
+}

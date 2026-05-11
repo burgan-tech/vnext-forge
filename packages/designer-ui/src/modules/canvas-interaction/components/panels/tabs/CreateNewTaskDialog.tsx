@@ -186,9 +186,14 @@ export function CreateNewTaskDialog({
         closeButtonHoverable
         hoverable={false}
         enableResize
-        resizeStorageKey="vnext-forge.dialog.create-new-task"
-        resizeDefaultWidth={520}
-        resizeDefaultHeight={560}>
+        // Storage key bumped to `-v2` so users on previous versions
+        // (who manually resized this dialog) get the new comfortable
+        // default instead of being stuck with the smaller persisted
+        // geometry. They can still resize from the new default; the
+        // resize is persisted under the v2 key.
+        resizeStorageKey="vnext-forge.dialog.create-new-task-v2"
+        resizeDefaultWidth={900}
+        resizeDefaultHeight={580}>
         <DialogHeader>
           <DialogTitle className="text-foreground pr-3 text-base font-semibold tracking-tight sm:pr-4">
             Create new task

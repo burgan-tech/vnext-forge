@@ -10,7 +10,7 @@ import {
 import { SchemaForm, validateAgainstSchema } from '../../schema-form';
 import type { JsonSchemaRoot } from '../../schema-form';
 import * as QuickRunApi from '../QuickRunApi';
-import type { WorkflowBucketConfig } from '../QuickRunApi';
+import type { PresetEntry, WorkflowBucketConfig } from '../QuickRunApi';
 import { useQuickRunPolling } from '../hooks/useQuickRunPolling';
 import { useQuickRunStore } from '../store/quickRunStore';
 import { safeViewContent, type SchemaResponse, type ViewResponse } from '../types/quickrun.types';
@@ -20,9 +20,16 @@ import { ValidationErrorBlock } from './ValidationErrorBlock';
 interface TransitionDialogProps {
   configRef: MutableRefObject<WorkflowBucketConfig>;
   persistConfig: (cfg: WorkflowBucketConfig) => void;
+  /**
+   * Project id — required for the test-data + presets backends. When
+   * absent (e.g. quickrun launched from a context that hasn't
+   * resolved the project yet), the manual JSON edit still works but
+   * the Presets dropdown stays hidden.
+   */
+  projectId?: string;
 }
 
-export function TransitionDialog({ configRef, persistConfig }: TransitionDialogProps) {
+export function TransitionDialog({ configRef, persistConfig, projectId }: TransitionDialogProps) {
   const open = useQuickRunStore((s) => s.transitionDialogOpen);
   const transition = useQuickRunStore((s) => s.transitionDialogTarget);
   const closeDialog = useQuickRunStore((s) => s.closeTransitionDialog);
@@ -57,10 +64,23 @@ export function TransitionDialog({ configRef, persistConfig }: TransitionDialogP
   // picture instead of one-by-one.
   const [submitAttempted, setSubmitAttempted] = useState(false);
 
+  // ─── Presets ─────────────────────────────────────────────────────
+  // Saved attribute payloads, scoped to (projectId, workflowKey) per
+  // the existing quickrun-presets backend. The same pool is shared
+  // with `NewRunDialog`, so users with both start-instance and
+  // transition payloads should name presets descriptively
+  // (e.g. "approve-default", "reject-fraud"). Per-transition scoping
+  // would require a backend change and is not done here.
+  const [presets, setPresets] = useState<PresetEntry[]>([]);
+  const [selectedPresetId, setSelectedPresetId] = useState<string>('');
+  const [savePresetMode, setSavePresetMode] = useState<{ name: string; description: string } | null>(null);
+  const [presetError, setPresetError] = useState<string | null>(null);
+
   const isManualMode = open && transition === null;
   const transitionName = isManualMode ? manualTransitionName : (transition?.name ?? '');
   const hasSchema = transition?.schema?.hasSchema ?? false;
   const hasView = transition?.view?.hasView ?? false;
+  const canPresets = Boolean(projectId && workflowKey);
 
   useEffect(() => {
     if (!open || !activeTabId) return;
@@ -156,6 +176,75 @@ export function TransitionDialog({ configRef, persistConfig }: TransitionDialogP
       return null;
     }
   }, [attributes]);
+
+  // ─── Preset callbacks ────────────────────────────────────────────
+  const refreshPresets = useCallback(async () => {
+    if (!canPresets || !projectId) return;
+    const result = await QuickRunApi.listPresets({ projectId, workflowKey });
+    if (result.success) setPresets(result.data.presets);
+  }, [canPresets, projectId, workflowKey]);
+
+  const handlePresetSelect = useCallback(
+    async (id: string) => {
+      setSelectedPresetId(id);
+      setPresetError(null);
+      if (!id || !projectId) return;
+      const result = await QuickRunApi.getPreset({ projectId, workflowKey, presetId: id });
+      if (!result.success || !result.data.preset) return;
+      setAttributes(JSON.stringify(result.data.preset.payload, null, 2));
+    },
+    [projectId, workflowKey],
+  );
+
+  const handleSavePreset = useCallback(async () => {
+    if (!savePresetMode || !projectId) return;
+    let payload: unknown;
+    try {
+      payload = JSON.parse(attributes);
+    } catch {
+      setPresetError('Cannot save preset — attributes JSON is invalid.');
+      return;
+    }
+    const result = await QuickRunApi.savePreset({
+      projectId,
+      workflowKey,
+      data: {
+        name: savePresetMode.name,
+        ...(savePresetMode.description ? { description: savePresetMode.description } : {}),
+        payload,
+      },
+    });
+    if (!result.success) {
+      setPresetError(result.error.message);
+      return;
+    }
+    setSavePresetMode(null);
+    setSelectedPresetId(result.data.preset.id);
+    setPresetError(null);
+    void refreshPresets();
+  }, [attributes, projectId, refreshPresets, savePresetMode, workflowKey]);
+
+  const handleDeletePreset = useCallback(async () => {
+    if (!selectedPresetId || !projectId) return;
+    if (!window.confirm('Delete this preset?')) return;
+    const result = await QuickRunApi.deletePreset({ projectId, workflowKey, presetId: selectedPresetId });
+    if (!result.success) {
+      setPresetError(result.error.message);
+      return;
+    }
+    setSelectedPresetId('');
+    void refreshPresets();
+  }, [projectId, refreshPresets, selectedPresetId, workflowKey]);
+
+  // Refresh presets whenever the dialog opens for a project+workflow
+  // pair. Cheap; the list is small and indexed by file path on disk.
+  useEffect(() => {
+    if (!open) return;
+    setSelectedPresetId('');
+    setSavePresetMode(null);
+    setPresetError(null);
+    void refreshPresets();
+  }, [open, refreshPresets]);
 
   const handleSubmit = useCallback(async () => {
     if (!activeTabId) return;
@@ -353,6 +442,24 @@ export function TransitionDialog({ configRef, persistConfig }: TransitionDialogP
             sync={sync}
             setSync={setSync}
             submitAttempted={submitAttempted}
+            // Presets — wired only when projectId+workflowKey are known.
+            // When `canPresets` is false the dropdown stays hidden.
+            canPresets={canPresets}
+            presets={presets}
+            selectedPresetId={selectedPresetId}
+            onPresetSelect={handlePresetSelect}
+            onPresetDelete={handleDeletePreset}
+            savePresetMode={savePresetMode}
+            onOpenSavePreset={() => setSavePresetMode({ name: '', description: '' })}
+            onCancelSavePreset={() => setSavePresetMode(null)}
+            onChangeSavePresetName={(name) =>
+              setSavePresetMode((s) => (s ? { ...s, name } : s))
+            }
+            onChangeSavePresetDescription={(description) =>
+              setSavePresetMode((s) => (s ? { ...s, description } : s))
+            }
+            onConfirmSavePreset={handleSavePreset}
+            presetError={presetError}
           />
 
           {error && (
@@ -455,6 +562,18 @@ function TransitionInputStep({
   sync,
   setSync,
   submitAttempted,
+  canPresets,
+  presets,
+  selectedPresetId,
+  onPresetSelect,
+  onPresetDelete,
+  savePresetMode,
+  onOpenSavePreset,
+  onCancelSavePreset,
+  onChangeSavePresetName,
+  onChangeSavePresetDescription,
+  onConfirmSavePreset,
+  presetError,
 }: {
   transitionName: string;
   isManualMode: boolean;
@@ -472,7 +591,67 @@ function TransitionInputStep({
   sync: boolean;
   setSync: (v: boolean) => void;
   submitAttempted: boolean;
+  canPresets: boolean;
+  presets: PresetEntry[];
+  selectedPresetId: string;
+  onPresetSelect: (id: string) => void;
+  onPresetDelete: () => void;
+  savePresetMode: { name: string; description: string } | null;
+  onOpenSavePreset: () => void;
+  onCancelSavePreset: () => void;
+  onChangeSavePresetName: (v: string) => void;
+  onChangeSavePresetDescription: (v: string) => void;
+  onConfirmSavePreset: () => void;
+  presetError: string | null;
 }) {
+  // Faker-driven payload generation. Mirrors `NewRunDialog` but uses the
+  // generic `test-data/generate` endpoint with the schema already in
+  // hand (transition's schema is fetched from the runtime, not from a
+  // project file). Each press fires with a fresh `Date.now()` seed so
+  // consecutive clicks visibly produce different payloads.
+  const [generating, setGenerating] = useState(false);
+  const [genError, setGenError] = useState<string | null>(null);
+  const canGenerateAttributes =
+    hasSchema && !schemaLoading && Boolean(schema) && typeof schema?.schema === 'object';
+
+  const handleGenerate = useCallback(async () => {
+    if (!schema?.schema || typeof schema.schema !== 'object') return;
+    setGenerating(true);
+    setGenError(null);
+    try {
+      const result = await QuickRunApi.generateForSchema({
+        schema: schema.schema as Record<string, unknown>,
+        options: { seed: Date.now() },
+      });
+      if (!result.success) {
+        setGenError(result.error.message);
+        return;
+      }
+      setAttributes(JSON.stringify(result.data.instance, null, 2));
+    } catch (err) {
+      setGenError(err instanceof Error ? err.message : 'Generate failed');
+    } finally {
+      setGenerating(false);
+    }
+  }, [schema, setAttributes]);
+
+  const handleClear = useCallback(() => setAttributes('{}'), [setAttributes]);
+
+  const handlePaste = useCallback(async () => {
+    setGenError(null);
+    try {
+      const text = await navigator.clipboard.readText();
+      if (!text.trim()) return;
+      try {
+        const parsed = JSON.parse(text);
+        setAttributes(JSON.stringify(parsed, null, 2));
+      } catch {
+        setAttributes(text);
+      }
+    } catch (err) {
+      setGenError(err instanceof Error ? err.message : 'Paste failed');
+    }
+  }, [setAttributes]);
   return (
     <div className="flex flex-col gap-3">
       {!isManualMode && (
@@ -544,18 +723,166 @@ function TransitionInputStep({
       )}
 
       {!schemaLoading && (
-        <SchemaForm
-          schema={
-            hasSchema && schema
-              ? (schema.schema as JsonSchemaRoot)
-              : null
-          }
-          value={attributes}
-          onChange={setAttributes}
-          jsonEditorLabel="Attributes (JSON)"
-          jsonEditorRows={12}
-          showAllErrors={submitAttempted}
-        />
+        <div className="flex flex-col gap-1.5">
+          {/*
+           * Attribute toolbar — Clear / Paste are always available
+           * since they help any free-form JSON edit; Generate only
+           * shows up when the transition exposes a resolved schema
+           * (faker needs structure). Each Generate click feeds a
+           * fresh seed so consecutive presses produce different
+           * payloads.
+           */}
+          <div className="flex items-center gap-1 flex-wrap">
+            {generating ? (
+              <span className="text-[10px] text-[var(--vscode-descriptionForeground)]">
+                generating…
+              </span>
+            ) : null}
+            {canGenerateAttributes ? (
+              <button
+                type="button"
+                onClick={() => void handleGenerate()}
+                disabled={generating}
+                className="rounded border border-[var(--vscode-panel-border)] px-2 py-0.5 text-[10px] hover:bg-[var(--vscode-list-hoverBackground)] disabled:opacity-50"
+                title="Generate a fresh faker-driven payload from this transition's schema (re-click for a new payload)"
+              >
+                ✨ Generate
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={handleClear}
+              className="rounded border border-[var(--vscode-panel-border)] px-2 py-0.5 text-[10px] hover:bg-[var(--vscode-list-hoverBackground)]"
+              title="Clear attributes back to {}"
+            >
+              🗑 Clear
+            </button>
+            <button
+              type="button"
+              onClick={() => void handlePaste()}
+              className="rounded border border-[var(--vscode-panel-border)] px-2 py-0.5 text-[10px] hover:bg-[var(--vscode-list-hoverBackground)]"
+              title="Paste from clipboard (auto-formats JSON)"
+            >
+              📋 Paste
+            </button>
+
+            {/*
+             * Preset dropdown — mirrors NewRunDialog. Lets the user
+             * load a previously-saved payload directly into the
+             * attributes field, and save the current payload as a
+             * new preset. Scoped to (projectId, workflowKey).
+             */}
+            {canPresets ? (
+              <>
+                <select
+                  value={selectedPresetId}
+                  onChange={(e) => onPresetSelect(e.target.value)}
+                  className="rounded border border-[var(--vscode-input-border)] bg-[var(--vscode-input-background)] px-1.5 py-0.5 text-[10px] text-[var(--vscode-input-foreground)]"
+                  title="Load a saved preset payload"
+                >
+                  <option value="">— Preset —</option>
+                  {presets.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+                {selectedPresetId ? (
+                  <button
+                    type="button"
+                    onClick={onPresetDelete}
+                    className="rounded border border-[var(--vscode-panel-border)] px-1.5 py-0.5 text-[10px] hover:bg-[var(--vscode-list-hoverBackground)]"
+                    title="Delete selected preset"
+                  >
+                    🗑
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={onOpenSavePreset}
+                  className="rounded border border-[var(--vscode-panel-border)] px-2 py-0.5 text-[10px] hover:bg-[var(--vscode-list-hoverBackground)]"
+                  title="Save current attributes as a named preset"
+                >
+                  💾 Save
+                </button>
+              </>
+            ) : null}
+
+            {!canGenerateAttributes && hasSchema ? null : !canGenerateAttributes ? (
+              <span className="text-[10px] text-[var(--vscode-descriptionForeground)] ml-1">
+                No schema attached — manual edit only
+              </span>
+            ) : null}
+            {genError ? (
+              <span
+                role="alert"
+                className="text-[10px] text-[var(--vscode-errorForeground)] ml-1"
+              >
+                {genError}
+              </span>
+            ) : null}
+            {presetError ? (
+              <span
+                role="alert"
+                className="text-[10px] text-[var(--vscode-errorForeground)] ml-1"
+              >
+                {presetError}
+              </span>
+            ) : null}
+          </div>
+
+          {/* Inline save-preset form — collapsed by default. */}
+          {savePresetMode ? (
+            <div className="flex flex-col gap-1 rounded border border-[var(--vscode-panel-border)] bg-[var(--vscode-list-hoverBackground)]/30 p-2">
+              <div className="text-[11px] font-semibold">Save preset</div>
+              <input
+                type="text"
+                value={savePresetMode.name}
+                onChange={(e) => onChangeSavePresetName(e.target.value)}
+                placeholder="Preset name (e.g. Approve-default)"
+                className="rounded border border-[var(--vscode-input-border)] bg-[var(--vscode-input-background)] px-2 py-1 text-xs text-[var(--vscode-input-foreground)]"
+                autoFocus
+              />
+              <input
+                type="text"
+                value={savePresetMode.description}
+                onChange={(e) => onChangeSavePresetDescription(e.target.value)}
+                placeholder="Description (optional)"
+                className="rounded border border-[var(--vscode-input-border)] bg-[var(--vscode-input-background)] px-2 py-1 text-xs text-[var(--vscode-input-foreground)]"
+              />
+              <div className="flex justify-end gap-1">
+                <button
+                  type="button"
+                  onClick={onCancelSavePreset}
+                  className="rounded border border-[var(--vscode-panel-border)] px-2 py-0.5 text-[10px] hover:bg-[var(--vscode-list-hoverBackground)]"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={onConfirmSavePreset}
+                  disabled={!savePresetMode.name.trim()}
+                  className="rounded border border-[var(--vscode-button-border)] bg-[var(--vscode-button-background)] px-2 py-0.5 text-[10px] text-[var(--vscode-button-foreground)] hover:bg-[var(--vscode-button-hoverBackground)] disabled:opacity-50"
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          ) : null}
+
+          <SchemaForm
+            schema={
+              hasSchema && schema
+                ? (schema.schema as JsonSchemaRoot)
+                : null
+            }
+            value={attributes}
+            onChange={setAttributes}
+            jsonEditorLabel="Attributes (JSON)"
+            jsonEditorRows={12}
+            showAllErrors={submitAttempted}
+          />
+        </div>
       )}
     </div>
   );

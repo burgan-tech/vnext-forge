@@ -421,16 +421,6 @@ function DialogResizeAffordances({
 }) {
   return (
     <>
-      {geom.showReset ? (
-        <button
-          type="button"
-          onClick={geom.handleReset}
-          className="absolute right-12 top-2 z-10 rounded border border-transparent px-1.5 py-0.5 text-[10px] text-[var(--vscode-descriptionForeground)] hover:border-[var(--vscode-panel-border)] hover:text-[var(--vscode-foreground)]"
-          title="Reset dialog size and position"
-          aria-label="Reset dialog size and position">
-          ⟲
-        </button>
-      ) : null}
       {/* Edges */}
       <div
         onMouseDown={geom.handleResizeStart('n')}

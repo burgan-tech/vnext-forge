@@ -4,6 +4,7 @@ import {
   MetadataEditableTextInput,
   MetadataLockedTextInput,
   useComponentTypeSchema,
+  useFieldValidationError,
 } from '../../component-metadata';
 import { Field } from '../../../ui/Field';
 import { TagEditor } from '../../../ui/TagEditor';
@@ -23,6 +24,12 @@ export function SchemaMetadataForm({ json, onChange }: SchemaMetadataFormProps) 
   // `@burgan-tech/vnext-schema/schema` matching the project's pinned
   // `vnext.config.json#schemaVersion` (or bundled fallback).
   const { requiredFields } = useComponentTypeSchema('schema');
+  // Save-time validation errors merged into the form below so the
+  // matching inputs render with aria-invalid (red border via global CSS).
+  const keyServerError = useFieldValidationError('key');
+  const versionServerError = useFieldValidationError('version');
+  const domainServerError = useFieldValidationError('domain');
+  const flowServerError = useFieldValidationError('flow');
   const form = useForm<SchemaMetadataFormValues>({
     mode: 'onChange',
     defaultValues: toSchemaMetadataFormValues(json),
@@ -96,42 +103,42 @@ export function SchemaMetadataForm({ json, onChange }: SchemaMetadataFormProps) 
         <Field
           label="Key"
           required={requiredFields.has('key')}
-          hint={form.formState.errors.key?.message}
+          hint={form.formState.errors.key?.message || keyServerError}
         >
           <MetadataEditableTextInput
             {...keyValidation}
-            aria-invalid={Boolean(form.formState.errors.key)}
+            aria-invalid={Boolean(form.formState.errors.key) || Boolean(keyServerError)}
           />
         </Field>
         <Field
           label="Version"
           required={requiredFields.has('version')}
-          hint={form.formState.errors.version?.message}
+          hint={form.formState.errors.version?.message || versionServerError}
         >
           <MetadataEditableTextInput
             {...versionValidation}
-            aria-invalid={Boolean(form.formState.errors.version)}
+            aria-invalid={Boolean(form.formState.errors.version) || Boolean(versionServerError)}
           />
         </Field>
         <Field
           label="Domain"
           required={requiredFields.has('domain')}
-          hint={form.formState.errors.domain?.message}
+          hint={form.formState.errors.domain?.message || domainServerError}
         >
           <MetadataLockedTextInput
             {...domainValidation}
-            aria-invalid={Boolean(form.formState.errors.domain)}
+            aria-invalid={Boolean(form.formState.errors.domain) || Boolean(domainServerError)}
           />
         </Field>
         <Field
           label="Flow"
           required={requiredFields.has('flow')}
-          hint={form.formState.errors.flow?.message}
+          hint={form.formState.errors.flow?.message || flowServerError}
         >
           <MetadataLockedTextInput
             {...flowValidation}
             placeholder="(optional)"
-            aria-invalid={Boolean(form.formState.errors.flow)}
+            aria-invalid={Boolean(form.formState.errors.flow) || Boolean(flowServerError)}
           />
         </Field>
       </div>

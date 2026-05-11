@@ -320,6 +320,32 @@ export async function generateForSchemaReference(args: {
   });
 }
 
+export interface GenerateForSchemaResult {
+  /** Faker-driven instance — typically a JSON-serialisable plain object. */
+  instance: unknown;
+  /** Per-call diagnostic — populated when faker raised non-fatal warnings. */
+  warnings: string[];
+}
+
+/**
+ * Generate a faker-driven JSON instance from a raw JSON Schema. Use when
+ * the caller already has the schema in hand and doesn't need backend
+ * reference resolution (e.g. `TransitionDialog` already fetched the
+ * transition's schema from the runtime).
+ */
+export async function generateForSchema(args: {
+  schema: Record<string, unknown>;
+  options?: GenerateOptions;
+}): Promise<ApiResponse<GenerateForSchemaResult>> {
+  return callApi<GenerateForSchemaResult>({
+    method: 'test-data/generate',
+    params: {
+      schema: args.schema,
+      ...(args.options ? { options: args.options } : {}),
+    },
+  });
+}
+
 export interface PresetEntry {
   id: string;
   name: string;
