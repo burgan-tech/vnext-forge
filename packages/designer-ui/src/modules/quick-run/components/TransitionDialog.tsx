@@ -7,7 +7,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '../../../ui/Tooltip';
-import { SchemaForm } from '../../schema-form';
+import { SchemaForm, validateAgainstSchema } from '../../schema-form';
 import type { JsonSchemaRoot } from '../../schema-form';
 import * as QuickRunApi from '../QuickRunApi';
 import type { WorkflowBucketConfig } from '../QuickRunApi';
@@ -51,6 +51,11 @@ export function TransitionDialog({ configRef, persistConfig }: TransitionDialogP
   const [error, setError] = useState<string | null>(null);
   const [errorDetails, setErrorDetails] = useState<Record<string, unknown> | null>(null);
   const [manualTransitionName, setManualTransitionName] = useState('');
+  // Submit-time validation gate. Errors stay hidden until the user
+  // presses Fire Transition; on the first failed attempt every required
+  // / pattern violation lights up at once so the user sees the full
+  // picture instead of one-by-one.
+  const [submitAttempted, setSubmitAttempted] = useState(false);
 
   const isManualMode = open && transition === null;
   const transitionName = isManualMode ? manualTransitionName : (transition?.name ?? '');
@@ -70,6 +75,7 @@ export function TransitionDialog({ configRef, persistConfig }: TransitionDialogP
     setErrorDetails(null);
     setSubmitting(false);
     setManualTransitionName('');
+    setSubmitAttempted(false);
 
     const inherited = { ...globalHeaders, ...sessionHeaders };
     const rows: { name: string; value: string }[] = Object.entries(inherited).map(([name, value]) => ({ name, value }));
@@ -167,6 +173,29 @@ export function TransitionDialog({ configRef, persistConfig }: TransitionDialogP
       return;
     }
 
+    // Submit-time schema validation. Only runs when the transition
+    // exposes a resolved schema (otherwise the user is on the JSON
+    // editor path, and the runtime will still reject malformed input).
+    // First failed attempt flips `submitAttempted` so the form shows
+    // every error at once instead of one-by-one.
+    if (hasSchema && schema) {
+      const issues = validateAgainstSchema(schema.schema as JsonSchemaRoot, attrs);
+      const issueCount = Object.keys(issues).length;
+      if (issueCount > 0) {
+        setSubmitAttempted(true);
+        const [firstPath, firstMessages] = Object.entries(issues)[0];
+        setError(
+          issueCount === 1
+            ? `${firstPath || 'payload'}: ${firstMessages.join(', ')}`
+            : `${firstPath || 'payload'}: ${firstMessages.join(', ')} (+${
+                issueCount - 1
+              } more)`,
+        );
+        setSubmitting(false);
+        return;
+      }
+    }
+
     const tagsList = tags
       .split(',')
       .map((t) => t.trim())
@@ -242,7 +271,7 @@ export function TransitionDialog({ configRef, persistConfig }: TransitionDialogP
       setError('Failed to fire transition. Please try again.');
     }
     setSubmitting(false);
-  }, [activeTabId, domain, workflowKey, transitionName, isManualMode, manualTransitionName, instanceKey, stage, tags, headerRows, globalHeaders, sessionHeaders, environmentUrl, buildAttributes, pollState, closeDialog, configRef, persistConfig]);
+  }, [activeTabId, domain, workflowKey, transitionName, isManualMode, manualTransitionName, instanceKey, stage, tags, headerRows, globalHeaders, sessionHeaders, environmentUrl, buildAttributes, pollState, closeDialog, configRef, persistConfig, hasSchema, schema, sync]);
 
   if (!open) return null;
 
@@ -323,6 +352,7 @@ export function TransitionDialog({ configRef, persistConfig }: TransitionDialogP
             setTags={setTags}
             sync={sync}
             setSync={setSync}
+            submitAttempted={submitAttempted}
           />
 
           {error && (
@@ -424,6 +454,7 @@ function TransitionInputStep({
   setTags,
   sync,
   setSync,
+  submitAttempted,
 }: {
   transitionName: string;
   isManualMode: boolean;
@@ -440,6 +471,7 @@ function TransitionInputStep({
   setTags: (v: string) => void;
   sync: boolean;
   setSync: (v: boolean) => void;
+  submitAttempted: boolean;
 }) {
   return (
     <div className="flex flex-col gap-3">
@@ -522,6 +554,7 @@ function TransitionInputStep({
           onChange={setAttributes}
           jsonEditorLabel="Attributes (JSON)"
           jsonEditorRows={12}
+          showAllErrors={submitAttempted}
         />
       )}
     </div>
