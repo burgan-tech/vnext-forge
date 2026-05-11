@@ -57,7 +57,7 @@ async function discoverComponentFiles(projectRoot: string): Promise<DiscoveredFi
 
   for (const [category, folder] of Object.entries(CATEGORY_FOLDERS) as [ComponentCategory, string][]) {
     const pattern = new vscode.RelativePattern(projectRoot, `**/${folder}/**/*.json`);
-    const found = await vscode.workspace.findFiles(pattern, '**/node_modules/**', 500);
+    const found = await vscode.workspace.findFiles(pattern, '{**/node_modules/**,**/.meta/**}', 500);
     for (const uri of found) {
       const basename = path.basename(uri.fsPath);
       if (basename === 'vnext.config.json' || basename === 'package.json' || basename === 'tsconfig.json') {

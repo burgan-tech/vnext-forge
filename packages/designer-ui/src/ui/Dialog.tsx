@@ -387,12 +387,7 @@ function DialogContent({
         data-slot="dialog-content"
         className={cn(
           dialogContentVariants({ variant, hoverable, noBorder }),
-          // When resize mode is active, override Radix's center-positioning
-          // utilities (`fixed top-[50%] left-[50%] translate-...`) so the
-          // hook's `containerStyle` can pin the box manually. Width / height
-          // caps are lifted; minimums come from the hook.
-          enableResize &&
-            '!translate-x-0 !translate-y-0 !left-auto !top-auto !max-w-none',
+          enableResize && 'max-w-none',
           className,
         )}
         style={enableResize ? { ...geom.containerStyle, ...(props.style ?? {}) } : props.style}

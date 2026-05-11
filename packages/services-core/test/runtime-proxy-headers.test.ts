@@ -46,6 +46,19 @@ describe('buildRuntimeProxyOutboundHeaders (R-b4)', () => {
     ).not.toHaveProperty('Content-Type')
   })
 
+  it('always includes User-Agent identifying vnext-forge-studio', () => {
+    const headers = buildRuntimeProxyOutboundHeaders({ method: 'GET' })
+    expect(headers['User-Agent']).toBe('vnext-forge-studio/0.1.0')
+  })
+
+  it('allows caller-supplied User-Agent to override the default', () => {
+    const headers = buildRuntimeProxyOutboundHeaders({
+      method: 'GET',
+      callerHeaders: { 'User-Agent': 'custom-agent/1.0' },
+    })
+    expect(headers['User-Agent']).toBe('custom-agent/1.0')
+  })
+
   it('forwards X-Trace-Id when traceId is supplied', () => {
     expect(
       buildRuntimeProxyOutboundHeaders({ method: 'GET', traceId: 'tid-1' }),

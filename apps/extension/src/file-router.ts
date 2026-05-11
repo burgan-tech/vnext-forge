@@ -6,9 +6,11 @@ import type { VnextWorkspaceConfig } from '@vnext-forge-studio/services-core'
  *
  * - `'workflow' | 'task' | 'schema' | 'view' | 'function' | 'extension'`:
  *   render the matching designer editor inside the shared webview panel.
- * - `'config' | 'unknown'`: the host should let VS Code's native editor open
- *   the file. The webview is only used for component editors; generic code
- *   editing is delegated to VS Code itself (see `commands.ts`).
+ * - `'config'`: render the workspace config editor
+ *   (`WorkspaceConfigEditorView`) inside the designer webview panel.
+ * - `'unknown'`: the host should let VS Code's native editor open
+ *   the file. Generic code editing is delegated to VS Code itself
+ *   (see `commands.ts`).
  */
 export type FileRouteKind =
   | 'workflow'
