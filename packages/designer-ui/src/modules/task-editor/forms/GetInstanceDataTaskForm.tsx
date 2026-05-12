@@ -8,7 +8,7 @@ import {
   ChooseExistingVnextComponentDialog,
   ChooseFromExistingVnextComponentButton,
 } from '../../canvas-interaction/components/panels/tabs/ChooseExistingTaskDialog';
-import { DaprToggleField, HttpSettingsFields, WorkflowRefFields } from './shared';
+import { HttpSettingsFields, WorkflowRefFields } from './shared';
 
 interface Props { config: Record<string, unknown>; onChange: (updater: (draft: any) => void) => void; }
 
@@ -33,15 +33,15 @@ export function GetInstanceDataTaskForm({ config, onChange }: Props) {
       <WorkflowRefFields config={config} onChange={onChange} />
       <div className="grid grid-cols-2 gap-3">
         <Field label="Key">
-          <Input type="text" value={String(config.triggerKey || '')}
-            onChange={(e) => onChange((d: any) => { d.triggerKey = e.target.value || undefined; })}
+          <Input type="text" value={String(config.key || '')}
+            onChange={(e) => onChange((d: any) => { d.key = e.target.value || undefined; })}
             placeholder="Required if Instance ID is empty"
             size="sm"
             inputClassName="font-mono text-xs" />
         </Field>
         <Field label="Instance ID">
-          <Input type="text" value={String(config.triggerInstanceId || '')}
-            onChange={(e) => onChange((d: any) => { d.triggerInstanceId = e.target.value || undefined; })}
+          <Input type="text" value={String(config.instanceId || '')}
+            onChange={(e) => onChange((d: any) => { d.instanceId = e.target.value || undefined; })}
             placeholder="Required if Key is empty"
             size="sm"
             inputClassName="font-mono text-xs" />
@@ -68,7 +68,6 @@ export function GetInstanceDataTaskForm({ config, onChange }: Props) {
           placeholder="Add extension"
         />
       </div>
-      <DaprToggleField value={config.useDapr as boolean | undefined} onChange={onChange} />
       <HttpSettingsFields config={config} onChange={onChange} />
       <ChooseExistingVnextComponentDialog
         open={extensionPickerOpen}

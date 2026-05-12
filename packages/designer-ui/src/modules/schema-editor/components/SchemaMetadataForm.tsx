@@ -30,6 +30,7 @@ export function SchemaMetadataForm({ json, onChange }: SchemaMetadataFormProps) 
   const versionServerError = useFieldValidationError('version');
   const domainServerError = useFieldValidationError('domain');
   const flowServerError = useFieldValidationError('flow');
+  const flowVersionServerError = useFieldValidationError('flowVersion');
   const form = useForm<SchemaMetadataFormValues>({
     mode: 'onChange',
     defaultValues: toSchemaMetadataFormValues(json),
@@ -68,6 +69,7 @@ export function SchemaMetadataForm({ json, onChange }: SchemaMetadataFormProps) 
       draft.version = parsedValues.data.version;
       draft.domain = parsedValues.data.domain;
       draft.flow = parsedValues.data.flow || undefined;
+      draft.flowVersion = parsedValues.data.flowVersion || undefined;
       draft.tags = parsedValues.data.tags;
     });
   }, [json, onChange, values]);
@@ -93,7 +95,13 @@ export function SchemaMetadataForm({ json, onChange }: SchemaMetadataFormProps) 
   const flowValidation = form.register('flow', {
     validate: (value) => {
       const result = schemaMetadataFormSchema.shape.flow.safeParse(value);
-      return result.success || result.error.issues[0]?.message || 'Flow is invalid.';
+      return result.success || result.error.issues[0]?.message || 'Flow is required.';
+    },
+  });
+  const flowVersionValidation = form.register('flowVersion', {
+    validate: (value) => {
+      const result = schemaMetadataFormSchema.shape.flowVersion.safeParse(value);
+      return result.success || result.error.issues[0]?.message || 'Flow version is required.';
     },
   });
 
@@ -103,7 +111,7 @@ export function SchemaMetadataForm({ json, onChange }: SchemaMetadataFormProps) 
         <Field
           label="Key"
           required={requiredFields.has('key')}
-          hint={form.formState.errors.key?.message || keyServerError}
+          errorMsg={form.formState.errors.key?.message || keyServerError}
         >
           <MetadataEditableTextInput
             {...keyValidation}
@@ -113,7 +121,7 @@ export function SchemaMetadataForm({ json, onChange }: SchemaMetadataFormProps) 
         <Field
           label="Version"
           required={requiredFields.has('version')}
-          hint={form.formState.errors.version?.message || versionServerError}
+          errorMsg={form.formState.errors.version?.message || versionServerError}
         >
           <MetadataEditableTextInput
             {...versionValidation}
@@ -123,7 +131,7 @@ export function SchemaMetadataForm({ json, onChange }: SchemaMetadataFormProps) 
         <Field
           label="Domain"
           required={requiredFields.has('domain')}
-          hint={form.formState.errors.domain?.message || domainServerError}
+          errorMsg={form.formState.errors.domain?.message || domainServerError}
         >
           <MetadataLockedTextInput
             {...domainValidation}
@@ -133,12 +141,21 @@ export function SchemaMetadataForm({ json, onChange }: SchemaMetadataFormProps) 
         <Field
           label="Flow"
           required={requiredFields.has('flow')}
-          hint={form.formState.errors.flow?.message || flowServerError}
+          errorMsg={form.formState.errors.flow?.message || flowServerError}
         >
           <MetadataLockedTextInput
             {...flowValidation}
-            placeholder="(optional)"
             aria-invalid={Boolean(form.formState.errors.flow) || Boolean(flowServerError)}
+          />
+        </Field>
+        <Field
+          label="Flow Version"
+          required={requiredFields.has('flowVersion')}
+          errorMsg={form.formState.errors.flowVersion?.message || flowVersionServerError}
+        >
+          <MetadataEditableTextInput
+            {...flowVersionValidation}
+            aria-invalid={Boolean(form.formState.errors.flowVersion) || Boolean(flowVersionServerError)}
           />
         </Field>
       </div>
@@ -147,7 +164,7 @@ export function SchemaMetadataForm({ json, onChange }: SchemaMetadataFormProps) 
         control={form.control}
         name="tags"
         render={({ field }) => (
-          <Field label="Tags" hint={form.formState.errors.tags?.message}>
+          <Field label="Tags" errorMsg={form.formState.errors.tags?.message}>
             <TagEditor
               tags={field.value}
               onChange={(tags) => {

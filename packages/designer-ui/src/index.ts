@@ -240,3 +240,25 @@ export {
   type SnippetsListAllResult,
   type SnippetsSaveResult,
 } from './modules/snippets/index.js';
+
+// Problems sidebar panel — aggregated validation diagnostics from workflow +
+// component stores. The web shell mounts it in the activity sidebar.
+export {
+  ProblemsSidebarPanel,
+  type ProblemsSidebarPanelProps,
+} from './modules/workspace-diagnostics/ProblemsSidebarPanel.js';
+
+// Schema capabilities — version-aware feature detection derived from the
+// project's vnxt-schema JSON Schemas. UI editors and validation use this
+// to hide features absent in older schema versions.
+export {
+  type SchemaCapabilities,
+  type DefinitionCapabilities,
+  ALL_ENABLED,
+  deriveSchemaCapabilities,
+  hasFeature,
+  useSchemaCapabilities,
+  resetSchemaCapabilitiesCache,
+  useSchemaCapabilitiesStore,
+  storeKey as schemaCapabilitiesStoreKey,
+} from './modules/schema-capabilities/index.js';

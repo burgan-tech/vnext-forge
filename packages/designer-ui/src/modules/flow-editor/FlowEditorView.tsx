@@ -1,7 +1,8 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useProjectStore } from '../../store/useProjectStore';
+import { useValidationStore } from '../../store/useValidationStore';
 import { ReactFlowProvider } from '@xyflow/react';
-import { AlertCircle, ArrowLeft, Loader2 } from 'lucide-react';
+import { AlertCircle, ArrowLeft, ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
 import { PreviewDocumentDialog } from './components/PreviewDocumentDialog';
 import { useEditorPanelsStore } from '../../store/useEditorPanelsStore';
 import { useWorkflowStore } from '../../store/useWorkflowStore';
@@ -56,6 +57,83 @@ function getWorkflowMetadataVerticalResizeMetrics() {
       [WORKFLOW_BODY_BELOW_METADATA_PANEL_ID]: r(100 - metaPct),
     } as const,
   };
+}
+
+const ISSUE_TONE = {
+  error: 'border-destructive-border bg-destructive-surface text-destructive-text',
+  warning: 'border-warning-border bg-warning-surface text-warning-text',
+  info: 'border-info-border bg-info-surface text-info-text',
+} as const;
+
+function FlowValidationStrip() {
+  const issues = useValidationStore((s) => s.issues);
+  const [collapsed, setCollapsed] = useState(true);
+  const prevCountRef = useRef(0);
+
+  useEffect(() => {
+    if (issues.length > 0 && prevCountRef.current === 0) {
+      setCollapsed(false);
+    }
+    if (issues.length === 0) {
+      setCollapsed(true);
+    }
+    prevCountRef.current = issues.length;
+  }, [issues.length]);
+
+  if (issues.length === 0) return null;
+
+  const errors = issues.filter((i) => i.severity === 'error').length;
+  const warnings = issues.filter((i) => i.severity === 'warning').length;
+  const infos = issues.filter((i) => i.severity === 'info').length;
+
+  return (
+    <div
+      role="region"
+      aria-label="Workflow validation issues"
+      className="border-border shrink-0 border-t"
+    >
+      <button
+        type="button"
+        onClick={() => setCollapsed((c) => !c)}
+        aria-expanded={!collapsed}
+        className="flex w-full items-center gap-1.5 px-3 py-1.5 text-left text-[11px] font-semibold text-muted-foreground hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+      >
+        {collapsed
+          ? <ChevronRight className="size-3 shrink-0" aria-hidden />
+          : <ChevronDown className="size-3 shrink-0" aria-hidden />}
+        Problems
+        <span className="ml-1 text-[10px] font-normal">
+          {errors > 0 && <span className="text-destructive-text">{errors} error{errors > 1 ? 's' : ''}</span>}
+          {errors > 0 && warnings > 0 && ', '}
+          {warnings > 0 && <span className="text-warning-text">{warnings} warning{warnings > 1 ? 's' : ''}</span>}
+          {(errors > 0 || warnings > 0) && infos > 0 && ', '}
+          {infos > 0 && <span className="text-info-text">{infos} info</span>}
+        </span>
+      </button>
+      {!collapsed && (
+        <div className="max-h-[200px] space-y-1 overflow-y-auto px-2 pb-2">
+          {issues.map((issue) => (
+            <div
+              key={issue.id}
+              className={`flex items-start gap-2 rounded-md border p-2 text-xs ${ISSUE_TONE[issue.severity]}`}
+            >
+              <span className="mt-0.5 shrink-0">
+                {issue.severity === 'error' ? 'x' : issue.severity === 'warning' ? '!' : 'i'}
+              </span>
+              <div className="min-w-0">
+                <div>{issue.message}</div>
+                {issue.nodeId && (
+                  <div className="mt-0.5 truncate text-[10px] text-current/70">
+                    Node: {issue.nodeId} | Rule: {issue.rule}
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export interface FlowEditorViewProps {
@@ -289,6 +367,7 @@ export function FlowEditorView({
         ) : (
           <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{editorBody}</div>
         )}
+          <FlowValidationStrip />
         </div>
       </ComponentEditorLayout>
       <PreviewDocumentDialog

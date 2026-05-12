@@ -17,7 +17,7 @@ interface WorkflowRefFieldsProps {
 
 /**
  * Domain + Flow input grid with a "Choose existing workflow" lookup button.
- * On selection the callback sets triggerDomain, triggerFlow, and triggerVersion;
+ * On selection the callback sets domain, flow, and version;
  * free-text entry always remains available.
  */
 export function WorkflowRefFields({ config, onChange, onWorkflowSelected }: WorkflowRefFieldsProps) {
@@ -30,9 +30,9 @@ export function WorkflowRefFields({ config, onChange, onWorkflowSelected }: Work
 
   function handleSelect(component: DiscoveredVnextComponent) {
     onChange((d: any) => {
-      d.triggerDomain = projectDomain;
-      d.triggerFlow = component.key || '';
-      d.triggerVersion = component.version || undefined;
+      d.domain = projectDomain;
+      d.flow = component.key || '';
+      d.version = component.version || undefined;
     });
     onWorkflowSelected?.(component);
   }
@@ -55,14 +55,14 @@ export function WorkflowRefFields({ config, onChange, onWorkflowSelected }: Work
       </div>
       <div className="grid grid-cols-2 gap-3">
         <Field label="Domain" required>
-          <Input type="text" value={String(config.triggerDomain || '')}
-            onChange={(e) => onChange((d: any) => { d.triggerDomain = e.target.value; })}
+          <Input type="text" value={String(config.domain || '')}
+            onChange={(e) => onChange((d: any) => { d.domain = e.target.value; })}
             size="sm"
             inputClassName="font-mono text-xs" />
         </Field>
         <Field label="Flow" required>
-          <Input type="text" value={String(config.triggerFlow || '')}
-            onChange={(e) => onChange((d: any) => { d.triggerFlow = e.target.value; })}
+          <Input type="text" value={String(config.flow || '')}
+            onChange={(e) => onChange((d: any) => { d.flow = e.target.value; })}
             size="sm"
             inputClassName="font-mono text-xs" />
         </Field>

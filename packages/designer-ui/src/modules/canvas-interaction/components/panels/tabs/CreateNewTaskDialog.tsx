@@ -3,6 +3,10 @@ import { Loader2, Plus } from 'lucide-react';
 
 import { isFailure, type DiscoveredVnextComponent } from '@vnext-forge-studio/app-contracts';
 import { saveComponentFile } from '../../../../save-component/SaveComponentApi.js';
+import {
+  validateComponentBeforeWrite,
+  formatValidationSummary,
+} from '../../../../save-component/validateBeforeWrite.js';
 import { useProjectStore } from '../../../../../store/useProjectStore.js';
 import { groupDiscoveredTasksForPicker } from '../../../../task-editor/groupCsxScriptsForTaskPicker.js';
 import { buildAtomicComponentJsonPath } from '../../../../vnext-workspace/atomicComponentPaths.js';
@@ -57,6 +61,7 @@ export function CreateNewTaskDialog({
   const activeProject = useProjectStore((s) => s.activeProject);
   const vnextConfig = useProjectStore((s) => s.vnextConfig);
   const projectDomain = vnextConfig?.domain ?? activeProject?.domain ?? '';
+  const schemaVersion = vnextConfig?.schemaVersion;
 
   const [folderInput, setFolderInput] = useState('');
   const [nameInput, setNameInput] = useState('');
@@ -134,13 +139,22 @@ export function CreateNewTaskDialog({
       domain: projectDomain,
       flow: 'sys-tasks',
       flowVersion: '1.0.0',
-      tags: [] as string[],
+      tags: [projectDomain, 'sys-tasks'],
       attributes: {
         type: '7',
         config: {} as Record<string, unknown>,
       },
     };
     try {
+      const gate = await validateComponentBeforeWrite(json, 'task', schemaVersion);
+      if (!gate.valid && !gate.skipped) {
+        showNotification({
+          kind: 'error',
+          message: `Cannot create — ${formatValidationSummary(gate, 'task')}`,
+        });
+        return;
+      }
+
       const res = await saveComponentFile(targetPath, JSON.stringify(json, null, 2));
       if (isFailure(res)) {
         showNotification({
@@ -184,16 +198,7 @@ export function CreateNewTaskDialog({
         className="border-border bg-surface text-foreground gap-0 p-0 shadow-sm"
         showCloseButton
         closeButtonHoverable
-        hoverable={false}
-        enableResize
-        // Storage key bumped to `-v2` so users on previous versions
-        // (who manually resized this dialog) get the new comfortable
-        // default instead of being stuck with the smaller persisted
-        // geometry. They can still resize from the new default; the
-        // resize is persisted under the v2 key.
-        resizeStorageKey="vnext-forge.dialog.create-new-task-v2"
-        resizeDefaultWidth={900}
-        resizeDefaultHeight={580}>
+        hoverable={false}>
         <DialogHeader>
           <DialogTitle className="text-foreground pr-3 text-base font-semibold tracking-tight sm:pr-4">
             Create new task

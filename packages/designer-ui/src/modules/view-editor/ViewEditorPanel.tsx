@@ -12,6 +12,7 @@ import { ComponentDescriptionField } from '../../ui/ComponentDescriptionField';
 import { Field } from '../../ui/Field';
 import { JsonCodeField } from '../../ui/JsonCodeField';
 import { TagEditor } from '../../ui/TagEditor';
+import { ComponentValidationSummary } from '../save-component/components/ComponentValidationSummary';
 import { ViewDisplayStrategyPicker } from './components/ViewDisplayStrategyPicker';
 import { ViewTypePicker } from './components/ViewTypePicker';
 import { HrefUrnField } from './components/HrefUrnField';
@@ -88,6 +89,7 @@ export function ViewEditorPanel({ json, onChange }: ViewEditorPanelProps) {
 
   return (
     <div className="space-y-4 p-4">
+      <ComponentValidationSummary />
       <Card variant="default" className="gap-3">
         <CardHeader className="border-border border-b">
           <CardTitle className="text-base">View Metadata</CardTitle>
@@ -118,8 +120,13 @@ export function ViewEditorPanel({ json, onChange }: ViewEditorPanelProps) {
             </div>
             <Field label="Labels">
               <LabelEditor
-                labels={(json.label as any[]) || []}
-                onChange={(labels) => onChange((draft) => { draft.label = labels; })}
+                labels={(attrs.labels as { language: string; label: string }[]) || []}
+                onChange={(labels) =>
+                  onChange((draft) => {
+                    if (!draft.attributes) draft.attributes = {};
+                    (draft.attributes as Record<string, unknown>).labels = labels;
+                  })
+                }
               />
             </Field>
             <Field label="Tags">
@@ -143,11 +150,11 @@ export function ViewEditorPanel({ json, onChange }: ViewEditorPanelProps) {
         </CardHeader>
         <CardContent className="px-4 sm:px-6">
           <ViewDisplayStrategyPicker
-            value={String(attrs.displayStrategy ?? 'full-page')}
+            value={String(attrs.display ?? 'full-page')}
             onChange={(strategy) =>
               onChange((draft) => {
                 if (!draft.attributes) draft.attributes = {};
-                (draft.attributes as Record<string, unknown>).displayStrategy = strategy;
+                (draft.attributes as Record<string, unknown>).display = strategy;
               })
             }
           />

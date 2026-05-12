@@ -70,8 +70,11 @@ export function FunctionMetadataForm({ json, onChange }: FunctionMetadataFormPro
       draft.version = parsedValues.data.version;
       draft.domain = parsedValues.data.domain;
       draft.flow = parsedValues.data.flow || undefined;
-      draft.scope = parsedValues.data.scope;
       draft.tags = parsedValues.data.tags;
+
+      const attrs = (draft.attributes ?? {}) as Record<string, unknown>;
+      attrs.scope = parsedValues.data.scope;
+      draft.attributes = attrs;
     });
   }, [json, onChange, values]);
 
@@ -106,7 +109,7 @@ export function FunctionMetadataForm({ json, onChange }: FunctionMetadataFormPro
         <Field
           label="Key"
           required={requiredFields.has('key')}
-          hint={form.formState.errors.key?.message || keyServerError}
+          errorMsg={form.formState.errors.key?.message || keyServerError}
         >
           <MetadataEditableTextInput
             {...keyValidation}
@@ -116,7 +119,7 @@ export function FunctionMetadataForm({ json, onChange }: FunctionMetadataFormPro
         <Field
           label="Version"
           required={requiredFields.has('version')}
-          hint={form.formState.errors.version?.message || versionServerError}
+          errorMsg={form.formState.errors.version?.message || versionServerError}
         >
           <MetadataEditableTextInput
             {...versionValidation}
@@ -126,7 +129,7 @@ export function FunctionMetadataForm({ json, onChange }: FunctionMetadataFormPro
         <Field
           label="Domain"
           required={requiredFields.has('domain')}
-          hint={form.formState.errors.domain?.message || domainServerError}
+          errorMsg={form.formState.errors.domain?.message || domainServerError}
         >
           <MetadataLockedTextInput
             {...domainValidation}
@@ -136,7 +139,7 @@ export function FunctionMetadataForm({ json, onChange }: FunctionMetadataFormPro
         <Field
           label="Flow"
           required={requiredFields.has('flow')}
-          hint={form.formState.errors.flow?.message || flowServerError}
+          errorMsg={form.formState.errors.flow?.message || flowServerError}
         >
           <MetadataLockedTextInput
             {...flowValidation}
@@ -171,7 +174,7 @@ export function FunctionMetadataForm({ json, onChange }: FunctionMetadataFormPro
         control={form.control}
         name="tags"
         render={({ field }) => (
-          <Field label="Tags" hint={form.formState.errors.tags?.message}>
+          <Field label="Tags" errorMsg={form.formState.errors.tags?.message}>
             <TagEditor
               tags={field.value}
               onChange={(tags) => {

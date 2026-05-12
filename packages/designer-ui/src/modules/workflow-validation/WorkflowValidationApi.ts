@@ -7,6 +7,8 @@ import {
 } from '@vnext-forge-studio/app-contracts';
 import { callApi } from '../../api/client';
 import { toVnextError } from '../../lib/error/vNextErrorHelpers';
+import type { SchemaCapabilities } from '../schema-capabilities/SchemaCapabilities';
+import { storeKey, useSchemaCapabilitiesStore } from '../schema-capabilities/useSchemaCapabilitiesStore';
 import { validateWorkflow } from './ValidationEngine';
 import {
   parseServerValidationResult,
@@ -26,7 +28,10 @@ export async function validateWorkflowDefinition(
   schemaVersion?: string,
 ): Promise<WorkflowValidationResponse> {
   try {
-    const localIssues = validateWorkflow(workflow);
+    const capabilities: SchemaCapabilities = useSchemaCapabilitiesStore
+      .getState()
+      .get(storeKey('workflow', schemaVersion));
+    const localIssues = validateWorkflow(workflow, capabilities);
     const remoteResult = await callApi<unknown>({
       method: 'validate/workflow',
       params: schemaVersion ? { content: workflow, schemaVersion } : { content: workflow },

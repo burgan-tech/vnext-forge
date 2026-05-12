@@ -1,5 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../ui/Card';
 import { ComponentDescriptionField } from '../../../ui/ComponentDescriptionField';
+import { ComponentValidationSummary } from '../../save-component/components/ComponentValidationSummary';
 import { FunctionMetadataForm } from './FunctionMetadataForm';
 import { FunctionTaskModeSection } from './FunctionTaskModeSection';
 
@@ -12,6 +13,7 @@ interface FunctionEditorPanelProps {
 export function FunctionEditorPanel({ json, onChange, onBeforeOpenModal }: FunctionEditorPanelProps) {
   return (
     <div className="space-y-4 p-4">
+      <ComponentValidationSummary />
       <Card variant="default" className="gap-3">
         <CardHeader className="border-border border-b">
           <CardTitle className="text-base">Function Metadata</CardTitle>

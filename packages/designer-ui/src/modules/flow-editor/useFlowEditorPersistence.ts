@@ -6,7 +6,9 @@ import { useDebouncedAutoSave } from '../../hooks/useDebouncedAutoSave';
 import { useRegisterGlobalSaveShortcut } from '../../hooks/useRegisterGlobalSaveShortcut';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { createLogger } from '../../lib/logger/createLogger';
+import { showNotification } from '../../notification/notification-port';
 import { persistDiagramSnapshot, saveWorkflowDocument } from './FlowEditorApi';
+import { validateWorkflowBeforeWrite } from '../save-component/validateBeforeWrite';
 
 const logger = createLogger('flow-editor/useFlowEditorPersistence');
 
@@ -51,11 +53,25 @@ export function useFlowEditorPersistence({ group, name }: UseFlowEditorPersisten
       : `${activeProject.path}/${vnextConfig.paths.componentsRoot}/${vnextConfig.paths.workflows}`;
     const diagramFilePath = `${workflowDir}/.meta/${name}.diagram.json`;
 
+    // Non-blocking: warn on validation failure but still proceed with save.
+    const gate = await validateWorkflowBeforeWrite(workflowJson, vnextConfig.schemaVersion);
+    const hasValidationIssues = !gate.valid && !gate.skipped;
+
     await execute({
       workflowDir,
       workflowFilePath: `${workflowDir}/${name}.json`,
       workflowJson,
     });
+
+    if (hasValidationIssues) {
+      const count = gate.errors.length;
+      showNotification({
+        kind: 'warning',
+        message: `Workflow saved with ${count} validation issue${count > 1 ? 's' : ''}`,
+        durationMs: 10_000,
+      });
+      logger.warn('Workflow saved with validation warnings', { errors: gate.errors });
+    }
 
     void persistDiagramSnapshot(diagramFilePath, diagramJson);
   }, [execute, group, name]);

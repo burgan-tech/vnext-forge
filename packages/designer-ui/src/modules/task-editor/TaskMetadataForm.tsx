@@ -30,27 +30,27 @@ export function TaskMetadataForm({ json, onChange }: TaskMetadataFormProps) {
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Key" required={requiredFields.has('key')} hint={keyError}>
+        <Field label="Key" required={requiredFields.has('key')} errorMsg={keyError}>
           <MetadataEditableTextInput
             value={String(json.key || '')}
             onChange={(e) => onChange((d) => { d.key = e.target.value; })}
             aria-invalid={keyError ? true : undefined}
           />
         </Field>
-        <Field label="Version" required={requiredFields.has('version')} hint={versionError}>
+        <Field label="Version" required={requiredFields.has('version')} errorMsg={versionError}>
           <MetadataEditableTextInput
             value={String(json.version || '')}
             onChange={(e) => onChange((d) => { d.version = e.target.value; })}
             aria-invalid={versionError ? true : undefined}
           />
         </Field>
-        <Field label="Domain" required={requiredFields.has('domain')} hint={domainError}>
+        <Field label="Domain" required={requiredFields.has('domain')} errorMsg={domainError}>
           <MetadataLockedTextInput
             value={String(json.domain || '')}
             aria-invalid={domainError ? true : undefined}
           />
         </Field>
-        <Field label="Flow" required={requiredFields.has('flow')} hint={flowError}>
+        <Field label="Flow" required={requiredFields.has('flow')} errorMsg={flowError}>
           <MetadataLockedTextInput
             value={String(json.flow || '')}
             aria-invalid={flowError ? true : undefined}
@@ -63,7 +63,10 @@ export function TaskMetadataForm({ json, onChange }: TaskMetadataFormProps) {
         onChange={(next) => {
           onChange((d) => {
             if (!d.attributes) d.attributes = {};
-            (d.attributes as Record<string, unknown>).type = next;
+            const attrs = d.attributes as Record<string, unknown>;
+            if (String(attrs.type) === next) return;
+            attrs.type = next;
+            attrs.config = {};
           });
         }}
       />

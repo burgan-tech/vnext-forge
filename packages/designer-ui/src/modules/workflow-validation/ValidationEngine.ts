@@ -2,6 +2,7 @@ import {
   ERROR_CODES,
   VnextForgeError,
 } from '@vnext-forge-studio/app-contracts';
+import { ALL_ENABLED, hasFeature, type SchemaCapabilities } from '../schema-capabilities/SchemaCapabilities';
 import type { ValidationIssue } from './WorkflowValidationTypes';
 
 type WorkflowStateNode = {
@@ -17,6 +18,7 @@ type WorkflowStateNode = {
 
 type WorkflowTransition = {
   key: string;
+  target?: string;
   to?: string;
   triggerType?: number;
   triggerKind?: number;
@@ -24,12 +26,26 @@ type WorkflowTransition = {
   mapping?: unknown;
 };
 
+type StartTransitionLike = {
+  key?: string;
+  target?: string;
+  to?: string;
+};
+
 type WorkflowData = {
   attributes?: {
-    start?: { to?: string };
+    startTransition?: StartTransitionLike;
+    start?: StartTransitionLike;
     states?: WorkflowStateNode[];
   };
 };
+
+/**
+ * Runtime-resolved target keywords that are valid transition targets
+ * but do not correspond to an actual state key in the states array.
+ * `$self` refers to the currently active state at runtime.
+ */
+const RUNTIME_TARGET_KEYWORDS = new Set(['$self']);
 
 let ruleId = 0;
 
@@ -38,7 +54,10 @@ function makeId() {
   return `v-${ruleId}`;
 }
 
-export function validateWorkflow(workflow: unknown): ValidationIssue[] {
+export function validateWorkflow(
+  workflow: unknown,
+  capabilities: SchemaCapabilities = ALL_ENABLED,
+): ValidationIssue[] {
   if (!isWorkflowData(workflow)) {
     throw new VnextForgeError(
       ERROR_CODES.WORKFLOW_INVALID,
@@ -75,7 +94,8 @@ export function validateWorkflow(workflow: unknown): ValidationIssue[] {
     });
   }
 
-  const startTarget = workflow.attributes?.start?.to;
+  const startObj = workflow.attributes?.startTransition ?? workflow.attributes?.start;
+  const startTarget = startObj?.target ?? startObj?.to;
   if (!startTarget) {
     results.push({
       id: makeId(),
@@ -109,14 +129,18 @@ export function validateWorkflow(workflow: unknown): ValidationIssue[] {
 
   for (const state of states) {
     for (const transition of state.transitions ?? []) {
-      if (!transition.to || !stateKeys.has(transition.to)) {
+      const transitionTarget = transition.target ?? transition.to;
+      if (
+        !transitionTarget ||
+        (!stateKeys.has(transitionTarget) && !RUNTIME_TARGET_KEYWORDS.has(transitionTarget))
+      ) {
         results.push({
           id: makeId(),
           severity: 'error',
-          message: `Transition "${transition.key}" in "${state.key}" targets non-existent state "${transition.to ?? ''}"`,
+          message: `Transition "${transition.key}" in "${state.key}" targets non-existent state "${transitionTarget ?? ''}"`,
           rule: 'transition-target-valid',
           nodeId: state.key,
-          edgeId: `${state.key}->${transition.to ?? ''}::${transition.key}`,
+          edgeId: `${state.key}->${transitionTarget ?? ''}::${transition.key}`,
         });
       }
     }
@@ -203,36 +227,38 @@ export function validateWorkflow(workflow: unknown): ValidationIssue[] {
     });
   }
 
-  for (const state of states) {
-    if (state.stateType === 4) {
-      const sf = state.subFlow as Record<string, unknown> | undefined;
-      if (!sf) {
-        results.push({
-          id: makeId(),
-          severity: 'warning',
-          message: `SubFlow state "${state.key}" has no SubFlow configuration`,
-          rule: 'subflow-config-required',
-          nodeId: state.key,
-        });
-      } else {
-        const process = sf.process as Record<string, unknown> | undefined;
-        if (!process?.key) {
+  if (hasFeature(capabilities, 'definitions.state.subFlow')) {
+    for (const state of states) {
+      if (state.stateType === 4) {
+        const sf = state.subFlow as Record<string, unknown> | undefined;
+        if (!sf) {
           results.push({
             id: makeId(),
             severity: 'warning',
-            message: `SubFlow state "${state.key}" is missing a process key`,
-            rule: 'subflow-process-key-required',
+            message: `SubFlow state "${state.key}" has no SubFlow configuration`,
+            rule: 'subflow-config-required',
             nodeId: state.key,
           });
-        }
-        if (!process?.flow) {
-          results.push({
-            id: makeId(),
-            severity: 'warning',
-            message: `SubFlow state "${state.key}" is missing a process flow`,
-            rule: 'subflow-process-flow-required',
-            nodeId: state.key,
-          });
+        } else {
+          const process = sf.process as Record<string, unknown> | undefined;
+          if (!process?.key) {
+            results.push({
+              id: makeId(),
+              severity: 'warning',
+              message: `SubFlow state "${state.key}" is missing a process key`,
+              rule: 'subflow-process-key-required',
+              nodeId: state.key,
+            });
+          }
+          if (!process?.flow) {
+            results.push({
+              id: makeId(),
+              severity: 'warning',
+              message: `SubFlow state "${state.key}" is missing a process flow`,
+              rule: 'subflow-process-flow-required',
+              nodeId: state.key,
+            });
+          }
         }
       }
     }
@@ -308,8 +334,9 @@ function collectReachableStates(
   }
 
   for (const transition of state.transitions ?? []) {
-    if (transition.to) {
-      collectReachableStates(transition.to, states, visited);
+    const target = transition.target ?? transition.to;
+    if (target && !RUNTIME_TARGET_KEYWORDS.has(target)) {
+      collectReachableStates(target, states, visited);
     }
   }
 }

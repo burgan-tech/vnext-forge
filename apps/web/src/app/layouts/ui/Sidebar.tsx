@@ -26,7 +26,7 @@ import { isFailure } from '@vnext-forge-studio/app-contracts';
 import { executeCliCommand } from '../../../services/cli.service';
 import { ProjectWorkspaceSidebarPanel } from '../../../modules/project-workspace';
 import { SearchPanel } from '../../../modules/project-search/SearchPanel';
-import { SnippetsSidebarPanel } from '@vnext-forge-studio/designer-ui';
+import { ProblemsSidebarPanel, SnippetsSidebarPanel } from '@vnext-forge-studio/designer-ui';
 import { useCliStore } from '../../store/useCliStore';
 import { useCliOutputStore } from '../../store/useCliOutputStore';
 import {
@@ -35,6 +35,7 @@ import {
 } from '../../store/useQuickRunSettingsStore';
 import { useEnvironmentStore } from '../../store/useEnvironmentStore';
 import { useWebShellStore } from '../../store/useWebShellStore';
+import { useWorkspaceDiagnosticsStore } from '../../store/useWorkspaceDiagnosticsStore';
 
 function EnvironmentsSection() {
   const environments = useEnvironmentStore((s) => s.environments);
@@ -475,6 +476,7 @@ export function Sidebar() {
   const setColorTheme = useSettingsStore((s) => s.setColorTheme);
   const autoSaveEnabled = useSettingsStore((s) => s.autoSaveEnabled);
   const setAutoSaveEnabled = useSettingsStore((s) => s.setAutoSaveEnabled);
+  const configIssues = useWorkspaceDiagnosticsStore((s) => s.configIssues);
 
   const settingsAccordionDefaultOpenIds = pendingSettingsAccordionOpenIds ?? [];
 
@@ -508,9 +510,7 @@ export function Sidebar() {
         )}
 
         {sidebarView === 'validation' && (
-          <div className="text-muted-foreground mt-12 px-4 text-center text-xs">
-            No problems detected
-          </div>
+          <ProblemsSidebarPanel configIssues={configIssues} />
         )}
 
         {sidebarView === 'templates' && (

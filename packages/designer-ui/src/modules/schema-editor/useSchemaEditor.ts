@@ -2,10 +2,14 @@ import { useCallback, useEffect } from 'react';
 import { useRegisterGlobalSaveShortcut } from '../../hooks/useRegisterGlobalSaveShortcut';
 import { useDebouncedAutoSave } from '../../hooks/useDebouncedAutoSave';
 import { createLogger } from '../../lib/logger/createLogger';
+import { showNotification } from '../../notification/notification-port';
 import { useAsync } from '../../hooks/useAsync';
 import { loadSchemaEditor, saveSchemaEditor } from './SchemaEditorApi';
 import { useSchemaEditorStore } from './useSchemaEditorStore';
+import { useProjectStore } from '../../store/useProjectStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
+import { useComponentStore } from '../../store/useComponentStore';
+import { validateComponentBeforeWrite } from '../save-component/validateBeforeWrite';
 
 const logger = createLogger('schema-editor/useSchemaEditor');
 
@@ -23,6 +27,7 @@ export function useSchemaEditor({ filePath, onSaveSuccess }: UseSchemaEditorPara
   const setComponent = useSchemaEditorStore((state) => state.setComponent);
   const clear = useSchemaEditorStore((state) => state.clear);
   const autoSaveEnabled = useSettingsStore((state) => state.autoSaveEnabled);
+  const schemaVersion = useProjectStore((state) => state.vnextConfig?.schemaVersion);
 
   const {
     execute: executeLoad,
@@ -75,11 +80,36 @@ export function useSchemaEditor({ filePath, onSaveSuccess }: UseSchemaEditorPara
       return;
     }
 
+    const gate = await validateComponentBeforeWrite(componentJson, 'schema', schemaVersion);
+    if (!gate.valid && !gate.skipped) {
+      useComponentStore.getState().setValidationErrors(
+        gate.errors.map((e) => ({ path: e.path, message: e.message })),
+      );
+      const count = gate.errors.length;
+      showNotification({
+        kind: 'error',
+        message: `Validation failed — ${count} issue${count > 1 ? 's' : ''}`,
+        durationMs: 30_000,
+        action: {
+          label: 'View issues',
+          onPress: () => {
+            const el = document.getElementById('component-validation-summary');
+            el?.scrollIntoView({ behavior: 'smooth' });
+            el?.focus();
+          },
+        },
+      });
+      logger.warn('Schema save blocked by validation', { errors: gate.errors });
+      return;
+    }
+
+    useComponentStore.getState().clearValidationErrors();
+
     await executeSave({
       filePath: componentFilePath,
       json: componentJson,
     });
-  }, [componentFilePath, componentJson, executeSave, isDirty]);
+  }, [componentFilePath, componentJson, executeSave, isDirty, schemaVersion]);
 
   const { autoSavePending, autoSaved, cancelAutoSave } = useDebouncedAutoSave({
     isDirty,

@@ -4,6 +4,7 @@ import { ComponentDescriptionField } from '../../../ui/ComponentDescriptionField
 import { Field } from '../../../ui/Field';
 import { JsonCodeField } from '../../../ui/JsonCodeField';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../ui/Card';
+import { ComponentValidationSummary } from '../../save-component/components/ComponentValidationSummary';
 import { SchemaMetadataForm } from './SchemaMetadataForm';
 import { SchemaTree } from './SchemaTree';
 import { ValidatePayloadCard } from './ValidatePayloadCard';
@@ -38,6 +39,7 @@ export function SchemaEditorPanel({ json, onChange }: SchemaEditorPanelProps) {
 
   return (
     <div className="space-y-4 p-4">
+      <ComponentValidationSummary />
       <Card variant="default" className="gap-3">
         <CardHeader className="border-border border-b">
           <CardTitle className="text-base">Schema Metadata</CardTitle>
