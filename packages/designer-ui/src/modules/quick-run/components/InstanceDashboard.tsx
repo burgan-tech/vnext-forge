@@ -1,16 +1,23 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { type MutableRefObject, useCallback, useEffect, useRef, useState } from 'react';
 
 import * as QuickRunApi from '../QuickRunApi';
-import type { InstanceDetailResponse } from '../QuickRunApi';
+import type { IncidentEntry, IncidentInfo, InstanceDetailResponse, WorkflowBucketConfig } from '../QuickRunApi';
+import { ResizableDialogShell } from '../../../ui/ResizableDialogShell';
 import { useQuickRunPolling } from '../hooks/useQuickRunPolling';
 import { useQuickRunStore } from '../store/quickRunStore';
 import { safeViewContent, type TransitionInfo } from '../types/quickrun.types';
+import { SchemaForm } from '../../schema-form';
 import { CopyableJsonBlock } from './CopyableJsonBlock';
 import { EnvBadge } from './EnvBadge';
 import { ProgressStepper } from './ProgressStepper';
 import { StatusBadge } from './StatusBadge';
 
-export function InstanceDashboard() {
+interface InstanceDashboardProps {
+  configRef: MutableRefObject<WorkflowBucketConfig>;
+  persistConfig: (cfg: WorkflowBucketConfig) => void;
+}
+
+export function InstanceDashboard({ configRef, persistConfig }: InstanceDashboardProps) {
   const activeTabId = useQuickRunStore((s) => s.activeTabId);
   const instances = useQuickRunStore((s) => s.instances);
   const activeState = useQuickRunStore((s) => s.activeState);
@@ -52,10 +59,11 @@ export function InstanceDashboard() {
   };
 
   const openRetryPanel = useCallback(() => {
-    const inherited = { ...globalHeaders, ...sessionHeaders };
-    setRetryHeaders(Object.entries(inherited).map(([name, value]) => ({ name, value })));
+    const savedRetryHeaders = configRef.current.retryState?.headers ?? {};
+    const base = { ...globalHeaders, ...sessionHeaders, ...savedRetryHeaders };
+    setRetryHeaders(Object.entries(base).map(([name, value]) => ({ name, value })));
     setRetryHeadersOpen(true);
-  }, [globalHeaders, sessionHeaders]);
+  }, [globalHeaders, sessionHeaders, configRef]);
 
   const handleRetry = useCallback(async () => {
     if (!activeTabId || !domain || !workflowKey) return;
@@ -64,10 +72,28 @@ export function InstanceDashboard() {
     for (const h of retryHeaders) {
       if (h.name.trim()) merged[h.name.trim()] = h.value;
     }
+
+    const inherited = { ...globalHeaders, ...sessionHeaders };
+    const headerOverrides: Record<string, string> = {};
+    for (const h of retryHeaders) {
+      if (h.name.trim() && !(h.name.trim() in inherited && inherited[h.name.trim()] === h.value)) {
+        headerOverrides[h.name.trim()] = h.value;
+      }
+    }
+    const updated: WorkflowBucketConfig = {
+      ...configRef.current,
+      retryState: {
+        ...configRef.current.retryState,
+        headers: headerOverrides,
+        attributes: configRef.current.retryState?.attributes ?? {},
+      },
+    };
+    persistConfig(updated);
+
     await pollState({ domain, workflowKey, instanceId: activeTabId, headers: merged, runtimeUrl: environmentUrl });
     setRetrying(false);
     setRetryHeadersOpen(false);
-  }, [activeTabId, domain, workflowKey, retryHeaders, environmentUrl, pollState]);
+  }, [activeTabId, domain, workflowKey, retryHeaders, globalHeaders, sessionHeaders, environmentUrl, pollState, configRef, persistConfig]);
 
   const handleCancelConfirmed = useCallback(async () => {
     if (!activeTabId || !domain || !workflowKey) return;
@@ -95,6 +121,7 @@ export function InstanceDashboard() {
     attributes?: Record<string, unknown>;
     key?: string;
     tags?: string[];
+    updateConfig?: boolean;
   }) => {
     if (!activeTabId || !domain || !workflowKey) return;
     await QuickRunApi.retryInstance({
@@ -107,9 +134,30 @@ export function InstanceDashboard() {
       tags: params.tags,
       runtimeUrl: environmentUrl,
     });
+
+    if (params.updateConfig !== false) {
+      const inherited = { ...globalHeaders, ...sessionHeaders };
+      const headerOverrides: Record<string, string> = {};
+      for (const [name, value] of Object.entries(params.headers)) {
+        if (!(name in inherited && inherited[name] === value)) {
+          headerOverrides[name] = value;
+        }
+      }
+      const updated: WorkflowBucketConfig = {
+        ...configRef.current,
+        retryState: {
+          headers: headerOverrides,
+          attributes: params.attributes ?? {},
+          key: params.key,
+          tags: params.tags,
+        },
+      };
+      persistConfig(updated);
+    }
+
     await pollState({ domain, workflowKey, instanceId: activeTabId, headers: params.headers, runtimeUrl: environmentUrl });
     setRetryDialogOpen(false);
-  }, [activeTabId, domain, workflowKey, environmentUrl, pollState]);
+  }, [activeTabId, domain, workflowKey, globalHeaders, sessionHeaders, environmentUrl, pollState, configRef, persistConfig]);
 
   const handleFetchMeta = useCallback(async () => {
     if (!activeTabId || !domain || !workflowKey) return;
@@ -422,6 +470,7 @@ export function InstanceDashboard() {
         <RetryInstanceDialog
           globalHeaders={globalHeaders}
           sessionHeaders={sessionHeaders}
+          configRef={configRef}
           onSubmit={handleRetryInstanceSubmit}
           onClose={() => setRetryDialogOpen(false)}
         />
@@ -485,26 +534,49 @@ function CancelConfirmDialog({
 function RetryInstanceDialog({
   globalHeaders,
   sessionHeaders,
+  configRef,
   onSubmit,
   onClose,
 }: {
   globalHeaders: Record<string, string>;
   sessionHeaders: Record<string, string>;
+  configRef: MutableRefObject<WorkflowBucketConfig>;
   onSubmit: (params: {
     headers: Record<string, string>;
     attributes?: Record<string, unknown>;
     key?: string;
     tags?: string[];
+    updateConfig?: boolean;
   }) => Promise<void>;
   onClose: () => void;
 }) {
+  const savedRetry = configRef.current.retryState;
   const inherited = { ...globalHeaders, ...sessionHeaders };
-  const [headers, setHeaders] = useState<{ name: string; value: string }[]>(
-    Object.entries(inherited).map(([name, value]) => ({ name, value })),
-  );
-  const [attributes, setAttributes] = useState('{}');
+
+  const initialHeaders = (() => {
+    const rows: { name: string; value: string }[] = Object.entries(inherited).map(([name, value]) => ({ name, value }));
+    if (savedRetry?.headers) {
+      for (const [name, value] of Object.entries(savedRetry.headers)) {
+        const existing = rows.find((r) => r.name === name);
+        if (existing) {
+          existing.value = value;
+        } else {
+          rows.push({ name, value });
+        }
+      }
+    }
+    return rows;
+  })();
+
+  const initialAttributes = savedRetry?.attributes && Object.keys(savedRetry.attributes).length > 0
+    ? JSON.stringify(savedRetry.attributes, null, 2)
+    : '{}';
+
+  const [headers, setHeaders] = useState<{ name: string; value: string }[]>(initialHeaders);
+  const [attributes, setAttributes] = useState(initialAttributes);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [updateConfig, setUpdateConfig] = useState(true);
 
   const handleSubmit = async () => {
     setSubmitting(true);
@@ -516,12 +588,19 @@ function RetryInstanceDialog({
       }
       let parsedAttrs: Record<string, unknown> | undefined;
       try {
-        const parsed = JSON.parse(attributes);
-        if (typeof parsed === 'object' && parsed !== null && Object.keys(parsed).length > 0) {
-          parsedAttrs = parsed;
+        const trimmed = attributes.trim();
+        if (trimmed && trimmed !== '{}') {
+          const parsed = JSON.parse(trimmed);
+          if (typeof parsed === 'object' && parsed !== null && Object.keys(parsed).length > 0) {
+            parsedAttrs = parsed;
+          }
         }
-      } catch { /* ignore parse error for empty/invalid */ }
-      await onSubmit({ headers: merged, attributes: parsedAttrs });
+      } catch {
+        setError('Invalid JSON in attributes field');
+        setSubmitting(false);
+        return;
+      }
+      await onSubmit({ headers: merged, attributes: parsedAttrs, updateConfig });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Retry failed');
     } finally {
@@ -585,17 +664,13 @@ function RetryInstanceDialog({
             </div>
 
             {/* Attributes (JSON) */}
-            <div className="flex flex-col gap-1">
-              <label className="text-[10px] font-semibold uppercase text-[var(--vscode-descriptionForeground)]">
-                Attributes (JSON)
-              </label>
-              <textarea
-                className="rounded border border-[var(--vscode-input-border)] bg-[var(--vscode-input-background)] px-2 py-1.5 font-mono text-[11px] text-[var(--vscode-input-foreground)]"
-                rows={4}
-                value={attributes}
-                onChange={(e) => setAttributes(e.target.value)}
-              />
-            </div>
+            <SchemaForm
+              schema={null}
+              value={attributes}
+              onChange={setAttributes}
+              jsonEditorLabel="Attributes (JSON)"
+              jsonEditorRows={6}
+            />
 
             {error && (
               <div className="rounded border border-[var(--vscode-inputValidation-errorBorder)] bg-[var(--vscode-inputValidation-errorBackground)] px-2 py-1.5 text-[11px] text-[var(--vscode-errorForeground)]">
@@ -605,20 +680,26 @@ function RetryInstanceDialog({
           </div>
         </div>
 
-        <footer className="flex justify-end gap-2 border-t border-[var(--vscode-panel-border)] px-4 py-3">
-          <button
-            className="rounded border border-[var(--vscode-panel-border)] px-3 py-1.5 text-xs hover:bg-[var(--vscode-list-hoverBackground)]"
-            onClick={onClose}
-          >
-            Cancel
-          </button>
-          <button
-            className="rounded bg-[var(--vscode-charts-orange)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
-            onClick={handleSubmit}
-            disabled={submitting}
-          >
-            {submitting ? 'Retrying...' : 'Retry Instance'}
-          </button>
+        <footer className="flex items-center justify-between border-t border-[var(--vscode-panel-border)] px-4 py-3">
+          <label className="flex items-center gap-1.5 text-[10px] text-[var(--vscode-descriptionForeground)]" title="When checked, the current values will be saved for future retry attempts">
+            <input type="checkbox" checked={updateConfig} onChange={(e) => setUpdateConfig(e.target.checked)} className="rounded" />
+            Update saved config
+          </label>
+          <div className="flex gap-2">
+            <button
+              className="rounded border border-[var(--vscode-panel-border)] px-3 py-1.5 text-xs hover:bg-[var(--vscode-list-hoverBackground)]"
+              onClick={onClose}
+            >
+              Cancel
+            </button>
+            <button
+              className="rounded bg-[var(--vscode-charts-orange)] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
+              onClick={handleSubmit}
+              disabled={submitting}
+            >
+              {submitting ? 'Retrying...' : 'Retry Instance'}
+            </button>
+          </div>
         </footer>
       </div>
     </div>
@@ -806,11 +887,12 @@ function InstanceMetaDialog({
   onRetry: () => void;
   onClose: () => void;
 }) {
-  const panelRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
   const [copiedKey, setCopiedKey] = useState(false);
 
   useEffect(() => {
-    panelRef.current?.focus();
+    if (!dialogRef.current) return;
+    dialogRef.current.focus();
     const handler = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
     };
@@ -818,26 +900,43 @@ function InstanceMetaDialog({
     return () => document.removeEventListener('keydown', handler);
   }, [onClose]);
 
-  const copyKey = (value: string) => {
+  const copyValue = useCallback((value: string, setter: (v: boolean) => void) => {
     void navigator.clipboard.writeText(value).then(() => {
-      setCopiedKey(true);
-      setTimeout(() => setCopiedKey(false), 1500);
+      setter(true);
+      setTimeout(() => setter(false), 1500);
     });
-  };
+  }, []);
+
+  const incident = data?.metadata?.incident;
+  const showAlertStrip = incident?.hasActiveIncident && incident.active && !incident.active.isResolved;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" role="dialog" aria-modal="true">
-      <div
-        ref={panelRef}
-        tabIndex={-1}
-        className="flex w-[480px] max-h-[80vh] flex-col rounded border border-[var(--vscode-widget-border)] bg-background bg-[var(--vscode-editor-background,_theme(colors.background))] shadow-lg outline-none"
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+      <ResizableDialogShell
+        containerRef={dialogRef}
+        defaultWidth={520}
+        defaultHeight={Math.min(640, Math.round(window.innerHeight * 0.8))}
+        storageKey="vnext-forge.dialog.instance-meta"
+        ariaLabelledBy="instance-meta-dialog-title"
       >
-        <header className="flex items-center justify-between border-b border-[var(--vscode-panel-border)] px-4 py-3">
-          <h2 className="text-sm font-semibold">Instance Details</h2>
-          <button className="text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]" onClick={onClose}>✕</button>
+        <header
+          data-dialog-handle="drag"
+          className="flex select-none items-center justify-between border-b border-[var(--vscode-panel-border)] px-4 py-3"
+          style={{ cursor: 'move' }}
+        >
+          <h2 id="instance-meta-dialog-title" className="text-sm font-semibold">Instance Details</h2>
+          <button
+            className="text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]"
+            onClick={onClose}
+            aria-label="Close"
+          >
+            ✕
+          </button>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-4">
+        {showAlertStrip && <IncidentAlertStrip />}
+
+        <div className="flex-1 min-h-0 overflow-y-auto p-4">
           {loading && (
             <div className="flex items-center justify-center py-8 text-xs text-[var(--vscode-descriptionForeground)]">
               <span className="animate-pulse">Loading instance details...</span>
@@ -865,7 +964,7 @@ function InstanceMetaDialog({
                     <code className="text-[var(--vscode-textLink-foreground)]">{data.key}</code>
                     <button
                       className="inline-flex rounded p-0.5 text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]"
-                      onClick={() => copyKey(data.key)}
+                      onClick={() => copyValue(data.key, setCopiedKey)}
                       title={copiedKey ? 'Copied!' : 'Copy key'}
                     >
                       {copiedKey ? '✓' : '⧉'}
@@ -921,11 +1020,202 @@ function InstanceMetaDialog({
                   {data.metadata.modifiedByBehalfOf && <MetaRow label="Mod. On Behalf Of"><span>{data.metadata.modifiedByBehalfOf}</span></MetaRow>}
                 </div>
               </section>
+
+              {/* Incident */}
+              {incident && (incident.active || (incident.history && incident.history.length > 0)) && (
+                <IncidentSection incident={incident} />
+              )}
             </div>
           )}
         </div>
+      </ResizableDialogShell>
+    </div>
+  );
+}
+
+// ── Incident Components ─────────────────────────────────────────────────────
+
+function IncidentAlertStrip() {
+  return (
+    <div
+      role="status"
+      aria-live="polite"
+      className="flex items-center gap-2 border-b border-[var(--vscode-panel-border)] bg-[var(--vscode-inputValidation-warningBackground)] px-4 py-2 text-[11px] text-[var(--vscode-inputValidation-warningForeground,var(--vscode-foreground))]"
+    >
+      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" className="shrink-0">
+        <path d="M7.56 1h.88l6.54 12.26-.44.74H1.44L1 13.26 7.56 1zM8 2.28 2.28 13h11.44L8 2.28zM8.5 12v-1h-1v1h1zm0-2V6h-1v4h1z" />
+      </svg>
+      <span>This instance has an active incident.</span>
+    </div>
+  );
+}
+
+function IncidentSection({ incident }: { incident: IncidentInfo }) {
+  return (
+    <section className="flex flex-col gap-3 border-t border-[var(--vscode-panel-border)] pt-4">
+      <p className="text-[10px] font-semibold uppercase text-[var(--vscode-descriptionForeground)]">Incident</p>
+
+      {incident.active && (
+        <IncidentActiveCard entry={incident.active} />
+      )}
+
+      {incident.history && incident.history.length > 0 && (
+        <IncidentHistorySection history={incident.history} />
+      )}
+
+      <IncidentRawJsonDisclosure incident={incident} />
+    </section>
+  );
+}
+
+function IncidentActiveCard({ entry }: { entry: IncidentEntry }) {
+  const [copiedTraceId, setCopiedTraceId] = useState(false);
+
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-[10px] font-medium text-[var(--vscode-descriptionForeground)]">Current incident</p>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+        <MetaRow label="State"><span>{entry.state}</span></MetaRow>
+        <MetaRow label="Transition"><span>{entry.transition}</span></MetaRow>
+        <MetaRow label="Task"><span>{entry.task}</span></MetaRow>
+        <MetaRow label="Error Code">
+          <code className="break-all text-[10px]">{entry.errorCode}</code>
+        </MetaRow>
+        <MetaRow label="Layer"><span>{entry.errorLayer}</span></MetaRow>
+        <MetaRow label="Retry Count"><span>{entry.retryCount}</span></MetaRow>
+        <MetaRow label="Created At"><span>{formatDateTime(entry.createdAt)}</span></MetaRow>
+        {entry.resolvedAt && (
+          <MetaRow label="Resolved At"><span>{formatDateTime(entry.resolvedAt)}</span></MetaRow>
+        )}
+        {entry.boundaryAction && (
+          <MetaRow label="Boundary Action"><span>{entry.boundaryAction}</span></MetaRow>
+        )}
+        {entry.boundaryLevel && (
+          <MetaRow label="Boundary Level"><span>{entry.boundaryLevel}</span></MetaRow>
+        )}
+        <MetaRow label="Status">
+          <span className={entry.isResolved ? 'text-[var(--vscode-charts-green)]' : 'text-[var(--vscode-charts-orange)]'}>
+            {entry.isResolved ? 'Resolved' : 'Open'}
+          </span>
+        </MetaRow>
+        <MetaRow label="Trace ID">
+          <span className="flex items-center gap-1">
+            <code className="break-all text-[10px] text-[var(--vscode-textLink-foreground)]">{entry.traceId}</code>
+            <button
+              className="inline-flex shrink-0 rounded p-0.5 text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]"
+              onClick={() => {
+                void navigator.clipboard.writeText(entry.traceId).then(() => {
+                  setCopiedTraceId(true);
+                  setTimeout(() => setCopiedTraceId(false), 1500);
+                });
+              }}
+              title={copiedTraceId ? 'Copied!' : 'Copy Trace ID'}
+              aria-label="Copy Trace ID"
+            >
+              {copiedTraceId ? '✓' : '⧉'}
+            </button>
+          </span>
+        </MetaRow>
+      </div>
+
+      <IncidentMessageBlock message={entry.message} />
+    </div>
+  );
+}
+
+function IncidentMessageBlock({ message }: { message: string }) {
+  const [copied, setCopied] = useState(false);
+
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] text-[var(--vscode-descriptionForeground)]">Message</span>
+        <button
+          className="flex items-center gap-1 text-[10px] text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]"
+          onClick={() => {
+            void navigator.clipboard.writeText(message).then(() => {
+              setCopied(true);
+              setTimeout(() => setCopied(false), 1500);
+            });
+          }}
+          title={copied ? 'Copied!' : 'Copy message'}
+          aria-label="Copy message"
+        >
+          {copied ? (
+            <span className="text-[var(--vscode-charts-green)]">Copied!</span>
+          ) : (
+            <span>Copy</span>
+          )}
+        </button>
+      </div>
+      <div className="max-h-48 overflow-y-auto rounded border border-[var(--vscode-input-border)] bg-[var(--vscode-textCodeBlock-background)] p-2">
+        <pre className="whitespace-pre-wrap break-words font-mono text-[11px] text-[var(--vscode-foreground)]">
+          {message}
+        </pre>
       </div>
     </div>
+  );
+}
+
+function IncidentHistorySection({ history }: { history: IncidentEntry[] }) {
+  return (
+    <details className="text-xs">
+      <summary className="flex cursor-pointer items-center gap-2 text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]">
+        <span>Past incidents</span>
+        <span className="rounded bg-[var(--vscode-badge-background)] px-1.5 py-0.5 text-[9px] text-[var(--vscode-badge-foreground)]">
+          {history.length}
+        </span>
+      </summary>
+      <div className="mt-2 flex flex-col gap-2">
+        {history.map((entry) => (
+          <IncidentHistoryItem key={entry.id} entry={entry} />
+        ))}
+      </div>
+    </details>
+  );
+}
+
+function IncidentHistoryItem({ entry }: { entry: IncidentEntry }) {
+  return (
+    <details className="rounded border border-[var(--vscode-panel-border)]">
+      <summary className="flex cursor-pointer items-center gap-2 px-2 py-1.5 text-[10px] hover:bg-[var(--vscode-list-hoverBackground)]">
+        <span className="text-[var(--vscode-descriptionForeground)]">{formatDateTime(entry.createdAt)}</span>
+        <code className="text-[var(--vscode-foreground)]">{entry.errorCode}</code>
+        <span className="text-[var(--vscode-descriptionForeground)]">@ {entry.state}</span>
+        <span className={`ml-auto text-[9px] ${entry.isResolved ? 'text-[var(--vscode-charts-green)]' : 'text-[var(--vscode-charts-orange)]'}`}>
+          {entry.isResolved ? 'Resolved' : 'Open'}
+        </span>
+      </summary>
+      <div className="flex flex-col gap-2 border-t border-[var(--vscode-panel-border)] p-2">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+          <MetaRow label="State"><span>{entry.state}</span></MetaRow>
+          <MetaRow label="Transition"><span>{entry.transition}</span></MetaRow>
+          <MetaRow label="Task"><span>{entry.task}</span></MetaRow>
+          <MetaRow label="Error Code"><code className="break-all text-[10px]">{entry.errorCode}</code></MetaRow>
+          <MetaRow label="Layer"><span>{entry.errorLayer}</span></MetaRow>
+          <MetaRow label="Retry Count"><span>{entry.retryCount}</span></MetaRow>
+          <MetaRow label="Created At"><span>{formatDateTime(entry.createdAt)}</span></MetaRow>
+          {entry.resolvedAt && <MetaRow label="Resolved At"><span>{formatDateTime(entry.resolvedAt)}</span></MetaRow>}
+          {entry.boundaryAction && <MetaRow label="Boundary Action"><span>{entry.boundaryAction}</span></MetaRow>}
+          {entry.boundaryLevel && <MetaRow label="Boundary Level"><span>{entry.boundaryLevel}</span></MetaRow>}
+          <MetaRow label="Trace ID"><code className="break-all text-[10px]">{entry.traceId}</code></MetaRow>
+        </div>
+        {entry.message && <IncidentMessageBlock message={entry.message} />}
+      </div>
+    </details>
+  );
+}
+
+function IncidentRawJsonDisclosure({ incident }: { incident: IncidentInfo }) {
+  return (
+    <details className="text-xs">
+      <summary className="cursor-pointer text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]">
+        Raw JSON
+      </summary>
+      <div className="mt-2">
+        <CopyableJsonBlock value={incident} />
+      </div>
+    </details>
   );
 }
 

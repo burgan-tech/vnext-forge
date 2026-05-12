@@ -4,6 +4,9 @@ export { useQuickRunPolling } from './hooks/useQuickRunPolling';
 export * as QuickRunApi from './QuickRunApi';
 export type {
   DataBucketAdapter,
+  IncidentEntry,
+  IncidentInfo,
+  RetryStateBucketEntry,
   WorkflowBucketConfig,
   SchemaReference,
   GenerateOptions,

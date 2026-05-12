@@ -66,6 +66,7 @@ export function NewRunDialog({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errorDetails, setErrorDetails] = useState<Record<string, unknown> | null>(null);
+  const [updateConfig, setUpdateConfig] = useState(true);
 
   // Test-data + presets state
   const [generating, setGenerating] = useState(false);
@@ -309,27 +310,29 @@ export function NewRunDialog({
           runtimeUrl: environmentUrl,
         });
 
-        const localOverrides: Record<string, string> = {};
-        for (const h of headerRows) {
-          if (h.name.trim() && !(h.name.trim() in globalHeaders && globalHeaders[h.name.trim()] === h.value)) {
-            localOverrides[h.name.trim()] = h.value;
+        if (updateConfig) {
+          const localOverrides: Record<string, string> = {};
+          for (const h of headerRows) {
+            if (h.name.trim() && !(h.name.trim() in globalHeaders && globalHeaders[h.name.trim()] === h.value)) {
+              localOverrides[h.name.trim()] = h.value;
+            }
           }
-        }
 
-        const updated: WorkflowBucketConfig = {
-          ...configRef.current,
-          start: {
-            headers: localOverrides,
-            queryStrings: { sync, version: version.trim() || undefined },
-            body: {
-              key: instanceKey || undefined,
-              stage: stage.trim() || undefined,
-              tags: tagsList.length > 0 ? tagsList : undefined,
-              attributes: Object.keys(parsedAttributes).length > 0 ? parsedAttributes : {},
+          const updated: WorkflowBucketConfig = {
+            ...configRef.current,
+            start: {
+              headers: localOverrides,
+              queryStrings: { sync, version: version.trim() || undefined },
+              body: {
+                key: instanceKey || undefined,
+                stage: stage.trim() || undefined,
+                tags: tagsList.length > 0 ? tagsList : undefined,
+                attributes: Object.keys(parsedAttributes).length > 0 ? parsedAttributes : {},
+              },
             },
-          },
-        };
-        persistConfig(updated);
+          };
+          persistConfig(updated);
+        }
 
         onClose();
         setInstanceKey('');
@@ -348,7 +351,7 @@ export function NewRunDialog({
     }
 
     setLoading(false);
-  }, [domain, workflowKey, instanceKey, stage, tags, attributes, sync, version, headerRows, globalHeaders, environmentName, environmentUrl, addInstance, addTab, pollState, onClose, configRef, persistConfig, resolvedSchema]);
+  }, [domain, workflowKey, instanceKey, stage, tags, attributes, sync, version, headerRows, globalHeaders, environmentName, environmentUrl, addInstance, addTab, pollState, onClose, configRef, persistConfig, resolvedSchema, updateConfig]);
 
   const dialogRef = useRef<HTMLDivElement>(null);
 
@@ -710,21 +713,27 @@ export function NewRunDialog({
           )}
         </div>
 
-        <footer className="flex justify-end gap-2 border-t border-[var(--vscode-panel-border)] px-4 py-3">
-          <button
-            className="rounded border border-[var(--vscode-panel-border)] px-3 py-1.5 text-xs hover:bg-[var(--vscode-list-hoverBackground)]"
-            onClick={onClose}
-            disabled={loading}
-          >
-            Cancel
-          </button>
-          <button
-            className="rounded bg-[var(--vscode-button-background)] px-3 py-1.5 text-xs text-[var(--vscode-button-foreground)] hover:bg-[var(--vscode-button-hoverBackground)] disabled:opacity-50"
-            onClick={handleSubmit}
-            disabled={loading}
-          >
-            {loading ? 'Starting...' : 'Start Run'}
-          </button>
+        <footer className="flex items-center justify-between border-t border-[var(--vscode-panel-border)] px-4 py-3">
+          <label className="flex items-center gap-1.5 text-[10px] text-[var(--vscode-descriptionForeground)]" title="When checked, the current values will be saved for future runs">
+            <input type="checkbox" checked={updateConfig} onChange={(e) => setUpdateConfig(e.target.checked)} className="rounded" />
+            Update saved config
+          </label>
+          <div className="flex gap-2">
+            <button
+              className="rounded border border-[var(--vscode-panel-border)] px-3 py-1.5 text-xs hover:bg-[var(--vscode-list-hoverBackground)]"
+              onClick={onClose}
+              disabled={loading}
+            >
+              Cancel
+            </button>
+            <button
+              className="rounded bg-[var(--vscode-button-background)] px-3 py-1.5 text-xs text-[var(--vscode-button-foreground)] hover:bg-[var(--vscode-button-hoverBackground)] disabled:opacity-50"
+              onClick={handleSubmit}
+              disabled={loading}
+            >
+              {loading ? 'Starting...' : 'Start Run'}
+            </button>
+          </div>
         </footer>
       </ResizableDialogShell>
     </div>

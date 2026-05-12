@@ -88,6 +88,7 @@ interface RetryInstanceParams {
   workflowKey: string;
   instanceId: string;
   key?: string;
+  stage?: string;
   tags?: string[];
   attributes?: Record<string, unknown>;
   headers?: Record<string, string>;
@@ -150,6 +151,30 @@ interface GetInstanceParams {
   runtimeUrl?: string;
 }
 
+export interface IncidentEntry {
+  id: string;
+  createdAt: string;
+  state: string;
+  transition: string;
+  task: string;
+  message: string;
+  errorCode: string;
+  errorLayer: string;
+  boundaryAction: string | null;
+  boundaryLevel: string | null;
+  traceId: string;
+  isResolved: boolean;
+  resolvedAt: string | null;
+  retryCount: number;
+}
+
+export interface IncidentInfo {
+  hasActiveIncident: boolean;
+  totalCount: number;
+  active?: IncidentEntry;
+  history?: IncidentEntry[];
+}
+
 export interface InstanceDetailResponse {
   id: string;
   key: string;
@@ -174,6 +199,7 @@ export interface InstanceDetailResponse {
     createdByBehalfOf?: string;
     modifiedBy?: string;
     modifiedByBehalfOf?: string;
+    incident?: IncidentInfo;
   };
 }
 
@@ -195,6 +221,13 @@ export interface TransitionBucketEntry {
   };
 }
 
+export interface RetryStateBucketEntry {
+  headers: Record<string, string>;
+  attributes: Record<string, unknown>;
+  key?: string;
+  tags?: string[];
+}
+
 export interface WorkflowBucketConfig {
   key: string;
   globalHeaders: Record<string, string>;
@@ -209,6 +242,7 @@ export interface WorkflowBucketConfig {
     };
   };
   transitions: TransitionBucketEntry[];
+  retryState?: RetryStateBucketEntry;
 }
 
 /** Web SPA / alternate persistence (e.g. localStorage); takes precedence when set. */
@@ -271,6 +305,7 @@ export function createEmptyConfig(workflowKey: string): WorkflowBucketConfig {
     globalHeaders: {},
     start: { headers: {}, queryStrings: {}, body: { attributes: {} } },
     transitions: [],
+    retryState: { headers: {}, attributes: {} },
   };
 }
 

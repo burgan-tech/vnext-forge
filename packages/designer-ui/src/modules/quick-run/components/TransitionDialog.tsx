@@ -58,6 +58,7 @@ export function TransitionDialog({ configRef, persistConfig, projectId }: Transi
   const [error, setError] = useState<string | null>(null);
   const [errorDetails, setErrorDetails] = useState<Record<string, unknown> | null>(null);
   const [manualTransitionName, setManualTransitionName] = useState('');
+  const [updateConfig, setUpdateConfig] = useState(true);
   // Submit-time validation gate. Errors stay hidden until the user
   // presses Fire Transition; on the first failed attempt every required
   // / pattern violation lights up at once so the user sees the full
@@ -319,7 +320,7 @@ export function TransitionDialog({ configRef, persistConfig, projectId }: Transi
           runtimeUrl: environmentUrl,
         });
 
-        if (!isManualMode) {
+        if (updateConfig && !isManualMode) {
           const inherited = { ...globalHeaders, ...sessionHeaders };
           const localOverrides: Record<string, string> = {};
           for (const h of headerRows) {
@@ -360,7 +361,7 @@ export function TransitionDialog({ configRef, persistConfig, projectId }: Transi
       setError('Failed to fire transition. Please try again.');
     }
     setSubmitting(false);
-  }, [activeTabId, domain, workflowKey, transitionName, isManualMode, manualTransitionName, instanceKey, stage, tags, headerRows, globalHeaders, sessionHeaders, environmentUrl, buildAttributes, pollState, closeDialog, configRef, persistConfig, hasSchema, schema, sync]);
+  }, [activeTabId, domain, workflowKey, transitionName, isManualMode, manualTransitionName, instanceKey, stage, tags, headerRows, globalHeaders, sessionHeaders, environmentUrl, buildAttributes, pollState, closeDialog, configRef, persistConfig, hasSchema, schema, sync, updateConfig]);
 
   if (!open) return null;
 
@@ -467,21 +468,27 @@ export function TransitionDialog({ configRef, persistConfig, projectId }: Transi
           )}
         </div>
 
-        <footer className="flex justify-end gap-2 border-t border-[var(--vscode-panel-border)] px-4 py-3">
-          <button
-            className="rounded border border-[var(--vscode-panel-border)] px-3 py-1.5 text-xs hover:bg-[var(--vscode-list-hoverBackground)]"
-            onClick={closeDialog}
-            disabled={submitting}
-          >
-            Cancel
-          </button>
-          <button
-            className="rounded bg-[var(--vscode-button-background)] px-3 py-1.5 text-xs text-[var(--vscode-button-foreground)] hover:bg-[var(--vscode-button-hoverBackground)] disabled:opacity-50"
-            onClick={() => void handleSubmit()}
-            disabled={submitting || schemaLoading || (isManualMode && !manualTransitionName.trim())}
-          >
-            {submitting ? 'Submitting...' : 'Fire Transition'}
-          </button>
+        <footer className="flex items-center justify-between border-t border-[var(--vscode-panel-border)] px-4 py-3">
+          <label className="flex items-center gap-1.5 text-[10px] text-[var(--vscode-descriptionForeground)]" title="When checked, the current values will be saved for future transitions">
+            <input type="checkbox" checked={updateConfig} onChange={(e) => setUpdateConfig(e.target.checked)} className="rounded" />
+            Update saved config
+          </label>
+          <div className="flex gap-2">
+            <button
+              className="rounded border border-[var(--vscode-panel-border)] px-3 py-1.5 text-xs hover:bg-[var(--vscode-list-hoverBackground)]"
+              onClick={closeDialog}
+              disabled={submitting}
+            >
+              Cancel
+            </button>
+            <button
+              className="rounded bg-[var(--vscode-button-background)] px-3 py-1.5 text-xs text-[var(--vscode-button-foreground)] hover:bg-[var(--vscode-button-hoverBackground)] disabled:opacity-50"
+              onClick={() => void handleSubmit()}
+              disabled={submitting || schemaLoading || (isManualMode && !manualTransitionName.trim())}
+            >
+              {submitting ? 'Submitting...' : 'Fire Transition'}
+            </button>
+          </div>
         </footer>
       </ResizableDialogShell>
     </div>

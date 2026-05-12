@@ -196,7 +196,7 @@ export function QuickRunShell({
         </div>
         <ResizableHandle onResize={handleLeftResize} direction="right" />
         <div className="flex-1 min-w-0">
-          <InstanceDashboard />
+          <InstanceDashboard configRef={configRef} persistConfig={persistConfig} />
         </div>
         <ResizableHandle onResize={handleRightResize} direction="left" />
         <div style={{ width: rightWidth, minWidth: 200, maxWidth: 500 }} className="flex-shrink-0">
