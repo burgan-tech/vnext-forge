@@ -90,6 +90,7 @@ export function createQuickRunService(runtimeProxyService: RuntimeProxyService) 
     const base = buildBasePath(params.domain, params.workflowKey)
     const body: Record<string, unknown> = {}
     if (params.key) body.key = params.key
+    if (params.stage) body.stage = params.stage
     if (params.tags) body.tags = params.tags
     if (params.attributes) body.attributes = params.attributes
 
@@ -118,6 +119,7 @@ export function createQuickRunService(runtimeProxyService: RuntimeProxyService) 
     const base = buildBasePath(params.domain, params.workflowKey)
     const body: Record<string, unknown> = {}
     if (params.key) body.key = params.key
+    if (params.stage) body.stage = params.stage
     if (params.tags) body.tags = params.tags
     if (params.attributes) body.attributes = params.attributes
 
@@ -252,6 +254,7 @@ export function createQuickRunService(runtimeProxyService: RuntimeProxyService) 
     const base = buildBasePath(params.domain, params.workflowKey)
     const body: Record<string, unknown> = {}
     if (params.key) body.key = params.key
+    if (params.stage) body.stage = params.stage
     if (params.tags) body.tags = params.tags
     if (params.attributes) body.attributes = params.attributes
 
