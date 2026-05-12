@@ -1,7 +1,11 @@
 import { useEffect, useState } from 'react';
 
 import { isMessageOriginAllowed } from '@vnext-forge-studio/designer-ui';
-import { QuickRunApi, QuickRunShell } from '@vnext-forge-studio/designer-ui/quickrun';
+import {
+  QuickRunApi,
+  QuickRunShell,
+  type SchemaReference,
+} from '@vnext-forge-studio/designer-ui/quickrun';
 
 import { resolveWebviewPostMessageAllowedOrigins } from '../host/webviewMessageOrigins';
 import type { VsCodeWebviewApi } from '../VsCodeTransport';
@@ -15,6 +19,11 @@ interface QuickRunContext {
   environmentUrl?: string;
   pollingRetryCount?: number;
   pollingIntervalMs?: number;
+  /**
+   * Forwarded from the extension host. When present, `NewRunDialog` can
+   * faker-fill the start payload via the test-data backend.
+   */
+  startSchemaRef?: SchemaReference;
 }
 
 interface Props {
@@ -45,6 +54,7 @@ export function QuickRunApp({ api }: Props) {
           environmentUrl: data.environmentUrl,
           pollingRetryCount: data.pollingRetryCount,
           pollingIntervalMs: data.pollingIntervalMs,
+          startSchemaRef: data.startSchemaRef,
         });
       }
     }
@@ -69,8 +79,10 @@ export function QuickRunApp({ api }: Props) {
       environmentName={context.environmentName}
       environmentUrl={context.environmentUrl}
       projectPath={context.projectPath}
+      projectId={context.projectId}
       pollingRetryCount={context.pollingRetryCount}
       pollingIntervalMs={context.pollingIntervalMs}
+      {...(context.startSchemaRef ? { startSchemaRef: context.startSchemaRef } : {})}
     />
   );
 }

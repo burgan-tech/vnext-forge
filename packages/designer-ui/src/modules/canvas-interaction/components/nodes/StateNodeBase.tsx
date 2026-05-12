@@ -64,11 +64,17 @@ const ARROW_ICON = { [Position.Top]: ArrowUp, [Position.Bottom]: ArrowDown, [Pos
 
 const NODE_RADIUS = 16;
 
+// Each handle renders as a small circular dot at the midpoint of the
+// corresponding edge. React Flow's default positioning already places
+// the dot half-inside / half-outside the node border (Easy Connect
+// look), so we just let it run and only override the size + shape.
+// `transform: undefined` falls back to React Flow's default
+// `translate(-50%, -50%)` centering.
 const HANDLE_STYLE: Record<string, React.CSSProperties> = {
-  [Position.Top]:    { transform: 'none', top: 0, left: 0, right: 0, width: '100%', height: 12, borderRadius: `${NODE_RADIUS}px ${NODE_RADIUS}px 6px 6px` },
-  [Position.Bottom]: { transform: 'none', bottom: 0, top: 'auto', left: 0, right: 0, width: '100%', height: 12, borderRadius: `6px 6px ${NODE_RADIUS}px ${NODE_RADIUS}px` },
-  [Position.Left]:   { transform: 'none', top: 0, bottom: 0, left: 0, height: '100%', width: 12, borderRadius: `${NODE_RADIUS}px 6px 6px ${NODE_RADIUS}px` },
-  [Position.Right]:  { transform: 'none', top: 0, bottom: 0, right: 0, left: 'auto', height: '100%', width: 12, borderRadius: `6px ${NODE_RADIUS}px ${NODE_RADIUS}px 6px` },
+  [Position.Top]: { width: 12, height: 12 },
+  [Position.Bottom]: { width: 12, height: 12 },
+  [Position.Left]: { width: 12, height: 12 },
+  [Position.Right]: { width: 12, height: 12 },
 };
 
 function EdgeHandle({ position, id }: { position: Position; id: string }) {

@@ -1,9 +1,12 @@
 /*
- * React Flow reconnect updater circles.
- * Source updater: hidden.
- * Target updater: the actual interactive reconnect button. Styled as a vivid
- * sky-blue circle on edge hover. Handle sync effect in FlowCanvas ensures
- * the updater appears on the correct side of the target node.
+ * React Flow reconnect updater circles. We mirror the official
+ * `delete-edge-on-drop` example: no custom `cursor` overrides on the
+ * edge group or the updater target — React Flow's built-in stylesheet
+ * handles all cursor changes. We only customize the visual appearance
+ * of the updater circle (transparent at rest, sky-blue on hover/selected,
+ * brighter on direct hover) to make the reconnect dot discoverable.
+ *
+ * Source updater is hidden because we only allow target-end reconnects.
  */
 .react-flow__edgeupdater-source {
   fill: transparent;
@@ -16,7 +19,6 @@
   fill: transparent;
   stroke: transparent;
   r: 16;
-  cursor: grab;
   transition: fill 0.15s ease, stroke 0.15s ease, r 0.15s ease, filter 0.15s ease;
 }
 
@@ -35,44 +37,109 @@
   stroke-width: 2.5;
   r: 11 !important;
   filter: drop-shadow(0 0 8px rgba(14, 165, 233, 0.7)) !important;
-  cursor: grab;
 }
 
-/* ─── EasyConnect handle strips ─── */
+/* ─── EasyConnect connection handles ─── */
+/*
+ * Four small circular dots — one centered on each edge of the state
+ * node — act as connection sources. React Flow's default handle
+ * positioning already places the dot half-inside / half-outside the
+ * node's border, matching the Easy Connect example (and Lucidchart /
+ * Miro / draw.io convention). The handle is itself the visible dot;
+ * we don't render a separate `::after` pseudo-element anymore.
+ *
+ * State chart:
+ *   - default            → white fill + slate border, low contrast
+ *   - node hovered       → sky-blue fill, slight grow → "drag from here"
+ *   - dot hovered direct → sky-500 + halo + `crosshair` cursor
+ *   - connection active  → all nodes' dots light up sky-blue, every
+ *                          node becomes a valid drop target
+ *
+ * Hide the legacy arrow icon — the dot is now the affordance.
+ */
 
 .react-flow__handle.edge-handle-strip {
-  background: transparent !important;
-  border: none !important;
-  transition: background 0.15s ease, box-shadow 0.15s ease;
+  background: #ffffff !important;
+  border: 1.5px solid #94a3b8 !important; /* slate-400 */
+  border-radius: 50% !important;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08) !important;
+  cursor: crosshair !important;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease,
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
 }
 
-/* Node hovered → strips light up */
-.react-flow__node:hover .react-flow__handle.edge-handle-strip {
-  background: rgba(56, 189, 248, 0.35) !important; /* sky-400 */
-  box-shadow: inset 0 0 6px rgba(56, 189, 248, 0.25);
-}
-
-/* Direct handle hover → even brighter */
-.react-flow__node:hover .react-flow__handle.edge-handle-strip:hover {
-  background: rgba(56, 189, 248, 0.6) !important;
-  box-shadow: inset 0 0 8px rgba(56, 189, 248, 0.4), 0 0 6px rgba(56, 189, 248, 0.3);
-}
-
-/* Arrow icon inside handle — hidden by default, shown on node hover */
 .react-flow__handle.edge-handle-strip .edge-handle-icon {
-  opacity: 0;
-  transition: opacity 0.15s ease;
-  pointer-events: none;
-  color: #38bdf8; /* sky-400 */
+  display: none !important;
 }
 
-.react-flow__node:hover .react-flow__handle.edge-handle-strip .edge-handle-icon {
-  opacity: 0.9;
+/* Node hovered → dots light up so the user knows they're connect sources. */
+.react-flow__node:hover .react-flow__handle.edge-handle-strip {
+  background: #38bdf8 !important; /* sky-400 */
+  border-color: #0ea5e9 !important; /* sky-500 */
+  transform: translate(-50%, -50%) scale(1.1);
 }
 
-.react-flow__node:hover .react-flow__handle.edge-handle-strip:hover .edge-handle-icon {
-  opacity: 1;
-  color: #fff;
+/* Direct hover on the dot → full color + halo. The `transform` keeps
+ * React Flow's default centering (`translate(-50%,-50%)`) and layers
+ * a scale on top so the dot grows in place. */
+.react-flow__node:hover .react-flow__handle.edge-handle-strip:hover {
+  background: #0ea5e9 !important; /* sky-500 */
+  border-color: #0284c7 !important; /* sky-600 */
+  transform: translate(-50%, -50%) scale(1.3);
+  box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.25) !important;
+}
+
+/*
+ * Top / right / bottom / left position-specific transform overrides.
+ * React Flow uses different translate values per position to anchor
+ * the handle to the correct edge; without explicit overrides the
+ * `scale(...)` above would override the translate. We bake in the
+ * default per-position translation + scale.
+ */
+.react-flow__node:hover .react-flow__handle.edge-handle-strip.react-flow__handle-top {
+  transform: translate(-50%, -50%) scale(1.1);
+}
+.react-flow__node:hover .react-flow__handle.edge-handle-strip.react-flow__handle-bottom {
+  transform: translate(-50%, 50%) scale(1.1);
+}
+.react-flow__node:hover .react-flow__handle.edge-handle-strip.react-flow__handle-left {
+  transform: translate(-50%, -50%) scale(1.1);
+}
+.react-flow__node:hover .react-flow__handle.edge-handle-strip.react-flow__handle-right {
+  transform: translate(50%, -50%) scale(1.1);
+}
+.react-flow__node:hover .react-flow__handle.edge-handle-strip.react-flow__handle-top:hover {
+  transform: translate(-50%, -50%) scale(1.3);
+}
+.react-flow__node:hover .react-flow__handle.edge-handle-strip.react-flow__handle-bottom:hover {
+  transform: translate(-50%, 50%) scale(1.3);
+}
+.react-flow__node:hover .react-flow__handle.edge-handle-strip.react-flow__handle-left:hover {
+  transform: translate(-50%, -50%) scale(1.3);
+}
+.react-flow__node:hover .react-flow__handle.edge-handle-strip.react-flow__handle-right:hover {
+  transform: translate(50%, -50%) scale(1.3);
+}
+
+/*
+ * While a connection drag is active (= `.react-flow__connection` exists
+ * in the DOM), every node should advertise that it's a *drop target*
+ * for the in-flight connection — not a draggable thing. Crosshair on
+ * all nodes, plus the dots light up sky-blue.
+ *
+ * `:has()` lets us scope this to the React Flow root that contains an
+ * active connection — no JS state, no extra DOM mutation.
+ */
+.react-flow:has(.react-flow__connection) .react-flow__node {
+  cursor: crosshair !important;
+}
+
+.react-flow:has(.react-flow__connection) .react-flow__handle.edge-handle-strip {
+  background: #38bdf8 !important;
+  border-color: #0ea5e9 !important;
 }
 
 /* ─── Canvas Search Spotlight (cmdk) ─── */

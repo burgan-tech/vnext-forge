@@ -4,6 +4,7 @@ import {
   MetadataEditableTextInput,
   MetadataLockedTextInput,
   useComponentTypeSchema,
+  useFieldValidationError,
 } from '../../component-metadata';
 import { Field } from '../../../ui/Field';
 import { TagEditor } from '../../../ui/TagEditor';
@@ -25,6 +26,11 @@ export function ExtensionMetadataForm({ json, onChange }: ExtensionMetadataFormP
   // `required` markers come from `@burgan-tech/vnext-schema/extension`
   // matching the project's pinned schema version (or bundled fallback).
   const { requiredFields } = useComponentTypeSchema('extension');
+  // Save-time validation errors → aria-invalid + hint message.
+  const keyServerError = useFieldValidationError('key');
+  const versionServerError = useFieldValidationError('version');
+  const domainServerError = useFieldValidationError('domain');
+  const flowServerError = useFieldValidationError('flow');
   const form = useForm<ExtensionMetadataFormValues>({
     mode: 'onChange',
     defaultValues: toExtensionMetadataFormValues(json),
@@ -60,9 +66,6 @@ export function ExtensionMetadataForm({ json, onChange }: ExtensionMetadataFormP
       draft.version = parsed.data.version;
       draft.domain = parsed.data.domain;
       draft.flow = parsed.data.flow || undefined;
-      draft.type = parsed.data.type;
-      draft.scope = parsed.data.scope;
-      draft.definedFlows = parsed.data.definedFlows;
       draft.tags = parsed.data.tags;
 
       const attrs = (draft.attributes ?? {}) as Record<string, unknown>;
@@ -110,42 +113,42 @@ export function ExtensionMetadataForm({ json, onChange }: ExtensionMetadataFormP
         <Field
           label="Key"
           required={requiredFields.has('key')}
-          hint={form.formState.errors.key?.message}
+          errorMsg={form.formState.errors.key?.message || keyServerError}
         >
           <MetadataEditableTextInput
             {...keyValidation}
-            aria-invalid={Boolean(form.formState.errors.key)}
+            aria-invalid={Boolean(form.formState.errors.key) || Boolean(keyServerError)}
           />
         </Field>
         <Field
           label="Version"
           required={requiredFields.has('version')}
-          hint={form.formState.errors.version?.message}
+          errorMsg={form.formState.errors.version?.message || versionServerError}
         >
           <MetadataEditableTextInput
             {...versionValidation}
-            aria-invalid={Boolean(form.formState.errors.version)}
+            aria-invalid={Boolean(form.formState.errors.version) || Boolean(versionServerError)}
           />
         </Field>
         <Field
           label="Domain"
           required={requiredFields.has('domain')}
-          hint={form.formState.errors.domain?.message}
+          errorMsg={form.formState.errors.domain?.message || domainServerError}
         >
           <MetadataLockedTextInput
             {...domainValidation}
-            aria-invalid={Boolean(form.formState.errors.domain)}
+            aria-invalid={Boolean(form.formState.errors.domain) || Boolean(domainServerError)}
           />
         </Field>
         <Field
           label="Flow"
           required={requiredFields.has('flow')}
-          hint={form.formState.errors.flow?.message}
+          errorMsg={form.formState.errors.flow?.message || flowServerError}
         >
           <MetadataLockedTextInput
             {...flowValidation}
             placeholder="(optional)"
-            aria-invalid={Boolean(form.formState.errors.flow)}
+            aria-invalid={Boolean(form.formState.errors.flow) || Boolean(flowServerError)}
           />
         </Field>
       </div>
@@ -208,7 +211,7 @@ export function ExtensionMetadataForm({ json, onChange }: ExtensionMetadataFormP
         control={form.control}
         name="tags"
         render={({ field }) => (
-          <Field label="Tags" hint={form.formState.errors.tags?.message}>
+          <Field label="Tags" errorMsg={form.formState.errors.tags?.message}>
             <TagEditor
               tags={field.value}
               onChange={(tags) => {

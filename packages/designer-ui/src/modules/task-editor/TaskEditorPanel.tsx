@@ -1,4 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../ui/Card';
+import { ComponentValidationSummary } from '../save-component/components/ComponentValidationSummary';
 import { TaskMetadataForm } from './TaskMetadataForm';
 import { taskFormMap } from './forms';
 
@@ -25,6 +26,7 @@ export function TaskEditorPanel({ json, onChange }: TaskEditorPanelProps) {
 
   return (
     <div className="space-y-4 p-4">
+      <ComponentValidationSummary />
       <Card variant="default" className="gap-3">
         <CardHeader className="border-border border-b">
           <CardTitle className="text-base">Task Metadata</CardTitle>

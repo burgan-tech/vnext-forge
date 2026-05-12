@@ -355,6 +355,36 @@ export function workflowToReactFlow(
     }
   }
 
+  // ── Parallel edge fan-out ──────────────────────────────────────────────
+  // Multiple transitions between the same two states (e.g. `approve` /
+  // `reject` from `pending` → `decided`) would otherwise collapse onto
+  // the exact same bezier path, making them indistinguishable and
+  // unclickable. We tag every edge with its `parallelIndex` (0-based)
+  // and `parallelCount` for that source→target pair (direction-aware so
+  // a→b and b→a still draw their own arcs). `TransitionEdge` reads
+  // these and offsets the bezier control point along the edge's
+  // perpendicular normal, fanning the lanes out like ribbon tracks.
+  const pairCounts = new Map<string, number>();
+  for (const edge of edges) {
+    if (!edge.source || !edge.target) continue;
+    const key = `${edge.source} ${edge.target}`;
+    pairCounts.set(key, (pairCounts.get(key) ?? 0) + 1);
+  }
+  const pairIndex = new Map<string, number>();
+  for (const edge of edges) {
+    if (!edge.source || !edge.target) continue;
+    const key = `${edge.source} ${edge.target}`;
+    const count = pairCounts.get(key) ?? 1;
+    if (count <= 1) continue;
+    const idx = pairIndex.get(key) ?? 0;
+    edge.data = {
+      ...(edge.data ?? {}),
+      parallelIndex: idx,
+      parallelCount: count,
+    };
+    pairIndex.set(key, idx + 1);
+  }
+
   return { nodes, edges };
 }
 

@@ -7,7 +7,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '../../../ui/Tooltip';
-import { SchemaForm } from '../../schema-form';
+import { SchemaForm, validateAgainstSchema } from '../../schema-form';
 import type { JsonSchemaRoot } from '../../schema-form';
 import * as QuickRunApi from '../QuickRunApi';
 import type { PresetEntry, SchemaReference, WorkflowBucketConfig } from '../QuickRunApi';
@@ -83,6 +83,12 @@ export function NewRunDialog({
   // capture it here so SchemaForm can render a live form view next to
   // the JSON editor toggle.
   const [resolvedSchema, setResolvedSchema] = useState<JsonSchemaRoot | null>(null);
+  // Submit-time validation gate. Until the user presses Start Run we
+  // only show errors for fields they have already touched (so a fresh
+  // dialog never lights up red). After a submit attempt we flip this
+  // flag so every required / pattern violation lights up at once. Reset
+  // when the dialog closes.
+  const [submitAttempted, setSubmitAttempted] = useState(false);
 
   const canGenerate = Boolean(projectId && startSchemaRef);
   const canPresets = Boolean(projectId && workflowKey);
@@ -225,6 +231,33 @@ export function NewRunDialog({
       }
     }
 
+    // Submit-time schema validation. Skipped when no resolved schema is
+    // available (workflow without a `startTransition.schema` reference)
+    // so manual JSON edits still flow through. When the schema is
+    // present, required / type / format violations block the submit and
+    // surface every error in the form (`showAllErrors`) instead of just
+    // the first one the user typed.
+    if (resolvedSchema) {
+      const issues = validateAgainstSchema(resolvedSchema, parsedAttributes);
+      const issueCount = Object.keys(issues).length;
+      if (issueCount > 0) {
+        setSubmitAttempted(true);
+        const [firstPath, firstMessages] = Object.entries(issues)[0];
+        setError(
+          issueCount === 1
+            ? `${firstPath || 'payload'}: ${firstMessages.join(', ')}`
+            : `${firstPath || 'payload'}: ${firstMessages.join(', ')} (+${
+                issueCount - 1
+              } more)`,
+        );
+        setLoading(false);
+        return;
+      }
+    }
+    // Validation passed — keep submitAttempted off so the next open
+    // starts clean.
+    setSubmitAttempted(false);
+
     const tagsList = tags
       .split(',')
       .map((t) => t.trim())
@@ -315,7 +348,7 @@ export function NewRunDialog({
     }
 
     setLoading(false);
-  }, [domain, workflowKey, instanceKey, stage, tags, attributes, sync, version, headerRows, globalHeaders, environmentName, environmentUrl, addInstance, addTab, pollState, onClose, configRef, persistConfig]);
+  }, [domain, workflowKey, instanceKey, stage, tags, attributes, sync, version, headerRows, globalHeaders, environmentName, environmentUrl, addInstance, addTab, pollState, onClose, configRef, persistConfig, resolvedSchema]);
 
   const dialogRef = useRef<HTMLDivElement>(null);
 
@@ -352,11 +385,13 @@ export function NewRunDialog({
   // Reset the auto-fill flag (and schema cache) when the dialog closes so
   // reopening triggers a fresh auto-fill instead of leaving last
   // session's payload. The schema is also cleared so a workflow change
-  // between opens doesn't leak its predecessor's form view.
+  // between opens doesn't leak its predecessor's form view. The submit
+  // gate is reset too so the next open starts without red error markers.
   useEffect(() => {
     if (!open) {
       autoFilledOnceRef.current = false;
       setResolvedSchema(null);
+      setSubmitAttempted(false);
     }
   }, [open]);
 
@@ -531,26 +566,22 @@ export function NewRunDialog({
             {/* Action buttons row */}
             <div className="flex items-center gap-1 flex-wrap">
               {canGenerate ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => void runGenerate()}
-                    disabled={generating}
-                    className="rounded border border-[var(--vscode-panel-border)] px-2 py-0.5 text-[10px] hover:bg-[var(--vscode-list-hoverBackground)] disabled:opacity-50"
-                    title="Generate a fresh faker-driven JSON instance from the workflow's start schema"
-                  >
-                    ✨ Generate
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => void runGenerate({ seed: Date.now() })}
-                    disabled={generating}
-                    className="rounded border border-[var(--vscode-panel-border)] px-2 py-0.5 text-[10px] hover:bg-[var(--vscode-list-hoverBackground)] disabled:opacity-50"
-                    title="Regenerate with a fresh random seed"
-                  >
-                    🔄 Regenerate
-                  </button>
-                </>
+                /*
+                 * Single Generate button — each click feeds a fresh
+                 * `Date.now()` seed to the faker so consecutive presses
+                 * produce visibly different payloads. The previous UI
+                 * had a separate "Regenerate" button that did the same
+                 * thing; merging them removes the redundant control.
+                 */
+                <button
+                  type="button"
+                  onClick={() => void runGenerate({ seed: Date.now() })}
+                  disabled={generating}
+                  className="rounded border border-[var(--vscode-panel-border)] px-2 py-0.5 text-[10px] hover:bg-[var(--vscode-list-hoverBackground)] disabled:opacity-50"
+                  title="Generate a fresh faker-driven JSON instance from the workflow's start schema (re-click for a new payload)"
+                >
+                  ✨ Generate
+                </button>
               ) : null}
               <button
                 type="button"
@@ -597,6 +628,7 @@ export function NewRunDialog({
               onChange={setAttributes}
               jsonEditorLabel=""
               jsonEditorRows={8}
+              showAllErrors={submitAttempted}
             />
           </div>
 

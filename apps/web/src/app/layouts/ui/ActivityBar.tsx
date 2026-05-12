@@ -12,9 +12,12 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
+  useComponentStore,
+  useValidationStore,
 } from '@vnext-forge-studio/designer-ui';
 
 import { useWebShellStore, type SidebarView } from '../../store/useWebShellStore';
+import { useWorkspaceDiagnosticsStore } from '../../store/useWorkspaceDiagnosticsStore';
 
 interface ActivityItem {
   id: SidebarView | 'home';
@@ -34,6 +37,13 @@ const bottomItems: ActivityItem[] = [
   { id: 'templates', icon: <Settings size={20} />, title: 'Settings' },
 ];
 
+function useProblemsCount(): number {
+  const workflowErrorCount = useValidationStore((s) => s.issues.filter((i) => i.severity === 'error').length);
+  const componentErrorCount = useComponentStore((s) => s.validationErrors.length);
+  const configIssueCount = useWorkspaceDiagnosticsStore((s) => s.configIssues.filter((i) => i.severity === 'error').length);
+  return workflowErrorCount + componentErrorCount + configIssueCount;
+}
+
 export function ActivityBar() {
   const sidebarOpen = useWebShellStore((s) => s.sidebarOpen);
   const sidebarView = useWebShellStore((s) => s.sidebarView);
@@ -41,6 +51,7 @@ export function ActivityBar() {
   const toggleSidebar = useWebShellStore((s) => s.toggleSidebar);
   const navigate = useNavigate();
   const location = useLocation();
+  const problemsCount = useProblemsCount();
 
   function handleClick(item: ActivityItem) {
     if (item.id === 'home') {
@@ -72,7 +83,7 @@ export function ActivityBar() {
               <TooltipTrigger asChild>
                 <button
                   onClick={() => handleClick(item)}
-                  aria-label={item.title}
+                  aria-label={item.id === 'validation' && problemsCount > 0 ? `${item.title}, ${problemsCount} error${problemsCount > 1 ? 's' : ''}` : item.title}
                   className={`relative flex h-10 w-10 items-center justify-center rounded-xl transition-all duration-150 ${
                     isActive(item)
                       ? 'bg-chrome-item text-chrome-foreground'
@@ -82,6 +93,11 @@ export function ActivityBar() {
                     <span className="bg-chrome-accent absolute top-1/2 left-0 h-5 w-0.75 -translate-y-1/2 rounded-r-full" />
                   )}
                   {item.icon}
+                  {item.id === 'validation' && problemsCount > 0 && (
+                    <span className="absolute top-1 right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-destructive-surface text-[9px] font-bold text-destructive-text px-0.5">
+                      {problemsCount > 99 ? '99+' : problemsCount}
+                    </span>
+                  )}
                 </button>
               </TooltipTrigger>
               <TooltipContent side="right" className="text-[11px]">

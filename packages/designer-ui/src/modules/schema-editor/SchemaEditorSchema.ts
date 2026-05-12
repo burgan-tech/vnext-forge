@@ -9,18 +9,26 @@ export const schemaMetadataFormSchema = z.object({
   key: z.string().trim().min(1, 'Key is required.'),
   version: z.string().trim().min(1, 'Version is required.'),
   domain: z.string().trim().min(1, 'Domain is required.'),
-  flow: z.string().trim(),
-  tags: z.array(z.string().trim().min(1, 'Tags cannot be empty.')),
+  flow: z.string().trim().min(1, 'Flow is required.'),
+  flowVersion: z.string().trim().min(1, 'Flow version is required.'),
+  tags: z.array(z.string().trim().min(1, 'Tags cannot be empty.')).min(1, 'At least one tag is required.'),
 });
 
 export type SchemaMetadataFormValues = z.infer<typeof schemaMetadataFormSchema>;
 
+/**
+ * Permissive document schema used on **load** so that legacy files
+ * (missing `flow`, `flowVersion`, or `tags`) can still open in the editor
+ * for repair. Authoritative enforcement happens at **save** time via
+ * `validateComponentBeforeWrite` (AJV / vnext-schema).
+ */
 export const schemaEditorDocumentSchema = z
   .object({
     key: z.string().trim().min(1),
     version: z.string().trim().min(1),
     domain: z.string().trim().min(1),
     flow: z.string().optional(),
+    flowVersion: z.string().optional(),
     type: z.string().optional(),
     tags: z.array(z.string()).optional(),
     attributes: z
@@ -40,6 +48,7 @@ export function toSchemaMetadataFormValues(
     version: typeof json.version === 'string' ? json.version : '',
     domain: typeof json.domain === 'string' ? json.domain : '',
     flow: typeof json.flow === 'string' ? json.flow : '',
+    flowVersion: typeof json.flowVersion === 'string' ? json.flowVersion : '',
     tags: Array.isArray(json.tags) ? json.tags.filter((tag): tag is string => typeof tag === 'string') : [],
   };
 }

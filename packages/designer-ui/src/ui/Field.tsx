@@ -67,7 +67,7 @@ const fieldHintVariants = cva('text-[10px]', {
   },
 });
 
-const fieldErrorVariants = cva('text-[10px] text-destructive-text', {
+const fieldErrorVariants = cva('text-[11px] text-destructive-text', {
   variants: {
     variant: {
       default: '',

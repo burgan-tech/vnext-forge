@@ -4,6 +4,7 @@ import {
   MetadataEditableTextInput,
   MetadataLockedTextInput,
   useComponentTypeSchema,
+  useFieldValidationError,
 } from '../../component-metadata';
 import { Field } from '../../../ui/Field';
 import { TagEditor } from '../../../ui/TagEditor';
@@ -23,6 +24,14 @@ export function FunctionMetadataForm({ json, onChange }: FunctionMetadataFormPro
   // `required` markers come from `@burgan-tech/vnext-schema/function`
   // matching the project's pinned schema version (or bundled fallback).
   const { requiredFields } = useComponentTypeSchema('function');
+  // Save-time validation errors → aria-invalid + hint message.
+  const keyServerError = useFieldValidationError('key');
+  const versionServerError = useFieldValidationError('version');
+  const domainServerError = useFieldValidationError('domain');
+  const flowServerError = useFieldValidationError('flow');
+  // scope/tags/etc. server errors aren't wired yet — picker components
+  // own their own aria-invalid path; revisit when scope picker accepts
+  // an error prop.
   const form = useForm<FunctionMetadataFormValues>({
     mode: 'onChange',
     defaultValues: toFunctionMetadataFormValues(json),
@@ -61,8 +70,11 @@ export function FunctionMetadataForm({ json, onChange }: FunctionMetadataFormPro
       draft.version = parsedValues.data.version;
       draft.domain = parsedValues.data.domain;
       draft.flow = parsedValues.data.flow || undefined;
-      draft.scope = parsedValues.data.scope;
       draft.tags = parsedValues.data.tags;
+
+      const attrs = (draft.attributes ?? {}) as Record<string, unknown>;
+      attrs.scope = parsedValues.data.scope;
+      draft.attributes = attrs;
     });
   }, [json, onChange, values]);
 
@@ -97,42 +109,42 @@ export function FunctionMetadataForm({ json, onChange }: FunctionMetadataFormPro
         <Field
           label="Key"
           required={requiredFields.has('key')}
-          hint={form.formState.errors.key?.message}
+          errorMsg={form.formState.errors.key?.message || keyServerError}
         >
           <MetadataEditableTextInput
             {...keyValidation}
-            aria-invalid={Boolean(form.formState.errors.key)}
+            aria-invalid={Boolean(form.formState.errors.key) || Boolean(keyServerError)}
           />
         </Field>
         <Field
           label="Version"
           required={requiredFields.has('version')}
-          hint={form.formState.errors.version?.message}
+          errorMsg={form.formState.errors.version?.message || versionServerError}
         >
           <MetadataEditableTextInput
             {...versionValidation}
-            aria-invalid={Boolean(form.formState.errors.version)}
+            aria-invalid={Boolean(form.formState.errors.version) || Boolean(versionServerError)}
           />
         </Field>
         <Field
           label="Domain"
           required={requiredFields.has('domain')}
-          hint={form.formState.errors.domain?.message}
+          errorMsg={form.formState.errors.domain?.message || domainServerError}
         >
           <MetadataLockedTextInput
             {...domainValidation}
-            aria-invalid={Boolean(form.formState.errors.domain)}
+            aria-invalid={Boolean(form.formState.errors.domain) || Boolean(domainServerError)}
           />
         </Field>
         <Field
           label="Flow"
           required={requiredFields.has('flow')}
-          hint={form.formState.errors.flow?.message}
+          errorMsg={form.formState.errors.flow?.message || flowServerError}
         >
           <MetadataLockedTextInput
             {...flowValidation}
             placeholder="(optional)"
-            aria-invalid={Boolean(form.formState.errors.flow)}
+            aria-invalid={Boolean(form.formState.errors.flow) || Boolean(flowServerError)}
           />
         </Field>
       </div>
@@ -162,7 +174,7 @@ export function FunctionMetadataForm({ json, onChange }: FunctionMetadataFormPro
         control={form.control}
         name="tags"
         render={({ field }) => (
-          <Field label="Tags" hint={form.formState.errors.tags?.message}>
+          <Field label="Tags" errorMsg={form.formState.errors.tags?.message}>
             <TagEditor
               tags={field.value}
               onChange={(tags) => {

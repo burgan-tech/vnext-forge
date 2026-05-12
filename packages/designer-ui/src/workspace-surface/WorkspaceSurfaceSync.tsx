@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react';
 
+import { useComponentStore } from '../store/useComponentStore.js';
+import { useProjectStore } from '../store/useProjectStore.js';
 import { useRuntimeStore } from '../store/useRuntimeStore.js';
 import { useValidationStore } from '../store/useValidationStore.js';
 import type { WorkspaceDiagnosticDto, WorkspaceStatusDto } from './workspace-surface-port.js';
@@ -23,8 +25,20 @@ export function WorkspaceSurfaceSync() {
   return null;
 }
 
+function toWorkspaceRelativePath(absolutePath: string, projectRoot: string): string {
+  if (!projectRoot || !absolutePath) return absolutePath;
+  const normAbs = absolutePath.replace(/\\/g, '/');
+  const normRoot = projectRoot.replace(/\\/g, '/').replace(/\/$/, '');
+  if (normAbs.startsWith(normRoot + '/')) {
+    return normAbs.slice(normRoot.length + 1);
+  }
+  return absolutePath;
+}
+
 function useDiagnosticsSync() {
   const issues = useValidationStore((s) => s.issues);
+  const componentErrors = useComponentStore((s) => s.validationErrors);
+  const componentFilePath = useComponentStore((s) => s.filePath);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -32,14 +46,29 @@ function useDiagnosticsSync() {
       clearTimeout(timerRef.current);
     }
     timerRef.current = setTimeout(() => {
-      const diagnostics: WorkspaceDiagnosticDto[] = issues.map((issue) => ({
+      const workflowDiagnostics: WorkspaceDiagnosticDto[] = issues.map((issue) => ({
         filePath: issue.path ?? '',
         severity: issue.severity,
         message: issue.message,
         source: 'vnext-forge-studio',
         range: undefined,
       }));
-      pushDiagnosticsToHost(diagnostics);
+
+      const componentDiagnostics: WorkspaceDiagnosticDto[] =
+        componentErrors.length > 0 && componentFilePath
+          ? componentErrors.map((err) => {
+              const projectPath = useProjectStore.getState().activeProject?.path ?? '';
+              return {
+                filePath: toWorkspaceRelativePath(componentFilePath, projectPath),
+                severity: 'error' as const,
+                message: err.path ? `${err.path}: ${err.message}` : err.message,
+                source: 'vnext-forge-studio',
+                range: undefined,
+              };
+            })
+          : [];
+
+      pushDiagnosticsToHost([...workflowDiagnostics, ...componentDiagnostics]);
     }, DEBOUNCE_MS);
 
     return () => {
@@ -47,13 +76,14 @@ function useDiagnosticsSync() {
         clearTimeout(timerRef.current);
       }
     };
-  }, [issues]);
+  }, [issues, componentErrors, componentFilePath]);
 }
 
 function useStatusSync() {
   const connected = useRuntimeStore((s) => s.connected);
   const healthStatus = useRuntimeStore((s) => s.healthStatus);
   const issues = useValidationStore((s) => s.issues);
+  const componentErrorCount = useComponentStore((s) => s.validationErrors.length);
 
   useEffect(() => {
     const runtimeLabel = connected
@@ -62,7 +92,7 @@ function useStatusSync() {
         ? 'Runtime Offline'
         : 'Standalone Mode';
 
-    const validationErrorCount = issues.filter((i) => i.severity === 'error').length;
+    const validationErrorCount = issues.filter((i) => i.severity === 'error').length + componentErrorCount;
     const validationWarningCount = issues.filter((i) => i.severity === 'warning').length;
 
     const status: WorkspaceStatusDto = {
@@ -73,5 +103,5 @@ function useStatusSync() {
     };
 
     pushStatusToHost(status);
-  }, [connected, healthStatus, issues]);
+  }, [connected, healthStatus, issues, componentErrorCount]);
 }

@@ -1,5 +1,5 @@
 import { Handle, Position, type NodeProps } from '@xyflow/react';
-import { memo, type CSSProperties } from 'react';
+import { memo } from 'react';
 import {
   RefreshCw,
   Ban,
@@ -69,15 +69,8 @@ export const WorkflowTransitionNode = memo(function WorkflowTransitionNode({
   const config = kindConfig[kind] || kindConfig.updateData;
   const Icon = config.icon;
 
-  const stripCls = 'edge-handle-strip';
-
-  const r = 8;
-  const hs: Record<string, CSSProperties> = {
-    top:    { transform: 'none', top: 0, left: 0, right: 0, width: '100%', height: 8, borderRadius: `${r}px ${r}px 3px 3px` },
-    bottom: { transform: 'none', bottom: 0, top: 'auto', left: 0, right: 0, width: '100%', height: 8, borderRadius: `3px 3px ${r}px ${r}px` },
-    left:   { transform: 'none', top: 0, bottom: 0, left: 0, height: '100%', width: 8, borderRadius: `${r}px 3px 3px ${r}px` },
-    right:  { transform: 'none', top: 0, bottom: 0, right: 0, left: 'auto', height: '100%', width: 8, borderRadius: `3px ${r}px ${r}px 3px` },
-  };
+  const hiddenCls = 'edge-handle-strip !flex !items-center !justify-center !opacity-0 !pointer-events-none';
+  const handleStyle: React.CSSProperties = { width: 12, height: 12 };
 
   return (
     <div
@@ -86,16 +79,16 @@ export const WorkflowTransitionNode = memo(function WorkflowTransitionNode({
       }`}
       title={label}
     >
-      {/* Source handles (visible) */}
-      <Handle type="source" id="top"    position={Position.Top}    style={hs.top}    className={stripCls} />
-      <Handle type="source" id="bottom" position={Position.Bottom} style={hs.bottom} className={stripCls} />
-      <Handle type="source" id="left"   position={Position.Left}   style={hs.left}   className={stripCls} />
-      <Handle type="source" id="right"  position={Position.Right}  style={hs.right}  className={stripCls} />
+      {/* Hidden source handles for floating edge routing */}
+      <Handle type="source" id="top"    position={Position.Top}    style={handleStyle} className={hiddenCls} />
+      <Handle type="source" id="bottom" position={Position.Bottom} style={handleStyle} className={hiddenCls} />
+      <Handle type="source" id="left"   position={Position.Left}   style={handleStyle} className={hiddenCls} />
+      <Handle type="source" id="right"  position={Position.Right}  style={handleStyle} className={hiddenCls} />
       {/* Hidden target handles for floating edge routing */}
-      <Handle type="target" id="top-target"    position={Position.Top}    style={hs.top}    className={`${stripCls} !opacity-0 !pointer-events-none`} />
-      <Handle type="target" id="bottom-target" position={Position.Bottom} style={hs.bottom} className={`${stripCls} !opacity-0 !pointer-events-none`} />
-      <Handle type="target" id="left-target"   position={Position.Left}   style={hs.left}   className={`${stripCls} !opacity-0 !pointer-events-none`} />
-      <Handle type="target" id="right-target"  position={Position.Right}  style={hs.right}  className={`${stripCls} !opacity-0 !pointer-events-none`} />
+      <Handle type="target" id="top-target"    position={Position.Top}    style={handleStyle} className={hiddenCls} />
+      <Handle type="target" id="bottom-target" position={Position.Bottom} style={handleStyle} className={hiddenCls} />
+      <Handle type="target" id="left-target"   position={Position.Left}   style={handleStyle} className={hiddenCls} />
+      <Handle type="target" id="right-target"  position={Position.Right}  style={handleStyle} className={hiddenCls} />
 
       <div className={`flex size-5 shrink-0 items-center justify-center rounded ${config.iconColor}`}>
         <Icon size={13} strokeWidth={2} />

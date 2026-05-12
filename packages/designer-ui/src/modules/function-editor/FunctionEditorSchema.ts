@@ -30,13 +30,15 @@ export const functionEditorDocumentSchema = z
 export function toFunctionMetadataFormValues(
   json: Record<string, unknown>,
 ): FunctionMetadataFormValues {
+  const attrs = (json.attributes ?? {}) as Record<string, unknown>;
+  const rawScope = attrs.scope ?? json.scope;
   return {
     key: typeof json.key === 'string' ? json.key : '',
     version: typeof json.version === 'string' ? json.version : '',
     domain: typeof json.domain === 'string' ? json.domain : '',
     flow: typeof json.flow === 'string' ? json.flow : '',
-    scope: typeof json.scope === 'string' && FUNCTION_SCOPE_VALUES.includes(json.scope as never)
-      ? (json.scope as FunctionMetadataFormValues['scope'])
+    scope: typeof rawScope === 'string' && FUNCTION_SCOPE_VALUES.includes(rawScope as never)
+      ? (rawScope as FunctionMetadataFormValues['scope'])
       : 'I',
     tags: Array.isArray(json.tags) ? json.tags.filter((tag): tag is string => typeof tag === 'string') : [],
   };

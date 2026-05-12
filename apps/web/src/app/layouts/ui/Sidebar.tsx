@@ -26,6 +26,7 @@ import { isFailure } from '@vnext-forge-studio/app-contracts';
 import { executeCliCommand } from '../../../services/cli.service';
 import { ProjectWorkspaceSidebarPanel } from '../../../modules/project-workspace';
 import { SearchPanel } from '../../../modules/project-search/SearchPanel';
+import { ProblemsSidebarPanel, SnippetsSidebarPanel } from '@vnext-forge-studio/designer-ui';
 import { useCliStore } from '../../store/useCliStore';
 import { useCliOutputStore } from '../../store/useCliOutputStore';
 import {
@@ -34,6 +35,7 @@ import {
 } from '../../store/useQuickRunSettingsStore';
 import { useEnvironmentStore } from '../../store/useEnvironmentStore';
 import { useWebShellStore } from '../../store/useWebShellStore';
+import { useWorkspaceDiagnosticsStore } from '../../store/useWorkspaceDiagnosticsStore';
 
 function EnvironmentsSection() {
   const environments = useEnvironmentStore((s) => s.environments);
@@ -461,6 +463,10 @@ function WorkflowCliSection() {
 
 export function Sidebar() {
   const sidebarView = useWebShellStore((s) => s.sidebarView);
+  // `Snippets` sidebar panel needs the active project so it can ask the
+  // host for project-scoped entries (the `Personal` scope works without
+  // it). Other sub-sections that need this id resolve it locally.
+  const activeProjectId = useProjectStore((s) => s.activeProject?.id);
   const settingsAccordionBootToken = useWebShellStore((s) => s.settingsAccordionBootToken);
   const pendingSettingsAccordionOpenIds = useWebShellStore((s) => s.pendingSettingsAccordionOpenIds);
   const clearPendingSettingsAccordionOpen = useWebShellStore(
@@ -470,6 +476,7 @@ export function Sidebar() {
   const setColorTheme = useSettingsStore((s) => s.setColorTheme);
   const autoSaveEnabled = useSettingsStore((s) => s.autoSaveEnabled);
   const setAutoSaveEnabled = useSettingsStore((s) => s.setAutoSaveEnabled);
+  const configIssues = useWorkspaceDiagnosticsStore((s) => s.configIssues);
 
   const settingsAccordionDefaultOpenIds = pendingSettingsAccordionOpenIds ?? [];
 
@@ -486,6 +493,7 @@ export function Sidebar() {
         {sidebarView === 'search' && 'Search'}
         {sidebarView === 'validation' && 'Problems'}
         {sidebarView === 'templates' && 'Settings'}
+        {sidebarView === 'snippets' && 'Snippets'}
       </div>
 
       <div className="flex-1 overflow-y-auto">
@@ -497,10 +505,12 @@ export function Sidebar() {
           </div>
         )}
 
+        {sidebarView === 'snippets' && (
+          <SnippetsSidebarPanel projectId={activeProjectId ?? null} />
+        )}
+
         {sidebarView === 'validation' && (
-          <div className="text-muted-foreground mt-12 px-4 text-center text-xs">
-            No problems detected
-          </div>
+          <ProblemsSidebarPanel configIssues={configIssues} />
         )}
 
         {sidebarView === 'templates' && (

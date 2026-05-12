@@ -6,7 +6,6 @@ import { Select } from '../../../ui/Select';
 import { TagEditor } from '../../../ui/TagEditor';
 import {
   BodyJsonField,
-  DaprToggleField,
   HttpSettingsFields,
   WorkflowRefFields,
   TransitionNameField,
@@ -39,21 +38,21 @@ export function DirectTriggerTaskForm({ config, onChange }: Props) {
       />
       <div className="grid grid-cols-2 gap-3">
         <Field label="Key">
-          <Input type="text" value={String(config.triggerKey || '')}
-            onChange={(e) => onChange((d: any) => { d.triggerKey = e.target.value || undefined; })}
+          <Input type="text" value={String(config.key || '')}
+            onChange={(e) => onChange((d: any) => { d.key = e.target.value || undefined; })}
             size="sm"
             inputClassName="font-mono text-xs" />
         </Field>
         <Field label="Instance ID">
-          <Input type="text" value={String(config.triggerInstanceId || '')}
-            onChange={(e) => onChange((d: any) => { d.triggerInstanceId = e.target.value || undefined; })}
+          <Input type="text" value={String(config.instanceId || '')}
+            onChange={(e) => onChange((d: any) => { d.instanceId = e.target.value || undefined; })}
             size="sm"
             inputClassName="font-mono text-xs" />
         </Field>
       </div>
       <Field label="Sync">
-        <Select value={config.triggerSync === false ? 'false' : 'true'}
-          onChange={(e) => onChange((d: any) => { d.triggerSync = e.target.value === 'true'; })}
+        <Select value={config.sync === false ? 'false' : 'true'}
+          onChange={(e) => onChange((d: any) => { d.sync = e.target.value === 'true'; })}
           className="text-xs">
           <option value="true">Yes</option>
           <option value="false">No</option>
@@ -61,13 +60,12 @@ export function DirectTriggerTaskForm({ config, onChange }: Props) {
       </Field>
       <Field label="Tags">
         <TagEditor
-          tags={(config.triggerTags as string[]) || []}
-          onChange={(tags) => onChange((d: any) => { d.triggerTags = tags.length > 0 ? tags : undefined; })}
+          tags={(config.tags as string[]) || []}
+          onChange={(tags) => onChange((d: any) => { d.tags = tags.length > 0 ? tags : undefined; })}
           placeholder="Add tag"
         />
       </Field>
       <BodyJsonField value={config.body} onChange={onChange} />
-      <DaprToggleField value={config.useDapr as boolean | undefined} onChange={onChange} />
       <HttpSettingsFields config={config} onChange={onChange} />
     </div>
   );

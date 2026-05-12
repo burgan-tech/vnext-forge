@@ -1,6 +1,25 @@
 import { create } from 'zustand';
 import { produce } from 'immer';
 
+/**
+ * Schema-validation error reported by the server (AJV) or the client-side
+ * baseline guard at save time. Forms read `validationErrors` from the
+ * store and mark the matching input(s) with `aria-invalid="true"` so the
+ * global CSS rule paints them red.
+ *
+ * `path` follows JSON Pointer style:
+ *   - `key`, `version`, `domain` for top-level metadata
+ *   - `/attributes/config/triggerDomain` for nested fields (leading `/`
+ *      and slashes are present when the AJV `instancePath` produces them)
+ *
+ * Forms strip leading `/`, split on `/`, and match against their field
+ * names — see `metadataFieldHasError` helper.
+ */
+export interface ComponentValidationError {
+  path: string;
+  message: string;
+}
+
 export interface ComponentSnapshot {
   componentJson: Record<string, unknown> | null;
   componentType: string | null;
@@ -13,6 +32,11 @@ export interface ComponentSnapshot {
 export interface ComponentState extends ComponentSnapshot {
   /** Stashed parent state while a modal editor temporarily owns the store. */
   _snapshot: ComponentSnapshot | null;
+  /**
+   * Errors reported by the last save attempt. Cleared on successful
+   * save or when the underlying component changes (debounced).
+   */
+  validationErrors: ComponentValidationError[];
 
   setComponent: (json: Record<string, unknown>, type: string, filePath: string) => void;
   updateComponent: (updater: (draft: Record<string, unknown>) => void) => void;
@@ -20,6 +44,8 @@ export interface ComponentState extends ComponentSnapshot {
   redo: () => void;
   markClean: () => void;
   clear: () => void;
+  setValidationErrors: (errors: ComponentValidationError[]) => void;
+  clearValidationErrors: () => void;
   /** Save current data fields so a modal editor can temporarily take over the store. */
   snapshotState: () => void;
   /** Restore previously saved snapshot and discard the modal editor's state. */
@@ -34,12 +60,21 @@ export const useComponentStore = create<ComponentState>((set, get) => ({
   undoStack: [],
   redoStack: [],
   _snapshot: null,
+  validationErrors: [],
 
   setComponent: (componentJson, componentType, filePath) =>
-    set({ componentJson, componentType, filePath, isDirty: false, undoStack: [], redoStack: [] }),
+    set({
+      componentJson,
+      componentType,
+      filePath,
+      isDirty: false,
+      undoStack: [],
+      redoStack: [],
+      validationErrors: [],
+    }),
 
   updateComponent: (updater) => {
-    const { componentJson, undoStack } = get();
+    const { componentJson, undoStack, validationErrors } = get();
     if (!componentJson) return;
     const next = produce(componentJson, updater);
     if (next === componentJson) return;
@@ -56,6 +91,10 @@ export const useComponentStore = create<ComponentState>((set, get) => ({
       isDirty: true,
       undoStack: [...undoStack.slice(-49), componentJson],
       redoStack: [],
+      // Clear stale validation errors as soon as the user edits anything,
+      // so the red border doesn't linger on a field they've now fixed.
+      // Forms will re-receive errors on the next save attempt.
+      validationErrors: validationErrors.length > 0 ? [] : validationErrors,
     });
   },
 
@@ -83,10 +122,22 @@ export const useComponentStore = create<ComponentState>((set, get) => ({
     });
   },
 
-  markClean: () => set({ isDirty: false }),
+  markClean: () => set({ isDirty: false, validationErrors: [] }),
 
   clear: () =>
-    set({ componentJson: null, componentType: null, filePath: null, isDirty: false, undoStack: [], redoStack: [] }),
+    set({
+      componentJson: null,
+      componentType: null,
+      filePath: null,
+      isDirty: false,
+      undoStack: [],
+      redoStack: [],
+      validationErrors: [],
+    }),
+
+  setValidationErrors: (errors) => set({ validationErrors: errors }),
+
+  clearValidationErrors: () => set({ validationErrors: [] }),
 
   snapshotState: () => {
     const { componentJson, componentType, filePath, isDirty, undoStack, redoStack } = get();

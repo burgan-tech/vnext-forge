@@ -3,6 +3,7 @@ import { useProjectStore } from '../../store/useProjectStore';
 import { useValidationStore } from '../../store/useValidationStore';
 import { useWorkflowStore } from '../../store/useWorkflowStore';
 import { useAsync } from '../../hooks/useAsync';
+import { useSchemaCapabilities } from '../schema-capabilities/useSchemaCapabilities';
 import { validateWorkflowDefinition } from './WorkflowValidationApi';
 
 export function useWorkflowValidation() {
@@ -15,6 +16,7 @@ export function useWorkflowValidation() {
   // version (downloaded + cached on first use) rather than always using
   // whatever the desktop app shipped with.
   const schemaVersion = useProjectStore((state) => state.vnextConfig?.schemaVersion);
+  const capabilities = useSchemaCapabilities('workflow');
 
   const { execute, loading, error, reset } = useAsync(validateWorkflowDefinition, {
     showNotificationOnError: false,
@@ -39,7 +41,7 @@ export function useWorkflowValidation() {
     }
 
     void execute(workflowJson, schemaVersion);
-  }, [clearIssues, execute, reset, schemaVersion, workflowJson]);
+  }, [clearIssues, execute, reset, schemaVersion, workflowJson, capabilities]);
 
   return {
     issues,

@@ -65,7 +65,22 @@ export function SonnerNotificationProvider({ children }: { children: ReactNode }
   return (
     <>
       {children}
-      <Toaster position="bottom-center" />
+      {/*
+       * `richColors` makes Sonner paint each kind in its native vibrant
+       * palette (red error, green success, amber warning, blue info)
+       * instead of a uniform muted toast — so the user can tell at a
+       * glance whether a save failed or succeeded.
+       *
+       * `closeButton` adds an `x` so persistent errors don't have to
+       * wait for the auto-dismiss timer.
+       *
+       * The VS Code extension shell renders these through
+       * `vscode.window.showErrorMessage / showWarningMessage /
+       * showInformationMessage` — native VS Code notifications already
+       * differentiate kinds by icon + color, so no parallel option
+       * needed there.
+       */}
+      <Toaster position="bottom-center" richColors closeButton />
     </>
   );
 }

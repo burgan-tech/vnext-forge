@@ -73,6 +73,7 @@ export function FunctionEditorView({
     redoStack,
   } = useComponentStore();
   const { save, saving, saveError, autoSavePending, autoSaved } = useSaveComponent({
+    componentType: 'function',
     afterSaveSuccess: onAtomicSaved
       ? () => {
           const j = useComponentStore.getState().componentJson;

@@ -13,6 +13,18 @@ export interface QuickRunContext {
   projectPath: string;
   environmentName?: string;
   environmentUrl?: string;
+  /**
+   * Workflow's `attributes.startTransition.schema` reference, if any.
+   * Forwarded to `QuickRunShell` so `NewRunDialog` can faker-fill the
+   * start payload through `test-data/generateForSchemaReference`. When
+   * absent the dialog falls back to manual JSON entry only.
+   */
+  startSchemaRef?: {
+    key: string;
+    version: string;
+    flow?: string;
+    domain?: string;
+  };
 }
 
 function isWebviewReadyMessage(raw: unknown): boolean {

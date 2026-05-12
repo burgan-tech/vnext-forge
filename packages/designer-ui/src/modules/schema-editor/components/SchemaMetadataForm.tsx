@@ -4,6 +4,7 @@ import {
   MetadataEditableTextInput,
   MetadataLockedTextInput,
   useComponentTypeSchema,
+  useFieldValidationError,
 } from '../../component-metadata';
 import { Field } from '../../../ui/Field';
 import { TagEditor } from '../../../ui/TagEditor';
@@ -23,6 +24,13 @@ export function SchemaMetadataForm({ json, onChange }: SchemaMetadataFormProps) 
   // `@burgan-tech/vnext-schema/schema` matching the project's pinned
   // `vnext.config.json#schemaVersion` (or bundled fallback).
   const { requiredFields } = useComponentTypeSchema('schema');
+  // Save-time validation errors merged into the form below so the
+  // matching inputs render with aria-invalid (red border via global CSS).
+  const keyServerError = useFieldValidationError('key');
+  const versionServerError = useFieldValidationError('version');
+  const domainServerError = useFieldValidationError('domain');
+  const flowServerError = useFieldValidationError('flow');
+  const flowVersionServerError = useFieldValidationError('flowVersion');
   const form = useForm<SchemaMetadataFormValues>({
     mode: 'onChange',
     defaultValues: toSchemaMetadataFormValues(json),
@@ -61,6 +69,7 @@ export function SchemaMetadataForm({ json, onChange }: SchemaMetadataFormProps) 
       draft.version = parsedValues.data.version;
       draft.domain = parsedValues.data.domain;
       draft.flow = parsedValues.data.flow || undefined;
+      draft.flowVersion = parsedValues.data.flowVersion || undefined;
       draft.tags = parsedValues.data.tags;
     });
   }, [json, onChange, values]);
@@ -86,7 +95,13 @@ export function SchemaMetadataForm({ json, onChange }: SchemaMetadataFormProps) 
   const flowValidation = form.register('flow', {
     validate: (value) => {
       const result = schemaMetadataFormSchema.shape.flow.safeParse(value);
-      return result.success || result.error.issues[0]?.message || 'Flow is invalid.';
+      return result.success || result.error.issues[0]?.message || 'Flow is required.';
+    },
+  });
+  const flowVersionValidation = form.register('flowVersion', {
+    validate: (value) => {
+      const result = schemaMetadataFormSchema.shape.flowVersion.safeParse(value);
+      return result.success || result.error.issues[0]?.message || 'Flow version is required.';
     },
   });
 
@@ -96,42 +111,51 @@ export function SchemaMetadataForm({ json, onChange }: SchemaMetadataFormProps) 
         <Field
           label="Key"
           required={requiredFields.has('key')}
-          hint={form.formState.errors.key?.message}
+          errorMsg={form.formState.errors.key?.message || keyServerError}
         >
           <MetadataEditableTextInput
             {...keyValidation}
-            aria-invalid={Boolean(form.formState.errors.key)}
+            aria-invalid={Boolean(form.formState.errors.key) || Boolean(keyServerError)}
           />
         </Field>
         <Field
           label="Version"
           required={requiredFields.has('version')}
-          hint={form.formState.errors.version?.message}
+          errorMsg={form.formState.errors.version?.message || versionServerError}
         >
           <MetadataEditableTextInput
             {...versionValidation}
-            aria-invalid={Boolean(form.formState.errors.version)}
+            aria-invalid={Boolean(form.formState.errors.version) || Boolean(versionServerError)}
           />
         </Field>
         <Field
           label="Domain"
           required={requiredFields.has('domain')}
-          hint={form.formState.errors.domain?.message}
+          errorMsg={form.formState.errors.domain?.message || domainServerError}
         >
           <MetadataLockedTextInput
             {...domainValidation}
-            aria-invalid={Boolean(form.formState.errors.domain)}
+            aria-invalid={Boolean(form.formState.errors.domain) || Boolean(domainServerError)}
           />
         </Field>
         <Field
           label="Flow"
           required={requiredFields.has('flow')}
-          hint={form.formState.errors.flow?.message}
+          errorMsg={form.formState.errors.flow?.message || flowServerError}
         >
           <MetadataLockedTextInput
             {...flowValidation}
-            placeholder="(optional)"
-            aria-invalid={Boolean(form.formState.errors.flow)}
+            aria-invalid={Boolean(form.formState.errors.flow) || Boolean(flowServerError)}
+          />
+        </Field>
+        <Field
+          label="Flow Version"
+          required={requiredFields.has('flowVersion')}
+          errorMsg={form.formState.errors.flowVersion?.message || flowVersionServerError}
+        >
+          <MetadataEditableTextInput
+            {...flowVersionValidation}
+            aria-invalid={Boolean(form.formState.errors.flowVersion) || Boolean(flowVersionServerError)}
           />
         </Field>
       </div>
@@ -140,7 +164,7 @@ export function SchemaMetadataForm({ json, onChange }: SchemaMetadataFormProps) 
         control={form.control}
         name="tags"
         render={({ field }) => (
-          <Field label="Tags" hint={form.formState.errors.tags?.message}>
+          <Field label="Tags" errorMsg={form.formState.errors.tags?.message}>
             <TagEditor
               tags={field.value}
               onChange={(tags) => {

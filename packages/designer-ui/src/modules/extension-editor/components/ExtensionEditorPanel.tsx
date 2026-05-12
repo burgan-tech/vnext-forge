@@ -2,6 +2,7 @@ import { ExtensionMetadataForm } from './ExtensionMetadataForm';
 import { ExtensionTaskSection } from './ExtensionTaskSection';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../ui/Card';
 import { ComponentDescriptionField } from '../../../ui/ComponentDescriptionField';
+import { ComponentValidationSummary } from '../../save-component/components/ComponentValidationSummary';
 
 interface ExtensionEditorPanelProps {
   json: Record<string, unknown>;
@@ -16,6 +17,7 @@ export function ExtensionEditorPanel({ json, onChange, onBeforeOpenModal }: Exte
 
   return (
     <div className="space-y-4 p-4">
+      <ComponentValidationSummary />
       <Card variant="default" className="gap-3">
         <CardHeader className="border-border border-b">
           <CardTitle className="text-base">Extension Metadata</CardTitle>

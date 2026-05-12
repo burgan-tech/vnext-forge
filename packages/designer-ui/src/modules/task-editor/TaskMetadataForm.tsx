@@ -2,6 +2,7 @@ import {
   MetadataEditableTextInput,
   MetadataLockedTextInput,
   useComponentTypeSchema,
+  useFieldValidationError,
 } from '../component-metadata';
 import { ComponentDescriptionField } from '../../ui/ComponentDescriptionField';
 import { Field } from '../../ui/Field';
@@ -19,27 +20,41 @@ export function TaskMetadataForm({ json, onChange }: TaskMetadataFormProps) {
   // way they always reflect the project's pinned schema version instead
   // of being hard-coded here.
   const { requiredFields } = useComponentTypeSchema('task');
+  // Save-time validation errors per field — populated when the user
+  // tries to save and the baseline / server-side AJV catches an issue.
+  const keyError = useFieldValidationError('key');
+  const versionError = useFieldValidationError('version');
+  const domainError = useFieldValidationError('domain');
+  const flowError = useFieldValidationError('flow');
 
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Key" required={requiredFields.has('key')}>
+        <Field label="Key" required={requiredFields.has('key')} errorMsg={keyError}>
           <MetadataEditableTextInput
             value={String(json.key || '')}
             onChange={(e) => onChange((d) => { d.key = e.target.value; })}
+            aria-invalid={keyError ? true : undefined}
           />
         </Field>
-        <Field label="Version" required={requiredFields.has('version')}>
+        <Field label="Version" required={requiredFields.has('version')} errorMsg={versionError}>
           <MetadataEditableTextInput
             value={String(json.version || '')}
             onChange={(e) => onChange((d) => { d.version = e.target.value; })}
+            aria-invalid={versionError ? true : undefined}
           />
         </Field>
-        <Field label="Domain" required={requiredFields.has('domain')}>
-          <MetadataLockedTextInput value={String(json.domain || '')} />
+        <Field label="Domain" required={requiredFields.has('domain')} errorMsg={domainError}>
+          <MetadataLockedTextInput
+            value={String(json.domain || '')}
+            aria-invalid={domainError ? true : undefined}
+          />
         </Field>
-        <Field label="Flow" required={requiredFields.has('flow')}>
-          <MetadataLockedTextInput value={String(json.flow || '')} />
+        <Field label="Flow" required={requiredFields.has('flow')} errorMsg={flowError}>
+          <MetadataLockedTextInput
+            value={String(json.flow || '')}
+            aria-invalid={flowError ? true : undefined}
+          />
         </Field>
       </div>
 
@@ -48,7 +63,10 @@ export function TaskMetadataForm({ json, onChange }: TaskMetadataFormProps) {
         onChange={(next) => {
           onChange((d) => {
             if (!d.attributes) d.attributes = {};
-            (d.attributes as Record<string, unknown>).type = next;
+            const attrs = d.attributes as Record<string, unknown>;
+            if (String(attrs.type) === next) return;
+            attrs.type = next;
+            attrs.config = {};
           });
         }}
       />

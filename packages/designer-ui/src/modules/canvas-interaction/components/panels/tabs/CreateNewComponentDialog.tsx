@@ -3,6 +3,10 @@ import { Loader2, Plus } from 'lucide-react';
 
 import { isFailure, type DiscoveredVnextComponent, type VnextExportCategory } from '@vnext-forge-studio/app-contracts';
 import { saveComponentFile } from '../../../../save-component/SaveComponentApi.js';
+import {
+  validateComponentBeforeWrite,
+  formatValidationSummary,
+} from '../../../../save-component/validateBeforeWrite.js';
 import { useProjectStore } from '../../../../../store/useProjectStore.js';
 import { buildAtomicComponentJsonPath } from '../../../../vnext-workspace/atomicComponentPaths.js';
 import { discoverVnextComponentsByCategory } from '../../../../vnext-workspace/vnextComponentDiscovery.js';
@@ -43,7 +47,17 @@ const CATEGORY_META: Record<
       version: '1.0.0',
       domain,
       flow: 'sys-schemas',
-      attributes: {},
+      flowVersion: '1.0.0',
+      tags: [domain, 'sys-schemas'],
+      attributes: {
+        type: 'workflow',
+        schema: {
+          $schema: 'https://json-schema.org/draft/2020-12/schema',
+          $id: `urn:vnext:${key}`,
+          title: key,
+          type: 'object',
+        },
+      },
     }),
   },
   views: {
@@ -54,7 +68,10 @@ const CATEGORY_META: Record<
       version: '1.0.0',
       domain,
       flow: 'sys-views',
+      flowVersion: '1.0.0',
+      tags: [domain, 'sys-views'],
       attributes: {
+        type: 1,
         display: 'full-page',
         content: {},
       },
@@ -68,7 +85,17 @@ const CATEGORY_META: Record<
       version: '1.0.0',
       domain,
       flow: 'sys-extensions',
-      attributes: {},
+      flowVersion: '1.0.0',
+      tags: [domain, 'sys-extensions'],
+      attributes: {
+        type: 1,
+        scope: 1,
+        task: {
+          order: 1,
+          task: { key: 'placeholder', domain, flow: 'sys-tasks', version: '1.0.0' },
+          mapping: { location: './src/Mapping.csx', code: 'Ly8=' },
+        },
+      },
     }),
   },
   functions: {
@@ -79,7 +106,16 @@ const CATEGORY_META: Record<
       version: '1.0.0',
       domain,
       flow: 'sys-functions',
-      attributes: {},
+      flowVersion: '1.0.0',
+      tags: [domain, 'sys-functions'],
+      attributes: {
+        scope: 'I',
+        task: {
+          order: 1,
+          task: { key: 'placeholder', domain, flow: 'sys-tasks', version: '1.0.0' },
+          mapping: { location: './src/Mapping.csx', code: 'Ly8=' },
+        },
+      },
     }),
   },
 };
@@ -102,6 +138,7 @@ export function CreateNewComponentDialog({
   const activeProject = useProjectStore((s) => s.activeProject);
   const vnextConfig = useProjectStore((s) => s.vnextConfig);
   const projectDomain = vnextConfig?.domain ?? activeProject?.domain ?? '';
+  const schemaVersion = vnextConfig?.schemaVersion;
 
   const meta = CATEGORY_META[category];
 
@@ -179,6 +216,15 @@ export function CreateNewComponentDialog({
     if (!canSubmit || !activeProject || !vnextConfig || !targetPath) return;
     const json = meta.template(componentName, projectDomain);
     try {
+      const gate = await validateComponentBeforeWrite(json, meta.singular, schemaVersion);
+      if (!gate.valid && !gate.skipped) {
+        showNotification({
+          kind: 'error',
+          message: `Cannot create — ${formatValidationSummary(gate, meta.singular)}`,
+        });
+        return;
+      }
+
       const res = await saveComponentFile(targetPath, JSON.stringify(json, null, 2));
       if (isFailure(res)) {
         showNotification({
@@ -214,11 +260,7 @@ export function CreateNewComponentDialog({
         className="border-border bg-surface text-foreground gap-0 p-0 shadow-sm"
         showCloseButton
         closeButtonHoverable
-        hoverable={false}
-        enableResize
-        resizeStorageKey="vnext-forge.dialog.create-new-component"
-        resizeDefaultWidth={520}
-        resizeDefaultHeight={560}>
+        hoverable={false}>
         <DialogHeader>
           <DialogTitle className="text-foreground pr-3 text-base font-semibold tracking-tight sm:pr-4">
             Create new {meta.singular}
