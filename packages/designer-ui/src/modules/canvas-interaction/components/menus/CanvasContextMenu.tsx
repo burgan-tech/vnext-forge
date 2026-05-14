@@ -11,10 +11,22 @@ interface CanvasContextMenuProps {
   position: MenuPosition;
   onClose: () => void;
   onAddState: (stateType: number, subType: number, position: { x: number; y: number }) => void;
+  /**
+   * Optional — when wired, exposes "Add Sticky Note" at the
+   * bottom of the menu. The sticky note is dropped at the
+   * right-click location in flow coordinates.
+   */
+  onAddNote?: (position: { x: number; y: number }) => void;
   hasInitialState?: boolean;
 }
 
-export function CanvasContextMenu({ position, onClose, onAddState, hasInitialState }: CanvasContextMenuProps) {
+export function CanvasContextMenu({
+  position,
+  onClose,
+  onAddState,
+  onAddNote,
+  hasInitialState,
+}: CanvasContextMenuProps) {
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -27,6 +39,11 @@ export function CanvasContextMenu({ position, onClose, onAddState, hasInitialSta
 
   const add = (stateType: number, subType = 0) => {
     onAddState(stateType, subType, { x: position.flowX, y: position.flowY });
+    onClose();
+  };
+
+  const addNote = () => {
+    onAddNote?.({ x: position.flowX, y: position.flowY });
     onClose();
   };
 
@@ -47,6 +64,12 @@ export function CanvasContextMenu({ position, onClose, onAddState, hasInitialSta
       <MenuItem label="Suspended" color="bg-final-suspended" indent onClick={() => add(3, 4)} />
       <div className="border-t border-border-subtle my-1 mx-2" />
       <MenuItem label="SubFlow State" color="bg-subflow" onClick={() => add(4)} />
+      {onAddNote && (
+        <>
+          <div className="border-t border-border-subtle my-1 mx-2" />
+          <MenuItem label="Sticky Note" color="bg-amber-400" onClick={addNote} />
+        </>
+      )}
     </div>
   );
 }

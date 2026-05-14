@@ -142,6 +142,256 @@
   border-color: #0ea5e9 !important;
 }
 
+/* ─── Zoom-aware behavior ────────────────────────────────────────────
+ *
+ * `data-zoom-tier` is set by FlowCanvas based on React Flow's
+ * viewport scale (sm = <0.5×, md = 0.5–1.4×, lg = >1.4×). The other
+ * `data-*` flags come from Canvas Options toggles.
+ *
+ * Combined rules below let users opt into:
+ *   - Hiding labels at low zoom (declutters the overview)
+ *   - Non-scaling SVG strokes (consistent edge thickness)
+ *
+ * Counter-scaled labels live in the edge's inline style — the CSS
+ * here just defines the `--rf-counter-scale` variable that the edge
+ * label transform reads (the variable is set by FlowCanvas).
+ */
+[data-label-zoom-hide='true'][data-zoom-tier='sm'] .vf-edge-label {
+  display: none;
+}
+[data-non-scaling='true'] .react-flow__edge-path {
+  vector-effect: non-scaling-stroke;
+}
+
+/*
+ * Animated dashes — driven by the `animation` inline style on
+ * TransitionEdge. The keyframes live here because keyframes in
+ * inline styles aren't supported across browsers.
+ */
+@keyframes vf-edge-dash-flow {
+  to {
+    stroke-dashoffset: -20;
+  }
+}
+
+/* ─── Selection Pulse ────────────────────────────────────────────────
+ *
+ * Three classes get attached to edges/nodes by FlowCanvas when the
+ * user selects a state, depending on `settings.pulseAnimation`:
+ *
+ *   vf-pulse-edge-L0..L4    BFS layer (wave + single-hop)
+ *   vf-pulse-edge-reach     transitive closure (reachability)
+ *   vf-pulse-node-L0..L4    BFS layer for target nodes
+ *   vf-pulse-node-reach     transitive closure for nodes
+ *
+ * Wave mode uses staggered `animation-delay` per layer so the dash
+ * flow appears to ripple outward from the source state. Single-hop
+ * is just L0 with the same animation but no fan-out. Reachability
+ * is static — colored stroke + drop-shadow, no animation, no
+ * stagger, until the selection clears.
+ */
+@keyframes vf-pulse-edge-flow {
+  0% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: -48;
+  }
+}
+
+@keyframes vf-pulse-node-ring {
+  0% {
+    box-shadow: 0 0 0 0 var(--color-action-shadow, rgba(99, 102, 241, 0.55));
+  }
+  70% {
+    box-shadow: 0 0 0 18px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+/*
+ * Source-node sonar ring — pulses on the *selected* state itself
+ * whenever any pulse mode (single-hop / wave / reachability) is
+ * active. Bigger and slightly faster than the target-node rings
+ * so the selected state visually anchors the wave's origin. The
+ * pulse always loops; clearing the selection removes the
+ * `.selected` class, which kills the animation.
+ *
+ * Wave / single-hop carry the visual outward through the dash
+ * flow on edges + the staggered target-node rings; the source
+ * ring is the bookend that says "I'm where it started".
+ */
+@keyframes vf-pulse-source-ring {
+  0% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-action) 55%, transparent);
+  }
+  80% {
+    box-shadow: 0 0 0 26px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+[data-pulse-mode='single-hop']:has(.react-flow__node.selected) .react-flow__node.selected,
+[data-pulse-mode='wave']:has(.react-flow__node.selected) .react-flow__node.selected,
+[data-pulse-mode='reachability']:has(.react-flow__node.selected) .react-flow__node.selected {
+  animation: vf-pulse-source-ring 1.5s ease-out infinite;
+}
+
+/* Animated pulse — wave + single-hop. Stagger comes from class
+ * variants L0–L4 below.
+ *
+ * All declarations use `!important` because TransitionEdge writes
+ * `stroke`, `stroke-dasharray`, and (sometimes) `animation` as
+ * inline styles on the path element — inline beats class without
+ * `!important`. We also force `stroke-dasharray` regardless of the
+ * edge's trigger-type pattern so manual edges (which would
+ * otherwise have no dashes) still show the flowing effect.
+ *
+ * The stroke color shifts to the action accent to make the pulse
+ * read at a glance even on edges that share a trigger color. */
+.react-flow__edge[class*='vf-pulse-edge-L'] .react-flow__edge-path {
+  stroke: var(--color-action) !important;
+  stroke-width: 2.5 !important;
+  stroke-dasharray: 10 6 !important;
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--color-action) 60%, transparent));
+  animation: vf-pulse-edge-flow 0.9s linear infinite !important;
+}
+.react-flow__edge.vf-pulse-edge-L0 .react-flow__edge-path { animation-delay: 0s !important; }
+.react-flow__edge.vf-pulse-edge-L1 .react-flow__edge-path { animation-delay: 0.3s !important; }
+.react-flow__edge.vf-pulse-edge-L2 .react-flow__edge-path { animation-delay: 0.6s !important; }
+.react-flow__edge.vf-pulse-edge-L3 .react-flow__edge-path { animation-delay: 0.9s !important; }
+.react-flow__edge.vf-pulse-edge-L4 .react-flow__edge-path { animation-delay: 1.2s !important; }
+
+/* Reachability — static colored highlight (no animation). Uses
+ * `--color-action` so the highlight is visually distinct from the
+ * regular trigger-type stroke colors. */
+.react-flow__edge.vf-pulse-edge-reach .react-flow__edge-path {
+  stroke: var(--color-action) !important;
+  stroke-width: 2.5 !important;
+  filter: drop-shadow(0 0 4px var(--color-action));
+}
+
+/* Target nodes get an expanding-ring pulse synchronized with the
+ * edge animation. Wave layers stagger the same way edges do.
+ * The pulse loops `infinite` (was `1`) so the visual stays alive
+ * as long as the source state is selected. Reach nodes get a
+ * static colored ring instead — no animation. */
+.react-flow__node[class*='vf-pulse-node-L'] {
+  animation: vf-pulse-node-ring 1.4s ease-out infinite !important;
+}
+.react-flow__node.vf-pulse-node-L0 { animation-delay: 0s !important; }
+.react-flow__node.vf-pulse-node-L1 { animation-delay: 0.3s !important; }
+.react-flow__node.vf-pulse-node-L2 { animation-delay: 0.6s !important; }
+.react-flow__node.vf-pulse-node-L3 { animation-delay: 0.9s !important; }
+.react-flow__node.vf-pulse-node-L4 { animation-delay: 1.2s !important; }
+
+.react-flow__node.vf-pulse-node-reach {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-action) 40%, transparent);
+}
+
+/* Respect prefers-reduced-motion — drop the dash animation but
+ * keep the visual highlight (color, ring) so the user still sees
+ * the connectivity info. */
+@media (prefers-reduced-motion: reduce) {
+  .react-flow__edge[class*='vf-pulse-edge-L'] .react-flow__edge-path,
+  .react-flow__node[class*='vf-pulse-node-L'] {
+    animation: none !important;
+  }
+  .react-flow__edge[class*='vf-pulse-edge-L'] .react-flow__edge-path {
+    stroke: var(--color-action);
+  }
+}
+
+/* Stats row visibility — `hover` policy hides the row until the
+ * node is hovered or selected. The row is opacity-only so the layout
+ * stays stable; users don't get a jumpy node on hover. */
+.vf-state-node .vf-stats-hover-only,
+.react-flow__node .vf-stats-hover-only {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+.react-flow__node:hover .vf-stats-hover-only,
+.react-flow__node.selected .vf-stats-hover-only {
+  opacity: 1;
+}
+
+/* ─── Focus Mode ─────────────────────────────────────────────────────
+ *
+ * When the user enables Focus Mode in the Canvas Options panel, the
+ * wrapper div in `FlowCanvas` gets `data-focus-mode="true"`. While
+ * any node or edge is selected, every *other* node/edge fades to a
+ * low-opacity backdrop so the eye lands cleanly on the chosen state
+ * and its immediate connections. Handles, labels, and arrowheads
+ * inherit the fade automatically because they're descendants of the
+ * faded node/edge group.
+ *
+ * Pure CSS — no per-element JS — keyed off `:has()` so it only
+ * activates while a `.selected` element is in the DOM.
+ */
+[data-focus-mode='true']:has(.react-flow__node.selected) .react-flow__node:not(.selected) {
+  opacity: 0.28;
+  transition: opacity 0.18s ease;
+}
+[data-focus-mode='true']:has(.react-flow__node.selected) .react-flow__edge:not(.selected) {
+  opacity: 0.22;
+  transition: opacity 0.18s ease;
+}
+[data-focus-mode='true']:has(.react-flow__edge.selected) .react-flow__node:not(.selected) {
+  opacity: 0.4;
+  transition: opacity 0.18s ease;
+}
+[data-focus-mode='true']:has(.react-flow__edge.selected) .react-flow__edge:not(.selected) {
+  opacity: 0.18;
+  transition: opacity 0.18s ease;
+}
+
+/*
+ * Connectivity preservation — edges that touch the selected node
+ * and the state(s) on the other end of those edges always stay at
+ * full opacity, even when Focus Mode is on. FlowCanvas attaches
+ * the `vf-connected` class to these via the `connectedEdgeIds` /
+ * `connectedNodeIds` sets.
+ *
+ * Without this rule, selecting a state would hide its own
+ * transitions and the states it connects to — counter-intuitive,
+ * because the whole point of selecting a state is to inspect its
+ * neighborhood.
+ */
+[data-focus-mode='true']:has(.react-flow__node.selected) .react-flow__edge.vf-connected,
+[data-focus-mode='true']:has(.react-flow__edge.selected) .react-flow__edge.vf-connected {
+  opacity: 1 !important;
+}
+[data-focus-mode='true']:has(.react-flow__node.selected) .react-flow__node.vf-connected,
+[data-focus-mode='true']:has(.react-flow__edge.selected) .react-flow__node.vf-connected {
+  opacity: 1 !important;
+}
+
+/* ─── Presentation Mode ─────────────────────────────────────────────
+ *
+ * Triggered by the Maximize button in the canvas toolbar. Sets
+ * `data-presentation="true"` on `document.body`. CSS here hides:
+ *  - React Flow controls / minimap / panels (toolbar, bulk bar,
+ *    canvas options)
+ *  - The outer app shell (sidebar, activity bar, status bar, tab
+ *    bar) when those elements carry the `[data-app-chrome]`
+ *    marker. Press Escape to exit.
+ */
+body[data-presentation='true'] .react-flow__controls,
+body[data-presentation='true'] .react-flow__minimap,
+body[data-presentation='true'] .react-flow__panel {
+  display: none !important;
+}
+body[data-presentation='true'] [data-app-chrome='sidebar'],
+body[data-presentation='true'] [data-app-chrome='activity-bar'],
+body[data-presentation='true'] [data-app-chrome='status-bar'],
+body[data-presentation='true'] [data-app-chrome='tab-bar'] {
+  display: none !important;
+}
+
 /* ─── Canvas Search Spotlight (cmdk) ─── */
 
 [cmdk-group-heading] {

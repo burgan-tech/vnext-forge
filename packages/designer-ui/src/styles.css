@@ -177,7 +177,14 @@
   --color-intermediate: #6366f1;
   --color-final-success: #22c55e;
   --color-final-error: #f43f5e;
-  --color-final-terminated: #64748b;
+  /*
+   * Terminated / shared / manual-transition default — previously
+   * slate-500 (#64748b) which fell to ~4.5:1 contrast against the
+   * light canvas. Bumped to slate-600 for ~7:1 (WCAG AAA on text-size
+   * elements), which keeps these edges clearly readable in light
+   * theme without changing the dark-theme override below.
+   */
+  --color-final-terminated: #475569;
   --color-final-suspended: #f59e0b;
   --color-subflow: #8b5cf6;
   --color-wizard: #f97316;

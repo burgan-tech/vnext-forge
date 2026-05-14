@@ -9,8 +9,15 @@ import {
   type EdgeProps,
 } from '@xyflow/react';
 import { memo, useCallback, useRef } from 'react';
-import { useCanvasViewSettings, type EdgePathStyle } from '../../context/CanvasViewSettingsContext';
+import {
+  useCanvasViewSettings,
+  resolveEdgeStrokeWidth,
+  resolveLabelFontPx,
+  resolveSelfLoopBox,
+  type EdgePathStyle,
+} from '../../context/CanvasViewSettingsContext';
 import { getFloatingEdgeParams } from '../../utils/floating-edge-utils';
+import { pickMarkerEnd } from './SharedEdgeMarkers';
 
 export interface Waypoint {
   x: number;
@@ -204,31 +211,57 @@ export const TransitionEdge = memo(function TransitionEdge(props: EdgeProps) {
   let labelY: number;
 
   if (isSelfLoop) {
-    const loopW = 70;
-    const loopH = 45;
+    // Self-loop dimensions — size step comes from Canvas Options
+    // (`selfLoopSize` setting). The cubic-bezier control points
+    // keep the arc round and symmetric top-to-bottom regardless
+    // of W/H choice.
+    const { w: loopW, h: loopH } = resolveSelfLoopBox(settings.selfLoopSize);
     edgePath = [
       `M ${propSourceX} ${propSourceY - 12}`,
-      `C ${propSourceX + loopW * 0.6} ${propSourceY - loopH - 20},`,
-      `  ${propSourceX + loopW + 10} ${propSourceY - loopH + 5},`,
+      `C ${propSourceX + loopW * 0.6} ${propSourceY - loopH - 25},`,
+      `  ${propSourceX + loopW + 12} ${propSourceY - loopH + 5},`,
       `  ${propSourceX + loopW} ${propSourceY}`,
-      `C ${propSourceX + loopW + 10} ${propSourceY + loopH - 5},`,
-      `  ${propSourceX + loopW * 0.6} ${propSourceY + loopH + 20},`,
+      `C ${propSourceX + loopW + 12} ${propSourceY + loopH - 5},`,
+      `  ${propSourceX + loopW * 0.6} ${propSourceY + loopH + 25},`,
       `  ${propSourceX} ${propSourceY + 12}`,
     ].join(' ');
-    labelX = propSourceX + loopW + 16;
-    labelY = propSourceY;
+    // Label pinned to the top of the arc (above the source-row Y).
+    // The previous "+16px to the right of the loop" placement
+    // collided with any node positioned horizontally next to the
+    // source state. Top-of-arc is the safest collision-free spot
+    // because the canvas is denser horizontally than vertically.
+    labelX = propSourceX + loopW * 0.6;
+    labelY = propSourceY - loopH - 8;
   } else if (hasWaypoints) {
     const result = buildWaypointPath(sourceX, sourceY, targetX, targetY, waypoints);
     edgePath = result.path;
     labelX = result.labelX;
     labelY = result.labelY;
   } else {
-    // Parallel-edge fan-out: when multiple transitions exist between
-    // the same two states, `Conversion.workflowToReactFlow` tags each
-    // edge with `parallelIndex` / `parallelCount`. We offset the path
-    // along the perpendicular normal so they ribbon out side-by-side
-    // instead of overlapping.
-    const data = (props.data ?? {}) as { parallelIndex?: number; parallelCount?: number };
+    // Parallel-edge fan-out + outbound staggering. Two cases:
+    //
+    //   (a) Multiple edges between the SAME source-target pair —
+    //       tagged with `parallelIndex`/`parallelCount`. We bend
+    //       each lane perpendicular to the straight line so the
+    //       ribbons sit side-by-side. Label position rides the
+    //       midpoint with the same perpendicular offset.
+    //
+    //   (b) Multiple edges from the SAME source to DIFFERENT
+    //       targets — tagged with `outboundIndex`/`outboundCount`
+    //       by Conversion.ts. The paths themselves are independent
+    //       (each routed to its own target via React Flow's
+    //       smoothstep/bezier helper), but their midpoints can
+    //       cluster when the targets sit in similar directions.
+    //       We stagger the label along the path's source→target
+    //       chord at `t = (i+1)/(N+1)` so each label sits at a
+    //       distinct distance from the source instead of piling
+    //       up at the geometric midpoint.
+    const data = (props.data ?? {}) as {
+      parallelIndex?: number;
+      parallelCount?: number;
+      outboundIndex?: number;
+      outboundCount?: number;
+    };
     const parallelCount = typeof data.parallelCount === 'number' ? data.parallelCount : 1;
     const parallelIndex = typeof data.parallelIndex === 'number' ? data.parallelIndex : 0;
 
@@ -258,6 +291,28 @@ export const TransitionEdge = memo(function TransitionEdge(props: EdgeProps) {
         targetY,
         targetPosition,
       });
+
+      // Outbound staggering — shift the label away from the geometric
+      // midpoint along the source→target chord when this source has
+      // multiple outgoing edges, so labels from the same source spread
+      // out instead of overlapping. Path geometry stays untouched;
+      // only the label anchor moves. We blend toward the chord at t
+      // rather than snapping fully because the actual curve dips
+      // away from a straight chord on smoothstep/bezier paths.
+      const outboundCount =
+        typeof data.outboundCount === 'number' ? data.outboundCount : 1;
+      const outboundIndex =
+        typeof data.outboundIndex === 'number' ? data.outboundIndex : 0;
+      if (outboundCount > 1) {
+        const t = (outboundIndex + 1) / (outboundCount + 1);
+        const chordX = sourceX + (targetX - sourceX) * t;
+        const chordY = sourceY + (targetY - sourceY) * t;
+        // 70% chord anchor, 30% original midpoint — keeps the label
+        // visually near the curve while still pulling it out of the
+        // overlap zone.
+        labelX = chordX * 0.7 + labelX * 0.3;
+        labelY = chordY * 0.7 + labelY * 0.3;
+      }
     }
   }
 
@@ -402,6 +457,31 @@ export const TransitionEdge = memo(function TransitionEdge(props: EdgeProps) {
     [id, waypoints, setEdges],
   );
 
+  // Shared marker pool — picks one of the document-global markers
+  // declared by `<SharedEdgeMarkers>` in FlowCanvas. Avoids generating
+  // one marker `<defs>` per edge (potential perf hit on large graphs).
+  const markerEnd = pickMarkerEnd({ triggerType, triggerKind, isShared });
+
+  // Stroke width comes from the `edgeStroke` setting; selected edges
+  // grow by ~40% on top of whatever the base is. This keeps the
+  // selection cue proportional whether the user picked Thin / Normal
+  // / Thick.
+  const baseStroke = resolveEdgeStrokeWidth(settings.edgeStroke);
+  const strokeWidth = selected ? baseStroke * 1.4 : baseStroke;
+
+  // Animated dashes — when on, we ADD a dashed stroke-dasharray to
+  // non-manual triggers so the auto/scheduled/event edges visibly
+  // "flow" toward their target. The existing static dash patterns
+  // (for shared / scheduled) are preserved when animation is off.
+  const animated = settings.animatedEdges && triggerType !== 0 && !isShared;
+
+  // `vector-effect: non-scaling-stroke` keeps the line at a fixed
+  // pixel thickness regardless of viewport zoom. Without it, at low
+  // zoom (e.g. 30%) a 2px stroke renders as 0.6px and disappears.
+  const vectorEffect: 'non-scaling-stroke' | undefined = settings.nonScalingStrokes
+    ? 'non-scaling-stroke'
+    : undefined;
+
   return (
     <>
       <BaseEdge
@@ -409,11 +489,13 @@ export const TransitionEdge = memo(function TransitionEdge(props: EdgeProps) {
         path={edgePath}
         style={{
           stroke: color,
-          strokeWidth: selected ? 3 : 2,
-          strokeDasharray: dash,
+          strokeWidth,
+          strokeDasharray: animated ? '6 4' : dash,
           transition: 'stroke-width 0.15s ease',
+          vectorEffect,
+          animation: animated ? 'vf-edge-dash-flow 0.8s linear infinite' : undefined,
         }}
-        markerEnd={`url(#marker-${id})`}
+        markerEnd={markerEnd}
       />
       {isSpotlight && (
         <path
@@ -440,20 +522,6 @@ export const TransitionEdge = memo(function TransitionEdge(props: EdgeProps) {
         onDoubleClick={handleEdgeDoubleClick}
       />
 
-
-      <defs>
-        <marker
-          id={`marker-${id}`}
-          viewBox="0 0 10 10"
-          refX="10"
-          refY="5"
-          markerWidth="7"
-          markerHeight="7"
-          orient="auto-start-reverse"
-        >
-          <path d="M 0 0 L 10 5 L 0 10 Z" fill={color} />
-        </marker>
-      </defs>
 
       {/* Waypoint control points — rendered only when edge is selected or has waypoints */}
       {hasWaypoints && (
@@ -490,13 +558,26 @@ export const TransitionEdge = memo(function TransitionEdge(props: EdgeProps) {
           <div
             style={{
               position: 'absolute',
-              transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
+              // The label sits at (labelX, labelY) and self-centers
+              // via translate(-50%, -50%). When `counterScaleLabels`
+              // is on the panel, we append a `scale(var(--rf-counter-scale))`
+              // that cancels the React Flow viewport's zoom so the
+              // pill keeps a fixed on-screen size. The CSS variable
+              // is updated by FlowCanvas's zoom watcher.
+              transform: settings.counterScaleLabels
+                ? `translate(-50%, -50%) translate(${labelX}px, ${labelY}px) scale(var(--rf-counter-scale, 1))`
+                : `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
               pointerEvents: 'all',
+              fontSize: `${resolveLabelFontPx(settings.labelSize)}px`,
             }}
-            className={`group/label max-w-[200px] px-2.5 py-1 rounded-lg text-[10px] font-medium bg-surface/95 backdrop-blur-sm border transition-all duration-150 ${
+            // Edge labels sit on top of edge strokes that frequently
+            // cross each other, so the pill needs strong separation
+            // from whatever's underneath: opaque bg, canvas-colored
+            // halo ring, permanent shadow.
+            className={`group/label vf-edge-label max-w-[200px] px-2.5 py-1 rounded-lg font-medium bg-surface ring-2 ring-[var(--color-background)] border shadow-sm backdrop-blur-sm transition-all duration-150 ${
               selected
                 ? 'border-primary-border-hover shadow-md text-foreground'
-                : 'border-border shadow-sm text-muted-foreground hover:border-muted-border-hover hover:shadow'
+                : 'border-border text-muted-foreground hover:border-muted-border-hover hover:shadow'
             }`}
             title={d.label}
           >

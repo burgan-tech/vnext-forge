@@ -7,8 +7,55 @@ export interface DiagramNodePos {
   height?: number;
 }
 
+/**
+ * Free-form annotation block placed on the canvas — not tied to
+ * any workflow state. Stored in the diagram JSON (not the workflow
+ * JSON) so it never affects runtime behavior. Position / size live
+ * directly on the note record (not in `nodePos`) so the workflow
+ * doesn't accidentally treat the note id as a state key.
+ */
+export interface DiagramNote {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  text: string;
+  /** Background palette key — `yellow` (default), `blue`, `green`, `pink`. */
+  color?: 'yellow' | 'blue' | 'green' | 'pink';
+  /**
+   * Font size in pixels. Free-form number (clamped 8–48 by the UI)
+   * so the user can pick whatever feels right rather than being
+   * locked to S/M/L presets.
+   */
+  fontSize?: number;
+  /**
+   * Custom text color as a hex string (`#rrggbb`). Optional — when
+   * absent, the palette's default text color is used.
+   */
+  textColor?: string;
+}
+
+/**
+ * Visual grouping container — a translucent dashed rectangle
+ * behind a cluster of state nodes that the author wants to
+ * label together (e.g. "Approval flow", "Payment retry").
+ * Diagram-only metadata.
+ */
+export interface DiagramGroup {
+  id: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  label: string;
+  color?: 'slate' | 'indigo' | 'emerald' | 'amber' | 'rose';
+}
+
 export interface DiagramData {
   nodePos: Record<string, DiagramNodePos>;
+  notes?: DiagramNote[];
+  groups?: DiagramGroup[];
 }
 
 interface WorkflowState {
@@ -178,63 +225,48 @@ export function workflowToReactFlow(
     if (state.transitions) {
       for (const t of state.transitions) {
         let target = getTransitionTarget(t);
+        // `$self` keyword is now treated identically to an explicit
+        // self-loop (`target === state.key`). The previous design
+        // synthesized a virtual `selfRefNode` floating off the side
+        // of the source state; that meant `$self`-style transitions
+        // looked nothing like explicit self-loops, broke handle
+        // symmetry on the virtual node (target-only on the left),
+        // and bloated the React Flow node list. Both shapes are now
+        // a single self-loop edge whose source equals its target.
         const isSelfKeyword = target === '$self';
+        if (isSelfKeyword) target = state.key;
 
-        if (isSelfKeyword) {
-          // Create a virtual $self node connected to the source state
-          const virtualId = `${state.key}::$self::${t.key}`;
-          const sourcePos = diagram.nodePos?.[state.key] || { x: 200, y: 200 };
-          nodes.push({
-            id: virtualId,
-            type: 'selfRefNode',
-            position: { x: (sourcePos.x ?? 200) + 180, y: (sourcePos.y ?? 200) + 60 },
-            data: { label: `$self (${state.key})` },
-            selectable: false,
-            deletable: false,
-          });
+        if (target === state.key) {
+          // Self-loop (explicit `target === state.key` OR legacy
+          // `$self` keyword — both now render as the same
+          // arc-back-to-source curve in TransitionEdge).
           edges.push({
-            id: `${state.key}->${virtualId}::${t.key}`,
+            id: `${state.key}->${target}::${t.key}`,
             source: state.key,
-            target: virtualId,
+            target: target,
             type: getEdgeType(t.triggerType),
             data: {
               label: getTransitionLabel(t),
               transitionKey: t.key,
               triggerType: t.triggerType || 0,
               triggerKind: t.triggerKind || 0,
-              isSelfKeyword: true,
+              isSelfLoop: true,
+              ...(isSelfKeyword ? { isSelfKeyword: true } : {}),
             },
           });
-        } else {
-          if (target === state.key) {
-            // Explicit self-loop (target equals own state key)
-            edges.push({
-              id: `${state.key}->${target}::${t.key}`,
-              source: state.key,
-              target: target,
-              type: getEdgeType(t.triggerType),
-              data: {
-                label: getTransitionLabel(t),
-                transitionKey: t.key,
-                triggerType: t.triggerType || 0,
-                triggerKind: t.triggerKind || 0,
-                isSelfLoop: true,
-              },
-            });
-          } else if (target) {
-            edges.push({
-              id: `${state.key}->${target}::${t.key}`,
-              source: state.key,
-              target: target,
-              type: getEdgeType(t.triggerType),
-              data: {
-                label: getTransitionLabel(t),
-                transitionKey: t.key,
-                triggerType: t.triggerType || 0,
-                triggerKind: t.triggerKind || 0,
-              },
-            });
-          }
+        } else if (target) {
+          edges.push({
+            id: `${state.key}->${target}::${t.key}`,
+            source: state.key,
+            target: target,
+            type: getEdgeType(t.triggerType),
+            data: {
+              label: getTransitionLabel(t),
+              transitionKey: t.key,
+              triggerType: t.triggerType || 0,
+              triggerKind: t.triggerKind || 0,
+            },
+          });
         }
       }
     }
@@ -385,6 +417,96 @@ export function workflowToReactFlow(
     pairIndex.set(key, idx + 1);
   }
 
+  // ── Outbound-edge label staggering ──────────────────────────────────
+  // When a source state has N outgoing edges to N *different* targets
+  // that happen to sit in a similar direction (e.g. five "downward"
+  // transitions from a hub state), every edge's geometric midpoint
+  // lands in roughly the same region of the canvas. Their pill
+  // labels overlap visually even though the lines themselves are
+  // distinguishable.
+  //
+  // We tag each non-self-loop, non-parallel edge with its
+  // `outboundIndex` and `outboundCount` (per source). TransitionEdge
+  // uses this to shift the label along the source→target line at
+  // `t = (i + 1) / (N + 1)` so the labels fan out at distinct
+  // distances from the source instead of stacking at midpoint.
+  //
+  // Parallel edges (same source-target pair) keep their existing
+  // perpendicular-offset midpoint placement; the perpendicular
+  // displacement already separates their labels.
+  const outboundCounts = new Map<string, number>();
+  for (const edge of edges) {
+    if (!edge.source || !edge.target) continue;
+    if (edge.source === edge.target) continue; // self-loops have own layout
+    const data = (edge.data ?? {}) as { parallelCount?: number };
+    if (typeof data.parallelCount === 'number' && data.parallelCount > 1) continue;
+    outboundCounts.set(edge.source, (outboundCounts.get(edge.source) ?? 0) + 1);
+  }
+  const outboundIndices = new Map<string, number>();
+  for (const edge of edges) {
+    if (!edge.source || !edge.target) continue;
+    if (edge.source === edge.target) continue;
+    const data = (edge.data ?? {}) as { parallelCount?: number };
+    if (typeof data.parallelCount === 'number' && data.parallelCount > 1) continue;
+    const count = outboundCounts.get(edge.source) ?? 1;
+    if (count <= 1) continue;
+    const idx = outboundIndices.get(edge.source) ?? 0;
+    edge.data = {
+      ...(edge.data ?? {}),
+      outboundIndex: idx,
+      outboundCount: count,
+    };
+    outboundIndices.set(edge.source, idx + 1);
+  }
+
+  // Visual groups — backdrop containers (no workflow semantics).
+  // Rendered FIRST so they sit at the back of the z-stack; state
+  // nodes paint on top. The `zIndex: -1` flag is what tells React
+  // Flow to keep them behind everything else.
+  if (diagram.groups && diagram.groups.length > 0) {
+    for (const group of diagram.groups) {
+      nodes.push({
+        id: group.id,
+        type: 'groupNode',
+        position: { x: group.x, y: group.y },
+        width: group.width,
+        height: group.height,
+        data: { label: group.label, color: group.color ?? 'slate' },
+        selectable: true,
+        deletable: true,
+        zIndex: -1,
+      });
+    }
+  }
+
+  // Sticky notes — render as `noteNode` nodes inside React Flow.
+  // They're visual-only (no workflow semantics) and are stored
+  // separately from `nodePos` so workflow state ids can't collide
+  // with note ids. Notes also participate in selection / drag like
+  // regular nodes.
+  if (diagram.notes && diagram.notes.length > 0) {
+    for (const note of diagram.notes) {
+      nodes.push({
+        id: note.id,
+        type: 'noteNode',
+        position: { x: note.x, y: note.y },
+        width: note.width,
+        height: note.height,
+        data: {
+          text: note.text,
+          color: note.color ?? 'yellow',
+          fontSize: note.fontSize ?? 13,
+          ...(note.textColor ? { textColor: note.textColor } : {}),
+        },
+        // Notes shouldn't connect to anything by default — but they
+        // should be draggable, selectable, and deletable. We
+        // explicitly allow these flags.
+        selectable: true,
+        deletable: true,
+      });
+    }
+  }
+
   return { nodes, edges };
 }
 
@@ -415,7 +537,7 @@ export function toVnextWorkflow(workflow: Record<string, unknown>): VnextWorkflo
   return workflow as unknown as VnextWorkflow;
 }
 
-/** Read `nodePos` from persisted diagram JSON with basic structural validation. */
+/** Read `nodePos` and `notes` from persisted diagram JSON with structural validation. */
 export function toDiagramData(diagram: Record<string, unknown>): DiagramData {
   const raw = diagram.nodePos;
   const nodePos: Record<string, DiagramNodePos> = {};
@@ -432,5 +554,104 @@ export function toDiagramData(diagram: Record<string, unknown>): DiagramData {
       }
     }
   }
-  return { nodePos };
+
+  // Sticky notes — optional. Each entry must carry the minimum
+  // shape (id, x, y, width, height, text); a malformed entry is
+  // silently skipped rather than rejecting the whole diagram.
+  const rawNotes = diagram.notes;
+  let notes: DiagramNote[] | undefined;
+  if (Array.isArray(rawNotes)) {
+    notes = [];
+    for (const entry of rawNotes as unknown[]) {
+      if (!entry || typeof entry !== 'object') continue;
+      const o = entry as Record<string, unknown>;
+      if (
+        typeof o.id !== 'string' ||
+        typeof o.x !== 'number' ||
+        typeof o.y !== 'number' ||
+        typeof o.width !== 'number' ||
+        typeof o.height !== 'number'
+      ) {
+        continue;
+      }
+      const note: DiagramNote = {
+        id: o.id,
+        x: o.x,
+        y: o.y,
+        width: o.width,
+        height: o.height,
+        text: typeof o.text === 'string' ? o.text : '',
+      };
+      if (
+        o.color === 'yellow' ||
+        o.color === 'blue' ||
+        o.color === 'green' ||
+        o.color === 'pink'
+      ) {
+        note.color = o.color;
+      }
+      // Accept numeric fontSize (8..96, clamped). Legacy
+      // 'sm'/'md'/'lg' values from earlier builds are upgraded
+      // to numeric so existing diagrams keep working.
+      if (typeof o.fontSize === 'number' && Number.isFinite(o.fontSize)) {
+        note.fontSize = Math.min(96, Math.max(8, Math.round(o.fontSize)));
+      } else if (o.fontSize === 'sm') {
+        note.fontSize = 11;
+      } else if (o.fontSize === 'md') {
+        note.fontSize = 13;
+      } else if (o.fontSize === 'lg') {
+        note.fontSize = 16;
+      }
+      // Text color — accept any `#rrggbb` (or `#rgb`) hex.
+      if (typeof o.textColor === 'string' && /^#[0-9a-fA-F]{3,8}$/.test(o.textColor)) {
+        note.textColor = o.textColor;
+      }
+      notes.push(note);
+    }
+  }
+
+  // Visual groups — same shape as notes minus the `text` field
+  // plus a `label`. Same defensive parsing strategy.
+  const rawGroups = diagram.groups;
+  let groups: DiagramGroup[] | undefined;
+  if (Array.isArray(rawGroups)) {
+    groups = [];
+    for (const entry of rawGroups as unknown[]) {
+      if (!entry || typeof entry !== 'object') continue;
+      const o = entry as Record<string, unknown>;
+      if (
+        typeof o.id !== 'string' ||
+        typeof o.x !== 'number' ||
+        typeof o.y !== 'number' ||
+        typeof o.width !== 'number' ||
+        typeof o.height !== 'number'
+      ) {
+        continue;
+      }
+      const group: DiagramGroup = {
+        id: o.id,
+        x: o.x,
+        y: o.y,
+        width: o.width,
+        height: o.height,
+        label: typeof o.label === 'string' ? o.label : '',
+      };
+      if (
+        o.color === 'slate' ||
+        o.color === 'indigo' ||
+        o.color === 'emerald' ||
+        o.color === 'amber' ||
+        o.color === 'rose'
+      ) {
+        group.color = o.color;
+      }
+      groups.push(group);
+    }
+  }
+
+  return {
+    nodePos,
+    ...(notes && notes.length > 0 ? { notes } : {}),
+    ...(groups && groups.length > 0 ? { groups } : {}),
+  };
 }
