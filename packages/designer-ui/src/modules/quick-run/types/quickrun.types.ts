@@ -31,6 +31,7 @@ export interface TransitionInfo {
     href: string;
   };
   href: string;
+  annotations?: Record<string, string>;
 }
 
 export interface CorrelationInfo {
@@ -70,6 +71,7 @@ export interface ViewResponse {
   type: string;
   display?: string;
   label?: string;
+  renderer?: string;
 }
 
 export interface DataResponse {

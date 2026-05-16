@@ -136,7 +136,7 @@ export const useQuickRunStore = create<QuickRunState>((set) => ({
   sessionHeaders: {},
 
   pollingInstanceId: null,
-  pollingConfig: { retryCount: 12, intervalMs: 500 },
+  pollingConfig: { retryCount: 15, intervalMs: 4000 },
 
   runtimeHealth: 'unknown',
   runtimeDomain: null,

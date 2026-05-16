@@ -28,6 +28,7 @@ export interface RuntimeEnvironment {
   id: string;
   name: string;
   baseUrl: string;
+  dbName?: string;
 }
 
 export interface EnvironmentsConfig {
@@ -75,8 +76,8 @@ export interface QuickRunSettings {
 const DEFAULT_QUICKRUN_SETTINGS: QuickRunSettings = {
   globalHeaders: [],
   polling: {
-    retryCount: 12,
-    intervalMs: 500,
+    retryCount: 15,
+    intervalMs: 4000,
   },
 };
 
@@ -189,10 +190,12 @@ function parseEnvironments(raw: unknown): EnvironmentsConfig {
       ) {
         const rawUrl = ((item as Record<string, unknown>).baseUrl as string).replace(/\/+$/, '');
         if (!isAllowedBaseUrl(rawUrl)) continue;
+        const rec = item as Record<string, unknown>;
         environments.push({
-          id: (item as Record<string, unknown>).id as string,
-          name: (item as Record<string, unknown>).name as string,
+          id: rec.id as string,
+          name: rec.name as string,
           baseUrl: rawUrl,
+          ...(typeof rec.dbName === 'string' && rec.dbName.length > 0 ? { dbName: rec.dbName } : {}),
         });
       }
     }
@@ -283,12 +286,13 @@ export class ForgeToolsSettingsService implements vscode.Disposable {
     return config.environments.find((e) => e.id === config.activeEnvironmentId) ?? null;
   }
 
-  async addEnvironment(name: string, baseUrl: string): Promise<RuntimeEnvironment> {
+  async addEnvironment(name: string, baseUrl: string, dbName?: string): Promise<RuntimeEnvironment> {
     const config = await this.loadEnvironments();
     const env: RuntimeEnvironment = {
       id: crypto.randomUUID(),
       name,
       baseUrl: baseUrl.replace(/\/+$/, ''),
+      ...(dbName ? { dbName } : {}),
     };
     config.environments.push(env);
     if (config.activeEnvironmentId === null) {

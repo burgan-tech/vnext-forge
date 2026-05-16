@@ -24,7 +24,8 @@ export type TransitionFieldKey =
   | 'roles'
   | 'availableIn'
   | 'from'
-  | '_comment';
+  | '_comment'
+  | 'annotations';
 
 export interface FieldPolicy {
   visible: boolean;
@@ -70,13 +71,13 @@ function stateTransitionPolicy(
     availableIn: HIDDEN,
     from: VISIBLE_OPTIONAL,
     _comment: VISIBLE_OPTIONAL,
+    annotations: VISIBLE_OPTIONAL,
   };
 
   switch (triggerType) {
     case TriggerType.Manual:
       return {
         ...base,
-        triggerKind: VISIBLE_OPTIONAL,
         schema: VISIBLE_OPTIONAL,
         view: VISIBLE_OPTIONAL,
         mapping: VISIBLE_OPTIONAL,
@@ -90,13 +91,11 @@ function stateTransitionPolicy(
     case TriggerType.Scheduled:
       return {
         ...base,
-        triggerKind: VISIBLE_OPTIONAL,
         timer: VISIBLE_REQUIRED,
       };
     case TriggerType.Event:
       return {
         ...base,
-        triggerKind: VISIBLE_OPTIONAL,
         schema: VISIBLE_OPTIONAL,
         mapping: VISIBLE_OPTIONAL,
       };
@@ -135,6 +134,7 @@ function manualOnlyPolicy(
     availableIn: VISIBLE_OPTIONAL,
     from: VISIBLE_OPTIONAL,
     _comment: VISIBLE_OPTIONAL,
+    annotations: VISIBLE_OPTIONAL,
   };
 }
 
@@ -156,6 +156,7 @@ function startTransitionPolicy(): TransitionFieldPolicyMap {
     availableIn: HIDDEN,
     from: HIDDEN,
     _comment: HIDDEN,
+    annotations: VISIBLE_OPTIONAL,
   };
 }
 
@@ -183,10 +184,15 @@ export function getAllowedTriggerTypes(
 ): TriggerType[] {
   switch (kind) {
     case 'state':
-    case 'shared':
       return [
         TriggerType.Manual,
         TriggerType.Automatic,
+        TriggerType.Scheduled,
+        TriggerType.Event,
+      ];
+    case 'shared':
+      return [
+        TriggerType.Manual,
         TriggerType.Scheduled,
         TriggerType.Event,
       ];

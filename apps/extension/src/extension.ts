@@ -192,7 +192,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const globalSettingsProvider = new GlobalSettingsProvider(forgeToolsSettings);
   const projectActionsProvider = new ProjectActionsProvider(detector, forgeTerminal);
   const createProjectProvider = new CreateProjectProvider(detector, forgeTerminal);
-  const environmentsProvider = new EnvironmentsProvider(forgeToolsSettings, healthMonitor);
+  const environmentsProvider = new EnvironmentsProvider(
+    forgeToolsSettings,
+    healthMonitor,
+    services.cliService
+      ? (params) => services.cliService!.domainAdd(params)
+      : undefined,
+  );
   const packageDeployProvider = new PackageDeployProvider(detector, forgeTerminal);
   const quickRunProvider = new QuickRunProvider();
 

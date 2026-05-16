@@ -32,8 +32,32 @@ export function scaffoldContentForViewType(type: number): string {
   }
 }
 
-export function isContentEmpty(content: string): boolean {
-  const trimmed = content.trim();
+export function normalizeContentForEditor(content: unknown): string {
+  if (content == null) return '';
+  if (typeof content === 'string') return content;
+  if (typeof content === 'object') {
+    try {
+      return JSON.stringify(content, null, 2);
+    } catch {
+      return String(content);
+    }
+  }
+  return String(content);
+}
+
+export function normalizeContentForSave(content: unknown, viewType: number): unknown {
+  if (typeof content !== 'string') return content;
+  if (viewType === ViewType.Html || viewType === ViewType.Markdown) return content;
+  try {
+    return JSON.parse(content);
+  } catch {
+    return content;
+  }
+}
+
+export function isContentEmpty(content: unknown): boolean {
+  const str = typeof content === 'string' ? content : normalizeContentForEditor(content);
+  const trimmed = str.trim();
   if (trimmed === '' || trimmed === '{}' || trimmed === '[]') return true;
 
   try {

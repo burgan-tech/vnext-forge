@@ -860,7 +860,7 @@ function FlowCanvasInner({
             // got written into a phantom nodePos entry that the
             // next render ignored (Conversion.ts reads from
             // `draft.notes` / `draft.groups`).
-            if (nodeId.startsWith('note_')) {
+            if (nodeId.startsWith('forge_note_')) {
               const list = (draft.notes as Array<Record<string, unknown>> | undefined) ?? [];
               const idx = list.findIndex((n) => (n as { id?: string }).id === nodeId);
               if (idx >= 0) {
@@ -913,7 +913,7 @@ function FlowCanvasInner({
         // not `draft.nodePos`. We dispatch on the id prefix because
         // react-flow doesn't surface the node type into the drag
         // callback.
-        if (node.id.startsWith('note_')) {
+        if (node.id.startsWith('forge_note_')) {
           const list = (draft.notes as Array<Record<string, unknown>> | undefined) ?? [];
           const idx = list.findIndex((n) => (n as { id?: string }).id === node.id);
           if (idx >= 0) {
@@ -1020,8 +1020,11 @@ function FlowCanvasInner({
   // ─── Selection ───
   const onNodeClick = useCallback(
     (_: unknown, node: { id: string }) => {
-      // Workflow-level transition nodes: no-op on single click (use right-click menu)
       if (node.id.startsWith('__wf_')) {
+        setContextMenu(null);
+        return;
+      }
+      if (node.id.startsWith('forge_note_')) {
         setContextMenu(null);
         return;
       }
@@ -1058,7 +1061,7 @@ function FlowCanvasInner({
       // mousedown / click events as separate toggling clicks —
       // the side inspector flickered open/closed and edit mode
       // never engaged.
-      if (node.id.startsWith('note_')) {
+      if (node.id.startsWith('forge_note_')) {
         setEditingNoteId(node.id);
       }
     },
@@ -1137,11 +1140,11 @@ function FlowCanvasInner({
   // Sticky-note creation — invoked from the pane context menu
   // ("Right-click empty canvas → Sticky Note"). Drops a 200×80
   // note at the right-click flow coordinate. Notes get a
-  // `note_<short-uuid>` id so they can never collide with
+  // `forge_note_<short-uuid>` id so they can never collide with
   // workflow state keys.
   const addNoteAt = useCallback(
     (flowPos: { x: number; y: number }) => {
-      const id = `note_${Math.random().toString(36).slice(2, 10)}`;
+      const id = `forge_note_${Math.random().toString(36).slice(2, 10)}`;
       const NOTE_W = 200;
       const NOTE_H = 80;
       updateDiagram((draft: Record<string, unknown>) => {
@@ -1180,6 +1183,7 @@ function FlowCanvasInner({
   const onNodeContextMenu = useCallback((event: React.MouseEvent, node: { id: string }) => {
     event.preventDefault();
     if (node.id === '__start__') return;
+    if (node.id.startsWith('forge_note_')) return;
     if (node.id.startsWith('__wf_')) {
       const kind = node.id.replace(/^__wf_/, '').replace(/__$/, '').replace(/^shared_.*/, 'sharedTransitions');
       setContextMenu({
@@ -1503,7 +1507,7 @@ function FlowCanvasInner({
       <EmptyCanvasGuide
         stateCount={
           nodes.filter(
-            (n) => !n.id.startsWith('__') && !n.id.startsWith('note_') && !n.id.startsWith('group_'),
+            (n) => !n.id.startsWith('__') && !n.id.startsWith('forge_note_') && !n.id.startsWith('group_'),
           ).length
         }
         onAddState={() => handleToolbarAddState(1, 0)}

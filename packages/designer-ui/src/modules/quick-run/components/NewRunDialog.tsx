@@ -60,7 +60,7 @@ export function NewRunDialog({
   const [stage, setStage] = useState('');
   const [tags, setTags] = useState('');
   const [attributes, setAttributes] = useState('{}');
-  const [sync, setSync] = useState(true);
+  const [sync, setSync] = useState(false);
   const [version, setVersion] = useState('');
   const [headerRows, setHeaderRows] = useState<{ name: string; value: string }[]>([]);
   const [loading, setLoading] = useState(false);

@@ -99,6 +99,7 @@ const METHOD_CAPABILITIES: Readonly<Record<string, MethodCapability>> = Object.f
 
   'cli/check': 'privileged',
   'cli/checkUpdate': 'privileged',
+  'cli/domainAdd': 'privileged',
   'cli/execute': 'privileged',
   'cli/updateGlobal': 'privileged',
 })

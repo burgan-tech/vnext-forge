@@ -55,23 +55,27 @@ export function CanvasToolbar({
   onEnterPresentation,
 }: CanvasToolbarProps) {
   const [open, setOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const [canvasOptionsOpen, setCanvasOptionsOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const exportRef = useRef<HTMLDivElement>(null);
   const canvasOptionsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!open && !canvasOptionsOpen) return;
+    if (!open && !canvasOptionsOpen && !exportOpen) return;
     const handler = (e: MouseEvent) => {
       if (open && ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (exportOpen && exportRef.current && !exportRef.current.contains(e.target as Node)) setExportOpen(false);
       if (canvasOptionsOpen && canvasOptionsRef.current && !canvasOptionsRef.current.contains(e.target as Node)) setCanvasOptionsOpen(false);
     };
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
-  }, [open, canvasOptionsOpen]);
+  }, [open, exportOpen, canvasOptionsOpen]);
 
   useEffect(() => {
     if (closeSignal && closeSignal > 0) {
       setOpen(false);
+      setExportOpen(false);
       setCanvasOptionsOpen(false);
     }
   }, [closeSignal]);
@@ -145,44 +149,60 @@ export function CanvasToolbar({
         </Tooltip>
       </TooltipProvider>
 
-      {/* Export PNG / SVG + Presentation Mode — three small icon
-       * buttons grouped between Search and Canvas Options. Hidden
-       * when the parent shell doesn't wire the callbacks. */}
+      {/* Export dropdown + Presentation Mode */}
       {(onExportPng || onExportSvg || onEnterPresentation) && (
         <>
           <div className="h-5 w-px bg-border" />
-          <TooltipProvider delayDuration={300}>
-            {onExportPng && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    onClick={onExportPng}
-                    className="text-muted-foreground hover:bg-muted flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 transition-all duration-150 active:scale-[0.97]"
-                    aria-label="Export canvas as PNG"
-                  >
-                    <ImageIcon size={14} className="text-muted-icon" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="top" className="text-[11px]">Export PNG</TooltipContent>
-              </Tooltip>
-            )}
-            {onExportSvg && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <button
-                    type="button"
-                    onClick={onExportSvg}
-                    className="text-muted-foreground hover:bg-muted flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 transition-all duration-150 active:scale-[0.97]"
-                    aria-label="Export canvas as SVG"
-                  >
-                    <Download size={14} className="text-muted-icon" />
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="top" className="text-[11px]">Export SVG</TooltipContent>
-              </Tooltip>
-            )}
-            {onEnterPresentation && (
+
+          {(onExportPng || onExportSvg) && (
+            <div className="relative" ref={exportRef}>
+              <TooltipProvider delayDuration={300}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <button
+                      type="button"
+                      onClick={() => setExportOpen(!exportOpen)}
+                      className="text-muted-foreground hover:bg-muted flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 transition-all duration-150 active:scale-[0.97]"
+                      aria-label="Export canvas"
+                      aria-haspopup="true"
+                      aria-expanded={exportOpen}
+                    >
+                      <Download size={14} className="text-muted-icon" />
+                    </button>
+                  </TooltipTrigger>
+                  {!exportOpen && (
+                    <TooltipContent side="top" className="text-[11px]">Export</TooltipContent>
+                  )}
+                </Tooltip>
+              </TooltipProvider>
+
+              {exportOpen && (
+                <div className="absolute bottom-full mb-2.5 left-1/2 -translate-x-1/2 bg-surface/95 backdrop-blur-xl rounded-2xl border border-border shadow-[0_20px_60px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.05)] py-2 min-w-44 animate-scale-in">
+                  {onExportPng && (
+                    <DropdownItem
+                      label="Export PNG"
+                      icon={<ImageIcon size={14} />}
+                      color="text-muted-foreground"
+                      bg="bg-muted"
+                      onClick={() => { onExportPng(); setExportOpen(false); }}
+                    />
+                  )}
+                  {onExportSvg && (
+                    <DropdownItem
+                      label="Export SVG"
+                      icon={<Download size={14} />}
+                      color="text-muted-foreground"
+                      bg="bg-muted"
+                      onClick={() => { onExportSvg(); setExportOpen(false); }}
+                    />
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {onEnterPresentation && (
+            <TooltipProvider delayDuration={300}>
               <Tooltip>
                 <TooltipTrigger asChild>
                   <button
@@ -196,8 +216,8 @@ export function CanvasToolbar({
                 </TooltipTrigger>
                 <TooltipContent side="top" className="text-[11px]">Presentation Mode</TooltipContent>
               </Tooltip>
-            )}
-          </TooltipProvider>
+            </TooltipProvider>
+          )}
         </>
       )}
 

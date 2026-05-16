@@ -14,6 +14,7 @@ import { JsonCodeField } from '../../ui/JsonCodeField';
 import { TagEditor } from '../../ui/TagEditor';
 import { ComponentValidationSummary } from '../save-component/components/ComponentValidationSummary';
 import { ViewDisplayStrategyPicker } from './components/ViewDisplayStrategyPicker';
+import { ViewRendererPicker } from './components/ViewRendererPicker';
 import { ViewTypePicker } from './components/ViewTypePicker';
 import { HrefUrnField } from './components/HrefUrnField';
 import {
@@ -21,6 +22,7 @@ import {
   scaffoldContentForViewType,
   isContentEmpty,
   isLinkType,
+  normalizeContentForEditor,
 } from './viewContentHelpers';
 
 interface ViewEditorPanelProps {
@@ -50,7 +52,7 @@ export function ViewEditorPanel({ json, onChange }: ViewEditorPanelProps) {
   const flowError = getViewEditorFieldError('flow', flow);
 
   const monacoLanguage = viewTypeToMonacoLanguage(currentType);
-  const contentValue = String(attrs.content || '');
+  const contentValue = normalizeContentForEditor(attrs.content);
 
   const applyTypeChange = useCallback(
     (nextType: number) => {
@@ -172,6 +174,21 @@ export function ViewEditorPanel({ json, onChange }: ViewEditorPanelProps) {
           <Field label="Content Type">
             <ViewTypePicker value={currentType} onChange={handleTypeChange} />
           </Field>
+
+          {currentType === ViewType.Json && (
+            <Field label="Renderer">
+              <ViewRendererPicker
+                value={String(attrs.renderer ?? '')}
+                onChange={(renderer) =>
+                  onChange((draft) => {
+                    if (!draft.attributes) draft.attributes = {};
+                    (draft.attributes as Record<string, unknown>).renderer =
+                      renderer || undefined;
+                  })
+                }
+              />
+            </Field>
+          )}
 
           {isLinkType(currentType) ? (
             <HrefUrnField

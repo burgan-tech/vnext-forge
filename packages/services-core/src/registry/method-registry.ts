@@ -43,6 +43,8 @@ import {
   cliCheckResult,
   cliCheckUpdateParams,
   cliCheckUpdateResult,
+  cliDomainAddParams,
+  cliDomainAddResult,
   cliExecuteParams,
   cliExecuteResult,
   cliUpdateGlobalParams,
@@ -715,6 +717,21 @@ export function buildMethodRegistry(): MethodRegistry {
           )
         }
         return cliService.updateGlobal(traceId)
+      },
+    },
+    'cli/domainAdd': {
+      paramsSchema: cliDomainAddParams,
+      resultSchema: cliDomainAddResult,
+      handler: async (params, { cliService }, traceId) => {
+        if (!cliService) {
+          throw new VnextForgeError(
+            ERROR_CODES.INTERNAL_NOT_IMPLEMENTED,
+            'Workflow CLI is not available in this shell.',
+            { source: 'method-registry.cli/domainAdd', layer: 'application' },
+            traceId,
+          )
+        }
+        return cliService.domainAdd(params, traceId)
       },
     },
 

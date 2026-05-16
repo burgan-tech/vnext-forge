@@ -53,7 +53,7 @@ export function TransitionDialog({ configRef, persistConfig, projectId }: Transi
   const [stage, setStage] = useState('');
   const [tags, setTags] = useState('');
   const [headerRows, setHeaderRows] = useState<{ name: string; value: string }[]>([]);
-  const [sync, setSync] = useState(true);
+  const [sync, setSync] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errorDetails, setErrorDetails] = useState<Record<string, unknown> | null>(null);
@@ -422,6 +422,8 @@ export function TransitionDialog({ configRef, persistConfig, projectId }: Transi
             </div>
           )}
 
+          <TransitionAnnotations annotations={transition?.annotations} />
+
           <TransitionViewInfo view={transitionView} loading={viewLoading} />
 
           <HeaderOverrideSection rows={headerRows} setRows={setHeaderRows} />
@@ -495,6 +497,30 @@ export function TransitionDialog({ configRef, persistConfig, projectId }: Transi
   );
 }
 
+function TransitionAnnotations({ annotations }: { annotations?: Record<string, string> }) {
+  if (!annotations) return null;
+  const entries = Object.entries(annotations);
+  if (entries.length === 0) return null;
+
+  return (
+    <details className="mb-3 text-xs">
+      <summary className="cursor-pointer text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]">
+        Annotations ({entries.length})
+      </summary>
+      <div className="mt-1.5 max-h-24 overflow-y-auto rounded border border-[var(--vscode-panel-border)] bg-[var(--vscode-textCodeBlock-background)]">
+        <div className="flex flex-col divide-y divide-[var(--vscode-panel-border)]">
+          {entries.map(([key, value]) => (
+            <div key={key} className="flex items-baseline gap-2 px-2.5 py-1">
+              <span className="shrink-0 font-medium text-[10px] text-[var(--vscode-foreground)]">{key}</span>
+              <span className="truncate text-[10px] text-[var(--vscode-descriptionForeground)]">{value}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </details>
+  );
+}
+
 function TransitionViewInfo({
   view,
   loading,
@@ -531,6 +557,11 @@ function TransitionViewInfo({
           <span className="rounded bg-[var(--vscode-badge-background)] px-1 py-0.5 text-[9px] text-[var(--vscode-badge-foreground)]">
             {view.type}
           </span>
+          {view.renderer && (
+            <span className="rounded border border-[var(--vscode-panel-border)] bg-[var(--vscode-textCodeBlock-background)] px-1 py-0.5 text-[9px] text-[var(--vscode-descriptionForeground)]">
+              {view.renderer}
+            </span>
+          )}
           {view.label && (
             <span className="text-[var(--vscode-descriptionForeground)]">{view.label}</span>
           )}

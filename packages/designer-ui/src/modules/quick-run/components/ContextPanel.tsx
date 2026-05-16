@@ -192,6 +192,11 @@ function ViewTabContent({ view, loading, notFound }: { view: ReturnType<typeof u
         <span className="rounded bg-[var(--vscode-badge-background)] px-1 py-0.5 text-[9px] text-[var(--vscode-badge-foreground)]">
           {view.type}
         </span>
+        {view.renderer && (
+          <span className="rounded border border-[var(--vscode-panel-border)] bg-[var(--vscode-textCodeBlock-background)] px-1 py-0.5 text-[9px] text-[var(--vscode-descriptionForeground)]">
+            {view.renderer}
+          </span>
+        )}
       </div>
       {jsonValue != null ? (
         <CopyableJsonBlock value={jsonValue} fillHeight />
@@ -221,6 +226,7 @@ const TRIGGER_TYPE_STYLES: Record<string, string> = {
   Auto: 'border-success-border bg-success text-success-foreground',
   Error: 'border-destructive-border bg-destructive-muted text-destructive-text',
   SubFlow: 'border-tertiary-border bg-tertiary text-tertiary-foreground',
+  Schedule: 'border-warning-border bg-warning text-warning-foreground',
 };
 
 function triggerTypeBadgeClass(triggerType: string): string {
@@ -240,6 +246,9 @@ function triggerTypeBadgeClass(triggerType: string): string {
       return TRIGGER_TYPE_STYLES.Error;
     case 'subflow':
       return TRIGGER_TYPE_STYLES.SubFlow;
+    case 'schedule':
+    case 'scheduled':
+      return TRIGGER_TYPE_STYLES.Schedule;
     default:
       return 'border-muted-border bg-muted text-muted-foreground';
   }

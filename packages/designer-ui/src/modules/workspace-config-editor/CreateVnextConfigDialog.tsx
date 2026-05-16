@@ -780,6 +780,20 @@ export function CreateVnextConfigDialog({
     ],
   );
 
+  const embeddedToolbar = (
+    <EditorDocumentToolbar
+      arrangement="editor-chrome"
+      isDirty={isDirty}
+      hasSaved={hasSavedForToolbar}
+      saving={writing}
+      onSave={stableOnSave}
+      onUndo={stableOnUndo}
+      onRedo={stableOnRedo}
+      canUndo={undoStack.length > 0}
+      canRedo={redoStack.length > 0}
+    />
+  );
+
   useEffect(() => {
     if (isDialog || !registerToolbar) return;
     registerToolbar(hostToolbar);
@@ -788,6 +802,8 @@ export function CreateVnextConfigDialog({
     };
   }, [hostToolbar, isDialog, registerToolbar]);
 
+  const showEmbeddedToolbar = !isDialog && !registerToolbar;
+
   const shell = (
     <div className={cn('flex flex-col', isDialog ? 'max-h-[min(90vh,920px)]' : 'h-full min-h-0')}>
       {isDialog ? (
@@ -795,6 +811,12 @@ export function CreateVnextConfigDialog({
           <DialogHeader className="border-0 border-b-0 px-6 py-5 text-left">
             <DialogTitle className="text-primary-text">{titleText}</DialogTitle>
           </DialogHeader>
+        </div>
+      ) : null}
+
+      {showEmbeddedToolbar ? (
+        <div className="border-border bg-background shrink-0 border-b px-3 py-2">
+          {embeddedToolbar}
         </div>
       ) : null}
 

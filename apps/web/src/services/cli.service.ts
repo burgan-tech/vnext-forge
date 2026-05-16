@@ -30,3 +30,13 @@ export async function updateCliGlobal() {
     v1.cli.updateGlobal.$post({ json: {} }),
   );
 }
+
+export async function domainAddCli(params: {
+  domainName: string;
+  apiBaseUrl: string;
+  dbName: string;
+}) {
+  return callApi<{ exitCode: number; stdout: string; stderr: string }>(
+    v1.cli.domainAdd.$post({ json: params }),
+  );
+}

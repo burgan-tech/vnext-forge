@@ -9,8 +9,8 @@ interface PollingConfig {
 }
 
 const DEFAULT_POLLING_CONFIG: PollingConfig = {
-  retryCount: 12,
-  intervalMs: 500,
+  retryCount: 15,
+  intervalMs: 4000,
 };
 
 export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFIG) {

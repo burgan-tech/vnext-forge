@@ -14,8 +14,8 @@ interface QuickRunPollingSlice {
 }
 
 export const DEFAULT_QUICKRUN_POLLING: QuickRunPollingConfig = {
-  retryCount: 12,
-  intervalMs: 500,
+  retryCount: 15,
+  intervalMs: 4000,
 };
 
 export const useQuickRunSettingsStore = create<QuickRunPollingSlice>()(

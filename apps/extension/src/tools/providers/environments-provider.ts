@@ -6,6 +6,14 @@ import type {
 } from '../forge-tools-settings.js';
 import type { EnvironmentHealthMonitor, HealthStatus } from '../environment-health-monitor.js';
 
+const WORKFLOW_CLI_DOCS_URL = 'https://burgan-tech.github.io/vnext-docs/docs/tools/workflow-cli';
+
+export type DomainAddFn = (params: {
+  domainName: string;
+  apiBaseUrl: string;
+  dbName: string;
+}) => Promise<{ exitCode: number; stdout: string; stderr: string }>;
+
 export class EnvironmentsProvider implements vscode.TreeDataProvider<string> {
   private readonly _onDidChangeTreeData = new vscode.EventEmitter<string | undefined>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
@@ -15,6 +23,7 @@ export class EnvironmentsProvider implements vscode.TreeDataProvider<string> {
   constructor(
     private readonly settingsService: ForgeToolsSettingsService,
     private readonly healthMonitor: EnvironmentHealthMonitor,
+    private readonly domainAdd?: DomainAddFn,
   ) {
     settingsService.onDidChangeEnvironments(() => {
       this.envConfig = undefined;
@@ -85,7 +94,19 @@ export class EnvironmentsProvider implements vscode.TreeDataProvider<string> {
     });
     if (!baseUrl) return;
 
-    await this.settingsService.addEnvironment(name.trim(), baseUrl.trim());
+    const defaultDbName = `vNext_${name.trim().replace(/\s+/g, '_')}`;
+    const dbName = await vscode.window.showInputBox({
+      title: 'Add Environment',
+      prompt: 'Database name for Workflow CLI domain',
+      placeHolder: defaultDbName,
+      value: defaultDbName,
+      validateInput: (v) => (v.trim() ? null : 'Database name is required'),
+      ignoreFocusOut: true,
+    });
+    if (!dbName) return;
+
+    await this.settingsService.addEnvironment(name.trim(), baseUrl.trim(), dbName.trim());
+    await this.runDomainAdd(name.trim(), baseUrl.trim(), dbName.trim());
   }
 
   async editEnvironment(envId: string): Promise<void> {
@@ -122,6 +143,14 @@ export class EnvironmentsProvider implements vscode.TreeDataProvider<string> {
       name: name.trim(),
       baseUrl: baseUrl.trim(),
     });
+
+    const action = await vscode.window.showInformationMessage(
+      'For advanced Workflow CLI configuration (DB host, credentials, Docker, etc.), see the CLI docs.',
+      'View CLI Docs',
+    );
+    if (action === 'View CLI Docs') {
+      void vscode.env.openExternal(vscode.Uri.parse(WORKFLOW_CLI_DOCS_URL));
+    }
   }
 
   async deleteEnvironment(envId: string): Promise<void> {
@@ -150,12 +179,48 @@ export class EnvironmentsProvider implements vscode.TreeDataProvider<string> {
     return this.envConfig;
   }
 
+  private async runDomainAdd(name: string, baseUrl: string, dbName: string): Promise<void> {
+    if (!this.domainAdd) return;
+    try {
+      const result = await this.domainAdd({ domainName: name, apiBaseUrl: baseUrl, dbName });
+      if (result.exitCode === 0) {
+        const action = await vscode.window.showInformationMessage(
+          `Workflow CLI domain "${name}" registered successfully.`,
+          'View CLI Docs',
+        );
+        if (action === 'View CLI Docs') {
+          void vscode.env.openExternal(vscode.Uri.parse(WORKFLOW_CLI_DOCS_URL));
+        }
+      } else {
+        const msg = result.stderr.trim() || result.stdout.trim() || 'Unknown error';
+        const action = await vscode.window.showWarningMessage(
+          `Workflow CLI domain registration failed: ${msg}`,
+          'View CLI Docs',
+        );
+        if (action === 'View CLI Docs') {
+          void vscode.env.openExternal(vscode.Uri.parse(WORKFLOW_CLI_DOCS_URL));
+        }
+      }
+    } catch {
+      const action = await vscode.window.showWarningMessage(
+        'Workflow CLI is not available. Install it to enable domain registration.',
+        'View CLI Docs',
+      );
+      if (action === 'View CLI Docs') {
+        void vscode.env.openExternal(vscode.Uri.parse(WORKFLOW_CLI_DOCS_URL));
+      }
+    }
+  }
+
   private buildTooltip(env: RuntimeEnvironment, isActive: boolean, health?: HealthStatus): string {
     const lines = [
       `Name: ${env.name}`,
       `URL: ${env.baseUrl}`,
       `Status: ${isActive ? 'Active' : 'Inactive'}`,
     ];
+    if (env.dbName) {
+      lines.push(`DB Name: ${env.dbName}`);
+    }
     if (health) {
       lines.push(`Health: ${health}`);
     }
