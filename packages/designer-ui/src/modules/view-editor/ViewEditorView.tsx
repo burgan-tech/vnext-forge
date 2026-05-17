@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import type { HostDocumentToolbarSlot } from '../../modules/save-component/components/hostDocumentToolbarSlot';
 import { useComponentStore } from '../../store/useComponentStore';
 import { useProjectStore } from '../../store/useProjectStore';
@@ -28,6 +28,9 @@ export function ViewEditorView({
   layoutSurface = 'panel',
   onAtomicSaved,
 }: ViewEditorViewProps) {
+  const [showPreview, setShowPreview] = useState(false);
+  const handleTogglePreview = useCallback(() => setShowPreview((p) => !p), []);
+
   const { activeProject, vnextConfig } = useProjectStore();
   const { componentJson, isDirty, updateComponent, undo, redo, undoStack, redoStack } =
     useComponentStore();
@@ -87,10 +90,11 @@ export function ViewEditorView({
       canRedo={redoStack.length > 0}
       onPublish={canPublish ? handlePublish : undefined}
       publishing={publishing}
+      onPreviewDocument={handleTogglePreview}
       autoSavePending={autoSavePending}
       autoSaved={autoSaved}
     >
-      <ViewEditorPanel json={componentJson} onChange={updateComponent} />
+      <ViewEditorPanel json={componentJson} onChange={updateComponent} showPreview={showPreview} />
     </ComponentEditorLayout>
   );
 }

@@ -16,6 +16,7 @@ import { ComponentValidationSummary } from '../save-component/components/Compone
 import { ViewDisplayStrategyPicker } from './components/ViewDisplayStrategyPicker';
 import { ViewTypePicker } from './components/ViewTypePicker';
 import { HrefUrnField } from './components/HrefUrnField';
+import { ViewContentPreview } from './components/ViewContentPreview';
 import {
   viewTypeToMonacoLanguage,
   scaffoldContentForViewType,
@@ -26,6 +27,7 @@ import {
 interface ViewEditorPanelProps {
   json: Record<string, unknown>;
   onChange: (updater: (draft: Record<string, unknown>) => void) => void;
+  showPreview?: boolean;
 }
 
 const VIEW_TYPE_LABELS: Record<number, string> = {
@@ -37,7 +39,7 @@ const VIEW_TYPE_LABELS: Record<number, string> = {
   [ViewType.URN]: 'URN',
 };
 
-export function ViewEditorPanel({ json, onChange }: ViewEditorPanelProps) {
+export function ViewEditorPanel({ json, onChange, showPreview = false }: ViewEditorPanelProps) {
   const [pendingType, setPendingType] = useState<number | null>(null);
 
   const attrs = (json.attributes || {}) as Record<string, unknown>;
@@ -189,6 +191,20 @@ export function ViewEditorPanel({ json, onChange }: ViewEditorPanelProps) {
           )}
         </CardContent>
       </Card>
+
+      {showPreview && (
+        <Card variant="default" className="gap-0 overflow-hidden">
+          <CardHeader className="border-border border-b">
+            <CardTitle className="text-base">Preview</CardTitle>
+            <CardDescription className="text-xs">
+              Rendered view content.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="p-0">
+            <ViewContentPreview viewType={currentType} content={contentValue} />
+          </CardContent>
+        </Card>
+      )}
 
       <ConfirmAlertDialog
         open={pendingType !== null}
