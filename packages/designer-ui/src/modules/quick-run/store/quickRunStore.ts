@@ -8,6 +8,7 @@ import type {
   InstanceStatus,
   QuickRunInstance,
   QuickRunTab,
+  SchemaResponse,
   StateResponse,
   TransitionInfo,
   ViewResponse,
@@ -38,6 +39,9 @@ interface QuickRunState {
 
   activeData: DataResponse | null;
   activeDataLoading: boolean;
+
+  activeSchema: SchemaResponse | null;
+  activeSchemaLoading: boolean;
 
   activeHistory: HistoryResponse | null;
   activeHistoryLoading: boolean;
@@ -71,6 +75,7 @@ interface QuickRunState {
   updateInstanceState: (instanceId: string, stateResponse: StateResponse) => void;
 
   setActiveState: (state: StateResponse | null) => void;
+  patchActiveState: (patch: { status: InstanceStatus; state?: string }) => void;
   setActiveStateLoading: (loading: boolean) => void;
   setStateView: (view: ViewResponse | null) => void;
   setStateViewLoading: (loading: boolean) => void;
@@ -79,6 +84,8 @@ interface QuickRunState {
   setActiveViewLoading: (loading: boolean) => void;
   setActiveData: (data: DataResponse | null) => void;
   setActiveDataLoading: (loading: boolean) => void;
+  setActiveSchema: (schema: SchemaResponse | null) => void;
+  setActiveSchemaLoading: (loading: boolean) => void;
   setActiveHistory: (history: HistoryResponse | null) => void;
   setActiveHistoryLoading: (loading: boolean) => void;
 
@@ -124,10 +131,13 @@ export const useQuickRunStore = create<QuickRunState>((set) => ({
   activeData: null,
   activeDataLoading: false,
 
+  activeSchema: null,
+  activeSchemaLoading: false,
+
   activeHistory: null,
   activeHistoryLoading: false,
 
-  contextPanelTab: 'view',
+  contextPanelTab: 'data',
 
   transitionDialogOpen: false,
   transitionDialogTarget: null,
@@ -158,6 +168,7 @@ export const useQuickRunStore = create<QuickRunState>((set) => ({
       stateViewError: false,
       activeView: null,
       activeData: null,
+      activeSchema: null,
       activeHistory: null,
       transitionDialogOpen: false,
       transitionDialogTarget: null,
@@ -182,7 +193,16 @@ export const useQuickRunStore = create<QuickRunState>((set) => ({
     }),
 
   removeAllTabs: () =>
-    set({ tabs: [], activeTabId: null, activeState: null, stateView: null, activeView: null, activeData: null, activeHistory: null }),
+    set({
+      tabs: [],
+      activeTabId: null,
+      activeState: null,
+      stateView: null,
+      activeView: null,
+      activeData: null,
+      activeSchema: null,
+      activeHistory: null,
+    }),
 
   removeOtherTabs: (instanceId) =>
     set((state) => {
@@ -227,6 +247,13 @@ export const useQuickRunStore = create<QuickRunState>((set) => ({
     }),
 
   setActiveState: (activeState) => set({ activeState }),
+  patchActiveState: (patch) =>
+    set((state) => {
+      if (!state.activeState) return state;
+      return {
+        activeState: { ...state.activeState, status: patch.status, state: patch.state ?? state.activeState.state },
+      };
+    }),
   setActiveStateLoading: (activeStateLoading) => set({ activeStateLoading }),
   setStateView: (stateView) => set({ stateView }),
   setStateViewLoading: (stateViewLoading) => set({ stateViewLoading }),
@@ -235,6 +262,8 @@ export const useQuickRunStore = create<QuickRunState>((set) => ({
   setActiveViewLoading: (activeViewLoading) => set({ activeViewLoading }),
   setActiveData: (activeData) => set({ activeData }),
   setActiveDataLoading: (activeDataLoading) => set({ activeDataLoading }),
+  setActiveSchema: (activeSchema) => set({ activeSchema }),
+  setActiveSchemaLoading: (activeSchemaLoading) => set({ activeSchemaLoading }),
   setActiveHistory: (activeHistory) => set({ activeHistory }),
   setActiveHistoryLoading: (activeHistoryLoading) => set({ activeHistoryLoading }),
 

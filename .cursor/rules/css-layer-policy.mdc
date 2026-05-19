@@ -1,0 +1,94 @@
+---
+description: CSS cascade layer policy — prevents app CSS from breaking 3rd-party component rendering (PrimeReact, pseudo-ui SDK). Enforces no !important on global resets and awareness of Tailwind v4's native @layer.
+globs:
+  - "**/*.css"
+  - "packages/designer-ui/src/styles.css"
+  - "packages/designer-ui/src/modules/quick-run/pseudo-ui/*.css"
+alwaysApply: false
+---
+
+# CSS Cascade Layer Policy
+
+This project embeds 3rd-party component CSS (PrimeReact 10.x, `@burgantech/pseudo-ui` SDK) alongside Tailwind v4. The CSS cascade must be structured so that these libraries render correctly without manual overrides.
+
+## How the cascade works in this project
+
+Tailwind v4 emits all its output inside native CSS `@layer` blocks:
+
+```
+@layer properties   ← lowest priority (layered)
+@layer theme
+@layer base         ← Tailwind preflight (border:0, margin:0, bg:transparent, …)
+@layer components
+@layer utilities    ← highest-priority layered CSS
+─────────────────
+unlayered CSS       ← ALWAYS beats all @layer, regardless of specificity
+```
+
+PrimeReact 10.x injects component CSS at runtime via `<style>` tags. These are **unlayered**. Per the CSS cascade specification, unlayered styles always win over layered styles. This means PrimeReact automatically beats Tailwind's preflight — no revert rules, no specificity hacks needed.
+
+## Rules
+
+### R1 — Never use `!important` on global resets
+
+Global resets (`*`, `input`, `button`, `textarea`, `img`, `h1`–`h6`) must **never** carry `!important`. Without `!important`, 3rd-party class-based selectors (`.p-button`, `.p-inputtext`) win on specificity alone. With `!important`, nothing can override them.
+
+```css
+/* ✅ correct */
+* { box-sizing: border-box; outline: none; }
+
+/* ❌ forbidden */
+* { box-sizing: border-box !important; outline: none !important; }
+```
+
+### R2 — No Tailwind preflight revert rules inside component hosts
+
+Do not add `revert` rules to undo Tailwind's preflight for 3rd-party components. Tailwind v4 puts preflight in `@layer base`; 3rd-party unlayered CSS already wins. Adding revert rules creates a new specificity competition between the revert and the 3rd-party CSS.
+
+```css
+/* ❌ unnecessary and harmful — creates specificity conflict */
+.pseudo-ui-host button { background-color: revert; }
+
+/* ✅ not needed — PrimeReact .p-button (unlayered) already beats @layer base */
+```
+
+### R3 — App-authored CSS that targets generic elements must use low specificity
+
+If you must style generic HTML elements (not component classes) inside a 3rd-party host zone, use `:where()` to zero the inner selector's specificity. This guarantees the component library's class selectors win on ties.
+
+```css
+/* ✅ specificity (0,1,0) — ties with .p-button, PrimeReact wins (injected later) */
+.some-host :where(button) { cursor: pointer; }
+
+/* ❌ specificity (0,1,1) — beats .p-button, overrides PrimeReact */
+.some-host button { cursor: pointer; }
+```
+
+### R4 — Keep `.pseudo-ui-host` CSS minimal
+
+`pseudo-ui-layers.css` must contain **only**:
+
+1. `.pseudo-ui-host` container styles (isolation, font, border, padding, background)
+2. `.pseudo-ui-host--fill` / `.pseudo-ui-host__scroll` flex layout
+3. Dark-mode tweaks that are genuinely missing from the theme engine
+
+It must **not** contain:
+- `--p-*` token definitions (provided by `@primeuix/themes` at runtime)
+- `d-*` layout classes (provided by `@burgantech/pseudo-ui/react/style.css`)
+- `.p-*` PrimeReact component overrides (provided by PrimeReact runtime CSS)
+- Tailwind preflight revert rules (unnecessary per R2)
+
+### R5 — Reserve `!important` for VS Code webview host overrides only
+
+The VS Code webview host injects global styles with `!important` (e.g. on `input`, `textarea`). Fighting those requires `!important` in return. Such rules must be scoped with a comment explaining the VS Code override context and must not be applied globally.
+
+## Quick reference
+
+| CSS source | Cascade level | Priority |
+|---|---|---|
+| Tailwind v4 preflight | `@layer base` | Lowest |
+| Tailwind v4 utilities | `@layer utilities` | Low-medium |
+| App global resets (`styles.css`) | Unlayered (no `!important`) | Medium |
+| SDK layout CSS (`pseudo-ui/react/style.css`) | Unlayered | Medium |
+| PrimeReact runtime CSS (`useStyle`) | Unlayered | Medium (wins ties by injection order) |
+| `!important` on any of the above | `!important` layer | Highest — avoid |

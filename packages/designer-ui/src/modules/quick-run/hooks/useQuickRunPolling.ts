@@ -31,11 +31,12 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
 
       const {
         setActiveState,
+        patchActiveState,
         setActiveStateLoading,
         updateInstanceState,
+        updateInstanceStatus,
         setPollingInstanceId,
         setStateView,
-        setStateViewLoading,
         setStateViewError,
       } = store.getState();
 
@@ -59,8 +60,14 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
 
         if (response.success) {
           const stateData = response.data;
-          setActiveState(stateData);
-          updateInstanceState(params.instanceId, stateData);
+
+          if (stateData.status === 'B') {
+            patchActiveState({ status: stateData.status, state: stateData.state });
+            updateInstanceStatus(params.instanceId, stateData.status, stateData.state);
+          } else {
+            setActiveState(stateData);
+            updateInstanceState(params.instanceId, stateData);
+          }
 
           if (stateData.status === 'A' || stateData.status === 'C' || stateData.status === 'F') {
             setActiveStateLoading(false);
@@ -158,12 +165,13 @@ async function fetchStateView(
   params: { domain: string; workflowKey: string; instanceId: string; headers?: Record<string, string>; runtimeUrl?: string },
   signal: AbortSignal,
 ): Promise<void> {
-  const { setStateView, setStateViewLoading, setStateViewError } = useQuickRunStore.getState();
+  const { setStateView, setStateViewLoading, setStateViewError } =
+    useQuickRunStore.getState();
   setStateViewLoading(true);
   setStateViewError(false);
 
   try {
-    const response = await QuickRunApi.getView({
+    const viewResponse = await QuickRunApi.getView({
       domain: params.domain,
       workflowKey: params.workflowKey,
       instanceId: params.instanceId,
@@ -173,8 +181,8 @@ async function fetchStateView(
 
     if (signal.aborted) return;
 
-    if (response.success) {
-      setStateView(response.data);
+    if (viewResponse.success) {
+      setStateView(viewResponse.data);
     } else {
       setStateViewError(true);
       setStateView(null);

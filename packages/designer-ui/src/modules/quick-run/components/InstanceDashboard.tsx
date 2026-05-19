@@ -1,10 +1,14 @@
-import { type MutableRefObject, useCallback, useEffect, useRef, useState } from 'react';
+import { type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import * as QuickRunApi from '../QuickRunApi';
 import type { IncidentEntry, IncidentInfo, InstanceDetailResponse, WorkflowBucketConfig } from '../QuickRunApi';
 import { ResizableDialogShell } from '../../../ui/ResizableDialogShell';
 import { useQuickRunPolling } from '../hooks/useQuickRunPolling';
 import { useQuickRunStore } from '../store/quickRunStore';
+import { createQuickRunPseudoDelegate } from '../pseudo-ui/createQuickRunPseudoDelegate';
+import { createDataSchemaResolver } from '../pseudo-ui/createDataSchemaResolver';
+import { PseudoUiOrJsonBlock } from '../pseudo-ui/PseudoUiOrJsonBlock';
+import { scheduleQuickRunRefresh } from '../pseudo-ui/scheduleQuickRunRefresh';
 import { safeViewContent, type TransitionInfo } from '../types/quickrun.types';
 import { SchemaForm } from '../../schema-form';
 import { CopyableJsonBlock } from './CopyableJsonBlock';
@@ -37,6 +41,7 @@ export function InstanceDashboard({ configRef, persistConfig }: InstanceDashboar
   const stateViewLoading = useQuickRunStore((s) => s.stateViewLoading);
   const stateViewError = useQuickRunStore((s) => s.stateViewError);
   const pollingConfig = useQuickRunStore((s) => s.pollingConfig);
+  const pollingInstanceId = useQuickRunStore((s) => s.pollingInstanceId);
 
   const { pollState } = useQuickRunPolling(pollingConfig);
 
@@ -271,11 +276,6 @@ export function InstanceDashboard({ configRef, persistConfig }: InstanceDashboar
             <StatusBadge status={activeInstance.status} />
           </div>
           <div className="flex items-center gap-2">
-            {activeStateLoading && (
-              <span className="text-xs text-[var(--vscode-descriptionForeground)] animate-pulse">
-                Polling...
-              </span>
-            )}
             {!activeStateLoading && isActive && (
               <button
                 className="flex items-center gap-1 rounded border border-[var(--vscode-errorForeground)] px-2 py-1 text-[10px] text-[var(--vscode-errorForeground)] hover:bg-[var(--vscode-inputValidation-errorBackground)] disabled:opacity-50"
@@ -296,7 +296,16 @@ export function InstanceDashboard({ configRef, persistConfig }: InstanceDashboar
                 Retry Instance
               </button>
             )}
-            {!activeStateLoading && (
+            {pollingInstanceId === activeTabId ? (
+              <button
+                className="flex items-center gap-1 rounded border border-[var(--vscode-progressBar-background)] px-2 py-1 text-[10px] text-[var(--vscode-progressBar-background)] animate-pulse"
+                disabled
+                title="Polling for state changes"
+              >
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-[var(--vscode-progressBar-background)]" />
+                Polling...
+              </button>
+            ) : !activeStateLoading && (
               <button
                 className="flex items-center gap-1 rounded border border-[var(--vscode-panel-border)] px-2 py-1 text-[10px] text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] hover:text-[var(--vscode-foreground)]"
                 onClick={retryHeadersOpen ? handleRetry : openRetryPanel}
@@ -428,7 +437,7 @@ export function InstanceDashboard({ configRef, persistConfig }: InstanceDashboar
         </section>
       )}
 
-      {/* Quick Actions (View Data / History / View tabs) — placed above State View */}
+      {/* Quick Actions (View Data / History tabs) — placed above State View */}
       <section className="flex gap-2 border-t border-[var(--vscode-panel-border)] pt-3">
         <button
           className="rounded border border-[var(--vscode-panel-border)] px-3 py-1.5 text-xs hover:bg-[var(--vscode-list-hoverBackground)]"
@@ -441,12 +450,6 @@ export function InstanceDashboard({ configRef, persistConfig }: InstanceDashboar
           onClick={() => setContextPanelTab('history')}
         >
           History
-        </button>
-        <button
-          className="rounded border border-[var(--vscode-panel-border)] px-3 py-1.5 text-xs hover:bg-[var(--vscode-list-hoverBackground)]"
-          onClick={() => setContextPanelTab('view')}
-        >
-          View
         </button>
       </section>
 
@@ -850,6 +853,68 @@ function ResponseHeadersSection({ headers }: { headers: Record<string, string> }
 }
 
 function StateViewContent({ view }: { view: NonNullable<ReturnType<typeof useQuickRunStore.getState>['stateView']> }) {
+  const activeTabId = useQuickRunStore((s) => s.activeTabId);
+  const domain = useQuickRunStore((s) => s.domain);
+  const workflowKey = useQuickRunStore((s) => s.workflowKey);
+  const environmentUrl = useQuickRunStore((s) => s.environmentUrl);
+  const globalHeaders = useQuickRunStore((s) => s.globalHeaders);
+  const sessionHeaders = useQuickRunStore((s) => s.sessionHeaders);
+  const activeData = useQuickRunStore((s) => s.activeData);
+  const setActiveData = useQuickRunStore((s) => s.setActiveData);
+  const setActiveDataLoading = useQuickRunStore((s) => s.setActiveDataLoading);
+
+  const mergedHeaders = useMemo(() => ({ ...globalHeaders, ...sessionHeaders }), [globalHeaders, sessionHeaders]);
+
+  useEffect(() => {
+    if (activeData || !activeTabId || !domain || !workflowKey) return;
+    let cancelled = false;
+    setActiveDataLoading(true);
+    void QuickRunApi.getData({
+      domain,
+      workflowKey,
+      instanceId: activeTabId,
+      headers: globalHeaders,
+      runtimeUrl: environmentUrl,
+    }).then((res) => {
+      if (cancelled) return;
+      setActiveData(res.success ? res.data : null);
+    }).catch(() => {
+      if (!cancelled) setActiveData(null);
+    }).finally(() => {
+      if (!cancelled) setActiveDataLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [activeData, activeTabId, domain, workflowKey, environmentUrl, globalHeaders, setActiveData, setActiveDataLoading]);
+
+  const pseudoDelegate = useMemo(() => {
+    if (!activeTabId || !domain || !workflowKey) return undefined;
+    return createQuickRunPseudoDelegate({
+      domain,
+      workflowKey,
+      instanceId: activeTabId,
+      runtimeUrl: environmentUrl ?? '',
+      headers: mergedHeaders,
+      onTransitionComplete: () => {
+        void scheduleQuickRunRefresh({
+          domain,
+          workflowKey,
+          instanceId: activeTabId,
+          runtimeUrl: environmentUrl ?? '',
+          headers: mergedHeaders,
+        });
+      },
+    });
+  }, [activeTabId, domain, workflowKey, environmentUrl, mergedHeaders]);
+
+  const schemaResolver = useMemo(() => {
+    if (!domain) return undefined;
+    return createDataSchemaResolver({
+      domain,
+      headers: mergedHeaders,
+      runtimeUrl: environmentUrl ?? '',
+    });
+  }, [domain, mergedHeaders, environmentUrl]);
+
   const displayContent = safeViewContent(view.content);
   let jsonValue: unknown = null;
   try { jsonValue = JSON.parse(displayContent); } catch { /* not JSON */ }
@@ -864,12 +929,25 @@ function StateViewContent({ view }: { view: NonNullable<ReturnType<typeof useQui
         {view.label && (
           <span className="text-[var(--vscode-descriptionForeground)]">{view.label}</span>
         )}
+        {view.renderer && (
+          <span className="rounded border border-[var(--vscode-panel-border)] bg-[var(--vscode-textCodeBlock-background)] px-1 py-0.5 text-[9px] text-[var(--vscode-descriptionForeground)]">
+            {view.renderer}
+          </span>
+        )}
       </div>
-      {jsonValue != null ? (
-        <CopyableJsonBlock value={jsonValue} />
-      ) : (
-        <CopyableJsonBlock value={displayContent || '(empty)'} />
-      )}
+      <PseudoUiOrJsonBlock
+        view={view}
+        jsonValue={jsonValue}
+        displayContent={displayContent}
+        ariaLabel="Current state view"
+        integrationMode="simulation"
+        panelStorageScope="state-view"
+        surfaceClassName="min-h-[200px]"
+        delegate={pseudoDelegate}
+        resolveSchema={schemaResolver}
+        instanceData={activeData?.data}
+        initialFormData={activeData?.data}
+      />
     </div>
   );
 }

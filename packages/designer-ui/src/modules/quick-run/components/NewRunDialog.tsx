@@ -470,50 +470,71 @@ export function NewRunDialog({
             Starting instance for <strong>{domain}/{workflowKey}</strong>
           </div>
 
-          {/* Instance Key */}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium">Instance Key (optional)</label>
-            <div className="flex gap-1">
-              <input
-                type="text"
-                value={instanceKey}
-                onChange={(e) => setInstanceKey(e.target.value)}
-                placeholder="Auto-generated if empty"
-                className="flex-1 rounded border border-[var(--vscode-input-border)] bg-[var(--vscode-input-background)] px-2 py-1.5 text-xs text-[var(--vscode-input-foreground)] placeholder:text-[var(--vscode-input-placeholderForeground)]"
-              />
-              <button
-                className="rounded border border-[var(--vscode-panel-border)] px-2 py-1 text-[10px] hover:bg-[var(--vscode-list-hoverBackground)]"
-                onClick={generateKey}
-                title="Generate UUID"
-              >
-                Generate
-              </button>
+          <details className="text-xs" open>
+            <summary className="cursor-pointer text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]">
+              Advanced
+            </summary>
+            <div className="mt-2 flex flex-col gap-2">
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium">Instance Key</label>
+                <div className="flex gap-1">
+                  <input
+                    type="text"
+                    value={instanceKey}
+                    onChange={(e) => setInstanceKey(e.target.value)}
+                    placeholder="Auto-generated if empty"
+                    className="flex-1 rounded border border-[var(--vscode-input-border)] bg-[var(--vscode-input-background)] px-2 py-1.5 text-xs text-[var(--vscode-input-foreground)] placeholder:text-[var(--vscode-input-placeholderForeground)]"
+                  />
+                  <button
+                    className="rounded border border-[var(--vscode-panel-border)] px-2 py-1 text-[10px] hover:bg-[var(--vscode-list-hoverBackground)]"
+                    onClick={generateKey}
+                    title="Generate UUID"
+                  >
+                    Generate
+                  </button>
+                </div>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium">Stage</label>
+                <input
+                  type="text"
+                  value={stage}
+                  onChange={(e) => setStage(e.target.value)}
+                  placeholder="e.g. approval, review, payment"
+                  className="rounded border border-[var(--vscode-input-border)] bg-[var(--vscode-input-background)] px-2 py-1.5 text-xs text-[var(--vscode-input-foreground)] placeholder:text-[var(--vscode-input-placeholderForeground)]"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium">Tags (comma-separated)</label>
+                <input
+                  type="text"
+                  value={tags}
+                  onChange={(e) => setTags(e.target.value)}
+                  placeholder="tag1, tag2, tag3"
+                  className="rounded border border-[var(--vscode-input-border)] bg-[var(--vscode-input-background)] px-2 py-1.5 text-xs text-[var(--vscode-input-foreground)] placeholder:text-[var(--vscode-input-placeholderForeground)]"
+                />
+              </div>
+              <label className="flex items-center gap-2 text-xs">
+                <input
+                  type="checkbox"
+                  checked={sync}
+                  onChange={(e) => setSync(e.target.checked)}
+                />
+                Synchronous execution
+              </label>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs font-medium">Version</label>
+                <input
+                  type="text"
+                  value={version}
+                  onChange={(e) => setVersion(e.target.value)}
+                  placeholder="latest"
+                  className="rounded border border-[var(--vscode-input-border)] bg-[var(--vscode-input-background)] px-2 py-1.5 text-xs text-[var(--vscode-input-foreground)] placeholder:text-[var(--vscode-input-placeholderForeground)]"
+                />
+              </div>
+              <HeaderOverrideSection rows={headerRows} setRows={setHeaderRows} />
             </div>
-          </div>
-
-          {/* Stage */}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium">Stage (optional)</label>
-            <input
-              type="text"
-              value={stage}
-              onChange={(e) => setStage(e.target.value)}
-              placeholder="e.g. approval, review, payment"
-              className="rounded border border-[var(--vscode-input-border)] bg-[var(--vscode-input-background)] px-2 py-1.5 text-xs text-[var(--vscode-input-foreground)] placeholder:text-[var(--vscode-input-placeholderForeground)]"
-            />
-          </div>
-
-          {/* Tags */}
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium">Tags (optional, comma-separated)</label>
-            <input
-              type="text"
-              value={tags}
-              onChange={(e) => setTags(e.target.value)}
-              placeholder="tag1, tag2, tag3"
-              className="rounded border border-[var(--vscode-input-border)] bg-[var(--vscode-input-background)] px-2 py-1.5 text-xs text-[var(--vscode-input-foreground)] placeholder:text-[var(--vscode-input-placeholderForeground)]"
-            />
-          </div>
+          </details>
 
           {/* Attributes — payload editor with test-data + presets toolbar */}
           <div className="flex flex-col gap-1.5">
@@ -525,7 +546,6 @@ export function NewRunDialog({
                 </span>
               ) : null}
               <div className="ml-auto flex items-center gap-1">
-                {/* Preset dropdown */}
                 {canPresets ? (
                   <>
                     <select
@@ -566,16 +586,8 @@ export function NewRunDialog({
               </div>
             </div>
 
-            {/* Action buttons row */}
             <div className="flex items-center gap-1 flex-wrap">
               {canGenerate ? (
-                /*
-                 * Single Generate button — each click feeds a fresh
-                 * `Date.now()` seed to the faker so consecutive presses
-                 * produce visibly different payloads. The previous UI
-                 * had a separate "Regenerate" button that did the same
-                 * thing; merging them removes the redundant control.
-                 */
                 <button
                   type="button"
                   onClick={() => void runGenerate({ seed: Date.now() })}
@@ -618,13 +630,6 @@ export function NewRunDialog({
               </div>
             ) : null}
 
-            {/*
-             * SchemaForm renders a schema-driven form when `resolvedSchema`
-             * is available (workflow has a start schema) and falls back to
-             * a JSON editor otherwise. The Form/JSON toggle is exposed by
-             * the form itself, so users can switch back to raw JSON for
-             * fast edits.
-             */}
             <SchemaForm
               schema={resolvedSchema}
               value={attributes}
@@ -635,7 +640,6 @@ export function NewRunDialog({
             />
           </div>
 
-          {/* Save-preset inline form (collapsed-by-default) */}
           {savePresetMode ? (
             <div className="flex flex-col gap-1 rounded border border-[var(--vscode-panel-border)] bg-[var(--vscode-list-hoverBackground)]/30 p-2">
               <div className="text-[11px] font-semibold">Save preset</div>
@@ -677,36 +681,6 @@ export function NewRunDialog({
               </div>
             </div>
           ) : null}
-
-          {/* Headers */}
-          <HeaderOverrideSection rows={headerRows} setRows={setHeaderRows} />
-
-          {/* Advanced: sync & version */}
-          <details className="text-xs">
-            <summary className="cursor-pointer text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]">
-              Advanced (optional)
-            </summary>
-            <div className="mt-2 flex flex-col gap-2">
-              <label className="flex items-center gap-2 text-xs">
-                <input
-                  type="checkbox"
-                  checked={sync}
-                  onChange={(e) => setSync(e.target.checked)}
-                />
-                Synchronous execution
-              </label>
-              <div className="flex flex-col gap-1">
-                <label className="text-xs font-medium">Version</label>
-                <input
-                  type="text"
-                  value={version}
-                  onChange={(e) => setVersion(e.target.value)}
-                  placeholder="latest"
-                  className="rounded border border-[var(--vscode-input-border)] bg-[var(--vscode-input-background)] px-2 py-1.5 text-xs text-[var(--vscode-input-foreground)] placeholder:text-[var(--vscode-input-placeholderForeground)]"
-                />
-              </div>
-            </div>
-          </details>
 
           {error && (
             <ValidationErrorBlock message={error} details={errorDetails ?? undefined} />

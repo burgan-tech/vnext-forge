@@ -1,0 +1,53 @@
+/*
+ * pseudo-ui host container styles.
+ *
+ * Layout classes (d-*) come from @burgantech/pseudo-ui/react/style.css.
+ * Design tokens (--p-*) are auto-generated at runtime by @primeuix/themes.
+ * PrimeReact component CSS is injected at runtime by PrimeReact 10.x useStyle.
+ *
+ * No Tailwind preflight revert rules are needed here. Tailwind v4 emits its
+ * preflight inside `@layer base`. PrimeReact's runtime CSS is unlayered, and
+ * per the CSS cascade spec unlayered styles always beat layered styles —
+ * regardless of specificity. PrimeReact wins automatically.
+ *
+ * See .cursor/rules/css-layer-policy.mdc for the project-wide convention.
+ */
+
+/* ─── Host container ─── */
+
+.pseudo-ui-host {
+  isolation: isolate;
+  font-family: var(--vscode-font-family, system-ui, sans-serif);
+  font-size: var(--vscode-font-size, 13px);
+  color: var(--p-text-color);
+  border: 1px solid var(--vscode-panel-border);
+  border-radius: 4px;
+  padding: 10px;
+  background: var(--p-surface-0);
+  min-height: 120px;
+}
+
+.pseudo-ui-host.pseudo-ui-host--fill {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.pseudo-ui-host .pseudo-ui-host__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* ─── Float-label spacing ─── */
+
+.pseudo-ui-host .p-float-label {
+  padding-top: 0.75rem;
+}
+
+/* ─── Dark-mode card shadow ─── */
+
+html.dark .pseudo-ui-host .p-card {
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}

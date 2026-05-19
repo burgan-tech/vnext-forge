@@ -32,9 +32,25 @@ export function scaffoldContentForViewType(type: number): string {
   }
 }
 
-export function normalizeContentForEditor(content: unknown): string {
+/** When `viewType` is Json, parses stringified JSON and pretty-prints for display. */
+export function normalizeContentForEditor(content: unknown, viewType?: number): string {
   if (content == null) return '';
-  if (typeof content === 'string') return content;
+  if (typeof content === 'string') {
+    if (viewType === ViewType.Json) {
+      const trimmed = content.trim();
+      if (trimmed !== '') {
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (parsed !== null && typeof parsed === 'object') {
+            return JSON.stringify(parsed, null, 2);
+          }
+        } catch {
+          // legacy or invalid JSON text — surface as authored
+        }
+      }
+    }
+    return content;
+  }
   if (typeof content === 'object') {
     try {
       return JSON.stringify(content, null, 2);

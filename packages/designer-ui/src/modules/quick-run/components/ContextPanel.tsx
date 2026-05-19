@@ -3,7 +3,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import * as QuickRunApi from '../QuickRunApi';
 import { useQuickRunStore } from '../store/quickRunStore';
 import {
-  safeViewContent,
   type ContextPanelTab,
   type CorrelationInfo,
   type HistoryTransition,
@@ -11,7 +10,6 @@ import {
 import { CopyableJsonBlock } from './CopyableJsonBlock';
 
 const TABS: { id: ContextPanelTab; label: string }[] = [
-  { id: 'view', label: 'View' },
   { id: 'data', label: 'Data' },
   { id: 'history', label: 'History' },
   { id: 'correlations', label: 'Correlations' },
@@ -26,11 +24,7 @@ export function ContextPanel() {
   const globalHeaders = useQuickRunStore((s) => s.globalHeaders);
   const environmentUrl = useQuickRunStore((s) => s.environmentUrl);
   const activeStateLoading = useQuickRunStore((s) => s.activeStateLoading);
-
-  const activeView = useQuickRunStore((s) => s.activeView);
-  const activeViewLoading = useQuickRunStore((s) => s.activeViewLoading);
-  const setActiveView = useQuickRunStore((s) => s.setActiveView);
-  const setActiveViewLoading = useQuickRunStore((s) => s.setActiveViewLoading);
+  const pollingInstanceId = useQuickRunStore((s) => s.pollingInstanceId);
 
   const activeData = useQuickRunStore((s) => s.activeData);
   const activeDataLoading = useQuickRunStore((s) => s.activeDataLoading);
@@ -41,8 +35,6 @@ export function ContextPanel() {
   const activeHistoryLoading = useQuickRunStore((s) => s.activeHistoryLoading);
   const setActiveHistory = useQuickRunStore((s) => s.setActiveHistory);
   const setActiveHistoryLoading = useQuickRunStore((s) => s.setActiveHistoryLoading);
-
-  const [viewNotFound, setViewNotFound] = useState(false);
 
   const loadData = useCallback(async () => {
     if (!activeTabId || !domain || !workflowKey) return;
@@ -59,25 +51,6 @@ export function ContextPanel() {
     }
     setActiveDataLoading(false);
   }, [activeTabId, domain, workflowKey, globalHeaders, environmentUrl, setActiveData, setActiveDataLoading]);
-
-  const loadView = useCallback(async () => {
-    if (!activeTabId || !domain || !workflowKey) return;
-    setActiveViewLoading(true);
-    setViewNotFound(false);
-    try {
-      const response = await QuickRunApi.getView({ domain, workflowKey, instanceId: activeTabId, headers: globalHeaders, runtimeUrl: environmentUrl });
-      if (response.success) {
-        setActiveView(response.data);
-      } else {
-        setActiveView(null);
-        setViewNotFound(true);
-      }
-    } catch {
-      setActiveView(null);
-      setViewNotFound(true);
-    }
-    setActiveViewLoading(false);
-  }, [activeTabId, domain, workflowKey, globalHeaders, environmentUrl, setActiveView, setActiveViewLoading]);
 
   const loadHistory = useCallback(async () => {
     if (!activeTabId || !domain || !workflowKey) return;
@@ -96,29 +69,26 @@ export function ContextPanel() {
   }, [activeTabId, domain, workflowKey, globalHeaders, environmentUrl, setActiveHistory, setActiveHistoryLoading]);
 
   useEffect(() => {
-    if (!activeTabId) return;
+    if (!activeTabId || pollingInstanceId) return;
     switch (contextPanelTab) {
       case 'data':
         void loadData();
-        break;
-      case 'view':
-        void loadView();
         break;
       case 'history':
         void loadHistory();
         break;
     }
-  }, [contextPanelTab, activeTabId, loadData, loadView, loadHistory]);
+  }, [contextPanelTab, activeTabId, pollingInstanceId, loadData, loadHistory]);
 
   const prevStateLoadingRef = useRef(activeStateLoading);
   useEffect(() => {
     const wasLoading = prevStateLoadingRef.current;
     prevStateLoadingRef.current = activeStateLoading;
-    if (wasLoading && !activeStateLoading && activeTabId) {
+    if (wasLoading && !activeStateLoading && activeTabId && !pollingInstanceId) {
       if (contextPanelTab === 'history') void loadHistory();
       if (contextPanelTab === 'data') void loadData();
     }
-  }, [activeStateLoading, activeTabId, contextPanelTab, loadHistory, loadData]);
+  }, [activeStateLoading, activeTabId, contextPanelTab, pollingInstanceId, loadHistory, loadData]);
 
   if (!activeTabId) {
     return (
@@ -159,9 +129,6 @@ export function ContextPanel() {
         id={`quickrun-tabpanel-${contextPanelTab}`}
         aria-labelledby={`quickrun-tab-${contextPanelTab}`}
       >
-        {contextPanelTab === 'view' && (
-          <ViewTabContent view={activeView} loading={activeViewLoading} notFound={viewNotFound} />
-        )}
         {contextPanelTab === 'data' && (
           <DataTabContent data={activeData} loading={activeDataLoading} />
         )}
@@ -173,37 +140,6 @@ export function ContextPanel() {
         )}
       </div>
     </aside>
-  );
-}
-
-function ViewTabContent({ view, loading, notFound }: { view: ReturnType<typeof useQuickRunStore.getState>['activeView']; loading: boolean; notFound: boolean }) {
-  if (loading) return <LoadingPlaceholder />;
-  if (notFound) return <EmptyState message="No view defined for this state" />;
-  if (!view) return <EmptyState message="No view available" />;
-  const displayContent = safeViewContent(view.content);
-
-  let jsonValue: unknown = null;
-  try { jsonValue = JSON.parse(displayContent); } catch { /* not JSON */ }
-
-  return (
-    <div className="flex flex-1 flex-col gap-2 min-h-0">
-      <div className="flex items-center gap-2 text-xs shrink-0">
-        <span className="font-medium">{view.key}</span>
-        <span className="rounded bg-[var(--vscode-badge-background)] px-1 py-0.5 text-[9px] text-[var(--vscode-badge-foreground)]">
-          {view.type}
-        </span>
-        {view.renderer && (
-          <span className="rounded border border-[var(--vscode-panel-border)] bg-[var(--vscode-textCodeBlock-background)] px-1 py-0.5 text-[9px] text-[var(--vscode-descriptionForeground)]">
-            {view.renderer}
-          </span>
-        )}
-      </div>
-      {jsonValue != null ? (
-        <CopyableJsonBlock value={jsonValue} fillHeight />
-      ) : (
-        <CopyableJsonBlock value={displayContent || '(empty)'} fillHeight />
-      )}
-    </div>
   );
 }
 

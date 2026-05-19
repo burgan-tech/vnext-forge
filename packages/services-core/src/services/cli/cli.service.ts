@@ -126,9 +126,9 @@ function mapCommandToArgv(command: CliAllowedCommand, resolvedFilePath?: string)
     case 'check':
       return ['check']
     case 'update':
-      return ['update']
+      return ['update', '--yes']
     case 'update --all':
-      return ['update', '--all']
+      return ['update', '--all', '--yes']
     case 'update -f': {
       if (!resolvedFilePath || resolvedFilePath.length === 0) {
         throw new VnextForgeError(
@@ -137,7 +137,7 @@ function mapCommandToArgv(command: CliAllowedCommand, resolvedFilePath?: string)
           { source: 'CliService.mapCommandToArgv', layer: 'application' },
         )
       }
-      return ['update', '-f', resolvedFilePath]
+      return ['update', '-f', resolvedFilePath, '--yes']
     }
     case 'csx --all':
       return ['csx', '--all']

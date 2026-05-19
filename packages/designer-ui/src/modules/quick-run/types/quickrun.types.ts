@@ -144,7 +144,7 @@ export type QuickRunTab = {
   label: string;
 };
 
-export type ContextPanelTab = 'view' | 'data' | 'history' | 'correlations';
+export type ContextPanelTab = 'data' | 'history' | 'correlations';
 
 export function safeViewContent(content: string | Record<string, unknown> | unknown): string {
   if (typeof content === 'string') return content;

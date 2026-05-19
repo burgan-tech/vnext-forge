@@ -446,15 +446,22 @@ html.dark :focus-visible {
   outline-color: #818cf8; /* indigo-400 */
 }
 
+/*
+ * Global resets — no !important so that 3rd-party component CSS
+ * (PrimeReact, pseudo-ui SDK) can override via normal specificity.
+ * Tailwind v4 already sets box-sizing in @layer base; this unlayered
+ * duplicate ensures it holds even when non-layered code is present.
+ * See .cursor/rules/css-layer-policy.mdc.
+ */
 * {
-  box-sizing: border-box !important;
-  outline: none !important;
+  box-sizing: border-box;
+  outline: none;
 }
 input {
-  outline: none !important;
+  outline: none;
 }
 textarea {
-  outline: none !important;
+  outline: none;
 }
 
 html,

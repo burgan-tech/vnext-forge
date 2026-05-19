@@ -30,7 +30,7 @@ export function CopyableJsonBlock({ value, maxHeight, fillHeight }: CopyableJson
   }, [value]);
 
   return (
-    <div className={`group relative rounded bg-[var(--vscode-textCodeBlock-background)] text-[11px]${fillHeight ? ' flex-1 min-h-0' : ''}`}>
+    <div className={`group relative rounded bg-[var(--vscode-textCodeBlock-background)] text-[11px]${fillHeight ? ' flex-1 min-h-[200px]' : ''}`}>
       <button
         type="button"
         className="absolute top-1 right-1 z-10 flex h-5 w-5 items-center justify-center rounded opacity-0 transition-opacity group-hover:opacity-100 hover:bg-[var(--vscode-list-hoverBackground)]"
