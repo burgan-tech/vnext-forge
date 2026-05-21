@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../../../ui/Tabs';
 import { type JsonPointer } from '../../../model/jsonPointer';
 import { DetailPanelHeader } from './DetailPanelHeader';
+import { ConstraintsTab } from './tabs/ConstraintsTab';
 import { GeneralTab } from './tabs/GeneralTab';
 
 type DetailTab = 'general' | 'constraints' | 'composition' | 'vnext';
@@ -32,11 +33,7 @@ export function DetailPanel({ pointer }: DetailPanelProps) {
           <TabsTrigger value="general" variant="default" className="px-2 py-1 text-[10px]">
             General
           </TabsTrigger>
-          <TabsTrigger
-            value="constraints"
-            variant="default"
-            className="px-2 py-1 text-[10px]"
-            disabled>
+          <TabsTrigger value="constraints" variant="default" className="px-2 py-1 text-[10px]">
             Constraints
           </TabsTrigger>
           <TabsTrigger
@@ -55,7 +52,7 @@ export function DetailPanel({ pointer }: DetailPanelProps) {
           <GeneralTab pointer={pointer} />
         </TabsContent>
         <TabsContent value="constraints" className="flex-1 overflow-y-auto p-3">
-          <PhasePlaceholder phase={3} name="Constraints" />
+          <ConstraintsTab pointer={pointer} />
         </TabsContent>
         <TabsContent value="composition" className="flex-1 overflow-y-auto p-3">
           <PhasePlaceholder phase={4} name="Composition" />

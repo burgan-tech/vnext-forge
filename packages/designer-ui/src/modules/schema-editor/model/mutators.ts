@@ -248,6 +248,56 @@ export function renameProp(
   };
 }
 
+/**
+ * Move `key` to absolute index `toIndex` in the parent's `properties` order.
+ * Out-of-range targets are clamped. Used by drag-and-drop where the drop
+ * position is known directly. For arrow-key reorder, use `moveProp(...delta)`.
+ */
+export function movePropToIndex(
+  parentPointer: JsonPointer,
+  key: string,
+  toIndex: number,
+): SchemaUpdater {
+  return (draft) => {
+    const parent = descendDraft(draft, parentPointer);
+
+    if (!parent) {
+      return;
+    }
+
+    const properties = parent.properties;
+
+    if (!properties || typeof properties !== 'object' || Array.isArray(properties)) {
+      return;
+    }
+
+    const props = properties as Record<string, unknown>;
+    const keys = Object.keys(props);
+    const from = keys.indexOf(key);
+
+    if (from < 0) {
+      return;
+    }
+
+    const clampedTo = Math.max(0, Math.min(keys.length - 1, toIndex));
+
+    if (clampedTo === from) {
+      return;
+    }
+
+    keys.splice(from, 1);
+    keys.splice(clampedTo, 0, key);
+
+    const next: Record<string, unknown> = {};
+
+    for (const k of keys) {
+      next[k] = props[k];
+    }
+
+    parent.properties = next;
+  };
+}
+
 /** Move a property up (delta=-1) or down (delta=+1) among its siblings. */
 export function moveProp(parentPointer: JsonPointer, key: string, delta: number): SchemaUpdater {
   return (draft) => {

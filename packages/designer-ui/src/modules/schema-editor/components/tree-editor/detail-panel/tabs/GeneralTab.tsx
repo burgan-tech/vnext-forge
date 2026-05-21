@@ -28,22 +28,6 @@ import { useSchemaNode } from '../../../../hooks/useSchemaNode';
 import { RawJsonFallback } from '../../raw/RawJsonFallback';
 import { RawPassthroughBadge } from '../../raw/RawPassthroughBadge';
 
-const STRING_FORMATS = [
-  '',
-  'email',
-  'uri',
-  'url',
-  'uuid',
-  'hostname',
-  'ipv4',
-  'ipv6',
-  'date',
-  'date-time',
-  'time',
-  'phone',
-  'iban',
-] as const;
-
 interface GeneralTabProps {
   pointer: JsonPointer;
 }
@@ -117,23 +101,6 @@ export function GeneralTab({ pointer }: GeneralTabProps) {
           ))}
         </Select>
       </Field>
-
-      {node.type === 'string' ? (
-        <Field label="Format" hint="Standard JSON Schema format hint for strings.">
-          <Select
-            className="h-8 text-xs"
-            value={typeof node.format === 'string' ? node.format : ''}
-            onChange={(event) => {
-              mutate(setKeyword(pointer, 'format', event.target.value === '' ? undefined : event.target.value));
-            }}>
-            {STRING_FORMATS.map((format) => (
-              <option key={format || 'none'} value={format}>
-                {format || '(none)'}
-              </option>
-            ))}
-          </Select>
-        </Field>
-      ) : null}
 
       <Field label="Title" hint="Human-friendly label for documentation tools.">
         <Input

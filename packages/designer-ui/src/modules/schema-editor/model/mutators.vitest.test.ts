@@ -6,6 +6,7 @@ import {
   addProp,
   moveCompositionItem,
   moveProp,
+  movePropToIndex,
   removeCompositionItem,
   removeProp,
   renameProp,
@@ -121,6 +122,32 @@ describe('mutators', () => {
         properties: { a: { type: 'string' }, b: { type: 'string' } },
       });
       const next = apply(start, moveProp('', 'a', -1));
+      expect(next).toEqual(start);
+    });
+  });
+
+  describe('movePropToIndex', () => {
+    it('moves a key to an absolute index', () => {
+      const start = emptyDoc({
+        properties: { a: { type: 'string' }, b: { type: 'string' }, c: { type: 'string' } },
+      });
+      const next = apply(start, movePropToIndex('', 'a', 2));
+      expect(Object.keys(getSchema(next).properties as object)).toEqual(['b', 'c', 'a']);
+    });
+
+    it('clamps out-of-range targets', () => {
+      const start = emptyDoc({
+        properties: { a: { type: 'string' }, b: { type: 'string' }, c: { type: 'string' } },
+      });
+      const next = apply(start, movePropToIndex('', 'a', 99));
+      expect(Object.keys(getSchema(next).properties as object)).toEqual(['b', 'c', 'a']);
+    });
+
+    it('is a no-op when the target equals the current index', () => {
+      const start = emptyDoc({
+        properties: { a: {}, b: {} },
+      });
+      const next = apply(start, movePropToIndex('', 'a', 0));
       expect(next).toEqual(start);
     });
   });

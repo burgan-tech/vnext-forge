@@ -1,16 +1,17 @@
 import { useState } from 'react';
-import { ChevronDown, ChevronRight, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, ChevronUp, ChevronDown as ChevronDownSolid, GripVertical, Trash2 } from 'lucide-react';
 
 import { Badge } from '../../../../../ui/Badge';
 import { Button } from '../../../../../ui/Button';
 import { cn } from '../../../../../lib/utils/cn';
 import { appendPointer, type JsonPointer } from '../../../model/jsonPointer';
 import { countCompositionItems } from '../../../model/compositionKeywords';
-import { removeProp } from '../../../model/mutators';
+import { moveProp, removeProp } from '../../../model/mutators';
 import { getNodeAt, getNodeType, getPropertyKeys, isObjectNode, isRequiredKey } from '../../../model/schemaNode';
 import { useResolvedSelection, useSetSelection } from '../../../hooks/useSchemaSelection';
 import { useSchemaEditorStore } from '../../../useSchemaEditorStore';
 import { PropertyTree } from './PropertyTree';
+import { usePropertyTreeDnd } from './usePropertyTreeDnd';
 
 interface PropertyTreeNodeProps {
   parentPointer: JsonPointer;
@@ -21,7 +22,9 @@ interface PropertyTreeNodeProps {
 /**
  * One row in the property tree: chevron (if expandable), name, type badge,
  * composition badges, required indicator, delete. Clicking the row selects
- * the node so the right-hand detail panel switches to it.
+ * the node so the right-hand detail panel switches to it. Supports HTML5
+ * drag-and-drop for sibling reorder plus a `Alt+ArrowUp`/`Alt+ArrowDown`
+ * keyboard fallback.
  */
 export function PropertyTreeNode({ parentPointer, propertyKey, depth }: PropertyTreeNodeProps) {
   const pointer = appendPointer(parentPointer, 'properties', propertyKey);
@@ -29,6 +32,10 @@ export function PropertyTreeNode({ parentPointer, propertyKey, depth }: Property
   const updateComponent = useSchemaEditorStore((s) => s.updateComponent);
   const selection = useResolvedSelection();
   const setSelection = useSetSelection();
+  const { dragProps, dropProps, isDropTarget } = usePropertyTreeDnd({
+    parentPointer,
+    propertyKey,
+  });
 
   const node = getNodeAt(componentJson, pointer);
   const parentNode = getNodeAt(componentJson, parentPointer);
@@ -39,6 +46,10 @@ export function PropertyTreeNode({ parentPointer, propertyKey, depth }: Property
   const isSelected = selection === pointer;
   const isRequired = isRequiredKey(parentNode, propertyKey);
   const type = getNodeType(node);
+  const siblings = getPropertyKeys(parentNode);
+  const indexInParent = siblings.indexOf(propertyKey);
+  const canMoveUp = indexInParent > 0;
+  const canMoveDown = indexInParent >= 0 && indexInParent < siblings.length - 1;
 
   const allOfCount = countCompositionItems(node ?? undefined, 'allOf');
   const anyOfCount = countCompositionItems(node ?? undefined, 'anyOf');
@@ -47,6 +58,14 @@ export function PropertyTreeNode({ parentPointer, propertyKey, depth }: Property
 
   function selectThis() {
     setSelection(pointer);
+  }
+
+  function moveBy(delta: number) {
+    if ((delta < 0 && !canMoveUp) || (delta > 0 && !canMoveDown)) {
+      return;
+    }
+
+    updateComponent(moveProp(parentPointer, propertyKey, delta));
   }
 
   function onDelete(event: React.MouseEvent<HTMLButtonElement>) {
@@ -70,14 +89,36 @@ export function PropertyTreeNode({ parentPointer, propertyKey, depth }: Property
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
             selectThis();
+            return;
+          }
+
+          if (event.altKey && event.key === 'ArrowUp') {
+            event.preventDefault();
+            moveBy(-1);
+            return;
+          }
+
+          if (event.altKey && event.key === 'ArrowDown') {
+            event.preventDefault();
+            moveBy(1);
           }
         }}
+        {...dropProps}
         className={cn(
           'group flex items-center gap-1 rounded-md px-1.5 py-1 text-xs cursor-pointer',
           'hover:bg-primary-hover/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary-border-hover',
           isSelected && 'bg-primary-muted/80',
+          isDropTarget && 'ring-2 ring-info-border',
         )}
         style={{ paddingLeft: `${depth * 12 + 6}px` }}>
+        <span
+          {...dragProps}
+          className="grid size-4 place-items-center text-primary-text/40 hover:text-primary-text/70 cursor-grab active:cursor-grabbing"
+          aria-label={`Drag ${propertyKey}`}
+          onClick={(event) => event.stopPropagation()}>
+          <GripVertical size={11} />
+        </span>
+
         {expandable ? (
           <button
             type="button"
@@ -128,15 +169,43 @@ export function PropertyTreeNode({ parentPointer, propertyKey, depth }: Property
           </Badge>
         ) : null}
 
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="size-6 p-0 opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
-          aria-label={`Delete ${propertyKey}`}
-          onClick={onDelete}>
-          <Trash2 size={12} />
-        </Button>
+        <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="size-6 p-0"
+            disabled={!canMoveUp}
+            aria-label={`Move ${propertyKey} up`}
+            onClick={(event) => {
+              event.stopPropagation();
+              moveBy(-1);
+            }}>
+            <ChevronUp size={12} />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="size-6 p-0"
+            disabled={!canMoveDown}
+            aria-label={`Move ${propertyKey} down`}
+            onClick={(event) => {
+              event.stopPropagation();
+              moveBy(1);
+            }}>
+            <ChevronDownSolid size={12} />
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="size-6 p-0"
+            aria-label={`Delete ${propertyKey}`}
+            onClick={onDelete}>
+            <Trash2 size={12} />
+          </Button>
+        </div>
       </div>
 
       {expandable && expanded ? <PropertyTree parentPointer={pointer} depth={depth + 1} /> : null}

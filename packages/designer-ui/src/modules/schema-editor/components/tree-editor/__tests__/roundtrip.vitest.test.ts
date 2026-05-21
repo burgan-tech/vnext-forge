@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   addProp,
+  movePropToIndex,
   removeProp,
   renameProp,
   setKeyword,
@@ -228,5 +229,122 @@ describe('SchemaTreeEditor roundtrip', () => {
     foo = ((dump().attributes as { schema: Record<string, unknown> }).schema
       .properties as Record<string, Record<string, unknown>>).foo;
     expect('x-labels' in foo).toBe(false);
+  });
+
+  it('Phase 3: roundtrips string + number + array + object constraint keywords', () => {
+    const original = {
+      attributes: {
+        schema: {
+          type: 'object',
+          minProperties: 1,
+          maxProperties: 12,
+          additionalProperties: false,
+          patternProperties: {
+            '^x-': { type: 'string' },
+          },
+          dependentRequired: {
+            customerType: ['tckn'],
+          },
+          dependentSchemas: {
+            premium: {
+              type: 'object',
+              properties: { tier: { type: 'string', const: 'gold' } },
+            },
+          },
+          properties: {
+            name: {
+              type: 'string',
+              minLength: 2,
+              maxLength: 50,
+              pattern: '^[A-Z][a-z]+$',
+              format: 'email',
+            },
+            age: {
+              type: 'integer',
+              minimum: 0,
+              maximum: 120,
+              exclusiveMinimum: -1,
+              multipleOf: 1,
+            },
+            tags: {
+              type: 'array',
+              minItems: 1,
+              maxItems: 5,
+              uniqueItems: true,
+              items: { type: 'string', minLength: 1 },
+              prefixItems: [{ const: 'primary' }, { type: 'string' }],
+              contains: { type: 'string', const: 'required-marker' },
+            },
+          },
+        },
+      },
+    };
+
+    loadFixture(original);
+
+    // Touch an unrelated mutation (add prop) to make sure constraint
+    // keywords passthrough unchanged.
+    useSchemaEditorStore.getState().updateComponent(addProp('', 'extra', { type: 'boolean' }));
+
+    const after = dump();
+    const schema = (after.attributes as { schema: Record<string, unknown> }).schema;
+
+    expect(schema.minProperties).toBe(1);
+    expect(schema.maxProperties).toBe(12);
+    expect(schema.additionalProperties).toBe(false);
+    expect(schema.patternProperties).toEqual({ '^x-': { type: 'string' } });
+    expect(schema.dependentRequired).toEqual({ customerType: ['tckn'] });
+    expect(schema.dependentSchemas).toEqual(original.attributes.schema.dependentSchemas);
+
+    const props = schema.properties as Record<string, Record<string, unknown>>;
+    expect(props.name).toEqual(original.attributes.schema.properties.name);
+    expect(props.age).toEqual(original.attributes.schema.properties.age);
+    expect(props.tags).toEqual(original.attributes.schema.properties.tags);
+    expect(props.extra).toEqual({ type: 'boolean' });
+  });
+
+  it('Phase 3: drag-and-drop reorder via movePropToIndex preserves bodies', () => {
+    loadFixture({
+      attributes: {
+        schema: {
+          type: 'object',
+          properties: {
+            alpha: { type: 'string', minLength: 1 },
+            beta: { type: 'number', minimum: 0 },
+            gamma: { type: 'boolean' },
+          },
+        },
+      },
+    });
+
+    useSchemaEditorStore.getState().updateComponent(movePropToIndex('', 'alpha', 2));
+
+    const schema = (dump().attributes as { schema: Record<string, unknown> }).schema;
+    expect(Object.keys(schema.properties as object)).toEqual(['beta', 'gamma', 'alpha']);
+
+    const props = schema.properties as Record<string, Record<string, unknown>>;
+    expect(props.alpha).toEqual({ type: 'string', minLength: 1 });
+    expect(props.beta).toEqual({ type: 'number', minimum: 0 });
+  });
+
+  it('Phase 3: additionalProperties tri-state survives roundtrip in each shape', () => {
+    const cases: unknown[] = [false, true, { type: 'string' }];
+
+    for (const value of cases) {
+      loadFixture({
+        attributes: {
+          schema: {
+            type: 'object',
+            additionalProperties: value,
+            properties: { keep: { type: 'string' } },
+          },
+        },
+      });
+
+      useSchemaEditorStore.getState().updateComponent(setKeyword('', 'minProperties', 1));
+      const schema = (dump().attributes as { schema: Record<string, unknown> }).schema;
+      expect(schema.additionalProperties).toEqual(value);
+      expect(schema.minProperties).toBe(1);
+    }
   });
 });
