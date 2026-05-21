@@ -35,12 +35,13 @@ export function PropertyTree({ parentPointer, depth = 0 }: PropertyTreeProps) {
   const componentJson = useSchemaEditorStore((s) => s.componentJson);
   const node = getNodeAt(componentJson, parentPointer);
   const keys = getPropertyKeys(node);
+  const isRoot = depth === 0;
 
-  return (
-    <div className="space-y-0.5">
-      {depth === 0 ? <PropertyTreeHeader parentPointer={parentPointer} existingKeys={keys} /> : null}
+  const content = (
+    <>
+      {isRoot ? <PropertyTreeHeader parentPointer={parentPointer} existingKeys={keys} /> : null}
 
-      {keys.length === 0 && depth === 0 ? (
+      {keys.length === 0 && isRoot ? (
         <div className="px-2 py-4 text-center text-[11px] text-primary-text/55">
           No properties yet. Click <span className="font-semibold">Add property</span> to begin.
         </div>
@@ -58,8 +59,22 @@ export function PropertyTree({ parentPointer, depth = 0 }: PropertyTreeProps) {
       {depth > 0 ? (
         <NestedAddButton parentPointer={parentPointer} existingKeys={keys} depth={depth} />
       ) : null}
-    </div>
+    </>
   );
+
+  if (isRoot) {
+    return (
+      <div
+        role="tree"
+        aria-label="Schema properties"
+        aria-multiselectable={false}
+        className="space-y-0.5">
+        {content}
+      </div>
+    );
+  }
+
+  return <div role="group" className="space-y-0.5">{content}</div>;
 }
 
 interface NestedAddButtonProps {

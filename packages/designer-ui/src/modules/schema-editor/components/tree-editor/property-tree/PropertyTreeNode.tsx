@@ -77,13 +77,29 @@ export function PropertyTreeNode({ parentPointer, propertyKey, depth }: Property
     }
   }
 
+  function focusSibling(direction: 1 | -1) {
+    const items = Array.from(
+      document.querySelectorAll<HTMLElement>('[role="tree"] [role="treeitem"]'),
+    );
+    const current = items.findIndex((el) => el === document.activeElement);
+
+    if (current < 0) {
+      return;
+    }
+
+    const next = items[current + direction];
+    next?.focus();
+  }
+
   return (
-    <div>
+    <div role="none">
       <div
         role="treeitem"
         tabIndex={0}
         aria-selected={isSelected}
         aria-expanded={expandable ? expanded : undefined}
+        aria-level={depth + 1}
+        aria-label={`${propertyKey}${type ? ` (${type})` : ''}${isRequired ? ' — required' : ''}`}
         onClick={selectThis}
         onKeyDown={(event) => {
           if (event.key === 'Enter' || event.key === ' ') {
@@ -101,6 +117,30 @@ export function PropertyTreeNode({ parentPointer, propertyKey, depth }: Property
           if (event.altKey && event.key === 'ArrowDown') {
             event.preventDefault();
             moveBy(1);
+            return;
+          }
+
+          if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            focusSibling(-1);
+            return;
+          }
+
+          if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            focusSibling(1);
+            return;
+          }
+
+          if (expandable && event.key === 'ArrowRight' && !expanded) {
+            event.preventDefault();
+            setExpanded(true);
+            return;
+          }
+
+          if (expandable && event.key === 'ArrowLeft' && expanded) {
+            event.preventDefault();
+            setExpanded(false);
           }
         }}
         {...dropProps}

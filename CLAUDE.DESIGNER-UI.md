@@ -121,6 +121,39 @@ Deeper split-pane UX: [theme-color-system — Split pane](./.cursor/skills/web/t
 
 Monaco requires **`'unsafe-eval'`** in the webview CSP. Risk and mitigations: [`docs/security/webview-csp.md`](./docs/security/webview-csp.md).
 
+## Schema editor (`modules/schema-editor/`)
+
+The Schema component editor was rewritten across phases 1–6 of [`docs/superpowers/specs`](./docs/superpowers/specs). The legacy `components/SchemaTree.tsx` (1111 lines) is gone — the new module is decomposed under `components/tree-editor/` and the surrounding model / hooks layers.
+
+```text
+modules/schema-editor/
+  components/
+    SchemaEditorPanel.tsx           # Hosts metadata + Visual/Source toggle + ValidatePayloadCard
+    SchemaMetadataForm.tsx, ValidatePayloadCard.tsx  # untouched legacy pieces
+    tree-editor/
+      SchemaTreeEditor.tsx          # two-pane root (left tree + right detail panel)
+      RootCompositionPanel.tsx      # collapsible root allOf/anyOf/oneOf/not shortcut
+      property-tree/                # left pane (tree, header, DnD hook, node)
+      detail-panel/
+        DetailPanel.tsx             # tab host
+        DetailPanelHeader.tsx       # breadcrumb (push-to-pane selection)
+        tabs/                       # General | Constraints | Composition | vNext
+      constraints/                  # String/Number/Array/Object constraint editors
+      composition/                  # CompositionList, NotCompositionEditor, SubschemaCard
+      vnext/                        # 9 x-* cards + shared VNextCardShell / FilterListEditor
+      raw/                          # RawPassthroughBadge + RawJsonFallback (Monaco passthrough)
+  hooks/                            # useSchemaSelection, useSchemaNode, useVNextEnabled
+  model/                            # jsonPointer, schemaNode, mutators, breadcrumb, recognizedKeywords
+  useSchemaEditorStore.ts           # Zustand store; canonical = full componentJson
+  SchemaEditorSchema.ts             # Zod loader (permissive on load, strict via AJV on save)
+```
+
+**Canonical form:** the store holds the full `componentJson` (`Record<string, unknown>`); typed accessors live in `model/schemaNode.ts`. Mutators in `model/mutators.ts` are Immer recipes targeted by RFC 6901 JSON Pointers. Unknown keywords always passthrough — `model/recognizedKeywords.ts` + `RawJsonFallback` make that explicit in the UI.
+
+**Selection model:** `useSchemaSelection` is a separate Zustand slice (one JSON Pointer string). `useResolvedSelection` falls back to the nearest ancestor if the pointer drifts after a mutation; selection is never persisted.
+
+**vNext (`x-*`) cards** share `VNextCardShell` (header + enable toggle + body + error footer) and are listed in `vnext/vnextCardRegistry.ts`. Adding a new `x-*` field means writing one `X*Card.tsx`, registering it, and (if the keyword is not yet in `model/recognizedKeywords.ts`) extending the allow-list so it stops appearing in the passthrough badge.
+
 ## Adding a new component
 
 1. Pick folder: **`editor/`** (Monaco) vs **`ui/`** vs **`modules/*`**.

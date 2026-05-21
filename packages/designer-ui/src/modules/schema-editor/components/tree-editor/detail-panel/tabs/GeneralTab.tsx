@@ -42,16 +42,15 @@ interface GeneralTabProps {
  */
 export function GeneralTab({ pointer }: GeneralTabProps) {
   const { node, mutate } = useSchemaNode(pointer);
-  const componentJson = useSchemaEditorStore((s) => s.componentJson);
   const setSelection = useSetSelection();
   const selection = useResolvedSelection();
 
   const parent = getParentPointer(pointer);
   const isPropertyOfObject =
-    parent !== null && pointer !== ROOT_POINTER && lastSegment(getParentPointer(pointer) ?? '') === 'properties';
+    parent !== null && pointer !== ROOT_POINTER && lastSegment(parent) === 'properties';
   const propertyKey =
     isPropertyOfObject && pointer !== ROOT_POINTER ? lastSegment(pointer) : null;
-  const grandparentPointer = isPropertyOfObject ? getParentPointer(parent) : null;
+  const grandparentPointer = isPropertyOfObject && parent !== null ? getParentPointer(parent) : null;
 
   const unknownKeys = getUnknownKeywords(node);
 
@@ -148,12 +147,6 @@ export function GeneralTab({ pointer }: GeneralTabProps) {
           ))}
         </div>
       ) : null}
-
-      {/* Reference grandparent / componentJson so React tracks them
-          and re-renders this tab after store mutations. */}
-      <span hidden aria-hidden>
-        {componentJson === null ? '' : ''}
-      </span>
     </div>
   );
 }
@@ -334,13 +327,9 @@ function RequiredToggle({
   parentPointer: JsonPointer;
   propertyKey: string;
 }) {
-  const componentJson = useSchemaEditorStore((s) => s.componentJson);
   const updateComponent = useSchemaEditorStore((s) => s.updateComponent);
   const { node: parent } = useSchemaNode(parentPointer);
   const checked = isRequiredKey(parent, propertyKey);
-
-  // Touch componentJson so the effect of an unrelated re-render reaches us.
-  void componentJson;
 
   return (
     <div className="flex items-center gap-2 rounded-md border border-primary-border/60 px-3 py-2">
