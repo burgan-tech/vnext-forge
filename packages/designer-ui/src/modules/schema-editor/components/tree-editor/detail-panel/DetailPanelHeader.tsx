@@ -2,59 +2,9 @@ import { ChevronRight, Home } from 'lucide-react';
 
 import { Button } from '../../../../../ui/Button';
 import { cn } from '../../../../../lib/utils/cn';
-import { buildPointer, parsePointer, ROOT_POINTER, type JsonPointer } from '../../../model/jsonPointer';
+import { buildBreadcrumb } from '../../../model/breadcrumb';
+import { ROOT_POINTER, type JsonPointer } from '../../../model/jsonPointer';
 import { useSetSelection } from '../../../hooks/useSchemaSelection';
-
-interface BreadcrumbSegment {
-  label: string;
-  pointer: JsonPointer;
-}
-
-/**
- * Project a raw segment list (e.g. `['properties','foo','items','allOf','0']`)
- * into user-meaningful breadcrumb steps. `properties` and `prefixItems` are
- * collapsed into their following key/index, while standalone composition
- * keywords stay visible.
- */
-function buildBreadcrumb(segments: string[]): BreadcrumbSegment[] {
-  const out: BreadcrumbSegment[] = [];
-  let consumed: string[] = [];
-  let i = 0;
-
-  while (i < segments.length) {
-    const current = segments[i];
-
-    if (current === 'properties' && i + 1 < segments.length) {
-      const next = segments[i + 1];
-      consumed = [...consumed, current, next];
-      out.push({ label: next, pointer: buildPointer(consumed) });
-      i += 2;
-      continue;
-    }
-
-    if (current === 'prefixItems' && i + 1 < segments.length) {
-      const next = segments[i + 1];
-      consumed = [...consumed, current, next];
-      out.push({ label: `prefixItems[${next}]`, pointer: buildPointer(consumed) });
-      i += 2;
-      continue;
-    }
-
-    if ((current === 'allOf' || current === 'anyOf' || current === 'oneOf') && i + 1 < segments.length) {
-      const next = segments[i + 1];
-      consumed = [...consumed, current, next];
-      out.push({ label: `${current}[${next}]`, pointer: buildPointer(consumed) });
-      i += 2;
-      continue;
-    }
-
-    consumed = [...consumed, current];
-    out.push({ label: current, pointer: buildPointer(consumed) });
-    i += 1;
-  }
-
-  return out;
-}
 
 interface DetailPanelHeaderProps {
   pointer: JsonPointer;
@@ -62,8 +12,7 @@ interface DetailPanelHeaderProps {
 
 export function DetailPanelHeader({ pointer }: DetailPanelHeaderProps) {
   const setSelection = useSetSelection();
-  const segments = parsePointer(pointer);
-  const crumbs = buildBreadcrumb(segments);
+  const crumbs = buildBreadcrumb(pointer);
 
   return (
     <nav

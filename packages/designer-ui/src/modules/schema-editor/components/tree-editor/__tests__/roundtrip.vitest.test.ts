@@ -1,15 +1,20 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
 import {
+  addCompositionItem,
   addProp,
+  moveCompositionItem,
   movePropToIndex,
+  removeCompositionItem,
   removeProp,
   renameProp,
   setKeyword,
   setRequired,
   setType,
+  toggleNot,
   toggleVNextKey,
 } from '../../../model/mutators';
+import { ROOT_POINTER } from '../../../model/jsonPointer';
 import { useSchemaEditorStore } from '../../../useSchemaEditorStore';
 
 function loadFixture(doc: Record<string, unknown>): void {
@@ -346,5 +351,139 @@ describe('SchemaTreeEditor roundtrip', () => {
       expect(schema.additionalProperties).toEqual(value);
       expect(schema.minProperties).toBe(1);
     }
+  });
+
+  it('Phase 4 fixture A: deeply nested allOf / anyOf / not roundtrip', () => {
+    const original = {
+      attributes: {
+        schema: {
+          type: 'object',
+          properties: {
+            foo: {
+              type: 'array',
+              items: {
+                allOf: [
+                  {
+                    type: 'object',
+                    properties: {
+                      bar: {
+                        anyOf: [
+                          { type: 'string', const: 'A' },
+                          { type: 'string', minLength: 1, not: { const: 'B' } },
+                        ],
+                      },
+                    },
+                    required: ['bar'],
+                  },
+                ],
+              },
+            },
+          },
+        },
+      },
+    };
+
+    loadFixture(original);
+
+    // Touch root with an unrelated mutation to validate nested branches survive.
+    useSchemaEditorStore.getState().updateComponent(setKeyword('', 'title', 'Customer'));
+
+    const schema = (dump().attributes as { schema: Record<string, unknown> }).schema;
+    expect(schema.title).toBe('Customer');
+    expect((schema.properties as Record<string, unknown>).foo).toEqual(
+      original.attributes.schema.properties.foo,
+    );
+  });
+
+  it('Phase 4 fixture B: oneOf reorder inside items preserves bodies', () => {
+    loadFixture({
+      attributes: {
+        schema: {
+          type: 'array',
+          items: {
+            oneOf: [
+              { type: 'string', const: 'first' },
+              { type: 'integer', minimum: 0 },
+              { type: 'boolean' },
+            ],
+          },
+        },
+      },
+    });
+
+    useSchemaEditorStore.getState().updateComponent(moveCompositionItem('/items', 'oneOf', 0, 2));
+
+    const items = ((dump().attributes as { schema: Record<string, unknown> }).schema
+      .items as Record<string, unknown>);
+    const oneOf = items.oneOf as Record<string, unknown>[];
+
+    expect(oneOf.map((entry) => entry.type)).toEqual(['integer', 'boolean', 'string']);
+    expect(oneOf[2]).toEqual({ type: 'string', const: 'first' });
+  });
+
+  it('Phase 4: composition mutators auto-create and auto-clean keywords', () => {
+    loadFixture({ attributes: { schema: { type: 'object' } } });
+
+    // Empty add — composition keyword should be created.
+    useSchemaEditorStore
+      .getState()
+      .updateComponent(addCompositionItem(ROOT_POINTER, 'allOf', { type: 'string' }));
+
+    let schema = (dump().attributes as { schema: Record<string, unknown> }).schema;
+    expect(schema.allOf).toEqual([{ type: 'string' }]);
+
+    // Removing the last item must delete the keyword entirely (lossless minimal output).
+    useSchemaEditorStore
+      .getState()
+      .updateComponent(removeCompositionItem(ROOT_POINTER, 'allOf', 0));
+
+    schema = (dump().attributes as { schema: Record<string, unknown> }).schema;
+    expect('allOf' in schema).toBe(false);
+
+    // toggleNot installs a fresh subschema slot and clears it on second toggle.
+    useSchemaEditorStore.getState().updateComponent(toggleNot(ROOT_POINTER));
+    schema = (dump().attributes as { schema: Record<string, unknown> }).schema;
+    expect(schema.not).toEqual({});
+
+    useSchemaEditorStore.getState().updateComponent(toggleNot(ROOT_POINTER));
+    schema = (dump().attributes as { schema: Record<string, unknown> }).schema;
+    expect('not' in schema).toBe(false);
+  });
+
+  it('Phase 4: canonical fixture if/then under allOf round-trips untouched', () => {
+    const original = {
+      key: 'customer',
+      version: '1.0.0',
+      domain: 'demo',
+      attributes: {
+        schema: {
+          type: 'object',
+          allOf: [
+            {
+              if: {
+                properties: { customerType: { const: 'individual' } },
+                required: ['customerType'],
+              },
+              then: { required: ['tckn'] },
+              else: { required: ['vkn'] },
+            },
+          ],
+          properties: {
+            customerType: { type: 'string' },
+          },
+        },
+      },
+    };
+
+    loadFixture(original);
+
+    // Add an unrelated property — `if/then/else` lives inside allOf[0] and must
+    // survive untouched as raw passthrough (no editor for it in Phase 4).
+    useSchemaEditorStore
+      .getState()
+      .updateComponent(addProp('', 'tckn', { type: 'string' }));
+
+    const schema = (dump().attributes as { schema: Record<string, unknown> }).schema;
+    expect(schema.allOf).toEqual(original.attributes.schema.allOf);
   });
 });
