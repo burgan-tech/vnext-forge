@@ -486,4 +486,147 @@ describe('SchemaTreeEditor roundtrip', () => {
     const schema = (dump().attributes as { schema: Record<string, unknown> }).schema;
     expect(schema.allOf).toEqual(original.attributes.schema.allOf);
   });
+
+  it('Phase 5: canonical fixture x-* roundtrip (no editor mutations)', () => {
+    const original = {
+      key: 'customer',
+      version: '1.0.0',
+      domain: 'demo',
+      attributes: {
+        schema: {
+          type: 'object',
+          properties: {
+            status: {
+              type: 'string',
+              enum: ['pending', 'approved'],
+              'x-labels': { en: 'Status', tr: 'Durum', de: 'Status' },
+              'x-enum': {
+                pending: { en: 'Pending', tr: 'Bekliyor' },
+                approved: { en: 'Approved', tr: 'Onaylandı' },
+              },
+              'x-errorMessages': {
+                required: { en: 'Status is required.', tr: 'Durum zorunludur.' },
+              },
+              'x-lov': {
+                source: 'urn:amorphie:func:domain:shared:get-statuses',
+                valueField: '$.response.data.code',
+                displayField: '$.response.data.name',
+                filter: [{ param: 'cityCode', value: '$form.city', required: true }],
+              },
+              'x-lookup': {
+                source: 'urn:amorphie:func:domain:shared:get-status-detail',
+                resultField: '$.response.data',
+                filter: [{ param: 'statusCode', value: '$form.status', required: true }],
+              },
+              'x-binding': 'required',
+              'x-encryption': { type: 'persisted' },
+              'x-validation': {
+                rule: 'validateStatus',
+                parameters: { allowed: ['pending', 'approved'] },
+                errorMessages: { en: 'Status is not open.', tr: 'Durum açık değil.' },
+              },
+            },
+          },
+        },
+      },
+    };
+
+    loadFixture(original);
+
+    // Touch an unrelated property to make sure x-* values are not normalized
+    // away by routine edits.
+    useSchemaEditorStore.getState().updateComponent(addProp('', 'placeholder', { type: 'string' }));
+
+    const schema = (dump().attributes as { schema: Record<string, unknown> }).schema;
+    const status = (schema.properties as Record<string, Record<string, unknown>>).status;
+
+    expect(status['x-labels']).toEqual(original.attributes.schema.properties.status['x-labels']);
+    expect(status['x-enum']).toEqual(original.attributes.schema.properties.status['x-enum']);
+    expect(status['x-errorMessages']).toEqual(
+      original.attributes.schema.properties.status['x-errorMessages'],
+    );
+    expect(status['x-lov']).toEqual(original.attributes.schema.properties.status['x-lov']);
+    expect(status['x-lookup']).toEqual(original.attributes.schema.properties.status['x-lookup']);
+    expect(status['x-binding']).toBe('required');
+    expect(status['x-encryption']).toEqual({ type: 'persisted' });
+    expect(status['x-validation']).toEqual(
+      original.attributes.schema.properties.status['x-validation'],
+    );
+  });
+
+  it('Phase 5 fixture C: x-conditional.showIf.allOf nested rule leaves roundtrip', () => {
+    const original = {
+      attributes: {
+        schema: {
+          type: 'object',
+          properties: {
+            premiumTier: {
+              type: 'string',
+              'x-conditional': {
+                showIf: {
+                  allOf: [
+                    { field: 'enabled', operator: 'equals', value: true },
+                    { field: 'customerType', operator: 'in', value: ['individual', 'corporate'] },
+                    {
+                      not: { field: 'flagged', operator: 'isNotEmpty' },
+                    },
+                  ],
+                },
+                hideIf: { field: 'archived', operator: 'equals', value: true },
+              },
+            },
+          },
+        },
+      },
+    };
+
+    loadFixture(original);
+
+    // Add another property; x-conditional payload must survive untouched.
+    useSchemaEditorStore.getState().updateComponent(addProp('', 'sibling', { type: 'string' }));
+
+    const conditional = ((dump().attributes as { schema: Record<string, unknown> }).schema
+      .properties as Record<string, Record<string, unknown>>).premiumTier['x-conditional'];
+
+    expect(conditional).toEqual(
+      original.attributes.schema.properties.premiumTier['x-conditional'],
+    );
+  });
+
+  it('Phase 5: toggleVNextKey roundtrip leaves no orphan keys for each x-* keyword', () => {
+    const X_KEYS = [
+      'x-labels',
+      'x-enum',
+      'x-errorMessages',
+      'x-conditional',
+      'x-lov',
+      'x-lookup',
+      'x-binding',
+      'x-encryption',
+      'x-validation',
+    ];
+
+    for (const xKey of X_KEYS) {
+      loadFixture({
+        attributes: { schema: { type: 'object', properties: { foo: { type: 'string' } } } },
+      });
+
+      // Enable then disable — the keyword must disappear entirely.
+      useSchemaEditorStore
+        .getState()
+        .updateComponent(toggleVNextKey('/properties/foo', xKey, () => ({ seeded: true })));
+
+      const before = ((dump().attributes as { schema: Record<string, unknown> }).schema
+        .properties as Record<string, Record<string, unknown>>).foo;
+      expect(before[xKey]).toBeDefined();
+
+      useSchemaEditorStore
+        .getState()
+        .updateComponent(toggleVNextKey('/properties/foo', xKey, () => ({ seeded: true })));
+
+      const after = ((dump().attributes as { schema: Record<string, unknown> }).schema
+        .properties as Record<string, Record<string, unknown>>).foo;
+      expect(xKey in after).toBe(false);
+    }
+  });
 });

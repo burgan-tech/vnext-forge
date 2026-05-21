@@ -6,6 +6,7 @@ import { DetailPanelHeader } from './DetailPanelHeader';
 import { CompositionTab } from './tabs/CompositionTab';
 import { ConstraintsTab } from './tabs/ConstraintsTab';
 import { GeneralTab } from './tabs/GeneralTab';
+import { VNextTab } from './tabs/VNextTab';
 
 type DetailTab = 'general' | 'constraints' | 'composition' | 'vnext';
 
@@ -15,9 +16,8 @@ interface DetailPanelProps {
 
 /**
  * Right pane of the schema tree editor. Hosts the tab strip and renders the
- * editor for the node addressed by `pointer`. Phase 2 only implements the
- * General tab; later phases add Constraints (3), Composition (4), and
- * vNext (5).
+ * editor for the node addressed by `pointer`. Tabs:
+ * `General | Constraints | Composition | vNext (x-*)`.
  */
 export function DetailPanel({ pointer }: DetailPanelProps) {
   const [tab, setTab] = useState<DetailTab>('general');
@@ -40,7 +40,7 @@ export function DetailPanel({ pointer }: DetailPanelProps) {
           <TabsTrigger value="composition" variant="default" className="px-2 py-1 text-[10px]">
             Composition
           </TabsTrigger>
-          <TabsTrigger value="vnext" variant="default" className="px-2 py-1 text-[10px]" disabled>
+          <TabsTrigger value="vnext" variant="default" className="px-2 py-1 text-[10px]">
             vNext (x-*)
           </TabsTrigger>
         </TabsList>
@@ -55,18 +55,9 @@ export function DetailPanel({ pointer }: DetailPanelProps) {
           <CompositionTab pointer={pointer} />
         </TabsContent>
         <TabsContent value="vnext" className="flex-1 overflow-y-auto p-3">
-          <PhasePlaceholder phase={5} name="vNext extensions" />
+          <VNextTab pointer={pointer} />
         </TabsContent>
       </Tabs>
-    </div>
-  );
-}
-
-function PhasePlaceholder({ phase, name }: { phase: number; name: string }) {
-  return (
-    <div className="rounded-md border border-dashed border-primary-border/60 bg-primary-muted/40 p-4 text-center text-[11px] text-primary-text/65">
-      {name} editor arrives in Phase {phase}. The values still load and save without loss in the
-      meantime.
     </div>
   );
 }
