@@ -7,11 +7,13 @@ const TASK_TYPES = [
   { value: '4', label: 'Dapr PubSub', desc: 'Publish / subscribe' },
   { value: '6', label: 'HTTP Request', desc: 'Outbound HTTP call' },
   { value: '7', label: 'Script (C#)', desc: 'C# script task' },
+  { value: '10', label: 'Notification Task', desc: 'Notify channels' },
   { value: '11', label: 'Start Workflow', desc: 'Start another workflow' },
   { value: '12', label: 'Direct Trigger', desc: 'Direct transition trigger' },
   { value: '13', label: 'Get Instance Data', desc: 'Read instance payload' },
   { value: '14', label: 'SubProcess / Start Trigger', desc: 'Subprocess or start trigger' },
   { value: '15', label: 'Get Instances', desc: 'Query instances' },
+  { value: '16', label: 'SOAP Request', desc: 'Outbound SOAP call' },
 ] as const;
 
 interface TaskTypePickerProps {

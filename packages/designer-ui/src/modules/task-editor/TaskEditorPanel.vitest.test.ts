@@ -52,6 +52,20 @@ describe('TaskEditorPanel layout', () => {
     expect(rootClasses).not.toContain('h-full');
   });
 
+  it('renders a configuration form for notification tasks', () => {
+    const html = renderTaskEditorPanel('10');
+    expect(html).toContain('Notification task settings.');
+    expect(html).toContain('Channels');
+    expect(html).toContain('Include State Channel');
+  });
+
+  it('renders a configuration form for SOAP tasks', () => {
+    const html = renderTaskEditorPanel('16');
+    expect(html).toContain('SOAP task settings.');
+    expect(html).toContain('SOAPAction');
+    expect(html).toContain('SOAP Version');
+  });
+
   it('does not pin the Configuration card to a flex-1 / overflow-hidden chain', () => {
     const html = renderTaskEditorPanel('7');
     const cardClassLists = Array.from(html.matchAll(/data-slot="card" class="([^"]+)"/g)).map(

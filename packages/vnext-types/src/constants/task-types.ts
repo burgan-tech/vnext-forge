@@ -14,4 +14,5 @@ export enum TaskType {
   GetInstanceData = 13,
   SubProcess = 14,
   GetInstances = 15,
+  Soap = 16,
 }

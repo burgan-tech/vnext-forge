@@ -29,6 +29,30 @@ export interface HttpTaskConfig {
   acceptedStatusCodes?: string[];
 }
 
+export interface NotificationTaskConfig {
+  channels?: string[];
+  /** Default: true */
+  includeStateChannel?: boolean;
+}
+
+export interface SoapTaskConfig {
+  /** SOAP endpoint URL (required) */
+  url: string;
+  /** SOAPAction value */
+  soapAction?: string;
+  /** Default: "1.1" */
+  soapVersion?: '1.1' | '1.2';
+  /** Raw XML SOAP envelope template */
+  body?: string | null;
+  headers?: Record<string, string> | null;
+  /** Default: 30 */
+  timeoutSeconds?: number;
+  /** Default: true */
+  validateSsl?: boolean;
+  /** Status codes treated as successful, e.g. "500", "5xx", "50x" */
+  acceptedStatusCodes?: string[];
+}
+
 export interface DaprServiceTaskConfig {
   /** Dapr App ID (required) */
   appId: string;
