@@ -1,10 +1,11 @@
 import * as fs from 'node:fs';
+import * as path from 'node:path';
 import * as vscode from 'vscode';
 
 import type { MessageRouter } from '../MessageRouter';
 import { DataBucketService, type WorkflowBucketConfig } from '../tools/data-bucket.service.js';
 import type { EnvironmentHealthMonitor } from '../tools/environment-health-monitor.js';
-import type { ForgeToolsSettingsService } from '../tools/forge-tools-settings.js';
+import type { ForgeSettings, ForgeToolsSettingsService } from '../tools/forge-tools-settings.js';
 
 export interface QuickRunContext {
   domain: string;
@@ -67,9 +68,7 @@ export class QuickRunPanel {
       {
         enableScripts: true,
         retainContextWhenHidden: true,
-        localResourceRoots: [
-          vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'webview-ui'),
-        ],
+        localResourceRoots: this.buildLocalResourceRoots(),
       },
     );
 
@@ -91,6 +90,23 @@ export class QuickRunPanel {
       void this.handleDataBucketMessage(raw);
     });
     this.disposables.push(readyListener);
+
+    if (this.forgeToolsSettings) {
+      const settingsSub = this.forgeToolsSettings.onDidChangeSettings((settings) => {
+        if (!this.panel) return;
+        this.panel.webview.options = {
+          ...this.panel.webview.options,
+          localResourceRoots: this.buildLocalResourceRoots(settings),
+        };
+        if (this.webviewReady) {
+          void this.panel.webview.postMessage({
+            type: 'host:canvas-settings-changed',
+            pseudoUiTenantStyle: this.resolvePseudoUiTenantStyleForWebview(this.panel.webview, settings),
+          });
+        }
+      });
+      this.disposables.push(settingsSub);
+    }
 
     if (this.healthMonitor) {
       const healthSub = this.healthMonitor.onDidChangeHealth((status) => {
@@ -190,10 +206,11 @@ export class QuickRunPanel {
     );
 
     const nonce = generateNonce();
+    const tenantStyleCspSource = this.getTenantStyleCspSource();
 
     const csp = [
       `default-src 'none'`,
-      `style-src ${webview.cspSource} 'unsafe-inline'`,
+      `style-src ${[webview.cspSource, tenantStyleCspSource, "'unsafe-inline'"].filter(Boolean).join(' ')}`,
       `script-src 'nonce-${nonce}' 'unsafe-eval' 'strict-dynamic'`,
       `worker-src ${webview.cspSource} blob:`,
       `font-src ${webview.cspSource} data:`,
@@ -201,7 +218,7 @@ export class QuickRunPanel {
       `connect-src ${webview.cspSource}`,
     ].join('; ');
 
-    const webviewConfig = this.buildWebviewConfig();
+    const webviewConfig = this.buildWebviewConfig(webview);
     const configScript = `<script nonce="${nonce}">
   window.__VNEXT_CONFIG__ = ${JSON.stringify(webviewConfig)};
 </script>`;
@@ -219,10 +236,51 @@ export class QuickRunPanel {
     return html;
   }
 
-  private buildWebviewConfig(): Record<string, unknown> {
-    return {
+  private buildLocalResourceRoots(settings = this.forgeToolsSettings?.getCachedSettings()): vscode.Uri[] {
+    const roots = [vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'webview-ui')];
+    const style = settings?.pseudoUiTenantStyle;
+    if (style?.enabled && style.sourceType === 'localFile' && style.value) {
+      roots.push(vscode.Uri.file(path.dirname(style.value)));
+    }
+    return roots;
+  }
+
+  private resolvePseudoUiTenantStyleForWebview(
+    webview: vscode.Webview,
+    settings: ForgeSettings,
+  ): ForgeSettings['pseudoUiTenantStyle'] {
+    const style = settings.pseudoUiTenantStyle;
+    if (!style.enabled || !style.value) return { ...style, value: '' };
+    if (style.sourceType === 'localFile') {
+      return {
+        ...style,
+        value: webview.asWebviewUri(vscode.Uri.file(style.value)).toString(),
+      };
+    }
+    return style;
+  }
+
+  private getTenantStyleCspSource(settings = this.forgeToolsSettings?.getCachedSettings()): string | null {
+    const style = settings?.pseudoUiTenantStyle;
+    if (!style?.enabled || style.sourceType !== 'url' || !style.value) return null;
+    try {
+      const url = new URL(style.value);
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+      return url.origin;
+    } catch {
+      return null;
+    }
+  }
+
+  private buildWebviewConfig(webview: vscode.Webview): Record<string, unknown> {
+    const config: Record<string, unknown> = {
       POST_MESSAGE_ALLOWED_ORIGINS: ['vscode-webview:', 'vscode-file://vscode-app'],
     };
+    const cached = this.forgeToolsSettings?.getCachedSettings();
+    if (cached) {
+      config.pseudoUiTenantStyle = this.resolvePseudoUiTenantStyleForWebview(webview, cached);
+    }
+    return config;
   }
 }
 

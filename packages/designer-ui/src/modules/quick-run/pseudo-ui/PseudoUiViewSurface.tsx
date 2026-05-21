@@ -117,13 +117,12 @@ export function PseudoUiViewSurface({
   lang = 'en',
   delegate,
   onError,
-  mode: _mode,
+  mode,
   ariaLabel,
   loading = false,
   fillHeight = false,
   className,
 }: PseudoUiViewSurfaceProps) {
-  void _mode;
   const baseDelegate = delegate ?? noopDelegate;
 
   const primeConfig = useMemo(() => ({
@@ -157,7 +156,9 @@ export function PseudoUiViewSurface({
       requestData: (...args) => baseDelegate.requestData(...args),
       loadComponent: (...args) => baseDelegate.loadComponent(...args),
       onLog: baseDelegate.onLog ? (...args) => baseDelegate.onLog!(...args) : undefined,
-      onValidationRequest: baseDelegate.onValidationRequest,
+      onValidationRequest: baseDelegate.onValidationRequest
+        ? (...args) => baseDelegate.onValidationRequest!(...args)
+        : undefined,
       onAction: async (action, formData, command) => {
         setActionError(null);
         if (action === 'submit') {
@@ -188,7 +189,6 @@ export function PseudoUiViewSurface({
 
   const normalized = useMemo(
     () => normalizePseudoUiPayload(viewResponse.content),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [viewResponse.content, definitionRetry],
   );
 
@@ -249,6 +249,7 @@ export function PseudoUiViewSurface({
 
   const hostClassName = [
     'pseudo-ui-host',
+    `pseudo-ui-host--${mode}`,
     fillHeight ? 'pseudo-ui-host--fill' : '',
     className ?? '',
   ]

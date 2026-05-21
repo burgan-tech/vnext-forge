@@ -18,6 +18,7 @@ export * from './Input.js';
 export * from './JsonCodeField.js';
 export * from './KeyValueEditor.js';
 export * from './Label.js';
+export * from './LocalizedTextMapEditor.js';
 export { default as Loading, type LoadingColor } from './Loading.js';
 export * from './NavigationMenu.js';
 export * from './Popover.js';

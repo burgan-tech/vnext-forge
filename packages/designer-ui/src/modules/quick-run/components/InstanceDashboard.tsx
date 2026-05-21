@@ -8,7 +8,6 @@ import { useQuickRunStore } from '../store/quickRunStore';
 import { createQuickRunPseudoDelegate } from '../pseudo-ui/createQuickRunPseudoDelegate';
 import { createDataSchemaResolver } from '../pseudo-ui/createDataSchemaResolver';
 import { PseudoUiOrJsonBlock } from '../pseudo-ui/PseudoUiOrJsonBlock';
-import { scheduleQuickRunRefresh } from '../pseudo-ui/scheduleQuickRunRefresh';
 import { safeViewContent, type TransitionInfo } from '../types/quickrun.types';
 import { SchemaForm } from '../../schema-form';
 import { CopyableJsonBlock } from './CopyableJsonBlock';
@@ -862,6 +861,8 @@ function StateViewContent({ view }: { view: NonNullable<ReturnType<typeof useQui
   const activeData = useQuickRunStore((s) => s.activeData);
   const setActiveData = useQuickRunStore((s) => s.setActiveData);
   const setActiveDataLoading = useQuickRunStore((s) => s.setActiveDataLoading);
+  const pollingConfig = useQuickRunStore((s) => s.pollingConfig);
+  const { pollState } = useQuickRunPolling(pollingConfig);
 
   const mergedHeaders = useMemo(() => ({ ...globalHeaders, ...sessionHeaders }), [globalHeaders, sessionHeaders]);
 
@@ -894,8 +895,8 @@ function StateViewContent({ view }: { view: NonNullable<ReturnType<typeof useQui
       instanceId: activeTabId,
       runtimeUrl: environmentUrl ?? '',
       headers: mergedHeaders,
-      onTransitionComplete: () => {
-        void scheduleQuickRunRefresh({
+      onTransitionComplete: async () => {
+        await pollState({
           domain,
           workflowKey,
           instanceId: activeTabId,
@@ -904,7 +905,7 @@ function StateViewContent({ view }: { view: NonNullable<ReturnType<typeof useQui
         });
       },
     });
-  }, [activeTabId, domain, workflowKey, environmentUrl, mergedHeaders]);
+  }, [activeTabId, domain, workflowKey, environmentUrl, mergedHeaders, pollState]);
 
   const schemaResolver = useMemo(() => {
     if (!domain) return undefined;

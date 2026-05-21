@@ -16,15 +16,31 @@
 /* ─── Host container ─── */
 
 .pseudo-ui-host {
+  --pseudo-ui-host-bg: var(--vscode-editor-background, var(--p-surface-0, #ffffff));
+  --pseudo-ui-host-fg: var(--vscode-foreground, var(--p-text-color, #111827));
+  --pseudo-ui-host-muted: var(--vscode-descriptionForeground, var(--p-text-muted-color, #6b7280));
+  --pseudo-ui-host-border: var(--vscode-panel-border, var(--p-content-border-color, #d1d5db));
+
   isolation: isolate;
+  box-sizing: border-box;
   font-family: var(--vscode-font-family, system-ui, sans-serif);
   font-size: var(--vscode-font-size, 13px);
-  color: var(--p-text-color);
-  border: 1px solid var(--vscode-panel-border);
+  line-height: 1.4;
+  color: var(--pseudo-ui-host-fg);
+  border: 1px solid var(--pseudo-ui-host-border);
   border-radius: 4px;
   padding: 10px;
-  background: var(--p-surface-0);
+  background: var(--pseudo-ui-host-bg);
   min-height: 120px;
+  min-width: 0;
+  overflow: hidden;
+}
+
+html.dark .pseudo-ui-host {
+  --pseudo-ui-host-bg: var(--vscode-editor-background, var(--p-surface-950, #111827));
+  --pseudo-ui-host-fg: var(--vscode-foreground, var(--p-text-color, #f9fafb));
+  --pseudo-ui-host-muted: var(--vscode-descriptionForeground, var(--p-text-muted-color, #9ca3af));
+  --pseudo-ui-host-border: var(--vscode-panel-border, var(--p-content-border-color, #374151));
 }
 
 .pseudo-ui-host.pseudo-ui-host--fill {
@@ -37,7 +53,74 @@
 .pseudo-ui-host .pseudo-ui-host__scroll {
   flex: 1;
   min-height: 0;
+  min-width: 0;
   overflow: auto;
+  scrollbar-gutter: stable;
+}
+
+/* Keep PrimeReact and pseudo-ui layout from inheriting app-shell sizing quirks. */
+.pseudo-ui-host,
+.pseudo-ui-host * {
+  box-sizing: border-box;
+}
+
+.pseudo-ui-host .p-component {
+  font-family: inherit;
+  font-size: inherit;
+}
+
+.pseudo-ui-host .p-inputtext,
+.pseudo-ui-host .p-inputtextarea,
+.pseudo-ui-host .p-dropdown,
+.pseudo-ui-host .p-multiselect,
+.pseudo-ui-host .p-calendar,
+.pseudo-ui-host .p-inputnumber,
+.pseudo-ui-host .p-autocomplete,
+.pseudo-ui-host .p-slider,
+.pseudo-ui-host .p-selectbutton {
+  max-width: 100%;
+}
+
+.pseudo-ui-host .p-inputtext,
+.pseudo-ui-host .p-inputtextarea,
+.pseudo-ui-host .p-dropdown,
+.pseudo-ui-host .p-multiselect,
+.pseudo-ui-host .p-calendar,
+.pseudo-ui-host .p-inputnumber,
+.pseudo-ui-host .p-autocomplete {
+  width: 100%;
+}
+
+.pseudo-ui-host .p-button {
+  min-height: 2rem;
+  white-space: nowrap;
+}
+
+.pseudo-ui-host .p-card {
+  overflow: hidden;
+}
+
+.pseudo-ui-host .p-card .p-card-body,
+.pseudo-ui-host .p-card .p-card-content {
+  min-width: 0;
+}
+
+.pseudo-ui-host .d-row,
+.pseudo-ui-host .d-column,
+.pseudo-ui-host .d-grid,
+.pseudo-ui-host .d-wrap,
+.pseudo-ui-host .d-stack,
+.pseudo-ui-host .d-scroll {
+  min-width: 0;
+}
+
+.pseudo-ui-host .d-field {
+  min-width: 0;
+}
+
+.pseudo-ui-host .field-group-label,
+.pseudo-ui-host .field-error {
+  color: inherit;
 }
 
 /* ─── Float-label spacing ─── */
@@ -46,8 +129,33 @@
   padding-top: 0.75rem;
 }
 
+.pseudo-ui-host .p-float-label > label {
+  color: var(--pseudo-ui-host-muted);
+}
+
+.pseudo-ui-host .p-invalid,
+.pseudo-ui-host [aria-invalid='true'] {
+  scroll-margin-block: 1rem;
+}
+
+/* Prime overlays are portal-based; keep them above Forge panels and dialogs. */
+.p-component-overlay,
+.p-datepicker,
+.p-dropdown-panel,
+.p-multiselect-panel,
+.p-autocomplete-panel,
+.p-tooltip,
+.p-dialog-mask,
+.p-sidebar-mask {
+  z-index: 1300;
+}
+
 /* ─── Dark-mode card shadow ─── */
 
 html.dark .pseudo-ui-host .p-card {
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.4);
+}
+
+.pseudo-ui-host--preview {
+  min-height: 180px;
 }

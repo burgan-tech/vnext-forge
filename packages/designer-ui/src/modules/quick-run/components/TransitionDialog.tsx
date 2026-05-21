@@ -11,11 +11,9 @@ import { SchemaForm, validateAgainstSchema, type JsonSchemaRoot } from '../../sc
 import * as QuickRunApi from '../QuickRunApi';
 import type { PresetEntry, WorkflowBucketConfig } from '../QuickRunApi';
 import { createQuickRunPseudoDelegate } from '../pseudo-ui/createQuickRunPseudoDelegate';
-import { createDataSchemaResolver } from '../pseudo-ui/createDataSchemaResolver';
+import { createDataSchemaResolver, type SchemaResolver } from '../pseudo-ui/createDataSchemaResolver';
 import { PseudoUiOrJsonBlock } from '../pseudo-ui/PseudoUiOrJsonBlock';
-import { scheduleQuickRunRefresh } from '../pseudo-ui/scheduleQuickRunRefresh';
 import type { DataSchema, PseudoViewDelegate } from '@burgantech/pseudo-ui';
-import type { SchemaResolver } from '../pseudo-ui/createDataSchemaResolver';
 import { useQuickRunPolling } from '../hooks/useQuickRunPolling';
 import { useQuickRunStore } from '../store/quickRunStore';
 import { safeViewContent, type SchemaResponse, type ViewResponse } from '../types/quickrun.types';
@@ -113,8 +111,8 @@ export function TransitionDialog({ configRef, persistConfig, projectId }: Transi
       instanceId: activeTabId,
       runtimeUrl: environmentUrl ?? '',
       headers: mergedDialogHeaders,
-      onTransitionComplete: () => {
-        void scheduleQuickRunRefresh({
+      onTransitionComplete: async () => {
+        await pollState({
           domain,
           workflowKey,
           instanceId: activeTabId,
@@ -123,7 +121,7 @@ export function TransitionDialog({ configRef, persistConfig, projectId }: Transi
         });
       },
     });
-  }, [activeTabId, domain, workflowKey, environmentUrl, mergedDialogHeaders]);
+  }, [activeTabId, domain, workflowKey, environmentUrl, mergedDialogHeaders, pollState]);
 
   useEffect(() => {
     if (!open || !activeTabId) return;

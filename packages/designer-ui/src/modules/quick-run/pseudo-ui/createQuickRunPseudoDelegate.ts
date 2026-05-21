@@ -11,7 +11,7 @@ export interface QuickRunDelegateParams {
   instanceId: string;
   runtimeUrl: string;
   headers: Record<string, string>;
-  onTransitionComplete?: () => void;
+  onTransitionComplete?: () => void | Promise<void>;
   onError?: (message: string) => void;
 }
 
@@ -76,7 +76,7 @@ export function createQuickRunPseudoDelegate(params: QuickRunDelegateParams): Ps
           throw new Error(result.error.message);
         }
 
-        params.onTransitionComplete?.();
+        await params.onTransitionComplete?.();
         return;
       }
 

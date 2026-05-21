@@ -6,29 +6,31 @@ import {
   ColorThemeSwitchSidebar,
   Input,
   Label,
+  ProblemsSidebarPanel,
   showNotification,
+  SnippetsSidebarPanel,
   useProjectStore,
   useSettingsStore,
 } from '@vnext-forge-studio/designer-ui';
+import { isFailure } from '@vnext-forge-studio/app-contracts';
 import {
+  ChevronDown,
+  ExternalLink,
   Loader2,
   Palette,
+  Paintbrush,
   Pencil,
   Play,
   Plus,
   Save,
   Server,
-  ChevronDown,
   Terminal,
   Trash2,
 } from 'lucide-react';
-import { isFailure } from '@vnext-forge-studio/app-contracts';
-import { ExternalLink } from 'lucide-react';
 
 import { domainAddCli, executeCliCommand } from '../../../services/cli.service';
 import { ProjectWorkspaceSidebarPanel } from '../../../modules/project-workspace';
 import { SearchPanel } from '../../../modules/project-search/SearchPanel';
-import { ProblemsSidebarPanel, SnippetsSidebarPanel } from '@vnext-forge-studio/designer-ui';
 import { useCliStore } from '../../store/useCliStore';
 import { useCliOutputStore } from '../../store/useCliOutputStore';
 import {
@@ -357,6 +359,52 @@ function QuickRunPollingSection() {
   );
 }
 
+interface PseudoUiStyleSectionProps {
+  enabled: boolean;
+  value: string;
+  onEnabledChange: (enabled: boolean) => void;
+  onValueChange: (value: string) => void;
+}
+
+function PseudoUiStyleSection({
+  enabled,
+  value,
+  onEnabledChange,
+  onValueChange,
+}: PseudoUiStyleSectionProps) {
+  return (
+    <div className="flex flex-col gap-3 py-1">
+      <div className="flex items-center gap-2">
+        <Checkbox
+          id="pseudo-ui-tenant-style-toggle"
+          checked={enabled}
+          onCheckedChange={(checked) => onEnabledChange(checked === true)}
+        />
+        <Label
+          htmlFor="pseudo-ui-tenant-style-toggle"
+          className="text-[11px] font-medium leading-tight cursor-pointer select-none">
+          Enable tenant stylesheet
+        </Label>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="pseudo-ui-tenant-style-url" className="text-[10px] font-medium uppercase">
+          Stylesheet URL
+        </Label>
+        <Input
+          id="pseudo-ui-tenant-style-url"
+          size="sm"
+          value={value}
+          placeholder="https://example.com/pseudo-ui.css"
+          onChange={(e) => onValueChange(e.target.value)}
+        />
+        <p className="text-muted-foreground text-[10px] leading-snug">
+          Local CSS files are available in the VS Code extension settings.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 const WORKFLOW_CLI_COMMANDS: { label: string; command: string }[] = [
   { label: 'Deploy All', command: 'update --all' },
   { label: 'Deploy Changed', command: 'update' },
@@ -554,6 +602,8 @@ export function Sidebar() {
   const setColorTheme = useSettingsStore((s) => s.setColorTheme);
   const autoSaveEnabled = useSettingsStore((s) => s.autoSaveEnabled);
   const setAutoSaveEnabled = useSettingsStore((s) => s.setAutoSaveEnabled);
+  const pseudoUiTenantStyle = useSettingsStore((s) => s.pseudoUiTenantStyle);
+  const setPseudoUiTenantStyle = useSettingsStore((s) => s.setPseudoUiTenantStyle);
   const configIssues = useWorkspaceDiagnosticsStore((s) => s.configIssues);
 
   const settingsAccordionDefaultOpenIds = pendingSettingsAccordionOpenIds ?? [];
@@ -644,6 +694,21 @@ export function Sidebar() {
                   title: 'Quick Run',
                   icon: <Play className="size-3.5" strokeWidth={2} aria-hidden />,
                   content: <QuickRunPollingSection />,
+                },
+                {
+                  id: 'pseudo-ui',
+                  title: 'Pseudo UI',
+                  icon: <Paintbrush className="size-3.5" strokeWidth={2} aria-hidden />,
+                  content: (
+                    <PseudoUiStyleSection
+                      enabled={pseudoUiTenantStyle.enabled}
+                      value={pseudoUiTenantStyle.value}
+                      onEnabledChange={(enabled) => setPseudoUiTenantStyle({ enabled })}
+                      onValueChange={(value) =>
+                        setPseudoUiTenantStyle({ sourceType: 'url', value })
+                      }
+                    />
+                  ),
                 },
               ]}
             />

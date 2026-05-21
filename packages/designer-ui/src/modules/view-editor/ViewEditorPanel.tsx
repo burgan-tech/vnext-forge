@@ -1,5 +1,4 @@
-import type { ReactNode } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { ViewRenderer, ViewType } from '@vnext-forge-studio/vnext-types';
@@ -23,6 +22,7 @@ import { ViewDisplayStrategyPicker } from './components/ViewDisplayStrategyPicke
 import { ViewRendererPicker } from './components/ViewRendererPicker';
 import { ViewTypePicker } from './components/ViewTypePicker';
 import { HrefUrnField } from './components/HrefUrnField';
+import { PseudoUiBuilder } from './components/PseudoUiBuilder';
 import {
   viewTypeToMonacoLanguage,
   scaffoldContentForViewType,
@@ -52,6 +52,10 @@ function unknownToUiString(value: unknown): string {
   if (typeof value === 'string') return value;
   if (typeof value === 'number' || typeof value === 'boolean') return String(value);
   return '';
+}
+
+function parseJson(value: string): unknown {
+  return JSON.parse(value) as unknown;
 }
 
 interface JsonEditorToolbarProps {
@@ -144,8 +148,7 @@ export function ViewEditorPanel({ json, onChange }: ViewEditorPanelProps) {
   const displayAttr = unknownToUiString(attrs.display);
   const displayStrategyValue = displayAttr === '' ? 'full-page' : displayAttr;
 
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison -- persisted attributes store ViewType as a number
-  const isJsonComponentType = currentType === ViewType.Json;
+  const isJsonComponentType = currentType === Number(ViewType.Json);
 
   const showContentPreviewToggle = !isLinkType(currentType);
 
@@ -182,13 +185,13 @@ export function ViewEditorPanel({ json, onChange }: ViewEditorPanelProps) {
   }, [jsonActionError]);
 
   useEffect(() => {
-    if (currentType !== ViewType.Json) return;
+    if (currentType !== Number(ViewType.Json)) return;
     const raw = attrs.content;
     if (typeof raw !== 'string') return;
     const t = raw.trim();
     if (t === '') return;
     try {
-      const parsed = JSON.parse(t) as unknown;
+      const parsed = parseJson(t);
       if (parsed === null || typeof parsed !== 'object') return;
       onChange((draft) => {
         draft.attributes ??= {};
@@ -237,7 +240,7 @@ export function ViewEditorPanel({ json, onChange }: ViewEditorPanelProps) {
   const handleBeautify = useCallback(() => {
     try {
       const trimmed = contentValue.trim();
-      const parsed = trimmed === '' ? {} : JSON.parse(trimmed);
+      const parsed = trimmed === '' ? {} : parseJson(trimmed);
       const next = JSON.stringify(parsed, null, 2);
       handleContentChange(next);
       setJsonActionError(null);
@@ -249,7 +252,7 @@ export function ViewEditorPanel({ json, onChange }: ViewEditorPanelProps) {
   const handleMinify = useCallback(() => {
     try {
       const trimmed = contentValue.trim();
-      const parsed = trimmed === '' ? {} : JSON.parse(trimmed);
+      const parsed = trimmed === '' ? {} : parseJson(trimmed);
       const next = JSON.stringify(parsed);
       handleContentChange(next);
       setJsonActionError(null);
@@ -262,8 +265,7 @@ export function ViewEditorPanel({ json, onChange }: ViewEditorPanelProps) {
 
   const viewKeyUi = unknownToUiString(json.key);
 
-  // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
-  if (isJsonComponentType && rendererAttr === ViewRenderer.PseudoUi) {
+  if (isJsonComponentType && rendererAttr === String(ViewRenderer.PseudoUi)) {
     if (pseudoUiViewResponse) {
       previewBody = (
         <div className={PREVIEW_SHELL}>
@@ -284,19 +286,17 @@ export function ViewEditorPanel({ json, onChange }: ViewEditorPanelProps) {
         </div>
       );
     }
-  } else if (currentType === ViewType.Html) {
+  } else if (currentType === Number(ViewType.Html)) {
     previewBody = (
       <div
         className={PREVIEW_SHELL}
         style={{ isolation: 'isolate' }}
-        // eslint-disable-next-line react/no-danger -- HTML view payload is authored in this editor only
         dangerouslySetInnerHTML={{ __html: contentValue }}
       />
     );
-  } else if (currentType === ViewType.Markdown) {
+  } else if (currentType === Number(ViewType.Markdown)) {
     previewBody = <MarkdownPreview text={contentValue} />;
-    // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
-  } else if (currentType === ViewType.Json) {
+  } else if (currentType === Number(ViewType.Json)) {
     previewBody = <StaticJsonPreview text={contentValue} />;
   } else {
     previewBody = (
@@ -414,6 +414,12 @@ export function ViewEditorPanel({ json, onChange }: ViewEditorPanelProps) {
               viewType={currentType}
               value={contentValue}
               onChange={handleContentChange}
+            />
+          ) : isJsonComponentType && rendererAttr === String(ViewRenderer.PseudoUi) ? (
+            <PseudoUiBuilder
+              content={contentValue}
+              onContentChange={handleContentChange}
+              viewKey={viewKeyUi || 'preview'}
             />
           ) : (
             <>
