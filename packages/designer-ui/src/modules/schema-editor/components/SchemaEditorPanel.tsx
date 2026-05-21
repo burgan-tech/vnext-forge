@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { ComponentValidationSummary } from '../../save-component/components/ComponentValidationSummary';
 import { SchemaMetadataForm } from './SchemaMetadataForm';
 import { SchemaTree } from './SchemaTree';
+import { SchemaTreeEditor } from './tree-editor/SchemaTreeEditor';
 import { ValidatePayloadCard } from './ValidatePayloadCard';
 import { getSchemaSource } from '../SchemaEditorSchema';
 
@@ -15,9 +16,25 @@ interface SchemaEditorPanelProps {
   onChange: (updater: (draft: Record<string, unknown>) => void) => void;
 }
 
+/**
+ * The new tree-editor is wired in for object-shaped schemas. Other shapes
+ * (string/number/array root, or empty schemas) keep using the legacy
+ * `SchemaTree` until later phases gain root-array / root-composition
+ * support. The new editor reads the store directly, so it ignores the
+ * `json` / `onChange` props passed in.
+ */
+function shouldUseNewEditor(schema: Record<string, unknown>): boolean {
+  if (schema.type === 'object') {
+    return true;
+  }
+
+  return typeof schema.properties === 'object' && schema.properties !== null;
+}
+
 export function SchemaEditorPanel({ json, onChange }: SchemaEditorPanelProps) {
   const [view, setView] = useState<'visual' | 'source'>('visual');
   const schema = getSchemaSource(json);
+  const useNewEditor = shouldUseNewEditor(schema);
   const [sourceValue, setSourceValue] = useState(() => JSON.stringify(schema, null, 2));
   const [sourceError, setSourceError] = useState<string | null>(null);
 
@@ -78,7 +95,11 @@ export function SchemaEditorPanel({ json, onChange }: SchemaEditorPanelProps) {
         </CardHeader>
         <CardContent className="px-4 sm:px-6">
           {view === 'visual' ? (
-            <SchemaTree schema={schema} onChange={onSchemaChange} />
+            useNewEditor ? (
+              <SchemaTreeEditor />
+            ) : (
+              <SchemaTree schema={schema} onChange={onSchemaChange} />
+            )
           ) : (
             <Field
               label="Schema Source"

@@ -1,10 +1,27 @@
+import { ROOT_POINTER } from '../../model/jsonPointer';
+import { useResolvedSelection } from '../../hooks/useSchemaSelection';
+import { DetailPanel } from './detail-panel/DetailPanel';
+import { PropertyTree } from './property-tree/PropertyTree';
+
 /**
- * Phase 1 placeholder for the rewritten Schema tree editor.
+ * Two-pane root for the rewritten Schema tree editor. Left pane shows the
+ * `properties` tree of the schema root, right pane shows tabbed details
+ * for whichever node is currently selected (defaults to the schema root).
  *
- * The active editor is still `SchemaTree`; this stub exists so the model
- * layer, hooks and selection store can compile and be wired into the build
- * incrementally. Phase 2 replaces this body with the two-pane layout.
+ * Phase 2 ships the property tree and the General tab; other tabs are
+ * present but disabled placeholders.
  */
-export function SchemaTreeEditor(): null {
-  return null;
+export function SchemaTreeEditor() {
+  const selection = useResolvedSelection();
+
+  return (
+    <div className="grid min-h-[420px] gap-3 md:grid-cols-[minmax(220px,1fr)_minmax(0,2fr)]">
+      <aside className="rounded-md border border-primary-border bg-primary-muted/30">
+        <PropertyTree parentPointer={ROOT_POINTER} />
+      </aside>
+      <section className="rounded-md border border-primary-border bg-primary-muted/30">
+        <DetailPanel pointer={selection} />
+      </section>
+    </div>
+  );
 }
