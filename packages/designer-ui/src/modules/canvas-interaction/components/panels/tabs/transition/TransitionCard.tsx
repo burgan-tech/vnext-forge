@@ -17,6 +17,7 @@ import { TransitionTimerSection } from './TransitionTimerSection';
 import { TransitionRolesSection } from './TransitionRolesSection';
 import { TransitionViewSection } from './TransitionViewSection';
 import { TransitionLabelsSection } from './TransitionLabelsSection';
+import { TransitionAnnotationsSection } from './TransitionAnnotationsSection';
 import { AvailableInMultiSelect, type StateOption } from '../shared/AvailableInMultiSelect';
 import {
   resolveFieldPolicy,
@@ -413,6 +414,14 @@ export function TransitionCard({
           <TransitionLabelsSection
             labels={transition.labels ?? []}
             onChange={(labels) => onUpdateLabels(index, labels)}
+          />
+        )}
+
+        {/* Annotations */}
+        {policy.annotations.visible && (
+          <TransitionAnnotationsSection
+            annotations={(transition as unknown as Record<string, unknown>).annotations as Record<string, string> | undefined}
+            onChange={(value) => onUpdate(index, 'annotations', value)}
           />
         )}
       </div>

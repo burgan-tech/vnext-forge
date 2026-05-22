@@ -10,7 +10,7 @@ import {
 
 import type { FileRouteKind } from '../file-router';
 import type { MessageRouter } from '../MessageRouter';
-import type { ForgeToolsSettingsService } from '../tools/forge-tools-settings.js';
+import type { ForgeSettings, ForgeToolsSettingsService } from '../tools/forge-tools-settings.js';
 
 /**
  * Editor kinds the designer panel knows how to render. `'unknown'` is
@@ -93,14 +93,19 @@ export class DesignerPanel {
     this.settingsChangeDisposable?.dispose();
     this.forgeToolsSettings = service;
     this.settingsChangeDisposable = service.onDidChangeSettings((settings) => {
-      const message = {
-        type: 'host:canvas-settings-changed',
-        canvasViewSettings: settings.canvas,
-        themeMode: settings.themeMode,
-        autoSaveEnabled: settings.autoSaveEnabled,
-      };
       for (const managed of this.panels.values()) {
+        managed.panel.webview.options = {
+          ...managed.panel.webview.options,
+          localResourceRoots: this.buildLocalResourceRoots(settings),
+        };
         if (managed.webviewReady) {
+          const message = {
+            type: 'host:canvas-settings-changed',
+            canvasViewSettings: settings.canvas,
+            themeMode: settings.themeMode,
+            autoSaveEnabled: settings.autoSaveEnabled,
+            pseudoUiTenantStyle: this.resolvePseudoUiTenantStyleForWebview(managed.panel.webview, settings),
+          };
           void managed.panel.webview.postMessage(message);
         }
       }
@@ -178,7 +183,7 @@ export class DesignerPanel {
 
     panel.webview.options = {
       enableScripts: true,
-      localResourceRoots: [vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'webview-ui')],
+      localResourceRoots: this.buildLocalResourceRoots(),
     };
 
     const managed: ManagedWebview = {
@@ -247,7 +252,7 @@ export class DesignerPanel {
     const panel = vscode.window.createWebviewPanel('vnextForge', title, vscode.ViewColumn.Active, {
       enableScripts: true,
       retainContextWhenHidden: true,
-      localResourceRoots: [vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'webview-ui')],
+      localResourceRoots: this.buildLocalResourceRoots(),
     });
 
     if (initial) {
@@ -380,10 +385,11 @@ export class DesignerPanel {
     );
 
     const nonce = generateNonce();
+    const tenantStyleCspSource = this.getTenantStyleCspSource();
 
     const csp = [
       `default-src 'none'`,
-      `style-src ${webview.cspSource} 'unsafe-inline'`,
+      `style-src ${[webview.cspSource, tenantStyleCspSource, "'unsafe-inline'"].filter(Boolean).join(' ')}`,
       `script-src 'nonce-${nonce}' 'unsafe-eval' 'strict-dynamic'`,
       `worker-src ${webview.cspSource} blob:`,
       `font-src ${webview.cspSource} data:`,
@@ -391,7 +397,7 @@ export class DesignerPanel {
       `connect-src ${webview.cspSource}`,
     ].join('; ');
 
-    const webviewConfig = this.buildWebviewConfig();
+    const webviewConfig = this.buildWebviewConfig(webview);
     const configScript = `<script nonce="${nonce}">
   window.__VNEXT_CONFIG__ = ${JSON.stringify(webviewConfig)};
 </script>`;
@@ -461,7 +467,43 @@ export class DesignerPanel {
    * over `postMessage` (no HTTP), so we deliberately do NOT inject any
    * URL-shaped fields.
    */
-  private buildWebviewConfig(): Record<string, unknown> {
+  private buildLocalResourceRoots(settings = this.forgeToolsSettings?.getCachedSettings()): vscode.Uri[] {
+    const roots = [vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'webview-ui')];
+    const style = settings?.pseudoUiTenantStyle;
+    if (style?.enabled && style.sourceType === 'localFile' && style.value) {
+      roots.push(vscode.Uri.file(path.dirname(style.value)));
+    }
+    return roots;
+  }
+
+  private resolvePseudoUiTenantStyleForWebview(
+    webview: vscode.Webview,
+    settings: ForgeSettings,
+  ): ForgeSettings['pseudoUiTenantStyle'] {
+    const style = settings.pseudoUiTenantStyle;
+    if (!style.enabled || !style.value) return { ...style, value: '' };
+    if (style.sourceType === 'localFile') {
+      return {
+        ...style,
+        value: webview.asWebviewUri(vscode.Uri.file(style.value)).toString(),
+      };
+    }
+    return style;
+  }
+
+  private getTenantStyleCspSource(settings = this.forgeToolsSettings?.getCachedSettings()): string | null {
+    const style = settings?.pseudoUiTenantStyle;
+    if (!style?.enabled || style.sourceType !== 'url' || !style.value) return null;
+    try {
+      const url = new URL(style.value);
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+      return url.origin;
+    } catch {
+      return null;
+    }
+  }
+
+  private buildWebviewConfig(webview: vscode.Webview): Record<string, unknown> {
     const revalidationSeconds = vscode.workspace
       .getConfiguration('vnextForge')
       .get<number>('runtimeRevalidationMinIntervalSeconds', 30);
@@ -475,6 +517,7 @@ export class DesignerPanel {
       config.canvasViewSettings = cached.canvas;
       config.themeMode = cached.themeMode;
       config.autoSaveEnabled = cached.autoSaveEnabled;
+      config.pseudoUiTenantStyle = this.resolvePseudoUiTenantStyleForWebview(webview, cached);
     }
 
     return config;

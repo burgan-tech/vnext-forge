@@ -15,7 +15,7 @@ const instanceStatusSchema = z.enum(['A', 'B', 'C', 'F'])
 
 export const quickrunStartInstanceParams = z.object({
   ...workflowIdentifier,
-  sync: z.boolean().optional().default(true),
+  sync: z.boolean().optional().default(false),
   version: z.string().optional(),
   key: z.string().optional(),
   stage: z.string().optional(),
@@ -37,7 +37,7 @@ export const quickrunFireTransitionParams = z.object({
   ...workflowIdentifier,
   instanceId: z.string().min(1),
   transitionKey: z.string().min(1),
-  sync: z.boolean().optional().default(true),
+  sync: z.boolean().optional().default(false),
   key: z.string().optional(),
   stage: z.string().optional(),
   tags: z.array(z.string()).optional(),

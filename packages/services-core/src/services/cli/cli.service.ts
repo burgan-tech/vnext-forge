@@ -79,6 +79,10 @@ export interface CliService {
     },
     traceId?: string,
   ): Promise<{ exitCode: number; stdout: string; stderr: string }>
+  domainAdd(
+    params: { domainName: string; apiBaseUrl: string; dbName: string; timeoutMs?: number },
+    traceId?: string,
+  ): Promise<{ exitCode: number; stdout: string; stderr: string }>
 }
 
 export interface CliServiceDeps {
@@ -122,9 +126,9 @@ function mapCommandToArgv(command: CliAllowedCommand, resolvedFilePath?: string)
     case 'check':
       return ['check']
     case 'update':
-      return ['update']
+      return ['update', '--yes']
     case 'update --all':
-      return ['update', '--all']
+      return ['update', '--all', '--yes']
     case 'update -f': {
       if (!resolvedFilePath || resolvedFilePath.length === 0) {
         throw new VnextForgeError(
@@ -133,7 +137,7 @@ function mapCommandToArgv(command: CliAllowedCommand, resolvedFilePath?: string)
           { source: 'CliService.mapCommandToArgv', layer: 'application' },
         )
       }
-      return ['update', '-f', resolvedFilePath]
+      return ['update', '-f', resolvedFilePath, '--yes']
     }
     case 'csx --all':
       return ['csx', '--all']
@@ -279,6 +283,17 @@ export function createCliService(deps: CliServiceDeps = {}): CliService {
 
       const argv = mapCommandToArgv(params.command, resolvedFileArg)
       const execOpts = execFileOptions(projectRootNorm, timeoutMs)
+      return runExecFile(WF_BINARY, argv, execOpts)
+    },
+
+    async domainAdd(params, _traceId): Promise<{ exitCode: number; stdout: string; stderr: string }> {
+      const timeoutMs = clampTimeout(params.timeoutMs)
+      const argv = [
+        'domain', 'add', params.domainName,
+        '--API_BASE_URL', params.apiBaseUrl,
+        '--DB_NAME', params.dbName,
+      ]
+      const execOpts = execFileOptions(process.cwd(), timeoutMs)
       return runExecFile(WF_BINARY, argv, execOpts)
     },
   }

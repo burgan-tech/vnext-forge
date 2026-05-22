@@ -35,6 +35,7 @@ export interface Transition {
   roles?: RoleGrant[];
   view?: ViewBinding;
   views?: ViewBinding[];
+  annotations?: Record<string, string>;
 }
 
 export interface SharedTransition extends Transition {

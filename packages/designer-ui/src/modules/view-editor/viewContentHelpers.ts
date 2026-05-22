@@ -32,8 +32,48 @@ export function scaffoldContentForViewType(type: number): string {
   }
 }
 
-export function isContentEmpty(content: string): boolean {
-  const trimmed = content.trim();
+/** When `viewType` is Json, parses stringified JSON and pretty-prints for display. */
+export function normalizeContentForEditor(content: unknown, viewType?: number): string {
+  if (content == null) return '';
+  if (typeof content === 'string') {
+    if (viewType === ViewType.Json) {
+      const trimmed = content.trim();
+      if (trimmed !== '') {
+        try {
+          const parsed = JSON.parse(trimmed);
+          if (parsed !== null && typeof parsed === 'object') {
+            return JSON.stringify(parsed, null, 2);
+          }
+        } catch {
+          // legacy or invalid JSON text — surface as authored
+        }
+      }
+    }
+    return content;
+  }
+  if (typeof content === 'object') {
+    try {
+      return JSON.stringify(content, null, 2);
+    } catch {
+      return String(content);
+    }
+  }
+  return String(content);
+}
+
+export function normalizeContentForSave(content: unknown, viewType: number): unknown {
+  if (typeof content !== 'string') return content;
+  if (viewType === ViewType.Html || viewType === ViewType.Markdown) return content;
+  try {
+    return JSON.parse(content);
+  } catch {
+    return content;
+  }
+}
+
+export function isContentEmpty(content: unknown): boolean {
+  const str = typeof content === 'string' ? content : normalizeContentForEditor(content);
+  const trimmed = str.trim();
   if (trimmed === '' || trimmed === '{}' || trimmed === '[]') return true;
 
   try {

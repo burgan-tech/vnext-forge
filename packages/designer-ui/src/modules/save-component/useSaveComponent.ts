@@ -1,9 +1,12 @@
 import { useCallback } from 'react';
 
+import { ViewType } from '@vnext-forge-studio/vnext-types';
+
 import { createLogger } from '../../lib/logger/createLogger';
 import { useAsync } from '../../hooks/useAsync';
 import { useDebouncedAutoSave } from '../../hooks/useDebouncedAutoSave';
 import { useRegisterGlobalSaveShortcut } from '../../hooks/useRegisterGlobalSaveShortcut';
+import { normalizeContentForSave } from '../../modules/view-editor/viewContentHelpers';
 import { showNotification } from '../../notification/notification-port';
 import { saveComponentFile } from './SaveComponentApi';
 import { validateComponentBeforeWrite } from './validateBeforeWrite';
@@ -173,6 +176,22 @@ export function useSaveComponent(options?: UseSaveComponentOptions) {
             ...componentJson,
             attributes: { ...attrs, config: { ...cfg } },
           };
+        }
+      }
+    }
+
+    // ── View content normalization ─────────────────────────────────────
+    // The editor always stores `attributes.content` as a string (Monaco
+    // output). For JSON-shaped view types, parse it back to a native
+    // object so the saved file has clean JSON — not double-encoded strings.
+    if (componentType === 'view') {
+      const viewAttrs = (cleanedJson.attributes ?? {}) as Record<string, unknown>;
+      if (typeof viewAttrs.content === 'string') {
+        const viewType = Number(viewAttrs.type ?? ViewType.Json);
+        const normalized = normalizeContentForSave(viewAttrs.content, viewType);
+        if (normalized !== viewAttrs.content) {
+          if (cleanedJson === componentJson) cleanedJson = { ...componentJson };
+          cleanedJson.attributes = { ...viewAttrs, content: normalized };
         }
       }
     }

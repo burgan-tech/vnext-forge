@@ -18,6 +18,11 @@ type SettingNodeId =
   | 'theme.mode'
   | 'editor'
   | 'editor.autoSave'
+  | 'pseudoUi'
+  | 'pseudoUi.enabled'
+  | 'pseudoUi.url'
+  | 'pseudoUi.localFile'
+  | 'pseudoUi.clear'
   | 'quickrun'
   | 'quickrun.retryCount'
   | 'quickrun.intervalMs';
@@ -38,6 +43,11 @@ const SETTING_NODES: SettingNode[] = [
   { id: 'theme.mode', label: 'Mode', parentId: 'theme', getValue: (s) => s.themeMode },
   { id: 'editor', label: 'Editor', getValue: () => '' },
   { id: 'editor.autoSave', label: 'Auto Save', parentId: 'editor', getValue: (s) => (s.autoSaveEnabled ? 'Enabled' : 'Disabled') },
+  { id: 'pseudoUi', label: 'Pseudo UI', getValue: () => '' },
+  { id: 'pseudoUi.enabled', label: 'Tenant Stylesheet', parentId: 'pseudoUi', getValue: (s) => (s.pseudoUiTenantStyle.enabled ? 'Enabled' : 'Disabled') },
+  { id: 'pseudoUi.url', label: 'Stylesheet URL', parentId: 'pseudoUi', getValue: (s) => (s.pseudoUiTenantStyle.sourceType === 'url' ? s.pseudoUiTenantStyle.value || 'Not set' : 'Not active') },
+  { id: 'pseudoUi.localFile', label: 'Local CSS File', parentId: 'pseudoUi', getValue: (s) => (s.pseudoUiTenantStyle.sourceType === 'localFile' ? s.pseudoUiTenantStyle.value || 'Not set' : 'Not active') },
+  { id: 'pseudoUi.clear', label: 'Clear Stylesheet', parentId: 'pseudoUi', getValue: () => '' },
   { id: 'quickrun', label: 'Quick Run Polling', getValue: () => '' },
   { id: 'quickrun.retryCount', label: 'Retry Count', parentId: 'quickrun', getValue: (_s, qr) => String(qr.polling.retryCount) },
   { id: 'quickrun.intervalMs', label: 'Interval (ms)', parentId: 'quickrun', getValue: (_s, qr) => String(qr.polling.intervalMs) },
@@ -108,6 +118,8 @@ export class GlobalSettingsProvider implements vscode.TreeDataProvider<SettingNo
         item.iconPath = new vscode.ThemeIcon('color-mode');
       } else if (element === 'editor') {
         item.iconPath = new vscode.ThemeIcon('edit');
+      } else if (element === 'pseudoUi') {
+        item.iconPath = new vscode.ThemeIcon('symbol-color');
       } else if (element === 'quickrun') {
         item.iconPath = new vscode.ThemeIcon('debug-start');
       }
@@ -200,6 +212,80 @@ export class GlobalSettingsProvider implements vscode.TreeDataProvider<SettingNo
         }
         break;
       }
+      case 'pseudoUi.enabled': {
+        const picked = await vscode.window.showQuickPick(
+          [
+            { label: 'Enable', description: settings.pseudoUiTenantStyle.enabled ? '(current)' : '', value: true },
+            { label: 'Disable', description: !settings.pseudoUiTenantStyle.enabled ? '(current)' : '', value: false },
+          ],
+          { title: 'Enable Pseudo UI Tenant Stylesheet' },
+        );
+        if (picked != null) {
+          await this.settingsService.saveSettings({
+            pseudoUiTenantStyle: { ...settings.pseudoUiTenantStyle, enabled: picked.value },
+          });
+        }
+        break;
+      }
+      case 'pseudoUi.url': {
+        const input = await vscode.window.showInputBox({
+          title: 'Pseudo UI Stylesheet URL',
+          prompt: 'Enter an HTTP(S) stylesheet URL',
+          value: settings.pseudoUiTenantStyle.sourceType === 'url' ? settings.pseudoUiTenantStyle.value : '',
+          validateInput: (v) => {
+            if (!v.trim()) return undefined;
+            try {
+              const url = new URL(v.trim());
+              if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+                return 'Enter an HTTP or HTTPS URL';
+              }
+            } catch {
+              return 'Enter a valid URL';
+            }
+            return undefined;
+          },
+        });
+        if (input != null) {
+          await this.settingsService.saveSettings({
+            pseudoUiTenantStyle: {
+              enabled: Boolean(input.trim()),
+              sourceType: 'url',
+              value: input.trim(),
+            },
+          });
+        }
+        break;
+      }
+      case 'pseudoUi.localFile': {
+        const picked = await vscode.window.showOpenDialog({
+          title: 'Select Pseudo UI Stylesheet',
+          canSelectFiles: true,
+          canSelectFolders: false,
+          canSelectMany: false,
+          filters: { CSS: ['css'] },
+        });
+        const file = picked?.[0];
+        if (file) {
+          await this.settingsService.saveSettings({
+            pseudoUiTenantStyle: {
+              enabled: true,
+              sourceType: 'localFile',
+              value: file.fsPath,
+            },
+          });
+        }
+        break;
+      }
+      case 'pseudoUi.clear': {
+        await this.settingsService.saveSettings({
+          pseudoUiTenantStyle: {
+            enabled: false,
+            sourceType: 'url',
+            value: '',
+          },
+        });
+        break;
+      }
       case 'quickrun.retryCount': {
         const qr = await this.getQuickRunSettings();
         const input = await vscode.window.showInputBox({
@@ -242,16 +328,12 @@ export class GlobalSettingsProvider implements vscode.TreeDataProvider<SettingNo
   }
 
   private async getSettings(): Promise<ForgeSettings> {
-    if (!this.settings) {
-      this.settings = await this.settingsService.loadSettings();
-    }
+    this.settings ??= await this.settingsService.loadSettings();
     return this.settings;
   }
 
   private async getQuickRunSettings(): Promise<QuickRunSettings> {
-    if (!this.quickRunSettings) {
-      this.quickRunSettings = await this.settingsService.loadQuickRunSettings();
-    }
+    this.quickRunSettings ??= await this.settingsService.loadQuickRunSettings();
     return this.quickRunSettings;
   }
 }

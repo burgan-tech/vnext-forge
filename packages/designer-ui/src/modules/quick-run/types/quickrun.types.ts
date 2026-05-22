@@ -31,6 +31,7 @@ export interface TransitionInfo {
     href: string;
   };
   href: string;
+  annotations?: Record<string, string>;
 }
 
 export interface CorrelationInfo {
@@ -70,6 +71,7 @@ export interface ViewResponse {
   type: string;
   display?: string;
   label?: string;
+  renderer?: string;
 }
 
 export interface DataResponse {
@@ -142,7 +144,7 @@ export type QuickRunTab = {
   label: string;
 };
 
-export type ContextPanelTab = 'view' | 'data' | 'history' | 'correlations';
+export type ContextPanelTab = 'data' | 'history' | 'correlations';
 
 export function safeViewContent(content: string | Record<string, unknown> | unknown): string {
   if (typeof content === 'string') return content;

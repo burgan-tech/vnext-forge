@@ -65,11 +65,13 @@ function getTaskTypeName(type: string): string {
     '4': 'Dapr PubSub',
     '6': 'HTTP',
     '7': 'Script',
+    '10': 'Notification',
     '11': 'Start',
     '12': 'Direct Trigger',
     '13': 'Get Instance Data',
     '14': 'SubProcess',
     '15': 'Get Instances',
+    '16': 'SOAP',
   };
   return names[type] || `Unknown (${type})`;
 }

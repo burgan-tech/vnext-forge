@@ -1,0 +1,67 @@
+{
+  "$schema": "https://amorphie.io/meta/view-vocabulary/1.0",
+  "dataSchema": "urn:amorphie:res:schema:customer:registration-form",
+  "view": {
+    "type": "ScrollView",
+    "children": [
+      {
+        "type": "Column",
+        "gap": "md",
+        "children": [
+          {
+            "type": "Text",
+            "content": { "tr": "Müşteri Kayıt Formu", "en": "Customer Registration Form" },
+            "variant": "headlineMedium"
+          },
+          {
+            "type": "Card",
+            "children": [
+              {
+                "type": "Column",
+                "gap": "sm",
+                "children": [
+                  { "type": "Dropdown", "bind": "customerType" },
+                  {
+                    "type": "Row",
+                    "gap": "sm",
+                    "children": [
+                      { "type": "Expanded", "children": [{ "type": "TextField", "bind": "firstName" }] },
+                      { "type": "Expanded", "children": [{ "type": "TextField", "bind": "lastName" }] }
+                    ]
+                  },
+                  { "type": "DatePicker", "bind": "birthDate" },
+                  { "type": "RadioGroup", "bind": "gender" }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "Component",
+            "ref": "branch-selection",
+            "bind": {
+              "branchCode": "selectedBranchCode",
+              "branchName": "selectedBranchName",
+              "cityCode": "city"
+            }
+          },
+          {
+            "type": "Row",
+            "gap": "sm",
+            "mainAxisAlignment": "end",
+            "children": [
+              { "type": "Button", "label": { "tr": "İptal", "en": "Cancel" }, "variant": "outlined", "action": "cancel" },
+              {
+                "type": "Button",
+                "label": { "tr": "Kaydet", "en": "Save" },
+                "variant": "filled",
+                "icon": "save",
+                "action": "submit",
+                "command": "urn:amorphie:transition:customer:registration:inst-001:submit"
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

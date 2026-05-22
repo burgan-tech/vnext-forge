@@ -9,6 +9,7 @@ export type LayoutAlgorithm = 'dagre' | 'elk';
 export type LayoutDirection = 'DOWN' | 'RIGHT';
 export type EdgePathStyle = 'smoothstep' | 'bezier' | 'straight';
 export type ThemeMode = 'dark' | 'light' | 'system';
+export type PseudoUiTenantStyleSource = 'url' | 'localFile';
 
 export interface CanvasSettings {
   algorithm: LayoutAlgorithm;
@@ -20,6 +21,13 @@ export interface ForgeSettings {
   canvas: CanvasSettings;
   themeMode: ThemeMode;
   autoSaveEnabled: boolean;
+  pseudoUiTenantStyle: PseudoUiTenantStyleSettings;
+}
+
+export interface PseudoUiTenantStyleSettings {
+  enabled: boolean;
+  sourceType: PseudoUiTenantStyleSource;
+  value: string;
 }
 
 // ── Environment types ────────────────────────────────────────────────────────
@@ -28,6 +36,7 @@ export interface RuntimeEnvironment {
   id: string;
   name: string;
   baseUrl: string;
+  dbName?: string;
 }
 
 export interface EnvironmentsConfig {
@@ -46,6 +55,11 @@ const DEFAULT_SETTINGS: ForgeSettings = {
   },
   themeMode: 'system',
   autoSaveEnabled: false,
+  pseudoUiTenantStyle: {
+    enabled: false,
+    sourceType: 'url',
+    value: '',
+  },
 };
 
 const DEFAULT_ENVIRONMENTS: EnvironmentsConfig = {
@@ -75,8 +89,8 @@ export interface QuickRunSettings {
 const DEFAULT_QUICKRUN_SETTINGS: QuickRunSettings = {
   globalHeaders: [],
   polling: {
-    retryCount: 12,
-    intervalMs: 500,
+    retryCount: 15,
+    intervalMs: 4000,
   },
 };
 
@@ -115,6 +129,18 @@ function isValidTheme(v: unknown): v is ThemeMode {
   return typeof v === 'string' && (VALID_THEMES as readonly string[]).includes(v);
 }
 
+function parsePseudoUiTenantStyle(raw: unknown): PseudoUiTenantStyleSettings {
+  if (raw == null || typeof raw !== 'object') {
+    return { ...DEFAULT_SETTINGS.pseudoUiTenantStyle };
+  }
+  const obj = raw as Record<string, unknown>;
+  return {
+    enabled: typeof obj.enabled === 'boolean' ? obj.enabled : DEFAULT_SETTINGS.pseudoUiTenantStyle.enabled,
+    sourceType: obj.sourceType === 'localFile' ? 'localFile' : 'url',
+    value: typeof obj.value === 'string' ? obj.value : '',
+  };
+}
+
 function parseSettings(raw: unknown): ForgeSettings {
   const defaults = DEFAULT_SETTINGS;
   if (raw == null || typeof raw !== 'object') return { ...defaults };
@@ -132,6 +158,7 @@ function parseSettings(raw: unknown): ForgeSettings {
     },
     themeMode: isValidTheme(obj.themeMode) ? obj.themeMode : defaults.themeMode,
     autoSaveEnabled: typeof obj.autoSaveEnabled === 'boolean' ? obj.autoSaveEnabled : defaults.autoSaveEnabled,
+    pseudoUiTenantStyle: parsePseudoUiTenantStyle(obj.pseudoUiTenantStyle),
   };
 }
 
@@ -189,10 +216,12 @@ function parseEnvironments(raw: unknown): EnvironmentsConfig {
       ) {
         const rawUrl = ((item as Record<string, unknown>).baseUrl as string).replace(/\/+$/, '');
         if (!isAllowedBaseUrl(rawUrl)) continue;
+        const rec = item as Record<string, unknown>;
         environments.push({
-          id: (item as Record<string, unknown>).id as string,
-          name: (item as Record<string, unknown>).name as string,
+          id: rec.id as string,
+          name: rec.name as string,
           baseUrl: rawUrl,
+          ...(typeof rec.dbName === 'string' && rec.dbName.length > 0 ? { dbName: rec.dbName } : {}),
         });
       }
     }
@@ -201,7 +230,7 @@ function parseEnvironments(raw: unknown): EnvironmentsConfig {
   const activeEnvironmentId =
     typeof obj.activeEnvironmentId === 'string' &&
     environments.some((e) => e.id === obj.activeEnvironmentId)
-      ? (obj.activeEnvironmentId as string)
+      ? obj.activeEnvironmentId
       : null;
 
   return { version: 1, environments, activeEnvironmentId };
@@ -254,6 +283,9 @@ export class ForgeToolsSettingsService implements vscode.Disposable {
       canvas: patch.canvas ? { ...current.canvas, ...patch.canvas } : current.canvas,
       themeMode: patch.themeMode ?? current.themeMode,
       autoSaveEnabled: patch.autoSaveEnabled ?? current.autoSaveEnabled,
+      pseudoUiTenantStyle: patch.pseudoUiTenantStyle
+        ? parsePseudoUiTenantStyle({ ...current.pseudoUiTenantStyle, ...patch.pseudoUiTenantStyle })
+        : current.pseudoUiTenantStyle,
     };
     await this.writeJsonFile(SETTINGS_FILE, merged);
     this.settingsCache = merged;
@@ -283,17 +315,16 @@ export class ForgeToolsSettingsService implements vscode.Disposable {
     return config.environments.find((e) => e.id === config.activeEnvironmentId) ?? null;
   }
 
-  async addEnvironment(name: string, baseUrl: string): Promise<RuntimeEnvironment> {
+  async addEnvironment(name: string, baseUrl: string, dbName?: string): Promise<RuntimeEnvironment> {
     const config = await this.loadEnvironments();
     const env: RuntimeEnvironment = {
       id: crypto.randomUUID(),
       name,
       baseUrl: baseUrl.replace(/\/+$/, ''),
+      ...(dbName ? { dbName } : {}),
     };
     config.environments.push(env);
-    if (config.activeEnvironmentId === null) {
-      config.activeEnvironmentId = env.id;
-    }
+    config.activeEnvironmentId ??= env.id;
     await this.saveEnvironments(config);
     return env;
   }

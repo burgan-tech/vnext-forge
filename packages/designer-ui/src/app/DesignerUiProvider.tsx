@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { setApiTransport, type ApiTransport } from '../api/transport.js';
 
 import { DocumentThemeSync } from './DocumentThemeSync.js';
+import { PseudoUiTenantStyleSync } from './PseudoUiTenantStyleSync.js';
 
 export interface DesignerUiProviderProps {
   /**
@@ -59,6 +60,7 @@ export function DesignerUiProvider({ transport, children }: DesignerUiProviderPr
   return (
     <>
       <DocumentThemeSync />
+      <PseudoUiTenantStyleSync />
       {children}
     </>
   );

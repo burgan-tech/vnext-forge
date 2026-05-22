@@ -18,6 +18,7 @@ export interface ViewDefinition {
   flow?: string;
   type?: ViewType;
   display?: DisplayStrategy;
+  renderer?: string;
   content?: unknown;
   labels?: Label[];
   platformOverrides?: PlatformOverride[];

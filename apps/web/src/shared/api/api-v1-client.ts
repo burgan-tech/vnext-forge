@@ -58,6 +58,7 @@ export interface ApiV1Client {
   cli: {
     check: { $post: (args: JsonArg) => Promise<Response> };
     checkUpdate: { $post: (args: JsonArg) => Promise<Response> };
+    domainAdd: { $post: (args: JsonArg) => Promise<Response> };
     execute: { $post: (args: JsonArg) => Promise<Response> };
     updateGlobal: { $post: (args: JsonArg) => Promise<Response> };
   };

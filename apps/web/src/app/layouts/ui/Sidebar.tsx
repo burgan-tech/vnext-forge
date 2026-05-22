@@ -6,27 +6,31 @@ import {
   ColorThemeSwitchSidebar,
   Input,
   Label,
+  ProblemsSidebarPanel,
+  showNotification,
+  SnippetsSidebarPanel,
   useProjectStore,
   useSettingsStore,
 } from '@vnext-forge-studio/designer-ui';
+import { isFailure } from '@vnext-forge-studio/app-contracts';
 import {
+  ChevronDown,
+  ExternalLink,
   Loader2,
   Palette,
+  Paintbrush,
   Pencil,
   Play,
   Plus,
   Save,
   Server,
-  ChevronDown,
   Terminal,
   Trash2,
 } from 'lucide-react';
-import { isFailure } from '@vnext-forge-studio/app-contracts';
 
-import { executeCliCommand } from '../../../services/cli.service';
+import { domainAddCli, executeCliCommand } from '../../../services/cli.service';
 import { ProjectWorkspaceSidebarPanel } from '../../../modules/project-workspace';
 import { SearchPanel } from '../../../modules/project-search/SearchPanel';
-import { ProblemsSidebarPanel, SnippetsSidebarPanel } from '@vnext-forge-studio/designer-ui';
 import { useCliStore } from '../../store/useCliStore';
 import { useCliOutputStore } from '../../store/useCliOutputStore';
 import {
@@ -37,6 +41,8 @@ import { useEnvironmentStore } from '../../store/useEnvironmentStore';
 import { useWebShellStore } from '../../store/useWebShellStore';
 import { useWorkspaceDiagnosticsStore } from '../../store/useWorkspaceDiagnosticsStore';
 
+const WORKFLOW_CLI_DOCS_URL = 'https://burgan-tech.github.io/vnext-docs/docs/tools/workflow-cli';
+
 function EnvironmentsSection() {
   const environments = useEnvironmentStore((s) => s.environments);
   const activeEnvironmentId = useEnvironmentStore((s) => s.activeEnvironmentId);
@@ -44,27 +50,76 @@ function EnvironmentsSection() {
   const addEnvironment = useEnvironmentStore((s) => s.addEnvironment);
   const updateEnvironment = useEnvironmentStore((s) => s.updateEnvironment);
   const removeEnvironment = useEnvironmentStore((s) => s.removeEnvironment);
+  const cliAvailable = useCliStore((s) => s.available);
 
   const [addingOpen, setAddingOpen] = useState(false);
   const [addName, setAddName] = useState('');
   const [addUrl, setAddUrl] = useState('');
+  const [addDbName, setAddDbName] = useState('');
+  const [dbNameTouched, setDbNameTouched] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [editUrl, setEditUrl] = useState('');
 
+  const deriveDbName = (name: string) => `vNext_${name.trim().replace(/\s+/g, '_')}`;
+
+  const handleAddNameChange = (value: string) => {
+    setAddName(value);
+    if (!dbNameTouched) {
+      setAddDbName(deriveDbName(value));
+    }
+  };
+
   const resetAddForm = () => {
     setAddingOpen(false);
     setAddName('');
     setAddUrl('');
+    setAddDbName('');
+    setDbNameTouched(false);
     setFormError(null);
   };
 
   const handleAdd = () => {
     setFormError(null);
     try {
-      addEnvironment(addName, addUrl);
+      const trimmedDbName = addDbName.trim() || deriveDbName(addName);
+      addEnvironment(addName, addUrl, trimmedDbName);
+
+      if (cliAvailable) {
+        void domainAddCli({
+          domainName: addName.trim(),
+          apiBaseUrl: addUrl.trim(),
+          dbName: trimmedDbName,
+        }).then((result) => {
+          if (isFailure(result)) {
+            showNotification({
+              kind: 'warning',
+              message: `CLI domain registration failed: ${result.error.message}`,
+            });
+            return;
+          }
+          if (result.data.exitCode === 0) {
+            showNotification({
+              kind: 'success',
+              message: `Workflow CLI domain "${addName.trim()}" registered.`,
+            });
+          } else {
+            const msg = result.data.stderr.trim() || result.data.stdout.trim() || 'Unknown error';
+            showNotification({
+              kind: 'warning',
+              message: `CLI domain registration failed: ${msg}`,
+            });
+          }
+        }).catch(() => {
+          showNotification({
+            kind: 'warning',
+            message: 'Could not reach the server for CLI domain registration.',
+          });
+        });
+      }
+
       resetAddForm();
     } catch (e) {
       setFormError(e instanceof Error ? e.message : 'Could not add environment.');
@@ -158,6 +213,9 @@ function EnvironmentsSection() {
                   }`}>
                   <span className="text-[11px] font-semibold">{env.name}</span>
                   <span className="text-muted-foreground truncate text-[10px]">{env.baseUrl}</span>
+                  {env.dbName ? (
+                    <span className="text-muted-foreground truncate text-[10px]">DB: {env.dbName}</span>
+                  ) : null}
                   <div className="mt-2 flex gap-1">
                     <Button
                       type="button"
@@ -200,7 +258,7 @@ function EnvironmentsSection() {
             id="new-env-name"
             size="sm"
             value={addName}
-            onChange={(e) => setAddName(e.target.value)}
+            onChange={(e) => handleAddNameChange(e.target.value)}
             placeholder="Local runtime"
           />
           <Label htmlFor="new-env-url" className="text-[10px] uppercase">
@@ -212,6 +270,19 @@ function EnvironmentsSection() {
             value={addUrl}
             onChange={(e) => setAddUrl(e.target.value)}
             placeholder="http://localhost:4201"
+          />
+          <Label htmlFor="new-env-dbname" className="text-[10px] uppercase">
+            DB Name
+          </Label>
+          <Input
+            id="new-env-dbname"
+            size="sm"
+            value={addDbName}
+            onChange={(e) => {
+              setAddDbName(e.target.value);
+              setDbNameTouched(true);
+            }}
+            placeholder="vNext_Local"
           />
           <div className="flex justify-end gap-2 pt-1">
             <Button type="button" variant="ghost" size="sm" onClick={resetAddForm}>
@@ -228,6 +299,15 @@ function EnvironmentsSection() {
           Add Environment
         </Button>
       )}
+
+      <a
+        href={WORKFLOW_CLI_DOCS_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1 text-[10px] transition-colors">
+        <ExternalLink className="size-3" strokeWidth={2} aria-hidden />
+        Workflow CLI Docs
+      </a>
     </div>
   );
 }
@@ -274,6 +354,52 @@ function QuickRunPollingSection() {
             if (!Number.isNaN(n) && n > 0) setPolling({ intervalMs: n });
           }}
         />
+      </div>
+    </div>
+  );
+}
+
+interface PseudoUiStyleSectionProps {
+  enabled: boolean;
+  value: string;
+  onEnabledChange: (enabled: boolean) => void;
+  onValueChange: (value: string) => void;
+}
+
+function PseudoUiStyleSection({
+  enabled,
+  value,
+  onEnabledChange,
+  onValueChange,
+}: PseudoUiStyleSectionProps) {
+  return (
+    <div className="flex flex-col gap-3 py-1">
+      <div className="flex items-center gap-2">
+        <Checkbox
+          id="pseudo-ui-tenant-style-toggle"
+          checked={enabled}
+          onCheckedChange={(checked) => onEnabledChange(checked === true)}
+        />
+        <Label
+          htmlFor="pseudo-ui-tenant-style-toggle"
+          className="text-[11px] font-medium leading-tight cursor-pointer select-none">
+          Enable tenant stylesheet
+        </Label>
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="pseudo-ui-tenant-style-url" className="text-[10px] font-medium uppercase">
+          Stylesheet URL
+        </Label>
+        <Input
+          id="pseudo-ui-tenant-style-url"
+          size="sm"
+          value={value}
+          placeholder="https://example.com/pseudo-ui.css"
+          onChange={(e) => onValueChange(e.target.value)}
+        />
+        <p className="text-muted-foreground text-[10px] leading-snug">
+          Local CSS files are available in the VS Code extension settings.
+        </p>
       </div>
     </div>
   );
@@ -476,6 +602,8 @@ export function Sidebar() {
   const setColorTheme = useSettingsStore((s) => s.setColorTheme);
   const autoSaveEnabled = useSettingsStore((s) => s.autoSaveEnabled);
   const setAutoSaveEnabled = useSettingsStore((s) => s.setAutoSaveEnabled);
+  const pseudoUiTenantStyle = useSettingsStore((s) => s.pseudoUiTenantStyle);
+  const setPseudoUiTenantStyle = useSettingsStore((s) => s.setPseudoUiTenantStyle);
   const configIssues = useWorkspaceDiagnosticsStore((s) => s.configIssues);
 
   const settingsAccordionDefaultOpenIds = pendingSettingsAccordionOpenIds ?? [];
@@ -566,6 +694,21 @@ export function Sidebar() {
                   title: 'Quick Run',
                   icon: <Play className="size-3.5" strokeWidth={2} aria-hidden />,
                   content: <QuickRunPollingSection />,
+                },
+                {
+                  id: 'pseudo-ui',
+                  title: 'Pseudo UI',
+                  icon: <Paintbrush className="size-3.5" strokeWidth={2} aria-hidden />,
+                  content: (
+                    <PseudoUiStyleSection
+                      enabled={pseudoUiTenantStyle.enabled}
+                      value={pseudoUiTenantStyle.value}
+                      onEnabledChange={(enabled) => setPseudoUiTenantStyle({ enabled })}
+                      onValueChange={(value) =>
+                        setPseudoUiTenantStyle({ sourceType: 'url', value })
+                      }
+                    />
+                  ),
                 },
               ]}
             />

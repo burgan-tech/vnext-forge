@@ -1,4 +1,4 @@
-import { type MutableRefObject, useCallback, useEffect, useRef, useState } from 'react';
+import { type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { ResizableDialogShell } from '../../../ui/ResizableDialogShell';
 import {
@@ -7,14 +7,16 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '../../../ui/Tooltip';
-import { SchemaForm, validateAgainstSchema } from '../../schema-form';
-import type { JsonSchemaRoot } from '../../schema-form';
+import { SchemaForm, validateAgainstSchema, type JsonSchemaRoot } from '../../schema-form';
 import * as QuickRunApi from '../QuickRunApi';
 import type { PresetEntry, WorkflowBucketConfig } from '../QuickRunApi';
+import { createQuickRunPseudoDelegate } from '../pseudo-ui/createQuickRunPseudoDelegate';
+import { createDataSchemaResolver, type SchemaResolver } from '../pseudo-ui/createDataSchemaResolver';
+import { PseudoUiOrJsonBlock } from '../pseudo-ui/PseudoUiOrJsonBlock';
+import type { DataSchema, PseudoViewDelegate } from '@burgantech/pseudo-ui';
 import { useQuickRunPolling } from '../hooks/useQuickRunPolling';
 import { useQuickRunStore } from '../store/quickRunStore';
 import { safeViewContent, type SchemaResponse, type ViewResponse } from '../types/quickrun.types';
-import { CopyableJsonBlock } from './CopyableJsonBlock';
 import { ValidationErrorBlock } from './ValidationErrorBlock';
 
 interface TransitionDialogProps {
@@ -53,7 +55,7 @@ export function TransitionDialog({ configRef, persistConfig, projectId }: Transi
   const [stage, setStage] = useState('');
   const [tags, setTags] = useState('');
   const [headerRows, setHeaderRows] = useState<{ name: string; value: string }[]>([]);
-  const [sync, setSync] = useState(true);
+  const [sync, setSync] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errorDetails, setErrorDetails] = useState<Record<string, unknown> | null>(null);
@@ -82,6 +84,44 @@ export function TransitionDialog({ configRef, persistConfig, projectId }: Transi
   const hasSchema = transition?.schema?.hasSchema ?? false;
   const hasView = transition?.view?.hasView ?? false;
   const canPresets = Boolean(projectId && workflowKey);
+
+  const mergedDialogHeaders = useMemo(() => {
+    const inherited = { ...globalHeaders, ...sessionHeaders };
+    const merged = { ...inherited };
+    for (const h of headerRows) {
+      if (h.name.trim()) merged[h.name.trim()] = h.value;
+    }
+    return merged;
+  }, [globalHeaders, sessionHeaders, headerRows]);
+
+  const schemaResolver = useMemo(() => {
+    if (!domain) return undefined;
+    return createDataSchemaResolver({
+      domain,
+      headers: mergedDialogHeaders,
+      runtimeUrl: environmentUrl ?? undefined,
+    });
+  }, [domain, mergedDialogHeaders, environmentUrl]);
+
+  const transitionPseudoDelegate = useMemo((): PseudoViewDelegate | undefined => {
+    if (!activeTabId || !domain || !workflowKey) return undefined;
+    return createQuickRunPseudoDelegate({
+      domain,
+      workflowKey,
+      instanceId: activeTabId,
+      runtimeUrl: environmentUrl ?? '',
+      headers: mergedDialogHeaders,
+      onTransitionComplete: async () => {
+        await pollState({
+          domain,
+          workflowKey,
+          instanceId: activeTabId,
+          runtimeUrl: environmentUrl ?? '',
+          headers: mergedDialogHeaders,
+        });
+      },
+    });
+  }, [activeTabId, domain, workflowKey, environmentUrl, mergedDialogHeaders, pollState]);
 
   useEffect(() => {
     if (!open || !activeTabId) return;
@@ -422,13 +462,19 @@ export function TransitionDialog({ configRef, persistConfig, projectId }: Transi
             </div>
           )}
 
-          <TransitionViewInfo view={transitionView} loading={viewLoading} />
+          <TransitionAnnotations annotations={transition?.annotations} />
 
-          <HeaderOverrideSection rows={headerRows} setRows={setHeaderRows} />
+          <TransitionViewInfo
+            view={transitionView}
+            loading={viewLoading}
+            pseudoDelegate={transitionPseudoDelegate}
+            pseudoUiSchema={schema?.schema}
+            resolveSchema={schemaResolver}
+          />
 
           <TransitionInputStep
-            transitionName={transitionName}
-            isManualMode={isManualMode}
+            headerRows={headerRows}
+            setHeaderRows={setHeaderRows}
             schema={schema}
             schemaLoading={schemaLoading}
             hasSchema={hasSchema}
@@ -448,8 +494,8 @@ export function TransitionDialog({ configRef, persistConfig, projectId }: Transi
             canPresets={canPresets}
             presets={presets}
             selectedPresetId={selectedPresetId}
-            onPresetSelect={handlePresetSelect}
-            onPresetDelete={handleDeletePreset}
+            onPresetSelect={(id) => void handlePresetSelect(id)}
+            onPresetDelete={() => void handleDeletePreset()}
             savePresetMode={savePresetMode}
             onOpenSavePreset={() => setSavePresetMode({ name: '', description: '' })}
             onCancelSavePreset={() => setSavePresetMode(null)}
@@ -459,7 +505,7 @@ export function TransitionDialog({ configRef, persistConfig, projectId }: Transi
             onChangeSavePresetDescription={(description) =>
               setSavePresetMode((s) => (s ? { ...s, description } : s))
             }
-            onConfirmSavePreset={handleSavePreset}
+            onConfirmSavePreset={() => void handleSavePreset()}
             presetError={presetError}
           />
 
@@ -495,12 +541,42 @@ export function TransitionDialog({ configRef, persistConfig, projectId }: Transi
   );
 }
 
+function TransitionAnnotations({ annotations }: { annotations?: Record<string, string> }) {
+  if (!annotations) return null;
+  const entries = Object.entries(annotations);
+  if (entries.length === 0) return null;
+
+  return (
+    <details className="mb-3 text-xs">
+      <summary className="cursor-pointer text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]">
+        Annotations ({entries.length})
+      </summary>
+      <div className="mt-1.5 max-h-24 overflow-y-auto rounded border border-[var(--vscode-panel-border)] bg-[var(--vscode-textCodeBlock-background)]">
+        <div className="flex flex-col divide-y divide-[var(--vscode-panel-border)]">
+          {entries.map(([key, value]) => (
+            <div key={key} className="flex items-baseline gap-2 px-2.5 py-1">
+              <span className="shrink-0 font-medium text-[10px] text-[var(--vscode-foreground)]">{key}</span>
+              <span className="truncate text-[10px] text-[var(--vscode-descriptionForeground)]">{value}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </details>
+  );
+}
+
 function TransitionViewInfo({
   view,
   loading,
+  pseudoDelegate,
+  pseudoUiSchema,
+  resolveSchema,
 }: {
   view: ViewResponse | null;
   loading: boolean;
+  pseudoDelegate?: PseudoViewDelegate;
+  pseudoUiSchema?: Record<string, unknown>;
+  resolveSchema?: SchemaResolver;
 }) {
   const [collapsed, setCollapsed] = useState(true);
 
@@ -531,6 +607,11 @@ function TransitionViewInfo({
           <span className="rounded bg-[var(--vscode-badge-background)] px-1 py-0.5 text-[9px] text-[var(--vscode-badge-foreground)]">
             {view.type}
           </span>
+          {view.renderer && (
+            <span className="rounded border border-[var(--vscode-panel-border)] bg-[var(--vscode-textCodeBlock-background)] px-1 py-0.5 text-[9px] text-[var(--vscode-descriptionForeground)]">
+              {view.renderer}
+            </span>
+          )}
           {view.label && (
             <span className="text-[var(--vscode-descriptionForeground)]">{view.label}</span>
           )}
@@ -540,12 +621,20 @@ function TransitionViewInfo({
         </span>
       </button>
       {!collapsed && (
-        <div className="border-t border-[var(--vscode-panel-border)] p-3">
-          {jsonValue != null ? (
-            <CopyableJsonBlock value={jsonValue} />
-          ) : (
-            <CopyableJsonBlock value={displayContent || '(empty)'} />
-          )}
+        <div className="flex max-h-[45vh] min-h-0 flex-col overflow-hidden border-t border-[var(--vscode-panel-border)] p-3">
+          <PseudoUiOrJsonBlock
+            view={view}
+            jsonValue={jsonValue}
+            displayContent={displayContent}
+            ariaLabel={`Transition view ${view.key}`}
+            integrationMode="simulation"
+            fillHeight
+            panelStorageScope="transition-dialog"
+            surfaceClassName="min-h-0"
+            delegate={pseudoDelegate}
+            pseudoUiSchema={pseudoUiSchema as DataSchema | undefined}
+            resolveSchema={resolveSchema}
+          />
         </div>
       )}
     </div>
@@ -553,8 +642,6 @@ function TransitionViewInfo({
 }
 
 function TransitionInputStep({
-  transitionName,
-  isManualMode,
   schema,
   schemaLoading,
   hasSchema,
@@ -581,9 +668,9 @@ function TransitionInputStep({
   onChangeSavePresetDescription,
   onConfirmSavePreset,
   presetError,
+  headerRows,
+  setHeaderRows,
 }: {
-  transitionName: string;
-  isManualMode: boolean;
   schema: SchemaResponse | null;
   schemaLoading: boolean;
   hasSchema: boolean;
@@ -610,6 +697,8 @@ function TransitionInputStep({
   onChangeSavePresetDescription: (v: string) => void;
   onConfirmSavePreset: () => void;
   presetError: string | null;
+  headerRows: { name: string; value: string }[];
+  setHeaderRows: (v: { name: string; value: string }[]) => void;
 }) {
   // Faker-driven payload generation. Mirrors `NewRunDialog` but uses the
   // generic `test-data/generate` endpoint with the schema already in
@@ -627,7 +716,7 @@ function TransitionInputStep({
     setGenError(null);
     try {
       const result = await QuickRunApi.generateForSchema({
-        schema: schema.schema as Record<string, unknown>,
+        schema: schema.schema,
         options: { seed: Date.now() },
       });
       if (!result.success) {
@@ -650,7 +739,7 @@ function TransitionInputStep({
       const text = await navigator.clipboard.readText();
       if (!text.trim()) return;
       try {
-        const parsed = JSON.parse(text);
+        const parsed: unknown = JSON.parse(text);
         setAttributes(JSON.stringify(parsed, null, 2));
       } catch {
         setAttributes(text);
@@ -661,15 +750,9 @@ function TransitionInputStep({
   }, [setAttributes]);
   return (
     <div className="flex flex-col gap-3">
-      {!isManualMode && (
-        <div className="text-xs text-[var(--vscode-descriptionForeground)]">
-          Firing transition <strong>{transitionName}</strong>
-        </div>
-      )}
-
       <details className="text-xs">
         <summary className="cursor-pointer text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]">
-          Advanced (Key, Stage, Tags, Sync)
+          Advanced
         </summary>
         <div className="mt-2 flex flex-col gap-2">
           <div className="flex flex-col gap-1">
@@ -720,6 +803,7 @@ function TransitionInputStep({
             />
             <span>Sync (wait for transition to complete)</span>
           </label>
+          <HeaderOverrideSection rows={headerRows} setRows={setHeaderRows} />
         </div>
       </details>
 

@@ -6,7 +6,7 @@ import { JsonCodeField } from '../../../ui/JsonCodeField';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../ui/Card';
 import { ComponentValidationSummary } from '../../save-component/components/ComponentValidationSummary';
 import { SchemaMetadataForm } from './SchemaMetadataForm';
-import { SchemaTree } from './SchemaTree';
+import { SchemaTreeEditor } from './tree-editor/SchemaTreeEditor';
 import { ValidatePayloadCard } from './ValidatePayloadCard';
 import { getSchemaSource } from '../SchemaEditorSchema';
 
@@ -27,15 +27,6 @@ export function SchemaEditorPanel({ json, onChange }: SchemaEditorPanelProps) {
       setSourceError(null);
     }
   }, [schema, view]);
-
-  function onSchemaChange(updater: (draft: Record<string, unknown>) => void) {
-    onChange((draft) => {
-      if (!draft.attributes) draft.attributes = {};
-      const nextAttributes = draft.attributes as Record<string, unknown>;
-      if (!nextAttributes.schema) nextAttributes.schema = {};
-      updater(nextAttributes.schema as Record<string, unknown>);
-    });
-  }
 
   return (
     <div className="space-y-4 p-4">
@@ -78,7 +69,7 @@ export function SchemaEditorPanel({ json, onChange }: SchemaEditorPanelProps) {
         </CardHeader>
         <CardContent className="px-4 sm:px-6">
           {view === 'visual' ? (
-            <SchemaTree schema={schema} onChange={onSchemaChange} />
+            <SchemaTreeEditor />
           ) : (
             <Field
               label="Schema Source"

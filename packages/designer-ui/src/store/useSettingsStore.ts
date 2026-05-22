@@ -15,11 +15,39 @@ export const SETTINGS_PERSIST_KEY = 'vnext-forge-studio-settings';
  */
 export type ColorThemePreference = 'light' | 'dark' | 'system';
 
+export type PseudoUiTenantStyleSource = 'url' | 'localFile';
+
+export interface PseudoUiTenantStyleSettings {
+  enabled: boolean;
+  sourceType: PseudoUiTenantStyleSource;
+  value: string;
+}
+
+export const DEFAULT_PSEUDO_UI_TENANT_STYLE: PseudoUiTenantStyleSettings = {
+  enabled: false,
+  sourceType: 'url',
+  value: '',
+};
+
 interface SettingsState {
   colorTheme: ColorThemePreference;
   setColorTheme: (colorTheme: ColorThemePreference) => void;
   autoSaveEnabled: boolean;
   setAutoSaveEnabled: (enabled: boolean) => void;
+  pseudoUiTenantStyle: PseudoUiTenantStyleSettings;
+  setPseudoUiTenantStyle: (patch: Partial<PseudoUiTenantStyleSettings>) => void;
+}
+
+function normalizePseudoUiTenantStyle(value: unknown): PseudoUiTenantStyleSettings {
+  if (value == null || typeof value !== 'object') {
+    return { ...DEFAULT_PSEUDO_UI_TENANT_STYLE };
+  }
+  const obj = value as Record<string, unknown>;
+  return {
+    enabled: typeof obj.enabled === 'boolean' ? obj.enabled : DEFAULT_PSEUDO_UI_TENANT_STYLE.enabled,
+    sourceType: obj.sourceType === 'localFile' ? 'localFile' : 'url',
+    value: typeof obj.value === 'string' ? obj.value : '',
+  };
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -29,6 +57,14 @@ export const useSettingsStore = create<SettingsState>()(
       setColorTheme: (colorTheme) => set({ colorTheme }),
       autoSaveEnabled: false,
       setAutoSaveEnabled: (autoSaveEnabled) => set({ autoSaveEnabled }),
+      pseudoUiTenantStyle: { ...DEFAULT_PSEUDO_UI_TENANT_STYLE },
+      setPseudoUiTenantStyle: (patch) =>
+        set((state) => ({
+          pseudoUiTenantStyle: normalizePseudoUiTenantStyle({
+            ...state.pseudoUiTenantStyle,
+            ...patch,
+          }),
+        })),
     }),
     {
       name: SETTINGS_PERSIST_KEY,
@@ -36,13 +72,20 @@ export const useSettingsStore = create<SettingsState>()(
       partialize: (state) => ({
         colorTheme: state.colorTheme,
         autoSaveEnabled: state.autoSaveEnabled,
+        pseudoUiTenantStyle: state.pseudoUiTenantStyle,
       }),
-      version: 1,
+      version: 2,
       migrate: (persisted, version) => {
+        const next = {
+          ...(persisted as Record<string, unknown>),
+          pseudoUiTenantStyle: normalizePseudoUiTenantStyle(
+            (persisted as Record<string, unknown>)?.pseudoUiTenantStyle,
+          ),
+        };
         if (version === 0) {
-          return { ...(persisted as Record<string, unknown>), autoSaveEnabled: false };
+          return { ...next, autoSaveEnabled: false };
         }
-        return persisted as SettingsState;
+        return next as unknown as SettingsState;
       },
     },
   ),

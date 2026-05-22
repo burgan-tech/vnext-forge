@@ -1,0 +1,12 @@
+{
+  "params": {
+    "domainName": "core",
+    "apiBaseUrl": "http://localhost:4201",
+    "dbName": "vNext_Core"
+  },
+  "result": {
+    "exitCode": 0,
+    "stdout": "Domain 'core' added successfully.",
+    "stderr": ""
+  }
+}

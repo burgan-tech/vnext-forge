@@ -5,8 +5,14 @@ import {
   PauseCircle, Circle, Repeat2, LayoutGrid, Activity,
   Loader2, UserCircle, Ban, TimerOff, ArrowUpRight,
   ArrowUp, ArrowDown, ArrowLeft, ArrowRight,
+  Eye, AlertTriangle, Copy, Trash2,
 } from 'lucide-react';
 import { useSubFlowNavigation } from '../../context/SubFlowNavigationContext';
+import {
+  useCanvasViewSettings,
+  resolveIconStampSize,
+} from '../../context/CanvasViewSettingsContext';
+import { useWorkflowStore } from '../../../../store/useWorkflowStore';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../../../ui/Tooltip';
 
 interface StateNodeData {
@@ -127,6 +133,50 @@ export const StateNodeBase = memo(function StateNodeBase({ data, selected }: Nod
   const config = getConfig(d.stateType, d.subType);
   const totalActions = d.onEntryCount + d.onExitCount;
   const { onOpenSubFlow } = useSubFlowNavigation();
+  const { settings } = useCanvasViewSettings();
+
+  // Hover Quick-Toolbar actions — bound to the workflow store so
+  // the node component doesn't need callback props threaded
+  // through React Flow's `nodeTypes` registry. The toolbar reveals
+  // on `group-hover` (the outer div has `group`) and exposes the
+  // two most-common actions (Duplicate, Delete). Other actions
+  // remain on the right-click menu to avoid toolbar clutter.
+  const removeState = useWorkflowStore((s) => s.removeState);
+  const duplicateState = useWorkflowStore((s) => s.duplicateState);
+  const diagramJson = useWorkflowStore((s) => s.diagramJson);
+
+  const handleQuickDuplicate = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      const positions = (diagramJson?.nodePos as
+        | Record<string, { x?: number; y?: number }>
+        | undefined) ?? undefined;
+      const pos = positions?.[d.stateKey] ?? { x: 200, y: 200 };
+      duplicateState(d.stateKey, { x: (pos.x ?? 200) + 40, y: (pos.y ?? 200) + 40 });
+    },
+    [diagramJson, d.stateKey, duplicateState],
+  );
+
+  const handleQuickDelete = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      removeState(d.stateKey);
+    },
+    [removeState, d.stateKey],
+  );
+
+  // Visual tuning from Canvas Options:
+  //   - `nodeDensity = compact` collapses the stats row regardless
+  //     of `statsVisibility` to give a denser overview layout.
+  //   - `iconSize` maps to size-8 / size-10 / size-12 on the stamp.
+  //   - `statsVisibility` controls when the stats row shows:
+  //       always → standard
+  //       hover  → only when the node is hovered or selected (CSS)
+  //       never  → never
+  const iconStampNum = resolveIconStampSize(settings.iconSize);
+  const isCompact = settings.nodeDensity === 'compact';
+  const statsAllowed = !isCompact && settings.statsVisibility !== 'never';
+  const statsHoverOnly = settings.statsVisibility === 'hover';
 
   const isFinal = d.stateType === 3;
   const showSubFlowButton = d.stateType === 4 && Boolean(d.subFlowProcessKey);
@@ -176,29 +226,64 @@ export const StateNodeBase = memo(function StateNodeBase({ data, selected }: Nod
         </>
       )}
 
-      {/* Color accent strip */}
-      <div className={`h-[3px] ${config.accent} rounded-t-2xl`} />
-
-      {/* Header */}
+      {/*
+       * Header — icon stamp + label + stateKey.
+       *
+       * Previously a 3px accent strip ran across the top edge and
+       * the icon sat inside a `bg-{color}/10` soft-tint badge. The
+       * strip was nearly invisible at default zoom (especially in
+       * dark theme), and the doubled-up color signal (tinted icon
+       * badge + strip + type-label text) added visual noise without
+       * extra info.
+       *
+       * New design: solid-colored icon badge (the "state stamp")
+       * carries the state-type signal at glance — it's the most
+       * visually heavy element of the node and the user's eye lands
+       * there first. The textual type-label ("State / Initial /
+       * Final / SubFlow") is removed because the stamp and the node
+       * shape (dashed for SubFlow, etc.) already convey the type.
+       */}
       <div className="flex items-center gap-3 px-3.5 pt-3 pb-2">
-        <div className={`size-9 shrink-0 rounded-xl ${config.bg} flex items-center justify-center`}>
-          <span className={config.text}>{config.icon}</span>
+        <div
+          // Icon stamp size is dynamic (sm/md/lg = 32/40/48 px) per
+          // Canvas Options. Tailwind's `size-N` is statically
+          // extracted at build time so we can't interpolate the
+          // class name — inline `width`/`height` gives us the same
+          // effect without the bundling concern.
+          style={{ width: `${iconStampNum * 0.25}rem`, height: `${iconStampNum * 0.25}rem` }}
+          className={`shrink-0 rounded-xl ${config.accent} flex items-center justify-center shadow-sm ring-1 ring-black/5`}
+        >
+          <span className="text-white [&>svg]:size-[18px]">{config.icon}</span>
         </div>
         <div className="min-w-0 flex-1">
           <h4 className="text-[13px] font-semibold text-foreground truncate leading-tight tracking-tight">
             {d.label}
           </h4>
-          <div className="flex items-center gap-1.5 mt-0.5">
-            <span className={`text-[11px] font-medium ${config.text}`}>{config.typeLabel}</span>
-            <span className="text-subtle">·</span>
+          <div className="mt-0.5">
             <span className="text-[11px] text-muted-foreground font-mono truncate">{d.stateKey}</span>
           </div>
         </div>
       </div>
 
-      {/* Stats row */}
-      {(totalActions > 0 || d.transitionCount > 0 || d.hasView || d.hasErrorBoundary || d.hasSubFlow) && (
-        <div className="px-3.5 pb-3 pt-0.5">
+      {/*
+       * Stats row — task / transition counts and feature flags.
+       *
+       * Feature flags previously rendered as 1.5px colored dots
+       * (effectively invisible to anyone with even mild
+       * color-deficiency and to a fully-sighted user from more than
+       * arm's length). They now render as miniature lucide icons in
+       * the same accent color, with explicit `title` and `aria-label`
+       * so screen readers can announce them. The icon set:
+       *   - Eye          → "Has view" (view component attached)
+       *   - AlertTriangle → "Error boundary" defined
+       *   - Repeat2      → "SubFlow" embedded
+       */}
+      {statsAllowed && (totalActions > 0 || d.transitionCount > 0 || d.hasView || d.hasErrorBoundary || d.hasSubFlow) && (
+        <div
+          className={`px-3.5 pb-3 pt-0.5 vf-stats-row ${
+            statsHoverOnly ? 'vf-stats-hover-only' : ''
+          }`}
+        >
           <div className="flex items-center gap-1.5 text-[11px]">
             {totalActions > 0 && (
               <span className="flex items-center gap-1 bg-muted rounded-full px-2 py-0.5">
@@ -213,12 +298,81 @@ export const StateNodeBase = memo(function StateNodeBase({ data, selected }: Nod
                 <span className="text-muted-foreground">trans</span>
               </span>
             )}
-            {d.hasView && <span className="size-1.5 rounded-full bg-final-suspended" title="Has view" />}
-            {d.hasErrorBoundary && <span className="size-1.5 rounded-full bg-final-error" title="Error boundary" />}
-            {d.hasSubFlow && <span className="size-1.5 rounded-full bg-subflow" title="SubFlow" />}
+            {d.hasView && (
+              <span
+                className="text-final-suspended inline-flex items-center"
+                title="Has view"
+                aria-label="Has view"
+              >
+                <Eye size={11} strokeWidth={2.25} />
+              </span>
+            )}
+            {d.hasErrorBoundary && (
+              <span
+                className="text-final-error inline-flex items-center"
+                title="Error boundary"
+                aria-label="Error boundary defined"
+              >
+                <AlertTriangle size={11} strokeWidth={2.25} />
+              </span>
+            )}
+            {d.hasSubFlow && (
+              <span
+                className="text-subflow inline-flex items-center"
+                title="SubFlow"
+                aria-label="SubFlow embedded"
+              >
+                <Repeat2 size={11} strokeWidth={2.25} />
+              </span>
+            )}
           </div>
         </div>
       )}
+
+      {/*
+       * Hover Quick-Toolbar — appears top-right above the node
+       * on `:hover` (via `group-hover`). Two actions: Duplicate
+       * and Delete. Hidden until hover so it doesn't clutter the
+       * canvas. The `nodrag nopan` classes are essential — React
+       * Flow uses them to skip pan/drag handling, otherwise
+       * clicking the button would start a node drag.
+       */}
+      <div
+        className="nodrag nopan pointer-events-none absolute -top-3 right-2 flex items-center gap-0.5 rounded-md border border-border bg-surface px-1 py-0.5 opacity-0 shadow-md transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100"
+      >
+        <TooltipProvider delayDuration={300}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={handleQuickDuplicate}
+                className="flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer"
+                aria-label={`Duplicate state ${d.label}`}
+              >
+                <Copy size={11} />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top" variant="default" className="text-[10px]">
+              Duplicate
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={handleQuickDelete}
+                className="flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive-foreground cursor-pointer"
+                aria-label={`Delete state ${d.label}`}
+              >
+                <Trash2 size={11} />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="top" variant="default" className="text-[10px]">
+              Delete
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
 
       {showSubFlowButton && (
         <TooltipProvider delayDuration={300}>

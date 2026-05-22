@@ -18,6 +18,7 @@ export interface StartTransition {
   mapping?: MappingCode;
   onExecutionTasks?: TaskExecution[];
   roles?: RoleGrant[];
+  annotations?: Record<string, string>;
 }
 
 export interface WorkflowTimerConfig {
@@ -47,6 +48,7 @@ export interface CancelTransition {
   availableIn?: string[];
   from?: string;
   _comment?: string;
+  annotations?: Record<string, string>;
 }
 
 export interface ExitTransition {
@@ -63,6 +65,7 @@ export interface ExitTransition {
   availableIn?: string[];
   from?: string;
   _comment?: string;
+  annotations?: Record<string, string>;
 }
 
 export interface UpdateDataTransition {
@@ -79,6 +82,7 @@ export interface UpdateDataTransition {
   availableIn?: string[];
   from?: string;
   _comment?: string;
+  annotations?: Record<string, string>;
 }
 
 export interface WorkflowAttributes {

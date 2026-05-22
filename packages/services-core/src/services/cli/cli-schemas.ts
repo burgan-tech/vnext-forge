@@ -80,3 +80,20 @@ export const cliExecuteResult = z.object({
 
 export const CLI_EXECUTE_DEFAULT_TIMEOUT_MS = DEFAULT_CLI_TIMEOUT_MS
 export const CLI_EXECUTE_MAX_TIMEOUT_MS = MAX_CLI_TIMEOUT_MS
+
+// ── domain add ────────────────────────────────────────────────────────────────
+
+export const cliDomainAddParams = z
+  .object({
+    domainName: z.string().min(1),
+    apiBaseUrl: z.string().url(),
+    dbName: z.string().min(1),
+    timeoutMs: z.number().int().min(1).max(MAX_CLI_TIMEOUT_MS).optional(),
+  })
+  .strict()
+
+export const cliDomainAddResult = z.object({
+  exitCode: z.number().int(),
+  stdout: z.string(),
+  stderr: z.string(),
+})

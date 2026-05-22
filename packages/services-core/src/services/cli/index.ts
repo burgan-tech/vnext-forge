@@ -7,6 +7,8 @@ export {
   cliCheckResult,
   cliCheckUpdateParams,
   cliCheckUpdateResult,
+  cliDomainAddParams,
+  cliDomainAddResult,
   cliExecuteParams,
   cliExecuteResult,
   cliUpdateGlobalParams,

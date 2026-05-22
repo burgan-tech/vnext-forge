@@ -13,6 +13,7 @@ export interface RuntimeEnvironment {
   id: string;
   name: string;
   baseUrl: string;
+  dbName?: string;
 }
 
 interface EnvironmentPersistSlice {
@@ -21,7 +22,7 @@ interface EnvironmentPersistSlice {
 }
 
 interface EnvironmentActions {
-  addEnvironment: (name: string, baseUrl: string) => void;
+  addEnvironment: (name: string, baseUrl: string, dbName?: string) => void;
   updateEnvironment: (id: string, patch: { name?: string; baseUrl?: string }) => void;
   removeEnvironment: (id: string) => void;
   setActiveEnvironment: (id: string | null) => void;
@@ -62,14 +63,20 @@ export const useEnvironmentStore = create<EnvironmentState>()(
         return environments.find((e) => e.id === activeEnvironmentId) ?? null;
       },
 
-      addEnvironment: (name, baseUrl) => {
+      addEnvironment: (name, baseUrl, dbName) => {
         const base = validateRuntimeBaseUrl(baseUrl);
         const trimmedName = name.trim();
         if (!trimmedName) throw new Error('Name is required.');
 
         set((state) => {
           const id = crypto.randomUUID();
-          const next: RuntimeEnvironment[] = [...state.environments, { id, name: trimmedName, baseUrl: base }];
+          const env: RuntimeEnvironment = {
+            id,
+            name: trimmedName,
+            baseUrl: base,
+            ...(dbName ? { dbName: dbName.trim() } : {}),
+          };
+          const next: RuntimeEnvironment[] = [...state.environments, env];
           const activeEnvironmentId = state.activeEnvironmentId ?? id;
           return { environments: next, activeEnvironmentId };
         });
@@ -125,7 +132,7 @@ export const useEnvironmentStore = create<EnvironmentState>()(
         environments: state.environments,
         activeEnvironmentId: state.activeEnvironmentId,
       }),
-      version: 1,
+      version: 2,
       migrate: (persisted) => unwrapPersistedSlice(persisted, migrateEnvironmentsPersisted),
     },
   ),
@@ -161,10 +168,12 @@ function migrateEnvironmentsPersisted(persisted: unknown): EnvironmentPersistSli
         } catch {
           continue;
         }
+        const rec = item as Record<string, unknown>;
         environments.push({
-          id: (item as Record<string, unknown>).id as string,
-          name: (item as Record<string, unknown>).name as string,
+          id: rec.id as string,
+          name: rec.name as string,
           baseUrl: rawUrl,
+          ...(typeof rec.dbName === 'string' && rec.dbName.length > 0 ? { dbName: rec.dbName } : {}),
         });
       }
     }

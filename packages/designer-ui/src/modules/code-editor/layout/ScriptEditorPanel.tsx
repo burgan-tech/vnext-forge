@@ -11,7 +11,7 @@ import {
 } from 'react';
 import MonacoEditor, { type OnMount } from '@monaco-editor/react';
 import type { PanelImperativeHandle, PanelSize } from 'react-resizable-panels';
-import { X, Code2, BookOpen, Maximize2, Minimize2, ExternalLink } from 'lucide-react';
+import { X, Code2, BookOpen, Maximize2, Minimize2, ExternalLink, Save } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -36,15 +36,23 @@ import {
   encodeScriptCode,
   getScriptEncoding,
 } from '../../../modules/code-editor/editor/ScriptCodec';
+import {
+  canShowCreateWorkflowScriptFileAction,
+  createWorkflowScriptFile,
+  resolveWorkflowScriptAbsolutePath,
+} from '../../../modules/code-editor/createWorkflowScriptFile';
 import { CsxSnippetToolbar } from '../../../modules/code-editor/editor/CsxSnippetToolbar';
 import { CsxReferencePanel } from '../../../modules/code-editor/editor/CsxReferencePanel';
 import { applyDiagnostics } from '../../../modules/code-editor/editor/CsxDiagnostics';
 import { setupMonacoWithLsp } from '../../../modules/code-editor/editor/MonacoSetup';
 import { applyScriptValueToWorkflow } from '../../../modules/code-editor/ScriptWorkflowSync';
 import { getScriptLocationError } from '../../../modules/code-editor/ScriptLocationValidation';
+import { readOptionalFile, writeFile } from '../../../modules/project-workspace/WorkspaceApi';
 import { subscribeMonacoModelMarkers } from '../../../editor/monacoMarkerSync';
 import { useResolvedColorTheme } from '../../../hooks/useResolvedColorTheme.js';
 import { useEditorValidationStore } from '../../../store/useEditorValidationStore';
+import { toVnextError } from '../../../lib/error/vNextErrorHelpers';
+import { showNotification } from '../../../notification/notification-port';
 import { Input } from '../../../ui/Input';
 import type { CsharpLspClient } from '../../../modules/code-editor/editor/lspClient';
 
@@ -150,16 +158,6 @@ export function FlowEditorCanvasAndScriptResizableColumn({
   );
 }
 
-function resolveWorkflowScriptAbsolutePath(workflowDir: string, location: string): string {
-  const trimmed = location.trim();
-  const relativePath = trimmed.startsWith('./') ? trimmed.slice(2) : trimmed;
-  const root = workflowDir
-    .replace(/\\/g, '/')
-    .replace(/\/{2,}/g, '/')
-    .replace(/\/+$/, '');
-  return `${root}/${relativePath}`.replace(/\/{2,}/g, '/');
-}
-
 export function ScriptEditorPanel({
   taskInline,
   workflowDirectoryPath,
@@ -200,6 +198,7 @@ export function ScriptEditorPanel({
   const sizeBeforeMaximizeRef = useRef<PanelSize | null>(null);
   const [locationDraft, setLocationDraft] = useState('');
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [creatingScriptFile, setCreatingScriptFile] = useState(false);
   const editorRef = useRef<any>(null);
   const monacoRef = useRef<any>(null);
   const diagnosticTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -381,6 +380,57 @@ export function ScriptEditorPanel({
     onOpenScriptFileInHost(resolveWorkflowScriptAbsolutePath(workflowDirectoryPath, loc));
   }, [locationDraft, onOpenScriptFileInHost, workflowDirectoryPath]);
 
+  const handleCreateWorkflowScriptFile = useCallback(async () => {
+    if (!activeScript || !workflowDirectoryPath) return;
+    setCreatingScriptFile(true);
+    try {
+      const result = await createWorkflowScriptFile({
+        workflowDirectoryPath,
+        location: locationDraft,
+        content: decoded,
+        readOptionalFile,
+        writeFile,
+      });
+
+      if (result.status === 'created') {
+        showNotification({
+          kind: 'success',
+          message: 'Script file created.',
+        });
+        return;
+      }
+
+      if (result.status === 'exists') {
+        showNotification({
+          kind: 'info',
+          message: 'Script file already exists.',
+        });
+        return;
+      }
+
+      if (result.status === 'invalid-location') {
+        showNotification({
+          kind: 'error',
+          message: 'Script location is invalid.',
+        });
+        return;
+      }
+
+      showNotification({
+        kind: 'error',
+        message: result.errorMessage || 'Script file could not be created.',
+      });
+    } catch (value) {
+      const error = toVnextError(value, 'Script file could not be created.');
+      showNotification({
+        kind: 'error',
+        message: error.toUserMessage().message,
+      });
+    } finally {
+      setCreatingScriptFile(false);
+    }
+  }, [activeScript, decoded, locationDraft, workflowDirectoryPath]);
+
   const handleLocationChange = useCallback(
     (loc: string) => {
       setLocationDraft(loc);
@@ -436,6 +486,14 @@ export function ScriptEditorPanel({
   }, []);
 
   if (!activeScript) return null;
+
+  const canCreateWorkflowScriptFile =
+    canShowCreateWorkflowScriptFileAction({
+      isTaskInline: Boolean(taskInline),
+      workflowDirectoryPath,
+      encoding: currentEncoding,
+      location: locationDraft,
+    });
 
   return (
     <div className="bg-surface flex h-full min-h-0 flex-col">
@@ -516,6 +574,23 @@ export function ScriptEditorPanel({
             </button>
           ) : null}
           <TooltipProvider delayDuration={300}>
+            {canCreateWorkflowScriptFile ? (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    onClick={handleCreateWorkflowScriptFile}
+                    disabled={creatingScriptFile}
+                    className="text-muted-foreground hover:bg-muted hover:text-foreground rounded-lg p-1.5 transition-all disabled:pointer-events-none disabled:opacity-40"
+                    aria-label={creatingScriptFile ? 'Creating script file' : 'Create script file'}>
+                    <Save size={14} />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="bottom" className="text-[11px]">
+                  {creatingScriptFile ? 'Creating script file...' : 'Create script file'}
+                </TooltipContent>
+              </Tooltip>
+            ) : null}
             {/* API Reference toggle */}
             <Tooltip>
               <TooltipTrigger asChild>

@@ -9,6 +9,8 @@ import { DirectTriggerTaskForm } from './DirectTriggerTaskForm';
 import { GetInstanceDataTaskForm } from './GetInstanceDataTaskForm';
 import { SubProcessTaskForm } from './SubProcessTaskForm';
 import { GetInstancesTaskForm } from './GetInstancesTaskForm';
+import { NotificationTaskForm } from './NotificationTaskForm';
+import { SoapTaskForm } from './SoapTaskForm';
 
 interface TaskFormProps {
   config: Record<string, unknown>;
@@ -21,9 +23,11 @@ export const taskFormMap: Record<string, ComponentType<TaskFormProps>> = {
   '4': DaprPubSubTaskForm,
   '6': HttpTaskForm,
   '7': ScriptTaskForm,
+  '10': NotificationTaskForm,
   '11': StartTaskForm,
   '12': DirectTriggerTaskForm,
   '13': GetInstanceDataTaskForm,
   '14': SubProcessTaskForm,
   '15': GetInstancesTaskForm,
+  '16': SoapTaskForm,
 };

@@ -10,6 +10,7 @@ export interface MethodHttpSpec {
 export type MethodId =
   | 'cli/check'
   | 'cli/checkUpdate'
+  | 'cli/domainAdd'
   | 'cli/execute'
   | 'cli/updateGlobal'
   | 'files/read'
@@ -80,6 +81,7 @@ export type MethodId =
 export const METHOD_HTTP_METADATA: Readonly<Record<MethodId, MethodHttpSpec>> = Object.freeze({
   'cli/check': { verb: 'POST', paramSource: 'json' },
   'cli/checkUpdate': { verb: 'POST', paramSource: 'json' },
+  'cli/domainAdd': { verb: 'POST', paramSource: 'json' },
   'cli/execute': { verb: 'POST', paramSource: 'json' },
   'cli/updateGlobal': { verb: 'POST', paramSource: 'json' },
   'files/read': { verb: 'GET', paramSource: 'query' },

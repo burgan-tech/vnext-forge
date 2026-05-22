@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { enableMapSet, produce } from 'immer';
+import { suggestTransitionName } from '../modules/canvas-interaction/utils/workflowLint';
 
 enableMapSet();
 
@@ -266,7 +267,24 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   },
 
   addTransition: (sourceKey, targetKey, triggerType = 0) => {
-    const transitionKey = `${sourceKey}-to-${targetKey}`;
+    // Smart Transition Naming — pick a verb-first key based on
+    // source/target shape (e.g. "draft → review" yields "submit",
+    // "review → approve" yields "approve"). Falls back to the
+    // long "source-to-target" form if the heuristic doesn't find
+    // a clearer candidate that doesn't collide with an existing
+    // transition on this state.
+    let transitionKey = `${sourceKey}-to-${targetKey}`;
+    const suggestions = suggestTransitionName(sourceKey, targetKey);
+    if (suggestions.length > 0) {
+      const stateList =
+        (get().workflowJson?.attributes as {
+          states?: Array<{ key: string; transitions?: Array<{ key: string }> }>;
+        } | undefined)?.states;
+      const sourceState = stateList?.find((s) => s.key === sourceKey);
+      const existing = new Set((sourceState?.transitions ?? []).map((t) => t.key));
+      const pick = suggestions.find((s) => !existing.has(s));
+      if (pick) transitionKey = pick;
+    }
     if (sourceKey === '__start__') {
       get().updateWorkflow((draft: any) => {
         const st = draft.attributes?.startTransition || draft.attributes?.start;
