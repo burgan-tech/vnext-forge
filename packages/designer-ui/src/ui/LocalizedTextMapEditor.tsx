@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Plus, X } from 'lucide-react';
 
 import { Button } from './Button.js';
@@ -17,7 +17,7 @@ interface LocalizedTextMapEditorProps {
   value: LocalizedTextMap;
 }
 
-const DEFAULT_COMMON_LANGUAGES = ['en', 'tr', 'ar'];
+const DEFAULT_COMMON_LANGUAGES = ['en', 'tr'];
 const LANGUAGE_CODE_PATTERN = /^[a-z]{2}(?:-[A-Z]{2})?$/;
 
 export function LocalizedTextMapEditor({
@@ -30,33 +30,72 @@ export function LocalizedTextMapEditor({
   value,
 }: LocalizedTextMapEditorProps) {
   const [nextLanguage, setNextLanguage] = useState('');
+  /**
+   * Seed languages (`commonLanguages`) are rendered as input rows even
+   * when absent from `value`, as a convenience for the most common cases
+   * (en + tr). Dismissing a seed via the X button removes the row for
+   * the lifetime of this editor instance — without this set the seed
+   * would re-appear instantly after delete, making the X button look
+   * broken for default rows.
+   */
+  const [dismissedSeeds, setDismissedSeeds] = useState<Set<string>>(() => new Set());
+
   const languageCodes = useMemo(() => {
-    const allCodes = [...commonLanguages, ...Object.keys(value)];
+    const visibleSeeds = commonLanguages.filter((code) => !dismissedSeeds.has(code));
+    const allCodes = [...visibleSeeds, ...Object.keys(value)];
     return Array.from(new Set(allCodes)).filter((code) => code.trim());
-  }, [commonLanguages, value]);
+  }, [commonLanguages, value, dismissedSeeds]);
+
   const normalizedNextLanguage = nextLanguage.trim();
   const canAddLanguage =
     LANGUAGE_CODE_PATTERN.test(normalizedNextLanguage) &&
-    !Object.prototype.hasOwnProperty.call(value, normalizedNextLanguage);
+    !languageCodes.includes(normalizedNextLanguage);
 
   function setText(language: string, text: string) {
-    const next = { ...value };
-    if (text.trim()) next[language] = text;
-    else delete next[language];
-    onChange(next);
+    // Always set — including empty string — so the row stays visible while
+    // the user edits. Removal only via the X button (`removeLanguage`).
+    onChange({ ...value, [language]: text });
   }
 
   function addLanguage() {
-    if (!canAddLanguage) return;
+    if (!canAddLanguage) {
+      return;
+    }
+
+    // If the user is re-adding a previously dismissed seed, un-dismiss it
+    // so the row reappears under the seed list as well as the value map.
+    if (dismissedSeeds.has(normalizedNextLanguage)) {
+      setDismissedSeeds((prev) => {
+        const next = new Set(prev);
+        next.delete(normalizedNextLanguage);
+        return next;
+      });
+    }
+
     onChange({ ...value, [normalizedNextLanguage]: '' });
     setNextLanguage('');
   }
 
-  function removeLanguage(language: string) {
-    const next = { ...value };
-    delete next[language];
-    onChange(next);
-  }
+  const removeLanguage = useCallback(
+    (language: string) => {
+      const next = { ...value };
+      delete next[language];
+
+      if (commonLanguages.includes(language)) {
+        setDismissedSeeds((prev) => {
+          if (prev.has(language)) {
+            return prev;
+          }
+          const out = new Set(prev);
+          out.add(language);
+          return out;
+        });
+      }
+
+      onChange(next);
+    },
+    [commonLanguages, onChange, value],
+  );
 
   return (
     <div className={className}>
@@ -100,6 +139,7 @@ export function LocalizedTextMapEditor({
                 size="icon"
                 className="size-8"
                 title={`Remove ${language}`}
+                aria-label={`Remove ${language}`}
                 onClick={() => removeLanguage(language)}>
                 <X size={12} />
               </Button>
