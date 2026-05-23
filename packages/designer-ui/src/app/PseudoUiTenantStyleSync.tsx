@@ -7,6 +7,7 @@ import {
 } from '../store/useSettingsStore.js';
 
 const LINK_ID = 'vnext-forge-pseudo-ui-tenant-style';
+const ROOT_ATTR = 'data-vnext-tenant-style';
 
 export function normalizePseudoUiTenantStyle(value: unknown): PseudoUiTenantStyleSettings | null {
   if (value == null || typeof value !== 'object') return null;
@@ -42,6 +43,43 @@ export function setTenantStyleLink(href: string | null): void {
       document.head.appendChild(link);
     }
   }
+}
+
+/**
+ * Append (or refresh / remove) the tenant CSS `<link>` inside an
+ * arbitrary root — typically a `ShadowRoot`. R9 introduces this so
+ * pseudo-ui previews mounted inside a shadow tree pick up tenant
+ * styling; light-DOM `<link>` declarations do not cross the shadow
+ * boundary.
+ *
+ * The link is marked with `data-vnext-tenant-style` so repeat calls
+ * locate and replace any previous instance (idempotent). Passing
+ * `null` removes the link entirely.
+ *
+ * Same-origin shadow roots inherit the parent's network permissions,
+ * so the browser fetches `href` exactly as it would for a parent-doc
+ * `<link>`. CSP `style-src` already includes the tenant origin via
+ * `getTenantStyleCspSource()` in the panel HTML builders.
+ */
+export function appendTenantStyleLinkToRoot(
+  root: ShadowRoot | Document,
+  href: string | null,
+): void {
+  const existing = root.querySelector<HTMLLinkElement>(`link[${ROOT_ATTR}]`);
+  if (!href) {
+    existing?.remove();
+    return;
+  }
+  if (existing) {
+    if (existing.href !== href) existing.href = href;
+    return;
+  }
+  const ownerDoc = root instanceof Document ? root : root.ownerDocument ?? document;
+  const link = ownerDoc.createElement('link');
+  link.setAttribute(ROOT_ATTR, '');
+  link.rel = 'stylesheet';
+  link.href = href;
+  root.appendChild(link);
 }
 
 function readInjectedTenantStyle(): PseudoUiTenantStyleSettings | null {

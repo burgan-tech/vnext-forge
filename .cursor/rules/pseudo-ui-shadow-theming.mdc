@@ -1,0 +1,112 @@
+---
+description: pseudo-ui shadow-DOM rendering invariants. PrimeReact 10 splits CSS into static theme (visual) + runtime useStyle (structural); shadow mount must route both into the shadow root or layout breaks silently. Three-layer theme stack (base MDC + Forge defaults + tenant override) is atomic via adoptedStyleSheets. Tenant override is token-only — class selectors are rejected.
+globs:
+  - "packages/designer-ui/src/modules/quick-run/pseudo-ui/**"
+  - "packages/designer-ui/src/store/useSettingsStore.ts"
+  - "packages/designer-ui/src/app/PseudoUiTenantStyleSync.tsx"
+alwaysApply: false
+---
+
+# pseudo-ui Shadow-DOM Theming
+
+> **Loads when editing** the pseudo-ui render surface, the theming helpers,
+> the settings store, or the tenant-style sync component. Authoritative
+> detail: **`CLAUDE.DESIGNER-UI.md` → *pseudo-ui Shadow-DOM Theming***
+> and the **`forgepseudouithemingspec.md`** at the repo root.
+
+## Mental model
+
+Pseudo-ui (`@burgantech/pseudo-ui/react`) renders **inside a shadow root**
+attached by `PseudoUiPseudoViewFrame`. The shadow root is the isolation
+boundary: parent shell Tailwind / VS Code injected `!important` styles
+cannot reach it, and Forge does **not** impose its own theme on the
+canvas (R9 contract — *"Forge is a designer, not a stylist"*).
+
+The shadow root receives a **three-layer cascade** plus the SDK's own
+component CSS:
+
+```
+L1  Static MDC PrimeReact theme   (light or dark, mirrored from html.dark)
+L0  Utilities                     (.p-hidden-accessible + Stepper override)
+L2  Forge default token overrides (:host { --p-primary-color: ... })
+L3  Tenant token override         (validated, optional)
+Icons sheet                       (PrimeIcons + Material Icons class rules)
+L4  pseudo-ui-react.css           (SDK adopts via renderRoot prop)
+```
+
+Each layer is a constructable `CSSStyleSheet` cached at module level and
+swapped atomically via `shadow.adoptedStyleSheets = [...]`. The
+implementation lives in
+`packages/designer-ui/src/modules/quick-run/pseudo-ui/theme/buildSheets.ts`.
+
+## The non-negotiable invariant
+
+**`primeReactConfig.styleContainer` MUST be the shadow root.** PrimeReact
+10 components carry their *structural* CSS (Stepper layout flex,
+separator `flex: 1 1 0`, Dropdown hidden-accessible peers, `display:
+flex` on icon containers, …) as a `styles` string bundled in each
+component's JS. The runtime `useStyle` hook reads
+`context.styleContainer || document.head` and appends a `<style>`
+element there.
+
+If you drop the `styleContainer` override, those `<style>` elements
+land in the parent `document.head`. Shadow tree elements **never see
+them**. Static theme rules still apply (visual decoration), so the
+canvas *looks* mostly right — but layout silently degrades:
+- Stepper numbers render as rounded squares without connecting separators
+- Dropdown native `<select>` peers leak through as ghost form controls
+- Calendar / MultiSelect popovers position incorrectly
+
+The bug is silent (no console error) and easy to miss in PR review.
+**Do not remove `styleContainer: shadow` from `primeReactConfig` in
+`PseudoUiPseudoViewFrame.tsx`.**
+
+## Why no runtime `theme.preset`
+
+`@primeuix/themes` (Lara / MDC presets) emit design-token CSS targeted
+at `:root`. Inside a shadow tree `:root` matches nothing (CSS scoping
+spec) — tokens would never bind, components would render fully
+unstyled.
+
+Token definitions come instead from the static MDC theme (with
+`:root` rewritten to `:host, :root` by `shadowSafeThemeCss` in
+`buildSheets.ts`) plus the Forge default override layer.
+
+## Tenant CSS contract
+
+Tenants override **only** CSS custom properties (`--p-*` and
+`--font-family`). The validator lives in
+`packages/designer-ui/src/modules/quick-run/pseudo-ui/theme/parseTenantCss.ts`:
+
+- Token JSON input: `{ '--p-primary-color': '#FF6B35', ... }` — preferred.
+- CSS string input: must be `:host { --foo: bar }` blocks; class
+  selectors (`.d-card`, `.p-button`, …) and standard CSS properties
+  (`color`, `background`, …) are silently dropped.
+- Values containing `;`, `{`, or `}` are rejected as CSS-injection
+  attempts (e.g. `;@import "evil.css"`).
+
+This is a deliberate contract. SDK internal class names are not part of
+the public API and may change in minor releases. Do not relax the
+validator without coordinating with the SDK team.
+
+## When adding a new pseudo-ui surface
+
+If you build a new mount point for `<PseudoView>`:
+- Use `PseudoUiPseudoViewFrame` (or copy its setup exactly).
+- Adopt theme via `syncThemeLayers(shadow, { appTheme, tenant })`.
+- Pass `renderRoot={shadow}` to `<PseudoView>` so the SDK adopts its
+  own component CSS.
+- Pass `primeReactConfig={{ styleContainer: shadow }}`.
+- Do **not** add `theme.preset`.
+- Do **not** wrap the shadow host with Forge-side border / padding /
+  background — the developer's design decides its own chrome.
+
+## File map
+
+- `PseudoUiPseudoViewFrame.tsx` — shadow root attach + React mount + `styleContainer` wiring.
+- `PseudoUiViewSurface.tsx` — chrome (skeleton, error boundary, action overlay) in parent DOM.
+- `theme/forgeDefaults.ts` — M3 indigo light/dark token maps.
+- `theme/buildSheets.ts` — `syncThemeLayers`, sheet caches, `shadowSafeThemeCss`.
+- `theme/parseTenantCss.ts` — token-only validator + injection guard.
+- `app/PseudoUiTenantStyleSync.tsx` — settings-driven tenant CSS link (light-DOM path + shadow-root helper).
+- `store/useSettingsStore.ts` — `pseudoUiTenantTokens` settings field.

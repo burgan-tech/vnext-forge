@@ -67,6 +67,7 @@ In addition to the always-on rules under `.cursor/rules/*.mdc` (subagent dispatc
 | Skill | `.cursor/skills/shared/trace-headers/SKILL.md` | any HTTP/transport/middleware work | `trace-v1` contract; never adopt `traceparent` |
 | Skill | `.cursor/skills/shared/dependency-policy/SKILL.md` | any cross-package import or barrel change | Allowed import directions, ESLint enforcements |
 | Rule | `.cursor/rules/designer-ui-resizable.mdc` | `packages/designer-ui/src/ui/Resizable.tsx`, `apps/web` shell split | Thin Resizable handle, `disableCursor`, no `withHandle`, `autoCollapseBelowMin` contract |
+| Rule | `.cursor/rules/pseudo-ui-shadow-theming.mdc` | `packages/designer-ui/src/modules/quick-run/pseudo-ui/**`, `packages/designer-ui/src/store/useSettingsStore.ts`, `packages/designer-ui/src/app/PseudoUiTenantStyleSync.tsx` | Shadow-DOM render of `<PseudoView>` with 3-layer cascade (MDC theme + Forge defaults + tenant token override). `primeReactConfig.styleContainer = shadow` is load-bearing — PrimeReact 10 structural CSS comes via `useStyle` at component mount, must route into the shadow root or layout silently breaks. Tenant override is token-only (`--p-*` / `--font-family`); class selectors rejected. |
 
 ## Project Goal
 

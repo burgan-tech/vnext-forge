@@ -22,7 +22,7 @@ import { ViewDisplayStrategyPicker } from './components/ViewDisplayStrategyPicke
 import { ViewRendererPicker } from './components/ViewRendererPicker';
 import { ViewTypePicker } from './components/ViewTypePicker';
 import { HrefUrnField } from './components/HrefUrnField';
-import { PseudoUiBuilder } from './components/PseudoUiBuilder';
+import { PseudoUiBuilder } from './components/builder/PseudoUiBuilder';
 import {
   viewTypeToMonacoLanguage,
   scaffoldContentForViewType,

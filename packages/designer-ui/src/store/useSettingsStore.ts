@@ -29,6 +29,18 @@ export const DEFAULT_PSEUDO_UI_TENANT_STYLE: PseudoUiTenantStyleSettings = {
   value: '',
 };
 
+/**
+ * Token-level tenant overrides for the pseudo-ui preview surface
+ * (R10 — see `forgepseudouithemingspec.md` §4.1). Layered on top of
+ * the Forge default theme stack inside the shadow root. Keys are
+ * CSS custom-property names (`--p-*`, `--font-family`); the
+ * sanitiser inside `parseTenantCss.ts` rejects anything else.
+ *
+ * `null` (default) means no tenant overrides — pseudo-ui uses the
+ * Forge defaults only.
+ */
+export type PseudoUiTenantTokens = Record<string, string> | null;
+
 interface SettingsState {
   colorTheme: ColorThemePreference;
   setColorTheme: (colorTheme: ColorThemePreference) => void;
@@ -36,6 +48,8 @@ interface SettingsState {
   setAutoSaveEnabled: (enabled: boolean) => void;
   pseudoUiTenantStyle: PseudoUiTenantStyleSettings;
   setPseudoUiTenantStyle: (patch: Partial<PseudoUiTenantStyleSettings>) => void;
+  pseudoUiTenantTokens: PseudoUiTenantTokens;
+  setPseudoUiTenantTokens: (tokens: PseudoUiTenantTokens) => void;
 }
 
 function normalizePseudoUiTenantStyle(value: unknown): PseudoUiTenantStyleSettings {
@@ -48,6 +62,18 @@ function normalizePseudoUiTenantStyle(value: unknown): PseudoUiTenantStyleSettin
     sourceType: obj.sourceType === 'localFile' ? 'localFile' : 'url',
     value: typeof obj.value === 'string' ? obj.value : '',
   };
+}
+
+function normalizePseudoUiTenantTokens(value: unknown): PseudoUiTenantTokens {
+  if (value == null || typeof value !== 'object') return null;
+  const out: Record<string, string> = {};
+  let any = false;
+  for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof v !== 'string' || !v) continue;
+    out[k] = v;
+    any = true;
+  }
+  return any ? out : null;
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -65,6 +91,9 @@ export const useSettingsStore = create<SettingsState>()(
             ...patch,
           }),
         })),
+      pseudoUiTenantTokens: null,
+      setPseudoUiTenantTokens: (tokens) =>
+        set({ pseudoUiTenantTokens: normalizePseudoUiTenantTokens(tokens) }),
     }),
     {
       name: SETTINGS_PERSIST_KEY,
@@ -73,13 +102,17 @@ export const useSettingsStore = create<SettingsState>()(
         colorTheme: state.colorTheme,
         autoSaveEnabled: state.autoSaveEnabled,
         pseudoUiTenantStyle: state.pseudoUiTenantStyle,
+        pseudoUiTenantTokens: state.pseudoUiTenantTokens,
       }),
-      version: 2,
+      version: 3,
       migrate: (persisted, version) => {
         const next = {
           ...(persisted as Record<string, unknown>),
           pseudoUiTenantStyle: normalizePseudoUiTenantStyle(
             (persisted as Record<string, unknown>)?.pseudoUiTenantStyle,
+          ),
+          pseudoUiTenantTokens: normalizePseudoUiTenantTokens(
+            (persisted as Record<string, unknown>)?.pseudoUiTenantTokens,
           ),
         };
         if (version === 0) {

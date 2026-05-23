@@ -1,18 +1,27 @@
-import { Component, type ErrorInfo, lazy, type ReactNode, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+/**
+ * Pseudo-ui view surface — owns chrome (skeleton, error boundary, action
+ * state, success flash) and mounts the actual pseudo-ui render inside an
+ * isolation iframe via `PseudoUiPseudoViewFrame`.
+ *
+ * R6 (iframe cascade sandbox): Parent shell Tailwind preflight, designer-ui
+ * unlayered resets (`* { outline:none }`, etc.), and VS Code webview's
+ * injected `!important` form-control styles all reached native elements
+ * pseudo-ui renders. Patch-over-patch CSS could not seal every leak.
+ *
+ * R6 moves pseudo-ui DOM into a same-origin `<iframe srcdoc>` — separate
+ * cascade, `<head>` and portal target. JS stays in one heap so delegate,
+ * formData, schema all flow as plain props/refs (no postMessage). Chrome
+ * stays in parent DOM with Tailwind because it integrates with the VS
+ * Code shell and renders no pseudo-ui-shaped controls.
+ */
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { DataSchema, PseudoViewDelegate, ViewDefinition } from '@burgantech/pseudo-ui';
-import Lara from '@primeuix/themes/lara';
 
 import type { ViewResponse } from '../types/quickrun.types';
 import type { SchemaResolver } from './createDataSchemaResolver';
 import { normalizePseudoUiPayload } from './normalizePseudoUiPayload';
-
-import '@burgantech/pseudo-ui/react/style.css';
-import 'primeicons/primeicons.css';
-import './pseudo-ui-layers.css';
-
-const LazyPseudoView = lazy(() =>
-  import('@burgantech/pseudo-ui/react').then((m) => ({ default: m.PseudoView })),
-);
+import { PseudoUiErrorBoundary, type PseudoUiErrorAction } from './PseudoUiErrorBoundary';
+import { PseudoUiPseudoViewFrame } from './PseudoUiPseudoViewFrame';
 
 const noopDelegate: PseudoViewDelegate = {
   requestData: () => Promise.resolve(undefined),
@@ -27,54 +36,6 @@ const noopDelegate: PseudoViewDelegate = {
 function isPayloadEmpty(content: string | Record<string, unknown>): boolean {
   if (typeof content === 'string') return content.trim() === '';
   return Object.keys(content).length === 0;
-}
-
-class PseudoUiErrorBoundary extends Component<
-  { resetKey: number; children: ReactNode; onRetry: () => void },
-  { error: Error | null }
-> {
-  constructor(props: { resetKey: number; children: ReactNode; onRetry: () => void }) {
-    super(props);
-    this.state = { error: null };
-  }
-
-  static getDerivedStateFromError(error: Error): { error: Error } {
-    return { error };
-  }
-
-  componentDidUpdate(prevProps: { resetKey: number }) {
-    if (prevProps.resetKey !== this.props.resetKey) {
-      this.setState({ error: null });
-    }
-  }
-
-  componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
-    void error;
-    void errorInfo;
-  }
-
-  render() {
-    if (this.state.error) {
-      return (
-        <div
-          role="alert"
-          className="rounded border border-[var(--vscode-inputValidation-errorBorder)] bg-[var(--vscode-inputValidation-errorBackground)] px-2 py-2 text-[11px] text-[var(--vscode-errorForeground)]"
-        >
-          <p className="mb-2">Unable to render this view.</p>
-          <button
-            type="button"
-            className="rounded border border-[var(--vscode-panel-border)] bg-[var(--vscode-button-secondaryBackground)] px-2 py-1 text-[10px] text-[var(--vscode-button-secondaryForeground)] hover:bg-[var(--vscode-list-hoverBackground)] focus-visible:outline focus-visible:outline-[var(--vscode-focusBorder)]"
-            onClick={() => {
-              this.props.onRetry();
-            }}
-          >
-            Retry
-          </button>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
 }
 
 function LoadingSkeleton() {
@@ -106,6 +67,23 @@ export interface PseudoUiViewSurfaceProps {
   loading?: boolean;
   fillHeight?: boolean;
   className?: string;
+  /** Extra escape-hatch buttons rendered in the error boundary (e.g.
+   *  "Edit as JSON" from View Editor). Quick Runner can omit. */
+  errorActions?: PseudoUiErrorAction[];
+  /**
+   * SDK v0.1.4+ designer-mode flag.
+   *
+   * When `true`, the SDK:
+   *   - Renders `ForEach` once with an empty `$item` when the source is
+   *     empty (so designers see the template shape).
+   *   - Bypasses `x-conditional` `showIf` / `hideIf` so hidden nodes stay
+   *     visible during editing.
+   *
+   * Defaults to `mode === 'preview'` so the builder canvas opts in
+   * automatically and Quick Runner (`mode === 'simulation'`) keeps real
+   * runtime semantics.
+   */
+  designer?: boolean;
 }
 
 export function PseudoUiViewSurface({
@@ -122,19 +100,11 @@ export function PseudoUiViewSurface({
   loading = false,
   fillHeight = false,
   className,
+  errorActions,
+  designer,
 }: PseudoUiViewSurfaceProps) {
+  const effectiveDesigner = designer ?? mode === 'preview';
   const baseDelegate = delegate ?? noopDelegate;
-
-  const primeConfig = useMemo(() => ({
-    theme: {
-      preset: Lara,
-      options: { darkModeSelector: '.dark' },
-    },
-    zIndex: {
-      overlay: 1100,
-      modal: 1200,
-    },
-  }), []);
 
   const [definitionRetry, setDefinitionRetry] = useState(0);
   const [boundaryReset, setBoundaryReset] = useState(0);
@@ -150,6 +120,11 @@ export function PseudoUiViewSurface({
       if (successFlashTimerRef.current) clearTimeout(successFlashTimerRef.current);
     };
   }, []);
+
+  // R6: body-portal refcount removed. PrimeReact overlays now mount to the
+  // iframe's `document.body` (PrimeReact 10 portal target follows the
+  // ownerDocument of its parent provider). The cascade isolation is
+  // structural, not selector-based, so no body data-attribute is needed.
 
   const wrappedDelegate = useMemo((): PseudoViewDelegate => {
     return {
@@ -191,6 +166,12 @@ export function PseudoUiViewSurface({
     () => normalizePseudoUiPayload(viewResponse.content),
     [viewResponse.content, definitionRetry],
   );
+
+  // Clear any stale render errors whenever the view definition changes so
+  // the user gets a fresh attempt without manually clicking Retry.
+  useEffect(() => {
+    setBoundaryReset((n) => n + 1);
+  }, [normalized]);
 
   useEffect(() => {
     // Skip if explicit schema prop is provided (non-empty object)
@@ -258,7 +239,7 @@ export function PseudoUiViewSurface({
 
   if (loading || schemaResolving) {
     return (
-      <div role="region" aria-label={ariaLabel} className={hostClassName}>
+      <div role="region" aria-label={ariaLabel} className={hostClassName} data-pseudo-ui-root="">
         <LoadingSkeleton />
       </div>
     );
@@ -266,7 +247,7 @@ export function PseudoUiViewSurface({
 
   if (payloadEmpty) {
     return (
-      <div role="region" aria-label={ariaLabel} className={hostClassName}>
+      <div role="region" aria-label={ariaLabel} className={hostClassName} data-pseudo-ui-root="">
         <p className="text-[12px] text-[var(--vscode-foreground)]">This view has nothing to display.</p>
         <p className="mt-1 text-[11px] text-[var(--vscode-descriptionForeground)]">
           Add fields, buttons, or child layout nodes to the view definition JSON.
@@ -277,7 +258,7 @@ export function PseudoUiViewSurface({
 
   if (invalidDefinition || viewDefinition === null) {
     return (
-      <div role="region" aria-label={ariaLabel} className={hostClassName}>
+      <div role="region" aria-label={ariaLabel} className={hostClassName} data-pseudo-ui-root="">
         <div
           role="alert"
           className="mb-2 rounded border border-[var(--vscode-inputValidation-warningBorder)] bg-[var(--vscode-inputValidation-warningBackground)] px-2 py-2 text-[11px] text-[var(--vscode-foreground)]"
@@ -298,24 +279,27 @@ export function PseudoUiViewSurface({
   const scrollWrapClass = fillHeight ? 'pseudo-ui-host__scroll relative min-h-0 flex-1' : 'relative';
 
   const mount = (
-    <PseudoUiErrorBoundary resetKey={boundaryReset} onRetry={() => setBoundaryReset((n) => n + 1)}>
-      <Suspense fallback={<LoadingSkeleton />}>
-        <LazyPseudoView
-          schema={schema}
-          view={viewDefinition}
-          formData={formData}
-          instanceData={instanceData}
-          lang={lang}
-          delegate={wrappedDelegate}
-          onFormChange={(next) => setFormData(next)}
-          primeReactConfig={primeConfig}
-        />
-      </Suspense>
+    <PseudoUiErrorBoundary
+      resetKey={boundaryReset}
+      actions={errorActions}
+      onError={(err) => onError?.(err.message)}
+    >
+      <PseudoUiPseudoViewFrame
+        schema={schema}
+        view={viewDefinition}
+        formData={formData}
+        instanceData={instanceData}
+        lang={lang}
+        delegate={wrappedDelegate}
+        onFormChange={(next) => setFormData(next)}
+        designer={effectiveDesigner}
+        fillHeight={fillHeight}
+      />
     </PseudoUiErrorBoundary>
   );
 
   return (
-    <div role="region" aria-label={ariaLabel} className={hostClassName}>
+    <div role="region" aria-label={ariaLabel} className={hostClassName} data-pseudo-ui-root="">
       {successFlash ? (
         <div
           aria-live="polite"

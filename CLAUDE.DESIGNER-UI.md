@@ -154,6 +154,79 @@ modules/schema-editor/
 
 **vNext (`x-*`) cards** share `VNextCardShell` (header + enable toggle + body + error footer) and are listed in `vnext/vnextCardRegistry.ts`. Adding a new `x-*` field means writing one `X*Card.tsx`, registering it, and (if the keyword is not yet in `model/recognizedKeywords.ts`) extending the allow-list so it stops appearing in the passthrough badge.
 
+## pseudo-ui Shadow-DOM Theming
+
+The `quick-run/pseudo-ui` surface mounts `@burgantech/pseudo-ui/react`'s
+`<PseudoView>` **inside a shadow root** so the developer's view design
+shows as designed, without parent Tailwind preflight, designer-ui
+unlayered resets, or VS Code's injected `input/textarea/select`
+`!important` styles bleeding through. Forge is a *designer* — it does
+not impose its own chrome on the canvas. The only Forge-side hook into
+the canvas is the user-supplied tenant CSS (`pseudoUiTenantTokens`
+setting).
+
+**Layered cascade inside the shadow root** (built by
+`theme/buildSheets.ts → syncThemeLayers`):
+
+| Layer | Source | Notes |
+|---|---|---|
+| L1 — Base MDC theme | `primereact/resources/themes/mdc-{light,dark}-indigo/theme.css?raw` | `:root` rewritten to `:host, :root` so design tokens bind inside the shadow tree |
+| L0 — Utilities | inline string | `.p-hidden-accessible` (hides Dropdown / Calendar native peers) + `.p-stepper-number { border-radius: 50% }` |
+| L2 — Forge defaults | `theme/forgeDefaults.ts` | M3 indigo `--p-*` tokens for light + dark |
+| L3 — Tenant override | `theme/parseTenantCss.ts` (validated) | Token-only contract; class selectors and non-`--*` properties rejected |
+| Icons | `primeicons`, `material-icons` `?raw` | Class rules in shadow; `@font-face` loaded via parent-doc side-effect imports (CSS scoping spec: shadow trees inherit `@font-face` from outer doc) |
+| L4 — SDK CSS | `pseudo-ui-react.css` | Adopted automatically by `<PseudoView renderRoot={shadow} />` |
+
+Layers are constructable `CSSStyleSheet` instances cached at module
+level and applied atomically via
+`shadow.adoptedStyleSheets = [...]` — no inter-frame flicker on theme
+or tenant change. `appTheme` mirrors `html.dark` on the parent `<html>`
+element (the existing `colorTheme: 'system'` setting drives that
+class).
+
+### The non-negotiable invariant
+
+**`primeReactConfig.styleContainer = shadow` MUST stay set in
+`PseudoUiPseudoViewFrame.tsx`.** PrimeReact 10 splits CSS into:
+
+- **Static theme** (MDC / Lara `theme.css`) — *visual decoration* only.
+- **Runtime structural CSS** — each component (Stepper, Dropdown,
+  Calendar, …) carries a `styles` string bundled in its JS that
+  PrimeReact's `useStyle` hook injects into
+  `context.styleContainer || document.head` on mount. This is where
+  `display: flex`, `flex: 1 1 0` on separators, `position: relative`
+  on icon containers, etc. live. **Without it, layout silently
+  degrades** — Stepper indicators render as rounded squares without
+  connecting separators, Dropdown native `<select>` peers leak as
+  ghost form controls, popovers position incorrectly.
+
+The bug is silent (no console error) and trivial to introduce by
+"cleaning up" the prop. Treat the `styleContainer` line as
+load-bearing.
+
+We do **not** set `theme.preset` — design tokens come from the static
+MDC theme + Forge defaults. The runtime preset would emit token CSS
+targeted at `:root` which matches nothing in a shadow tree (CSS
+scoping spec), leaving components fully un-styled even though the
+runtime structural CSS is present.
+
+### Tenant CSS contract
+
+Tenants override only CSS custom properties (`--p-*`, `--font-family`).
+SDK internal class names (`.d-card`, `.field-group-label`, …) are
+**not** part of the public API and may change in any minor SDK
+release. The validator in `theme/parseTenantCss.ts` silently drops
+class selectors, non-custom properties, and values containing `;`,
+`{`, or `}` (CSS-injection guard).
+
+Two input shapes accepted: token JSON (preferred,
+`{ '--p-primary-color': '#FF6B35', ... }`) and CSS string (parsed via
+regex AST, only `:host { --*: value }` declarations survive).
+
+Detailed rule + checklist in
+[`.cursor/rules/pseudo-ui-shadow-theming.mdc`](./.cursor/rules/pseudo-ui-shadow-theming.mdc).
+Original spec at `forgepseudouithemingspec.md`.
+
 ## Adding a new component
 
 1. Pick folder: **`editor/`** (Monaco) vs **`ui/`** vs **`modules/*`**.
@@ -161,6 +234,7 @@ modules/schema-editor/
 3. Styling/tokens → [theme-color-system](./.cursor/skills/web/theme-color-system/SKILL.md).
 4. New file-tree / component-type icons → [icon-creation](./.cursor/skills/web/icon-creation/SKILL.md).
 5. New package subpath → [bundler checklist](./docs/architecture/bundler-checklist.md).
+6. New pseudo-ui mount surface (rare) → [pseudo-ui-shadow-theming rule](./.cursor/rules/pseudo-ui-shadow-theming.mdc) — copy `PseudoUiPseudoViewFrame` setup verbatim; the `styleContainer` wiring is load-bearing.
 
 ## Cross-references
 

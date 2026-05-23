@@ -11,6 +11,8 @@ alwaysApply: false
 
 This project embeds 3rd-party component CSS (PrimeReact 10.x, `@burgantech/pseudo-ui` SDK) alongside Tailwind v4. The CSS cascade must be structured so that these libraries render correctly without manual overrides.
 
+> **See also:** [`pseudo-ui-shadow-theming.mdc`](./pseudo-ui-shadow-theming.mdc) — pseudo-ui no longer renders into the parent cascade; it is mounted inside a shadow root with its own 3-layer adopted-stylesheet stack. Most "PrimeReact in parent doc" concerns below do not apply to the `quick-run/pseudo-ui` surface anymore. They still apply to any other PrimeReact usage Forge ships in light DOM.
+
 ## How the cascade works in this project
 
 Tailwind v4 emits all its output inside native CSS `@layer` blocks:
