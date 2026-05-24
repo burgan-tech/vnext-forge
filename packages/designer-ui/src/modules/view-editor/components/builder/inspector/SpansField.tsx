@@ -90,12 +90,12 @@ export function SpansField({ value, onChange }: SpansFieldProps) {
   return (
     <div className="flex flex-col gap-2">
       {spans.length === 0 ? (
-        <p className="text-[10px] text-[var(--vscode-descriptionForeground)]">No spans defined.</p>
+        <p className="text-[10px] text-muted-text">No spans defined.</p>
       ) : (
         spans.map((span, i) => (
           <div key={i} className="rounded border border-primary-border bg-primary p-2">
             <div className="mb-1 flex items-center justify-between gap-1">
-              <span className="text-[10px] uppercase tracking-wide text-[var(--vscode-descriptionForeground)]">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-secondary-text">
                 Span {i + 1}
               </span>
               <div className="flex items-center gap-0.5">
@@ -104,7 +104,7 @@ export function SpansField({ value, onChange }: SpansFieldProps) {
                   aria-label="Move up"
                   disabled={i === 0}
                   onClick={() => moveUp(i)}
-                  className="rounded p-1 text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] hover:text-[var(--vscode-foreground)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                  className="rounded p-1 text-muted-text hover:bg-[var(--vscode-list-hoverBackground)] hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
                 >
                   <MoveUp size={11} />
                 </button>
@@ -113,7 +113,7 @@ export function SpansField({ value, onChange }: SpansFieldProps) {
                   aria-label="Move down"
                   disabled={i === spans.length - 1}
                   onClick={() => moveDown(i)}
-                  className="rounded p-1 text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] hover:text-[var(--vscode-foreground)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                  className="rounded p-1 text-muted-text hover:bg-[var(--vscode-list-hoverBackground)] hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
                 >
                   <MoveDown size={11} />
                 </button>
@@ -121,7 +121,7 @@ export function SpansField({ value, onChange }: SpansFieldProps) {
                   type="button"
                   aria-label="Remove span"
                   onClick={() => removeAt(i)}
-                  className="rounded p-1 text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] hover:text-[var(--vscode-errorForeground)]"
+                  className="rounded p-1 text-muted-text hover:bg-[var(--vscode-list-hoverBackground)] hover:text-[var(--vscode-errorForeground)]"
                 >
                   <Trash2 size={11} />
                 </button>
@@ -147,7 +147,7 @@ export function SpansField({ value, onChange }: SpansFieldProps) {
                     </option>
                   ))}
                 </Select>
-                <label className="flex items-center gap-1 text-[10px] text-[var(--vscode-descriptionForeground)]">
+                <label className="flex items-center gap-1 text-[10px] text-muted-text">
                   <input
                     type="checkbox"
                     checked={Boolean(span.bold)}
@@ -155,7 +155,7 @@ export function SpansField({ value, onChange }: SpansFieldProps) {
                   />
                   B
                 </label>
-                <label className="flex items-center gap-1 text-[10px] italic text-[var(--vscode-descriptionForeground)]">
+                <label className="flex items-center gap-1 text-[10px] italic text-muted-text">
                   <input
                     type="checkbox"
                     checked={Boolean(span.italic)}

@@ -93,7 +93,7 @@ export function BindAutocomplete({
               key={path}
               role="option"
               aria-selected={value === path}
-              className="cursor-pointer px-2 py-1 text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]"
+              className="cursor-pointer px-2 py-1 text-foreground hover:bg-[var(--vscode-list-hoverBackground)]"
               onMouseDown={(e) => {
                 e.preventDefault();
                 onChange(path);

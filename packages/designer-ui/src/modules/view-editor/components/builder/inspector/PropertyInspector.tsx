@@ -87,7 +87,7 @@ export function PropertyInspector({ store, availableSchemas, loadSchema }: Prope
   const node = getNode(definition.view, selectedPath);
   if (!node) {
     return (
-      <div className="p-3 text-[11px] text-[var(--vscode-descriptionForeground)]">
+      <div className="p-3 text-[11px] text-muted-text">
         Selected node not found. Pick another from the outline.
       </div>
     );
@@ -97,10 +97,10 @@ export function PropertyInspector({ store, availableSchemas, loadSchema }: Prope
   if (!meta) {
     return (
       <div className="p-3">
-        <p className="mb-2 text-[12px] text-[var(--vscode-foreground)]">
+        <p className="mb-2 text-[12px] text-foreground">
           Unknown component type: <code>{node.type}</code>
         </p>
-        <p className="text-[11px] text-[var(--vscode-descriptionForeground)]">
+        <p className="text-[11px] text-muted-text">
           Edit this node as raw JSON.
         </p>
       </div>
@@ -112,12 +112,12 @@ export function PropertyInspector({ store, availableSchemas, loadSchema }: Prope
   return (
     <div className="flex h-full min-h-0 flex-col bg-primary-surface">
       <div className="shrink-0 border-b border-primary-border bg-primary-surface p-3">
-        <div className="mb-1 text-[10px] uppercase tracking-wide text-[var(--vscode-descriptionForeground)]">
+        <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-secondary-text">
           {meta.category}
         </div>
-        <h3 className="text-[13px] font-semibold text-[var(--vscode-foreground)]">{meta.label}</h3>
+        <h3 className="text-[13px] font-semibold text-foreground">{meta.label}</h3>
         {meta.description ? (
-          <p className="mt-1 text-[11px] text-[var(--vscode-descriptionForeground)]">{meta.description}</p>
+          <p className="mt-1 text-[11px] text-muted-text">{meta.description}</p>
         ) : null}
         <div className="mt-2 flex gap-2">
           <button
@@ -170,7 +170,7 @@ function PropertySchemaForm({ node, schema, path, store, bindPaths, showAdvanced
   return (
     <div className="flex flex-col gap-2">
       {visible.length === 0 && advanced.length === 0 ? (
-        <p className="text-[11px] text-[var(--vscode-descriptionForeground)]">
+        <p className="text-[11px] text-muted-text">
           This component has no editable properties.
         </p>
       ) : null}
@@ -227,7 +227,7 @@ interface PropertyFieldRowProps {
 function PropertyFieldRow({ field, value, bindPaths, parentPath, store, onChange }: PropertyFieldRowProps) {
   return (
     <div className="flex flex-col gap-1">
-      <label className="flex items-center gap-1 text-[11px] font-medium text-[var(--vscode-foreground)]">
+      <label className="flex items-center gap-1 text-[11px] font-medium text-foreground">
         {field.label}
         {field.required ? <span className="text-[var(--vscode-errorForeground)]">*</span> : null}
       </label>
@@ -240,7 +240,7 @@ function PropertyFieldRow({ field, value, bindPaths, parentPath, store, onChange
         store={store}
       />
       {field.hint ? (
-        <span className="text-[10px] text-[var(--vscode-descriptionForeground)]">{field.hint}</span>
+        <span className="text-[10px] text-muted-text">{field.hint}</span>
       ) : null}
     </div>
   );
@@ -314,7 +314,7 @@ function PropertyFieldInput({ field, value, onChange, bindPaths, parentPath, sto
       return <MultiLangInput value={value} onChange={onChange} multiline={field.multiline} placeholder={field.placeholder} />;
     case 'boolean':
       return (
-        <label className="flex items-center gap-2 text-[12px] text-[var(--vscode-foreground)]">
+        <label className="flex items-center gap-2 text-[12px] text-foreground">
           <input
             type="checkbox"
             checked={Boolean(value)}

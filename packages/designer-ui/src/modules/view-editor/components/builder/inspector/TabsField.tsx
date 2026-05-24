@@ -77,14 +77,14 @@ export function TabsField({ value, onChange }: TabsFieldProps) {
   return (
     <div className="flex flex-col gap-2">
       {tabs.length === 0 ? (
-        <p className="text-[10px] text-[var(--vscode-descriptionForeground)]">No tabs defined.</p>
+        <p className="text-[10px] text-muted-text">No tabs defined.</p>
       ) : (
         tabs.map((tab, i) => {
           const contentCount = Array.isArray(tab.content) ? tab.content.length : 0;
           return (
             <div key={i} className="rounded border border-primary-border bg-primary p-2">
               <div className="mb-1 flex items-center justify-between gap-1">
-                <span className="text-[10px] uppercase tracking-wide text-[var(--vscode-descriptionForeground)]">
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-secondary-text">
                   Tab {i + 1}
                 </span>
                 <div className="flex items-center gap-0.5">
@@ -93,7 +93,7 @@ export function TabsField({ value, onChange }: TabsFieldProps) {
                     aria-label="Move up"
                     disabled={i === 0}
                     onClick={() => moveUp(i)}
-                    className="rounded p-1 text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] hover:text-[var(--vscode-foreground)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                    className="rounded p-1 text-muted-text hover:bg-[var(--vscode-list-hoverBackground)] hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
                   >
                     <MoveUp size={11} />
                   </button>
@@ -102,7 +102,7 @@ export function TabsField({ value, onChange }: TabsFieldProps) {
                     aria-label="Move down"
                     disabled={i === tabs.length - 1}
                     onClick={() => moveDown(i)}
-                    className="rounded p-1 text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] hover:text-[var(--vscode-foreground)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                    className="rounded p-1 text-muted-text hover:bg-[var(--vscode-list-hoverBackground)] hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
                   >
                     <MoveDown size={11} />
                   </button>
@@ -110,7 +110,7 @@ export function TabsField({ value, onChange }: TabsFieldProps) {
                     type="button"
                     aria-label="Remove tab"
                     onClick={() => removeAt(i)}
-                    className="rounded p-1 text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] hover:text-[var(--vscode-errorForeground)]"
+                    className="rounded p-1 text-muted-text hover:bg-[var(--vscode-list-hoverBackground)] hover:text-[var(--vscode-errorForeground)]"
                   >
                     <Trash2 size={11} />
                   </button>
@@ -129,7 +129,7 @@ export function TabsField({ value, onChange }: TabsFieldProps) {
                   placeholder="icon (PrimeIcons, e.g. home, user, cog)"
                   aria-label="Tab icon (PrimeIcons name)"
                 />
-                <span className="text-[10px] text-[var(--vscode-descriptionForeground)]">
+                <span className="text-[10px] text-muted-text">
                   Content: {contentCount} child{contentCount === 1 ? '' : 'ren'} · edit via outline / canvas
                 </span>
               </div>

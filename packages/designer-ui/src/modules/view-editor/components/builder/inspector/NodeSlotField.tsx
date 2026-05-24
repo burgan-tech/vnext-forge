@@ -151,17 +151,17 @@ function SingleSlotEditor({ node, pickableTypes, onCreate, onSelect, onRemove }:
       <button
         type="button"
         onClick={onSelect}
-        className="flex flex-1 items-center gap-1.5 text-left text-[11px] text-[var(--vscode-foreground)] hover:underline"
+        className="flex flex-1 items-center gap-1.5 text-left text-[11px] text-foreground hover:underline"
         aria-label={`Open ${meta?.label ?? node.type} in inspector`}
       >
-        <ArrowLeftRight size={11} className="shrink-0 text-[var(--vscode-descriptionForeground)]" />
+        <ArrowLeftRight size={11} className="shrink-0 text-muted-text" />
         <span className="font-medium">{meta?.label ?? node.type}</span>
       </button>
       <button
         type="button"
         aria-label="Remove from slot"
         onClick={onRemove}
-        className="rounded p-1 text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] hover:text-[var(--vscode-errorForeground)]"
+        className="rounded p-1 text-muted-text hover:bg-[var(--vscode-list-hoverBackground)] hover:text-[var(--vscode-errorForeground)]"
       >
         <Trash2 size={11} />
       </button>
@@ -209,7 +209,7 @@ function MultiSlotEditor({
   return (
     <div className="flex flex-col gap-1.5">
       {list.length === 0 ? (
-        <p className="text-[10px] text-[var(--vscode-descriptionForeground)]">No items.</p>
+        <p className="text-[10px] text-muted-text">No items.</p>
       ) : (
         list.map((node, i) => {
           const meta = findComponentMeta(node.type);
@@ -221,10 +221,10 @@ function MultiSlotEditor({
               <button
                 type="button"
                 onClick={() => onPick([...parentPath, slotKey, i])}
-                className="flex flex-1 items-center gap-1.5 text-left text-[11px] text-[var(--vscode-foreground)] hover:underline"
+                className="flex flex-1 items-center gap-1.5 text-left text-[11px] text-foreground hover:underline"
                 aria-label={`Open ${meta?.label ?? node.type} at index ${i}`}
               >
-                <span className="text-[10px] text-[var(--vscode-descriptionForeground)]">{i + 1}.</span>
+                <span className="text-[10px] text-muted-text">{i + 1}.</span>
                 <span className="font-medium">{meta?.label ?? node.type}</span>
               </button>
               <div className="flex items-center gap-0.5">
@@ -233,7 +233,7 @@ function MultiSlotEditor({
                   aria-label="Move up"
                   disabled={i === 0}
                   onClick={() => moveUp(i)}
-                  className="rounded p-1 text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] hover:text-[var(--vscode-foreground)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                  className="rounded p-1 text-muted-text hover:bg-[var(--vscode-list-hoverBackground)] hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
                 >
                   <MoveUp size={11} />
                 </button>
@@ -242,7 +242,7 @@ function MultiSlotEditor({
                   aria-label="Move down"
                   disabled={i === list.length - 1}
                   onClick={() => moveDown(i)}
-                  className="rounded p-1 text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] hover:text-[var(--vscode-foreground)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                  className="rounded p-1 text-muted-text hover:bg-[var(--vscode-list-hoverBackground)] hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
                 >
                   <MoveDown size={11} />
                 </button>
@@ -250,7 +250,7 @@ function MultiSlotEditor({
                   type="button"
                   aria-label="Remove"
                   onClick={() => removeAt(i)}
-                  className="rounded p-1 text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] hover:text-[var(--vscode-errorForeground)]"
+                  className="rounded p-1 text-muted-text hover:bg-[var(--vscode-list-hoverBackground)] hover:text-[var(--vscode-errorForeground)]"
                 >
                   <Trash2 size={11} />
                 </button>

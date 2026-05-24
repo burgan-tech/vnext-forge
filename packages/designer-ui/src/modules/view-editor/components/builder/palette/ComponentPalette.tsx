@@ -97,7 +97,7 @@ export function ComponentPalette({ className, onAdd }: ComponentPaletteProps) {
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto p-1">
         {grouped.length === 0 ? (
-          <p className="px-2 py-3 text-[11px] text-[var(--vscode-descriptionForeground)]">
+          <p className="px-2 py-3 text-[11px] text-muted-text">
             No components match "{query}".
           </p>
         ) : (
@@ -108,13 +108,13 @@ export function ComponentPalette({ className, onAdd }: ComponentPaletteProps) {
                 <button
                   type="button"
                   onClick={() => toggle(category)}
-                  className="flex w-full items-center gap-1 rounded px-1 py-1 text-left text-[10px] font-semibold uppercase tracking-wide text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)]"
+                  className="flex w-full items-center gap-1 rounded px-1 py-1 text-left text-[10px] font-semibold font-semibold uppercase tracking-wide text-secondary-text hover:bg-[var(--vscode-list-hoverBackground)]"
                   aria-expanded={expanded}
                   aria-controls={`palette-section-${category}`}
                 >
                   {expanded ? <ChevronDown size={11} aria-hidden /> : <ChevronRight size={11} aria-hidden />}
                   <span>{category}</span>
-                  <span className="ml-auto text-[var(--vscode-descriptionForeground)]">{items.length}</span>
+                  <span className="ml-auto text-muted-text">{items.length}</span>
                 </button>
                 {expanded ? (
                   <div
@@ -190,7 +190,7 @@ function PaletteCard({ meta, onAdd }: PaletteCardProps) {
           className={[
             'ml-auto flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded',
             'opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100',
-            'text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-activeSelectionBackground)] hover:text-[var(--vscode-list-activeSelectionForeground)]',
+            'text-muted-text hover:bg-[var(--vscode-list-activeSelectionBackground)] hover:text-[var(--vscode-list-activeSelectionForeground)]',
           ].join(' ')}
         >
           <Plus size={11} aria-hidden />

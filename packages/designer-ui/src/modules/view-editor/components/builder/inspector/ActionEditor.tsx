@@ -65,12 +65,12 @@ function MultiActionEditor({ value, onChange }: { value: unknown; onChange: (nex
   return (
     <div className="flex flex-col gap-2">
       {list.length === 0 ? (
-        <p className="text-[11px] text-[var(--vscode-descriptionForeground)]">No actions configured.</p>
+        <p className="text-[11px] text-muted-text">No actions configured.</p>
       ) : (
         list.map((item, index) => (
           <div key={index} className="rounded border border-primary-border bg-primary p-2">
             <div className="mb-1 flex items-center justify-between gap-1">
-              <span className="text-[10px] uppercase tracking-wide text-[var(--vscode-descriptionForeground)]">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-secondary-text">
                 Action {index + 1}
               </span>
               <div className="flex items-center gap-0.5">
@@ -78,7 +78,7 @@ function MultiActionEditor({ value, onChange }: { value: unknown; onChange: (nex
                   type="button"
                   aria-label="Move action up"
                   disabled={index === 0}
-                  className="rounded p-1 text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] hover:text-[var(--vscode-foreground)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                  className="rounded p-1 text-muted-text hover:bg-[var(--vscode-list-hoverBackground)] hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
                   onClick={() => {
                     if (index === 0) return;
                     const next = list.slice();
@@ -92,7 +92,7 @@ function MultiActionEditor({ value, onChange }: { value: unknown; onChange: (nex
                   type="button"
                   aria-label="Move action down"
                   disabled={index === list.length - 1}
-                  className="rounded p-1 text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] hover:text-[var(--vscode-foreground)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                  className="rounded p-1 text-muted-text hover:bg-[var(--vscode-list-hoverBackground)] hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
                   onClick={() => {
                     if (index === list.length - 1) return;
                     const next = list.slice();
@@ -105,7 +105,7 @@ function MultiActionEditor({ value, onChange }: { value: unknown; onChange: (nex
                 <button
                   type="button"
                   aria-label="Remove action"
-                  className="rounded p-1 text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] hover:text-[var(--vscode-foreground)]"
+                  className="rounded p-1 text-muted-text hover:bg-[var(--vscode-list-hoverBackground)] hover:text-foreground"
                   onClick={() => {
                     const next = list.slice();
                     next.splice(index, 1);
@@ -177,7 +177,7 @@ function ActionRow({ value, onChange }: { value: ActionLike; onChange: (next: Ac
             </option>
           ))}
         </Select>
-        <label className="flex items-center gap-1 text-[10px] text-[var(--vscode-descriptionForeground)]">
+        <label className="flex items-center gap-1 text-[10px] text-muted-text">
           <input
             type="checkbox"
             checked={!isPreset}

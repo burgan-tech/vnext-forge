@@ -222,7 +222,7 @@ export function PseudoUiBuilder({
   }, [loadSchema]);
 
   return (
-    <div className="flex h-full min-h-0 w-full flex-col">
+    <div className="flex h-full min-h-0 w-full flex-col bg-background">
       <Tabs value={mode} onValueChange={(v) => setMode(v as BuilderMode)} className="flex h-full min-h-0 flex-col">
         <TabsList className="shrink-0 self-start">
           <TabsTrigger value="builder">Builder</TabsTrigger>

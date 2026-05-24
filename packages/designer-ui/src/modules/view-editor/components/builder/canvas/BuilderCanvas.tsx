@@ -201,21 +201,21 @@ function CanvasHeader({
             className={[
               'min-w-0 truncate',
               isHover
-                ? 'italic text-[var(--vscode-descriptionForeground)]'
-                : 'text-[var(--vscode-foreground)]',
+                ? 'italic text-muted-text'
+                : 'text-foreground',
             ].join(' ')}
             title={breadcrumb.join(' › ')}
             aria-live="polite"
           >
             {breadcrumb.map((crumb, i) => (
               <span key={`${crumb}-${i}`}>
-                {i > 0 ? <span className="mx-1 text-[var(--vscode-descriptionForeground)]">›</span> : null}
+                {i > 0 ? <span className="mx-1 text-muted-text">›</span> : null}
                 <span className={i === breadcrumb.length - 1 && !isHover ? 'font-semibold' : ''}>{crumb}</span>
               </span>
             ))}
           </span>
         ) : (
-          <span className="text-[var(--vscode-descriptionForeground)]">Nothing selected</span>
+          <span className="text-muted-text">Nothing selected</span>
         )}
       </div>
       <div className="flex shrink-0 items-center gap-1">
@@ -242,9 +242,9 @@ function CanvasHeader({
 
 function EmptyCanvasHint() {
   return (
-    <div className="mb-2 flex min-h-[80px] items-center justify-center rounded border-2 border-dashed border-[var(--vscode-panel-border)] px-4 py-4 text-center text-[12px] text-[var(--vscode-descriptionForeground)]">
+    <div className="mb-2 flex min-h-[80px] items-center justify-center rounded border-2 border-dashed border-[var(--vscode-panel-border)] px-4 py-4 text-center text-[12px] text-muted-text">
       <div>
-        <div className="text-[var(--vscode-foreground)]">Drag a component here to begin</div>
+        <div className="text-foreground">Drag a component here to begin</div>
         <div className="mt-1 text-[10px]">
           Switch to "Components" in the left tab to pick from layout, inputs, buttons, and more.
         </div>

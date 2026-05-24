@@ -127,7 +127,7 @@ export function MultiLangInput({
               <button
                 type="button"
                 aria-label={`Remove ${lang} translation`}
-                className="rounded p-1 text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] hover:text-[var(--vscode-foreground)] disabled:cursor-not-allowed disabled:opacity-40"
+                className="rounded p-1 text-muted-text hover:bg-[var(--vscode-list-hoverBackground)] hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
                 onClick={() => removeKey(lang)}
                 disabled={langs.length <= 1}
               >

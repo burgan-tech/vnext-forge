@@ -47,11 +47,11 @@ export function ViewSettingsPanel({ store, availableSchemas, bindEntries }: View
   return (
     <div className="flex h-full min-h-0 flex-col bg-primary-surface">
       <div className="shrink-0 border-b border-primary-border bg-primary-surface p-3">
-        <div className="text-[10px] uppercase tracking-wide text-[var(--vscode-descriptionForeground)]">
+        <div className="text-[10px] font-semibold uppercase tracking-wide text-secondary-text">
           View settings
         </div>
-        <h3 className="text-[13px] font-semibold text-[var(--vscode-foreground)]">Settings</h3>
-        <p className="mt-1 text-[11px] text-[var(--vscode-descriptionForeground)]">
+        <h3 className="text-[13px] font-semibold text-foreground">Settings</h3>
+        <p className="mt-1 text-[11px] text-muted-text">
           Select a node from the outline to edit its properties.
         </p>
       </div>
@@ -144,8 +144,8 @@ function Section({ title, hint, children }: { title: string; hint?: string; chil
   return (
     <section className="flex flex-col gap-1.5">
       <div>
-        <h4 className="text-[11px] font-semibold uppercase tracking-wide text-[var(--vscode-foreground)]">{title}</h4>
-        {hint ? <p className="text-[10px] text-[var(--vscode-descriptionForeground)]">{hint}</p> : null}
+        <h4 className="text-[11px] font-semibold uppercase tracking-wide text-foreground">{title}</h4>
+        {hint ? <p className="text-[10px] text-muted-text">{hint}</p> : null}
       </div>
       {children}
     </section>
@@ -232,11 +232,11 @@ function SchemaPicker({
         description="Schemas discovered in your project's vnext.config paths."
       />
       {schemas.length === 0 ? (
-        <p className="text-[10px] text-[var(--vscode-descriptionForeground)]">
+        <p className="text-[10px] text-muted-text">
           No project schemas discovered. Enter the URN manually.
         </p>
       ) : filtered.length === 0 ? (
-        <p className="text-[10px] text-[var(--vscode-descriptionForeground)]">No matches.</p>
+        <p className="text-[10px] text-muted-text">No matches.</p>
       ) : (
         <ul className="max-h-40 overflow-y-auto rounded border border-primary-border bg-primary text-[11px]">
           {filtered.map((s) => (
@@ -252,7 +252,7 @@ function SchemaPicker({
               }}
             >
               <div className="font-medium">{s.label}</div>
-              <div className="truncate text-[10px] text-[var(--vscode-descriptionForeground)]">{s.urn}</div>
+              <div className="truncate text-[10px] text-muted-text">{s.urn}</div>
             </li>
           ))}
         </ul>
@@ -335,7 +335,7 @@ function LookupsEditor({
     <div className="flex flex-col gap-2">
       {suggestions.length > 0 ? (
         <div className="flex flex-col gap-1 rounded border border-[var(--vscode-panel-border)] p-1.5">
-          <div className="text-[10px] uppercase tracking-wide text-[var(--vscode-descriptionForeground)]">
+          <div className="text-[10px] font-semibold uppercase tracking-wide text-secondary-text">
             From schema · {suggestions.length}
           </div>
           {suggestions.map((path) => (
@@ -348,20 +348,20 @@ function LookupsEditor({
                 checked={selected.has(path)}
                 onChange={() => toggleSuggestion(path)}
               />
-              <span className="truncate text-[var(--vscode-foreground)]">{path}</span>
+              <span className="truncate text-foreground">{path}</span>
             </label>
           ))}
         </div>
       ) : null}
 
       {customLookups.length === 0 && suggestions.length === 0 ? (
-        <p className="text-[10px] text-[var(--vscode-descriptionForeground)]">No lookups defined.</p>
+        <p className="text-[10px] text-muted-text">No lookups defined.</p>
       ) : null}
 
       {customLookups.length > 0 ? (
         <div className="flex flex-col gap-1">
           {suggestions.length > 0 ? (
-            <div className="text-[10px] uppercase tracking-wide text-[var(--vscode-descriptionForeground)]">
+            <div className="text-[10px] font-semibold uppercase tracking-wide text-secondary-text">
               Custom
             </div>
           ) : null}
@@ -376,7 +376,7 @@ function LookupsEditor({
               <button
                 type="button"
                 aria-label="Remove lookup"
-                className="rounded p-1 text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] hover:text-[var(--vscode-foreground)]"
+                className="rounded p-1 text-muted-text hover:bg-[var(--vscode-list-hoverBackground)] hover:text-foreground"
                 onClick={() => removeCustomAt(i)}
               >
                 <Trash2 size={11} />

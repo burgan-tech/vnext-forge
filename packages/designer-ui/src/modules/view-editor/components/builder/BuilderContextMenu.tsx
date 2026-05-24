@@ -248,7 +248,7 @@ function MenuItem({ icon, label, shortcut, disabled, danger, onClick }: MenuItem
       <span className="flex h-4 w-4 shrink-0 items-center justify-center">{icon}</span>
       <span className="flex-1">{label}</span>
       {shortcut ? (
-        <span className="text-[10px] text-[var(--vscode-descriptionForeground)]">{shortcut}</span>
+        <span className="text-[10px] text-muted-text">{shortcut}</span>
       ) : null}
     </button>
   );

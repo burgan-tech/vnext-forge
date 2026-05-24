@@ -67,7 +67,7 @@ export function StepsField({ value, onChange }: StepsFieldProps) {
   return (
     <div className="flex flex-col gap-2">
       {steps.length === 0 ? (
-        <p className="text-[10px] text-[var(--vscode-descriptionForeground)]">
+        <p className="text-[10px] text-muted-text">
           No steps defined. Stepper requires at least 2 steps to render.
         </p>
       ) : null}
@@ -79,7 +79,7 @@ export function StepsField({ value, onChange }: StepsFieldProps) {
             className="flex flex-col gap-1.5 rounded border border-primary-border bg-primary p-2"
           >
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--vscode-descriptionForeground)]">
+              <span className="text-[10px] font-semibold uppercase tracking-wide text-secondary-text">
                 Step {i + 1}
               </span>
               <div className="flex items-center gap-0.5">
@@ -88,7 +88,7 @@ export function StepsField({ value, onChange }: StepsFieldProps) {
                   aria-label="Move step up"
                   disabled={i === 0}
                   onClick={() => moveStep(i, -1)}
-                  className="rounded p-1 text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] hover:text-[var(--vscode-foreground)] disabled:cursor-not-allowed disabled:opacity-40"
+                  className="rounded p-1 text-muted-text hover:bg-[var(--vscode-list-hoverBackground)] hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <ChevronUp size={11} aria-hidden />
                 </button>
@@ -97,7 +97,7 @@ export function StepsField({ value, onChange }: StepsFieldProps) {
                   aria-label="Move step down"
                   disabled={i === steps.length - 1}
                   onClick={() => moveStep(i, 1)}
-                  className="rounded p-1 text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] hover:text-[var(--vscode-foreground)] disabled:cursor-not-allowed disabled:opacity-40"
+                  className="rounded p-1 text-muted-text hover:bg-[var(--vscode-list-hoverBackground)] hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   <ChevronDown size={11} aria-hidden />
                 </button>
@@ -105,7 +105,7 @@ export function StepsField({ value, onChange }: StepsFieldProps) {
                   type="button"
                   aria-label="Remove step"
                   onClick={() => removeStep(i)}
-                  className="rounded p-1 text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] hover:text-[var(--vscode-errorForeground)]"
+                  className="rounded p-1 text-muted-text hover:bg-[var(--vscode-list-hoverBackground)] hover:text-[var(--vscode-errorForeground)]"
                 >
                   <Trash2 size={11} aria-hidden />
                 </button>
@@ -131,7 +131,7 @@ export function StepsField({ value, onChange }: StepsFieldProps) {
               />
             </Field>
 
-            <div className="rounded bg-[var(--vscode-editor-inactiveSelectionBackground)] px-1.5 py-1 text-[10px] text-[var(--vscode-descriptionForeground)]">
+            <div className="rounded bg-[var(--vscode-editor-inactiveSelectionBackground)] px-1.5 py-1 text-[10px] text-muted-text">
               Content: {childCount} {childCount === 1 ? 'child' : 'children'} — edit from the outline / canvas.
             </div>
           </div>
@@ -151,7 +151,7 @@ export function StepsField({ value, onChange }: StepsFieldProps) {
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label className="flex flex-col gap-1">
-      <span className="text-[10px] font-medium text-[var(--vscode-foreground)]">{label}</span>
+      <span className="text-[10px] font-medium text-foreground">{label}</span>
       {children}
     </label>
   );

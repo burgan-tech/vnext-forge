@@ -256,7 +256,7 @@ function OutlineRow({
           'cursor-pointer',
           isSelected
             ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-list-activeSelectionForeground)]'
-            : 'text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]',
+            : 'text-foreground hover:bg-[var(--vscode-list-hoverBackground)]',
           isDragging ? 'opacity-40' : '',
         ].join(' ')}
         style={{ paddingLeft: 4 + depth * 12 }}
@@ -288,7 +288,7 @@ function OutlineRow({
           <span className="inline-block h-4 w-4" />
         )}
         <span className="font-medium">{meta?.label ?? node.type}</span>
-        <span className="ml-1 truncate text-[10px] text-[var(--vscode-descriptionForeground)]">
+        <span className="ml-1 truncate text-[10px] text-muted-text">
           {summarize(node)}
         </span>
       </div>
@@ -430,14 +430,14 @@ function DropSlot({ parentPath, index, depth, compact, label }: DropSlotProps) {
       ref={setNodeRef}
       style={{ paddingLeft: 4 + depth * 12 }}
       className={[
-        compact ? 'h-1.5' : 'my-1 rounded border border-dashed px-2 py-1 text-[10px]',
+        compact ? 'h-1.5' : 'my-1 rounded border border-dashed px-2 py-1 text-[10px] font-medium',
         isOver
           ? compact
             ? 'bg-[var(--vscode-focusBorder)]'
-            : 'border-[var(--vscode-focusBorder)] bg-[var(--vscode-list-hoverBackground)] text-[var(--vscode-foreground)]'
+            : 'border-[var(--vscode-focusBorder)] bg-primary-muted text-foreground'
           : compact
             ? ''
-            : 'border-[var(--vscode-panel-border)] text-[var(--vscode-descriptionForeground)]',
+            : 'border-primary-border-hover bg-primary/40 text-muted-text',
       ].join(' ')}
     >
       {!compact ? (label ?? 'Drop here') : null}
