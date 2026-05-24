@@ -1,12 +1,19 @@
 /**
  * Draggable palette of pseudo-ui components.
  *
- * Categorized accordion with a search input. Each card is a `@dnd-kit`
- * draggable source whose `data.kind === 'palette'`. The canvas listens
- * for drops and inserts a fresh node via `createNodeFromCatalog(type)`.
+ * R11: cards are HTML5-native draggables. On `dragstart` we set
+ * `application/x-pseudo-ui-palette` on the dataTransfer; the SDK's
+ * designer-mode wrappers around each canvas node listen for that
+ * MIME type and dispatch `delegate.onNodeDropFromPalette` with the
+ * resolved drop position. The canvas does not register any droppable
+ * of its own — drag-drop is handled entirely by the SDK render tree.
+ *
+ * Outline-tree drag-drop continues to use `@dnd-kit` for in-tree
+ * reordering (separate render context, no conflict). Palette → outline
+ * drops are intentionally not supported; the canvas is the primary
+ * insertion surface for the palette.
  */
 
-import { useDraggable } from '@dnd-kit/core';
 import * as Icons from 'lucide-react';
 import { Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -82,18 +89,32 @@ interface PaletteCardProps {
   onAdd?: (type: string) => void;
 }
 
+/**
+ * dataTransfer MIME the SDK's `DesignerNode` reads on drop. Must
+ * match the literal in `core/ts-pseudo-ui/src/adapters/react/DesignerNode.tsx`.
+ */
+const DRAG_PALETTE_MIME = 'application/x-pseudo-ui-palette';
+
 function PaletteCard({ meta, onAdd }: PaletteCardProps) {
-  const id = `palette-${meta.type}`;
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
-    id,
-    data: { kind: 'palette', type: meta.type } as const,
-  });
+  const [isDragging, setIsDragging] = useState(false);
+
+  const handleDragStart = (e: React.DragEvent<HTMLDivElement>): void => {
+    e.dataTransfer.setData(DRAG_PALETTE_MIME, meta.type);
+    e.dataTransfer.effectAllowed = 'copy';
+    setIsDragging(true);
+  };
+
+  const handleDragEnd = (): void => {
+    setIsDragging(false);
+  };
 
   const Icon = resolveLucideIcon(meta.iconName);
 
   return (
     <div
-      ref={setNodeRef}
+      draggable
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
       title={meta.description ?? meta.label}
       className={[
         'group relative flex flex-col items-start gap-1 rounded border px-2 py-1.5 text-left transition-colors',
@@ -101,8 +122,6 @@ function PaletteCard({ meta, onAdd }: PaletteCardProps) {
         'hover:border-[var(--vscode-focusBorder)] hover:bg-[var(--vscode-list-hoverBackground)]',
         isDragging ? 'cursor-grabbing opacity-50' : 'cursor-grab',
       ].join(' ')}
-      {...listeners}
-      {...attributes}
     >
       <div className="flex items-center gap-1.5 pr-5">
         <Icon size={13} aria-hidden />
@@ -117,8 +136,9 @@ function PaletteCard({ meta, onAdd }: PaletteCardProps) {
         <button
           type="button"
           aria-label={`Add ${meta.label} to selection`}
-          // Stop pointerdown so dnd-kit doesn't treat the click as a drag start.
-          onPointerDown={(e) => e.stopPropagation()}
+          // Suppress the implicit drag the parent would otherwise start
+          // when the user click-drags the "+" button itself.
+          draggable={false}
           onClick={(e) => {
             e.stopPropagation();
             onAdd(meta.type);

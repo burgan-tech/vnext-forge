@@ -16,6 +16,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { DataSchema, PseudoViewDelegate, ViewDefinition } from '@burgantech/pseudo-ui';
+import type { DesignerClassNames, DesignerMode } from '@burgantech/pseudo-ui/react';
 
 import type { ViewResponse } from '../types/quickrun.types';
 import type { SchemaResolver } from './createDataSchemaResolver';
@@ -71,19 +72,34 @@ export interface PseudoUiViewSurfaceProps {
    *  "Edit as JSON" from View Editor). Quick Runner can omit. */
   errorActions?: PseudoUiErrorAction[];
   /**
-   * SDK v0.1.4+ designer-mode flag.
+   * SDK designer-mode flag — accepts the legacy boolean form *or* the
+   * v0.1.5+ enum (`'off' \| 'preview' \| 'edit'`).
    *
-   * When `true`, the SDK:
-   *   - Renders `ForEach` once with an empty `$item` when the source is
-   *     empty (so designers see the template shape).
-   *   - Bypasses `x-conditional` `showIf` / `hideIf` so hidden nodes stay
-   *     visible during editing.
+   * - `'off'` / `false` — normal runtime render (Quick Runner).
+   * - `'preview'` / `true` — designer semantics ON but no editor chrome:
+   *     `ForEach` renders once with an empty `$item`, `x-conditional`
+   *     visibility bypassed. Builder Preview tab uses this.
+   * - `'edit'` — full editor canvas: node outlines, delete button,
+   *     HTML5 drag-drop, selection callbacks. Builder Canvas uses this
+   *     with a delegate wired to the builder store.
    *
-   * Defaults to `mode === 'preview'` so the builder canvas opts in
-   * automatically and Quick Runner (`mode === 'simulation'`) keeps real
-   * runtime semantics.
+   * Defaults to `mode === 'preview'` (legacy boolean true) when omitted.
    */
-  designer?: boolean;
+  designer?: boolean | DesignerMode;
+  /**
+   * SDK `<PseudoView selectedNodePath={...}>` — JSON Pointer string of
+   * the currently-selected node (Builder selection mirror). Has effect
+   * only in `designer="edit"` mode; ignored otherwise.
+   */
+  selectedNodePath?: string;
+  /**
+   * SDK `<PseudoView designerClassNames={...}>` — full override of the
+   * designer chrome CSS class names. Forge keeps the SDK defaults and
+   * themes them via `--pseudo-designer-*` tokens (see
+   * `theme/designerChrome.css`). Provided here for advanced
+   * customization escape hatches.
+   */
+  designerClassNames?: DesignerClassNames;
 }
 
 export function PseudoUiViewSurface({
@@ -102,8 +118,10 @@ export function PseudoUiViewSurface({
   className,
   errorActions,
   designer,
+  selectedNodePath,
+  designerClassNames,
 }: PseudoUiViewSurfaceProps) {
-  const effectiveDesigner = designer ?? mode === 'preview';
+  const effectiveDesigner: boolean | DesignerMode = designer ?? mode === 'preview';
   const baseDelegate = delegate ?? noopDelegate;
 
   const [definitionRetry, setDefinitionRetry] = useState(0);
@@ -133,6 +151,27 @@ export function PseudoUiViewSurface({
       onLog: baseDelegate.onLog ? (...args) => baseDelegate.onLog!(...args) : undefined,
       onValidationRequest: baseDelegate.onValidationRequest
         ? (...args) => baseDelegate.onValidationRequest!(...args)
+        : undefined,
+      // R11: forward SDK designer-mode callbacks. Without these the
+      // SDK's `delegate.onNodeSelect / onNodeDelete / onNodeMove /
+      // onNodeDropFromPalette / onNodeHover` invocations would land on
+      // the noop default and the canvas would feel "frozen" — clicks
+      // and × buttons paint outlines but never reach the builder
+      // store.
+      onNodeSelect: baseDelegate.onNodeSelect
+        ? (...args) => baseDelegate.onNodeSelect!(...args)
+        : undefined,
+      onNodeHover: baseDelegate.onNodeHover
+        ? (...args) => baseDelegate.onNodeHover!(...args)
+        : undefined,
+      onNodeDelete: baseDelegate.onNodeDelete
+        ? (...args) => baseDelegate.onNodeDelete!(...args)
+        : undefined,
+      onNodeMove: baseDelegate.onNodeMove
+        ? (...args) => baseDelegate.onNodeMove!(...args)
+        : undefined,
+      onNodeDropFromPalette: baseDelegate.onNodeDropFromPalette
+        ? (...args) => baseDelegate.onNodeDropFromPalette!(...args)
         : undefined,
       onAction: async (action, formData, command) => {
         setActionError(null);
@@ -293,6 +332,8 @@ export function PseudoUiViewSurface({
         delegate={wrappedDelegate}
         onFormChange={(next) => setFormData(next)}
         designer={effectiveDesigner}
+        selectedNodePath={selectedNodePath}
+        designerClassNames={designerClassNames}
         fillHeight={fillHeight}
       />
     </PseudoUiErrorBoundary>

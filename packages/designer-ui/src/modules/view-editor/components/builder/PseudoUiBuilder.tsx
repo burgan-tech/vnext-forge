@@ -38,7 +38,6 @@ import { ViewRenderer } from '@vnext-forge-studio/vnext-types';
 
 import { BuilderCanvas } from './canvas/BuilderCanvas';
 import { LeftRail } from './LeftRail';
-import { createNodeFromCatalog } from './palette/componentCatalog';
 import { PropertyInspector } from './inspector/PropertyInspector';
 import { createBuilderStore } from './state/builderStore';
 import { type BuilderDefinition, type NodePath } from './types';
@@ -126,7 +125,10 @@ export function PseudoUiBuilder({
     [store],
   );
 
-  // ── Dnd-kit wiring ──────────────────────────────────────────────────
+  // ── Dnd-kit wiring (outline-only since R11) ─────────────────────────
+  // Palette → canvas drag-drop is handled by the SDK's `designer="edit"`
+  // mode via HTML5 native dataTransfer (see ComponentPalette.tsx). This
+  // DndContext now only owns outline-tree reorder + insertion events.
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }));
   const onDragEnd = useCallback(
     (event: DragEndEvent) => {
@@ -135,20 +137,11 @@ export function PseudoUiBuilder({
       const overData = over.data.current as DropTargetData | undefined;
       const activeData = active.data.current as DragSourceData | undefined;
       if (!overData || !activeData) return;
+      if (activeData.kind !== 'outline-drag') return;
 
       const targetParent = overData.parentPath;
       const targetIndex = overData.index;
-
-      if (activeData.kind === 'palette') {
-        const fresh = createNodeFromCatalog(activeData.type);
-        store.getState().insertNode(targetParent, targetIndex, fresh);
-        // Select the newly inserted node for immediate editing.
-        store.getState().selectNode([...targetParent, targetIndex]);
-        return;
-      }
-      if (activeData.kind === 'outline-drag') {
-        store.getState().moveNode(activeData.sourcePath, targetParent, targetIndex);
-      }
+      store.getState().moveNode(activeData.sourcePath, targetParent, targetIndex);
     },
     [store],
   );
@@ -223,6 +216,7 @@ export function PseudoUiBuilder({
             <PseudoUiViewSurface
               viewResponse={previewResponse}
               mode="preview"
+              designer="preview"
               ariaLabel="Pseudo-ui builder preview"
               fillHeight
             />
@@ -233,15 +227,12 @@ export function PseudoUiBuilder({
   );
 }
 
-interface PaletteDragData {
-  kind: 'palette';
-  type: string;
-}
 interface OutlineDragData {
   kind: 'outline-drag';
   sourcePath: NodePath;
 }
-type DragSourceData = PaletteDragData | OutlineDragData;
+// R11: palette drag no longer goes through dnd-kit (HTML5 native → SDK).
+type DragSourceData = OutlineDragData;
 
 interface DropTargetData {
   kind: string;

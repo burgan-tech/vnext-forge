@@ -1,18 +1,24 @@
 /**
  * Visual canvas for the pseudo-ui builder.
  *
- * Renders the current definition through the shared `PseudoUiViewSurface`
- * so the user always sees an accurate preview (WYSIWYG). Structural editing
- * happens primarily in the `OutlinePanel` (sibling component) where each
- * tree row knows its `NodePath`.
+ * R11: the SDK's `designer="edit"` mode now drives direct
+ * manipulation on the canvas — click selection, hover outlines,
+ * delete button, HTML5 native drag-drop (mid-tree positions). We
+ * forward the SDK delegate to `useBuilderDesignerDelegate`, which
+ * maps callbacks back into builder-store actions via the JSON-Pointer
+ * ↔ NodePath converter.
  *
- * This component exposes a single root-level drop zone for the case where
- * the user drags a component from the palette directly onto an empty
- * canvas (or onto the bottom of an existing view). Mid-tree drops happen
- * through the outline.
+ * The earlier @dnd-kit `EmptyDropZone` / `RootDropZone` drop targets
+ * were removed: the SDK accepts drops directly into the root view
+ * container, so we no longer need parent-DOM-side droppables. The
+ * outline panel keeps its own @dnd-kit reorder behaviour (separate
+ * render tree, no conflict).
+ *
+ * Selection lives in the builder store as a `NodePath` array; the SDK
+ * needs the equivalent JSON Pointer string via `selectedNodePath`. We
+ * compute it once per selection change.
  */
 
-import { useDroppable } from '@dnd-kit/core';
 import { useMemo } from 'react';
 import { useStore } from 'zustand';
 
@@ -20,6 +26,8 @@ import { PseudoUiViewSurface } from '../../../../quick-run/pseudo-ui/PseudoUiVie
 import type { ViewResponse } from '../../../../quick-run/types/quickrun.types';
 import { ViewRenderer } from '@vnext-forge-studio/vnext-types';
 import { findComponentMeta } from '../palette/componentCatalog';
+import { useBuilderDesignerDelegate } from '../state/useBuilderDesignerDelegate';
+import { nodePathToJsonPointer } from '../utils/jsonPointerPath';
 import { getNode } from '../utils/nodeOps';
 import { type BuilderDefinition } from '../types';
 import { type BuilderStore } from '../state/builderStore';
@@ -33,6 +41,7 @@ export interface BuilderCanvasProps {
 export function BuilderCanvas({ store, viewKey, onEditAsJson }: BuilderCanvasProps) {
   const definition = useStore(store, (s) => s.definition);
   const selectedPath = useStore(store, (s) => s.selectedPath);
+  const delegate = useBuilderDesignerDelegate(store);
 
   const previewResponse = useMemo<ViewResponse>(() => {
     return {
@@ -43,10 +52,10 @@ export function BuilderCanvas({ store, viewKey, onEditAsJson }: BuilderCanvasPro
     };
   }, [definition, viewKey]);
 
-  const rootMeta = findComponentMeta(definition.view.type);
-  const rootChildren = (definition.view.children as unknown[] | undefined) ?? [];
-  const showsEmptyState = (!rootMeta?.acceptsChildren && rootChildren.length === 0)
-    || (rootMeta?.acceptsChildren && rootChildren.length === 0);
+  const selectedPointer = useMemo(
+    () => (selectedPath ? nodePathToJsonPointer(selectedPath) : undefined),
+    [selectedPath],
+  );
 
   // Build a human breadcrumb for the selected node. We follow the path
   // through the live tree so each segment can show the node type rather
@@ -66,22 +75,23 @@ export function BuilderCanvas({ store, viewKey, onEditAsJson }: BuilderCanvasPro
     return crumbs;
   }, [definition.view, selectedPath]);
 
+  const hasRootChildren = ((definition.view.children as unknown[] | undefined) ?? []).length > 0;
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       <CanvasHeader breadcrumb={breadcrumb} onEditAsJson={onEditAsJson} />
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
-        {showsEmptyState ? <EmptyDropZone /> : (
-          <>
-            <PseudoUiViewSurface
-              viewResponse={previewResponse}
-              mode="preview"
-              ariaLabel="Builder canvas preview"
-              fillHeight={false}
-              errorActions={[{ label: 'Edit as JSON', onTrigger: onEditAsJson }]}
-            />
-            <RootDropZone />
-          </>
-        )}
+        {hasRootChildren ? null : <EmptyCanvasHint />}
+        <PseudoUiViewSurface
+          viewResponse={previewResponse}
+          mode="preview"
+          designer="edit"
+          selectedNodePath={selectedPointer}
+          delegate={delegate}
+          ariaLabel="Builder canvas"
+          fillHeight={false}
+          errorActions={[{ label: 'Edit as JSON', onTrigger: onEditAsJson }]}
+        />
       </div>
     </div>
   );
@@ -124,70 +134,17 @@ function CanvasHeader({
   );
 }
 
-function EmptyDropZone() {
-  const { setNodeRef, isOver } = useDroppable({
-    id: 'canvas-root-empty',
-    data: { kind: 'canvas-drop', parentPath: [] as readonly (number | string)[], index: 0 } as const,
-  });
+function EmptyCanvasHint() {
   return (
-    <div
-      ref={setNodeRef}
-      className={[
-        'flex min-h-[120px] items-center justify-center rounded border-2 border-dashed px-4 py-5 text-center text-[12px]',
-        isOver
-          ? 'border-[var(--vscode-focusBorder)] bg-[var(--vscode-list-hoverBackground)]'
-          : 'border-[var(--vscode-panel-border)] text-[var(--vscode-descriptionForeground)]',
-      ].join(' ')}
-    >
+    <div className="mb-2 flex min-h-[80px] items-center justify-center rounded border-2 border-dashed border-[var(--vscode-panel-border)] px-4 py-4 text-center text-[12px] text-[var(--vscode-descriptionForeground)]">
       <div>
         <div className="text-[var(--vscode-foreground)]">Drag a component here to begin</div>
-        <div className="mt-1 text-[10px]">Switch to "Components" in the left tab to pick from layout, inputs, buttons, and more.</div>
+        <div className="mt-1 text-[10px]">
+          Switch to "Components" in the left tab to pick from layout, inputs, buttons, and more.
+        </div>
       </div>
     </div>
   );
-}
-
-function RootDropZone() {
-  // A subtle drop strip beneath the rendered preview so users can append to
-  // the root view without going through the outline.
-  const { setNodeRef, isOver } = useDroppable({
-    id: 'canvas-root-append',
-    data: {
-      kind: 'canvas-drop',
-      parentPath: [] as readonly (number | string)[],
-      index: Number.MAX_SAFE_INTEGER,
-    } as const,
-  });
-  return (
-    <div
-      ref={setNodeRef}
-      className={[
-        'mt-3 rounded border border-dashed py-3 text-center text-[10px] uppercase tracking-wide transition-colors',
-        isOver
-          ? 'border-[var(--vscode-focusBorder)] bg-[var(--vscode-list-hoverBackground)] text-[var(--vscode-foreground)]'
-          : 'border-[var(--vscode-panel-border)] text-[var(--vscode-descriptionForeground)]',
-      ].join(' ')}
-    >
-      Drop here to append to root
-    </div>
-  );
-}
-
-/** Helper used by the shell when wiring drag-end events. */
-export function isCanvasDropTarget(over: { data: { current?: { kind?: string } | null } | undefined }): boolean {
-  return over?.data?.current?.kind === 'canvas-drop';
-}
-
-/** Read the parent path + index from a `canvas-drop` droppable. */
-export function readCanvasDropTarget(
-  over: { data: { current?: { kind?: string; parentPath?: readonly (number | string)[]; index?: number } | null } | undefined },
-): { parentPath: readonly (number | string)[]; index: number } | null {
-  const data = over?.data?.current;
-  if (data?.kind !== 'canvas-drop') return null;
-  return {
-    parentPath: data.parentPath ?? [],
-    index: data.index ?? 0,
-  };
 }
 
 /** Used in the shell to give the user a passable reference type. */

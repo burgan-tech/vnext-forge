@@ -27,6 +27,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { useStore } from 'zustand';
 import type { DataSchema, PseudoViewDelegate, ViewDefinition } from '@burgantech/pseudo-ui';
 import { PseudoView } from '@burgantech/pseudo-ui/react';
+import type { DesignerClassNames, DesignerMode } from '@burgantech/pseudo-ui/react';
 
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { syncThemeLayers } from './theme/buildSheets';
@@ -72,7 +73,17 @@ export interface PseudoUiPseudoViewFrameProps {
   lang: string;
   delegate: PseudoViewDelegate;
   onFormChange: (next: Record<string, unknown>) => void;
-  designer: boolean;
+  /**
+   * SDK designer mode. Boolean form is the legacy R5 toggle; the
+   * v0.1.5+ enum (`'off' | 'preview' | 'edit'`) is forwarded
+   * unchanged. `'edit'` activates the full canvas chrome (outline,
+   * delete button, HTML5 drag-drop).
+   */
+  designer: boolean | DesignerMode;
+  /** JSON Pointer of the currently-selected node (edit mode only). */
+  selectedNodePath?: string;
+  /** Override the SDK's designer chrome CSS class names. */
+  designerClassNames?: DesignerClassNames;
   /** When true, host stretches to fill its parent. */
   fillHeight: boolean;
 }
@@ -181,6 +192,8 @@ export function PseudoUiPseudoViewFrame(props: PseudoUiPseudoViewFrameProps) {
         delegate={props.delegate}
         onFormChange={props.onFormChange}
         designer={props.designer}
+        selectedNodePath={props.selectedNodePath}
+        designerClassNames={props.designerClassNames}
         renderRoot={shadowRef.current}
         primeReactConfig={primeReactConfig}
       />,
@@ -195,6 +208,8 @@ export function PseudoUiPseudoViewFrame(props: PseudoUiPseudoViewFrameProps) {
     props.delegate,
     props.onFormChange,
     props.designer,
+    props.selectedNodePath,
+    props.designerClassNames,
   ]);
 
   return (

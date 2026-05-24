@@ -1,0 +1,38 @@
+/*
+ * Forge designer-mode chrome theme — R11.
+ *
+ * Maps the SDK's `--pseudo-designer-*` tokens (defined in
+ * `pseudo-ui-react.css`) onto the host shell's --vscode-* palette so
+ * the canvas outline / drop indicator / delete button speak the same
+ * visual language as the rest of the VS Code workbench (or the web
+ * shell's theme tokens, which mirror the same names).
+ *
+ * Designer chrome is *editor UI*, not view content — overriding it
+ * does not violate the R9 "Forge doesn't theme the canvas" rule
+ * because none of these declarations touch component render output
+ * (`.p-*` / `.d-*` classes). The chrome is only ever painted in
+ * `designer="edit"` mode.
+ *
+ * Each token has a chain of fallbacks: `--vscode-*` first (extension
+ * webview + web shell that mirrors the same vars), then the SDK
+ * defaults from pseudo-ui-react.css, then a static hex floor. This
+ * keeps the chrome visible even when no VS Code variables are
+ * injected (e.g. unit tests, isolated component previews).
+ */
+
+:host, :root {
+  --pseudo-designer-accent:
+    var(--vscode-focusBorder, var(--p-primary-color, #6750A4));
+
+  --pseudo-designer-hover-outline: 1px dashed var(--pseudo-designer-accent);
+  --pseudo-designer-selected-outline: 2px solid var(--pseudo-designer-accent);
+  --pseudo-designer-drop-indicator: var(--pseudo-designer-accent);
+  --pseudo-designer-drop-inside-bg:
+    color-mix(in srgb, var(--pseudo-designer-accent) 12%, transparent);
+
+  --pseudo-designer-delete-bg:
+    var(--vscode-inputValidation-errorBorder, var(--p-red-600, #dc2626));
+  --pseudo-designer-delete-color:
+    var(--vscode-inputValidation-errorForeground, #ffffff);
+  --pseudo-designer-delete-size: 18px;
+}

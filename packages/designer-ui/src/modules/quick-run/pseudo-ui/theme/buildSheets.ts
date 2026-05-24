@@ -41,6 +41,7 @@
 
 import primeMdcLightCss from 'primereact/resources/themes/mdc-light-indigo/theme.css?raw';
 import primeMdcDarkCss from 'primereact/resources/themes/mdc-dark-indigo/theme.css?raw';
+import designerChromeCss from './designerChrome.css?raw';
 
 import { FORGE_DEFAULT_TOKENS, type AppTheme } from './forgeDefaults';
 import { buildTenantOverrideBlock } from './parseTenantCss';
@@ -94,6 +95,7 @@ const baseSheetCache = new Map<AppTheme, CSSStyleSheet>();
 const forgeOverrideCache = new Map<AppTheme, CSSStyleSheet>();
 const tenantSheetCache = new Map<string, CSSStyleSheet>();
 let utilitiesSheet: CSSStyleSheet | null = null;
+let designerChromeSheet: CSSStyleSheet | null = null;
 
 function getBaseSheet(theme: AppTheme): CSSStyleSheet {
   const cached = baseSheetCache.get(theme);
@@ -110,6 +112,28 @@ function getUtilitiesSheet(): CSSStyleSheet {
   const sheet = new CSSStyleSheet();
   sheet.replaceSync(PRIMEREACT_BASE_UTILITIES_CSS);
   utilitiesSheet = sheet;
+  return sheet;
+}
+
+/**
+ * Designer chrome theme — maps SDK `--pseudo-designer-*` tokens to
+ * `--vscode-*` host theme variables. Adopted between the utilities
+ * sheet and the Forge token overrides so:
+ *
+ *   - It's strictly an editor-UI concern (not view content).
+ *   - Forge defaults / tenant overrides still cascade above it for
+ *     consumer-facing tokens (`--p-*`).
+ *   - The SDK's own pseudo-ui-react.css (adopted last via renderRoot)
+ *     reads the `--pseudo-designer-*` values these definitions set.
+ *
+ * Only `designer="edit"` mode actually renders nodes with the chrome
+ * classes; in other modes this sheet is inert.
+ */
+function getDesignerChromeSheet(): CSSStyleSheet {
+  if (designerChromeSheet) return designerChromeSheet;
+  const sheet = new CSSStyleSheet();
+  sheet.replaceSync(designerChromeCss);
+  designerChromeSheet = sheet;
   return sheet;
 }
 
@@ -154,6 +178,7 @@ export function syncThemeLayers(shadow: ShadowRoot, input: ThemeLayerInputs): vo
   const sheets: CSSStyleSheet[] = [
     getBaseSheet(input.appTheme),
     getUtilitiesSheet(),
+    getDesignerChromeSheet(),
     getForgeOverrideSheet(input.appTheme),
   ];
   if (tenantSheet) sheets.push(tenantSheet);
@@ -168,6 +193,7 @@ export function syncThemeLayers(shadow: ShadowRoot, input: ThemeLayerInputs): vo
     ...tenantSheetCache.values(),
   ]);
   if (utilitiesSheet) managed.add(utilitiesSheet);
+  if (designerChromeSheet) managed.add(designerChromeSheet);
 
   const existingForeign = (shadow.adoptedStyleSheets ?? []).filter((s) => !managed.has(s));
   shadow.adoptedStyleSheets = [...sheets, ...existingForeign];
