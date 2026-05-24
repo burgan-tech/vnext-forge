@@ -23,6 +23,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { useStore } from 'zustand';
 
+import { PseudoUiLangPicker } from '../../../../quick-run/pseudo-ui/PseudoUiLangPicker';
 import { PseudoUiViewSurface } from '../../../../quick-run/pseudo-ui/PseudoUiViewSurface';
 import type { ViewResponse } from '../../../../quick-run/types/quickrun.types';
 import type { SchemaResolver } from '../../../../quick-run/pseudo-ui/createDataSchemaResolver';
@@ -219,6 +220,9 @@ function CanvasHeader({
         )}
       </div>
       <div className="flex shrink-0 items-center gap-1">
+        {/* R20 follow-up: inline locale picker so designers can preview
+            multi-language text without opening the sidebar. */}
+        <PseudoUiLangPicker className="mr-1" />
         <button
           type="button"
           className="rounded border border-[var(--vscode-panel-border)] bg-[var(--vscode-button-secondaryBackground)] px-2 py-0.5 text-[10px] text-[var(--vscode-button-secondaryForeground)] hover:bg-[var(--vscode-list-hoverBackground)]"

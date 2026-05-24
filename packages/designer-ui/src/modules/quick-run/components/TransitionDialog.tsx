@@ -12,6 +12,7 @@ import * as QuickRunApi from '../QuickRunApi';
 import type { PresetEntry, WorkflowBucketConfig } from '../QuickRunApi';
 import { createQuickRunPseudoDelegate } from '../pseudo-ui/createQuickRunPseudoDelegate';
 import { createDataSchemaResolver, type SchemaResolver } from '../pseudo-ui/createDataSchemaResolver';
+import { PseudoUiLangPicker } from '../pseudo-ui/PseudoUiLangPicker';
 import { PseudoUiOrJsonBlock } from '../pseudo-ui/PseudoUiOrJsonBlock';
 import type { DataSchema, PseudoViewDelegate } from '@burgantech/pseudo-ui';
 import { useQuickRunPolling } from '../hooks/useQuickRunPolling';
@@ -622,6 +623,14 @@ function TransitionViewInfo({
       </button>
       {!collapsed && (
         <div className="flex max-h-[45vh] min-h-0 flex-col overflow-hidden border-t border-[var(--vscode-panel-border)] p-3">
+          {view.renderer === 'pseudo-ui' && (
+            // R20 follow-up: inline locale picker for pseudo-ui
+            // transition views. Sits above the surface so extension
+            // users can switch language without leaving the dialog.
+            <div className="mb-2 flex justify-end">
+              <PseudoUiLangPicker />
+            </div>
+          )}
           <PseudoUiOrJsonBlock
             view={view}
             jsonValue={jsonValue}

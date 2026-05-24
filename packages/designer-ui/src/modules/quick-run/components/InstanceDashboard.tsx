@@ -7,6 +7,7 @@ import { useQuickRunPolling } from '../hooks/useQuickRunPolling';
 import { useQuickRunStore } from '../store/quickRunStore';
 import { createQuickRunPseudoDelegate } from '../pseudo-ui/createQuickRunPseudoDelegate';
 import { createDataSchemaResolver } from '../pseudo-ui/createDataSchemaResolver';
+import { PseudoUiLangPicker } from '../pseudo-ui/PseudoUiLangPicker';
 import { PseudoUiOrJsonBlock } from '../pseudo-ui/PseudoUiOrJsonBlock';
 import { safeViewContent, type TransitionInfo } from '../types/quickrun.types';
 import { SchemaForm } from '../../schema-form';
@@ -885,9 +886,11 @@ function StateViewContent({ view }: { view: NonNullable<ReturnType<typeof useQui
   let jsonValue: unknown = null;
   try { jsonValue = JSON.parse(displayContent); } catch { /* not JSON */ }
 
+  const isPseudoUi = view.renderer === 'pseudo-ui';
+
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-2 text-xs">
+      <div className="flex flex-wrap items-center gap-2 text-xs">
         <span className="font-medium">{view.key}</span>
         <span className="rounded bg-[var(--vscode-badge-background)] px-1 py-0.5 text-[9px] text-[var(--vscode-badge-foreground)]">
           {view.type}
@@ -899,6 +902,13 @@ function StateViewContent({ view }: { view: NonNullable<ReturnType<typeof useQui
           <span className="rounded border border-[var(--vscode-panel-border)] bg-[var(--vscode-textCodeBlock-background)] px-1 py-0.5 text-[9px] text-[var(--vscode-descriptionForeground)]">
             {view.renderer}
           </span>
+        )}
+        {isPseudoUi && (
+          // R20 follow-up: inline locale picker so extension users (no
+          // sidebar) can switch the language pseudo-ui multi-lang
+          // content resolves to. Pushed to the right edge of the
+          // header row via `ml-auto`.
+          <PseudoUiLangPicker className="ml-auto" />
         )}
       </div>
       <PseudoUiOrJsonBlock
