@@ -20,7 +20,7 @@
  */
 
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useStore } from 'zustand';
 
 import { PseudoUiViewSurface } from '../../../../quick-run/pseudo-ui/PseudoUiViewSurface';
@@ -60,7 +60,19 @@ export function BuilderCanvas({
 }: BuilderCanvasProps) {
   const definition = useStore(store, (s) => s.definition);
   const selectedPath = useStore(store, (s) => s.selectedPath);
-  const delegate = useBuilderDesignerDelegate(store);
+
+  // R15: hover-driven live breadcrumb. Local to the canvas — we don't
+  // want hover to leak into the store and re-render unrelated
+  // subscribers (inspector, outline) on every mouse move.
+  const [hoveredPath, setHoveredPath] = useState<NodePath | null>(null);
+  const handleHover = useCallback((path: NodePath | null) => setHoveredPath(path), []);
+  const delegate = useBuilderDesignerDelegate(store, { onHover: handleHover });
+
+  // Effective path the header should describe: live hover wins, then
+  // selection, then nothing. The header flags hover-only mode so the
+  // user knows the breadcrumb is a preview, not the current selection.
+  const breadcrumbPath = hoveredPath ?? selectedPath;
+  const breadcrumbIsHover = hoveredPath !== null;
 
   const previewResponse = useMemo<ViewResponse>(() => {
     return {
@@ -76,23 +88,24 @@ export function BuilderCanvas({
     [selectedPath],
   );
 
-  // Build a human breadcrumb for the selected node. We follow the path
-  // through the live tree so each segment can show the node type rather
-  // than just an index.
+  // Build a human breadcrumb for the displayed path (hover preview if
+  // active, otherwise the selection). We follow the path through the
+  // live tree so each segment can show the node type rather than just
+  // an index.
   const breadcrumb = useMemo(() => {
-    if (!selectedPath || selectedPath.length === 0) return null;
+    if (!breadcrumbPath || breadcrumbPath.length === 0) return null;
     const crumbs: string[] = [];
-    for (let i = 1; i <= selectedPath.length; i++) {
-      const partial = selectedPath.slice(0, i);
+    for (let i = 1; i <= breadcrumbPath.length; i++) {
+      const partial = breadcrumbPath.slice(0, i);
       const node = getNode(definition.view, partial);
       if (!node) break;
-      const segment = selectedPath[i - 1];
+      const segment = breadcrumbPath[i - 1];
       const meta = findComponentMeta(node.type);
       const label = meta?.label ?? node.type;
       crumbs.push(typeof segment === 'string' ? `${label} (${segment})` : label);
     }
     return crumbs;
-  }, [definition.view, selectedPath]);
+  }, [definition.view, breadcrumbPath]);
 
   const hasRootChildren = ((definition.view.children as unknown[] | undefined) ?? []).length > 0;
 
@@ -124,6 +137,7 @@ export function BuilderCanvas({
     <div className="flex h-full min-h-0 flex-col">
       <CanvasHeader
         breadcrumb={breadcrumb}
+        isHover={breadcrumbIsHover}
         onEditAsJson={onEditAsJson}
         inspectorOpen={inspectorOpen}
         onToggleInspector={onToggleInspector}
@@ -155,11 +169,16 @@ export function BuilderCanvas({
 
 function CanvasHeader({
   breadcrumb,
+  isHover,
   onEditAsJson,
   inspectorOpen,
   onToggleInspector,
 }: {
   breadcrumb: string[] | null;
+  /** R15: true while the breadcrumb describes a hovered (not selected)
+   *  node — rendered italic + dimmed so the user can tell preview
+   *  from the actual selection. */
+  isHover: boolean;
   onEditAsJson: () => void;
   inspectorOpen: boolean;
   onToggleInspector: () => void;
@@ -171,11 +190,20 @@ function CanvasHeader({
           Canvas
         </span>
         {breadcrumb && breadcrumb.length > 0 ? (
-          <span className="truncate text-[var(--vscode-foreground)]" title={breadcrumb.join(' › ')}>
+          <span
+            className={[
+              'min-w-0 truncate',
+              isHover
+                ? 'italic text-[var(--vscode-descriptionForeground)]'
+                : 'text-[var(--vscode-foreground)]',
+            ].join(' ')}
+            title={breadcrumb.join(' › ')}
+            aria-live="polite"
+          >
             {breadcrumb.map((crumb, i) => (
               <span key={`${crumb}-${i}`}>
                 {i > 0 ? <span className="mx-1 text-[var(--vscode-descriptionForeground)]">›</span> : null}
-                <span className={i === breadcrumb.length - 1 ? 'font-semibold' : ''}>{crumb}</span>
+                <span className={i === breadcrumb.length - 1 && !isHover ? 'font-semibold' : ''}>{crumb}</span>
               </span>
             ))}
           </span>

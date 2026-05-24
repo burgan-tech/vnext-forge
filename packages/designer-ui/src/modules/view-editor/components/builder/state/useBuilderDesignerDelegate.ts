@@ -37,7 +37,15 @@ import type {
 
 import { createNodeFromCatalog } from '../palette/componentCatalog';
 import { jsonPointerToNodePath } from '../utils/jsonPointerPath';
+import type { NodePath } from '../types';
 import type { BuilderStore } from './builderStore';
+
+export interface BuilderDesignerDelegateOptions {
+  /** R15: receive live hover events so the canvas header breadcrumb
+   *  can preview the hovered node. Called with `null` when the
+   *  pointer leaves any designer node. */
+  onHover?: (path: NodePath | null) => void;
+}
 
 const EMPTY_VIEW: ViewDefinition = {
   $schema: '',
@@ -47,7 +55,11 @@ const EMPTY_VIEW: ViewDefinition = {
 
 const EMPTY_SCHEMA = {} as DataSchema;
 
-export function useBuilderDesignerDelegate(store: BuilderStore): PseudoViewDelegate {
+export function useBuilderDesignerDelegate(
+  store: BuilderStore,
+  options: BuilderDesignerDelegateOptions = {},
+): PseudoViewDelegate {
+  const { onHover } = options;
   const selectNode = useStore(store, (s) => s.selectNode);
   const deleteNode = useStore(store, (s) => s.deleteNode);
   const moveNode = useStore(store, (s) => s.moveNode);
@@ -63,6 +75,20 @@ export function useBuilderDesignerDelegate(store: BuilderStore): PseudoViewDeleg
         const path = jsonPointerToNodePath(pointer);
         if (path === null) return;
         selectNode(path);
+      },
+
+      onNodeHover: (pointer: string | null, _node: ComponentNode | null) => {
+        if (!onHover) return;
+        if (pointer === null) {
+          onHover(null);
+          return;
+        }
+        const path = jsonPointerToNodePath(pointer);
+        // Silently ignore hover events whose pointer references a
+        // slot we cannot model. The breadcrumb just keeps the prior
+        // value (or selection) in that case.
+        if (path === null) return;
+        onHover(path);
       },
 
       onNodeDelete: (pointer: string) => {
@@ -91,6 +117,6 @@ export function useBuilderDesignerDelegate(store: BuilderStore): PseudoViewDeleg
         insertNode(parent, index, node);
       },
     }),
-    [selectNode, deleteNode, moveNode, insertNode],
+    [selectNode, deleteNode, moveNode, insertNode, onHover],
   );
 }
