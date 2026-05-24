@@ -368,12 +368,11 @@ interface PseudoUiStyleSectionProps {
   onLangChange: (lang: string) => void;
 }
 
-/** Common locales shown as quick chips; any other ISO code can be typed in the free-text input. */
+/** Quick chips for the platform's two primary locales. Anything else
+ *  (AR, DE, …) is reachable via the free-text input next to them. */
 const PSEUDO_UI_LANG_PRESETS: readonly { value: string; label: string }[] = [
   { value: 'tr', label: 'TR' },
   { value: 'en', label: 'EN' },
-  { value: 'ar', label: 'AR' },
-  { value: 'de', label: 'DE' },
 ];
 
 function PseudoUiStyleSection({
@@ -384,6 +383,26 @@ function PseudoUiStyleSection({
   lang,
   onLangChange,
 }: PseudoUiStyleSectionProps) {
+  // Local draft so the user can clear the field to type a fresh ISO
+  // code. The store's normalizer falls back to the default ('tr')
+  // when the trimmed value is empty — committing every keystroke
+  // would snap the input back mid-edit and make codes that start
+  // with the same letter as the active preset impossible to type
+  // (e.g. clearing 'tr' to type 'th' would lock the field at 'tr').
+  const [draftLang, setDraftLang] = useState(lang);
+  useEffect(() => {
+    setDraftLang(lang);
+  }, [lang]);
+
+  const commitDraftLang = () => {
+    const trimmed = draftLang.trim();
+    if (trimmed.length === 0) {
+      setDraftLang(lang);
+      return;
+    }
+    if (trimmed !== lang) onLangChange(trimmed);
+  };
+
   return (
     <div className="flex flex-col gap-3 py-1">
       <div className="flex flex-col gap-1.5">
@@ -413,9 +432,17 @@ function PseudoUiStyleSection({
           <Input
             id="pseudo-ui-lang"
             size="sm"
-            value={lang}
+            value={draftLang}
             placeholder="ISO code"
-            onChange={(e) => onLangChange(e.target.value)}
+            onChange={(e) => setDraftLang(e.target.value)}
+            onBlur={commitDraftLang}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                commitDraftLang();
+                (e.currentTarget as HTMLInputElement).blur();
+              }
+            }}
             className="flex-1"
           />
         </div>

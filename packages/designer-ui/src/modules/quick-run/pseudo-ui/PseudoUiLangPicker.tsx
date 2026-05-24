@@ -11,21 +11,20 @@
  */
 
 import { Globe } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 import { Input } from '../../../ui/Input';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 
 /**
- * Quick chips for the common banking locales; any other ISO code can
- * be typed via the popover input. Keep this list short — the row
- * lives in a dense header and additional values are reachable through
- * the free-text input.
+ * Quick chips for the platform's two primary locales. Any other ISO
+ * code is reachable via the `…` popover input. Keep this list short
+ * — the row lives in a dense header and clutter pushes the picker
+ * off the visible header on narrow widths.
  */
 const QUICK_PRESETS: readonly { value: string; label: string }[] = [
   { value: 'tr', label: 'TR' },
   { value: 'en', label: 'EN' },
-  { value: 'ar', label: 'AR' },
 ];
 
 export interface PseudoUiLangPickerProps {
@@ -37,6 +36,31 @@ export function PseudoUiLangPicker({ className }: PseudoUiLangPickerProps) {
   const lang = useSettingsStore((s) => s.pseudoUiLang);
   const setLang = useSettingsStore((s) => s.setPseudoUiLang);
   const [expanded, setExpanded] = useState(false);
+
+  // Decoupled draft so the user can clear the input and retype a new
+  // ISO code without the normalizer (which falls back to the default
+  // when the trimmed value is empty) snapping the field back to 'tr'
+  // mid-keystroke. We only commit non-empty drafts to the store; an
+  // empty draft is allowed locally but treated as a no-op.
+  const [draft, setDraft] = useState(lang);
+
+  // Re-sync the local draft when the store value changes from
+  // anywhere else (the sidebar picker, a chip click on another
+  // mounted picker, persisted hydration, …).
+  useEffect(() => {
+    setDraft(lang);
+  }, [lang]);
+
+  const commitDraft = (): void => {
+    const trimmed = draft.trim();
+    if (trimmed.length === 0) {
+      // Restore the displayed value to the active store lang so the
+      // field never visually "swallows" the user's edit.
+      setDraft(lang);
+      return;
+    }
+    if (trimmed !== lang) setLang(trimmed);
+  };
 
   // When the current value isn't one of the quick presets, surface
   // a small chip so users still see the active locale at a glance.
@@ -90,8 +114,16 @@ export function PseudoUiLangPicker({ className }: PseudoUiLangPickerProps) {
       {expanded && (
         <Input
           size="sm"
-          value={lang}
-          onChange={(e) => setLang(e.target.value)}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onBlur={commitDraft}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              commitDraft();
+              (e.currentTarget as HTMLInputElement).blur();
+            }
+          }}
           placeholder="ISO"
           aria-label="Custom ISO language code"
           className="h-6 w-20 text-[10px]"
