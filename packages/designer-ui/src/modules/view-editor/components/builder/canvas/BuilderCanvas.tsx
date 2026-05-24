@@ -19,6 +19,7 @@
  * compute it once per selection change.
  */
 
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useMemo } from 'react';
 import { useStore } from 'zustand';
 
@@ -31,14 +32,26 @@ import { nodePathToJsonPointer } from '../utils/jsonPointerPath';
 import { getNode } from '../utils/nodeOps';
 import { type BuilderDefinition } from '../types';
 import { type BuilderStore } from '../state/builderStore';
+import { useDragAutoScroll } from './useDragAutoScroll';
 
 export interface BuilderCanvasProps {
   store: BuilderStore;
   viewKey: string;
   onEditAsJson: () => void;
+  /** Whether the inspector panel is currently open. Drives the
+   *  chevron icon direction in the canvas header. */
+  inspectorOpen: boolean;
+  /** Toggle the inspector panel from the canvas header chevron. */
+  onToggleInspector: () => void;
 }
 
-export function BuilderCanvas({ store, viewKey, onEditAsJson }: BuilderCanvasProps) {
+export function BuilderCanvas({
+  store,
+  viewKey,
+  onEditAsJson,
+  inspectorOpen,
+  onToggleInspector,
+}: BuilderCanvasProps) {
   const definition = useStore(store, (s) => s.definition);
   const selectedPath = useStore(store, (s) => s.selectedPath);
   const delegate = useBuilderDesignerDelegate(store);
@@ -77,10 +90,24 @@ export function BuilderCanvas({ store, viewKey, onEditAsJson }: BuilderCanvasPro
 
   const hasRootChildren = ((definition.view.children as unknown[] | undefined) ?? []).length > 0;
 
+  const autoScroll = useDragAutoScroll();
+
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <CanvasHeader breadcrumb={breadcrumb} onEditAsJson={onEditAsJson} />
-      <div className="min-h-0 flex-1 overflow-y-auto p-3">
+      <CanvasHeader
+        breadcrumb={breadcrumb}
+        onEditAsJson={onEditAsJson}
+        inspectorOpen={inspectorOpen}
+        onToggleInspector={onToggleInspector}
+      />
+      <div
+        ref={autoScroll.ref}
+        onDragOver={autoScroll.onDragOver}
+        onDragLeave={autoScroll.onDragLeave}
+        onDragEnd={autoScroll.onDragEnd}
+        onDrop={autoScroll.onDrop}
+        className="min-h-0 flex-1 overflow-y-auto p-3"
+      >
         {hasRootChildren ? null : <EmptyCanvasHint />}
         <PseudoUiViewSurface
           viewResponse={previewResponse}
@@ -100,9 +127,13 @@ export function BuilderCanvas({ store, viewKey, onEditAsJson }: BuilderCanvasPro
 function CanvasHeader({
   breadcrumb,
   onEditAsJson,
+  inspectorOpen,
+  onToggleInspector,
 }: {
   breadcrumb: string[] | null;
   onEditAsJson: () => void;
+  inspectorOpen: boolean;
+  onToggleInspector: () => void;
 }) {
   return (
     <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--vscode-panel-border)] bg-[var(--vscode-editor-background)] px-3 py-1.5">
@@ -123,13 +154,24 @@ function CanvasHeader({
           <span className="text-[var(--vscode-descriptionForeground)]">Nothing selected</span>
         )}
       </div>
-      <button
-        type="button"
-        className="shrink-0 rounded border border-[var(--vscode-panel-border)] bg-[var(--vscode-button-secondaryBackground)] px-2 py-0.5 text-[10px] text-[var(--vscode-button-secondaryForeground)] hover:bg-[var(--vscode-list-hoverBackground)]"
-        onClick={onEditAsJson}
-      >
-        Edit as JSON
-      </button>
+      <div className="flex shrink-0 items-center gap-1">
+        <button
+          type="button"
+          className="rounded border border-[var(--vscode-panel-border)] bg-[var(--vscode-button-secondaryBackground)] px-2 py-0.5 text-[10px] text-[var(--vscode-button-secondaryForeground)] hover:bg-[var(--vscode-list-hoverBackground)]"
+          onClick={onEditAsJson}
+        >
+          Edit as JSON
+        </button>
+        <button
+          type="button"
+          aria-label={inspectorOpen ? 'Hide inspector' : 'Show inspector'}
+          title={inspectorOpen ? 'Hide inspector' : 'Show inspector'}
+          onClick={onToggleInspector}
+          className="flex h-6 w-6 items-center justify-center rounded border border-[var(--vscode-panel-border)] bg-[var(--vscode-button-secondaryBackground)] text-[var(--vscode-button-secondaryForeground)] hover:bg-[var(--vscode-list-hoverBackground)]"
+        >
+          {inspectorOpen ? <ChevronRight size={12} aria-hidden /> : <ChevronLeft size={12} aria-hidden />}
+        </button>
+      </div>
     </div>
   );
 }

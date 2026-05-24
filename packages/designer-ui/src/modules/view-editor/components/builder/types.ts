@@ -85,6 +85,7 @@ export type PropertyField =
   | MultiLangField
   | BooleanField
   | TabsField
+  | StepsField
   | RawField;
 
 interface FieldBase {
@@ -149,6 +150,13 @@ export interface BooleanField extends FieldBase {
 /** TabView.tabs[] — opens a nested editor for the tabs array. */
 export interface TabsField extends FieldBase {
   kind: 'tabs';
+}
+
+/** Stepper.steps[] — typed editor for the steps array with multi-lang
+ *  title/subtitle. Step `content` (component array) is edited via the
+ *  outline / canvas, not in this field. */
+export interface StepsField extends FieldBase {
+  kind: 'steps';
 }
 
 /** Raw JSON fallback for any prop the inspector doesn't have a typed field for. */

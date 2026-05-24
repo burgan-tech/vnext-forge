@@ -12,8 +12,16 @@
  * reordering (separate render context, no conflict). Palette → outline
  * drops are intentionally not supported; the canvas is the primary
  * insertion surface for the palette.
+ *
+ * R12.1: categories are now collapsible accordions so the palette is
+ * compact by default and scrolling a single panel to find a component
+ * is rarely needed. The first two groups (Layout, Container) are
+ * expanded on first render; the rest start collapsed. Searching
+ * force-expands every group with matches so the user always sees
+ * results without having to expand each section manually.
  */
 
+import { ChevronDown, ChevronRight } from 'lucide-react';
 import * as Icons from 'lucide-react';
 import { Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
@@ -29,8 +37,19 @@ export interface ComponentPaletteProps {
   onAdd?: (type: string) => void;
 }
 
+/** Categories that start expanded on first render. Other categories
+ *  begin collapsed; user clicks to expand. Searching force-expands
+ *  every category with matches regardless of this default. */
+const DEFAULT_EXPANDED: ReadonlySet<string> = new Set(['Layout', 'Container']);
+
 export function ComponentPalette({ className, onAdd }: ComponentPaletteProps) {
   const [query, setQuery] = useState('');
+  // Tracks which categories the user has manually toggled. Categories
+  // not in this map fall back to `DEFAULT_EXPANDED` (or force-open
+  // when search is active). Letting the search override the manual
+  // toggle is intentional — the user is looking for *something* and
+  // collapsed sections would hide matches.
+  const [userToggled, setUserToggled] = useState<Record<string, boolean>>({});
 
   const grouped = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -50,34 +69,66 @@ export function ComponentPalette({ className, onAdd }: ComponentPaletteProps) {
       .filter((g) => g.items.length > 0);
   }, [query]);
 
+  const searchActive = query.trim() !== '';
+
+  const isExpanded = (category: string): boolean => {
+    if (searchActive) return true;
+    if (category in userToggled) return userToggled[category]!;
+    return DEFAULT_EXPANDED.has(category);
+  };
+
+  const toggle = (category: string): void => {
+    setUserToggled((prev) => ({
+      ...prev,
+      [category]: !isExpanded(category),
+    }));
+  };
+
   return (
     <div className={`flex h-full min-h-0 flex-col ${className ?? ''}`}>
       <div className="border-b border-[var(--vscode-panel-border)] p-2">
         <Input
+          size="sm"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search components..."
           aria-label="Search components"
         />
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto p-2">
+      <div className="min-h-0 flex-1 overflow-y-auto p-1">
         {grouped.length === 0 ? (
           <p className="px-2 py-3 text-[11px] text-[var(--vscode-descriptionForeground)]">
             No components match "{query}".
           </p>
         ) : (
-          grouped.map(({ category, items }) => (
-            <section key={category} className="mb-3">
-              <h3 className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--vscode-descriptionForeground)]">
-                {category}
-              </h3>
-              <div className="grid grid-cols-2 gap-1">
-                {items.map((meta) => (
-                  <PaletteCard key={meta.type} meta={meta} onAdd={onAdd} />
-                ))}
-              </div>
-            </section>
-          ))
+          grouped.map(({ category, items }) => {
+            const expanded = isExpanded(category);
+            return (
+              <section key={category} className="mb-1">
+                <button
+                  type="button"
+                  onClick={() => toggle(category)}
+                  className="flex w-full items-center gap-1 rounded px-1 py-1 text-left text-[10px] font-semibold uppercase tracking-wide text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)]"
+                  aria-expanded={expanded}
+                  aria-controls={`palette-section-${category}`}
+                >
+                  {expanded ? <ChevronDown size={11} aria-hidden /> : <ChevronRight size={11} aria-hidden />}
+                  <span>{category}</span>
+                  <span className="ml-auto text-[var(--vscode-descriptionForeground)]">{items.length}</span>
+                </button>
+                {expanded ? (
+                  <div
+                    id={`palette-section-${category}`}
+                    className="grid grid-cols-2 gap-1 px-1 pb-2 pt-1"
+                  >
+                    {items.map((meta) => (
+                      <PaletteCard key={meta.type} meta={meta} onAdd={onAdd} />
+                    ))}
+                  </div>
+                ) : null}
+              </section>
+            );
+          })
         )}
       </div>
     </div>
@@ -117,21 +168,14 @@ function PaletteCard({ meta, onAdd }: PaletteCardProps) {
       onDragEnd={handleDragEnd}
       title={meta.description ?? meta.label}
       className={[
-        'group relative flex flex-col items-start gap-1 rounded border px-2 py-1.5 text-left transition-colors',
+        'group relative flex items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-colors',
         'border-[var(--vscode-panel-border)] bg-[var(--vscode-editor-background)] text-[var(--vscode-foreground)]',
         'hover:border-[var(--vscode-focusBorder)] hover:bg-[var(--vscode-list-hoverBackground)]',
         isDragging ? 'cursor-grabbing opacity-50' : 'cursor-grab',
       ].join(' ')}
     >
-      <div className="flex items-center gap-1.5 pr-5">
-        <Icon size={13} aria-hidden />
-        <span className="text-[11px] font-medium">{meta.label}</span>
-      </div>
-      {meta.description ? (
-        <span className="line-clamp-1 pr-5 text-[10px] text-[var(--vscode-descriptionForeground)]">
-          {meta.description}
-        </span>
-      ) : null}
+      <Icon size={13} aria-hidden />
+      <span className="truncate text-[11px] font-medium">{meta.label}</span>
       {onAdd ? (
         <button
           type="button"
@@ -144,7 +188,7 @@ function PaletteCard({ meta, onAdd }: PaletteCardProps) {
             onAdd(meta.type);
           }}
           className={[
-            'absolute right-1 top-1 flex h-4 w-4 cursor-pointer items-center justify-center rounded',
+            'ml-auto flex h-4 w-4 shrink-0 cursor-pointer items-center justify-center rounded',
             'opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100',
             'text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-activeSelectionBackground)] hover:text-[var(--vscode-list-activeSelectionForeground)]',
           ].join(' ')}

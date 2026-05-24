@@ -61,6 +61,7 @@ export function BindAutocomplete({
   return (
     <div ref={containerRef} className="relative">
       <Input
+        size="sm"
         value={value}
         onChange={(e) => {
           onChange(e.target.value);

@@ -125,6 +125,7 @@ function ActionRow({ value, onChange }: { value: ActionLike; onChange: (next: Ac
     <div className="flex flex-col gap-1">
       <div className="flex items-center gap-2">
         <Select
+          className="h-8 text-xs"
           value={presetValue}
           onChange={(e) => {
             const next = e.target.value;
@@ -164,12 +165,14 @@ function ActionRow({ value, onChange }: { value: ActionLike; onChange: (next: Ac
       {!isPreset ? (
         <>
           <Input
+            size="sm"
             value={descriptor.bind ?? ''}
             onChange={(e) => onChange({ ...descriptor, bind: e.target.value || undefined })}
             placeholder="bind (e.g. branchCode)"
             aria-label="bind"
           />
           <Input
+            size="sm"
             value={typeof descriptor.value === 'string' ? descriptor.value : descriptor.value !== undefined ? JSON.stringify(descriptor.value) : ''}
             onChange={(e) => {
               const raw = e.target.value;

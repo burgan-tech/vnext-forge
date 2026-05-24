@@ -12,7 +12,7 @@
 
 import { useDraggable, useDroppable } from '@dnd-kit/core';
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useStore } from 'zustand';
 
 import { Input } from '../../../../../ui/Input';
@@ -60,6 +60,18 @@ export function OutlinePanel({ store }: OutlinePanelProps) {
     return matches;
   }, [definition.view, normalizedQuery]);
 
+  // Paths along the selection chain (root → selected node). Used to
+  // auto-expand the outline so the selected row is visible without
+  // overriding manual user toggles (see `OutlineRow`).
+  const selectionAncestorPaths = useMemo(() => {
+    if (!selectedPath || selectedPath.length === 0) return null;
+    const set = new Set<string>();
+    for (let i = 0; i <= selectedPath.length; i++) {
+      set.add(selectedPath.slice(0, i).join('.'));
+    }
+    return set;
+  }, [selectedPath]);
+
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="shrink-0 border-b border-[var(--vscode-panel-border)] p-2">
@@ -78,6 +90,7 @@ export function OutlinePanel({ store }: OutlinePanelProps) {
           selectedPath={selectedPath}
           onSelect={selectNode}
           matchingPaths={matchingPaths}
+          selectionAncestorPaths={selectionAncestorPaths}
           query={normalizedQuery}
         />
       </div>
@@ -131,10 +144,24 @@ interface OutlineRowProps {
   selectedPath: NodePath | null;
   onSelect: (path: NodePath | null) => void;
   matchingPaths: ReadonlySet<string> | null;
+  /** Paths from root to (and including) the selected node. When the
+   *  current row's path is in this set, the row is forced expanded so
+   *  the user can see the selected descendant. User manual toggles
+   *  still win via `userToggled`. */
+  selectionAncestorPaths: ReadonlySet<string> | null;
   query: string;
 }
 
-function OutlineRow({ node, path, depth, selectedPath, onSelect, matchingPaths, query }: OutlineRowProps) {
+function OutlineRow({
+  node,
+  path,
+  depth,
+  selectedPath,
+  onSelect,
+  matchingPaths,
+  selectionAncestorPaths,
+  query,
+}: OutlineRowProps) {
   // IMPORTANT: All hooks must run on every render (Rules of Hooks). The
   // search-filter early return below changes between true/false as the user
   // types, so we must call useDraggable up-front before any conditional
@@ -142,6 +169,7 @@ function OutlineRow({ node, path, depth, selectedPath, onSelect, matchingPaths, 
   // expected".
   const [userToggled, setUserToggled] = useState(false);
   const [collapsedManual, setCollapsedManual] = useState(false);
+  const rowRef = useRef<HTMLDivElement | null>(null);
   const id = `outline-${path.join('.')}`;
   const { attributes, listeners, setNodeRef: setDragRef, isDragging } = useDraggable({
     id: `${id}-drag`,
@@ -149,25 +177,42 @@ function OutlineRow({ node, path, depth, selectedPath, onSelect, matchingPaths, 
     disabled: path.length === 0, // can't drag the root
   });
 
+  const pathKey = path.join('.');
   // While searching, force-expand any ancestor of a match.
-  const isAncestorOfMatch = matchingPaths?.has(path.join('.')) ?? false;
+  const isAncestorOfMatch = matchingPaths?.has(pathKey) ?? false;
   const isMatchItself = query !== '' && nodeMatchesQuery(node, query);
   const filterActive = matchingPaths !== null;
   const filterHides = filterActive && !isAncestorOfMatch && !isMatchItself;
-  const defaultCollapsed = depth > DEFAULT_COLLAPSE_DEPTH && !filterActive;
+  const isSelectionAncestor = selectionAncestorPaths?.has(pathKey) ?? false;
+  const defaultCollapsed = depth > DEFAULT_COLLAPSE_DEPTH && !filterActive && !isSelectionAncestor;
   const collapsed = userToggled ? collapsedManual : defaultCollapsed;
+
+  const isSelected = arraysEqual(selectedPath, path);
+
+  // When this row becomes the selected node, bring it into view. We do
+  // this in a layout effect so the parent rows have a chance to expand
+  // (the auto-expand above is reactive to the same `selectedPath`).
+  useEffect(() => {
+    if (isSelected && rowRef.current) {
+      rowRef.current.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    }
+  }, [isSelected]);
 
   if (filterHides) return null;
 
   const meta = findComponentMeta(node.type);
   const childRenderables = collectChildren(node, path);
-  const isSelected = arraysEqual(selectedPath, path);
+
+  const setRowRef = (el: HTMLDivElement | null) => {
+    rowRef.current = el;
+    setDragRef(el);
+  };
 
   return (
     <div className="flex flex-col">
       {/* The row itself — selection click target + drag handle */}
       <div
-        ref={setDragRef}
+        ref={setRowRef}
         {...attributes}
         {...listeners}
         role="treeitem"
@@ -226,6 +271,7 @@ function OutlineRow({ node, path, depth, selectedPath, onSelect, matchingPaths, 
                 selectedPath={selectedPath}
                 onSelect={onSelect}
                 matchingPaths={matchingPaths}
+                selectionAncestorPaths={selectionAncestorPaths}
                 query={query}
               />
               <DropSlot parentPath={path} index={i + 1} depth={depth + 1} compact />

@@ -70,6 +70,13 @@ export function PseudoUiBuilder({
   // ── Mode ────────────────────────────────────────────────────────────
   const [mode, setMode] = useState<BuilderMode>('builder');
 
+  // ── Inspector visibility ───────────────────────────────────────────
+  // Manual toggle (chevron in canvas) hides the right panel for a
+  // wider canvas. Selecting a different node auto-opens the inspector
+  // again (a no-op if the selection didn't actually change, so the
+  // user's "close" stays in effect when they re-click the same node).
+  const [inspectorOpen, setInspectorOpen] = useState(true);
+
   // ── Store ───────────────────────────────────────────────────────────
   // Lazily create one store per mount; sync incoming content edits into it.
   // `useRef` initializer runs once — that's the intent.
@@ -88,6 +95,17 @@ export function PseudoUiBuilder({
     if (serialized === content || normalizeJson(serialized) === normalizeJson(content)) return;
     onContentChange(serialized);
   }, [definition, content, onContentChange]);
+
+  // ── Auto-open inspector when selection changes to a node ──────────
+  useEffect(() => {
+    return store.subscribe((state, prev) => {
+      const prevPath = prev.selectedPath;
+      const nextPath = state.selectedPath;
+      if (nextPath !== prevPath && nextPath !== null && nextPath.length >= 0) {
+        setInspectorOpen(true);
+      }
+    });
+  }, [store]);
 
   // ── Inbound sync (host → store) ─────────────────────────────────────
   useEffect(() => {
@@ -166,28 +184,34 @@ export function PseudoUiBuilder({
           <TabsTrigger value="preview">Preview</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="builder" className="min-h-0 flex-1">
+        <TabsContent value="builder" className="min-h-0 flex-1 overflow-hidden">
           <DndContext sensors={sensors} onDragEnd={onDragEnd}>
-            <ResizablePanelGroup orientation="horizontal" className="h-full min-h-[420px]">
+            <ResizablePanelGroup orientation="horizontal" className="h-full">
               <ResizablePanel defaultSize={22} minSize={16}>
                 <LeftRail store={store} />
               </ResizablePanel>
               <ResizableHandle />
-              <ResizablePanel defaultSize={52} minSize={30}>
+              <ResizablePanel defaultSize={inspectorOpen ? 52 : 78} minSize={30}>
                 <BuilderCanvas
                   store={store}
                   viewKey={viewKey}
                   onEditAsJson={() => setMode('json')}
+                  inspectorOpen={inspectorOpen}
+                  onToggleInspector={() => setInspectorOpen((v) => !v)}
                 />
               </ResizablePanel>
-              <ResizableHandle />
-              <ResizablePanel defaultSize={26} minSize={18}>
-                <PropertyInspector
-                  store={store}
-                  availableSchemas={availableSchemas}
-                  loadSchema={loadSchema}
-                />
-              </ResizablePanel>
+              {inspectorOpen ? (
+                <>
+                  <ResizableHandle />
+                  <ResizablePanel defaultSize={26} minSize={18}>
+                    <PropertyInspector
+                      store={store}
+                      availableSchemas={availableSchemas}
+                      loadSchema={loadSchema}
+                    />
+                  </ResizablePanel>
+                </>
+              ) : null}
             </ResizablePanelGroup>
           </DndContext>
         </TabsContent>

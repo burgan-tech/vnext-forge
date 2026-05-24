@@ -14,12 +14,43 @@
  */
 
 import { useMemo, useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { FolderSearch, Plus, Trash2 } from 'lucide-react';
 import { useStore } from 'zustand';
 
+import { ChooseExistingVnextComponentDialog } from '../../../canvas-interaction/components/panels/tabs/ChooseExistingTaskDialog';
+import type { DiscoveredVnextComponent } from '@vnext-forge-studio/app-contracts';
+import { useProjectStore } from '../../../../store/useProjectStore';
 import { Input } from '../../../../ui/Input';
 import { JsonCodeField } from '../../../../ui/JsonCodeField';
 import { type BuilderStore } from './state/builderStore';
+
+/**
+ * Build the canonical schema URN from a `DiscoveredVnextComponent`.
+ *
+ * Vnext schemas live at `<projectPath>/<domain>/Schemas/...`. The
+ * discovery payload carries the absolute file path; we strip the
+ * project root to recover the relative path, then take the first
+ * segment as the domain. The URN form (per `parseDataSchemaRef.ts`)
+ * is `urn:amorphie:res:schema:<domain>:<key>`. Version suffix is
+ * optional — we include it if the component declares one.
+ *
+ * Falls back to `urn:amorphie:res:schema::<key>` if we cannot
+ * determine the domain (e.g. unexpected directory layout). The
+ * user can manually edit the URN afterwards in the text input.
+ */
+function buildSchemaUrn(
+  component: DiscoveredVnextComponent,
+  projectPath: string | undefined,
+): string {
+  let domain = '';
+  if (projectPath && component.path.startsWith(projectPath)) {
+    const relative = component.path.slice(projectPath.length).replace(/^[/\\]/, '');
+    const firstSegment = relative.split(/[/\\]/, 1)[0];
+    if (firstSegment) domain = firstSegment;
+  }
+  const base = `urn:amorphie:res:schema:${domain}:${component.key}`;
+  return component.version ? `${base}:${component.version}` : base;
+}
 
 export interface ViewSettingsPanelProps {
   store: BuilderStore;
@@ -122,7 +153,7 @@ export function ViewSettingsPanel({ store, availableSchemas }: ViewSettingsPanel
         </Section>
 
         <Section title="$schema" hint="Pseudo-ui view vocabulary; not editable.">
-          <Input value={definition.$schema} readOnly disabled />
+          <Input size="sm" value={definition.$schema} readOnly disabled />
         </Section>
       </div>
     </div>
@@ -173,22 +204,52 @@ function SchemaPicker({
   schemas: readonly { urn: string; label: string }[];
 }) {
   const [query, setQuery] = useState(value);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const activeProject = useProjectStore((s) => s.activeProject);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (q === '') return schemas.slice(0, 12);
     return schemas.filter((s) => s.urn.toLowerCase().includes(q) || s.label.toLowerCase().includes(q)).slice(0, 12);
   }, [schemas, query]);
 
+  const handleDialogSelect = (component: DiscoveredVnextComponent) => {
+    const urn = buildSchemaUrn(component, activeProject?.path);
+    setQuery(urn);
+    onChange(urn);
+    setDialogOpen(false);
+  };
+
   return (
     <div className="flex flex-col gap-1.5">
-      <Input
-        value={query}
-        onChange={(e) => {
-          setQuery(e.target.value);
-          onChange(e.target.value);
-        }}
-        placeholder="urn:..."
-        aria-label="Data schema URN"
+      <div className="flex items-center gap-1">
+        <Input
+          size="sm"
+          value={query}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            onChange(e.target.value);
+          }}
+          placeholder="urn:..."
+          aria-label="Data schema URN"
+        />
+        <button
+          type="button"
+          aria-label="Browse project schemas"
+          title="Browse project schemas"
+          onClick={() => setDialogOpen(true)}
+          className="shrink-0 rounded border border-[var(--vscode-panel-border)] bg-[var(--vscode-button-secondaryBackground)] p-1.5 text-[var(--vscode-button-secondaryForeground)] hover:bg-[var(--vscode-list-hoverBackground)]"
+        >
+          <FolderSearch size={13} aria-hidden />
+        </button>
+      </div>
+      <ChooseExistingVnextComponentDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        category="schemas"
+        onSelect={handleDialogSelect}
+        title="Pick a project schema"
+        description="Schemas discovered in your project's vnext.config paths."
       />
       {schemas.length === 0 ? (
         <p className="text-[10px] text-[var(--vscode-descriptionForeground)]">
@@ -229,6 +290,7 @@ function LookupsEditor({ value, onChange }: { value: string[]; onChange: (next: 
         value.map((lookup, i) => (
           <div key={i} className="flex items-center gap-1">
             <Input
+              size="sm"
               value={lookup}
               onChange={(e) => {
                 const next = value.slice();

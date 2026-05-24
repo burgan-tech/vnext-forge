@@ -241,7 +241,7 @@ const LOCAL_UI_CATALOG: ComponentMeta[] = [
     defaultProps: { type: 'Stepper', steps: [] },
     acceptsChildren: false,
     propertySchema: [
-      { key: 'steps', kind: 'raw', label: 'Steps (array of { label, content[] })', advanced: false },
+      { key: 'steps', kind: 'steps', label: 'Steps', hint: 'Title + subtitle (multi-language). Step content children are edited from the outline.' },
       { key: 'activeStep', kind: 'number', label: 'Active step', min: 0 },
     ],
   },
