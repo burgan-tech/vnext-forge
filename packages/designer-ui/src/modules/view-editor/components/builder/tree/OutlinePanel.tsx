@@ -125,6 +125,15 @@ function walkAll(
       });
     });
   }
+  // Stepper steps[*].content[*]
+  if (node.type === 'Stepper') {
+    const steps = ((node as unknown as { steps?: { content?: BuilderNode[] }[] }).steps) ?? [];
+    steps.forEach((step, si) => {
+      (step.content ?? []).forEach((c, ci) => {
+        walkAll(c, [...path, 'steps', si, 'content', ci], visit);
+      });
+    });
+  }
 }
 
 function nodeMatchesQuery(node: BuilderNode, q: string): boolean {
@@ -317,6 +326,20 @@ function collectChildren(node: BuilderNode, parentPath: NodePath): ChildRenderab
           node: child,
           path: [...parentPath, 'tabs', ti, 'content', ci] as NodePath,
           label: `tab ${ti + 1} child ${ci + 1}`,
+        });
+      });
+    });
+    return out;
+  }
+  if (node.type === 'Stepper') {
+    const steps = ((node as unknown as { steps?: { content?: BuilderNode[] }[] }).steps) ?? [];
+    const out: ChildRenderable[] = [];
+    steps.forEach((step, si) => {
+      (step.content ?? []).forEach((child, ci) => {
+        out.push({
+          node: child,
+          path: [...parentPath, 'steps', si, 'content', ci] as NodePath,
+          label: `step ${si + 1} child ${ci + 1}`,
         });
       });
     });

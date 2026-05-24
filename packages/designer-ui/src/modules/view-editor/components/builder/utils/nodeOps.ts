@@ -18,14 +18,24 @@ function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
 
-/** Resolve a path to the node it points at, or `null` if invalid. */
+/**
+ * Resolve a path to the node it points at, or `null` if invalid.
+ *
+ * String segments switch into a named slot on the current node
+ * (`template`, `tabs`, `content`, `steps`). When the slot value is
+ * an array the next segment must be a number that indexes into it.
+ * When the slot value is a single node we descend straight into it.
+ */
 export function getNode(root: BuilderNode, path: NodePath): BuilderNode | null {
   let current: unknown = root;
   for (const segment of path) {
     if (typeof segment === 'number') {
-      const children = (current as BuilderNode | undefined)?.children;
-      if (!Array.isArray(children) || segment < 0 || segment >= children.length) return null;
-      current = children[segment];
+      // Numeric segment: index either into the array we just stepped into
+      // (e.g. `tabs`, `content`, `steps`) or — implicitly — into the
+      // current node's `children` collection.
+      const arr = Array.isArray(current) ? current : (current as BuilderNode | undefined)?.children;
+      if (!Array.isArray(arr) || segment < 0 || segment >= arr.length) return null;
+      current = arr[segment];
     } else if (segment === 'template') {
       const tpl = (current as { template?: BuilderNode }).template;
       if (!tpl) return null;
@@ -35,10 +45,14 @@ export function getNode(root: BuilderNode, path: NodePath): BuilderNode | null {
       if (!Array.isArray(tabs)) return null;
       current = tabs;
     } else if (segment === 'content') {
-      // TabView tab's content slot — current is a tab object
+      // Tab's or step's content slot — current is a tab/step wrapper object.
       const content = (current as { content?: BuilderNode[] }).content;
       if (!Array.isArray(content)) return null;
       current = content;
+    } else if (segment === 'steps') {
+      const steps = (current as { steps?: unknown[] }).steps;
+      if (!Array.isArray(steps)) return null;
+      current = steps;
     } else {
       return null;
     }
@@ -91,6 +105,8 @@ function getParentTarget(root: BuilderNode, path: NodePath): BuilderNode | Build
       current = (current as { tabs?: unknown[] }).tabs ?? null;
     } else if (segment === 'content') {
       current = (current as { content?: BuilderNode[] }).content ?? null;
+    } else if (segment === 'steps') {
+      current = (current as { steps?: unknown[] }).steps ?? null;
     } else {
       return null;
     }
