@@ -86,6 +86,8 @@ export type PropertyField =
   | BooleanField
   | TabsField
   | StepsField
+  | NodeSlotField
+  | SpansField
   | RawField;
 
 interface FieldBase {
@@ -157,6 +159,33 @@ export interface TabsField extends FieldBase {
  *  outline / canvas, not in this field. */
 export interface StepsField extends FieldBase {
   kind: 'steps';
+}
+
+/**
+ * Slot that holds a nested BuilderNode (or array of nodes). Used by
+ * components like ListTile.leading/trailing, AppBar.leading/actions,
+ * NavigationDrawer.header, Menu.anchor, Dialog.actions, Badge.children
+ * — anywhere vocabulary declares a `componentNode` (or `array<componentNode>`)
+ * property. The inspector shows a picker + summary card; the outline
+ * tree walks into the slot so the node can be edited like any other.
+ *
+ * When `multi=true` the slot value is `BuilderNode[]`; otherwise it
+ * holds a single node. `acceptTypes` narrows the palette dropdown shown
+ * inside the slot picker — fall back to "any" when omitted.
+ */
+export interface NodeSlotField extends FieldBase {
+  kind: 'node-slot';
+  multi?: boolean;
+  acceptTypes?: readonly string[];
+}
+
+/**
+ * RichText.spans editor — array of styled text spans. Each span has a
+ * required `text` (multi-lang), optional `variant` (typography), and
+ * boolean `bold` / `italic` / string `link` modifiers.
+ */
+export interface SpansField extends FieldBase {
+  kind: 'spans';
 }
 
 /** Raw JSON fallback for any prop the inspector doesn't have a typed field for. */

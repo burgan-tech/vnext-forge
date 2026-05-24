@@ -25,6 +25,7 @@ import { useStore } from 'zustand';
 
 import { PseudoUiViewSurface } from '../../../../quick-run/pseudo-ui/PseudoUiViewSurface';
 import type { ViewResponse } from '../../../../quick-run/types/quickrun.types';
+import type { SchemaResolver } from '../../../../quick-run/pseudo-ui/createDataSchemaResolver';
 import { ViewRenderer } from '@vnext-forge-studio/vnext-types';
 import { findComponentMeta } from '../palette/componentCatalog';
 import { useBuilderDesignerDelegate } from '../state/useBuilderDesignerDelegate';
@@ -48,6 +49,10 @@ export interface BuilderCanvasProps {
    *  designer shadow tree (resolved via `data-pseudo-path` on
    *  `event.composedPath()`). */
   onOpenContextMenu?: (path: NodePath, x: number, y: number) => void;
+  /** R16.1: resolves a dataSchema URN to the JSON-schema object so
+   *  the SDK render can reason about ForEach / Component / conditional
+   *  / bind property metadata. Forwarded straight to the surface. */
+  resolveSchema?: SchemaResolver;
 }
 
 export function BuilderCanvas({
@@ -57,6 +62,7 @@ export function BuilderCanvas({
   inspectorOpen,
   onToggleInspector,
   onOpenContextMenu,
+  resolveSchema,
 }: BuilderCanvasProps) {
   const definition = useStore(store, (s) => s.definition);
   const selectedPath = useStore(store, (s) => s.selectedPath);
@@ -161,6 +167,7 @@ export function BuilderCanvas({
           ariaLabel="Builder canvas"
           fillHeight={false}
           errorActions={[{ label: 'Edit as JSON', onTrigger: onEditAsJson }]}
+          resolveSchema={resolveSchema}
         />
       </div>
     </div>

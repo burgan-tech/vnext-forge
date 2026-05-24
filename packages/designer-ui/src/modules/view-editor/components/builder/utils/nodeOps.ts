@@ -53,6 +53,12 @@ export function getNode(root: BuilderNode, path: NodePath): BuilderNode | null {
       const steps = (current as { steps?: unknown[] }).steps;
       if (!Array.isArray(steps)) return null;
       current = steps;
+    } else if (NAMED_NODE_SLOTS.has(segment)) {
+      // R16.2-B: generic componentNode slot lookup (leading, trailing,
+      // header, footer, anchor, actions). When the slot is an array
+      // (actions) the next path segment should be a number; when it is
+      // a single node we descend directly into it.
+      current = (current as Record<string, unknown>)[segment] ?? null;
     } else {
       return null;
     }
@@ -60,6 +66,9 @@ export function getNode(root: BuilderNode, path: NodePath): BuilderNode | null {
   }
   return current as BuilderNode;
 }
+
+/** R16.2-B: componentNode slot keys the builder navigates into. */
+const NAMED_NODE_SLOTS = new Set(['leading', 'trailing', 'header', 'footer', 'anchor', 'actions']);
 
 interface ParentRef {
   parent: BuilderNode | BuilderNode[];
@@ -107,6 +116,8 @@ function getParentTarget(root: BuilderNode, path: NodePath): BuilderNode | Build
       current = (current as { content?: BuilderNode[] }).content ?? null;
     } else if (segment === 'steps') {
       current = (current as { steps?: unknown[] }).steps ?? null;
+    } else if (NAMED_NODE_SLOTS.has(segment)) {
+      current = (current as Record<string, unknown>)[segment] ?? null;
     } else {
       return null;
     }

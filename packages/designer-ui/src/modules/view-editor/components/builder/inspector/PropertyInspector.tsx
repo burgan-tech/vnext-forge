@@ -22,6 +22,8 @@ import type { DataSchema } from '@burgantech/pseudo-ui';
 
 import { BindAutocomplete } from './BindAutocomplete';
 import { MultiLangInput } from './MultiLangInput';
+import { NodeSlotField } from './NodeSlotField';
+import { SpansField } from './SpansField';
 import { StepsField } from './StepsField';
 import { enumerateBindPaths, type BindPathEntry } from './schemaPaths';
 import { ViewSettingsPanel } from '../ViewSettingsPanel';
@@ -139,6 +141,7 @@ export function PropertyInspector({ store, availableSchemas, loadSchema }: Prope
           node={node}
           schema={meta.propertySchema}
           path={selectedPath}
+          store={store}
           bindPaths={bindPaths}
           showAdvanced={showAdvancedFields}
           onChange={(key, value) => updateNodeProp(selectedPath, key, value)}
@@ -152,12 +155,13 @@ interface PropertySchemaFormProps {
   node: BuilderNode;
   schema: PropertyField[];
   path: NodePath;
+  store: BuilderStore;
   bindPaths: string[];
   showAdvanced: boolean;
   onChange: (key: string, value: unknown) => void;
 }
 
-function PropertySchemaForm({ node, schema, bindPaths, showAdvanced, onChange }: PropertySchemaFormProps) {
+function PropertySchemaForm({ node, schema, path, store, bindPaths, showAdvanced, onChange }: PropertySchemaFormProps) {
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const visible = schema.filter((f) => !f.advanced);
   const advanced = schema.filter((f) => f.advanced);
@@ -175,6 +179,8 @@ function PropertySchemaForm({ node, schema, bindPaths, showAdvanced, onChange }:
           field={field}
           value={(node as Record<string, unknown>)[field.key]}
           bindPaths={bindPaths}
+          parentPath={path}
+          store={store}
           onChange={(value) => onChange(field.key, value)}
         />
       ))}
@@ -195,6 +201,8 @@ function PropertySchemaForm({ node, schema, bindPaths, showAdvanced, onChange }:
                   field={field}
                   value={(node as Record<string, unknown>)[field.key]}
                   bindPaths={bindPaths}
+                  parentPath={path}
+                  store={store}
                   onChange={(value) => onChange(field.key, value)}
                 />
               ))}
@@ -210,17 +218,26 @@ interface PropertyFieldRowProps {
   field: PropertyField;
   value: unknown;
   bindPaths: string[];
+  parentPath: NodePath;
+  store: BuilderStore;
   onChange: (next: unknown) => void;
 }
 
-function PropertyFieldRow({ field, value, bindPaths, onChange }: PropertyFieldRowProps) {
+function PropertyFieldRow({ field, value, bindPaths, parentPath, store, onChange }: PropertyFieldRowProps) {
   return (
     <div className="flex flex-col gap-1">
       <label className="flex items-center gap-1 text-[11px] font-medium text-[var(--vscode-foreground)]">
         {field.label}
         {field.required ? <span className="text-[var(--vscode-errorForeground)]">*</span> : null}
       </label>
-      <PropertyFieldInput field={field} value={value} onChange={onChange} bindPaths={bindPaths} />
+      <PropertyFieldInput
+        field={field}
+        value={value}
+        onChange={onChange}
+        bindPaths={bindPaths}
+        parentPath={parentPath}
+        store={store}
+      />
       {field.hint ? (
         <span className="text-[10px] text-[var(--vscode-descriptionForeground)]">{field.hint}</span>
       ) : null}
@@ -228,7 +245,7 @@ function PropertyFieldRow({ field, value, bindPaths, onChange }: PropertyFieldRo
   );
 }
 
-function PropertyFieldInput({ field, value, onChange, bindPaths }: PropertyFieldRowProps) {
+function PropertyFieldInput({ field, value, onChange, bindPaths, parentPath, store }: PropertyFieldRowProps) {
   switch (field.kind) {
     case 'text':
       return (
@@ -309,6 +326,18 @@ function PropertyFieldInput({ field, value, onChange, bindPaths }: PropertyField
       return <TabsRawField value={value} onChange={onChange} />;
     case 'steps':
       return <StepsField value={value} onChange={onChange} />;
+    case 'node-slot':
+      return (
+        <NodeSlotField
+          parentPath={parentPath}
+          slotKey={field.key}
+          multi={field.multi ?? false}
+          acceptTypes={field.acceptTypes}
+          store={store}
+        />
+      );
+    case 'spans':
+      return <SpansField value={value} onChange={onChange} />;
     case 'raw':
       return <RawJsonField value={value} onChange={onChange} />;
     default: {

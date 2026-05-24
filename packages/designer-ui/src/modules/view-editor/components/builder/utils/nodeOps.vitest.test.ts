@@ -71,3 +71,60 @@ describe('nodeOps — Stepper steps navigation (R14.2)', () => {
     expect(typeof insertChild).toBe('function');
   });
 });
+
+describe('nodeOps — componentNode slot navigation (R16.2-B)', () => {
+  function makeListTileFixture(): BuilderNode {
+    return {
+      type: 'Column',
+      children: [
+        {
+          type: 'ListTile',
+          title: { en: 'Profile' },
+          leading: { type: 'Icon', name: 'person' },
+          trailing: { type: 'Switch', bind: 'enabled' },
+        },
+      ],
+    };
+  }
+
+  function makeAppBarFixture(): BuilderNode {
+    return {
+      type: 'Column',
+      children: [
+        {
+          type: 'AppBar',
+          title: { en: 'Home' },
+          leading: { type: 'IconButton', icon: 'menu', action: 'submit' },
+          actions: [
+            { type: 'IconButton', icon: 'search', action: 'submit' },
+            { type: 'IconButton', icon: 'more_vert', action: 'submit' },
+          ],
+        },
+      ],
+    };
+  }
+
+  it('getNode resolves a single componentNode slot (ListTile.leading)', () => {
+    const node = getNode(makeListTileFixture(), [0, 'leading']);
+    expect(node?.type).toBe('Icon');
+    expect((node as { name?: string }).name).toBe('person');
+  });
+
+  it('getNode resolves a multi-slot array index (AppBar.actions[1])', () => {
+    const node = getNode(makeAppBarFixture(), [0, 'actions', 1]);
+    expect(node?.type).toBe('IconButton');
+    expect((node as { icon?: string }).icon).toBe('more_vert');
+  });
+
+  it('getNode returns null for out-of-range actions index', () => {
+    expect(getNode(makeAppBarFixture(), [0, 'actions', 99])).toBeNull();
+  });
+
+  it('getNode returns null for missing optional slot', () => {
+    const root: BuilderNode = {
+      type: 'Column',
+      children: [{ type: 'ListTile', title: { en: 'no-leading' } }],
+    };
+    expect(getNode(root, [0, 'leading'])).toBeNull();
+  });
+});

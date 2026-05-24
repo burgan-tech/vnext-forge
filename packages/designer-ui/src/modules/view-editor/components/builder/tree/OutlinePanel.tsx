@@ -134,6 +134,25 @@ function walkAll(
       });
     });
   }
+  // R16.2-B: walk into any componentNode slot declared by the catalog
+  // (ListTile.leading/trailing, AppBar.leading/actions, Dialog.actions,
+  // Carousel.template, …). Driving this from `node-slot` field metadata
+  // means future slot additions show up in the outline automatically.
+  const slotMeta = findComponentMeta(node.type);
+  if (slotMeta) {
+    for (const field of slotMeta.propertySchema) {
+      if (field.kind !== 'node-slot') continue;
+      const value = (node as Record<string, unknown>)[field.key];
+      if (!value) continue;
+      if (field.multi && Array.isArray(value)) {
+        (value as BuilderNode[]).forEach((child, ci) => {
+          walkAll(child, [...path, field.key, ci], visit);
+        });
+      } else if (!field.multi && typeof value === 'object' && !Array.isArray(value)) {
+        walkAll(value as BuilderNode, [...path, field.key], visit);
+      }
+    }
+  }
 }
 
 function nodeMatchesQuery(node: BuilderNode, q: string): boolean {
@@ -344,6 +363,45 @@ function collectChildren(node: BuilderNode, parentPath: NodePath): ChildRenderab
       });
     });
     return out;
+  }
+  // R16.2-B: componentNode slots (ListTile.leading/trailing,
+  // AppBar.actions, Dialog.actions, Carousel.template, …). Each
+  // slot's children render directly under the parent row so users
+  // can drag/select them like normal children.
+  const slotMeta = findComponentMeta(node.type);
+  if (slotMeta) {
+    const slotChildren: ChildRenderable[] = [];
+    for (const field of slotMeta.propertySchema) {
+      if (field.kind !== 'node-slot') continue;
+      const value = (node as Record<string, unknown>)[field.key];
+      if (!value) continue;
+      if (field.multi && Array.isArray(value)) {
+        (value as BuilderNode[]).forEach((child, ci) => {
+          slotChildren.push({
+            node: child,
+            path: [...parentPath, field.key, ci] as NodePath,
+            label: `${field.key}[${ci}]`,
+          });
+        });
+      } else if (!field.multi && typeof value === 'object' && !Array.isArray(value)) {
+        slotChildren.push({
+          node: value as BuilderNode,
+          path: [...parentPath, field.key] as NodePath,
+          label: field.key,
+        });
+      }
+    }
+    if (slotChildren.length > 0) {
+      // Mix slot children with regular children — render slot children
+      // first so they're visually grouped near the parent's header
+      // before the main `children` collection (when both exist).
+      const regularChildren: ChildRenderable[] = (node.children ?? []).map((child, i) => ({
+        node: child,
+        path: [...parentPath, i] as NodePath,
+        label: `${i}`,
+      }));
+      return [...slotChildren, ...regularChildren];
+    }
   }
   const children = (node.children ?? []);
   return children.map((child, i) => ({

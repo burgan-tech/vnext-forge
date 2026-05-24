@@ -134,7 +134,6 @@ const LOCAL_UI_CATALOG: ComponentMeta[] = [
     childContainerKey: 'children',
     propertySchema: [
       { key: 'gap', kind: 'select', label: 'Gap', options: spacingOptions, allowEmpty: true },
-      { key: 'runSpacing', kind: 'select', label: 'Run spacing', options: spacingOptions, allowEmpty: true },
     ],
   },
   {
@@ -146,9 +145,7 @@ const LOCAL_UI_CATALOG: ComponentMeta[] = [
     defaultProps: { type: 'Stack', children: [] },
     acceptsChildren: true,
     childContainerKey: 'children',
-    propertySchema: [
-      { key: 'alignment', kind: 'select', label: 'Alignment', options: axisOptions, allowEmpty: true },
-    ],
+    propertySchema: [],
   },
   {
     type: 'Grid',
@@ -196,11 +193,7 @@ const LOCAL_UI_CATALOG: ComponentMeta[] = [
     defaultProps: { type: 'ScrollView', children: [] },
     acceptsChildren: true,
     childContainerKey: 'children',
-    propertySchema: [
-      { key: 'direction', kind: 'select', label: 'Direction', options: [
-        { value: 'vertical', label: 'vertical' }, { value: 'horizontal', label: 'horizontal' },
-      ], allowEmpty: true },
-    ],
+    propertySchema: [],
   },
 
   // ─── Container ────────────────────────────────────────────────────────
@@ -292,12 +285,9 @@ const LOCAL_UI_CATALOG: ComponentMeta[] = [
     label: 'Text Area',
     iconName: 'AlignLeft',
     description: 'Multi-line text input',
-    defaultProps: { type: 'TextArea', bind: '', variant: 'outlined', rows: 3 },
+    defaultProps: { type: 'TextArea', bind: '', variant: 'outlined' },
     acceptsChildren: false,
-    propertySchema: [
-      ...bindableInputFields,
-      { key: 'rows', kind: 'number', label: 'Rows', min: 1, max: 20 },
-    ],
+    propertySchema: [...bindableInputFields],
   },
   {
     type: 'NumberField',
@@ -307,12 +297,7 @@ const LOCAL_UI_CATALOG: ComponentMeta[] = [
     description: 'Numeric input',
     defaultProps: { type: 'NumberField', bind: '', variant: 'outlined' },
     acceptsChildren: false,
-    propertySchema: [
-      ...bindableInputFields,
-      { key: 'min', kind: 'number', label: 'Min' },
-      { key: 'max', kind: 'number', label: 'Max' },
-      { key: 'step', kind: 'number', label: 'Step', advanced: true },
-    ],
+    propertySchema: [...bindableInputFields],
   },
   {
     type: 'Dropdown',
@@ -339,14 +324,11 @@ const LOCAL_UI_CATALOG: ComponentMeta[] = [
     category: 'Input',
     label: 'Radio Group',
     iconName: 'CircleDot',
-    description: 'Single-choice options',
+    description: 'Single-choice options (from bound schema property enum)',
     defaultProps: { type: 'RadioGroup', bind: '' },
     acceptsChildren: false,
     propertySchema: [
       { key: 'bind', kind: 'bind', label: 'Bind', required: true },
-      { key: 'orientation', kind: 'select', label: 'Orientation', options: [
-        { value: 'horizontal', label: 'horizontal' }, { value: 'vertical', label: 'vertical' },
-      ], allowEmpty: true },
     ],
   },
   {
@@ -377,21 +359,23 @@ const LOCAL_UI_CATALOG: ComponentMeta[] = [
     description: 'Time input',
     defaultProps: { type: 'TimePicker', bind: '', variant: 'outlined' },
     acceptsChildren: false,
-    propertySchema: bindableInputFields,
+    propertySchema: [
+      ...bindableInputFields,
+      { key: 'hourFormat', kind: 'select', label: 'Hour format', options: [
+        { value: '12', label: '12-hour' }, { value: '24', label: '24-hour' },
+      ], allowEmpty: true },
+    ],
   },
   {
     type: 'Slider',
     category: 'Input',
     label: 'Slider',
     iconName: 'SlidersHorizontal',
-    description: 'Range slider',
-    defaultProps: { type: 'Slider', bind: '', min: 0, max: 100 },
+    description: 'Range slider (min/max come from schema minimum/maximum)',
+    defaultProps: { type: 'Slider', bind: '' },
     acceptsChildren: false,
     propertySchema: [
       { key: 'bind', kind: 'bind', label: 'Bind', required: true },
-      { key: 'min', kind: 'number', label: 'Min' },
-      { key: 'max', kind: 'number', label: 'Max' },
-      { key: 'step', kind: 'number', label: 'Step', advanced: true },
     ],
   },
   {
@@ -402,7 +386,10 @@ const LOCAL_UI_CATALOG: ComponentMeta[] = [
     description: 'Pill-style choice group',
     defaultProps: { type: 'SegmentedButton', bind: '' },
     acceptsChildren: false,
-    propertySchema: [{ key: 'bind', kind: 'bind', label: 'Bind', required: true }],
+    propertySchema: [
+      { key: 'bind', kind: 'bind', label: 'Bind', required: true },
+      { key: 'multiSelect', kind: 'boolean', label: 'Multi-select' },
+    ],
   },
   {
     type: 'SearchField',
@@ -419,10 +406,13 @@ const LOCAL_UI_CATALOG: ComponentMeta[] = [
     category: 'Input',
     label: 'AutoComplete',
     iconName: 'Sparkles',
-    description: 'Typeahead with suggestions',
+    description: 'Typeahead with suggestions from x-lov',
     defaultProps: { type: 'AutoComplete', bind: '', variant: 'outlined' },
     acceptsChildren: false,
-    propertySchema: bindableInputFields,
+    propertySchema: [
+      ...bindableInputFields,
+      { key: 'minLength', kind: 'number', label: 'Min chars', min: 0 },
+    ],
   },
 
   // ─── Display ──────────────────────────────────────────────────────────
@@ -458,14 +448,13 @@ const LOCAL_UI_CATALOG: ComponentMeta[] = [
     label: 'Image',
     iconName: 'Image',
     description: 'External image',
-    defaultProps: { type: 'Image', src: '' },
+    defaultProps: { type: 'Image', source: '' },
     acceptsChildren: false,
     propertySchema: [
-      { key: 'src', kind: 'text', label: 'Source URL', required: true },
-      { key: 'alt', kind: 'text', label: 'Alt text' },
+      { key: 'source', kind: 'text', label: 'Source URL or expression', required: true },
       { key: 'fit', kind: 'select', label: 'Fit', options: [
         { value: 'cover', label: 'cover' }, { value: 'contain', label: 'contain' },
-        { value: 'fill', label: 'fill' }, { value: 'none', label: 'none' },
+        { value: 'fill', label: 'fill' },
       ], allowEmpty: true },
     ],
   },
@@ -480,6 +469,9 @@ const LOCAL_UI_CATALOG: ComponentMeta[] = [
     propertySchema: [
       { key: 'label', kind: 'multilang', label: 'Label' },
       { key: 'icon', kind: 'icon', label: 'Icon', advanced: true, hint: MATERIAL_ICON_HINT },
+      { key: 'variant', kind: 'select', label: 'Variant', options: [
+        { value: 'filled', label: 'filled' }, { value: 'outlined', label: 'outlined' },
+      ], allowEmpty: true },
     ],
   },
   {
@@ -487,15 +479,15 @@ const LOCAL_UI_CATALOG: ComponentMeta[] = [
     category: 'Display',
     label: 'Badge',
     iconName: 'BadgeCheck',
-    description: 'Numeric/status badge',
-    defaultProps: { type: 'Badge', value: '' },
-    acceptsChildren: false,
+    description: 'Badge overlay on a child widget',
+    // `children` holds the one badged componentNode — vocabulary enforces min/max=1.
+    // We expose it through the standard children container so the outline +
+    // canvas drop targets work without extra slot handling.
+    defaultProps: { type: 'Badge', content: { en: '' }, children: [] },
+    acceptsChildren: true,
+    childContainerKey: 'children',
     propertySchema: [
-      { key: 'value', kind: 'text', label: 'Value' },
-      { key: 'severity', kind: 'select', label: 'Severity', options: [
-        { value: 'info', label: 'info' }, { value: 'success', label: 'success' },
-        { value: 'warning', label: 'warning' }, { value: 'danger', label: 'danger' },
-      ], allowEmpty: true },
+      { key: 'content', kind: 'multilang', label: 'Content', required: true },
     ],
   },
   {
@@ -503,13 +495,12 @@ const LOCAL_UI_CATALOG: ComponentMeta[] = [
     category: 'Display',
     label: 'Progress',
     iconName: 'LoaderCircle',
-    description: 'Determinate progress',
-    defaultProps: { type: 'ProgressIndicator', value: 0 },
+    description: 'Loading indicator',
+    defaultProps: { type: 'ProgressIndicator' },
     acceptsChildren: false,
     propertySchema: [
-      { key: 'value', kind: 'number', label: 'Value', min: 0, max: 100 },
-      { key: 'mode', kind: 'select', label: 'Mode', options: [
-        { value: 'determinate', label: 'determinate' }, { value: 'indeterminate', label: 'indeterminate' },
+      { key: 'variant', kind: 'select', label: 'Variant', options: [
+        { value: 'circular', label: 'circular' }, { value: 'linear', label: 'linear' },
       ], allowEmpty: true },
     ],
   },
@@ -518,26 +509,26 @@ const LOCAL_UI_CATALOG: ComponentMeta[] = [
     category: 'Display',
     label: 'Loading',
     iconName: 'Loader',
-    description: 'Spinner',
+    description: 'M3 loading indicator (animated dots)',
     defaultProps: { type: 'LoadingIndicator' },
     acceptsChildren: false,
-    propertySchema: [
-      { key: 'size', kind: 'number', label: 'Size', min: 12, max: 96 },
-    ],
+    propertySchema: [],
   },
   {
     type: 'ListTile',
     category: 'Display',
     label: 'List Tile',
     iconName: 'List',
-    description: 'Row with leading, title, trailing',
+    description: 'Row with leading, title, trailing slots',
     defaultProps: { type: 'ListTile', title: { en: 'Title' } },
     acceptsChildren: false,
     propertySchema: [
       { key: 'title', kind: 'multilang', label: 'Title', required: true },
       { key: 'subtitle', kind: 'multilang', label: 'Subtitle' },
-      { key: 'leading', kind: 'icon', label: 'Leading icon', hint: MATERIAL_ICON_HINT },
-      { key: 'trailing', kind: 'icon', label: 'Trailing icon', advanced: true, hint: MATERIAL_ICON_HINT },
+      { key: 'leading', kind: 'node-slot', label: 'Leading',
+        acceptTypes: ['Icon', 'Avatar', 'IconButton', 'Image'] },
+      { key: 'trailing', kind: 'node-slot', label: 'Trailing',
+        acceptTypes: ['Icon', 'IconButton', 'Switch', 'Checkbox', 'Chip'] },
       { key: 'onTap', kind: 'action', label: 'On tap', multi: true, advanced: true },
     ],
   },
@@ -546,13 +537,20 @@ const LOCAL_UI_CATALOG: ComponentMeta[] = [
     category: 'Display',
     label: 'Avatar',
     iconName: 'User',
-    description: 'User avatar',
+    description: 'User or entity avatar (image / initials / icon)',
     defaultProps: { type: 'Avatar' },
     acceptsChildren: false,
     propertySchema: [
-      { key: 'src', kind: 'text', label: 'Image URL' },
-      { key: 'label', kind: 'text', label: 'Initials' },
-      { key: 'size', kind: 'number', label: 'Size', min: 16, max: 128 },
+      { key: 'source', kind: 'text', label: 'Image URL or expression' },
+      { key: 'label', kind: 'multilang', label: 'Initials' },
+      { key: 'icon', kind: 'icon', label: 'Fallback icon', hint: MATERIAL_ICON_HINT },
+      { key: 'shape', kind: 'select', label: 'Shape', options: [
+        { value: 'circle', label: 'circle' }, { value: 'square', label: 'square' },
+      ], allowEmpty: true },
+      { key: 'size', kind: 'select', label: 'Size', options: [
+        { value: 'sm', label: 'sm' }, { value: 'md', label: 'md' },
+        { value: 'lg', label: 'lg' }, { value: 'xl', label: 'xl' },
+      ], allowEmpty: true },
     ],
   },
   {
@@ -560,11 +558,11 @@ const LOCAL_UI_CATALOG: ComponentMeta[] = [
     category: 'Display',
     label: 'Rich Text',
     iconName: 'FileText',
-    description: 'Markdown-style rich text',
-    defaultProps: { type: 'RichText', content: { en: '' } },
+    description: 'Styled multi-span text',
+    defaultProps: { type: 'RichText', spans: [{ text: { en: '' } }] },
     acceptsChildren: false,
     propertySchema: [
-      { key: 'content', kind: 'multilang', label: 'Content', multiline: true },
+      { key: 'spans', kind: 'spans', label: 'Spans', required: true },
     ],
   },
 
@@ -596,7 +594,6 @@ const LOCAL_UI_CATALOG: ComponentMeta[] = [
     propertySchema: [
       { key: 'icon', kind: 'icon', label: 'Icon', required: true, hint: MATERIAL_ICON_HINT },
       { key: 'action', kind: 'action', label: 'Action', required: true },
-      { key: 'tooltip', kind: 'multilang', label: 'Tooltip' },
     ],
   },
   {
@@ -611,6 +608,10 @@ const LOCAL_UI_CATALOG: ComponentMeta[] = [
       { key: 'icon', kind: 'icon', label: 'Icon', required: true, hint: MATERIAL_ICON_HINT },
       { key: 'label', kind: 'multilang', label: 'Label', advanced: true },
       { key: 'action', kind: 'action', label: 'Action', required: true },
+      { key: 'variant', kind: 'select', label: 'Variant', options: [
+        { value: 'small', label: 'small' }, { value: 'regular', label: 'regular' },
+        { value: 'large', label: 'large' },
+      ], allowEmpty: true },
     ],
   },
 
@@ -620,14 +621,17 @@ const LOCAL_UI_CATALOG: ComponentMeta[] = [
     category: 'Overlay',
     label: 'Dialog',
     iconName: 'MessageSquare',
-    description: 'Modal dialog',
+    description: 'Modal dialog with title, content, and actions',
     defaultProps: { type: 'Dialog', visible: '$ui.showDialog', title: { en: 'Title' }, children: [] },
     acceptsChildren: true,
     childContainerKey: 'children',
     propertySchema: [
       { key: 'visible', kind: 'bind', label: 'Visible (uiState bind)', required: true, hint: 'e.g. $ui.showDialog' },
-      { key: 'title', kind: 'multilang', label: 'Title' },
-      { key: 'dismissable', kind: 'boolean', label: 'Dismissable' },
+      { key: 'title', kind: 'multilang', label: 'Title', required: true },
+      { key: 'icon', kind: 'icon', label: 'Hero icon', hint: MATERIAL_ICON_HINT, advanced: true },
+      { key: 'dismissible', kind: 'boolean', label: 'Dismissible' },
+      { key: 'actions', kind: 'node-slot', label: 'Actions', multi: true,
+        acceptTypes: ['Button', 'IconButton'] },
     ],
   },
   {
@@ -641,7 +645,10 @@ const LOCAL_UI_CATALOG: ComponentMeta[] = [
     childContainerKey: 'children',
     propertySchema: [
       { key: 'visible', kind: 'bind', label: 'Visible (uiState bind)', required: true },
-      { key: 'title', kind: 'multilang', label: 'Title' },
+      { key: 'variant', kind: 'select', label: 'Variant', options: [
+        { value: 'standard', label: 'standard' }, { value: 'modal', label: 'modal' },
+      ], allowEmpty: true },
+      { key: 'dragHandle', kind: 'boolean', label: 'Drag handle' },
     ],
   },
   {
@@ -655,6 +662,9 @@ const LOCAL_UI_CATALOG: ComponentMeta[] = [
     childContainerKey: 'children',
     propertySchema: [
       { key: 'visible', kind: 'bind', label: 'Visible (uiState bind)', required: true },
+      { key: 'variant', kind: 'select', label: 'Variant', options: [
+        { value: 'standard', label: 'standard' }, { value: 'modal', label: 'modal' },
+      ], allowEmpty: true },
       { key: 'title', kind: 'multilang', label: 'Title' },
     ],
   },
@@ -664,14 +674,16 @@ const LOCAL_UI_CATALOG: ComponentMeta[] = [
     label: 'Snackbar',
     iconName: 'MessageCircle',
     description: 'Transient bottom message',
-    defaultProps: { type: 'Snackbar', visible: '$ui.showSnackbar', message: { en: '' } },
+    defaultProps: { type: 'Snackbar', content: { en: '' } },
     acceptsChildren: false,
     propertySchema: [
-      { key: 'visible', kind: 'bind', label: 'Visible (uiState bind)', required: true },
-      { key: 'message', kind: 'multilang', label: 'Message' },
-      { key: 'severity', kind: 'select', label: 'Severity', options: [
-        { value: 'info', label: 'info' }, { value: 'success', label: 'success' },
-        { value: 'warning', label: 'warning' }, { value: 'danger', label: 'danger' },
+      { key: 'content', kind: 'multilang', label: 'Content', required: true },
+      { key: 'duration', kind: 'number', label: 'Duration (ms)', min: 0 },
+      { key: 'action', kind: 'action', label: 'Action', advanced: true },
+      { key: 'variant', kind: 'select', label: 'Variant', options: [
+        { value: 'standard', label: 'standard' }, { value: 'success', label: 'success' },
+        { value: 'error', label: 'error' }, { value: 'warning', label: 'warning' },
+        { value: 'info', label: 'info' },
       ], allowEmpty: true },
     ],
   },
@@ -686,9 +698,8 @@ const LOCAL_UI_CATALOG: ComponentMeta[] = [
     childContainerKey: 'children',
     propertySchema: [
       { key: 'content', kind: 'multilang', label: 'Content', required: true },
-      { key: 'position', kind: 'select', label: 'Position', options: [
-        { value: 'top', label: 'top' }, { value: 'right', label: 'right' },
-        { value: 'bottom', label: 'bottom' }, { value: 'left', label: 'left' },
+      { key: 'variant', kind: 'select', label: 'Variant', options: [
+        { value: 'plain', label: 'plain' }, { value: 'rich', label: 'rich' },
       ], allowEmpty: true },
     ],
   },
@@ -699,13 +710,19 @@ const LOCAL_UI_CATALOG: ComponentMeta[] = [
     category: 'Navigation',
     label: 'App Bar',
     iconName: 'PanelTop',
-    description: 'Top app bar',
+    description: 'Top app bar with title and actions',
     defaultProps: { type: 'AppBar', title: { en: 'Title' } },
     acceptsChildren: false,
     propertySchema: [
-      { key: 'title', kind: 'multilang', label: 'Title' },
-      { key: 'leading', kind: 'icon', label: 'Leading icon', hint: MATERIAL_ICON_HINT },
-      { key: 'actions', kind: 'raw', label: 'Actions (array)', advanced: true },
+      { key: 'title', kind: 'multilang', label: 'Title', required: true },
+      { key: 'variant', kind: 'select', label: 'Variant', options: [
+        { value: 'center', label: 'center' }, { value: 'small', label: 'small' },
+        { value: 'medium', label: 'medium' }, { value: 'large', label: 'large' },
+      ], allowEmpty: true },
+      { key: 'leading', kind: 'node-slot', label: 'Leading',
+        acceptTypes: ['IconButton', 'Icon'] },
+      { key: 'actions', kind: 'node-slot', label: 'Actions', multi: true,
+        acceptTypes: ['IconButton', 'Button', 'Chip'] },
     ],
   },
   {
@@ -713,12 +730,13 @@ const LOCAL_UI_CATALOG: ComponentMeta[] = [
     category: 'Navigation',
     label: 'Navigation Bar',
     iconName: 'PanelBottom',
-    description: 'Bottom navigation',
-    defaultProps: { type: 'NavigationBar', items: [] },
+    description: 'Bottom navigation (3-5 destinations)',
+    defaultProps: { type: 'NavigationBar', bind: '', destinations: [] },
     acceptsChildren: false,
     propertySchema: [
-      { key: 'items', kind: 'raw', label: 'Items (array)', required: true },
-      { key: 'selectedBind', kind: 'bind', label: 'Selected bind' },
+      { key: 'bind', kind: 'bind', label: 'Bind', required: true },
+      { key: 'destinations', kind: 'raw', label: 'Destinations (array)', required: true,
+        hint: 'array<{ icon, label, value?, selectedIcon? }>' },
     ],
   },
   {
@@ -727,11 +745,15 @@ const LOCAL_UI_CATALOG: ComponentMeta[] = [
     label: 'Navigation Drawer',
     iconName: 'PanelLeft',
     description: 'Side navigation drawer',
-    defaultProps: { type: 'NavigationDrawer', visible: '$ui.drawerOpen', items: [] },
+    defaultProps: { type: 'NavigationDrawer', items: [] },
     acceptsChildren: false,
     propertySchema: [
-      { key: 'visible', kind: 'bind', label: 'Visible (uiState bind)', required: true },
-      { key: 'items', kind: 'raw', label: 'Items (array)' },
+      { key: 'variant', kind: 'select', label: 'Variant', options: [
+        { value: 'standard', label: 'standard' }, { value: 'modal', label: 'modal' },
+      ], allowEmpty: true },
+      { key: 'visible', kind: 'bind', label: 'Visible (uiState bind)' },
+      { key: 'items', kind: 'raw', label: 'Items (array)', required: true,
+        hint: 'array<{ icon?, label, action?, badge? } | { divider: true } | { header: textContent }>' },
     ],
   },
   {
@@ -764,12 +786,16 @@ const LOCAL_UI_CATALOG: ComponentMeta[] = [
     category: 'Other',
     label: 'Carousel',
     iconName: 'GalleryHorizontal',
-    description: 'Swipeable image/content slides',
-    defaultProps: { type: 'Carousel', items: [] },
+    description: 'Horizontal scrolling content carousel',
+    // template is a componentNode slot (R16.2-B); source is an array expression.
+    defaultProps: { type: 'Carousel', source: '', template: { type: 'Text', content: { en: '' } } },
     acceptsChildren: false,
     propertySchema: [
-      { key: 'items', kind: 'raw', label: 'Items (array)' },
-      { key: 'autoplay', kind: 'boolean', label: 'Autoplay' },
+      { key: 'source', kind: 'bind', label: 'Source (array expression)', required: true,
+        hint: 'e.g. $lov.cities or $form.items' },
+      { key: 'template', kind: 'node-slot', label: 'Item template' },
+      { key: 'autoPlay', kind: 'boolean', label: 'Auto-play' },
+      { key: 'showIndicators', kind: 'boolean', label: 'Show indicators' },
     ],
   },
   {

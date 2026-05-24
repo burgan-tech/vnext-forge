@@ -30,10 +30,30 @@
 import type { NodePath } from '../types';
 
 /** Container keys that resolve to an *array* in the live view tree. */
-const ARRAY_CONTAINER_KEYS = new Set(['tabs', 'content', 'steps']);
+const ARRAY_CONTAINER_KEYS = new Set(['tabs', 'content', 'steps', 'actions']);
 
-/** Container keys we currently support in the NodePath model. */
-const SUPPORTED_STRING_SEGMENTS = new Set(['template', 'tabs', 'content', 'steps']);
+/**
+ * Container keys we currently support in the NodePath model.
+ *
+ * R16.2-B extends the set with named componentNode slots: `leading`,
+ * `trailing`, `header`, `footer`, `anchor`, and the `actions` array.
+ * Together with `template` / `tabs` / `content` / `steps` this covers
+ * every nested-node slot the view vocabulary declares. nodeOps reads
+ * `node[segment]` generically, so adding a new slot only requires the
+ * allowlist entry here.
+ */
+const SUPPORTED_STRING_SEGMENTS = new Set([
+  'template',
+  'tabs',
+  'content',
+  'steps',
+  'leading',
+  'trailing',
+  'header',
+  'footer',
+  'anchor',
+  'actions',
+]);
 
 /**
  * Build a SDK-compatible JSON Pointer from a builder `NodePath`.

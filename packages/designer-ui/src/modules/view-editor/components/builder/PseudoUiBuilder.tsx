@@ -43,6 +43,8 @@ import { PropertyInspector } from './inspector/PropertyInspector';
 import { createBuilderStore } from './state/builderStore';
 import { useBuilderKeyboardShortcuts } from './state/useBuilderKeyboardShortcuts';
 import { type BuilderDefinition, type NodePath } from './types';
+import type { DataSchema } from '@burgantech/pseudo-ui';
+import type { SchemaResolver } from '../../../quick-run/pseudo-ui/createDataSchemaResolver';
 import {
   parseBuilderDefinition,
   serializeBuilderDefinition,
@@ -200,6 +202,25 @@ export function PseudoUiBuilder({
     [definition, viewKey],
   );
 
+  // R16.1: adapt the host's `loadSchema(urn) => Promise<unknown>` into
+  // the SDK-side `SchemaResolver` shape (`Promise<DataSchema | null>`).
+  // Forwarded to BuilderCanvas + Preview tab so the SDK renders with the
+  // real data model — `x-foreach`, `x-component`, conditional and bind
+  // autocomplete all become schema-aware. Falls back to a no-op
+  // resolver when the host did not supply `loadSchema`.
+  const resolveSchema = useMemo<SchemaResolver | undefined>(() => {
+    if (!loadSchema) return undefined;
+    return async (urn: string) => {
+      try {
+        const result = await loadSchema(urn);
+        if (!result || typeof result !== 'object') return null;
+        return result as DataSchema;
+      } catch {
+        return null;
+      }
+    };
+  }, [loadSchema]);
+
   return (
     <div className="flex h-full min-h-0 w-full flex-col">
       <Tabs value={mode} onValueChange={(v) => setMode(v as BuilderMode)} className="flex h-full min-h-0 flex-col">
@@ -224,6 +245,7 @@ export function PseudoUiBuilder({
                   inspectorOpen={inspectorOpen}
                   onToggleInspector={() => setInspectorOpen((v) => !v)}
                   onOpenContextMenu={openContextMenu}
+                  resolveSchema={resolveSchema}
                 />
               </ResizablePanel>
               {inspectorOpen ? (
@@ -271,6 +293,7 @@ export function PseudoUiBuilder({
               designer="preview"
               ariaLabel="Pseudo-ui builder preview"
               fillHeight
+              resolveSchema={resolveSchema}
             />
           </div>
         </TabsContent>

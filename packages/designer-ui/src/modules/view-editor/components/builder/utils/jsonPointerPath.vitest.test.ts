@@ -64,10 +64,27 @@ describe('jsonPointerPath', () => {
       ]);
     });
 
-    it('returns null for unsupported slot keys', () => {
-      expect(jsonPointerToNodePath('/view/children/0/actions/1')).toBeNull();
-      expect(jsonPointerToNodePath('/view/children/0/leading')).toBeNull();
-      expect(jsonPointerToNodePath('/view/children/0/header')).toBeNull();
+    // R16.2-B: leading / trailing / actions / header / footer / anchor
+    // are now first-class componentNode slots — see SUPPORTED_STRING_SEGMENTS.
+    it('parses ListTile leading slot', () => {
+      expect(jsonPointerToNodePath('/view/children/0/leading')).toEqual([0, 'leading']);
+    });
+
+    it('parses ListTile trailing slot', () => {
+      expect(jsonPointerToNodePath('/view/children/0/trailing')).toEqual([0, 'trailing']);
+    });
+
+    it('parses AppBar actions[i] slot', () => {
+      expect(jsonPointerToNodePath('/view/children/0/actions/1')).toEqual([0, 'actions', 1]);
+    });
+
+    it('parses NavigationDrawer header slot', () => {
+      expect(jsonPointerToNodePath('/view/children/0/header')).toEqual([0, 'header']);
+    });
+
+    it('returns null for genuinely unsupported slot keys', () => {
+      // Pointer references a slot the store still cannot represent.
+      expect(jsonPointerToNodePath('/view/children/0/somethingNew')).toBeNull();
     });
 
     it('returns null for malformed pointers', () => {
@@ -85,6 +102,11 @@ describe('jsonPointerPath', () => {
       [3, 1, 0],
       [0, 'template'],
       [0, 'tabs', 0, 'content', 1],
+      [0, 'leading'],
+      [0, 'trailing'],
+      [0, 'actions', 0],
+      [0, 'actions', 2],
+      [0, 'header'],
       [0, 'steps', 2, 'content', 0],
       [0, 'template', 1, 'tabs', 0, 'content', 0],
     ];

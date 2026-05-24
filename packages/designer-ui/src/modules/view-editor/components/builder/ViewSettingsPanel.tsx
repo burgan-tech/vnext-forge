@@ -24,34 +24,7 @@ import { Input } from '../../../../ui/Input';
 import { JsonCodeField } from '../../../../ui/JsonCodeField';
 import { type BuilderStore } from './state/builderStore';
 import { type BindPathEntry } from './inspector/schemaPaths';
-
-/**
- * Build the canonical schema URN from a `DiscoveredVnextComponent`.
- *
- * Vnext schemas live at `<projectPath>/<domain>/Schemas/...`. The
- * discovery payload carries the absolute file path; we strip the
- * project root to recover the relative path, then take the first
- * segment as the domain. The URN form (per `parseDataSchemaRef.ts`)
- * is `urn:amorphie:res:schema:<domain>:<key>`. Version suffix is
- * optional — we include it if the component declares one.
- *
- * Falls back to `urn:amorphie:res:schema::<key>` if we cannot
- * determine the domain (e.g. unexpected directory layout). The
- * user can manually edit the URN afterwards in the text input.
- */
-function buildSchemaUrn(
-  component: DiscoveredVnextComponent,
-  projectPath: string | undefined,
-): string {
-  let domain = '';
-  if (projectPath && component.path.startsWith(projectPath)) {
-    const relative = component.path.slice(projectPath.length).replace(/^[/\\]/, '');
-    const firstSegment = relative.split(/[/\\]/, 1)[0];
-    if (firstSegment) domain = firstSegment;
-  }
-  const base = `urn:amorphie:res:schema:${domain}:${component.key}`;
-  return component.version ? `${base}:${component.version}` : base;
-}
+import { buildSchemaUrn } from './utils/buildSchemaUrn';
 
 export interface ViewSettingsPanelProps {
   store: BuilderStore;
