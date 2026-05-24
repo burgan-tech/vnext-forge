@@ -67,7 +67,19 @@ interface SettingsState {
   setPseudoUiTenantTokens: (tokens: PseudoUiTenantTokens) => void;
   pseudoUiLang: string;
   setPseudoUiLang: (lang: string) => void;
+  /**
+   * R20.3: extra locales the user has added through the inline picker
+   * so they stay visible as chips even when not currently active.
+   * TR/EN are always shown (as built-in presets); anything else lands
+   * here.
+   */
+  pseudoUiCustomLangs: string[];
+  addPseudoUiCustomLang: (lang: string) => void;
+  removePseudoUiCustomLang: (lang: string) => void;
 }
+
+/** Built-in language chips that are always offered by the picker. */
+export const BUILTIN_PSEUDO_UI_LANGS = ['tr', 'en'] as const;
 
 function normalizePseudoUiTenantStyle(value: unknown): PseudoUiTenantStyleSettings {
   if (value == null || typeof value !== 'object') {
@@ -85,6 +97,23 @@ function normalizePseudoUiLang(value: unknown): string {
   if (typeof value !== 'string') return DEFAULT_PSEUDO_UI_LANG;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : DEFAULT_PSEUDO_UI_LANG;
+}
+
+function normalizePseudoUiCustomLangs(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  const builtIn = new Set<string>(BUILTIN_PSEUDO_UI_LANGS);
+  const out: string[] = [];
+  for (const entry of value) {
+    if (typeof entry !== 'string') continue;
+    const trimmed = entry.trim();
+    if (trimmed.length === 0) continue;
+    if (builtIn.has(trimmed)) continue;
+    if (seen.has(trimmed)) continue;
+    seen.add(trimmed);
+    out.push(trimmed);
+  }
+  return out;
 }
 
 function normalizePseudoUiTenantTokens(value: unknown): PseudoUiTenantTokens {
@@ -118,7 +147,41 @@ export const useSettingsStore = create<SettingsState>()(
       setPseudoUiTenantTokens: (tokens) =>
         set({ pseudoUiTenantTokens: normalizePseudoUiTenantTokens(tokens) }),
       pseudoUiLang: DEFAULT_PSEUDO_UI_LANG,
-      setPseudoUiLang: (lang) => set({ pseudoUiLang: normalizePseudoUiLang(lang) }),
+      setPseudoUiLang: (lang) => {
+        const normalized = normalizePseudoUiLang(lang);
+        set((state) => {
+          // If the active language isn't a built-in chip and the user
+          // hasn't already added it as a custom chip, register it so
+          // the picker keeps showing the locale rather than silently
+          // hiding it on the next mount (e.g. legacy persisted state
+          // that pre-dates the customLangs list).
+          const isBuiltIn = (BUILTIN_PSEUDO_UI_LANGS as readonly string[]).includes(normalized);
+          const alreadyTracked = state.pseudoUiCustomLangs.includes(normalized);
+          if (!isBuiltIn && !alreadyTracked) {
+            return {
+              pseudoUiLang: normalized,
+              pseudoUiCustomLangs: normalizePseudoUiCustomLangs([
+                ...state.pseudoUiCustomLangs,
+                normalized,
+              ]),
+            };
+          }
+          return { pseudoUiLang: normalized };
+        });
+      },
+      pseudoUiCustomLangs: [],
+      addPseudoUiCustomLang: (lang) =>
+        set((state) => ({
+          pseudoUiCustomLangs: normalizePseudoUiCustomLangs([...state.pseudoUiCustomLangs, lang]),
+        })),
+      removePseudoUiCustomLang: (lang) =>
+        set((state) => ({
+          pseudoUiCustomLangs: state.pseudoUiCustomLangs.filter((l) => l !== lang),
+          // If we just removed the currently-active locale, fall back to
+          // the default so multi-lang views never end up rendering for a
+          // language the user explicitly discarded.
+          pseudoUiLang: state.pseudoUiLang === lang ? DEFAULT_PSEUDO_UI_LANG : state.pseudoUiLang,
+        })),
     }),
     {
       name: SETTINGS_PERSIST_KEY,
@@ -129,8 +192,9 @@ export const useSettingsStore = create<SettingsState>()(
         pseudoUiTenantStyle: state.pseudoUiTenantStyle,
         pseudoUiTenantTokens: state.pseudoUiTenantTokens,
         pseudoUiLang: state.pseudoUiLang,
+        pseudoUiCustomLangs: state.pseudoUiCustomLangs,
       }),
-      version: 4,
+      version: 5,
       migrate: (persisted, version) => {
         const persistedObj = (persisted as Record<string, unknown>) ?? {};
         const next = {
@@ -138,6 +202,7 @@ export const useSettingsStore = create<SettingsState>()(
           pseudoUiTenantStyle: normalizePseudoUiTenantStyle(persistedObj.pseudoUiTenantStyle),
           pseudoUiTenantTokens: normalizePseudoUiTenantTokens(persistedObj.pseudoUiTenantTokens),
           pseudoUiLang: normalizePseudoUiLang(persistedObj.pseudoUiLang),
+          pseudoUiCustomLangs: normalizePseudoUiCustomLangs(persistedObj.pseudoUiCustomLangs),
         };
         if (version === 0) {
           return { ...next, autoSaveEnabled: false };

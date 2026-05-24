@@ -366,14 +366,26 @@ interface PseudoUiStyleSectionProps {
   onValueChange: (value: string) => void;
   lang: string;
   onLangChange: (lang: string) => void;
+  customLangs: readonly string[];
+  onAddCustomLang: (lang: string) => void;
+  onRemoveCustomLang: (lang: string) => void;
 }
 
-/** Quick chips for the platform's two primary locales. Anything else
- *  (AR, DE, …) is reachable via the free-text input next to them. */
-const PSEUDO_UI_LANG_PRESETS: readonly { value: string; label: string }[] = [
+/** Built-in chips. Anything else the user adds lands in `customLangs`
+ *  and persists as a chip until they explicitly remove it via the × . */
+const BUILTIN_LANG_PRESETS: readonly { value: string; label: string }[] = [
   { value: 'tr', label: 'TR' },
   { value: 'en', label: 'EN' },
 ];
+
+function langChipClasses(active: boolean): string {
+  return [
+    'rounded border px-2 py-0.5 text-[10px] font-medium uppercase transition-colors',
+    active
+      ? 'border-primary-border-hover bg-primary-muted text-foreground'
+      : 'border-primary-border bg-primary text-muted-text hover:bg-primary-hover',
+  ].join(' ');
+}
 
 function PseudoUiStyleSection({
   enabled,
@@ -382,25 +394,22 @@ function PseudoUiStyleSection({
   onValueChange,
   lang,
   onLangChange,
+  customLangs,
+  onAddCustomLang,
+  onRemoveCustomLang,
 }: PseudoUiStyleSectionProps) {
-  // Local draft so the user can clear the field to type a fresh ISO
-  // code. The store's normalizer falls back to the default ('tr')
-  // when the trimmed value is empty — committing every keystroke
-  // would snap the input back mid-edit and make codes that start
-  // with the same letter as the active preset impossible to type
-  // (e.g. clearing 'tr' to type 'th' would lock the field at 'tr').
-  const [draftLang, setDraftLang] = useState(lang);
-  useEffect(() => {
-    setDraftLang(lang);
-  }, [lang]);
+  // Local draft for the "add custom" input. Empty on mount so the
+  // input always reads as a prompt rather than echoing the active
+  // language back at the user (which was the source of the
+  // typing-loop bug R20.2 fixed).
+  const [draftLang, setDraftLang] = useState('');
 
   const commitDraftLang = () => {
-    const trimmed = draftLang.trim();
-    if (trimmed.length === 0) {
-      setDraftLang(lang);
-      return;
-    }
-    if (trimmed !== lang) onLangChange(trimmed);
+    const trimmed = draftLang.trim().toLowerCase();
+    if (trimmed.length === 0) return;
+    onAddCustomLang(trimmed);
+    onLangChange(trimmed);
+    setDraftLang('');
   };
 
   return (
@@ -409,8 +418,8 @@ function PseudoUiStyleSection({
         <Label htmlFor="pseudo-ui-lang" className="text-[10px] font-medium uppercase">
           Render language
         </Label>
-        <div className="flex items-center gap-1">
-          {PSEUDO_UI_LANG_PRESETS.map((preset) => {
+        <div className="flex flex-wrap items-center gap-1">
+          {BUILTIN_LANG_PRESETS.map((preset) => {
             const active = lang === preset.value;
             return (
               <button
@@ -418,22 +427,49 @@ function PseudoUiStyleSection({
                 type="button"
                 onClick={() => onLangChange(preset.value)}
                 aria-pressed={active}
+                className={langChipClasses(active)}
+              >
+                {preset.label}
+              </button>
+            );
+          })}
+          {customLangs.map((code) => {
+            const active = lang === code;
+            return (
+              <span
+                key={code}
                 className={[
-                  'rounded border px-2 py-0.5 text-[10px] font-medium uppercase transition-colors',
+                  'flex items-center gap-0.5 rounded border px-1 py-0.5 text-[10px] font-medium uppercase transition-colors',
                   active
                     ? 'border-primary-border-hover bg-primary-muted text-foreground'
                     : 'border-primary-border bg-primary text-muted-text hover:bg-primary-hover',
                 ].join(' ')}
               >
-                {preset.label}
-              </button>
+                <button
+                  type="button"
+                  onClick={() => onLangChange(code)}
+                  aria-pressed={active}
+                  className="px-1 outline-none"
+                >
+                  {code.toUpperCase()}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onRemoveCustomLang(code)}
+                  aria-label={`Remove ${code.toUpperCase()}`}
+                  title={`Remove ${code.toUpperCase()}`}
+                  className="rounded p-0.5 text-muted-text hover:bg-destructive-muted hover:text-destructive-icon"
+                >
+                  ×
+                </button>
+              </span>
             );
           })}
           <Input
             id="pseudo-ui-lang"
             size="sm"
             value={draftLang}
-            placeholder="ISO code"
+            placeholder="+ ISO"
             onChange={(e) => setDraftLang(e.target.value)}
             onBlur={commitDraftLang}
             onKeyDown={(e) => {
@@ -443,7 +479,7 @@ function PseudoUiStyleSection({
                 (e.currentTarget as HTMLInputElement).blur();
               }
             }}
-            className="flex-1"
+            className="w-24"
           />
         </div>
         <p className="text-muted-foreground text-[10px] leading-snug">
@@ -684,6 +720,9 @@ export function Sidebar() {
   const setPseudoUiTenantStyle = useSettingsStore((s) => s.setPseudoUiTenantStyle);
   const pseudoUiLang = useSettingsStore((s) => s.pseudoUiLang);
   const setPseudoUiLang = useSettingsStore((s) => s.setPseudoUiLang);
+  const pseudoUiCustomLangs = useSettingsStore((s) => s.pseudoUiCustomLangs);
+  const addPseudoUiCustomLang = useSettingsStore((s) => s.addPseudoUiCustomLang);
+  const removePseudoUiCustomLang = useSettingsStore((s) => s.removePseudoUiCustomLang);
   const configIssues = useWorkspaceDiagnosticsStore((s) => s.configIssues);
 
   const settingsAccordionDefaultOpenIds = pendingSettingsAccordionOpenIds ?? [];
@@ -789,6 +828,9 @@ export function Sidebar() {
                       }
                       lang={pseudoUiLang}
                       onLangChange={setPseudoUiLang}
+                      customLangs={pseudoUiCustomLangs}
+                      onAddCustomLang={addPseudoUiCustomLang}
+                      onRemoveCustomLang={removePseudoUiCustomLang}
                     />
                   ),
                 },
