@@ -37,9 +37,11 @@ import type { ViewResponse } from '../../../quick-run/types/quickrun.types';
 import { ViewRenderer } from '@vnext-forge-studio/vnext-types';
 
 import { BuilderCanvas } from './canvas/BuilderCanvas';
+import { BuilderContextMenu, type BuilderContextMenuState } from './BuilderContextMenu';
 import { LeftRail } from './LeftRail';
 import { PropertyInspector } from './inspector/PropertyInspector';
 import { createBuilderStore } from './state/builderStore';
+import { useBuilderKeyboardShortcuts } from './state/useBuilderKeyboardShortcuts';
 import { type BuilderDefinition, type NodePath } from './types';
 import {
   parseBuilderDefinition,
@@ -77,12 +79,35 @@ export function PseudoUiBuilder({
   // user's "close" stays in effect when they re-click the same node).
   const [inspectorOpen, setInspectorOpen] = useState(true);
 
+  // ── Context menu state (R13) ───────────────────────────────────────
+  // Shared between the canvas (right-click on a `data-pseudo-path`
+  // shadow node) and the outline tree rows. The `openContextMenu`
+  // callback is defined below once `store` is available.
+  const [ctxMenu, setCtxMenu] = useState<BuilderContextMenuState | null>(null);
+  const closeContextMenu = useCallback(() => setCtxMenu(null), []);
+
   // ── Store ───────────────────────────────────────────────────────────
   // Lazily create one store per mount; sync incoming content edits into it.
   // `useRef` initializer runs once — that's the intent.
   const storeRef = useRef(createBuilderStore(parseBuilderDefinition(content)));
   const store = storeRef.current;
   const definition = useStore(store, (s) => s.definition);
+
+  // Open the shared context menu and pre-select the target node so
+  // any subsequent inspector / keyboard action lands on the same path.
+  const openContextMenu = useCallback(
+    (path: NodePath, x: number, y: number): void => {
+      store.getState().selectNode(path);
+      setCtxMenu({ path, x, y });
+    },
+    [store],
+  );
+
+  // R13: global keyboard shortcuts (Del / Cmd+D / Cmd+Z / Esc).
+  // Active in all three tabs — Builder is by far the most useful but
+  // undo/redo still helps if the user pops into JSON mode for a quick
+  // edit and back.
+  useBuilderKeyboardShortcuts(store, true);
 
   // ── Outbound sync (store → host) ────────────────────────────────────
   const lastEmittedRef = useRef<string>('');
@@ -188,7 +213,7 @@ export function PseudoUiBuilder({
           <DndContext sensors={sensors} onDragEnd={onDragEnd}>
             <ResizablePanelGroup orientation="horizontal" className="h-full">
               <ResizablePanel defaultSize={22} minSize={16}>
-                <LeftRail store={store} />
+                <LeftRail store={store} onOpenContextMenu={openContextMenu} />
               </ResizablePanel>
               <ResizableHandle />
               <ResizablePanel defaultSize={inspectorOpen ? 52 : 78} minSize={30}>
@@ -198,6 +223,7 @@ export function PseudoUiBuilder({
                   onEditAsJson={() => setMode('json')}
                   inspectorOpen={inspectorOpen}
                   onToggleInspector={() => setInspectorOpen((v) => !v)}
+                  onOpenContextMenu={openContextMenu}
                 />
               </ResizablePanel>
               {inspectorOpen ? (
@@ -234,6 +260,8 @@ export function PseudoUiBuilder({
             />
           </div>
         </TabsContent>
+
+        <BuilderContextMenu store={store} state={ctxMenu} onClose={closeContextMenu} />
 
         <TabsContent value="preview" className="min-h-0 flex-1">
           <div className="h-full min-h-0 p-2">

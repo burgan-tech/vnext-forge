@@ -19,13 +19,17 @@ import { OutlinePanel } from './tree/OutlinePanel';
 import { createNodeFromCatalog } from './palette/componentCatalog';
 import { pickSmartInsertTarget } from './utils/nodeOps';
 import { type BuilderStore } from './state/builderStore';
+import { type NodePath } from './types';
 
 export interface LeftRailProps {
   store: BuilderStore;
   defaultTab?: 'outline' | 'components';
+  /** R13: forwarded to OutlinePanel rows so right-click can open the
+   *  shared context menu owned by the builder shell. */
+  onOpenContextMenu?: (path: NodePath, x: number, y: number) => void;
 }
 
-export function LeftRail({ store, defaultTab = 'outline' }: LeftRailProps) {
+export function LeftRail({ store, defaultTab = 'outline', onOpenContextMenu }: LeftRailProps) {
   // Click-to-add from the palette. Picks a smart insertion target (selected
   // container > leaf parent > root) and inserts a fresh node from the catalog
   // defaults. Selection follows the new node so the inspector immediately
@@ -53,7 +57,7 @@ export function LeftRail({ store, defaultTab = 'outline' }: LeftRailProps) {
         </TabsTrigger>
       </TabsList>
       <TabsContent value="outline" className="min-h-0 flex-1">
-        <OutlinePanel store={store} />
+        <OutlinePanel store={store} onOpenContextMenu={onOpenContextMenu} />
       </TabsContent>
       <TabsContent value="components" className="min-h-0 flex-1">
         <ComponentPalette onAdd={handleAdd} />

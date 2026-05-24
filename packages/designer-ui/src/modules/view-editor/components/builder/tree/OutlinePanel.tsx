@@ -22,6 +22,9 @@ import { type BuilderNode, type NodePath } from '../types';
 
 export interface OutlinePanelProps {
   store: BuilderStore;
+  /** R13: right-click on any row opens the shared context menu hosted
+   *  by the builder shell. The handler also selects the target node. */
+  onOpenContextMenu?: (path: NodePath, x: number, y: number) => void;
 }
 
 function arraysEqual(a: NodePath | null, b: NodePath | null): boolean {
@@ -36,7 +39,7 @@ function arraysEqual(a: NodePath | null, b: NodePath | null): boolean {
 /** Default-collapse anything at depth > this threshold so long trees stay scannable. */
 const DEFAULT_COLLAPSE_DEPTH = 2;
 
-export function OutlinePanel({ store }: OutlinePanelProps) {
+export function OutlinePanel({ store, onOpenContextMenu }: OutlinePanelProps) {
   const definition = useStore(store, (s) => s.definition);
   const selectedPath = useStore(store, (s) => s.selectedPath);
   const selectNode = useStore(store, (s) => s.selectNode);
@@ -89,6 +92,7 @@ export function OutlinePanel({ store }: OutlinePanelProps) {
           depth={0}
           selectedPath={selectedPath}
           onSelect={selectNode}
+          onOpenContextMenu={onOpenContextMenu}
           matchingPaths={matchingPaths}
           selectionAncestorPaths={selectionAncestorPaths}
           query={normalizedQuery}
@@ -143,6 +147,7 @@ interface OutlineRowProps {
   depth: number;
   selectedPath: NodePath | null;
   onSelect: (path: NodePath | null) => void;
+  onOpenContextMenu?: (path: NodePath, x: number, y: number) => void;
   matchingPaths: ReadonlySet<string> | null;
   /** Paths from root to (and including) the selected node. When the
    *  current row's path is in this set, the row is forced expanded so
@@ -158,6 +163,7 @@ function OutlineRow({
   depth,
   selectedPath,
   onSelect,
+  onOpenContextMenu,
   matchingPaths,
   selectionAncestorPaths,
   query,
@@ -230,6 +236,12 @@ function OutlineRow({
           e.stopPropagation();
           onSelect(path);
         }}
+        onContextMenu={(e) => {
+          if (!onOpenContextMenu) return;
+          e.preventDefault();
+          e.stopPropagation();
+          onOpenContextMenu(path, e.clientX, e.clientY);
+        }}
       >
         {childRenderables.length > 0 ? (
           <button
@@ -270,6 +282,7 @@ function OutlineRow({
                 depth={depth + 1}
                 selectedPath={selectedPath}
                 onSelect={onSelect}
+                onOpenContextMenu={onOpenContextMenu}
                 matchingPaths={matchingPaths}
                 selectionAncestorPaths={selectionAncestorPaths}
                 query={query}
