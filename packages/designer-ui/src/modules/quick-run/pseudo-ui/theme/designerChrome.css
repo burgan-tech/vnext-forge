@@ -30,9 +30,56 @@
   --pseudo-designer-drop-inside-bg:
     color-mix(in srgb, var(--pseudo-designer-accent) 12%, transparent);
 
+  /* Delete button is repainted with class-level Forge overrides below;
+     these tokens stay defined as a fallback for any other consumer
+     that reads them directly. */
   --pseudo-designer-delete-bg:
-    var(--vscode-inputValidation-errorBorder, var(--p-red-600, #dc2626));
+    var(--vscode-editor-background, #ffffff);
   --pseudo-designer-delete-color:
-    var(--vscode-inputValidation-errorForeground, #ffffff);
+    var(--vscode-descriptionForeground, #707070);
   --pseudo-designer-delete-size: 18px;
+}
+
+/*
+ * Delete button — Forge chrome override.
+ *
+ * The SDK's default `.pseudo-designer-delete-btn` paints a solid red
+ * circle anchored inside the element box (top: 2px / right: 2px).
+ * That visual reads as a destructive alert chip even when the user
+ * is just navigating the canvas, and clashes with VS Code chrome,
+ * which uses subtle neutral icon buttons that go red only on hover.
+ *
+ * We reposition the button to a peripheral chip slightly outside
+ * the top-right corner of the node and recolor it with VS Code
+ * panel/description tokens. The original × glyph is preserved
+ * (SDK injects it as text content). Hover lifts the destructive
+ * intent: foreground + border turn to `--vscode-errorForeground`,
+ * which surfaces the danger cue only when the user is committed
+ * to clicking.
+ *
+ * `!important` here because the SDK's `pseudo-ui-react.css` is
+ * adopted into the same shadow root and uses identical specificity
+ * — order between adopted stylesheets isn't guaranteed across SDK
+ * versions. Class overrides go in `designerChrome.css` (instead of
+ * tokens) because `top` / `right` / `border` are static properties
+ * in the SDK rule, not driven by tokens.
+ */
+.pseudo-designer-delete-btn {
+  top: -8px !important;
+  right: -8px !important;
+  background: var(--pseudo-designer-delete-bg) !important;
+  color: var(--pseudo-designer-delete-color) !important;
+  border: 1px solid var(--vscode-panel-border, #d4d4d4) !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.15) !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+  /* SDK uses `filter: brightness(0.92)` on hover; we replace that with
+     a colour shift to the VS Code error palette for a cleaner read. */
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease !important;
+}
+.pseudo-designer-delete-btn:hover {
+  filter: none !important;
+  color: var(--vscode-errorForeground, #dc2626) !important;
+  border-color: var(--vscode-errorForeground, #dc2626) !important;
+  background: var(--vscode-list-hoverBackground, var(--pseudo-designer-delete-bg)) !important;
 }

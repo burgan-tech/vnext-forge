@@ -25,6 +25,7 @@ import { MultiLangInput } from './MultiLangInput';
 import { NodeSlotField } from './NodeSlotField';
 import { SpansField } from './SpansField';
 import { StepsField } from './StepsField';
+import { TabsField } from './TabsField';
 import { enumerateBindPaths, type BindPathEntry } from './schemaPaths';
 import { ViewSettingsPanel } from '../ViewSettingsPanel';
 
@@ -323,7 +324,7 @@ function PropertyFieldInput({ field, value, onChange, bindPaths, parentPath, sto
         </label>
       );
     case 'tabs':
-      return <TabsRawField value={value} onChange={onChange} />;
+      return <TabsField value={value} onChange={onChange} />;
     case 'steps':
       return <StepsField value={value} onChange={onChange} />;
     case 'node-slot':
@@ -348,12 +349,6 @@ function PropertyFieldInput({ field, value, onChange, bindPaths, parentPath, sto
   }
 }
 
-
-function TabsRawField({ value, onChange }: { value: unknown; onChange: (next: unknown) => void }) {
-  // For now, edit the tabs array as JSON. A richer editor can replace this
-  // later (renaming tabs, reordering) — captured as a SDK-side concern.
-  return <RawJsonField value={value} onChange={onChange} />;
-}
 
 function RawJsonField({ value, onChange }: { value: unknown; onChange: (next: unknown) => void }) {
   const text = useMemo(() => {
