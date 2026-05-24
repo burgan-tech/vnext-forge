@@ -76,6 +76,7 @@ export function PropertyInspector({ store, availableSchemas, loadSchema }: Prope
       <ViewSettingsPanel
         store={store}
         availableSchemas={availableSchemas}
+        bindEntries={bindEntries}
       />
     );
   }

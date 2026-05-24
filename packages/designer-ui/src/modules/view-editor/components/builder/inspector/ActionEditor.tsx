@@ -11,7 +11,7 @@
  */
 
 import { useMemo } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { MoveDown, MoveUp, Plus, Trash2 } from 'lucide-react';
 
 import { Input } from '../../../../../ui/Input';
 import { Select } from '../../../../../ui/Select';
@@ -69,22 +69,52 @@ function MultiActionEditor({ value, onChange }: { value: unknown; onChange: (nex
       ) : (
         list.map((item, index) => (
           <div key={index} className="rounded border border-[var(--vscode-panel-border)] p-2">
-            <div className="mb-1 flex items-center justify-between">
+            <div className="mb-1 flex items-center justify-between gap-1">
               <span className="text-[10px] uppercase tracking-wide text-[var(--vscode-descriptionForeground)]">
                 Action {index + 1}
               </span>
-              <button
-                type="button"
-                aria-label="Remove action"
-                className="rounded p-1 text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] hover:text-[var(--vscode-foreground)]"
-                onClick={() => {
-                  const next = list.slice();
-                  next.splice(index, 1);
-                  update(next);
-                }}
-              >
-                <Trash2 size={11} />
-              </button>
+              <div className="flex items-center gap-0.5">
+                <button
+                  type="button"
+                  aria-label="Move action up"
+                  disabled={index === 0}
+                  className="rounded p-1 text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] hover:text-[var(--vscode-foreground)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                  onClick={() => {
+                    if (index === 0) return;
+                    const next = list.slice();
+                    [next[index - 1], next[index]] = [next[index]!, next[index - 1]!];
+                    update(next);
+                  }}
+                >
+                  <MoveUp size={11} />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Move action down"
+                  disabled={index === list.length - 1}
+                  className="rounded p-1 text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] hover:text-[var(--vscode-foreground)] disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
+                  onClick={() => {
+                    if (index === list.length - 1) return;
+                    const next = list.slice();
+                    [next[index + 1], next[index]] = [next[index]!, next[index + 1]!];
+                    update(next);
+                  }}
+                >
+                  <MoveDown size={11} />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Remove action"
+                  className="rounded p-1 text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] hover:text-[var(--vscode-foreground)]"
+                  onClick={() => {
+                    const next = list.slice();
+                    next.splice(index, 1);
+                    update(next);
+                  }}
+                >
+                  <Trash2 size={11} />
+                </button>
+              </div>
             </div>
             <ActionRow
               value={item}

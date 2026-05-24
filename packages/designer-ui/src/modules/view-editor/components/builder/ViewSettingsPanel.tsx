@@ -23,6 +23,7 @@ import { useProjectStore } from '../../../../store/useProjectStore';
 import { Input } from '../../../../ui/Input';
 import { JsonCodeField } from '../../../../ui/JsonCodeField';
 import { type BuilderStore } from './state/builderStore';
+import { type BindPathEntry } from './inspector/schemaPaths';
 
 /**
  * Build the canonical schema URN from a `DiscoveredVnextComponent`.
@@ -56,9 +57,14 @@ export interface ViewSettingsPanelProps {
   store: BuilderStore;
   /** Project schemas to pick from. The shell discovers and supplies these. */
   availableSchemas?: readonly { urn: string; label: string }[];
+  /** R14.1: bind-path entries resolved by the inspector. We use the
+   *  `hasLookup` subset to power the lookups picker. Optional — when
+   *  omitted (e.g. no schema bound), the picker falls back to free
+   *  text input. */
+  bindEntries?: readonly BindPathEntry[];
 }
 
-export function ViewSettingsPanel({ store, availableSchemas }: ViewSettingsPanelProps) {
+export function ViewSettingsPanel({ store, availableSchemas, bindEntries }: ViewSettingsPanelProps) {
   const definition = useStore(store, (s) => s.definition);
   const updateTopLevel = useStore(store, (s) => s.updateTopLevel);
 
@@ -123,6 +129,7 @@ export function ViewSettingsPanel({ store, availableSchemas }: ViewSettingsPanel
           <LookupsEditor
             value={definition.lookups ?? []}
             onChange={(next) => updateTopLevel({ lookups: next.length === 0 ? undefined : next })}
+            suggestions={(bindEntries ?? []).filter((e) => e.hasLookup).map((e) => e.path)}
           />
         </Section>
 
@@ -281,45 +288,137 @@ function SchemaPicker({
   );
 }
 
-function LookupsEditor({ value, onChange }: { value: string[]; onChange: (next: string[]) => void }) {
+/**
+ * Lookups editor — schema-aware (R14.1).
+ *
+ * When the bound `dataSchema` exposes properties tagged with `x-lookup`,
+ * we render them as toggle checkboxes (the user picks which lookups
+ * should run on view mount). Anything else the user wants to load —
+ * including paths that aren't in the schema — falls back to free-text
+ * input rows below.
+ *
+ * If the schema isn't bound or has no x-lookup props (or while the
+ * schema is still loading), only the free-text fallback is shown so
+ * the user can always add a lookup manually.
+ */
+function LookupsEditor({
+  value,
+  onChange,
+  suggestions,
+}: {
+  value: string[];
+  onChange: (next: string[]) => void;
+  suggestions: readonly string[];
+}) {
+  const selected = useMemo(() => new Set(value), [value]);
+
+  const customLookups = useMemo(
+    () => value.filter((lookup) => lookup === '' || !suggestions.includes(lookup)),
+    [value, suggestions],
+  );
+
+  const toggleSuggestion = (path: string): void => {
+    if (selected.has(path)) {
+      onChange(value.filter((v) => v !== path));
+    } else {
+      onChange([...value, path]);
+    }
+  };
+
+  const updateCustomAt = (customIndex: number, nextPath: string): void => {
+    // Find the i-th custom entry inside `value` and replace it.
+    let seen = 0;
+    const next = value.slice();
+    for (let i = 0; i < next.length; i++) {
+      const v = next[i]!;
+      if (v === '' || !suggestions.includes(v)) {
+        if (seen === customIndex) {
+          next[i] = nextPath;
+          break;
+        }
+        seen++;
+      }
+    }
+    onChange(next);
+  };
+
+  const removeCustomAt = (customIndex: number): void => {
+    let seen = 0;
+    const next = value.slice();
+    for (let i = 0; i < next.length; i++) {
+      const v = next[i]!;
+      if (v === '' || !suggestions.includes(v)) {
+        if (seen === customIndex) {
+          next.splice(i, 1);
+          break;
+        }
+        seen++;
+      }
+    }
+    onChange(next);
+  };
+
   return (
-    <div className="flex flex-col gap-1">
-      {value.length === 0 ? (
-        <p className="text-[10px] text-[var(--vscode-descriptionForeground)]">No lookups defined.</p>
-      ) : (
-        value.map((lookup, i) => (
-          <div key={i} className="flex items-center gap-1">
-            <Input
-              size="sm"
-              value={lookup}
-              onChange={(e) => {
-                const next = value.slice();
-                next[i] = e.target.value;
-                onChange(next);
-              }}
-              placeholder="property name (e.g. branchDetail)"
-            />
-            <button
-              type="button"
-              aria-label="Remove lookup"
-              className="rounded p-1 text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] hover:text-[var(--vscode-foreground)]"
-              onClick={() => {
-                const next = value.slice();
-                next.splice(i, 1);
-                onChange(next);
-              }}
-            >
-              <Trash2 size={11} />
-            </button>
+    <div className="flex flex-col gap-2">
+      {suggestions.length > 0 ? (
+        <div className="flex flex-col gap-1 rounded border border-[var(--vscode-panel-border)] p-1.5">
+          <div className="text-[10px] uppercase tracking-wide text-[var(--vscode-descriptionForeground)]">
+            From schema · {suggestions.length}
           </div>
-        ))
-      )}
+          {suggestions.map((path) => (
+            <label
+              key={path}
+              className="flex cursor-pointer items-center gap-1.5 rounded px-1 py-0.5 text-[11px] hover:bg-[var(--vscode-list-hoverBackground)]"
+            >
+              <input
+                type="checkbox"
+                checked={selected.has(path)}
+                onChange={() => toggleSuggestion(path)}
+              />
+              <span className="truncate text-[var(--vscode-foreground)]">{path}</span>
+            </label>
+          ))}
+        </div>
+      ) : null}
+
+      {customLookups.length === 0 && suggestions.length === 0 ? (
+        <p className="text-[10px] text-[var(--vscode-descriptionForeground)]">No lookups defined.</p>
+      ) : null}
+
+      {customLookups.length > 0 ? (
+        <div className="flex flex-col gap-1">
+          {suggestions.length > 0 ? (
+            <div className="text-[10px] uppercase tracking-wide text-[var(--vscode-descriptionForeground)]">
+              Custom
+            </div>
+          ) : null}
+          {customLookups.map((lookup, i) => (
+            <div key={`custom-${i}`} className="flex items-center gap-1">
+              <Input
+                size="sm"
+                value={lookup}
+                onChange={(e) => updateCustomAt(i, e.target.value)}
+                placeholder="property name (e.g. branchDetail)"
+              />
+              <button
+                type="button"
+                aria-label="Remove lookup"
+                className="rounded p-1 text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] hover:text-[var(--vscode-foreground)]"
+                onClick={() => removeCustomAt(i)}
+              >
+                <Trash2 size={11} />
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
       <button
         type="button"
         className="flex items-center gap-1 self-start rounded border border-[var(--vscode-panel-border)] bg-[var(--vscode-button-secondaryBackground)] px-2 py-1 text-[11px] text-[var(--vscode-button-secondaryForeground)] hover:bg-[var(--vscode-list-hoverBackground)]"
         onClick={() => onChange([...value, ''])}
       >
-        <Plus size={11} /> Add lookup
+        <Plus size={11} /> Add custom lookup
       </button>
     </div>
   );
