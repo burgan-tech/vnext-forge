@@ -23,6 +23,7 @@ import type { SchemaResolver } from './createDataSchemaResolver';
 import { normalizePseudoUiPayload } from './normalizePseudoUiPayload';
 import { PseudoUiErrorBoundary, type PseudoUiErrorAction } from './PseudoUiErrorBoundary';
 import { PseudoUiPseudoViewFrame } from './PseudoUiPseudoViewFrame';
+import { useSettingsStore } from '../../../store/useSettingsStore';
 
 const noopDelegate: PseudoViewDelegate = {
   requestData: () => Promise.resolve(undefined),
@@ -60,6 +61,16 @@ export interface PseudoUiViewSurfaceProps {
   resolveSchema?: SchemaResolver;
   instanceData?: Record<string, unknown>;
   initialFormData?: Record<string, unknown>;
+  /**
+   * Render language passed to the SDK. Drives multi-lang
+   * `textContent` resolution (`{ en, tr, ar, … } → string`).
+   *
+   * When omitted (the usual case) the surface reads
+   * `useSettingsStore.pseudoUiLang` — that's the single setting
+   * users change from the sidebar's Pseudo UI section. Explicit
+   * prop wins so individual views (e.g. a Builder preview that
+   * wants to demonstrate a non-default locale) can override.
+   */
   lang?: string;
   delegate?: PseudoViewDelegate;
   onError?: (message: string) => void;
@@ -108,7 +119,7 @@ export function PseudoUiViewSurface({
   resolveSchema,
   instanceData,
   initialFormData,
-  lang = 'en',
+  lang: langProp,
   delegate,
   onError,
   mode,
@@ -123,6 +134,13 @@ export function PseudoUiViewSurface({
 }: PseudoUiViewSurfaceProps) {
   const effectiveDesigner: boolean | DesignerMode = designer ?? mode === 'preview';
   const baseDelegate = delegate ?? noopDelegate;
+
+  // R20: settings-driven render language. Explicit `lang` prop wins;
+  // otherwise read from the persisted Pseudo UI settings (default 'tr').
+  // Subscribing here lets the surface re-render live as the user
+  // switches language from the sidebar without remounting anywhere.
+  const settingsLang = useSettingsStore((s) => s.pseudoUiLang);
+  const lang = langProp ?? settingsLang;
 
   const [definitionRetry, setDefinitionRetry] = useState(0);
   const [boundaryReset, setBoundaryReset] = useState(0);
