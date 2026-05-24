@@ -32,7 +32,26 @@ export interface TransitionInfo {
   };
   href: string;
   annotations?: Record<string, string>;
+  /**
+   * R21: engine-declared semantic of this transition. Drives grouping
+   * + colour of the button in the Available Transitions section.
+   * Older engine responses may omit this; consumers default to
+   * `'stateTransition'` (when the transition is in `transitions[]`)
+   * or `'sharedTransition'` (when in `sharedTransitions[]`).
+   */
+  kind?: TransitionKind;
 }
+
+/** R21: known transition kinds — see Workflow engine state model. */
+export const TRANSITION_KINDS = [
+  'stateTransition',
+  'sharedTransition',
+  'cancel',
+  'exit',
+  'update-parent-data',
+  '$timeout',
+] as const;
+export type TransitionKind = (typeof TRANSITION_KINDS)[number];
 
 export interface CorrelationInfo {
   correlationId: string;
@@ -46,9 +65,28 @@ export interface CorrelationInfo {
   href?: string;
 }
 
+/**
+ * R21: engine lifecycle classification for the current state. Shown
+ * as a small chip next to the state name so the user can tell at
+ * a glance whether the workflow is starting (`initial`), running
+ * (`intermediate`), terminating (`finish`), delegating to a child
+ * flow (`subflow` / `subFlow`), or guided by a multi-page wizard.
+ */
+export const STATE_TYPES = [
+  'initial',
+  'intermediate',
+  'finish',
+  'subflow',
+  'subFlow',
+  'wizard',
+] as const;
+export type StateType = (typeof STATE_TYPES)[number];
+
 export interface StateResponse {
   state: string;
   status: InstanceStatus;
+  /** R21: optional engine-declared classification of the current state. */
+  stateType?: string;
   transitions?: TransitionInfo[];
   sharedTransitions?: TransitionInfo[];
   activeCorrelations?: CorrelationInfo[];

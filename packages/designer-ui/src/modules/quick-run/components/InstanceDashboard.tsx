@@ -12,6 +12,7 @@ import { safeViewContent, type TransitionInfo } from '../types/quickrun.types';
 import { SchemaForm } from '../../schema-form';
 import { CopyableJsonBlock } from './CopyableJsonBlock';
 import { EnvBadge } from './EnvBadge';
+import { AvailableTransitions } from './AvailableTransitions';
 import { ProgressStepper } from './ProgressStepper';
 import { StatusBadge } from './StatusBadge';
 
@@ -264,6 +265,7 @@ export function InstanceDashboard({ configRef, persistConfig }: InstanceDashboar
             if (!rawState) return undefined;
             return flowLabels?.states[rawState] ?? rawState;
           })()}
+          stateType={activeState?.stateType}
         />
       </section>
 
@@ -388,53 +390,16 @@ export function InstanceDashboard({ configRef, persistConfig }: InstanceDashboar
         <ResponseHeadersSection headers={activeState.responseHeaders} />
       )}
 
-      {/* Transition Buttons — placed above State View */}
-      {(transitions.length > 0 || isActive) && (
-        <section className="flex flex-col gap-2">
-          <p className="text-xs font-semibold uppercase text-[var(--vscode-descriptionForeground)]">
-            Available Transitions
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {transitions.map((t) => (
-              <button
-                key={t.name}
-                className="rounded bg-[var(--vscode-button-background)] px-3 py-1.5 text-xs font-medium text-[var(--vscode-button-foreground)] hover:bg-[var(--vscode-button-hoverBackground)] disabled:opacity-50"
-                onClick={() => handleTransitionClick(t)}
-                disabled={activeStateLoading}
-              >
-                ▶ {flowLabels?.transitions[t.name] ?? t.name}
-              </button>
-            ))}
-            {isActive && (
-              <button
-                className="rounded border border-dashed border-[var(--vscode-panel-border)] px-3 py-1.5 text-xs text-[var(--vscode-descriptionForeground)] hover:border-[var(--vscode-focusBorder)] hover:text-[var(--vscode-foreground)] disabled:opacity-50"
-                onClick={openManualTransitionDialog}
-                disabled={activeStateLoading}
-                title="Fire a transition by name (session-only, not persisted)"
-              >
-                + Manual
-              </button>
-            )}
-          </div>
-          {sharedTransitions.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {sharedTransitions.map((t) => (
-                <button
-                  key={t.name}
-                  className="rounded border border-[var(--vscode-button-secondaryBackground)] px-3 py-1.5 text-xs font-medium text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] disabled:opacity-50"
-                  onClick={() => handleTransitionClick(t)}
-                  disabled={activeStateLoading}
-                >
-                  ↺ {flowLabels?.transitions[t.name] ?? t.name}
-                  <span className="ml-1.5 rounded bg-[var(--vscode-badge-background)] px-1 py-0.5 text-[9px] text-[var(--vscode-badge-foreground)]">
-                    shared
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
-        </section>
-      )}
+      {/* Transition Buttons — kind-grouped + colorized (R21). Placed above the State View. */}
+      <AvailableTransitions
+        transitions={transitions}
+        sharedTransitions={sharedTransitions}
+        flowLabels={flowLabels}
+        onTransitionClick={handleTransitionClick}
+        showManual={isActive}
+        onManualClick={openManualTransitionDialog}
+        disabled={activeStateLoading}
+      />
 
       {/* Quick Actions (View Data / History tabs) — placed above State View */}
       <section className="flex gap-2 border-t border-[var(--vscode-panel-border)] pt-3">
