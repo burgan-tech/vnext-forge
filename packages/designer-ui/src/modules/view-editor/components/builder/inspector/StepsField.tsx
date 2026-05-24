@@ -76,7 +76,7 @@ export function StepsField({ value, onChange }: StepsFieldProps) {
         return (
           <div
             key={i}
-            className="flex flex-col gap-1.5 rounded border border-[var(--vscode-panel-border)] bg-[var(--vscode-editor-background)] p-2"
+            className="flex flex-col gap-1.5 rounded border border-primary-border bg-primary p-2"
           >
             <div className="flex items-center justify-between">
               <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--vscode-descriptionForeground)]">

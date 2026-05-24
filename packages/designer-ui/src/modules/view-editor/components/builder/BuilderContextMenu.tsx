@@ -178,7 +178,7 @@ export function BuilderContextMenu({ store, state, onClose }: BuilderContextMenu
         zIndex: 9999,
         visibility: visible ? 'visible' : 'hidden',
       }}
-      className="overflow-hidden rounded border border-[var(--vscode-panel-border)] bg-[var(--vscode-menu-background,var(--vscode-editor-background))] py-1 text-[12px] text-[var(--vscode-menu-foreground,var(--vscode-foreground))] shadow-lg"
+      className="overflow-hidden rounded border border-primary-border bg-primary py-1 text-[12px] text-primary-text shadow-lg"
     >
       <MenuItem
         icon={<CopyPlus size={12} aria-hidden />}

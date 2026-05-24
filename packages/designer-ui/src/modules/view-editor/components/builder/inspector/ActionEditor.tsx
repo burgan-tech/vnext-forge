@@ -68,7 +68,7 @@ function MultiActionEditor({ value, onChange }: { value: unknown; onChange: (nex
         <p className="text-[11px] text-[var(--vscode-descriptionForeground)]">No actions configured.</p>
       ) : (
         list.map((item, index) => (
-          <div key={index} className="rounded border border-[var(--vscode-panel-border)] p-2">
+          <div key={index} className="rounded border border-primary-border bg-primary p-2">
             <div className="mb-1 flex items-center justify-between gap-1">
               <span className="text-[10px] uppercase tracking-wide text-[var(--vscode-descriptionForeground)]">
                 Action {index + 1}

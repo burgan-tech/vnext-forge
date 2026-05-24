@@ -82,7 +82,7 @@ export function TabsField({ value, onChange }: TabsFieldProps) {
         tabs.map((tab, i) => {
           const contentCount = Array.isArray(tab.content) ? tab.content.length : 0;
           return (
-            <div key={i} className="rounded border border-[var(--vscode-panel-border)] p-2">
+            <div key={i} className="rounded border border-primary-border bg-primary p-2">
               <div className="mb-1 flex items-center justify-between gap-1">
                 <span className="text-[10px] uppercase tracking-wide text-[var(--vscode-descriptionForeground)]">
                   Tab {i + 1}

@@ -147,7 +147,7 @@ function SingleSlotEditor({ node, pickableTypes, onCreate, onSelect, onRemove }:
 
   const meta = findComponentMeta(node.type);
   return (
-    <div className="flex items-center justify-between gap-1 rounded border border-[var(--vscode-panel-border)] bg-[var(--vscode-editor-background)] px-2 py-1">
+    <div className="flex items-center justify-between gap-1 rounded border border-primary-border bg-primary px-2 py-1">
       <button
         type="button"
         onClick={onSelect}
@@ -216,7 +216,7 @@ function MultiSlotEditor({
           return (
             <div
               key={i}
-              className="flex items-center justify-between gap-1 rounded border border-[var(--vscode-panel-border)] bg-[var(--vscode-editor-background)] px-2 py-1"
+              className="flex items-center justify-between gap-1 rounded border border-primary-border bg-primary px-2 py-1"
             >
               <button
                 type="button"

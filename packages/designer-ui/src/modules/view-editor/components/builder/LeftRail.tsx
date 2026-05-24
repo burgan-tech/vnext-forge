@@ -47,8 +47,8 @@ export function LeftRail({ store, defaultTab = 'outline', onOpenContextMenu }: L
   );
 
   return (
-    <Tabs defaultValue={defaultTab} className="flex h-full min-h-0 flex-col">
-      <TabsList className="shrink-0 grid grid-cols-2 rounded-none border-b border-[var(--vscode-panel-border)] bg-transparent p-0">
+    <Tabs defaultValue={defaultTab} className="flex h-full min-h-0 flex-col bg-primary-surface">
+      <TabsList className="shrink-0 grid grid-cols-2 rounded-none border-b border-primary-border bg-primary-surface p-0">
         <TabsTrigger value="outline" className="flex items-center gap-1.5 rounded-none text-[11px]">
           <ListTree size={12} aria-hidden /> Outline
         </TabsTrigger>

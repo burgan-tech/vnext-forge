@@ -110,8 +110,8 @@ export function PropertyInspector({ store, availableSchemas, loadSchema }: Prope
   const showAdvancedFields = meta.propertySchema.some((f) => f.advanced);
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="shrink-0 border-b border-[var(--vscode-panel-border)] p-3">
+    <div className="flex h-full min-h-0 flex-col bg-primary-surface">
+      <div className="shrink-0 border-b border-primary-border bg-primary-surface p-3">
         <div className="mb-1 text-[10px] uppercase tracking-wide text-[var(--vscode-descriptionForeground)]">
           {meta.category}
         </div>

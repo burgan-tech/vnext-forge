@@ -140,7 +140,7 @@ export function BuilderCanvas({
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="flex h-full min-h-0 flex-col bg-primary-surface">
       <CanvasHeader
         breadcrumb={breadcrumb}
         isHover={breadcrumbIsHover}
@@ -191,9 +191,9 @@ function CanvasHeader({
   onToggleInspector: () => void;
 }) {
   return (
-    <div className="flex shrink-0 items-center justify-between gap-2 border-b border-[var(--vscode-panel-border)] bg-[var(--vscode-editor-background)] px-3 py-1.5">
+    <div className="flex shrink-0 items-center justify-between gap-2 border-b border-primary-border bg-primary-surface px-3 py-1.5">
       <div className="flex min-w-0 items-center gap-2 text-[11px]">
-        <span className="shrink-0 rounded bg-[var(--vscode-badge-background,var(--vscode-list-activeSelectionBackground))] px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-[var(--vscode-badge-foreground,var(--vscode-foreground))]">
+        <span className="shrink-0 rounded bg-primary-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-primary-text">
           Canvas
         </span>
         {breadcrumb && breadcrumb.length > 0 ? (

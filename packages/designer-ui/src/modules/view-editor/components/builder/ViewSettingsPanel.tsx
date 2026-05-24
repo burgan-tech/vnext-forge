@@ -45,8 +45,8 @@ export function ViewSettingsPanel({ store, availableSchemas, bindEntries }: View
     typeof definition.dataSchema === 'object' ? 'inline' : 'urn';
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="shrink-0 border-b border-[var(--vscode-panel-border)] p-3">
+    <div className="flex h-full min-h-0 flex-col bg-primary-surface">
+      <div className="shrink-0 border-b border-primary-border bg-primary-surface p-3">
         <div className="text-[10px] uppercase tracking-wide text-[var(--vscode-descriptionForeground)]">
           View settings
         </div>
@@ -238,12 +238,12 @@ function SchemaPicker({
       ) : filtered.length === 0 ? (
         <p className="text-[10px] text-[var(--vscode-descriptionForeground)]">No matches.</p>
       ) : (
-        <ul className="max-h-40 overflow-y-auto rounded border border-[var(--vscode-panel-border)] bg-[var(--vscode-editor-background)] text-[11px]">
+        <ul className="max-h-40 overflow-y-auto rounded border border-primary-border bg-primary text-[11px]">
           {filtered.map((s) => (
             <li
               key={s.urn}
               className={[
-                'cursor-pointer px-2 py-1 hover:bg-[var(--vscode-list-hoverBackground)]',
+                'cursor-pointer px-2 py-1 hover:bg-primary-hover',
                 value === s.urn ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-list-activeSelectionForeground)]' : '',
               ].join(' ')}
               onClick={() => {

@@ -76,8 +76,8 @@ export function OutlinePanel({ store, onOpenContextMenu }: OutlinePanelProps) {
   }, [selectedPath]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
-      <div className="shrink-0 border-b border-[var(--vscode-panel-border)] p-2">
+    <div className="flex h-full min-h-0 flex-col bg-primary-surface">
+      <div className="shrink-0 border-b border-primary-border p-2">
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}

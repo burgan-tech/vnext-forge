@@ -85,8 +85,8 @@ export function ComponentPalette({ className, onAdd }: ComponentPaletteProps) {
   };
 
   return (
-    <div className={`flex h-full min-h-0 flex-col ${className ?? ''}`}>
-      <div className="border-b border-[var(--vscode-panel-border)] p-2">
+    <div className={`flex h-full min-h-0 flex-col bg-primary-surface ${className ?? ''}`}>
+      <div className="border-b border-primary-border p-2">
         <Input
           size="sm"
           value={query}
@@ -169,8 +169,8 @@ function PaletteCard({ meta, onAdd }: PaletteCardProps) {
       title={meta.description ?? meta.label}
       className={[
         'group relative flex items-center gap-1.5 rounded border px-1.5 py-1 text-left transition-colors',
-        'border-[var(--vscode-panel-border)] bg-[var(--vscode-editor-background)] text-[var(--vscode-foreground)]',
-        'hover:border-[var(--vscode-focusBorder)] hover:bg-[var(--vscode-list-hoverBackground)]',
+        'border-primary-border bg-primary text-primary-text',
+        'hover:border-primary-border-hover hover:bg-primary-hover',
         isDragging ? 'cursor-grabbing opacity-50' : 'cursor-grab',
       ].join(' ')}
     >

@@ -93,7 +93,7 @@ export function SpansField({ value, onChange }: SpansFieldProps) {
         <p className="text-[10px] text-[var(--vscode-descriptionForeground)]">No spans defined.</p>
       ) : (
         spans.map((span, i) => (
-          <div key={i} className="rounded border border-[var(--vscode-panel-border)] p-2">
+          <div key={i} className="rounded border border-primary-border bg-primary p-2">
             <div className="mb-1 flex items-center justify-between gap-1">
               <span className="text-[10px] uppercase tracking-wide text-[var(--vscode-descriptionForeground)]">
                 Span {i + 1}
