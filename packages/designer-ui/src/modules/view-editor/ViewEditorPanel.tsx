@@ -474,6 +474,7 @@ export function ViewEditorPanel({ json, onChange }: ViewEditorPanelProps) {
               viewKey={viewKeyUi || 'preview'}
               availableSchemas={availableSchemas}
               loadSchema={loadSchema}
+              projectId={activeProject?.id}
             />
           ) : (
             <>

@@ -40,6 +40,8 @@ import { BuilderCanvas } from './canvas/BuilderCanvas';
 import { BuilderContextMenu, type BuilderContextMenuState } from './BuilderContextMenu';
 import { LeftRail } from './LeftRail';
 import { PropertyInspector } from './inspector/PropertyInspector';
+import { useForgeUrnCatalog } from './services/useForgeUrnCatalog';
+import { UrnCatalogProvider } from './services/UrnCatalogContext';
 import { createBuilderStore } from './state/builderStore';
 import { useBuilderKeyboardShortcuts } from './state/useBuilderKeyboardShortcuts';
 import { type BuilderDefinition, type NodePath } from './types';
@@ -60,6 +62,11 @@ export interface PseudoUiBuilderProps {
   /** Optional schema discovery hooks supplied by the host. */
   availableSchemas?: readonly { urn: string; label: string }[];
   loadSchema?: (urn: string) => Promise<unknown>;
+  /** Active project id — used to populate the URN action catalog
+   *  (workflow transitions + BFF functions) the ActionEditor picker
+   *  reads via `UrnCatalogContext`. When omitted, the catalog stays
+   *  empty and the picker degrades to "Reserved + Custom URN" only. */
+  projectId?: string;
 }
 
 type BuilderMode = 'builder' | 'json' | 'preview';
@@ -70,7 +77,13 @@ export function PseudoUiBuilder({
   viewKey,
   availableSchemas,
   loadSchema,
+  projectId,
 }: PseudoUiBuilderProps) {
+  // R25.A-7 — URN action catalog (workflow transitions + BFF
+  // functions) loaded from the active workspace. Threaded into the
+  // Inspector via `UrnCatalogProvider` so `ActionEditor` can render
+  // domain dispatch URNs in its picker without per-row prop drilling.
+  const urnCatalog = useForgeUrnCatalog(projectId);
   // ── Mode ────────────────────────────────────────────────────────────
   const [mode, setMode] = useState<BuilderMode>('builder');
 
@@ -222,6 +235,7 @@ export function PseudoUiBuilder({
   }, [loadSchema]);
 
   return (
+    <UrnCatalogProvider catalog={urnCatalog}>
     <div className="flex h-full min-h-0 w-full flex-col bg-background">
       <Tabs value={mode} onValueChange={(v) => setMode(v as BuilderMode)} className="flex h-full min-h-0 flex-col">
         <TabsList className="shrink-0 self-start">
@@ -299,6 +313,7 @@ export function PseudoUiBuilder({
         </TabsContent>
       </Tabs>
     </div>
+    </UrnCatalogProvider>
   );
 }
 
