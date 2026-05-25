@@ -104,6 +104,13 @@ export function TransitionDialog({ configRef, persistConfig, projectId }: Transi
     });
   }, [domain, mergedDialogHeaders, environmentUrl]);
 
+  // Live-ref pattern so the delegate factory stays stable while the
+  // dialog's header rows / session headers mutate. R24 wiring.
+  const sessionHeadersRef = useRef(sessionHeaders);
+  useEffect(() => {
+    sessionHeadersRef.current = { ...sessionHeaders, ...mergedDialogHeaders };
+  }, [sessionHeaders, mergedDialogHeaders]);
+
   const transitionPseudoDelegate = useMemo((): PseudoViewDelegate | undefined => {
     if (!activeTabId || !domain || !workflowKey) return undefined;
     return createQuickRunPseudoDelegate({
@@ -111,18 +118,24 @@ export function TransitionDialog({ configRef, persistConfig, projectId }: Transi
       workflowKey,
       instanceId: activeTabId,
       runtimeUrl: environmentUrl ?? '',
-      headers: mergedDialogHeaders,
+      getBucketConfig: () => configRef.current ?? null,
+      // The TransitionDialog merges sessionHeaders + dialog-local
+      // header rows into `mergedDialogHeaders` — surface the same
+      // merged map to the SDK so a submit-from-preview inside the
+      // dialog sees the row edits the user just typed.
+      getSessionHeaders: () => sessionHeadersRef.current,
+      persistBucketConfig: persistConfig,
       onTransitionComplete: async () => {
         await pollState({
           domain,
           workflowKey,
           instanceId: activeTabId,
           runtimeUrl: environmentUrl ?? '',
-          headers: mergedDialogHeaders,
+          headers: sessionHeadersRef.current,
         });
       },
     });
-  }, [activeTabId, domain, workflowKey, environmentUrl, mergedDialogHeaders, pollState]);
+  }, [activeTabId, domain, workflowKey, environmentUrl, pollState, configRef, persistConfig]);
 
   useEffect(() => {
     if (!open || !activeTabId) return;

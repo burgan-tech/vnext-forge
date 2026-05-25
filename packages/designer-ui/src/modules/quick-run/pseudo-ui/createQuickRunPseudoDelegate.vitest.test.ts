@@ -32,7 +32,10 @@ describe('createQuickRunPseudoDelegate', () => {
       workflowKey: 'loan',
       instanceId: 'instance-1',
       runtimeUrl: 'http://localhost:9000',
-      headers: { Authorization: 'Bearer token' },
+      // R24: factory now reads headers + bucket config through live
+      // getters so per-tab edits don't tear down the SDK tree.
+      getBucketConfig: () => null,
+      getSessionHeaders: () => ({ Authorization: 'Bearer token' }),
       onTransitionComplete,
     });
 

@@ -24,6 +24,8 @@ import { normalizePseudoUiPayload } from './normalizePseudoUiPayload';
 import { PseudoUiErrorBoundary, type PseudoUiErrorAction } from './PseudoUiErrorBoundary';
 import { PseudoUiPseudoViewFrame } from './PseudoUiPseudoViewFrame';
 import { useSettingsStore } from '../../../store/useSettingsStore';
+import { FireTransitionError } from './FireTransitionError';
+import type { ParsedValidationFailure } from './parseValidationFailure';
 
 const noopDelegate: PseudoViewDelegate = {
   requestData: () => Promise.resolve(undefined),
@@ -146,6 +148,12 @@ export function PseudoUiViewSurface({
   const [boundaryReset, setBoundaryReset] = useState(0);
   const [actionPending, setActionPending] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  // R24.5 — engine-side per-field validation errors. Populated when
+  // the delegate throws a FireTransitionError with a parsed
+  // `validation` payload; cleared on every new action attempt.
+  const [actionFieldErrors, setActionFieldErrors] = useState<
+    ParsedValidationFailure['fieldErrors'] | null
+  >(null);
   const [successFlash, setSuccessFlash] = useState(false);
   const [resolvedSchema, setResolvedSchema] = useState<DataSchema | null>(null);
   const [schemaResolving, setSchemaResolving] = useState(false);
@@ -193,6 +201,7 @@ export function PseudoUiViewSurface({
         : undefined,
       onAction: async (action, formData, command) => {
         setActionError(null);
+        setActionFieldErrors(null);
         if (action === 'submit') {
           setActionPending(true);
         }
@@ -207,9 +216,18 @@ export function PseudoUiViewSurface({
             }, 2200);
           }
         } catch (e) {
-          const msg = e instanceof Error ? e.message : 'Action failed';
-          setActionError(msg);
-          onError?.(msg);
+          // R24.5 — preserve the typed FireTransitionError so the
+          // banner can render per-field validation rows. Otherwise
+          // fall back to the plain message.
+          if (e instanceof FireTransitionError) {
+            setActionError(e.message);
+            setActionFieldErrors(e.validation?.fieldErrors ?? null);
+            onError?.(e.message);
+          } else {
+            const msg = e instanceof Error ? e.message : 'Action failed';
+            setActionError(msg);
+            onError?.(msg);
+          }
         } finally {
           if (action === 'submit') {
             setActionPending(false);
@@ -418,11 +436,32 @@ export function PseudoUiViewSurface({
           role="alert"
           className="mb-2 rounded border border-[var(--vscode-inputValidation-errorBorder)] bg-[var(--vscode-inputValidation-errorBackground)] px-2 py-2 text-[11px] text-[var(--vscode-errorForeground)]"
         >
-          <p className="mb-2">{actionError}</p>
+          <p className="mb-2 font-medium">{actionError}</p>
+          {/* R24.5 — engine validation errors. `path` is the dotted
+              JSON pointer of the offending field (`customer.ownerUserId`),
+              `label` is the human label from the schema. */}
+          {actionFieldErrors && actionFieldErrors.length > 0 ? (
+            <ul className="mb-2 space-y-0.5 pl-0">
+              {actionFieldErrors.map((fe, idx) => (
+                <li key={`${fe.path}-${idx}`} className="flex flex-col">
+                  <span>
+                    <span className="font-mono text-[10px] text-[var(--vscode-descriptionForeground)]">
+                      {fe.label ? `${fe.label} (${fe.path})` : fe.path}
+                    </span>
+                    {': '}
+                    <span>{fe.message}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
           <button
             type="button"
             className="rounded border border-[var(--vscode-panel-border)] bg-[var(--vscode-button-secondaryBackground)] px-2 py-1 text-[10px] text-[var(--vscode-button-secondaryForeground)] hover:bg-[var(--vscode-list-hoverBackground)] focus-visible:outline focus-visible:outline-[var(--vscode-focusBorder)]"
-            onClick={() => setActionError(null)}
+            onClick={() => {
+              setActionError(null);
+              setActionFieldErrors(null);
+            }}
           >
             Dismiss
           </button>

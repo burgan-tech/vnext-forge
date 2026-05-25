@@ -5,6 +5,7 @@ import type { IncidentEntry, IncidentInfo, InstanceDetailResponse, WorkflowBucke
 import { ResizableDialogShell } from '../../../ui/ResizableDialogShell';
 import { useQuickRunPolling } from '../hooks/useQuickRunPolling';
 import { useQuickRunStore } from '../store/quickRunStore';
+import { useSettingsStore } from '../../../store/useSettingsStore';
 import { createQuickRunPseudoDelegate } from '../pseudo-ui/createQuickRunPseudoDelegate';
 import { createDataSchemaResolver } from '../pseudo-ui/createDataSchemaResolver';
 import { PseudoUiLangPicker } from '../pseudo-ui/PseudoUiLangPicker';
@@ -424,6 +425,8 @@ export function InstanceDashboard({ configRef, persistConfig }: InstanceDashboar
         loading={stateViewLoading}
         error={stateViewError}
         hasView={activeState?.view?.hasView}
+        configRef={configRef}
+        persistConfig={persistConfig}
       />
 
       {cancelConfirmOpen && (
@@ -688,11 +691,15 @@ function StateViewSection({
   loading,
   error,
   hasView,
+  configRef,
+  persistConfig,
 }: {
   view: ReturnType<typeof useQuickRunStore.getState>['stateView'];
   loading: boolean;
   error: boolean;
   hasView?: boolean;
+  configRef: MutableRefObject<WorkflowBucketConfig>;
+  persistConfig: (cfg: WorkflowBucketConfig) => void;
 }) {
   const [collapsed, setCollapsed] = useState(false);
 
@@ -728,7 +735,7 @@ function StateViewSection({
             </div>
           )}
           {!loading && !error && view && (
-            <StateViewContent view={view} />
+            <StateViewContent view={view} configRef={configRef} persistConfig={persistConfig} />
           )}
         </div>
       )}
@@ -817,7 +824,15 @@ function ResponseHeadersSection({ headers }: { headers: Record<string, string> }
   );
 }
 
-function StateViewContent({ view }: { view: NonNullable<ReturnType<typeof useQuickRunStore.getState>['stateView']> }) {
+function StateViewContent({
+  view,
+  configRef,
+  persistConfig,
+}: {
+  view: NonNullable<ReturnType<typeof useQuickRunStore.getState>['stateView']>;
+  configRef: MutableRefObject<WorkflowBucketConfig>;
+  persistConfig: (cfg: WorkflowBucketConfig) => void;
+}) {
   const activeTabId = useQuickRunStore((s) => s.activeTabId);
   const domain = useQuickRunStore((s) => s.domain);
   const workflowKey = useQuickRunStore((s) => s.workflowKey);
@@ -829,8 +844,22 @@ function StateViewContent({ view }: { view: NonNullable<ReturnType<typeof useQui
   const setActiveDataLoading = useQuickRunStore((s) => s.setActiveDataLoading);
   const pollingConfig = useQuickRunStore((s) => s.pollingConfig);
   const { pollState } = useQuickRunPolling(pollingConfig);
+  // R24 DEV TOGGLE — when on, the delegate's onLog mirrors every
+  // SDK log call to console.log with `[pseudo-ui]` prefix. Off by
+  // default; flip via `useSettingsStore.setPseudoUiVerboseLogs(true)`
+  // in DevTools (or temporarily change the store default) while
+  // debugging pseudo-ui internals.
+  const pseudoUiVerboseLogs = useSettingsStore((s) => s.pseudoUiVerboseLogs);
 
   const mergedHeaders = useMemo(() => ({ ...globalHeaders, ...sessionHeaders }), [globalHeaders, sessionHeaders]);
+
+  // Live refs so the delegate closure (recreated only when identity
+  // inputs change) always reads the latest header maps without
+  // tearing down the SDK tree on every header keystroke.
+  const sessionHeadersRef = useRef(sessionHeaders);
+  useEffect(() => {
+    sessionHeadersRef.current = sessionHeaders;
+  }, [sessionHeaders]);
 
   useEffect(() => {
     if (activeData || !activeTabId || !domain || !workflowKey) return;
@@ -860,18 +889,41 @@ function StateViewContent({ view }: { view: NonNullable<ReturnType<typeof useQui
       workflowKey,
       instanceId: activeTabId,
       runtimeUrl: environmentUrl ?? '',
-      headers: mergedHeaders,
+      // Live getters — the delegate factory is stable across header
+      // edits; only identity inputs (domain/workflow/instance) bust it.
+      getBucketConfig: () => configRef.current ?? null,
+      getSessionHeaders: () => sessionHeadersRef.current,
+      persistBucketConfig: persistConfig,
       onTransitionComplete: async () => {
         await pollState({
           domain,
           workflowKey,
           instanceId: activeTabId,
           runtimeUrl: environmentUrl ?? '',
-          headers: mergedHeaders,
+          // Use the live-merged headers (global + session) at fire-
+          // complete time so the poll call matches the manual
+          // dialog's behaviour.
+          headers: { ...globalHeaders, ...sessionHeadersRef.current },
         });
       },
+      verboseLog: pseudoUiVerboseLogs
+        ? (level, message, error, context) => {
+            // eslint-disable-next-line no-console -- R24 DEV TOGGLE: see useSettingsStore.pseudoUiVerboseLogs
+            console.log(`[pseudo-ui] ${level}: ${message}`, { error, context });
+          }
+        : undefined,
     });
-  }, [activeTabId, domain, workflowKey, environmentUrl, mergedHeaders, pollState]);
+  }, [
+    activeTabId,
+    domain,
+    workflowKey,
+    environmentUrl,
+    pollState,
+    configRef,
+    persistConfig,
+    pseudoUiVerboseLogs,
+    globalHeaders,
+  ]);
 
   const schemaResolver = useMemo(() => {
     if (!domain) return undefined;
@@ -921,8 +973,15 @@ function StateViewContent({ view }: { view: NonNullable<ReturnType<typeof useQui
         surfaceClassName="min-h-[200px]"
         delegate={pseudoDelegate}
         resolveSchema={schemaResolver}
+        // R24.3: formData and instanceData are independent buckets in
+        // PseudoView's FormContext (engine/types.ts:157-184). Submit
+        // payload only includes `formData` (DynamicRenderer.tsx:359),
+        // so seeding both with the same engine `data` would echo
+        // persisted state back as if it were user input. Keep
+        // formData empty by default; persisted attributes stay
+        // read-only and accessible via $instance.* bindings.
         instanceData={activeData?.data}
-        initialFormData={activeData?.data}
+        initialFormData={undefined}
       />
     </div>
   );

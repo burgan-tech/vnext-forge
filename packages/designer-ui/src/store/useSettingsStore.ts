@@ -76,6 +76,20 @@ interface SettingsState {
   pseudoUiCustomLangs: string[];
   addPseudoUiCustomLang: (lang: string) => void;
   removePseudoUiCustomLang: (lang: string) => void;
+  /**
+   * R24 DEV TOGGLE — when `true`, the QuickRunner pseudo-ui delegate
+   * routes every SDK `onLog` callback (debug / info / warn / error)
+   * straight to `console.log` with a `[pseudo-ui]` prefix so a
+   * developer can read the raw stream during debugging. The
+   * structured Forge logger still receives every entry underneath.
+   *
+   * **MUST remain `false` in committed code.** There is intentionally
+   * no settings-UI toggle: flip the default here while debugging,
+   * then revert before commit. Persisted across reloads so the flag
+   * survives webview restarts in a debugging session.
+   */
+  pseudoUiVerboseLogs: boolean;
+  setPseudoUiVerboseLogs: (enabled: boolean) => void;
 }
 
 /** Built-in language chips that are always offered by the picker. */
@@ -182,6 +196,10 @@ export const useSettingsStore = create<SettingsState>()(
           // language the user explicitly discarded.
           pseudoUiLang: state.pseudoUiLang === lang ? DEFAULT_PSEUDO_UI_LANG : state.pseudoUiLang,
         })),
+      // R24 DEV TOGGLE — see field doc above. MUST remain `false` in
+      // committed code.
+      pseudoUiVerboseLogs: false,
+      setPseudoUiVerboseLogs: (pseudoUiVerboseLogs) => set({ pseudoUiVerboseLogs }),
     }),
     {
       name: SETTINGS_PERSIST_KEY,
@@ -193,8 +211,9 @@ export const useSettingsStore = create<SettingsState>()(
         pseudoUiTenantTokens: state.pseudoUiTenantTokens,
         pseudoUiLang: state.pseudoUiLang,
         pseudoUiCustomLangs: state.pseudoUiCustomLangs,
+        pseudoUiVerboseLogs: state.pseudoUiVerboseLogs,
       }),
-      version: 5,
+      version: 6,
       migrate: (persisted, version) => {
         const persistedObj = (persisted as Record<string, unknown>) ?? {};
         const next = {
@@ -203,6 +222,14 @@ export const useSettingsStore = create<SettingsState>()(
           pseudoUiTenantTokens: normalizePseudoUiTenantTokens(persistedObj.pseudoUiTenantTokens),
           pseudoUiLang: normalizePseudoUiLang(persistedObj.pseudoUiLang),
           pseudoUiCustomLangs: normalizePseudoUiCustomLangs(persistedObj.pseudoUiCustomLangs),
+          // R24 DEV TOGGLE — default false on every migration path so
+          // an old persisted state never resurrects the flag on its
+          // own. Anyone debugging flips the default at field-init
+          // time, not via persisted localStorage.
+          pseudoUiVerboseLogs:
+            typeof persistedObj.pseudoUiVerboseLogs === 'boolean'
+              ? persistedObj.pseudoUiVerboseLogs
+              : false,
         };
         if (version === 0) {
           return { ...next, autoSaveEnabled: false };

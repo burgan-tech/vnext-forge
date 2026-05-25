@@ -580,7 +580,17 @@ const LOCAL_UI_CATALOG: ComponentMeta[] = [
       { key: 'variant', kind: 'select', label: 'Variant', options: buttonVariantOptions, allowEmpty: true },
       { key: 'icon', kind: 'icon', label: 'Icon', advanced: true, hint: MATERIAL_ICON_HINT },
       { key: 'action', kind: 'action', label: 'Action', required: true },
-      { key: 'command', kind: 'text', label: 'Command (URN)', advanced: true, hint: 'Optional URN passed to the host on action' },
+      // R24.2 — Canonical workflow transition pattern is
+      // action="submit" + this URN. SDK forwards `command` opaquely
+      // to delegate.onAction; Forge parses the trailing segment to
+      // identify the transition (see resolveTransitionKey.ts).
+      {
+        key: 'command',
+        kind: 'text',
+        label: 'Command (URN)',
+        advanced: true,
+        hint: 'For workflow transitions: urn:amorphie:transition:<domain>:<workflow>:<instance>:<transition-name>',
+      },
     ],
   },
   {

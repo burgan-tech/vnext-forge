@@ -1,13 +1,28 @@
 /**
  * Editor for Button.action / Card.onTap fields.
  *
- * pseudo-ui's action value can be:
- *   - a string literal: 'submit' | 'cancel' | 'back'
- *   - an ActionDescriptor: { action, bind?, value? }
- *   - (for Card.onTap) an array of ActionDescriptor
+ * SDK vocabulary (`view-vocabulary.md:809-834`) defines exactly
+ * three ButtonAction values:
  *
- * For single mode, we let the user pick a preset OR define a custom
- * descriptor. For multi mode (`multi=true`), we render a small list editor.
+ *   submit | cancel | back
+ *
+ * Only the literal string `'submit'` triggers SDK-side form
+ * validation (`DynamicRenderer.tsx:354-356`). For workflow
+ * transitions, the canonical pattern is `action: "submit"` plus a
+ * transition URN in `command`:
+ *
+ *   "command": "urn:amorphie:transition:<domain>:<workflow>:<instance>:<name>"
+ *
+ * The string-or-descriptor union also accepts a full
+ * `ActionDescriptor` `{ action, bind?, value? }` for advanced
+ * inline patterns — primarily Card.onTap's
+ * `{ action: 'select', bind, value }` shape. R24.2 dropped the
+ * legacy preset shortcuts (`select / navigate / reset / transition`)
+ * because they were either non-vocabulary or SDK-internal. Authors
+ * who need a non-vocabulary descriptor enable "With bind/value" and
+ * type the action name in the field directly.
+ *
+ * For Card.onTap (`multi=true`) we render a small list editor.
  */
 
 import { useMemo } from 'react';
@@ -138,45 +153,66 @@ function MultiActionEditor({ value, onChange }: { value: unknown; onChange: (nex
   );
 }
 
+// R24.2 — Hints surfaced under the dropdown. Aligned with SDK
+// vocabulary (view-vocabulary.md:813-819).
+const VOCABULARY_HINTS: Record<string, string> = {
+  submit: 'Runs form validation, then dispatches. Pair with a command URN for workflow transitions.',
+  cancel: 'Direct delegate dispatch — no validation.',
+  back:   'Direct delegate dispatch — no validation.',
+};
+const DESCRIPTOR_HINT =
+  'Custom descriptor — SDK forwards as-is. Use for `select` bind/value patterns or non-vocabulary actions.';
+
 function ActionRow({ value, onChange }: { value: ActionLike; onChange: (next: ActionLike) => void }) {
   const isPreset = typeof value === 'string';
   const descriptor: ActionDescriptor = isDescriptor(value) ? value : { action: typeof value === 'string' ? value : 'submit' };
 
-  // The "Use descriptor" toggle: when ON, the action becomes an object with
-  // bind/value; when OFF it's a string literal.
-  const presetValue = isPreset ? (value) : descriptor.action;
-  const customPresets = ['select', 'navigate', 'reset'];
-  const allOptions = [
-    ...BUTTON_ACTIONS.map((a) => ({ value: a, label: a })),
-    ...customPresets.map((a) => ({ value: a, label: a })),
-  ];
+  // The "With bind/value" toggle: when ON, the action becomes an
+  // object with bind/value; when OFF it's a string literal from the
+  // vocabulary preset list.
+  const presetValue = isPreset ? value : descriptor.action;
+  const isVocabularyValue = BUTTON_ACTIONS.includes(presetValue as (typeof BUTTON_ACTIONS)[number]);
+  const allOptions = BUTTON_ACTIONS.map((a) => ({ value: a, label: a }));
+  const hintText = !isPreset
+    ? DESCRIPTOR_HINT
+    : isVocabularyValue
+    ? VOCABULARY_HINTS[presetValue as string] ?? ''
+    : `Non-vocabulary value "${presetValue}" — SDK forwards as a string; consider switching to a descriptor.`;
 
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center gap-2">
-        <Select
-          className="h-8 text-xs"
-          value={presetValue}
-          onChange={(e) => {
-            const next = e.target.value;
-            if (isPreset) {
-              if (BUTTON_ACTIONS.includes(next as (typeof BUTTON_ACTIONS)[number])) {
-                onChange(next);
-              } else {
-                onChange({ action: next });
-              }
-            } else {
-              onChange({ ...descriptor, action: next });
-            }
-          }}
-          aria-label="Action type"
-        >
-          {allOptions.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
-            </option>
-          ))}
-        </Select>
+        {isPreset ? (
+          <Select
+            className="h-8 text-xs"
+            value={isVocabularyValue ? presetValue : ''}
+            onChange={(e) => onChange(e.target.value)}
+            aria-label="Action type"
+          >
+            {!isVocabularyValue ? (
+              <option value="" disabled>
+                {`Non-vocabulary: "${presetValue}"`}
+              </option>
+            ) : null}
+            {allOptions.map((o) => (
+              <option key={o.value} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </Select>
+        ) : (
+          // Descriptor mode — the action name is free-form (e.g.
+          // 'select' for Card.onTap, or any non-vocabulary string).
+          // Vocabulary discipline only applies to the string form.
+          <Input
+            size="sm"
+            className="h-8 text-xs"
+            value={descriptor.action}
+            onChange={(e) => onChange({ ...descriptor, action: e.target.value })}
+            placeholder='action (e.g. "select")'
+            aria-label="Custom action name"
+          />
+        )}
         <label className="flex items-center gap-1 text-[10px] text-muted-text">
           <input
             type="checkbox"
@@ -192,6 +228,16 @@ function ActionRow({ value, onChange }: { value: ActionLike; onChange: (next: Ac
           With bind/value
         </label>
       </div>
+      {/* R24.2: tiny inline hint so the user sees the vocabulary +
+          validation semantics without leaving the inspector. */}
+      {hintText ? (
+        <p className="text-[10px] italic text-secondary-text">{hintText}</p>
+      ) : null}
+      {isPreset && !isVocabularyValue ? (
+        <p className="text-[10px] italic text-secondary-text">
+          {`Current value: "${presetValue}" is not in the SDK vocabulary. Pick a preset or enable “With bind/value” to convert to a descriptor.`}
+        </p>
+      ) : null}
       {!isPreset ? (
         <>
           <Input
