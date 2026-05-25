@@ -167,13 +167,16 @@ export function PseudoUiPseudoViewFrame(props: PseudoUiPseudoViewFrameProps) {
     // hundreds of pixels past the trigger).
     //
     // The fix is a dedicated sibling element that's
-    // `position: fixed; inset: 0` (zero-size, viewport origin),
-    // sits *inside* the shadow root so the adopted PrimeReact CSS
-    // applies, and accepts overlay portals through `appendTo`.
-    // The host itself doesn't capture pointer events
-    // (`pointer-events: none`) so it never blocks the SDK tree
-    // underneath; PrimeReact panels (children) re-enable pointer
-    // events by default so they remain interactive.
+    // `position: fixed; top:0; left:0; width:0; height:0` (zero-size,
+    // viewport origin), sits *inside* the shadow root so the adopted
+    // PrimeReact CSS applies, and accepts overlay portals through
+    // `appendTo`. The host has no hit area of its own (0×0) so it
+    // never blocks clicks on the form fields underneath; PrimeReact
+    // panels (children) render at their own viewport-relative
+    // coordinates via `position: absolute` and remain fully
+    // interactive. We deliberately do NOT set `pointer-events: none`
+    // on the host — that would cascade to the panels and silently
+    // break option selection (R23.4).
     let overlayHost = shadow.querySelector<HTMLDivElement>('[data-pseudo-overlay-host]');
     if (!overlayHost) {
       overlayHost = document.createElement('div');
@@ -183,7 +186,14 @@ export function PseudoUiPseudoViewFrame(props: PseudoUiPseudoViewFrameProps) {
       overlayHost.style.left = '0';
       overlayHost.style.width = '0';
       overlayHost.style.height = '0';
-      overlayHost.style.pointerEvents = 'none';
+      // NOTE: do NOT set `pointer-events: none` on the host. CSS
+      // `pointer-events` cascades to descendants; PrimeReact overlay
+      // panels (Dropdown options, etc.) don't explicitly opt back
+      // into `auto`, so a `none` here makes the panel render but
+      // swallow every click — the option highlight even shows a
+      // default cursor instead of pointer. The host is 0×0 anyway
+      // (fixed, zero width/height) so it has no hit area of its own
+      // and won't intercept clicks on the form fields underneath.
       // Above the SDK tree so panels stack on top. PrimeReact
       // overlay panels carry their own z-index internally for the
       // panel-vs-panel order, this just keeps the whole overlay
