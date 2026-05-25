@@ -7,6 +7,8 @@ import { useQuickRunPolling } from '../hooks/useQuickRunPolling';
 import { useQuickRunStore } from '../store/quickRunStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { createQuickRunPseudoDelegate } from '../pseudo-ui/createQuickRunPseudoDelegate';
+import { resolveComponentFile } from '../pseudo-ui/resolveComponentFile';
+import { useProjectStore } from '../../../store/useProjectStore';
 import { createDataSchemaResolver } from '../pseudo-ui/createDataSchemaResolver';
 import { PseudoUiLangPicker } from '../pseudo-ui/PseudoUiLangPicker';
 import { PseudoUiOrJsonBlock } from '../pseudo-ui/PseudoUiOrJsonBlock';
@@ -882,6 +884,7 @@ function StateViewContent({
     return () => { cancelled = true; };
   }, [activeData, activeTabId, domain, workflowKey, environmentUrl, globalHeaders, setActiveData, setActiveDataLoading]);
 
+  const projectId = useProjectStore((s) => s.activeProject?.id);
   const pseudoDelegate = useMemo(() => {
     if (!activeTabId || !domain || !workflowKey) return undefined;
     return createQuickRunPseudoDelegate({
@@ -912,6 +915,12 @@ function StateViewContent({
             console.log(`[pseudo-ui] ${level}: ${message}`, { error, context });
           }
         : undefined,
+      // R25.B-4 — workspace-aware nested `Component` loader. Only
+      // wired when a project is active; otherwise the delegate's
+      // fallback returns an empty placeholder.
+      resolveComponent: projectId
+        ? (ref) => resolveComponentFile({ projectId, ref })
+        : undefined,
     });
   }, [
     activeTabId,
@@ -923,6 +932,7 @@ function StateViewContent({
     persistConfig,
     pseudoUiVerboseLogs,
     globalHeaders,
+    projectId,
   ]);
 
   const schemaResolver = useMemo(() => {

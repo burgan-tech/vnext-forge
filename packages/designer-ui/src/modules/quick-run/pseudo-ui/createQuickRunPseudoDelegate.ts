@@ -8,6 +8,7 @@ import { resolveTransitionKey } from './resolveTransitionKey';
 import { parseAmorphieUrn } from './parseAmorphieUrn';
 import { parseValidationFailure } from './parseValidationFailure';
 import { FireTransitionError } from './FireTransitionError';
+import type { ResolvedComponentFile } from './resolveComponentFile';
 
 const logger = createLogger('pseudo-ui');
 
@@ -36,6 +37,14 @@ export interface QuickRunDelegateParams {
    * Forge logger (which is still called underneath).
    */
   verboseLog?: (level: LogLevel, message: string, error?: unknown, context?: unknown) => void;
+  /**
+   * R25.B-4 — Workspace-aware loader for nested `Component` nodes.
+   * Builder side mounts this via `InstanceDashboard` so simulation
+   * can render referenced views inline. When omitted, the delegate
+   * falls back to a stubbed empty Column (legacy behaviour) so
+   * non-StateView consumers don't have to wire it.
+   */
+  resolveComponent?: (ref: string) => Promise<ResolvedComponentFile | null>;
 }
 
 /**
@@ -173,16 +182,38 @@ export function createQuickRunPseudoDelegate(params: QuickRunDelegateParams): Ps
       return result.data;
     },
 
-    loadComponent: (ref: string) => {
-      logger.info(`[pseudo-ui] loadComponent stub for ref: ${ref}`);
-      return Promise.resolve({
+    loadComponent: async (ref: string) => {
+      // R25.B-4 — When the host supplies `resolveComponent`, route
+      // through it (workspace-aware: parseComponentRef + workspace
+      // file read for both the nested view and its schema). When
+      // omitted (legacy consumers), fall back to an empty Column so
+      // the SDK render path doesn't crash on a missing nested view.
+      const EMPTY = {
         schema: {} as DataSchema,
         view: {
           $schema: 'https://amorphie.io/meta/view-vocabulary/1.0',
           dataSchema: '',
           view: { type: 'Column' },
         } satisfies ViewDefinition,
-      });
+      };
+      if (!params.resolveComponent) {
+        logger.info(`[pseudo-ui] loadComponent: no resolver wired; returning empty placeholder for ref ${ref}`);
+        return EMPTY;
+      }
+      try {
+        const resolved = await params.resolveComponent(ref);
+        if (!resolved) {
+          logger.warn(`[pseudo-ui] loadComponent: workspace miss for ref "${ref}"`);
+          params.verboseLog?.('warn', 'loadComponent miss', undefined, { ref });
+          return EMPTY;
+        }
+        params.verboseLog?.('info', 'loadComponent resolved', undefined, { ref });
+        return resolved;
+      } catch (err) {
+        logger.error(`[pseudo-ui] loadComponent failed for ref "${ref}"`, { error: err });
+        params.verboseLog?.('error', 'loadComponent error', err, { ref });
+        return EMPTY;
+      }
     },
 
     onAction: async (action, formData, command) => {
