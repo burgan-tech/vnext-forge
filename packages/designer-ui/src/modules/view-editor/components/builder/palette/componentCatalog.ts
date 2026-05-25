@@ -208,7 +208,11 @@ const LOCAL_UI_CATALOG: ComponentMeta[] = [
     childContainerKey: 'children',
     propertySchema: [
       { key: 'variant', kind: 'select', label: 'Variant', options: cardVariantOptions, allowEmpty: true },
-      { key: 'onTap', kind: 'action', label: 'On tap', multi: true, advanced: true },
+      // R25.A-6: canonical Card action field. SDK reads `action`
+      // (preferred) and `onTap` (legacy alias); the builder writes
+      // `action`. Legacy `onTap` values are projected during parse
+      // (see `normalizeDefinition.projectCardActionAlias`).
+      { key: 'action', kind: 'action', label: 'On tap', multi: true, advanced: true },
     ],
   },
   {
@@ -762,8 +766,12 @@ const LOCAL_UI_CATALOG: ComponentMeta[] = [
         { value: 'standard', label: 'standard' }, { value: 'modal', label: 'modal' },
       ], allowEmpty: true },
       { key: 'visible', kind: 'bind', label: 'Visible (uiState bind)' },
-      { key: 'items', kind: 'raw', label: 'Items (array)', required: true,
-        hint: 'array<{ icon?, label, action?, badge? } | { divider: true } | { header: textContent }>' },
+      // R25.A-5: items[] uses the typed picker. Each entry is one of
+      // tappable / divider / section header; the tappable variant
+      // pulls the same workflow + function URN dialog the Button
+      // ActionEditor uses, gated by `itemActionCapability`.
+      { key: 'items', kind: 'items', label: 'Items', required: true,
+        hint: 'array<{ icon?, label, action, command?, validate?, badge? } | { divider: true } | { header: textContent }>' },
     ],
   },
   {
@@ -775,7 +783,7 @@ const LOCAL_UI_CATALOG: ComponentMeta[] = [
     defaultProps: { type: 'Menu', items: [] },
     acceptsChildren: false,
     propertySchema: [
-      { key: 'items', kind: 'raw', label: 'Items (array)', required: true },
+      { key: 'items', kind: 'items', label: 'Items', required: true },
     ],
   },
   {

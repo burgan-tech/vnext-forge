@@ -64,7 +64,35 @@ export function parseBuilderDefinition(content: string | object | null | undefin
   if (isPlainObject(raw.uiState)) {
     def.uiState = raw.uiState;
   }
+
+  // R25.A-6: project legacy Card.onTap → canonical Card.action on
+  // load. SDK reads both shapes, but the builder Inspector edits a
+  // single `action` field per `componentMeta.actionCapability`'s
+  // `preferredField`. Without this projection, a Card that ships
+  // with `onTap` would render with an empty Action picker in the
+  // Inspector. The projection is one-shot at parse time; the
+  // serialized JSON written back on save uses `action`.
+  projectCardActionAlias(def.view);
+
   return def;
+}
+
+function projectCardActionAlias(node: BuilderNode): void {
+  if (!isPlainObject(node)) return;
+  if (node.type === 'Card') {
+    const onTap = (node as Record<string, unknown>).onTap;
+    const action = (node as Record<string, unknown>).action;
+    if (onTap !== undefined && action === undefined) {
+      (node as Record<string, unknown>).action = onTap;
+      delete (node as Record<string, unknown>).onTap;
+    }
+  }
+  const children = (node as { children?: unknown }).children;
+  if (Array.isArray(children)) {
+    for (const child of children) {
+      if (isPlainObject(child)) projectCardActionAlias(child as BuilderNode);
+    }
+  }
 }
 
 /** Stringify a definition to the JSON string saved into `attributes.content`. */

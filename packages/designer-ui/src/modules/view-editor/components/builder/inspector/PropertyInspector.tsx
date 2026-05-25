@@ -25,6 +25,7 @@ import { MultiLangInput } from './MultiLangInput';
 import { NodeSlotField } from './NodeSlotField';
 import { SpansField } from './SpansField';
 import { StepsField } from './StepsField';
+import { ItemsField } from './ItemsField';
 import { TabsField } from './TabsField';
 import { enumerateBindPaths, type BindPathEntry } from './schemaPaths';
 import { ViewSettingsPanel } from '../ViewSettingsPanel';
@@ -346,6 +347,18 @@ function PropertyFieldInput({ field, value, onChange, bindPaths, parentPath, sto
       return <TabsField value={value} onChange={onChange} />;
     case 'steps':
       return <StepsField value={value} onChange={onChange} />;
+    case 'items':
+      return (
+        <ItemsField
+          value={value}
+          onChange={onChange}
+          parentNodeType={
+            typeof (node as Record<string, unknown> | undefined)?.type === 'string'
+              ? (node as { type: string }).type
+              : undefined
+          }
+        />
+      );
     case 'node-slot':
       return (
         <NodeSlotField

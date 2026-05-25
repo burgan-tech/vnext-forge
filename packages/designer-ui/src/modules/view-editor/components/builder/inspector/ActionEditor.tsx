@@ -61,6 +61,10 @@ export interface ActionEditorProps {
    *  the validate checkbox and surface the existing URN in the picker. */
   command?: unknown;
   validate?: unknown;
+  /** When true, capability comes from `componentMeta.itemActionCapability`
+   *  instead of `actionCapability`. Used by `ItemsField` for the
+   *  per-item picker inside NavigationDrawer / Menu containers. */
+  useItemCapability?: boolean;
 }
 
 // ── Internal types ─────────────────────────────────────────────────────
@@ -114,13 +118,19 @@ interface ActionCapability {
   acceptsValidateFlag: boolean;
 }
 
-function readCapability(nodeType: string | undefined): ActionCapability {
+function readCapability(nodeType: string | undefined, useItemCapability = false): ActionCapability {
   if (!nodeType) {
     // Defensive fallback — full Button-like capability.
     return { reservedActions: ['submit', 'reset'], acceptsDispatch: true, acceptsValidateFlag: true };
   }
   const meta = getComponentMeta(nodeType);
-  const cap = meta?.actionCapability;
+  // R25.A-5: NavigationDrawer / Menu carry per-item action picker
+  // metadata under `itemActionCapability`; top-level `actionCapability`
+  // is usually absent on container nodes. ItemsField passes
+  // `useItemCapability=true` so the picker gates on the item-level
+  // contract (reserved=['select'], acceptsDispatch=true,
+  // acceptsValidateFlag=false) instead of the container default.
+  const cap = useItemCapability ? meta?.itemActionCapability : meta?.actionCapability;
   return {
     reservedActions: (cap?.reservedActions ?? []) as ReservedAction[],
     acceptsDispatch: cap?.acceptsDispatch ?? false,
@@ -138,6 +148,7 @@ export function ActionEditor({
   onSiblingChange,
   command,
   validate,
+  useItemCapability,
 }: ActionEditorProps) {
   if (multi) {
     return (
@@ -145,6 +156,7 @@ export function ActionEditor({
         value={value}
         onChange={onChange}
         nodeType={nodeType}
+        useItemCapability={useItemCapability}
       />
     );
   }
@@ -156,6 +168,7 @@ export function ActionEditor({
       onSiblingChange={onSiblingChange}
       command={typeof command === 'string' ? command : undefined}
       validate={typeof validate === 'boolean' ? validate : undefined}
+      useItemCapability={useItemCapability}
     />
   );
 }
@@ -169,6 +182,7 @@ function SingleActionEditor({
   onSiblingChange,
   command,
   validate,
+  useItemCapability,
 }: {
   value: unknown;
   onChange: (next: unknown) => void;
@@ -176,9 +190,10 @@ function SingleActionEditor({
   onSiblingChange?: (key: string, value: unknown) => void;
   command: string | undefined;
   validate: boolean | undefined;
+  useItemCapability?: boolean;
 }) {
   const urnCatalog = useUrnCatalog();
-  const capability = readCapability(nodeType);
+  const capability = readCapability(nodeType, useItemCapability);
 
   const verb = typeof value === 'string' ? value : isDescriptor(value) ? value.action : '';
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -615,14 +630,16 @@ function MultiActionEditor({
   value,
   onChange,
   nodeType,
+  useItemCapability,
 }: {
   value: unknown;
   onChange: (next: unknown) => void;
   nodeType: string | undefined;
+  useItemCapability?: boolean;
 }) {
   const list = useMemo(() => toArray(value), [value]);
   const urnCatalog = useUrnCatalog();
-  const capability = readCapability(nodeType);
+  const capability = readCapability(nodeType, useItemCapability);
 
   const update = (next: ActionLike[]) => {
     onChange(next.length === 0 ? undefined : next.length === 1 ? next[0] : next);

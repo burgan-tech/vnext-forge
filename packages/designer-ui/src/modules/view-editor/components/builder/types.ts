@@ -86,6 +86,7 @@ export type PropertyField =
   | BooleanField
   | TabsField
   | StepsField
+  | ItemsField
   | NodeSlotField
   | SpansField
   | RawField;
@@ -159,6 +160,23 @@ export interface TabsField extends FieldBase {
  *  outline / canvas, not in this field. */
 export interface StepsField extends FieldBase {
   kind: 'steps';
+}
+
+/**
+ * NavigationDrawer.items[] / Menu.items[] — typed editor for the
+ * per-item array. Each entry is one of three discriminated shapes:
+ *   - `{ label, icon?, action, badge?, command?, validate? }` (tappable)
+ *   - `{ divider: true }`
+ *   - `{ header: MultiLangText }`
+ *
+ * The action picker reuses `ActionEditor` (single mode) so authors
+ * see the same workflow-transition / function URN dialog they use
+ * on Button.action. Item-level capability comes from
+ * `componentMeta.itemActionCapability` (`reservedActions: ['select']`
+ * by default, `acceptsDispatch: true`).
+ */
+export interface ItemsField extends FieldBase {
+  kind: 'items';
 }
 
 /**
