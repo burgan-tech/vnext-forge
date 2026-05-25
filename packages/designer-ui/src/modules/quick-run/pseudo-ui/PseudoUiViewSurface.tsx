@@ -265,6 +265,43 @@ export function PseudoUiViewSurface({
       ? schemaProp
       : (resolvedSchema ?? ({} as DataSchema));
 
+  // !!! R22-DEBUG — remove after diagnosis !!!
+  // What does the surface actually hand to <PseudoView />? Logs on
+  // every render so we can see (a) the dataSchema URN we tried to
+  // resolve, (b) whether resolveSchema came back, (c) the final
+  // schema reference that drives multiLang / enum / lookups. Search
+  // `R22-DEBUG` to delete in one sweep.
+  // eslint-disable-next-line no-console
+  console.log('[R22-DEBUG] PseudoUiViewSurface render →', {
+    dataSchemaRef: normalized?.dataSchema,
+    hasResolveSchema: typeof resolveSchema === 'function',
+    schemaPropEmpty: !schemaProp || Object.keys(schemaProp).length === 0,
+    resolvedSchemaIsNull: resolvedSchema === null,
+    schemaResolving,
+    finalSchemaKeys: Object.keys(schema as Record<string, unknown>),
+    finalSchemaPropertyCount:
+      schema && typeof schema === 'object' && 'properties' in schema
+        ? Object.keys((schema as { properties?: Record<string, unknown> }).properties ?? {}).length
+        : 0,
+  });
+
+  // R22.1: SDK's `<PseudoView>` initialises its form context with
+  // `useRef(createFormContext(schema, ...))` — the ref runs *once*
+  // on mount, so a later schema change (e.g. when the async
+  // `resolveSchema` finally returns) doesn't reach the engine's
+  // enum/x-enum resolution. We mitigate by changing the React `key`
+  // when the resolved schema arrives, which forces a clean remount
+  // and a fresh form context. `key` cycles only when the schema
+  // identity actually changes, so steady-state renders are cheap.
+  const schemaRemountKey = useMemo(() => {
+    if (!schema || typeof schema !== 'object') return 'empty';
+    const propsObj = (schema as { properties?: Record<string, unknown> }).properties;
+    const propsCount = propsObj ? Object.keys(propsObj).length : 0;
+    if (propsCount === 0) return 'empty';
+    const id = (schema as { $id?: string }).$id ?? '';
+    return `${id}::${propsCount}`;
+  }, [schema]);
+
   const viewDefinition = useMemo((): ViewDefinition | null => {
     if (!normalized) return null;
     return {
@@ -342,6 +379,7 @@ export function PseudoUiViewSurface({
       onError={(err) => onError?.(err.message)}
     >
       <PseudoUiPseudoViewFrame
+        key={schemaRemountKey}
         schema={schema}
         view={viewDefinition}
         formData={formData}

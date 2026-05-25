@@ -31,6 +31,24 @@ export function createDataSchemaResolver(params: {
       // extractor so dropdowns / radio groups don't silently lose
       // their enum + x-enum options when the response shape drifts.
       const schema = extractSchemaFromGetDataResult(result.data);
+
+      // !!! R22-DEBUG — remove after diagnosis !!!
+      // Logs the raw envelope and the extracted schema so we can tell
+      // whether the resolver is finding the right object and what
+      // the final shape looks like on the way into <PseudoView />.
+      // Search for `R22-DEBUG` to nuke every trace of this in one pass.
+      // eslint-disable-next-line no-console
+      console.log('[R22-DEBUG] createDataSchemaResolver →', {
+        urn: dataSchemaRef,
+        envelopeData: result.data,
+        extracted: schema,
+        extractedKeys: schema ? Object.keys(schema) : null,
+        propertyCount:
+          schema && typeof schema === 'object' && 'properties' in schema
+            ? Object.keys((schema as { properties?: Record<string, unknown> }).properties ?? {}).length
+            : 0,
+      });
+
       if (schema) return schema;
 
       // Surface the failure so the next debugging round doesn't have
