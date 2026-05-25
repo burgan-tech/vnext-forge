@@ -1,59 +1,57 @@
 /**
- * Parse a pseudo-ui `Button.command` value into a workflow
+ * Resolve a pseudo-ui `Button.command` value into a workflow
  * transition key.
  *
- * Canonical shape (see SDK `view-vocabulary.md:809-834`):
+ * Since R25 this is a thin wrapper over `parseAmorphieUrn` — the
+ * shared discriminated parser owns format knowledge so the catalog
+ * service, the delegate dispatch table, and this helper all agree
+ * on what counts as a transition URN.
  *
- *   "action":  "submit"
- *   "command": "urn:amorphie:transition:<domain>:<workflow>:<instance>:<transition-name>"
+ * Supported inputs (delegated to `parseAmorphieUrn`):
  *
- * The transition name is always the **last colon segment** of the
- * Amorphie URN. The SDK treats `command` as an opaque string and
- * forwards it as-is to `delegate.onAction`; the host (us) is
- * responsible for interpreting it.
+ *   1. Canonical Amorphie workflow URN:
+ *      `urn:amorphie:wf:<flow>:transition:<state>` → `<state>`
+ *   2. Legacy Amorphie transition URN (R24, 5- or 6-segment):
+ *      `urn:amorphie:transition:<dom>:<wf>[:<inst>]:<name>` → `<name>`
+ *   3. Generic URN — last `:` or `/` segment (preserved for HTTPS
+ *      URLs and other authoring conventions we tolerated pre-R25).
+ *   4. Raw key — returned as-is.
  *
- * Tolerated variants — all degrade gracefully to "last segment":
- *
- *   1. Amorphie 6-segment URN (canonical):
- *      `urn:amorphie:transition:customer:registration:inst-001:submit`
- *      → `submit`
- *   2. Amorphie 5-segment URN (legacy, no instance scope):
- *      `urn:amorphie:transition:retail:loan:approve` → `approve`
- *   3. Generic `urn:...:key` → last `:` segment.
- *   4. URL form `https://host/transitions/<flow>/<name>` → last `/`
- *      segment.
- *   5. Raw key `approve` → `approve` (no parsing).
- *   6. Empty / undefined / non-string → `null` so the caller can
- *      surface a "Missing transition command" error.
+ * Returns `null` for empty / undefined / unparseable input so the
+ * caller can surface a clear "Missing transition command" error.
  */
 
-const AMORPHIE_TRANSITION_URN_PREFIX = 'urn:amorphie:transition:';
+import { parseAmorphieUrn } from './parseAmorphieUrn';
 
 export function resolveTransitionKey(command: string | undefined | null): string | null {
-  if (typeof command !== 'string') return null;
-  const trimmed = command.trim();
-  if (!trimmed) return null;
+  const parsed = parseAmorphieUrn(command);
+  if (!parsed) return null;
 
-  // Canonical Amorphie URN — explicit prefix check so any future
-  // variants slot in here rather than relying on generic guessing.
-  if (trimmed.startsWith(AMORPHIE_TRANSITION_URN_PREFIX)) {
-    const tail = trimmed.split(':').pop()?.trim();
-    return tail && tail.length > 0 ? tail : null;
+  switch (parsed.kind) {
+    case 'wf-transition':
+    case 'legacy-transition':
+      return parsed.state || null;
+    case 'raw': {
+      // Tolerate HTTPS URL command form `https://host/transitions/<flow>/<name>`
+      // — pre-R25 authoring used these; return the last path segment.
+      const v = parsed.value;
+      if (/^https?:\/\//i.test(v)) {
+        const tail = v.split('/').pop()?.trim();
+        return tail && tail.length > 0 ? tail : v;
+      }
+      return v || null;
+    }
+    case 'unknown': {
+      // Maintain pre-R25 tolerant behaviour for generic URNs / URLs:
+      // take the last `:` or `/` segment.
+      const tail = parsed.raw.split(/[:/]/).pop()?.trim();
+      return tail && tail.length > 0 ? tail : parsed.raw;
+    }
+    case 'func':
+    case 'nav':
+    case 'tenant':
+      // These URN kinds aren't workflow transitions. Caller will route
+      // them elsewhere; returning null here flags "not a transition".
+      return null;
   }
-
-  // Other URN shapes — last `:` or `/` segment.
-  if (trimmed.startsWith('urn:')) {
-    const tail = trimmed.split(/[:/]/).pop()?.trim();
-    return tail && tail.length > 0 ? tail : trimmed;
-  }
-
-  // HTTP(S) URL — last `/` segment (no query / fragment stripping;
-  // such URLs are not in current Amorphie use, basic split is enough).
-  if (/^https?:\/\//i.test(trimmed)) {
-    const tail = trimmed.split('/').pop()?.trim();
-    return tail && tail.length > 0 ? tail : trimmed;
-  }
-
-  // Raw key (or short code).
-  return trimmed;
 }

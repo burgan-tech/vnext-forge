@@ -52,4 +52,20 @@ describe('resolveTransitionKey (R24)', () => {
     // back so the caller can surface a meaningful error.
     expect(resolveTransitionKey('urn:')).toBe('urn:');
   });
+
+  it('extracts state from canonical urn:amorphie:wf:<flow>:transition:<state> (R25)', () => {
+    expect(
+      resolveTransitionKey('urn:amorphie:wf:loan-flow:transition:approve'),
+    ).toBe('approve');
+  });
+
+  it('returns null for function URNs — they are not transitions (R25)', () => {
+    expect(
+      resolveTransitionKey('urn:amorphie:func:shared:get-cities'),
+    ).toBeNull();
+  });
+
+  it('returns null for navigation URNs — they are not transitions (R25)', () => {
+    expect(resolveTransitionKey('urn:forge:nav:/accounts')).toBeNull();
+  });
 });
