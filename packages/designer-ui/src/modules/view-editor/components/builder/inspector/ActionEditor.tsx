@@ -1,50 +1,82 @@
 /**
- * Editor for Button.action / Card.onTap fields.
+ * Editor for Button.action / Card.onTap / ListTile.onTap fields.
  *
- * SDK vocabulary (`view-vocabulary.md:809-834`) defines exactly
- * three ButtonAction values:
+ * SDK v0.2.0+ (`forgeactionmodelintegration.md`, `view-vocabulary.md`):
+ *   - Three reserved verbs: `submit`, `select`, `reset` — special SDK
+ *     behaviour (validate / inline-set / clear).
+ *   - Anything else is opaque to the SDK and dispatched to
+ *     `delegate.onAction` with the optional `command` field.
+ *   - Domain dispatch convention uses `action: "dispatch"` + a URN
+ *     in `command`. Forge surfaces those URNs from the workspace
+ *     catalog (workflow transitions + BFF functions).
+ *   - `ActionDescriptor.validate` opts any verb into form
+ *     validation; the SDK runs `validateAllFields()` first.
  *
- *   submit | cancel | back
+ * The picker is gated by `getComponentMeta(nodeType).actionCapability`:
+ *   - `reservedActions` — which reserved verbs are surfaced
+ *   - `acceptsDispatch` — whether to show the URN catalog + custom
+ *     URN section
+ *   - `acceptsValidateFlag` — whether to show the validate checkbox
  *
- * Only the literal string `'submit'` triggers SDK-side form
- * validation (`DynamicRenderer.tsx:354-356`). For workflow
- * transitions, the canonical pattern is `action: "submit"` plus a
- * transition URN in `command`:
+ * Single mode (Button.action): the SDK reads
+ * `action` / `command` / `validate` as three SIBLING fields on the
+ * node. Picker writes via `onChange` (action) + `onSiblingChange`
+ * (command / validate). Card legacy `onTap` alias is read by the
+ * caller (PropertyInspector) and projected onto the `action` field
+ * for editing.
  *
- *   "command": "urn:amorphie:transition:<domain>:<workflow>:<instance>:<name>"
- *
- * The string-or-descriptor union also accepts a full
- * `ActionDescriptor` `{ action, bind?, value? }` for advanced
- * inline patterns — primarily Card.onTap's
- * `{ action: 'select', bind, value }` shape. R24.2 dropped the
- * legacy preset shortcuts (`select / navigate / reset / transition`)
- * because they were either non-vocabulary or SDK-internal. Authors
- * who need a non-vocabulary descriptor enable "With bind/value" and
- * type the action name in the field directly.
- *
- * For Card.onTap (`multi=true`) we render a small list editor.
+ * Multi mode (Card.onTap or ListTile.onTap as
+ * `ActionDescriptor[]`): each row is a descriptor that carries its
+ * own `command` / `bind` / `value` / `validate` INSIDE. The picker
+ * writes to the descriptor object only; there is no sibling field
+ * concept in array form.
  */
 
 import { useMemo } from 'react';
 import { MoveDown, MoveUp, Plus, Trash2 } from 'lucide-react';
+import {
+  STANDARD_ACTIONS,
+  getComponentMeta,
+  type ReservedAction,
+} from '@burgantech/pseudo-ui';
 
 import { Input } from '../../../../../ui/Input';
 import { Select } from '../../../../../ui/Select';
-import { BUTTON_ACTIONS } from '../types';
+import { useUrnCatalog } from '../services/UrnCatalogContext';
+import type { DomainActionEntry } from '../services/forgeUrnCatalog';
+
+// ── Public API ─────────────────────────────────────────────────────────
 
 export interface ActionEditorProps {
   value: unknown;
   onChange: (next: unknown) => void;
   multi?: boolean;
+  /** Node type for actionCapability lookup. PropertyInspector passes `node.type`. */
+  nodeType?: string;
+  /** Sibling field setter (single mode). Used to write `command` / `validate`
+   *  peer fields when the picker selects a domain dispatch URN. */
+  onSiblingChange?: (key: string, value: unknown) => void;
+  /** Current sibling values (single mode), so the editor can render
+   *  the validate checkbox and surface the existing URN in the picker. */
+  command?: unknown;
+  validate?: unknown;
 }
+
+// ── Internal types ─────────────────────────────────────────────────────
 
 interface ActionDescriptor {
   action: string;
+  command?: string;
   bind?: string;
   value?: unknown;
+  validate?: boolean;
 }
 
 type ActionLike = string | ActionDescriptor;
+
+const RESERVED_VERBS: ReservedAction[] = ['submit', 'select', 'reset'];
+
+// ── Helpers ────────────────────────────────────────────────────────────
 
 function toArray(value: unknown): ActionLike[] {
   if (value == null) return [];
@@ -52,26 +84,409 @@ function toArray(value: unknown): ActionLike[] {
   return [value as ActionLike];
 }
 
-function isDescriptor(value: ActionLike): value is ActionDescriptor {
-  return typeof value === 'object' && value !== null && 'action' in value;
+function isDescriptor(value: unknown): value is ActionDescriptor {
+  return typeof value === 'object' && value !== null && 'action' in (value as object);
 }
 
-export function ActionEditor({ value, onChange, multi }: ActionEditorProps) {
-  if (!multi) {
-    return <SingleActionEditor value={value} onChange={onChange} />;
+function isReservedVerb(verb: string | undefined): verb is ReservedAction {
+  return !!verb && RESERVED_VERBS.includes(verb as ReservedAction);
+}
+
+function shouldValidateDefault(verb: string | undefined): boolean {
+  // Mirror SDK `shouldValidateAction`: submit defaults true, others false.
+  return verb === 'submit';
+}
+
+interface PickerEntry {
+  /** Stable id used as the <option value>. Reserved verbs encode as `reserved:<verb>`,
+   *  catalog entries as `urn:...`, sentinels as `__custom__` / `__descriptor__`. */
+  id: string;
+  /** Human label shown in the dropdown. */
+  label: string;
+  /** Group label (optgroup heading). */
+  group: 'Reserved' | 'Workflow' | 'Function' | 'Custom URN' | 'Descriptor';
+}
+
+interface ActionCapability {
+  reservedActions: ReservedAction[];
+  acceptsDispatch: boolean;
+  acceptsValidateFlag: boolean;
+}
+
+function readCapability(nodeType: string | undefined): ActionCapability {
+  if (!nodeType) {
+    // Defensive fallback — full Button-like capability.
+    return { reservedActions: ['submit', 'reset'], acceptsDispatch: true, acceptsValidateFlag: true };
   }
-  return <MultiActionEditor value={value} onChange={onChange} />;
+  const meta = getComponentMeta(nodeType);
+  const cap = meta?.actionCapability;
+  return {
+    reservedActions: (cap?.reservedActions ?? []) as ReservedAction[],
+    acceptsDispatch: cap?.acceptsDispatch ?? false,
+    acceptsValidateFlag: cap?.acceptsValidateFlag ?? false,
+  };
 }
 
-function SingleActionEditor({ value, onChange }: { value: unknown; onChange: (next: unknown) => void }) {
-  const normalized: ActionLike = typeof value === 'string' || isDescriptor(value as ActionLike)
-    ? (value as ActionLike)
-    : 'submit';
-  return <ActionRow value={normalized} onChange={onChange} />;
+// ── Entry point ────────────────────────────────────────────────────────
+
+export function ActionEditor({
+  value,
+  onChange,
+  multi,
+  nodeType,
+  onSiblingChange,
+  command,
+  validate,
+}: ActionEditorProps) {
+  if (multi) {
+    return (
+      <MultiActionEditor
+        value={value}
+        onChange={onChange}
+        nodeType={nodeType}
+      />
+    );
+  }
+  return (
+    <SingleActionEditor
+      value={value}
+      onChange={onChange}
+      nodeType={nodeType}
+      onSiblingChange={onSiblingChange}
+      command={typeof command === 'string' ? command : undefined}
+      validate={typeof validate === 'boolean' ? validate : undefined}
+    />
+  );
 }
 
-function MultiActionEditor({ value, onChange }: { value: unknown; onChange: (next: unknown) => void }) {
+// ── Single mode ────────────────────────────────────────────────────────
+
+function SingleActionEditor({
+  value,
+  onChange,
+  nodeType,
+  onSiblingChange,
+  command,
+  validate,
+}: {
+  value: unknown;
+  onChange: (next: unknown) => void;
+  nodeType: string | undefined;
+  onSiblingChange?: (key: string, value: unknown) => void;
+  command: string | undefined;
+  validate: boolean | undefined;
+}) {
+  const urnCatalog = useUrnCatalog();
+  const capability = readCapability(nodeType);
+
+  const verb = typeof value === 'string' ? value : isDescriptor(value) ? value.action : '';
+
+  // ── Picker state inference ─────────────────────────────────────────
+  // Selection id → maps back to value + sibling writes.
+  const selectionId = useMemo(() => inferSelectionId(verb, command, urnCatalog), [verb, command, urnCatalog]);
+
+  const entries = useMemo(
+    () => buildPickerEntries(capability, urnCatalog),
+    [capability, urnCatalog],
+  );
+
+  const handleSelectionChange = (nextId: string) => {
+    applySelection(nextId, {
+      onChange,
+      onSiblingChange,
+      urnCatalog,
+    });
+  };
+
+  const showValidate = capability.acceptsValidateFlag && verb !== 'submit';
+  const validateEffective = validate ?? shouldValidateDefault(verb);
+
+  return (
+    <div className="flex flex-col gap-1">
+      <Select
+        className="h-8 text-xs"
+        value={selectionId}
+        onChange={(e) => handleSelectionChange(e.target.value)}
+        aria-label="Action"
+      >
+        {entries.length === 0 ? (
+          <option value="">— no actions available —</option>
+        ) : (
+          renderEntriesGrouped(entries, selectionId)
+        )}
+      </Select>
+
+      {/* Custom URN free-text — shown when "Custom URN" sentinel selected
+          or when an existing command isn't in the catalog. */}
+      {selectionId === '__custom__' || isUnknownDispatchUrn(verb, command, urnCatalog) ? (
+        <Input
+          size="sm"
+          value={command ?? ''}
+          onChange={(e) => {
+            const next = e.target.value;
+            onSiblingChange?.('command', next || undefined);
+            // Ensure verb is 'dispatch' for custom URN.
+            if (verb !== 'dispatch') onChange('dispatch');
+          }}
+          placeholder="urn:tenant:..."
+          aria-label="Custom command URN"
+        />
+      ) : null}
+
+      {/* Descriptor mode — bind/value editor for `select` pattern. */}
+      {selectionId === '__descriptor__' || isDescriptor(value) ? (
+        <DescriptorFields
+          descriptor={isDescriptor(value) ? value : { action: verb || 'select' }}
+          onChange={(d) => onChange(d)}
+        />
+      ) : null}
+
+      {/* Validate checkbox (acceptsValidateFlag && verb !== 'submit'). */}
+      {showValidate ? (
+        <label className="flex items-center gap-1 text-[10px] text-muted-text">
+          <input
+            type="checkbox"
+            checked={validateEffective}
+            onChange={(e) => onSiblingChange?.('validate', e.target.checked || undefined)}
+          />
+          Validate form before dispatch
+        </label>
+      ) : null}
+
+      {/* Hint line. */}
+      <p className="text-[10px] italic text-secondary-text">
+        {hintFor(selectionId, verb, capability)}
+      </p>
+    </div>
+  );
+}
+
+// ── Picker entry building ─────────────────────────────────────────────
+
+function buildPickerEntries(
+  capability: ActionCapability,
+  urnCatalog: ReturnType<typeof useUrnCatalog>,
+): PickerEntry[] {
+  const entries: PickerEntry[] = [];
+
+  for (const verb of capability.reservedActions) {
+    const spec = STANDARD_ACTIONS[verb];
+    entries.push({
+      id: `reserved:${verb}`,
+      label: spec?.label ? `${verb} — ${spec.label}` : verb,
+      group: 'Reserved',
+    });
+  }
+
+  if (capability.acceptsDispatch) {
+    for (const wf of urnCatalog.workflows) {
+      entries.push({ id: wf.urn, label: wf.label, group: 'Workflow' });
+    }
+    for (const fn of urnCatalog.functions) {
+      entries.push({ id: fn.urn, label: fn.label, group: 'Function' });
+    }
+    entries.push({ id: '__custom__', label: 'Custom URN…', group: 'Custom URN' });
+    // Descriptor mode for select patterns (only when reserved 'select' is offered).
+    if (capability.reservedActions.includes('select')) {
+      entries.push({ id: '__descriptor__', label: 'Descriptor (bind / value)…', group: 'Descriptor' });
+    }
+  }
+
+  return entries;
+}
+
+function renderEntriesGrouped(entries: PickerEntry[], selectionId: string) {
+  const groups = new Map<string, PickerEntry[]>();
+  for (const e of entries) {
+    const arr = groups.get(e.group) ?? [];
+    arr.push(e);
+    groups.set(e.group, arr);
+  }
+
+  // Defensive: include a hidden option matching the current selection
+  // even if no group catches it (e.g. legacy persisted verb).
+  const hasMatch = entries.some((e) => e.id === selectionId);
+
+  return (
+    <>
+      {!hasMatch && selectionId ? (
+        <option value={selectionId}>{`Current: ${selectionId}`}</option>
+      ) : null}
+      {[...groups.entries()].map(([group, list]) => (
+        <optgroup key={group} label={group}>
+          {list.map((e) => (
+            <option key={e.id} value={e.id}>
+              {e.label}
+            </option>
+          ))}
+        </optgroup>
+      ))}
+    </>
+  );
+}
+
+function inferSelectionId(
+  verb: string,
+  command: string | undefined,
+  urnCatalog: ReturnType<typeof useUrnCatalog>,
+): string {
+  if (isReservedVerb(verb)) return `reserved:${verb}`;
+  if (command) {
+    const match = findCatalogEntry(command, urnCatalog);
+    if (match) return match.urn;
+    return '__custom__';
+  }
+  if (verb === 'dispatch') return '__custom__';
+  return verb ? `reserved:${verb}` : '';
+}
+
+function findCatalogEntry(
+  urn: string,
+  urnCatalog: ReturnType<typeof useUrnCatalog>,
+): DomainActionEntry | undefined {
+  return (
+    urnCatalog.workflows.find((e) => e.urn === urn) ??
+    urnCatalog.functions.find((e) => e.urn === urn)
+  );
+}
+
+function isUnknownDispatchUrn(
+  verb: string,
+  command: string | undefined,
+  urnCatalog: ReturnType<typeof useUrnCatalog>,
+): boolean {
+  if (!command) return false;
+  if (verb !== 'dispatch') return false;
+  return !findCatalogEntry(command, urnCatalog);
+}
+
+// ── Selection apply ────────────────────────────────────────────────────
+
+function applySelection(
+  selectionId: string,
+  ctx: {
+    onChange: (next: unknown) => void;
+    onSiblingChange?: (key: string, value: unknown) => void;
+    urnCatalog: ReturnType<typeof useUrnCatalog>;
+  },
+) {
+  if (selectionId.startsWith('reserved:')) {
+    const verb = selectionId.slice('reserved:'.length);
+    ctx.onChange(verb);
+    // Reserved verbs typically clear command; submit may keep host-context command.
+    if (verb !== 'submit') ctx.onSiblingChange?.('command', undefined);
+    // Validate flag: reset to default (undefined → SDK uses verb default).
+    ctx.onSiblingChange?.('validate', undefined);
+    return;
+  }
+  if (selectionId === '__custom__') {
+    ctx.onChange('dispatch');
+    // Don't touch command/validate — user types them.
+    return;
+  }
+  if (selectionId === '__descriptor__') {
+    ctx.onChange({ action: 'select' });
+    ctx.onSiblingChange?.('command', undefined);
+    return;
+  }
+  // Otherwise: URN catalog entry.
+  const entry = findCatalogEntry(selectionId, ctx.urnCatalog);
+  if (!entry) {
+    // Unknown id — leave state alone.
+    return;
+  }
+  ctx.onChange('dispatch');
+  ctx.onSiblingChange?.('command', entry.urn);
+  ctx.onSiblingChange?.('validate', entry.defaultValidate);
+}
+
+// ── Hint copy ──────────────────────────────────────────────────────────
+
+function hintFor(
+  selectionId: string,
+  verb: string,
+  capability: ActionCapability,
+): string {
+  if (!selectionId) return '';
+  if (selectionId.startsWith('reserved:')) {
+    const v = selectionId.slice('reserved:'.length);
+    if (v === 'submit') return 'Runs form validation, then dispatches. Pair with a `command` URN for workflow transitions.';
+    if (v === 'reset') return 'SDK clears formData + errors, then notifies the host.';
+    if (v === 'select') return 'Use the descriptor mode below to set `bind` / `value` (host is NOT called).';
+    return '';
+  }
+  if (selectionId === '__custom__') {
+    return 'Custom URN — SDK forwards the command as-is to the host delegate. Validation is opt-in via the checkbox.';
+  }
+  if (selectionId === '__descriptor__') {
+    return 'Inline descriptor — for `select` set bind + value; host delegate is NOT called for select.';
+  }
+  // Catalog entry
+  const isFunction = selectionId.startsWith('urn:amorphie:func:');
+  if (isFunction) return 'Workspace function — SDK forwards via `delegate.onAction(\'dispatch\', formData, urn)`.';
+  return `Workflow transition${capability.acceptsValidateFlag ? ' — toggle validate below to gate the form' : ''}.`;
+}
+
+// ── Descriptor fields (select / bind / value) ─────────────────────────
+
+function DescriptorFields({
+  descriptor,
+  onChange,
+}: {
+  descriptor: ActionDescriptor;
+  onChange: (next: ActionDescriptor) => void;
+}) {
+  return (
+    <>
+      <Input
+        size="sm"
+        value={descriptor.bind ?? ''}
+        onChange={(e) => onChange({ ...descriptor, bind: e.target.value || undefined })}
+        placeholder="bind (e.g. $ui.dialogOpen)"
+        aria-label="bind"
+      />
+      <Input
+        size="sm"
+        value={
+          typeof descriptor.value === 'string'
+            ? descriptor.value
+            : descriptor.value !== undefined
+            ? JSON.stringify(descriptor.value)
+            : ''
+        }
+        onChange={(e) => {
+          const raw = e.target.value;
+          if (raw === '') {
+            onChange({ ...descriptor, value: undefined });
+            return;
+          }
+          try {
+            onChange({ ...descriptor, value: JSON.parse(raw) });
+          } catch {
+            onChange({ ...descriptor, value: raw });
+          }
+        }}
+        placeholder='value (literal or expression, e.g. "$item.value")'
+        aria-label="value"
+      />
+    </>
+  );
+}
+
+// ── Multi mode (Card.onTap[], ListTile.onTap[]) ───────────────────────
+
+function MultiActionEditor({
+  value,
+  onChange,
+  nodeType,
+}: {
+  value: unknown;
+  onChange: (next: unknown) => void;
+  nodeType: string | undefined;
+}) {
   const list = useMemo(() => toArray(value), [value]);
+  const urnCatalog = useUrnCatalog();
+  const capability = readCapability(nodeType);
 
   const update = (next: ActionLike[]) => {
     onChange(next.length === 0 ? undefined : next.length === 1 ? next[0] : next);
@@ -131,13 +546,15 @@ function MultiActionEditor({ value, onChange }: { value: unknown; onChange: (nex
                 </button>
               </div>
             </div>
-            <ActionRow
-              value={item}
-              onChange={(nextItem) => {
+            <DescriptorRow
+              descriptor={toDescriptor(item)}
+              onChange={(d) => {
                 const next = list.slice();
-                next[index] = nextItem;
+                next[index] = d;
                 update(next);
               }}
+              capability={capability}
+              urnCatalog={urnCatalog}
             />
           </div>
         ))
@@ -145,7 +562,7 @@ function MultiActionEditor({ value, onChange }: { value: unknown; onChange: (nex
       <button
         type="button"
         className="flex items-center gap-1 self-start rounded border border-[var(--vscode-panel-border)] bg-[var(--vscode-button-secondaryBackground)] px-2 py-1 text-[11px] text-[var(--vscode-button-secondaryForeground)] hover:bg-[var(--vscode-list-hoverBackground)]"
-        onClick={() => update([...list, 'submit'])}
+        onClick={() => update([...list, { action: 'select' } as ActionDescriptor])}
       >
         <Plus size={11} /> Add action
       </button>
@@ -153,120 +570,108 @@ function MultiActionEditor({ value, onChange }: { value: unknown; onChange: (nex
   );
 }
 
-// R24.2 — Hints surfaced under the dropdown. Aligned with SDK
-// vocabulary (view-vocabulary.md:813-819).
-const VOCABULARY_HINTS: Record<string, string> = {
-  submit: 'Runs form validation, then dispatches. Pair with a command URN for workflow transitions.',
-  cancel: 'Direct delegate dispatch — no validation.',
-  back:   'Direct delegate dispatch — no validation.',
-};
-const DESCRIPTOR_HINT =
-  'Custom descriptor — SDK forwards as-is. Use for `select` bind/value patterns or non-vocabulary actions.';
+function toDescriptor(item: ActionLike): ActionDescriptor {
+  if (isDescriptor(item)) return item;
+  if (typeof item === 'string') return { action: item };
+  return { action: 'select' };
+}
 
-function ActionRow({ value, onChange }: { value: ActionLike; onChange: (next: ActionLike) => void }) {
-  const isPreset = typeof value === 'string';
-  const descriptor: ActionDescriptor = isDescriptor(value) ? value : { action: typeof value === 'string' ? value : 'submit' };
+function DescriptorRow({
+  descriptor,
+  onChange,
+  capability,
+  urnCatalog,
+}: {
+  descriptor: ActionDescriptor;
+  onChange: (next: ActionDescriptor) => void;
+  capability: ActionCapability;
+  urnCatalog: ReturnType<typeof useUrnCatalog>;
+}) {
+  // In multi mode, command/validate live INSIDE the descriptor, so the
+  // row owns its own picker scoped to this single descriptor object.
+  const selectionId = useMemo(
+    () => inferSelectionId(descriptor.action, descriptor.command, urnCatalog),
+    [descriptor.action, descriptor.command, urnCatalog],
+  );
+  const entries = useMemo(
+    () => buildPickerEntries(capability, urnCatalog),
+    [capability, urnCatalog],
+  );
 
-  // The "With bind/value" toggle: when ON, the action becomes an
-  // object with bind/value; when OFF it's a string literal from the
-  // vocabulary preset list.
-  const presetValue = isPreset ? value : descriptor.action;
-  const isVocabularyValue = BUTTON_ACTIONS.includes(presetValue as (typeof BUTTON_ACTIONS)[number]);
-  const allOptions = BUTTON_ACTIONS.map((a) => ({ value: a, label: a }));
-  const hintText = !isPreset
-    ? DESCRIPTOR_HINT
-    : isVocabularyValue
-    ? VOCABULARY_HINTS[presetValue as string] ?? ''
-    : `Non-vocabulary value "${presetValue}" — SDK forwards as a string; consider switching to a descriptor.`;
+  const showValidate = capability.acceptsValidateFlag && descriptor.action !== 'submit';
+  const validateEffective = descriptor.validate ?? shouldValidateDefault(descriptor.action);
+  const showDescriptorFields =
+    selectionId === '__descriptor__' || descriptor.action === 'select';
+  const showCustomUrn =
+    selectionId === '__custom__' ||
+    (descriptor.command !== undefined &&
+      descriptor.action === 'dispatch' &&
+      !findCatalogEntry(descriptor.command ?? '', urnCatalog));
 
   return (
     <div className="flex flex-col gap-1">
-      <div className="flex items-center gap-2">
-        {isPreset ? (
-          <Select
-            className="h-8 text-xs"
-            value={isVocabularyValue ? presetValue : ''}
-            onChange={(e) => onChange(e.target.value)}
-            aria-label="Action type"
-          >
-            {!isVocabularyValue ? (
-              <option value="" disabled>
-                {`Non-vocabulary: "${presetValue}"`}
-              </option>
-            ) : null}
-            {allOptions.map((o) => (
-              <option key={o.value} value={o.value}>
-                {o.label}
-              </option>
-            ))}
-          </Select>
+      <Select
+        className="h-8 text-xs"
+        value={selectionId}
+        onChange={(e) => {
+          const nextId = e.target.value;
+          applySelection(nextId, {
+            onChange: (next) => {
+              if (typeof next === 'string') {
+                onChange({ ...descriptor, action: next });
+              } else if (isDescriptor(next)) {
+                onChange({ ...descriptor, ...next });
+              }
+            },
+            onSiblingChange: (key, val) => onChange({ ...descriptor, [key]: val }),
+            urnCatalog,
+          });
+        }}
+        aria-label="Action"
+      >
+        {entries.length === 0 ? (
+          <option value="">— no actions available —</option>
         ) : (
-          // Descriptor mode — the action name is free-form (e.g.
-          // 'select' for Card.onTap, or any non-vocabulary string).
-          // Vocabulary discipline only applies to the string form.
-          <Input
-            size="sm"
-            className="h-8 text-xs"
-            value={descriptor.action}
-            onChange={(e) => onChange({ ...descriptor, action: e.target.value })}
-            placeholder='action (e.g. "select")'
-            aria-label="Custom action name"
-          />
+          renderEntriesGrouped(entries, selectionId)
         )}
+      </Select>
+
+      {showCustomUrn ? (
+        <Input
+          size="sm"
+          value={descriptor.command ?? ''}
+          onChange={(e) => {
+            const next = e.target.value || undefined;
+            onChange({ ...descriptor, action: 'dispatch', command: next });
+          }}
+          placeholder="urn:tenant:..."
+          aria-label="Custom command URN"
+        />
+      ) : null}
+
+      {showDescriptorFields ? (
+        <DescriptorFields
+          descriptor={descriptor}
+          onChange={(d) => onChange(d)}
+        />
+      ) : null}
+
+      {showValidate ? (
         <label className="flex items-center gap-1 text-[10px] text-muted-text">
           <input
             type="checkbox"
-            checked={!isPreset}
-            onChange={(e) => {
-              if (e.target.checked) {
-                onChange({ action: presetValue });
-              } else {
-                onChange(presetValue);
-              }
-            }}
+            checked={validateEffective}
+            onChange={(e) =>
+              onChange({ ...descriptor, validate: e.target.checked || undefined })
+            }
           />
-          With bind/value
+          Validate form before dispatch
         </label>
-      </div>
-      {/* R24.2: tiny inline hint so the user sees the vocabulary +
-          validation semantics without leaving the inspector. */}
-      {hintText ? (
-        <p className="text-[10px] italic text-secondary-text">{hintText}</p>
       ) : null}
-      {isPreset && !isVocabularyValue ? (
-        <p className="text-[10px] italic text-secondary-text">
-          {`Current value: "${presetValue}" is not in the SDK vocabulary. Pick a preset or enable “With bind/value” to convert to a descriptor.`}
-        </p>
-      ) : null}
-      {!isPreset ? (
-        <>
-          <Input
-            size="sm"
-            value={descriptor.bind ?? ''}
-            onChange={(e) => onChange({ ...descriptor, bind: e.target.value || undefined })}
-            placeholder="bind (e.g. branchCode)"
-            aria-label="bind"
-          />
-          <Input
-            size="sm"
-            value={typeof descriptor.value === 'string' ? descriptor.value : descriptor.value !== undefined ? JSON.stringify(descriptor.value) : ''}
-            onChange={(e) => {
-              const raw = e.target.value;
-              if (raw === '') {
-                onChange({ ...descriptor, value: undefined });
-                return;
-              }
-              try {
-                onChange({ ...descriptor, value: JSON.parse(raw) });
-              } catch {
-                onChange({ ...descriptor, value: raw });
-              }
-            }}
-            placeholder='value (literal or expression, e.g. "$item.value")'
-            aria-label="value"
-          />
-        </>
-      ) : null}
+
+      <p className="text-[10px] italic text-secondary-text">
+        {hintFor(selectionId, descriptor.action, capability)}
+      </p>
     </div>
   );
 }

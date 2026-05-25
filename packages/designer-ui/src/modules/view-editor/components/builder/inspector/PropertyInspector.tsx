@@ -182,6 +182,8 @@ function PropertySchemaForm({ node, schema, path, store, bindPaths, showAdvanced
           bindPaths={bindPaths}
           parentPath={path}
           store={store}
+          node={node}
+          onSiblingChange={(siblingKey, siblingValue) => onChange(siblingKey, siblingValue)}
           onChange={(value) => onChange(field.key, value)}
         />
       ))}
@@ -222,9 +224,14 @@ interface PropertyFieldRowProps {
   parentPath: NodePath;
   store: BuilderStore;
   onChange: (next: unknown) => void;
+  /** Selected node — used by ActionEditor to read sibling fields (command, validate). */
+  node?: BuilderNode;
+  /** Sibling-field writer — used by ActionEditor to update command/validate
+   *  on the same node when a domain dispatch URN is chosen. */
+  onSiblingChange?: (key: string, next: unknown) => void;
 }
 
-function PropertyFieldRow({ field, value, bindPaths, parentPath, store, onChange }: PropertyFieldRowProps) {
+function PropertyFieldRow({ field, value, bindPaths, parentPath, store, onChange, node, onSiblingChange }: PropertyFieldRowProps) {
   return (
     <div className="flex flex-col gap-1">
       <label className="flex items-center gap-1 text-[11px] font-medium text-foreground">
@@ -238,6 +245,8 @@ function PropertyFieldRow({ field, value, bindPaths, parentPath, store, onChange
         bindPaths={bindPaths}
         parentPath={parentPath}
         store={store}
+        node={node}
+        onSiblingChange={onSiblingChange}
       />
       {field.hint ? (
         <span className="text-[10px] text-muted-text">{field.hint}</span>
@@ -246,7 +255,7 @@ function PropertyFieldRow({ field, value, bindPaths, parentPath, store, onChange
   );
 }
 
-function PropertyFieldInput({ field, value, onChange, bindPaths, parentPath, store }: PropertyFieldRowProps) {
+function PropertyFieldInput({ field, value, onChange, bindPaths, parentPath, store, node, onSiblingChange }: PropertyFieldRowProps) {
   switch (field.kind) {
     case 'text':
       return (
@@ -298,7 +307,17 @@ function PropertyFieldInput({ field, value, onChange, bindPaths, parentPath, sto
         />
       );
     case 'action':
-      return <ActionEditor value={value} onChange={onChange} multi={field.multi} />;
+      return (
+        <ActionEditor
+          value={value}
+          onChange={onChange}
+          multi={field.multi}
+          nodeType={typeof (node as Record<string, unknown> | undefined)?.type === 'string' ? (node as { type: string }).type : undefined}
+          command={(node as Record<string, unknown> | undefined)?.command}
+          validate={(node as Record<string, unknown> | undefined)?.validate}
+          onSiblingChange={onSiblingChange}
+        />
+      );
     case 'icon':
       // The per-component icon set (PrimeIcons vs Material Icons) is conveyed
       // through `field.hint` set on the catalog entry; placeholder stays generic.
