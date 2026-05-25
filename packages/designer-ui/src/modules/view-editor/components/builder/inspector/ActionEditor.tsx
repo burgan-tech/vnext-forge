@@ -32,8 +32,8 @@
  * concept in array form.
  */
 
-import { useMemo } from 'react';
-import { MoveDown, MoveUp, Plus, Trash2 } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { MoveDown, MoveUp, Plus, Trash2, Workflow, Zap, X } from 'lucide-react';
 import {
   STANDARD_ACTIONS,
   getComponentMeta,
@@ -44,6 +44,7 @@ import { Input } from '../../../../../ui/Input';
 import { Select } from '../../../../../ui/Select';
 import { useUrnCatalog } from '../services/UrnCatalogContext';
 import type { DomainActionEntry } from '../services/forgeUrnCatalog';
+import { ChooseUrnDialog } from './ChooseUrnDialog';
 
 // ── Public API ─────────────────────────────────────────────────────────
 
@@ -180,52 +181,146 @@ function SingleActionEditor({
   const capability = readCapability(nodeType);
 
   const verb = typeof value === 'string' ? value : isDescriptor(value) ? value.action : '';
+  const [pickerOpen, setPickerOpen] = useState(false);
 
-  // ── Picker state inference ─────────────────────────────────────────
-  // Selection id → maps back to value + sibling writes.
-  const selectionId = useMemo(() => inferSelectionId(verb, command, urnCatalog), [verb, command, urnCatalog]);
+  // R25.D-1: descriptor + custom-URN modes are now explicit user toggles
+  // instead of sentinel-driven Select options. We persist them in
+  // component state so the inputs don't disappear on every keystroke.
+  const startsInDescriptor = isDescriptor(value);
+  const startsInCustom = isUnknownDispatchUrn(verb, command, urnCatalog);
+  const [descriptorMode, setDescriptorMode] = useState(startsInDescriptor);
+  const [customMode, setCustomMode] = useState(startsInCustom);
 
-  const entries = useMemo(
-    () => buildPickerEntries(capability, urnCatalog),
-    [capability, urnCatalog],
+  const selectedCatalogEntry = useMemo(
+    () => (command ? findCatalogEntry(command, urnCatalog) : undefined),
+    [command, urnCatalog],
   );
-
-  const handleSelectionChange = (nextId: string) => {
-    applySelection(nextId, {
-      onChange,
-      onSiblingChange,
-      urnCatalog,
-    });
-  };
 
   const showValidate = capability.acceptsValidateFlag && verb !== 'submit';
   const validateEffective = validate ?? shouldValidateDefault(verb);
 
-  return (
-    <div className="flex flex-col gap-1">
-      <Select
-        className="h-8 text-xs"
-        value={selectionId}
-        onChange={(e) => handleSelectionChange(e.target.value)}
-        aria-label="Action"
-      >
-        {entries.length === 0 ? (
-          <option value="">— no actions available —</option>
-        ) : (
-          renderEntriesGrouped(entries, selectionId)
-        )}
-      </Select>
+  // ── Action callbacks ─────────────────────────────────────────────
+  const pickReservedVerb = (rv: ReservedAction) => {
+    setDescriptorMode(false);
+    setCustomMode(false);
+    applySelection(`reserved:${rv}`, { onChange, onSiblingChange, urnCatalog });
+  };
+  const pickUrnEntry = (entry: DomainActionEntry) => {
+    setDescriptorMode(false);
+    setCustomMode(false);
+    applySelection(entry.urn, { onChange, onSiblingChange, urnCatalog });
+  };
+  const clearUrn = () => {
+    setCustomMode(false);
+    onSiblingChange?.('command', undefined);
+    if (capability.reservedActions[0]) {
+      applySelection(`reserved:${capability.reservedActions[0]}`, { onChange, onSiblingChange, urnCatalog });
+    } else {
+      onChange('');
+    }
+  };
+  const toggleDescriptor = (next: boolean) => {
+    setDescriptorMode(next);
+    if (next) {
+      setCustomMode(false);
+      applySelection('__descriptor__', { onChange, onSiblingChange, urnCatalog });
+    } else if (capability.reservedActions[0]) {
+      // Snap back to the first reserved verb when leaving descriptor mode.
+      applySelection(`reserved:${capability.reservedActions[0]}`, { onChange, onSiblingChange, urnCatalog });
+    }
+  };
+  const toggleCustom = (next: boolean) => {
+    setCustomMode(next);
+    if (next) {
+      setDescriptorMode(false);
+      applySelection('__custom__', { onChange, onSiblingChange, urnCatalog });
+    } else if (capability.reservedActions[0]) {
+      onSiblingChange?.('command', undefined);
+      applySelection(`reserved:${capability.reservedActions[0]}`, { onChange, onSiblingChange, urnCatalog });
+    }
+  };
 
-      {/* Custom URN free-text — shown when "Custom URN" sentinel selected
-          or when an existing command isn't in the catalog. */}
-      {selectionId === '__custom__' || isUnknownDispatchUrn(verb, command, urnCatalog) ? (
+  return (
+    <div className="flex flex-col gap-1.5">
+      {/* Reserved verb chips — quick toggles for the SDK's three special verbs. */}
+      {capability.reservedActions.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-1">
+          {capability.reservedActions.map((rv) => {
+            const active = !descriptorMode && !customMode && !command && verb === rv;
+            return (
+              <button
+                key={rv}
+                type="button"
+                onClick={() => pickReservedVerb(rv)}
+                className={`rounded border px-2 py-0.5 text-[10px] transition ${
+                  active
+                    ? 'border-primary-border bg-primary text-foreground'
+                    : 'border-primary-border bg-primary-surface text-muted-text hover:bg-primary'
+                }`}
+                title={STANDARD_ACTIONS[rv]?.label ?? rv}
+              >
+                {rv}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+
+      {/* URN picker — dispatch dispatchers. Hidden when capability says no dispatch. */}
+      {capability.acceptsDispatch && !descriptorMode && !customMode ? (
+        selectedCatalogEntry || (verb === 'dispatch' && command) ? (
+          <div className="flex items-center justify-between gap-1 rounded border border-primary-border bg-primary px-2 py-1">
+            <span className="flex min-w-0 items-center gap-1">
+              {selectedCatalogEntry?.group === 'function' ? (
+                <Zap size={11} className="text-muted-text shrink-0" />
+              ) : (
+                <Workflow size={11} className="text-muted-text shrink-0" />
+              )}
+              <span className="flex min-w-0 flex-col">
+                <span className="text-foreground truncate text-[11px] font-medium">
+                  {selectedCatalogEntry?.label ?? 'Custom URN'}
+                </span>
+                <span className="text-muted-text truncate font-mono text-[9px]">{command}</span>
+              </span>
+            </span>
+            <div className="flex shrink-0 items-center gap-0.5">
+              <button
+                type="button"
+                onClick={() => setPickerOpen(true)}
+                className="text-muted-text hover:text-foreground rounded px-1.5 py-0.5 text-[10px] hover:bg-[var(--vscode-list-hoverBackground)]"
+              >
+                Change…
+              </button>
+              <button
+                type="button"
+                onClick={clearUrn}
+                aria-label="Clear URN"
+                className="text-muted-text hover:text-foreground rounded p-0.5 hover:bg-[var(--vscode-list-hoverBackground)]"
+              >
+                <X size={11} />
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setPickerOpen(true)}
+            className="hover:bg-primary flex items-center gap-1 self-start rounded border border-dashed border-primary-border bg-primary-surface px-2 py-1 text-[11px] text-muted-text"
+          >
+            <Workflow size={11} />
+            Pick workflow / function URN…
+          </button>
+        )
+      ) : null}
+
+      {/* Custom URN inline input. */}
+      {customMode ? (
         <Input
           size="sm"
           value={command ?? ''}
           onChange={(e) => {
             const next = e.target.value;
             onSiblingChange?.('command', next || undefined);
-            // Ensure verb is 'dispatch' for custom URN.
             if (verb !== 'dispatch') onChange('dispatch');
           }}
           placeholder="urn:tenant:..."
@@ -234,12 +329,45 @@ function SingleActionEditor({
       ) : null}
 
       {/* Descriptor mode — bind/value editor for `select` pattern. */}
-      {selectionId === '__descriptor__' || isDescriptor(value) ? (
+      {descriptorMode || isDescriptor(value) ? (
         <DescriptorFields
           descriptor={isDescriptor(value) ? value : { action: verb || 'select' }}
           onChange={(d) => onChange(d)}
         />
       ) : null}
+
+      {/* Mode toggles — Custom URN + Descriptor checkboxes. */}
+      {capability.acceptsDispatch ? (
+        <div className="flex flex-wrap items-center gap-3 text-[10px] text-muted-text">
+          <label className="flex items-center gap-1">
+            <input
+              type="checkbox"
+              checked={customMode}
+              onChange={(e) => toggleCustom(e.target.checked)}
+              disabled={descriptorMode}
+            />
+            Custom URN
+          </label>
+          {capability.reservedActions.includes('select') ? (
+            <label className="flex items-center gap-1">
+              <input
+                type="checkbox"
+                checked={descriptorMode}
+                onChange={(e) => toggleDescriptor(e.target.checked)}
+                disabled={customMode}
+              />
+              With bind / value (select pattern)
+            </label>
+          ) : null}
+        </div>
+      ) : null}
+
+      <ChooseUrnDialog
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        catalog={urnCatalog}
+        onSelect={pickUrnEntry}
+      />
 
       {/* Validate checkbox (acceptsValidateFlag && verb !== 'submit'). */}
       {showValidate ? (
@@ -255,7 +383,15 @@ function SingleActionEditor({
 
       {/* Hint line. */}
       <p className="text-[10px] italic text-secondary-text">
-        {hintFor(selectionId, verb, capability)}
+        {hintFor(
+          descriptorMode
+            ? '__descriptor__'
+            : customMode
+            ? '__custom__'
+            : selectedCatalogEntry?.urn ?? (verb ? `reserved:${verb}` : ''),
+          verb,
+          capability,
+        )}
       </p>
     </div>
   );
