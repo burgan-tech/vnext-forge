@@ -142,10 +142,25 @@ export function PseudoUiPseudoViewFrame(props: PseudoUiPseudoViewFrameProps) {
 
     return () => {
       observer.disconnect();
-      rootRef.current?.unmount();
+      // R23: defer `root.unmount()` past the current React commit so
+      // we don't trip React 18 / 19's
+      //
+      //   "Attempted to synchronously unmount a root while React was
+      //    already rendering."
+      //
+      // guard. Refs are cleared synchronously so any subsequent
+      // render that races with this cleanup sees `rootRef.current ===
+      // null` and bails before touching the half-torn-down root.
+      // Microtask (vs. setTimeout) keeps the unmount in the same
+      // tick — fires the moment the current commit completes — but
+      // outside React's render phase.
+      const rootToUnmount = rootRef.current;
       rootRef.current = null;
       shadowRef.current = null;
       setReady(false);
+      queueMicrotask(() => {
+        rootToUnmount?.unmount();
+      });
     };
   }, []);
 

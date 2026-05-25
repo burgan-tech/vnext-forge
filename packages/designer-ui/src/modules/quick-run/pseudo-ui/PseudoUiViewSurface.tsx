@@ -299,19 +299,17 @@ export function PseudoUiViewSurface({
     normalized.dataSchema.length > 0;
   const schemaNotReady = expectingAsyncSchema && resolvedSchema === null;
 
-  // Defensive: SDK ctx.schema is captured by useRef once at mount
-  // time. If the gate above ever lets a stale schema through, this
-  // `key` forces a clean remount when the schema identity changes
-  // so the form context is rebuilt with the real schema. Cheap —
-  // `useMemo` recomputes only on schema reference change.
-  const schemaRemountKey = useMemo(() => {
-    if (!schema || typeof schema !== 'object') return 'empty';
-    const propsObj = (schema as { properties?: Record<string, unknown> }).properties;
-    const propsCount = propsObj ? Object.keys(propsObj).length : 0;
-    if (propsCount === 0) return 'empty';
-    const id = (schema as { $id?: string }).$id ?? '';
-    return `${id}::${propsCount}`;
-  }, [schema]);
+  // R23: the `schemaNotReady` gate above keeps the SDK Frame from
+  // mounting with a stub `{}` schema. The earlier `schemaRemountKey`
+  // belt-and-suspenders fix — which forced a Frame remount whenever
+  // schema identity changed — turned out to be the source of the
+  // "Attempted to synchronously unmount a root while React was
+  // already rendering" console error: a key change during the same
+  // commit that resolved the schema asked React to tear down the
+  // shadow root mid-render. With the gate in place the very first
+  // SDK mount already sees the real schema, so no remount cue is
+  // needed. The SDK's own React sample is structured the same way
+  // (gate-only, no `key=`).
 
   const viewDefinition = useMemo((): ViewDefinition | null => {
     if (!normalized) return null;
@@ -390,7 +388,6 @@ export function PseudoUiViewSurface({
       onError={(err) => onError?.(err.message)}
     >
       <PseudoUiPseudoViewFrame
-        key={schemaRemountKey}
         schema={schema}
         view={viewDefinition}
         formData={formData}
