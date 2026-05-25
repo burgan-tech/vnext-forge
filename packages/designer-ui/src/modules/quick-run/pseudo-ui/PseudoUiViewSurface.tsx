@@ -265,34 +265,45 @@ export function PseudoUiViewSurface({
       ? schemaProp
       : (resolvedSchema ?? ({} as DataSchema));
 
-  // !!! R22-DEBUG — remove after diagnosis !!!
-  // What does the surface actually hand to <PseudoView />? Logs on
-  // every render so we can see (a) the dataSchema URN we tried to
-  // resolve, (b) whether resolveSchema came back, (c) the final
-  // schema reference that drives multiLang / enum / lookups. Search
-  // `R22-DEBUG` to delete in one sweep.
-  // eslint-disable-next-line no-console
-  console.log('[R22-DEBUG] PseudoUiViewSurface render →', {
-    dataSchemaRef: normalized?.dataSchema,
-    hasResolveSchema: typeof resolveSchema === 'function',
-    schemaPropEmpty: !schemaProp || Object.keys(schemaProp).length === 0,
-    resolvedSchemaIsNull: resolvedSchema === null,
-    schemaResolving,
-    finalSchemaKeys: Object.keys(schema as Record<string, unknown>),
-    finalSchemaPropertyCount:
-      schema && typeof schema === 'object' && 'properties' in schema
-        ? Object.keys((schema as { properties?: Record<string, unknown> }).properties ?? {}).length
-        : 0,
-  });
+  /**
+   * R22.2: gate the SDK mount on schema readiness.
+   *
+   * `<PseudoView>` creates its form context with
+   * `useRef(createFormContext(schema, ...))` — the ref runs once
+   * on mount. If we mount with the fallback `{}` first and only
+   * later receive the resolved schema, the form context (and every
+   * downstream `getSchemaProperty(ctx.schema, bind)` call) keeps
+   * pointing at the empty schema and enum-driven inputs (Dropdown
+   * / RadioGroup / SegmentedButton) render with zero options.
+   *
+   * The SDK's React sample (`samples/react-pseudo-ui/src/App.tsx`)
+   * sidesteps this by gating render on `editorSchema && editorView`.
+   * We mirror that pattern: when the view declares an async
+   * dataSchema URN, hold off the SDK mount until `resolvedSchema`
+   * is in. Views that ship with an inline `schemaProp` or that
+   * don't reference a dataSchema at all still render immediately
+   * with the existing `{}` fallback — the surface keeps rendering
+   * the view even when no schema is available, the gate only
+   * applies to the in-flight async case.
+   *
+   * `schemaResolving` already covers the in-flight portion of the
+   * race, but it starts as `false` on first render — without this
+   * extra `expectingAsyncSchema` check the very first mount would
+   * still flash through with the empty fallback before the effect
+   * fires.
+   */
+  const expectingAsyncSchema =
+    (!schemaProp || Object.keys(schemaProp).length === 0) &&
+    typeof resolveSchema === 'function' &&
+    typeof normalized?.dataSchema === 'string' &&
+    normalized.dataSchema.length > 0;
+  const schemaNotReady = expectingAsyncSchema && resolvedSchema === null;
 
-  // R22.1: SDK's `<PseudoView>` initialises its form context with
-  // `useRef(createFormContext(schema, ...))` — the ref runs *once*
-  // on mount, so a later schema change (e.g. when the async
-  // `resolveSchema` finally returns) doesn't reach the engine's
-  // enum/x-enum resolution. We mitigate by changing the React `key`
-  // when the resolved schema arrives, which forces a clean remount
-  // and a fresh form context. `key` cycles only when the schema
-  // identity actually changes, so steady-state renders are cheap.
+  // Defensive: SDK ctx.schema is captured by useRef once at mount
+  // time. If the gate above ever lets a stale schema through, this
+  // `key` forces a clean remount when the schema identity changes
+  // so the form context is rebuilt with the real schema. Cheap —
+  // `useMemo` recomputes only on schema reference change.
   const schemaRemountKey = useMemo(() => {
     if (!schema || typeof schema !== 'object') return 'empty';
     const propsObj = (schema as { properties?: Record<string, unknown> }).properties;
@@ -331,7 +342,7 @@ export function PseudoUiViewSurface({
     .filter(Boolean)
     .join(' ');
 
-  if (loading || schemaResolving) {
+  if (loading || schemaResolving || schemaNotReady) {
     return (
       <div role="region" aria-label={ariaLabel} className={hostClassName} data-pseudo-ui-root="">
         <LoadingSkeleton />
