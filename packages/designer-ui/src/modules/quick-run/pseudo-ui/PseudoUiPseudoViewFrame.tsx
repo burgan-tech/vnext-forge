@@ -92,6 +92,16 @@ export function PseudoUiPseudoViewFrame(props: PseudoUiPseudoViewFrameProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const shadowRef = useRef<ShadowRoot | null>(null);
   const rootRef = useRef<Root | null>(null);
+  // R23.1: keep the inside-shadow mount element around so the render
+  // effect can route PrimeReact overlay portals (Dropdown panel,
+  // Calendar, Tooltip…) here. Without this, SDK PseudoView's default
+  // `appendTo: renderRoot.host` lands portals in the *parent* DOM
+  // while the structural CSS (`styleContainer: shadow`) lives inside
+  // the shadow root. The portal renders but with zero matching
+  // rules — panel ends up invisible / zero-sized, even though the
+  // dropdown's selected-value display works (that's painted inside
+  // the shadow tree by PrimeReact's `optionLabel` lookup).
+  const mountElRef = useRef<HTMLDivElement | null>(null);
   const [ready, setReady] = useState(false);
   const [appTheme, setAppTheme] = useState<AppTheme>(readAppTheme);
 
@@ -125,6 +135,7 @@ export function PseudoUiPseudoViewFrame(props: PseudoUiPseudoViewFrameProps) {
       mountEl.dataset.pseudoMount = '';
       shadow.appendChild(mountEl);
     }
+    mountElRef.current = mountEl;
 
     rootRef.current = createRoot(mountEl);
     setReady(true);
@@ -157,6 +168,7 @@ export function PseudoUiPseudoViewFrame(props: PseudoUiPseudoViewFrameProps) {
       const rootToUnmount = rootRef.current;
       rootRef.current = null;
       shadowRef.current = null;
+      mountElRef.current = null;
       setReady(false);
       queueMicrotask(() => {
         rootToUnmount?.unmount();
@@ -196,6 +208,17 @@ export function PseudoUiPseudoViewFrame(props: PseudoUiPseudoViewFrameProps) {
     if (!ready || !rootRef.current || !shadowRef.current) return;
     const primeReactConfig: Record<string, unknown> = {
       styleContainer: shadowRef.current as unknown as HTMLElement,
+      // R23.1: route every PrimeReact overlay portal (Dropdown panel,
+      // AutoComplete suggestions, Calendar, Tooltip, …) into the
+      // shadow-internal mount element. SDK PseudoView spreads our
+      // primeReactConfig AFTER its own `appendTo: renderRoot.host`
+      // default, so this override wins. Without it portals land in
+      // the parent DOM where none of the structural CSS we adopted
+      // into the shadow root reaches them, and dropdown panels
+      // render with zero size / no styling — the visible bug user
+      // hit when display showed the selected label correctly but the
+      // panel was empty on click.
+      appendTo: mountElRef.current as HTMLElement | null,
     };
     rootRef.current.render(
       <PseudoView
