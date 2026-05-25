@@ -133,6 +133,24 @@ export function PseudoUiPseudoViewFrame(props: PseudoUiPseudoViewFrameProps) {
     if (!mountEl) {
       mountEl = document.createElement('div');
       mountEl.dataset.pseudoMount = '';
+      // R23.2: anchor PrimeReact overlay portals correctly.
+      //
+      // The mount element is the `appendTo` target for every
+      // overlay panel (Dropdown, AutoComplete, Calendar, Tooltip,
+      // Menu…). PrimeReact positions those panels with
+      // `position: absolute` and resolves their coordinates
+      // against the nearest *positioned* ancestor (`offsetParent`).
+      // With a `position: static` mount element the offset parent
+      // falls through to whatever lives outside the shadow root,
+      // so the panel ends up offset by an unrelated container's
+      // top/left and visually stretches to viewport width.
+      // Making the mount element itself the offset parent
+      // (`position: relative`) keeps overlay coordinates aligned
+      // with the trigger that opened them. `display: block` +
+      // `width: 100%` keep the SDK tree filling the host as before.
+      mountEl.style.position = 'relative';
+      mountEl.style.display = 'block';
+      mountEl.style.width = '100%';
       shadow.appendChild(mountEl);
     }
     mountElRef.current = mountEl;
