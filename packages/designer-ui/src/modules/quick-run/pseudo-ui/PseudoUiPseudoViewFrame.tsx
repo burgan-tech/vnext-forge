@@ -102,6 +102,14 @@ export function PseudoUiPseudoViewFrame(props: PseudoUiPseudoViewFrameProps) {
   // dropdown's selected-value display works (that's painted inside
   // the shadow tree by PrimeReact's `optionLabel` lookup).
   const mountElRef = useRef<HTMLDivElement | null>(null);
+  // R23.3: dedicated overlay-host sibling — see the mount effect for
+  // the reasoning. PrimeReact positions overlay panels with
+  // viewport-relative coordinates, so their `appendTo` target needs
+  // to sit at viewport (0,0); otherwise the panel ends up offset by
+  // the SDK mount element's own position. Hosting overlays in a
+  // separate fixed-origin element decouples panel positioning from
+  // wherever the SDK tree happens to live on screen.
+  const overlayHostRef = useRef<HTMLDivElement | null>(null);
   const [ready, setReady] = useState(false);
   const [appTheme, setAppTheme] = useState<AppTheme>(readAppTheme);
 
@@ -133,19 +141,57 @@ export function PseudoUiPseudoViewFrame(props: PseudoUiPseudoViewFrameProps) {
     if (!mountEl) {
       mountEl = document.createElement('div');
       mountEl.dataset.pseudoMount = '';
-      // R23.2: make the mount element the offset parent for every
-      // PrimeReact overlay portal mounted underneath it. Without a
-      // `position: relative` here, PrimeReact's `position: absolute`
-      // panels resolve coordinates against the next positioned
-      // ancestor — which lives outside the shadow root — and end
-      // up misaligned. Block layout + intrinsic block width are
-      // the div defaults; we don't pin them explicitly so PrimeReact
-      // can read the trigger's offsetWidth without our wrapper
-      // interfering with its width-matching logic.
-      mountEl.style.position = 'relative';
       shadow.appendChild(mountEl);
     }
     mountElRef.current = mountEl;
+
+    // R23.3: separate overlay host pinned to the viewport origin.
+    //
+    // Why this exists: PrimeReact positions overlay panels with
+    // `position: absolute` and sets `style.top/left` to the
+    // *viewport-relative* coordinates of the trigger
+    // (`getBoundingClientRect().top + windowScrollTop`). Those
+    // coordinates only land in the right place when the panel's
+    // CSS `offsetParent` is at viewport origin — i.e. when the
+    // overlay is mounted under `document.body`, which is
+    // PrimeReact's normal `appendTo` default.
+    //
+    // We can't use document.body because the panel's structural
+    // and theme CSS lives inside the shadow root (R10 + R23.1).
+    // The mount element where the SDK React tree lives can't be
+    // used either: it sits in normal block flow and has its own
+    // offset from the viewport, so PrimeReact's viewport-relative
+    // coordinates end up double-counting that offset (R23.2's
+    // attempt to `position: relative` the mount element made the
+    // panel render but in the wrong place, sometimes spanning
+    // hundreds of pixels past the trigger).
+    //
+    // The fix is a dedicated sibling element that's
+    // `position: fixed; inset: 0` (zero-size, viewport origin),
+    // sits *inside* the shadow root so the adopted PrimeReact CSS
+    // applies, and accepts overlay portals through `appendTo`.
+    // The host itself doesn't capture pointer events
+    // (`pointer-events: none`) so it never blocks the SDK tree
+    // underneath; PrimeReact panels (children) re-enable pointer
+    // events by default so they remain interactive.
+    let overlayHost = shadow.querySelector<HTMLDivElement>('[data-pseudo-overlay-host]');
+    if (!overlayHost) {
+      overlayHost = document.createElement('div');
+      overlayHost.dataset.pseudoOverlayHost = '';
+      overlayHost.style.position = 'fixed';
+      overlayHost.style.top = '0';
+      overlayHost.style.left = '0';
+      overlayHost.style.width = '0';
+      overlayHost.style.height = '0';
+      overlayHost.style.pointerEvents = 'none';
+      // Above the SDK tree so panels stack on top. PrimeReact
+      // overlay panels carry their own z-index internally for the
+      // panel-vs-panel order, this just keeps the whole overlay
+      // layer above the form fields.
+      overlayHost.style.zIndex = '1000';
+      shadow.appendChild(overlayHost);
+    }
+    overlayHostRef.current = overlayHost;
 
     rootRef.current = createRoot(mountEl);
     setReady(true);
@@ -179,6 +225,7 @@ export function PseudoUiPseudoViewFrame(props: PseudoUiPseudoViewFrameProps) {
       rootRef.current = null;
       shadowRef.current = null;
       mountElRef.current = null;
+      overlayHostRef.current = null;
       setReady(false);
       queueMicrotask(() => {
         rootToUnmount?.unmount();
@@ -218,17 +265,15 @@ export function PseudoUiPseudoViewFrame(props: PseudoUiPseudoViewFrameProps) {
     if (!ready || !rootRef.current || !shadowRef.current) return;
     const primeReactConfig: Record<string, unknown> = {
       styleContainer: shadowRef.current as unknown as HTMLElement,
-      // R23.1: route every PrimeReact overlay portal (Dropdown panel,
-      // AutoComplete suggestions, Calendar, Tooltip, …) into the
-      // shadow-internal mount element. SDK PseudoView spreads our
-      // primeReactConfig AFTER its own `appendTo: renderRoot.host`
-      // default, so this override wins. Without it portals land in
-      // the parent DOM where none of the structural CSS we adopted
-      // into the shadow root reaches them, and dropdown panels
-      // render with zero size / no styling — the visible bug user
-      // hit when display showed the selected label correctly but the
-      // panel was empty on click.
-      appendTo: mountElRef.current as HTMLElement | null,
+      // R23.3: portal every PrimeReact overlay (Dropdown panel,
+      // AutoComplete, Calendar, Tooltip, Menu) into the dedicated
+      // viewport-anchored overlay host. The host is `position:
+      // fixed; inset: 0` so PrimeReact's viewport-relative
+      // `style.top/left` coordinates land in the right place
+      // without any offsetParent math correction. SDK PseudoView
+      // spreads our primeReactConfig after its own
+      // `appendTo: renderRoot.host` default, so this override wins.
+      appendTo: overlayHostRef.current as HTMLElement | null,
     };
     rootRef.current.render(
       <PseudoView
