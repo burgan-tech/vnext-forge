@@ -23,6 +23,8 @@ import {
   quickrunRetryInstanceResult,
   quickrunStartInstanceParams,
   quickrunStartInstanceResult,
+  quickrunExecuteFunctionParams,
+  quickrunExecuteFunctionResult,
 } from './quickrun-schemas.js'
 
 type ProxyRequest = {
@@ -320,6 +322,41 @@ export function createQuickRunService(runtimeProxyService: RuntimeProxyService) 
     return parseJsonResponse(result.data, result.status, 'QuickRunService.getInstance', traceId)
   }
 
+  /**
+   * Execute an Amorphie function URN against the engine. Backs the
+   * Quick Runner pseudo-ui delegate's `requestData` (x-lov / x-lookup)
+   * and `dispatch + func URN` action paths (R25.B-1).
+   *
+   * Engine URL pattern follows the existing `workflows/<wf>/instances
+   * /<id>/functions/<key>` convention used by `getData` / `getSchema`,
+   * but routed under the URN's domain (which the host has already
+   * confirmed equals `params.domain` for same-domain dispatch — cross-
+   * domain URNs are filtered out before reaching this method).
+   *
+   * The result body is forwarded to the SDK as-is; the SDK's
+   * `dataClient.extractByPath` runs JsonPath on it.
+   */
+  async function executeFunction(
+    params: z.infer<typeof quickrunExecuteFunctionParams>,
+    traceId?: string,
+  ): Promise<z.infer<typeof quickrunExecuteFunctionResult>> {
+    const { domain: urnDomain, function: functionKey } = parseAmorphieFuncUrn(params.functionUrn, traceId)
+    const base = buildBasePath(urnDomain, params.workflowKey)
+
+    const result = await proxyCall(
+      {
+        method: 'GET',
+        runtimePath: `${base}/instances/${params.instanceId}/functions/${encodeURIComponent(functionKey)}`,
+        query: params.params,
+        headers: params.headers,
+        runtimeUrl: params.runtimeUrl,
+      },
+      traceId,
+    )
+
+    return parseJsonResponse(result.data, result.status, 'QuickRunService.executeFunction', traceId)
+  }
+
   return {
     startInstance,
     fireTransition,
@@ -331,6 +368,39 @@ export function createQuickRunService(runtimeProxyService: RuntimeProxyService) 
     retryInstance,
     listInstances,
     getInstance,
+    executeFunction,
+  }
+}
+
+/**
+ * Pull `<domain>` and `<function>` out of `urn:amorphie:func:<dom>:<fn>`.
+ * Same shape as the consumer-side `parseAmorphieUrn` in
+ * packages/designer-ui — kept inline here so services-core stays
+ * dependency-free of designer-ui.
+ */
+function parseAmorphieFuncUrn(urn: string, traceId?: string): { domain: string; function: string } {
+  const PREFIX = 'urn:amorphie:func:'
+  if (!urn.startsWith(PREFIX)) {
+    throw new VnextForgeError(
+      ERROR_CODES.RUNTIME_EXECUTION_FAILED,
+      `Invalid function URN: expected prefix "${PREFIX}", got "${urn}"`,
+      { source: 'QuickRunService.executeFunction', layer: 'application', details: { urn } },
+      traceId,
+    )
+  }
+  const tail = urn.slice(PREFIX.length)
+  const idx = tail.indexOf(':')
+  if (idx <= 0 || idx === tail.length - 1) {
+    throw new VnextForgeError(
+      ERROR_CODES.RUNTIME_EXECUTION_FAILED,
+      `Invalid function URN: missing domain or function segment in "${urn}"`,
+      { source: 'QuickRunService.executeFunction', layer: 'application', details: { urn } },
+      traceId,
+    )
+  }
+  return {
+    domain: tail.slice(0, idx),
+    function: tail.slice(idx + 1),
   }
 }
 

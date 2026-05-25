@@ -107,21 +107,70 @@ export function createQuickRunPseudoDelegate(params: QuickRunDelegateParams): Ps
   const runtimeUrl = params.runtimeUrl || undefined;
 
   return {
-    requestData: async (_ref, reqParams) => {
-      const sessionHeaders = params.getSessionHeaders();
-      const response = await QuickRunApi.getData({
+    requestData: async (ref, reqParams) => {
+      // R25.B-2 — `ref` is the SDK-side `LovDefinition.source` /
+      // `LookupDefinition.source` (an Amorphie function URN in
+      // normal flows). Forge only handles same-domain function URNs;
+      // anything else is a no-op so the SDK's empty-array fallback
+      // can kick in (per the user's explicit rule: no cross-domain
+      // fallback handling).
+      const parsed = parseAmorphieUrn(typeof ref === 'string' ? ref : '');
+      if (!parsed || parsed.kind !== 'func') {
+        logger.warn('[pseudo-ui] requestData: non-function URN ref — not handled.', { ref });
+        params.verboseLog?.('warn', 'requestData: non-function URN', undefined, { ref });
+        return undefined;
+      }
+      if (parsed.domain !== params.domain) {
+        logger.warn('[pseudo-ui] requestData: cross-domain function URN — not handled.', {
+          ref,
+          currentDomain: params.domain,
+          urnDomain: parsed.domain,
+        });
+        params.verboseLog?.('warn', 'requestData: cross-domain function URN', undefined, {
+          ref,
+          currentDomain: params.domain,
+          urnDomain: parsed.domain,
+        });
+        return undefined;
+      }
+
+      // The SDK already resolved every `$form.x` / `$instance.x` /
+      // `$param.x` filter expression into a flat string map. Forward
+      // those to the engine via `executeFunction` as the query.
+      const fnParams: Record<string, string> = {};
+      if (reqParams) {
+        for (const [k, v] of Object.entries(reqParams)) {
+          if (typeof v === 'string') fnParams[k] = v;
+        }
+      }
+
+      params.verboseLog?.('info', 'requestData → executeFunction', undefined, {
+        urn: ref,
+        urnDomain: parsed.domain,
+        function: parsed.function,
+        params: fnParams,
+      });
+
+      const result = await QuickRunApi.executeFunction({
         domain: params.domain,
         workflowKey: params.workflowKey,
         instanceId: params.instanceId,
-        extensions: typeof reqParams?.extensions === 'string' ? reqParams.extensions : undefined,
-        headers: sessionHeaders,
+        functionUrn: typeof ref === 'string' ? ref : '',
+        params: Object.keys(fnParams).length > 0 ? fnParams : undefined,
+        headers: params.getSessionHeaders(),
         runtimeUrl,
       });
-      if (!response.success) {
-        params.onError?.(response.error.message);
+      if (!result.success) {
+        logger.error('[pseudo-ui] requestData engine error', {
+          urn: ref,
+          error: result.error.message,
+        });
+        params.verboseLog?.('error', 'requestData engine error', result.error, { urn: ref });
+        // Defensive: surface only via log; SDK will fall back to an
+        // empty LovItem[] / null lookup so the field renders quietly.
         return undefined;
       }
-      return response.data.data;
+      return result.data;
     },
 
     loadComponent: (ref: string) => {
@@ -215,16 +264,38 @@ export function createQuickRunPseudoDelegate(params: QuickRunDelegateParams): Ps
             });
             return;
           }
-          // R25.B-1 will wire QuickRunApi.executeFunction here. For
-          // now log and bail so Builder authoring + URN catalog work
-          // can land separately from runtime execution.
-          logger.info('[pseudo-ui] Function dispatch — executeFunction not yet wired (R25.B-1).', {
-            urn: command,
-            function: parsed.function,
+          // Forward formData to the engine as the query string —
+          // descriptor-style dispatches use the same payload contract
+          // as LOV / lookup requestData calls.
+          const fnParams: Record<string, string> = {};
+          for (const [k, v] of Object.entries(formData ?? {})) {
+            if (typeof v === 'string') fnParams[k] = v;
+            else if (v != null) fnParams[k] = JSON.stringify(v);
+          }
+          const result = await QuickRunApi.executeFunction({
+            domain: params.domain,
+            workflowKey: params.workflowKey,
+            instanceId: params.instanceId,
+            functionUrn: command!,
+            params: Object.keys(fnParams).length > 0 ? fnParams : undefined,
+            headers: params.getSessionHeaders(),
+            runtimeUrl,
           });
-          params.verboseLog?.('info', 'Function dispatch pending B-1 wiring', undefined, {
+          if (!result.success) {
+            params.onError?.(result.error.message);
+            logger.error('[pseudo-ui] Function dispatch engine error', {
+              urn: command,
+              error: result.error.message,
+            });
+            throw new Error(result.error.message);
+          }
+          params.verboseLog?.('info', 'Function dispatch ok', undefined, {
             urn: command,
+            result: result.data,
           });
+          // Trigger the same post-action refresh as a transition so
+          // any downstream state / LOV picks up the side effect.
+          await params.onTransitionComplete?.();
           return;
         }
 
