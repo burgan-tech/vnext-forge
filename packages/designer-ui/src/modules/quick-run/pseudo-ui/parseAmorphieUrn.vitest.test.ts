@@ -43,21 +43,35 @@ describe('parseAmorphieUrn (R25)', () => {
     });
   });
 
-  it('parses function URN (urn:amorphie:func:<domain>:<function>)', () => {
+  it('parses domain-scoped function URN (urn:amorphie:func:<domain>:<function>)', () => {
     expect(
       parseAmorphieUrn('urn:amorphie:func:shared:get-cities'),
     ).toEqual({
       kind: 'func',
+      scope: 'domain',
       domain: 'shared',
       function: 'get-cities',
       raw: 'urn:amorphie:func:shared:get-cities',
     });
   });
 
-  it('parses function URN where the function name contains colons', () => {
+  it('parses workflow-scoped function URN (urn:amorphie:func:<domain>:<workflow>:<function>)', () => {
     expect(
-      parseAmorphieUrn('urn:amorphie:func:shared:nested:fn'),
-    ).toMatchObject({ kind: 'func', domain: 'shared', function: 'nested:fn' });
+      parseAmorphieUrn('urn:amorphie:func:retail:loan-onboarding:get-customer-tier'),
+    ).toEqual({
+      kind: 'func',
+      scope: 'workflow',
+      domain: 'retail',
+      workflow: 'loan-onboarding',
+      function: 'get-customer-tier',
+      raw: 'urn:amorphie:func:retail:loan-onboarding:get-customer-tier',
+    });
+  });
+
+  it('rejects function URNs with more than 3 trailing segments as unknown', () => {
+    expect(
+      parseAmorphieUrn('urn:amorphie:func:shared:wf:nested:fn'),
+    ).toMatchObject({ kind: 'unknown' });
   });
 
   it('parses legacy 7-segment transition URN (R24 back-compat)', () => {

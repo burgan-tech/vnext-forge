@@ -316,7 +316,10 @@ export const quickrunExecuteFunctionParams = z.object({
   ...workflowIdentifier,
   /** Current workflow instance id, supplied for engine-side context. */
   instanceId: z.string().min(1),
-  /** Full Amorphie function URN: `urn:amorphie:func:<domain>:<key>`. */
+  /** Full Amorphie function URN. Two scopes are recognised:
+   *    `urn:amorphie:func:<domain>:<function>`             → domain endpoint
+   *    `urn:amorphie:func:<domain>:<workflow>:<function>`  → instance-scoped endpoint
+   *  The service inspects the URN to pick the engine path. */
   functionUrn: z.string().min(1),
   /** SDK-resolved filter / descriptor params, sent as query string. */
   params: z.record(z.string(), z.string()).optional(),

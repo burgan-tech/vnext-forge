@@ -26,9 +26,27 @@
  * `kind: 'unknown'` so the host can still see the raw value and log it.
  */
 
+/**
+ * `func` URNs come in two scopes (R25.E-2):
+ *
+ *   - **domain** — `urn:amorphie:func:<domain>:<function>` (2 segments
+ *     after the prefix). Maps to the engine's stateless domain
+ *     function endpoint `GET /api/v1/{domain}/functions/{function}`.
+ *     Use for catalog lookups (x-lov, x-lookup) that don't need any
+ *     workflow / instance context.
+ *
+ *   - **workflow** — `urn:amorphie:func:<domain>:<workflow>:<function>`
+ *     (3 segments). The author embeds the workflow key so Forge can
+ *     route to the instance-scoped engine endpoint
+ *     `GET /api/v1/{domain}/workflows/{workflow}/instances/{instanceId}/functions/{function}`.
+ *     `instanceId` comes from the current Quick Runner context at
+ *     call time — the URN never carries a literal instance id, since
+ *     that's a runtime concern.
+ */
 export type ParsedAmorphieUrn =
   | { kind: 'wf-transition'; flow: string; state: string; raw: string }
-  | { kind: 'func'; domain: string; function: string; raw: string }
+  | { kind: 'func'; scope: 'domain'; domain: string; function: string; raw: string }
+  | { kind: 'func'; scope: 'workflow'; domain: string; workflow: string; function: string; raw: string }
   | { kind: 'nav'; route: string; raw: string }
   | { kind: 'tenant'; tenant: string; path: string; raw: string }
   | { kind: 'legacy-transition'; domain: string; workflow: string; instance: string; state: string; raw: string }
@@ -63,16 +81,26 @@ export function parseAmorphieUrn(value: string | undefined | null): ParsedAmorph
     return { kind: 'unknown', raw: trimmed };
   }
 
-  // ── Amorphie function URN: urn:amorphie:func:<domain>:<function> ──
+  // ── Amorphie function URN: two scopes by segment count. ──
+  //
+  //   urn:amorphie:func:<domain>:<function>             → scope=domain
+  //   urn:amorphie:func:<domain>:<workflow>:<function>  → scope=workflow
+  //
+  // Segments are split strictly; function names containing colons
+  // would be ambiguous with the workflow form, so we don't try to
+  // re-join. Authors with weird function keys can escape upstream.
   if (trimmed.startsWith(FUNC_PREFIX)) {
     const tail = trimmed.slice(FUNC_PREFIX.length);
-    const parts = tail.split(':');
-    if (parts.length >= 2) {
-      const domain = parts[0]?.trim();
-      // Function key may contain colons (rare, but defend against it).
-      const fn = parts.slice(1).join(':').trim();
+    const parts = tail.split(':').map((p) => p.trim());
+    if (parts.length === 2) {
+      const [domain, fn] = parts;
       if (domain && fn) {
-        return { kind: 'func', domain, function: fn, raw: trimmed };
+        return { kind: 'func', scope: 'domain', domain, function: fn, raw: trimmed };
+      }
+    } else if (parts.length === 3) {
+      const [domain, workflow, fn] = parts;
+      if (domain && workflow && fn) {
+        return { kind: 'func', scope: 'workflow', domain, workflow, function: fn, raw: trimmed };
       }
     }
     return { kind: 'unknown', raw: trimmed };
