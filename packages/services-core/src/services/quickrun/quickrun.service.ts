@@ -325,28 +325,34 @@ export function createQuickRunService(runtimeProxyService: RuntimeProxyService) 
   /**
    * Execute an Amorphie function URN against the engine. Backs the
    * Quick Runner pseudo-ui delegate's `requestData` (x-lov / x-lookup)
-   * and `dispatch + func URN` action paths (R25.B-1).
+   * and `dispatch + func URN` action paths.
    *
-   * Engine URL pattern follows the existing `workflows/<wf>/instances
-   * /<id>/functions/<key>` convention used by `getData` / `getSchema`,
-   * but routed under the URN's domain (which the host has already
-   * confirmed equals `params.domain` for same-domain dispatch — cross-
-   * domain URNs are filtered out before reaching this method).
+   * Engine URL: `GET /api/v1/{urnDomain}/functions/{functionKey}` —
+   * the **domain-level** function endpoint (per vNext OpenAPI).
+   * x-lov / x-lookup are catalog lookups that don't need workflow
+   * state context, so they target the simpler domain endpoint
+   * instead of the instance-scoped variant
+   * (`workflows/{wf}/instances/{id}/functions/{key}`) used by
+   * `getData` / `getView` / `getSchema`. The instance / workflow
+   * identifiers are retained in `params` for future telemetry +
+   * an eventual instance-scoped variant, but ignored on the wire.
    *
-   * The result body is forwarded to the SDK as-is; the SDK's
-   * `dataClient.extractByPath` runs JsonPath on it.
+   * Filter params resolved by the SDK (`$form.x` → string value)
+   * land in the URL query string. Result body is forwarded to the
+   * SDK as-is — the SDK's `dataClient.extractByPath` runs JsonPath
+   * on it (`valueField` / `displayField` for x-lov, `resultField`
+   * for x-lookup).
    */
   async function executeFunction(
     params: z.infer<typeof quickrunExecuteFunctionParams>,
     traceId?: string,
   ): Promise<z.infer<typeof quickrunExecuteFunctionResult>> {
     const { domain: urnDomain, function: functionKey } = parseAmorphieFuncUrn(params.functionUrn, traceId)
-    const base = buildBasePath(urnDomain, params.workflowKey)
 
     const result = await proxyCall(
       {
         method: 'GET',
-        runtimePath: `${base}/instances/${params.instanceId}/functions/${encodeURIComponent(functionKey)}`,
+        runtimePath: `/api/v1/${encodeURIComponent(urnDomain)}/functions/${encodeURIComponent(functionKey)}`,
         query: params.params,
         headers: params.headers,
         runtimeUrl: params.runtimeUrl,
