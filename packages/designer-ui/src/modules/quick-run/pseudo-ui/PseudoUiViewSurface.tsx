@@ -15,8 +15,8 @@
  * Code shell and renders no pseudo-ui-shaped controls.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { DataSchema, PseudoViewDelegate, ViewDefinition } from '@burgantech/pseudo-ui';
-import type { DesignerClassNames, DesignerMode } from '@burgantech/pseudo-ui/react';
+import type { DataSchema, PseudoViewDelegate, ViewDefinition } from '@burgan-tech/pseudo-ui';
+import type { DesignerClassNames, DesignerMode } from '@burgan-tech/pseudo-ui/react';
 
 import type { ViewResponse } from '../types/quickrun.types';
 import type { SchemaResolver } from './createDataSchemaResolver';

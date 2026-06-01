@@ -9,5 +9,5 @@
  * the helper comes from the SDK.
  */
 
-export { enumerateBindPaths } from '@burgantech/pseudo-ui';
-export type { BindPathEntry, EnumerateOptions } from '@burgantech/pseudo-ui';
+export { enumerateBindPaths } from '@burgan-tech/pseudo-ui';
+export type { BindPathEntry, EnumerateOptions } from '@burgan-tech/pseudo-ui';

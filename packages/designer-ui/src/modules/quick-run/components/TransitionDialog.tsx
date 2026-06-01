@@ -14,7 +14,7 @@ import { createQuickRunPseudoDelegate } from '../pseudo-ui/createQuickRunPseudoD
 import { createDataSchemaResolver, type SchemaResolver } from '../pseudo-ui/createDataSchemaResolver';
 import { PseudoUiLangPicker } from '../pseudo-ui/PseudoUiLangPicker';
 import { PseudoUiOrJsonBlock } from '../pseudo-ui/PseudoUiOrJsonBlock';
-import type { DataSchema, PseudoViewDelegate } from '@burgantech/pseudo-ui';
+import type { DataSchema, PseudoViewDelegate } from '@burgan-tech/pseudo-ui';
 import { useQuickRunPolling } from '../hooks/useQuickRunPolling';
 import { useQuickRunStore } from '../store/quickRunStore';
 import { safeViewContent, type SchemaResponse, type ViewResponse } from '../types/quickrun.types';

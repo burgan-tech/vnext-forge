@@ -371,7 +371,7 @@ importers:
 
   packages/designer-ui:
     dependencies:
-      '@burgantech/pseudo-ui':
+      '@burgan-tech/pseudo-ui':
         specifier: file:../../../vnext-client-view-renderer/core/ts-pseudo-ui
         version: file:../vnext-client-view-renderer/core/ts-pseudo-ui(primereact@10.9.8(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)
       '@dagrejs/dagre':
@@ -778,20 +778,7 @@ packages:
   '@braintree/sanitize-url@7.1.2':
     resolution: {integrity: sha512-jigsZK+sMF/cuiB7sERuo9V7N9jx+dhmHHnQyDSVdpZwVutaBu7WvNYqMDLSgFgfB30n452TP3vjDAvFC973mA==}
 
-  '@burgan-tech/vnext-schema@0.0.38':
-    resolution: {integrity: sha512-Lqrl5IjLVbJTirBSEK5w806PXjEJm6f/fR9rmvOMFkmvIII5vgFwKsL1cvfi28TIKp7UKwx/7vDZy71PQakyfA==}
-    engines: {node: '>=14.0.0'}
-
-  '@burgan-tech/vnext-schema@0.0.39':
-    resolution: {integrity: sha512-H/EpP0yMCgH+6ITJid0USlSLok8ibtEFSY+I9PGnbMdBtP9x50tmZu7oZYTNC30utNAloO1uIqYiL/ckYX9Bxg==}
-    engines: {node: '>=14.0.0'}
-
-  '@burgan-tech/vnext-template@0.0.7':
-    resolution: {integrity: sha512-mvjko0c9PPWF47szCxcK1jeor2GltBgXGbWuVdswJ/0aftbnEQyuEcry19acUr2l2Wb5bgSPVuRQYbJBGLlnlQ==}
-    engines: {node: '>=16.0.0'}
-    hasBin: true
-
-  '@burgantech/pseudo-ui@file:../vnext-client-view-renderer/core/ts-pseudo-ui':
+  '@burgan-tech/pseudo-ui@file:../vnext-client-view-renderer/core/ts-pseudo-ui':
     resolution: {directory: ../vnext-client-view-renderer/core/ts-pseudo-ui, type: directory}
     peerDependencies:
       '@angular/animations': '>=19.0.0 <21.0.0'
@@ -828,6 +815,19 @@ packages:
         optional: true
       rxjs:
         optional: true
+
+  '@burgan-tech/vnext-schema@0.0.38':
+    resolution: {integrity: sha512-Lqrl5IjLVbJTirBSEK5w806PXjEJm6f/fR9rmvOMFkmvIII5vgFwKsL1cvfi28TIKp7UKwx/7vDZy71PQakyfA==}
+    engines: {node: '>=14.0.0'}
+
+  '@burgan-tech/vnext-schema@0.0.39':
+    resolution: {integrity: sha512-H/EpP0yMCgH+6ITJid0USlSLok8ibtEFSY+I9PGnbMdBtP9x50tmZu7oZYTNC30utNAloO1uIqYiL/ckYX9Bxg==}
+    engines: {node: '>=14.0.0'}
+
+  '@burgan-tech/vnext-template@0.0.7':
+    resolution: {integrity: sha512-mvjko0c9PPWF47szCxcK1jeor2GltBgXGbWuVdswJ/0aftbnEQyuEcry19acUr2l2Wb5bgSPVuRQYbJBGLlnlQ==}
+    engines: {node: '>=16.0.0'}
+    hasBin: true
 
   '@chevrotain/cst-dts-gen@12.0.0':
     resolution: {integrity: sha512-fSL4KXjTl7cDgf0B5Rip9Q05BOrYvkJV/RrBTE/bKDN096E4hN/ySpcBK5B24T76dlQ2i32Zc3PAE27jFnFrKg==}
@@ -6373,15 +6373,7 @@ snapshots:
 
   '@braintree/sanitize-url@7.1.2': {}
 
-  '@burgan-tech/vnext-schema@0.0.38': {}
-
-  '@burgan-tech/vnext-schema@0.0.39': {}
-
-  '@burgan-tech/vnext-template@0.0.7':
-    dependencies:
-      '@burgan-tech/vnext-schema': 0.0.38
-
-  '@burgantech/pseudo-ui@file:../vnext-client-view-renderer/core/ts-pseudo-ui(primereact@10.9.8(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)':
+  '@burgan-tech/pseudo-ui@file:../vnext-client-view-renderer/core/ts-pseudo-ui(primereact@10.9.8(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)':
     dependencies:
       '@primeuix/themes': 2.0.3
       primeicons: 7.0.0
@@ -6394,6 +6386,14 @@ snapshots:
       react-dom: 19.2.4(react@19.2.4)
     transitivePeerDependencies:
       - typescript
+
+  '@burgan-tech/vnext-schema@0.0.38': {}
+
+  '@burgan-tech/vnext-schema@0.0.39': {}
+
+  '@burgan-tech/vnext-template@0.0.7':
+    dependencies:
+      '@burgan-tech/vnext-schema': 0.0.38
 
   '@chevrotain/cst-dts-gen@12.0.0':
     dependencies:

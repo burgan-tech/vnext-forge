@@ -1,4 +1,4 @@
-import type { DataSchema, ViewDefinition } from '@burgantech/pseudo-ui';
+import type { DataSchema, ViewDefinition } from '@burgan-tech/pseudo-ui';
 
 import { discoverVnextComponentsByCategory } from '../../vnext-workspace/vnextComponentDiscovery';
 import * as WorkspaceApi from '../../project-workspace/WorkspaceApi';

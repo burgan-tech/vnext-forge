@@ -45,7 +45,7 @@ import { UrnCatalogProvider } from './services/UrnCatalogContext';
 import { createBuilderStore } from './state/builderStore';
 import { useBuilderKeyboardShortcuts } from './state/useBuilderKeyboardShortcuts';
 import { type BuilderDefinition, type NodePath } from './types';
-import type { DataSchema } from '@burgantech/pseudo-ui';
+import type { DataSchema } from '@burgan-tech/pseudo-ui';
 import type { SchemaResolver } from '../../../quick-run/pseudo-ui/createDataSchemaResolver';
 import {
   parseBuilderDefinition,

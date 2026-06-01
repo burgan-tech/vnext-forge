@@ -1,4 +1,4 @@
-import type { DataSchema, LogLevel, PseudoViewDelegate, ViewDefinition } from '@burgantech/pseudo-ui';
+import type { DataSchema, LogLevel, PseudoViewDelegate, ViewDefinition } from '@burgan-tech/pseudo-ui';
 
 import * as QuickRunApi from '../QuickRunApi';
 import type { WorkflowBucketConfig } from '../QuickRunApi';

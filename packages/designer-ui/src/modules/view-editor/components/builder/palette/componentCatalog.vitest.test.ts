@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { getComponentMeta, listComponentTypes } from '@burgantech/pseudo-ui';
+import { getComponentMeta, listComponentTypes } from '@burgan-tech/pseudo-ui';
 
 import { COMPONENT_CATALOG, createNodeFromCatalog, findComponentMeta } from './componentCatalog';
 

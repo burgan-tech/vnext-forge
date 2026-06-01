@@ -25,9 +25,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { useStore } from 'zustand';
-import type { DataSchema, PseudoViewDelegate, ViewDefinition } from '@burgantech/pseudo-ui';
-import { PseudoView } from '@burgantech/pseudo-ui/react';
-import type { DesignerClassNames, DesignerMode } from '@burgantech/pseudo-ui/react';
+import type { DataSchema, PseudoViewDelegate, ViewDefinition } from '@burgan-tech/pseudo-ui';
+import { PseudoView } from '@burgan-tech/pseudo-ui/react';
+import type { DesignerClassNames, DesignerMode } from '@burgan-tech/pseudo-ui/react';
 
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { syncThemeLayers } from './theme/buildSheets';

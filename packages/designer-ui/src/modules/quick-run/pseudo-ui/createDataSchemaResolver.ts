@@ -1,4 +1,4 @@
-import type { DataSchema } from '@burgantech/pseudo-ui';
+import type { DataSchema } from '@burgan-tech/pseudo-ui';
 
 import * as QuickRunApi from '../QuickRunApi';
 import { extractSchemaFromGetDataResult } from './extractSchemaFromGetDataResult';

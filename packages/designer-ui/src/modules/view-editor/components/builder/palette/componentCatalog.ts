@@ -8,7 +8,7 @@
  *
  * **v0.1.4 split:** Structural metadata (`acceptsChildren`,
  * `childContainerKey`) is now owned by the SDK itself
- * (`@burgantech/pseudo-ui` → `getComponentMeta`). This file keeps
+ * (`@burgan-tech/pseudo-ui` → `getComponentMeta`). This file keeps
  * **UI-only** metadata (Lucide icon for the palette, our category
  * taxonomy, human label, the inspector form descriptors) plus
  * `fallbackDefaults` — our curated starter values that override SDK
@@ -24,7 +24,7 @@ import {
   getComponentMeta as sdkGetComponentMeta,
   listComponentTypes,
   type ComponentMeta as SdkComponentMeta,
-} from '@burgantech/pseudo-ui';
+} from '@burgan-tech/pseudo-ui';
 
 import {
   AXIS_ALIGN,

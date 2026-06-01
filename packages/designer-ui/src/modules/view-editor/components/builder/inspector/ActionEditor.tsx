@@ -38,7 +38,7 @@ import {
   STANDARD_ACTIONS,
   getComponentMeta,
   type ReservedAction,
-} from '@burgantech/pseudo-ui';
+} from '@burgan-tech/pseudo-ui';
 
 import { Input } from '../../../../../ui/Input';
 import { Select } from '../../../../../ui/Select';

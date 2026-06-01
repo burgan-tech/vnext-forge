@@ -33,7 +33,7 @@ import type {
   DataSchema,
   PseudoViewDelegate,
   ViewDefinition,
-} from '@burgantech/pseudo-ui';
+} from '@burgan-tech/pseudo-ui';
 
 import { createNodeFromCatalog } from '../palette/componentCatalog';
 import { jsonPointerToNodePath } from '../utils/jsonPointerPath';

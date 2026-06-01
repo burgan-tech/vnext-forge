@@ -24,7 +24,7 @@
  * when the underlying schema file changes on disk.
  */
 
-import type { DataSchema } from '@burgantech/pseudo-ui';
+import type { DataSchema } from '@burgan-tech/pseudo-ui';
 import type { DiscoveredVnextComponent } from '@vnext-forge-studio/app-contracts';
 
 import { parseDataSchemaRef } from '../../../../quick-run/pseudo-ui/parseDataSchemaRef';

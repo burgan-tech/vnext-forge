@@ -31,7 +31,7 @@
  * `type: object`) as a schema by accident.
  */
 
-import type { DataSchema } from '@burgantech/pseudo-ui';
+import type { DataSchema } from '@burgan-tech/pseudo-ui';
 
 export function extractSchemaFromGetDataResult(envelope: unknown): DataSchema | null {
   const candidates = collectSchemaCandidates(envelope);

@@ -18,7 +18,7 @@ import { getNode } from '../utils/nodeOps';
 import { type BuilderStore } from '../state/builderStore';
 import { type BuilderNode, type NodePath, type PropertyField } from '../types';
 import { ActionEditor } from './ActionEditor';
-import type { DataSchema } from '@burgantech/pseudo-ui';
+import type { DataSchema } from '@burgan-tech/pseudo-ui';
 
 import { BindAutocomplete } from './BindAutocomplete';
 import { MultiLangInput } from './MultiLangInput';

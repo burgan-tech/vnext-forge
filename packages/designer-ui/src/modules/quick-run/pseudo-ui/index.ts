@@ -16,4 +16,4 @@ export type {
   DataSchema,
   PseudoViewDelegate,
   ViewDefinition,
-} from '@burgantech/pseudo-ui';
+} from '@burgan-tech/pseudo-ui';
