@@ -1,4 +1,4 @@
-import type { ComponentNode, ViewDefinition } from '@burgantech/pseudo-ui';
+import type { ComponentNode, ViewDefinition } from '@burgan-tech/pseudo-ui';
 
 export interface NormalizedPseudoUi {
   component: ComponentNode;

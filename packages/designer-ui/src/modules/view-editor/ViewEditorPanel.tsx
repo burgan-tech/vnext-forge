@@ -22,7 +22,12 @@ import { ViewDisplayStrategyPicker } from './components/ViewDisplayStrategyPicke
 import { ViewRendererPicker } from './components/ViewRendererPicker';
 import { ViewTypePicker } from './components/ViewTypePicker';
 import { HrefUrnField } from './components/HrefUrnField';
-import { PseudoUiBuilder } from './components/PseudoUiBuilder';
+import { PseudoUiBuilder } from './components/builder/PseudoUiBuilder';
+import { buildSchemaLoader, type SchemaLoader } from './components/builder/utils/buildSchemaLoader';
+import { buildSchemaUrn } from './components/builder/utils/buildSchemaUrn';
+import { discoverVnextComponentsByCategory } from '../vnext-workspace/vnextComponentDiscovery';
+import { useProjectStore } from '../../store/useProjectStore';
+import type { DiscoveredVnextComponent } from '@vnext-forge-studio/app-contracts';
 import {
   viewTypeToMonacoLanguage,
   scaffoldContentForViewType,
@@ -131,6 +136,14 @@ export function ViewEditorPanel({ json, onChange }: ViewEditorPanelProps) {
   const [previewMode, setPreviewMode] = useState(false);
   const [jsonActionError, setJsonActionError] = useState<string | null>(null);
 
+  // R16.1: workspace Schemas discovery for the pseudo-ui builder. Only
+  // populated when we actually need it (renderer = pseudo-ui) and a
+  // project is active. Both the inspector's bind autocomplete + lookups
+  // picker and the SDK preview / canvas surface consume the resolved
+  // schema (via `loadSchema`).
+  const activeProject = useProjectStore((s) => s.activeProject);
+  const [discoveredSchemas, setDiscoveredSchemas] = useState<readonly DiscoveredVnextComponent[]>([]);
+
   const attrs = (json.attributes ?? {}) as Record<string, unknown>;
   const currentType = Number(attrs.type ?? ViewType.Json);
   const version = unknownToUiString(json.version);
@@ -173,6 +186,44 @@ export function ViewEditorPanel({ json, onChange }: ViewEditorPanelProps) {
       renderer: ViewRenderer.PseudoUi,
     };
   }, [pseudoUiParse, json.key]);
+
+  // Discovery: only fires when the renderer is pseudo-ui *and* a
+  // project is active. We re-discover when the active project id
+  // changes (workspace switch). For schema files mutated in place we
+  // rely on the user reloading — schema cache invalidation on
+  // `workspace-fs-events` is deferred (out of plan).
+  const isPseudoUi = isJsonComponentType && rendererAttr === String(ViewRenderer.PseudoUi);
+  const activeProjectId = activeProject?.id;
+  const activeProjectPath = activeProject?.path;
+  useEffect(() => {
+    if (!isPseudoUi || !activeProjectId) {
+      setDiscoveredSchemas([]);
+      return;
+    }
+    let cancelled = false;
+    void discoverVnextComponentsByCategory(activeProjectId, 'schemas')
+      .then((list) => {
+        if (!cancelled) setDiscoveredSchemas(list);
+      })
+      .catch(() => {
+        if (!cancelled) setDiscoveredSchemas([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isPseudoUi, activeProjectId]);
+
+  const availableSchemas = useMemo(() => {
+    return discoveredSchemas.map((c) => ({
+      urn: buildSchemaUrn(c, activeProjectPath),
+      label: c.version ? `${c.key} (v${c.version})` : c.key,
+    }));
+  }, [discoveredSchemas, activeProjectPath]);
+
+  const loadSchema = useMemo<SchemaLoader>(
+    () => buildSchemaLoader({ schemas: discoveredSchemas, projectPath: activeProjectPath }),
+    [discoveredSchemas, activeProjectPath],
+  );
 
   useEffect(() => {
     setPreviewMode(false);
@@ -274,6 +325,7 @@ export function ViewEditorPanel({ json, onChange }: ViewEditorPanelProps) {
             mode="preview"
             ariaLabel={`View preview ${viewKeyUi || 'untitled'}`}
             fillHeight={false}
+            resolveSchema={loadSchema}
           />
         </div>
       );
@@ -420,6 +472,9 @@ export function ViewEditorPanel({ json, onChange }: ViewEditorPanelProps) {
               content={contentValue}
               onContentChange={handleContentChange}
               viewKey={viewKeyUi || 'preview'}
+              availableSchemas={availableSchemas}
+              loadSchema={loadSchema}
+              projectId={activeProject?.id}
             />
           ) : (
             <>

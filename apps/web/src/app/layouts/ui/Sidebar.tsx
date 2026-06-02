@@ -364,6 +364,27 @@ interface PseudoUiStyleSectionProps {
   value: string;
   onEnabledChange: (enabled: boolean) => void;
   onValueChange: (value: string) => void;
+  lang: string;
+  onLangChange: (lang: string) => void;
+  customLangs: readonly string[];
+  onAddCustomLang: (lang: string) => void;
+  onRemoveCustomLang: (lang: string) => void;
+}
+
+/** Built-in chips. Anything else the user adds lands in `customLangs`
+ *  and persists as a chip until they explicitly remove it via the × . */
+const BUILTIN_LANG_PRESETS: readonly { value: string; label: string }[] = [
+  { value: 'tr', label: 'TR' },
+  { value: 'en', label: 'EN' },
+];
+
+function langChipClasses(active: boolean): string {
+  return [
+    'rounded border px-2 py-0.5 text-[10px] font-medium uppercase transition-colors',
+    active
+      ? 'border-primary-border-hover bg-primary-muted text-foreground'
+      : 'border-primary-border bg-primary text-muted-text hover:bg-primary-hover',
+  ].join(' ');
 }
 
 function PseudoUiStyleSection({
@@ -371,35 +392,128 @@ function PseudoUiStyleSection({
   value,
   onEnabledChange,
   onValueChange,
+  lang,
+  onLangChange,
+  customLangs,
+  onAddCustomLang,
+  onRemoveCustomLang,
 }: PseudoUiStyleSectionProps) {
+  // Local draft for the "add custom" input. Empty on mount so the
+  // input always reads as a prompt rather than echoing the active
+  // language back at the user (which was the source of the
+  // typing-loop bug R20.2 fixed).
+  const [draftLang, setDraftLang] = useState('');
+
+  const commitDraftLang = () => {
+    const trimmed = draftLang.trim().toLowerCase();
+    if (trimmed.length === 0) return;
+    onAddCustomLang(trimmed);
+    onLangChange(trimmed);
+    setDraftLang('');
+  };
+
   return (
     <div className="flex flex-col gap-3 py-1">
-      <div className="flex items-center gap-2">
-        <Checkbox
-          id="pseudo-ui-tenant-style-toggle"
-          checked={enabled}
-          onCheckedChange={(checked) => onEnabledChange(checked === true)}
-        />
-        <Label
-          htmlFor="pseudo-ui-tenant-style-toggle"
-          className="text-[11px] font-medium leading-tight cursor-pointer select-none">
-          Enable tenant stylesheet
-        </Label>
-      </div>
       <div className="flex flex-col gap-1.5">
-        <Label htmlFor="pseudo-ui-tenant-style-url" className="text-[10px] font-medium uppercase">
-          Stylesheet URL
+        <Label htmlFor="pseudo-ui-lang" className="text-[10px] font-medium uppercase">
+          Render language
         </Label>
-        <Input
-          id="pseudo-ui-tenant-style-url"
-          size="sm"
-          value={value}
-          placeholder="https://example.com/pseudo-ui.css"
-          onChange={(e) => onValueChange(e.target.value)}
-        />
+        <div className="flex flex-wrap items-center gap-1">
+          {BUILTIN_LANG_PRESETS.map((preset) => {
+            const active = lang === preset.value;
+            return (
+              <button
+                key={preset.value}
+                type="button"
+                onClick={() => onLangChange(preset.value)}
+                aria-pressed={active}
+                className={langChipClasses(active)}
+              >
+                {preset.label}
+              </button>
+            );
+          })}
+          {customLangs.map((code) => {
+            const active = lang === code;
+            return (
+              <span
+                key={code}
+                className={[
+                  'flex items-center gap-0.5 rounded border px-1 py-0.5 text-[10px] font-medium uppercase transition-colors',
+                  active
+                    ? 'border-primary-border-hover bg-primary-muted text-foreground'
+                    : 'border-primary-border bg-primary text-muted-text hover:bg-primary-hover',
+                ].join(' ')}
+              >
+                <button
+                  type="button"
+                  onClick={() => onLangChange(code)}
+                  aria-pressed={active}
+                  className="px-1 outline-none"
+                >
+                  {code.toUpperCase()}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onRemoveCustomLang(code)}
+                  aria-label={`Remove ${code.toUpperCase()}`}
+                  title={`Remove ${code.toUpperCase()}`}
+                  className="rounded p-0.5 text-muted-text hover:bg-destructive-muted hover:text-destructive-icon"
+                >
+                  ×
+                </button>
+              </span>
+            );
+          })}
+          <Input
+            id="pseudo-ui-lang"
+            size="sm"
+            value={draftLang}
+            placeholder="+ ISO"
+            onChange={(e) => setDraftLang(e.target.value)}
+            onBlur={commitDraftLang}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                commitDraftLang();
+                (e.currentTarget as HTMLInputElement).blur();
+              }
+            }}
+            className="w-24"
+          />
+        </div>
         <p className="text-muted-foreground text-[10px] leading-snug">
-          Local CSS files are available in the VS Code extension settings.
+          Drives multi-lang text resolution. Falls back to EN → TR → first defined value.
         </p>
+      </div>
+      <div className="border-t border-primary-border pt-3 flex flex-col gap-3">
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="pseudo-ui-tenant-style-toggle"
+            checked={enabled}
+            onCheckedChange={(checked) => onEnabledChange(checked === true)}
+          />
+          <Label
+            htmlFor="pseudo-ui-tenant-style-toggle"
+            className="text-[11px] font-medium leading-tight cursor-pointer select-none">
+            Enable tenant stylesheet
+          </Label>
+        </div>
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="pseudo-ui-tenant-style-url" className="text-[10px] font-medium uppercase">
+            Stylesheet URL
+          </Label>
+          <Input
+            id="pseudo-ui-tenant-style-url"
+            size="sm"
+            value={value}
+            placeholder="https://example.com/pseudo-ui.css"
+            onChange={(e) => onValueChange(e.target.value)}
+          />
+          <p className="text-muted-foreground text-[10px] leading-snug">
+            Local CSS files are available in the VS Code extension settings.
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -604,6 +718,11 @@ export function Sidebar() {
   const setAutoSaveEnabled = useSettingsStore((s) => s.setAutoSaveEnabled);
   const pseudoUiTenantStyle = useSettingsStore((s) => s.pseudoUiTenantStyle);
   const setPseudoUiTenantStyle = useSettingsStore((s) => s.setPseudoUiTenantStyle);
+  const pseudoUiLang = useSettingsStore((s) => s.pseudoUiLang);
+  const setPseudoUiLang = useSettingsStore((s) => s.setPseudoUiLang);
+  const pseudoUiCustomLangs = useSettingsStore((s) => s.pseudoUiCustomLangs);
+  const addPseudoUiCustomLang = useSettingsStore((s) => s.addPseudoUiCustomLang);
+  const removePseudoUiCustomLang = useSettingsStore((s) => s.removePseudoUiCustomLang);
   const configIssues = useWorkspaceDiagnosticsStore((s) => s.configIssues);
 
   const settingsAccordionDefaultOpenIds = pendingSettingsAccordionOpenIds ?? [];
@@ -707,6 +826,11 @@ export function Sidebar() {
                       onValueChange={(value) =>
                         setPseudoUiTenantStyle({ sourceType: 'url', value })
                       }
+                      lang={pseudoUiLang}
+                      onLangChange={setPseudoUiLang}
+                      customLangs={pseudoUiCustomLangs}
+                      onAddCustomLang={addPseudoUiCustomLang}
+                      onRemoveCustomLang={removePseudoUiCustomLang}
                     />
                   ),
                 },

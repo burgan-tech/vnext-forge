@@ -1,11 +1,18 @@
+import { stateTypeStyle } from './transitionKindStyles';
+
 interface ProgressStepperProps {
   currentStep: number;
   totalSteps: number;
   currentStateName?: string;
+  /** R21: engine-declared state lifecycle (initial / intermediate /
+   *  finish / subflow / wizard). Rendered as a small coloured chip
+   *  next to the state name. Unknown values are hidden. */
+  stateType?: string;
 }
 
-export function ProgressStepper({ currentStep, totalSteps, currentStateName }: ProgressStepperProps) {
+export function ProgressStepper({ currentStep, totalSteps, currentStateName, stateType }: ProgressStepperProps) {
   const steps = Array.from({ length: totalSteps }, (_, i) => i);
+  const typeStyle = stateTypeStyle(stateType);
 
   return (
     <div className="flex flex-col gap-1.5">
@@ -24,9 +31,17 @@ export function ProgressStepper({ currentStep, totalSteps, currentStateName }: P
         ))}
       </div>
       {currentStateName && (
-        <p className="text-xs text-[var(--vscode-descriptionForeground)]">
-          <span className="font-medium text-[var(--vscode-foreground)]">▶ {currentStateName}</span>
-          {' '}— Step {currentStep} of {totalSteps}
+        <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted-text">
+          <span className="font-medium text-foreground">▶ {currentStateName}</span>
+          {typeStyle && (
+            <span
+              className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${typeStyle.className}`}
+              title={typeStyle.description}
+            >
+              {typeStyle.label}
+            </span>
+          )}
+          <span>— Step {currentStep} of {totalSteps}</span>
         </p>
       )}
     </div>

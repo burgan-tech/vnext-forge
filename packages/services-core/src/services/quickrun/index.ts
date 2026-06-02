@@ -17,4 +17,6 @@ export {
   quickrunListInstancesResult,
   quickrunStartInstanceParams,
   quickrunStartInstanceResult,
+  quickrunExecuteFunctionParams,
+  quickrunExecuteFunctionResult,
 } from './quickrun-schemas.js'

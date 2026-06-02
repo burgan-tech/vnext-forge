@@ -120,6 +120,8 @@ import {
   quickrunRetryInstanceResult,
   quickrunStartInstanceParams,
   quickrunStartInstanceResult,
+  quickrunExecuteFunctionParams,
+  quickrunExecuteFunctionResult,
 } from '../services/quickrun/quickrun-schemas.js'
 import type { RuntimeProxyService } from '../services/runtime-proxy/runtime-proxy.service.js'
 import {
@@ -645,6 +647,12 @@ export function buildMethodRegistry(): MethodRegistry {
       resultSchema: quickrunGetInstanceResult,
       handler: async (params, { quickRunService }, traceId) =>
         quickRunService.getInstance(params, traceId),
+    },
+    'quickrun/executeFunction': {
+      paramsSchema: quickrunExecuteFunctionParams,
+      resultSchema: quickrunExecuteFunctionResult,
+      handler: async (params, { quickRunService }, traceId) =>
+        quickRunService.executeFunction(params, traceId),
     },
 
     // ── wf CLI ───────────────────────────────────────────────────────────────

@@ -207,6 +207,33 @@ export async function getInstance(params: GetInstanceParams): Promise<ApiRespons
   return callApi({ method: 'quickrun/getInstance', params });
 }
 
+// ── Execute Function (R25.B-1) ───────────────────────────────────────────────
+//
+// Used by the Quick Runner pseudo-ui delegate to satisfy SDK
+// `requestData` (x-lov / x-lookup) calls and `dispatch + func URN`
+// actions. The URN domain has already been validated to match the
+// workflow's own domain at the delegate layer — cross-domain function
+// URNs are dropped before reaching this client method, per the user's
+// stated policy that Forge does not handle other domains.
+
+export interface ExecuteFunctionParams {
+  domain: string;
+  workflowKey: string;
+  instanceId: string;
+  /** Full Amorphie function URN: `urn:amorphie:func:<domain>:<key>`. */
+  functionUrn: string;
+  /** SDK-resolved filter / descriptor params, sent as query string. */
+  params?: Record<string, string>;
+  headers?: Record<string, string>;
+  runtimeUrl?: string;
+}
+
+export async function executeFunction(
+  params: ExecuteFunctionParams,
+): Promise<ApiResponse<Record<string, unknown>>> {
+  return callApi({ method: 'quickrun/executeFunction', params });
+}
+
 // ── Workflow Config Persistence (direct postMessage, extension-host only) ─────
 
 export interface TransitionBucketEntry {

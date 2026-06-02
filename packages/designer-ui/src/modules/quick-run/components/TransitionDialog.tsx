@@ -12,8 +12,9 @@ import * as QuickRunApi from '../QuickRunApi';
 import type { PresetEntry, WorkflowBucketConfig } from '../QuickRunApi';
 import { createQuickRunPseudoDelegate } from '../pseudo-ui/createQuickRunPseudoDelegate';
 import { createDataSchemaResolver, type SchemaResolver } from '../pseudo-ui/createDataSchemaResolver';
+import { PseudoUiLangPicker } from '../pseudo-ui/PseudoUiLangPicker';
 import { PseudoUiOrJsonBlock } from '../pseudo-ui/PseudoUiOrJsonBlock';
-import type { DataSchema, PseudoViewDelegate } from '@burgantech/pseudo-ui';
+import type { DataSchema, PseudoViewDelegate } from '@burgan-tech/pseudo-ui';
 import { useQuickRunPolling } from '../hooks/useQuickRunPolling';
 import { useQuickRunStore } from '../store/quickRunStore';
 import { safeViewContent, type SchemaResponse, type ViewResponse } from '../types/quickrun.types';
@@ -103,6 +104,13 @@ export function TransitionDialog({ configRef, persistConfig, projectId }: Transi
     });
   }, [domain, mergedDialogHeaders, environmentUrl]);
 
+  // Live-ref pattern so the delegate factory stays stable while the
+  // dialog's header rows / session headers mutate. R24 wiring.
+  const sessionHeadersRef = useRef(sessionHeaders);
+  useEffect(() => {
+    sessionHeadersRef.current = { ...sessionHeaders, ...mergedDialogHeaders };
+  }, [sessionHeaders, mergedDialogHeaders]);
+
   const transitionPseudoDelegate = useMemo((): PseudoViewDelegate | undefined => {
     if (!activeTabId || !domain || !workflowKey) return undefined;
     return createQuickRunPseudoDelegate({
@@ -110,18 +118,24 @@ export function TransitionDialog({ configRef, persistConfig, projectId }: Transi
       workflowKey,
       instanceId: activeTabId,
       runtimeUrl: environmentUrl ?? '',
-      headers: mergedDialogHeaders,
+      getBucketConfig: () => configRef.current ?? null,
+      // The TransitionDialog merges sessionHeaders + dialog-local
+      // header rows into `mergedDialogHeaders` — surface the same
+      // merged map to the SDK so a submit-from-preview inside the
+      // dialog sees the row edits the user just typed.
+      getSessionHeaders: () => sessionHeadersRef.current,
+      persistBucketConfig: persistConfig,
       onTransitionComplete: async () => {
         await pollState({
           domain,
           workflowKey,
           instanceId: activeTabId,
           runtimeUrl: environmentUrl ?? '',
-          headers: mergedDialogHeaders,
+          headers: sessionHeadersRef.current,
         });
       },
     });
-  }, [activeTabId, domain, workflowKey, environmentUrl, mergedDialogHeaders, pollState]);
+  }, [activeTabId, domain, workflowKey, environmentUrl, pollState, configRef, persistConfig]);
 
   useEffect(() => {
     if (!open || !activeTabId) return;
@@ -622,6 +636,14 @@ function TransitionViewInfo({
       </button>
       {!collapsed && (
         <div className="flex max-h-[45vh] min-h-0 flex-col overflow-hidden border-t border-[var(--vscode-panel-border)] p-3">
+          {view.renderer === 'pseudo-ui' && (
+            // R20 follow-up: inline locale picker for pseudo-ui
+            // transition views. Sits above the surface so extension
+            // users can switch language without leaving the dialog.
+            <div className="mb-2 flex justify-end">
+              <PseudoUiLangPicker />
+            </div>
+          )}
           <PseudoUiOrJsonBlock
             view={view}
             jsonValue={jsonValue}

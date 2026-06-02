@@ -296,3 +296,35 @@ export const quickrunListInstancesResult = z.object({
   }),
   items: z.array(instanceItemSchema),
 })
+
+// ── Execute Function (R25.B-1) ──────────────────────────────────────────────
+//
+// Used by the Quick Runner pseudo-ui delegate to satisfy SDK
+// `requestData` (x-lov / x-lookup) calls and `dispatch + func URN`
+// actions. The URN is parsed by Forge before this method is called;
+// `functionUrn` is the full `urn:amorphie:func:<domain>:<key>` form so
+// the engine receives the same opaque identifier the view JSON used.
+// `params` carries the SDK-resolved filter values (or descriptor
+// `params`) as a flat string map.
+//
+// The result is a passthrough object (`Record<string, unknown>`) — the
+// SDK runs JsonPath on it via `dataClient.extractByPath` to project
+// `valueField` / `displayField` into LovItem[]; the host doesn't pre-
+// shape it.
+
+export const quickrunExecuteFunctionParams = z.object({
+  ...workflowIdentifier,
+  /** Current workflow instance id, supplied for engine-side context. */
+  instanceId: z.string().min(1),
+  /** Full Amorphie function URN. Two scopes are recognised:
+   *    `urn:amorphie:func:<domain>:<function>`             → domain endpoint
+   *    `urn:amorphie:func:<domain>:<workflow>:<function>`  → instance-scoped endpoint
+   *  The service inspects the URN to pick the engine path. */
+  functionUrn: z.string().min(1),
+  /** SDK-resolved filter / descriptor params, sent as query string. */
+  params: z.record(z.string(), z.string()).optional(),
+  headers: headersSchema,
+  runtimeUrl: z.string().optional(),
+})
+
+export const quickrunExecuteFunctionResult = z.record(z.string(), z.unknown())

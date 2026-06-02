@@ -391,6 +391,12 @@ export class DesignerPanel {
       `default-src 'none'`,
       `style-src ${[webview.cspSource, tenantStyleCspSource, "'unsafe-inline'"].filter(Boolean).join(' ')}`,
       `script-src 'nonce-${nonce}' 'unsafe-eval' 'strict-dynamic'`,
+      // The pseudo-ui preview renders inside a same-origin `<iframe srcdoc>`
+      // for CSS cascade isolation (see PseudoUiPseudoViewFrame.tsx). Without
+      // an explicit `frame-src`, the `default-src 'none'` fallback blocks
+      // iframe creation entirely. `'self'` permits srcdoc iframes that
+      // inherit the webview origin.
+      `frame-src 'self' ${webview.cspSource}`,
       `worker-src ${webview.cspSource} blob:`,
       `font-src ${webview.cspSource} data:`,
       `img-src ${webview.cspSource} data:`,

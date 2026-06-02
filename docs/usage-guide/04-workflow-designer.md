@@ -4,7 +4,7 @@ The workflow designer provides a visual canvas for designing state machine workf
 
 ## Canvas Overview
 
-![Workflow Designer](./screenshots/flow-designer-layout.png)
+![Workflow Designer](./screenshots/flow-designer-layout-v2.png)
 
 The designer opens as a VS Code editor tab. The tab title shows the workflow name, and a **Modified** badge appears when there are unsaved changes. The canvas includes:
 
@@ -56,6 +56,8 @@ When adding a state via **+ Add State**, choose from the following types:
 | **Terminated** | Target (gray) | Final state for external termination |
 | **Suspended** | Pause (orange) | Final state for suspended instances |
 | **SubFlow** | Loop (purple) | Invokes a child workflow and waits for completion |
+
+The same color coding applies to **transitions**: edges are tinted by their target's state type (and by trigger kind — manual vs automatic vs timer), so you can read the lifecycle of a workflow at a glance.
 
 ## State Context Menu
 
@@ -125,32 +127,75 @@ Click the search icon in the bottom bar to open a searchable list of all states 
 
 Selecting an item navigates to and highlights it on the canvas.
 
+## Inline Search Spotlight
+
+![Search Spotlight](./screenshots/flow-designer-search-bar.png)
+
+In addition to the side **Search Panel**, the canvas has an inline **Search Spotlight** opened by pressing `Cmd/Ctrl+F` (or clicking the search icon in the bottom bar). It floats above the canvas and lets you filter states and transitions by name or key. Each result row shows the display name, key, and a state-type icon; selecting a row pans and highlights the target on the canvas. Press `Esc` (or click outside) to dismiss.
+
 ## Canvas Options
 
-![Canvas Options](./screenshots/flow-designer-canvas-options.png)
+![Canvas Options](./screenshots/flow-designer-canvas-bar.png)
 
-The canvas options overlay controls visual presentation (these settings are not saved to the workflow file):
+The canvas options overlay controls visual presentation. **These settings are saved to your local browser/extension storage — they are not committed to the workflow file.** The overlay is split into two tabs:
 
-### Auto-Layout Engine
+### Layout tab
+
+#### Auto-Layout Engine
 
 Choose between two layout algorithms:
 - **Dagre** — Fast hierarchical layout (default)
 - **ELK** — More advanced layout with better edge routing for complex workflows
 
-### Flow Direction
+#### Flow Direction
 
 - **Top to bottom** — States flow vertically (default)
 - **Left to right** — States flow horizontally
 
-### Edge Path
+#### Edge Path
 
 - **Smooth step** — Right-angle edges with rounded corners (default)
 - **Curved** — Bezier curve edges
 - **Straight** — Direct lines between states
 
-### Workflow Edges
+#### Workflow Edges
 
 - **Show workflow-level edges** — Toggle visibility of workflow-level shared transitions (e.g. cancel, timeout edges)
+
+#### Focus Mode
+
+- **Dim unrelated nodes when one is selected** — When enabled, selecting a state fades out states and edges that are not directly connected to it, making it easier to follow a single path through complex workflows.
+
+### Customize tab
+
+Per-user visual preferences such as node density, label visibility, and color accents. These never alter the workflow JSON.
+
+## Multi-Select, Groups, and Bulk Actions
+
+![Bulk Actions Toolbar](./screenshots/flow-designer-group-panel.png)
+
+The canvas supports multi-selection and grouping:
+
+- **Select multiple states** — Hold `Shift` and click each state, or drag a marquee selection across the canvas
+- A floating **bulk actions toolbar** appears at the top of the canvas with the selection count and three actions:
+  - **Duplicate** (`⌘D` / `Ctrl+D`) — Clone the selected states with their configuration
+  - **Group** — Wrap the selection in a group container; groups are persisted to the workflow file (`groups` array) and act as visual containers you can collapse, rename, and color
+  - **Delete** — Remove the selected states and their connected transitions
+
+Groups can be entered, resized, and renamed; double-click a group's header to edit its label.
+
+## Sticky Notes
+
+![Sticky Note](./screenshots/flow-designer-sticky-note.png)
+
+Sticky notes are free-form annotations attached to the canvas. They are persisted to the workflow file (`notes` array) so teammates see the same notes in their own designers.
+
+- **Create** — Right-click empty canvas → **Sticky Note**, or double-click an empty area
+- **Edit** — Double-click an existing note to enter inline edit mode
+- **Style** — While a note is selected, the floating toolbar lets you change background color (yellow / blue / green / pink), text color, and font size
+- **Delete** — Press `Delete`/`Backspace`, or use the trash icon on the toolbar
+
+Sticky notes never affect runtime behavior — they exist solely to document decisions, TODOs, or rationale next to the states they apply to.
 
 ## Workflow Settings
 

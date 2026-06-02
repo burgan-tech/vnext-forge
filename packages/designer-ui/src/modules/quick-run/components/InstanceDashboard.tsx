@@ -5,13 +5,18 @@ import type { IncidentEntry, IncidentInfo, InstanceDetailResponse, WorkflowBucke
 import { ResizableDialogShell } from '../../../ui/ResizableDialogShell';
 import { useQuickRunPolling } from '../hooks/useQuickRunPolling';
 import { useQuickRunStore } from '../store/quickRunStore';
+import { useSettingsStore } from '../../../store/useSettingsStore';
 import { createQuickRunPseudoDelegate } from '../pseudo-ui/createQuickRunPseudoDelegate';
+import { resolveComponentFile } from '../pseudo-ui/resolveComponentFile';
+import { useProjectStore } from '../../../store/useProjectStore';
 import { createDataSchemaResolver } from '../pseudo-ui/createDataSchemaResolver';
+import { PseudoUiLangPicker } from '../pseudo-ui/PseudoUiLangPicker';
 import { PseudoUiOrJsonBlock } from '../pseudo-ui/PseudoUiOrJsonBlock';
 import { safeViewContent, type TransitionInfo } from '../types/quickrun.types';
 import { SchemaForm } from '../../schema-form';
 import { CopyableJsonBlock } from './CopyableJsonBlock';
 import { EnvBadge } from './EnvBadge';
+import { AvailableTransitions } from './AvailableTransitions';
 import { ProgressStepper } from './ProgressStepper';
 import { StatusBadge } from './StatusBadge';
 
@@ -264,6 +269,7 @@ export function InstanceDashboard({ configRef, persistConfig }: InstanceDashboar
             if (!rawState) return undefined;
             return flowLabels?.states[rawState] ?? rawState;
           })()}
+          stateType={activeState?.stateType}
         />
       </section>
 
@@ -388,53 +394,16 @@ export function InstanceDashboard({ configRef, persistConfig }: InstanceDashboar
         <ResponseHeadersSection headers={activeState.responseHeaders} />
       )}
 
-      {/* Transition Buttons — placed above State View */}
-      {(transitions.length > 0 || isActive) && (
-        <section className="flex flex-col gap-2">
-          <p className="text-xs font-semibold uppercase text-[var(--vscode-descriptionForeground)]">
-            Available Transitions
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {transitions.map((t) => (
-              <button
-                key={t.name}
-                className="rounded bg-[var(--vscode-button-background)] px-3 py-1.5 text-xs font-medium text-[var(--vscode-button-foreground)] hover:bg-[var(--vscode-button-hoverBackground)] disabled:opacity-50"
-                onClick={() => handleTransitionClick(t)}
-                disabled={activeStateLoading}
-              >
-                ▶ {flowLabels?.transitions[t.name] ?? t.name}
-              </button>
-            ))}
-            {isActive && (
-              <button
-                className="rounded border border-dashed border-[var(--vscode-panel-border)] px-3 py-1.5 text-xs text-[var(--vscode-descriptionForeground)] hover:border-[var(--vscode-focusBorder)] hover:text-[var(--vscode-foreground)] disabled:opacity-50"
-                onClick={openManualTransitionDialog}
-                disabled={activeStateLoading}
-                title="Fire a transition by name (session-only, not persisted)"
-              >
-                + Manual
-              </button>
-            )}
-          </div>
-          {sharedTransitions.length > 0 && (
-            <div className="flex flex-wrap gap-2">
-              {sharedTransitions.map((t) => (
-                <button
-                  key={t.name}
-                  className="rounded border border-[var(--vscode-button-secondaryBackground)] px-3 py-1.5 text-xs font-medium text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)] disabled:opacity-50"
-                  onClick={() => handleTransitionClick(t)}
-                  disabled={activeStateLoading}
-                >
-                  ↺ {flowLabels?.transitions[t.name] ?? t.name}
-                  <span className="ml-1.5 rounded bg-[var(--vscode-badge-background)] px-1 py-0.5 text-[9px] text-[var(--vscode-badge-foreground)]">
-                    shared
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
-        </section>
-      )}
+      {/* Transition Buttons — kind-grouped + colorized (R21). Placed above the State View. */}
+      <AvailableTransitions
+        transitions={transitions}
+        sharedTransitions={sharedTransitions}
+        flowLabels={flowLabels}
+        onTransitionClick={handleTransitionClick}
+        showManual={isActive}
+        onManualClick={openManualTransitionDialog}
+        disabled={activeStateLoading}
+      />
 
       {/* Quick Actions (View Data / History tabs) — placed above State View */}
       <section className="flex gap-2 border-t border-[var(--vscode-panel-border)] pt-3">
@@ -458,6 +427,8 @@ export function InstanceDashboard({ configRef, persistConfig }: InstanceDashboar
         loading={stateViewLoading}
         error={stateViewError}
         hasView={activeState?.view?.hasView}
+        configRef={configRef}
+        persistConfig={persistConfig}
       />
 
       {cancelConfirmOpen && (
@@ -722,11 +693,15 @@ function StateViewSection({
   loading,
   error,
   hasView,
+  configRef,
+  persistConfig,
 }: {
   view: ReturnType<typeof useQuickRunStore.getState>['stateView'];
   loading: boolean;
   error: boolean;
   hasView?: boolean;
+  configRef: MutableRefObject<WorkflowBucketConfig>;
+  persistConfig: (cfg: WorkflowBucketConfig) => void;
 }) {
   const [collapsed, setCollapsed] = useState(false);
 
@@ -762,7 +737,7 @@ function StateViewSection({
             </div>
           )}
           {!loading && !error && view && (
-            <StateViewContent view={view} />
+            <StateViewContent view={view} configRef={configRef} persistConfig={persistConfig} />
           )}
         </div>
       )}
@@ -851,7 +826,15 @@ function ResponseHeadersSection({ headers }: { headers: Record<string, string> }
   );
 }
 
-function StateViewContent({ view }: { view: NonNullable<ReturnType<typeof useQuickRunStore.getState>['stateView']> }) {
+function StateViewContent({
+  view,
+  configRef,
+  persistConfig,
+}: {
+  view: NonNullable<ReturnType<typeof useQuickRunStore.getState>['stateView']>;
+  configRef: MutableRefObject<WorkflowBucketConfig>;
+  persistConfig: (cfg: WorkflowBucketConfig) => void;
+}) {
   const activeTabId = useQuickRunStore((s) => s.activeTabId);
   const domain = useQuickRunStore((s) => s.domain);
   const workflowKey = useQuickRunStore((s) => s.workflowKey);
@@ -863,8 +846,22 @@ function StateViewContent({ view }: { view: NonNullable<ReturnType<typeof useQui
   const setActiveDataLoading = useQuickRunStore((s) => s.setActiveDataLoading);
   const pollingConfig = useQuickRunStore((s) => s.pollingConfig);
   const { pollState } = useQuickRunPolling(pollingConfig);
+  // R24 DEV TOGGLE — when on, the delegate's onLog mirrors every
+  // SDK log call to console.log with `[pseudo-ui]` prefix. Off by
+  // default; flip via `useSettingsStore.setPseudoUiVerboseLogs(true)`
+  // in DevTools (or temporarily change the store default) while
+  // debugging pseudo-ui internals.
+  const pseudoUiVerboseLogs = useSettingsStore((s) => s.pseudoUiVerboseLogs);
 
   const mergedHeaders = useMemo(() => ({ ...globalHeaders, ...sessionHeaders }), [globalHeaders, sessionHeaders]);
+
+  // Live refs so the delegate closure (recreated only when identity
+  // inputs change) always reads the latest header maps without
+  // tearing down the SDK tree on every header keystroke.
+  const sessionHeadersRef = useRef(sessionHeaders);
+  useEffect(() => {
+    sessionHeadersRef.current = sessionHeaders;
+  }, [sessionHeaders]);
 
   useEffect(() => {
     if (activeData || !activeTabId || !domain || !workflowKey) return;
@@ -887,6 +884,7 @@ function StateViewContent({ view }: { view: NonNullable<ReturnType<typeof useQui
     return () => { cancelled = true; };
   }, [activeData, activeTabId, domain, workflowKey, environmentUrl, globalHeaders, setActiveData, setActiveDataLoading]);
 
+  const projectId = useProjectStore((s) => s.activeProject?.id);
   const pseudoDelegate = useMemo(() => {
     if (!activeTabId || !domain || !workflowKey) return undefined;
     return createQuickRunPseudoDelegate({
@@ -894,18 +892,48 @@ function StateViewContent({ view }: { view: NonNullable<ReturnType<typeof useQui
       workflowKey,
       instanceId: activeTabId,
       runtimeUrl: environmentUrl ?? '',
-      headers: mergedHeaders,
+      // Live getters — the delegate factory is stable across header
+      // edits; only identity inputs (domain/workflow/instance) bust it.
+      getBucketConfig: () => configRef.current ?? null,
+      getSessionHeaders: () => sessionHeadersRef.current,
+      persistBucketConfig: persistConfig,
       onTransitionComplete: async () => {
         await pollState({
           domain,
           workflowKey,
           instanceId: activeTabId,
           runtimeUrl: environmentUrl ?? '',
-          headers: mergedHeaders,
+          // Use the live-merged headers (global + session) at fire-
+          // complete time so the poll call matches the manual
+          // dialog's behaviour.
+          headers: { ...globalHeaders, ...sessionHeadersRef.current },
         });
       },
+      verboseLog: pseudoUiVerboseLogs
+        ? (level, message, error, context) => {
+            // eslint-disable-next-line no-console -- R24 DEV TOGGLE: see useSettingsStore.pseudoUiVerboseLogs
+            console.log(`[pseudo-ui] ${level}: ${message}`, { error, context });
+          }
+        : undefined,
+      // R25.B-4 — workspace-aware nested `Component` loader. Only
+      // wired when a project is active; otherwise the delegate's
+      // fallback returns an empty placeholder.
+      resolveComponent: projectId
+        ? (ref) => resolveComponentFile({ projectId, ref })
+        : undefined,
     });
-  }, [activeTabId, domain, workflowKey, environmentUrl, mergedHeaders, pollState]);
+  }, [
+    activeTabId,
+    domain,
+    workflowKey,
+    environmentUrl,
+    pollState,
+    configRef,
+    persistConfig,
+    pseudoUiVerboseLogs,
+    globalHeaders,
+    projectId,
+  ]);
 
   const schemaResolver = useMemo(() => {
     if (!domain) return undefined;
@@ -920,9 +948,11 @@ function StateViewContent({ view }: { view: NonNullable<ReturnType<typeof useQui
   let jsonValue: unknown = null;
   try { jsonValue = JSON.parse(displayContent); } catch { /* not JSON */ }
 
+  const isPseudoUi = view.renderer === 'pseudo-ui';
+
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center gap-2 text-xs">
+      <div className="flex flex-wrap items-center gap-2 text-xs">
         <span className="font-medium">{view.key}</span>
         <span className="rounded bg-[var(--vscode-badge-background)] px-1 py-0.5 text-[9px] text-[var(--vscode-badge-foreground)]">
           {view.type}
@@ -935,6 +965,13 @@ function StateViewContent({ view }: { view: NonNullable<ReturnType<typeof useQui
             {view.renderer}
           </span>
         )}
+        {isPseudoUi && (
+          // R20 follow-up: inline locale picker so extension users (no
+          // sidebar) can switch the language pseudo-ui multi-lang
+          // content resolves to. Pushed to the right edge of the
+          // header row via `ml-auto`.
+          <PseudoUiLangPicker className="ml-auto" />
+        )}
       </div>
       <PseudoUiOrJsonBlock
         view={view}
@@ -946,8 +983,15 @@ function StateViewContent({ view }: { view: NonNullable<ReturnType<typeof useQui
         surfaceClassName="min-h-[200px]"
         delegate={pseudoDelegate}
         resolveSchema={schemaResolver}
+        // R24.3: formData and instanceData are independent buckets in
+        // PseudoView's FormContext (engine/types.ts:157-184). Submit
+        // payload only includes `formData` (DynamicRenderer.tsx:359),
+        // so seeding both with the same engine `data` would echo
+        // persisted state back as if it were user input. Keep
+        // formData empty by default; persisted attributes stay
+        // read-only and accessible via $instance.* bindings.
         instanceData={activeData?.data}
-        initialFormData={activeData?.data}
+        initialFormData={undefined}
       />
     </div>
   );

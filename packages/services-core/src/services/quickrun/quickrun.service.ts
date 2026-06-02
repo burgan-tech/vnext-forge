@@ -23,6 +23,8 @@ import {
   quickrunRetryInstanceResult,
   quickrunStartInstanceParams,
   quickrunStartInstanceResult,
+  quickrunExecuteFunctionParams,
+  quickrunExecuteFunctionResult,
 } from './quickrun-schemas.js'
 
 type ProxyRequest = {
@@ -320,6 +322,69 @@ export function createQuickRunService(runtimeProxyService: RuntimeProxyService) 
     return parseJsonResponse(result.data, result.status, 'QuickRunService.getInstance', traceId)
   }
 
+  /**
+   * Execute an Amorphie function URN against the engine. Backs the
+   * Quick Runner pseudo-ui delegate's `requestData` (x-lov / x-lookup)
+   * and `dispatch + func URN` action paths.
+   *
+   * URN shape drives the engine path (per vNext OpenAPI):
+   *
+   *   `urn:amorphie:func:<domain>:<function>`             → domain endpoint
+   *     GET /api/v1/{domain}/functions/{function}
+   *     Stateless catalog lookup; x-lov / x-lookup default home.
+   *
+   *   `urn:amorphie:func:<domain>:<workflow>:<function>`  → instance-scoped
+   *     GET /api/v1/{domain}/workflows/{workflow}/instances/{instanceId}/functions/{function}
+   *     Workflow-state-aware function. The workflow key comes from the
+   *     URN; `instanceId` is supplied by the runtime caller (current
+   *     Quick Runner instance) since instance ids are dynamic and
+   *     never authored into a URN.
+   *
+   * Filter params resolved by the SDK (`$form.x` → string value) land
+   * in the URL query string. Result body is forwarded to the SDK
+   * as-is — the SDK's `dataClient.extractByPath` runs JsonPath on it
+   * (`valueField` / `displayField` for x-lov, `resultField` for
+   * x-lookup).
+   */
+  async function executeFunction(
+    params: z.infer<typeof quickrunExecuteFunctionParams>,
+    traceId?: string,
+  ): Promise<z.infer<typeof quickrunExecuteFunctionResult>> {
+    const parsed = parseAmorphieFuncUrn(params.functionUrn, traceId)
+
+    let runtimePath: string
+    if (parsed.scope === 'workflow') {
+      // Instance-scoped endpoint. The URN's workflow is what the engine
+      // expects on the path — it may or may not equal `params.workflowKey`
+      // (an LOV could legitimately target a function in a different
+      // workflow under the same domain). We prefer the URN to keep
+      // routing intent explicit.
+      runtimePath =
+        `/api/v1/${encodeURIComponent(parsed.domain)}` +
+        `/workflows/${encodeURIComponent(parsed.workflow)}` +
+        `/instances/${encodeURIComponent(params.instanceId)}` +
+        `/functions/${encodeURIComponent(parsed.function)}`
+    } else {
+      // Domain-level stateless endpoint.
+      runtimePath =
+        `/api/v1/${encodeURIComponent(parsed.domain)}` +
+        `/functions/${encodeURIComponent(parsed.function)}`
+    }
+
+    const result = await proxyCall(
+      {
+        method: 'GET',
+        runtimePath,
+        query: params.params,
+        headers: params.headers,
+        runtimeUrl: params.runtimeUrl,
+      },
+      traceId,
+    )
+
+    return parseJsonResponse(result.data, result.status, 'QuickRunService.executeFunction', traceId)
+  }
+
   return {
     startInstance,
     fireTransition,
@@ -331,7 +396,46 @@ export function createQuickRunService(runtimeProxyService: RuntimeProxyService) 
     retryInstance,
     listInstances,
     getInstance,
+    executeFunction,
   }
+}
+
+/**
+ * Discriminated parser for `urn:amorphie:func:` shapes. Mirrors the
+ * consumer-side `parseAmorphieUrn` in packages/designer-ui but kept
+ * inline here so services-core stays dependency-free of designer-ui:
+ *
+ *   2 segments → scope=domain    (catalog lookup)
+ *   3 segments → scope=workflow  (instance-scoped function)
+ */
+type ParsedFuncUrn =
+  | { scope: 'domain'; domain: string; function: string }
+  | { scope: 'workflow'; domain: string; workflow: string; function: string }
+
+function parseAmorphieFuncUrn(urn: string, traceId?: string): ParsedFuncUrn {
+  const PREFIX = 'urn:amorphie:func:'
+  if (!urn.startsWith(PREFIX)) {
+    throw new VnextForgeError(
+      ERROR_CODES.RUNTIME_EXECUTION_FAILED,
+      `Invalid function URN: expected prefix "${PREFIX}", got "${urn}"`,
+      { source: 'QuickRunService.executeFunction', layer: 'application', details: { urn } },
+      traceId,
+    )
+  }
+  const tail = urn.slice(PREFIX.length)
+  const parts = tail.split(':').map((p) => p.trim())
+  if (parts.length === 2 && parts[0] && parts[1]) {
+    return { scope: 'domain', domain: parts[0], function: parts[1] }
+  }
+  if (parts.length === 3 && parts[0] && parts[1] && parts[2]) {
+    return { scope: 'workflow', domain: parts[0], workflow: parts[1], function: parts[2] }
+  }
+  throw new VnextForgeError(
+    ERROR_CODES.RUNTIME_EXECUTION_FAILED,
+    `Invalid function URN: expected 2 or 3 segments after "${PREFIX}", got "${urn}"`,
+    { source: 'QuickRunService.executeFunction', layer: 'application', details: { urn } },
+    traceId,
+  )
 }
 
 export type QuickRunService = ReturnType<typeof createQuickRunService>

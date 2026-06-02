@@ -96,6 +96,7 @@ const METHOD_CAPABILITIES: Readonly<Record<string, MethodCapability>> = Object.f
   'quickrun/retryInstance': 'privileged',
   'quickrun/listInstances': 'privileged',
   'quickrun/getInstance': 'privileged',
+  'quickrun/executeFunction': 'privileged',
 
   'cli/check': 'privileged',
   'cli/checkUpdate': 'privileged',

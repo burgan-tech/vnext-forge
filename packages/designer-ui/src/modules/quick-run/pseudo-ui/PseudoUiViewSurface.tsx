@@ -1,18 +1,31 @@
-import { Component, type ErrorInfo, lazy, type ReactNode, Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import type { DataSchema, PseudoViewDelegate, ViewDefinition } from '@burgantech/pseudo-ui';
-import Lara from '@primeuix/themes/lara';
+/**
+ * Pseudo-ui view surface — owns chrome (skeleton, error boundary, action
+ * state, success flash) and mounts the actual pseudo-ui render inside an
+ * isolation iframe via `PseudoUiPseudoViewFrame`.
+ *
+ * R6 (iframe cascade sandbox): Parent shell Tailwind preflight, designer-ui
+ * unlayered resets (`* { outline:none }`, etc.), and VS Code webview's
+ * injected `!important` form-control styles all reached native elements
+ * pseudo-ui renders. Patch-over-patch CSS could not seal every leak.
+ *
+ * R6 moves pseudo-ui DOM into a same-origin `<iframe srcdoc>` — separate
+ * cascade, `<head>` and portal target. JS stays in one heap so delegate,
+ * formData, schema all flow as plain props/refs (no postMessage). Chrome
+ * stays in parent DOM with Tailwind because it integrates with the VS
+ * Code shell and renders no pseudo-ui-shaped controls.
+ */
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { DataSchema, PseudoViewDelegate, ViewDefinition } from '@burgan-tech/pseudo-ui';
+import type { DesignerClassNames, DesignerMode } from '@burgan-tech/pseudo-ui/react';
 
 import type { ViewResponse } from '../types/quickrun.types';
 import type { SchemaResolver } from './createDataSchemaResolver';
 import { normalizePseudoUiPayload } from './normalizePseudoUiPayload';
-
-import '@burgantech/pseudo-ui/react/style.css';
-import 'primeicons/primeicons.css';
-import './pseudo-ui-layers.css';
-
-const LazyPseudoView = lazy(() =>
-  import('@burgantech/pseudo-ui/react').then((m) => ({ default: m.PseudoView })),
-);
+import { PseudoUiErrorBoundary, type PseudoUiErrorAction } from './PseudoUiErrorBoundary';
+import { PseudoUiPseudoViewFrame } from './PseudoUiPseudoViewFrame';
+import { useSettingsStore } from '../../../store/useSettingsStore';
+import { FireTransitionError } from './FireTransitionError';
+import type { ParsedValidationFailure } from './parseValidationFailure';
 
 const noopDelegate: PseudoViewDelegate = {
   requestData: () => Promise.resolve(undefined),
@@ -27,54 +40,6 @@ const noopDelegate: PseudoViewDelegate = {
 function isPayloadEmpty(content: string | Record<string, unknown>): boolean {
   if (typeof content === 'string') return content.trim() === '';
   return Object.keys(content).length === 0;
-}
-
-class PseudoUiErrorBoundary extends Component<
-  { resetKey: number; children: ReactNode; onRetry: () => void },
-  { error: Error | null }
-> {
-  constructor(props: { resetKey: number; children: ReactNode; onRetry: () => void }) {
-    super(props);
-    this.state = { error: null };
-  }
-
-  static getDerivedStateFromError(error: Error): { error: Error } {
-    return { error };
-  }
-
-  componentDidUpdate(prevProps: { resetKey: number }) {
-    if (prevProps.resetKey !== this.props.resetKey) {
-      this.setState({ error: null });
-    }
-  }
-
-  componentDidCatch(error: Error, errorInfo: ErrorInfo): void {
-    void error;
-    void errorInfo;
-  }
-
-  render() {
-    if (this.state.error) {
-      return (
-        <div
-          role="alert"
-          className="rounded border border-[var(--vscode-inputValidation-errorBorder)] bg-[var(--vscode-inputValidation-errorBackground)] px-2 py-2 text-[11px] text-[var(--vscode-errorForeground)]"
-        >
-          <p className="mb-2">Unable to render this view.</p>
-          <button
-            type="button"
-            className="rounded border border-[var(--vscode-panel-border)] bg-[var(--vscode-button-secondaryBackground)] px-2 py-1 text-[10px] text-[var(--vscode-button-secondaryForeground)] hover:bg-[var(--vscode-list-hoverBackground)] focus-visible:outline focus-visible:outline-[var(--vscode-focusBorder)]"
-            onClick={() => {
-              this.props.onRetry();
-            }}
-          >
-            Retry
-          </button>
-        </div>
-      );
-    }
-    return this.props.children;
-  }
 }
 
 function LoadingSkeleton() {
@@ -98,6 +63,16 @@ export interface PseudoUiViewSurfaceProps {
   resolveSchema?: SchemaResolver;
   instanceData?: Record<string, unknown>;
   initialFormData?: Record<string, unknown>;
+  /**
+   * Render language passed to the SDK. Drives multi-lang
+   * `textContent` resolution (`{ en, tr, ar, … } → string`).
+   *
+   * When omitted (the usual case) the surface reads
+   * `useSettingsStore.pseudoUiLang` — that's the single setting
+   * users change from the sidebar's Pseudo UI section. Explicit
+   * prop wins so individual views (e.g. a Builder preview that
+   * wants to demonstrate a non-default locale) can override.
+   */
   lang?: string;
   delegate?: PseudoViewDelegate;
   onError?: (message: string) => void;
@@ -106,6 +81,38 @@ export interface PseudoUiViewSurfaceProps {
   loading?: boolean;
   fillHeight?: boolean;
   className?: string;
+  /** Extra escape-hatch buttons rendered in the error boundary (e.g.
+   *  "Edit as JSON" from View Editor). Quick Runner can omit. */
+  errorActions?: PseudoUiErrorAction[];
+  /**
+   * SDK designer-mode flag — accepts the legacy boolean form *or* the
+   * v0.1.5+ enum (`'off' \| 'preview' \| 'edit'`).
+   *
+   * - `'off'` / `false` — normal runtime render (Quick Runner).
+   * - `'preview'` / `true` — designer semantics ON but no editor chrome:
+   *     `ForEach` renders once with an empty `$item`, `x-conditional`
+   *     visibility bypassed. Builder Preview tab uses this.
+   * - `'edit'` — full editor canvas: node outlines, delete button,
+   *     HTML5 drag-drop, selection callbacks. Builder Canvas uses this
+   *     with a delegate wired to the builder store.
+   *
+   * Defaults to `mode === 'preview'` (legacy boolean true) when omitted.
+   */
+  designer?: boolean | DesignerMode;
+  /**
+   * SDK `<PseudoView selectedNodePath={...}>` — JSON Pointer string of
+   * the currently-selected node (Builder selection mirror). Has effect
+   * only in `designer="edit"` mode; ignored otherwise.
+   */
+  selectedNodePath?: string;
+  /**
+   * SDK `<PseudoView designerClassNames={...}>` — full override of the
+   * designer chrome CSS class names. Forge keeps the SDK defaults and
+   * themes them via `--pseudo-designer-*` tokens (see
+   * `theme/designerChrome.css`). Provided here for advanced
+   * customization escape hatches.
+   */
+  designerClassNames?: DesignerClassNames;
 }
 
 export function PseudoUiViewSurface({
@@ -114,7 +121,7 @@ export function PseudoUiViewSurface({
   resolveSchema,
   instanceData,
   initialFormData,
-  lang = 'en',
+  lang: langProp,
   delegate,
   onError,
   mode,
@@ -122,24 +129,31 @@ export function PseudoUiViewSurface({
   loading = false,
   fillHeight = false,
   className,
+  errorActions,
+  designer,
+  selectedNodePath,
+  designerClassNames,
 }: PseudoUiViewSurfaceProps) {
+  const effectiveDesigner: boolean | DesignerMode = designer ?? mode === 'preview';
   const baseDelegate = delegate ?? noopDelegate;
 
-  const primeConfig = useMemo(() => ({
-    theme: {
-      preset: Lara,
-      options: { darkModeSelector: '.dark' },
-    },
-    zIndex: {
-      overlay: 1100,
-      modal: 1200,
-    },
-  }), []);
+  // R20: settings-driven render language. Explicit `lang` prop wins;
+  // otherwise read from the persisted Pseudo UI settings (default 'tr').
+  // Subscribing here lets the surface re-render live as the user
+  // switches language from the sidebar without remounting anywhere.
+  const settingsLang = useSettingsStore((s) => s.pseudoUiLang);
+  const lang = langProp ?? settingsLang;
 
   const [definitionRetry, setDefinitionRetry] = useState(0);
   const [boundaryReset, setBoundaryReset] = useState(0);
   const [actionPending, setActionPending] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  // R24.5 — engine-side per-field validation errors. Populated when
+  // the delegate throws a FireTransitionError with a parsed
+  // `validation` payload; cleared on every new action attempt.
+  const [actionFieldErrors, setActionFieldErrors] = useState<
+    ParsedValidationFailure['fieldErrors'] | null
+  >(null);
   const [successFlash, setSuccessFlash] = useState(false);
   const [resolvedSchema, setResolvedSchema] = useState<DataSchema | null>(null);
   const [schemaResolving, setSchemaResolving] = useState(false);
@@ -151,6 +165,11 @@ export function PseudoUiViewSurface({
     };
   }, []);
 
+  // R6: body-portal refcount removed. PrimeReact overlays now mount to the
+  // iframe's `document.body` (PrimeReact 10 portal target follows the
+  // ownerDocument of its parent provider). The cascade isolation is
+  // structural, not selector-based, so no body data-attribute is needed.
+
   const wrappedDelegate = useMemo((): PseudoViewDelegate => {
     return {
       requestData: (...args) => baseDelegate.requestData(...args),
@@ -159,8 +178,30 @@ export function PseudoUiViewSurface({
       onValidationRequest: baseDelegate.onValidationRequest
         ? (...args) => baseDelegate.onValidationRequest!(...args)
         : undefined,
+      // R11: forward SDK designer-mode callbacks. Without these the
+      // SDK's `delegate.onNodeSelect / onNodeDelete / onNodeMove /
+      // onNodeDropFromPalette / onNodeHover` invocations would land on
+      // the noop default and the canvas would feel "frozen" — clicks
+      // and × buttons paint outlines but never reach the builder
+      // store.
+      onNodeSelect: baseDelegate.onNodeSelect
+        ? (...args) => baseDelegate.onNodeSelect!(...args)
+        : undefined,
+      onNodeHover: baseDelegate.onNodeHover
+        ? (...args) => baseDelegate.onNodeHover!(...args)
+        : undefined,
+      onNodeDelete: baseDelegate.onNodeDelete
+        ? (...args) => baseDelegate.onNodeDelete!(...args)
+        : undefined,
+      onNodeMove: baseDelegate.onNodeMove
+        ? (...args) => baseDelegate.onNodeMove!(...args)
+        : undefined,
+      onNodeDropFromPalette: baseDelegate.onNodeDropFromPalette
+        ? (...args) => baseDelegate.onNodeDropFromPalette!(...args)
+        : undefined,
       onAction: async (action, formData, command) => {
         setActionError(null);
+        setActionFieldErrors(null);
         if (action === 'submit') {
           setActionPending(true);
         }
@@ -175,9 +216,18 @@ export function PseudoUiViewSurface({
             }, 2200);
           }
         } catch (e) {
-          const msg = e instanceof Error ? e.message : 'Action failed';
-          setActionError(msg);
-          onError?.(msg);
+          // R24.5 — preserve the typed FireTransitionError so the
+          // banner can render per-field validation rows. Otherwise
+          // fall back to the plain message.
+          if (e instanceof FireTransitionError) {
+            setActionError(e.message);
+            setActionFieldErrors(e.validation?.fieldErrors ?? null);
+            onError?.(e.message);
+          } else {
+            const msg = e instanceof Error ? e.message : 'Action failed';
+            setActionError(msg);
+            onError?.(msg);
+          }
         } finally {
           if (action === 'submit') {
             setActionPending(false);
@@ -191,6 +241,12 @@ export function PseudoUiViewSurface({
     () => normalizePseudoUiPayload(viewResponse.content),
     [viewResponse.content, definitionRetry],
   );
+
+  // Clear any stale render errors whenever the view definition changes so
+  // the user gets a fresh attempt without manually clicking Retry.
+  useEffect(() => {
+    setBoundaryReset((n) => n + 1);
+  }, [normalized]);
 
   useEffect(() => {
     // Skip if explicit schema prop is provided (non-empty object)
@@ -227,6 +283,52 @@ export function PseudoUiViewSurface({
       ? schemaProp
       : (resolvedSchema ?? ({} as DataSchema));
 
+  /**
+   * R22.2: gate the SDK mount on schema readiness.
+   *
+   * `<PseudoView>` creates its form context with
+   * `useRef(createFormContext(schema, ...))` — the ref runs once
+   * on mount. If we mount with the fallback `{}` first and only
+   * later receive the resolved schema, the form context (and every
+   * downstream `getSchemaProperty(ctx.schema, bind)` call) keeps
+   * pointing at the empty schema and enum-driven inputs (Dropdown
+   * / RadioGroup / SegmentedButton) render with zero options.
+   *
+   * The SDK's React sample (`samples/react-pseudo-ui/src/App.tsx`)
+   * sidesteps this by gating render on `editorSchema && editorView`.
+   * We mirror that pattern: when the view declares an async
+   * dataSchema URN, hold off the SDK mount until `resolvedSchema`
+   * is in. Views that ship with an inline `schemaProp` or that
+   * don't reference a dataSchema at all still render immediately
+   * with the existing `{}` fallback — the surface keeps rendering
+   * the view even when no schema is available, the gate only
+   * applies to the in-flight async case.
+   *
+   * `schemaResolving` already covers the in-flight portion of the
+   * race, but it starts as `false` on first render — without this
+   * extra `expectingAsyncSchema` check the very first mount would
+   * still flash through with the empty fallback before the effect
+   * fires.
+   */
+  const expectingAsyncSchema =
+    (!schemaProp || Object.keys(schemaProp).length === 0) &&
+    typeof resolveSchema === 'function' &&
+    typeof normalized?.dataSchema === 'string' &&
+    normalized.dataSchema.length > 0;
+  const schemaNotReady = expectingAsyncSchema && resolvedSchema === null;
+
+  // R23: the `schemaNotReady` gate above keeps the SDK Frame from
+  // mounting with a stub `{}` schema. The earlier `schemaRemountKey`
+  // belt-and-suspenders fix — which forced a Frame remount whenever
+  // schema identity changed — turned out to be the source of the
+  // "Attempted to synchronously unmount a root while React was
+  // already rendering" console error: a key change during the same
+  // commit that resolved the schema asked React to tear down the
+  // shadow root mid-render. With the gate in place the very first
+  // SDK mount already sees the real schema, so no remount cue is
+  // needed. The SDK's own React sample is structured the same way
+  // (gate-only, no `key=`).
+
   const viewDefinition = useMemo((): ViewDefinition | null => {
     if (!normalized) return null;
     return {
@@ -256,9 +358,9 @@ export function PseudoUiViewSurface({
     .filter(Boolean)
     .join(' ');
 
-  if (loading || schemaResolving) {
+  if (loading || schemaResolving || schemaNotReady) {
     return (
-      <div role="region" aria-label={ariaLabel} className={hostClassName}>
+      <div role="region" aria-label={ariaLabel} className={hostClassName} data-pseudo-ui-root="">
         <LoadingSkeleton />
       </div>
     );
@@ -266,7 +368,7 @@ export function PseudoUiViewSurface({
 
   if (payloadEmpty) {
     return (
-      <div role="region" aria-label={ariaLabel} className={hostClassName}>
+      <div role="region" aria-label={ariaLabel} className={hostClassName} data-pseudo-ui-root="">
         <p className="text-[12px] text-[var(--vscode-foreground)]">This view has nothing to display.</p>
         <p className="mt-1 text-[11px] text-[var(--vscode-descriptionForeground)]">
           Add fields, buttons, or child layout nodes to the view definition JSON.
@@ -277,7 +379,7 @@ export function PseudoUiViewSurface({
 
   if (invalidDefinition || viewDefinition === null) {
     return (
-      <div role="region" aria-label={ariaLabel} className={hostClassName}>
+      <div role="region" aria-label={ariaLabel} className={hostClassName} data-pseudo-ui-root="">
         <div
           role="alert"
           className="mb-2 rounded border border-[var(--vscode-inputValidation-warningBorder)] bg-[var(--vscode-inputValidation-warningBackground)] px-2 py-2 text-[11px] text-[var(--vscode-foreground)]"
@@ -298,24 +400,29 @@ export function PseudoUiViewSurface({
   const scrollWrapClass = fillHeight ? 'pseudo-ui-host__scroll relative min-h-0 flex-1' : 'relative';
 
   const mount = (
-    <PseudoUiErrorBoundary resetKey={boundaryReset} onRetry={() => setBoundaryReset((n) => n + 1)}>
-      <Suspense fallback={<LoadingSkeleton />}>
-        <LazyPseudoView
-          schema={schema}
-          view={viewDefinition}
-          formData={formData}
-          instanceData={instanceData}
-          lang={lang}
-          delegate={wrappedDelegate}
-          onFormChange={(next) => setFormData(next)}
-          primeReactConfig={primeConfig}
-        />
-      </Suspense>
+    <PseudoUiErrorBoundary
+      resetKey={boundaryReset}
+      actions={errorActions}
+      onError={(err) => onError?.(err.message)}
+    >
+      <PseudoUiPseudoViewFrame
+        schema={schema}
+        view={viewDefinition}
+        formData={formData}
+        instanceData={instanceData}
+        lang={lang}
+        delegate={wrappedDelegate}
+        onFormChange={(next) => setFormData(next)}
+        designer={effectiveDesigner}
+        selectedNodePath={selectedNodePath}
+        designerClassNames={designerClassNames}
+        fillHeight={fillHeight}
+      />
     </PseudoUiErrorBoundary>
   );
 
   return (
-    <div role="region" aria-label={ariaLabel} className={hostClassName}>
+    <div role="region" aria-label={ariaLabel} className={hostClassName} data-pseudo-ui-root="">
       {successFlash ? (
         <div
           aria-live="polite"
@@ -329,11 +436,32 @@ export function PseudoUiViewSurface({
           role="alert"
           className="mb-2 rounded border border-[var(--vscode-inputValidation-errorBorder)] bg-[var(--vscode-inputValidation-errorBackground)] px-2 py-2 text-[11px] text-[var(--vscode-errorForeground)]"
         >
-          <p className="mb-2">{actionError}</p>
+          <p className="mb-2 font-medium">{actionError}</p>
+          {/* R24.5 — engine validation errors. `path` is the dotted
+              JSON pointer of the offending field (`customer.ownerUserId`),
+              `label` is the human label from the schema. */}
+          {actionFieldErrors && actionFieldErrors.length > 0 ? (
+            <ul className="mb-2 space-y-0.5 pl-0">
+              {actionFieldErrors.map((fe, idx) => (
+                <li key={`${fe.path}-${idx}`} className="flex flex-col">
+                  <span>
+                    <span className="font-mono text-[10px] text-[var(--vscode-descriptionForeground)]">
+                      {fe.label ? `${fe.label} (${fe.path})` : fe.path}
+                    </span>
+                    {': '}
+                    <span>{fe.message}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : null}
           <button
             type="button"
             className="rounded border border-[var(--vscode-panel-border)] bg-[var(--vscode-button-secondaryBackground)] px-2 py-1 text-[10px] text-[var(--vscode-button-secondaryForeground)] hover:bg-[var(--vscode-list-hoverBackground)] focus-visible:outline focus-visible:outline-[var(--vscode-focusBorder)]"
-            onClick={() => setActionError(null)}
+            onClick={() => {
+              setActionError(null);
+              setActionFieldErrors(null);
+            }}
           >
             Dismiss
           </button>

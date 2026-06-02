@@ -4,7 +4,7 @@ import { CopyableJsonBlock } from '../components/CopyableJsonBlock';
 import type { ViewResponse } from '../types/quickrun.types';
 import { PseudoUiViewSurface } from './PseudoUiViewSurface';
 import type { SchemaResolver } from './createDataSchemaResolver';
-import type { DataSchema, PseudoViewDelegate } from '@burgantech/pseudo-ui';
+import type { DataSchema, PseudoViewDelegate } from '@burgan-tech/pseudo-ui';
 import { usePseudoUiPanelMode, ViewModeToggle } from './ViewModeToggle';
 
 export interface PseudoUiOrJsonBlockProps {
