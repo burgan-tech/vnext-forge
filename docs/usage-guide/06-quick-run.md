@@ -104,6 +104,97 @@ When you click a transition button, a dialog appears:
 
 Click **Fire Transition** to execute.
 
+## Pseudo-UI Rendered Views
+
+When the current state's view ships a `pseudo-ui` payload, Quick Run renders the actual end-user view instead of a generic schema-driven form. The same renderer that runs in production drives this view; what you see is what your users see.
+
+![Pseudo-UI Step 1](./screenshots/quick-runner-pseudo-ui-account-open-1.png)
+
+### How it activates
+
+- Quick Run reads the view JSON associated with the current state.
+- If the view contains a `pseudo-ui` block, the **View** tab and the transition dialog switch to renderer mode automatically; the existing schema form remains available as a fallback under **Switch to JSON**.
+- The render is mounted inside a shadow-DOM container so that the view's PrimeReact theme cannot leak into the rest of the editor and vice versa.
+
+### Bindings at runtime
+
+| Capability | Source | Notes |
+|------------|--------|-------|
+| Field labels | `x-labels` on the schema | Active **Render Language** wins; English falls back |
+| Enum labels | `x-enum` | Same fallback rules |
+| Validation error text | `x-errorMessages` | Per-rule (`required`, `pattern`, …) and per-language |
+| Dropdown content | `x-lov` | Fetched via `executeFunction` against the runtime (see below) |
+| Cross-component picker | `x-lookup` | Same dispatch path as `x-lov` |
+
+### `executeFunction` dispatch
+
+`x-lov` and `x-lookup` fetches go through the Quick Run **dispatch URN** path. The URN's segment count selects which engine endpoint is called:
+
+- `urn:amorphie:func:<domain>:<function>` — calls `GET /api/v1/<domain>/functions/<function>` (stateless, domain-level)
+- `urn:amorphie:func:<domain>:<workflow>:<function>` — calls the **workflow-scoped** instance endpoint with the current Quick Run instance substituted in
+
+Only `GET` verbs are dispatched; other verbs are reserved for future use. The response is parsed with JsonPath (`$.data[*].code` and similar bracket forms are supported alongside the legacy dotted form).
+
+### Submit parity
+
+Clicking the view's primary action (typically a `Button` with the `submit` reserved alias) maps the form's state into the transition payload using the same vocabulary as production — there is no Quick-Run-only mapping layer. Required fields, format validators, and `x-errorMessages` overrides all surface in the renderer before the transition is dispatched.
+
+![Pseudo-UI Step 2](./screenshots/quick-runner-pseudo-ui-account-open-2.png)
+
+### Walkthrough — Account Opening
+
+The screenshots above and below show a full end-to-end run of the **Account Opening** workflow through pseudo-ui:
+
+| Step | Screenshot | What happens |
+|------|------------|--------------|
+| 1 | [step 1](./screenshots/quick-runner-pseudo-ui-account-open-1.png) | The initial state offers four account-type cards. Each card has an `onClick` action whose URN maps to a workflow transition. |
+| 2 | [step 2](./screenshots/quick-runner-pseudo-ui-account-open-2.png) | Account-detail form with `x-lov` driven **Currency** and **Branch Code** dropdowns; the **Selected Branch** card reflects the chosen branch via lookup binding. |
+| 3 | [step 3](./screenshots/quick-runner-pseudo-ui-account-open-3.png) | Policy validation step — pseudo-ui renders the consent/notification controls and runs `x-errorMessages` for any missed required field. |
+| 4 | [step 4](./screenshots/quick-runner-pseudo-ui-account-open-4.png) | Confirmation screen, populated from the instance payload that the previous transitions accumulated. |
+
+### Render Language
+
+The active render language is exposed inline at the top of the Quick Run pane. TR and EN ship as presets; additional locales can be added and persist across sessions. Switching the language re-renders the view and refreshes any multi-lang `displayField` values returned by `x-lov` so dropdowns become localized without a refetch.
+
+## Incidents
+
+When the runtime reports a failure during a transition (mapping compilation errors, script exceptions, pipeline errors, etc.), Quick Run surfaces it as an **incident** on the instance.
+
+### Active incident banner
+
+When the selected instance has an unresolved incident, a yellow strip appears above the dashboard reading **"This instance has an active incident."** The same strip is mirrored at the top of the Instance Details flyout.
+
+### Past Incidents
+
+![Past Incidents](./screenshots/flow-designer-incident-history.png)
+
+The instance dashboard's **Incident** section lists past incidents with one row per occurrence. Each row shows:
+
+| Field | Meaning |
+|-------|---------|
+| **State / Transition** | Which state was active and which transition was being fired when the failure happened |
+| **Task** | The task that raised the error (when applicable) |
+| **Layer** | Where in the runtime stack the error originated (`Pipeline`, `Script`, `Mapping`, …) |
+| **Error Code** | Engine-assigned identifier (e.g. `Execution:200002`) |
+| **Retry Count** | Number of automatic retries the runtime attempted |
+| **Created At** | Timestamp of the failure |
+| **Trace ID** | The `X-Trace-Id` you can grep for in the runtime logs |
+| **Message** | The raw runtime error text (CSX compilation errors and stack traces are shown here) |
+
+Each row has a **Copy** button to grab the error message and an **Open** link that jumps to the per-incident detail panel.
+
+### Incident Detail Panel
+
+![Incident Detail](./screenshots/incident-detail-panel.png)
+
+Opening the Instance Details flyout while an incident is active scrolls you straight to the **Incident** section. It mirrors the Past Incidents row but adds:
+
+- The current incident's **Status** (`Open` / `Resolved`)
+- Inline link to the **Raw JSON** of the runtime response
+- A jump-to **Past incidents** badge with the historical count
+
+Use the trace ID in this panel together with the **vnext-forge-studio-core** Output channel to correlate Quick Run failures with server-side logs.
+
 ## Instance Details
 
 ![Instance Details](./screenshots/quick-runner-instance-details.png)
