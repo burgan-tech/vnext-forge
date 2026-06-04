@@ -314,14 +314,24 @@ export const quickrunListInstancesResult = z.object({
 
 export const quickrunExecuteFunctionParams = z.object({
   ...workflowIdentifier,
-  /** Current workflow instance id, supplied for engine-side context. */
+  /** Current workflow instance id, supplied as a fallback for the
+   *  domain-scoped URN form. The workflow-scoped form always carries
+   *  its own instance segment which wins over this value. */
   instanceId: z.string().min(1),
-  /** Full Amorphie function URN. Two scopes are recognised:
-   *    `urn:amorphie:func:<domain>:<function>`             → domain endpoint
-   *    `urn:amorphie:func:<domain>:<workflow>:<function>`  → instance-scoped endpoint
-   *  The service inspects the URN to pick the engine path. */
+  /** Full vNext function URN. Two scopes are recognised; the service
+   *  inspects the URN to pick the engine path:
+   *    `urn:vnext:fn[:<verb>]:<domain>:<function>`
+   *      → <verb> /api/v1/<domain>/functions/<function>          (domain scope)
+   *    `urn:vnext:fn[:<verb>]:<domain>:<flow>:<instance>:<function>`
+   *      → <verb> /api/v1/<domain>/workflows/<flow>/instances/<instance>/functions/<function>
+   *  `verb` defaults to `get` when omitted from the URN. The optional
+   *  `method` param below overrides whatever the URN encoded. */
   functionUrn: z.string().min(1),
-  /** SDK-resolved filter / descriptor params, sent as query string. */
+  /** Optional verb override. Falls back to the URN-embedded verb, then
+   *  to `get`. */
+  method: z.enum(['get', 'post', 'patch', 'delete']).optional(),
+  /** SDK-resolved filter / descriptor params. Sent as query string for
+   *  GET/DELETE and as a JSON body for POST/PATCH. */
   params: z.record(z.string(), z.string()).optional(),
   headers: headersSchema,
   runtimeUrl: z.string().optional(),

@@ -27,9 +27,9 @@
 import type { DataSchema } from '@burgan-tech/pseudo-ui';
 import type { DiscoveredVnextComponent } from '@vnext-forge-studio/app-contracts';
 
-import { parseDataSchemaRef } from '../../../../quick-run/pseudo-ui/parseDataSchemaRef';
+import { parseVnextResUrn } from '../../../../quick-run/pseudo-ui/parseVnextResUrn';
 import { readFile } from '../../../../project-workspace/WorkspaceApi';
-import { buildSchemaUrn } from './buildSchemaUrn';
+import { buildVnextResUrnFromComponent } from './buildVnextResUrn';
 
 export type SchemaLoader = (urn: string) => Promise<DataSchema | null>;
 
@@ -44,7 +44,7 @@ export function buildSchemaLoader({ schemas, projectPath }: BuildSchemaLoaderOpt
   const cache = new Map<string, DataSchema>();
   const urnIndex = new Map<string, DiscoveredVnextComponent>();
   for (const component of schemas) {
-    urnIndex.set(buildSchemaUrn(component, projectPath), component);
+    urnIndex.set(buildVnextResUrnFromComponent('schema', component, projectPath), component);
   }
 
   return async (input: string): Promise<DataSchema | null> => {
@@ -54,10 +54,11 @@ export function buildSchemaLoader({ schemas, projectPath }: BuildSchemaLoaderOpt
 
     let component = urnIndex.get(input);
     if (!component) {
-      // Fallback: parse and match by key. parseDataSchemaRef supports
-      // URN, schemas.vnext.com URL, and bare-key inputs alike.
-      const parsed = parseDataSchemaRef(input);
-      if (!parsed) return null;
+      // Fallback: parse the URN and match by key. The strict vNext
+      // res URN parser only accepts `urn:vnext:res:schema:...` — any
+      // other res-key or legacy form returns null.
+      const parsed = parseVnextResUrn(input);
+      if (!parsed || parsed.resKey !== 'schema') return null;
       component = schemas.find((s) => s.key === parsed.key);
       if (!component) return null;
     }

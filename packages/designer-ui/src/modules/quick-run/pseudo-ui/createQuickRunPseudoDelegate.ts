@@ -5,7 +5,8 @@ import type { WorkflowBucketConfig } from '../QuickRunApi';
 import { createLogger } from '../../../lib/logger/createLogger';
 import { firePseudoUiTransition } from './firePseudoUiTransition';
 import { resolveTransitionKey } from './resolveTransitionKey';
-import { parseAmorphieUrn } from './parseAmorphieUrn';
+import { parseVnextUrn, type ParsedVnextUrn } from './parseVnextUrn';
+import { resolveUrnBindings, type UrnBindingContext } from './resolveUrnBindings';
 import { parseValidationFailure } from './parseValidationFailure';
 import { FireTransitionError } from './FireTransitionError';
 import type { ResolvedComponentFile } from './resolveComponentFile';
@@ -26,6 +27,14 @@ export interface QuickRunDelegateParams {
    */
   getBucketConfig: () => WorkflowBucketConfig | null;
   getSessionHeaders: () => Record<string, string>;
+  /**
+   * Snapshot of `instance.data` + `extensions` (plus optional form
+   * scratchpad) used by `resolveUrnBindings` to substitute
+   * `${path}` placeholders inside URNs before they are parsed.
+   * Reading through a getter keeps the closure stable while ensuring
+   * every dispatch sees the freshest Data tab payload.
+   */
+  getBindingContext: () => UrnBindingContext;
   persistBucketConfig?: (next: WorkflowBucketConfig) => Promise<void> | void;
   onTransitionComplete?: () => void | Promise<void>;
   onError?: (message: string) => void;
@@ -47,15 +56,52 @@ export interface QuickRunDelegateParams {
   resolveComponent?: (ref: string) => Promise<ResolvedComponentFile | null>;
 }
 
+interface ResolveAndParseSuccess {
+  ok: true;
+  resolved: string;
+  parsed: ParsedVnextUrn;
+}
+
+interface ResolveAndParseFailure {
+  ok: false;
+  reason: 'empty' | 'unresolved' | 'unparseable';
+  unresolved?: string[];
+  resolved?: string;
+}
+
+/**
+ * Substitute `${param}` placeholders, then parse. Splitting the two
+ * phases keeps the parser pure and centralises the "what does my view
+ * actually want me to do?" decision for every dispatch branch.
+ */
+function resolveAndParse(
+  command: string | undefined | null,
+  ctx: UrnBindingContext,
+): ResolveAndParseSuccess | ResolveAndParseFailure {
+  if (typeof command !== 'string' || !command.trim()) {
+    return { ok: false, reason: 'empty' };
+  }
+  const { resolved, unresolved } = resolveUrnBindings(command, ctx);
+  if (unresolved.length > 0) {
+    return { ok: false, reason: 'unresolved', unresolved, resolved };
+  }
+  const parsed = parseVnextUrn(resolved);
+  if (!parsed) return { ok: false, reason: 'unparseable', resolved };
+  return { ok: true, resolved, parsed };
+}
+
 /**
  * Resolve the command URN/key into a transition name and fire it
  * through the shared `firePseudoUiTransition` helper (header merge
  * + bucket persist + structured validation error surfacing).
  *
  * Called by every dispatch branch in `onAction` that needs to hit
- * the workflow fire endpoint: `submit`, deprecated `transition`,
- * `dispatch + wf-transition / legacy-transition / raw`, and the
- * unknown-verb fallback when a transition URN is present.
+ * the workflow fire endpoint: `submit`, dispatch + flow-transition,
+ * and the unknown-verb fallback when a transition URN is present.
+ *
+ * The caller is expected to pass the **resolved** command (with
+ * `${param}` placeholders already substituted) so `resolveTransitionKey`
+ * sees the final URN.
  */
 async function fireTransitionFromCommand(
   action: string,
@@ -63,6 +109,9 @@ async function fireTransitionFromCommand(
   formData: Record<string, unknown>,
   params: QuickRunDelegateParams,
   runtimeUrl: string | undefined,
+  /** When the URN explicitly carries an instance, use it; otherwise
+   *  fall back to the Quick Run's current instance. */
+  overrideInstanceId?: string,
 ): Promise<void> {
   const transitionKey = resolveTransitionKey(command);
   params.verboseLog?.('info', 'Transition fire received', undefined, {
@@ -79,13 +128,22 @@ async function fireTransitionFromCommand(
   });
   if (!transitionKey) {
     const msg = 'Missing transition command';
+    logger.error('[pseudo-ui] Missing transition command', {
+      timestamp: new Date().toISOString(),
+      action,
+      command,
+    });
     params.onError?.(msg);
-    throw new Error(msg);
+    throw new FireTransitionError({
+      message: msg,
+      code: 'MISSING_COMMAND',
+      validation: null,
+    });
   }
   const result = await firePseudoUiTransition({
     domain: params.domain,
     workflowKey: params.workflowKey,
-    instanceId: params.instanceId,
+    instanceId: overrideInstanceId ?? params.instanceId,
     transitionKey,
     formData,
     bucketConfig: params.getBucketConfig(),
@@ -117,14 +175,25 @@ export function createQuickRunPseudoDelegate(params: QuickRunDelegateParams): Ps
 
   return {
     requestData: async (ref, reqParams) => {
-      // R25.B-2 — `ref` is the SDK-side `LovDefinition.source` /
-      // `LookupDefinition.source` (an Amorphie function URN in
-      // normal flows). Forge only handles same-domain function URNs;
+      // `ref` is the SDK-side `LovDefinition.source` /
+      // `LookupDefinition.source` — a vNext function URN in normal
+      // flows. Forge only handles same-domain function URNs;
       // anything else is a no-op so the SDK's empty-array fallback
       // can kick in (per the user's explicit rule: no cross-domain
       // fallback handling).
-      const parsed = parseAmorphieUrn(typeof ref === 'string' ? ref : '');
-      if (!parsed || parsed.kind !== 'func') {
+      const refString = typeof ref === 'string' ? ref : '';
+      const lookup = resolveAndParse(refString, params.getBindingContext());
+      if (!lookup.ok) {
+        logger.warn('[pseudo-ui] requestData: URN could not be resolved/parsed.', {
+          ref,
+          reason: lookup.reason,
+          unresolved: 'unresolved' in lookup ? lookup.unresolved : undefined,
+        });
+        params.verboseLog?.('warn', 'requestData: URN unresolvable', undefined, { ref, lookup });
+        return undefined;
+      }
+      const parsed = lookup.parsed;
+      if (parsed.kind !== 'fn') {
         logger.warn('[pseudo-ui] requestData: non-function URN ref — not handled.', { ref });
         params.verboseLog?.('warn', 'requestData: non-function URN', undefined, { ref });
         return undefined;
@@ -145,7 +214,7 @@ export function createQuickRunPseudoDelegate(params: QuickRunDelegateParams): Ps
 
       // The SDK already resolved every `$form.x` / `$instance.x` /
       // `$param.x` filter expression into a flat string map. Forward
-      // those to the engine via `executeFunction` as the query.
+      // those to the engine via `executeFunction`.
       const fnParams: Record<string, string> = {};
       if (reqParams) {
         for (const [k, v] of Object.entries(reqParams)) {
@@ -154,29 +223,48 @@ export function createQuickRunPseudoDelegate(params: QuickRunDelegateParams): Ps
       }
 
       params.verboseLog?.('info', 'requestData → executeFunction', undefined, {
-        urn: ref,
+        urn: lookup.resolved,
         urnDomain: parsed.domain,
         function: parsed.function,
+        command: parsed.command,
         params: fnParams,
       });
 
-      const result = await QuickRunApi.executeFunction({
-        domain: params.domain,
-        workflowKey: params.workflowKey,
-        instanceId: params.instanceId,
-        functionUrn: typeof ref === 'string' ? ref : '',
-        params: Object.keys(fnParams).length > 0 ? fnParams : undefined,
-        headers: params.getSessionHeaders(),
-        runtimeUrl,
-      });
+      // Wrap in try/catch so a transport / serialization throw
+      // can't escape into the SDK's LOV loader (which is invoked
+      // from React render). The SDK already treats `undefined` as
+      // "no data" and renders an empty Dropdown — that's the desired
+      // fallback for any business / runtime error.
+      let result: Awaited<ReturnType<typeof QuickRunApi.executeFunction>>;
+      try {
+        result = await QuickRunApi.executeFunction({
+          domain: params.domain,
+          workflowKey: params.workflowKey,
+          instanceId: params.instanceId,
+          functionUrn: lookup.resolved,
+          method: parsed.command,
+          params: Object.keys(fnParams).length > 0 ? fnParams : undefined,
+          headers: params.getSessionHeaders(),
+          runtimeUrl,
+        });
+      } catch (err) {
+        logger.error('[pseudo-ui] requestData threw', {
+          timestamp: new Date().toISOString(),
+          urn: lookup.resolved,
+          error: err instanceof Error ? err.message : String(err),
+        });
+        params.verboseLog?.('error', 'requestData threw', err, { urn: lookup.resolved });
+        return undefined;
+      }
       if (!result.success) {
         logger.error('[pseudo-ui] requestData engine error', {
-          urn: ref,
+          timestamp: new Date().toISOString(),
+          urn: lookup.resolved,
           error: result.error.message,
         });
-        params.verboseLog?.('error', 'requestData engine error', result.error, { urn: ref });
-        // Defensive: surface only via log; SDK will fall back to an
-        // empty LovItem[] / null lookup so the field renders quietly.
+        params.verboseLog?.('error', 'requestData engine error', result.error, {
+          urn: lookup.resolved,
+        });
         return undefined;
       }
       return result.data;
@@ -184,8 +272,9 @@ export function createQuickRunPseudoDelegate(params: QuickRunDelegateParams): Ps
 
     loadComponent: async (ref: string) => {
       // R25.B-4 — When the host supplies `resolveComponent`, route
-      // through it (workspace-aware: parseComponentRef + workspace
-      // file read for both the nested view and its schema). When
+      // through it (workspace-aware: parses the vNext resource URN
+      // and reads both the nested view and its schema from disk).
+      // When
       // omitted (legacy consumers), fall back to an empty Column so
       // the SDK render path doesn't crash on a missing nested view.
       const EMPTY = {
@@ -216,7 +305,44 @@ export function createQuickRunPseudoDelegate(params: QuickRunDelegateParams): Ps
       }
     },
 
-    onAction: async (action, formData, command) => {
+    onAction: async (
+      action,
+      formData,
+      command,
+      // R26 — pre/post hooks: the SDK calls the delegate once per
+      // phase. `context.phase` is one of 'pre' | 'main' | 'post';
+      // legacy callers (no hooks) omit `context` and we treat that as
+      // 'main' for back-compat. The signature is declared optional so
+      // it stays compatible with the SDK's 3-arg interface — TS
+      // tolerates the extra optional positional parameter on the
+      // implementation side.
+      context?: { phase?: 'pre' | 'main' | 'post' },
+    ) => {
+      // TODO(hooks): wire pre to an audit endpoint and post to a
+      // telemetry endpoint once those services land. Today Forge
+      // treats pre/post as a placeholder: the runner just structured-
+      // logs the call (with timestamp, action verb, command URN and
+      // the snapshot of formData at fire time) and returns. View
+      // authors can therefore add hook entries in the editor without
+      // crashing Quick Run, and the SDK keeps its pre → main → post
+      // sequencing intact.
+      if (context?.phase === 'pre' || context?.phase === 'post') {
+        logger.info(`[pseudo-ui] ${context.phase}-hook (placeholder)`, {
+          timestamp: new Date().toISOString(),
+          action,
+          command,
+          phase: context.phase,
+          formData,
+        });
+        params.verboseLog?.(
+          'info',
+          `${context.phase}-hook placeholder`,
+          undefined,
+          { action, command, phase: context.phase },
+        );
+        return;
+      }
+
       // ── Reserved-verb branches (SDK STANDARD_ACTIONS) ─────────────
       // `submit` (canonical) and `transition` (R24 deprecated alias)
       // share the workflow fire path. `reset` notifies the host so
@@ -228,14 +354,30 @@ export function createQuickRunPseudoDelegate(params: QuickRunDelegateParams): Ps
       if (action === 'submit' || action === 'transition') {
         if (action === 'transition') {
           logger.warn(
-            '[pseudo-ui] Deprecated Button.action "transition". Use action="submit" with a transition URN in `command`, or action="dispatch" + urn:amorphie:wf:... See forgeactionmodelintegration.md.',
+            '[pseudo-ui] Deprecated Button.action "transition". Use action="submit" with a transition URN in `command`, or action="dispatch" + urn:vnext:flow:transition:...',
             { command },
           );
           params.verboseLog?.('warn', 'Deprecated action "transition" — use "submit" or "dispatch" with a URN command', undefined, {
             command,
           });
         }
-        await fireTransitionFromCommand(action, command, formData, params, runtimeUrl);
+        // Submit always fires on the current Quick Run instance — the
+        // form's owning view is bound to it. Resolve placeholders so
+        // any embedded `${data.*}` references still substitute even
+        // though the URN itself usually doesn't carry an instance.
+        const submit = resolveAndParse(command, params.getBindingContext());
+        if (submit.ok === false && submit.reason === 'unresolved') {
+          const msg = `Unresolved bindings: ${submit.unresolved?.join(', ') ?? ''}`;
+          logger.error('[pseudo-ui] Submit URN has unresolved placeholders', {
+            timestamp: new Date().toISOString(),
+            command,
+            unresolved: submit.unresolved,
+          });
+          params.onError?.(msg);
+          return;
+        }
+        const resolvedCommand = submit.ok ? submit.resolved : command;
+        await fireTransitionFromCommand(action, resolvedCommand, formData, params, runtimeUrl);
         return;
       }
 
@@ -257,71 +399,170 @@ export function createQuickRunPseudoDelegate(params: QuickRunDelegateParams): Ps
 
       // ── Domain dispatch (`action: 'dispatch'`) ────────────────────
       // The action verb is opaque to the SDK; the URN in `command`
-      // decides where the request goes. We parse and route:
-      //   wf-transition / legacy-transition → workflow fire path
-      //   func (same-domain only)           → executeFunction (R25.B-1+)
-      //   nav                               → no-op (no router yet)
-      //   tenant / unknown                  → no-op + warn
+      // decides where the request goes. We resolve `${param}`
+      // placeholders, parse, and route:
+      //   flow-start                        → startInstance
+      //   flow-transition                   → fireTransition (with optional
+      //                                       URN-carried instance)
+      //   fn (same-domain only)             → executeFunction (with verb)
+      //   raw                               → treated as a transition key
+      //   unknown                           → no-op + warn
       if (action === 'dispatch') {
-        const parsed = parseAmorphieUrn(command);
-        if (!parsed) {
-          const msg = 'Missing or empty command for dispatch';
+        const lookup = resolveAndParse(command, params.getBindingContext());
+        if (!lookup.ok) {
+          let msg = 'Missing or empty command for dispatch';
+          if (lookup.reason === 'unresolved') {
+            msg = `Unresolved bindings: ${lookup.unresolved?.join(', ') ?? ''}`;
+          } else if (lookup.reason === 'unparseable') {
+            msg = 'Dispatch command could not be parsed';
+          }
+          logger.error('[pseudo-ui] Dispatch resolve/parse failed', {
+            timestamp: new Date().toISOString(),
+            command,
+            reason: lookup.reason,
+            unresolved: 'unresolved' in lookup ? lookup.unresolved : undefined,
+          });
           params.onError?.(msg);
-          throw new Error(msg);
+          return;
         }
+        const parsed = lookup.parsed;
         params.verboseLog?.('info', 'Dispatch action received', undefined, {
           action,
           command,
+          resolvedCommand: lookup.resolved,
           urnKind: parsed.kind,
           formData,
         });
 
-        if (parsed.kind === 'wf-transition' || parsed.kind === 'legacy-transition' || parsed.kind === 'raw') {
-          await fireTransitionFromCommand(action, command, formData, params, runtimeUrl);
+        if (parsed.kind === 'flow-start') {
+          if (parsed.domain !== params.domain) {
+            logger.warn('[pseudo-ui] flow-start: cross-domain URN — not handled.', {
+              urn: lookup.resolved,
+              currentDomain: params.domain,
+              urnDomain: parsed.domain,
+            });
+            params.verboseLog?.('warn', 'flow-start cross-domain', undefined, {
+              urn: lookup.resolved,
+            });
+            return;
+          }
+          // Forward the form payload as initial attributes for the
+          // new instance — same contract as the manual "+ New Run"
+          // dialog. The host's onTransitionComplete refresh will
+          // pick up the new instance through normal polling.
+          let result: Awaited<ReturnType<typeof QuickRunApi.startInstance>>;
+          try {
+            result = await QuickRunApi.startInstance({
+              domain: parsed.domain,
+              workflowKey: parsed.flow,
+              attributes: formData,
+              headers: params.getSessionHeaders(),
+              runtimeUrl,
+            });
+          } catch (err) {
+            const message = err instanceof Error ? err.message : 'Flow start failed';
+            logger.error('[pseudo-ui] flow-start threw', {
+              timestamp: new Date().toISOString(),
+              urn: lookup.resolved,
+              error: message,
+            });
+            params.verboseLog?.('error', 'flow-start threw', err, { urn: lookup.resolved });
+            params.onError?.(message);
+            return;
+          }
+          if (!result.success) {
+            logger.error('[pseudo-ui] flow-start engine error', {
+              timestamp: new Date().toISOString(),
+              urn: lookup.resolved,
+              error: result.error.message,
+            });
+            params.onError?.(result.error.message);
+            return;
+          }
+          params.verboseLog?.('info', 'flow-start ok', undefined, {
+            urn: lookup.resolved,
+            instanceId: result.data.id,
+          });
+          await params.onTransitionComplete?.();
           return;
         }
 
-        if (parsed.kind === 'func') {
+        if (parsed.kind === 'flow-transition' || parsed.kind === 'raw') {
+          // `raw` keeps the legacy "bare transition key" authoring
+          // path alive; `flow-transition` is the canonical vNext
+          // form. Both flow through fireTransitionFromCommand which
+          // already runs resolveTransitionKey.
+          const overrideInstance =
+            parsed.kind === 'flow-transition' ? parsed.instance : undefined;
+          await fireTransitionFromCommand(
+            action,
+            lookup.resolved,
+            formData,
+            params,
+            runtimeUrl,
+            overrideInstance,
+          );
+          return;
+        }
+
+        if (parsed.kind === 'fn') {
           if (parsed.domain !== params.domain) {
             logger.warn('[pseudo-ui] Function URN domain mismatch — not handled.', {
-              urn: command,
+              urn: lookup.resolved,
               currentDomain: params.domain,
               urnDomain: parsed.domain,
             });
             params.verboseLog?.('warn', 'Function URN cross-domain — not handled', undefined, {
-              urn: command,
+              urn: lookup.resolved,
               currentDomain: params.domain,
               urnDomain: parsed.domain,
             });
             return;
           }
-          // Forward formData to the engine as the query string —
-          // descriptor-style dispatches use the same payload contract
-          // as LOV / lookup requestData calls.
+          // Forward formData to the engine — descriptor-style
+          // dispatches share the LOV/lookup payload contract. The
+          // services-core dispatcher decides query-string vs JSON
+          // body based on the HTTP verb.
           const fnParams: Record<string, string> = {};
           for (const [k, v] of Object.entries(formData ?? {})) {
             if (typeof v === 'string') fnParams[k] = v;
             else if (v != null) fnParams[k] = JSON.stringify(v);
           }
-          const result = await QuickRunApi.executeFunction({
-            domain: params.domain,
-            workflowKey: params.workflowKey,
-            instanceId: params.instanceId,
-            functionUrn: command!,
-            params: Object.keys(fnParams).length > 0 ? fnParams : undefined,
-            headers: params.getSessionHeaders(),
-            runtimeUrl,
-          });
+          let result: Awaited<ReturnType<typeof QuickRunApi.executeFunction>>;
+          try {
+            result = await QuickRunApi.executeFunction({
+              domain: params.domain,
+              workflowKey: params.workflowKey,
+              instanceId: params.instanceId,
+              functionUrn: lookup.resolved,
+              method: parsed.command,
+              params: Object.keys(fnParams).length > 0 ? fnParams : undefined,
+              headers: params.getSessionHeaders(),
+              runtimeUrl,
+            });
+          } catch (err) {
+            const message = err instanceof Error ? err.message : 'Function dispatch failed';
+            logger.error('[pseudo-ui] Function dispatch threw', {
+              timestamp: new Date().toISOString(),
+              urn: lookup.resolved,
+              error: message,
+            });
+            params.verboseLog?.('error', 'Function dispatch threw', err, { urn: lookup.resolved });
+            params.onError?.(message);
+            return;
+          }
           if (!result.success) {
-            params.onError?.(result.error.message);
             logger.error('[pseudo-ui] Function dispatch engine error', {
-              urn: command,
+              timestamp: new Date().toISOString(),
+              urn: lookup.resolved,
               error: result.error.message,
             });
-            throw new Error(result.error.message);
+            params.onError?.(result.error.message);
+            return;
           }
           params.verboseLog?.('info', 'Function dispatch ok', undefined, {
-            urn: command,
+            urn: lookup.resolved,
+            command: parsed.command,
             result: result.data,
           });
           // Trigger the same post-action refresh as a transition so
@@ -330,12 +571,12 @@ export function createQuickRunPseudoDelegate(params: QuickRunDelegateParams): Ps
           return;
         }
 
-        // nav / tenant / unknown
+        // unknown
         logger.warn(`[pseudo-ui] Dispatch URN kind "${parsed.kind}" — no Forge handler.`, {
-          urn: command,
+          urn: lookup.resolved,
         });
         params.verboseLog?.('warn', `Dispatch URN kind "${parsed.kind}" — no Forge handler`, undefined, {
-          urn: command,
+          urn: lookup.resolved,
         });
         return;
       }
@@ -344,10 +585,17 @@ export function createQuickRunPseudoDelegate(params: QuickRunDelegateParams): Ps
       // Try treating it as a fire (same path as submit) if a parseable
       // transition URN is present; otherwise warn-and-bail so the
       // host can later wire its own handler.
-      const parsed = parseAmorphieUrn(command);
-      if (parsed?.kind === 'wf-transition' || parsed?.kind === 'legacy-transition') {
+      const lookup = resolveAndParse(command, params.getBindingContext());
+      if (lookup.ok && lookup.parsed.kind === 'flow-transition') {
         logger.info(`[pseudo-ui] Unknown verb "${action}" with transition URN — firing transition.`, { command });
-        await fireTransitionFromCommand(action, command, formData, params, runtimeUrl);
+        await fireTransitionFromCommand(
+          action,
+          lookup.resolved,
+          formData,
+          params,
+          runtimeUrl,
+          lookup.parsed.instance,
+        );
         return;
       }
 

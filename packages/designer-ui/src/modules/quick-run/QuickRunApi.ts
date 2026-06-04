@@ -220,9 +220,27 @@ export interface ExecuteFunctionParams {
   domain: string;
   workflowKey: string;
   instanceId: string;
-  /** Full Amorphie function URN: `urn:amorphie:func:<domain>:<key>`. */
+  /**
+   * Full vNext function URN. Two scopes are supported (the dispatcher
+   * picks the engine endpoint by segment count):
+   *
+   *   urn:vnext:fn[:<verb>]:<domain>:<function>
+   *   urn:vnext:fn[:<verb>]:<domain>:<flow>:<instance>:<function>
+   *
+   * `verb` defaults to `get`. The 4 segments form is required when
+   * the function should be invoked under a specific workflow instance.
+   */
   functionUrn: string;
-  /** SDK-resolved filter / descriptor params, sent as query string. */
+  /**
+   * HTTP verb override. When omitted the server falls back to the
+   * verb embedded in the URN (and ultimately `get` if the URN was
+   * authored without one).
+   */
+  method?: 'get' | 'post' | 'patch' | 'delete';
+  /**
+   * SDK-resolved filter / descriptor params. Sent as the query string
+   * for GET/DELETE and as the JSON body for POST/PATCH.
+   */
   params?: Record<string, string>;
   headers?: Record<string, string>;
   runtimeUrl?: string;

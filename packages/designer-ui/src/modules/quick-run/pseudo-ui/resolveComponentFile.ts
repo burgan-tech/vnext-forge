@@ -2,8 +2,7 @@ import type { DataSchema, ViewDefinition } from '@burgan-tech/pseudo-ui';
 
 import { discoverVnextComponentsByCategory } from '../../vnext-workspace/vnextComponentDiscovery';
 import * as WorkspaceApi from '../../project-workspace/WorkspaceApi';
-import { parseComponentRef, type ComponentRef } from './parseComponentRef';
-import { parseDataSchemaRef } from './parseDataSchemaRef';
+import { parseVnextResUrn, type VnextResRef } from './parseVnextResUrn';
 
 /**
  * Locate a workspace view-component file by ref, read its
@@ -55,8 +54,10 @@ interface SchemaComponentFile {
 export async function resolveComponentFile(
   params: ResolveComponentFileParams,
 ): Promise<ResolvedComponentFile | null> {
-  const parsed = parseComponentRef(params.ref);
-  if (!parsed) return null;
+  const parsed = parseVnextResUrn(params.ref);
+  // Nested `Component` nodes target view resources only — refuse any
+  // other res-key (a schema or function URN here is an authoring bug).
+  if (!parsed || parsed.resKey !== 'view') return null;
 
   const viewFile = await findAndReadView(params.projectId, parsed);
   if (!viewFile) return null;
@@ -71,7 +72,7 @@ export async function resolveComponentFile(
 
 async function findAndReadView(
   projectId: string,
-  ref: ComponentRef,
+  ref: VnextResRef,
 ): Promise<ViewComponentFile | null> {
   const components = await discoverVnextComponentsByCategory(projectId, 'views');
   // Match by key first. If the ref carries a `domain`, we'd ideally
@@ -103,8 +104,8 @@ async function loadSchemaForComponent(
 ): Promise<DataSchema> {
   const EMPTY: DataSchema = {} as DataSchema;
   if (!schemaUrn) return EMPTY;
-  const schemaRef = parseDataSchemaRef(schemaUrn);
-  if (!schemaRef) return EMPTY;
+  const schemaRef = parseVnextResUrn(schemaUrn);
+  if (!schemaRef || schemaRef.resKey !== 'schema') return EMPTY;
   try {
     const components = await discoverVnextComponentsByCategory(projectId, 'schemas');
     const candidate = components.find((c) => c.key === schemaRef.key);

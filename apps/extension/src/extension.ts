@@ -198,6 +198,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     services.cliService
       ? (params) => services.cliService!.domainAdd(params)
       : undefined,
+    detector,
+    // Read the workspace domain from `vnext.config.json` through the
+    // shared services-core accessor so this stays in sync with every
+    // other consumer (LSP, template scaffolding, runtime proxy, etc).
+    async (root) => {
+      const config = await services.workspaceService.getConfig(root.folderPath);
+      return config.domain ?? '';
+    },
   );
   const packageDeployProvider = new PackageDeployProvider(detector, forgeTerminal);
   const quickRunProvider = new QuickRunProvider();

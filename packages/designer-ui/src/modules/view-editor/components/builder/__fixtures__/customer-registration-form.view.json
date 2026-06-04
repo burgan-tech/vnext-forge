@@ -1,6 +1,6 @@
 {
   "$schema": "https://amorphie.io/meta/view-vocabulary/1.0",
-  "dataSchema": "urn:amorphie:res:schema:customer:registration-form",
+  "dataSchema": "urn:vnext:res:schema:customer:registration-form",
   "view": {
     "type": "ScrollView",
     "children": [

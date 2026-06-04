@@ -2,7 +2,7 @@ import type { DataSchema } from '@burgan-tech/pseudo-ui';
 
 import * as QuickRunApi from '../QuickRunApi';
 import { extractSchemaFromGetDataResult } from './extractSchemaFromGetDataResult';
-import { parseDataSchemaRef } from './parseDataSchemaRef';
+import { parseVnextResUrn, RES_KEY_TO_FLOW } from './parseVnextResUrn';
 
 export type SchemaResolver = (dataSchemaRef: string) => Promise<DataSchema | null>;
 
@@ -13,12 +13,16 @@ export function createDataSchemaResolver(params: {
 }): SchemaResolver {
   return async (dataSchemaRef: string): Promise<DataSchema | null> => {
     try {
-      const parsed = parseDataSchemaRef(dataSchemaRef);
-      if (!parsed) return null;
+      // Schema-specific resolver: gate on res-key so a stray view /
+      // function URN doesn't accidentally hit sys-schemas. Once a
+      // generic resource resolver lands this branch becomes a
+      // `RES_KEY_TO_FLOW[parsed.resKey]` lookup.
+      const parsed = parseVnextResUrn(dataSchemaRef);
+      if (!parsed || parsed.resKey !== 'schema') return null;
 
       const result = await QuickRunApi.getData({
         domain: params.domain,
-        workflowKey: 'sys-schemas',
+        workflowKey: RES_KEY_TO_FLOW.schema,
         instanceId: parsed.key,
         headers: params.headers,
         runtimeUrl: params.runtimeUrl,

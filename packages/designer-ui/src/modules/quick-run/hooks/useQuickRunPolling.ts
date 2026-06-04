@@ -37,6 +37,7 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
         updateInstanceStatus,
         setPollingInstanceId,
         setStateView,
+        setStateViewLoading,
         setStateViewError,
       } = store.getState();
 
@@ -44,6 +45,13 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
       setActiveStateLoading(true);
       setStateView(null);
       setStateViewError(false);
+      // Show the View panel skeleton from the moment we kick off the
+      // state poll — earlier this flag was only flipped on once
+      // `fetchStateView` itself started, so users saw nothing during
+      // the (potentially long) `getState` round-trip. The flag is
+      // cleared on every terminal path below: poll failure, poll
+      // success with no view, abort, and inside `fetchStateView`.
+      setStateViewLoading(true);
 
       for (let attempt = 0; attempt < config.retryCount; attempt++) {
         if (controller.signal.aborted) break;
@@ -53,6 +61,7 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
           response = await QuickRunApi.getState(params);
         } catch {
           setActiveStateLoading(false);
+          setStateViewLoading(false);
           setPollingInstanceId(null);
           return null;
         }
@@ -74,7 +83,13 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
             setPollingInstanceId(null);
 
             if (stateData.view?.hasView && (stateData.status === 'A' || stateData.status === 'C')) {
+              // fetchStateView keeps the loading flag on until its
+              // own response resolves.
               void fetchStateView(params, controller.signal);
+            } else {
+              // Terminal state with no view to fetch — drop the
+              // loading flag now so the panel collapses cleanly.
+              setStateViewLoading(false);
             }
 
             return stateData;
@@ -85,12 +100,14 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
           }
         } else {
           setActiveStateLoading(false);
+          setStateViewLoading(false);
           setPollingInstanceId(null);
           return null;
         }
       }
 
       setActiveStateLoading(false);
+      setStateViewLoading(false);
       setPollingInstanceId(null);
       return store.getState().activeState;
     },
@@ -118,21 +135,29 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
         setActiveStateLoading,
         updateInstanceState,
         setStateView,
+        setStateViewLoading,
         setStateViewError,
       } = store.getState();
 
       setActiveStateLoading(true);
       setStateView(null);
       setStateViewError(false);
+      // Same rationale as in `pollState` above: show the View panel
+      // skeleton up front and clear the flag on every terminal path.
+      setStateViewLoading(true);
 
       let response;
       try {
         response = await QuickRunApi.getState(params);
       } catch {
         setActiveStateLoading(false);
+        setStateViewLoading(false);
         return null;
       }
-      if (controller.signal.aborted) return null;
+      if (controller.signal.aborted) {
+        setStateViewLoading(false);
+        return null;
+      }
 
       if (response.success) {
         const stateData = response.data;
@@ -141,12 +166,18 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
         setActiveStateLoading(false);
 
         if (stateData.view?.hasView && (stateData.status === 'A' || stateData.status === 'C')) {
+          // fetchStateView owns the loading flag from here on.
           void fetchStateView(params, controller.signal);
+        } else {
+          // No view payload to fetch — drop the loading flag now so
+          // the panel collapses without flashing a skeleton forever.
+          setStateViewLoading(false);
         }
         return stateData;
       }
 
       setActiveStateLoading(false);
+      setStateViewLoading(false);
       return null;
     },
     [],

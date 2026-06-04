@@ -17,7 +17,12 @@
 import { discoverVnextComponentsByCategory } from '../../../../vnext-workspace/vnextComponentDiscovery';
 import * as WorkspaceApi from '../../../../project-workspace/WorkspaceApi';
 
-export type DomainActionGroup = 'workflow' | 'function' | 'navigation' | 'custom';
+export type DomainActionGroup =
+  | 'workflow'
+  | 'workflow-start'
+  | 'function'
+  | 'navigation'
+  | 'custom';
 
 export interface DomainActionEntry {
   /** URN passed to delegate.onAction as `command`. */
@@ -32,7 +37,12 @@ export interface DomainActionEntry {
 }
 
 export interface ForgeUrnCatalog {
+  /** Transition URNs in current-instance form
+   *  (`urn:vnext:flow:transition:<domain>:<flow>:<state>`). */
   workflows: DomainActionEntry[];
+  /** Flow-start URNs (`urn:vnext:flow:start:<domain>:<flow>`). One
+   *  entry per workflow discovered in the project. */
+  workflowStarts: DomainActionEntry[];
   functions: DomainActionEntry[];
   /** Reserved for R29+ (navigation has no Quick Runner runtime today). */
   navigation: DomainActionEntry[];
@@ -42,6 +52,7 @@ export interface ForgeUrnCatalog {
 
 export const EMPTY_URN_CATALOG: ForgeUrnCatalog = {
   workflows: [],
+  workflowStarts: [],
   functions: [],
   navigation: [],
   custom: [],
@@ -76,11 +87,11 @@ interface FunctionFile {
  * malformed file shouldn't kill the whole picker.
  */
 export async function buildForgeUrnCatalog(projectId: string): Promise<ForgeUrnCatalog> {
-  const [workflows, functions] = await Promise.all([
-    collectWorkflowTransitions(projectId).catch((err) => {
+  const [workflowEntries, functions] = await Promise.all([
+    collectWorkflowEntries(projectId).catch((err) => {
       // eslint-disable-next-line no-console -- catalog construction is non-fatal
       console.warn('[forgeUrnCatalog] workflow discovery failed', err);
-      return [];
+      return { transitions: [], starts: [] };
     }),
     collectFunctionEntries(projectId).catch((err) => {
       // eslint-disable-next-line no-console
@@ -90,16 +101,20 @@ export async function buildForgeUrnCatalog(projectId: string): Promise<ForgeUrnC
   ]);
 
   return {
-    workflows,
+    workflows: workflowEntries.transitions,
+    workflowStarts: workflowEntries.starts,
     functions,
     navigation: [],
     custom: [],
   };
 }
 
-async function collectWorkflowTransitions(projectId: string): Promise<DomainActionEntry[]> {
+async function collectWorkflowEntries(
+  projectId: string,
+): Promise<{ transitions: DomainActionEntry[]; starts: DomainActionEntry[] }> {
   const components = await discoverVnextComponentsByCategory(projectId, 'workflows');
-  const entries: DomainActionEntry[] = [];
+  const transitions: DomainActionEntry[] = [];
+  const starts: DomainActionEntry[] = [];
 
   // Read in parallel for responsiveness on larger projects.
   const files = await Promise.all(
@@ -118,12 +133,24 @@ async function collectWorkflowTransitions(projectId: string): Promise<DomainActi
     if (!file) continue;
     const { discovered, parsed } = file;
     const flow = parsed.key ?? discovered.key;
-    if (!flow) continue;
+    const domain = parsed.domain;
+    if (!flow || !domain) continue;
 
+    // Flow start — one entry per workflow.
+    starts.push({
+      urn: `urn:vnext:flow:start:${domain}:${flow}`,
+      label: `start: ${flow}`,
+      description: `domain: ${domain}`,
+      // Start usually wants the form payload validated before firing.
+      defaultValidate: true,
+      group: 'workflow-start',
+    });
+
+    // Transitions — current-instance form (no instance segment).
     const transitionKeys = collectTransitionKeys(parsed.attributes);
     for (const tx of transitionKeys) {
-      const urn = `urn:amorphie:wf:${flow}:transition:${tx.key}`;
-      entries.push({
+      const urn = `urn:vnext:flow:transition:${domain}:${flow}:${tx.key}`;
+      transitions.push({
         urn,
         label: `${flow} → ${tx.key}`,
         description: tx.label && tx.label !== tx.key ? tx.label : undefined,
@@ -135,7 +162,7 @@ async function collectWorkflowTransitions(projectId: string): Promise<DomainActi
     }
   }
 
-  return entries;
+  return { transitions, starts };
 }
 
 function collectTransitionKeys(
@@ -200,7 +227,10 @@ async function collectFunctionEntries(projectId: string): Promise<DomainActionEn
     const key = parsed.key ?? discovered.key;
     if (!domain || !key) continue;
 
-    const urn = `urn:amorphie:func:${domain}:${key}`;
+    // Default-verb domain-scoped form. Picker UI offers a verb
+    // override (GET/POST/PATCH/DELETE); selection mutates the
+    // emitted URN to `urn:vnext:fn:<verb>:<domain>:<key>`.
+    const urn = `urn:vnext:fn:${domain}:${key}`;
     entries.push({
       urn,
       label: key,

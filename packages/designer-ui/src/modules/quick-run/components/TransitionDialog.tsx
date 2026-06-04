@@ -124,6 +124,17 @@ export function TransitionDialog({ configRef, persistConfig, projectId }: Transi
       // merged map to the SDK so a submit-from-preview inside the
       // dialog sees the row edits the user just typed.
       getSessionHeaders: () => sessionHeadersRef.current,
+      // Binding context for `${param}` placeholders. Same source as
+      // the dashboard's delegate — both read the live Data tab
+      // snapshot so a transition fired through the dialog sees the
+      // same instance.data + extensions an author would inspect.
+      getBindingContext: () => {
+        const snap = useQuickRunStore.getState();
+        return {
+          data: snap.activeData?.data ?? null,
+          extensions: snap.activeData?.extensions ?? null,
+        };
+      },
       persistBucketConfig: persistConfig,
       onTransitionComplete: async () => {
         await pollState({

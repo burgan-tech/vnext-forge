@@ -24,7 +24,7 @@ import { ViewTypePicker } from './components/ViewTypePicker';
 import { HrefUrnField } from './components/HrefUrnField';
 import { PseudoUiBuilder } from './components/builder/PseudoUiBuilder';
 import { buildSchemaLoader, type SchemaLoader } from './components/builder/utils/buildSchemaLoader';
-import { buildSchemaUrn } from './components/builder/utils/buildSchemaUrn';
+import { buildVnextResUrnFromComponent } from './components/builder/utils/buildVnextResUrn';
 import { discoverVnextComponentsByCategory } from '../vnext-workspace/vnextComponentDiscovery';
 import { useProjectStore } from '../../store/useProjectStore';
 import type { DiscoveredVnextComponent } from '@vnext-forge-studio/app-contracts';
@@ -215,7 +215,7 @@ export function ViewEditorPanel({ json, onChange }: ViewEditorPanelProps) {
 
   const availableSchemas = useMemo(() => {
     return discoveredSchemas.map((c) => ({
-      urn: buildSchemaUrn(c, activeProjectPath),
+      urn: buildVnextResUrnFromComponent('schema', c, activeProjectPath),
       label: c.version ? `${c.key} (v${c.version})` : c.key,
     }));
   }, [discoveredSchemas, activeProjectPath]);

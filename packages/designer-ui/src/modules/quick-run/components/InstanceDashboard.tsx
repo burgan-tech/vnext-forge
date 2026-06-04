@@ -896,6 +896,18 @@ function StateViewContent({
       // edits; only identity inputs (domain/workflow/instance) bust it.
       getBucketConfig: () => configRef.current ?? null,
       getSessionHeaders: () => sessionHeadersRef.current,
+      // `${param}` binding resolver reads from the same store
+      // snapshot the Data tab renders, so authors can reference
+      // `${customer.ownerUserId}` or `${session.id}` inside URNs and
+      // get them substituted at dispatch time without any extra
+      // wiring.
+      getBindingContext: () => {
+        const snap = useQuickRunStore.getState();
+        return {
+          data: snap.activeData?.data ?? null,
+          extensions: snap.activeData?.extensions ?? null,
+        };
+      },
       persistBucketConfig: persistConfig,
       onTransitionComplete: async () => {
         await pollState({

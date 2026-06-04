@@ -23,9 +23,13 @@ import type { SchemaResolver } from './createDataSchemaResolver';
 import { normalizePseudoUiPayload } from './normalizePseudoUiPayload';
 import { PseudoUiErrorBoundary, type PseudoUiErrorAction } from './PseudoUiErrorBoundary';
 import { PseudoUiPseudoViewFrame } from './PseudoUiPseudoViewFrame';
+import { CopyableJsonBlock } from '../components/CopyableJsonBlock';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { FireTransitionError } from './FireTransitionError';
 import type { ParsedValidationFailure } from './parseValidationFailure';
+import { createLogger } from '../../../lib/logger/createLogger';
+
+const surfaceLogger = createLogger('pseudo-ui-surface');
 
 const noopDelegate: PseudoViewDelegate = {
   requestData: () => Promise.resolve(undefined),
@@ -358,7 +362,15 @@ export function PseudoUiViewSurface({
     .filter(Boolean)
     .join(' ');
 
-  if (loading || schemaResolving || schemaNotReady) {
+  // R26 — View Designer (mode === 'preview') NEVER renders the
+  // loading skeleton. Authors need the canvas visible at all times,
+  // even while the workspace schema loader is in flight or returns
+  // null (broken / missing URN). Quick Runner (mode === 'simulation')
+  // keeps the skeleton because it's a meaningful "waiting on engine"
+  // signal there.
+  const showLoadingSkeleton =
+    mode !== 'preview' && (loading || schemaResolving || schemaNotReady);
+  if (showLoadingSkeleton) {
     return (
       <div role="region" aria-label={ariaLabel} className={hostClassName} data-pseudo-ui-root="">
         <LoadingSkeleton />
@@ -403,7 +415,56 @@ export function PseudoUiViewSurface({
     <PseudoUiErrorBoundary
       resetKey={boundaryReset}
       actions={errorActions}
-      onError={(err) => onError?.(err.message)}
+      onError={(err, info) => {
+        surfaceLogger.error('[pseudo-ui] Render crashed — falling back to JSON view', {
+          timestamp: new Date().toISOString(),
+          message: err.message,
+          nodeType: info.nodeType,
+          componentStack: info.componentStack,
+        });
+        onError?.(err.message);
+      }}
+      renderFallback={(err, info) => (
+        <div className="flex flex-col gap-2">
+          <div
+            role="alert"
+            className="rounded border border-[var(--vscode-inputValidation-errorBorder)] bg-[var(--vscode-inputValidation-errorBackground)] px-2 py-2 text-[11px] text-[var(--vscode-errorForeground)]"
+          >
+            <p className="mb-1 font-medium">
+              {info.nodeType
+                ? `The "${info.nodeType}" component could not be rendered`
+                : 'This view could not be rendered as pseudo-ui'}
+            </p>
+            <p className="text-[var(--vscode-foreground)]">
+              {err.message || 'An unexpected error occurred while rendering the view.'}
+            </p>
+            <p className="mt-1 text-[10px] text-[var(--vscode-descriptionForeground)]">
+              Showing the raw view JSON instead so you can keep working. Click Retry
+              after editing the view definition.
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                className="rounded border border-[var(--vscode-panel-border)] bg-[var(--vscode-button-secondaryBackground)] px-2 py-1 text-[10px] text-[var(--vscode-button-secondaryForeground)] hover:bg-[var(--vscode-list-hoverBackground)] focus-visible:outline focus-visible:outline-[var(--vscode-focusBorder)]"
+                onClick={info.reset}
+              >
+                Retry
+              </button>
+              {errorActions?.map((action) => (
+                <button
+                  key={action.label}
+                  type="button"
+                  className="rounded border border-[var(--vscode-panel-border)] bg-[var(--vscode-button-secondaryBackground)] px-2 py-1 text-[10px] text-[var(--vscode-button-secondaryForeground)] hover:bg-[var(--vscode-list-hoverBackground)] focus-visible:outline focus-visible:outline-[var(--vscode-focusBorder)]"
+                  onClick={action.onTrigger}
+                >
+                  {action.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <CopyableJsonBlock value={viewResponse.content} fillHeight={fillHeight} />
+        </div>
+      )}
     >
       <PseudoUiPseudoViewFrame
         schema={schema}

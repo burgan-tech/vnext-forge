@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { ListChecks, SquareFunction } from 'lucide-react';
 import { Button } from '../../../ui/Button';
+import { Checkbox } from '../../../ui/Checkbox';
 import type { ScriptCode } from '../../save-component/components/CsxEditorField';
 import { FunctionSingleTaskSection } from './FunctionSingleTaskSection';
 import { FunctionMultipleTasksSection } from './FunctionMultipleTasksSection';
@@ -32,6 +33,26 @@ export function FunctionTaskModeSection({
   const mode = useMemo(() => deriveMode(json), [json]);
   const attrs = (json.attributes ?? {}) as Record<string, unknown>;
   const functionKey = typeof json.key === 'string' ? json.key : 'function';
+  // `attributes.rawResponse` is a boolean toggle (default false). When
+  // true the runtime returns the task's raw response body instead of
+  // wrapping it in the standard envelope — useful when the function is
+  // a thin proxy to a downstream service whose payload should pass
+  // through unchanged.
+  const rawResponseEnabled = attrs.rawResponse === true;
+
+  function setRawResponse(next: boolean): void {
+    onChange((draft) => {
+      const a = (draft.attributes ?? {}) as Record<string, unknown>;
+      if (next) {
+        a.rawResponse = true;
+      } else {
+        // Drop the field entirely when it matches the schema default
+        // so we don't bloat the JSON with `"rawResponse": false`.
+        delete a.rawResponse;
+      }
+      draft.attributes = a;
+    });
+  }
 
   function switchToSingle() {
     onChange((draft) => {
@@ -86,6 +107,24 @@ export function FunctionTaskModeSection({
           Multiple Tasks
         </Button>
       </div>
+
+      <label
+        htmlFor="function-attr-rawResponse"
+        className="flex w-fit items-start gap-2 rounded border border-border bg-secondary/40 px-2 py-1.5 hover:bg-secondary/60"
+        title="When enabled, the runtime returns the task's raw response body to the caller instead of wrapping it in the standard envelope.">
+        <Checkbox
+          id="function-attr-rawResponse"
+          checked={rawResponseEnabled}
+          onCheckedChange={(value) => setRawResponse(value === true)}
+          className="mt-0.5"
+        />
+        <div className="flex flex-col">
+          <span className="text-xs font-medium">Raw response</span>
+          <span className="text-[10px] text-muted-foreground">
+            Pass the underlying task response through unchanged (default: off).
+          </span>
+        </div>
+      </label>
 
       {mode === 'single' && (
         <FunctionSingleTaskSection

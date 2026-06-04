@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import { resolveTransitionKey } from './resolveTransitionKey';
 
-describe('resolveTransitionKey (R24)', () => {
+describe('resolveTransitionKey (R26 — vNext URNs)', () => {
   it('returns null for empty / undefined / non-string input', () => {
     expect(resolveTransitionKey(undefined)).toBeNull();
     expect(resolveTransitionKey(null)).toBeNull();
@@ -17,27 +17,21 @@ describe('resolveTransitionKey (R24)', () => {
     expect(resolveTransitionKey('my-transition')).toBe('my-transition');
   });
 
-  it('extracts the final colon segment from a 5-segment Amorphie URN (legacy)', () => {
+  it('extracts state from vNext current-instance transition URN', () => {
     expect(
-      resolveTransitionKey('urn:amorphie:transition:retail:loan:approve'),
-    ).toBe('approve');
+      resolveTransitionKey('urn:vnext:flow:transition:onboarding:kyc-main-flow:approved'),
+    ).toBe('approved');
   });
 
-  it('extracts the final colon segment from a 6-segment Amorphie URN (canonical)', () => {
+  it('extracts state from vNext with-instance transition URN', () => {
     expect(
-      resolveTransitionKey('urn:amorphie:transition:customer:registration:inst-001:submit'),
-    ).toBe('submit');
+      resolveTransitionKey('urn:vnext:flow:transition:onboarding:kyc-main-flow:inst-1:approved'),
+    ).toBe('approved');
   });
 
   it('extracts the final slash segment from an HTTPS URL form', () => {
     expect(
       resolveTransitionKey('https://api.example.com/transitions/loan/approve'),
-    ).toBe('approve');
-  });
-
-  it('extracts the final slash segment from a vnext URN', () => {
-    expect(
-      resolveTransitionKey('urn:vnext:transitions/loan-flow/approve'),
     ).toBe('approve');
   });
 
@@ -53,19 +47,21 @@ describe('resolveTransitionKey (R24)', () => {
     expect(resolveTransitionKey('urn:')).toBe('urn:');
   });
 
-  it('extracts state from canonical urn:amorphie:wf:<flow>:transition:<state> (R25)', () => {
+  it('returns null for vNext function URNs — they are not transitions', () => {
+    expect(resolveTransitionKey('urn:vnext:fn:get:shared:get-cities')).toBeNull();
+    expect(resolveTransitionKey('urn:vnext:fn:onboarding:kyc:inst-1:cust')).toBeNull();
+  });
+
+  it('returns null for vNext flow-start URNs — they are not transitions', () => {
+    expect(resolveTransitionKey('urn:vnext:flow:start:onboarding:kyc-main-flow')).toBeNull();
+  });
+
+  it('legacy urn:amorphie:* falls back to last-segment via the unknown branch', () => {
     expect(
       resolveTransitionKey('urn:amorphie:wf:loan-flow:transition:approve'),
     ).toBe('approve');
-  });
-
-  it('returns null for function URNs — they are not transitions (R25)', () => {
     expect(
-      resolveTransitionKey('urn:amorphie:func:shared:get-cities'),
-    ).toBeNull();
-  });
-
-  it('returns null for navigation URNs — they are not transitions (R25)', () => {
-    expect(resolveTransitionKey('urn:forge:nav:/accounts')).toBeNull();
+      resolveTransitionKey('urn:amorphie:transition:customer:registration:submit'),
+    ).toBe('submit');
   });
 });

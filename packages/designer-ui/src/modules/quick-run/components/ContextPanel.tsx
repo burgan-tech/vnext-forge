@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 
 import * as QuickRunApi from '../QuickRunApi';
 import { useQuickRunStore } from '../store/quickRunStore';
@@ -146,10 +146,34 @@ export function ContextPanel() {
 function DataTabContent({ data, loading }: { data: ReturnType<typeof useQuickRunStore.getState>['activeData']; loading: boolean }) {
   if (loading) return <LoadingPlaceholder />;
   if (!data) return <EmptyState message="No data available" />;
+  // The runtime returns the instance payload under `data.data` and any
+  // requested extensions under `data.extensions`. Show both so users
+  // don't have to flip through DevTools to inspect extension state.
+  const hasExtensions =
+    data.extensions != null &&
+    typeof data.extensions === 'object' &&
+    Object.keys(data.extensions).length > 0;
   return (
-    <div className="flex flex-1 flex-col min-h-0">
-      <CopyableJsonBlock value={data.data} fillHeight />
+    <div className="flex flex-1 flex-col gap-3 min-h-0 overflow-y-auto">
+      <section className={`flex min-h-0 flex-col gap-1 ${hasExtensions ? '' : 'flex-1'}`}>
+        <SectionLabel>Data</SectionLabel>
+        <CopyableJsonBlock value={data.data} fillHeight={!hasExtensions} />
+      </section>
+      {hasExtensions ? (
+        <section className="flex flex-col gap-1">
+          <SectionLabel>Extensions</SectionLabel>
+          <CopyableJsonBlock value={data.extensions} />
+        </section>
+      ) : null}
     </div>
+  );
+}
+
+function SectionLabel({ children }: { children: ReactNode }) {
+  return (
+    <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--vscode-descriptionForeground)]">
+      {children}
+    </span>
   );
 }
 

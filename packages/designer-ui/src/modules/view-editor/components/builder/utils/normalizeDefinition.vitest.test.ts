@@ -44,7 +44,7 @@ describe('parseBuilderDefinition', () => {
 
   it('accepts a real pseudo-ui SDK sample fixture', () => {
     const parsed = parseBuilderDefinition(JSON.stringify(sampleCustomerRegistrationView));
-    expect(parsed.dataSchema).toBe('urn:amorphie:res:schema:customer:registration-form');
+    expect(parsed.dataSchema).toBe('urn:vnext:res:schema:customer:registration-form');
     expect(parsed.view.type).toBe('ScrollView');
   });
 

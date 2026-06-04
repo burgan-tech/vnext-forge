@@ -1,4 +1,10 @@
-export { parseDataSchemaRef, type DataSchemaRef } from './parseDataSchemaRef';
+export {
+  parseVnextResUrn,
+  RES_KEYS,
+  RES_KEY_TO_FLOW,
+  type ResKey,
+  type VnextResRef,
+} from './parseVnextResUrn';
 export { createDataSchemaResolver, type SchemaResolver } from './createDataSchemaResolver';
 export { createQuickRunPseudoDelegate, type QuickRunDelegateParams } from './createQuickRunPseudoDelegate';
 export { normalizePseudoUiPayload, type NormalizedPseudoUi } from './normalizePseudoUiPayload';

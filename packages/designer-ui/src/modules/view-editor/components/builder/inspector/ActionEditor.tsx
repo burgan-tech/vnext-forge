@@ -75,6 +75,19 @@ interface ActionDescriptor {
   bind?: string;
   value?: unknown;
   validate?: boolean;
+  // R26 — SDK-side pre/post action hooks. Each hook is itself a
+  // descriptor that the SDK fires through `delegate.onAction` with
+  // `context.phase = 'pre' | 'post'`. The Forge host treats these as
+  // placeholders today (see createQuickRunPseudoDelegate.ts) but
+  // authoring is fully supported so views can declare them now.
+  preHooks?: ActionDescriptor[];
+  postHooks?: ActionDescriptor[];
+  /**
+   * Hook-only marker; meaningful only inside `preHooks[]` /
+   * `postHooks[]` entries. `sync: true` tells the SDK to await this
+   * hook before moving on to the main / post phase.
+   */
+  sync?: boolean;
 }
 
 type ActionLike = string | ActionDescriptor;
@@ -408,6 +421,244 @@ function SingleActionEditor({
           capability,
         )}
       </p>
+
+      {/* R26 — Pre / Post action hooks. Available for both reserved
+          primitive verbs (submit / reset / select) and descriptor
+          dispatches. When the value is still a bare string verb,
+          adding the first hook promotes it to a descriptor object so
+          the hook arrays have somewhere to live; clearing all hooks
+          on a non-reserved descriptor leaves the descriptor intact
+          (we don't down-grade back to a string to avoid clobbering
+          bind/value/validate that may still be set). */}
+      {verb ? (
+        <>
+          <HookListEditor
+            title="Pre hooks"
+            hooks={isDescriptor(value) ? value.preHooks ?? [] : []}
+            onChange={(next) => writeHooks('preHooks', next, value, verb, onChange)}
+            showSync
+          />
+          <HookListEditor
+            title="Post hooks"
+            hooks={isDescriptor(value) ? value.postHooks ?? [] : []}
+            onChange={(next) => writeHooks('postHooks', next, value, verb, onChange)}
+            showSync={false}
+          />
+        </>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * Write a hook list back to the parent action value. Promotes a bare
+ * verb string into a descriptor object on first hook add so reserved
+ * verbs (submit / reset / …) can carry pre/post arrays. When the
+ * descriptor ends up with no other meaningful fields after a clear,
+ * we collapse it back to a bare string to keep the JSON tidy.
+ */
+function writeHooks(
+  field: 'preHooks' | 'postHooks',
+  next: ActionDescriptor[],
+  current: unknown,
+  verb: string,
+  onChange: (value: unknown) => void,
+): void {
+  const isEmpty = next.length === 0;
+
+  if (isDescriptor(current)) {
+    const updated: ActionDescriptor = {
+      ...current,
+      [field]: isEmpty ? undefined : next,
+    };
+    // If we just cleared hooks and the descriptor carries no other
+    // distinguishing fields, fall back to the bare verb string for a
+    // clean round-trip.
+    const otherFieldsSet =
+      updated.command !== undefined ||
+      updated.bind !== undefined ||
+      updated.value !== undefined ||
+      updated.validate !== undefined ||
+      (updated.preHooks?.length ?? 0) > 0 ||
+      (updated.postHooks?.length ?? 0) > 0;
+    if (!otherFieldsSet) {
+      onChange(updated.action);
+      return;
+    }
+    onChange(updated);
+    return;
+  }
+
+  // String verb path — promote to a descriptor only when we actually
+  // have hooks to attach. Clearing-into-empty stays a string.
+  if (isEmpty) {
+    onChange(typeof current === 'string' ? current : verb);
+    return;
+  }
+  const promoted: ActionDescriptor = { action: verb, [field]: next };
+  onChange(promoted);
+}
+
+// ── Hooks editor (R26 pre/post action hooks) ──────────────────────────
+
+interface HookListEditorProps {
+  title: string;
+  hooks: ActionDescriptor[];
+  onChange: (next: ActionDescriptor[]) => void;
+  /**
+   * Surface the `sync` checkbox per row. Pre hooks honour it; post
+   * hooks are always fire-and-forget per the SDK contract, so
+   * the column is hidden there to avoid authoring confusion.
+   */
+  showSync: boolean;
+}
+
+function HookListEditor({ title, hooks, onChange, showSync }: HookListEditorProps) {
+  const [open, setOpen] = useState(false);
+
+  const add = () => {
+    onChange([...hooks, { action: 'audit', command: '' } as ActionDescriptor]);
+    setOpen(true);
+  };
+
+  const update = (index: number, next: ActionDescriptor) => {
+    const list = hooks.slice();
+    list[index] = next;
+    onChange(list);
+  };
+
+  const remove = (index: number) => {
+    onChange(hooks.filter((_, i) => i !== index));
+  };
+
+  return (
+    <div className="mt-2 rounded border border-primary-border bg-primary/30 p-2">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center justify-between gap-1 text-left"
+        aria-expanded={open}>
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-secondary-text">
+          {title}
+          {hooks.length > 0 ? (
+            <span className="ml-1 text-muted-text font-mono normal-case">({hooks.length})</span>
+          ) : null}
+        </span>
+        <span className="text-[10px] text-muted-text">{open ? '▾' : '▸'}</span>
+      </button>
+      {open ? (
+        <div className="mt-1.5 space-y-1.5">
+          {hooks.length === 0 ? (
+            <p className="text-[10px] italic text-muted-text">
+              No {title.toLowerCase()} configured.
+            </p>
+          ) : (
+            hooks.map((hook, i) => (
+              <HookRow
+                key={i}
+                hook={hook}
+                onChange={(next) => update(i, next)}
+                onRemove={() => remove(i)}
+                showSync={showSync}
+              />
+            ))
+          )}
+          <button
+            type="button"
+            onClick={add}
+            className="inline-flex items-center gap-1 text-[10px] font-semibold text-secondary-icon hover:text-secondary-foreground">
+            <Plus size={11} />
+            Add hook
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+interface HookRowProps {
+  hook: ActionDescriptor;
+  onChange: (next: ActionDescriptor) => void;
+  onRemove: () => void;
+  showSync: boolean;
+}
+
+function HookRow({ hook, onChange, onRemove, showSync }: HookRowProps) {
+  const urnCatalog = useUrnCatalog();
+  const [pickerOpen, setPickerOpen] = useState(false);
+
+  return (
+    <div className="rounded border border-border-subtle bg-surface p-2">
+      <div className="grid grid-cols-[1fr_auto] gap-1.5 items-start">
+        <div className="flex flex-col gap-1.5">
+          <div>
+            <label className="text-[9px] font-medium text-muted-foreground mb-0.5 block">
+              Action verb
+            </label>
+            <Input
+              size="sm"
+              value={hook.action ?? ''}
+              onChange={(e) => onChange({ ...hook, action: e.target.value })}
+              placeholder="audit / telemetry / …"
+              aria-label="Hook action verb"
+            />
+          </div>
+          <div>
+            <label className="text-[9px] font-medium text-muted-foreground mb-0.5 block">
+              Command URN
+            </label>
+            <div className="flex items-center gap-1">
+              <Input
+                size="sm"
+                value={hook.command ?? ''}
+                onChange={(e) =>
+                  onChange({ ...hook, command: e.target.value || undefined })
+                }
+                placeholder="urn:client:audit:click"
+                className="flex-1"
+                aria-label="Hook command URN"
+              />
+              <button
+                type="button"
+                onClick={() => setPickerOpen(true)}
+                className="rounded border border-border-subtle px-1.5 py-1 text-[10px] text-secondary-icon hover:bg-[var(--vscode-list-hoverBackground)]"
+                title="Pick URN from workspace catalog">
+                Pick…
+              </button>
+            </div>
+          </div>
+          {showSync ? (
+            <label className="flex items-center gap-1 text-[10px] text-muted-text">
+              <input
+                type="checkbox"
+                checked={hook.sync === true}
+                onChange={(e) =>
+                  onChange({
+                    ...hook,
+                    sync: e.target.checked ? true : undefined,
+                  })
+                }
+              />
+              Await before next phase (<code>sync</code>)
+            </label>
+          ) : null}
+        </div>
+        <button
+          type="button"
+          onClick={onRemove}
+          className="text-subtle hover:text-destructive-text hover:bg-destructive-surface rounded p-1 transition-colors"
+          aria-label="Remove hook"
+          title="Remove hook">
+          <Trash2 size={11} />
+        </button>
+      </div>
+
+      <ChooseUrnDialog
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        catalog={urnCatalog}
+        onSelect={(entry) => onChange({ ...hook, command: entry.urn })}
+      />
     </div>
   );
 }
