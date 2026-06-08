@@ -37,7 +37,8 @@
     "onCommand:vnextForge.forgeCreateView",
     "onCommand:vnextForge.forgeCreateFunction",
     "onCommand:vnextForge.forgeCreateExtension",
-    "onCommand:vnextForge.openQuickRun"
+    "onCommand:vnextForge.openQuickRun",
+    "onCommand:vnextForge.publishFromFile"
   ],
   "main": "./dist/extension.js",
   "files": [
@@ -290,6 +291,12 @@
         "title": "Open Quick Run",
         "category": "Forge",
         "icon": "$(play)"
+      },
+      {
+        "command": "vnextForge.publishFromFile",
+        "title": "Publish",
+        "category": "Forge",
+        "icon": "$(rocket)"
       }
     ],
     "menus": {
@@ -483,6 +490,11 @@
           "command": "vnextForge.openQuickRunFromFile",
           "when": "vnextForge.isVnextWorkspace && resourceExtname == .json && resourcePath =~ /[\\\\/]Workflows[\\\\/]/",
           "group": "navigation@3"
+        },
+        {
+          "command": "vnextForge.publishFromFile",
+          "when": "vnextForge.isVnextWorkspace && resourceExtname == .json && resourcePath =~ /[\\\\/](Tasks|Views|Functions|Extensions|Workflows|Schemas)[\\\\/]/",
+          "group": "navigation@4"
         }
       ],
       "editor/title/context": [

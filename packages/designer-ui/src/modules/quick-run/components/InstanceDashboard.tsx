@@ -30,6 +30,8 @@ export function InstanceDashboard({ configRef, persistConfig }: InstanceDashboar
   const instances = useQuickRunStore((s) => s.instances);
   const activeState = useQuickRunStore((s) => s.activeState);
   const activeStateLoading = useQuickRunStore((s) => s.activeStateLoading);
+  const activeStateError = useQuickRunStore((s) => s.activeStateError);
+  const setActiveStateError = useQuickRunStore((s) => s.setActiveStateError);
   const domain = useQuickRunStore((s) => s.domain);
   const workflowKey = useQuickRunStore((s) => s.workflowKey);
   const environmentName = useQuickRunStore((s) => s.environmentName);
@@ -258,6 +260,19 @@ export function InstanceDashboard({ configRef, persistConfig }: InstanceDashboar
         </div>
         <StatusBadge status={activeInstance.status} />
       </div>
+
+      {/* Polling error banner — surfaced when `getState` fails
+          (most commonly engine 403 Authorization, e.g.
+          `forbidden.Authorization:110001`). Lets the user see WHY
+          polling stopped without diving into DevTools. Dismissable
+          via the × button; the next successful poll round clears it
+          automatically. */}
+      {activeStateError && (
+        <PollingErrorBanner
+          error={activeStateError}
+          onDismiss={() => setActiveStateError(null)}
+        />
+      )}
 
       {/* Progress */}
       <section>
@@ -1166,6 +1181,95 @@ function InstanceMetaDialog({
       </ResizableDialogShell>
     </div>
   );
+}
+
+// ── Polling Error Banner ────────────────────────────────────────────────────
+
+interface PollingErrorBannerProps {
+  error: { code: string; message: string; details?: Record<string, unknown> };
+  onDismiss: () => void;
+}
+
+/**
+ * Surfaces `getState` polling failures to the user with enough
+ * context to debug — most often a 403 from the engine's authorization
+ * layer (`forbidden.Authorization:110001`) when the active role
+ * cannot read the current state. Renders `code` + `message` + an
+ * expandable details section carrying status / errorCode / traceId
+ * / instance URL when present on the API failure payload.
+ */
+function PollingErrorBanner({ error, onDismiss }: PollingErrorBannerProps) {
+  const details = error.details ?? {};
+  // Common RFC7807 + engine fields surfaced as a single-line summary;
+  // the rest land inside a collapsed <details> block so the strip
+  // stays compact when everything is fine.
+  const status = pickString(details, 'status') ?? pickNumber(details, 'status');
+  const errorCode = pickString(details, 'errorCode');
+  const traceId = pickString(details, 'traceId');
+  const instance = pickString(details, 'instance');
+  const detail = pickString(details, 'detail');
+
+  const summaryMessage = detail || error.message;
+
+  return (
+    <section
+      role="alert"
+      aria-live="polite"
+      className="rounded border border-[var(--vscode-inputValidation-errorBorder)] bg-[var(--vscode-inputValidation-errorBackground)] px-3 py-2 text-[11px] text-[var(--vscode-errorForeground)]">
+      <div className="flex items-start gap-2">
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 16 16"
+          fill="currentColor"
+          className="mt-0.5 shrink-0">
+          <path d="M7.56 1h.88l6.54 12.26-.44.74H1.44L1 13.26 7.56 1zM8 2.28 2.28 13h11.44L8 2.28zM8.5 12v-1h-1v1h1zm0-2V6h-1v4h1z" />
+        </svg>
+        <div className="min-w-0 flex-1">
+          <p className="font-medium text-[var(--vscode-foreground)]">
+            Polling stopped {status ? `(${status})` : ''} {errorCode ? `· ${errorCode}` : `· ${error.code}`}
+          </p>
+          <p className="mt-0.5 text-[var(--vscode-foreground)]">{summaryMessage}</p>
+          {(traceId || instance) && (
+            <details className="mt-1 text-[10px] text-[var(--vscode-descriptionForeground)]">
+              <summary className="cursor-pointer select-none">Technical details</summary>
+              <ul className="mt-1 space-y-0.5">
+                {instance && (
+                  <li>
+                    <span className="font-semibold">instance:</span>{' '}
+                    <code className="break-all">{instance}</code>
+                  </li>
+                )}
+                {traceId && (
+                  <li>
+                    <span className="font-semibold">traceId:</span>{' '}
+                    <code className="break-all">{traceId}</code>
+                  </li>
+                )}
+              </ul>
+            </details>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={onDismiss}
+          className="shrink-0 rounded p-0.5 text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] hover:text-[var(--vscode-foreground)]"
+          aria-label="Dismiss polling error">
+          ✕
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function pickString(obj: Record<string, unknown>, key: string): string | undefined {
+  const v = obj[key];
+  return typeof v === 'string' && v.length > 0 ? v : undefined;
+}
+
+function pickNumber(obj: Record<string, unknown>, key: string): number | undefined {
+  const v = obj[key];
+  return typeof v === 'number' ? v : undefined;
 }
 
 // ── Incident Components ─────────────────────────────────────────────────────

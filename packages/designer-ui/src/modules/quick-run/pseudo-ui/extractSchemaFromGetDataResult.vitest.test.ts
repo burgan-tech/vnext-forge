@@ -61,4 +61,55 @@ describe('extractSchemaFromGetDataResult (R22)', () => {
     const envelope = { data: { schema: ['TRY', 'USD'] } };
     expect(extractSchemaFromGetDataResult(envelope)).toBeNull();
   });
+
+  it('extracts schema from data.attributes.schema (vNext engine envelope)', () => {
+    // Real-world payload taken from the engine response for a
+    // `sys-schemas/instances/<key>` getData call. The JSON Schema
+    // lives under the instance's `attributes.schema` field.
+    const enginePayload = {
+      data: {
+        id: 'e08cf083-1822-46f0-9ac3-90d4f37519c7',
+        key: 'account-type-selection',
+        flow: 'sys-schemas',
+        domain: 'core',
+        attributes: {
+          type: 'workflow',
+          schema: {
+            $id: 'urn:vnext:res:schema:core:account-type-selection',
+            type: 'object',
+            title: 'Account Type Selection Schema',
+            properties: {
+              accountType: {
+                type: 'string',
+                enum: ['demand-deposit', 'time-deposit'],
+              },
+            },
+          },
+        },
+        extensions: {},
+      },
+    };
+    const schema = extractSchemaFromGetDataResult(enginePayload);
+    expect(schema).not.toBeNull();
+    expect((schema as { properties: Record<string, unknown> }).properties.accountType).toEqual({
+      type: 'string',
+      enum: ['demand-deposit', 'time-deposit'],
+    });
+  });
+
+  it('extracts schema from attributes.schema when engine instance handed directly (no QuickRunApi wrapper)', () => {
+    const engineInstance = {
+      key: 'account-type-selection',
+      attributes: {
+        schema: {
+          type: 'object',
+          properties: { accountType: { type: 'string' } },
+        },
+      },
+    };
+    expect(extractSchemaFromGetDataResult(engineInstance)).toMatchObject({
+      type: 'object',
+      properties: { accountType: { type: 'string' } },
+    });
+  });
 });

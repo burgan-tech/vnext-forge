@@ -58,22 +58,49 @@ export function buildSchemaLoader({ schemas, projectPath }: BuildSchemaLoaderOpt
       // res URN parser only accepts `urn:vnext:res:schema:...` — any
       // other res-key or legacy form returns null.
       const parsed = parseVnextResUrn(input);
-      if (!parsed || parsed.resKey !== 'schema') return null;
+      if (!parsed || parsed.resKey !== 'schema') {
+        // eslint-disable-next-line no-console -- diagnostic surface for "empty dropdown" debug rounds.
+        console.warn('[buildSchemaLoader] non-schema res URN — cannot resolve', {
+          urn: input,
+          parsedKind: parsed?.resKey ?? null,
+        });
+        return null;
+      }
       component = schemas.find((s) => s.key === parsed.key);
-      if (!component) return null;
+      if (!component) {
+        // eslint-disable-next-line no-console
+        console.warn('[buildSchemaLoader] schema not found in workspace', {
+          urn: input,
+          key: parsed.key,
+          domain: parsed.domain,
+          known: schemas.map((s) => s.key),
+        });
+        return null;
+      }
     }
 
     try {
       const { content } = await readFile(component.path);
       const parsed = JSON.parse(content) as { attributes?: { schema?: unknown } };
       const schema = parsed.attributes?.schema;
-      if (!schema || typeof schema !== 'object') return null;
+      if (!schema || typeof schema !== 'object') {
+        // eslint-disable-next-line no-console
+        console.warn('[buildSchemaLoader] schema file missing attributes.schema', {
+          urn: input,
+          path: component.path,
+        });
+        return null;
+      }
       const dataSchema = schema as DataSchema;
       cache.set(input, dataSchema);
       return dataSchema;
-    } catch {
-      // File missing, JSON parse failure, or wrong shape — fall back to null
-      // so the inspector + canvas render in free-text mode.
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn('[buildSchemaLoader] schema file read/parse failed', {
+        urn: input,
+        path: component.path,
+        error: err instanceof Error ? err.message : String(err),
+      });
       return null;
     }
   };

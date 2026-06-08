@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useProjectStore } from '../../store/useProjectStore';
 import { useValidationStore } from '../../store/useValidationStore';
 import { ReactFlowProvider } from '@xyflow/react';
@@ -67,18 +67,13 @@ const ISSUE_TONE = {
 
 function FlowValidationStrip() {
   const issues = useValidationStore((s) => s.issues);
+  // Always start collapsed. Earlier the strip auto-expanded the first
+  // time issues showed up — that was distracting on initial load when
+  // a freshly-opened workflow happened to have pending warnings the
+  // user hadn't asked to see yet. The chevron stays visible (issue
+  // counts are still in the header), so opening the panel is a one
+  // click away whenever the author actually wants it.
   const [collapsed, setCollapsed] = useState(true);
-  const prevCountRef = useRef(0);
-
-  useEffect(() => {
-    if (issues.length > 0 && prevCountRef.current === 0) {
-      setCollapsed(false);
-    }
-    if (issues.length === 0) {
-      setCollapsed(true);
-    }
-    prevCountRef.current = issues.length;
-  }, [issues.length]);
 
   if (issues.length === 0) return null;
 

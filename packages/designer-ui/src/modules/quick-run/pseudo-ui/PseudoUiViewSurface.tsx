@@ -161,6 +161,16 @@ export function PseudoUiViewSurface({
   const [successFlash, setSuccessFlash] = useState(false);
   const [resolvedSchema, setResolvedSchema] = useState<DataSchema | null>(null);
   const [schemaResolving, setSchemaResolving] = useState(false);
+  // R26 — tri-state guard. `resolvedSchema === null` is ambiguous on
+  // its own: it can mean either "haven't tried yet" OR "tried and
+  // came back empty" (URN miss, parse failure, engine 404). The
+  // skeleton gate was reading the second case as the first and
+  // pinning the View panel on "Loading…" forever. Track whether the
+  // resolve attempt has finished so we can let the SDK mount with
+  // an empty `{}` schema in the legitimate-miss case (degraded but
+  // visible — the user can still see the view structure and fix
+  // the URN).
+  const [schemaResolutionAttempted, setSchemaResolutionAttempted] = useState(false);
   const successFlashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -256,16 +266,21 @@ export function PseudoUiViewSurface({
     // Skip if explicit schema prop is provided (non-empty object)
     if (schemaProp && Object.keys(schemaProp).length > 0) {
       setSchemaResolving(false);
+      setSchemaResolutionAttempted(true);
       return;
     }
-    // Skip if no dataSchema reference or no resolver
+    // Skip if no dataSchema reference or no resolver — there's
+    // nothing to resolve, so the SDK should mount immediately with
+    // `{}`.
     if (!normalized?.dataSchema || !resolveSchema) {
       setSchemaResolving(false);
+      setSchemaResolutionAttempted(true);
       return;
     }
 
     let cancelled = false;
     setSchemaResolving(true);
+    setSchemaResolutionAttempted(false);
     void resolveSchema(normalized.dataSchema)
       .then((result) => {
         if (!cancelled) setResolvedSchema(result);
@@ -274,7 +289,10 @@ export function PseudoUiViewSurface({
         if (!cancelled) setResolvedSchema(null);
       })
       .finally(() => {
-        if (!cancelled) setSchemaResolving(false);
+        if (!cancelled) {
+          setSchemaResolving(false);
+          setSchemaResolutionAttempted(true);
+        }
       });
 
     return () => {
@@ -319,7 +337,13 @@ export function PseudoUiViewSurface({
     typeof resolveSchema === 'function' &&
     typeof normalized?.dataSchema === 'string' &&
     normalized.dataSchema.length > 0;
-  const schemaNotReady = expectingAsyncSchema && resolvedSchema === null;
+  // Only hold off the SDK mount while the **initial** resolution
+  // attempt is in flight. Once `schemaResolutionAttempted` flips
+  // true the result is in (success or null) — null lets the SDK
+  // mount with `{}` and the user keeps a visible / editable view
+  // instead of an infinite skeleton.
+  const schemaNotReady =
+    expectingAsyncSchema && !schemaResolutionAttempted && resolvedSchema === null;
 
   // R23: the `schemaNotReady` gate above keeps the SDK Frame from
   // mounting with a stub `{}` schema. The earlier `schemaRemountKey`
@@ -482,8 +506,25 @@ export function PseudoUiViewSurface({
     </PseudoUiErrorBoundary>
   );
 
+  // R26.S2 — surface a missing-schema warning so the user sees WHY
+  // enum / dropdown / radio inputs render with zero options. The
+  // SDK still mounts with `{}` (degraded mode) so the view is at
+  // least visible and editable.
+  const schemaMissingWarning =
+    schemaResolutionAttempted && expectingAsyncSchema && resolvedSchema === null;
+
   return (
     <div role="region" aria-label={ariaLabel} className={hostClassName} data-pseudo-ui-root="">
+      {schemaMissingWarning ? (
+        <div
+          role="status"
+          className="mb-2 rounded border border-[var(--vscode-inputValidation-warningBorder)] bg-[var(--vscode-inputValidation-warningBackground)] px-2 py-1 text-[11px] text-[var(--vscode-foreground)]"
+        >
+          Could not resolve schema for{' '}
+          <code className="text-[10px]">{normalized?.dataSchema ?? '(no URN)'}</code>.
+          Enum / dropdown inputs may render empty.
+        </div>
+      ) : null}
       {successFlash ? (
         <div
           aria-live="polite"

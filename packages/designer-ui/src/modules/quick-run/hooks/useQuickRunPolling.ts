@@ -33,6 +33,7 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
         setActiveState,
         patchActiveState,
         setActiveStateLoading,
+        setActiveStateError,
         updateInstanceState,
         updateInstanceStatus,
         setPollingInstanceId,
@@ -43,6 +44,9 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
 
       setPollingInstanceId(params.instanceId);
       setActiveStateLoading(true);
+      // Clear any prior poll error so the banner doesn't linger from
+      // a previous instance / round.
+      setActiveStateError(null);
       setStateView(null);
       setStateViewError(false);
       // Show the View panel skeleton from the moment we kick off the
@@ -59,10 +63,14 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
         let response;
         try {
           response = await QuickRunApi.getState(params);
-        } catch {
+        } catch (err) {
           setActiveStateLoading(false);
           setStateViewLoading(false);
           setPollingInstanceId(null);
+          setActiveStateError({
+            code: 'THROWN',
+            message: err instanceof Error ? err.message : String(err),
+          });
           return null;
         }
         if (controller.signal.aborted) break;
@@ -99,9 +107,18 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
             await sleep(config.intervalMs);
           }
         } else {
+          // Surface the engine-side failure (e.g. 403 with
+          // `forbidden.Authorization:110001` for missing role
+          // permissions) so the user sees why polling stopped
+          // instead of staring at a quietly empty panel.
           setActiveStateLoading(false);
           setStateViewLoading(false);
           setPollingInstanceId(null);
+          setActiveStateError({
+            code: response.error.code,
+            message: response.error.message,
+            details: response.error.details,
+          });
           return null;
         }
       }
@@ -133,6 +150,7 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
       const {
         setActiveState,
         setActiveStateLoading,
+        setActiveStateError,
         updateInstanceState,
         setStateView,
         setStateViewLoading,
@@ -140,6 +158,7 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
       } = store.getState();
 
       setActiveStateLoading(true);
+      setActiveStateError(null);
       setStateView(null);
       setStateViewError(false);
       // Same rationale as in `pollState` above: show the View panel
@@ -149,9 +168,13 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
       let response;
       try {
         response = await QuickRunApi.getState(params);
-      } catch {
+      } catch (err) {
         setActiveStateLoading(false);
         setStateViewLoading(false);
+        setActiveStateError({
+          code: 'THROWN',
+          message: err instanceof Error ? err.message : String(err),
+        });
         return null;
       }
       if (controller.signal.aborted) {
@@ -178,6 +201,11 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
 
       setActiveStateLoading(false);
       setStateViewLoading(false);
+      setActiveStateError({
+        code: response.error.code,
+        message: response.error.message,
+        details: response.error.details,
+      });
       return null;
     },
     [],
@@ -201,6 +229,12 @@ async function fetchStateView(
   setStateViewLoading(true);
   setStateViewError(false);
 
+  // The loading flag has to be cleared on EVERY exit (success,
+  // engine error, network throw, and signal abort). The previous
+  // implementation returned early on `signal.aborted` without
+  // touching the flag — a subsequent pollState that hit a no-view
+  // terminal state then never re-set it, leaving the View panel
+  // stuck on "Loading view…" indefinitely.
   try {
     const viewResponse = await QuickRunApi.getView({
       domain: params.domain,
@@ -222,8 +256,9 @@ async function fetchStateView(
     if (signal.aborted) return;
     setStateViewError(true);
     setStateView(null);
+  } finally {
+    setStateViewLoading(false);
   }
-  setStateViewLoading(false);
 }
 
 function sleep(ms: number): Promise<void> {
