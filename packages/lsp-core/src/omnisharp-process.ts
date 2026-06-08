@@ -67,8 +67,17 @@ export function startOmniSharp(
     ? []
     : ['--languageserver', '-s', workspacePath, '--encoding', 'utf-8', '--loglevel', 'warning']
 
+  // Both csharp-ls (per-file) and OmniSharp (project-aware) are launched
+  // with `cwd` pinned to the isolated temp workspace so that any
+  // workspace-relative file discovery they perform is constrained to the
+  // session's `session.csproj` / `Script.cs` / `GlobalUsings.cs`. Without
+  // this, when VS Code's actual workspace happens to contain a sibling
+  // .NET project (e.g. integration tests with their own .csproj), csharp-ls
+  // inherits that cwd and starts reporting diagnostics on `.cs` files the
+  // extension was never asked to analyze.
   const child: ChildProcess = spawn(executablePath, args, {
     stdio: ['pipe', 'pipe', 'pipe'],
+    cwd: workspacePath,
     env: { ...process.env, DOTNET_NOLOGO: '1', DOTNET_CLI_TELEMETRY_OPTOUT: '1' },
   })
 

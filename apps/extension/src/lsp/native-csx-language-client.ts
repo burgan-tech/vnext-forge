@@ -65,10 +65,25 @@ export function createNativeCsxLanguageClient(
     return config.get<boolean>(NATIVE_ENABLE_KEY, true);
   }
 
+  function hasOpenCsxDocument(): boolean {
+    for (const doc of vscode.workspace.textDocuments) {
+      if (doc.uri.scheme !== 'file') continue;
+      if (doc.uri.fsPath.toLowerCase().endsWith('.csx')) return true;
+    }
+    return false;
+  }
+
   function shouldRun(): boolean {
     if (disposed) return false;
     if (!isEnabledInSettings()) return false;
-    return workspaceDetector.getRoots().length > 0;
+    if (workspaceDetector.getRoots().length === 0) return false;
+    // Only spin up the analyzer when the user actually has a `.csx`
+    // file open. Auto-starting on workspace activation made it look
+    // like our extension was responsible for diagnostics on unrelated
+    // C# files (e.g. a sibling `tests/*.csproj` project) when in fact
+    // those were being reported by VS Code's own C# tooling. Lazy
+    // activation also avoids spawning csharp-ls until it's needed.
+    return hasOpenCsxDocument();
   }
 
   async function start(): Promise<void> {
@@ -200,6 +215,21 @@ export function createNativeCsxLanguageClient(
   subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((event) => {
       if (event.affectsConfiguration(`vnextForge.${NATIVE_ENABLE_KEY}`)) {
+        reconcile();
+      }
+    }),
+  );
+  // Reconcile only on `.csx` *open* — once the analyzer is up, leave
+  // it running. Tearing it down on close raced with VS Code's own
+  // automatic `textDocument/didClose` notification: the LanguageClient
+  // queued the didClose while we called `client.stop()`, the server
+  // closed the connection mid-flight, and the runtime reported
+  // "Connection to server got closed. Server will not be restarted."
+  // The client only fully shuts down on workspace change / setting
+  // toggle / disposal — see `shouldRun()` + `reconcile()`.
+  subscriptions.push(
+    vscode.workspace.onDidOpenTextDocument((doc) => {
+      if (doc.uri.scheme === 'file' && doc.uri.fsPath.toLowerCase().endsWith('.csx')) {
         reconcile();
       }
     }),

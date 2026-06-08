@@ -4,6 +4,8 @@ import { decodeScriptCode } from '../../../modules/code-editor/editor/ScriptCode
 import { generateTemplate, type TemplateType } from '../../../modules/code-editor/editor/CsxTemplates';
 import { useScriptPanelStore, type ActiveScript } from '../../../modules/code-editor/ScriptPanelStore';
 import { useEditorPanelsStore } from '../../../store/useEditorPanelsStore';
+import { useScriptTaskChrome } from '../../../modules/task-editor/ScriptTaskChromeContext';
+import { resolveWorkflowScriptAbsolutePath } from '../../../modules/code-editor/createWorkflowScriptFile';
 import type { CsxTaskType } from '../../../modules/code-editor/editor/CsxContext';
 import type { ScriptCode } from '../../../modules/code-editor/CodeEditorTypes';
 import { Code2, Plus, Trash2, ExternalLink } from 'lucide-react';
@@ -47,6 +49,9 @@ export function CsxEditorField({
 }: CsxEditorFieldProps) {
   const { openScript, activeScript } = useScriptPanelStore();
   const { setScriptPanelOpen } = useEditorPanelsStore();
+  const chrome = useScriptTaskChrome();
+  const hostOpen = chrome?.onOpenScriptFileInHost;
+  const scriptDir = chrome?.scriptDirectoryPath;
 
   const decoded = useMemo(() => {
     if (!value?.code) return '';
@@ -141,6 +146,24 @@ export function CsxEditorField({
 
   const handleOpenInPanel = useCallback(() => {
     if (!value) return;
+    // Prefer opening the script directly in the host editor:
+    //   - Extension shell: native VS Code tab via `host:open-workspace-file`
+    //   - Web shell: full-page Monaco route via React Router navigate
+    // The host adapter is injected through `ScriptTaskChromeProvider`. We
+    // can only resolve a file path when the script is stored as a B64
+    // *file* (encoding !== 'NAT') with a non-empty location AND the
+    // provider supplied a base directory. Inline-native scripts (`NAT`)
+    // have no on-disk path and must fall back to the in-app bottom drawer.
+    if (
+      hostOpen &&
+      scriptDir &&
+      value.encoding !== 'NAT' &&
+      value.location &&
+      value.location.trim().length > 0
+    ) {
+      hostOpen(resolveWorkflowScriptAbsolutePath(scriptDir, value.location.trim()));
+      return;
+    }
     const script: ActiveScript = {
       stateKey,
       listField,
@@ -166,6 +189,8 @@ export function CsxEditorField({
     taskType,
     openScript,
     setScriptPanelOpen,
+    hostOpen,
+    scriptDir,
   ]);
 
   // Check if this exact script is currently open in the bottom panel

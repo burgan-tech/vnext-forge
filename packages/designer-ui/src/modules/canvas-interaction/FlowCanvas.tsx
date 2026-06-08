@@ -1581,7 +1581,19 @@ function FlowCanvasInner({
         connectionMode={ConnectionMode.Loose}
         connectionLineComponent={FloatingConnectionLine}
         deleteKeyCode={['Backspace', 'Delete']}
-        fitView
+        // NOTE: do NOT pass the boolean `fitView` prop here. React
+        // Flow's boolean form re-fits the viewport on every container
+        // size change, which makes the user's chosen zoom jump every
+        // time the right-hand properties panel toggles open/closed
+        // (the ResizablePanelGroup shrinks/grows the canvas column).
+        // Fit-on-load is already handled imperatively by the
+        // auto-layout effect (`useEffect` on `needsLayout` calls
+        // `fitView({ padding: 0.2 })`), and explicit fit triggers in
+        // the toolbar / search-jump / spotlight code paths. We do
+        // NOT replicate it in `onInit` either — when the canvas was
+        // unmounted/remounted on panel toggle (now fixed in
+        // `WorkflowPropertySidebarResizableRow`), `onInit` was firing
+        // again per remount and recreating the same zoom-jump bug.
         // Multi-Select policy (no mode toggle needed):
         //   - Plain left-click on a node       → single-select
         //   - Cmd/Ctrl + left-click on a node  → ADD to selection
