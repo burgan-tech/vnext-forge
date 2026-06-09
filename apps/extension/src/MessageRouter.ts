@@ -11,6 +11,7 @@ import {
 } from '@vnext-forge-studio/services-core';
 import type { LspBridge } from '@vnext-forge-studio/lsp-core';
 
+import { publishWorkflowFile } from './lib/publishWorkflowFile.js';
 import { createWebviewLspTransport, type WebviewLspTransport } from './panels/lsp-transport.js';
 import type { ForgeTerminalManager } from './tools/forge-terminal.js';
 
@@ -399,24 +400,14 @@ export class MessageRouter {
       return;
     }
 
-    const rawPath = frame.filePath?.trim();
-    if (!rawPath) return;
-
-    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
-    if (workspaceRoot) {
-      const normalized = path.normalize(rawPath);
-      const rel = path.relative(workspaceRoot, normalized);
-      if (rel.startsWith('..') || path.isAbsolute(rel)) {
-        this.deps.logger.warn(
-          { path: normalized } as Record<string, unknown>,
-          'host:publish rejected: path outside workspace',
-        );
-        return;
-      }
-    }
-
-    const escapedPath = rawPath.includes(' ') ? `"${rawPath}"` : rawPath;
-    terminal.run(`wf update -f ${escapedPath}`, { cwd: workspaceRoot });
+    // Delegate to the shared helper so the Explorer "Forge: Publish"
+    // command uses the same workspace-jail validation + terminal
+    // command shape.
+    publishWorkflowFile({
+      filePath: frame.filePath ?? '',
+      terminal,
+      logger: this.deps.logger,
+    });
   }
 
   // ── Notifications ─────────────────────────────────────────────────────────

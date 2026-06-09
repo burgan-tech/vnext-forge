@@ -23,10 +23,22 @@ export interface LspServerInfo {
 
 export interface OmniSharpInstallerDeps {
   logger: LoggerAdapter
+  /**
+   * When `true`, the installer must resolve to csharp-ls and never fall
+   * back to OmniSharp. The VS Code extension sets this because OmniSharp
+   * — unlike csharp-ls — auto-discovers `.csproj` files in the user's
+   * actual workspace folder, which causes our analyzer to bleed onto
+   * sibling .NET projects (e.g. integration tests) the extension was
+   * never asked to inspect.
+   *
+   * Defaults to `false` for backward compatibility with the standalone
+   * web-server LSP path which has historically tolerated either server.
+   */
+  requireCsharpLs?: boolean
 }
 
 export function createOmniSharpInstaller(deps: OmniSharpInstallerDeps) {
-  const { logger } = deps
+  const { logger, requireCsharpLs = false } = deps
   let cached: LspServerInfo | null = null
 
   async function findCsharpLs(): Promise<string | null> {
@@ -196,6 +208,17 @@ export function createOmniSharpInstaller(deps: OmniSharpInstallerDeps) {
       logger.info({ path: installed }, 'Using csharp-ls (just installed) as LSP server')
       cached = { executablePath: installed, serverType: 'csharp-ls' }
       return cached
+    }
+
+    if (requireCsharpLs) {
+      throw new Error(
+        'csharp-ls is required but could not be located or installed.\n' +
+          '  • Install with:  dotnet tool install -g csharp-ls   (requires .NET SDK)\n' +
+          '  • Or set CSHARP_LS_PATH=/abs/path/to/csharp-ls\n' +
+          'OmniSharp fallback is disabled in this shell because it auto-discovers ' +
+          '.csproj files and would analyze the surrounding workspace, including ' +
+          'any sibling .NET projects.',
+      )
     }
 
     logger.info('csharp-ls not available — falling back to OmniSharp')

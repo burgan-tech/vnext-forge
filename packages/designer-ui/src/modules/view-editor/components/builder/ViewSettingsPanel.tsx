@@ -24,7 +24,7 @@ import { Input } from '../../../../ui/Input';
 import { JsonCodeField } from '../../../../ui/JsonCodeField';
 import { type BuilderStore } from './state/builderStore';
 import { type BindPathEntry } from './inspector/schemaPaths';
-import { buildSchemaUrn } from './utils/buildSchemaUrn';
+import { buildVnextResUrnFromComponent } from './utils/buildVnextResUrn';
 
 export interface ViewSettingsPanelProps {
   store: BuilderStore;
@@ -194,7 +194,7 @@ function SchemaPicker({
   }, [schemas, query]);
 
   const handleDialogSelect = (component: DiscoveredVnextComponent) => {
-    const urn = buildSchemaUrn(component, activeProject?.path);
+    const urn = buildVnextResUrnFromComponent('schema', component, activeProject?.path);
     setQuery(urn);
     onChange(urn);
     setDialogOpen(false);

@@ -15,15 +15,18 @@ export function CopyableJsonBlock({ value, maxHeight, fillHeight }: CopyableJson
   const resolvedColorTheme = useResolvedColorTheme();
   const monacoTheme = resolvedColorTheme === 'dark' ? 'vs-dark' : 'vs';
 
-  const text = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
+  // `JSON.stringify(undefined, …)` returns `undefined` (the value, not
+  // the string), so calling `.split` on it crashes the entire webview.
+  // Guard every code path that converts `value` into a string so the
+  // component renders an empty block instead of taking the panel down.
+  const text = stringifyValue(value);
   const lineCount = text.split('\n').length;
   const computedHeight = fillHeight
     ? undefined
     : Math.min(Math.max(lineCount * 19 + 8, 60), maxHeight ? parseInt(maxHeight, 10) || 300 : 300);
 
   const handleCopy = useCallback(() => {
-    const copyText = typeof value === 'string' ? value : JSON.stringify(value, null, 2);
-    void navigator.clipboard.writeText(copyText).then(() => {
+    void navigator.clipboard.writeText(stringifyValue(value)).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     });
@@ -74,6 +77,31 @@ export function CopyableJsonBlock({ value, maxHeight, fillHeight }: CopyableJson
       </div>
     </div>
   );
+}
+
+/**
+ * Robust value → string converter for the JSON block. Three classes of
+ * input have to survive without crashing the webview:
+ *
+ *   - `undefined` — JSON.stringify returns `undefined` (the value),
+ *     not a string. Earlier this triggered an "Uncaught TypeError:
+ *     Cannot read properties of undefined (reading 'split')" deep in
+ *     the long-poll refresh path and blanked the entire Quick Run
+ *     panel. Return `'(empty)'` instead.
+ *   - circular references — JSON.stringify throws TypeError. Fall back
+ *     to `String(value)`.
+ *   - non-string primitives — JSON.stringify works fine, just preserve
+ *     the canonical 2-space indent.
+ */
+function stringifyValue(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (value === undefined || value === null) return '(empty)';
+  try {
+    const out = JSON.stringify(value, null, 2);
+    return typeof out === 'string' ? out : '(empty)';
+  } catch {
+    return String(value);
+  }
 }
 
 function CopyIcon() {

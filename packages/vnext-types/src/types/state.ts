@@ -67,8 +67,27 @@ export interface SubFlowConfig {
   overrides?: SubFlowOverrides;
 }
 
+/**
+ * Role-scoped alias for a state. Lets the engine return a friendlier /
+ * safer name (and multi-lang labels) to actors matching `roles` while
+ * the canonical `key` stays internal. A state can carry multiple
+ * aliases — the runtime picks the first whose role grants resolve to
+ * `allow` for the requesting actor (DENY overrides ALLOW per the
+ * shared `RoleGrant` semantics).
+ *
+ * Example: state `kps-limit-check` (internal) is exposed to the
+ * `backoffice.operator` role as "Operational Review" while the
+ * client-facing default name stays untouched.
+ */
+export interface StateAlias {
+  name: string;
+  roles: RoleGrant[];
+  labels: Label[];
+}
+
 export interface State {
   key: string;
+  alias?: StateAlias[];
   stateType: StateType;
   subType?: StateSubType;
   versionStrategy?: string;

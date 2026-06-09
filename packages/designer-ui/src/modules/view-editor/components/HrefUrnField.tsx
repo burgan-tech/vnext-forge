@@ -35,17 +35,19 @@ const TYPE_LABELS: Record<number, { label: string; placeholder: string; hint: st
   [ViewType.DeepLink]: {
     label: 'Deep Link URL',
     placeholder: 'on-burgan://onboarding/${param}',
-    hint: 'App deep link with optional ${param} binding.',
+    hint: 'Mobile app deep link (full path only). Use ${param} to bind instance data — e.g. ${customer.id}.',
   },
   [ViewType.Http]: {
     label: 'HTTP URL',
-    placeholder: 'https://example.com/page?s=${param}',
-    hint: 'External or in-app web URL with optional ${param} binding.',
+    placeholder: 'https://example.com/page?id=${param}',
+    hint: 'External or in-app web URL. Use ${param} to bind instance data — e.g. ${customer.id} or ${session.token}.',
   },
   [ViewType.URN]: {
     label: 'URN',
-    placeholder: 'urn:vnext:flow:continue:domain:flow:${instanceId}',
-    hint: 'Platform command URN with optional ${param} binding.',
+    placeholder: 'urn:vnext:flow:start:onboarding:kyc-main-flow',
+    hint:
+      'vNext command URN. Supported: flow start, flow transition, function call. Use ${param} for instance data — ' +
+      'e.g. urn:vnext:flow:transition:dom:flow:${instanceId}:approved.',
   },
 };
 

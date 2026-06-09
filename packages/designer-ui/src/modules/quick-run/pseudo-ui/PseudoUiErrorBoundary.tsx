@@ -15,6 +15,19 @@ export interface PseudoUiErrorBoundaryProps {
   actions?: PseudoUiErrorAction[];
   /** Called whenever an error is captured — host can log to its own channel. */
   onError?: (error: Error, info: { componentStack: string; nodeType: string | null }) => void;
+  /**
+   * Optional render-prop fallback. When provided, the boundary delegates
+   * the entire failure surface to the host instead of showing the default
+   * "could not be rendered" card. Quick Runner wires this to a JSON
+   * dump of the view so users never see a blank panel — the view JSON
+   * is still useful when pseudo-ui render dies. The host should also
+   * surface the technical detail via a separate alert / log; the
+   * fallback itself is meant to keep the user productive.
+   */
+  renderFallback?: (
+    error: Error,
+    info: { componentStack: string; nodeType: string | null; reset: () => void },
+  ) => ReactNode;
 }
 
 interface State {
@@ -76,9 +89,21 @@ export class PseudoUiErrorBoundary extends Component<PseudoUiErrorBoundaryProps,
     }
   };
 
+  private resetSelf = (): void => {
+    this.setState({ error: null, componentStack: '', nodeType: null, copied: false });
+  };
+
   render(): ReactNode {
     const { error, componentStack, nodeType, copied } = this.state;
     if (!error) return this.props.children;
+
+    if (this.props.renderFallback) {
+      return this.props.renderFallback(error, {
+        componentStack,
+        nodeType,
+        reset: this.resetSelf,
+      });
+    }
 
     const title = nodeType
       ? `The "${nodeType}" component could not be rendered`

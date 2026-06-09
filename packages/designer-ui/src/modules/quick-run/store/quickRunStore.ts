@@ -29,6 +29,17 @@ interface QuickRunState {
 
   activeState: StateResponse | null;
   activeStateLoading: boolean;
+  /**
+   * Surfacing slot for `getState` polling failures (authorisation,
+   * runtime 5xx, etc.). The dashboard renders a small banner with
+   * `code` + `message` + `details` so users see *why* polling stopped
+   * — most commonly the engine 403 (`forbidden.Authorization:110001`)
+   * when the active role cannot read the current state. Cleared on
+   * every successful poll round.
+   */
+  activeStateError:
+    | { code: string; message: string; details?: Record<string, unknown> }
+    | null;
 
   stateView: ViewResponse | null;
   stateViewLoading: boolean;
@@ -77,6 +88,11 @@ interface QuickRunState {
   setActiveState: (state: StateResponse | null) => void;
   patchActiveState: (patch: { status: InstanceStatus; state?: string }) => void;
   setActiveStateLoading: (loading: boolean) => void;
+  setActiveStateError: (
+    error:
+      | { code: string; message: string; details?: Record<string, unknown> }
+      | null,
+  ) => void;
   setStateView: (view: ViewResponse | null) => void;
   setStateViewLoading: (loading: boolean) => void;
   setStateViewError: (error: boolean) => void;
@@ -120,6 +136,7 @@ export const useQuickRunStore = create<QuickRunState>((set) => ({
 
   activeState: null,
   activeStateLoading: false,
+  activeStateError: null,
 
   stateView: null,
   stateViewLoading: false,
@@ -164,6 +181,7 @@ export const useQuickRunStore = create<QuickRunState>((set) => ({
       instances: new Map(),
       instanceList: [],
       activeState: null,
+      activeStateError: null,
       stateView: null,
       stateViewError: false,
       activeView: null,
@@ -197,6 +215,7 @@ export const useQuickRunStore = create<QuickRunState>((set) => ({
       tabs: [],
       activeTabId: null,
       activeState: null,
+      activeStateError: null,
       stateView: null,
       activeView: null,
       activeData: null,
@@ -255,6 +274,7 @@ export const useQuickRunStore = create<QuickRunState>((set) => ({
       };
     }),
   setActiveStateLoading: (activeStateLoading) => set({ activeStateLoading }),
+  setActiveStateError: (activeStateError) => set({ activeStateError }),
   setStateView: (stateView) => set({ stateView }),
   setStateViewLoading: (stateViewLoading) => set({ stateViewLoading }),
   setStateViewError: (stateViewError) => set({ stateViewError }),

@@ -24,7 +24,7 @@ import { ViewTypePicker } from './components/ViewTypePicker';
 import { HrefUrnField } from './components/HrefUrnField';
 import { PseudoUiBuilder } from './components/builder/PseudoUiBuilder';
 import { buildSchemaLoader, type SchemaLoader } from './components/builder/utils/buildSchemaLoader';
-import { buildSchemaUrn } from './components/builder/utils/buildSchemaUrn';
+import { buildVnextResUrnFromComponent } from './components/builder/utils/buildVnextResUrn';
 import { discoverVnextComponentsByCategory } from '../vnext-workspace/vnextComponentDiscovery';
 import { useProjectStore } from '../../store/useProjectStore';
 import type { DiscoveredVnextComponent } from '@vnext-forge-studio/app-contracts';
@@ -143,6 +143,12 @@ export function ViewEditorPanel({ json, onChange }: ViewEditorPanelProps) {
   // schema (via `loadSchema`).
   const activeProject = useProjectStore((s) => s.activeProject);
   const [discoveredSchemas, setDiscoveredSchemas] = useState<readonly DiscoveredVnextComponent[]>([]);
+  // R26.S1 — workspace discovery is async. Track completion so the
+  // SDK Frame never mounts with a half-baked `loadSchema` (would lock
+  // the pseudo-ui form context onto an empty `{}` schema per R22.2).
+  // `false` = discovery still in flight; `true` = done (list may
+  // legitimately be empty, e.g. no schemas in workspace).
+  const [discoveryReady, setDiscoveryReady] = useState(false);
 
   const attrs = (json.attributes ?? {}) as Record<string, unknown>;
   const currentType = Number(attrs.type ?? ViewType.Json);
@@ -198,8 +204,14 @@ export function ViewEditorPanel({ json, onChange }: ViewEditorPanelProps) {
   useEffect(() => {
     if (!isPseudoUi || !activeProjectId) {
       setDiscoveredSchemas([]);
+      // Mark ready so the placeholder gate releases — there is nothing
+      // to discover when the renderer isn't pseudo-ui or no project is
+      // active. Surfaces still mount; they just have nothing to
+      // resolve URNs against (and most won't even ask).
+      setDiscoveryReady(true);
       return;
     }
+    setDiscoveryReady(false);
     let cancelled = false;
     void discoverVnextComponentsByCategory(activeProjectId, 'schemas')
       .then((list) => {
@@ -207,6 +219,9 @@ export function ViewEditorPanel({ json, onChange }: ViewEditorPanelProps) {
       })
       .catch(() => {
         if (!cancelled) setDiscoveredSchemas([]);
+      })
+      .finally(() => {
+        if (!cancelled) setDiscoveryReady(true);
       });
     return () => {
       cancelled = true;
@@ -215,15 +230,18 @@ export function ViewEditorPanel({ json, onChange }: ViewEditorPanelProps) {
 
   const availableSchemas = useMemo(() => {
     return discoveredSchemas.map((c) => ({
-      urn: buildSchemaUrn(c, activeProjectPath),
+      urn: buildVnextResUrnFromComponent('schema', c, activeProjectPath),
       label: c.version ? `${c.key} (v${c.version})` : c.key,
     }));
   }, [discoveredSchemas, activeProjectPath]);
 
-  const loadSchema = useMemo<SchemaLoader>(
-    () => buildSchemaLoader({ schemas: discoveredSchemas, projectPath: activeProjectPath }),
-    [discoveredSchemas, activeProjectPath],
-  );
+  const loadSchema = useMemo<SchemaLoader | undefined>(() => {
+    // Hold the loader undefined while discovery is in flight so the
+    // SDK Frame doesn't mount against an empty schemas index (the
+    // form context locks onto whatever schema lands on first mount).
+    if (!discoveryReady) return undefined;
+    return buildSchemaLoader({ schemas: discoveredSchemas, projectPath: activeProjectPath });
+  }, [discoveryReady, discoveredSchemas, activeProjectPath]);
 
   useEffect(() => {
     setPreviewMode(false);
@@ -317,7 +335,18 @@ export function ViewEditorPanel({ json, onChange }: ViewEditorPanelProps) {
   const viewKeyUi = unknownToUiString(json.key);
 
   if (isJsonComponentType && rendererAttr === String(ViewRenderer.PseudoUi)) {
-    if (pseudoUiViewResponse) {
+    if (!discoveryReady) {
+      // Hold the surface mount until workspace schema discovery
+      // completes so the SDK form context inits against the right
+      // schema (R22.2 race fix).
+      previewBody = (
+        <div className={PREVIEW_SHELL}>
+          <p className="text-[11px] text-[var(--vscode-descriptionForeground)]" role="status">
+            Loading workspace schemas…
+          </p>
+        </div>
+      );
+    } else if (pseudoUiViewResponse) {
       previewBody = (
         <div className={PREVIEW_SHELL}>
           <PseudoUiViewSurface
@@ -468,14 +497,27 @@ export function ViewEditorPanel({ json, onChange }: ViewEditorPanelProps) {
               onChange={handleContentChange}
             />
           ) : isJsonComponentType && rendererAttr === String(ViewRenderer.PseudoUi) ? (
-            <PseudoUiBuilder
-              content={contentValue}
-              onContentChange={handleContentChange}
-              viewKey={viewKeyUi || 'preview'}
-              availableSchemas={availableSchemas}
-              loadSchema={loadSchema}
-              projectId={activeProject?.id}
-            />
+            !discoveryReady ? (
+              // Hold the builder mount until schemas discovery
+              // completes (same R22.2 race fix as the preview branch
+              // above — SDK form context inits against the empty
+              // schemas index otherwise and enum-driven inputs
+              // render with zero options).
+              <p
+                className="px-3 py-2 text-[11px] text-[var(--vscode-descriptionForeground)]"
+                role="status">
+                Loading workspace schemas…
+              </p>
+            ) : (
+              <PseudoUiBuilder
+                content={contentValue}
+                onContentChange={handleContentChange}
+                viewKey={viewKeyUi || 'preview'}
+                availableSchemas={availableSchemas}
+                loadSchema={loadSchema}
+                projectId={activeProject?.id}
+              />
+            )
           ) : (
             <>
               <div className="flex items-center justify-between">

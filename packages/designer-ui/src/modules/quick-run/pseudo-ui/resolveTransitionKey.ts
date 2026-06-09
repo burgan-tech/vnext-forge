@@ -2,39 +2,41 @@
  * Resolve a pseudo-ui `Button.command` value into a workflow
  * transition key.
  *
- * Since R25 this is a thin wrapper over `parseAmorphieUrn` — the
- * shared discriminated parser owns format knowledge so the catalog
- * service, the delegate dispatch table, and this helper all agree
- * on what counts as a transition URN.
+ * Since the vNext URN migration the parser owns format knowledge —
+ * the catalog service, the delegate dispatch table, and this helper
+ * all agree on what counts as a transition URN. The parser is run on
+ * a string that has already had any `${param}` placeholders
+ * substituted (see `resolveUrnBindings.ts`).
  *
- * Supported inputs (delegated to `parseAmorphieUrn`):
+ * Supported inputs (delegated to `parseVnextUrn`):
  *
- *   1. Canonical Amorphie workflow URN:
- *      `urn:amorphie:wf:<flow>:transition:<state>` → `<state>`
- *   2. Legacy Amorphie transition URN (R24, 5- or 6-segment):
- *      `urn:amorphie:transition:<dom>:<wf>[:<inst>]:<name>` → `<name>`
- *   3. Generic URN — last `:` or `/` segment (preserved for HTTPS
- *      URLs and other authoring conventions we tolerated pre-R25).
- *   4. Raw key — returned as-is.
+ *   1. vNext transition URN (either form):
+ *      urn:vnext:flow:transition:<domain>:<flow>:<instance>:<state>
+ *      urn:vnext:flow:transition:<domain>:<flow>:<state>
+ *      → returns `<state>`.
+ *   2. Generic URN (`urn:something:else`) — last `:`/`/` segment as
+ *      a tolerant fallback for unknown shapes.
+ *   3. Raw key — returned as-is, with an HTTPS-URL last-segment
+ *      escape hatch for pre-R25 authoring conventions.
  *
  * Returns `null` for empty / undefined / unparseable input so the
  * caller can surface a clear "Missing transition command" error.
  */
 
-import { parseAmorphieUrn } from './parseAmorphieUrn';
+import { parseVnextUrn } from './parseVnextUrn';
 
 export function resolveTransitionKey(command: string | undefined | null): string | null {
-  const parsed = parseAmorphieUrn(command);
+  const parsed = parseVnextUrn(command);
   if (!parsed) return null;
 
   switch (parsed.kind) {
-    case 'wf-transition':
-    case 'legacy-transition':
-      return parsed.state || null;
+    case 'flow-transition':
+      return parsed.transition || null;
     case 'raw': {
       // Tolerate HTTPS URL command form `https://host/transitions/<flow>/<name>`
       // — pre-R25 authoring used these; return the last path segment.
       const v = parsed.value;
+      if (typeof v !== 'string' || !v) return null;
       if (/^https?:\/\//i.test(v)) {
         const tail = v.split('/').pop()?.trim();
         return tail && tail.length > 0 ? tail : v;
@@ -42,16 +44,20 @@ export function resolveTransitionKey(command: string | undefined | null): string
       return v || null;
     }
     case 'unknown': {
-      // Maintain pre-R25 tolerant behaviour for generic URNs / URLs:
-      // take the last `:` or `/` segment.
-      const tail = parsed.raw.split(/[:/]/).pop()?.trim();
-      return tail && tail.length > 0 ? tail : parsed.raw;
+      // Tolerant fallback for any URN we don't recognise (legacy
+      // `urn:amorphie:*` lands here in the vNext era). Take the last
+      // `:` or `/` segment so existing buttons still surface
+      // *something*; the dispatcher decides whether to actually fire.
+      const raw = parsed.raw;
+      if (typeof raw !== 'string' || !raw) return null;
+      const tail = raw.split(/[:/]/).pop()?.trim();
+      return tail && tail.length > 0 ? tail : raw;
     }
-    case 'func':
-    case 'nav':
-    case 'tenant':
-      // These URN kinds aren't workflow transitions. Caller will route
-      // them elsewhere; returning null here flags "not a transition".
+    case 'flow-start':
+    case 'fn':
+      // These URN kinds aren't workflow transitions. Caller will
+      // route them elsewhere; returning null here flags "not a
+      // transition".
       return null;
   }
 }

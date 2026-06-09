@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useWorkflowStore } from '../../../../store/useWorkflowStore';
 import {
   ResizableHandle,
@@ -48,12 +48,35 @@ export const statePropertyPanelResizableProps = {
 export function WorkflowPropertySidebarResizableRow({
   canvas,
   sidePanel,
+  sidePanelOpen,
 }: {
   canvas: ReactNode;
   sidePanel: ReactNode;
+  /**
+   * Controls whether the right-hand properties panel is expanded. When this
+   * row stays mounted across selection changes (so the underlying
+   * `ReactFlowProvider` / `FlowCanvas` keep their viewport state), we
+   * drive collapse/expand imperatively here instead of swapping the
+   * surrounding JSX. Re-mounting the canvas on every selection toggle was
+   * what caused the "click-a-node → zoom jumps" feedback.
+   */
+  sidePanelOpen: boolean;
 }) {
   const propertiesPanelRef = usePanelRef();
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(!sidePanelOpen);
+
+  // Drive collapse/expand from the controlled `sidePanelOpen` prop. We
+  // keep the row + canvas mounted regardless; only the right panel
+  // collapses to its `collapsedSize` (0) when there is no selection.
+  useEffect(() => {
+    const api = propertiesPanelRef.current;
+    if (!api) return;
+    if (sidePanelOpen) {
+      if (api.isCollapsed()) api.expand();
+    } else if (!api.isCollapsed()) {
+      api.collapse();
+    }
+  }, [sidePanelOpen, propertiesPanelRef]);
 
   const defaultLayout = useMemo(() => {
     const { minSize, maxSize } = statePropertyPanelResizableProps;

@@ -34,6 +34,40 @@ global using System.Linq;
 `
 }
 
+/**
+ * Defensive `omnisharp.json` written into every temp LSP workspace. Even
+ * when OmniSharp is the resolved server (csharp-ls preferred), this
+ * config keeps project discovery pinned to the session's own files and
+ * stops OmniSharp from crawling outward — e.g. into a sibling .NET
+ * integration test project that happens to share the user's VS Code
+ * workspace folder. Without this guard, `.cs` files in those projects
+ * would receive false diagnostics from our analyzer.
+ */
+function buildOmniSharpConfig(): string {
+  return JSON.stringify(
+    {
+      fileOptions: {
+        systemExcludeSearchPatterns: [
+          '**/node_modules/**',
+          '**/.git/**',
+          '**/bin/**',
+          '**/obj/**',
+        ],
+        excludeSearchPatterns: ['**/*'],
+        includeSearchPatterns: [
+          './session.csproj',
+          './GlobalUsings.cs',
+          './Script.cs',
+        ],
+      },
+      msbuild: { enabled: true, loadProjectsOnDemand: false },
+      roslyn: { enableAnalyzersSupport: false },
+    },
+    null,
+    2,
+  ) + '\n'
+}
+
 function buildNuGetConfig(feedUrl: string): string {
   return `<?xml version="1.0" encoding="utf-8"?>
 <configuration>
@@ -69,6 +103,7 @@ export function createLspWorkspaceManager(deps: LspWorkspaceDeps) {
       fs.writeFile(path.join(workspacePath, 'session.csproj'), buildCsprojContent(), 'utf-8'),
       fs.writeFile(path.join(workspacePath, 'GlobalUsings.cs'), buildGlobalUsings(), 'utf-8'),
       fs.writeFile(scriptPath, '// Script placeholder\n', 'utf-8'),
+      fs.writeFile(path.join(workspacePath, 'omnisharp.json'), buildOmniSharpConfig(), 'utf-8'),
     ])
 
     const privateFeed = process.env.VNEXT_NUGET_FEED

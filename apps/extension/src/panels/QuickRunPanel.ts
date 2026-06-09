@@ -35,14 +35,23 @@ function isWebviewReadyMessage(raw: unknown): boolean {
 }
 
 /**
- * Manages the QuickRun WebviewPanel. Only one QuickRun panel can be open at
- * a time. Opening a second time reveals the existing panel with updated context.
+ * Manages QuickRun WebviewPanel instances. Each `${domain}:${workflowKey}`
+ * gets its own independent webview so authors can inspect multiple
+ * flows side-by-side. Re-opening Quick Run for a workflow that's
+ * already showing reveals that panel rather than creating a duplicate.
  */
+interface PanelEntry {
+  panel: vscode.WebviewPanel;
+  webviewReady: boolean;
+  pendingContext: QuickRunContext | undefined;
+  disposables: vscode.Disposable[];
+}
+
 export class QuickRunPanel {
-  private panel: vscode.WebviewPanel | undefined;
-  private webviewReady = false;
-  private pendingContext: QuickRunContext | undefined;
-  private readonly disposables: vscode.Disposable[] = [];
+  // Keyed by `${domain}:${workflowKey}` — see `keyFor`. Each entry's
+  // disposables list owns the listeners attached to that single
+  // panel; `onDidDispose` removes the entry and drains the list.
+  private readonly panels = new Map<string, PanelEntry>();
   private readonly dataBucket: DataBucketService;
 
   constructor(
@@ -54,14 +63,27 @@ export class QuickRunPanel {
     this.dataBucket = new DataBucketService(context.globalStorageUri);
   }
 
+  private keyFor(ctx: QuickRunContext): string {
+    return `${ctx.domain}:${ctx.workflowKey}`;
+  }
+
   open(ctx: QuickRunContext): void {
-    if (this.panel) {
-      this.panel.reveal(vscode.ViewColumn.Active);
-      this.sendContext(ctx);
+    const key = this.keyFor(ctx);
+    const existing = this.panels.get(key);
+    if (existing) {
+      existing.panel.reveal(vscode.ViewColumn.Active);
+      // Even though the key already matches, the ctx may carry fresh
+      // environment / project info — re-send so the webview reflects
+      // the latest active environment selection.
+      if (existing.webviewReady) {
+        void this.sendContextWithPolling(existing, ctx);
+      } else {
+        existing.pendingContext = ctx;
+      }
       return;
     }
 
-    this.panel = vscode.window.createWebviewPanel(
+    const panel = vscode.window.createWebviewPanel(
       'vnextForgeQuickRun',
       `Quick Run — ${ctx.workflowKey}`,
       vscode.ViewColumn.Active,
@@ -72,110 +94,114 @@ export class QuickRunPanel {
       },
     );
 
-    this.pendingContext = ctx;
+    const entry: PanelEntry = {
+      panel,
+      webviewReady: false,
+      pendingContext: ctx,
+      disposables: [],
+    };
+    this.panels.set(key, entry);
 
-    const routerDisposable = this.router.attach(this.panel);
-    this.disposables.push(routerDisposable);
+    entry.disposables.push(this.router.attach(panel));
 
-    const readyListener = this.panel.webview.onDidReceiveMessage((raw: unknown) => {
-      if (isWebviewReadyMessage(raw)) {
-        this.webviewReady = true;
-        if (this.pendingContext) {
-          this.sendContext(this.pendingContext);
-          this.pendingContext = undefined;
+    entry.disposables.push(
+      panel.webview.onDidReceiveMessage((raw: unknown) => {
+        if (isWebviewReadyMessage(raw)) {
+          entry.webviewReady = true;
+          if (entry.pendingContext) {
+            void this.sendContextWithPolling(entry, entry.pendingContext);
+            entry.pendingContext = undefined;
+          }
+          this.sendCurrentHealthTo(entry);
+          return;
         }
-        this.sendCurrentHealth();
-        return;
-      }
-      void this.handleDataBucketMessage(raw);
-    });
-    this.disposables.push(readyListener);
+        void this.handleDataBucketMessage(entry, raw);
+      }),
+    );
 
     if (this.forgeToolsSettings) {
-      const settingsSub = this.forgeToolsSettings.onDidChangeSettings((settings) => {
-        if (!this.panel) return;
-        this.panel.webview.options = {
-          ...this.panel.webview.options,
-          localResourceRoots: this.buildLocalResourceRoots(settings),
-        };
-        if (this.webviewReady) {
-          void this.panel.webview.postMessage({
-            type: 'host:canvas-settings-changed',
-            pseudoUiTenantStyle: this.resolvePseudoUiTenantStyleForWebview(this.panel.webview, settings),
-          });
-        }
-      });
-      this.disposables.push(settingsSub);
+      entry.disposables.push(
+        this.forgeToolsSettings.onDidChangeSettings((settings) => {
+          entry.panel.webview.options = {
+            ...entry.panel.webview.options,
+            localResourceRoots: this.buildLocalResourceRoots(settings),
+          };
+          if (entry.webviewReady) {
+            void entry.panel.webview.postMessage({
+              type: 'host:canvas-settings-changed',
+              pseudoUiTenantStyle: this.resolvePseudoUiTenantStyleForWebview(entry.panel.webview, settings),
+            });
+          }
+        }),
+      );
     }
 
     if (this.healthMonitor) {
-      const healthSub = this.healthMonitor.onDidChangeHealth((status) => {
-        this.postHealthToWebview(status === 'healthy' ? 'healthy' : status === 'unhealthy' ? 'unhealthy' : 'unknown');
-      });
-      this.disposables.push(healthSub);
+      entry.disposables.push(
+        this.healthMonitor.onDidChangeHealth((status) => {
+          this.postHealthTo(
+            entry,
+            status === 'healthy' ? 'healthy' : status === 'unhealthy' ? 'unhealthy' : 'unknown',
+          );
+        }),
+      );
     }
 
-    this.panel.onDidDispose(() => {
-      this.panel = undefined;
-      this.webviewReady = false;
-      this.pendingContext = undefined;
-      for (const d of this.disposables) {
+    panel.onDidDispose(() => {
+      for (const d of entry.disposables) {
         try { d.dispose(); } catch { /* ignore */ }
       }
-      this.disposables.length = 0;
+      entry.disposables.length = 0;
+      this.panels.delete(key);
     });
 
-    this.panel.webview.html = this.buildHtml(this.panel.webview);
+    panel.webview.html = this.buildHtml(panel.webview);
   }
 
   dispose(): void {
-    this.panel?.dispose();
+    // Each panel's onDidDispose handler removes its own entry from
+    // the map and disposes its listeners, so we just trigger the
+    // close. Iterate over a snapshot to avoid concurrent-modification
+    // surprises.
+    for (const entry of [...this.panels.values()]) {
+      entry.panel.dispose();
+    }
   }
 
-  private async handleDataBucketMessage(raw: unknown): Promise<void> {
+  private async handleDataBucketMessage(entry: PanelEntry, raw: unknown): Promise<void> {
     if (typeof raw !== 'object' || raw === null) return;
     const msg = raw as { type?: string; requestId?: string; domain?: string; workflowKey?: string; config?: WorkflowBucketConfig };
 
     if (msg.type === 'databucket:saveConfig' && msg.domain && msg.workflowKey && msg.config) {
       await this.dataBucket.saveConfig(msg.domain, msg.workflowKey, msg.config);
-      if (msg.requestId && this.panel) {
-        void this.panel.webview.postMessage({ type: 'databucket:saveConfig:response', requestId: msg.requestId, success: true });
+      if (msg.requestId) {
+        void entry.panel.webview.postMessage({ type: 'databucket:saveConfig:response', requestId: msg.requestId, success: true });
       }
       return;
     }
 
     if (msg.type === 'databucket:loadConfig' && msg.domain && msg.workflowKey) {
       const config = await this.dataBucket.loadConfig(msg.domain, msg.workflowKey);
-      if (msg.requestId && this.panel) {
-        void this.panel.webview.postMessage({ type: 'databucket:loadConfig:response', requestId: msg.requestId, config });
+      if (msg.requestId) {
+        void entry.panel.webview.postMessage({ type: 'databucket:loadConfig:response', requestId: msg.requestId, config });
       }
     }
   }
 
-  private sendCurrentHealth(): void {
+  private sendCurrentHealthTo(entry: PanelEntry): void {
     if (!this.healthMonitor) return;
     const h = this.healthMonitor.getHealth();
     const mapped = h === 'healthy' ? 'healthy' : h === 'unhealthy' ? 'unhealthy' : 'unknown';
-    this.postHealthToWebview(mapped);
+    this.postHealthTo(entry, mapped);
   }
 
-  private postHealthToWebview(status: 'healthy' | 'unhealthy' | 'unknown'): void {
-    if (!this.panel || !this.webviewReady) return;
+  private postHealthTo(entry: PanelEntry, status: 'healthy' | 'unhealthy' | 'unknown'): void {
+    if (!entry.webviewReady) return;
     const runtimeDomain = this.healthMonitor?.getRuntimeDomain() ?? undefined;
-    void this.panel.webview.postMessage({ type: 'quickrun:health', status, runtimeDomain });
+    void entry.panel.webview.postMessage({ type: 'quickrun:health', status, runtimeDomain });
   }
 
-  private sendContext(ctx: QuickRunContext): void {
-    if (!this.panel) return;
-    if (!this.webviewReady) {
-      this.pendingContext = ctx;
-      return;
-    }
-    void this.sendContextWithPolling(ctx);
-  }
-
-  private async sendContextWithPolling(ctx: QuickRunContext): Promise<void> {
-    if (!this.panel) return;
+  private async sendContextWithPolling(entry: PanelEntry, ctx: QuickRunContext): Promise<void> {
     let pollingRetryCount: number | undefined;
     let pollingIntervalMs: number | undefined;
     if (this.forgeToolsSettings) {
@@ -183,7 +209,7 @@ export class QuickRunPanel {
       pollingRetryCount = qr.polling.retryCount;
       pollingIntervalMs = qr.polling.intervalMs;
     }
-    void this.panel.webview.postMessage({
+    void entry.panel.webview.postMessage({
       type: 'quickrun:context',
       ...ctx,
       pollingRetryCount,

@@ -236,6 +236,191 @@ describe('SchemaTreeEditor roundtrip', () => {
     expect('x-labels' in foo).toBe(false);
   });
 
+  it('x-roles toggle installs the seed grant array and removes the key on second toggle', () => {
+    loadFixture({
+      attributes: {
+        schema: {
+          type: 'object',
+          properties: { foo: { type: 'string' } },
+        },
+      },
+    });
+
+    const seed = () => [
+      { role: 'morph-idm.initiator', grant: 'allow' as const },
+      { role: 'morph-idm.viewer', grant: 'deny' as const },
+    ];
+
+    useSchemaEditorStore
+      .getState()
+      .updateComponent(toggleVNextKey('/properties/foo', 'x-roles', seed));
+
+    let foo = ((dump().attributes as { schema: Record<string, unknown> }).schema
+      .properties as Record<string, Record<string, unknown>>).foo;
+    expect(foo['x-roles']).toEqual([
+      { role: 'morph-idm.initiator', grant: 'allow' },
+      { role: 'morph-idm.viewer', grant: 'deny' },
+    ]);
+
+    useSchemaEditorStore
+      .getState()
+      .updateComponent(toggleVNextKey('/properties/foo', 'x-roles', seed));
+
+    foo = ((dump().attributes as { schema: Record<string, unknown> }).schema
+      .properties as Record<string, Record<string, unknown>>).foo;
+    expect('x-roles' in foo).toBe(false);
+  });
+
+  it('roundtrips x-roles with static names and dynamic expressions', () => {
+    const original = {
+      attributes: {
+        schema: {
+          type: 'object',
+          properties: {
+            status: {
+              type: 'string',
+              'x-roles': [
+                { role: 'morph-idm.initiator', grant: 'allow' },
+                {
+                  role: '$userBehalfOf.$.context.Instance.Data.initial.customer.ownerUserId',
+                  grant: 'deny',
+                },
+              ],
+            },
+          },
+        },
+      },
+    };
+
+    loadFixture(original);
+
+    const status = ((dump().attributes as { schema: Record<string, unknown> }).schema
+      .properties as Record<string, Record<string, unknown>>).status;
+
+    expect(status['x-roles']).toEqual(original.attributes.schema.properties.status['x-roles']);
+  });
+
+  // ── Tabular display annotations (x-filterOperators, x-sortable, x-displayFormat) ──
+
+  it('x-filterOperators toggle installs the seed array and removes it on second toggle', () => {
+    loadFixture({
+      attributes: {
+        schema: {
+          type: 'object',
+          properties: { foo: { type: 'string' } },
+        },
+      },
+    });
+
+    const seed = () => ['eq', 'gt'];
+
+    useSchemaEditorStore
+      .getState()
+      .updateComponent(toggleVNextKey('/properties/foo', 'x-filterOperators', seed));
+
+    let foo = ((dump().attributes as { schema: Record<string, unknown> }).schema
+      .properties as Record<string, Record<string, unknown>>).foo;
+    expect(foo['x-filterOperators']).toEqual(['eq', 'gt']);
+
+    useSchemaEditorStore
+      .getState()
+      .updateComponent(toggleVNextKey('/properties/foo', 'x-filterOperators', seed));
+
+    foo = ((dump().attributes as { schema: Record<string, unknown> }).schema
+      .properties as Record<string, Record<string, unknown>>).foo;
+    expect('x-filterOperators' in foo).toBe(false);
+  });
+
+  it('x-sortable toggle installs `true` and removes on second toggle', () => {
+    loadFixture({
+      attributes: {
+        schema: {
+          type: 'object',
+          properties: { foo: { type: 'string' } },
+        },
+      },
+    });
+
+    const seed = () => true;
+
+    useSchemaEditorStore
+      .getState()
+      .updateComponent(toggleVNextKey('/properties/foo', 'x-sortable', seed));
+
+    let foo = ((dump().attributes as { schema: Record<string, unknown> }).schema
+      .properties as Record<string, Record<string, unknown>>).foo;
+    expect(foo['x-sortable']).toBe(true);
+
+    useSchemaEditorStore
+      .getState()
+      .updateComponent(toggleVNextKey('/properties/foo', 'x-sortable', seed));
+
+    foo = ((dump().attributes as { schema: Record<string, unknown> }).schema
+      .properties as Record<string, Record<string, unknown>>).foo;
+    expect('x-sortable' in foo).toBe(false);
+  });
+
+  it('x-displayFormat toggle installs the seed format and removes on second toggle', () => {
+    loadFixture({
+      attributes: {
+        schema: {
+          type: 'object',
+          properties: { foo: { type: 'string' } },
+        },
+      },
+    });
+
+    const seed = () => "yyyy-MM-dd'T'HH:mm:ssXXX";
+
+    useSchemaEditorStore
+      .getState()
+      .updateComponent(toggleVNextKey('/properties/foo', 'x-displayFormat', seed));
+
+    let foo = ((dump().attributes as { schema: Record<string, unknown> }).schema
+      .properties as Record<string, Record<string, unknown>>).foo;
+    expect(foo['x-displayFormat']).toBe("yyyy-MM-dd'T'HH:mm:ssXXX");
+
+    useSchemaEditorStore
+      .getState()
+      .updateComponent(toggleVNextKey('/properties/foo', 'x-displayFormat', seed));
+
+    foo = ((dump().attributes as { schema: Record<string, unknown> }).schema
+      .properties as Record<string, Record<string, unknown>>).foo;
+    expect('x-displayFormat' in foo).toBe(false);
+  });
+
+  it('roundtrips the combined tabular annotations alongside x-labels', () => {
+    const original = {
+      attributes: {
+        schema: {
+          type: 'object',
+          properties: {
+            startDateTime: {
+              type: 'string',
+              format: 'date-time',
+              'x-labels': { en: 'Start time', tr: 'Başlangıç' },
+              'x-filterOperators': ['eq', 'gt', 'ge', 'lt', 'le', 'between'],
+              'x-sortable': true,
+              'x-displayFormat': "yyyy-MM-dd'T'HH:mm:ssXXX",
+            },
+          },
+        },
+      },
+    };
+
+    loadFixture(original);
+
+    const field = ((dump().attributes as { schema: Record<string, unknown> }).schema
+      .properties as Record<string, Record<string, unknown>>).startDateTime;
+
+    expect(field['x-labels']).toEqual(original.attributes.schema.properties.startDateTime['x-labels']);
+    expect(field['x-filterOperators']).toEqual(
+      original.attributes.schema.properties.startDateTime['x-filterOperators'],
+    );
+    expect(field['x-sortable']).toBe(true);
+    expect(field['x-displayFormat']).toBe("yyyy-MM-dd'T'HH:mm:ssXXX");
+  });
+
   it('Phase 3: roundtrips string + number + array + object constraint keywords', () => {
     const original = {
       attributes: {

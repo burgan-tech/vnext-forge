@@ -16,11 +16,28 @@
  */
 
 import { useMemo, useState } from 'react';
-import { Search, Workflow, Zap } from 'lucide-react';
+import { Play, Search, Workflow, Zap } from 'lucide-react';
 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../../../../../ui/Dialog';
 import { Input } from '../../../../../ui/Input';
 import type { DomainActionEntry, ForgeUrnCatalog } from '../services/forgeUrnCatalog';
+
+type FnVerb = 'get' | 'post' | 'patch' | 'delete';
+const FN_VERBS: readonly FnVerb[] = ['get', 'post', 'patch', 'delete'] as const;
+
+/**
+ * Rewrite a default-verb function URN
+ * (`urn:vnext:fn:<domain>:<fn>`) to include the explicit verb segment
+ * when it isn't `get`. Catalog emits the bare form so the dialog can
+ * morph the same entry under different verbs without re-running
+ * discovery.
+ */
+function withFnVerb(urn: string, verb: FnVerb): string {
+  if (!urn.startsWith('urn:vnext:fn:')) return urn;
+  if (verb === 'get') return urn;
+  const tail = urn.slice('urn:vnext:fn:'.length);
+  return `urn:vnext:fn:${verb}:${tail}`;
+}
 
 export interface ChooseUrnDialogProps {
   open: boolean;
@@ -34,7 +51,7 @@ export interface ChooseUrnDialogProps {
 }
 
 interface UrnGroup {
-  key: 'workflow' | 'function';
+  key: 'workflow-start' | 'workflow' | 'function';
   label: string;
   icon: typeof Workflow;
   entries: DomainActionEntry[];
@@ -42,6 +59,7 @@ interface UrnGroup {
 
 export function ChooseUrnDialog({ open, onOpenChange, catalog, onSelect }: ChooseUrnDialogProps) {
   const [query, setQuery] = useState('');
+  const [fnVerb, setFnVerb] = useState<FnVerb>('get');
 
   const groups = useMemo<UrnGroup[]>(() => {
     const q = query.trim().toLowerCase();
@@ -56,16 +74,24 @@ export function ChooseUrnDialog({ open, onOpenChange, catalog, onSelect }: Choos
           );
 
     return [
+      { key: 'workflow-start', label: 'Workflow Starts', icon: Play, entries: filter(catalog.workflowStarts) },
       { key: 'workflow', label: 'Workflow Transitions', icon: Workflow, entries: filter(catalog.workflows) },
       { key: 'function', label: 'Functions', icon: Zap, entries: filter(catalog.functions) },
     ];
   }, [catalog, query]);
 
   const totalVisible = groups.reduce((sum, g) => sum + g.entries.length, 0);
-  const totalAvailable = catalog.workflows.length + catalog.functions.length;
+  const totalAvailable =
+    catalog.workflowStarts.length + catalog.workflows.length + catalog.functions.length;
 
   const handlePick = (entry: DomainActionEntry) => {
-    onSelect(entry);
+    // Functions surface as default-verb entries; the verb selector
+    // above the group rewrites the URN before it lands in the
+    // ActionEditor. Other groups (start / transition) pass through
+    // untouched.
+    const finalEntry =
+      entry.group === 'function' ? { ...entry, urn: withFnVerb(entry.urn, fnVerb) } : entry;
+    onSelect(finalEntry);
     onOpenChange(false);
   };
 
@@ -135,30 +161,55 @@ export function ChooseUrnDialog({ open, onOpenChange, catalog, onSelect }: Choos
                     key={group.key}
                     className="border-border-subtle/80 overflow-hidden rounded-md border bg-background/40"
                   >
-                    <div className="bg-muted/30 text-muted-foreground border-border-subtle/80 flex items-center gap-1 border-b px-2 py-1 text-[9px] font-medium tracking-wide uppercase">
+                    <div className="bg-muted/30 text-muted-foreground border-border-subtle/80 flex items-center gap-2 border-b px-2 py-1 text-[9px] font-medium tracking-wide uppercase">
                       <Icon size={10} />
-                      {group.label}
-                      <span className="text-muted-text/70 ml-1 normal-case">({group.entries.length})</span>
+                      <span>{group.label}</span>
+                      <span className="text-muted-text/70 normal-case">({group.entries.length})</span>
+                      {group.key === 'function' ? (
+                        <div className="ml-auto flex items-center gap-1 normal-case" role="radiogroup" aria-label="HTTP verb">
+                          {FN_VERBS.map((verb) => (
+                            <button
+                              key={verb}
+                              type="button"
+                              role="radio"
+                              aria-checked={fnVerb === verb}
+                              onClick={() => setFnVerb(verb)}
+                              className={`rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide transition-colors ${
+                                fnVerb === verb
+                                  ? 'bg-[var(--vscode-button-background)] text-[var(--vscode-button-foreground)]'
+                                  : 'bg-transparent text-muted-text hover:bg-[var(--vscode-list-hoverBackground)]'
+                              }`}
+                              title={`Emit function URN with HTTP ${verb.toUpperCase()}`}
+                            >
+                              {verb}
+                            </button>
+                          ))}
+                        </div>
+                      ) : null}
                     </div>
                     <ul className="divide-border-subtle/90 divide-y" role="listbox" aria-label={group.label}>
-                      {group.entries.map((entry) => (
-                        <li
-                          key={entry.urn}
-                          className="odd:bg-background/40 even:bg-muted/20"
-                        >
-                          <button
-                            type="button"
-                            onClick={() => handlePick(entry)}
-                            className="hover:bg-[var(--vscode-list-hoverBackground)] focus:bg-[var(--vscode-list-activeSelectionBackground)] focus:text-[var(--vscode-list-activeSelectionForeground)] flex w-full flex-col items-start gap-0.5 px-2 py-1.5 text-left text-xs focus:outline-none"
+                      {group.entries.map((entry) => {
+                        const previewUrn =
+                          group.key === 'function' ? withFnVerb(entry.urn, fnVerb) : entry.urn;
+                        return (
+                          <li
+                            key={entry.urn}
+                            className="odd:bg-background/40 even:bg-muted/20"
                           >
-                            <span className="text-foreground font-medium">{entry.label}</span>
-                            <span className="text-muted-text font-mono text-[10px] break-all">{entry.urn}</span>
-                            {entry.description ? (
-                              <span className="text-secondary-text text-[10px]">{entry.description}</span>
-                            ) : null}
-                          </button>
-                        </li>
-                      ))}
+                            <button
+                              type="button"
+                              onClick={() => handlePick(entry)}
+                              className="hover:bg-[var(--vscode-list-hoverBackground)] focus:bg-[var(--vscode-list-activeSelectionBackground)] focus:text-[var(--vscode-list-activeSelectionForeground)] flex w-full flex-col items-start gap-0.5 px-2 py-1.5 text-left text-xs focus:outline-none"
+                            >
+                              <span className="text-foreground font-medium">{entry.label}</span>
+                              <span className="text-muted-text font-mono text-[10px] break-all">{previewUrn}</span>
+                              {entry.description ? (
+                                <span className="text-secondary-text text-[10px]">{entry.description}</span>
+                              ) : null}
+                            </button>
+                          </li>
+                        );
+                      })}
                     </ul>
                   </div>
                 );

@@ -26,6 +26,7 @@ interface FilterCondition {
 const INSTANCE_FIELDS: { value: string; label: string; type: 'string' | 'status' | 'date' }[] = [
   { value: 'status', label: 'Status', type: 'status' },
   { value: 'currentState', label: 'Current State', type: 'string' },
+  { value: 'id', label: 'Id', type: 'string' },
   { value: 'key', label: 'Key', type: 'string' },
   { value: 'createdAt', label: 'Created At', type: 'date' },
   { value: 'modifiedAt', label: 'Modified At', type: 'date' },

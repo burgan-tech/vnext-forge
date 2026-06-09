@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useProjectStore } from '../../store/useProjectStore';
 import { useValidationStore } from '../../store/useValidationStore';
 import { ReactFlowProvider } from '@xyflow/react';
@@ -26,6 +26,7 @@ import { useFlowEditorDocument } from '../../modules/flow-editor/useFlowEditorDo
 import { FlowEditorSaveProvider } from '../../modules/flow-editor/FlowEditorSaveContext.js';
 import { WorkflowValidationSync } from '../../modules/workflow-validation/WorkflowValidationSync.js';
 import { SubFlowNavigationProvider } from '../../modules/canvas-interaction/context/SubFlowNavigationContext';
+import { ScriptTaskChromeProvider } from '../../modules/task-editor/ScriptTaskChromeContext.js';
 import { useSubFlowNavigation } from './useSubFlowNavigation.js';
 import { Alert, AlertDescription, AlertTitle } from '../../ui/Alert';
 import { Button } from '../../ui/Button';
@@ -67,18 +68,13 @@ const ISSUE_TONE = {
 
 function FlowValidationStrip() {
   const issues = useValidationStore((s) => s.issues);
+  // Always start collapsed. Earlier the strip auto-expanded the first
+  // time issues showed up — that was distracting on initial load when
+  // a freshly-opened workflow happened to have pending warnings the
+  // user hadn't asked to see yet. The chevron stays visible (issue
+  // counts are still in the header), so opening the panel is a one
+  // click away whenever the author actually wants it.
   const [collapsed, setCollapsed] = useState(true);
-  const prevCountRef = useRef(0);
-
-  useEffect(() => {
-    if (issues.length > 0 && prevCountRef.current === 0) {
-      setCollapsed(false);
-    }
-    if (issues.length === 0) {
-      setCollapsed(true);
-    }
-    prevCountRef.current = issues.length;
-  }, [issues.length]);
 
   if (issues.length === 0) return null;
 
@@ -283,26 +279,32 @@ export function FlowEditorView({
         canvas={
           <div className="flex min-h-0 flex-1 overflow-hidden">
             <SubFlowNavigationProvider onOpenSubFlow={onOpenSubFlow}>
-              {showSidePanel ? (
-                <WorkflowPropertySidebarResizableRow
-                  canvas={
-                    <div className="relative h-full min-h-0 w-full">
-                      <ReactFlowProvider>
-                        <FlowCanvas {...flowCanvasProps} />
-                      </ReactFlowProvider>
-                    </div>
-                  }
-                  sidePanel={
-                    selectedNodeId ? <StatePropertyPanel defaultTaskFolder={group} /> : <TransitionPropertyPanel />
-                  }
-                />
-              ) : (
-                <div className="relative h-full min-h-0 flex-1">
-                  <ReactFlowProvider>
-                    <FlowCanvas {...flowCanvasProps} />
-                  </ReactFlowProvider>
-                </div>
-              )}
+              {/*
+                The canvas + properties row stays mounted across selection
+                changes so that toggling the right panel does not unmount
+                the `ReactFlowProvider`. Re-mounting the canvas reset the
+                viewport on every selection toggle — clicking a node
+                opened the panel and snapped the zoom, clicking empty
+                space closed it and snapped again. The row's right panel
+                now collapses to `collapsedSize: 0` instead.
+              */}
+              <WorkflowPropertySidebarResizableRow
+                sidePanelOpen={Boolean(showSidePanel)}
+                canvas={
+                  <div className="relative h-full min-h-0 w-full">
+                    <ReactFlowProvider>
+                      <FlowCanvas {...flowCanvasProps} />
+                    </ReactFlowProvider>
+                  </div>
+                }
+                sidePanel={
+                  selectedNodeId
+                    ? <StatePropertyPanel defaultTaskFolder={group} />
+                    : selectedEdgeId
+                      ? <TransitionPropertyPanel />
+                      : null
+                }
+              />
             </SubFlowNavigationProvider>
           </div>
         }
@@ -321,6 +323,9 @@ export function FlowEditorView({
   return (
     <FlowEditorSaveProvider saveWorkflow={save}>
       <WorkflowValidationSync />
+      <ScriptTaskChromeProvider
+        onOpenScriptFileInHost={onOpenScriptFileInHost}
+        scriptDirectoryPath={workflowDirectoryPath}>
       <ComponentEditorLayout
         canRedo={redoStackLength > 0}
         canUndo={undoStackLength > 0}
@@ -370,6 +375,7 @@ export function FlowEditorView({
           <FlowValidationStrip />
         </div>
       </ComponentEditorLayout>
+      </ScriptTaskChromeProvider>
       <PreviewDocumentDialog
         open={showPreviewDoc}
         onOpenChange={setShowPreviewDoc}

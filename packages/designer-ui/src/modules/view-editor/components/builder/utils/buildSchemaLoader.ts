@@ -27,9 +27,9 @@
 import type { DataSchema } from '@burgan-tech/pseudo-ui';
 import type { DiscoveredVnextComponent } from '@vnext-forge-studio/app-contracts';
 
-import { parseDataSchemaRef } from '../../../../quick-run/pseudo-ui/parseDataSchemaRef';
+import { parseVnextResUrn } from '../../../../quick-run/pseudo-ui/parseVnextResUrn';
 import { readFile } from '../../../../project-workspace/WorkspaceApi';
-import { buildSchemaUrn } from './buildSchemaUrn';
+import { buildVnextResUrnFromComponent } from './buildVnextResUrn';
 
 export type SchemaLoader = (urn: string) => Promise<DataSchema | null>;
 
@@ -44,7 +44,7 @@ export function buildSchemaLoader({ schemas, projectPath }: BuildSchemaLoaderOpt
   const cache = new Map<string, DataSchema>();
   const urnIndex = new Map<string, DiscoveredVnextComponent>();
   for (const component of schemas) {
-    urnIndex.set(buildSchemaUrn(component, projectPath), component);
+    urnIndex.set(buildVnextResUrnFromComponent('schema', component, projectPath), component);
   }
 
   return async (input: string): Promise<DataSchema | null> => {
@@ -54,25 +54,53 @@ export function buildSchemaLoader({ schemas, projectPath }: BuildSchemaLoaderOpt
 
     let component = urnIndex.get(input);
     if (!component) {
-      // Fallback: parse and match by key. parseDataSchemaRef supports
-      // URN, schemas.vnext.com URL, and bare-key inputs alike.
-      const parsed = parseDataSchemaRef(input);
-      if (!parsed) return null;
+      // Fallback: parse the URN and match by key. The strict vNext
+      // res URN parser only accepts `urn:vnext:res:schema:...` — any
+      // other res-key or legacy form returns null.
+      const parsed = parseVnextResUrn(input);
+      if (!parsed || parsed.resKey !== 'schema') {
+        // eslint-disable-next-line no-console -- diagnostic surface for "empty dropdown" debug rounds.
+        console.warn('[buildSchemaLoader] non-schema res URN — cannot resolve', {
+          urn: input,
+          parsedKind: parsed?.resKey ?? null,
+        });
+        return null;
+      }
       component = schemas.find((s) => s.key === parsed.key);
-      if (!component) return null;
+      if (!component) {
+        // eslint-disable-next-line no-console
+        console.warn('[buildSchemaLoader] schema not found in workspace', {
+          urn: input,
+          key: parsed.key,
+          domain: parsed.domain,
+          known: schemas.map((s) => s.key),
+        });
+        return null;
+      }
     }
 
     try {
       const { content } = await readFile(component.path);
       const parsed = JSON.parse(content) as { attributes?: { schema?: unknown } };
       const schema = parsed.attributes?.schema;
-      if (!schema || typeof schema !== 'object') return null;
+      if (!schema || typeof schema !== 'object') {
+        // eslint-disable-next-line no-console
+        console.warn('[buildSchemaLoader] schema file missing attributes.schema', {
+          urn: input,
+          path: component.path,
+        });
+        return null;
+      }
       const dataSchema = schema as DataSchema;
       cache.set(input, dataSchema);
       return dataSchema;
-    } catch {
-      // File missing, JSON parse failure, or wrong shape — fall back to null
-      // so the inspector + canvas render in free-text mode.
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn('[buildSchemaLoader] schema file read/parse failed', {
+        urn: input,
+        path: component.path,
+        error: err instanceof Error ? err.message : String(err),
+      });
       return null;
     }
   };

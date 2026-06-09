@@ -1,9 +1,10 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import type { RoleGrant, ViewBinding } from '@vnext-forge-studio/vnext-types';
+import type { RoleGrant, StateAlias, ViewBinding } from '@vnext-forge-studio/vnext-types';
 import type { DiscoveredVnextComponent } from '@vnext-forge-studio/app-contracts';
 import { getLabels } from './PropertyPanelHelpers';
 import { SelectField, Section, SummaryCard } from './PropertyPanelShared';
 import { RoleGrantEditor } from './subflow/RoleGrantEditor';
+import { StateAliasEditor } from './state/StateAliasEditor';
 import { ViewBindingsSection } from './shared/ViewBindingsSection';
 import { ChooseExistingVnextComponentDialog } from './ChooseExistingTaskDialog';
 import { CreateNewComponentDialog } from './CreateNewComponentDialog';
@@ -69,6 +70,18 @@ export function GeneralTab({ state, updateWorkflow }: GeneralTabProps) {
       if (s) s[field] = value;
     });
   };
+
+  const setAliases = useCallback((next: StateAlias[]) => {
+    // Strip the field when empty so the saved workflow JSON stays
+    // minimal — schema default is "no aliases", and an empty array
+    // would just churn the diff.
+    updateWorkflow((draft: any) => {
+      const s = draft.attributes?.states?.find((s: any) => s.key === stateKey);
+      if (!s) return;
+      if (next.length === 0) delete s.alias;
+      else s.alias = next;
+    });
+  }, [stateKey, updateWorkflow]);
 
   const updateQueryRoles = useCallback((roles: RoleGrant[]) => {
     updateWorkflow((draft: any) => {
@@ -213,6 +226,8 @@ export function GeneralTab({ state, updateWorkflow }: GeneralTabProps) {
         />
         {keyError && <p className="text-[10px] text-destructive-text mt-0.5">{keyError}</p>}
       </div>
+
+      <StateAliasEditor aliases={state.alias ?? []} onChange={setAliases} />
 
       <div>
         <label className="text-[10px] text-muted-foreground block mb-1 font-semibold tracking-wide">State Type</label>

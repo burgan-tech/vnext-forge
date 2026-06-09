@@ -11,12 +11,18 @@ import {
  * Single construction site for the VS Code extension host LSP stack (R-b8):
  * one `OmniSharpInstaller` instance is shared by the bridge and by optional
  * bootstrap pre-install so lifecycle and cache paths stay coherent.
+ *
+ * `requireCsharpLs: true` — the extension shell enforces csharp-ls so the
+ * analyzer cannot leak onto sibling .NET projects in the user's workspace.
+ * OmniSharp auto-discovers `.csproj` files and would otherwise report
+ * spurious diagnostics on integration test code the extension was never
+ * asked to inspect.
  */
 export function createExtensionHostLspStack(logger: LoggerAdapter): {
   bridge: LspBridge;
   installer: OmniSharpInstaller;
 } {
-  const installer = createOmniSharpInstaller({ logger });
+  const installer = createOmniSharpInstaller({ logger, requireCsharpLs: true });
   const workspaceManager = createLspWorkspaceManager({ logger });
   const bridge = createLspBridge({ logger, installer, workspaceManager });
   return { bridge, installer };

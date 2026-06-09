@@ -11,6 +11,7 @@ import { MessageRouter } from './MessageRouter.js';
 import { createVsCodeOutputChannelLogger } from './adapters/vscode-output-channel-logger.js';
 import { baseLogger } from './shared/logger.js';
 import { DesignerPanel } from './panels/DesignerPanel.js';
+import { publishWorkflowFile } from './lib/publishWorkflowFile.js';
 import { QuickRunPanel } from './panels/QuickRunPanel.js';
 import { VnextWorkspaceDetector, type VnextWorkspaceRoot } from './workspace-detector.js';
 import {
@@ -198,6 +199,14 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     services.cliService
       ? (params) => services.cliService!.domainAdd(params)
       : undefined,
+    detector,
+    // Read the workspace domain from `vnext.config.json` through the
+    // shared services-core accessor so this stays in sync with every
+    // other consumer (LSP, template scaffolding, runtime proxy, etc).
+    async (root) => {
+      const config = await services.workspaceService.getConfig(root.folderPath);
+      return config.domain ?? '';
+    },
   );
   const packageDeployProvider = new PackageDeployProvider(detector, forgeTerminal);
   const quickRunProvider = new QuickRunProvider();
@@ -334,6 +343,26 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         environmentUrl: activeEnv?.baseUrl,
         ...(wfJson.startSchemaRef ? { startSchemaRef: wfJson.startSchemaRef } : {}),
       });
+    })),
+    // Explorer right-click "Forge: Publish" — deploys the single
+    // workflow JSON to the runtime via `wf update -f <path>`. Same
+    // helper the Designer's Publish toolbar button uses, so the two
+    // entry points stay behaviorally identical.
+    vscode.commands.registerCommand('vnextForge.publishFromFile', safeAsync(async (uri?: vscode.Uri) => {
+      if (!uri) {
+        void vscode.window.showWarningMessage('Forge Publish: right-click a workflow JSON file in the Explorer.');
+        return;
+      }
+      const result = publishWorkflowFile({
+        filePath: uri.fsPath,
+        terminal: forgeTerminal,
+        logger: loggerAdapter,
+      });
+      if (!result.ok) {
+        void vscode.window.showErrorMessage(
+          `Forge Publish failed: ${result.reason ?? 'Unknown error'}`,
+        );
+      }
     })),
   );
 

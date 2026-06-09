@@ -323,26 +323,28 @@ export function createQuickRunService(runtimeProxyService: RuntimeProxyService) 
   }
 
   /**
-   * Execute an Amorphie function URN against the engine. Backs the
-   * Quick Runner pseudo-ui delegate's `requestData` (x-lov / x-lookup)
-   * and `dispatch + func URN` action paths.
+   * Execute a vNext function URN against the engine. Backs the Quick
+   * Runner pseudo-ui delegate's `requestData` (x-lov / x-lookup) and
+   * `dispatch + fn URN` action paths.
    *
    * URN shape drives the engine path (per vNext OpenAPI):
    *
-   *   `urn:amorphie:func:<domain>:<function>`             → domain endpoint
-   *     GET /api/v1/{domain}/functions/{function}
+   *   `urn:vnext:fn[:<verb>]:<domain>:<function>`             → domain endpoint
+   *     <verb> /api/v1/{domain}/functions/{function}
    *     Stateless catalog lookup; x-lov / x-lookup default home.
    *
-   *   `urn:amorphie:func:<domain>:<workflow>:<function>`  → instance-scoped
-   *     GET /api/v1/{domain}/workflows/{workflow}/instances/{instanceId}/functions/{function}
-   *     Workflow-state-aware function. The workflow key comes from the
-   *     URN; `instanceId` is supplied by the runtime caller (current
-   *     Quick Runner instance) since instance ids are dynamic and
-   *     never authored into a URN.
+   *   `urn:vnext:fn[:<verb>]:<domain>:<flow>:<instance>:<function>`
+   *                                                          → instance-scoped
+   *     <verb> /api/v1/{domain}/workflows/{flow}/instances/{instance}/functions/{function}
+   *     Workflow-state-aware function. Both `<flow>` and `<instance>`
+   *     come from the URN (resolved upstream — `${instanceId}` etc).
    *
-   * Filter params resolved by the SDK (`$form.x` → string value) land
-   * in the URL query string. Result body is forwarded to the SDK
-   * as-is — the SDK's `dataClient.extractByPath` runs JsonPath on it
+   * `<verb>` is one of `get/post/patch/delete` (default `get` when
+   * omitted). `params.method` overrides the URN-embedded verb.
+   *
+   * Filter params land in the URL query string for GET/DELETE and in
+   * the JSON body for POST/PATCH. The result body is forwarded to
+   * the SDK as-is — `dataClient.extractByPath` runs JsonPath on it
    * (`valueField` / `displayField` for x-lov, `resultField` for
    * x-lookup).
    */
@@ -350,19 +352,15 @@ export function createQuickRunService(runtimeProxyService: RuntimeProxyService) 
     params: z.infer<typeof quickrunExecuteFunctionParams>,
     traceId?: string,
   ): Promise<z.infer<typeof quickrunExecuteFunctionResult>> {
-    const parsed = parseAmorphieFuncUrn(params.functionUrn, traceId)
+    const parsed = parseVnextFnUrn(params.functionUrn, traceId)
+    const verb = (params.method ?? parsed.command).toUpperCase()
 
     let runtimePath: string
     if (parsed.scope === 'workflow') {
-      // Instance-scoped endpoint. The URN's workflow is what the engine
-      // expects on the path — it may or may not equal `params.workflowKey`
-      // (an LOV could legitimately target a function in a different
-      // workflow under the same domain). We prefer the URN to keep
-      // routing intent explicit.
       runtimePath =
         `/api/v1/${encodeURIComponent(parsed.domain)}` +
-        `/workflows/${encodeURIComponent(parsed.workflow)}` +
-        `/instances/${encodeURIComponent(params.instanceId)}` +
+        `/workflows/${encodeURIComponent(parsed.flow)}` +
+        `/instances/${encodeURIComponent(parsed.instance)}` +
         `/functions/${encodeURIComponent(parsed.function)}`
     } else {
       // Domain-level stateless endpoint.
@@ -371,16 +369,26 @@ export function createQuickRunService(runtimeProxyService: RuntimeProxyService) 
         `/functions/${encodeURIComponent(parsed.function)}`
     }
 
-    const result = await proxyCall(
-      {
-        method: 'GET',
-        runtimePath,
-        query: params.params,
-        headers: params.headers,
-        runtimeUrl: params.runtimeUrl,
-      },
-      traceId,
-    )
+    // Body-bearing verbs send the SDK-resolved params as a JSON
+    // payload; GET/DELETE keep them in the query string.
+    const hasBody = verb === 'POST' || verb === 'PATCH'
+    const proxyArgs = hasBody
+      ? {
+          method: verb,
+          runtimePath,
+          body: params.params ? JSON.stringify(params.params) : undefined,
+          headers: { ...(params.headers ?? {}), 'content-type': 'application/json' },
+          runtimeUrl: params.runtimeUrl,
+        }
+      : {
+          method: verb,
+          runtimePath,
+          query: params.params,
+          headers: params.headers,
+          runtimeUrl: params.runtimeUrl,
+        }
+
+    const result = await proxyCall(proxyArgs, traceId)
 
     return parseJsonResponse(result.data, result.status, 'QuickRunService.executeFunction', traceId)
   }
@@ -401,19 +409,37 @@ export function createQuickRunService(runtimeProxyService: RuntimeProxyService) 
 }
 
 /**
- * Discriminated parser for `urn:amorphie:func:` shapes. Mirrors the
- * consumer-side `parseAmorphieUrn` in packages/designer-ui but kept
- * inline here so services-core stays dependency-free of designer-ui:
+ * Discriminated parser for `urn:vnext:fn:` shapes. Mirrors the
+ * consumer-side `parseVnextUrn` in packages/designer-ui but kept
+ * inline here so services-core stays dependency-free of designer-ui.
  *
- *   2 segments → scope=domain    (catalog lookup)
- *   3 segments → scope=workflow  (instance-scoped function)
+ *   After the `urn:vnext:fn:` prefix:
+ *     2 segments → scope=domain    (catalog lookup)
+ *     4 segments → scope=workflow  (instance-scoped function)
+ *   The first segment may optionally be one of `get/post/patch/delete`
+ *   in which case it is the HTTP verb; default `get` otherwise.
  */
-type ParsedFuncUrn =
-  | { scope: 'domain'; domain: string; function: string }
-  | { scope: 'workflow'; domain: string; workflow: string; function: string }
+type FnCommand = 'get' | 'post' | 'patch' | 'delete'
 
-function parseAmorphieFuncUrn(urn: string, traceId?: string): ParsedFuncUrn {
-  const PREFIX = 'urn:amorphie:func:'
+type ParsedFnUrn =
+  | { scope: 'domain'; command: FnCommand; domain: string; function: string }
+  | {
+      scope: 'workflow'
+      command: FnCommand
+      domain: string
+      flow: string
+      instance: string
+      function: string
+    }
+
+const FN_COMMANDS: readonly FnCommand[] = ['get', 'post', 'patch', 'delete'] as const
+
+function isFnCommand(value: string): value is FnCommand {
+  return (FN_COMMANDS as readonly string[]).includes(value)
+}
+
+function parseVnextFnUrn(urn: string, traceId?: string): ParsedFnUrn {
+  const PREFIX = 'urn:vnext:fn:'
   if (!urn.startsWith(PREFIX)) {
     throw new VnextForgeError(
       ERROR_CODES.RUNTIME_EXECUTION_FAILED,
@@ -424,15 +450,30 @@ function parseAmorphieFuncUrn(urn: string, traceId?: string): ParsedFuncUrn {
   }
   const tail = urn.slice(PREFIX.length)
   const parts = tail.split(':').map((p) => p.trim())
-  if (parts.length === 2 && parts[0] && parts[1]) {
-    return { scope: 'domain', domain: parts[0], function: parts[1] }
+
+  let command: FnCommand = 'get'
+  let rest = parts
+  if (parts.length > 0 && isFnCommand(parts[0])) {
+    command = parts[0]
+    rest = parts.slice(1)
   }
-  if (parts.length === 3 && parts[0] && parts[1] && parts[2]) {
-    return { scope: 'workflow', domain: parts[0], workflow: parts[1], function: parts[2] }
+
+  if (rest.length === 2 && rest[0] && rest[1]) {
+    return { scope: 'domain', command, domain: rest[0], function: rest[1] }
+  }
+  if (rest.length === 4 && rest[0] && rest[1] && rest[2] && rest[3]) {
+    return {
+      scope: 'workflow',
+      command,
+      domain: rest[0],
+      flow: rest[1],
+      instance: rest[2],
+      function: rest[3],
+    }
   }
   throw new VnextForgeError(
     ERROR_CODES.RUNTIME_EXECUTION_FAILED,
-    `Invalid function URN: expected 2 or 3 segments after "${PREFIX}", got "${urn}"`,
+    `Invalid function URN: expected 2 or 4 segments (after optional verb) following "${PREFIX}", got "${urn}"`,
     { source: 'QuickRunService.executeFunction', layer: 'application', details: { urn } },
     traceId,
   )
