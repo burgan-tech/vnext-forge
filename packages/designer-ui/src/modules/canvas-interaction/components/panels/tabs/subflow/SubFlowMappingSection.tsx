@@ -1,4 +1,6 @@
+import type { ScriptsConfig } from '@vnext-forge-studio/vnext-types';
 import { CsxEditorField, type ScriptCode } from '../../../../../../modules/save-component/components/CsxEditorField';
+import { MappingScriptsSection } from '../../../../../../modules/save-component/components/MappingScriptsSection';
 import { Section } from '../PropertyPanelShared';
 
 interface SubFlowMappingSectionProps {
@@ -6,6 +8,13 @@ interface SubFlowMappingSectionProps {
   stateKey: string;
   onChange: (mapping: ScriptCode) => void;
   onRemove: () => void;
+  /**
+   * Optional `scripts` payload on the sub-flow mapping object. Wired
+   * by the SubFlow tab; without it the helpers/assemblies editor is
+   * suppressed.
+   */
+  scripts?: ScriptsConfig;
+  onScriptsChange?: (next: ScriptsConfig | undefined) => void;
 }
 
 export function SubFlowMappingSection({
@@ -13,6 +22,8 @@ export function SubFlowMappingSection({
   stateKey,
   onChange,
   onRemove,
+  scripts,
+  onScriptsChange,
 }: SubFlowMappingSectionProps) {
   return (
     <Section title="Mapping" defaultOpen>
@@ -31,6 +42,9 @@ export function SubFlowMappingSection({
         index={0}
         scriptField="mapping"
       />
+      {mapping && onScriptsChange && (
+        <MappingScriptsSection value={scripts} onChange={onScriptsChange} />
+      )}
     </Section>
   );
 }

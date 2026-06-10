@@ -30,6 +30,7 @@ export function normalizeVnextWizardPayload(
       views: compactNonEmptyLines(values.exports.views),
       schemas: compactNonEmptyLines(values.exports.schemas),
       extensions: compactNonEmptyLines(values.exports.extensions),
+      mappings: compactNonEmptyLines(values.exports.mappings),
       metadata: {
         ...values.exports.metadata,
         keywords: (values.exports.metadata.keywords ?? [])
@@ -54,6 +55,7 @@ const pathsSchema = z.object({
   extensions: nonEmpty('paths.extensions'),
   workflows: nonEmpty('paths.workflows'),
   schemas: nonEmpty('paths.schemas'),
+  mappings: nonEmpty('paths.mappings'),
 });
 
 const metadataSchema = z.object({
@@ -117,6 +119,7 @@ export const vnextWorkspaceConfigWizardSchema = z.object({
     views: z.array(z.string()),
     schemas: z.array(z.string()),
     extensions: z.array(z.string()),
+    mappings: z.array(z.string()),
     visibility: z.enum(['public', 'private']),
     metadata: metadataSchema,
   }),
@@ -199,6 +202,7 @@ export function rawConfigToEditableValues(raw: Record<string, unknown>): VnextWo
       extensions: str(p.extensions),
       workflows: str(p.workflows),
       schemas: str(p.schemas),
+      mappings: str(p.mappings),
     },
     exports: {
       functions: strArr(exp.functions),
@@ -207,6 +211,7 @@ export function rawConfigToEditableValues(raw: Record<string, unknown>): VnextWo
       views: strArr(exp.views),
       schemas: strArr(exp.schemas),
       extensions: strArr(exp.extensions),
+      mappings: strArr(exp.mappings),
       visibility: exp.visibility === 'private' ? 'private' : 'public',
       metadata: {
         description: str(meta.description),

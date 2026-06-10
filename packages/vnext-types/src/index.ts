@@ -2,6 +2,7 @@ export * from './types/workflow';
 export * from './types/role';
 export * from './types/state';
 export * from './types/mapping';
+export * from './types/scripts';
 export * from './types/view';
 export * from './types/function';
 export * from './types/extension';

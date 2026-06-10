@@ -11,4 +11,5 @@ export type ComponentFolderType =
   | 'views'
   | 'functions'
   | 'extensions'
+  | 'mappings'
   | 'components_root';

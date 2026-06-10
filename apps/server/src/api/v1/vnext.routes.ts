@@ -16,4 +16,5 @@ export function registerVnextRoutes(
   app.get('/vnext/views/list', (c) => helper(c, 'vnext/views/list', { source: 'query' }));
   app.get('/vnext/functions/list', (c) => helper(c, 'vnext/functions/list', { source: 'query' }));
   app.get('/vnext/extensions/list', (c) => helper(c, 'vnext/extensions/list', { source: 'query' }));
+  app.get('/vnext/mappings/list', (c) => helper(c, 'vnext/mappings/list', { source: 'query' }));
 }

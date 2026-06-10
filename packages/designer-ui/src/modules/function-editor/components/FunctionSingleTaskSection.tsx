@@ -12,7 +12,9 @@ import {
   CreateNewTaskDialog,
   CreateNewTaskButton,
 } from '../../canvas-interaction/components/panels/tabs/CreateNewTaskDialog';
+import type { ScriptsConfig } from '@vnext-forge-studio/vnext-types';
 import { CsxEditorField, type ScriptCode } from '../../save-component/components/CsxEditorField';
+import { MappingScriptsSection } from '../../save-component/components/MappingScriptsSection';
 import { OpenVnextComponentInModalButton } from '../../save-component/components/OpenVnextComponentInModalButton.js';
 import type { AtomicSavedInfo } from '../../save-component/componentEditorModalTypes.js';
 
@@ -91,6 +93,21 @@ export function FunctionSingleTaskSection({
       const t = attrs?.task as Record<string, unknown> | undefined;
       if (t) {
         delete t.mapping;
+      }
+    });
+  }
+
+  const mappingScripts = (task?.mapping as { scripts?: ScriptsConfig } | undefined)?.scripts;
+  function handleUpdateMappingScripts(next: ScriptsConfig | undefined) {
+    onChange((draft) => {
+      const attrs = draft.attributes as Record<string, unknown> | undefined;
+      const t = attrs?.task as Record<string, unknown> | undefined;
+      const m = t?.mapping as Record<string, unknown> | undefined;
+      if (!m) return;
+      if (next === undefined) {
+        delete m.scripts;
+      } else {
+        m.scripts = next;
       }
     });
   }
@@ -219,6 +236,12 @@ export function FunctionSingleTaskSection({
           index={0}
           scriptField="task.mapping"
         />
+        {mapping && (
+          <MappingScriptsSection
+            value={mappingScripts}
+            onChange={handleUpdateMappingScripts}
+          />
+        )}
       </div>
 
       <div

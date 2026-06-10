@@ -70,7 +70,9 @@ describe('flowToExportCategory', () => {
     expect(flowToExportCategory('sys-flows')).toBe('workflows');
   });
 
-  it('VNEXT_FLOW_TO_EXPORT_CATEGORY covers six export buckets', () => {
-    expect(Object.keys(VNEXT_FLOW_TO_EXPORT_CATEGORY)).toHaveLength(6);
+  it('VNEXT_FLOW_TO_EXPORT_CATEGORY covers seven export buckets', () => {
+    // workflows / tasks / schemas / views / functions / extensions / mappings
+    expect(Object.keys(VNEXT_FLOW_TO_EXPORT_CATEGORY)).toHaveLength(7);
+    expect(flowToExportCategory('sys-mappings')).toBe('mappings');
   });
 });

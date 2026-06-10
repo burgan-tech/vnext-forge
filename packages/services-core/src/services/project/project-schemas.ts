@@ -30,6 +30,7 @@ export const vnextWorkspaceFullConfigSchema = z.object({
     extensions: z.string(),
     workflows: z.string(),
     schemas: z.string(),
+    mappings: z.string(),
   }),
   exports: z.object({
     functions: stringArraySchema,
@@ -38,6 +39,7 @@ export const vnextWorkspaceFullConfigSchema = z.object({
     views: stringArraySchema,
     schemas: stringArraySchema,
     extensions: stringArraySchema,
+    mappings: stringArraySchema,
     visibility: z.enum(['public', 'private']),
     metadata: z.object({
       description: z.string().min(1),
@@ -179,6 +181,7 @@ export const vnextWorkspacePathsInputSchema = z.object({
   extensions: z.string(),
   workflows: z.string(),
   schemas: z.string(),
+  mappings: z.string(),
 })
 
 export const vnextExportCategorySchema = z.enum([
@@ -188,6 +191,7 @@ export const vnextExportCategorySchema = z.enum([
   'views',
   'functions',
   'extensions',
+  'mappings',
 ])
 
 const vnextComponentRowShape = z.object({
@@ -204,6 +208,7 @@ const vnextComponentsByCategoryShape = z.object({
   views: z.array(vnextComponentRowShape),
   functions: z.array(vnextComponentRowShape),
   extensions: z.array(vnextComponentRowShape),
+  mappings: z.array(vnextComponentRowShape),
 })
 
 /** `previewPaths`: form önizlemesi için `JSON.stringify(VnextWorkspacePaths)` (GET query). */

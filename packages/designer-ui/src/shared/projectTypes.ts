@@ -54,4 +54,5 @@ export type VnextComponentType =
   | 'schema'
   | 'view'
   | 'function'
-  | 'extension';
+  | 'extension'
+  | 'mapping';

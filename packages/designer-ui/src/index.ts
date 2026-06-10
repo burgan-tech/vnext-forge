@@ -57,6 +57,10 @@ export {
   ExtensionEditorView,
   type ExtensionEditorViewProps,
 } from './modules/extension-editor/ExtensionEditorView.js';
+export {
+  MappingEditorView,
+  type MappingEditorViewProps,
+} from './modules/mapping-editor/MappingEditorView.js';
 
 export { CreateVnextConfigDialog } from './modules/workspace-config-editor/CreateVnextConfigDialog.js';
 export {

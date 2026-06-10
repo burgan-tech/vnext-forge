@@ -8,6 +8,7 @@ export interface VnextWorkspacePaths {
   extensions: string
   workflows: string
   schemas: string
+  mappings: string
 }
 
 export interface VnextWorkspaceExportsMeta {
@@ -24,6 +25,7 @@ export interface VnextWorkspaceExports {
   views: string[]
   schemas: string[]
   extensions: string[]
+  mappings: string[]
   visibility: 'public' | 'private'
   metadata: VnextWorkspaceExportsMeta
 }

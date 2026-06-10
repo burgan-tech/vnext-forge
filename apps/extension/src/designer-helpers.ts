@@ -21,6 +21,7 @@ export function isDesignerEditorRoute(
     kind === 'view' ||
     kind === 'function' ||
     kind === 'extension' ||
+    kind === 'mapping' ||
     kind === 'config'
   )
 }

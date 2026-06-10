@@ -3,7 +3,9 @@ import { ChevronDown, ChevronRight, ArrowUp, ArrowDown, Trash2 } from 'lucide-re
 import { Button } from '../../../ui/Button';
 import { Badge } from '../../../ui/Badge';
 import { VnextWorkflowErrorHandlersPanel } from '../error-boundary/VnextWorkflowErrorHandlersPanel';
+import type { ScriptsConfig } from '@vnext-forge-studio/vnext-types';
 import { CsxEditorField, type ScriptCode } from './CsxEditorField';
+import { MappingScriptsSection } from './MappingScriptsSection';
 import { OpenVnextComponentInModalButton } from './OpenVnextComponentInModalButton.js';
 import type { AtomicSavedInfo } from '../componentEditorModalTypes.js';
 
@@ -53,6 +55,19 @@ export function TaskExecutionForm({
   const handleRemoveMapping = () => {
     onChange((d) => {
       delete d.mapping;
+    });
+  };
+
+  const mappingScripts = (mapping as { scripts?: ScriptsConfig } | undefined)?.scripts;
+  const handleUpdateMappingScripts = (next: ScriptsConfig | undefined) => {
+    onChange((d) => {
+      const current = d.mapping as { scripts?: ScriptsConfig } | undefined;
+      if (!current) return;
+      if (next === undefined) {
+        delete (current as Record<string, unknown>).scripts;
+      } else {
+        (current as Record<string, unknown>).scripts = next;
+      }
     });
   };
 
@@ -147,6 +162,14 @@ export function TaskExecutionForm({
         index={index}
         scriptField="mapping"
       />
+      {mapping && (
+        <div className="px-2.5">
+          <MappingScriptsSection
+            value={mappingScripts}
+            onChange={handleUpdateMappingScripts}
+          />
+        </div>
+      )}
 
       {!hideErrorBoundary && (
         <div className="px-2.5 pb-2">

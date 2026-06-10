@@ -7,7 +7,7 @@ function norm(p: string): string {
   return p.replace(/\\/g, '/').replace(/\/{2,}/g, '/');
 }
 
-type AtomicCategoryFolder = 'tasks' | 'schemas' | 'views' | 'functions' | 'extensions';
+type AtomicCategoryFolder = 'tasks' | 'schemas' | 'views' | 'functions' | 'extensions' | 'mappings';
 
 /** Build absolute `.json` path for an atomic component (`group` may be empty or VNEXT_ATOMIC_FLAT_GROUP for flat layout). */
 export function buildAtomicComponentJsonPath(

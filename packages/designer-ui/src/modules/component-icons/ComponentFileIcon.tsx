@@ -20,6 +20,8 @@ const FILE_BADGE_SVG: Record<VnextComponentType, string> = {
   view: badgeView,
   function: badgeFunction,
   extension: badgeExtension,
+  // Mapping reuses the function badge until a dedicated icon ships.
+  mapping: badgeFunction,
 };
 
 interface ComponentFileIconProps {

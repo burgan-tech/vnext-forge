@@ -1,6 +1,6 @@
 import { useMemo, useCallback, useState } from 'react';
 import type { DiscoveredVnextComponent } from '@vnext-forge-studio/app-contracts';
-import type { RoleGrant } from '@vnext-forge-studio/vnext-types';
+import type { RoleGrant, ScriptsConfig } from '@vnext-forge-studio/vnext-types';
 import { useWorkflowStore } from '../../../../../store/useWorkflowStore';
 import { useProjectStore } from '../../../../../store/useProjectStore';
 import {
@@ -72,6 +72,21 @@ export function StartNodePanel({ startTransition }: { startTransition: any }) {
       if (st) delete st.mapping;
     });
   }, [updateWorkflow]);
+
+  const updateMappingScripts = useCallback(
+    (next: ScriptsConfig | undefined) => {
+      updateWorkflow((draft: any) => {
+        const st = resolveStart(draft);
+        if (!st?.mapping) return;
+        if (next === undefined) {
+          delete st.mapping.scripts;
+        } else {
+          st.mapping.scripts = next;
+        }
+      });
+    },
+    [updateWorkflow],
+  );
 
   const updateRoles = useCallback(
     (roles: RoleGrant[]) => {
@@ -145,6 +160,22 @@ export function StartNodePanel({ startTransition }: { startTransition: any }) {
         const st = resolveStart(draft);
         const task = st?.onExecutionTasks?.[taskIndex];
         if (task) delete task.mapping;
+      });
+    },
+    [updateWorkflow],
+  );
+
+  const updateTaskMappingScripts = useCallback(
+    (taskIndex: number, next: ScriptsConfig | undefined) => {
+      updateWorkflow((draft: any) => {
+        const st = resolveStart(draft);
+        const task = st?.onExecutionTasks?.[taskIndex];
+        if (!task?.mapping) return;
+        if (next === undefined) {
+          delete task.mapping.scripts;
+        } else {
+          task.mapping.scripts = next;
+        }
       });
     },
     [updateWorkflow],
@@ -278,6 +309,10 @@ export function StartNodePanel({ startTransition }: { startTransition: any }) {
           index={0}
           onChange={updateMapping}
           onRemove={removeMapping}
+          scripts={
+            (startTransition.mapping as { scripts?: ScriptsConfig } | undefined)?.scripts
+          }
+          onScriptsChange={updateMappingScripts}
         />
 
         {/* On execution tasks */}
@@ -290,6 +325,7 @@ export function StartNodePanel({ startTransition }: { startTransition: any }) {
           onMoveTask={moveTask}
           onUpdateMapping={updateTaskMapping}
           onRemoveMapping={removeTaskMapping}
+          onUpdateMappingScripts={updateTaskMappingScripts}
           onUpdateErrorBoundary={updateTaskErrorBoundary}
           onSyncTaskRef={syncTaskRef}
           onOpenPicker={() => setTaskPickerOpen(true)}

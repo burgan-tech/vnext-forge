@@ -11,6 +11,7 @@ import {
   ComponentEditorModalProvider,
   useComponentEditorModalState,
 } from '../save-component/ComponentEditorModalContext.js';
+import { ScriptTaskChromeProvider } from '../task-editor/ScriptTaskChromeContext.js';
 import {
   FlowEditorCanvasAndScriptResizableColumn,
   ScriptEditorPanel,
@@ -197,9 +198,13 @@ export function FunctionEditorView({
     );
 
   return (
-    <ComponentEditorModalProvider onOpenScriptFileInHost={onOpenScriptFileInHost}>
-      <ModalCloseRestoreEffect />
-      {content}
-    </ComponentEditorModalProvider>
+    <ScriptTaskChromeProvider
+      onOpenScriptFileInHost={onOpenScriptFileInHost}
+      scriptDirectoryPath={componentDirectoryPath}>
+      <ComponentEditorModalProvider onOpenScriptFileInHost={onOpenScriptFileInHost}>
+        <ModalCloseRestoreEffect />
+        {content}
+      </ComponentEditorModalProvider>
+    </ScriptTaskChromeProvider>
   );
 }

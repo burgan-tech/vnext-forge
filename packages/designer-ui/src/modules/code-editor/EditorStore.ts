@@ -9,7 +9,8 @@ export type ComponentEditorKind =
   | 'schema'
   | 'view'
   | 'function'
-  | 'extension';
+  | 'extension'
+  | 'mapping';
 
 export function componentEditorTabId(
   projectId: string,

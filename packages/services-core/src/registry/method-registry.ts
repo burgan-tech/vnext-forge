@@ -531,6 +531,18 @@ export function buildMethodRegistry(): MethodRegistry {
         return components.extensions
       },
     },
+    'vnext/mappings/list': {
+      paramsSchema: vnextCategoryListParams,
+      resultSchema: vnextCategoryListResult,
+      handler: async ({ id }, { projectService }, traceId) => {
+        const { components } = await projectService.listVnextComponents(
+          id,
+          { category: 'mappings' },
+          traceId,
+        )
+        return components.mappings
+      },
+    },
 
     // ── templates ────────────────────────────────────────────────────────────
     'templates/validateScriptStatus': {

@@ -1,5 +1,7 @@
+import type { ScriptsConfig } from '@vnext-forge-studio/vnext-types';
 import { TaskExecutionList } from '../../../modules/save-component/components/TaskExecutionList';
 import { CsxEditorField, type ScriptCode } from '../../save-component/components/CsxEditorField';
+import { MappingScriptsSection } from '../../save-component/components/MappingScriptsSection';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../ui/Card';
 
 interface FunctionMultipleTasksSectionProps {
@@ -30,6 +32,20 @@ export function FunctionMultipleTasksSection({
       const attrs = draft.attributes as Record<string, unknown> | undefined;
       if (attrs) {
         delete attrs.output;
+      }
+    });
+  }
+
+  const outputScripts = (output as { scripts?: ScriptsConfig } | undefined | null)?.scripts;
+  function handleUpdateOutputScripts(next: ScriptsConfig | undefined) {
+    onChange((draft) => {
+      const attrs = draft.attributes as Record<string, unknown> | undefined;
+      const out = attrs?.output as Record<string, unknown> | undefined;
+      if (!out) return;
+      if (next === undefined) {
+        delete out.scripts;
+      } else {
+        out.scripts = next;
       }
     });
   }
@@ -72,6 +88,12 @@ export function FunctionMultipleTasksSection({
             index={0}
             scriptField="mapping"
           />
+          {output && (
+            <MappingScriptsSection
+              value={outputScripts}
+              onChange={handleUpdateOutputScripts}
+            />
+          )}
         </CardContent>
       </Card>
     </div>

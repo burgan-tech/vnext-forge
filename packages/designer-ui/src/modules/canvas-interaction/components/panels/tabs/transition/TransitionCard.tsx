@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import type { Transition, RoleGrant, ViewBinding, ErrorBoundary } from '@vnext-forge-studio/vnext-types';
+import type { Transition, RoleGrant, ViewBinding, ErrorBoundary, ScriptsConfig } from '@vnext-forge-studio/vnext-types';
 import type { ScriptCode } from '../../../../../../modules/save-component/components/CsxEditorField';
 import type { SchemaReference } from '../../../../../../modules/save-component/components/SchemaReferenceField';
 import type { DiscoveredVnextComponent } from '@vnext-forge-studio/app-contracts';
@@ -41,6 +41,12 @@ export interface TransitionCardProps {
   onUpdateSchema: (index: number, schema: SchemaReference | null) => void;
   onUpdateMapping: (index: number, mapping: ScriptCode) => void;
   onRemoveMapping: (index: number) => void;
+  onUpdateMappingScripts?: (index: number, scripts: ScriptsConfig | undefined) => void;
+  onUpdateScriptScripts?: (
+    index: number,
+    scriptField: 'rule' | 'condition' | 'timer',
+    scripts: ScriptsConfig | undefined,
+  ) => void;
   onUpdateRoles: (index: number, roles: RoleGrant[]) => void;
   onUpdateView: (index: number, view: ViewBinding | null) => void;
   onUpdateViews: (index: number, views: ViewBinding[]) => void;
@@ -51,6 +57,11 @@ export interface TransitionCardProps {
   onUpdateTaskComment?: (transitionIndex: number, taskIndex: number, comment: string | undefined) => void;
   onUpdateTaskMapping: (transitionIndex: number, taskIndex: number, mapping: ScriptCode) => void;
   onRemoveTaskMapping: (transitionIndex: number, taskIndex: number) => void;
+  onUpdateTaskMappingScripts?: (
+    transitionIndex: number,
+    taskIndex: number,
+    scripts: ScriptsConfig | undefined,
+  ) => void;
   onUpdateTaskErrorBoundary: (transitionIndex: number, taskIndex: number, eb: ErrorBoundary | undefined) => void;
   onSyncTaskRef: (transitionIndex: number, taskIndex: number, next: AtomicSavedInfo) => void;
   onOpenSchemaPicker: (transitionIndex: number) => void;
@@ -126,6 +137,8 @@ export function TransitionCard({
   onUpdateSchema,
   onUpdateMapping,
   onRemoveMapping,
+  onUpdateMappingScripts,
+  onUpdateScriptScripts,
   onUpdateRoles,
   onUpdateView,
   onUpdateViews,
@@ -136,6 +149,7 @@ export function TransitionCard({
   onUpdateTaskComment,
   onUpdateTaskMapping,
   onRemoveTaskMapping,
+  onUpdateTaskMappingScripts,
   onUpdateTaskErrorBoundary,
   onSyncTaskRef,
   onOpenSchemaPicker,
@@ -313,6 +327,11 @@ export function TransitionCard({
             onUpdateTaskComment={onUpdateTaskComment ? (taskIndex, comment) => onUpdateTaskComment(index, taskIndex, comment) : undefined}
             onUpdateMapping={(taskIndex, mapping) => onUpdateTaskMapping(index, taskIndex, mapping)}
             onRemoveMapping={(taskIndex) => onRemoveTaskMapping(index, taskIndex)}
+            onUpdateMappingScripts={
+              onUpdateTaskMappingScripts
+                ? (taskIndex, scripts) => onUpdateTaskMappingScripts(index, taskIndex, scripts)
+                : undefined
+            }
             onUpdateErrorBoundary={(taskIndex, eb) => onUpdateTaskErrorBoundary(index, taskIndex, eb)}
             onSyncTaskRef={(taskIndex, next) => onSyncTaskRef(index, taskIndex, next)}
             onOpenPicker={() => onOpenTaskPicker(index)}
@@ -341,6 +360,12 @@ export function TransitionCard({
             index={index}
             onChange={(m) => onUpdateMapping(index, m)}
             onRemove={() => onRemoveMapping(index)}
+            scripts={(transition.mapping as { scripts?: ScriptsConfig } | undefined)?.scripts}
+            onScriptsChange={
+              onUpdateMappingScripts
+                ? (next) => onUpdateMappingScripts(index, next)
+                : undefined
+            }
           />
         )}
 
@@ -355,6 +380,12 @@ export function TransitionCard({
             onUpdateScript={(script) => onUpdateScript(index, 'rule', script)}
             onRemoveScript={() => onRemoveScript(index, 'rule')}
             onUpdateTriggerKind={(v) => onUpdate(index, 'triggerKind', v)}
+            scripts={(transition.rule as { scripts?: ScriptsConfig } | undefined)?.scripts}
+            onScriptsChange={
+              onUpdateScriptScripts
+                ? (next) => onUpdateScriptScripts(index, 'rule', next)
+                : undefined
+            }
           />
         )}
 
@@ -367,6 +398,12 @@ export function TransitionCard({
             index={index}
             onUpdateScript={(script) => onUpdateScript(index, 'timer', script)}
             onRemoveScript={() => onRemoveScript(index, 'timer')}
+            scripts={(transition.timer as { scripts?: ScriptsConfig } | undefined)?.scripts}
+            onScriptsChange={
+              onUpdateScriptScripts
+                ? (next) => onUpdateScriptScripts(index, 'timer', next)
+                : undefined
+            }
           />
         )}
 

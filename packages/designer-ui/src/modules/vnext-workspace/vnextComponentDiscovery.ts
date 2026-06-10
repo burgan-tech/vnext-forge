@@ -31,6 +31,7 @@ function normalizePathsForPreview(input: VnextWorkspacePathsLike): Record<string
     extensions: input.extensions ?? '',
     workflows: input.workflows ?? '',
     schemas: input.schemas ?? '',
+    mappings: input.mappings ?? '',
   };
 }
 
@@ -57,6 +58,7 @@ export type VnextWorkspacePathsLike = {
   extensions?: string;
   workflows?: string;
   schemas?: string;
+  mappings?: string;
 };
 
 /**

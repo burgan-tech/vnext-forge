@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import type { Label, TaskExecution, ViewBinding, ErrorBoundary } from '@vnext-forge-studio/vnext-types';
+import type { Label, TaskExecution, ViewBinding, ErrorBoundary, ScriptsConfig } from '@vnext-forge-studio/vnext-types';
 import type { RoleGrant } from '@vnext-forge-studio/vnext-types';
 import type { DiscoveredVnextComponent } from '@vnext-forge-studio/app-contracts';
 import type { ScriptCode } from '../../../../../../modules/save-component/components/CsxEditorField';
@@ -17,6 +17,12 @@ export interface TransitionMutations {
   updateTransitionSchema: (index: number, schema: SchemaReference | null) => void;
   updateTransitionMapping: (index: number, mapping: ScriptCode) => void;
   removeTransitionMapping: (index: number) => void;
+  updateTransitionMappingScripts: (index: number, scripts: ScriptsConfig | undefined) => void;
+  updateTransitionScriptScripts: (
+    index: number,
+    scriptField: 'rule' | 'condition' | 'timer',
+    scripts: ScriptsConfig | undefined,
+  ) => void;
   updateTransitionRoles: (index: number, roles: RoleGrant[]) => void;
   updateTransitionView: (index: number, view: ViewBinding | null) => void;
   updateTransitionViews: (index: number, views: ViewBinding[]) => void;
@@ -27,6 +33,11 @@ export interface TransitionMutations {
   updateTaskComment: (transitionIndex: number, taskIndex: number, comment: string | undefined) => void;
   updateTaskMapping: (transitionIndex: number, taskIndex: number, mapping: ScriptCode) => void;
   removeTaskMapping: (transitionIndex: number, taskIndex: number) => void;
+  updateTaskMappingScripts: (
+    transitionIndex: number,
+    taskIndex: number,
+    scripts: ScriptsConfig | undefined,
+  ) => void;
   updateTaskErrorBoundary: (transitionIndex: number, taskIndex: number, eb: ErrorBoundary | undefined) => void;
   syncTaskRef: (transitionIndex: number, taskIndex: number, next: AtomicSavedInfo) => void;
   allStateKeys: string[];
@@ -111,6 +122,44 @@ export function useTransitionMutations(findTransition: FindTransition): Transiti
       const ctx = findTransition(draft);
       if (!ctx?.transitions?.[index]) return;
       delete ctx.transitions[index].mapping;
+    });
+  }, [updateWorkflow, findTransition]);
+
+  const updateTransitionMappingScripts = useCallback((
+    index: number,
+    scripts: ScriptsConfig | undefined,
+  ) => {
+    updateWorkflow((draft: any) => {
+      const ctx = findTransition(draft);
+      const m = ctx?.transitions?.[index]?.mapping;
+      if (!m) return;
+      if (scripts === undefined) {
+        delete m.scripts;
+      } else {
+        m.scripts = scripts;
+      }
+    });
+  }, [updateWorkflow, findTransition]);
+
+  const updateTransitionScriptScripts = useCallback((
+    index: number,
+    scriptField: 'rule' | 'condition' | 'timer',
+    scripts: ScriptsConfig | undefined,
+  ) => {
+    updateWorkflow((draft: any) => {
+      const ctx = findTransition(draft);
+      const m = ctx?.transitions?.[index]?.[scriptField];
+      if (!m) return;
+      if (scripts === undefined) {
+        delete m.scripts;
+      } else {
+        m.scripts = scripts;
+      }
+      if (scriptField === 'rule' && ctx.transitions[index].condition) {
+        ctx.transitions[index].condition.scripts = m.scripts;
+      } else if (scriptField === 'condition' && ctx.transitions[index].rule) {
+        ctx.transitions[index].rule.scripts = m.scripts;
+      }
     });
   }, [updateWorkflow, findTransition]);
 
@@ -236,6 +285,23 @@ export function useTransitionMutations(findTransition: FindTransition): Transiti
     });
   }, [updateWorkflow, findTransition]);
 
+  const updateTaskMappingScripts = useCallback((
+    transitionIndex: number,
+    taskIndex: number,
+    scripts: ScriptsConfig | undefined,
+  ) => {
+    updateWorkflow((draft: any) => {
+      const ctx = findTransition(draft);
+      const m = ctx?.transitions?.[transitionIndex]?.onExecutionTasks?.[taskIndex]?.mapping;
+      if (!m) return;
+      if (scripts === undefined) {
+        delete m.scripts;
+      } else {
+        m.scripts = scripts;
+      }
+    });
+  }, [updateWorkflow, findTransition]);
+
   const updateTaskErrorBoundary = useCallback((
     transitionIndex: number,
     taskIndex: number,
@@ -277,6 +343,8 @@ export function useTransitionMutations(findTransition: FindTransition): Transiti
     updateTransitionSchema,
     updateTransitionMapping,
     removeTransitionMapping,
+    updateTransitionMappingScripts,
+    updateTransitionScriptScripts,
     updateTransitionRoles,
     updateTransitionView,
     updateTransitionViews,
@@ -287,6 +355,7 @@ export function useTransitionMutations(findTransition: FindTransition): Transiti
     updateTaskComment,
     updateTaskMapping,
     removeTaskMapping,
+    updateTaskMappingScripts,
     updateTaskErrorBoundary,
     syncTaskRef,
     allStateKeys,

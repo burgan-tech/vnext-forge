@@ -6,7 +6,7 @@ import { VNEXT_ATOMIC_FLAT_GROUP } from './atomicComponentPaths.js';
 import { discoverVnextComponentsByCategory, flowToExportCategory } from './vnextComponentDiscovery.js';
 
 /** Target kind for atomic component editor routes. */
-export type ComponentEditorTargetKind = 'task' | 'schema' | 'view' | 'function' | 'extension';
+export type ComponentEditorTargetKind = 'task' | 'schema' | 'view' | 'function' | 'extension' | 'mapping';
 
 const EXPORT_CATEGORY_TO_KIND: Record<VnextExportCategory, ComponentEditorTargetKind | null> = {
   workflows: null,
@@ -15,6 +15,7 @@ const EXPORT_CATEGORY_TO_KIND: Record<VnextExportCategory, ComponentEditorTarget
   views: 'view',
   functions: 'function',
   extensions: 'extension',
+  mappings: 'mapping',
 };
 
 function norm(p: string): string {

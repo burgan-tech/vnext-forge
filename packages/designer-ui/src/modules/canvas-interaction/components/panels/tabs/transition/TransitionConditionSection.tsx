@@ -1,4 +1,6 @@
+import type { ScriptsConfig } from '@vnext-forge-studio/vnext-types';
 import { CsxEditorField, type ScriptCode } from '../../../../../../modules/save-component/components/CsxEditorField';
+import { MappingScriptsSection } from '../../../../../../modules/save-component/components/MappingScriptsSection';
 import { Section, SelectField } from '../PropertyPanelShared';
 import { TriggerKind } from '@vnext-forge-studio/vnext-types';
 
@@ -11,6 +13,13 @@ interface TransitionConditionSectionProps {
   onUpdateScript: (script: ScriptCode) => void;
   onRemoveScript: () => void;
   onUpdateTriggerKind: (value: number | undefined) => void;
+  /**
+   * Optional `scripts` payload on the rule's mapping object plus a
+   * setter. When omitted, the helpers/assemblies editor is suppressed
+   * (rare — workflow editor always passes both today).
+   */
+  scripts?: ScriptsConfig;
+  onScriptsChange?: (next: ScriptsConfig | undefined) => void;
 }
 
 const TRIGGER_KIND_OPTIONS = [
@@ -27,6 +36,8 @@ export function TransitionConditionSection({
   onUpdateScript,
   onRemoveScript,
   onUpdateTriggerKind,
+  scripts,
+  onScriptsChange,
 }: TransitionConditionSectionProps) {
   return (
     <Section title="Condition" defaultOpen={!!rule?.code}>
@@ -63,6 +74,9 @@ export function TransitionConditionSection({
         index={index}
         scriptField="rule"
       />
+      {rule && onScriptsChange && (
+        <MappingScriptsSection value={scripts} onChange={onScriptsChange} />
+      )}
     </Section>
   );
 }

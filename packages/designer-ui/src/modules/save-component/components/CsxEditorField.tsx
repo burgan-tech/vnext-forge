@@ -1,6 +1,11 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { encodeToBase64 } from '../../../modules/code-editor/editor/Base64Handler';
-import { decodeScriptCode } from '../../../modules/code-editor/editor/ScriptCodec';
+import {
+  decodeScriptCode,
+  formatScriptCodeRef,
+  isScriptCodeRef,
+  type ScriptCodeRef,
+} from '../../../modules/code-editor/editor/ScriptCodec';
 import { generateTemplate, type TemplateType } from '../../../modules/code-editor/editor/CsxTemplates';
 import { useScriptPanelStore, type ActiveScript } from '../../../modules/code-editor/ScriptPanelStore';
 import { useEditorPanelsStore } from '../../../store/useEditorPanelsStore';
@@ -8,7 +13,8 @@ import { useScriptTaskChrome } from '../../../modules/task-editor/ScriptTaskChro
 import { resolveWorkflowScriptAbsolutePath } from '../../../modules/code-editor/createWorkflowScriptFile';
 import type { CsxTaskType } from '../../../modules/code-editor/editor/CsxContext';
 import type { ScriptCode } from '../../../modules/code-editor/CodeEditorTypes';
-import { Code2, Plus, Trash2, ExternalLink } from 'lucide-react';
+import { ChooseExistingVnextComponentDialog } from '../../canvas-interaction/components/panels/tabs/ChooseExistingTaskDialog';
+import { Code2, Link as LinkIcon, Plus, Trash2, ExternalLink } from 'lucide-react';
 
 /* ────────────── Types ────────────── */
 
@@ -30,6 +36,12 @@ interface CsxEditorFieldProps {
   index: number;
   /** Script field on the entry: 'mapping' | 'rule' | 'condition' | 'timer' */
   scriptField: string;
+  /**
+   * When `false`, hide the "Reference existing mapping" action and the
+   * REF preview card branch. The Mapping editor itself sets this since
+   * sys-mappings cannot self-reference.
+   */
+  allowRefEncoding?: boolean;
 }
 
 /* ────────────── Component ────────────── */
@@ -46,12 +58,34 @@ export function CsxEditorField({
   listField,
   index,
   scriptField,
+  allowRefEncoding = true,
 }: CsxEditorFieldProps) {
   const { openScript, activeScript } = useScriptPanelStore();
   const { setScriptPanelOpen } = useEditorPanelsStore();
   const chrome = useScriptTaskChrome();
   const hostOpen = chrome?.onOpenScriptFileInHost;
   const scriptDir = chrome?.scriptDirectoryPath;
+  const [refPickerOpen, setRefPickerOpen] = useState(false);
+
+  const isRef = value?.encoding === 'REF' && isScriptCodeRef(value.code);
+  const refValue: ScriptCodeRef | null = isRef ? (value!.code as ScriptCodeRef) : null;
+
+  const handlePickRef = useCallback(
+    (component: { key: string; version?: string; flow: string }) => {
+      setRefPickerOpen(false);
+      const next: ScriptCode = {
+        location: '',
+        encoding: 'REF',
+        code: {
+          key: component.key,
+          version: component.version ?? '1.0.0',
+          flow: 'sys-mappings',
+        },
+      };
+      onChange(next);
+    },
+    [onChange],
+  );
 
   const decoded = useMemo(() => {
     if (!value?.code) return '';
@@ -219,6 +253,65 @@ export function CsxEditorField({
           <Code2 size={12} />
           <span>Create Native Script</span>
         </button>
+        {allowRefEncoding && (
+          <button
+            type="button"
+            onClick={() => setRefPickerOpen(true)}
+            title="Reuse an existing sys-mappings component by reference"
+            className="flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border-subtle px-3 py-1.5 text-[11px] font-medium text-muted-foreground transition-all hover:border-primary-border hover:text-primary-text">
+            <LinkIcon size={12} />
+            <span>Reference existing mapping</span>
+          </button>
+        )}
+        <ChooseExistingVnextComponentDialog
+          open={refPickerOpen}
+          onOpenChange={setRefPickerOpen}
+          category="mappings"
+          onSelect={handlePickRef}
+          title="Choose a mapping to reference"
+        />
+      </div>
+    );
+  }
+
+  /* ── REF encoding → compact ref card with picker / remove ── */
+  if (isRef && refValue) {
+    return (
+      <div className="border-border-subtle bg-surface/40 mt-0.5 rounded-lg border">
+        <div className="flex items-center gap-2 px-3 py-2">
+          <div className="bg-primary-muted text-primary-icon flex size-5 shrink-0 items-center justify-center rounded-md">
+            <LinkIcon size={11} className="text-current" />
+          </div>
+          <span className="flex-1 truncate font-mono text-[11px] font-medium text-foreground">
+            {formatScriptCodeRef(refValue)}
+          </span>
+          <span className="shrink-0 rounded bg-muted px-1 py-0.5 font-mono text-[9px] font-medium uppercase tracking-wide text-muted-foreground">
+            REF
+          </span>
+          <button
+            type="button"
+            onClick={() => setRefPickerOpen(true)}
+            className="text-secondary-text hover:bg-secondary-muted shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-medium transition-colors"
+            title="Change referenced mapping">
+            Change
+          </button>
+          {onRemove && (
+            <button
+              type="button"
+              onClick={onRemove}
+              className="text-muted-icon hover:bg-destructive-surface hover:text-destructive-text shrink-0 rounded-md p-1 transition-all"
+              title="Remove reference">
+              <Trash2 size={12} />
+            </button>
+          )}
+        </div>
+        <ChooseExistingVnextComponentDialog
+          open={refPickerOpen}
+          onOpenChange={setRefPickerOpen}
+          category="mappings"
+          onSelect={handlePickRef}
+          title="Choose a mapping to reference"
+        />
       </div>
     );
   }
