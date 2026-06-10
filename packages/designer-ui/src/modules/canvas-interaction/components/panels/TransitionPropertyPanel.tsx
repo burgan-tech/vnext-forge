@@ -174,6 +174,8 @@ export function TransitionPropertyPanel() {
             onUpdateSchema={mutations.updateTransitionSchema}
             onUpdateMapping={mutations.updateTransitionMapping}
             onRemoveMapping={mutations.removeTransitionMapping}
+            onUpdateMappingScripts={mutations.updateTransitionMappingScripts}
+            onUpdateScriptScripts={mutations.updateTransitionScriptScripts}
             onUpdateRoles={mutations.updateTransitionRoles}
             onUpdateView={mutations.updateTransitionView}
             onUpdateViews={mutations.updateTransitionViews}
@@ -184,6 +186,7 @@ export function TransitionPropertyPanel() {
             onUpdateTaskComment={mutations.updateTaskComment}
             onUpdateTaskMapping={mutations.updateTaskMapping}
             onRemoveTaskMapping={mutations.removeTaskMapping}
+            onUpdateTaskMappingScripts={mutations.updateTaskMappingScripts}
             onUpdateTaskErrorBoundary={mutations.updateTaskErrorBoundary}
             onSyncTaskRef={mutations.syncTaskRef}
             onOpenSchemaPicker={openers.openSchemaPicker}
@@ -267,6 +270,8 @@ export function TransitionPropertyPanel() {
           onUpdateSchema={mutations.updateTransitionSchema}
           onUpdateMapping={mutations.updateTransitionMapping}
           onRemoveMapping={mutations.removeTransitionMapping}
+          onUpdateMappingScripts={mutations.updateTransitionMappingScripts}
+          onUpdateScriptScripts={mutations.updateTransitionScriptScripts}
           onUpdateRoles={mutations.updateTransitionRoles}
           onUpdateView={mutations.updateTransitionView}
           onUpdateViews={mutations.updateTransitionViews}
@@ -277,6 +282,7 @@ export function TransitionPropertyPanel() {
           onUpdateTaskComment={mutations.updateTaskComment}
           onUpdateTaskMapping={mutations.updateTaskMapping}
           onRemoveTaskMapping={mutations.removeTaskMapping}
+          onUpdateTaskMappingScripts={mutations.updateTaskMappingScripts}
           onUpdateTaskErrorBoundary={mutations.updateTaskErrorBoundary}
           onSyncTaskRef={mutations.syncTaskRef}
           onOpenSchemaPicker={openers.openSchemaPicker}

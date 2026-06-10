@@ -24,6 +24,7 @@ const CATEGORY_TO_ICON: Record<VnextExportCategory, VnextComponentType> = {
   views: 'view',
   functions: 'function',
   extensions: 'extension',
+  mappings: 'mapping',
 };
 
 const CATEGORY_LABEL: Record<VnextExportCategory, { singular: string; plural: string }> = {
@@ -33,6 +34,7 @@ const CATEGORY_LABEL: Record<VnextExportCategory, { singular: string; plural: st
   views: { singular: 'view', plural: 'views' },
   functions: { singular: 'function', plural: 'functions' },
   extensions: { singular: 'extension', plural: 'extensions' },
+  mappings: { singular: 'mapping', plural: 'mappings' },
 };
 
 export interface ChooseExistingVnextComponentDialogProps {

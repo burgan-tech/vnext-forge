@@ -43,6 +43,7 @@ export type MethodId =
   | 'vnext/views/list'
   | 'vnext/functions/list'
   | 'vnext/extensions/list'
+  | 'vnext/mappings/list'
   | 'templates/validateScriptStatus'
   | 'validate/workflow'
   | 'validate/component'
@@ -115,6 +116,7 @@ export const METHOD_HTTP_METADATA: Readonly<Record<MethodId, MethodHttpSpec>> = 
   'vnext/views/list': { verb: 'GET', paramSource: 'query' },
   'vnext/functions/list': { verb: 'GET', paramSource: 'query' },
   'vnext/extensions/list': { verb: 'GET', paramSource: 'query' },
+  'vnext/mappings/list': { verb: 'GET', paramSource: 'query' },
   'templates/validateScriptStatus': { verb: 'POST', paramSource: 'json' },
   'validate/workflow': { verb: 'POST', paramSource: 'json' },
   'validate/component': { verb: 'POST', paramSource: 'json' },

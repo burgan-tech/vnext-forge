@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import type { ErrorBoundary } from '@vnext-forge-studio/vnext-types';
+import type { ErrorBoundary, ScriptsConfig } from '@vnext-forge-studio/vnext-types';
 import { useWorkflowStore } from '../../../../../store/useWorkflowStore';
 import { useProjectStore } from '../../../../../store/useProjectStore';
 import { CsxEditorField, type ScriptCode } from '../../../../../modules/save-component/components/CsxEditorField';
+import { MappingScriptsSection } from '../../../../../modules/save-component/components/MappingScriptsSection';
 import { OpenVnextComponentInModalButton } from '../../../../../modules/save-component/components/OpenVnextComponentInModalButton.js';
 import { useOpenComponentEditorModal } from '../../../../../modules/save-component/ComponentEditorModalContext.js';
 import type { AtomicSavedInfo } from '../../../../../modules/save-component/componentEditorModalTypes.js';
@@ -185,6 +186,23 @@ export function TasksTab({
     });
   };
 
+  const updateMappingScripts = (
+    listField: 'onEntries' | 'onExits',
+    index: number,
+    next: ScriptsConfig | undefined,
+  ) => {
+    updateWorkflow((draft: any) => {
+      const s = draft.attributes?.states?.find((s: any) => s.key === stateKey);
+      const entry = s?.[listField]?.[index];
+      if (!entry?.mapping) return;
+      if (next === undefined) {
+        delete entry.mapping.scripts;
+      } else {
+        entry.mapping.scripts = next;
+      }
+    });
+  };
+
   const updateTaskComment = (
     listField: 'onEntries' | 'onExits',
     index: number,
@@ -265,6 +283,7 @@ export function TasksTab({
                 onUpdateComment={updateTaskComment}
                 onUpdateMapping={updateMapping}
                 onRemoveMapping={removeMapping}
+                onUpdateMappingScripts={updateMappingScripts}
                 onUpdateErrorBoundary={updateErrorBoundary}
                 onAtomicSaved={syncTaskRef}
               />
@@ -316,6 +335,7 @@ export function TasksTab({
                 onUpdateComment={updateTaskComment}
                 onUpdateMapping={updateMapping}
                 onRemoveMapping={removeMapping}
+                onUpdateMappingScripts={updateMappingScripts}
                 onUpdateErrorBoundary={updateErrorBoundary}
                 onAtomicSaved={syncTaskRef}
               />
@@ -363,6 +383,7 @@ function EditableTaskCard({
   onUpdateComment,
   onUpdateMapping,
   onRemoveMapping,
+  onUpdateMappingScripts,
   onUpdateErrorBoundary,
   onAtomicSaved,
 }: {
@@ -376,6 +397,7 @@ function EditableTaskCard({
   onUpdateComment: (listField: 'onEntries' | 'onExits', index: number, comment: string | undefined) => void;
   onUpdateMapping: (listField: 'onEntries' | 'onExits', index: number, mapping: ScriptCode) => void;
   onRemoveMapping: (listField: 'onEntries' | 'onExits', index: number) => void;
+  onUpdateMappingScripts: (listField: 'onEntries' | 'onExits', index: number, scripts: ScriptsConfig | undefined) => void;
   onUpdateErrorBoundary: (listField: 'onEntries' | 'onExits', index: number, eb: ErrorBoundary | undefined) => void;
   onAtomicSaved: (listField: 'onEntries' | 'onExits', index: number, next: AtomicSavedInfo) => void;
 }) {
@@ -471,6 +493,14 @@ function EditableTaskCard({
         index={index}
         scriptField="mapping"
       />
+      {mapping && (
+        <div className="px-3 pb-2">
+          <MappingScriptsSection
+            value={(mapping as { scripts?: ScriptsConfig }).scripts}
+            onChange={(next) => onUpdateMappingScripts(listField, index, next)}
+          />
+        </div>
+      )}
 
       <TaskErrorBoundaryCollapsible
         errorBoundary={entry.errorBoundary}

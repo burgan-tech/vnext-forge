@@ -1,4 +1,6 @@
+import type { ScriptsConfig } from '@vnext-forge-studio/vnext-types';
 import { CsxEditorField, type ScriptCode } from '../../../../../../modules/save-component/components/CsxEditorField';
+import { MappingScriptsSection } from '../../../../../../modules/save-component/components/MappingScriptsSection';
 import { Section } from '../PropertyPanelShared';
 
 interface TransitionMappingSectionProps {
@@ -8,6 +10,13 @@ interface TransitionMappingSectionProps {
   index: number;
   onChange: (mapping: ScriptCode) => void;
   onRemove: () => void;
+  /**
+   * Optional handlers for the `scripts` sub-object on this transition's
+   * mapping. When omitted, the scripts section is suppressed (used by
+   * code paths that aren't yet wired through).
+   */
+  scripts?: ScriptsConfig;
+  onScriptsChange?: (next: ScriptsConfig | undefined) => void;
 }
 
 export function TransitionMappingSection({
@@ -17,6 +26,8 @@ export function TransitionMappingSection({
   index,
   onChange,
   onRemove,
+  scripts,
+  onScriptsChange,
 }: TransitionMappingSectionProps) {
   return (
     <Section title="Mapping" defaultOpen={!!mapping?.code}>
@@ -35,6 +46,9 @@ export function TransitionMappingSection({
         index={index}
         scriptField="mapping"
       />
+      {mapping && onScriptsChange && (
+        <MappingScriptsSection value={scripts} onChange={onScriptsChange} />
+      )}
     </Section>
   );
 }

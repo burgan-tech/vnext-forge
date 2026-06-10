@@ -19,6 +19,7 @@ export type FileRouteKind =
   | 'view'
   | 'function'
   | 'extension'
+  | 'mapping'
   | 'config'
   | 'unknown'
 
@@ -147,6 +148,7 @@ export function resolveFileRoute(
     { kind: 'view', segment: normalizeConfigPath(config.paths.views) },
     { kind: 'function', segment: normalizeConfigPath(config.paths.functions) },
     { kind: 'extension', segment: normalizeConfigPath(config.paths.extensions) },
+    { kind: 'mapping', segment: normalizeConfigPath(config.paths.mappings) },
   ]
 
   for (const { kind, segment } of checks) {

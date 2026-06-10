@@ -1,8 +1,9 @@
 import { useState, useCallback } from 'react';
 import { ChevronRight, X } from 'lucide-react';
-import type { MappingCode, ResourceReference, ViewBinding } from '@vnext-forge-studio/vnext-types';
+import type { MappingCode, ResourceReference, ScriptsConfig, ViewBinding } from '@vnext-forge-studio/vnext-types';
 import type { ScriptCode } from '../../../../../../modules/save-component/components/CsxEditorField';
 import { CsxEditorField } from '../../../../../../modules/save-component/components/CsxEditorField';
+import { MappingScriptsSection } from '../../../../../../modules/save-component/components/MappingScriptsSection';
 import { OpenVnextComponentInModalButton } from '../../../../../../modules/save-component/components/OpenVnextComponentInModalButton.js';
 import { ChooseFromExistingVnextComponentButton } from '../ChooseExistingTaskDialog';
 import { CreateNewComponentButton } from '../CreateNewComponentDialog';
@@ -136,6 +137,20 @@ export function ViewBindingsSection({
     onUpdateViews(next);
   };
 
+  const updateBindingRuleScripts = (i: number, scriptsNext: ScriptsConfig | undefined) => {
+    const next = [...views];
+    const rule = next[i].rule;
+    if (!rule) return;
+    const updatedRule: MappingCode = { ...rule };
+    if (scriptsNext === undefined) {
+      delete (updatedRule as { scripts?: ScriptsConfig }).scripts;
+    } else {
+      (updatedRule as { scripts?: ScriptsConfig }).scripts = scriptsNext;
+    }
+    next[i] = { ...next[i], rule: updatedRule };
+    onUpdateViews(next);
+  };
+
   const toggleLoadData = (i: number) => {
     const next = [...views];
     next[i] = { ...next[i], loadData: !next[i].loadData };
@@ -235,6 +250,7 @@ export function ViewBindingsSection({
               onUpdateViewField={(field, value) => updateBindingView(i, field, value)}
               onUpdateRule={(script) => updateBindingRule(i, script)}
               onRemoveRule={() => removeBindingRule(i)}
+              onUpdateRuleScripts={(next) => updateBindingRuleScripts(i, next)}
               onToggleLoadData={() => toggleLoadData(i)}
               onAddExtension={(ext) => addExtension(i, ext)}
               onRemoveExtension={(ext) => removeExtension(i, ext)}
@@ -458,6 +474,7 @@ function ViewBindingCard({
   onUpdateViewField,
   onUpdateRule,
   onRemoveRule,
+  onUpdateRuleScripts,
   onToggleLoadData,
   onAddExtension,
   onRemoveExtension,
@@ -480,6 +497,7 @@ function ViewBindingCard({
   onUpdateViewField: (field: keyof ResourceReference, value: string) => void;
   onUpdateRule: (script: ScriptCode) => void;
   onRemoveRule: () => void;
+  onUpdateRuleScripts: (next: ScriptsConfig | undefined) => void;
   onToggleLoadData: () => void;
   onAddExtension: (ext: string) => void;
   onRemoveExtension: (ext: string) => void;
@@ -561,6 +579,12 @@ function ViewBindingCard({
               index={listIndex ?? index}
               scriptField={`${scriptFieldPrefix}[${index}].rule`}
             />
+            {binding.rule && (
+              <MappingScriptsSection
+                value={(binding.rule as { scripts?: ScriptsConfig }).scripts}
+                onChange={onUpdateRuleScripts}
+              />
+            )}
           </div>
 
           <div>

@@ -154,6 +154,20 @@ export function buildVnextComponentJson(
           },
         },
       };
+    case 'mapping':
+      return {
+        key,
+        domain,
+        version,
+        flow: 'sys-mappings',
+        flowVersion,
+        tags: [defaultTag],
+        attributes: {
+          name: key,
+          code: '',
+          encoding: 'B64',
+        },
+      };
     default: {
       const k: string = String(kind);
       throw new Error(`Unknown vNext component kind: ${k}`);

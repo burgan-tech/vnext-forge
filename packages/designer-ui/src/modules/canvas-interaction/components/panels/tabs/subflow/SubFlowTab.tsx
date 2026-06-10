@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import type { DiscoveredVnextComponent } from '@vnext-forge-studio/app-contracts';
-import type { SubFlowOverrides } from '@vnext-forge-studio/vnext-types';
+import type { ScriptsConfig, SubFlowOverrides } from '@vnext-forge-studio/vnext-types';
 import { useWorkflowStore } from '../../../../../../store/useWorkflowStore';
 import { useProjectStore } from '../../../../../../store/useProjectStore';
 import type { ScriptCode } from '../../../../../../modules/save-component/components/CsxEditorField';
@@ -105,6 +105,21 @@ export function SubFlowTab({ state }: SubFlowTabProps) {
     });
   }, [updateWorkflow, findState]);
 
+  const updateMappingScripts = useCallback(
+    (next: ScriptsConfig | undefined) => {
+      updateWorkflow((draft: any) => {
+        const s = findState(draft);
+        if (!s?.subFlow?.mapping) return;
+        if (next === undefined) {
+          delete s.subFlow.mapping.scripts;
+        } else {
+          s.subFlow.mapping.scripts = next;
+        }
+      });
+    },
+    [updateWorkflow, findState],
+  );
+
   const updateOverrides = useCallback(
     (updater: (overrides: SubFlowOverrides) => void) => {
       updateWorkflow((draft: any) => {
@@ -155,6 +170,8 @@ export function SubFlowTab({ state }: SubFlowTabProps) {
         stateKey={stateKey}
         onChange={updateMapping}
         onRemove={removeMapping}
+        scripts={(sf.mapping as { scripts?: ScriptsConfig } | undefined)?.scripts}
+        onScriptsChange={updateMappingScripts}
       />
 
       <SubFlowOverridesSection

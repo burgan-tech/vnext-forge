@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { Plus, Clock, ChevronRight } from 'lucide-react';
+import type { ScriptsConfig } from '@vnext-forge-studio/vnext-types';
 import { useWorkflowStore } from '../../../../../store/useWorkflowStore';
 import { CsxEditorField, type ScriptCode } from '../../../../../modules/save-component/components/CsxEditorField';
+import { MappingScriptsSection } from '../../../../../modules/save-component/components/MappingScriptsSection';
 import { MetadataSection } from './MetadataSection';
 import { useStateOptions } from './useStateOptions';
 
@@ -59,6 +61,18 @@ export function WorkflowTimeoutSection() {
   const removeMapping = () => {
     updateWorkflow((draft: any) => {
       if (draft.attributes?.timeout) delete draft.attributes.timeout.mapping;
+    });
+  };
+
+  const updateMappingScripts = (next: ScriptsConfig | undefined) => {
+    updateWorkflow((draft: any) => {
+      const m = draft.attributes?.timeout?.mapping;
+      if (!m) return;
+      if (next === undefined) {
+        delete m.scripts;
+      } else {
+        m.scripts = next;
+      }
     });
   };
 
@@ -195,6 +209,12 @@ export function WorkflowTimeoutSection() {
                   index={0}
                   scriptField="mapping"
                 />
+                {timeout.mapping && (
+                  <MappingScriptsSection
+                    value={(timeout.mapping as { scripts?: ScriptsConfig }).scripts}
+                    onChange={updateMappingScripts}
+                  />
+                )}
               </div>
             )}
           </div>

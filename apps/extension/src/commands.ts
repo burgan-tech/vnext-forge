@@ -63,6 +63,9 @@ export function registerCommands(context: vscode.ExtensionContext, deps: Command
     vscode.commands.registerCommand('vnextForge.forgeCreateExtension', (uri?: vscode.Uri) =>
       forgeComponentCreateByKind(uri, deps, 'extension'),
     ),
+    vscode.commands.registerCommand('vnextForge.forgeCreateMapping', (uri?: vscode.Uri) =>
+      forgeComponentCreateByKind(uri, deps, 'mapping'),
+    ),
   );
 }
 
@@ -235,6 +238,7 @@ const COMPONENT_KINDS: { kind: ComponentKind; label: string; description: string
   { kind: 'view', label: 'View', description: 'UI view binding' },
   { kind: 'function', label: 'Function', description: 'Scripted function' },
   { kind: 'extension', label: 'Extension', description: 'Extension definition' },
+  { kind: 'mapping', label: 'Mapping', description: 'Reusable CSX helper (sys-mappings)' },
 ];
 
 function pathSegmentForKind(config: VnextWorkspaceConfig, kind: ComponentKind): string {
@@ -251,6 +255,8 @@ function pathSegmentForKind(config: VnextWorkspaceConfig, kind: ComponentKind): 
       return config.paths.functions;
     case 'extension':
       return config.paths.extensions;
+    case 'mapping':
+      return config.paths.mappings;
     case 'config':
       throw new Error('vnext config is not a component kind');
     default: {

@@ -19,6 +19,7 @@ const DEFAULT_TEMPLATE_PATHS: Record<string, string> = {
   extensions: 'Extensions',
   workflows: 'Workflows',
   schemas: 'Schemas',
+  mappings: 'Mappings',
 }
 
 export interface TemplateInitScriptResolver {

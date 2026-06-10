@@ -343,6 +343,7 @@ const EXPORT_CATEGORY_ICON: Record<VnextExportCategory, VnextComponentType> = {
   views: 'view',
   functions: 'function',
   extensions: 'extension',
+  mappings: 'mapping',
 };
 
 /** Workspace’tan keşfedilen anahtarlarla exports `string[]` alanını doldurur. */
@@ -990,6 +991,12 @@ export function CreateVnextConfigDialog({
                       name="paths.schemas"
                       errorText={pickWizardFieldError(fieldIssues, 'paths.schemas')}
                     />
+                    <JsonTextField
+                      label="mappings"
+                      register={register}
+                      name="paths.mappings"
+                      errorText={pickWizardFieldError(fieldIssues, 'paths.mappings')}
+                    />
                   </div>
                 </CardContent>
               </Card>
@@ -1188,6 +1195,15 @@ export function CreateVnextConfigDialog({
                         control={control}
                         name="exports.extensions"
                         category="extensions"
+                        discovery={discovery}
+                        discoveryLoading={discoveryLoading}
+                      />
+                    </div>
+                    <div className="min-w-0 sm:col-span-2">
+                      <ExportKeysFieldWithPicker
+                        control={control}
+                        name="exports.mappings"
+                        category="mappings"
                         discovery={discovery}
                         discoveryLoading={discoveryLoading}
                       />

@@ -98,6 +98,8 @@ export function WorkflowExitSection() {
             onUpdateSchema={mutations.updateTransitionSchema}
             onUpdateMapping={mutations.updateTransitionMapping}
             onRemoveMapping={mutations.removeTransitionMapping}
+            onUpdateMappingScripts={mutations.updateTransitionMappingScripts}
+            onUpdateScriptScripts={mutations.updateTransitionScriptScripts}
             onUpdateRoles={mutations.updateTransitionRoles}
             onUpdateView={mutations.updateTransitionView}
             onUpdateViews={mutations.updateTransitionViews}
@@ -108,6 +110,7 @@ export function WorkflowExitSection() {
             onUpdateTaskComment={mutations.updateTaskComment}
             onUpdateTaskMapping={mutations.updateTaskMapping}
             onRemoveTaskMapping={mutations.removeTaskMapping}
+            onUpdateTaskMappingScripts={mutations.updateTaskMappingScripts}
             onUpdateTaskErrorBoundary={mutations.updateTaskErrorBoundary}
             onSyncTaskRef={mutations.syncTaskRef}
             onOpenSchemaPicker={dialogOpeners.openSchemaPicker}

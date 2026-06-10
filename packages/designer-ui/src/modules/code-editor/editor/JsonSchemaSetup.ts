@@ -12,6 +12,7 @@ const COMPONENT_TYPE_TO_PATH_KEY: Record<string, keyof Omit<VnextWorkspacePaths,
   function: 'functions',
   extension: 'extensions',
   schema: 'schemas',
+  mapping: 'mappings',
 };
 
 function buildFileMatchPatterns(

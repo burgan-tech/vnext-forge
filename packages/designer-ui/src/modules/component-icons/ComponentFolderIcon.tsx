@@ -22,6 +22,8 @@ const FOLDER_BADGE_SVG: Record<ComponentFolderType, string> = {
   views: badgeView,
   functions: badgeFunction,
   extensions: badgeExtension,
+  // Mappings reuses the function folder badge until a dedicated icon ships.
+  mappings: badgeFunction,
   components_root: badgeComponentsRoot,
 };
 

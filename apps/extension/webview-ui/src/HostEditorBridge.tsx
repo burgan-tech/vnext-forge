@@ -9,6 +9,7 @@ import {
   FlowEditorView,
   FunctionEditorView,
   isMessageOriginAllowed,
+  MappingEditorView,
   PublishProvider,
   SchemaEditorView,
   TaskEditorView,
@@ -33,6 +34,7 @@ type EditorKind =
   | 'view'
   | 'function'
   | 'extension'
+  | 'mapping'
   | 'config';
 
 /**
@@ -199,6 +201,15 @@ function ActiveEditor({ api, payload }: { api: VsCodeWebviewApi; payload: HostOp
     case 'extension':
       return (
         <ExtensionEditorView
+          projectId={projectId}
+          group={group}
+          name={name}
+          onOpenScriptFileInHost={onOpenScriptFileInHost}
+        />
+      );
+    case 'mapping':
+      return (
+        <MappingEditorView
           projectId={projectId}
           group={group}
           name={name}

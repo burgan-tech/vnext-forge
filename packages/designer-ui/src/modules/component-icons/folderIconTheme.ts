@@ -122,6 +122,20 @@ export const VNEXT_FOLDER_PALETTE: Record<ComponentFolderType, Record<'light' | 
       badge: '#FFF1F2',
     },
   },
+  mappings: {
+    light: {
+      fill: '#0891B2',
+      fillBack: '#0E7490',
+      stroke: '#164E63',
+      badge: '#CFFAFE',
+    },
+    dark: {
+      fill: '#22D3EE',
+      fillBack: '#06B6D4',
+      stroke: '#CFFAFE',
+      badge: '#ECFEFF',
+    },
+  },
   components_root: {
     light: {
       fill: '#9333EA',
@@ -154,6 +168,7 @@ const FILE_TO_FOLDER: Record<VnextComponentType, ComponentFolderType> = {
   view: 'views',
   function: 'functions',
   extension: 'extensions',
+  mapping: 'mappings',
 };
 
 /** Dosya rengi klasör rengi ile birebir; rozet aynı tonun çok açık `badge` değeri. */

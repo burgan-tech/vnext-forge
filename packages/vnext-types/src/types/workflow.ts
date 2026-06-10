@@ -2,6 +2,7 @@ import { ErrorBoundary } from './error-boundary';
 import { Label } from './label';
 import { MappingCode } from './mapping';
 import { RoleGrant } from './role';
+import { ScriptsConfig } from './scripts';
 import { State, SharedTransition, ResourceReference, TaskExecution } from './state';
 import { TriggerType } from '../constants/trigger-types';
 import type { ViewBinding } from './view-binding';
@@ -100,6 +101,12 @@ export interface WorkflowAttributes {
   schema?: ResourceReference;
   queryRoles?: RoleGrant[];
   errorBoundary?: ErrorBoundary;
+  /**
+   * Workflow-level CSX helper + assembly imports. Mirrors the
+   * `scripts` sub-object on individual mapping / rule / timer slots
+   * but applies once to the whole workflow runtime.
+   */
+  scripts?: ScriptsConfig;
 }
 
 export interface VnextWorkflow {

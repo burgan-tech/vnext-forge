@@ -37,6 +37,7 @@
     "onCommand:vnextForge.forgeCreateView",
     "onCommand:vnextForge.forgeCreateFunction",
     "onCommand:vnextForge.forgeCreateExtension",
+    "onCommand:vnextForge.forgeCreateMapping",
     "onCommand:vnextForge.openQuickRun",
     "onCommand:vnextForge.publishFromFile"
   ],
@@ -173,6 +174,11 @@
       {
         "command": "vnextForge.forgeCreateExtension",
         "title": "Forge: Extension Create",
+        "category": "Forge"
+      },
+      {
+        "command": "vnextForge.forgeCreateMapping",
+        "title": "Forge: Mapping Create",
         "category": "Forge"
       },
       {
@@ -399,6 +405,10 @@
           "when": "vnextForge.isVnextWorkspace"
         },
         {
+          "command": "vnextForge.forgeCreateMapping",
+          "when": "vnextForge.isVnextWorkspace"
+        },
+        {
           "command": "vnextForge.tools.changeSetting",
           "when": "false"
         },
@@ -438,7 +448,7 @@
       "explorer/context": [
         {
           "command": "vnextForge.openDesigner",
-          "when": "vnextForge.isVnextWorkspace && resourceExtname == .json && resourcePath =~ /[\\\\/](Tasks|Views|Functions|Extensions|Workflows|Schemas)[\\\\/]/",
+          "when": "vnextForge.isVnextWorkspace && resourceExtname == .json && resourcePath =~ /[\\\\/](Tasks|Views|Functions|Extensions|Workflows|Schemas|Mappings)[\\\\/]/",
           "group": "navigation@1"
         },
         {
@@ -448,7 +458,7 @@
         },
         {
           "command": "vnextForge.openInTextEditor",
-          "when": "vnextForge.isVnextWorkspace && resourceExtname == .json && resourcePath =~ /[\\\\/](Tasks|Views|Functions|Extensions|Workflows|Schemas)[\\\\/]/",
+          "when": "vnextForge.isVnextWorkspace && resourceExtname == .json && resourcePath =~ /[\\\\/](Tasks|Views|Functions|Extensions|Workflows|Schemas|Mappings)[\\\\/]/",
           "group": "navigation@2"
         },
         {
@@ -487,20 +497,25 @@
           "group": "1forge@10"
         },
         {
+          "command": "vnextForge.forgeCreateMapping",
+          "when": "vnextForge.isVnextWorkspace && explorerResourceIsFolder && resourcePath =~ /[\\\\/]Mappings([\\\\/].*)?$/",
+          "group": "1forge@11"
+        },
+        {
           "command": "vnextForge.openQuickRunFromFile",
           "when": "vnextForge.isVnextWorkspace && resourceExtname == .json && resourcePath =~ /[\\\\/]Workflows[\\\\/]/",
           "group": "navigation@3"
         },
         {
           "command": "vnextForge.publishFromFile",
-          "when": "vnextForge.isVnextWorkspace && resourceExtname == .json && resourcePath =~ /[\\\\/](Tasks|Views|Functions|Extensions|Workflows|Schemas)[\\\\/]/",
+          "when": "vnextForge.isVnextWorkspace && resourceExtname == .json && resourcePath =~ /[\\\\/](Tasks|Views|Functions|Extensions|Workflows|Schemas|Mappings)[\\\\/]/",
           "group": "navigation@4"
         }
       ],
       "editor/title/context": [
         {
           "command": "vnextForge.openDesigner",
-          "when": "vnextForge.isVnextWorkspace && resourceExtname == .json && resourcePath =~ /[\\\\/](Tasks|Views|Functions|Extensions|Workflows|Schemas)[\\\\/]/",
+          "when": "vnextForge.isVnextWorkspace && resourceExtname == .json && resourcePath =~ /[\\\\/](Tasks|Views|Functions|Extensions|Workflows|Schemas|Mappings)[\\\\/]/",
           "group": "navigation@1"
         },
         {
@@ -510,7 +525,7 @@
         },
         {
           "command": "vnextForge.openInTextEditor",
-          "when": "vnextForge.isVnextWorkspace && resourceExtname == .json && resourcePath =~ /[\\\\/](Tasks|Views|Functions|Extensions|Workflows|Schemas)[\\\\/]/",
+          "when": "vnextForge.isVnextWorkspace && resourceExtname == .json && resourcePath =~ /[\\\\/](Tasks|Views|Functions|Extensions|Workflows|Schemas|Mappings)[\\\\/]/",
           "group": "navigation@2"
         },
         {
