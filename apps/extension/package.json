@@ -39,7 +39,12 @@
     "onCommand:vnextForge.forgeCreateExtension",
     "onCommand:vnextForge.forgeCreateMapping",
     "onCommand:vnextForge.openQuickRun",
-    "onCommand:vnextForge.publishFromFile"
+    "onCommand:vnextForge.publishFromFile",
+    "onCommand:vnextForge.csxSync.syncCurrent",
+    "onCommand:vnextForge.csxSync.syncAll",
+    "onCommand:vnextForge.csxSync.enable",
+    "onCommand:vnextForge.csxSync.disable",
+    "workspaceContains:**/*.csx"
   ],
   "main": "./dist/extension.js",
   "files": [
@@ -303,6 +308,28 @@
         "title": "Publish",
         "category": "Forge",
         "icon": "$(rocket)"
+      },
+      {
+        "command": "vnextForge.csxSync.syncCurrent",
+        "title": "Sync Current CSX to JSON",
+        "category": "Forge",
+        "icon": "$(sync)"
+      },
+      {
+        "command": "vnextForge.csxSync.syncAll",
+        "title": "Sync All CSX Files to JSON",
+        "category": "Forge",
+        "icon": "$(sync-ignored)"
+      },
+      {
+        "command": "vnextForge.csxSync.enable",
+        "title": "Enable CSX → JSON Auto-Sync",
+        "category": "Forge"
+      },
+      {
+        "command": "vnextForge.csxSync.disable",
+        "title": "Disable CSX → JSON Auto-Sync",
+        "category": "Forge"
       }
     ],
     "menus": {
@@ -510,6 +537,11 @@
           "command": "vnextForge.publishFromFile",
           "when": "vnextForge.isVnextWorkspace && resourceExtname == .json && resourcePath =~ /[\\\\/](Tasks|Views|Functions|Extensions|Workflows|Schemas|Mappings)[\\\\/]/",
           "group": "navigation@4"
+        },
+        {
+          "command": "vnextForge.csxSync.syncCurrent",
+          "when": "vnextForge.isVnextWorkspace && resourceExtname == .csx",
+          "group": "navigation@5"
         }
       ],
       "editor/title/context": [
@@ -569,6 +601,24 @@
           "type": "boolean",
           "default": true,
           "description": "Enable C# IntelliSense and diagnostics for .csx files opened in VS Code's native editor (in addition to the designer's Monaco editor). Only active when the workspace contains vnext.config.json."
+        },
+        "vnextForge.csxSync.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "When enabled, saving a .csx file inside a vNext workspace re-encodes its content into every component JSON whose attributes.location resolves to that file."
+        },
+        "vnextForge.csxSync.debounceMs": {
+          "type": "integer",
+          "default": 500,
+          "minimum": 100,
+          "maximum": 5000,
+          "description": "Delay (ms) between a .csx save and the auto-sync run. Coalesces rapid successive saves to a single update."
+        },
+        "vnextForge.csxSync.defaultEncoding": {
+          "type": "string",
+          "enum": ["B64", "NAT"],
+          "default": "B64",
+          "description": "Encoding used when a mapping object has no `encoding` field. B64 = base64 of the UTF-8 bytes; NAT = raw string (escapes handled by the JSON serialiser)."
         },
         "vnextForge.vnextRuntimeUrl": {
           "type": "string",

@@ -7,6 +7,8 @@ import { createExtensionHostLspStack } from './composition/lsp.js';
 import { composeExtensionServices } from './composition/services.js';
 import { bootstrapLsp } from './lsp-bootstrap.js';
 import { createNativeCsxLanguageClient } from './lsp/native-csx-language-client.js';
+import { createCsxSyncController } from './csx-sync/CsxSyncController.js';
+import { CsxJsonHoverProvider } from './csx-sync/CsxJsonHoverProvider.js';
 import { MessageRouter } from './MessageRouter.js';
 import { createVsCodeOutputChannelLogger } from './adapters/vscode-output-channel-logger.js';
 import { baseLogger } from './shared/logger.js';
@@ -168,6 +170,24 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       logger: loggerAdapter,
       outputChannel: csxNativeLspChannel,
     }),
+  );
+
+  // ── CSX → component JSON auto-sync ───────────────────────────────────────
+  // Replaces the standalone `burgan-tech/csx-json-sync` extension by
+  // listening for `.csx` saves inside a vNext workspace and writing the
+  // encoded body back into every component JSON whose `attributes.location`
+  // resolves to that file. Also registers a JSON hover provider that
+  // decodes the `code` field per its sibling `encoding`.
+  const csxSyncController = createCsxSyncController({
+    detector,
+    workspaceService: services.workspaceService,
+  });
+  csxSyncController.activate(context);
+  context.subscriptions.push(
+    vscode.languages.registerHoverProvider(
+      { language: 'json', scheme: 'file' },
+      new CsxJsonHoverProvider(outputChannel),
+    ),
   );
 
   // ── Forge Tools Sidebar ──────────────────────────────────────────────────
