@@ -176,6 +176,18 @@ importers:
 
   apps/monitoring:
     dependencies:
+      '@vnext-forge-studio/app-contracts':
+        specifier: workspace:*
+        version: link:../../packages/app-contracts
+      '@vnext-forge-studio/designer-ui':
+        specifier: workspace:*
+        version: link:../../packages/designer-ui
+      '@vnext-forge-studio/vnext-types':
+        specifier: workspace:*
+        version: link:../../packages/vnext-types
+      lucide-react:
+        specifier: ^0.468.0
+        version: 0.468.0(react@19.2.4)
       react:
         specifier: ^19.0.0
         version: 19.2.4
@@ -185,6 +197,15 @@ importers:
       react-router-dom:
         specifier: ^7.1.0
         version: 7.14.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      sonner:
+        specifier: ^2.0.7
+        version: 2.0.7(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      zod:
+        specifier: ^4.3.6
+        version: 4.3.6
+      zustand:
+        specifier: ^5.0.0
+        version: 5.0.12(@types/react@19.2.14)(immer@10.2.0)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4))
     devDependencies:
       '@tailwindcss/vite':
         specifier: ^4.0.0
@@ -198,12 +219,18 @@ importers:
       '@vitejs/plugin-react':
         specifier: ^4.3.0
         version: 4.7.0(vite@6.4.2(@types/node@22.19.17)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0))
+      eslint-plugin-react-dom:
+        specifier: ^4.2.1
+        version: 4.2.3(eslint@10.2.0(jiti@2.6.1))(typescript@5.9.3)
       eslint-plugin-react-hooks:
         specifier: ^7.0.1
         version: 7.0.1(eslint@10.2.0(jiti@2.6.1))
       eslint-plugin-react-refresh:
         specifier: ^0.5.2
         version: 0.5.2(eslint@10.2.0(jiti@2.6.1))
+      eslint-plugin-react-x:
+        specifier: ^4.2.1
+        version: 4.2.3(eslint@10.2.0(jiti@2.6.1))(typescript@5.9.3)
       tailwindcss:
         specifier: ^4.0.0
         version: 4.2.2
