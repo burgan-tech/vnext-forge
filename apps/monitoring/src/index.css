@@ -1,0 +1,6 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@import 'tw-animate-css';
+@import '@vnext-forge-studio/designer-ui/styles.css';
