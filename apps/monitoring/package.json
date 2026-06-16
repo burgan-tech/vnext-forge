@@ -11,6 +11,7 @@
     "clean": "rm -rf dist"
   },
   "dependencies": {
+    "@tanstack/react-query": "^5.0.0",
     "@vnext-forge-studio/app-contracts": "workspace:*",
     "@vnext-forge-studio/designer-ui": "workspace:*",
     "@vnext-forge-studio/vnext-types": "workspace:*",
