@@ -11,16 +11,17 @@ export interface InstanceStats {
   busy: number;
   completed: number;
   faulted: number;
-  suspended: number;
-  terminated: number;
+  passive: number;
 }
 
 export interface ComponentCounts {
-  workflows: number;
+  flows: number;
   tasks: number;
   functions: number;
   views: number;
   extensions: number;
+  schemas: number;
+  total: number;
 }
 
 export interface StatsTimePoint {

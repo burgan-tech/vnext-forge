@@ -10,7 +10,7 @@ interface ComponentCountsSectionProps {
 }
 
 const COMPONENT_CARDS = [
-  { key: 'workflows' as const, label: 'Workflows', icon: Workflow, type: 'workflow' },
+  { key: 'flows' as const, label: 'Workflows', icon: Workflow, type: 'workflow' },
   { key: 'tasks' as const, label: 'Tasks', icon: CheckSquare, type: 'task' },
   { key: 'functions' as const, label: 'Functions', icon: Zap, type: 'function' },
   { key: 'views' as const, label: 'Views', icon: Eye, type: 'view' },

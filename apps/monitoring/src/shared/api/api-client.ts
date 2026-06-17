@@ -81,13 +81,19 @@ export function createMonitoringHttpClient(
         ) as ApiResponse<T>;
       }
 
+      // If the response is already in ApiResponse envelope format, use it as-is.
       if (isApiResponseShape(payload)) {
         return mergeTraceIdFromResponseHeader(response, payload) as ApiResponse<T>;
       }
 
+      // Monitoring API returns raw JSON (no envelope). Treat 2xx as success, others as error.
+      if (response.ok) {
+        return { success: true, data: payload as T } as ApiResponse<T>;
+      }
+
       return buildEnvelopeFailure(
         httpStatusToErrorCode(response.status),
-        `Unexpected response shape (HTTP ${response.status}).`,
+        `HTTP ${response.status}`,
       ) as ApiResponse<T>;
     } finally {
       clearTimeout(timeoutHandle);

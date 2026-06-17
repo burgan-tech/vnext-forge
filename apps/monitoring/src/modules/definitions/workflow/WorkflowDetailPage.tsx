@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Badge, Button } from '@vnext-forge-studio/designer-ui/ui';
+import { config } from '@monitoring/shared/config/config';
 import { cn } from '@monitoring/shared/lib/utils';
 import { VersionPicker } from '@monitoring/modules/definitions/components/VersionPicker';
 import { RawJsonViewer } from '@monitoring/modules/definitions/components/RawJsonViewer';
@@ -249,7 +250,7 @@ export function WorkflowDetailPage({ id }: WorkflowDetailPageProps) {
                   {instanceData.items.map((inst) => (
                     <tr
                       key={inst.id}
-                      onClick={() => navigate(`/instances/${inst.id}`)}
+                      onClick={() => navigate(`/instances/${inst.id}?workflow=${id}&domain=${config.domain}`)}
                       className="cursor-pointer border-b border-border last:border-0 hover:bg-muted/40"
                     >
                       <td className="px-4 py-3"><span className="font-mono text-xs font-medium text-primary">{inst.key}</span></td>

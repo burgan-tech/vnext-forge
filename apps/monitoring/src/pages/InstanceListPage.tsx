@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button, Input } from '@vnext-forge-studio/designer-ui/ui';
+import { config } from '@monitoring/shared/config/config';
 import { StatusBadge } from '@monitoring/shared/components/StatusBadge';
 import { cn } from '@monitoring/shared/lib/utils';
 import {
@@ -96,7 +97,7 @@ export function InstanceListPage() {
   const [pageSize, setPageSize] = useState(25);
 
   const { data, isLoading, isError } = useInstanceList({
-    workflowId: wfId,
+    workflowId: wfId ?? '',
     status: statusFilter,
     timeFilter,
     sort,
@@ -249,7 +250,7 @@ export function InstanceListPage() {
                   <td className="px-4 py-2">
                     <button
                       type="button"
-                      onClick={() => navigate(`/instances/${instance.id}`)}
+                      onClick={() => navigate(`/instances/${instance.id}?workflow=${wfId ?? ''}&domain=${config.domain}`)}
                       className="font-mono text-blue-600 hover:underline dark:text-blue-400"
                     >
                       {instance.key}

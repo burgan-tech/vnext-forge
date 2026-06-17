@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@vnext-forge-studio/designer-ui/ui';
+import { config } from '@monitoring/shared/config/config';
 import { StatusBadge } from '@monitoring/shared/components/StatusBadge';
 import type { Instance } from '@monitoring/shared/types';
 
@@ -70,7 +71,7 @@ export function RecentFaultsSection({ data, isLoading }: RecentFaultsSectionProp
               {data.map((instance) => (
                 <tr
                   key={instance.id}
-                  onClick={() => navigate(`/instances/${instance.id}`)}
+                  onClick={() => navigate(`/instances/${instance.id}?workflow=${instance.workflow}&domain=${instance.domain || config.domain}`)}
                   className="cursor-pointer border-b border-border last:border-0 hover:bg-muted/40"
                 >
                   <td className="px-4 py-3">

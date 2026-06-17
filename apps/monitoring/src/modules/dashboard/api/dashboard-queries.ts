@@ -8,32 +8,31 @@ export type StatsTimeRange = '24h' | '7d' | '30d';
 export function useInstanceStats() {
   return useQuery({
     queryKey: ['dashboard', 'stats'],
-    queryFn: () => domainGet<InstanceStats>('/stats'),
+    queryFn: () => domainGet<InstanceStats>('/stats/instances'),
   });
 }
 
-export function useStatsTimeSeries(range: StatsTimeRange) {
+export function useStatsTimeSeries(_range: StatsTimeRange) {
+  // No hourly time-series endpoint in the monitoring API — return empty data
   return useQuery({
-    queryKey: ['dashboard', 'stats', 'timeseries', range],
-    queryFn: () => domainGet<StatsTimePoint[]>(`/stats/hourly`, { range }),
+    queryKey: ['dashboard', 'stats', 'timeseries', 'disabled'],
+    queryFn: (): Promise<StatsTimePoint[]> => Promise.resolve([]),
+    enabled: false,
   });
 }
 
 export function useRecentFaults() {
+  // No domain-wide faulted instances list endpoint in the monitoring API — disabled
   return useQuery({
-    queryKey: ['dashboard', 'recent-faults'],
-    queryFn: () =>
-      domainGet<Instance[]>('/instances', {
-        status: 'Faulted',
-        limit: '5',
-        sort: 'desc',
-      }),
+    queryKey: ['dashboard', 'recent-faults', 'disabled'],
+    queryFn: (): Promise<Instance[]> => Promise.resolve([]),
+    enabled: false,
   });
 }
 
 export function useComponentCounts() {
   return useQuery({
     queryKey: ['dashboard', 'component-counts'],
-    queryFn: () => domainGet<ComponentCounts>('/components/counts'),
+    queryFn: () => domainGet<ComponentCounts>('/stats/components'),
   });
 }

@@ -20,7 +20,7 @@ export function InstanceDistSection({ data, isLoading }: InstanceDistSectionProp
         </h2>
         <span className="text-xs text-muted-foreground">last 7 days</span>
       </div>
-      <div className="grid grid-cols-7 gap-3">
+      <div className="grid grid-cols-6 gap-3">
         <KpiCard label="Total" value={v(data?.total)} />
         <KpiCard label="Active" value={v(data?.active)} />
         <KpiCard label="Busy" value={v(data?.busy)} variant="warning" />
@@ -31,8 +31,7 @@ export function InstanceDistSection({ data, isLoading }: InstanceDistSectionProp
           variant="danger"
           onClick={() => navigate('/faults')}
         />
-        <KpiCard label="Suspended" value={v(data?.suspended)} />
-        <KpiCard label="Terminated" value={v(data?.terminated)} />
+        <KpiCard label="Passive" value={v(data?.passive)} />
       </div>
     </section>
   );
