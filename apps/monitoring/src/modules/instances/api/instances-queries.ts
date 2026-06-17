@@ -7,6 +7,7 @@ import type {
   InstanceStateResponse,
   InstanceDataResponse,
   InstanceTasksResponse,
+  InstanceTaskDetailResponse,
   InstanceFaultsResponse,
   InstancePermissionsResponse,
   HierarchyNode,
@@ -119,6 +120,15 @@ export function useInstancePermissions(workflow: string, instanceId: string) {
     queryKey: ['instance', workflow, instanceId, 'permissions'],
     queryFn: () => instanceGet<InstancePermissionsResponse>(workflow, instanceId, '/permissions'),
     enabled: Boolean(workflow) && Boolean(instanceId),
+  });
+}
+
+/** API 1.12 — Full detail of a single task execution */
+export function useInstanceTaskDetail(workflow: string, instanceId: string, taskId: string) {
+  return useQuery({
+    queryKey: ['instance', workflow, instanceId, 'tasks', taskId],
+    queryFn: () => instanceGet<InstanceTaskDetailResponse>(workflow, instanceId, `/tasks/${taskId}`),
+    enabled: Boolean(workflow) && Boolean(instanceId) && Boolean(taskId),
   });
 }
 

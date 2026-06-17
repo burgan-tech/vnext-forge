@@ -189,6 +189,27 @@ export interface InstancePermissionsResponse {
   functions: PermissionFunction[];
 }
 
+// --- 1.12 Instance Task Detail ---
+
+export interface InstanceTaskDetailResponse {
+  id: string;
+  taskDefinitionKey: string;
+  status: string;
+  businessStatus: string;
+  startedAt: string;
+  finishedAt: string | null;
+  durationMs: number | null;
+  request: Record<string, unknown> | null;
+  response: Record<string, unknown> | null;
+  error: string | null;
+  triggerContext: {
+    transitionId: string;
+    fromState: string;
+    toState: string;
+    triggerType: string;
+  } | null;
+}
+
 // --- 1.9 Instance Hierarchy ---
 
 export interface HierarchyNode {

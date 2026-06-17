@@ -34,3 +34,9 @@ export async function instanceGet<T>(workflow: string, instanceId: string, path 
   const res = await client.get<T>(`/api/v1.0/monitor/${config.domain}/workflows/${workflow}/instances/${instanceId}${path}`, params);
   return unwrap(res);
 }
+
+/** Raw monitor GET — path after /api/v1.0/ (e.g. 'config'). Used for endpoints without domain scope. */
+export async function monitorGet<T>(path: string, params?: Record<string, string>): Promise<T> {
+  const res = await client.get<T>(`/api/v1.0/${path}`, params);
+  return unwrap(res);
+}
