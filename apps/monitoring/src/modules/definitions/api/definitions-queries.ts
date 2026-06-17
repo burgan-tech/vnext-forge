@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { domainGet } from '@monitoring/shared/api/monitoring-api';
+import { domainGet, workflowGet } from '@monitoring/shared/api/monitoring-api';
 import type { Workflow, StatePermission } from '@monitoring/shared/types';
 import type {
   DefinitionListItem,
@@ -7,6 +7,14 @@ import type {
   ApiComponentListItem,
   ApiComponentDetailResponse,
   ApiComponentDefinitionResponse,
+  WorkflowInstanceStats,
+  WorkflowStateDistribution,
+  WorkflowDurationStats,
+  WorkflowFaultStats,
+  WorkflowTaskStats,
+  WorkflowPermissionsMatrix,
+  WorkflowDependencies,
+  WorkflowDefinitionItem,
 } from '@monitoring/shared/types/definitions-api';
 
 export type DefinitionType =
@@ -142,6 +150,84 @@ export function useWorkflowVersions(id: string) {
       return res.versions ?? [];
     },
     enabled: Boolean(id),
+  });
+}
+
+/** API §3.1 — Instance counts (active/busy/faulted/passive/completed/total) for a workflow */
+export function useWorkflowStats(workflowKey: string) {
+  return useQuery({
+    queryKey: ['definitions', 'workflow', workflowKey, 'stats'],
+    queryFn: () => workflowGet<WorkflowInstanceStats>(workflowKey, '/stats/instances'),
+    enabled: Boolean(workflowKey),
+  });
+}
+
+/** API §3.3 — Active instance distribution across states */
+export function useWorkflowStateDistribution(workflowKey: string) {
+  return useQuery({
+    queryKey: ['definitions', 'workflow', workflowKey, 'states'],
+    queryFn: () => workflowGet<WorkflowStateDistribution>(workflowKey, '/stats/states'),
+    enabled: Boolean(workflowKey),
+  });
+}
+
+/** API §3.6 — Completion duration stats (avg/min/max/p95 in ms) */
+export function useWorkflowDuration(workflowKey: string) {
+  return useQuery({
+    queryKey: ['definitions', 'workflow', workflowKey, 'duration'],
+    queryFn: () => workflowGet<WorkflowDurationStats>(workflowKey, '/stats/duration'),
+    enabled: Boolean(workflowKey),
+  });
+}
+
+/** API §3.4 — Fault stats (by state / by task / trend) */
+export function useWorkflowFaultStats(workflowKey: string) {
+  return useQuery({
+    queryKey: ['definitions', 'workflow', workflowKey, 'fault-stats'],
+    queryFn: () => workflowGet<WorkflowFaultStats>(workflowKey, '/stats/faults'),
+    enabled: Boolean(workflowKey),
+  });
+}
+
+/** API §3.5 — Task execution counts and success/failure rates */
+export function useWorkflowTaskStats(workflowKey: string) {
+  return useQuery({
+    queryKey: ['definitions', 'workflow', workflowKey, 'task-stats'],
+    queryFn: () => workflowGet<WorkflowTaskStats>(workflowKey, '/stats/tasks'),
+    enabled: Boolean(workflowKey),
+  });
+}
+
+/** API §4.1 — Full workflow permission matrix (query roles, state roles, transitions, functions) */
+export function useWorkflowPermissionMatrix(workflowKey: string) {
+  return useQuery({
+    queryKey: ['definitions', 'workflow', workflowKey, 'permissions'],
+    queryFn: () => workflowGet<WorkflowPermissionsMatrix>(workflowKey, '/permissions'),
+    enabled: Boolean(workflowKey),
+  });
+}
+
+/** API §2.4 — All component dependencies used by the workflow */
+export function useWorkflowDependencies(workflowKey: string) {
+  return useQuery({
+    queryKey: ['definitions', 'workflow', workflowKey, 'dependencies'],
+    queryFn: () => workflowGet<WorkflowDependencies>(workflowKey, '/dependencies'),
+    enabled: Boolean(workflowKey),
+  });
+}
+
+/** API §2.2 (typed) — Full workflow definition JSON (states, transitions, …) */
+export function useWorkflowDefinitionDetail(workflowKey: string) {
+  return useQuery({
+    queryKey: ['definitions', 'workflow', workflowKey, 'definition-detail'],
+    queryFn: async () => {
+      const res = await domainGet<ApiComponentDefinitionResponse>('/components/definition', {
+        type: 'sys-flows',
+        key: workflowKey,
+      });
+      return (res.items[0] ?? null) as WorkflowDefinitionItem | null;
+    },
+    enabled: Boolean(workflowKey),
   });
 }
 

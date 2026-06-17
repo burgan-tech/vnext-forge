@@ -27,6 +27,23 @@ export interface RuntimeConfigResponse {
   };
 }
 
+// --- §8.1 Health Check ---
+
+export interface HealthEntry {
+  name: string;
+  status: 'Healthy' | 'Degraded' | 'Unhealthy';
+  durationMs: number;
+  description: string | null;
+  exception: string | null;
+  data: Record<string, unknown>;
+}
+
+export interface HealthDetailResponse {
+  status: 'Healthy' | 'Degraded' | 'Unhealthy';
+  totalDurationMs: number;
+  entries: HealthEntry[];
+}
+
 // --- §5.1 Domain-Scope Function Definitions ---
 
 export interface FunctionRoleGrant {

@@ -1,6 +1,7 @@
 import { Badge } from '@vnext-forge-studio/designer-ui/ui';
+import { cn } from '@monitoring/shared/lib/utils';
 import { config } from '@monitoring/shared/config/config';
-import { useDomainConfig } from '@monitoring/modules/config/api/config-queries';
+import { useDomainConfig, useHealthDetail } from '@monitoring/modules/config/api/config-queries';
 
 function BooleanBadge({ value }: { value: boolean }) {
   return (
@@ -10,8 +11,15 @@ function BooleanBadge({ value }: { value: boolean }) {
   );
 }
 
+function healthVariant(status: string): 'success' | 'destructive' | 'warning' {
+  if (status === 'Healthy') return 'success';
+  if (status === 'Unhealthy') return 'destructive';
+  return 'warning';
+}
+
 export function ConfigPage() {
-  const { data: runtimeConfig, isLoading, isError } = useDomainConfig();
+  const { data: runtimeConfig, isLoading: loadingConfig, isError: configError } = useDomainConfig();
+  const { data: health, isLoading: loadingHealth } = useHealthDetail();
 
   return (
     <div className="flex flex-col gap-6 p-4">
@@ -41,12 +49,8 @@ export function ConfigPage() {
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
           Runtime Config
         </h2>
-        {isLoading && (
-          <p className="text-sm text-muted-foreground">Loading runtime config…</p>
-        )}
-        {isError && (
-          <p className="text-sm text-destructive">Failed to load runtime config.</p>
-        )}
+        {loadingConfig && <p className="text-sm text-muted-foreground">Loading…</p>}
+        {configError && <p className="text-sm text-destructive">Failed to load runtime config.</p>}
         {runtimeConfig && (
           <dl className="grid grid-cols-2 gap-x-6 gap-y-4 text-sm sm:grid-cols-3">
             <div>
@@ -70,6 +74,52 @@ export function ConfigPage() {
               <dd className="mt-0.5"><BooleanBadge value={runtimeConfig.monitor.vaultEnabled} /></dd>
             </div>
           </dl>
+        )}
+      </div>
+
+      {/* Health check — §8.1 */}
+      <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            System Health
+          </h2>
+          {health && (
+            <Badge variant={healthVariant(health.status)} className="text-xs">
+              {health.status} · {health.totalDurationMs.toFixed(1)}ms
+            </Badge>
+          )}
+        </div>
+        {loadingHealth && <p className="text-sm text-muted-foreground">Loading health…</p>}
+        {health && (
+          <div className="flex flex-col gap-2">
+            {health.entries.map((entry) => (
+              <div
+                key={entry.name}
+                className={cn(
+                  'flex items-start justify-between rounded-md border px-3 py-2.5',
+                  entry.status === 'Healthy'
+                    ? 'border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/30'
+                    : entry.status === 'Unhealthy'
+                    ? 'border-destructive/30 bg-destructive/5'
+                    : 'border-yellow-200 bg-yellow-50 dark:border-yellow-900 dark:bg-yellow-950/30',
+                )}
+              >
+                <div className="flex flex-col gap-0.5">
+                  <span className="font-mono text-xs font-semibold capitalize">{entry.name}</span>
+                  {entry.description && (
+                    <span className="text-xs text-muted-foreground">{entry.description}</span>
+                  )}
+                  {entry.exception && (
+                    <span className="text-xs text-destructive">{entry.exception}</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-2 shrink-0 ml-4">
+                  <span className="font-mono text-xs text-muted-foreground">{entry.durationMs.toFixed(1)}ms</span>
+                  <Badge variant={healthVariant(entry.status)} className="text-xs">{entry.status}</Badge>
+                </div>
+              </div>
+            ))}
+          </div>
         )}
       </div>
     </div>
