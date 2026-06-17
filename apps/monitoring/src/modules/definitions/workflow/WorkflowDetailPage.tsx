@@ -5,14 +5,12 @@ import { config } from '@monitoring/shared/config/config';
 import { cn } from '@monitoring/shared/lib/utils';
 import { VersionPicker } from '@monitoring/modules/definitions/components/VersionPicker';
 import { RawJsonViewer } from '@monitoring/modules/definitions/components/RawJsonViewer';
+import { StateDistributionChart, type ChartType } from '@monitoring/modules/definitions/components/StateDistributionChart';
 import {
   useWorkflowDetail,
   useWorkflowVersions,
   useWorkflowStats,
   useWorkflowStateDistribution,
-  useWorkflowDuration,
-  useWorkflowFaultStats,
-  useWorkflowTaskStats,
   useWorkflowPermissionMatrix,
   useWorkflowDependencies,
   useWorkflowDefinitionDetail,
@@ -31,12 +29,11 @@ const WORKFLOW_TYPE_VARIANTS: Record<string, 'info' | 'warning' | 'secondary'> =
   F: 'info', S: 'warning', P: 'secondary',
 };
 
-type Tab = 'overview' | 'definition' | 'instances' | 'performance' | 'related' | 'permissions';
+type Tab = 'overview' | 'definition' | 'instances' | 'related' | 'permissions';
 const TABS: { id: Tab; label: string }[] = [
   { id: 'overview', label: 'Overview' },
   { id: 'definition', label: 'Definition' },
   { id: 'instances', label: 'Instances' },
-  { id: 'performance', label: 'Performance' },
   { id: 'related', label: 'Related' },
   { id: 'permissions', label: 'Permissions' },
 ];
@@ -63,7 +60,17 @@ const TRIGGER_TYPE_LABELS: Record<number, string> = {
 // Helpers
 // ---------------------------------------------------------------------------
 
-function formatDateTime(iso: string): string {
+const STATUS_CODE_MAP: Record<string, InstanceStatus> = {
+  A: 'Active', B: 'Busy', C: 'Completed', F: 'Faulted', S: 'Suspended', T: 'Terminated',
+};
+
+function resolveStatus(rawStatus: string | undefined, metaStatus: string | undefined): InstanceStatus {
+  if (rawStatus && rawStatus.length > 1) return rawStatus as InstanceStatus;
+  const code = metaStatus ?? rawStatus ?? '';
+  return STATUS_CODE_MAP[code] ?? 'Active';
+}
+
+function formatDateTime(iso: string | undefined): string {
   if (!iso) return '—';
   const d = new Date(iso);
   return `${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
@@ -269,6 +276,7 @@ interface WorkflowDetailPageProps {
 export function WorkflowDetailPage({ id }: WorkflowDetailPageProps) {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<Tab>('overview');
+  const [stateChartType, setStateChartType] = useState<ChartType>('bar');
   const [instanceStatus, setInstanceStatus] = useState<InstanceStatus | 'all'>('all');
   const [instancePage, setInstancePage] = useState(1);
   const [defView, setDefView] = useState<'visual' | 'raw'>('visual');
@@ -280,9 +288,6 @@ export function WorkflowDetailPage({ id }: WorkflowDetailPageProps) {
   // Real API data
   const { data: stats } = useWorkflowStats(id);
   const { data: stateDist } = useWorkflowStateDistribution(id);
-  const { data: duration } = useWorkflowDuration(id);
-  const { data: faultStats } = useWorkflowFaultStats(id);
-  const { data: taskStats } = useWorkflowTaskStats(id);
   const { data: permMatrix } = useWorkflowPermissionMatrix(id);
   const { data: deps } = useWorkflowDependencies(id);
   const { data: defItem } = useWorkflowDefinitionDetail(id);
@@ -317,7 +322,7 @@ export function WorkflowDetailPage({ id }: WorkflowDetailPageProps) {
     <div className="flex flex-col gap-4">
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
-        <div>
+        <div className="flex-1">
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold tracking-tight text-foreground">{workflow.name}</h1>
             <Badge
@@ -330,6 +335,9 @@ export function WorkflowDetailPage({ id }: WorkflowDetailPageProps) {
           <p className="mt-0.5 text-sm text-muted-foreground">
             {workflow.domain} · {workflow.version}
           </p>
+          {workflow.description && (
+            <p className="mt-2 text-sm text-foreground">{workflow.description}</p>
+          )}
         </div>
         <VersionPicker
           currentVersion={workflow.version}
@@ -363,37 +371,17 @@ export function WorkflowDetailPage({ id }: WorkflowDetailPageProps) {
       {/* ------------------------------------------------------------------ */}
       {activeTab === 'overview' && (
         <div className="flex flex-col gap-6">
-          {/* Description + meta */}
-          <div className="grid grid-cols-3 gap-4">
-            <div className="col-span-2">
-              <p className="text-sm text-foreground">{workflow.description || 'No description.'}</p>
-              {workflow.tags.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-1.5">
-                  {workflow.tags.map((tag) => (
-                    <Badge key={tag} variant="secondary" className="font-mono text-xs">{tag}</Badge>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="flex flex-col gap-2 rounded-lg border border-border bg-muted/20 p-4 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Domain</span>
-                <span className="font-mono text-xs">{workflow.domain}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Author</span>
-                <span className="font-mono text-xs">{workflow.author || '—'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">States</span>
-                <span className="font-mono text-xs">{defStates.length || '—'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Transitions</span>
-                <span className="font-mono text-xs">{defTransitions.length || '—'}</span>
+          {/* Tags */}
+          {workflow.tags.length > 0 && (
+            <div>
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tags</h3>
+              <div className="flex flex-wrap gap-1.5">
+                {workflow.tags.map((tag) => (
+                  <Badge key={tag} variant="secondary" className="font-mono text-xs">{tag}</Badge>
+                ))}
               </div>
             </div>
-          </div>
+          )}
 
           {/* Instance distribution — real data from §3.1 */}
           <div>
@@ -424,26 +412,11 @@ export function WorkflowDetailPage({ id }: WorkflowDetailPageProps) {
                 Active Instance State Distribution
               </h2>
               <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
-                <div className="flex flex-col gap-2">
-                  {stateDist!.states.map(({ stateKey, total, faulted }) => {
-                    const max = Math.max(...stateDist!.states.map((s) => s.total));
-                    return (
-                      <div key={stateKey} className="flex items-center gap-3">
-                        <span className="w-40 shrink-0 font-mono text-xs text-foreground">{stateKey}</span>
-                        <div className="flex-1 rounded-full bg-muted h-2">
-                          <div
-                            className={cn('h-2 rounded-full', faulted > 0 ? 'bg-destructive' : 'bg-primary')}
-                            style={{ width: `${pct(total, max)}%` }}
-                          />
-                        </div>
-                        <span className="w-10 text-right font-mono text-xs text-muted-foreground">{total}</span>
-                        {faulted > 0 && (
-                          <span className="text-xs text-destructive">({faulted} faulted)</span>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+                <StateDistributionChart
+                  states={stateDist!.states}
+                  chartType={stateChartType}
+                  onChartTypeChange={setStateChartType}
+                />
               </div>
             </div>
           )}
@@ -520,7 +493,7 @@ export function WorkflowDetailPage({ id }: WorkflowDetailPageProps) {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-border">
-                    {['Instance Key', 'Version', 'State', 'Status', 'Created At', 'Duration'].map((h) => (
+                    {['ID', 'Instance Key', 'Version', 'Current State', 'Effective State', 'Status', 'Created At', 'Modified At'].map((h) => (
                       <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">{h}</th>
                     ))}
                   </tr>
@@ -532,12 +505,14 @@ export function WorkflowDetailPage({ id }: WorkflowDetailPageProps) {
                       onClick={() => navigate(`/instances/${inst.id}?workflow=${id}&domain=${config.domain}`)}
                       className="cursor-pointer border-b border-border last:border-0 hover:bg-muted/40"
                     >
-                      <td className="px-4 py-3"><span className="font-mono text-xs font-medium text-primary">{inst.key}</span></td>
-                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{inst.workflowVersion}</td>
-                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{inst.state}</td>
-                      <td className="px-4 py-3"><StatusBadge status={inst.status} /></td>
-                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{formatDateTime(inst.createdAt)}</td>
-                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{formatDuration(inst.createdAt, inst.updatedAt)}</td>
+                      <td className="px-4 py-3"><span className="font-mono text-xs text-muted-foreground" title={inst.id}>{inst.id.slice(0, 8)}...</span></td>
+                      <td className="px-4 py-3"><span className="font-mono text-xs text-foreground">{inst.key || '—'}</span></td>
+                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{inst.flowVersion || inst.workflowVersion || '—'}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{inst.metadata?.currentState || inst.state || '—'}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{inst.metadata?.effectiveState || '—'}</td>
+                      <td className="px-4 py-3"><StatusBadge status={resolveStatus(inst.status, inst.metadata?.status)} /></td>
+                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{formatDateTime(inst.metadata?.createdAt || inst.createdAt)}</td>
+                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{formatDateTime(inst.metadata?.modifiedAt || inst.updatedAt)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -546,10 +521,10 @@ export function WorkflowDetailPage({ id }: WorkflowDetailPageProps) {
           </div>
 
           <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>{instanceData?.total ?? 0} total instances</span>
+            <span>Page {instancePage}</span>
             <div className="flex gap-1">
               <Button variant="outline" size="sm" className="h-7 px-2 text-xs" disabled={instancePage <= 1} onClick={() => setInstancePage((p) => p - 1)}>← Prev</Button>
-              <Button variant="outline" size="sm" className="h-7 px-2 text-xs" disabled={!instanceData || instancePage >= Math.ceil(instanceData.total / 10)} onClick={() => setInstancePage((p) => p + 1)}>Next →</Button>
+              <Button variant="outline" size="sm" className="h-7 px-2 text-xs" disabled={!(instanceData?.pagination?.hasNext ?? (instanceData?.items.length === 10))} onClick={() => setInstancePage((p) => p + 1)}>Next →</Button>
             </div>
           </div>
 
@@ -558,120 +533,6 @@ export function WorkflowDetailPage({ id }: WorkflowDetailPageProps) {
               View all →
             </Button>
           </div>
-        </div>
-      )}
-
-      {/* ------------------------------------------------------------------ */}
-      {/* Tab: Performance                                                     */}
-      {/* ------------------------------------------------------------------ */}
-      {activeTab === 'performance' && (
-        <div className="flex flex-col gap-6">
-          {/* Duration stats — §3.6 */}
-          <div>
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-              Completion Duration
-            </h2>
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {[
-                { label: 'Avg', value: formatMs(duration?.avgMs) },
-                { label: 'Min', value: formatMs(duration?.minMs) },
-                { label: 'Max', value: formatMs(duration?.maxMs) },
-                { label: 'P95', value: formatMs(duration?.p95Ms) },
-              ].map(({ label, value }) => (
-                <div key={label} className="rounded-lg border border-border bg-card p-4 shadow-sm">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label} Duration</p>
-                  <p className="mt-2 text-2xl font-bold tracking-tight font-mono text-foreground">{value}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Fault stats — §3.4 */}
-          {faultStats && (
-            <div className="grid grid-cols-2 gap-4">
-              {/* Fault trend */}
-              <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
-                <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Fault Trend
-                </h3>
-                <div className="flex gap-4">
-                  {[
-                    { label: 'Last 1h', value: faultStats.trend.last1h },
-                    { label: 'Last 24h', value: faultStats.trend.last24h },
-                    { label: 'Last 7d', value: faultStats.trend.last7d },
-                  ].map(({ label, value }) => (
-                    <div key={label} className="flex flex-col">
-                      <span className="text-xs text-muted-foreground">{label}</span>
-                      <span className={cn('text-xl font-bold font-mono', value > 0 ? 'text-destructive' : 'text-foreground')}>
-                        {value}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Faults by state */}
-              {faultStats.byState.length > 0 && (
-                <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
-                  <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Faults by State
-                  </h3>
-                  <div className="flex flex-col gap-1.5">
-                    {faultStats.byState.slice(0, 5).map(({ key, count }) => {
-                      const max = Math.max(...faultStats.byState.map((s) => s.count));
-                      return (
-                        <div key={key} className="flex items-center gap-2">
-                          <span className="w-28 shrink-0 font-mono text-xs">{key}</span>
-                          <div className="flex-1 h-1.5 rounded-full bg-muted">
-                            <div className="h-1.5 rounded-full bg-destructive" style={{ width: `${pct(count, max)}%` }} />
-                          </div>
-                          <span className="w-6 text-right font-mono text-xs text-muted-foreground">{count}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Task stats — §3.5 */}
-          {(taskStats?.byTask.length ?? 0) > 0 && (
-            <div>
-              <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                Task Execution Rates
-              </h2>
-              <div className="overflow-x-auto rounded-md border border-border">
-                <table className="w-full text-sm">
-                  <thead className="border-b border-border bg-muted/50">
-                    <tr>
-                      {['Task Key', 'Executions', 'Success Rate', 'Failure Rate'].map((h) => (
-                        <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {taskStats!.byTask.map((t) => (
-                      <tr key={t.taskKey} className="border-b border-border last:border-0 hover:bg-muted/20">
-                        <td className="px-4 py-3 font-mono text-xs font-medium">{t.taskKey}</td>
-                        <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{t.executionCount.toLocaleString()}</td>
-                        <td className="px-4 py-3">
-                          <span className={cn('font-mono text-xs font-medium', t.successRate >= 0.95 ? 'text-green-600 dark:text-green-400' : t.successRate >= 0.8 ? 'text-yellow-600 dark:text-yellow-400' : 'text-destructive')}>
-                            {(t.successRate * 100).toFixed(1)}%
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={cn('font-mono text-xs', t.failureRate > 0.05 ? 'text-destructive' : 'text-muted-foreground')}>
-                            {(t.failureRate * 100).toFixed(1)}%
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
         </div>
       )}
 

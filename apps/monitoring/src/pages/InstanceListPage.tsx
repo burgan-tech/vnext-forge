@@ -265,7 +265,7 @@ export function InstanceListPage() {
                     {formatDateTime(instance.createdAt)}
                   </td>
                   <td className="px-4 py-2 text-muted-foreground">
-                    {formatDuration(instance.createdAt, instance.updatedAt)}
+                    {formatDuration(instance.createdAt, instance.updatedAt || instance.createdAt)}
                   </td>
                 </tr>
               ))}

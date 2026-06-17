@@ -6,10 +6,12 @@ import type {
   InstanceTimelineResponse,
   InstanceStateResponse,
   InstanceDataResponse,
+  InstanceDataDiffResponse,
   InstanceTasksResponse,
   InstanceTaskDetailResponse,
   InstanceFaultsResponse,
   InstancePermissionsResponse,
+  InstanceParentResponse,
   HierarchyNode,
 } from '@monitoring/shared/types/instance-api';
 
@@ -29,9 +31,16 @@ export interface InstanceListParams {
 
 export interface InstanceListResult {
   items: Instance[];
-  total: number;
-  page: number;
-  pageSize: number;
+  // Legacy fields (may be absent)
+  total?: number;
+  page?: number;
+  pageSize?: number;
+  // Current API format
+  pagination?: {
+    page: number;
+    pageSize: number;
+    hasNext: boolean;
+  };
 }
 
 export function useInstanceList(params: InstanceListParams) {
@@ -129,6 +138,30 @@ export function useInstanceTaskDetail(workflow: string, instanceId: string, task
     queryKey: ['instance', workflow, instanceId, 'tasks', taskId],
     queryFn: () => instanceGet<InstanceTaskDetailResponse>(workflow, instanceId, `/tasks/${taskId}`),
     enabled: Boolean(workflow) && Boolean(instanceId) && Boolean(taskId),
+  });
+}
+
+/** API 1.8 — Field-level diff between two data versions */
+export function useInstanceDataDiff(
+  workflow: string,
+  instanceId: string,
+  from: string,
+  to: string,
+) {
+  return useQuery({
+    queryKey: ['instance', workflow, instanceId, 'data', 'diff', from, to],
+    queryFn: () =>
+      instanceGet<InstanceDataDiffResponse>(workflow, instanceId, '/data/diff', { from, to }),
+    enabled: Boolean(workflow) && Boolean(instanceId) && Boolean(from) && Boolean(to),
+  });
+}
+
+/** API 1.10 — Reverse navigation to parent instance (sub-flow → parent) */
+export function useInstanceParent(workflow: string, instanceId: string) {
+  return useQuery({
+    queryKey: ['instance', workflow, instanceId, 'parent'],
+    queryFn: () => instanceGet<InstanceParentResponse>(workflow, instanceId, '/parent'),
+    enabled: Boolean(workflow) && Boolean(instanceId),
   });
 }
 

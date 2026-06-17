@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { CheckSquare, Eye, Puzzle, Workflow, Zap } from 'lucide-react';
+import { ArrowLeftRight, Braces, CheckSquare, Eye, Puzzle, Workflow, Zap } from 'lucide-react';
 
 import type { ComponentCounts } from '@monitoring/shared/types';
 import { KpiCard } from './KpiCard';
@@ -15,6 +15,8 @@ const COMPONENT_CARDS = [
   { key: 'functions' as const, label: 'Functions', icon: Zap, type: 'function' },
   { key: 'views' as const, label: 'Views', icon: Eye, type: 'view' },
   { key: 'extensions' as const, label: 'Extensions', icon: Puzzle, type: 'extension' },
+  { key: 'schemas' as const, label: 'Schemas', icon: Braces, type: 'schema' },
+  { key: 'mappings' as const, label: 'Mappings', icon: ArrowLeftRight, type: 'mapping' },
 ];
 
 export function ComponentCountsSection({ data, isLoading }: ComponentCountsSectionProps) {
@@ -25,7 +27,7 @@ export function ComponentCountsSection({ data, isLoading }: ComponentCountsSecti
       <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-muted-foreground">
         Registered Components
       </h2>
-      <div className="grid grid-cols-5 gap-3">
+      <div className="grid grid-cols-4 gap-3 sm:grid-cols-7">
         {COMPONENT_CARDS.map(({ key, label, icon: Icon, type }) => (
           <KpiCard
             key={key}

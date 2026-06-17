@@ -10,16 +10,19 @@ import {
   useInstanceTimeline,
   useInstanceState,
   useInstanceData,
+  useInstanceDataDiff,
   useInstanceTasks,
   useInstanceFaults,
   useInstancePermissions,
   useInstanceHierarchy,
+  useInstanceParent,
 } from '@monitoring/modules/instances/api/instances-queries';
 import type {
   InstanceDetailResponse,
   TimelineTransition,
   InstanceTaskItem,
   DataVersionEntry,
+  InstanceDataDiffResponse,
   HierarchyNode,
   ActiveCorrelation,
   PermissionTransition,
@@ -302,6 +305,72 @@ function TaskLogTab({ tasks }: { tasks: InstanceTaskItem[] }) {
 // Data Tab
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Data Diff View (§1.8)
+// ---------------------------------------------------------------------------
+
+function DataDiffView({ diff }: { diff: InstanceDataDiffResponse }) {
+  const hasChanges = diff.added.length > 0 || diff.removed.length > 0 || diff.changed.length > 0;
+
+  if (!hasChanges) {
+    return (
+      <div className="rounded-md border border-border bg-muted/30 p-4 text-center text-sm text-muted-foreground">
+        No differences. {diff.unchangedCount} field{diff.unchangedCount !== 1 ? 's' : ''} unchanged.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      {diff.added.map((f) => (
+        <div
+          key={`add-${f.path}`}
+          className="flex items-start gap-2 rounded-md border border-green-200 bg-green-50 px-3 py-2 dark:border-green-900 dark:bg-green-950/30"
+        >
+          <span className="mt-0.5 rounded bg-green-200 px-1 py-0.5 text-[10px] font-bold text-green-800 dark:bg-green-900 dark:text-green-200">
+            +
+          </span>
+          <span className="font-mono text-xs text-foreground">{f.path}</span>
+          <span className="ml-auto font-mono text-xs text-muted-foreground">{f.value}</span>
+        </div>
+      ))}
+      {diff.removed.map((f) => (
+        <div
+          key={`rem-${f.path}`}
+          className="flex items-start gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 dark:border-red-900 dark:bg-red-950/30"
+        >
+          <span className="mt-0.5 rounded bg-red-200 px-1 py-0.5 text-[10px] font-bold text-red-800 dark:bg-red-900 dark:text-red-200">
+            −
+          </span>
+          <span className="font-mono text-xs text-foreground">{f.path}</span>
+          <span className="ml-auto font-mono text-xs text-muted-foreground">{f.value}</span>
+        </div>
+      ))}
+      {diff.changed.map((f) => (
+        <div
+          key={`chg-${f.path}`}
+          className="rounded-md border border-yellow-200 bg-yellow-50 px-3 py-2 dark:border-yellow-900 dark:bg-yellow-950/30"
+        >
+          <div className="flex items-center gap-2">
+            <span className="rounded bg-yellow-200 px-1 py-0.5 text-[10px] font-bold text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200">
+              ~
+            </span>
+            <span className="font-mono text-xs text-foreground">{f.path}</span>
+          </div>
+          <div className="mt-1 flex items-center gap-3 pl-6 text-xs">
+            <span className="font-mono line-through text-destructive">{f.oldValue}</span>
+            <ChevronRight className="h-3 w-3 shrink-0 text-muted-foreground" />
+            <span className="font-mono text-success">{f.newValue}</span>
+          </div>
+        </div>
+      ))}
+      <p className="text-right text-xs text-muted-foreground">
+        {diff.unchangedCount} field{diff.unchangedCount !== 1 ? 's' : ''} unchanged
+      </p>
+    </div>
+  );
+}
+
 function DataVersionRow({ entry, index }: { entry: DataVersionEntry; index: number }) {
   const [open, setOpen] = useState(index === 0);
   return (
@@ -332,6 +401,14 @@ function DataVersionRow({ entry, index }: { entry: DataVersionEntry; index: numb
 
 function DataTab({ workflow, instanceId }: { workflow: string; instanceId: string }) {
   const { data, isLoading } = useInstanceData(workflow, instanceId);
+  const [diffFrom, setDiffFrom] = useState('');
+  const [diffTo, setDiffTo] = useState('');
+  const { data: diff, isLoading: diffLoading } = useInstanceDataDiff(
+    workflow,
+    instanceId,
+    diffFrom,
+    diffTo,
+  );
 
   if (isLoading) {
     return (
@@ -359,6 +436,53 @@ function DataTab({ workflow, instanceId }: { workflow: string; instanceId: strin
           <p className="text-sm text-muted-foreground">No data.</p>
         )}
       </div>
+
+      {/* Compare versions — §1.8 */}
+      {versions.length >= 2 && (
+        <div>
+          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Compare Versions
+          </p>
+          <div className="flex flex-wrap items-center gap-3">
+            <select
+              value={diffFrom}
+              onChange={(e) => setDiffFrom(e.target.value)}
+              className="rounded-md border border-border bg-background px-2 py-1.5 text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+            >
+              <option value="">From…</option>
+              {versions.map((v) => (
+                <option key={v.version} value={v.version}>
+                  {v.version}
+                </option>
+              ))}
+            </select>
+            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <select
+              value={diffTo}
+              onChange={(e) => setDiffTo(e.target.value)}
+              className="rounded-md border border-border bg-background px-2 py-1.5 text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+            >
+              <option value="">To…</option>
+              {versions.map((v) => (
+                <option key={v.version} value={v.version}>
+                  {v.version}
+                </option>
+              ))}
+            </select>
+          </div>
+          {diffFrom && diffTo && (
+            <div className="mt-3">
+              {diffLoading ? (
+                <div className="flex h-16 items-center justify-center text-sm text-muted-foreground">
+                  Loading diff…
+                </div>
+              ) : diff ? (
+                <DataDiffView diff={diff} />
+              ) : null}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Version history */}
       {versions.length > 0 && (
@@ -818,6 +942,7 @@ export function InstanceDetailPage() {
   const { data: detail, isLoading, isError, refetch } = useInstanceDetail(workflow, instanceId ?? '');
   const { data: timelineData } = useInstanceTimeline(workflow, instanceId ?? '');
   const { data: tasksData } = useInstanceTasks(workflow, instanceId ?? '');
+  const { data: parentData } = useInstanceParent(workflow, instanceId ?? '');
 
   if (!workflow || !instanceId) {
     return (
@@ -854,6 +979,26 @@ export function InstanceDetailPage() {
       <div className="border-b border-border bg-card px-6 py-4">
         <div className="flex items-start justify-between gap-4">
           <div className="flex flex-col gap-1">
+            {/* Parent navigation — §1.10 */}
+            {parentData?.parent && (
+              <button
+                type="button"
+                onClick={() =>
+                  navigate(
+                    `/instances/${parentData.parent!.parentInstanceId}?workflow=${parentData.parent!.flow}&domain=${parentData.parent!.domain}`,
+                  )
+                }
+                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+              >
+                <ChevronRight className="h-3 w-3 rotate-180" />
+                <span>Parent:</span>
+                <span className="font-mono font-medium">{parentData.parent.key}</span>
+                <span className="text-muted-foreground">({parentData.parent.flow})</span>
+                <span className="rounded bg-muted px-1 py-0.5 text-[10px]">
+                  {parentData.parent.correlationType === 'S' ? 'SubFlow' : 'SubProcess'}
+                </span>
+              </button>
+            )}
             <div className="flex items-center gap-2">
               <span className="font-mono text-lg font-semibold text-foreground">{detail.key}</span>
               <button

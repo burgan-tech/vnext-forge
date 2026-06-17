@@ -14,7 +14,7 @@ export function FaultsPage() {
   const navigate = useNavigate();
   const [selectedWorkflow, setSelectedWorkflow] = useState('');
 
-  const { data: workflows, isLoading: loadingWorkflows } = useDefinitionList('workflow');
+  const { data: workflowsPage, isLoading: loadingWorkflows } = useDefinitionList('workflow');
   const { data: instances, isLoading: loadingInstances, isError } = useInstanceList({
     workflowId: selectedWorkflow,
     status: 'Faulted',
@@ -43,7 +43,7 @@ export function FaultsPage() {
           className="h-9 min-w-64 rounded-sm border border-border bg-background px-2 text-sm text-foreground shadow-xs focus:border-ring focus:outline-none focus:ring-[3px] focus:ring-ring/50 disabled:opacity-50"
         >
           <option value="">— Select a workflow —</option>
-          {(workflows ?? []).map((wf) => (
+          {(workflowsPage?.items ?? []).map((wf) => (
             <option key={wf.id} value={wf.id}>
               {wf.name} ({wf.version})
             </option>
@@ -114,7 +114,7 @@ export function FaultsPage() {
                     {formatDateTime(instance.createdAt)}
                   </td>
                   <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
-                    {formatDateTime(instance.updatedAt)}
+                    {formatDateTime(instance.updatedAt || instance.createdAt)}
                   </td>
                 </tr>
               ))}

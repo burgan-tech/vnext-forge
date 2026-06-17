@@ -16,6 +16,7 @@ import type {
   WorkflowDependencies,
   WorkflowDefinitionItem,
 } from '@monitoring/shared/types/definitions-api';
+import { TASK_TYPE_MAP, VIEW_TYPE_MAP, SCOPE_MAP } from '@monitoring/shared/types/definitions-api';
 
 export type DefinitionType =
   | 'workflow'
@@ -37,38 +38,74 @@ const DEFINITION_TYPE_API_MAP: Record<DefinitionType, string> = {
   mapping: 'sys-mappings',
 };
 
-// workflow type.value → WorkflowType letter
-const WORKFLOW_TYPE_VALUE_MAP: Record<number, string> = { 1: 'F', 2: 'S', 3: 'P' };
-
 function pickLabel(labels?: { language: string; label: string }[], fallback = ''): string {
   if (!labels?.length) return fallback;
   return (
-    labels.find((l) => l.language === 'en')?.label ??
-    labels.find((l) => l.language === 'tr')?.label ??
+    labels.find((l) => l.language === 'en-US')?.label ??
+    labels.find((l) => l.language === 'tr-TR')?.label ??
+    labels.find((l) => l.language.startsWith('en'))?.label ??
+    labels.find((l) => l.language.startsWith('tr'))?.label ??
     labels[0].label
   );
 }
 
-function mapToDefinitionListItem(item: ApiComponentListItem): DefinitionListItem {
+function mapToDefinitionListItem(item: ApiComponentListItem, apiType: string): DefinitionListItem {
+  const rawType = item.type;
+  const numericType = typeof rawType === 'number' ? rawType : (rawType != null ? parseInt(String(rawType), 10) : NaN);
+  const isNumericType = !isNaN(numericType);
+
+  // Determine which numeric map to use based on component type
+  let mappedTypeName: string | undefined;
+  if (isNumericType && apiType === 'sys-tasks') {
+    mappedTypeName = TASK_TYPE_MAP[numericType];
+  } else if (isNumericType && apiType === 'sys-views') {
+    mappedTypeName = VIEW_TYPE_MAP[numericType];
+  }
+
+  const scopeName = item.scope && SCOPE_MAP[item.scope] ? SCOPE_MAP[item.scope] : item.scope;
+
   return {
     id: item.key,
     name: pickLabel(item.labels, item.key),
     version: item.version,
     domain: item.domain,
-    type: item.type ? (WORKFLOW_TYPE_VALUE_MAP[item.type.value] ?? String(item.type.value)) : undefined,
+    type: mappedTypeName ?? (isNumericType ? undefined : (rawType as string | undefined) ?? undefined),
     comment: item.comment ?? undefined,
     description: item.comment ?? undefined,
+    scope: scopeName ?? undefined,
+    display: item.display ?? undefined,
+    renderer: item.renderer ?? undefined,
+    labels: item.labels ?? undefined,
+    taskType: apiType === 'sys-tasks' && isNumericType ? mappedTypeName : undefined,
   };
 }
 
-/** API §2.1 — list all components of a given type */
-export function useDefinitionList(type: DefinitionType) {
+export interface DefinitionListPage {
+  items: DefinitionListItem[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
+}
+
+/** API §2.1 — paginated list of components of a given type (pageSize=20 default) */
+export function useDefinitionList(type: DefinitionType, page = 1, pageSize = 20) {
   const apiType = DEFINITION_TYPE_API_MAP[type];
   return useQuery({
-    queryKey: ['definitions', type],
-    queryFn: async () => {
-      const res = await domainGet<ApiComponentListResponse>('/components', { type: apiType });
-      return res.items.map(mapToDefinitionListItem);
+    queryKey: ['definitions', type, page, pageSize],
+    queryFn: async (): Promise<DefinitionListPage> => {
+      const res = await domainGet<ApiComponentListResponse>('/components', {
+        type: apiType,
+        page: String(page),
+        pageSize: String(pageSize),
+      });
+      return {
+        items: res.items.map((item) => mapToDefinitionListItem(item, apiType)),
+        totalCount: res.totalCount,
+        page: res.page,
+        pageSize: res.pageSize,
+        totalPages: res.totalPages,
+      };
     },
     enabled: Boolean(type),
   });
@@ -115,7 +152,7 @@ export function useWorkflowDetail(id: string) {
       return {
         id: res.key,
         name: pickLabel(res.labels, res.key),
-        type: (res.type ? (WORKFLOW_TYPE_VALUE_MAP[res.type.value] ?? 'F') : 'F') as Workflow['type'],
+        type: (res.type ?? 'F') as Workflow['type'],
         domain: res.domain,
         version: res.version,
         versions: res.versions ?? [],

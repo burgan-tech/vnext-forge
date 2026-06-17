@@ -90,7 +90,7 @@ export function RecentFaultsSection({ data, isLoading }: RecentFaultsSectionProp
                   </td>
                   <td className="px-4 py-3 text-right">
                     <span className="font-mono text-xs text-muted-foreground">
-                      {formatRelativeTime(instance.updatedAt)}
+                      {formatRelativeTime(instance.updatedAt || instance.createdAt)}
                     </span>
                   </td>
                 </tr>

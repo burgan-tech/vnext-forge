@@ -210,6 +210,48 @@ export interface InstanceTaskDetailResponse {
   } | null;
 }
 
+// --- 1.8 Instance Data Diff ---
+
+export interface DiffFieldAdded {
+  path: string;
+  value: string;
+}
+
+export interface DiffFieldRemoved {
+  path: string;
+  value: string;
+}
+
+export interface DiffFieldChanged {
+  path: string;
+  oldValue: string;
+  newValue: string;
+}
+
+export interface InstanceDataDiffResponse {
+  fromVersion: string;
+  toVersion: string;
+  added: DiffFieldAdded[];
+  removed: DiffFieldRemoved[];
+  changed: DiffFieldChanged[];
+  unchangedCount: number;
+}
+
+// --- 1.10 Instance Parent ---
+
+export interface InstanceParentInfo {
+  parentInstanceId: string;
+  key: string;
+  flow: string;
+  domain: string;
+  parentState: string;
+  correlationType: 'S' | 'P';
+}
+
+export interface InstanceParentResponse {
+  parent: InstanceParentInfo | null;
+}
+
 // --- 1.9 Instance Hierarchy ---
 
 export interface HierarchyNode {

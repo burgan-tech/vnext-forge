@@ -3,7 +3,7 @@ export interface DefinitionListItem {
   name: string;     // = first English label or key
   version: string;
   domain: string;
-  type?: string;    // workflow: 'F'|'S'|'P', others: raw string
+  type?: string;    // workflow: 'F'|'C'|'S'|'P', functions/extensions/schemas/views: raw string
   comment?: string;
   // task-specific
   taskType?: string;
@@ -11,6 +11,11 @@ export interface DefinitionListItem {
   // function-specific
   returnType?: string;
   parameterCount?: number;
+  scope?: string;           // functions, extensions
+  // view-specific
+  display?: string;
+  renderer?: string;
+  labels?: ApiComponentLabel[];
   // general
   description?: string;
   usedBy?: string[];
@@ -27,14 +32,59 @@ export interface ApiComponentListItem {
   version: string;
   domain: string;
   labels?: ApiComponentLabel[];
-  type?: { value: number };
+  type?: string | number | null; // workflow: 'F'|'C'|'S'|'P', task: 1-16 (number), others: string
   comment?: string | null;
+  // component-specific fields (component type dependent)
+  scope?: string;
+  display?: string;
+  renderer?: string;
 }
 
 export interface ApiComponentListResponse {
   componentType: string;
   items: ApiComponentListItem[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
 }
+
+// Task type mapping (§2.1 sys-tasks type field)
+export const TASK_TYPE_MAP: Record<number, string> = {
+  1: 'DaprHttpEndpoint',
+  2: 'DaprBinding',
+  3: 'DaprService',
+  4: 'DaprPubSub',
+  5: 'HumanTask',
+  6: 'HttpTask',
+  7: 'ScriptTask',
+  8: 'ConditionTask',
+  9: 'TimerTask',
+  10: 'NotificationTask',
+  11: 'StartFlowTask',
+  12: 'TriggerTransitionTask',
+  13: 'GetInstanceDataTask',
+  14: 'SubProcessTask',
+  15: 'GetInstancesTask',
+  16: 'SoapTask',
+};
+
+// View type mapping (§2.1 sys-views type field)
+export const VIEW_TYPE_MAP: Record<number, string> = {
+  1: 'JSON',
+  2: 'HTML',
+  3: 'Markdown',
+  4: 'Deeplink',
+  5: 'Http',
+  6: 'URN',
+};
+
+// Scope mapping (§2.1 sys-functions scope field)
+export const SCOPE_MAP: Record<string, string> = {
+  D: 'Domain',
+  F: 'Flow',
+  I: 'Instance',
+};
 
 // API §2.1 detail response (with key param)
 export interface ApiComponentDetailResponse extends ApiComponentListItem {

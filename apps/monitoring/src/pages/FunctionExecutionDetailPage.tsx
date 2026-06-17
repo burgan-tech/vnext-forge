@@ -7,8 +7,8 @@ export function FunctionExecutionDetailPage() {
   const { execId } = useParams<{ execId: string }>();
   const navigate = useNavigate();
 
-  const { data: functions, isLoading, isError } = useDefinitionList('function');
-  const fn = functions?.find((f) => f.id === execId);
+  const { data: functionsPage, isLoading, isError } = useDefinitionList('function');
+  const fn = functionsPage?.items.find((f) => f.id === execId);
 
   return (
     <div className="flex flex-col gap-4 p-4">

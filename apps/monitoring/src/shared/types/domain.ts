@@ -21,6 +21,7 @@ export interface ComponentCounts {
   views: number;
   extensions: number;
   schemas: number;
+  mappings: number;
   total: number;
 }
 

@@ -6,20 +6,35 @@ export type InstanceStatus =
   | 'Suspended'
   | 'Terminated';
 
+export interface InstanceMetadata {
+  currentState: string;
+  effectiveState: string;
+  status: string;
+  effectiveStateType: string;
+  effectiveStateSubType?: string | null;
+  createdAt: string;
+  modifiedAt: string;
+}
+
 export interface Instance {
   id: string;
   key: string;
-  workflow: string;
-  workflowName: string;
-  workflowVersion: string;
+  workflow?: string;
+  workflowName?: string;
+  flowVersion?: string;
+  workflowVersion?: string;
   domain: string;
   status: InstanceStatus;
-  state: string;
+  state?: string;
   createdAt: string;
-  updatedAt: string;
-  etag: string;
-  tags: string[];
+  updatedAt?: string;
+  etag?: string;
+  tags?: string[];
   err?: string;
+  // New fields from list endpoint
+  flow?: string;
+  metadata?: InstanceMetadata;
+  activeCorrelations?: Array<any>;
 }
 
 export type TriggerType = 'Automatic' | 'Manual' | 'Event' | 'Scheduled';
