@@ -32,7 +32,7 @@ const WORKFLOW_TYPE_VARIANTS: Record<string, 'info' | 'warning' | 'secondary'> =
 type Tab = 'overview' | 'definition' | 'instances' | 'related' | 'permissions';
 const TABS: { id: Tab; label: string }[] = [
   { id: 'overview', label: 'Overview' },
-  { id: 'definition', label: 'Definition' },
+  { id: 'definition', label: 'Graph' },
   { id: 'instances', label: 'Instances' },
   { id: 'related', label: 'Related' },
   { id: 'permissions', label: 'Permissions' },
@@ -335,9 +335,6 @@ export function WorkflowDetailPage({ id }: WorkflowDetailPageProps) {
           <p className="mt-0.5 text-sm text-muted-foreground">
             {workflow.domain} · {workflow.version}
           </p>
-          {workflow.description && (
-            <p className="mt-2 text-sm text-foreground">{workflow.description}</p>
-          )}
         </div>
         <VersionPicker
           currentVersion={workflow.version}

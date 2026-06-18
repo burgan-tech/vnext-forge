@@ -6,11 +6,21 @@ import { KpiCard } from './KpiCard';
 interface InstanceDistSectionProps {
   data: InstanceStats | undefined;
   isLoading: boolean;
+  rangeLabel: string;
 }
 
-export function InstanceDistSection({ data, isLoading }: InstanceDistSectionProps) {
+const CARDS = [
+  { key: 'total'     as const, label: 'Total',     valueClassName: 'text-foreground' },
+  { key: 'active'    as const, label: 'Active',    valueClassName: 'text-blue-600 dark:text-blue-400' },
+  { key: 'busy'      as const, label: 'Busy',      valueClassName: 'text-yellow-600 dark:text-yellow-400' },
+  { key: 'completed' as const, label: 'Completed', valueClassName: 'text-green-600 dark:text-green-400' },
+  { key: 'passive'   as const, label: 'Passive',   valueClassName: 'text-muted-foreground' },
+];
+
+export function InstanceDistSection({ data, isLoading, rangeLabel }: InstanceDistSectionProps) {
   const navigate = useNavigate();
   const v = (n: number | undefined) => (isLoading ? '—' : (n ?? 0));
+  const hasFaults = !isLoading && (data?.faulted ?? 0) > 0;
 
   return (
     <section>
@@ -18,20 +28,19 @@ export function InstanceDistSection({ data, isLoading }: InstanceDistSectionProp
         <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
           Instance Distribution
         </h2>
-        <span className="text-xs text-muted-foreground">last 7 days</span>
+        <span className="text-xs text-muted-foreground">{rangeLabel}</span>
       </div>
       <div className="grid grid-cols-6 gap-3">
-        <KpiCard label="Total" value={v(data?.total)} />
-        <KpiCard label="Active" value={v(data?.active)} />
-        <KpiCard label="Busy" value={v(data?.busy)} variant="warning" />
-        <KpiCard label="Completed" value={v(data?.completed)} />
+        {CARDS.map(({ key, label, valueClassName }) => (
+          <KpiCard key={key} label={label} value={v(data?.[key])} valueClassName={valueClassName} />
+        ))}
         <KpiCard
           label="Faulted"
           value={v(data?.faulted)}
-          variant="danger"
-          onClick={() => navigate('/faults')}
+          onClick={() => { void navigate('/faults'); }}
+          valueClassName="text-rose-600 dark:text-rose-400"
+          className={hasFaults ? 'border-2 border-rose-400 dark:border-rose-600 shadow-sm shadow-rose-100 dark:shadow-rose-950' : undefined}
         />
-        <KpiCard label="Passive" value={v(data?.passive)} />
       </div>
     </section>
   );

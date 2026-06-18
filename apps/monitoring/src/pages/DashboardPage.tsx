@@ -12,11 +12,13 @@ import { ComponentCountsSection } from '@monitoring/modules/dashboard/components
 import { InstanceDistSection } from '@monitoring/modules/dashboard/components/InstanceDistSection';
 import { RecentFaultsSection } from '@monitoring/modules/dashboard/components/RecentFaultsSection';
 import { config } from '@monitoring/shared/config/config';
+import { useGlobalTimeRange } from '@monitoring/shared/time-range';
 
 export function DashboardPage() {
   const [timeRange, setTimeRange] = useState<StatsTimeRange>('24h');
+  const { resolved } = useGlobalTimeRange();
 
-  const statsQuery = useInstanceStats();
+  const statsQuery = useInstanceStats(resolved);
   const timeSeriesQuery = useStatsTimeSeries(timeRange);
   const faultsQuery = useRecentFaults();
   const countsQuery = useComponentCounts();
@@ -38,6 +40,7 @@ export function DashboardPage() {
       <InstanceDistSection
         data={statsQuery.data}
         isLoading={statsQuery.isLoading}
+        rangeLabel={resolved.label}
       />
 
       <ActivityChart

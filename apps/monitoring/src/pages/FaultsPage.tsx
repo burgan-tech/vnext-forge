@@ -4,6 +4,7 @@ import { StatusBadge } from '@monitoring/shared/components/StatusBadge';
 import { config } from '@monitoring/shared/config/config';
 import { useDefinitionList } from '@monitoring/modules/definitions/api/definitions-queries';
 import { useInstanceList } from '@monitoring/modules/instances/api/instances-queries';
+import { useGlobalTimeRange, buildTimeRangeQuery } from '@monitoring/shared/time-range';
 
 function formatDateTime(iso: string): string {
   const d = new Date(iso);
@@ -13,12 +14,16 @@ function formatDateTime(iso: string): string {
 export function FaultsPage() {
   const navigate = useNavigate();
   const [selectedWorkflow, setSelectedWorkflow] = useState('');
+  const { resolved } = useGlobalTimeRange();
+  const timeParams = buildTimeRangeQuery(resolved);
 
   const { data: workflowsPage, isLoading: loadingWorkflows } = useDefinitionList('workflow');
   const { data: instances, isLoading: loadingInstances, isError } = useInstanceList({
     workflowId: selectedWorkflow,
     status: 'Faulted',
     pageSize: 100,
+    from: timeParams.from,
+    to: timeParams.to,
   });
 
   const items = instances?.items ?? [];
@@ -29,7 +34,7 @@ export function FaultsPage() {
       <div className="flex flex-col gap-0.5">
         <h1 className="text-xl font-semibold">Faulted Instances</h1>
         <p className="text-xs text-muted-foreground">
-          Select a workflow to browse its faulted instances
+          Select a workflow to browse its faulted instances · {resolved.label}
         </p>
       </div>
 
@@ -98,9 +103,9 @@ export function FaultsPage() {
                 <tr
                   key={instance.id}
                   className="border-b border-border last:border-0 hover:bg-muted/30 cursor-pointer"
-                  onClick={() =>
-                    navigate(`/instances/${instance.id}?workflow=${selectedWorkflow}&domain=${config.domain}`)
-                  }
+                  onClick={() => {
+                    void navigate(`/instances/${instance.id}?workflow=${selectedWorkflow}&domain=${config.domain}`);
+                  }}
                 >
                   <td className="px-4 py-3">
                     <span className="font-mono text-xs text-blue-600 dark:text-blue-400">{instance.key}</span>
@@ -114,7 +119,7 @@ export function FaultsPage() {
                     {formatDateTime(instance.createdAt)}
                   </td>
                   <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
-                    {formatDateTime(instance.updatedAt || instance.createdAt)}
+                    {formatDateTime(instance.updatedAt ?? instance.createdAt)}
                   </td>
                 </tr>
               ))}

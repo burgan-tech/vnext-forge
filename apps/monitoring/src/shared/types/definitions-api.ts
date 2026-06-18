@@ -4,7 +4,6 @@ export interface DefinitionListItem {
   version: string;
   domain: string;
   type?: string;    // workflow: 'F'|'C'|'S'|'P', functions/extensions/schemas/views: raw string
-  comment?: string;
   // task-specific
   taskType?: string;
   deprecated?: boolean;
@@ -16,8 +15,6 @@ export interface DefinitionListItem {
   display?: string;
   renderer?: string;
   labels?: ApiComponentLabel[];
-  // general
-  description?: string;
   usedBy?: string[];
 }
 
@@ -33,7 +30,6 @@ export interface ApiComponentListItem {
   domain: string;
   labels?: ApiComponentLabel[];
   type?: string | number | null; // workflow: 'F'|'C'|'S'|'P', task: 1-16 (number), others: string
-  comment?: string | null;
   // component-specific fields (component type dependent)
   scope?: string;
   display?: string;
@@ -41,12 +37,18 @@ export interface ApiComponentListItem {
 }
 
 export interface ApiComponentListResponse {
-  componentType: string;
+  componentType?: string;
   items: ApiComponentListItem[];
-  totalCount: number;
-  page: number;
-  pageSize: number;
-  totalPages: number;
+  pagination?: {
+    page: number;
+    pageSize: number;
+    hasNext: boolean;
+  };
+  // Legacy fields (if API ever returns them at top level)
+  totalCount?: number;
+  page?: number;
+  pageSize?: number;
+  totalPages?: number;
 }
 
 // Task type mapping (§2.1 sys-tasks type field)

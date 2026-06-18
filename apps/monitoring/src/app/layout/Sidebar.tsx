@@ -3,17 +3,11 @@ import { NavLink } from 'react-router-dom';
 import {
   Activity,
   AlertCircle,
-  ArrowLeftRight,
-  CheckSquare,
   ChevronDown,
   Clock,
-  Eye,
-  FileCode,
   LayoutDashboard,
-  Puzzle,
   Settings,
   Star,
-  Workflow,
   X,
   Zap,
 } from 'lucide-react';
@@ -21,15 +15,16 @@ import {
 import { cn } from '@monitoring/shared/lib/utils';
 import { config } from '@monitoring/shared/config/config';
 import { useFavorites } from '@monitoring/app/favorites/useFavorites';
+import { ComponentBadgeIcon } from '@monitoring/shared/components/ComponentBadgeIcon';
 
 const DEFINITION_TYPES = [
-  { label: 'Workflows', key: 'workflow', icon: Workflow },
-  { label: 'Tasks', key: 'task', icon: CheckSquare },
-  { label: 'Functions', key: 'function', icon: Zap },
-  { label: 'Views', key: 'view', icon: Eye },
-  { label: 'Extensions', key: 'extension', icon: Puzzle },
-  { label: 'Schemas', key: 'schema', icon: FileCode },
-  { label: 'Mappings', key: 'mapping', icon: ArrowLeftRight },
+  { label: 'Workflows', key: 'workflow' },
+  { label: 'Tasks', key: 'task' },
+  { label: 'Functions', key: 'function' },
+  { label: 'Views', key: 'view' },
+  { label: 'Extensions', key: 'extension' },
+  { label: 'Schemas', key: 'schema' },
+  { label: 'Mappings', key: 'mapping' },
 ] as const;
 
 export function Sidebar() {
@@ -73,14 +68,22 @@ export function Sidebar() {
           />
         </button>
         {definitionsOpen &&
-          DEFINITION_TYPES.map(({ label, key, icon }) => (
-            <SidebarLink
+          DEFINITION_TYPES.map(({ label, key }) => (
+            <NavLink
               key={key}
               to={`/definitions/${key}`}
-              icon={icon}
-              label={label}
-              indent
-            />
+              className={({ isActive }) =>
+                cn(
+                  'flex items-center gap-2 rounded-sm py-1.5 pl-6 pr-2 text-sm transition-colors',
+                  isActive
+                    ? 'bg-slate-700/60 text-slate-100 font-medium'
+                    : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200',
+                )
+              }
+            >
+              <ComponentBadgeIcon type={key} className="h-5 w-5" />
+              <span className="truncate">{label}</span>
+            </NavLink>
           ))}
 
         {/* Favorites */}

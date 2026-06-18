@@ -5,6 +5,7 @@ import { Button } from '@vnext-forge-studio/designer-ui/ui';
 import { cn } from '@monitoring/shared/lib/utils';
 import { config } from '@monitoring/shared/config/config';
 import { useFavorites } from '@monitoring/app/favorites/useFavorites';
+import { TimeRangePicker } from '@monitoring/shared/time-range';
 import { buildBreadcrumbs } from './breadcrumb-utils';
 
 export function Topbar() {
@@ -29,6 +30,10 @@ export function Topbar() {
         {crumbs.map((crumb, i) => {
           const isLast = i === crumbs.length - 1;
           return (
+            // Breadcrumbs are a fixed positional path that never reorders, and
+            // labels are not guaranteed unique (e.g. a workflow key could equal
+            // a static label), so the index is the correct stable key here.
+            // eslint-disable-next-line react-x/no-array-index-key
             <span key={i} className="flex items-center gap-1.5">
               {i > 0 && <span className="text-muted-foreground">/</span>}
               {crumb.path && !isLast ? (
@@ -50,6 +55,7 @@ export function Topbar() {
 
       {/* Actions */}
       <div className="flex items-center gap-2">
+        <TimeRangePicker />
         {!isDashboard && (
           <Button
             variant="ghost"

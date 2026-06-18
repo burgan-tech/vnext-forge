@@ -1,11 +1,13 @@
 import { type ReactNode } from 'react';
 
+import { TimeRangeUrlSync } from '@monitoring/shared/time-range';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 
 export function AppShell({ children }: { children: ReactNode }) {
   return (
     <div className="flex h-screen overflow-hidden bg-background">
+      <TimeRangeUrlSync />
       <Sidebar />
       <div className="ml-56 flex flex-1 flex-col overflow-hidden">
         <Topbar />

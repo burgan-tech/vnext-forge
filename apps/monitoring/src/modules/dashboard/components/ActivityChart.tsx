@@ -152,7 +152,7 @@ export function ActivityChart({ data, isLoading, range, onRangeChange }: Activit
                 const cy = innerH - (maxVal > 0 ? (v / maxVal) * innerH : 0);
                 return (
                   <circle
-                    key={i}
+                    key={`faulted-${cx.toFixed(1)}-${cy.toFixed(1)}`}
                     cx={cx.toFixed(1)}
                     cy={cy.toFixed(1)}
                     r="3"
@@ -169,7 +169,7 @@ export function ActivityChart({ data, isLoading, range, onRangeChange }: Activit
                 if (i % showEvery !== 0 && i !== labels.length - 1) return null;
                 return (
                   <text
-                    key={i}
+                    key={`label-${label}`}
                     x={(i * step).toFixed(1)}
                     y={innerH + 16}
                     textAnchor="middle"

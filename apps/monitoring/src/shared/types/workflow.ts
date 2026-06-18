@@ -36,7 +36,6 @@ export interface Workflow {
   domain: string;
   version: string;
   versions: string[];
-  description: string;
   author: string;
   updatedAt: string;
   tags: string[];
@@ -52,7 +51,6 @@ export interface WorkflowListItem {
   name: string;
   type: WorkflowType;
   version: string;
-  description: string;
 }
 
 export interface WorkflowInstancesResult {

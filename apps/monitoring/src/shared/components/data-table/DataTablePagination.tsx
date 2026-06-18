@@ -1,58 +1,39 @@
-import { ChevronsLeft, ChevronsRight, ChevronLeft, ChevronRight } from 'lucide-react';
-import { cn } from '@monitoring/shared/lib/utils';
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { cn } from '@monitoring/shared/lib/utils'
+import type { DataTablePaginationState } from './types'
 
-interface PaginationProps {
-  page: number;
-  totalPages: number;
-  totalCount: number;
-  pageSize: number;
-  onPageChange: (page: number) => void;
-  onPageSizeChange: (size: number) => void;
-  pageSizeOptions?: number[];
+interface DataTablePaginationProps {
+  pagination: DataTablePaginationState
 }
 
 function pageNumbers(current: number, total: number): (number | '…')[] {
-  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
-  const pages: (number | '…')[] = [1];
-  if (current > 3) pages.push('…');
-  const start = Math.max(2, current - 1);
-  const end = Math.min(total - 1, current + 1);
-  for (let i = start; i <= end; i++) pages.push(i);
-  if (current < total - 2) pages.push('…');
-  pages.push(total);
-  return pages;
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1)
+  const pages: (number | '…')[] = [1]
+  if (current > 3) pages.push('…')
+  const start = Math.max(2, current - 1)
+  const end = Math.min(total - 1, current + 1)
+  for (let i = start; i <= end; i++) pages.push(i)
+  if (current < total - 2) pages.push('…')
+  pages.push(total)
+  return pages
 }
 
-export function Pagination({
-  page,
-  totalPages,
-  totalCount,
-  pageSize,
-  onPageChange,
-  onPageSizeChange,
-  pageSizeOptions = [10, 20, 50],
-}: PaginationProps) {
-  const rangeStart = (page - 1) * pageSize + 1;
-  const rangeEnd = page * pageSize;
-
-  const pages = pageNumbers(page, totalPages);
+export function DataTablePagination({ pagination }: DataTablePaginationProps) {
+  const { page, pageSize, hasNext, totalCount, onPageChange, onPageSizeChange } = pagination
+  const pageSizeOptions = pagination.pageSizeOptions ?? [10, 25, 50]
+  const totalPages =
+    totalCount != null ? Math.max(1, Math.ceil(totalCount / pageSize)) : null
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 px-1 py-2 text-sm">
-      {/* Left: navigation */}
+    <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border px-2 py-2 text-sm">
+      {/* Navigation */}
       <div className="flex items-center gap-1">
-        {/* First */}
-        <NavBtn onClick={() => onPageChange(1)} disabled={page <= 1} title="First page">
-          <ChevronsLeft className="h-3.5 w-3.5" />
-        </NavBtn>
-        {/* Prev */}
         <NavBtn onClick={() => onPageChange(page - 1)} disabled={page <= 1} title="Previous page">
           <ChevronLeft className="h-3.5 w-3.5" />
         </NavBtn>
 
-        {/* Page number buttons */}
-        <div className="flex items-center gap-1">
-          {pages.map((p, i) =>
+        {totalPages != null ? (
+          pageNumbers(page, totalPages).map((p, i) =>
             p === '…' ? (
               <span key={`ellipsis-${i}`} className="px-1 text-muted-foreground select-none">
                 …
@@ -72,25 +53,23 @@ export function Pagination({
                 {p}
               </button>
             ),
-          )}
-        </div>
+          )
+        ) : (
+          <span className="px-2 text-xs text-muted-foreground">Page {page}</span>
+        )}
 
-        {/* Next */}
-        <NavBtn onClick={() => onPageChange(page + 1)} disabled={page >= totalPages} title="Next page">
+        <NavBtn onClick={() => onPageChange(page + 1)} disabled={!hasNext} title="Next page">
           <ChevronRight className="h-3.5 w-3.5" />
         </NavBtn>
-        {/* Last */}
-        <NavBtn onClick={() => onPageChange(totalPages)} disabled={page >= totalPages} title="Last page">
-          <ChevronsRight className="h-3.5 w-3.5" />
-        </NavBtn>
 
-        {/* Range text */}
-        <span className="ml-2 whitespace-nowrap text-xs text-muted-foreground">
-          {rangeStart}–{rangeEnd}
-        </span>
+        {totalCount != null && (
+          <span className="ml-2 whitespace-nowrap text-xs text-muted-foreground">
+            {(page - 1) * pageSize + 1}–{Math.min(page * pageSize, totalCount)} / {totalCount}
+          </span>
+        )}
       </div>
 
-      {/* Right: rows per page */}
+      {/* Page size */}
       <div className="flex items-center gap-2">
         <span className="text-xs text-muted-foreground">Rows:</span>
         <div className="flex items-center gap-1">
@@ -112,7 +91,7 @@ export function Pagination({
         </div>
       </div>
     </div>
-  );
+  )
 }
 
 function NavBtn({
@@ -121,10 +100,10 @@ function NavBtn({
   title,
   children,
 }: {
-  onClick: () => void;
-  disabled: boolean;
-  title: string;
-  children: React.ReactNode;
+  onClick: () => void
+  disabled: boolean
+  title: string
+  children: React.ReactNode
 }) {
   return (
     <button
@@ -136,5 +115,5 @@ function NavBtn({
     >
       {children}
     </button>
-  );
+  )
 }

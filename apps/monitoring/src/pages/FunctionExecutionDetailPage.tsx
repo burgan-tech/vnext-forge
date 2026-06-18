@@ -60,7 +60,6 @@ export function FunctionExecutionDetailPage() {
               ['Version', fn.version],
               ['Domain', fn.domain],
               ['Type', fn.type ?? '—'],
-              ['Description', fn.description ?? '—'],
             ].map(([label, value]) => (
               <div key={label}>
                 <dt className="text-xs text-muted-foreground">{label}</dt>

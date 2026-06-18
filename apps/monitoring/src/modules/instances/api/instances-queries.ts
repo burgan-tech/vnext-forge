@@ -27,6 +27,8 @@ export interface InstanceListParams {
   sort?: InstanceSortOrder;
   page?: number;
   pageSize?: number;
+  from?: string;
+  to?: string;
 }
 
 export interface InstanceListResult {
@@ -52,6 +54,8 @@ export function useInstanceList(params: InstanceListParams) {
   if (params.sort) query.sort = params.sort;
   if (params.page) query.page = String(params.page);
   if (params.pageSize) query.pageSize = String(params.pageSize);
+  if (params.from) query.from = params.from;
+  if (params.to) query.to = params.to;
 
   return useQuery({
     queryKey: ['instances', params],

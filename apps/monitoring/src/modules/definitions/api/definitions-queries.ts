@@ -70,8 +70,6 @@ function mapToDefinitionListItem(item: ApiComponentListItem, apiType: string): D
     version: item.version,
     domain: item.domain,
     type: mappedTypeName ?? (isNumericType ? undefined : (rawType as string | undefined) ?? undefined),
-    comment: item.comment ?? undefined,
-    description: item.comment ?? undefined,
     scope: scopeName ?? undefined,
     display: item.display ?? undefined,
     renderer: item.renderer ?? undefined,
@@ -99,12 +97,25 @@ export function useDefinitionList(type: DefinitionType, page = 1, pageSize = 20)
         page: String(page),
         pageSize: String(pageSize),
       });
+
+      // API returns pagination.hasNext but no totalCount — estimate totalCount based on current page
+      const paginationData = res.pagination ?? { page: res.page ?? 1, pageSize: res.pageSize ?? 20, hasNext: false };
+      const currentPage = paginationData.page ?? 1;
+      const currentPageSize = paginationData.pageSize ?? 20;
+      const hasNext = paginationData.hasNext ?? false;
+
+      // Estimate totalCount: if hasNext is true, there's at least (page * pageSize + 1) items
+      // If hasNext is false, totalCount is approximately (page - 1) * pageSize + items.length
+      const estimatedTotalCount = hasNext
+        ? currentPage * currentPageSize + 1
+        : (currentPage - 1) * currentPageSize + res.items.length;
+
       return {
         items: res.items.map((item) => mapToDefinitionListItem(item, apiType)),
-        totalCount: res.totalCount,
-        page: res.page,
-        pageSize: res.pageSize,
-        totalPages: res.totalPages,
+        totalCount: res.totalCount ?? estimatedTotalCount,
+        page: currentPage,
+        pageSize: currentPageSize,
+        totalPages: Math.ceil((res.totalCount ?? estimatedTotalCount) / currentPageSize),
       };
     },
     enabled: Boolean(type),
@@ -156,7 +167,6 @@ export function useWorkflowDetail(id: string) {
         domain: res.domain,
         version: res.version,
         versions: res.versions ?? [],
-        description: res.comment ?? '',
         author: '',
         updatedAt: '',
         tags: [],

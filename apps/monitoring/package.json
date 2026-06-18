@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.0.0",
+    "@tanstack/react-table": "^8.21.3",
     "@vnext-forge-studio/app-contracts": "workspace:*",
     "@vnext-forge-studio/designer-ui": "workspace:*",
     "@vnext-forge-studio/vnext-types": "workspace:*",
