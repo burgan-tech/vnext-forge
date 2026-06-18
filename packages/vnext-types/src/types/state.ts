@@ -85,6 +85,25 @@ export interface StateAlias {
   labels: Label[];
 }
 
+/**
+ * Long polling configuration for a state. Tells the client workflow
+ * manager when to terminate an open long-poll request. See `longPoll`
+ * in the workflow-definition schema.
+ */
+export interface LongPollConfig {
+  /** Whether the long poll terminates the open request when the state is left. */
+  terminate: boolean;
+  /** Maximum seconds to hold the request open before falling back. */
+  fallbackTimeoutSeconds?: number;
+  /** Roles allowed to use the long poll interaction. DENY overrides ALLOW. */
+  roles: RoleGrant[];
+}
+
+/** State interaction configuration (e.g. long polling). */
+export interface StateInteraction {
+  longPoll?: LongPollConfig;
+}
+
 export interface State {
   key: string;
   alias?: StateAlias[];
@@ -100,4 +119,5 @@ export interface State {
   view?: ViewBinding;
   views?: ViewBinding[];
   subFlow?: SubFlowConfig;
+  interaction?: StateInteraction | null;
 }

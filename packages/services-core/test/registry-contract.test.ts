@@ -59,6 +59,7 @@ describe('method registry contract (R-b9 + R-a2)', () => {
         "quickrun-presets/get",
         "quickrun-presets/list",
         "quickrun-presets/save",
+        "quickrun/acknowledgeLongPoll",
         "quickrun/executeFunction",
         "quickrun/fireTransition",
         "quickrun/getData",

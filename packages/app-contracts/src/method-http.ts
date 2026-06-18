@@ -61,6 +61,7 @@ export type MethodId =
   | 'quickrun/getInstance'
   | 'quickrun/retryInstance'
   | 'quickrun/executeFunction'
+  | 'quickrun/acknowledgeLongPoll'
   | 'quickswitcher/buildIndex'
   | 'snippets/listAll'
   | 'snippets/getOne'
@@ -134,6 +135,7 @@ export const METHOD_HTTP_METADATA: Readonly<Record<MethodId, MethodHttpSpec>> = 
   'quickrun/getInstance': { verb: 'POST', paramSource: 'json' },
   'quickrun/retryInstance': { verb: 'POST', paramSource: 'json' },
   'quickrun/executeFunction': { verb: 'POST', paramSource: 'json' },
+  'quickrun/acknowledgeLongPoll': { verb: 'POST', paramSource: 'json' },
   'quickswitcher/buildIndex': { verb: 'POST', paramSource: 'json' },
   'snippets/listAll': { verb: 'POST', paramSource: 'json' },
   'snippets/getOne': { verb: 'POST', paramSource: 'json' },

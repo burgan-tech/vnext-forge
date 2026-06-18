@@ -98,6 +98,15 @@ export interface StateResponse {
   data?: {
     href: string;
   };
+  /**
+   * Long-poll interaction signal from the State Function (LongPoll)
+   * endpoint. When `terminateLongPoll` is true the client stops the
+   * polling loop and silently POSTs to `ack.href` to acknowledge.
+   */
+  interaction?: {
+    terminateLongPoll?: boolean;
+    ack?: { href: string };
+  };
   eTag?: string;
   entityEtag?: string;
   responseHeaders?: Record<string, string>;

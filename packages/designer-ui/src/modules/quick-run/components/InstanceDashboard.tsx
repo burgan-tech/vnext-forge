@@ -31,6 +31,7 @@ export function InstanceDashboard({ configRef, persistConfig }: InstanceDashboar
   const activeState = useQuickRunStore((s) => s.activeState);
   const activeStateLoading = useQuickRunStore((s) => s.activeStateLoading);
   const activeStateError = useQuickRunStore((s) => s.activeStateError);
+  const longPollAck = useQuickRunStore((s) => s.longPollAck);
   const setActiveStateError = useQuickRunStore((s) => s.setActiveStateError);
   const domain = useQuickRunStore((s) => s.domain);
   const workflowKey = useQuickRunStore((s) => s.workflowKey);
@@ -272,6 +273,22 @@ export function InstanceDashboard({ configRef, persistConfig }: InstanceDashboar
           error={activeStateError}
           onDismiss={() => setActiveStateError(null)}
         />
+      )}
+
+      {/* Long-poll acknowledge note — shown when the engine asked the
+          client to terminate the long poll and we silently POST the
+          ack. Informational only; ack failures are logged, not shown. */}
+      {longPollAck && (
+        <div className="border-border-subtle bg-muted-surface text-muted-foreground flex items-center gap-2 rounded-xl border px-3 py-2 text-[11px]">
+          <span
+            className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${
+              longPollAck === 'acknowledged' ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'
+            }`}
+          />
+          {longPollAck === 'acknowledged'
+            ? 'Long poll acknowledged.'
+            : 'Acknowledging long poll…'}
+        </div>
       )}
 
       {/* Progress */}

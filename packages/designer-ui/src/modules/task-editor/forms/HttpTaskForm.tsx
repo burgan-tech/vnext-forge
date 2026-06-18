@@ -2,7 +2,7 @@ import { Field } from '../../../ui/Field';
 import { Input } from '../../../ui/Input';
 import { KVEditor } from '../../../ui/KeyValueEditor';
 import { Select } from '../../../ui/Select';
-import { AcceptedStatusCodesField, BodyJsonField } from './shared';
+import { AcceptedStatusCodesField, BodyJsonField, ContentTypeField } from './shared';
 
 interface HttpTaskFormProps {
   config: Record<string, unknown>;
@@ -36,6 +36,7 @@ export function HttpTaskForm({ config, onChange }: HttpTaskFormProps) {
           inputClassName="font-mono text-xs" />
       </Field>
       <BodyJsonField value={config.body} onChange={onChange} />
+      <ContentTypeField value={config.contentType as string | undefined} onChange={onChange} />
       <Field label="Headers">
         <KVEditor pairs={headerPairs}
           onChange={(pairs) => onChange((d: any) => {
