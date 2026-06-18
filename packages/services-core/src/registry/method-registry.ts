@@ -122,6 +122,8 @@ import {
   quickrunStartInstanceResult,
   quickrunExecuteFunctionParams,
   quickrunExecuteFunctionResult,
+  quickrunAcknowledgeLongPollParams,
+  quickrunAcknowledgeLongPollResult,
 } from '../services/quickrun/quickrun-schemas.js'
 import type { RuntimeProxyService } from '../services/runtime-proxy/runtime-proxy.service.js'
 import {
@@ -665,6 +667,12 @@ export function buildMethodRegistry(): MethodRegistry {
       resultSchema: quickrunExecuteFunctionResult,
       handler: async (params, { quickRunService }, traceId) =>
         quickRunService.executeFunction(params, traceId),
+    },
+    'quickrun/acknowledgeLongPoll': {
+      paramsSchema: quickrunAcknowledgeLongPollParams,
+      resultSchema: quickrunAcknowledgeLongPollResult,
+      handler: async (params, { quickRunService }, traceId) =>
+        quickRunService.acknowledgeLongPoll(params, traceId),
     },
 
     // ── wf CLI ───────────────────────────────────────────────────────────────

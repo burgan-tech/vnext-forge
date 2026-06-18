@@ -1,0 +1,12 @@
+{
+  "params": {
+    "domain": "account-opening",
+    "workflowKey": "account-opening",
+    "instanceId": "9900b811-a957-441d-9d66-a962338a45cc",
+    "runtimeUrl": "http://localhost:4201"
+  },
+  "result": {
+    "ok": true,
+    "status": 204
+  }
+}

@@ -119,6 +119,27 @@ export async function getState(params: GetStateParams): Promise<ApiResponse<Stat
   return callApi({ method: 'quickrun/getState', params });
 }
 
+interface AcknowledgeLongPollParams {
+  domain: string;
+  workflowKey: string;
+  instanceId: string;
+  headers?: Record<string, string>;
+  runtimeUrl?: string;
+}
+
+/**
+ * Silently acknowledge a terminated long poll. The host builds the
+ * deterministic endpoint
+ * (`/api/v1/<domain>/workflows/<flow>/instances/<id>/longpoll/ack`)
+ * from these identifiers and forwards the current headers. Callers
+ * treat failures as silent (log-only).
+ */
+export async function acknowledgeLongPoll(
+  params: AcknowledgeLongPollParams,
+): Promise<ApiResponse<{ ok: boolean; status: number }>> {
+  return callApi({ method: 'quickrun/acknowledgeLongPoll', params });
+}
+
 export async function getView(params: GetViewParams): Promise<ApiResponse<ViewResponse>> {
   return callApi({ method: 'quickrun/getView', params });
 }

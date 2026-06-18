@@ -21,6 +21,8 @@ export interface HttpTaskConfig {
   url: string;
   headers?: Record<string, string>;
   body?: unknown;
+  /** Content-Type header for the request body (e.g. "application/json"). Optional. */
+  contentType?: string;
   /** Default: 30 */
   timeoutSeconds?: number;
   /** Default: true */
