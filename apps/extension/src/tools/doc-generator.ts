@@ -13,6 +13,8 @@ import {
   extractTaskWorkflowTriggers,
   aggregateProjectGraph,
   resolveLabelOrKey,
+  buildWorkflowOpenApi,
+  createSchemaResolver,
   type ComponentDocEntry,
   type IndexExtraLink,
   type WorkflowDependencyReport,
@@ -120,6 +122,8 @@ export async function generateProjectDocumentation(projectRoot: string): Promise
       const skipped: string[] = [];
       const depReports: WorkflowDependencyReport[] = [];
       const taskEdges: FlowEdge[] = [];
+      const schemaJsons: unknown[] = [];
+      const workflowDocs: { json: unknown; key: string }[] = [];
       let processed = 0;
       let written = 0;
 
@@ -190,6 +194,12 @@ export async function generateProjectDocumentation(projectRoot: string): Promise
           description: String((obj as Record<string, unknown>)._comment ?? ''),
           relativePath: `./${file.category}/${key}.md`,
         });
+
+        if (file.category === 'schemas') {
+          schemaJsons.push(json);
+        } else if (file.category === 'workflows') {
+          workflowDocs.push({ json, key });
+        }
       }
 
       if (token.isCancellationRequested) return;
@@ -202,6 +212,13 @@ export async function generateProjectDocumentation(projectRoot: string): Promise
           description: 'Cross-domain dependencies and inter-flow relationships',
         },
       ];
+      if (workflowDocs.length > 0) {
+        extraLinks.push({
+          label: 'OpenAPI Specs',
+          relativePath: './openapi/',
+          description: 'OpenAPI 3.1 specifications for each workflow',
+        });
+      }
       const indexMarkdown = generateIndexMarkdown(indexEntries, projectName, extraLinks);
       const indexUri = vscode.Uri.file(path.join(docsRoot, 'index.md'));
       await vscode.workspace.fs.writeFile(indexUri, Buffer.from(indexMarkdown, 'utf-8'));
@@ -228,6 +245,38 @@ export async function generateProjectDocumentation(projectRoot: string): Promise
       const depTreeUri = vscode.Uri.file(path.join(docsRoot, 'dependency-tree.md'));
       await vscode.workspace.fs.writeFile(depTreeUri, Buffer.from(depTreeMarkdown, 'utf-8'));
       written++;
+
+      // OpenAPI 3.1 specs — one JSON file per workflow. Transition/master
+      // payloads are typed from the project's Schema components.
+      if (workflowDocs.length > 0) {
+        const resolveSchema = createSchemaResolver(schemaJsons);
+        const openapiDir = path.join(docsRoot, 'openapi');
+        try {
+          await vscode.workspace.fs.createDirectory(vscode.Uri.file(openapiDir));
+        } catch {
+          // directory may already exist
+        }
+        for (const wf of workflowDocs) {
+          if (token.isCancellationRequested) return;
+          const resolved = path.resolve(openapiDir, `${wf.key}.json`);
+          if (!resolved.startsWith(path.resolve(docsRoot) + path.sep)) {
+            skipped.push(`openapi/${wf.key}.json: path escape detected`);
+            continue;
+          }
+          try {
+            const spec = buildWorkflowOpenApi(wf.json, resolveSchema);
+            await vscode.workspace.fs.writeFile(
+              vscode.Uri.file(resolved),
+              Buffer.from(`${JSON.stringify(spec, null, 2)}\n`, 'utf-8'),
+            );
+            written++;
+          } catch (err) {
+            skipped.push(
+              `openapi/${wf.key}.json: generation error — ${err instanceof Error ? err.message : String(err)}`,
+            );
+          }
+        }
+      }
 
       const msg = `Documentation generated: ${written} files written to docs/`;
       if (skipped.length > 0) {

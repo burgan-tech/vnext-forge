@@ -21,6 +21,8 @@ export interface ComponentEditorLayoutProps {
   onOpenQuickRun?: () => void;
   /** Opens the documentation preview dialog (flow editors only). */
   onPreviewDocument?: () => void;
+  /** Opens the OpenAPI specification preview dialog (flow editors only). */
+  onPreviewOpenApi?: () => void;
   autoSavePending?: boolean;
   autoSaved?: boolean;
   children: ReactNode;
@@ -47,6 +49,7 @@ export function ComponentEditorLayout({
   publishing,
   onOpenQuickRun,
   onPreviewDocument,
+  onPreviewOpenApi,
   autoSavePending,
   autoSaved,
   children,
@@ -63,12 +66,14 @@ export function ComponentEditorLayout({
   const onPublishRef = useRef(onPublish);
   const onOpenQuickRunRef = useRef(onOpenQuickRun);
   const onPreviewDocumentRef = useRef(onPreviewDocument);
+  const onPreviewOpenApiRef = useRef(onPreviewOpenApi);
   onSaveRef.current = onSave;
   onUndoRef.current = onUndo;
   onRedoRef.current = onRedo;
   onPublishRef.current = onPublish;
   onOpenQuickRunRef.current = onOpenQuickRun;
   onPreviewDocumentRef.current = onPreviewDocument;
+  onPreviewOpenApiRef.current = onPreviewOpenApi;
 
   const stableOnSave = useCallback(() => {
     onSaveRef.current();
@@ -88,12 +93,16 @@ export function ComponentEditorLayout({
   const stableOnPreviewDocument = useCallback(() => {
     onPreviewDocumentRef.current?.();
   }, []);
+  const stableOnPreviewOpenApi = useCallback(() => {
+    onPreviewOpenApiRef.current?.();
+  }, []);
 
   const hasUndoGroup = Boolean(onUndo);
   const hasRedoButton = Boolean(onRedo);
   const hasPublish = Boolean(onPublish);
   const hasQuickRun = Boolean(onOpenQuickRun);
   const hasPreviewDocument = Boolean(onPreviewDocument);
+  const hasPreviewOpenApi = Boolean(onPreviewOpenApi);
 
   const hostToolbar = useMemo(
     () => (
@@ -110,6 +119,7 @@ export function ComponentEditorLayout({
         publishing={publishing}
         onOpenQuickRun={hasQuickRun ? stableOnOpenQuickRun : undefined}
         onPreviewDocument={hasPreviewDocument ? stableOnPreviewDocument : undefined}
+        onPreviewOpenApi={hasPreviewOpenApi ? stableOnPreviewOpenApi : undefined}
         autoSavePending={autoSavePending}
         autoSaved={autoSaved}
         arrangement="host-row"
@@ -126,6 +136,7 @@ export function ComponentEditorLayout({
       hasPublish,
       hasQuickRun,
       hasPreviewDocument,
+      hasPreviewOpenApi,
       publishing,
       autoSavePending,
       autoSaved,
@@ -135,6 +146,7 @@ export function ComponentEditorLayout({
       stableOnPublish,
       stableOnOpenQuickRun,
       stableOnPreviewDocument,
+      stableOnPreviewOpenApi,
     ],
   );
 
@@ -152,6 +164,7 @@ export function ComponentEditorLayout({
       publishing={publishing}
       onOpenQuickRun={onOpenQuickRun}
       onPreviewDocument={onPreviewDocument}
+      onPreviewOpenApi={onPreviewOpenApi}
       autoSavePending={autoSavePending}
       autoSaved={autoSaved}
       arrangement="editor-chrome"
