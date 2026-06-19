@@ -13,6 +13,9 @@ import {
   extractTaskWorkflowTriggers,
   aggregateProjectGraph,
   resolveLabelOrKey,
+  buildWorkflowOpenApi,
+  createSchemaResolver,
+  createComponentResolver,
   type ComponentDocEntry,
   type IndexExtraLink,
   type WorkflowDependencyReport,
@@ -45,6 +48,26 @@ function sanitizeKey(key: string): string | null {
   const base = path.basename(key).replace(/\.md$/i, '');
   if (!base || !SAFE_FILENAME_RE.test(base)) return null;
   return base;
+}
+
+const VERSION_SEGMENT_RE = /^v?\d+(\.\d+){0,3}$/i;
+
+/**
+ * Derives the OpenAPI output sub-group for a workflow from its on-disk folder
+ * path under the category folder. Version-like segments (e.g. `1.0.0`, `v1`),
+ * `.meta`, and unsafe segments are dropped so a layout like
+ * `Workflows/banking/1.0.0/x.json` yields the group `banking`.
+ */
+function workflowOutputGroup(fsPath: string, categoryFolder: string): string {
+  const norm = fsPath.split(path.sep).join('/');
+  const marker = `/${categoryFolder}/`;
+  const idx = norm.lastIndexOf(marker);
+  if (idx < 0) return '';
+  const after = norm.slice(idx + marker.length).split('/');
+  after.pop(); // drop filename
+  return after
+    .filter((seg) => seg && seg !== '.meta' && !VERSION_SEGMENT_RE.test(seg) && SAFE_FILENAME_RE.test(seg))
+    .join('/');
 }
 
 interface DiscoveredFile {
@@ -120,6 +143,9 @@ export async function generateProjectDocumentation(projectRoot: string): Promise
       const skipped: string[] = [];
       const depReports: WorkflowDependencyReport[] = [];
       const taskEdges: FlowEdge[] = [];
+      const schemaJsons: unknown[] = [];
+      const componentJsons: unknown[] = []; // functions + tasks, for function-endpoint resolution
+      const workflowDocs: { json: unknown; key: string; group: string }[] = [];
       let processed = 0;
       let written = 0;
 
@@ -190,6 +216,18 @@ export async function generateProjectDocumentation(projectRoot: string): Promise
           description: String((obj as Record<string, unknown>)._comment ?? ''),
           relativePath: `./${file.category}/${key}.md`,
         });
+
+        if (file.category === 'schemas') {
+          schemaJsons.push(json);
+        } else if (file.category === 'functions' || file.category === 'tasks') {
+          componentJsons.push(json);
+        }
+        if (file.category === 'workflows') {
+          // Workflows are also resolvable components (sub-flow `process` refs).
+          componentJsons.push(json);
+          const group = workflowOutputGroup(file.uri.fsPath, CATEGORY_FOLDERS.workflows);
+          workflowDocs.push({ json, key, group });
+        }
       }
 
       if (token.isCancellationRequested) return;
@@ -202,6 +240,13 @@ export async function generateProjectDocumentation(projectRoot: string): Promise
           description: 'Cross-domain dependencies and inter-flow relationships',
         },
       ];
+      if (workflowDocs.length > 0) {
+        extraLinks.push({
+          label: 'OpenAPI Specs',
+          relativePath: './openapi/',
+          description: 'OpenAPI 3.1 specifications for each workflow',
+        });
+      }
       const indexMarkdown = generateIndexMarkdown(indexEntries, projectName, extraLinks);
       const indexUri = vscode.Uri.file(path.join(docsRoot, 'index.md'));
       await vscode.workspace.fs.writeFile(indexUri, Buffer.from(indexMarkdown, 'utf-8'));
@@ -228,6 +273,42 @@ export async function generateProjectDocumentation(projectRoot: string): Promise
       const depTreeUri = vscode.Uri.file(path.join(docsRoot, 'dependency-tree.md'));
       await vscode.workspace.fs.writeFile(depTreeUri, Buffer.from(depTreeMarkdown, 'utf-8'));
       written++;
+
+      // OpenAPI 3.1 specs — one JSON file per workflow, mirrored into the
+      // workflow's disk group sub-folder. Transition/master payloads are typed
+      // from Schema components; function HTTP methods from Function/Task config.
+      if (workflowDocs.length > 0) {
+        const resolveSchema = createSchemaResolver(schemaJsons);
+        const resolveComponent = createComponentResolver(componentJsons);
+        const openapiDir = path.join(docsRoot, 'openapi');
+        const openapiRoot = path.resolve(openapiDir);
+        for (const wf of workflowDocs) {
+          if (token.isCancellationRequested) return;
+          const targetDir = wf.group ? path.join(openapiDir, wf.group) : openapiDir;
+          const resolved = path.resolve(targetDir, `${wf.key}.json`);
+          if (!resolved.startsWith(openapiRoot + path.sep)) {
+            skipped.push(`openapi/${wf.key}.json: path escape detected`);
+            continue;
+          }
+          try {
+            const spec = buildWorkflowOpenApi(wf.json, { resolveSchema, resolveComponent });
+            try {
+              await vscode.workspace.fs.createDirectory(vscode.Uri.file(targetDir));
+            } catch {
+              // directory may already exist
+            }
+            await vscode.workspace.fs.writeFile(
+              vscode.Uri.file(resolved),
+              Buffer.from(`${JSON.stringify(spec, null, 2)}\n`, 'utf-8'),
+            );
+            written++;
+          } catch (err) {
+            skipped.push(
+              `openapi/${wf.group ? `${wf.group}/` : ''}${wf.key}.json: generation error — ${err instanceof Error ? err.message : String(err)}`,
+            );
+          }
+        }
+      }
 
       const msg = `Documentation generated: ${written} files written to docs/`;
       if (skipped.length > 0) {

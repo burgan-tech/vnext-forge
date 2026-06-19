@@ -11,6 +11,17 @@ export {
 } from './generators/index-doc.js';
 export { generateDependencyTreeMarkdown } from './generators/dependency-tree-doc.js';
 export {
+  buildWorkflowOpenApi,
+  createSchemaResolver,
+  createComponentResolver,
+  type OpenApiDocument,
+  type OpenApiResolvers,
+  type SchemaResolver,
+  type ComponentResolver,
+  type ResourceLikeRef,
+  type JsonSchemaObject,
+} from './generators/openapi-doc.js';
+export {
   extractWorkflowDependencies,
   extractTaskWorkflowTriggers,
   aggregateProjectGraph,

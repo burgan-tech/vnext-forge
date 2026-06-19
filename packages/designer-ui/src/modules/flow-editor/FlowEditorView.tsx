@@ -4,6 +4,7 @@ import { useValidationStore } from '../../store/useValidationStore';
 import { ReactFlowProvider } from '@xyflow/react';
 import { AlertCircle, ArrowLeft, ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
 import { PreviewDocumentDialog } from './components/PreviewDocumentDialog';
+import { OpenApiPreviewDialog } from './components/OpenApiPreviewDialog';
 import { useEditorPanelsStore } from '../../store/useEditorPanelsStore';
 import { useWorkflowStore } from '../../store/useWorkflowStore';
 import { ComponentEditorLayout } from '../../modules/save-component/components/ComponentEditorLayout';
@@ -200,6 +201,7 @@ export function FlowEditorView({
   const { activeScript } = useScriptPanelStore();
   const [showMetadata, setShowMetadata] = useState(false);
   const [showPreviewDoc, setShowPreviewDoc] = useState(false);
+  const [showOpenApiPreview, setShowOpenApiPreview] = useState(false);
   const [metadataScrollTarget, setMetadataScrollTarget] = useState<string | null>(null);
 
   const handleOpenWorkflowSettings = useCallback((section?: string) => {
@@ -338,6 +340,7 @@ export function FlowEditorView({
         publishing={publishing}
         onOpenQuickRun={onOpenQuickRun}
         onPreviewDocument={() => setShowPreviewDoc(true)}
+        onPreviewOpenApi={() => setShowOpenApiPreview(true)}
         registerToolbar={registerToolbar}
         saveErrorMessage={saveError?.toUserMessage().message ?? null}
         saving={saving}
@@ -380,6 +383,12 @@ export function FlowEditorView({
         open={showPreviewDoc}
         onOpenChange={setShowPreviewDoc}
         workflowJson={workflowJson}
+      />
+      <OpenApiPreviewDialog
+        open={showOpenApiPreview}
+        onOpenChange={setShowOpenApiPreview}
+        workflowJson={workflowJson}
+        projectId={activeProject?.id}
       />
     </FlowEditorSaveProvider>
   );
