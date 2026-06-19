@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildWorkflowOpenApi, createSchemaResolver } from '../src/index.js';
+import { buildWorkflowOpenApi, createSchemaResolver, createComponentResolver } from '../src/index.js';
 
 const startSchema = {
   key: 'account-type-selection',
@@ -40,6 +40,41 @@ const masterSchema = {
 };
 
 const ref = (key: string) => ({ key, domain: 'core', flow: 'sys-schemas', version: '1.0.0' });
+const fnRef = (key: string) => ({ key, domain: 'banking', flow: 'sys-functions', version: '1.0.0' });
+const taskRef = (key: string) => ({ key, domain: 'banking', flow: 'sys-tasks', version: '1.0.0' });
+
+// HTTP task (type '6') with GET method.
+const getAccountTask = {
+  key: 'get-account',
+  domain: 'banking',
+  flow: 'sys-tasks',
+  version: '1.0.0',
+  attributes: { type: '6', config: { method: 'GET', url: 'https://api/accounts/{id}' } },
+};
+// HTTP task (type '6') with POST + contentType.
+const submitTask = {
+  key: 'submit-order',
+  domain: 'banking',
+  flow: 'sys-tasks',
+  version: '1.0.0',
+  attributes: { type: '6', config: { method: 'POST', url: 'https://api/orders', contentType: 'application/json' } },
+};
+// Function wrapping a single GET task (attributes.task single-ref form).
+const balanceInquiryFn = {
+  key: 'balance-inquiry',
+  domain: 'banking',
+  flow: 'sys-functions',
+  version: '1.0.0',
+  attributes: { scope: 'D', task: taskRef('get-account') },
+};
+// Function wrapping a POST task via attributes.tasks[] (multi form).
+const placeOrderFn = {
+  key: 'place-order',
+  domain: 'banking',
+  flow: 'sys-functions',
+  version: '1.0.0',
+  attributes: { scope: 'D', tasks: [{ order: 1, task: taskRef('submit-order') }] },
+};
 
 const workflow = {
   key: 'account-opening',
@@ -60,15 +95,41 @@ const workflow = {
           { key: 'timer-expire', target: 'expired', triggerType: 2 }, // Scheduled — excluded
         ],
       },
+      // Same-domain sub-flow: its transitions should fold into this flow.
+      { key: 'kyc', subFlow: { process: { key: 'kyc-subflow', domain: 'banking', flow: 'sys-flows', version: '1.0.0' } } },
+      // Cross-domain sub-flow: must be skipped (not in this workspace).
+      { key: 'external', subFlow: { process: { key: 'ext-subflow', domain: 'other-domain', flow: 'sys-flows', version: '1.0.0' } } },
     ],
     sharedTransitions: [{ key: 'cancel-shared', target: 'cancelled', triggerType: 3 }], // Event — included
-    functions: [ref('balance-inquiry')],
+    functions: [fnRef('balance-inquiry'), fnRef('place-order'), fnRef('unresolved-fn')],
+  },
+};
+
+// Same-domain sub-flow workflow with one externally-triggerable transition.
+const kycSubflow = {
+  key: 'kyc-subflow',
+  domain: 'banking',
+  flow: 'sys-flows',
+  version: '1.0.0',
+  attributes: {
+    type: 'S',
+    startTransition: { key: 'sub-start', target: 'review' },
+    states: [
+      { key: 'review', transitions: [{ key: 'sub-approve', target: 'done', triggerType: 0, schema: ref('approve-input') }] },
+    ],
   },
 };
 
 function build() {
-  const resolve = createSchemaResolver([startSchema, approveSchema, masterSchema]);
-  return buildWorkflowOpenApi(workflow, resolve);
+  const resolveSchema = createSchemaResolver([startSchema, approveSchema, masterSchema]);
+  const resolveComponent = createComponentResolver([
+    balanceInquiryFn,
+    placeOrderFn,
+    getAccountTask,
+    submitTask,
+    kycSubflow,
+  ]);
+  return buildWorkflowOpenApi(workflow, { resolveSchema, resolveComponent });
 }
 
 describe('buildWorkflowOpenApi', () => {
@@ -114,14 +175,46 @@ describe('buildWorkflowOpenApi', () => {
     expect(doc.components.schemas.AccountMasterData).toEqual(masterSchema.attributes.schema);
   });
 
-  it('emits domain- and instance-scoped function paths', () => {
+  it('emits domain- and instance-scoped function paths with the derived HTTP method', () => {
     const doc = build();
+    const inst = '/api/v1/banking/workflows/account-opening/instances/{instance}';
+    // balance-inquiry wraps a GET task -> both scopes are GET, no requestBody.
     expect(doc.paths['/api/v1/banking/functions/balance-inquiry']).toHaveProperty('get');
-    expect(doc.paths['/api/v1/banking/workflows/account-opening/instances/{instance}/functions/balance-inquiry']).toHaveProperty('post');
+    expect(doc.paths[`${inst}/functions/balance-inquiry`]).toHaveProperty('get');
+    expect((doc.paths['/api/v1/banking/functions/balance-inquiry'] as any).get.requestBody).toBeUndefined();
+    // place-order wraps a POST task -> POST with a requestBody.
+    expect(doc.paths['/api/v1/banking/functions/place-order']).toHaveProperty('post');
+    expect((doc.paths['/api/v1/banking/functions/place-order'] as any).post.requestBody).toBeDefined();
+  });
+
+  it('defaults an unresolvable function to POST', () => {
+    const doc = build();
+    expect(doc.paths['/api/v1/banking/functions/unresolved-fn']).toHaveProperty('post');
+  });
+
+  it('folds same-domain sub-flow transitions into the parent base path, tagged Sub-flow', () => {
+    const doc = build();
+    const base = '/api/v1/banking/workflows/account-opening';
+    const op = doc.paths[`${base}/instances/{instance}/transitions/sub-approve`] as any;
+    expect(op).toHaveProperty('patch');
+    expect(op.patch.tags).toContain('Sub-flow');
+    expect(op.patch.description).toContain('kyc-subflow');
+    expect(op.patch.description).toContain('kyc'); // entered-from state
+    // payload typed from the sub-flow transition's schema
+    const attrs = op.patch.requestBody.content['application/json'].schema.allOf[1].properties.attributes;
+    expect(attrs.$ref).toBe('#/components/schemas/ApproveInputPayload');
+  });
+
+  it('skips cross-domain sub-flows (different workspace)', () => {
+    const doc = build();
+    const base = '/api/v1/banking/workflows/account-opening';
+    // ext-subflow is in another domain and not resolvable -> no transitions added.
+    const subflowOps = Object.keys(doc.paths).filter((p) => p.includes('/transitions/ext'));
+    expect(subflowOps).toHaveLength(0);
   });
 
   it('falls back to a permissive object schema when a reference is unresolved', () => {
-    const doc = buildWorkflowOpenApi(workflow, createSchemaResolver([])); // nothing resolves
+    const doc = buildWorkflowOpenApi(workflow, { resolveSchema: createSchemaResolver([]) }); // nothing resolves
     const base = '/api/v1/banking/workflows/account-opening';
     const startBody = doc.paths[`${base}/instances/start`].post as any;
     const attrs = startBody.requestBody.content['application/json'].schema.allOf[1].properties.attributes;

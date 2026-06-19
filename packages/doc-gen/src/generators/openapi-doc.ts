@@ -37,6 +37,17 @@ export type JsonSchemaObject = Record<string, unknown>;
 /** Resolves a Schema component reference to its JSON Schema content. */
 export type SchemaResolver = (ref: ResourceLikeRef | null | undefined) => JsonSchemaObject | undefined;
 
+/** Resolves any component reference to its raw component JSON (used for functions/tasks). */
+export type ComponentResolver = (ref: ResourceLikeRef | null | undefined) => Record<string, unknown> | undefined;
+
+/** Resolvers passed to {@link buildWorkflowOpenApi}. */
+export interface OpenApiResolvers {
+  /** Resolves transition/master schema refs to JSON Schema content. */
+  resolveSchema: SchemaResolver;
+  /** Resolves Function/Task component refs to raw JSON (enables real function HTTP methods). */
+  resolveComponent?: ComponentResolver;
+}
+
 export interface OpenApiDocument {
   openapi: '3.1.0';
   info: { title: string; version: string; description?: string };
@@ -65,7 +76,11 @@ interface WorkflowLike {
   attributes?: {
     labels?: { language?: string; label?: string }[];
     startTransition?: TransitionLike;
-    states?: { key?: string; transitions?: TransitionLike[] }[];
+    states?: {
+      key?: string;
+      transitions?: TransitionLike[];
+      subFlow?: { process?: ResourceLikeRef } | null;
+    }[];
     sharedTransitions?: TransitionLike[];
     cancel?: TransitionLike | null;
     exit?: TransitionLike | null;
@@ -105,6 +120,83 @@ export function createSchemaResolver(schemaComponents: unknown[]): SchemaResolve
       byKey.get(key)
     );
   };
+}
+
+/**
+ * Builds a {@link ComponentResolver} returning the raw component JSON for any
+ * reference — used to resolve workflow functions and the tasks they wrap. Same
+ * most-specific-first keying as {@link createSchemaResolver}.
+ */
+export function createComponentResolver(components: unknown[]): ComponentResolver {
+  const byKey = new Map<string, Record<string, unknown>>();
+
+  for (const raw of components) {
+    const comp = raw as { key?: string; domain?: string; flow?: string } | null;
+    if (!comp?.key || typeof comp !== 'object') continue;
+    const content = comp as Record<string, unknown>;
+    const { key, domain, flow } = comp;
+    if (flow && domain) byKey.set(`${flow}:${domain}:${key}`, content);
+    if (domain) byKey.set(`${domain}:${key}`, content);
+    if (!byKey.has(key)) byKey.set(key, content);
+  }
+
+  return (ref) => {
+    if (!ref?.key) return undefined;
+    const { key, domain, flow } = ref;
+    return (
+      (flow && domain ? byKey.get(`${flow}:${domain}:${key}`) : undefined) ??
+      (domain ? byKey.get(`${domain}:${key}`) : undefined) ??
+      byKey.get(key)
+    );
+  };
+}
+
+// ── function HTTP-method derivation ──────────────────────────────────────────
+
+const HTTP_METHODS = new Set(['GET', 'POST', 'PUT', 'PATCH', 'DELETE']);
+
+/**
+ * Derives the consumer-facing HTTP method for a Task component from its
+ * `attributes.type` + `attributes.config`. Returns null for task types with no
+ * HTTP semantics (Script, Timer, …) so the caller can fall through to the next
+ * task or a default.
+ *
+ * Task type discriminators (string in JSON) mirror `TaskType` in vnext-types:
+ * 6=Http, 16=Soap, 1=DaprHttpEndpoint, 3=DaprService.
+ */
+function deriveTaskHttpMethod(taskJson: Record<string, unknown> | undefined): string | null {
+  const attrs = (taskJson?.attributes ?? taskJson) as Record<string, unknown> | undefined;
+  const type = String(attrs?.type ?? '');
+  const cfg = (attrs?.config ?? {}) as Record<string, unknown>;
+  const up = (v: unknown): string | null => {
+    const m = typeof v === 'string' ? v.toUpperCase() : '';
+    return HTTP_METHODS.has(m) ? m : null;
+  };
+  switch (type) {
+    case '6': // Http
+      return up(cfg.method) ?? 'POST';
+    case '16': // Soap
+      return 'POST';
+    case '1': // DaprHttpEndpoint
+    case '3': // DaprService
+      return up(cfg.httpVerb) ?? up(cfg.method) ?? 'POST';
+    default:
+      return null;
+  }
+}
+
+/** Task refs a function wraps, supporting both `attributes.task` (single) and `attributes.tasks[]`. */
+function functionTaskRefs(functionJson: Record<string, unknown> | undefined): ResourceLikeRef[] {
+  const attrs = (functionJson?.attributes ?? functionJson) as Record<string, unknown> | undefined;
+  if (!attrs) return [];
+  const multi = attrs.tasks;
+  if (Array.isArray(multi)) {
+    return multi
+      .map((t) => (t as { task?: ResourceLikeRef })?.task)
+      .filter((r): r is ResourceLikeRef => Boolean(r?.key));
+  }
+  const single = attrs.task as ResourceLikeRef | undefined;
+  return single?.key ? [single] : [];
 }
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -148,7 +240,8 @@ function collectExternalTransitions(wf: WorkflowLike): TransitionLike[] {
 
 // ── builder ───────────────────────────────────────────────────────────────────
 
-export function buildWorkflowOpenApi(workflowJson: unknown, resolveSchema: SchemaResolver): OpenApiDocument {
+export function buildWorkflowOpenApi(workflowJson: unknown, resolvers: OpenApiResolvers): OpenApiDocument {
+  const { resolveSchema, resolveComponent } = resolvers;
   const wf = (workflowJson ?? {}) as WorkflowLike;
   const attrs = wf.attributes ?? {};
   const domain = wf.domain ?? '{domain}';
@@ -278,15 +371,47 @@ export function buildWorkflowOpenApi(workflowJson: unknown, resolveSchema: Schem
     },
   };
 
-  // PATCH .../instances/{instance}/transitions/<transitionKey> (one per transition)
-  for (const t of collectExternalTransitions(wf)) {
-    const key = t.key as string;
+  // PATCH .../instances/{instance}/transitions/<transitionKey> (one per transition).
+  // Sub-flow transitions are consumed through the SAME parent-instance endpoint;
+  // only the transitionKey comes from the sub-flow. Each entry tracks whether it
+  // originates from a sub-flow so it can be labelled accordingly.
+  interface TransitionEntry {
+    t: TransitionLike;
+    subFlowKey?: string;
+    fromState?: string;
+  }
+  const txEntries: TransitionEntry[] = collectExternalTransitions(wf).map((t) => ({ t }));
+
+  // Same-workspace sub-flows: when a state delegates to a `process` workflow in
+  // the same domain, fold that sub-flow's externally-triggerable transitions in.
+  if (resolveComponent) {
+    for (const state of attrs.states ?? []) {
+      const proc = state.subFlow?.process;
+      if (!proc?.key) continue;
+      // "same domain ⇒ same workspace": skip cross-domain references.
+      if (proc.domain && domain !== '{domain}' && proc.domain !== domain) continue;
+      const subWf = resolveComponent(proc);
+      if (!subWf) continue;
+      const subFlowKey = String(subWf.key ?? proc.key);
+      for (const t of collectExternalTransitions(subWf as unknown as WorkflowLike)) {
+        txEntries.push({ t, subFlowKey, fromState: state.key });
+      }
+    }
+  }
+
+  const emittedTransitionKeys = new Set<string>();
+  for (const { t, subFlowKey, fromState } of txEntries) {
+    const key = t.key;
+    if (!key || emittedTransitionKeys.has(key)) continue; // parent transitions win on collision
+    emittedTransitionKeys.add(key);
     paths[`${base}/instances/{instance}/transitions/${key}`] = {
       patch: {
-        tags: ['Instance'],
+        tags: subFlowKey ? ['Instance', 'Sub-flow'] : ['Instance'],
         operationId: `transition_${key}`,
         summary: `Trigger transition "${firstLabel(t.labels, key)}"`,
-        description: t._comment,
+        description: subFlowKey
+          ? `Sub-flow transition — belongs to sub-flow "${subFlowKey}"${fromState ? ` entered from state "${fromState}"` : ''}. Consumed through the parent workflow instance.`
+          : t._comment,
         parameters: [instancePathParam, refParam('Sync'), refParam('Version'), refParam('Extensions')],
         requestBody: envelopeBody(registerSchema(t.schema, 'Payload')),
         responses: { '200': instanceResponse, '404': problemResponse },
@@ -332,24 +457,61 @@ export function buildWorkflowOpenApi(workflowJson: unknown, resolveSchema: Schem
     },
   };
 
-  // Function endpoints (domain-scoped + instance-scoped). Method/payload
-  // refinement from function/task config is a future enhancement; documented
-  // generically here for each referenced function.
+  // Function endpoints (domain-scoped + instance-scoped). When the Function
+  // (and the Task it wraps) can be resolved, emit the real HTTP method derived
+  // from the task config; otherwise fall back to POST.
   for (const fn of attrs.functions ?? []) {
     const fnKey = fn?.key;
     if (!fnKey) continue;
-    const fnVerbs = (parameters: unknown[]): Record<string, unknown> => {
-      const op = (method: string) => ({
+
+    // Resolve function -> first wrapped task with HTTP semantics -> method + contentType.
+    let method = 'POST';
+    let contentType = 'application/json';
+    let resolvedFromConfig = false;
+    const fnComponent = resolveComponent?.(fn);
+    if (fnComponent) {
+      for (const taskRef of functionTaskRefs(fnComponent)) {
+        const taskJson = resolveComponent?.(taskRef);
+        const derived = deriveTaskHttpMethod(taskJson);
+        if (derived) {
+          method = derived;
+          const cfg = ((taskJson?.attributes ?? taskJson) as Record<string, unknown>)?.config as
+            | Record<string, unknown>
+            | undefined;
+          if (typeof cfg?.contentType === 'string' && cfg.contentType) contentType = cfg.contentType;
+          resolvedFromConfig = true;
+          break;
+        }
+      }
+    }
+
+    const verb = method.toLowerCase();
+    const hasBody = method === 'POST' || method === 'PUT' || method === 'PATCH';
+    const fnOp = (parameters: unknown[]): Record<string, unknown> => {
+      const op: Record<string, unknown> = {
         tags: ['Function'],
-        operationId: `${method}_function_${fnKey}`,
-        summary: `${method.toUpperCase()} function "${fnKey}"`,
+        operationId: `${verb}_function_${fnKey}`,
+        summary: `${method} function "${fnKey}"`,
+        description: resolvedFromConfig
+          ? `HTTP method derived from the function's task configuration.`
+          : `Function method could not be resolved from config; defaulted to ${method}.`,
         parameters,
-        responses: { '200': { description: 'Function result', content: jsonContent({ type: 'object', additionalProperties: true }) }, '404': problemResponse },
-      });
-      return { get: op('get'), post: op('post'), patch: op('patch'), delete: op('delete') };
+        responses: {
+          '200': { description: 'Function result', content: jsonContent({ type: 'object', additionalProperties: true }) },
+          '404': problemResponse,
+        },
+      };
+      if (hasBody) {
+        op.requestBody = {
+          required: false,
+          content: { [contentType]: { schema: { type: 'object', additionalProperties: true } } },
+        };
+      }
+      return { [verb]: op };
     };
-    paths[`/api/v1/${domain}/functions/${fnKey}`] = fnVerbs([refParam('Version')]);
-    paths[`${base}/instances/{instance}/functions/${fnKey}`] = fnVerbs([
+
+    paths[`/api/v1/${domain}/functions/${fnKey}`] = fnOp([refParam('Version')]);
+    paths[`${base}/instances/{instance}/functions/${fnKey}`] = fnOp([
       instancePathParam, refParam('Version'), refParam('Extensions'), refParam('IfNoneMatch'),
     ]);
   }

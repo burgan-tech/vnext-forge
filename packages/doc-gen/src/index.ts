@@ -13,8 +13,11 @@ export { generateDependencyTreeMarkdown } from './generators/dependency-tree-doc
 export {
   buildWorkflowOpenApi,
   createSchemaResolver,
+  createComponentResolver,
   type OpenApiDocument,
+  type OpenApiResolvers,
   type SchemaResolver,
+  type ComponentResolver,
   type ResourceLikeRef,
   type JsonSchemaObject,
 } from './generators/openapi-doc.js';
