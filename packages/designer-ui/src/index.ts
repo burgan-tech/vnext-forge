@@ -266,3 +266,11 @@ export {
   useSchemaCapabilitiesStore,
   storeKey as schemaCapabilitiesStoreKey,
 } from './modules/schema-capabilities/index.js';
+
+// Standalone canvas — for monitoring and other read-only consumers
+export { FlowCanvas } from './modules/canvas-interaction/FlowCanvas.js';
+export type {
+  CanvasMode,
+  CanvasTraversedTransition,
+  ExecutionOverlay,
+} from './modules/canvas-interaction/context/CanvasModeContext.js';

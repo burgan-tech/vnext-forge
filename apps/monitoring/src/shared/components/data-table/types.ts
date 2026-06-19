@@ -1,19 +1,35 @@
 export interface FilterableColumn {
   id: string
   label: string
-  type: 'text' | 'select' | 'date'
+  type: 'text' | 'select' | 'date' | 'boolean'
   options?: { label: string; value: string }[]
   /**
-   * Text columns only. Lists the bracket operators the backend accepts for this field.
-   * - ['eq']           → always sends `field[eq]=value`,  shows fixed "is"
+   * Query-param mode only. Lists the bracket operators the backend accepts for this field.
+   * - ['eq']           → always sends `field[eq]=value`, shows fixed "is"
    * - ['contains']     → always sends `field[contains]=value`, shows fixed "contains"
    * - ['eq','contains']→ user picks; shows an operator dropdown
-   * Omit for plain params (e.g. `?version=`) and for select/date columns.
+   * Omit for plain params and for select/date columns.
    */
   operators?: Array<'eq' | 'contains'>
+  /**
+   * GraphQL filter-builder mode only. Overrides the default operator list from operatorsFor(type).
+   * Use when a column's backend operator set differs from its type's default.
+   */
+  graphqlOperators?: FilterOperator[]
 }
 
-export type FilterOperator = 'eq' | 'contains' | 'gt' | 'lt'
+export type FilterOperator =
+  | 'eq'
+  | 'ne'
+  | 'contains'
+  | 'startswith'
+  | 'endswith'
+  | 'in'
+  | 'nin'
+  | 'gt'
+  | 'ge'
+  | 'lt'
+  | 'le'
 
 // ---------------------------------------------------------------------------
 // Filter tree — GraphQL-style nestable AND/OR groups

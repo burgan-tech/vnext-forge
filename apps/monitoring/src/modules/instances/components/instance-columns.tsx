@@ -85,6 +85,38 @@ export function createInstanceColumns(navigate: NavigateFunction, wfId?: string)
 }
 
 export const INSTANCE_FILTERABLE_COLUMNS: FilterableColumn[] = [
-  { id: 'key', label: 'Instance Key', type: 'text' },
-  { id: 'state', label: 'State', type: 'text' },
+  { id: 'key',               label: 'Instance Key',          type: 'text' },
+  { id: 'flow',              label: 'Workflow',               type: 'text' },
+  {
+    id: 'status',
+    label: 'Status',
+    type: 'select',
+    options: [
+      { label: 'Active',     value: 'Active' },
+      { label: 'Busy',       value: 'Busy' },
+      { label: 'Completed',  value: 'Completed' },
+      { label: 'Faulted',    value: 'Faulted' },
+      { label: 'Suspended',  value: 'Suspended' },
+      { label: 'Terminated', value: 'Terminated' },
+    ],
+    graphqlOperators: ['eq', 'ne', 'in', 'nin'],
+  },
+  { id: 'state',             label: 'State',                  type: 'text' },
+  { id: 'effectiveState',    label: 'Effective State',         type: 'text' },
+  {
+    id: 'effectiveStateType',
+    label: 'Effective State Type',
+    type: 'text',
+    graphqlOperators: ['eq', 'ne', 'gt', 'ge', 'lt', 'le'],
+  },
+  {
+    id: 'effectiveStateSubType',
+    label: 'Effective State Sub-Type',
+    type: 'text',
+    graphqlOperators: ['eq', 'ne', 'gt', 'ge', 'lt', 'le'],
+  },
+  { id: 'createdAt',         label: 'Created At',             type: 'date' },
+  { id: 'modifiedAt',        label: 'Modified At',            type: 'date' },
+  { id: 'completedAt',       label: 'Completed At',           type: 'date' },
+  { id: 'isTransient',       label: 'Is Transient',           type: 'boolean' },
 ]

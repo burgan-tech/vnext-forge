@@ -19,6 +19,7 @@ import { useInstanceList } from '@monitoring/modules/instances/api/instances-que
 import { StatusBadge } from '@monitoring/shared/components/StatusBadge';
 import type { InstanceStatus } from '@monitoring/shared/types';
 import type { WorkflowDefState, WorkflowDefTransition } from '@monitoring/shared/types/definitions-api';
+import { WorkflowCanvas } from './WorkflowCanvas';
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -280,17 +281,22 @@ export function WorkflowDetailPage({ id }: WorkflowDetailPageProps) {
   const [instanceStatus, setInstanceStatus] = useState<InstanceStatus | 'all'>('all');
   const [instancePage, setInstancePage] = useState(1);
   const [defView, setDefView] = useState<'visual' | 'raw'>('visual');
+  const [selectedVersion, setSelectedVersion] = useState<string | null>(null);
+  const [permView, setPermView] = useState<'filtered' | 'full'>('filtered');
 
   // Metadata
   const { data: workflow, isLoading } = useWorkflowDetail(id);
   const { data: versions } = useWorkflowVersions(id);
+
+  // Sync selectedVersion to the workflow's canonical version on first load
+  const activeVersion = selectedVersion ?? workflow?.version ?? null;
 
   // Real API data
   const { data: stats } = useWorkflowStats(id);
   const { data: stateDist } = useWorkflowStateDistribution(id);
   const { data: permMatrix } = useWorkflowPermissionMatrix(id);
   const { data: deps } = useWorkflowDependencies(id);
-  const { data: defItem } = useWorkflowDefinitionDetail(id);
+  const { data: defItem } = useWorkflowDefinitionDetail(id, activeVersion);
 
   const { data: instanceData } = useInstanceList({
     workflowId: id,
@@ -337,8 +343,9 @@ export function WorkflowDetailPage({ id }: WorkflowDetailPageProps) {
           </p>
         </div>
         <VersionPicker
-          currentVersion={workflow.version}
+          currentVersion={activeVersion ?? workflow.version}
           versions={versions ?? [workflow.version]}
+          onChange={setSelectedVersion}
         />
       </div>
 
@@ -445,8 +452,8 @@ export function WorkflowDetailPage({ id }: WorkflowDetailPageProps) {
           </div>
 
           {defView === 'visual' ? (
-            defStates.length > 0 ? (
-              <WorkflowStateGraph states={defStates} transitions={defTransitions} />
+            defItem ? (
+              <WorkflowCanvas definition={defItem} />
             ) : (
               <div className="flex h-32 items-center justify-center rounded-lg border border-dashed border-border text-sm text-muted-foreground">
                 {defItem === null ? 'Definition not available' : 'Loading definition…'}
@@ -618,133 +625,193 @@ export function WorkflowDetailPage({ id }: WorkflowDetailPageProps) {
             </div>
           ) : (
             <>
+              {/* View toggle */}
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Permissions</span>
+                <div className="flex items-center gap-0.5 rounded-md border border-border bg-background p-0.5">
+                  {(['filtered', 'full'] as const).map((v) => (
+                    <button
+                      key={v}
+                      onClick={() => setPermView(v)}
+                      className={`rounded px-2.5 py-1 text-xs transition-colors ${
+                        permView === v
+                          ? 'bg-muted font-semibold text-foreground'
+                          : 'text-muted-foreground hover:text-foreground'
+                      }`}
+                    >
+                      {v === 'filtered' ? 'Filtered' : 'Full Matrix'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Query roles */}
-              {permMatrix.queryRoles.length > 0 && (
+              {(permView === 'full' || permMatrix.queryRoles.length > 0) && (
                 <div className="rounded-lg border border-border bg-card p-4 shadow-sm">
                   <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Query Roles
                   </h3>
-                  <div className="flex flex-wrap gap-1.5">
-                    {permMatrix.queryRoles.map((r) => (
-                      <Badge key={r.role} variant={r.grant === 'allow' ? 'success' : 'destructive'} className="text-xs font-mono">
-                        {r.role}
-                      </Badge>
-                    ))}
-                  </div>
+                  {permMatrix.queryRoles.length > 0 ? (
+                    <div className="flex flex-wrap gap-1.5">
+                      {permMatrix.queryRoles.map((r) => (
+                        <Badge key={r.role} variant={r.grant === 'allow' ? 'success' : 'destructive'} className="text-xs font-mono">
+                          {r.role}
+                        </Badge>
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-xs text-muted-foreground">No workflow-level query roles</span>
+                  )}
                 </div>
               )}
 
               {/* Transitions */}
-              {permMatrix.transitions.length > 0 && (
-                <div>
-                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Transition Permissions
-                  </h3>
-                  <div className="overflow-x-auto rounded-md border border-border">
-                    <table className="w-full text-sm">
-                      <thead className="border-b border-border bg-muted/50">
-                        <tr>
-                          {['Transition', 'From', 'Target', 'Roles'].map((h) => (
-                            <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {permMatrix.transitions.map((t) => (
-                          <tr key={t.key} className="border-b border-border last:border-0">
-                            <td className="px-4 py-3 font-mono text-xs font-medium">{t.key}</td>
-                            <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{t.from}</td>
-                            <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{t.target}</td>
-                            <td className="px-4 py-3">
-                              <div className="flex flex-wrap gap-1">
-                                {t.roles.map((r) => (
-                                  <Badge key={r.role} variant={r.grant === 'allow' ? 'success' : 'destructive'} className="text-xs font-mono">
-                                    {r.role}
-                                  </Badge>
-                                ))}
-                              </div>
-                            </td>
+              {(() => {
+                const rows = permView === 'filtered'
+                  ? permMatrix.transitions.filter((t) => t.roles.length > 0)
+                  : permMatrix.transitions;
+                if (rows.length === 0 && permView === 'filtered') return null;
+                if (permMatrix.transitions.length === 0) return null;
+                return (
+                  <div>
+                    <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Transition Permissions
+                    </h3>
+                    <div className="overflow-x-auto rounded-md border border-border">
+                      <table className="w-full text-sm">
+                        <thead className="border-b border-border bg-muted/50">
+                          <tr>
+                            {['Transition', 'From', 'Target', 'Roles'].map((h) => (
+                              <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">{h}</th>
+                            ))}
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {rows.map((t) => (
+                            <tr key={t.key} className="border-b border-border last:border-0">
+                              <td className="px-4 py-3 font-mono text-xs font-medium">{t.key}</td>
+                              <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{t.from}</td>
+                              <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{t.target}</td>
+                              <td className="px-4 py-3">
+                                {t.roles.length > 0 ? (
+                                  <div className="flex flex-wrap gap-1">
+                                    {t.roles.map((r) => (
+                                      <Badge key={r.role} variant={r.grant === 'allow' ? 'success' : 'destructive'} className="text-xs font-mono">
+                                        {r.role}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">—</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* Functions */}
-              {permMatrix.functions.length > 0 && (
-                <div>
-                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Function Permissions
-                  </h3>
-                  <div className="overflow-x-auto rounded-md border border-border">
-                    <table className="w-full text-sm">
-                      <thead className="border-b border-border bg-muted/50">
-                        <tr>
-                          {['Function', 'Roles'].map((h) => (
-                            <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {permMatrix.functions.map((f) => (
-                          <tr key={f.key} className="border-b border-border last:border-0">
-                            <td className="px-4 py-3 font-mono text-xs font-medium">{f.key}</td>
-                            <td className="px-4 py-3">
-                              <div className="flex flex-wrap gap-1">
-                                {f.roles.map((r) => (
-                                  <Badge key={r.role} variant={r.grant === 'allow' ? 'success' : 'destructive'} className="text-xs font-mono">
-                                    {r.role}
-                                  </Badge>
-                                ))}
-                              </div>
-                            </td>
+              {permMatrix.functions.length > 0 && (() => {
+                const rows = permView === 'filtered'
+                  ? permMatrix.functions.filter((f) => f.roles.length > 0)
+                  : permMatrix.functions;
+                if (rows.length === 0 && permView === 'filtered') return null;
+                return (
+                  <div>
+                    <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Function Permissions
+                    </h3>
+                    <div className="overflow-x-auto rounded-md border border-border">
+                      <table className="w-full text-sm">
+                        <thead className="border-b border-border bg-muted/50">
+                          <tr>
+                            {['Function', 'Roles'].map((h) => (
+                              <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">{h}</th>
+                            ))}
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {rows.map((f) => (
+                            <tr key={f.key} className="border-b border-border last:border-0">
+                              <td className="px-4 py-3 font-mono text-xs font-medium">{f.key}</td>
+                              <td className="px-4 py-3">
+                                {f.roles.length > 0 ? (
+                                  <div className="flex flex-wrap gap-1">
+                                    {f.roles.map((r) => (
+                                      <Badge key={r.role} variant={r.grant === 'allow' ? 'success' : 'destructive'} className="text-xs font-mono">
+                                        {r.role}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">—</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* State query roles */}
-              {permMatrix.states.length > 0 && (
-                <div>
-                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    State Query Roles
-                  </h3>
-                  <div className="overflow-x-auto rounded-md border border-border">
-                    <table className="w-full text-sm">
-                      <thead className="border-b border-border bg-muted/50">
-                        <tr>
-                          {['State', 'Roles'].map((h) => (
-                            <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {permMatrix.states.map((s) => (
-                          <tr key={s.key} className="border-b border-border last:border-0">
-                            <td className="px-4 py-3 font-mono text-xs font-medium">{s.key}</td>
-                            <td className="px-4 py-3">
-                              <div className="flex flex-wrap gap-1">
-                                {s.queryRoles.map((r) => (
-                                  <Badge key={r.role} variant={r.grant === 'allow' ? 'success' : 'destructive'} className="text-xs font-mono">
-                                    {r.role}
-                                  </Badge>
-                                ))}
-                              </div>
-                            </td>
+              {(() => {
+                const rows = permView === 'filtered'
+                  ? permMatrix.states.filter((s) => s.queryRoles.length > 0)
+                  : permMatrix.states;
+                if (rows.length === 0 && permView === 'filtered') return null;
+                if (permMatrix.states.length === 0) return null;
+                return (
+                  <div>
+                    <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      State Query Roles
+                    </h3>
+                    <div className="overflow-x-auto rounded-md border border-border">
+                      <table className="w-full text-sm">
+                        <thead className="border-b border-border bg-muted/50">
+                          <tr>
+                            {['State', 'Roles'].map((h) => (
+                              <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">{h}</th>
+                            ))}
                           </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                        </thead>
+                        <tbody>
+                          {rows.map((s) => (
+                            <tr key={s.key} className="border-b border-border last:border-0">
+                              <td className="px-4 py-3 font-mono text-xs font-medium">{s.key}</td>
+                              <td className="px-4 py-3">
+                                {s.queryRoles.length > 0 ? (
+                                  <div className="flex flex-wrap gap-1">
+                                    {s.queryRoles.map((r) => (
+                                      <Badge key={r.role} variant={r.grant === 'allow' ? 'success' : 'destructive'} className="text-xs font-mono">
+                                        {r.role}
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">—</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
-              {permMatrix.transitions.length === 0 && permMatrix.functions.length === 0 && permMatrix.queryRoles.length === 0 && (
+              {permView === 'filtered' &&
+                permMatrix.transitions.filter((t) => t.roles.length > 0).length === 0 &&
+                permMatrix.functions.filter((f) => f.roles.length > 0).length === 0 &&
+                permMatrix.states.filter((s) => s.queryRoles.length > 0).length === 0 &&
+                permMatrix.queryRoles.length === 0 && (
                 <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
                   No permissions defined for this workflow
                 </div>

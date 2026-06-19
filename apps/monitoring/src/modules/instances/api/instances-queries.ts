@@ -29,6 +29,8 @@ export interface InstanceListParams {
   pageSize?: number;
   from?: string;
   to?: string;
+  /** Serialized JSON filter string from filterGroupToJson(); sent as ?filter= query param. */
+  filter?: string | null;
 }
 
 export interface InstanceListResult {
@@ -56,6 +58,7 @@ export function useInstanceList(params: InstanceListParams) {
   if (params.pageSize) query.pageSize = String(params.pageSize);
   if (params.from) query.from = params.from;
   if (params.to) query.to = params.to;
+  if (params.filter) query.filter = params.filter;
 
   return useQuery({
     queryKey: ['instances', params],

@@ -191,6 +191,9 @@ importers:
       '@vnext-forge-studio/vnext-types':
         specifier: workspace:*
         version: link:../../packages/vnext-types
+      '@xyflow/react':
+        specifier: ^12.4.0
+        version: 12.10.2(@types/react@19.2.14)(immer@11.1.8)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       lucide-react:
         specifier: ^0.468.0
         version: 0.468.0(react@19.2.4)
@@ -8499,6 +8502,17 @@ snapshots:
       - '@types/react'
       - immer
 
+  '@xyflow/react@12.10.2(@types/react@19.2.14)(immer@11.1.8)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
+    dependencies:
+      '@xyflow/system': 0.0.76
+      classcat: 5.0.5
+      react: 19.2.4
+      react-dom: 19.2.4(react@19.2.4)
+      zustand: 4.5.7(@types/react@19.2.14)(immer@11.1.8)(react@19.2.4)
+    transitivePeerDependencies:
+      - '@types/react'
+      - immer
+
   '@xyflow/system@0.0.76':
     dependencies:
       '@types/d3-drag': 3.0.7
@@ -12574,6 +12588,14 @@ snapshots:
     optionalDependencies:
       '@types/react': 19.2.14
       immer: 10.2.0
+      react: 19.2.4
+
+  zustand@4.5.7(@types/react@19.2.14)(immer@11.1.8)(react@19.2.4):
+    dependencies:
+      use-sync-external-store: 1.6.0(react@19.2.4)
+    optionalDependencies:
+      '@types/react': 19.2.14
+      immer: 11.1.8
       react: 19.2.4
 
   zustand@5.0.12(@types/react@19.2.14)(immer@10.2.0)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4)):

@@ -272,15 +272,16 @@ export function useWorkflowDependencies(workflowKey: string) {
   });
 }
 
-/** API §2.2 (typed) — Full workflow definition JSON (states, transitions, …) */
-export function useWorkflowDefinitionDetail(workflowKey: string) {
+/** API §2.2 (typed) — Full workflow definition JSON (states, transitions, …).
+ *  When `version` is provided the API returns exactly one item for that version;
+ *  omitting it returns all versions and `items[0]` is used as a fallback. */
+export function useWorkflowDefinitionDetail(workflowKey: string, version?: string | null) {
   return useQuery({
-    queryKey: ['definitions', 'workflow', workflowKey, 'definition-detail'],
+    queryKey: ['definitions', 'workflow', workflowKey, 'definition-detail', version ?? null],
     queryFn: async () => {
-      const res = await domainGet<ApiComponentDefinitionResponse>('/components/definition', {
-        type: 'sys-flows',
-        key: workflowKey,
-      });
+      const params: Record<string, string> = { type: 'sys-flows', key: workflowKey };
+      if (version) params['version'] = version;
+      const res = await domainGet<ApiComponentDefinitionResponse>('/components/definition', params);
       return (res.items[0] ?? null) as WorkflowDefinitionItem | null;
     },
     enabled: Boolean(workflowKey),

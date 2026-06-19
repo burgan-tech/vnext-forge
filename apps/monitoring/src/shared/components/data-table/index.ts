@@ -4,6 +4,7 @@ export {
   evaluateFilterNode,
   countConditions,
 } from './filter-eval'
+export { filterGroupToJson } from './filter-serializer'
 export type {
   FilterableColumn,
   FilterOperator,

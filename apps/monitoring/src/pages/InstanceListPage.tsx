@@ -13,6 +13,7 @@ import {
 import {
   DataTable,
   createEmptyFilterRoot,
+  filterGroupToJson,
   type FilterGroup,
 } from '@monitoring/shared/components/data-table'
 import type { InstanceStatus } from '@monitoring/shared/types'
@@ -85,6 +86,11 @@ export function InstanceListPage() {
   const [pageSize, setPageSize] = useState(25)
   const [filterRoot, setFilterRoot] = useState<FilterGroup>(createEmptyFilterRoot())
 
+  const filterJson = useMemo(
+    () => filterGroupToJson(filterRoot, INSTANCE_FILTERABLE_COLUMNS),
+    [filterRoot],
+  )
+
   const { data, isLoading, isError } = useInstanceList({
     workflowId: wfId ?? '',
     status: statusFilter,
@@ -93,6 +99,7 @@ export function InstanceListPage() {
     search: search || undefined,
     page,
     pageSize,
+    filter: filterJson || undefined,
   })
 
   const items = data?.items ?? []

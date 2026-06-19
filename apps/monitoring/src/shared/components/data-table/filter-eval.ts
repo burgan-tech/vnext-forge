@@ -17,16 +17,19 @@ export function createEmptyFilterRoot(): FilterGroup {
   return { kind: 'group', id: 'root', combinator: 'and', children: [] }
 }
 
-export function defaultOperatorFor(type: FilterableColumn['type']): FilterOperator {
-  if (type === 'select') return 'eq'
-  if (type === 'date') return 'gt'
+export function defaultOperatorFor(col: FilterableColumn): FilterOperator {
+  if (col.graphqlOperators && col.graphqlOperators.length > 0) return col.graphqlOperators[0]
+  if (col.type === 'select' || col.type === 'boolean') return 'eq'
+  if (col.type === 'date') return 'gt'
   return 'contains'
 }
 
-export function operatorsFor(type: FilterableColumn['type']): FilterOperator[] {
-  if (type === 'select') return ['eq']
-  if (type === 'date') return ['gt', 'lt']
-  return ['contains', 'eq']
+export function operatorsFor(col: FilterableColumn): FilterOperator[] {
+  if (col.graphqlOperators && col.graphqlOperators.length > 0) return col.graphqlOperators
+  if (col.type === 'boolean') return ['eq', 'ne']
+  if (col.type === 'select') return ['eq', 'ne', 'in', 'nin']
+  if (col.type === 'date') return ['gt', 'ge', 'lt', 'le']
+  return ['contains', 'eq', 'ne', 'startswith', 'endswith', 'in']
 }
 
 export function createCondition(column: FilterableColumn): FilterCondition {
@@ -34,7 +37,7 @@ export function createCondition(column: FilterableColumn): FilterCondition {
     kind: 'condition',
     id: uid(),
     columnId: column.id,
-    operator: defaultOperatorFor(column.type),
+    operator: defaultOperatorFor(column),
     value: '',
   }
 }
@@ -63,16 +66,18 @@ function matchCondition(cond: FilterCondition, getValue: (columnId: string) => u
   const val = String(getValue(cond.columnId) ?? '').toLowerCase()
   const fval = cond.value.trim().toLowerCase()
   switch (cond.operator) {
-    case 'eq':
-      return val === fval
-    case 'contains':
-      return val.includes(fval)
-    case 'gt':
-      return val > fval
-    case 'lt':
-      return val < fval
-    default:
-      return true
+    case 'eq':       return val === fval
+    case 'ne':       return val !== fval
+    case 'contains': return val.includes(fval)
+    case 'startswith': return val.startsWith(fval)
+    case 'endswith': return val.endsWith(fval)
+    case 'in':       return fval.split(',').map((v) => v.trim()).some((v) => val === v)
+    case 'nin':      return fval.split(',').map((v) => v.trim()).every((v) => val !== v)
+    case 'gt':       return val > fval
+    case 'ge':       return val >= fval
+    case 'lt':       return val < fval
+    case 'le':       return val <= fval
+    default:         return true
   }
 }
 

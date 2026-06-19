@@ -12,9 +12,16 @@ import type {
 
 const OPERATOR_LABELS: Record<FilterOperator, string> = {
   eq: 'is',
+  ne: 'is not',
   contains: 'contains',
+  startswith: 'starts with',
+  endswith: 'ends with',
+  in: 'is any of',
+  nin: 'is none of',
   gt: 'after',
+  ge: 'on or after',
   lt: 'before',
+  le: 'on or before',
 }
 
 const inputCls =
@@ -33,7 +40,7 @@ interface ConditionRowProps {
 
 function ConditionRow({ condition, filterableColumns, onChange, onRemove }: ConditionRowProps) {
   const column = filterableColumns.find((c) => c.id === condition.columnId)
-  const operators = column ? operatorsFor(column.type) : ['eq' as FilterOperator]
+  const operators = column ? operatorsFor(column) : ['eq' as FilterOperator]
 
   function handleColumnChange(columnId: string) {
     const col = filterableColumns.find((c) => c.id === columnId)
@@ -73,7 +80,25 @@ function ConditionRow({ condition, filterableColumns, onChange, onRemove }: Cond
         </span>
       )}
 
-      {column?.type === 'select' ? (
+      {(condition.operator === 'in' || condition.operator === 'nin') ? (
+        <input
+          type="text"
+          value={condition.value}
+          onChange={(e) => onChange({ ...condition, value: e.target.value })}
+          placeholder="val1, val2, …"
+          className={cn(inputCls, 'w-44 placeholder:text-muted-foreground')}
+        />
+      ) : column?.type === 'boolean' ? (
+        <select
+          value={condition.value}
+          onChange={(e) => onChange({ ...condition, value: e.target.value })}
+          className={inputCls}
+        >
+          <option value="">Select…</option>
+          <option value="true">True</option>
+          <option value="false">False</option>
+        </select>
+      ) : column?.type === 'select' ? (
         <select
           value={condition.value}
           onChange={(e) => onChange({ ...condition, value: e.target.value })}

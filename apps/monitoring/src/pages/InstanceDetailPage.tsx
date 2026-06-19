@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { InstanceWorkflowCanvas } from '@monitoring/modules/instances/components/InstanceWorkflowCanvas';
 import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
 import { Badge, Button } from '@vnext-forge-studio/designer-ui/ui';
 import { ChevronRight, Copy, ExternalLink, RefreshCw } from 'lucide-react';
@@ -1077,7 +1078,7 @@ export function InstanceDetailPage() {
           <OverviewTab detail={detail} workflow={workflow} instanceId={instanceId} />
         )}
         {tab === 'state-graph' && (
-          <StateGraph workflow={workflow} instanceId={instanceId} currentState={m.currentState} />
+          <InstanceWorkflowCanvas workflow={workflow} instanceId={instanceId} currentState={m.currentState} />
         )}
         {tab === 'transitions' && (
           <div className="overflow-x-auto rounded-md border-0">
