@@ -192,6 +192,22 @@ describe('buildWorkflowOpenApi', () => {
     expect(doc.paths['/api/v1/banking/functions/unresolved-fn']).toHaveProperty('post');
   });
 
+  it('emits unique operationIds across every operation (domain vs instance function scopes)', () => {
+    const doc = build();
+    const ids: string[] = [];
+    for (const ops of Object.values(doc.paths)) {
+      for (const op of Object.values(ops)) {
+        const id = (op as { operationId?: string })?.operationId;
+        if (id) ids.push(id);
+      }
+    }
+    expect(ids.length).toBeGreaterThan(0);
+    expect(new Set(ids).size).toBe(ids.length);
+    // the two scopes of the same function get distinct ids
+    expect(ids).toContain('get_domain_function_balance-inquiry');
+    expect(ids).toContain('get_instance_function_balance-inquiry');
+  });
+
   it('folds same-domain sub-flow transitions into the parent base path, tagged Sub-flow', () => {
     const doc = build();
     const base = '/api/v1/banking/workflows/account-opening';

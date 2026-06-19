@@ -487,11 +487,13 @@ export function buildWorkflowOpenApi(workflowJson: unknown, resolvers: OpenApiRe
 
     const verb = method.toLowerCase();
     const hasBody = method === 'POST' || method === 'PUT' || method === 'PATCH';
-    const fnOp = (parameters: unknown[]): Record<string, unknown> => {
+    // `scope` keeps operationIds unique between the domain-scoped and
+    // instance-scoped paths for the same function (OpenAPI requires unique ids).
+    const fnOp = (scope: 'domain' | 'instance', parameters: unknown[]): Record<string, unknown> => {
       const op: Record<string, unknown> = {
         tags: ['Function'],
-        operationId: `${verb}_function_${fnKey}`,
-        summary: `${method} function "${fnKey}"`,
+        operationId: `${verb}_${scope}_function_${fnKey}`,
+        summary: `${method} function "${fnKey}" (${scope}-scoped)`,
         description: resolvedFromConfig
           ? `HTTP method derived from the function's task configuration.`
           : `Function method could not be resolved from config; defaulted to ${method}.`,
@@ -510,8 +512,8 @@ export function buildWorkflowOpenApi(workflowJson: unknown, resolvers: OpenApiRe
       return { [verb]: op };
     };
 
-    paths[`/api/v1/${domain}/functions/${fnKey}`] = fnOp([refParam('Version')]);
-    paths[`${base}/instances/{instance}/functions/${fnKey}`] = fnOp([
+    paths[`/api/v1/${domain}/functions/${fnKey}`] = fnOp('domain', [refParam('Version')]);
+    paths[`${base}/instances/{instance}/functions/${fnKey}`] = fnOp('instance', [
       instancePathParam, refParam('Version'), refParam('Extensions'), refParam('IfNoneMatch'),
     ]);
   }
