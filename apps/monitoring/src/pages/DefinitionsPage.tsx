@@ -5,83 +5,109 @@ import { useDebounce } from '@monitoring/shared/lib/useDebounce';
 import { ComponentBadgeIcon } from '@monitoring/shared/components/ComponentBadgeIcon';
 import {
   DataTable,
-  createEmptyFilterRoot,
-  evaluateFilterNode,
-  countConditions,
   type FilterableColumn,
-  type FilterGroup,
+  type QueryParamFilters,
 } from '@monitoring/shared/components/data-table';
 import { useDefinitionList, type DefinitionType } from '@monitoring/modules/definitions/api/definitions-queries';
 import { getDefinitionColumns } from '@monitoring/modules/definitions/components/definition-columns';
 import type { DefinitionListItem } from '@monitoring/shared/types/definitions-api';
 
 // ---------------------------------------------------------------------------
-// Per-type filterable columns (applied client-side on current page)
+// Per-type filterable columns — sent as query params to the API
+//
+// Common fields (all types): version, flowVersion, tags, createdAt/modifiedAt ranges
+// Type-specific fields per backend ComponentFilterDescriptor allowlist
 // ---------------------------------------------------------------------------
+
+const COMMON_COLUMNS: FilterableColumn[] = [
+  { id: 'version',     label: 'Version',      type: 'text', operators: ['eq', 'contains'] },
+  { id: 'flowVersion', label: 'Flow Version',  type: 'text', operators: ['eq', 'contains'] },
+  { id: 'tags',        label: 'Tag',           type: 'text', operators: ['contains'] },
+  { id: 'createdAt',   label: 'Created At',    type: 'date' },
+  { id: 'modifiedAt',  label: 'Modified At',   type: 'date' },
+]
+
+// Scope options: API blob stores raw D/F/I values.
+// NOTE: see docs/ask-correctness/2026-06-19-scope-enum-values.md
+const SCOPE_OPTIONS = [
+  { label: 'Domain',   value: 'D' },
+  { label: 'Flow',     value: 'F' },
+  { label: 'Instance', value: 'I' },
+]
 
 const FILTERABLE_COLUMNS: Record<DefinitionType, FilterableColumn[]> = {
   workflow: [
-    { id: 'domain', label: 'Domain', type: 'text' },
-    { id: 'version', label: 'Version', type: 'text' },
+    ...COMMON_COLUMNS,
     {
-      id: 'type', label: 'Type', type: 'select', options: [
-        { label: 'Flow', value: 'F' },
-        { label: 'Core', value: 'C' },
-        { label: 'SubFlow', value: 'S' },
+      id: 'definitionType', label: 'Type', type: 'select', options: [
+        { label: 'Flow',       value: 'F' },
+        { label: 'Core',       value: 'C' },
+        { label: 'SubFlow',    value: 'S' },
         { label: 'SubProcess', value: 'P' },
       ],
     },
   ],
   task: [
-    { id: 'domain', label: 'Domain', type: 'text' },
-    { id: 'version', label: 'Version', type: 'text' },
+    ...COMMON_COLUMNS,
+    // NOTE: definitionType is matched against the blob "type" field via MatchBlobString.
+    // If the backend stores task types as numbers (not strings), this filter may not work.
+    // See docs/ask-correctness/2026-06-19-definitiontype-numeric-blob.md
+    {
+      id: 'definitionType', label: 'Task Type', type: 'select', options: [
+        { label: 'DaprHttpEndpoint',     value: '1' },
+        { label: 'DaprBinding',          value: '2' },
+        { label: 'DaprService',          value: '3' },
+        { label: 'DaprPubSub',           value: '4' },
+        { label: 'HumanTask',            value: '5' },
+        { label: 'HttpTask',             value: '6' },
+        { label: 'ScriptTask',           value: '7' },
+        { label: 'ConditionTask',        value: '8' },
+        { label: 'TimerTask',            value: '9' },
+        { label: 'NotificationTask',     value: '10' },
+        { label: 'StartFlowTask',        value: '11' },
+        { label: 'TriggerTransitionTask',value: '12' },
+        { label: 'GetInstanceDataTask',  value: '13' },
+        { label: 'SubProcessTask',       value: '14' },
+        { label: 'GetInstancesTask',     value: '15' },
+        { label: 'SoapTask',             value: '16' },
+      ],
+    },
   ],
   function: [
-    { id: 'domain', label: 'Domain', type: 'text' },
-    { id: 'version', label: 'Version', type: 'text' },
-    {
-      id: 'scope', label: 'Scope', type: 'select', options: [
-        { label: 'Domain', value: 'Domain' },
-        { label: 'Flow', value: 'Flow' },
-        { label: 'Instance', value: 'Instance' },
-      ],
-    },
-  ],
-  extension: [
-    { id: 'domain', label: 'Domain', type: 'text' },
-    { id: 'version', label: 'Version', type: 'text' },
-    {
-      id: 'scope', label: 'Scope', type: 'select', options: [
-        { label: 'Domain', value: 'Domain' },
-        { label: 'Flow', value: 'Flow' },
-        { label: 'Instance', value: 'Instance' },
-      ],
-    },
-  ],
-  schema: [
-    { id: 'domain', label: 'Domain', type: 'text' },
-    { id: 'version', label: 'Version', type: 'text' },
+    ...COMMON_COLUMNS,
+    { id: 'scope', label: 'Scope', type: 'select', options: SCOPE_OPTIONS },
   ],
   view: [
-    { id: 'domain', label: 'Domain', type: 'text' },
-    { id: 'version', label: 'Version', type: 'text' },
+    ...COMMON_COLUMNS,
+    // NOTE: same MatchBlobString numeric concern as tasks
+    // See docs/ask-correctness/2026-06-19-definitiontype-numeric-blob.md
+    {
+      id: 'definitionType', label: 'View Type', type: 'select', options: [
+        { label: 'JSON',     value: '1' },
+        { label: 'HTML',     value: '2' },
+        { label: 'Markdown', value: '3' },
+        { label: 'Deeplink', value: '4' },
+        { label: 'Http',     value: '5' },
+        { label: 'URN',      value: '6' },
+      ],
+    },
+    { id: 'display',   label: 'Display',   type: 'text' },
+    { id: 'renderer',  label: 'Renderer',  type: 'text' },
+  ],
+  extension: [
+    ...COMMON_COLUMNS,
+    { id: 'definitionType', label: 'Type',  type: 'text' },
+    { id: 'scope',          label: 'Scope', type: 'select', options: SCOPE_OPTIONS },
+  ],
+  schema: [
+    ...COMMON_COLUMNS,
+    { id: 'definitionType', label: 'Type', type: 'text' },
   ],
   mapping: [
-    { id: 'domain', label: 'Domain', type: 'text' },
-    { id: 'version', label: 'Version', type: 'text' },
+    ...COMMON_COLUMNS,
+    { id: 'name', label: 'Name', type: 'text', operators: ['eq', 'contains'] },
   ],
 };
-
-// ---------------------------------------------------------------------------
-// Client-side filter application
-// ---------------------------------------------------------------------------
-
-function applyFilters(items: DefinitionListItem[], root: FilterGroup): DefinitionListItem[] {
-  if (countConditions(root) === 0) return items;
-  return items.filter((item) =>
-    evaluateFilterNode(root, (columnId) => (item as unknown as Record<string, unknown>)[columnId]),
-  );
-}
 
 // ---------------------------------------------------------------------------
 // DefinitionsPage
@@ -94,44 +120,47 @@ export function DefinitionsPage() {
   const [searchDraft, setSearchDraft] = useState('');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
-  const [filterRoot, setFilterRoot] = useState<FilterGroup>(createEmptyFilterRoot());
+  const [queryParamFilters, setQueryParamFilters] = useState<QueryParamFilters>({});
 
   const defType = (type ?? 'workflow') as DefinitionType;
 
-  // Debounce client-side search — 350ms so we don't filter on every keystroke
-  const search = useDebounce(searchDraft, 350);
+  // Debounce search input — 350ms before sending to the backend as `key` query param
+  const search = useDebounce(searchDraft, 750);
 
   // Reset state when component type changes
   useEffect(() => {
     setPage(1);
     setSearchDraft('');
-    setFilterRoot(createEmptyFilterRoot());
+    setQueryParamFilters({});
   }, [defType]);
 
-  const { data, isLoading, isError } = useDefinitionList(defType, page, pageSize);
+  // Reset to page 1 when the debounced search term changes
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
 
-  // Client-side search + filter on current page data
-  const filtered = useMemo(() => {
-    let result = data?.items ?? [];
-    if (search) {
-      const q = search.toLowerCase();
-      result = result.filter(
-        (item) => item.name.toLowerCase().includes(q) || item.id.toLowerCase().includes(q),
-      );
-    }
-    return applyFilters(result, filterRoot);
-  }, [data?.items, search, filterRoot]);
+  // Merge panel filters with key[contains] search — bracket notation for filter mode
+  const apiFilters = useMemo(() => {
+    if (!search) return queryParamFilters;
+    return { ...queryParamFilters, 'key[contains]': search };
+  }, [queryParamFilters, search]);
+
+  const { data, isLoading, isError } = useDefinitionList(defType, page, pageSize, apiFilters);
 
   const columns = useMemo(() => getDefinitionColumns(defType), [defType]);
   const filterableColumns = FILTERABLE_COLUMNS[defType] ?? [];
 
   const displayName = defType.charAt(0).toUpperCase() + defType.slice(1) + 's';
-
-  // hasNext: use totalPages estimate from query (no totalCount passed to pagination → Prev/Next only)
   const hasNext = page < (data?.totalPages ?? 1);
+  const hasActiveFilters = !!search || Object.values(queryParamFilters).some(Boolean);
 
   function handleRowClick(row: DefinitionListItem) {
     navigate(`/definitions/${defType}/${row.id}`);
+  }
+
+  function handleFiltersChange(filters: QueryParamFilters) {
+    setQueryParamFilters(filters);
+    setPage(1);
   }
 
   const toolbarContent = (
@@ -163,12 +192,12 @@ export function DefinitionsPage() {
       <DataTable
         tableId={`definitions-${defType}`}
         columns={columns}
-        data={filtered}
+        data={data?.items ?? []}
         isLoading={isLoading}
         isError={isError}
         errorMessage={`Failed to load ${defType}s.`}
         emptyMessage={
-          search || countConditions(filterRoot)
+          search || hasActiveFilters
             ? `No ${defType}s match the current filters`
             : `No ${defType}s found`
         }
@@ -177,15 +206,15 @@ export function DefinitionsPage() {
           page,
           pageSize,
           hasNext,
-          // totalCount intentionally omitted → shows Prev/Next only (no numeric pages)
           onPageChange: setPage,
           onPageSizeChange: (s) => { setPageSize(s); setPage(1); },
           pageSizeOptions: [10, 20, 50],
         }}
         toolbarContent={toolbarContent}
         filterableColumns={filterableColumns}
-        filterRoot={filterRoot}
-        onFilterRootChange={(r) => { setFilterRoot(r); setPage(1); }}
+        filterMode="query-param"
+        queryParamFilters={queryParamFilters}
+        onQueryParamFiltersChange={handleFiltersChange}
       />
     </div>
   );

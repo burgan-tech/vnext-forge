@@ -75,6 +75,9 @@ function mapToDefinitionListItem(item: ApiComponentListItem, apiType: string): D
     renderer: item.renderer ?? undefined,
     labels: item.labels ?? undefined,
     taskType: apiType === 'sys-tasks' && isNumericType ? mappedTypeName : undefined,
+    flowVersion: item.flowVersion ?? undefined,
+    createdAt: item.createdAt ?? undefined,
+    modifiedAt: item.modifiedAt ?? undefined,
   };
 }
 
@@ -87,15 +90,21 @@ export interface DefinitionListPage {
 }
 
 /** API §2.1 — paginated list of components of a given type (pageSize=20 default) */
-export function useDefinitionList(type: DefinitionType, page = 1, pageSize = 20) {
+export function useDefinitionList(
+  type: DefinitionType,
+  page = 1,
+  pageSize = 20,
+  filters: Record<string, string> = {},
+) {
   const apiType = DEFINITION_TYPE_API_MAP[type];
   return useQuery({
-    queryKey: ['definitions', type, page, pageSize],
+    queryKey: ['definitions', type, page, pageSize, filters],
     queryFn: async (): Promise<DefinitionListPage> => {
       const res = await domainGet<ApiComponentListResponse>('/components', {
         type: apiType,
         page: String(page),
         pageSize: String(pageSize),
+        ...filters,
       });
 
       // API returns pagination.hasNext but no totalCount — estimate totalCount based on current page

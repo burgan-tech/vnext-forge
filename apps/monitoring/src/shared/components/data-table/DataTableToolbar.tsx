@@ -8,34 +8,47 @@ import {
   Checkbox,
 } from '@vnext-forge-studio/designer-ui/ui'
 import { FilterBuilderPanel } from './DataTableAdvancedFilter'
+import { QueryParamFilterPanel } from './DataTableQueryParamFilter'
 import { createCondition, createEmptyFilterRoot, countConditions } from './filter-eval'
-import type { FilterGroup, FilterableColumn } from './types'
+import type { FilterGroup, FilterableColumn, QueryParamFilters } from './types'
 
 interface DataTableToolbarProps<TData> {
   table: Table<TData>
   toolbarContent?: React.ReactNode
   filterableColumns?: FilterableColumn[]
+  filterMode?: 'graphql' | 'query-param'
   filterRoot?: FilterGroup
   onFilterRootChange?: (root: FilterGroup) => void
+  queryParamFilters?: QueryParamFilters
+  onQueryParamFiltersChange?: (filters: QueryParamFilters) => void
 }
 
 export function DataTableToolbar<TData>({
   table,
   toolbarContent,
   filterableColumns,
+  filterMode,
   filterRoot,
   onFilterRootChange,
+  queryParamFilters,
+  onQueryParamFiltersChange,
 }: DataTableToolbarProps<TData>) {
   const [panelOpen, setPanelOpen] = useState(false)
   const hidableColumns = table.getAllColumns().filter((col) => col.getCanHide())
   const hasFilterableColumns = (filterableColumns?.length ?? 0) > 0
-  const activeConditionCount = filterRoot ? countConditions(filterRoot) : 0
+
+  const isQueryParam = filterMode === 'query-param'
+  const activeConditionCount = isQueryParam
+    ? Object.values(queryParamFilters ?? {}).filter(Boolean).length
+    : filterRoot
+      ? countConditions(filterRoot)
+      : 0
   const hasActiveFilters = activeConditionCount > 0
 
   function handleAddFilter() {
     setPanelOpen(true)
-    // Seed one empty condition when the panel has no children yet.
-    if (!filterRoot?.children.length && filterableColumns?.[0] && onFilterRootChange) {
+    // Graphql mode: seed one empty condition when the panel has no children yet.
+    if (!isQueryParam && !filterRoot?.children.length && filterableColumns?.[0] && onFilterRootChange) {
       const root = filterRoot ?? createEmptyFilterRoot()
       onFilterRootChange({ ...root, children: [createCondition(filterableColumns[0])] })
     }
@@ -43,7 +56,11 @@ export function DataTableToolbar<TData>({
 
   function handleClear() {
     setPanelOpen(false)
-    onFilterRootChange?.(createEmptyFilterRoot())
+    if (isQueryParam) {
+      onQueryParamFiltersChange?.({})
+    } else {
+      onFilterRootChange?.(createEmptyFilterRoot())
+    }
   }
 
   const showPanel = hasFilterableColumns && panelOpen
@@ -134,14 +151,23 @@ export function DataTableToolbar<TData>({
         )}
       </div>
 
-      {/* Row 2: filter builder panel (only when open) */}
+      {/* Row 2: filter panel (only when open) */}
       {showPanel && (
-        <FilterBuilderPanel
-          root={filterRoot ?? createEmptyFilterRoot()}
-          filterableColumns={filterableColumns ?? []}
-          onChange={(next) => onFilterRootChange?.(next)}
-          onClear={handleClear}
-        />
+        isQueryParam ? (
+          <QueryParamFilterPanel
+            filters={queryParamFilters ?? {}}
+            filterableColumns={filterableColumns ?? []}
+            onChange={(next) => onQueryParamFiltersChange?.(next)}
+            onClear={handleClear}
+          />
+        ) : (
+          <FilterBuilderPanel
+            root={filterRoot ?? createEmptyFilterRoot()}
+            filterableColumns={filterableColumns ?? []}
+            onChange={(next) => onFilterRootChange?.(next)}
+            onClear={handleClear}
+          />
+        )
       )}
     </div>
   )

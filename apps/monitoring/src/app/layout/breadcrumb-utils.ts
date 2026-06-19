@@ -26,30 +26,6 @@ export function buildBreadcrumbs(
     return [domain, { label: 'Config' }];
   }
 
-  if (pathname === '/task-executions') {
-    return [domain, { label: 'Task Executions' }];
-  }
-
-  if (pathname.startsWith('/task-executions/') && params.execId) {
-    return [
-      domain,
-      { label: 'Task Executions', path: '/task-executions' },
-      { label: params.execId },
-    ];
-  }
-
-  if (pathname === '/function-executions') {
-    return [domain, { label: 'Function Executions' }];
-  }
-
-  if (pathname.startsWith('/function-executions/') && params.execId) {
-    return [
-      domain,
-      { label: 'Function Executions', path: '/function-executions' },
-      { label: params.execId },
-    ];
-  }
-
   if (pathname.match(/^\/definitions\/[^/]+$/) && params.type) {
     const label = DEFINITION_TYPE_LABELS[params.type] ?? params.type;
     return [

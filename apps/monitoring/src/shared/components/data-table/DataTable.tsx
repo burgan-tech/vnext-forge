@@ -9,7 +9,12 @@ import { cn } from '@monitoring/shared/lib/utils'
 import { useColumnVisibility } from './useColumnVisibility'
 import { DataTableToolbar } from './DataTableToolbar'
 import { DataTablePagination } from './DataTablePagination'
-import type { DataTablePaginationState, FilterableColumn, FilterGroup } from './types'
+import type {
+  DataTablePaginationState,
+  FilterableColumn,
+  FilterGroup,
+  QueryParamFilters,
+} from './types'
 
 interface DataTableProps<TData> {
   tableId: string
@@ -27,8 +32,14 @@ interface DataTableProps<TData> {
   onRowClick?: (row: TData) => void
   toolbarContent?: React.ReactNode
   filterableColumns?: FilterableColumn[]
+  /** Determines which filter UI to render. Defaults to 'graphql' (nested AND/OR tree). */
+  filterMode?: 'graphql' | 'query-param'
+  // graphql mode
   filterRoot?: FilterGroup
   onFilterRootChange?: (root: FilterGroup) => void
+  // query-param mode
+  queryParamFilters?: QueryParamFilters
+  onQueryParamFiltersChange?: (filters: QueryParamFilters) => void
 }
 
 function getNextSortDir(
@@ -56,8 +67,11 @@ export function DataTable<TData>({
   onRowClick,
   toolbarContent,
   filterableColumns,
+  filterMode,
   filterRoot,
   onFilterRootChange,
+  queryParamFilters,
+  onQueryParamFiltersChange,
 }: DataTableProps<TData>) {
   const [columnVisibility, setColumnVisibility] = useColumnVisibility(tableId)
 
@@ -80,8 +94,11 @@ export function DataTable<TData>({
         table={table}
         toolbarContent={toolbarContent}
         filterableColumns={filterableColumns}
+        filterMode={filterMode}
         filterRoot={filterRoot}
         onFilterRootChange={onFilterRootChange}
+        queryParamFilters={queryParamFilters}
+        onQueryParamFiltersChange={onQueryParamFiltersChange}
       />
 
       <div className="overflow-x-auto">

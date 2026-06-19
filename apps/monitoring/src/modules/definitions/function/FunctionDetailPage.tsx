@@ -1,17 +1,14 @@
 import { useState } from 'react';
-import { Button } from '@vnext-forge-studio/designer-ui/ui';
-import { useNavigate } from 'react-router-dom';
 import { useComponentDetail } from '@monitoring/modules/definitions/api/definitions-queries';
 import { VersionPicker } from '@monitoring/modules/definitions/components/VersionPicker';
 import { RawJsonViewer } from '@monitoring/modules/definitions/components/RawJsonViewer';
 import { cn } from '@monitoring/shared/lib/utils';
 
-type Tab = 'overview' | 'definition' | 'executions';
+type Tab = 'overview' | 'definition';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'overview', label: 'Overview' },
   { id: 'definition', label: 'Definition' },
-  { id: 'executions', label: 'Executions' },
 ];
 
 interface OverviewContentProps {
@@ -33,25 +30,9 @@ function OverviewContent({ data }: OverviewContentProps) {
   );
 }
 
-interface ExecutionsContentProps {
-  navigate: ReturnType<typeof useNavigate>;
-}
-
-function ExecutionsContent({ navigate }: ExecutionsContentProps) {
-  return (
-    <div className="flex flex-col items-center justify-center gap-4 py-12 text-sm text-muted-foreground">
-      <p>Function execution history is available at Function Executions.</p>
-      <Button variant="outline" onClick={() => navigate('/function-executions')}>
-        Go to Function Executions
-      </Button>
-    </div>
-  );
-}
-
 export function FunctionDetailPage({ id }: { id: string }) {
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const { data, isLoading } = useComponentDetail('function', id);
-  const navigate = useNavigate();
 
   if (isLoading) {
     return (
@@ -107,7 +88,6 @@ export function FunctionDetailPage({ id }: { id: string }) {
 
       {activeTab === 'overview' && <OverviewContent data={data} />}
       {activeTab === 'definition' && <RawJsonViewer data={data} />}
-      {activeTab === 'executions' && <ExecutionsContent navigate={navigate} />}
     </div>
   );
 }

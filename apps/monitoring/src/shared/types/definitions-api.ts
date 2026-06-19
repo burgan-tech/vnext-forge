@@ -16,6 +16,10 @@ export interface DefinitionListItem {
   renderer?: string;
   labels?: ApiComponentLabel[];
   usedBy?: string[];
+  // common metadata
+  flowVersion?: string;
+  createdAt?: string;   // ISO 8601 datetime
+  modifiedAt?: string;  // ISO 8601 datetime
 }
 
 // API §2.1 list response shape
@@ -34,6 +38,10 @@ export interface ApiComponentListItem {
   scope?: string;
   display?: string;
   renderer?: string;
+  // metadata
+  flowVersion?: string;
+  createdAt?: string;   // ISO 8601 datetime
+  modifiedAt?: string;  // ISO 8601 datetime
 }
 
 export interface ApiComponentListResponse {

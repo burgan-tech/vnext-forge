@@ -7,10 +7,6 @@ import { DefinitionsPage } from '@monitoring/pages/DefinitionsPage';
 import { ComponentDetailPage } from '@monitoring/pages/ComponentDetailPage';
 import { InstanceListPage } from '@monitoring/pages/InstanceListPage';
 import { InstanceDetailPage } from '@monitoring/pages/InstanceDetailPage';
-import { TaskExecutionsPage } from '@monitoring/pages/TaskExecutionsPage';
-import { TaskExecutionDetailPage } from '@monitoring/pages/TaskExecutionDetailPage';
-import { FunctionExecutionsPage } from '@monitoring/pages/FunctionExecutionsPage';
-import { FunctionExecutionDetailPage } from '@monitoring/pages/FunctionExecutionDetailPage';
 import { JobsPage } from '@monitoring/pages/JobsPage';
 import { FaultsPage } from '@monitoring/pages/FaultsPage';
 import { ConfigPage } from '@monitoring/pages/ConfigPage';
@@ -38,13 +34,6 @@ export function AppRouter() {
             />
             <Route path="definitions/:type/:id" element={<ComponentDetailPage />} />
             <Route path="instances/:instanceId" element={<InstanceDetailPage />} />
-            <Route path="task-executions" element={<TaskExecutionsPage />} />
-            <Route path="task-executions/:execId" element={<TaskExecutionDetailPage />} />
-            <Route path="function-executions" element={<FunctionExecutionsPage />} />
-            <Route
-              path="function-executions/:execId"
-              element={<FunctionExecutionDetailPage />}
-            />
             <Route path="jobs" element={<JobsPage />} />
             <Route path="faults" element={<FaultsPage />} />
             <Route path="config" element={<ConfigPage />} />

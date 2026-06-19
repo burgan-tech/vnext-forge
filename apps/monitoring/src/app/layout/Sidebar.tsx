@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import {
-  Activity,
   AlertCircle,
   ChevronDown,
   Clock,
@@ -9,7 +8,6 @@ import {
   Settings,
   Star,
   X,
-  Zap,
 } from 'lucide-react';
 
 import { cn } from '@monitoring/shared/lib/utils';
@@ -51,11 +49,9 @@ export function Sidebar() {
         <p className="px-2 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-widest text-slate-500">
           Monitor
         </p>
-        <SidebarLink to="/" icon={LayoutDashboard} label="Dashboard" exact />
-        <SidebarLink to="/task-executions" icon={Activity} label="Task Executions" />
-        <SidebarLink to="/function-executions" icon={Zap} label="Fn Executions" />
-        <SidebarLink to="/faults" icon={AlertCircle} label="Faults" />
-        <SidebarLink to="/jobs" icon={Clock} label="Jobs" />
+        <SidebarLink to="/" icon={LayoutDashboard} label="Dashboard" iconClassName="text-blue-400" exact />
+        <SidebarLink to="/faults" icon={AlertCircle} label="Faults" iconClassName="text-red-400" />
+        <SidebarLink to="/jobs" icon={Clock} label="Jobs" iconClassName="text-amber-400" />
 
         {/* Definitions */}
         <button
@@ -146,12 +142,14 @@ function SidebarLink({
   to,
   icon: Icon,
   label,
+  iconClassName,
   indent = false,
   exact = false,
 }: {
   to: string;
   icon: React.ComponentType<{ className?: string }>;
   label: string;
+  iconClassName?: string;
   indent?: boolean;
   exact?: boolean;
 }) {
@@ -169,7 +167,7 @@ function SidebarLink({
         )
       }
     >
-      <Icon className="h-4 w-4 shrink-0" />
+      <Icon className={cn('h-4 w-4 shrink-0', iconClassName)} />
       <span className="truncate">{label}</span>
     </NavLink>
   );

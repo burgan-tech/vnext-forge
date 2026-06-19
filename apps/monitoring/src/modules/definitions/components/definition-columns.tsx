@@ -73,6 +73,38 @@ const labelsCol = col.accessor('labels', {
   ),
 })
 
+const flowVersionCol = col.accessor('flowVersion', {
+  header: 'Flow Version',
+  enableSorting: false,
+  cell: (info) => (
+    <span className="font-mono text-xs text-muted-foreground">{info.getValue() ?? '—'}</span>
+  ),
+})
+
+function formatDate(iso?: string): string {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return iso
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+    + ' ' + d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
+}
+
+const createdAtCol = col.accessor('createdAt', {
+  header: 'Created At',
+  enableSorting: false,
+  cell: (info) => (
+    <span className="text-xs text-muted-foreground">{formatDate(info.getValue())}</span>
+  ),
+})
+
+const modifiedAtCol = col.accessor('modifiedAt', {
+  header: 'Modified At',
+  enableSorting: false,
+  cell: (info) => (
+    <span className="text-xs text-muted-foreground">{formatDate(info.getValue())}</span>
+  ),
+})
+
 // ---------------------------------------------------------------------------
 // Per-type column sets
 // ---------------------------------------------------------------------------
@@ -98,6 +130,9 @@ const workflowColumns = [
   versionCol,
   domainCol,
   labelsCol,
+  flowVersionCol,
+  createdAtCol,
+  modifiedAtCol,
 ]
 
 const taskColumns = [
@@ -126,6 +161,9 @@ const taskColumns = [
         </Badge>
       ) : null,
   }),
+  flowVersionCol,
+  createdAtCol,
+  modifiedAtCol,
 ]
 
 const functionColumns = [
@@ -145,6 +183,9 @@ const functionColumns = [
   }),
   versionCol,
   labelsCol,
+  flowVersionCol,
+  createdAtCol,
+  modifiedAtCol,
 ]
 
 const mappingColumns = [
@@ -157,6 +198,9 @@ const mappingColumns = [
       <span className="text-xs text-muted-foreground">{info.getValue()?.join(', ') || '—'}</span>
     ),
   }),
+  flowVersionCol,
+  createdAtCol,
+  modifiedAtCol,
 ]
 
 const extensionColumns = [
@@ -185,6 +229,9 @@ const extensionColumns = [
     },
   }),
   labelsCol,
+  flowVersionCol,
+  createdAtCol,
+  modifiedAtCol,
 ]
 
 const schemaColumns = [
@@ -201,6 +248,9 @@ const schemaColumns = [
   }),
   versionCol,
   labelsCol,
+  flowVersionCol,
+  createdAtCol,
+  modifiedAtCol,
 ]
 
 const viewColumns = [
@@ -234,6 +284,9 @@ const viewColumns = [
     ),
   }),
   labelsCol,
+  flowVersionCol,
+  createdAtCol,
+  modifiedAtCol,
 ]
 
 // ---------------------------------------------------------------------------

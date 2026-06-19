@@ -10,5 +10,6 @@ export type {
   FilterCondition,
   FilterGroup,
   FilterNode,
+  QueryParamFilters,
   DataTablePaginationState,
 } from './types'
