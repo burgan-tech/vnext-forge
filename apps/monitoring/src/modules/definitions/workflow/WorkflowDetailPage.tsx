@@ -19,6 +19,7 @@ import { useInstanceList } from '@monitoring/modules/instances/api/instances-que
 import { StatusBadge } from '@monitoring/shared/components/StatusBadge';
 import type { InstanceStatus } from '@monitoring/shared/types';
 import type { WorkflowDefState, WorkflowDefTransition } from '@monitoring/shared/types/definitions-api';
+import { ComponentBadgeIcon } from '@monitoring/shared/components/ComponentBadgeIcon';
 import { WorkflowCanvas } from './WorkflowCanvas';
 
 // ---------------------------------------------------------------------------
@@ -592,8 +593,9 @@ export function WorkflowDetailPage({ id }: WorkflowDetailPageProps) {
                                   <button
                                     type="button"
                                     onClick={() => navigate(`/definitions/${compType}s/${dep.key}`)}
-                                    className="font-mono text-xs text-blue-600 hover:underline dark:text-blue-400"
+                                    className="flex items-center gap-1.5 font-mono text-xs leading-none text-blue-600 hover:underline dark:text-blue-400"
                                   >
+                                    <ComponentBadgeIcon type={compType} className="h-[18px] w-[18px] shrink-0" />
                                     {dep.key}
                                   </button>
                                 </td>

@@ -274,3 +274,4 @@ export type {
   CanvasTraversedTransition,
   ExecutionOverlay,
 } from './modules/canvas-interaction/context/CanvasModeContext.js';
+export * from './modules/canvas-interaction/readonly/index.js';

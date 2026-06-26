@@ -6,7 +6,6 @@ import type {
   ApiComponentListResponse,
   ApiComponentListItem,
   ApiComponentDetailResponse,
-  ApiComponentDefinitionResponse,
   WorkflowInstanceStats,
   WorkflowStateDistribution,
   WorkflowDurationStats,
@@ -144,16 +143,25 @@ export function useWorkflowSummary(key: string) {
   });
 }
 
+// The /components/definition endpoint returns the definition object directly.
+// Older code assumed { items: [...] } wrapping — guard for both shapes.
+function unwrapDefinitionResponse(res: unknown): Record<string, unknown> | null {
+  if (!res || typeof res !== 'object') return null;
+  const r = res as Record<string, unknown>;
+  if (Array.isArray(r.items)) return (r.items[0] ?? null) as Record<string, unknown> | null;
+  return r;
+}
+
 /** API §2.2 — full JSON definition (states, transitions, …) */
 export function useWorkflowDefinition(key: string) {
   return useQuery({
     queryKey: ['definitions', 'workflow-definition', key],
     queryFn: async () => {
-      const res = await domainGet<ApiComponentDefinitionResponse>('/components/definition', {
+      const res = await domainGet<unknown>('/components/definition', {
         type: 'sys-flows',
         key,
       });
-      return res.items[0] ?? null;
+      return unwrapDefinitionResponse(res);
     },
     enabled: Boolean(key),
   });
@@ -273,16 +281,15 @@ export function useWorkflowDependencies(workflowKey: string) {
 }
 
 /** API §2.2 (typed) — Full workflow definition JSON (states, transitions, …).
- *  When `version` is provided the API returns exactly one item for that version;
- *  omitting it returns all versions and `items[0]` is used as a fallback. */
+ *  When `version` is provided the API returns the definition for that exact version. */
 export function useWorkflowDefinitionDetail(workflowKey: string, version?: string | null) {
   return useQuery({
     queryKey: ['definitions', 'workflow', workflowKey, 'definition-detail', version ?? null],
     queryFn: async () => {
       const params: Record<string, string> = { type: 'sys-flows', key: workflowKey };
       if (version) params['version'] = version;
-      const res = await domainGet<ApiComponentDefinitionResponse>('/components/definition', params);
-      return (res.items[0] ?? null) as WorkflowDefinitionItem | null;
+      const res = await domainGet<unknown>('/components/definition', params);
+      return unwrapDefinitionResponse(res) as WorkflowDefinitionItem | null;
     },
     enabled: Boolean(workflowKey),
   });
@@ -294,11 +301,11 @@ export function useComponentDetail(type: DefinitionType, id: string) {
   return useQuery({
     queryKey: ['definitions', type, id],
     queryFn: async () => {
-      const res = await domainGet<ApiComponentDefinitionResponse>('/components/definition', {
+      const res = await domainGet<unknown>('/components/definition', {
         type: apiType,
         key: id,
       });
-      return res.items[0] ?? ({} as Record<string, unknown>);
+      return unwrapDefinitionResponse(res) ?? ({} as Record<string, unknown>);
     },
     enabled: Boolean(type) && Boolean(id),
   });
