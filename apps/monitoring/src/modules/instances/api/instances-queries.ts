@@ -13,6 +13,7 @@ import type {
   InstancePermissionsResponse,
   InstanceParentResponse,
   HierarchyNode,
+  InstanceIncidentsResponse,
 } from '@monitoring/shared/types/instance-api';
 
 export type InstanceTimeFilter = '1h' | '6h' | '24h' | '7d' | 'all';
@@ -177,6 +178,15 @@ export function useInstanceHierarchy(workflow: string, instanceId: string) {
   return useQuery({
     queryKey: ['instance', workflow, instanceId, 'hierarchy'],
     queryFn: () => instanceGet<HierarchyNode>(workflow, instanceId, '/hierarchy'),
+    enabled: Boolean(workflow) && Boolean(instanceId),
+  });
+}
+
+/** Incidents — error events recorded against this instance (max 5). */
+export function useInstanceIncidents(workflow: string, instanceId: string) {
+  return useQuery({
+    queryKey: ['instance', workflow, instanceId, 'incidents'],
+    queryFn: () => instanceGet<InstanceIncidentsResponse>(workflow, instanceId, '/incidents'),
     enabled: Boolean(workflow) && Boolean(instanceId),
   });
 }

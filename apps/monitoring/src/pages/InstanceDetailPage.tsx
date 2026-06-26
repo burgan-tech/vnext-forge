@@ -17,6 +17,7 @@ import {
   useInstancePermissions,
   useInstanceHierarchy,
   useInstanceParent,
+  useInstanceIncidents,
 } from '@monitoring/modules/instances/api/instances-queries';
 import type {
   InstanceDetailResponse,
@@ -25,10 +26,10 @@ import type {
   DataVersionEntry,
   InstanceDataDiffResponse,
   HierarchyNode,
-  ActiveCorrelation,
   PermissionTransition,
   PermissionFunction,
   RoleGrant,
+  IncidentItem,
 } from '@monitoring/shared/types/instance-api';
 import type { InstanceStatus } from '@monitoring/shared/types';
 
@@ -63,13 +64,14 @@ function copyToClipboard(text: string) {
 // Tabs
 // ---------------------------------------------------------------------------
 
-type TabId = 'overview' | 'state-graph' | 'transitions' | 'task-log' | 'data' | 'correlations' | 'permissions';
+type TabId = 'overview' | 'state-graph' | 'transitions' | 'task-log' | 'data' | 'correlations' | 'permissions' | 'incidents';
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'overview', label: 'Overview' },
   { id: 'state-graph', label: 'State Graph' },
   { id: 'transitions', label: 'Transitions' },
   { id: 'task-log', label: 'Task Log' },
+  { id: 'incidents', label: 'Incidents' },
   { id: 'data', label: 'Data' },
   { id: 'correlations', label: 'Correlations' },
   { id: 'permissions', label: 'Permissions' },
@@ -372,8 +374,27 @@ function DataDiffView({ diff }: { diff: InstanceDataDiffResponse }) {
   );
 }
 
-function DataVersionRow({ entry, index }: { entry: DataVersionEntry; index: number }) {
-  const [open, setOpen] = useState(index === 0);
+function VersionDiffRow({
+  entry,
+  prevVersion,
+  workflow,
+  instanceId,
+  defaultOpen = false,
+}: {
+  entry: DataVersionEntry;
+  prevVersion: string | undefined;
+  workflow: string;
+  instanceId: string;
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  const { data: diff, isLoading: diffLoading } = useInstanceDataDiff(
+    workflow,
+    instanceId,
+    prevVersion ?? '',
+    entry.version,
+  );
+
   return (
     <div className="border-b border-border last:border-0">
       <button
@@ -384,16 +405,43 @@ function DataVersionRow({ entry, index }: { entry: DataVersionEntry; index: numb
         <div className="flex items-center gap-3">
           <span className="font-mono text-xs font-semibold text-foreground">{entry.version}</span>
           <span className="text-xs text-muted-foreground">{formatDateTime(entry.enteredAt)}</span>
+          {!prevVersion && (
+            <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">
+              initial
+            </span>
+          )}
         </div>
         <ChevronRight
           className={cn('h-4 w-4 text-muted-foreground transition-transform', open && 'rotate-90')}
         />
       </button>
       {open && (
-        <div className="px-4 pb-4">
-          <pre className="overflow-x-auto rounded-md bg-slate-950 p-3 text-xs text-slate-100">
-            {JSON.stringify(entry.data, null, 2)}
-          </pre>
+        <div className="space-y-3 px-4 pb-4">
+          {/* Full data snapshot */}
+          <div>
+            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Data
+            </p>
+            <pre className="overflow-x-auto rounded-md bg-slate-950 p-3 text-xs text-slate-100">
+              {JSON.stringify(entry.data, null, 2)}
+            </pre>
+          </div>
+
+          {/* Changes from previous version */}
+          {prevVersion && (
+            <div>
+              <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+                Changes from {prevVersion}
+              </p>
+              {diffLoading ? (
+                <div className="flex h-16 items-center justify-center text-sm text-muted-foreground">
+                  Loading diff…
+                </div>
+              ) : diff ? (
+                <DataDiffView diff={diff} />
+              ) : null}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -402,14 +450,6 @@ function DataVersionRow({ entry, index }: { entry: DataVersionEntry; index: numb
 
 function DataTab({ workflow, instanceId }: { workflow: string; instanceId: string }) {
   const { data, isLoading } = useInstanceData(workflow, instanceId);
-  const [diffFrom, setDiffFrom] = useState('');
-  const [diffTo, setDiffTo] = useState('');
-  const { data: diff, isLoading: diffLoading } = useInstanceDataDiff(
-    workflow,
-    instanceId,
-    diffFrom,
-    diffTo,
-  );
 
   if (isLoading) {
     return (
@@ -421,6 +461,9 @@ function DataTab({ workflow, instanceId }: { workflow: string; instanceId: strin
 
   const latestData = data?.latestData;
   const versions = data?.versionHistory ?? [];
+  const sortedVersions = [...versions].sort(
+    (a, b) => new Date(b.enteredAt).getTime() - new Date(a.enteredAt).getTime(),
+  );
 
   return (
     <div className="space-y-6 p-4">
@@ -438,63 +481,26 @@ function DataTab({ workflow, instanceId }: { workflow: string; instanceId: strin
         )}
       </div>
 
-      {/* Compare versions — §1.8 */}
-      {versions.length >= 2 && (
+      {/* Version history — newest first, each entry diffs against its predecessor */}
+      {sortedVersions.length > 0 && (
         <div>
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Compare Versions
-          </p>
-          <div className="flex flex-wrap items-center gap-3">
-            <select
-              value={diffFrom}
-              onChange={(e) => setDiffFrom(e.target.value)}
-              className="rounded-md border border-border bg-background px-2 py-1.5 text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-            >
-              <option value="">From…</option>
-              {versions.map((v) => (
-                <option key={v.version} value={v.version}>
-                  {v.version}
-                </option>
-              ))}
-            </select>
-            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
-            <select
-              value={diffTo}
-              onChange={(e) => setDiffTo(e.target.value)}
-              className="rounded-md border border-border bg-background px-2 py-1.5 text-xs font-mono text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
-            >
-              <option value="">To…</option>
-              {versions.map((v) => (
-                <option key={v.version} value={v.version}>
-                  {v.version}
-                </option>
-              ))}
-            </select>
-          </div>
-          {diffFrom && diffTo && (
-            <div className="mt-3">
-              {diffLoading ? (
-                <div className="flex h-16 items-center justify-center text-sm text-muted-foreground">
-                  Loading diff…
-                </div>
-              ) : diff ? (
-                <DataDiffView diff={diff} />
-              ) : null}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Version history */}
-      {versions.length > 0 && (
-        <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Version History ({versions.length})
+            Version History ({sortedVersions.length})
           </p>
           <div className="rounded-md border border-border">
-            {versions.map((v, i) => (
-              <DataVersionRow key={v.version} entry={v} index={i} />
-            ))}
+            {sortedVersions.map((v, i) => {
+              const prevEntry = sortedVersions[i + 1];
+              return (
+                <VersionDiffRow
+                  key={v.version}
+                  entry={v}
+                  prevVersion={prevEntry?.version}
+                  workflow={workflow}
+                  instanceId={instanceId}
+                  defaultOpen={i === 0}
+                />
+              );
+            })}
           </div>
         </div>
       )}
@@ -506,164 +512,114 @@ function DataTab({ workflow, instanceId }: { workflow: string; instanceId: strin
 // Correlations Tab
 // ---------------------------------------------------------------------------
 
-function HierarchyNodeRow({
+function HierarchyNodeCard({
   node,
-  depth,
   navigate,
-  workflow,
+  isRoot,
 }: {
   node: HierarchyNode;
-  depth: number;
   navigate: (path: string) => void;
-  workflow: string;
+  isRoot: boolean;
 }) {
+  const typeLabel =
+    node.subFlowType === 'S' ? 'SubFlow' : node.subFlowType === 'P' ? 'SubProcess' : 'Root';
+
   return (
-    <>
-      <tr
-        className="cursor-pointer border-b border-border last:border-0 hover:bg-muted/30"
-        onClick={() =>
-          navigate(
-            `/instances/${node.instanceId}?workflow=${node.flow}&domain=${node.domain}`,
-          )
-        }
-      >
-        <td className="px-4 py-2.5">
-          <span style={{ paddingLeft: depth * 16 }} className="flex items-center gap-1.5">
-            {depth > 0 && <span className="text-muted-foreground">↳</span>}
-            <span className="font-mono text-xs font-medium text-primary">{node.key}</span>
-          </span>
-        </td>
-        <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">{node.flow}</td>
-        <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">{node.currentState}</td>
-        <td className="px-4 py-2.5">
-          <StatusBadge status={node.status as InstanceStatus} />
-        </td>
-        <td className="px-4 py-2.5 text-xs text-muted-foreground">
-          {node.subFlowType === 'S' ? 'SubFlow' : node.subFlowType === 'P' ? 'SubProcess' : 'Root'}
-        </td>
-        <td className="px-4 py-2.5">
-          <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-        </td>
-      </tr>
-      {node.children.map((child) => (
-        <HierarchyNodeRow
-          key={child.instanceId}
-          node={child}
-          depth={depth + 1}
-          navigate={navigate}
-          workflow={workflow}
-        />
-      ))}
-    </>
+    <button
+      type="button"
+      onClick={() =>
+        navigate(`/instances/${node.instanceId}?workflow=${node.flow}&domain=${node.domain}`)
+      }
+      className="group w-full rounded-lg border border-border bg-card px-4 py-3 text-left transition-colors hover:border-primary/50 hover:bg-muted/20"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1 space-y-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="font-mono text-xs font-semibold text-foreground">{node.key}</span>
+            <StatusBadge status={node.status as InstanceStatus} />
+            <span
+              className={cn(
+                'rounded px-1.5 py-0.5 text-[10px] font-medium',
+                isRoot
+                  ? 'bg-primary/10 text-primary'
+                  : 'bg-muted text-muted-foreground',
+              )}
+            >
+              {typeLabel}
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground">
+            <span className="font-mono">{node.flow}</span>
+            <span className="text-border">·</span>
+            <span className="font-mono">{node.currentState}</span>
+            <span className="text-border">·</span>
+            <span>v{node.flowVersion}</span>
+            {node.isCompleted && (
+              <>
+                <span className="text-border">·</span>
+                <span className="text-success text-[10px] font-medium uppercase tracking-wide">
+                  completed
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+        <ExternalLink className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100" />
+      </div>
+    </button>
   );
 }
 
-function CorrelationsTab({
-  workflow,
-  instanceId,
-  activeCorrelations,
+function HierarchyTree({
+  node,
+  navigate,
+  isRoot = false,
 }: {
-  workflow: string;
-  instanceId: string;
-  activeCorrelations: ActiveCorrelation[];
+  node: HierarchyNode;
+  navigate: (path: string) => void;
+  isRoot?: boolean;
 }) {
+  return (
+    <div>
+      <HierarchyNodeCard node={node} navigate={navigate} isRoot={isRoot} />
+      {node.children.length > 0 && (
+        <div className="ml-5 mt-2 space-y-2 border-l border-border pl-5">
+          {node.children.map((child) => (
+            <div key={child.instanceId} className="relative">
+              {/* horizontal connector line */}
+              <div className="absolute -left-5 top-5 h-px w-5 bg-border" />
+              <HierarchyTree node={child} navigate={navigate} />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CorrelationsTab({ workflow, instanceId }: { workflow: string; instanceId: string }) {
   const { data: hierarchy, isLoading } = useInstanceHierarchy(workflow, instanceId);
   const navigate = useNavigate();
 
-  const hasCorrelations = activeCorrelations.length > 0;
-  const hasHierarchy = hierarchy && (hierarchy.children.length > 0 || hierarchy.parentState !== null);
+  if (isLoading) {
+    return (
+      <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
+        Loading hierarchy…
+      </div>
+    );
+  }
+
+  if (!hierarchy) {
+    return (
+      <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
+        No hierarchy data.
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6 p-4">
-      {/* Active sub-flows */}
-      {hasCorrelations && (
-        <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Active Sub-Flows / Sub-Processes
-          </p>
-          <div className="overflow-x-auto rounded-md border border-border">
-            <table className="w-full text-sm">
-              <thead className="border-b border-border bg-muted/50">
-                <tr>
-                  <th className="px-4 py-2 text-left font-medium text-muted-foreground">Sub-Flow</th>
-                  <th className="px-4 py-2 text-left font-medium text-muted-foreground">Type</th>
-                  <th className="px-4 py-2 text-left font-medium text-muted-foreground">Parent State</th>
-                  <th className="px-4 py-2 text-left font-medium text-muted-foreground">Current State</th>
-                  <th className="px-4 py-2 text-left font-medium text-muted-foreground">Version</th>
-                </tr>
-              </thead>
-              <tbody>
-                {activeCorrelations.map((c) => (
-                  <tr
-                    key={c.id}
-                    onClick={() =>
-                      navigate(
-                        `/instances/${c.subFlowInstanceId}?workflow=${c.subFlowName}&domain=${c.subFlowDomain}`,
-                      )
-                    }
-                    className="cursor-pointer border-b border-border last:border-0 hover:bg-muted/30"
-                  >
-                    <td className="px-4 py-2.5 font-mono text-xs font-medium text-primary">
-                      {c.subFlowName}
-                    </td>
-                    <td className="px-4 py-2.5 text-xs text-muted-foreground">
-                      {c.subFlowType === 'S' ? 'SubFlow' : 'SubProcess'}
-                    </td>
-                    <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
-                      {c.parentState}
-                    </td>
-                    <td className="px-4 py-2.5 font-mono text-xs text-muted-foreground">
-                      {c.subFlowCurrentState}
-                    </td>
-                    <td className="px-4 py-2.5 text-xs text-muted-foreground">{c.subFlowVersion}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
-      {/* Hierarchy tree */}
-      {isLoading ? (
-        <div className="flex h-20 items-center justify-center text-sm text-muted-foreground">
-          Loading hierarchy…
-        </div>
-      ) : hasHierarchy && hierarchy ? (
-        <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Instance Hierarchy
-          </p>
-          <div className="overflow-x-auto rounded-md border border-border">
-            <table className="w-full text-sm">
-              <thead className="border-b border-border bg-muted/50">
-                <tr>
-                  <th className="px-4 py-2 text-left font-medium text-muted-foreground">Key</th>
-                  <th className="px-4 py-2 text-left font-medium text-muted-foreground">Flow</th>
-                  <th className="px-4 py-2 text-left font-medium text-muted-foreground">State</th>
-                  <th className="px-4 py-2 text-left font-medium text-muted-foreground">Status</th>
-                  <th className="px-4 py-2 text-left font-medium text-muted-foreground">Type</th>
-                  <th className="px-4 py-2" />
-                </tr>
-              </thead>
-              <tbody>
-                <HierarchyNodeRow
-                  node={hierarchy}
-                  depth={0}
-                  navigate={navigate}
-                  workflow={workflow}
-                />
-              </tbody>
-            </table>
-          </div>
-        </div>
-      ) : (
-        !hasCorrelations && (
-          <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
-            No correlations or sub-flows.
-          </div>
-        )
-      )}
+    <div className="p-4">
+      <HierarchyTree node={hierarchy} navigate={navigate} isRoot />
     </div>
   );
 }
@@ -677,17 +633,13 @@ function RoleGrantPills({ roles }: { roles: RoleGrant[] }) {
   return (
     <div className="flex flex-wrap gap-1">
       {roles.map((r) => (
-        <span
+        <Badge
           key={r.role}
-          className={cn(
-            'rounded px-1.5 py-0.5 text-[11px] font-medium',
-            r.grant === 'allow'
-              ? 'bg-success/10 text-success'
-              : 'bg-destructive/10 text-destructive',
-          )}
+          variant={r.grant === 'allow' ? 'success' : 'destructive'}
+          className="font-mono text-xs"
         >
           {r.role}
-        </span>
+        </Badge>
       ))}
     </div>
   );
@@ -714,22 +666,29 @@ function PermissionsTab({ workflow, instanceId }: { workflow: string; instanceId
   return (
     <div className="space-y-6 p-4">
       {/* Query roles */}
-      <div>
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Query Roles (Workflow-level)
-        </p>
-        <div className="rounded-md border border-border p-3">
+      <div className="rounded-md border border-border">
+        <div className="border-b border-border bg-muted/40 px-4 py-2">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Query Roles — Workflow-level
+          </p>
+        </div>
+        <div className="p-4">
           <RoleGrantPills roles={data.queryRoles} />
         </div>
       </div>
 
       {/* Current state roles */}
       {data.state && (
-        <div>
-          <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Current State: <span className="font-mono text-foreground">{data.state.key}</span>
-          </p>
-          <div className="rounded-md border border-border p-3">
+        <div className="rounded-md border border-border">
+          <div className="border-b border-border bg-muted/40 px-4 py-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Query Roles — Current State{' '}
+              <span className="ml-1 rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] normal-case text-foreground">
+                {data.state.key}
+              </span>
+            </p>
+          </div>
+          <div className="p-4">
             <RoleGrantPills roles={data.state.queryRoles} />
           </div>
         </div>
@@ -792,6 +751,81 @@ function PermissionsTab({ workflow, instanceId }: { workflow: string; instanceId
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Incidents Tab
+// ---------------------------------------------------------------------------
+
+function IncidentsTab({ incidents }: { incidents: IncidentItem[] }) {
+  if (!incidents.length) {
+    return (
+      <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
+        No incidents recorded.
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead className="border-b border-border bg-muted/50">
+          <tr>
+            <th className="px-4 py-2 text-left font-medium text-muted-foreground">Status</th>
+            <th className="px-4 py-2 text-left font-medium text-muted-foreground">State → Transition</th>
+            <th className="px-4 py-2 text-left font-medium text-muted-foreground">Task</th>
+            <th className="px-4 py-2 text-left font-medium text-muted-foreground">Error</th>
+            <th className="px-4 py-2 text-left font-medium text-muted-foreground">Layer</th>
+            <th className="px-4 py-2 text-left font-medium text-muted-foreground">Boundary</th>
+            <th className="px-4 py-2 text-left font-medium text-muted-foreground">Retries</th>
+            <th className="px-4 py-2 text-left font-medium text-muted-foreground">Occurred</th>
+            <th className="px-4 py-2 text-left font-medium text-muted-foreground">Resolved</th>
+          </tr>
+        </thead>
+        <tbody>
+          {incidents.map((inc) => (
+            <tr key={inc.id} className="border-b border-border last:border-0 hover:bg-muted/30">
+              <td className="px-4 py-2.5">
+                <Badge variant={inc.isResolved ? 'success' : 'destructive'}>
+                  {inc.isResolved ? 'Resolved' : 'Active'}
+                </Badge>
+              </td>
+              <td className="px-4 py-2.5">
+                <span className="font-mono text-xs text-foreground">{inc.state}</span>
+                <span className="mx-1 text-muted-foreground">→</span>
+                <span className="font-mono text-xs text-muted-foreground">{inc.transition}</span>
+              </td>
+              <td className="px-4 py-2.5 font-mono text-xs text-foreground">{inc.task}</td>
+              <td className="px-4 py-2.5 max-w-[260px]">
+                <div className="font-mono text-xs text-foreground">{inc.errorCode}</div>
+                <div
+                  className="truncate text-xs text-muted-foreground"
+                  title={inc.stackTrace ?? inc.message}
+                >
+                  {inc.message}
+                </div>
+              </td>
+              <td className="px-4 py-2.5 text-xs text-muted-foreground">{inc.errorLayer}</td>
+              <td className="px-4 py-2.5 text-xs text-muted-foreground">
+                <span>{inc.boundaryLevel}</span>
+                <span className="mx-1 text-muted-foreground/50">·</span>
+                <span>{inc.boundaryAction}</span>
+              </td>
+              <td className="px-4 py-2.5 text-center font-mono text-xs text-muted-foreground">
+                {inc.retryCount}
+              </td>
+              <td className="px-4 py-2.5 whitespace-nowrap text-xs text-muted-foreground">
+                {formatDateTime(inc.createdAt)}
+              </td>
+              <td className="px-4 py-2.5 whitespace-nowrap text-xs text-muted-foreground">
+                {inc.isResolved ? formatDateTime(inc.resolvedAt) : '—'}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -944,6 +978,7 @@ export function InstanceDetailPage() {
   const { data: timelineData } = useInstanceTimeline(workflow, instanceId ?? '');
   const { data: tasksData } = useInstanceTasks(workflow, instanceId ?? '');
   const { data: parentData } = useInstanceParent(workflow, instanceId ?? '');
+  const { data: incidentsData } = useInstanceIncidents(workflow, instanceId ?? '');
 
   if (!workflow || !instanceId) {
     return (
@@ -1067,6 +1102,11 @@ export function InstanceDetailPage() {
                   {timelineData.transitions.length}
                 </span>
               )}
+              {t.id === 'incidents' && incidentsData && incidentsData.items.length > 0 && (
+                <span className="ml-1.5 rounded-full bg-destructive/15 px-1.5 py-0.5 text-[10px] font-semibold text-destructive">
+                  {incidentsData.items.length}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -1106,14 +1146,21 @@ export function InstanceDetailPage() {
           <DataTab workflow={workflow} instanceId={instanceId} />
         )}
         {tab === 'correlations' && (
-          <CorrelationsTab
-            workflow={workflow}
-            instanceId={instanceId}
-            activeCorrelations={detail.activeCorrelations}
-          />
+          <CorrelationsTab workflow={workflow} instanceId={instanceId} />
         )}
         {tab === 'permissions' && (
           <PermissionsTab workflow={workflow} instanceId={instanceId} />
+        )}
+        {tab === 'incidents' && (
+          <div className="overflow-x-auto">
+            {incidentsData ? (
+              <IncidentsTab incidents={incidentsData.items} />
+            ) : (
+              <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
+                Loading incidents…
+              </div>
+            )}
+          </div>
         )}
       </div>
     </div>

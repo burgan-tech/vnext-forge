@@ -252,6 +252,31 @@ export interface InstanceParentResponse {
   parent: InstanceParentInfo | null;
 }
 
+// --- Incidents ---
+
+export interface IncidentItem {
+  id: string;
+  createdAt: string;
+  state: string;
+  transition: string;
+  task: string;
+  message: string;
+  errorCode: string;
+  errorLayer: string;
+  statusCode: number | null;
+  boundaryAction: string;
+  boundaryLevel: string;
+  isResolved: boolean;
+  resolvedAt: string | null;
+  retryCount: number;
+  traceId: string;
+  stackTrace: string | null;
+}
+
+export interface InstanceIncidentsResponse {
+  items: IncidentItem[];
+}
+
 // --- 1.9 Instance Hierarchy ---
 
 export interface HierarchyNode {
