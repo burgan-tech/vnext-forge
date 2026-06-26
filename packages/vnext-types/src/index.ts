@@ -14,6 +14,7 @@ export * from './types/label';
 export * from './types/view-binding';
 export * from './types/instance';
 export * from './types/task';
+export * from './constants/notification-types';
 export * from './constants/state-types';
 export * from './constants/trigger-types';
 export * from './constants/task-types';

@@ -1,3 +1,4 @@
+import { NotificationType } from '../constants/notification-types';
 import { StateType, StateSubType } from '../constants/state-types';
 import { TriggerType, TriggerKind } from '../constants/trigger-types';
 import { ErrorBoundary } from './error-boundary';
@@ -106,14 +107,14 @@ export interface StateInteraction {
 
 /**
  * A single notification rule attached to a state. The engine fires
- * the notification when the state is entered. `type` identifies the
- * notification channel type (0 = State). `mapping` is the required
- * payload mapping script; `rule` is an optional condition — if
- * omitted the notification always fires.
+ * the notification when the state is entered.
  */
 export interface StateNotification {
-  type: number;
+  /** Notification channel type. Currently only {@link NotificationType.State} (0). */
+  type: NotificationType;
+  /** Required payload mapping script executed when the notification fires. */
   mapping: MappingCode;
+  /** Optional condition — if omitted the notification always fires. */
   rule?: MappingCode;
 }
 
