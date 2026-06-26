@@ -108,10 +108,10 @@ export function StateNotificationsEditor({
               />
               {n.mapping && (
                 <MappingScriptsSection
-                  value={(n.mapping as any).scripts}
+                  value={n.mapping.scripts}
                   onChange={(scripts) =>
                     patchEntry(index, {
-                      mapping: { ...n.mapping, scripts: scripts ?? undefined },
+                      mapping: { ...n.mapping, scripts: scripts ?? undefined } as MappingCode,
                     })
                   }
                 />
@@ -139,10 +139,10 @@ export function StateNotificationsEditor({
               />
               {n.rule && (
                 <MappingScriptsSection
-                  value={(n.rule as any).scripts}
+                  value={n.rule.scripts}
                   onChange={(scripts) =>
                     patchEntry(index, {
-                      rule: { ...n.rule!, scripts: scripts ?? undefined },
+                      rule: { ...n.rule!, scripts: scripts ?? undefined } as MappingCode,
                     })
                   }
                 />
