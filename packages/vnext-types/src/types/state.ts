@@ -104,6 +104,19 @@ export interface StateInteraction {
   longPoll?: LongPollConfig;
 }
 
+/**
+ * A single notification rule attached to a state. The engine fires
+ * the notification when the state is entered. `type` identifies the
+ * notification channel type (0 = State). `mapping` is the required
+ * payload mapping script; `rule` is an optional condition — if
+ * omitted the notification always fires.
+ */
+export interface StateNotification {
+  type: number;
+  mapping: MappingCode;
+  rule?: MappingCode;
+}
+
 export interface State {
   key: string;
   alias?: StateAlias[];
@@ -120,4 +133,5 @@ export interface State {
   views?: ViewBinding[];
   subFlow?: SubFlowConfig;
   interaction?: StateInteraction | null;
+  notifications?: StateNotification[];
 }
