@@ -8,7 +8,7 @@ import { IconPlus, IconTrash, Section, SelectField } from '../PropertyPanelShare
 /* ────────────── Helpers ────────────── */
 
 function toScriptCode(mc: MappingCode | undefined): ScriptCode | null {
-  if (!mc) return null;
+  if (!mc || mc.code === undefined) return null;
   return mc as ScriptCode;
 }
 
@@ -39,29 +39,31 @@ export function StateNotificationsEditor({
   stateKey,
   onChange,
 }: StateNotificationsEditorProps) {
+  const safe = Array.isArray(notifications) ? notifications : [];
+
   function patchEntry(index: number, patch: Partial<StateNotification>): void {
-    onChange(notifications.map((n, i) => (i === index ? { ...n, ...patch } : n)));
+    onChange(safe.map((n, i) => (i === index ? { ...n, ...patch } : n)));
   }
 
   function addNotification(): void {
-    onChange([...notifications, makeEmptyNotification()]);
+    onChange([...safe, makeEmptyNotification()]);
   }
 
   function removeNotification(index: number): void {
-    onChange(notifications.filter((_, i) => i !== index));
+    onChange(safe.filter((_, i) => i !== index));
   }
 
   return (
     <Section
       title="Notifications"
-      count={notifications.length}
-      defaultOpen={notifications.length > 0}>
+      count={safe.length}
+      defaultOpen={safe.length > 0}>
       <p className="text-[10px] text-muted-foreground mb-2 leading-relaxed">
         Configure notifications fired when this state is entered.
       </p>
 
       <div className="space-y-2.5">
-        {notifications.map((n, index) => (
+        {safe.map((n, index) => (
           <div
             key={index}
             className="border border-border-subtle rounded-xl bg-surface p-2.5 space-y-2.5">
