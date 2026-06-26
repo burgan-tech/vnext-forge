@@ -1,11 +1,12 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
-import type { RoleGrant, StateAlias, StateInteraction, ViewBinding } from '@vnext-forge-studio/vnext-types';
+import type { RoleGrant, StateAlias, StateInteraction, StateNotification, ViewBinding } from '@vnext-forge-studio/vnext-types';
 import type { DiscoveredVnextComponent } from '@vnext-forge-studio/app-contracts';
 import { getLabels } from './PropertyPanelHelpers';
 import { SelectField, Section, SummaryCard } from './PropertyPanelShared';
 import { RoleGrantEditor } from './subflow/RoleGrantEditor';
 import { StateAliasEditor } from './state/StateAliasEditor';
 import { StateInteractionEditor } from './state/StateInteractionEditor';
+import { StateNotificationsEditor } from './state/StateNotificationsEditor';
 import { ViewBindingsSection } from './shared/ViewBindingsSection';
 import { ChooseExistingVnextComponentDialog } from './ChooseExistingTaskDialog';
 import { CreateNewComponentDialog } from './CreateNewComponentDialog';
@@ -99,6 +100,15 @@ export function GeneralTab({ state, updateWorkflow }: GeneralTabProps) {
       if (!s) return;
       if (!next || !next.longPoll) delete s.interaction;
       else s.interaction = next;
+    });
+  }, [updateWorkflow, stateKey]);
+
+  const updateNotifications = useCallback((next: StateNotification[]) => {
+    updateWorkflow((draft: any) => {
+      const s = draft.attributes?.states?.find((s: any) => s.key === stateKey);
+      if (!s) return;
+      if (next.length === 0) delete s.notifications;
+      else s.notifications = next;
     });
   }, [updateWorkflow, stateKey]);
 
@@ -308,6 +318,13 @@ export function GeneralTab({ state, updateWorkflow }: GeneralTabProps) {
       <StateInteractionEditor
         interaction={(state.interaction as StateInteraction | null | undefined) ?? null}
         onChange={updateInteraction}
+      />
+
+      {/* Notifications */}
+      <StateNotificationsEditor
+        notifications={state.notifications ?? []}
+        stateKey={stateKey}
+        onChange={updateNotifications}
       />
 
       {/* Views */}
