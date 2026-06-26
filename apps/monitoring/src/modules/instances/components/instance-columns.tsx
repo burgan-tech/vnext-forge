@@ -2,24 +2,27 @@ import { createColumnHelper } from '@tanstack/react-table'
 import type { NavigateFunction } from 'react-router-dom'
 import { StatusBadge } from '@monitoring/shared/components/StatusBadge'
 import { config } from '@monitoring/shared/config/config'
-import type { Instance } from '@monitoring/shared/types'
+import type { Instance, InstanceStatus } from '@monitoring/shared/types'
 import type { FilterableColumn } from '@monitoring/shared/components/data-table'
 
 const col = createColumnHelper<Instance>()
 
-function formatDateTime(iso: string): string {
+const STATUS_CODE_MAP: Record<string, InstanceStatus> = {
+  A: 'Active', B: 'Busy', C: 'Completed', F: 'Faulted', S: 'Suspended', T: 'Terminated',
+}
+
+function resolveStatus(code: string | undefined): InstanceStatus {
+  if (!code) return 'Active'
+  if (code.length > 1) return code as InstanceStatus
+  return STATUS_CODE_MAP[code] ?? 'Active'
+}
+
+function formatDateTime(iso: string | undefined): string {
+  if (!iso) return '—'
   const d = new Date(iso)
   return `${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
 }
 
-function formatDuration(createdAt: string, updatedAt: string): string {
-  const ms = new Date(updatedAt).getTime() - new Date(createdAt).getTime()
-  const secs = Math.floor(ms / 1000)
-  if (secs < 60) return `${secs}s`
-  const mins = Math.floor(secs / 60)
-  if (mins < 60) return `${mins}m`
-  return `${Math.floor(mins / 60)}h ${mins % 60}m`
-}
 
 export function createInstanceColumns(navigate: NavigateFunction, wfId?: string) {
   return [
@@ -41,43 +44,72 @@ export function createInstanceColumns(navigate: NavigateFunction, wfId?: string)
         </button>
       ),
     }),
-    col.accessor('workflowVersion', {
+    col.accessor('flowVersion', {
       header: 'Version',
       enableSorting: false,
       cell: (info) => (
-        <span className="text-muted-foreground">{info.getValue() ?? '—'}</span>
+        <span className="font-mono text-xs text-muted-foreground">{info.getValue() ?? '—'}</span>
       ),
     }),
-    col.accessor('state', {
-      header: 'State',
-      enableSorting: false,
-      cell: (info) => (
-        <span className="font-mono text-xs">{info.getValue() ?? '—'}</span>
-      ),
-    }),
-    col.accessor('status', {
+    col.display({
+      id: 'status',
       header: 'Status',
       enableSorting: false,
-      cell: (info) => <StatusBadge status={info.getValue()} />,
-    }),
-    col.accessor('createdAt', {
-      header: 'Created At',
       cell: (info) => (
-        <span className="whitespace-nowrap text-muted-foreground">
-          {formatDateTime(info.getValue())}
+        <StatusBadge status={resolveStatus(info.row.original.metadata?.status)} />
+      ),
+    }),
+    col.display({
+      id: 'currentState',
+      header: 'Current State',
+      enableSorting: false,
+      cell: (info) => (
+        <span className="font-mono text-xs">{info.row.original.metadata?.currentState ?? '—'}</span>
+      ),
+    }),
+    col.display({
+      id: 'effectiveState',
+      header: 'Effective State',
+      enableSorting: false,
+      cell: (info) => (
+        <span className="font-mono text-xs">{info.row.original.metadata?.effectiveState ?? '—'}</span>
+      ),
+    }),
+    col.display({
+      id: 'effectiveStateType',
+      header: 'State Type',
+      enableSorting: false,
+      cell: (info) => (
+        <span className="font-mono text-xs text-muted-foreground">
+          {info.row.original.metadata?.effectiveStateType ?? '—'}
         </span>
       ),
     }),
     col.display({
-      id: 'duration',
-      header: 'Duration',
+      id: 'effectiveStateSubType',
+      header: 'State Sub-Type',
       enableSorting: false,
       cell: (info) => (
-        <span className="text-muted-foreground">
-          {formatDuration(
-            info.row.original.createdAt,
-            info.row.original.updatedAt ?? info.row.original.createdAt,
-          )}
+        <span className="font-mono text-xs text-muted-foreground">
+          {info.row.original.metadata?.effectiveStateSubType ?? '—'}
+        </span>
+      ),
+    }),
+    col.display({
+      id: 'createdAt',
+      header: 'Created At',
+      cell: (info) => (
+        <span className="whitespace-nowrap font-mono text-xs text-muted-foreground">
+          {formatDateTime(info.row.original.metadata?.createdAt)}
+        </span>
+      ),
+    }),
+    col.display({
+      id: 'modifiedAt',
+      header: 'Modified At',
+      cell: (info) => (
+        <span className="whitespace-nowrap font-mono text-xs text-muted-foreground">
+          {formatDateTime(info.row.original.metadata?.modifiedAt)}
         </span>
       ),
     }),

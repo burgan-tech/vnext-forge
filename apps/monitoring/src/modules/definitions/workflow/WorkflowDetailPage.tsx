@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Badge, Button } from '@vnext-forge-studio/designer-ui/ui';
 import { config } from '@monitoring/shared/config/config';
@@ -16,8 +16,16 @@ import {
   useWorkflowDefinitionDetail,
 } from '@monitoring/modules/definitions/api/definitions-queries';
 import { useInstanceList } from '@monitoring/modules/instances/api/instances-queries';
-import { StatusBadge } from '@monitoring/shared/components/StatusBadge';
-import type { InstanceStatus } from '@monitoring/shared/types';
+import {
+  createInstanceColumns,
+  INSTANCE_FILTERABLE_COLUMNS,
+} from '@monitoring/modules/instances/components/instance-columns';
+import {
+  DataTable,
+  createEmptyFilterRoot,
+  filterGroupToJson,
+  type FilterGroup,
+} from '@monitoring/shared/components/data-table';
 import type { WorkflowDefState, WorkflowDefTransition } from '@monitoring/shared/types/definitions-api';
 import { ComponentBadgeIcon } from '@monitoring/shared/components/ComponentBadgeIcon';
 import { WorkflowCanvas } from './WorkflowCanvas';
@@ -40,15 +48,6 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'permissions', label: 'Permissions' },
 ];
 
-const STATUS_OPTIONS: Array<{ label: string; value: InstanceStatus | 'all' }> = [
-  { label: 'All', value: 'all' },
-  { label: 'Active', value: 'Active' },
-  { label: 'Busy', value: 'Busy' },
-  { label: 'Completed', value: 'Completed' },
-  { label: 'Faulted', value: 'Faulted' },
-  { label: 'Suspended', value: 'Suspended' },
-];
-
 // State type codes from vNext schema
 const STATE_TYPE_LABELS: Record<number, string> = {
   1: 'Initial', 2: 'Intermediate', 3: 'Finish', 4: 'SubFlow', 5: 'Wizard',
@@ -61,22 +60,6 @@ const TRIGGER_TYPE_LABELS: Record<number, string> = {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-const STATUS_CODE_MAP: Record<string, InstanceStatus> = {
-  A: 'Active', B: 'Busy', C: 'Completed', F: 'Faulted', S: 'Suspended', T: 'Terminated',
-};
-
-function resolveStatus(rawStatus: string | undefined, metaStatus: string | undefined): InstanceStatus {
-  if (rawStatus && rawStatus.length > 1) return rawStatus as InstanceStatus;
-  const code = metaStatus ?? rawStatus ?? '';
-  return STATUS_CODE_MAP[code] ?? 'Active';
-}
-
-function formatDateTime(iso: string | undefined): string {
-  if (!iso) return '—';
-  const d = new Date(iso);
-  return `${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-}
 
 function formatDuration(createdAt: string, updatedAt: string): string {
   const ms = new Date(updatedAt).getTime() - new Date(createdAt).getTime();
@@ -279,8 +262,9 @@ export function WorkflowDetailPage({ id }: WorkflowDetailPageProps) {
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [stateChartType, setStateChartType] = useState<ChartType>('bar');
-  const [instanceStatus, setInstanceStatus] = useState<InstanceStatus | 'all'>('all');
+  const [instanceFilterRoot, setInstanceFilterRoot] = useState<FilterGroup>(createEmptyFilterRoot());
   const [instancePage, setInstancePage] = useState(1);
+  const [instancePageSize, setInstancePageSize] = useState(10);
   const [defView, setDefView] = useState<'visual' | 'raw'>('visual');
   const [selectedVersion, setSelectedVersion] = useState<string | null>(null);
   const [permView, setPermView] = useState<'filtered' | 'full'>('filtered');
@@ -299,11 +283,21 @@ export function WorkflowDetailPage({ id }: WorkflowDetailPageProps) {
   const { data: deps } = useWorkflowDependencies(id);
   const { data: defItem } = useWorkflowDefinitionDetail(id, activeVersion);
 
-  const { data: instanceData } = useInstanceList({
+  const instanceFilterJson = useMemo(
+    () => filterGroupToJson(instanceFilterRoot, INSTANCE_FILTERABLE_COLUMNS),
+    [instanceFilterRoot],
+  );
+
+  const instanceColumns = useMemo(
+    () => createInstanceColumns(navigate, id),
+    [navigate, id],
+  );
+
+  const { data: instanceData, isLoading: instanceLoading, isError: instanceError } = useInstanceList({
     workflowId: id,
-    status: instanceStatus,
     page: instancePage,
-    pageSize: 10,
+    pageSize: instancePageSize,
+    filter: instanceFilterJson || undefined,
   });
 
   if (isLoading) {
@@ -471,68 +465,36 @@ export function WorkflowDetailPage({ id }: WorkflowDetailPageProps) {
       {/* ------------------------------------------------------------------ */}
       {activeTab === 'instances' && (
         <div className="flex flex-col gap-3">
-          <div className="flex flex-wrap gap-1">
-            {STATUS_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => { setInstanceStatus(opt.value); setInstancePage(1); }}
-                className={cn(
-                  'rounded-full px-3 py-1 text-xs font-medium transition-colors',
-                  instanceStatus === opt.value
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-muted text-muted-foreground hover:bg-muted/80',
-                )}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-
-          <div className="rounded-lg border border-border bg-card shadow-sm">
-            {!instanceData?.items.length ? (
-              <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
-                No instances found
-              </div>
-            ) : (
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border">
-                    {['ID', 'Instance Key', 'Version', 'Current State', 'Effective State', 'Status', 'Created At', 'Modified At'].map((h) => (
-                      <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {instanceData.items.map((inst) => (
-                    <tr
-                      key={inst.id}
-                      onClick={() => navigate(`/instances/${inst.id}?workflow=${id}&domain=${config.domain}`)}
-                      className="cursor-pointer border-b border-border last:border-0 hover:bg-muted/40"
-                    >
-                      <td className="px-4 py-3"><span className="font-mono text-xs text-muted-foreground" title={inst.id}>{inst.id.slice(0, 8)}...</span></td>
-                      <td className="px-4 py-3"><span className="font-mono text-xs text-foreground">{inst.key || '—'}</span></td>
-                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{inst.flowVersion || inst.workflowVersion || '—'}</td>
-                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{inst.metadata?.currentState || inst.state || '—'}</td>
-                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{inst.metadata?.effectiveState || '—'}</td>
-                      <td className="px-4 py-3"><StatusBadge status={resolveStatus(inst.status, inst.metadata?.status)} /></td>
-                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{formatDateTime(inst.metadata?.createdAt || inst.createdAt)}</td>
-                      <td className="px-4 py-3 font-mono text-xs text-muted-foreground">{formatDateTime(inst.metadata?.modifiedAt || inst.updatedAt)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          <DataTable
+            tableId="workflow-detail-instances"
+            columns={instanceColumns}
+            data={instanceData?.items ?? []}
+            isLoading={instanceLoading}
+            isError={instanceError}
+            emptyMessage="No instances found."
+            errorMessage="Failed to load instances."
+            sortBy="createdAt"
+            sortDir="desc"
+            pagination={{
+              page: instancePage,
+              pageSize: instancePageSize,
+              hasNext: instanceData?.pagination?.hasNext ?? false,
+              onPageChange: setInstancePage,
+              onPageSizeChange: (s) => { setInstancePageSize(s); setInstancePage(1); },
+              pageSizeOptions: [10, 25, 50],
+            }}
+            filterableColumns={INSTANCE_FILTERABLE_COLUMNS.filter(
+              (c) => c.id !== 'flow' && c.id !== 'isTransient',
             )}
-          </div>
-
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>Page {instancePage}</span>
-            <div className="flex gap-1">
-              <Button variant="outline" size="sm" className="h-7 px-2 text-xs" disabled={instancePage <= 1} onClick={() => setInstancePage((p) => p - 1)}>← Prev</Button>
-              <Button variant="outline" size="sm" className="h-7 px-2 text-xs" disabled={!(instanceData?.pagination?.hasNext ?? (instanceData?.items.length === 10))} onClick={() => setInstancePage((p) => p + 1)}>Next →</Button>
-            </div>
-          </div>
-
+            filterRoot={instanceFilterRoot}
+            onFilterRootChange={(r) => {
+              setInstanceFilterRoot(r);
+              setInstancePage(1);
+            }}
+            onRowClick={(inst) =>
+              navigate(`/instances/${inst.id}?workflow=${id}&domain=${config.domain}`)
+            }
+          />
           <div className="flex justify-end">
             <Button variant="ghost" size="sm" onClick={() => navigate(`/definitions/workflows/${id}/instances`)} className="text-xs">
               View all →
