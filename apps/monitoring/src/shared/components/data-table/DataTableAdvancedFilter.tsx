@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Check, Plus, FolderPlus, X } from 'lucide-react'
 import { cn } from '@monitoring/shared/lib/utils'
 import { createCondition, createGroup, countConditions, operatorsFor } from './filter-eval'
@@ -27,6 +27,16 @@ const OPERATOR_LABELS: Record<FilterOperator, string> = {
 const inputCls =
   'h-7 rounded border border-border bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring'
 
+/** Collects every column id already used by a condition anywhere in the tree. */
+function collectUsedColumnIds(node: FilterNode, acc = new Set<string>()): Set<string> {
+  if (node.kind === 'condition') {
+    acc.add(node.columnId)
+  } else {
+    node.children.forEach((child) => collectUsedColumnIds(child, acc))
+  }
+  return acc
+}
+
 // ---------------------------------------------------------------------------
 // ConditionRow — column / operator / value on one line, updates draft only
 // ---------------------------------------------------------------------------
@@ -34,13 +44,22 @@ const inputCls =
 interface ConditionRowProps {
   condition: FilterCondition
   filterableColumns: FilterableColumn[]
+  /** Column ids already used by another condition; those options are disabled here. */
+  usedColumnIds: Set<string>
   onChange: (next: FilterCondition) => void
   onRemove: () => void
 }
 
-function ConditionRow({ condition, filterableColumns, onChange, onRemove }: ConditionRowProps) {
+function ConditionRow({ condition, filterableColumns, usedColumnIds, onChange, onRemove }: ConditionRowProps) {
   const column = filterableColumns.find((c) => c.id === condition.columnId)
   const operators = column ? operatorsFor(column) : ['eq' as FilterOperator]
+
+  const isMultiValue = condition.operator === 'in' || condition.operator === 'nin'
+  // Equality against an enum → readable dropdown; any other operator → free input.
+  const showEnumDropdown =
+    !isMultiValue &&
+    (condition.operator === 'eq' || condition.operator === 'ne') &&
+    !!column?.options?.length
 
   function handleColumnChange(columnId: string) {
     const col = filterableColumns.find((c) => c.id === columnId)
@@ -56,7 +75,11 @@ function ConditionRow({ condition, filterableColumns, onChange, onRemove }: Cond
         className={inputCls}
       >
         {filterableColumns.map((col) => (
-          <option key={col.id} value={col.id}>
+          <option
+            key={col.id}
+            value={col.id}
+            disabled={col.id !== condition.columnId && usedColumnIds.has(col.id)}
+          >
             {col.label}
           </option>
         ))}
@@ -80,7 +103,7 @@ function ConditionRow({ condition, filterableColumns, onChange, onRemove }: Cond
         </span>
       )}
 
-      {(condition.operator === 'in' || condition.operator === 'nin') ? (
+      {isMultiValue ? (
         <input
           type="text"
           value={condition.value}
@@ -88,6 +111,19 @@ function ConditionRow({ condition, filterableColumns, onChange, onRemove }: Cond
           placeholder="val1, val2, …"
           className={cn(inputCls, 'w-44 placeholder:text-muted-foreground')}
         />
+      ) : showEnumDropdown ? (
+        <select
+          value={condition.value}
+          onChange={(e) => onChange({ ...condition, value: e.target.value })}
+          className={inputCls}
+        >
+          <option value="">Select…</option>
+          {column?.options?.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
       ) : column?.type === 'boolean' ? (
         <select
           value={condition.value}
@@ -97,19 +133,6 @@ function ConditionRow({ condition, filterableColumns, onChange, onRemove }: Cond
           <option value="">Select…</option>
           <option value="true">True</option>
           <option value="false">False</option>
-        </select>
-      ) : column?.type === 'select' ? (
-        <select
-          value={condition.value}
-          onChange={(e) => onChange({ ...condition, value: e.target.value })}
-          className={inputCls}
-        >
-          <option value="">Select…</option>
-          {column.options?.map((opt) => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
         </select>
       ) : column?.type === 'date' ? (
         <input
@@ -179,6 +202,8 @@ function CombinatorToggle({
 interface GroupBoxProps {
   group: FilterGroup
   filterableColumns: FilterableColumn[]
+  /** Column ids already used by a condition anywhere in the tree (for uniqueness). */
+  usedColumnIds: Set<string>
   onChange: (next: FilterGroup) => void
   onRemove?: () => void
   depth: number
@@ -186,7 +211,10 @@ interface GroupBoxProps {
   applySlot?: React.ReactNode
 }
 
-function GroupBox({ group, filterableColumns, onChange, onRemove, depth, applySlot }: GroupBoxProps) {
+function GroupBox({ group, filterableColumns, usedColumnIds, onChange, onRemove, depth, applySlot }: GroupBoxProps) {
+  // First column not yet used by any condition; null when every column is taken.
+  const nextAvailableColumn = filterableColumns.find((c) => !usedColumnIds.has(c.id)) ?? null
+
   function replaceChild(index: number, next: FilterNode) {
     onChange({ ...group, children: group.children.map((c, i) => (i === index ? next : c)) })
   }
@@ -196,9 +224,8 @@ function GroupBox({ group, filterableColumns, onChange, onRemove, depth, applySl
   }
 
   function addCondition() {
-    const first = filterableColumns[0]
-    if (!first) return
-    onChange({ ...group, children: [...group.children, createCondition(first)] })
+    if (!nextAvailableColumn) return
+    onChange({ ...group, children: [...group.children, createCondition(nextAvailableColumn)] })
   }
 
   function addGroup() {
@@ -240,6 +267,7 @@ function GroupBox({ group, filterableColumns, onChange, onRemove, depth, applySl
                 key={child.id}
                 condition={child}
                 filterableColumns={filterableColumns}
+                usedColumnIds={usedColumnIds}
                 onChange={(next) => replaceChild(index, next)}
                 onRemove={() => removeChild(index)}
               />
@@ -248,6 +276,7 @@ function GroupBox({ group, filterableColumns, onChange, onRemove, depth, applySl
                 key={child.id}
                 group={child}
                 filterableColumns={filterableColumns}
+                usedColumnIds={usedColumnIds}
                 onChange={(next) => replaceChild(index, next)}
                 onRemove={() => removeChild(index)}
                 depth={depth + 1}
@@ -261,7 +290,14 @@ function GroupBox({ group, filterableColumns, onChange, onRemove, depth, applySl
         <button
           type="button"
           onClick={addCondition}
-          className="flex h-7 items-center gap-1 rounded border border-dashed border-border px-2 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/50 hover:text-foreground"
+          disabled={!nextAvailableColumn}
+          title={!nextAvailableColumn ? 'All columns already have a filter' : undefined}
+          className={cn(
+            'flex h-7 items-center gap-1 rounded border border-dashed border-border px-2 text-xs font-medium transition-colors',
+            nextAvailableColumn
+              ? 'text-muted-foreground hover:border-primary/50 hover:text-foreground'
+              : 'cursor-not-allowed opacity-50',
+          )}
         >
           <Plus className="h-3 w-3" />
           Filter
@@ -320,6 +356,9 @@ export function FilterBuilderPanel({
   const isApplied = !isDirty && appliedConditionCount > 0
   const canApply = isDirty
 
+  // Columns already used by a condition cannot be picked again (one filter per column).
+  const usedColumnIds = useMemo(() => collectUsedColumnIds(draftRoot), [draftRoot])
+
   return (
     <div className="flex flex-col gap-2">
       {/* Header */}
@@ -340,6 +379,7 @@ export function FilterBuilderPanel({
       <GroupBox
         group={draftRoot}
         filterableColumns={filterableColumns}
+        usedColumnIds={usedColumnIds}
         onChange={handleDraftChange}
         depth={0}
         applySlot={

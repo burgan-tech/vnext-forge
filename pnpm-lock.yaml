@@ -194,6 +194,9 @@ importers:
       '@xyflow/react':
         specifier: ^12.4.0
         version: 12.10.2(@types/react@19.2.14)(immer@11.1.8)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      ajv:
+        specifier: ^8.12.0
+        version: 8.18.0
       lucide-react:
         specifier: ^0.468.0
         version: 0.468.0(react@19.2.4)
@@ -255,6 +258,9 @@ importers:
       vite:
         specifier: ^6.4.2
         version: 6.4.2(@types/node@22.19.17)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)
+      vitest:
+        specifier: ^3.2.4
+        version: 3.2.4(@types/debug@4.1.13)(@types/node@22.19.17)(jiti@2.6.1)(lightningcss@1.32.0)(tsx@4.21.0)
 
   apps/server:
     dependencies:

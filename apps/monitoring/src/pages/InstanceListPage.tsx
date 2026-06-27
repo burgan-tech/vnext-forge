@@ -10,10 +10,10 @@ import {
   createInstanceColumns,
   INSTANCE_FILTERABLE_COLUMNS,
 } from '@monitoring/modules/instances/components/instance-columns'
+import { buildInstanceFilterParam } from '@monitoring/modules/instances/api/instance-filter'
 import {
   DataTable,
   createEmptyFilterRoot,
-  filterGroupToJson,
   type FilterGroup,
 } from '@monitoring/shared/components/data-table'
 import type { InstanceStatus } from '@monitoring/shared/types'
@@ -79,6 +79,7 @@ export function InstanceListPage() {
 
   const [statusFilter, setStatusFilter] = useState<InstanceStatus | 'all'>('all')
   const [timeFilter, setTimeFilter] = useState<InstanceTimeFilter>('all')
+  const [sortField, setSortField] = useState<string>('createdAt')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [searchDraft, setSearchDraft] = useState('')
   const [search, setSearch] = useState('')
@@ -86,20 +87,31 @@ export function InstanceListPage() {
   const [pageSize, setPageSize] = useState(25)
   const [filterRoot, setFilterRoot] = useState<FilterGroup>(createEmptyFilterRoot())
 
-  const filterJson = useMemo(
-    () => filterGroupToJson(filterRoot, INSTANCE_FILTERABLE_COLUMNS),
-    [filterRoot],
+  // Everything the backend filters on travels in a single GraphQL filter object:
+  // the status / time / search chips plus the advanced filter-builder tree.
+  const filterParam = useMemo(
+    () =>
+      buildInstanceFilterParam({
+        status: statusFilter,
+        timeFilter,
+        search: search || undefined,
+        filterRoot,
+        columns: INSTANCE_FILTERABLE_COLUMNS,
+      }),
+    [statusFilter, timeFilter, search, filterRoot],
+  )
+
+  const sortParam = useMemo(
+    () => JSON.stringify({ field: sortField, direction: sortDir }),
+    [sortField, sortDir],
   )
 
   const { data, isLoading, isError } = useInstanceList({
     workflowId: wfId ?? '',
-    status: statusFilter,
-    timeFilter,
-    sort: sortDir,
-    search: search || undefined,
+    filter: filterParam,
+    sort: sortParam,
     page,
     pageSize,
-    filter: filterJson || undefined,
   })
 
   const items = data?.items ?? []
@@ -109,7 +121,9 @@ export function InstanceListPage() {
 
   const columns = useMemo(() => createInstanceColumns(navigate, wfId), [navigate, wfId])
 
-  function handleSortChange(_col: string | null, dir: 'asc' | 'desc' | null) {
+  function handleSortChange(col: string | null, dir: 'asc' | 'desc' | null) {
+    // Clearing the sort falls back to the default newest-first ordering.
+    setSortField(col ?? 'createdAt')
     setSortDir(dir ?? 'desc')
     setPage(1)
   }

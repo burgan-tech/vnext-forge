@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { workflowGet, instanceGet } from '@monitoring/shared/api/monitoring-api';
-import type { Instance, InstanceStatus } from '@monitoring/shared/types';
+import type { Instance } from '@monitoring/shared/types';
 import type {
   InstanceDetailResponse,
   InstanceTimelineResponse,
@@ -21,17 +21,15 @@ export type InstanceSortOrder = 'desc' | 'asc';
 
 export interface InstanceListParams {
   workflowId: string;
-  status?: InstanceStatus | 'all';
-  state?: string;
-  search?: string;
-  timeFilter?: InstanceTimeFilter;
-  sort?: InstanceSortOrder;
+  /**
+   * Serialized GraphQL filter object (from buildInstanceFilterParam). Carries
+   * status, time, search and advanced-builder conditions; sent as ?filter=.
+   */
+  filter?: string | null;
+  /** Serialized sort object: {"field":"createdAt","direction":"desc"}; sent as ?sort=. */
+  sort?: string | null;
   page?: number;
   pageSize?: number;
-  from?: string;
-  to?: string;
-  /** Serialized JSON filter string from filterGroupToJson(); sent as ?filter= query param. */
-  filter?: string | null;
 }
 
 export interface InstanceListResult {
@@ -50,19 +48,13 @@ export interface InstanceListResult {
 
 export function useInstanceList(params: InstanceListParams) {
   const query: Record<string, string> = {};
-  if (params.status && params.status !== 'all') query.status = params.status;
-  if (params.state) query.state = params.state;
-  if (params.search) query.search = params.search;
-  if (params.timeFilter && params.timeFilter !== 'all') query.timeFilter = params.timeFilter;
+  if (params.filter) query.filter = params.filter;
   if (params.sort) query.sort = params.sort;
   if (params.page) query.page = String(params.page);
   if (params.pageSize) query.pageSize = String(params.pageSize);
-  if (params.from) query.from = params.from;
-  if (params.to) query.to = params.to;
-  if (params.filter) query.filter = params.filter;
 
   return useQuery({
-    queryKey: ['instances', params],
+    queryKey: ['instances', params.workflowId, query],
     queryFn: () => workflowGet<InstanceListResult>(params.workflowId, '/instances', query),
     enabled: Boolean(params.workflowId),
   });

@@ -1,7 +1,7 @@
 export type PresetId =
   | 'last-1h'
+  | 'last-12h'
   | 'last-24h'
-  | 'today'
   | 'last-7d'
   | 'last-30d'
   | 'last-90d'

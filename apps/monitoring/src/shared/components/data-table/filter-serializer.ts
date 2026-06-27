@@ -1,6 +1,6 @@
 import type { FilterCondition, FilterGroup, FilterNode, FilterableColumn } from './types'
 
-type BackendFilter = Record<string, unknown>
+export type BackendFilter = Record<string, unknown>
 
 function serializeCondition(
   cond: FilterCondition,
@@ -11,10 +11,12 @@ function serializeCondition(
   if (!value.trim()) return null
 
   const col = colMap.get(columnId)
+  const isNumeric = col?.numeric === true
 
   // in / nin: comma-separated string → array
   if (operator === 'in' || operator === 'nin') {
-    const arr = value.split(',').map((v) => v.trim()).filter(Boolean)
+    const parts = value.split(',').map((v) => v.trim()).filter(Boolean)
+    const arr = isNumeric ? parts.map(Number).filter((n) => !Number.isNaN(n)) : parts
     if (!arr.length) return null
     return { [columnId]: { [operator]: arr } }
   }
@@ -26,6 +28,13 @@ function serializeCondition(
 
   // 'contains' in the UI maps to 'like' in the backend filter spec
   const backendOp = operator === 'contains' ? 'like' : operator
+
+  // integer-coded columns (state type / sub-type) must travel as JSON numbers
+  if (isNumeric) {
+    const num = Number(value.trim())
+    if (Number.isNaN(num)) return null
+    return { [columnId]: { [backendOp]: num } }
+  }
 
   return { [columnId]: { [backendOp]: value.trim() } }
 }
@@ -47,18 +56,29 @@ function serializeNode(
 }
 
 /**
- * Converts a FilterGroup tree into the backend JSON filter string.
+ * Converts a FilterGroup tree into the backend filter object.
  * Returns null when no effective conditions exist.
  *
  * Backend format: {"field":{"operator":"value"}} or {"and":[...]} / {"or":[...]}
  * The 'contains' operator maps to 'like'; 'in'/'nin' values become arrays.
  */
+export function filterGroupToObject(
+  root: FilterGroup,
+  columns: FilterableColumn[] = [],
+): BackendFilter | null {
+  const colMap = new Map(columns.map((c) => [c.id, c]))
+  return serializeNode(root, colMap)
+}
+
+/**
+ * Converts a FilterGroup tree into the backend JSON filter string.
+ * Returns null when no effective conditions exist.
+ */
 export function filterGroupToJson(
   root: FilterGroup,
   columns: FilterableColumn[] = [],
 ): string | null {
-  const colMap = new Map(columns.map((c) => [c.id, c]))
-  const result = serializeNode(root, colMap)
+  const result = filterGroupToObject(root, columns)
   if (!result) return null
   return JSON.stringify(result)
 }

@@ -15,6 +15,15 @@ export interface JobsResponse {
   jobs: JobItem[];
 }
 
+export interface WorkflowJobsResult {
+  pagination?: {
+    page: number;
+    pageSize: number;
+    hasNext: boolean;
+  };
+  jobs: JobItem[];
+}
+
 // --- §7.1 Runtime Config ---
 
 export interface RuntimeConfigResponse {

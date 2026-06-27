@@ -2,7 +2,17 @@ export interface FilterableColumn {
   id: string
   label: string
   type: 'text' | 'select' | 'date' | 'boolean'
+  /**
+   * Enum choices. In the GraphQL filter-builder these back a readable dropdown
+   * whenever the chosen operator is `eq`/`ne`; other operators fall back to a
+   * free-text input. `label` is shown to the user, `value` is sent to the backend.
+   */
   options?: { label: string; value: string }[]
+  /**
+   * GraphQL filter-builder only. Emit the filter value as a JSON number instead
+   * of a string (for integer-coded columns such as state type / sub-type).
+   */
+  numeric?: boolean
   /**
    * Query-param mode only. Lists the bracket operators the backend accepts for this field.
    * - ['eq']           → always sends `field[eq]=value`, shows fixed "is"

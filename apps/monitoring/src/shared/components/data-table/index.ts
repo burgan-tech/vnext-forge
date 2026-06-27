@@ -4,7 +4,8 @@ export {
   evaluateFilterNode,
   countConditions,
 } from './filter-eval'
-export { filterGroupToJson } from './filter-serializer'
+export { filterGroupToJson, filterGroupToObject } from './filter-serializer'
+export type { BackendFilter } from './filter-serializer'
 export type {
   FilterableColumn,
   FilterOperator,
@@ -14,3 +15,12 @@ export type {
   QueryParamFilters,
   DataTablePaginationState,
 } from './types'
+export { useTableUrlState } from './useTableUrlState'
+export {
+  encodeTableState,
+  decodeTableState,
+  readTableState,
+  writeTableState,
+} from './table-state-url'
+export type { TableFilterMode, TableUrlState } from './table-state-url'
+export { validateFilterGroup, validateQueryParamFilters } from './filter-validate'

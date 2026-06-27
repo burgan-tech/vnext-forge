@@ -7,13 +7,14 @@ function storageKey(tableId: string): string {
 
 export function useColumnVisibility(
   tableId: string,
+  initialVisibility: VisibilityState = {},
 ): [VisibilityState, OnChangeFn<VisibilityState>] {
   const [visibility, setVisibilityState] = useState<VisibilityState>(() => {
     try {
       const stored = localStorage.getItem(storageKey(tableId))
-      return stored ? (JSON.parse(stored) as VisibilityState) : {}
+      return stored ? (JSON.parse(stored) as VisibilityState) : initialVisibility
     } catch {
-      return {}
+      return initialVisibility
     }
   })
 

@@ -28,10 +28,12 @@ interface DataTableProps<TData> {
   sortBy?: string
   sortDir?: 'asc' | 'desc'
   onSortChange?: (col: string | null, dir: 'asc' | 'desc' | null) => void
-  pagination: DataTablePaginationState
+  pagination?: DataTablePaginationState
   onRowClick?: (row: TData) => void
   toolbarContent?: React.ReactNode
   filterableColumns?: FilterableColumn[]
+  /** Initial column visibility state. Applied when no persisted state exists in localStorage. */
+  initialColumnVisibility?: Record<string, boolean>
   /** Determines which filter UI to render. Defaults to 'graphql' (nested AND/OR tree). */
   filterMode?: 'graphql' | 'query-param'
   // graphql mode
@@ -72,8 +74,9 @@ export function DataTable<TData>({
   onFilterRootChange,
   queryParamFilters,
   onQueryParamFiltersChange,
+  initialColumnVisibility,
 }: DataTableProps<TData>) {
-  const [columnVisibility, setColumnVisibility] = useColumnVisibility(tableId)
+  const [columnVisibility, setColumnVisibility] = useColumnVisibility(tableId, initialColumnVisibility)
 
   const table = useReactTable({
     data,
@@ -196,7 +199,7 @@ export function DataTable<TData>({
         </table>
       </div>
 
-      <DataTablePagination pagination={pagination} />
+      {pagination && <DataTablePagination pagination={pagination} />}
     </div>
   )
 }

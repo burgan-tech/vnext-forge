@@ -14,7 +14,17 @@ export function Topbar() {
   const { isFavorite, toggleFavorite } = useFavorites();
 
   const displayName = config.domain.charAt(0).toUpperCase() + config.domain.slice(1);
-  const crumbs = buildBreadcrumbs(location.pathname, params, displayName);
+  const allCrumbs = buildBreadcrumbs(location.pathname, params, displayName);
+  // Collapse middle crumbs when there are more than 3: Domain / … / second-to-last / last
+  const crumbs =
+    allCrumbs.length > 3
+      ? [
+          allCrumbs[0],
+          { label: '…' },
+          allCrumbs[allCrumbs.length - 2],
+          allCrumbs[allCrumbs.length - 1],
+        ]
+      : allCrumbs;
   const isDashboard = location.pathname === '/';
   const currentLabel = crumbs[crumbs.length - 1]?.label ?? '';
   const currentFav = isFavorite(location.pathname);

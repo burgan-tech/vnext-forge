@@ -1,7 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Badge, Button } from '@vnext-forge-studio/designer-ui/ui';
-import { config } from '@monitoring/shared/config/config';
 import { cn } from '@monitoring/shared/lib/utils';
 import { VersionPicker } from '@monitoring/modules/definitions/components/VersionPicker';
 import { RawJsonViewer } from '@monitoring/modules/definitions/components/RawJsonViewer';
@@ -24,6 +23,9 @@ import {
   DataTable,
   createEmptyFilterRoot,
   filterGroupToJson,
+  countConditions,
+  useTableUrlState,
+  validateFilterGroup,
   type FilterGroup,
 } from '@monitoring/shared/components/data-table';
 import type { WorkflowDefState, WorkflowDefTransition } from '@monitoring/shared/types/definitions-api';
@@ -288,6 +290,19 @@ export function WorkflowDetailPage({ id }: WorkflowDetailPageProps) {
     [instanceFilterRoot],
   );
 
+  useTableUrlState({
+    tableId: 'workflow-detail-instances',
+    mode: 'graphql',
+    state: {
+      f: countConditions(instanceFilterRoot) > 0 ? instanceFilterRoot : undefined,
+      p: instancePage,
+    },
+    onHydrate: (decoded) => {
+      if (decoded.f) setInstanceFilterRoot(validateFilterGroup(decoded.f, INSTANCE_FILTERABLE_COLUMNS));
+      if (typeof decoded.p === 'number') setInstancePage(decoded.p);
+    },
+  });
+
   const instanceColumns = useMemo(
     () => createInstanceColumns(navigate, id),
     [navigate, id],
@@ -492,14 +507,9 @@ export function WorkflowDetailPage({ id }: WorkflowDetailPageProps) {
               setInstancePage(1);
             }}
             onRowClick={(inst) =>
-              navigate(`/instances/${inst.id}?workflow=${id}&domain=${config.domain}`)
+              navigate(`/definitions/workflows/${id}/instances/${inst.id}`)
             }
           />
-          <div className="flex justify-end">
-            <Button variant="ghost" size="sm" onClick={() => navigate(`/definitions/workflows/${id}/instances`)} className="text-xs">
-              View all →
-            </Button>
-          </div>
         </div>
       )}
 

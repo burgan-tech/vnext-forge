@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Search } from 'lucide-react';
 import { useDebounce } from '@monitoring/shared/lib/useDebounce';
@@ -7,6 +7,8 @@ import {
   DataTable,
   type FilterableColumn,
   type QueryParamFilters,
+  useTableUrlState,
+  validateQueryParamFilters,
 } from '@monitoring/shared/components/data-table';
 import { useDefinitionList, type DefinitionType } from '@monitoring/modules/definitions/api/definitions-queries';
 import { getDefinitionColumns } from '@monitoring/modules/definitions/components/definition-columns';
@@ -127,15 +129,35 @@ export function DefinitionsPage() {
   // Debounce search input — 350ms before sending to the backend as `key` query param
   const search = useDebounce(searchDraft, 750);
 
-  // Reset state when component type changes
+  // Reset state when the component type ACTUALLY changes. We compare against the
+  // previous value rather than skipping a run count: under React StrictMode the
+  // component mounts twice and effects re-run while refs persist, so a run-count
+  // guard would clear state that the URL just hydrated on the second mount. A
+  // value compare clears only on a genuine type switch.
+  const prevDefType = useRef(defType);
   useEffect(() => {
+    if (prevDefType.current === defType) return;
+    prevDefType.current = defType;
+    /* eslint-disable react-hooks/set-state-in-effect, react-x/set-state-in-effect */
     setPage(1);
     setSearchDraft('');
     setQueryParamFilters({});
+    /* eslint-enable react-hooks/set-state-in-effect, react-x/set-state-in-effect */
   }, [defType]);
 
-  // Reset to page 1 when the debounced search term changes
+  // Reset to page 1 when the debounced search term ACTUALLY changes. Same
+  // value-compare approach (StrictMode-safe). The one transition that matches a
+  // hydrated search restore is skipped so a restored page survives.
+  const prevSearch = useRef(search);
+  const hydratedSearchRef = useRef<string | null>(null);
   useEffect(() => {
+    if (prevSearch.current === search) return;
+    prevSearch.current = search;
+    if (hydratedSearchRef.current !== null && search === hydratedSearchRef.current) {
+      hydratedSearchRef.current = null;
+      return;
+    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect, react-x/set-state-in-effect
     setPage(1);
   }, [search]);
 
@@ -144,6 +166,27 @@ export function DefinitionsPage() {
     if (!search) return queryParamFilters;
     return { ...queryParamFilters, 'key[contains]': search };
   }, [queryParamFilters, search]);
+
+  const urlFilterColumns = FILTERABLE_COLUMNS[defType] ?? [];
+  useTableUrlState({
+    tableId: `definitions-${defType}`,
+    mode: 'query-param',
+    state: {
+      f: Object.keys(queryParamFilters).length > 0 ? queryParamFilters : undefined,
+      q: search,
+      p: page,
+    },
+    onHydrate: (decoded) => {
+      if (decoded.f) {
+        setQueryParamFilters(validateQueryParamFilters(decoded.f, urlFilterColumns) as QueryParamFilters);
+      }
+      if (typeof decoded.q === 'string') {
+        hydratedSearchRef.current = decoded.q;
+        setSearchDraft(decoded.q);
+      }
+      if (typeof decoded.p === 'number') setPage(decoded.p);
+    },
+  });
 
   const { data, isLoading, isError } = useDefinitionList(defType, page, pageSize, apiFilters);
 

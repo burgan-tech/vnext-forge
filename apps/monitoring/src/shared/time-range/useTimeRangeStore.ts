@@ -16,9 +16,11 @@ interface TimeRangeState {
   value: TimeRangeValue
   recent: TimeRangeValue[]
   consumerCount: number
+  pickerOpen: boolean
   setValue: (v: TimeRangeValue) => void
   registerConsumer: () => void
   unregisterConsumer: () => void
+  setPickerOpen: (open: boolean) => void
 }
 
 export const useTimeRangeStore = create<TimeRangeState>()(
@@ -27,6 +29,7 @@ export const useTimeRangeStore = create<TimeRangeState>()(
       value: DEFAULT_RANGE,
       recent: [],
       consumerCount: 0,
+      pickerOpen: false,
       setValue: (v) =>
         set((s) => ({
           value: v,
@@ -34,6 +37,7 @@ export const useTimeRangeStore = create<TimeRangeState>()(
         })),
       registerConsumer: () => set((s) => ({ consumerCount: s.consumerCount + 1 })),
       unregisterConsumer: () => set((s) => ({ consumerCount: Math.max(0, s.consumerCount - 1) })),
+      setPickerOpen: (open) => set({ pickerOpen: open }),
     }),
     {
       name: 'monitoring-time-range',

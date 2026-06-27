@@ -1,103 +1,133 @@
-import { useNavigate } from 'react-router-dom';
-import { Badge } from '@vnext-forge-studio/designer-ui/ui';
-import { config } from '@monitoring/shared/config/config';
-import { useDomainJobs } from '@monitoring/modules/jobs/api/jobs-queries';
-
-function formatDateTime(iso: string): string {
-  const d = new Date(iso);
-  return `${d.toLocaleDateString()} ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
-}
+import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useDefinitionList } from '@monitoring/modules/definitions/api/definitions-queries'
+import {
+  useGlobalTimeRange,
+  LargeRangeAlert,
+  useLargeRangeGuard,
+} from '@monitoring/shared/time-range'
+import { useTimeRangeStore } from '@monitoring/shared/time-range/useTimeRangeStore'
+import { config } from '@monitoring/shared/config/config'
+import { DataTable, type DataTablePaginationState } from '@monitoring/shared/components/data-table'
+import { useDomainJobs, useWorkflowJobs } from '@monitoring/modules/jobs/api/jobs-queries'
+import { JOB_COLUMNS, normalizeJobs, type JobRow } from '@monitoring/modules/jobs/components/job-columns'
 
 export function JobsPage() {
-  const navigate = useNavigate();
-  const { data, isLoading, isError } = useDomainJobs();
-  const jobs = data?.jobs ?? [];
+  const navigate = useNavigate()
+  const setPickerOpen = useTimeRangeStore((s) => s.setPickerOpen)
+  const selectRef = useRef<HTMLSelectElement>(null)
+
+  const [selectedWorkflow, setSelectedWorkflow] = useState<'all' | string>('all')
+  const [page, setPage] = useState(1)
+  const [pageSize, setPageSize] = useState(20)
+
+  const { resolved } = useGlobalTimeRange()
+  const isAllMode = selectedWorkflow === 'all'
+  const guard = useLargeRangeGuard(resolved, isAllMode)
+
+  // Reset page when scope or range changes (workflow mode is the only paginated one).
+  useEffect(() => {
+    setPage(1)
+  }, [selectedWorkflow, resolved.from, resolved.to])
+
+  // Domain-wide query — gated behind the large-range alert, same as Faults.
+  const domainQuery = useDomainJobs({
+    resolved,
+    enabled: isAllMode && (!guard.rangeExceeds30Days || guard.queryAllowed),
+  })
+
+  // Workflow-scoped query — workflow='' disables it automatically.
+  const workflowQuery = useWorkflowJobs({
+    workflow: isAllMode ? '' : selectedWorkflow,
+    resolved,
+    page,
+    pageSize,
+  })
+
+  const { data: workflowsPage, isLoading: loadingWorkflows } = useDefinitionList('workflow')
+
+  const isLoading = isAllMode ? domainQuery.isLoading : workflowQuery.isLoading
+  const isError = isAllMode ? domainQuery.isError : workflowQuery.isError
+
+  const rows: JobRow[] = isAllMode
+    ? normalizeJobs(domainQuery.data?.jobs ?? [])
+    : normalizeJobs(workflowQuery.data?.jobs ?? [])
+
+  // Domain-wide returns a flat list → no pagination bar. Workflow-scoped is paginated.
+  const paginationState: DataTablePaginationState | undefined = isAllMode
+    ? undefined
+    : {
+        page,
+        pageSize,
+        hasNext: workflowQuery.data?.pagination?.hasNext ?? false,
+        onPageChange: setPage,
+        onPageSizeChange: (s) => {
+          setPageSize(s)
+          setPage(1)
+        },
+        pageSizeOptions: [10, 20, 50, 100],
+      }
 
   return (
     <div className="flex flex-col gap-4 p-4">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex flex-col gap-0.5">
-          <h1 className="text-xl font-semibold">Active Jobs</h1>
-          <p className="text-xs text-muted-foreground">
-            Scheduled timers and delayed jobs in domain <span className="font-mono text-foreground">{config.domain}</span>
-          </p>
-        </div>
-        {!isLoading && (
-          <span className="text-sm text-muted-foreground">
-            {jobs.length} job{jobs.length !== 1 ? 's' : ''}
-          </span>
-        )}
+      <div className="flex flex-col gap-0.5">
+        <h1 className="text-xl font-semibold">Active Jobs</h1>
+        <p className="text-xs text-muted-foreground">
+          {isAllMode ? `All workflows · ${resolved.label}` : `Selected workflow · ${resolved.label}`}
+          {' · '}domain <span className="font-mono text-foreground">{config.domain}</span>
+        </p>
       </div>
 
-      {/* Table */}
-      <div className="overflow-x-auto rounded-md border border-border">
-        <table className="w-full text-sm">
-          <thead className="border-b border-border bg-muted/50">
-            <tr>
-              {['Job ID', 'Name', 'Workflow', 'Instance', 'Status', 'Created At', 'Modified At'].map((h) => (
-                <th key={h} className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {isLoading && (
-              <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">Loading…</td>
-              </tr>
-            )}
-            {isError && (
-              <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-destructive">Failed to load jobs.</td>
-              </tr>
-            )}
-            {!isLoading && !isError && jobs.length === 0 && (
-              <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">No active jobs found.</td>
-              </tr>
-            )}
-            {!isLoading && !isError && jobs.map((job) => (
-              <tr key={job.jobId} className="border-b border-border last:border-0 hover:bg-muted/30">
-                <td className="px-4 py-3 font-mono text-xs">{job.jobId}</td>
-                <td className="px-4 py-3 font-mono text-xs">{job.name}</td>
-                <td className="px-4 py-3">
-                  <button
-                    type="button"
-                    onClick={() => navigate(`/definitions/workflows/${job.flow}`)}
-                    className="font-mono text-xs text-blue-600 hover:underline dark:text-blue-400"
-                  >
-                    {job.flow}
-                  </button>
-                </td>
-                <td className="px-4 py-3">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      navigate(`/instances/${job.instanceId}?workflow=${job.flow}&domain=${job.domain}`)
-                    }
-                    className="font-mono text-xs text-blue-600 hover:underline dark:text-blue-400"
-                  >
-                    {job.instanceId}
-                  </button>
-                </td>
-                <td className="px-4 py-3">
-                  <Badge variant={job.isActive ? 'success' : 'secondary'} className="text-xs">
-                    {job.isActive ? 'Active' : 'Inactive'}
-                  </Badge>
-                </td>
-                <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
-                  {formatDateTime(job.createdAt)}
-                </td>
-                <td className="px-4 py-3 text-xs text-muted-foreground whitespace-nowrap">
-                  {formatDateTime(job.modifiedAt)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      {/* Workflow selector */}
+      <div className="flex items-center gap-3">
+        <label className="text-sm font-medium text-foreground">Workflow</label>
+        <select
+          ref={selectRef}
+          value={selectedWorkflow}
+          onChange={(e) => setSelectedWorkflow(e.target.value)}
+          disabled={loadingWorkflows}
+          className="h-9 min-w-64 rounded-sm border border-border bg-background px-2 text-sm text-foreground shadow-xs focus:border-ring focus:outline-none focus:ring-[3px] focus:ring-ring/50 disabled:opacity-50"
+        >
+          <option value="all">All Workflows</option>
+          {(workflowsPage?.items ?? []).map((wf) => (
+            <option key={wf.id} value={wf.id}>
+              {wf.name} ({wf.version})
+            </option>
+          ))}
+        </select>
       </div>
+
+      {/* Large range alert */}
+      {guard.showAlert && (
+        <LargeRangeAlert
+          onSelectWorkflow={() => {
+            guard.dismiss()
+            setTimeout(() => selectRef.current?.focus(), 0)
+          }}
+          onUpdateTimeRange={() => {
+            guard.dismiss()
+            setPickerOpen(true)
+          }}
+          onContinue={() => guard.continueAnyway()}
+        />
+      )}
+
+      {/* DataTable — no filters (jobs has no external filter set) */}
+      <DataTable<JobRow>
+        key={isAllMode ? 'jobs-all' : 'jobs-single'}
+        tableId="jobs"
+        columns={JOB_COLUMNS}
+        data={rows}
+        initialColumnVisibility={isAllMode ? {} : { flow: false }}
+        isLoading={isLoading}
+        isError={isError}
+        emptyMessage="No active jobs in this time range."
+        pagination={paginationState}
+        onRowClick={(row) => {
+          void navigate(`/definitions/workflows/${row.flow}/instances/${row.instanceId}`)
+        }}
+      />
     </div>
-  );
+  )
 }

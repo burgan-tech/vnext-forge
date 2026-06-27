@@ -1,11 +1,16 @@
 import { useState } from 'react';
 import { InstanceWorkflowCanvas } from '@monitoring/modules/instances/components/InstanceWorkflowCanvas';
-import { useParams, useSearchParams, useNavigate } from 'react-router-dom';
-import { Badge, Button } from '@vnext-forge-studio/designer-ui/ui';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Badge, Button, JsonCodeField } from '@vnext-forge-studio/designer-ui/ui';
+
+function jsonEditorHeight(json: string, min: number, max: number): number {
+  const LINE_HEIGHT = 19; // Monaco default at font-size 14
+  const PADDING = 14;     // top:4 + bottom:10 from JsonCodeField options
+  return Math.min(max, Math.max(min, json.split('\n').length * LINE_HEIGHT + PADDING));
+}
 import { ChevronRight, Copy, ExternalLink, RefreshCw } from 'lucide-react';
 import { cn } from '@monitoring/shared/lib/utils';
 import { StatusBadge } from '@monitoring/shared/components/StatusBadge';
-import { config } from '@monitoring/shared/config/config';
 import {
   useInstanceDetail,
   useInstanceTimeline,
@@ -417,16 +422,6 @@ function VersionDiffRow({
       </button>
       {open && (
         <div className="space-y-3 px-4 pb-4">
-          {/* Full data snapshot */}
-          <div>
-            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-              Data
-            </p>
-            <pre className="overflow-x-auto rounded-md bg-slate-950 p-3 text-xs text-slate-100">
-              {JSON.stringify(entry.data, null, 2)}
-            </pre>
-          </div>
-
           {/* Changes from previous version */}
           {prevVersion && (
             <div>
@@ -442,6 +437,20 @@ function VersionDiffRow({
               ) : null}
             </div>
           )}
+
+          {/* Full data snapshot */}
+          <div>
+            <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
+              Data
+            </p>
+            <JsonCodeField
+              value={JSON.stringify(entry.data, null, 2)}
+              language="json"
+              readOnly
+              height={jsonEditorHeight(JSON.stringify(entry.data, null, 2), 80, 300)}
+              onChange={() => {}}
+            />
+          </div>
         </div>
       )}
     </div>
@@ -473,9 +482,13 @@ function DataTab({ workflow, instanceId }: { workflow: string; instanceId: strin
           Current Data
         </p>
         {latestData ? (
-          <pre className="overflow-x-auto rounded-md bg-slate-950 p-4 text-xs text-slate-100">
-            {JSON.stringify(latestData, null, 2)}
-          </pre>
+          <JsonCodeField
+            value={JSON.stringify(latestData, null, 2)}
+            language="json"
+            readOnly
+            height={jsonEditorHeight(JSON.stringify(latestData, null, 2), 80, 400)}
+            onChange={() => {}}
+          />
         ) : (
           <p className="text-sm text-muted-foreground">No data.</p>
         )}
@@ -528,7 +541,7 @@ function HierarchyNodeCard({
     <button
       type="button"
       onClick={() =>
-        navigate(`/instances/${node.instanceId}?workflow=${node.flow}&domain=${node.domain}`)
+        navigate(`/definitions/workflows/${node.flow}/instances/${node.instanceId}`)
       }
       className="group w-full rounded-lg border border-border bg-card px-4 py-3 text-left transition-colors hover:border-primary/50 hover:bg-muted/20"
     >
@@ -854,6 +867,7 @@ function OverviewTab({
 }) {
   const m = detail.metadata;
   const isFaulted = m.status === 'Faulted';
+  const navigate = useNavigate();
   const { data: faultsData } = useInstanceFaults(workflow, instanceId, isFaulted);
 
   return (
@@ -888,7 +902,19 @@ function OverviewTab({
         </p>
         <div className="rounded-md border border-border divide-y divide-border px-4">
           <MetaRow label="Key" value={<span className="font-mono text-sm">{detail.key}</span>} />
-          <MetaRow label="Flow" value={<span className="font-mono text-sm">{detail.flow}</span>} />
+          <MetaRow
+            label="Flow"
+            value={
+              <button
+                type="button"
+                onClick={() => navigate(`/definitions/workflow/${detail.flow}`)}
+                className="flex items-center gap-1 cursor-pointer font-mono text-sm hover:text-primary hover:underline"
+              >
+                {detail.flow}
+                <ExternalLink className="h-3 w-3 opacity-50" />
+              </button>
+            }
+          />
           <MetaRow label="Version" value={detail.flowVersion} />
           <MetaRow label="Domain" value={detail.domain} />
           {detail.tags.length > 0 && (
@@ -965,12 +991,10 @@ function OverviewTab({
 // ---------------------------------------------------------------------------
 
 export function InstanceDetailPage() {
-  const { instanceId } = useParams<{ instanceId: string }>();
-  const [searchParams] = useSearchParams();
+  const { wfId, instanceId } = useParams<{ wfId: string; instanceId: string }>();
   const navigate = useNavigate();
 
-  const workflow = searchParams.get('workflow') ?? '';
-  const domain = searchParams.get('domain') ?? config.domain;
+  const workflow = wfId ?? '';
 
   const [tab, setTab] = useState<TabId>('overview');
 
@@ -1021,7 +1045,7 @@ export function InstanceDetailPage() {
                 type="button"
                 onClick={() =>
                   navigate(
-                    `/instances/${parentData.parent!.parentInstanceId}?workflow=${parentData.parent!.flow}&domain=${parentData.parent!.domain}`,
+                    `/definitions/workflows/${parentData.parent!.flow}/instances/${parentData.parent!.parentInstanceId}`,
                   )
                 }
                 className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
@@ -1051,14 +1075,15 @@ export function InstanceDetailPage() {
               <button
                 type="button"
                 onClick={() => navigate(`/definitions/workflow/${detail.flow}`)}
-                className="flex items-center gap-1 hover:text-foreground hover:underline"
+                className="flex items-center gap-1 cursor-pointer hover:text-foreground hover:underline"
               >
                 <span className="font-mono">{detail.flow}</span>
+                <ExternalLink className="h-3 w-3 opacity-50" />
               </button>
               <span>·</span>
               <span>v{detail.flowVersion}</span>
               <span>·</span>
-              <span className="font-mono text-xs">{domain}</span>
+              <span className="font-mono text-xs">{detail.domain}</span>
             </div>
           </div>
 

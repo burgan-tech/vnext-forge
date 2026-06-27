@@ -1,22 +1,15 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { domainGet } from '@monitoring/shared/api/monitoring-api';
-import {
-  buildTimeRangeQuery,
-  TIME_RANGE_QUERY_ENABLED,
-  type ResolvedRange,
-} from '@monitoring/shared/time-range';
 import type { ComponentCounts, Instance, InstanceStats, StatsTimePoint } from '@monitoring/shared/types';
 
 export type StatsTimeRange = '24h' | '7d' | '30d';
 
-export function useInstanceStats(resolved?: ResolvedRange) {
-  const params = resolved ? buildTimeRangeQuery(resolved) : {};
+export function useInstanceStats(filter?: string) {
   return useQuery({
-    // While the backend gate is off, params is {} and the key stays stable so
-    // changing the range does not trigger refetches that return identical data.
-    queryKey: ['dashboard', 'stats', TIME_RANGE_QUERY_ENABLED ? params : null],
-    queryFn: () => domainGet<InstanceStats>('/stats/instances', params),
+    queryKey: ['dashboard', 'stats', filter],
+    queryFn: () =>
+      domainGet<InstanceStats>('/stats/instances', filter ? { filter } : {}),
   });
 }
 

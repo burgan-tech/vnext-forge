@@ -45,18 +45,14 @@ export function buildBreadcrumbs(
     ];
   }
 
-  if (pathname.includes('/instances') && params.wfId) {
+  if (params.wfId && params.instanceId) {
     return [
       domain,
       { label: 'Definitions', path: '/definitions/workflow' },
       { label: 'Workflows', path: '/definitions/workflow' },
       { label: params.wfId, path: `/definitions/workflow/${params.wfId}` },
-      { label: 'Instances' },
+      { label: params.instanceId },
     ];
-  }
-
-  if (pathname.startsWith('/instances/') && params.instanceId) {
-    return [domain, { label: 'Instances', path: undefined }, { label: params.instanceId }];
   }
 
   return [domain, { label: pathname }];

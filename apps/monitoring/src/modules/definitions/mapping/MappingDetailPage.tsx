@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Button } from '@vnext-forge-studio/designer-ui/ui';
+import { Badge, Button } from '@vnext-forge-studio/designer-ui/ui';
 import { Copy, Check } from 'lucide-react';
 import { cn } from '@monitoring/shared/lib/utils';
 import { VersionPicker } from '@monitoring/modules/definitions/components/VersionPicker';
@@ -27,6 +27,12 @@ export function MappingDetailPage({ id }: { id: string }) {
   const related = Array.isArray(data.relatedComponents) ? data.relatedComponents as RelatedComponent[] : [];
   const scriptContent = data.script ? String(data.script) : '// No script available';
 
+  const comment = data._comment ? String(data._comment) : null;
+  const key = String(data.key ?? '—');
+  const flow = String(data.flow ?? '—');
+  const flowVersion = String(data.flowVersion ?? '—');
+  const tags = Array.isArray(data.tags) ? (data.tags as string[]) : [];
+
   function handleCopy() {
     navigator.clipboard.writeText(scriptContent).then(() => {
       setCopied(true);
@@ -38,7 +44,7 @@ export function MappingDetailPage({ id }: { id: string }) {
     <div className="flex flex-col gap-4">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">{String(data.name ?? id)}</h1>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">{String(data.key ?? id)}</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">{String(data.domain ?? '')} · {String(data.version ?? '')}</p>
         </div>
         <VersionPicker currentVersion={String(data.version ?? '')} versions={[String(data.version ?? '')]} />
@@ -58,13 +64,25 @@ export function MappingDetailPage({ id }: { id: string }) {
 
       {activeTab === 'overview' && (
         <div className="flex flex-col gap-4">
-          <p className="text-sm text-foreground">{String(data.description ?? 'No description.')}</p>
-          <div className="rounded-lg border border-border bg-muted/20 p-4 text-sm">
-            <div className="flex justify-between py-1.5">
-              <span className="text-muted-foreground">Version</span>
-              <span className="font-mono text-xs">{String(data.version ?? '—')}</span>
-            </div>
+          {comment && <p className="text-sm text-muted-foreground">{comment}</p>}
+          <div className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-muted/20 p-4 text-sm">
+            <span className="text-muted-foreground">Key</span>
+            <span className="font-mono text-foreground">{key}</span>
+            <span className="text-muted-foreground">Flow</span>
+            <span className="font-mono text-foreground">{flow}</span>
+            <span className="text-muted-foreground">Flow Version</span>
+            <span className="font-mono text-foreground">{flowVersion}</span>
           </div>
+          {tags.length > 0 && (
+            <div className="flex flex-col gap-1.5">
+              <span className="text-xs text-muted-foreground">Tags</span>
+              <div className="flex flex-wrap gap-1.5">
+                {tags.map((tag) => (
+                  <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

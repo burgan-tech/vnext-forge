@@ -5,7 +5,6 @@ import { RouteErrorBoundary } from './RouteErrorBoundary';
 import { DashboardPage } from '@monitoring/pages/DashboardPage';
 import { DefinitionsPage } from '@monitoring/pages/DefinitionsPage';
 import { ComponentDetailPage } from '@monitoring/pages/ComponentDetailPage';
-import { InstanceListPage } from '@monitoring/pages/InstanceListPage';
 import { InstanceDetailPage } from '@monitoring/pages/InstanceDetailPage';
 import { JobsPage } from '@monitoring/pages/JobsPage';
 import { FaultsPage } from '@monitoring/pages/FaultsPage';
@@ -28,12 +27,11 @@ export function AppRouter() {
           <Route element={<AppLayout />}>
             <Route index element={<DashboardPage />} />
             <Route path="definitions/:type" element={<DefinitionsPage />} />
-            <Route
-              path="definitions/workflows/:wfId/instances"
-              element={<InstanceListPage />}
-            />
             <Route path="definitions/:type/:id" element={<ComponentDetailPage />} />
-            <Route path="instances/:instanceId" element={<InstanceDetailPage />} />
+            <Route
+              path="definitions/workflows/:wfId/instances/:instanceId"
+              element={<InstanceDetailPage />}
+            />
             <Route path="jobs" element={<JobsPage />} />
             <Route path="faults" element={<FaultsPage />} />
             <Route path="config" element={<ConfigPage />} />

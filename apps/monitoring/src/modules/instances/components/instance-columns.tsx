@@ -1,7 +1,6 @@
 import { createColumnHelper } from '@tanstack/react-table'
 import type { NavigateFunction } from 'react-router-dom'
 import { StatusBadge } from '@monitoring/shared/components/StatusBadge'
-import { config } from '@monitoring/shared/config/config'
 import type { Instance, InstanceStatus } from '@monitoring/shared/types'
 import type { FilterableColumn } from '@monitoring/shared/components/data-table'
 
@@ -35,7 +34,7 @@ export function createInstanceColumns(navigate: NavigateFunction, wfId?: string)
           type="button"
           onClick={() =>
             navigate(
-              `/instances/${info.row.original.id}?workflow=${wfId ?? ''}&domain=${config.domain}`,
+              `/definitions/workflows/${wfId ?? ''}/instances/${info.row.original.id}`,
             )
           }
           className="font-mono text-blue-600 hover:underline dark:text-blue-400"
@@ -123,28 +122,48 @@ export const INSTANCE_FILTERABLE_COLUMNS: FilterableColumn[] = [
     id: 'status',
     label: 'Status',
     type: 'select',
+    // Backend accepts the full name or its single-char code; we send the name.
     options: [
-      { label: 'Active',     value: 'Active' },
-      { label: 'Busy',       value: 'Busy' },
-      { label: 'Completed',  value: 'Completed' },
-      { label: 'Faulted',    value: 'Faulted' },
-      { label: 'Suspended',  value: 'Suspended' },
-      { label: 'Terminated', value: 'Terminated' },
+      { label: 'Active',    value: 'Active' },
+      { label: 'Busy',      value: 'Busy' },
+      { label: 'Completed', value: 'Completed' },
+      { label: 'Faulted',   value: 'Faulted' },
+      { label: 'Passive',   value: 'Passive' },
     ],
-    graphqlOperators: ['eq', 'ne', 'in', 'nin'],
+    graphqlOperators: ['eq', 'ne', 'contains', 'in', 'nin'],
   },
   { id: 'state',             label: 'State',                  type: 'text' },
   { id: 'effectiveState',    label: 'Effective State',         type: 'text' },
   {
     id: 'effectiveStateType',
     label: 'Effective State Type',
-    type: 'text',
+    type: 'select',
+    numeric: true,
+    options: [
+      { label: 'Initial',      value: '1' },
+      { label: 'Intermediate', value: '2' },
+      { label: 'Finish',       value: '3' },
+      { label: 'SubFlow',      value: '4' },
+      { label: 'Wizard',       value: '5' },
+    ],
     graphqlOperators: ['eq', 'ne', 'gt', 'ge', 'lt', 'le'],
   },
   {
     id: 'effectiveStateSubType',
     label: 'Effective State Sub-Type',
-    type: 'text',
+    type: 'select',
+    numeric: true,
+    options: [
+      { label: 'None',       value: '0' },
+      { label: 'Success',    value: '1' },
+      { label: 'Error',      value: '2' },
+      { label: 'Terminated', value: '3' },
+      { label: 'Suspended',  value: '4' },
+      { label: 'Busy',       value: '5' },
+      { label: 'Human',      value: '6' },
+      { label: 'Cancelled',  value: '7' },
+      { label: 'Timeout',    value: '8' },
+    ],
     graphqlOperators: ['eq', 'ne', 'gt', 'ge', 'lt', 'le'],
   },
   { id: 'createdAt',         label: 'Created At',             type: 'date' },

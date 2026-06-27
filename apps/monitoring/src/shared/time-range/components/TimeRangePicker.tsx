@@ -15,8 +15,9 @@ export function TimeRangePicker() {
   const recent = useTimeRangeStore((s) => s.recent)
   const setValue = useTimeRangeStore((s) => s.setValue)
   const isActive = useTimeRangeStore((s) => s.consumerCount > 0)
+  const pickerOpen = useTimeRangeStore((s) => s.pickerOpen)
+  const setPickerOpen = useTimeRangeStore((s) => s.setPickerOpen)
 
-  const [open, setOpen] = useState(false)
   const [tab, setTab] = useState<Tab>('quick')
   const [draftFrom, setDraftFrom] = useState('')
   const [draftTo, setDraftTo] = useState('')
@@ -29,7 +30,7 @@ export function TimeRangePicker() {
 
   function apply(v: TimeRangeValue) {
     setValue(v)
-    setOpen(false)
+    setPickerOpen(false)
   }
 
   function applyCustom() {
@@ -42,7 +43,7 @@ export function TimeRangePicker() {
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
       <PopoverTrigger asChild>
         <button
           type="button"
