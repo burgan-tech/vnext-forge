@@ -29,6 +29,7 @@ import { createVsCodeNetworkAdapter } from '../adapters/vscode-network.js';
 import { createVsCodeProcessAdapter } from '../adapters/vscode-process.js';
 import { createVsCodeWorkspaceRootResolver } from '../adapters/vscode-workspace-root.js';
 import { extensionConfig } from '../shared/config.js';
+import type { ForgeToolsSettingsService } from '../tools/forge-tools-settings.js';
 
 interface VnextSchemaModule {
   getSchema(type: string): Record<string, unknown> | null;
@@ -82,7 +83,10 @@ export interface ComposedServices {
  * but plugs in VS Code-flavoured adapters (workspace folder resolver,
  * OutputChannel logger, Node fs/child_process).
  */
-export function composeExtensionServices(logger: LoggerAdapter): ComposedServices {
+export function composeExtensionServices(
+  logger: LoggerAdapter,
+  forgeToolsSettings?: ForgeToolsSettingsService,
+): ComposedServices {
   const fs = createVsCodeFileSystemAdapter();
   const network = createVsCodeNetworkAdapter();
   const processAdapter = createVsCodeProcessAdapter();
@@ -146,8 +150,16 @@ export function composeExtensionServices(logger: LoggerAdapter): ComposedService
     network,
     logger,
     defaultRuntimeUrl: extensionConfig.vnextRuntimeUrl,
-    allowedBaseUrls: extensionConfig.runtimeAllowedBaseUrls,
-    allowRuntimeUrlOverride: extensionConfig.allowRuntimeUrlOverride,
+    // The extension host is a trusted local process (not a web server), so URL
+    // overrides are always allowed. The per-request allowlist provides the
+    // actual scope: VS Code settings URLs + Forge Tools environments.
+    allowRuntimeUrlOverride: true,
+    allowedBaseUrls: forgeToolsSettings
+      ? () => [
+          ...extensionConfig.runtimeAllowedBaseUrls,
+          ...forgeToolsSettings.getCachedEnvironmentUrls(),
+        ]
+      : extensionConfig.runtimeAllowedBaseUrls,
   });
 
   const quickRunService = createQuickRunService(runtimeProxyService);
