@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { collectWorkflowLanguages, collectWorkflowRoles } from '@vnext-forge-studio/doc-gen';
 import { Info } from 'lucide-react';
 import {
@@ -27,29 +27,31 @@ export function AudienceRolePickerDialog({
   workflowJson,
   onGenerate,
 }: AudienceRolePickerDialogProps) {
-  const [roles, setRoles] = useState<string[]>([]);
-  const [languages, setLanguages] = useState<string[]>([]);
+  // Memoize scans so they only re-run when workflowJson identity changes, not on
+  // every parent re-render. The open flag is not a dependency — the values don't
+  // change based on whether the dialog is visible.
+  const roles = useMemo(() => collectWorkflowRoles(workflowJson), [workflowJson]);
+  // Always include 'en' as a guaranteed fallback so the language field is never
+  // hidden and the caller always receives a value the user could see.
+  const languages = useMemo(() => {
+    const collected = collectWorkflowLanguages(workflowJson);
+    return collected.length > 0 ? collected : ['en'];
+  }, [workflowJson]);
+
+  const defaultLanguage = languages.includes('en') ? 'en' : languages[0];
+
   const [selectedRoles, setSelectedRoles] = useState<string[]>([]);
-  const [language, setLanguage] = useState<string>('en');
+  const [language, setLanguage] = useState<string>(defaultLanguage);
 
-  useEffect(() => {
-    if (!open) return;
-
-    const collectedRoles = collectWorkflowRoles(workflowJson);
-    const collectedLanguages = collectWorkflowLanguages(workflowJson);
-
-    setRoles(collectedRoles);
-    setLanguages(collectedLanguages);
+  // Reset selections whenever the dialog opens.
+  const [prevOpen, setPrevOpen] = useState(false);
+  if (open && !prevOpen) {
+    setPrevOpen(true);
     setSelectedRoles([]);
-
-    if (collectedLanguages.includes('en')) {
-      setLanguage('en');
-    } else if (collectedLanguages.length > 0) {
-      setLanguage(collectedLanguages[0]);
-    } else {
-      setLanguage('en');
-    }
-  }, [open, workflowJson]);
+    setLanguage(defaultLanguage);
+  } else if (!open && prevOpen) {
+    setPrevOpen(false);
+  }
 
   function handleRoleToggle(role: string, checked: boolean) {
     setSelectedRoles((prev) =>
@@ -102,8 +104,7 @@ export function AudienceRolePickerDialog({
             </div>
           )}
 
-          {languages.length > 0 && (
-            <div className="flex flex-col gap-1.5">
+          <div className="flex flex-col gap-1.5">
               <Label htmlFor="language-select" className="text-sm font-medium">
                 Language
               </Label>
@@ -119,7 +120,6 @@ export function AudienceRolePickerDialog({
                 ))}
               </Select>
             </div>
-          )}
         </div>
 
         <DialogFooter className="border-border shrink-0 border-t px-6 py-3">
