@@ -225,7 +225,7 @@ export function EditorDocumentToolbar({
     onPreviewAudienceOpenApi != null ? (
       <IconButton
         icon={<Users size={iconSize} />}
-        label="Audience OpenAPI"
+        label="Preview Audience OpenAPI"
         onClick={onPreviewAudienceOpenApi}
       />
     ) : null;

@@ -5,7 +5,7 @@ import { ReactFlowProvider } from '@xyflow/react';
 import { AlertCircle, ArrowLeft, ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
 import { PreviewDocumentDialog } from './components/PreviewDocumentDialog';
 import { OpenApiPreviewDialog } from './components/OpenApiPreviewDialog';
-import { AudienceRolePickerDialog } from './components/AudienceRolePickerDialog.js';
+import { AudienceRolePickerDialog } from './components/AudienceRolePickerDialog';
 import { useEditorPanelsStore } from '../../store/useEditorPanelsStore';
 import { useWorkflowStore } from '../../store/useWorkflowStore';
 import { ComponentEditorLayout } from '../../modules/save-component/components/ComponentEditorLayout';
@@ -343,7 +343,7 @@ export function FlowEditorView({
         publishing={publishing}
         onOpenQuickRun={onOpenQuickRun}
         onPreviewDocument={() => setShowPreviewDoc(true)}
-        onPreviewOpenApi={() => setShowOpenApiPreview(true)}
+        onPreviewOpenApi={() => { setAudienceFilter(null); setShowOpenApiPreview(true); }}
         onPreviewAudienceOpenApi={() => setShowAudiencePicker(true)}
         registerToolbar={registerToolbar}
         saveErrorMessage={saveError?.toUserMessage().message ?? null}
