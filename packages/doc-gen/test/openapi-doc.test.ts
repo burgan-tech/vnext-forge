@@ -306,6 +306,7 @@ describe('audience filter', () => {
     expect(p).toContain(txPath('no-roles'));
     expect(p).not.toContain(txPath('deny-admin'));
     expect(p).not.toContain(txPath('other-role'));
+    expect(p).not.toContain(txPath('deny-wins')); // deny-wins has deny:admin → excluded
   });
 
   it('c) audienceRoles: [] → same as no filter, all 4 base transitions present', () => {
@@ -315,6 +316,7 @@ describe('audience filter', () => {
     expect(p).toContain(txPath('deny-admin'));
     expect(p).toContain(txPath('no-roles'));
     expect(p).toContain(txPath('other-role'));
+    expect(p).toContain(txPath('deny-wins')); // empty filter = pass-through, deny-wins included
   });
 
   it('d) DENY overrides ALLOW — deny-wins transition excluded when admin is in audience', () => {
