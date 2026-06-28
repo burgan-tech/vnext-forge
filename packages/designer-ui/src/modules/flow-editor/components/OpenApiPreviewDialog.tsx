@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type ComponentType } from 'react';
-import { buildWorkflowOpenApi, createSchemaResolver, createComponentResolver, type OpenApiOptions } from '@vnext-forge-studio/doc-gen';
+import { buildWorkflowOpenApi, createSchemaResolver, createComponentResolver } from '@vnext-forge-studio/doc-gen';
 import { Braces, Check, Copy, Download, FileText, Loader2, Maximize2, Minimize2 } from 'lucide-react';
 import {
   Dialog,
@@ -24,8 +24,8 @@ interface OpenApiPreviewDialogProps {
   workflowJson: unknown;
   /** Active project id; used to resolve Schema/Function/Task component references. */
   projectId: string | undefined;
-  /** When set, the generated spec is filtered to the given audience roles. */
-  audienceFilter?: OpenApiOptions;
+  /** When set, the generated spec is filtered to the given audience roles and language. */
+  audienceFilter?: { roles: string[]; language: string };
 }
 
 type RedocComponent = ComponentType<{ spec?: object; options?: Record<string, unknown> }>;
@@ -122,7 +122,13 @@ export function OpenApiPreviewDialog({
           : [[], []];
         const resolveSchema = createSchemaResolver(schemaComponents);
         const resolveComponent = createComponentResolver(resolvableComponents);
-        const doc = buildWorkflowOpenApi(workflowJson, { resolveSchema, resolveComponent }, audienceFilter);
+        const doc = buildWorkflowOpenApi(
+          workflowJson,
+          { resolveSchema, resolveComponent },
+          audienceFilter
+            ? { audienceRoles: audienceFilter.roles, language: audienceFilter.language }
+            : undefined,
+        );
         if (!cancelled) {
           setSpecObject(doc);
           setSpecText(JSON.stringify(doc, null, 2));
@@ -155,7 +161,7 @@ export function OpenApiPreviewDialog({
   }, [specText]);
 
   const handleDownload = useCallback(() => {
-    const activeRoles = audienceFilter?.audienceRoles ?? [];
+    const activeRoles = audienceFilter?.roles ?? [];
     const fileName =
       activeRoles.length > 0
         ? `${workflowKey(workflowJson)}.audience-${activeRoles.join('-')}.openapi.json`
@@ -200,10 +206,10 @@ export function OpenApiPreviewDialog({
               <DialogDescription>
                 A read-only OpenAPI 3.1 specification for the current workflow.
               </DialogDescription>
-              {audienceFilter && (audienceFilter.audienceRoles?.length ?? 0) > 0 && (
+              {(audienceFilter?.roles.length ?? 0) > 0 && (
                 <div className="mt-1 flex flex-wrap items-center gap-1">
                   <span className="text-muted-foreground text-xs">Audience:</span>
-                  {audienceFilter.audienceRoles!.map((role) => (
+                  {audienceFilter!.roles.map((role) => (
                     <span
                       key={role}
                       className="bg-primary-muted text-primary-foreground rounded px-1.5 py-0.5 text-[10px] font-medium">
