@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { buildWorkflowOpenApi, createSchemaResolver, createComponentResolver } from '../src/index.js';
+import {
+  buildWorkflowOpenApi,
+  createSchemaResolver,
+  createComponentResolver,
+  collectWorkflowRoles,
+  collectWorkflowLanguages,
+} from '../src/index.js';
 
 const startSchema = {
   key: 'account-type-selection',
@@ -397,5 +403,173 @@ describe('createSchemaResolver', () => {
     expect(resolve(ref('account-type-selection'))).toEqual(startSchema.attributes.schema);
     expect(resolve({ key: 'account-type-selection' })).toEqual(startSchema.attributes.schema);
     expect(resolve({ key: 'missing' })).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// collectWorkflowRoles / collectWorkflowLanguages
+// ---------------------------------------------------------------------------
+
+const makeWorkflow = (
+  key: string,
+  domain: string,
+  overrides: Record<string, unknown> = {},
+) => ({
+  key,
+  domain,
+  attributes: {
+    startTransition: { roles: [{ role: 'starter', grant: 'allow' }] },
+    states: [
+      {
+        key: 'state-a',
+        transitions: [{ roles: [{ role: 'admin', grant: 'allow' }] }],
+        queryRoles: [{ role: 'viewer', grant: 'allow' }],
+      },
+    ],
+    sharedTransitions: [{ roles: [{ role: 'shared-role', grant: 'allow' }] }],
+    ...overrides,
+  },
+});
+
+describe('collectWorkflowRoles', () => {
+  it('returns unique sorted roles from a flat workflow', () => {
+    const wf = makeWorkflow('wf', 'dom');
+    expect(collectWorkflowRoles(wf)).toEqual(['admin', 'shared-role', 'starter', 'viewer']);
+  });
+
+  it('returns [] for non-object input', () => {
+    expect(collectWorkflowRoles(null)).toEqual([]);
+    expect(collectWorkflowRoles('string')).toEqual([]);
+  });
+
+  it('scans subflow roles when resolveComponent is provided (same domain)', () => {
+    const subflow = makeWorkflow('sub-wf', 'dom', {
+      states: [{ key: 's', transitions: [{ roles: [{ role: 'sub-role', grant: 'allow' }] }] }],
+      sharedTransitions: [],
+    });
+    const parent = {
+      key: 'parent-wf',
+      domain: 'dom',
+      attributes: {
+        startTransition: {},
+        states: [
+          {
+            key: 'state-with-subflow',
+            transitions: [],
+            subFlow: { process: { key: 'sub-wf', domain: 'dom', flow: 'sys-workflows' } },
+          },
+        ],
+      },
+    };
+    const resolve = createComponentResolver([subflow]);
+    const roles = collectWorkflowRoles(parent, resolve);
+    expect(roles).toContain('sub-role');
+  });
+
+  it('skips cross-domain subflows', () => {
+    const subflow = makeWorkflow('sub-wf', 'other-dom');
+    const parent = {
+      key: 'parent-wf',
+      domain: 'dom',
+      attributes: {
+        states: [
+          {
+            key: 's',
+            transitions: [],
+            subFlow: { process: { key: 'sub-wf', domain: 'other-dom' } },
+          },
+        ],
+      },
+    };
+    const resolve = createComponentResolver([subflow]);
+    const roles = collectWorkflowRoles(parent, resolve);
+    expect(roles).not.toContain('admin');
+    expect(roles).not.toContain('starter');
+  });
+
+  it('handles subflow chains (subflow of subflow) with cycle detection', () => {
+    const grandchild = makeWorkflow('gc-wf', 'dom', {
+      states: [{ key: 'sg', transitions: [{ roles: [{ role: 'grand-role', grant: 'allow' }] }] }],
+      sharedTransitions: [],
+    });
+    const child = {
+      key: 'child-wf',
+      domain: 'dom',
+      attributes: {
+        states: [
+          {
+            key: 'sc',
+            transitions: [{ roles: [{ role: 'child-role', grant: 'allow' }] }],
+            subFlow: { process: { key: 'gc-wf', domain: 'dom' } },
+          },
+        ],
+      },
+    };
+    const parent = {
+      key: 'parent-wf',
+      domain: 'dom',
+      attributes: {
+        states: [
+          {
+            key: 'sp',
+            transitions: [{ roles: [{ role: 'parent-role', grant: 'allow' }] }],
+            subFlow: { process: { key: 'child-wf', domain: 'dom' } },
+          },
+        ],
+      },
+    };
+    const resolve = createComponentResolver([grandchild, child, parent]);
+    const roles = collectWorkflowRoles(parent, resolve);
+    expect(roles).toContain('parent-role');
+    expect(roles).toContain('child-role');
+    expect(roles).toContain('grand-role');
+  });
+});
+
+describe('collectWorkflowLanguages', () => {
+  it('returns unique sorted language codes', () => {
+    const wf = {
+      key: 'wf',
+      domain: 'dom',
+      attributes: {
+        labels: [{ language: 'tr', label: 'Akış' }],
+        startTransition: { labels: [{ language: 'en', label: 'Start' }] },
+        states: [
+          {
+            labels: [{ language: 'en', label: 'State' }],
+            transitions: [{ labels: [{ language: 'tr', label: 'İleri' }] }],
+          },
+        ],
+      },
+    };
+    expect(collectWorkflowLanguages(wf)).toEqual(['en', 'tr']);
+  });
+
+  it('includes subflow languages when resolveComponent is provided', () => {
+    const subflow = {
+      key: 'sub-wf',
+      domain: 'dom',
+      attributes: {
+        labels: [{ language: 'de', label: 'Sub' }],
+        states: [],
+      },
+    };
+    const parent = {
+      key: 'parent-wf',
+      domain: 'dom',
+      attributes: {
+        labels: [{ language: 'en', label: 'Parent' }],
+        states: [
+          {
+            transitions: [],
+            subFlow: { process: { key: 'sub-wf', domain: 'dom' } },
+          },
+        ],
+      },
+    };
+    const resolve = createComponentResolver([subflow]);
+    const langs = collectWorkflowLanguages(parent, resolve);
+    expect(langs).toContain('en');
+    expect(langs).toContain('de');
   });
 });

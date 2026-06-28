@@ -1,5 +1,9 @@
-import { useMemo, useState } from 'react';
-import { collectWorkflowLanguages, collectWorkflowRoles } from '@vnext-forge-studio/doc-gen';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  collectWorkflowLanguages,
+  collectWorkflowRoles,
+  createComponentResolver,
+} from '@vnext-forge-studio/doc-gen';
 import { Info } from 'lucide-react';
 import {
   Dialog,
@@ -13,11 +17,14 @@ import { Button } from '../../../ui/Button';
 import { Checkbox } from '../../../ui/Checkbox';
 import { Label } from '../../../ui/Label';
 import { Select } from '../../../ui/Select';
+import { collectComponents } from '../OpenApiPreviewApi';
 
 interface AudienceRolePickerDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   workflowJson: unknown;
+  /** Active project id; used to resolve same-domain subflow references when scanning roles. */
+  projectId: string | undefined;
   onGenerate: (filter: { roles: string[]; language: string }) => void;
 }
 
@@ -25,18 +32,46 @@ export function AudienceRolePickerDialog({
   open,
   onOpenChange,
   workflowJson,
+  projectId,
   onGenerate,
 }: AudienceRolePickerDialogProps) {
-  // Memoize scans so they only re-run when workflowJson identity changes, not on
-  // every parent re-render. The open flag is not a dependency — the values don't
-  // change based on whether the dialog is visible.
-  const roles = useMemo(() => collectWorkflowRoles(workflowJson), [workflowJson]);
+  // Load same-domain subflow components so roles from the entire subflow chain
+  // are included in the picker. Cross-domain subflows are skipped by the
+  // resolver (they wouldn't be in this workspace anyway).
+  const [subflowComponents, setSubflowComponents] = useState<unknown[]>([]);
+
+  useEffect(() => {
+    if (!open || !projectId) {
+      setSubflowComponents([]);
+      return;
+    }
+    let cancelled = false;
+    void collectComponents(projectId, ['workflows']).then((comps) => {
+      if (!cancelled) setSubflowComponents(comps);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, projectId]);
+
+  const resolveComponent = useMemo(
+    () => (subflowComponents.length > 0 ? createComponentResolver(subflowComponents) : undefined),
+    [subflowComponents],
+  );
+
+  // Memoize scans so they only re-run when workflowJson or resolver changes,
+  // not on every parent re-render.
+  const roles = useMemo(
+    () => collectWorkflowRoles(workflowJson, resolveComponent),
+    [workflowJson, resolveComponent],
+  );
+
   // Always include 'en' as a guaranteed fallback so the language field is never
   // hidden and the caller always receives a value the user could see.
   const languages = useMemo(() => {
-    const collected = collectWorkflowLanguages(workflowJson);
+    const collected = collectWorkflowLanguages(workflowJson, resolveComponent);
     return collected.length > 0 ? collected : ['en'];
-  }, [workflowJson]);
+  }, [workflowJson, resolveComponent]);
 
   const defaultLanguage = languages.includes('en') ? 'en' : languages[0];
 

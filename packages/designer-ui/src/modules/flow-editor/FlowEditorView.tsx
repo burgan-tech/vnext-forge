@@ -399,6 +399,7 @@ export function FlowEditorView({
         open={showAudiencePicker}
         onOpenChange={setShowAudiencePicker}
         workflowJson={workflowJson}
+        projectId={activeProject?.id}
         onGenerate={(filter) => {
           setAudienceFilter(filter);
           setShowAudiencePicker(false);
