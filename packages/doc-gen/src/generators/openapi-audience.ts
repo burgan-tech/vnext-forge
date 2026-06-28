@@ -18,7 +18,6 @@ interface RoleGrant {
 
 interface LabelEntry {
   language?: unknown;
-  label?: unknown;
 }
 
 interface TransitionLike {
@@ -40,6 +39,7 @@ interface AttributesLike {
   cancel?: unknown;
   exit?: unknown;
   updateData?: unknown;
+  queryRoles?: unknown;
 }
 
 interface WorkflowLike {
@@ -66,6 +66,9 @@ function asString(v: unknown): string | undefined {
 // Low-level collectors
 // ---------------------------------------------------------------------------
 
+// Only the `role` name is collected; `grant` (allow/deny) is intentionally
+// ignored here — callers receive the full set of role identifiers and decide
+// how to interpret grants themselves.
 function collectRolesFromArray(roles: unknown, out: Set<string>): void {
   for (const entry of asArray(roles)) {
     if (isObject(entry)) {
@@ -112,6 +115,10 @@ function collectLanguagesFromTransition(transition: unknown, out: Set<string>): 
  * - `attributes.exit?.roles[].role`
  * - `attributes.updateData?.roles[].role`
  * - `attributes.states[].queryRoles[].role`
+ * - `attributes.queryRoles[].role` (workflow-level query roles)
+ *
+ * Note: the `grant` field of each role entry is intentionally ignored — only
+ * the role identifier is collected; grant semantics are applied by the caller.
  */
 export function collectWorkflowRoles(workflowJson: unknown): string[] {
   const out = new Set<string>();
@@ -143,6 +150,9 @@ export function collectWorkflowRoles(workflowJson: unknown): string[] {
   collectRolesFromTransition(attrs.cancel, out);
   collectRolesFromTransition(attrs.exit, out);
   collectRolesFromTransition(attrs.updateData, out);
+
+  // workflow-level queryRoles (no parallel field exists for labels)
+  collectRolesFromArray(attrs.queryRoles, out);
 
   return [...out].sort();
 }
