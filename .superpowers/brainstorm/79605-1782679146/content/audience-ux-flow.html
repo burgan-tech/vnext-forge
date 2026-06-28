@@ -1,0 +1,41 @@
+<h2>Audience OpenAPI: UX Akışı</h2>
+<p class="subtitle">Toolbar'da yeni bir "Audience" butonu eklenecek. Butona tıklanınca ne olsun?</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>İki adımlı: Önce rol seç → Sonra preview</h3>
+      <p>İlk olarak bir <strong>role seçim dialog'u</strong> açılır. Kullanıcı rolleri seçip "Generate" der, ardından mevcut OpenAPI preview dialog'u açılır — içerik seçilen rollere göre filtrelenmiş olur.</p>
+      <div style="margin-top:0.75rem;padding:0.5rem;background:#f0f4ff;border-radius:6px;font-size:0.8rem;color:#444;">
+        Audience Role Seç → [Generate] → OpenAPI Preview (filtrelenmiş)
+      </div>
+    </div>
+  </div>
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Tek dialog: Role seçimi + preview bir arada</h3>
+      <p>Mevcut OpenAPI Preview dialog'u genişletilir. Sol tarafta <strong>kenar paneli</strong> açılır (rol listesi + çoklu seçim), sağ tarafta preview güncellenir. Kullanıcı rolleri değiştirdikçe preview anında yenilenir.</p>
+      <div style="margin-top:0.75rem;padding:0.5rem;background:#f0f4ff;border-radius:6px;font-size:0.8rem;color:#444;">
+        [Audience] → OpenAPI Preview genişler: sol=rol panel, sağ=preview
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:1.5rem;">
+  <h3 style="margin-bottom:0.5rem;">Mevcut toolbar düzeni (referans)</h3>
+  <div class="mockup">
+    <div class="mockup-header">EditorDocumentToolbar</div>
+    <div class="mockup-body" style="display:flex;align-items:center;gap:8px;padding:8px;">
+      <div class="mock-button" style="font-size:11px;">↩ Undo</div>
+      <div class="mock-button" style="font-size:11px;">↪ Redo</div>
+      <div class="mock-button" style="font-size:11px;">💾 Save</div>
+      <div class="mock-button" style="font-size:11px;">📄 Preview Doc</div>
+      <div class="mock-button" style="font-size:11px;">{ } Preview OpenAPI</div>
+      <div class="mock-button" style="background:#4f46e5;color:#fff;font-size:11px;">👥 Audience ← YENİ</div>
+      <div class="mock-button" style="font-size:11px;">▶ Quick Run</div>
+    </div>
+  </div>
+</div>
