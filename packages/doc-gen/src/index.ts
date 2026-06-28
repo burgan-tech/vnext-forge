@@ -16,6 +16,7 @@ export {
   createComponentResolver,
   type OpenApiDocument,
   type OpenApiResolvers,
+  type OpenApiOptions,
   type SchemaResolver,
   type ComponentResolver,
   type ResourceLikeRef,

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState, type ComponentType } from 'react';
-import { buildWorkflowOpenApi, createSchemaResolver, createComponentResolver } from '@vnext-forge-studio/doc-gen';
+import { buildWorkflowOpenApi, createSchemaResolver, createComponentResolver, type OpenApiOptions } from '@vnext-forge-studio/doc-gen';
 import { Braces, Check, Copy, Download, FileText, Loader2, Maximize2, Minimize2 } from 'lucide-react';
 import {
   Dialog,
@@ -24,6 +24,8 @@ interface OpenApiPreviewDialogProps {
   workflowJson: unknown;
   /** Active project id; used to resolve Schema/Function/Task component references. */
   projectId: string | undefined;
+  /** When set, the generated spec is filtered to the given audience roles. */
+  audienceFilter?: OpenApiOptions;
 }
 
 type RedocComponent = ComponentType<{ spec?: object; options?: Record<string, unknown> }>;
@@ -85,6 +87,7 @@ export function OpenApiPreviewDialog({
   onOpenChange,
   workflowJson,
   projectId,
+  audienceFilter,
 }: OpenApiPreviewDialogProps) {
   const [copied, setCopied] = useState(false);
   const [fullScreen, setFullScreen] = useState(false);
@@ -119,7 +122,7 @@ export function OpenApiPreviewDialog({
           : [[], []];
         const resolveSchema = createSchemaResolver(schemaComponents);
         const resolveComponent = createComponentResolver(resolvableComponents);
-        const doc = buildWorkflowOpenApi(workflowJson, { resolveSchema, resolveComponent });
+        const doc = buildWorkflowOpenApi(workflowJson, { resolveSchema, resolveComponent }, audienceFilter);
         if (!cancelled) {
           setSpecObject(doc);
           setSpecText(JSON.stringify(doc, null, 2));
@@ -139,7 +142,7 @@ export function OpenApiPreviewDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, workflowJson, projectId]);
+  }, [open, workflowJson, projectId, audienceFilter]);
 
   const handleCopy = useCallback(async () => {
     try {
@@ -152,7 +155,11 @@ export function OpenApiPreviewDialog({
   }, [specText]);
 
   const handleDownload = useCallback(() => {
-    const fileName = `${workflowKey(workflowJson)}.openapi.json`;
+    const activeRoles = audienceFilter?.audienceRoles ?? [];
+    const fileName =
+      activeRoles.length > 0
+        ? `${workflowKey(workflowJson)}.audience-${activeRoles.join('-')}.openapi.json`
+        : `${workflowKey(workflowJson)}.openapi.json`;
     // In the VS Code webview an <a download> + blob URL is blocked by CSP, so
     // route the save through the host (native save dialog). In the plain web
     // shell postMessageToHost is absent and the blob anchor works.
@@ -172,7 +179,7 @@ export function OpenApiPreviewDialog({
     } catch (err) {
       logger.warn('in-browser download failed', { error: err instanceof Error ? err.message : String(err) });
     }
-  }, [specText, workflowJson]);
+  }, [specText, workflowJson, audienceFilter]);
 
   const ready = !loading && !!specText;
 
@@ -193,6 +200,18 @@ export function OpenApiPreviewDialog({
               <DialogDescription>
                 A read-only OpenAPI 3.1 specification for the current workflow.
               </DialogDescription>
+              {audienceFilter && (audienceFilter.audienceRoles?.length ?? 0) > 0 && (
+                <div className="mt-1 flex flex-wrap items-center gap-1">
+                  <span className="text-muted-foreground text-xs">Audience:</span>
+                  {audienceFilter.audienceRoles!.map((role) => (
+                    <span
+                      key={role}
+                      className="bg-primary-muted text-primary-foreground rounded px-1.5 py-0.5 text-[10px] font-medium">
+                      {role}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="flex shrink-0 items-center gap-1">
               <div className="border-border mr-1 flex items-center gap-0.5 rounded-md border p-0.5">
