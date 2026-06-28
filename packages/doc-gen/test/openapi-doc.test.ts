@@ -238,6 +238,157 @@ describe('buildWorkflowOpenApi', () => {
   });
 });
 
+const resolvers = { resolveSchema: () => undefined, resolveComponent: () => undefined };
+const roleBase = '/api/v1/test/workflows/role-test';
+const txPath = (key: string) => `${roleBase}/instances/{instance}/transitions/${key}`;
+const paths = (doc: any) => Object.keys(doc.paths);
+
+const roleWorkflow = {
+  key: 'role-test',
+  domain: 'test',
+  flow: 'sys-flows',
+  version: '1.0.0',
+  attributes: {
+    startTransition: { key: 'start', target: 's1' },
+    states: [
+      {
+        key: 's1',
+        transitions: [
+          {
+            key: 'allow-only',
+            target: 'done',
+            triggerType: 0,
+            roles: [{ role: 'admin', grant: 'allow' }],
+          },
+          {
+            key: 'deny-admin',
+            target: 'done',
+            triggerType: 0,
+            roles: [{ role: 'admin', grant: 'deny' }],
+          },
+          {
+            key: 'no-roles',
+            target: 'done',
+            triggerType: 0,
+          },
+          {
+            key: 'other-role',
+            target: 'done',
+            triggerType: 0,
+            roles: [{ role: 'auditor', grant: 'allow' }],
+          },
+          {
+            key: 'deny-wins',
+            target: 'done',
+            triggerType: 0,
+            roles: [{ role: 'admin', grant: 'deny' }, { role: 'other', grant: 'allow' }],
+          },
+        ],
+      },
+    ],
+  },
+};
+
+describe('audience filter', () => {
+  it('a) no audience filter → all external transitions included', () => {
+    const doc = buildWorkflowOpenApi(roleWorkflow as any, resolvers);
+    const p = paths(doc);
+    expect(p).toContain(txPath('allow-only'));
+    expect(p).toContain(txPath('deny-admin'));
+    expect(p).toContain(txPath('no-roles'));
+    expect(p).toContain(txPath('other-role'));
+  });
+
+  it('b) audienceRoles: [admin] → allow match and no-roles included; deny and non-matching excluded', () => {
+    const doc = buildWorkflowOpenApi(roleWorkflow as any, resolvers, { audienceRoles: ['admin'] });
+    const p = paths(doc);
+    expect(p).toContain(txPath('allow-only'));
+    expect(p).toContain(txPath('no-roles'));
+    expect(p).not.toContain(txPath('deny-admin'));
+    expect(p).not.toContain(txPath('other-role'));
+  });
+
+  it('c) audienceRoles: [] → same as no filter, all 4 base transitions present', () => {
+    const doc = buildWorkflowOpenApi(roleWorkflow as any, resolvers, { audienceRoles: [] });
+    const p = paths(doc);
+    expect(p).toContain(txPath('allow-only'));
+    expect(p).toContain(txPath('deny-admin'));
+    expect(p).toContain(txPath('no-roles'));
+    expect(p).toContain(txPath('other-role'));
+  });
+
+  it('d) DENY overrides ALLOW — deny-wins transition excluded when admin is in audience', () => {
+    const doc = buildWorkflowOpenApi(roleWorkflow as any, resolvers, { audienceRoles: ['admin'] });
+    expect(paths(doc)).not.toContain(txPath('deny-wins'));
+  });
+
+  it('e) startTransition path always present regardless of audience filter', () => {
+    const doc = buildWorkflowOpenApi(roleWorkflow as any, resolvers, { audienceRoles: ['admin'] });
+    expect(paths(doc)).toContain(`${roleBase}/instances/start`);
+  });
+});
+
+const labelWorkflow = {
+  key: 'label-test',
+  domain: 'test',
+  flow: 'sys-flows',
+  version: '1.0.0',
+  attributes: {
+    labels: [{ language: 'en', label: 'Label Test' }, { language: 'tr', label: 'Etiket Testi' }],
+    startTransition: { key: 'start', target: 's1' },
+    states: [
+      {
+        key: 's1',
+        transitions: [
+          {
+            key: 'approve',
+            target: 'done',
+            triggerType: 0,
+            labels: [{ language: 'en', label: 'Approve' }, { language: 'tr', label: 'Onayla' }],
+          },
+        ],
+      },
+    ],
+  },
+};
+
+describe('language and _comment', () => {
+  it('f) language: tr uses Turkish label in transition summary', () => {
+    const labelBase = '/api/v1/test/workflows/label-test';
+    const docTr = buildWorkflowOpenApi(labelWorkflow as any, resolvers, { language: 'tr' });
+    const opTr = (docTr.paths[`${labelBase}/instances/{instance}/transitions/approve`] as any).patch;
+    expect(opTr.summary).toContain('Onayla');
+
+    const docEn = buildWorkflowOpenApi(labelWorkflow as any, resolvers, { language: 'en' });
+    const opEn = (docEn.paths[`${labelBase}/instances/{instance}/transitions/approve`] as any).patch;
+    expect(opEn.summary).toContain('Approve');
+  });
+
+  it('g) workflow _comment appears in info.description', () => {
+    const commentWorkflow = {
+      ...roleWorkflow,
+      _comment: 'This is a workflow comment.',
+    };
+    const doc = buildWorkflowOpenApi(commentWorkflow as any, resolvers);
+    expect(doc.info.description).toContain('This is a workflow comment.');
+  });
+
+  it('h) audienceRoles badge appears in info.description', () => {
+    const doc = buildWorkflowOpenApi(roleWorkflow as any, resolvers, { audienceRoles: ['admin', 'manager'] });
+    expect(doc.info.description).toContain('**Audience:** admin, manager');
+  });
+
+  it('i) language: fr with no French labels falls back to first available', () => {
+    const labelBase = '/api/v1/test/workflows/label-test';
+    const doc = buildWorkflowOpenApi(labelWorkflow as any, resolvers, { language: 'fr' });
+    // Should not crash and should produce a non-empty title from the available labels
+    expect(doc.info.title).toBeTruthy();
+    expect(typeof doc.info.title).toBe('string');
+    // The title should come from one of the available labels (en or tr), not crash
+    expect(doc.info.title).toMatch(/Label Test|Etiket Testi|label-test/);
+  });
+});
+
 describe('createSchemaResolver', () => {
   it('resolves by flow:domain:key and falls back to key-only', () => {
     const resolve = createSchemaResolver([startSchema]);
