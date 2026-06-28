@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { buildWorkflowOpenApi, createSchemaResolver, createComponentResolver } from '../src/index.js';
+import {
+  buildWorkflowOpenApi,
+  createSchemaResolver,
+  createComponentResolver,
+  collectWorkflowRoles,
+  collectWorkflowLanguages,
+} from '../src/index.js';
 
 const startSchema = {
   key: 'account-type-selection',
@@ -238,11 +244,332 @@ describe('buildWorkflowOpenApi', () => {
   });
 });
 
+const resolvers = { resolveSchema: () => undefined, resolveComponent: () => undefined };
+const roleBase = '/api/v1/test/workflows/role-test';
+const txPath = (key: string) => `${roleBase}/instances/{instance}/transitions/${key}`;
+const paths = (doc: any) => Object.keys(doc.paths);
+
+const roleWorkflow = {
+  key: 'role-test',
+  domain: 'test',
+  flow: 'sys-flows',
+  version: '1.0.0',
+  attributes: {
+    startTransition: { key: 'start', target: 's1' },
+    states: [
+      {
+        key: 's1',
+        transitions: [
+          {
+            key: 'allow-only',
+            target: 'done',
+            triggerType: 0,
+            roles: [{ role: 'admin', grant: 'allow' }],
+          },
+          {
+            key: 'deny-admin',
+            target: 'done',
+            triggerType: 0,
+            roles: [{ role: 'admin', grant: 'deny' }],
+          },
+          {
+            key: 'no-roles',
+            target: 'done',
+            triggerType: 0,
+          },
+          {
+            key: 'other-role',
+            target: 'done',
+            triggerType: 0,
+            roles: [{ role: 'auditor', grant: 'allow' }],
+          },
+          {
+            key: 'deny-wins',
+            target: 'done',
+            triggerType: 0,
+            roles: [{ role: 'admin', grant: 'deny' }, { role: 'other', grant: 'allow' }],
+          },
+        ],
+      },
+    ],
+  },
+};
+
+describe('audience filter', () => {
+  it('a) no audience filter → all external transitions included', () => {
+    const doc = buildWorkflowOpenApi(roleWorkflow as any, resolvers);
+    const p = paths(doc);
+    expect(p).toContain(txPath('allow-only'));
+    expect(p).toContain(txPath('deny-admin'));
+    expect(p).toContain(txPath('no-roles'));
+    expect(p).toContain(txPath('other-role'));
+  });
+
+  it('b) audienceRoles: [admin] → allow match and no-roles included; deny and non-matching excluded', () => {
+    const doc = buildWorkflowOpenApi(roleWorkflow as any, resolvers, { audienceRoles: ['admin'] });
+    const p = paths(doc);
+    expect(p).toContain(txPath('allow-only'));
+    expect(p).toContain(txPath('no-roles'));
+    expect(p).not.toContain(txPath('deny-admin'));
+    expect(p).not.toContain(txPath('other-role'));
+    expect(p).not.toContain(txPath('deny-wins')); // deny-wins has deny:admin → excluded
+  });
+
+  it('c) audienceRoles: [] → same as no filter, all 4 base transitions present', () => {
+    const doc = buildWorkflowOpenApi(roleWorkflow as any, resolvers, { audienceRoles: [] });
+    const p = paths(doc);
+    expect(p).toContain(txPath('allow-only'));
+    expect(p).toContain(txPath('deny-admin'));
+    expect(p).toContain(txPath('no-roles'));
+    expect(p).toContain(txPath('other-role'));
+    expect(p).toContain(txPath('deny-wins')); // empty filter = pass-through, deny-wins included
+  });
+
+  it('d) DENY overrides ALLOW — deny-wins transition excluded when admin is in audience', () => {
+    const doc = buildWorkflowOpenApi(roleWorkflow as any, resolvers, { audienceRoles: ['admin'] });
+    expect(paths(doc)).not.toContain(txPath('deny-wins'));
+  });
+
+  it('e) startTransition path always present regardless of audience filter', () => {
+    const doc = buildWorkflowOpenApi(roleWorkflow as any, resolvers, { audienceRoles: ['admin'] });
+    expect(paths(doc)).toContain(`${roleBase}/instances/start`);
+  });
+});
+
+const labelWorkflow = {
+  key: 'label-test',
+  domain: 'test',
+  flow: 'sys-flows',
+  version: '1.0.0',
+  attributes: {
+    labels: [{ language: 'en', label: 'Label Test' }, { language: 'tr', label: 'Etiket Testi' }],
+    startTransition: { key: 'start', target: 's1' },
+    states: [
+      {
+        key: 's1',
+        transitions: [
+          {
+            key: 'approve',
+            target: 'done',
+            triggerType: 0,
+            labels: [{ language: 'en', label: 'Approve' }, { language: 'tr', label: 'Onayla' }],
+          },
+        ],
+      },
+    ],
+  },
+};
+
+describe('language and _comment', () => {
+  it('f) language: tr uses Turkish label in transition summary', () => {
+    const labelBase = '/api/v1/test/workflows/label-test';
+    const docTr = buildWorkflowOpenApi(labelWorkflow as any, resolvers, { language: 'tr' });
+    const opTr = (docTr.paths[`${labelBase}/instances/{instance}/transitions/approve`] as any).patch;
+    expect(opTr.summary).toContain('Onayla');
+
+    const docEn = buildWorkflowOpenApi(labelWorkflow as any, resolvers, { language: 'en' });
+    const opEn = (docEn.paths[`${labelBase}/instances/{instance}/transitions/approve`] as any).patch;
+    expect(opEn.summary).toContain('Approve');
+  });
+
+  it('g) workflow _comment appears in info.description', () => {
+    const commentWorkflow = {
+      ...roleWorkflow,
+      _comment: 'This is a workflow comment.',
+    };
+    const doc = buildWorkflowOpenApi(commentWorkflow as any, resolvers);
+    expect(doc.info.description).toContain('This is a workflow comment.');
+  });
+
+  it('h) audienceRoles badge appears in info.description', () => {
+    const doc = buildWorkflowOpenApi(roleWorkflow as any, resolvers, { audienceRoles: ['admin', 'manager'] });
+    expect(doc.info.description).toContain('**Audience:** admin, manager');
+  });
+
+  it('i) language: fr with no French labels falls back to first available', () => {
+    const labelBase = '/api/v1/test/workflows/label-test';
+    const doc = buildWorkflowOpenApi(labelWorkflow as any, resolvers, { language: 'fr' });
+    // Should not crash and should produce a non-empty title from the available labels
+    expect(doc.info.title).toBeTruthy();
+    expect(typeof doc.info.title).toBe('string');
+    // The title should come from one of the available labels (en or tr), not crash
+    expect(doc.info.title).toMatch(/Label Test|Etiket Testi|label-test/);
+  });
+});
+
 describe('createSchemaResolver', () => {
   it('resolves by flow:domain:key and falls back to key-only', () => {
     const resolve = createSchemaResolver([startSchema]);
     expect(resolve(ref('account-type-selection'))).toEqual(startSchema.attributes.schema);
     expect(resolve({ key: 'account-type-selection' })).toEqual(startSchema.attributes.schema);
     expect(resolve({ key: 'missing' })).toBeUndefined();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// collectWorkflowRoles / collectWorkflowLanguages
+// ---------------------------------------------------------------------------
+
+const makeWorkflow = (
+  key: string,
+  domain: string,
+  overrides: Record<string, unknown> = {},
+) => ({
+  key,
+  domain,
+  attributes: {
+    startTransition: { roles: [{ role: 'starter', grant: 'allow' }] },
+    states: [
+      {
+        key: 'state-a',
+        transitions: [{ roles: [{ role: 'admin', grant: 'allow' }] }],
+        queryRoles: [{ role: 'viewer', grant: 'allow' }],
+      },
+    ],
+    sharedTransitions: [{ roles: [{ role: 'shared-role', grant: 'allow' }] }],
+    ...overrides,
+  },
+});
+
+describe('collectWorkflowRoles', () => {
+  it('returns unique sorted roles from a flat workflow', () => {
+    const wf = makeWorkflow('wf', 'dom');
+    expect(collectWorkflowRoles(wf)).toEqual(['admin', 'shared-role', 'starter', 'viewer']);
+  });
+
+  it('returns [] for non-object input', () => {
+    expect(collectWorkflowRoles(null)).toEqual([]);
+    expect(collectWorkflowRoles('string')).toEqual([]);
+  });
+
+  it('scans subflow roles when resolveComponent is provided (same domain)', () => {
+    const subflow = makeWorkflow('sub-wf', 'dom', {
+      states: [{ key: 's', transitions: [{ roles: [{ role: 'sub-role', grant: 'allow' }] }] }],
+      sharedTransitions: [],
+    });
+    const parent = {
+      key: 'parent-wf',
+      domain: 'dom',
+      attributes: {
+        startTransition: {},
+        states: [
+          {
+            key: 'state-with-subflow',
+            transitions: [],
+            subFlow: { process: { key: 'sub-wf', domain: 'dom', flow: 'sys-workflows' } },
+          },
+        ],
+      },
+    };
+    const resolve = createComponentResolver([subflow]);
+    const roles = collectWorkflowRoles(parent, resolve);
+    expect(roles).toContain('sub-role');
+  });
+
+  it('skips cross-domain subflows', () => {
+    const subflow = makeWorkflow('sub-wf', 'other-dom');
+    const parent = {
+      key: 'parent-wf',
+      domain: 'dom',
+      attributes: {
+        states: [
+          {
+            key: 's',
+            transitions: [],
+            subFlow: { process: { key: 'sub-wf', domain: 'other-dom' } },
+          },
+        ],
+      },
+    };
+    const resolve = createComponentResolver([subflow]);
+    const roles = collectWorkflowRoles(parent, resolve);
+    expect(roles).not.toContain('admin');
+    expect(roles).not.toContain('starter');
+  });
+
+  it('handles subflow chains (subflow of subflow) with cycle detection', () => {
+    const grandchild = makeWorkflow('gc-wf', 'dom', {
+      states: [{ key: 'sg', transitions: [{ roles: [{ role: 'grand-role', grant: 'allow' }] }] }],
+      sharedTransitions: [],
+    });
+    const child = {
+      key: 'child-wf',
+      domain: 'dom',
+      attributes: {
+        states: [
+          {
+            key: 'sc',
+            transitions: [{ roles: [{ role: 'child-role', grant: 'allow' }] }],
+            subFlow: { process: { key: 'gc-wf', domain: 'dom' } },
+          },
+        ],
+      },
+    };
+    const parent = {
+      key: 'parent-wf',
+      domain: 'dom',
+      attributes: {
+        states: [
+          {
+            key: 'sp',
+            transitions: [{ roles: [{ role: 'parent-role', grant: 'allow' }] }],
+            subFlow: { process: { key: 'child-wf', domain: 'dom' } },
+          },
+        ],
+      },
+    };
+    const resolve = createComponentResolver([grandchild, child, parent]);
+    const roles = collectWorkflowRoles(parent, resolve);
+    expect(roles).toContain('parent-role');
+    expect(roles).toContain('child-role');
+    expect(roles).toContain('grand-role');
+  });
+});
+
+describe('collectWorkflowLanguages', () => {
+  it('returns unique sorted language codes', () => {
+    const wf = {
+      key: 'wf',
+      domain: 'dom',
+      attributes: {
+        labels: [{ language: 'tr', label: 'Akış' }],
+        startTransition: { labels: [{ language: 'en', label: 'Start' }] },
+        states: [
+          {
+            labels: [{ language: 'en', label: 'State' }],
+            transitions: [{ labels: [{ language: 'tr', label: 'İleri' }] }],
+          },
+        ],
+      },
+    };
+    expect(collectWorkflowLanguages(wf)).toEqual(['en', 'tr']);
+  });
+
+  it('includes subflow languages when resolveComponent is provided', () => {
+    const subflow = {
+      key: 'sub-wf',
+      domain: 'dom',
+      attributes: {
+        labels: [{ language: 'de', label: 'Sub' }],
+        states: [],
+      },
+    };
+    const parent = {
+      key: 'parent-wf',
+      domain: 'dom',
+      attributes: {
+        labels: [{ language: 'en', label: 'Parent' }],
+        states: [
+          {
+            transitions: [],
+            subFlow: { process: { key: 'sub-wf', domain: 'dom' } },
+          },
+        ],
+      },
+    };
+    const resolve = createComponentResolver([subflow]);
+    const langs = collectWorkflowLanguages(parent, resolve);
+    expect(langs).toContain('en');
+    expect(langs).toContain('de');
   });
 });

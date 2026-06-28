@@ -59,6 +59,8 @@ export interface OpenApiDocument {
   };
 }
 
+interface RoleGrant { role: string; grant: 'allow' | 'deny' }
+
 interface TransitionLike {
   key?: string;
   target?: string;
@@ -66,6 +68,7 @@ interface TransitionLike {
   labels?: { language?: string; label?: string }[];
   schema?: ResourceLikeRef | null;
   _comment?: string;
+  roles?: RoleGrant[];
 }
 
 interface WorkflowLike {
@@ -73,6 +76,7 @@ interface WorkflowLike {
   domain?: string;
   flow?: string;
   version?: string;
+  _comment?: string;
   attributes?: {
     labels?: { language?: string; label?: string }[];
     startTransition?: TransitionLike;
@@ -201,10 +205,35 @@ function functionTaskRefs(functionJson: Record<string, unknown> | undefined): Re
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-function firstLabel(labels: { language?: string; label?: string }[] | undefined, fallback: string): string {
+function firstLabel(
+  labels: { language?: string; label?: string }[] | undefined,
+  fallback: string,
+  language = 'en',
+): string {
   if (!labels?.length) return fallback;
-  const en = labels.find((l) => l.language === 'en') ?? labels[0];
-  return en?.label ?? fallback;
+  const preferred = labels.find(
+    (l) => l.language === language || (l.language ?? '').startsWith(language + '-') || language.startsWith((l.language ?? '') + '-'),
+  ) ?? labels[0];
+  return preferred?.label ?? fallback;
+}
+
+function isVisibleToAudience(
+  roles: RoleGrant[] | undefined,
+  audienceRoles: string[],
+): boolean {
+  if (audienceRoles.length === 0) return true;
+  if (!roles?.length) return true;
+  const matched = roles.filter((r) => audienceRoles.includes(r.role));
+  if (matched.some((r) => r.grant === 'deny')) return false;
+  if (matched.some((r) => r.grant === 'allow')) return true;
+  return false;
+}
+
+export interface OpenApiOptions {
+  /** When set, only transitions visible to at least one of these roles are emitted. */
+  audienceRoles?: string[];
+  /** Preferred language code for label/summary resolution (e.g. 'en', 'tr'). Default: 'en'. */
+  language?: string;
 }
 
 /** PascalCase component-schema name derived from a transition/schema key. */
@@ -240,14 +269,20 @@ function collectExternalTransitions(wf: WorkflowLike): TransitionLike[] {
 
 // ── builder ───────────────────────────────────────────────────────────────────
 
-export function buildWorkflowOpenApi(workflowJson: unknown, resolvers: OpenApiResolvers): OpenApiDocument {
+export function buildWorkflowOpenApi(
+  workflowJson: unknown,
+  resolvers: OpenApiResolvers,
+  options?: OpenApiOptions,
+): OpenApiDocument {
   const { resolveSchema, resolveComponent } = resolvers;
+  const audienceRoles = options?.audienceRoles ?? [];
+  const language = options?.language ?? 'en';
   const wf = (workflowJson ?? {}) as WorkflowLike;
   const attrs = wf.attributes ?? {};
   const domain = wf.domain ?? '{domain}';
   const wfKey = wf.key ?? '{workflow}';
   const wfVersion = wf.version ?? '1.0.0';
-  const title = firstLabel(attrs.labels, wfKey);
+  const title = firstLabel(attrs.labels, wfKey, language);
   const base = `/api/v1/${domain}/workflows/${wfKey}`;
 
   const schemas: Record<string, JsonSchemaObject> = {};
@@ -380,7 +415,9 @@ export function buildWorkflowOpenApi(workflowJson: unknown, resolvers: OpenApiRe
     subFlowKey?: string;
     fromState?: string;
   }
-  const txEntries: TransitionEntry[] = collectExternalTransitions(wf).map((t) => ({ t }));
+  const txEntries: TransitionEntry[] = collectExternalTransitions(wf)
+    .filter((t) => isVisibleToAudience(t.roles, audienceRoles))
+    .map((t) => ({ t }));
 
   // Same-workspace sub-flows: when a state delegates to a `process` workflow in
   // the same domain, fold that sub-flow's externally-triggerable transitions in.
@@ -394,6 +431,7 @@ export function buildWorkflowOpenApi(workflowJson: unknown, resolvers: OpenApiRe
       if (!subWf) continue;
       const subFlowKey = String(subWf.key ?? proc.key);
       for (const t of collectExternalTransitions(subWf as unknown as WorkflowLike)) {
+        if (!isVisibleToAudience(t.roles, audienceRoles)) continue;
         txEntries.push({ t, subFlowKey, fromState: state.key });
       }
     }
@@ -408,7 +446,7 @@ export function buildWorkflowOpenApi(workflowJson: unknown, resolvers: OpenApiRe
       patch: {
         tags: subFlowKey ? ['Instance', 'Sub-flow'] : ['Instance'],
         operationId: `transition_${key}`,
-        summary: `Trigger transition "${firstLabel(t.labels, key)}"`,
+        summary: `Trigger transition "${firstLabel(t.labels, key, language)}"`,
         description: subFlowKey
           ? `Sub-flow transition — belongs to sub-flow "${subFlowKey}"${fromState ? ` entered from state "${fromState}"` : ''}. Consumed through the parent workflow instance.`
           : t._comment,
@@ -523,7 +561,11 @@ export function buildWorkflowOpenApi(workflowJson: unknown, resolvers: OpenApiRe
     info: {
       title: `${title} API`,
       version: wfVersion,
-      description: `OpenAPI specification for the "${wfKey}" workflow (domain "${domain}"). Generated by vNext Forge.`,
+      description: [
+        `OpenAPI specification for the "${wfKey}" workflow (domain "${domain}"). Generated by vNext Forge.`,
+        wf._comment ? `\n\n${wf._comment}` : '',
+        audienceRoles.length ? `\n\n**Audience:** ${audienceRoles.join(', ')}` : '',
+      ].join(''),
     },
     servers: [{ url: '/', description: 'vNext runtime' }],
     paths,

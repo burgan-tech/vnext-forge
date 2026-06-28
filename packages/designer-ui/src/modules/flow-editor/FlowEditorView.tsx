@@ -5,6 +5,7 @@ import { ReactFlowProvider } from '@xyflow/react';
 import { AlertCircle, ArrowLeft, ChevronDown, ChevronRight, Loader2 } from 'lucide-react';
 import { PreviewDocumentDialog } from './components/PreviewDocumentDialog';
 import { OpenApiPreviewDialog } from './components/OpenApiPreviewDialog';
+import { AudienceRolePickerDialog } from './components/AudienceRolePickerDialog';
 import { useEditorPanelsStore } from '../../store/useEditorPanelsStore';
 import { useWorkflowStore } from '../../store/useWorkflowStore';
 import { ComponentEditorLayout } from '../../modules/save-component/components/ComponentEditorLayout';
@@ -202,6 +203,8 @@ export function FlowEditorView({
   const [showMetadata, setShowMetadata] = useState(false);
   const [showPreviewDoc, setShowPreviewDoc] = useState(false);
   const [showOpenApiPreview, setShowOpenApiPreview] = useState(false);
+  const [showAudiencePicker, setShowAudiencePicker] = useState(false);
+  const [audienceFilter, setAudienceFilter] = useState<{ roles: string[]; language: string } | null>(null);
   const [metadataScrollTarget, setMetadataScrollTarget] = useState<string | null>(null);
 
   const handleOpenWorkflowSettings = useCallback((section?: string) => {
@@ -340,7 +343,8 @@ export function FlowEditorView({
         publishing={publishing}
         onOpenQuickRun={onOpenQuickRun}
         onPreviewDocument={() => setShowPreviewDoc(true)}
-        onPreviewOpenApi={() => setShowOpenApiPreview(true)}
+        onPreviewOpenApi={() => { setAudienceFilter(null); setShowOpenApiPreview(true); }}
+        onPreviewAudienceOpenApi={() => setShowAudiencePicker(true)}
         registerToolbar={registerToolbar}
         saveErrorMessage={saveError?.toUserMessage().message ?? null}
         saving={saving}
@@ -386,9 +390,21 @@ export function FlowEditorView({
       />
       <OpenApiPreviewDialog
         open={showOpenApiPreview}
-        onOpenChange={setShowOpenApiPreview}
+        onOpenChange={(v) => { setShowOpenApiPreview(v); if (!v) setAudienceFilter(null); }}
         workflowJson={workflowJson}
         projectId={activeProject?.id}
+        audienceFilter={audienceFilter ?? undefined}
+      />
+      <AudienceRolePickerDialog
+        open={showAudiencePicker}
+        onOpenChange={setShowAudiencePicker}
+        workflowJson={workflowJson}
+        projectId={activeProject?.id}
+        onGenerate={(filter) => {
+          setAudienceFilter(filter);
+          setShowAudiencePicker(false);
+          setShowOpenApiPreview(true);
+        }}
       />
     </FlowEditorSaveProvider>
   );

@@ -16,6 +16,7 @@ export {
   createComponentResolver,
   type OpenApiDocument,
   type OpenApiResolvers,
+  type OpenApiOptions,
   type SchemaResolver,
   type ComponentResolver,
   type ResourceLikeRef,
@@ -35,3 +36,4 @@ export { resolveLabel, resolveLabelOrKey } from './utils/label-resolver.js';
 export { buildStateDiagram } from './utils/mermaid-builder.js';
 export { buildFeatureMatrix } from './utils/feature-matrix.js';
 export { escapeMermaidLabel } from './utils/markdown-helpers.js';
+export { collectWorkflowRoles, collectWorkflowLanguages } from './generators/openapi-audience.js';
