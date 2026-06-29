@@ -22,15 +22,17 @@
  * `onDidChangeActiveColorTheme` into the same store as a "system"
  * source, but the consumer-side hook here stays the same.
  */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { useStore } from 'zustand';
+import { JsonPalette } from '@burgan-tech/pseudo-ui';
 import type { DataSchema, PseudoViewDelegate, ViewDefinition } from '@burgan-tech/pseudo-ui';
 import { PseudoView } from '@burgan-tech/pseudo-ui/react';
 import type { DesignerClassNames, DesignerMode } from '@burgan-tech/pseudo-ui/react';
 
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { syncThemeLayers } from './theme/buildSheets';
+import { derivePrimeReactReplacements } from './theme/derivePrimeReactReplacements';
 import type { AppTheme } from './theme/forgeDefaults';
 
 // Side-effect imports: register PrimeIcons + Material Icons
@@ -119,6 +121,45 @@ export function PseudoUiPseudoViewFrame(props: PseudoUiPseudoViewFrameProps) {
   // structured token-map form spec'd in §4.1. When non-null, it
   // overlays Layer 3 of the theme stack inside the shadow root.
   const tenantTokens = useStore(useSettingsStore, (s) => s.pseudoUiTenantTokens);
+
+  // NOTE: read with the plain `useSettingsStore(selector)` form rather than
+  // `useStore(useSettingsStore, selector)`. The latter breaks reactivity when
+  // the consumer lives inside a shadow-DOM React tree — state changes won't
+  // re-render. Same pattern is used by PseudoUiBrandPaletteSync.
+  const brandPaletteRaw = useSettingsStore((s) => s.pseudoUiBrandPalette);
+
+  const parsedBrandJson = useMemo<unknown | null>(() => {
+    if (!brandPaletteRaw) return null;
+    try { return JSON.parse(brandPaletteRaw); } catch { return null; }
+  }, [brandPaletteRaw]);
+
+  // When the brand JSON sets `brightness`, it dictates the effective theme
+  // (see `effectiveAppTheme` below). Without this override, Mac OS dark mode
+  // forces dark MDC adoption even for brands designed for light surfaces,
+  // producing washed-out tones.
+  const brandBrightness = useMemo<AppTheme | null>(() => {
+    if (!parsedBrandJson || typeof parsedBrandJson !== 'object') return null;
+    const b = (parsedBrandJson as { brightness?: unknown }).brightness;
+    if (typeof b !== 'string') return null;
+    const lower = b.toLowerCase();
+    return lower === 'dark' ? 'dark' : lower === 'light' ? 'light' : null;
+  }, [parsedBrandJson]);
+
+  // When a brand palette is active, repaint PrimeReact's MDC theme hex-for-hex
+  // before adoption. `JsonPalette` provides the role anchors, the role map
+  // (`mdcRoleMap.json`) carries each shade's HSL delta, and
+  // `derivePrimeReactReplacements` produces a plain `MDC hex → brand hex` map
+  // that `customizeMdcTheme` applies via string substitution.
+  const mdcReplacements = useMemo<Record<string, string> | undefined>(() => {
+    if (!parsedBrandJson) return undefined;
+    try {
+      const palette = JsonPalette.fromJson(parsedBrandJson);
+      return derivePrimeReactReplacements(palette);
+    } catch (err) {
+      console.warn('[PseudoUiPseudoViewFrame] brand JSON unusable, falling back:', err);
+      return undefined;
+    }
+  }, [parsedBrandJson]);
 
   // Mount once: attach shadow, prime icon sheet, mount React root.
   // Theme layers are applied by a separate effect so theme/tenant
@@ -243,14 +284,23 @@ export function PseudoUiPseudoViewFrame(props: PseudoUiPseudoViewFrameProps) {
     };
   }, []);
 
+  // Brand JSON `brightness` takes precedence over the OS / `<html>.dark`
+  // signal. This lets a brand designed for light surfaces force light MDC
+  // even when the user runs in dark mode (and vice versa).
+  const effectiveAppTheme: AppTheme = brandBrightness ?? appTheme;
+
   // Atomic theme stack swap. The browser applies adoptedStyleSheets
   // assignment in a single style recalc — no flicker.
   useEffect(() => {
     if (!ready) return;
     const shadow = shadowRef.current;
     if (!shadow) return;
-    syncThemeLayers(shadow, { appTheme, tenant: tenantTokens });
-  }, [ready, appTheme, tenantTokens]);
+    syncThemeLayers(shadow, {
+      appTheme: effectiveAppTheme,
+      tenant: tenantTokens,
+      replacements: mdcReplacements,
+    });
+  }, [ready, effectiveAppTheme, tenantTokens, mdcReplacements]);
 
   // Render / re-render the SDK tree into the shadow root.
   //

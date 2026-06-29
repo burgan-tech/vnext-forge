@@ -8,7 +8,7 @@
     "noEmit": false,
     "types": []
   },
-  "include": ["src"],
+  "include": ["src/**/*.ts", "src/**/*.tsx", "src/**/*.json"],
   "exclude": ["src/**/*.vitest.test.ts"],
   "references": [
     { "path": "../vnext-types" },

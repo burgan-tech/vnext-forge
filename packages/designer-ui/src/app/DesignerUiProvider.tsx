@@ -2,6 +2,8 @@ import type { ReactNode } from 'react';
 import { setApiTransport, type ApiTransport } from '../api/transport.js';
 
 import { DocumentThemeSync } from './DocumentThemeSync.js';
+import { PseudoUiBrandPaletteFromWorkspaceSync } from './PseudoUiBrandPaletteFromWorkspaceSync.js';
+import { PseudoUiBrandPaletteSync } from './PseudoUiBrandPaletteSync.js';
 import { PseudoUiTenantStyleSync } from './PseudoUiTenantStyleSync.js';
 
 export interface DesignerUiProviderProps {
@@ -61,6 +63,10 @@ export function DesignerUiProvider({ transport, children }: DesignerUiProviderPr
     <>
       <DocumentThemeSync />
       <PseudoUiTenantStyleSync />
+      {/* Disk → store: reads .vnext-forge/brand.json on mount and on fs changes. */}
+      <PseudoUiBrandPaletteFromWorkspaceSync />
+      {/* Store → tenant tokens: runs paletteToCssVars and feeds the shadow cascade. */}
+      <PseudoUiBrandPaletteSync />
       {children}
     </>
   );
