@@ -63,6 +63,7 @@ import {
   resolveBackgroundGap,
 } from './context/CanvasViewSettingsContext';
 import { NoteEditingProvider, useNoteEditing } from './context/NoteEditingContext';
+import { CanvasModeProvider, useCanvasMode, type CanvasMode, type ExecutionOverlay } from './context/CanvasModeContext';
 
 interface FlowCanvasProps {
   workflowJson: Record<string, unknown>;
@@ -70,6 +71,10 @@ interface FlowCanvasProps {
   workflowSettingsActive?: boolean;
   onToggleWorkflowSettings?: () => void;
   onOpenWorkflowSettings?: (section?: string) => void;
+  mode?: CanvasMode;
+  executionOverlay?: ExecutionOverlay;
+  onNodeSelect?: (stateKey: string | null) => void;
+  onEdgeSelect?: (transitionKey: string | null) => void;
 }
 
 const defaultEdgeOptions = {
@@ -96,6 +101,10 @@ function FlowCanvasInner({
   workflowSettingsActive,
   onToggleWorkflowSettings,
   onOpenWorkflowSettings,
+  mode = 'designer',
+  executionOverlay,
+  onNodeSelect,
+  onEdgeSelect,
 }: FlowCanvasProps) {
   const selectedNodeId = useWorkflowStore((s) => s.selectedNodeId);
   // `isDirty` drives the SaveStatusIndicator chip in the top-right
@@ -129,6 +138,7 @@ function FlowCanvasInner({
   } = useWorkflowStore();
   const { fitView, screenToFlowPosition, getViewport, getInternalNode } = useReactFlow();
   const { settings } = useCanvasViewSettings();
+  const { isEditable } = useCanvasMode();
   const autoLayoutDone = useRef(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState>(null);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -365,6 +375,48 @@ function FlowCanvasInner({
       return { ...n, className: existing ? `${existing} ${extra.join(' ')}` : extra.join(' ') };
     });
   }, [nodes, pulseNodeClass, connectedNodeIds]);
+
+  const visitedStates = useMemo<Set<string>>(() => {
+    if (!executionOverlay) return new Set();
+    const s = new Set<string>();
+    for (const t of executionOverlay.traversedTransitions) {
+      s.add(t.fromState);
+      s.add(t.toState);
+    }
+    return s;
+  }, [executionOverlay]);
+
+  const traversedTransitionKeys = useMemo<Set<string>>(() => {
+    if (!executionOverlay) return new Set();
+    return new Set(executionOverlay.traversedTransitions.map((t) => t.transitionId));
+  }, [executionOverlay]);
+
+  const finalNodes = useMemo(() => {
+    if (!executionOverlay) return decoratedNodes;
+    return decoratedNodes.map((n) => {
+      let executionStatus: 'current' | 'visited' | 'unreachable' | undefined;
+      if (executionOverlay.currentState && n.id === executionOverlay.currentState) {
+        executionStatus = 'current';
+      } else if (visitedStates.has(n.id)) {
+        executionStatus = 'visited';
+      } else if (!n.id.startsWith('__start__') && !n.id.startsWith('__wf_')) {
+        executionStatus = 'unreachable';
+      }
+      if (!executionStatus) return n;
+      return { ...n, data: { ...n.data, executionStatus } };
+    });
+  }, [decoratedNodes, executionOverlay, visitedStates]);
+
+  const finalEdges = useMemo(() => {
+    if (!executionOverlay) return decoratedEdges;
+    return decoratedEdges.map((e) => {
+      const transitionKey = (e.data as Record<string, unknown> | undefined)?.transitionKey as string | undefined;
+      const executionStatus: 'traversed' | 'untaken' = transitionKey && traversedTransitionKeys.has(transitionKey)
+        ? 'traversed'
+        : 'untaken';
+      return { ...e, data: { ...e.data, executionStatus } };
+    });
+  }, [decoratedEdges, executionOverlay, traversedTransitionKeys]);
 
   // ─── Smart Guides — alignment lines while dragging
   //
@@ -762,15 +814,17 @@ function FlowCanvasInner({
         direction: settings.direction,
       }).then((layoutedNodes) => {
         setNodes(layoutedNodes);
-        const positions = reactFlowToPositions(layoutedNodes);
-        updateDiagram((draft: Record<string, unknown>) => {
-          draft.nodePos = positions.nodePos;
-        });
-        markClean();
+        if (isEditable) {
+          const positions = reactFlowToPositions(layoutedNodes);
+          updateDiagram((draft: Record<string, unknown>) => {
+            draft.nodePos = positions.nodePos;
+          });
+          markClean();
+        }
         setTimeout(() => fitView({ padding: 0.2 }), 50);
       });
     }
-  }, [needsLayout, computedNodes, computedEdges, setNodes, updateDiagram, fitView, markClean, settings.algorithm, settings.direction]);
+  }, [needsLayout, computedNodes, computedEdges, setNodes, updateDiagram, fitView, markClean, settings.algorithm, settings.direction, isEditable]);
 
   // ─── Keep edge sourceHandle/targetHandle in sync with node positions
   // so the React Flow reconnect updater circle appears on the correct side ───
@@ -908,6 +962,7 @@ function FlowCanvasInner({
   // ─── Node drag → update diagram positions ───
   const onNodeDragStop = useCallback(
     (_: unknown, node: { id: string; position: { x: number; y: number } }) => {
+      if (!isEditable) return;
       updateDiagram((draft: Record<string, unknown>) => {
         // Sticky notes / groups live in `draft.notes` / `draft.groups`,
         // not `draft.nodePos`. We dispatch on the id prefix because
@@ -953,7 +1008,7 @@ function FlowCanvasInner({
         draft.nodePos = nodePos;
       });
     },
-    [updateDiagram],
+    [updateDiagram, isEditable],
   );
 
   // ─── Connection validation: block edges from final states ───
@@ -972,10 +1027,11 @@ function FlowCanvasInner({
   // ─── Connect: Create transition in workflowJson ───
   const onConnect: OnConnect = useCallback(
     (connection: Connection) => {
+      if (!isEditable) return;
       if (!connection.source || !connection.target) return;
       addTransition(connection.source, connection.target, 0);
     },
-    [addTransition],
+    [addTransition, isEditable],
   );
 
   // ─── Reconnect: Drag edge endpoint to a different node ───
@@ -983,6 +1039,7 @@ function FlowCanvasInner({
 
   const onReconnect = useCallback(
     (oldEdge: Edge, newConnection: Connection) => {
+      if (!isEditable) return;
       reconnectSuccessful.current = true;
       setEdges((eds) => reconnectEdge(oldEdge, newConnection, eds));
 
@@ -992,7 +1049,7 @@ function FlowCanvasInner({
         reconnectTransition(oldEdge.source, transitionKey, newTarget);
       }
     },
-    [setEdges, reconnectTransition],
+    [setEdges, reconnectTransition, isEditable],
   );
 
   const onReconnectStart = useCallback(() => {
@@ -1029,17 +1086,20 @@ function FlowCanvasInner({
         return;
       }
       setSelectedNode(node.id);
+      onNodeSelect?.(node.id);
       setContextMenu(null);
     },
-    [setSelectedNode],
+    [setSelectedNode, onNodeSelect],
   );
 
   const onEdgeClick = useCallback(
-    (_: unknown, edge: { id: string }) => {
+    (_: unknown, edge: { id: string; data?: Record<string, unknown> }) => {
       setSelectedEdge(edge.id);
+      const transitionKey = edge.data?.transitionKey as string | undefined;
+      onEdgeSelect?.(transitionKey ?? edge.id);
       setContextMenu(null);
     },
-    [setSelectedEdge],
+    [setSelectedEdge, onEdgeSelect],
   );
 
   const { setEditingNoteId } = useNoteEditing();
@@ -1133,8 +1193,10 @@ function FlowCanvasInner({
       }
       setSelectedNode(null);
       setSelectedEdge(null);
+      onNodeSelect?.(null);
+      onEdgeSelect?.(null);
     },
-    [clearSpotlight, setSelectedNode, setSelectedEdge],
+    [clearSpotlight, setSelectedNode, setSelectedEdge, onNodeSelect, onEdgeSelect],
   );
 
   // Sticky-note creation — invoked from the pane context menu
@@ -1223,16 +1285,18 @@ function FlowCanvasInner({
   // ─── Delete with keyboard ───
   const onNodesDelete = useCallback(
     (deletedNodes: Array<{ id: string }>) => {
+      if (!isEditable) return;
       for (const node of deletedNodes) {
         if (node.id === '__start__' || node.id.startsWith('__wf_')) continue;
         removeState(node.id);
       }
     },
-    [removeState],
+    [removeState, isEditable],
   );
 
   const onEdgesDelete = useCallback(
     (deletedEdges: Array<{ id: string; source: string; data?: { transitionKey?: string } }>) => {
+      if (!isEditable) return;
       for (const edge of deletedEdges) {
         const transitionKey = edge.data?.transitionKey;
         if (transitionKey && edge.source !== '__start__') {
@@ -1240,7 +1304,7 @@ function FlowCanvasInner({
         }
       }
     },
-    [removeTransition],
+    [removeTransition, isEditable],
   );
 
   // ─── Auto Layout ───
@@ -1250,12 +1314,14 @@ function FlowCanvasInner({
       direction: settings.direction,
     });
     setNodes(layoutedNodes);
-    const positions = reactFlowToPositions(layoutedNodes);
-    updateDiagram((draft: Record<string, unknown>) => {
-      draft.nodePos = positions.nodePos;
-    });
+    if (isEditable) {
+      const positions = reactFlowToPositions(layoutedNodes);
+      updateDiagram((draft: Record<string, unknown>) => {
+        draft.nodePos = positions.nodePos;
+      });
+    }
     setTimeout(() => fitView({ padding: 0.2 }), 50);
-  }, [nodes, edges, setNodes, updateDiagram, fitView, settings.algorithm, settings.direction]);
+  }, [nodes, edges, setNodes, updateDiagram, fitView, settings.algorithm, settings.direction, isEditable]);
 
   // ─── Add state from toolbar (center of viewport) ───
   const handleToolbarAddState = useCallback(
@@ -1487,54 +1553,62 @@ function FlowCanvasInner({
        * states selected (via the rubber-band drag in Select mode
        * or Cmd/Shift+click multi-add). Hidden when count < 2.
        */}
-      <BulkActionsToolbar
-        selectedCount={bulkSelectedIds.length}
-        onDelete={handleBulkDelete}
-        onDuplicate={handleBulkDuplicate}
-        onGroup={handleBulkGroup}
-      />
+      {isEditable && (
+        <BulkActionsToolbar
+          selectedCount={bulkSelectedIds.length}
+          onDelete={handleBulkDelete}
+          onDuplicate={handleBulkDuplicate}
+          onGroup={handleBulkGroup}
+        />
+      )}
       {/* Keyboard shortcuts overlay — opened via `?` key. Renders
        * as a body-level modal so it floats above all canvas chrome
        * and Escape captures cleanly. */}
-      <KeyboardShortcutsDialog
-        open={shortcutsOpen}
-        onClose={() => setShortcutsOpen(false)}
-      />
+      {isEditable && (
+        <KeyboardShortcutsDialog
+          open={shortcutsOpen}
+          onClose={() => setShortcutsOpen(false)}
+        />
+      )}
       {/* Empty-canvas guide — guided placeholder shown when the
        * workflow has zero user states. Clicking "Add Initial
        * State" triggers the same flow as the toolbar's first
        * dropdown entry (stateType=1, subType=0). */}
-      <EmptyCanvasGuide
-        stateCount={
-          nodes.filter(
-            (n) => !n.id.startsWith('__') && !n.id.startsWith('forge_note_') && !n.id.startsWith('group_'),
-          ).length
-        }
-        onAddState={() => handleToolbarAddState(1, 0)}
-      />
+      {isEditable && (
+        <EmptyCanvasGuide
+          stateCount={
+            nodes.filter(
+              (n) => !n.id.startsWith('__') && !n.id.startsWith('forge_note_') && !n.id.startsWith('group_'),
+            ).length
+          }
+          onAddState={() => handleToolbarAddState(1, 0)}
+        />
+      )}
       {/* Save status chip — top-right pill, tracks dirty/saved
        * state from the workflow store. Saving + error props are
        * left optional for future wiring from the save layer. */}
-      <SaveStatusIndicator isDirty={isDirty} lastSavedAt={lastSavedAt} />
+      {isEditable && <SaveStatusIndicator isDirty={isDirty} lastSavedAt={lastSavedAt} />}
       {/* Workflow lint + pattern detection. Lint runs every
        * render — small workflows it's free; for very large
        * workflows we could memoize on workflowJson, but in
        * practice the linter is O(N+E) and well below 1ms. */}
-      <WorkflowInsights
-        findings={lintWorkflow(toVnextWorkflow(workflowJson))}
-        patterns={detectPatterns(toVnextWorkflow(workflowJson))}
-        onFocusState={(stateKey) => {
-          fitView({ nodes: [{ id: stateKey }], padding: 0.3, duration: 400 });
-          applySpotlight('node', stateKey);
-        }}
-      />
+      {isEditable && (
+        <WorkflowInsights
+          findings={lintWorkflow(toVnextWorkflow(workflowJson))}
+          patterns={detectPatterns(toVnextWorkflow(workflowJson))}
+          onFocusState={(stateKey) => {
+            fitView({ nodes: [{ id: stateKey }], padding: 0.3, duration: 400 });
+            applySpotlight('node', stateKey);
+          }}
+        />
+      )}
       <ReactFlow
         // `decoratedNodes` / `decoratedEdges` are the same nodes/edges
         // arrays with optional pulse classNames attached when a
         // selection-pulse animation is active. When no pulse is
         // happening they're identity-equal to the underlying arrays.
-        nodes={decoratedNodes}
-        edges={decoratedEdges}
+        nodes={finalNodes}
+        edges={finalEdges}
         onNodesChange={handleNodesChange}
         onEdgesChange={onEdgesChange}
         onConnect={onConnect}
@@ -1580,7 +1654,7 @@ function FlowCanvasInner({
         defaultEdgeOptions={defaultEdgeOptions}
         connectionMode={ConnectionMode.Loose}
         connectionLineComponent={FloatingConnectionLine}
-        deleteKeyCode={['Backspace', 'Delete']}
+        deleteKeyCode={isEditable ? ['Backspace', 'Delete'] : null}
         // NOTE: do NOT pass the boolean `fitView` prop here. React
         // Flow's boolean form re-fits the viewport on every container
         // size change, which makes the user's chosen zoom jump every
@@ -1651,8 +1725,8 @@ function FlowCanvasInner({
         </Panel>
       </ReactFlow>
 
-      {/* Context Menus */}
-      {contextMenu?.type === 'pane' && (
+      {/* Context Menus — designer mode only */}
+      {isEditable && contextMenu?.type === 'pane' && (
         <CanvasContextMenu
           position={contextMenu}
           onClose={closeContextMenu}
@@ -1661,7 +1735,7 @@ function FlowCanvasInner({
           hasInitialState={hasInitialState}
         />
       )}
-      {contextMenu?.type === 'node' && (
+      {isEditable && contextMenu?.type === 'node' && (
         <NodeContextMenu
           position={contextMenu}
           nodeId={contextMenu.nodeId}
@@ -1672,7 +1746,7 @@ function FlowCanvasInner({
           hasInitialState={hasInitialState}
         />
       )}
-      {contextMenu?.type === 'wfNode' && (
+      {isEditable && contextMenu?.type === 'wfNode' && (
         <WfNodeContextMenu
           position={contextMenu}
           sectionKind={contextMenu.sectionKind}
@@ -1683,7 +1757,7 @@ function FlowCanvasInner({
           }}
         />
       )}
-      {contextMenu?.type === 'edge' && (
+      {isEditable && contextMenu?.type === 'edge' && (
         <EdgeContextMenu
           position={contextMenu}
           sourceStateKey={contextMenu.sourceStateKey}
@@ -1708,10 +1782,12 @@ function FlowCanvasInner({
 // Wrapper that must be inside ReactFlowProvider — provides CanvasViewSettings context
 export function FlowCanvas(props: FlowCanvasProps) {
   return (
-    <CanvasViewSettingsProvider>
-      <NoteEditingProvider>
-        <FlowCanvasInner {...props} />
-      </NoteEditingProvider>
-    </CanvasViewSettingsProvider>
+    <CanvasModeProvider mode={props.mode ?? 'designer'} executionOverlay={props.executionOverlay}>
+      <CanvasViewSettingsProvider>
+        <NoteEditingProvider>
+          <FlowCanvasInner {...props} />
+        </NoteEditingProvider>
+      </CanvasViewSettingsProvider>
+    </CanvasModeProvider>
   );
 }

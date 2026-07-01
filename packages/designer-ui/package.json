@@ -15,7 +15,8 @@
     "./vnext-defaults": "./src/vnext-defaults/vnextComponentTemplates.ts",
     "./component-paths": "./src/modules/project-workspace/componentFolderPathUtils.ts",
     "./project-workspace-schema": "./src/modules/project-workspace/ProjectWorkspaceSchema.ts",
-    "./quickrun": "./src/modules/quick-run/index.ts"
+    "./quickrun": "./src/modules/quick-run/index.ts",
+    "./component-icons": "./src/assets/icons/component-badges/index.ts"
   },
   "main": "./src/index.ts",
   "types": "./src/index.ts",

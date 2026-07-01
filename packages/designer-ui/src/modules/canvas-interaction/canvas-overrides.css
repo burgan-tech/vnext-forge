@@ -410,3 +410,24 @@ body[data-presentation='true'] [data-app-chrome='tab-bar'] {
 [cmdk-input]::placeholder {
   color: var(--color-muted-foreground);
 }
+
+/* ─── Execution Overlay — instance-view ─── */
+
+.vf-node-current {
+  box-shadow: 0 0 0 3px var(--color-action), 0 0 0 6px color-mix(in srgb, var(--color-action) 30%, transparent);
+  animation: vf-node-current-pulse 1.8s ease-in-out infinite;
+}
+
+@keyframes vf-node-current-pulse {
+  0%, 100% { box-shadow: 0 0 0 3px var(--color-action), 0 0 0 6px color-mix(in srgb, var(--color-action) 30%, transparent); }
+  50%       { box-shadow: 0 0 0 3px var(--color-action), 0 0 0 10px color-mix(in srgb, var(--color-action) 10%, transparent); }
+}
+
+.vf-node-visited {
+  opacity: 0.85;
+}
+
+.vf-node-unreachable {
+  opacity: 0.3;
+  filter: grayscale(0.7);
+}
