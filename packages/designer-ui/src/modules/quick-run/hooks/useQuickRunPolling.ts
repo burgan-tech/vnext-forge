@@ -1,7 +1,10 @@
 import { useCallback, useRef } from 'react';
 
+import { createLogger } from '../../../lib/logger/createLogger';
 import * as QuickRunApi from '../QuickRunApi';
 import { useQuickRunStore } from '../store/quickRunStore';
+
+const logger = createLogger('quick-run-polling');
 
 interface PollingConfig {
   retryCount: number;
@@ -40,6 +43,7 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
         setStateView,
         setStateViewLoading,
         setStateViewError,
+        setLongPollAck,
       } = store.getState();
 
       setPollingInstanceId(params.instanceId);
@@ -47,6 +51,8 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
       // Clear any prior poll error so the banner doesn't linger from
       // a previous instance / round.
       setActiveStateError(null);
+      // Clear any prior long-poll acknowledge note before a new round.
+      setLongPollAck(null);
       setStateView(null);
       setStateViewError(false);
       // Show the View panel skeleton from the moment we kick off the
@@ -78,26 +84,48 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
         if (response.success) {
           const stateData = response.data;
 
-          if (stateData.status === 'B') {
+          // The engine can ask the client to stop the long-poll loop
+          // regardless of instance status via
+          // `interaction.terminateLongPoll`. Treat it as a stop signal.
+          const terminate = stateData.interaction?.terminateLongPoll === true;
+          const isTerminalStatus =
+            stateData.status === 'A' || stateData.status === 'C' || stateData.status === 'F';
+          const shouldStop = isTerminalStatus || terminate;
+
+          if (stateData.status === 'B' && !shouldStop) {
             patchActiveState({ status: stateData.status, state: stateData.state });
             updateInstanceStatus(params.instanceId, stateData.status, stateData.state);
           } else {
+            // Full state set on stop so transitions/view are available
+            // even when terminate fired while status was still 'B'.
             setActiveState(stateData);
             updateInstanceState(params.instanceId, stateData);
           }
 
-          if (stateData.status === 'A' || stateData.status === 'C' || stateData.status === 'F') {
+          if (shouldStop) {
             setActiveStateLoading(false);
             setPollingInstanceId(null);
 
-            if (stateData.view?.hasView && (stateData.status === 'A' || stateData.status === 'C')) {
+            const canRenderView =
+              !!stateData.view?.hasView &&
+              (stateData.status === 'A' || stateData.status === 'C' || terminate);
+            if (canRenderView) {
               // fetchStateView keeps the loading flag on until its
               // own response resolves.
               void fetchStateView(params, controller.signal);
             } else {
-              // Terminal state with no view to fetch — drop the
-              // loading flag now so the panel collapses cleanly.
+              // Stop with no view to fetch — drop the loading flag now
+              // so the panel collapses cleanly.
               setStateViewLoading(false);
+            }
+
+            // Silently acknowledge the terminated long poll in the
+            // background when the engine included an ack descriptor.
+            // The endpoint is deterministic (built host-side from the
+            // workflow identifiers). Failures are logged only — never
+            // surfaced as an error banner.
+            if (terminate && stateData.interaction?.ack) {
+              void acknowledgeLongPoll(params);
             }
 
             return stateData;
@@ -258,6 +286,51 @@ async function fetchStateView(
     setStateView(null);
   } finally {
     setStateViewLoading(false);
+  }
+}
+
+/**
+ * Fire-and-forget acknowledge of a terminated long poll. Surfaces an
+ * "acknowledging" → "acknowledged" status to the user; any failure is
+ * logged only (never an error banner) and still ends in "acknowledged"
+ * so the user sees the interaction completed from the client side.
+ */
+async function acknowledgeLongPoll(params: {
+  domain: string;
+  workflowKey: string;
+  instanceId: string;
+  headers?: Record<string, string>;
+  runtimeUrl?: string;
+}): Promise<void> {
+  const { setLongPollAck } = useQuickRunStore.getState();
+  setLongPollAck('acknowledging');
+  try {
+    const res = await QuickRunApi.acknowledgeLongPoll({
+      domain: params.domain,
+      workflowKey: params.workflowKey,
+      instanceId: params.instanceId,
+      headers: params.headers,
+      runtimeUrl: params.runtimeUrl,
+    });
+    if (!res.success) {
+      logger.warn('Long-poll acknowledge failed', {
+        instanceId: params.instanceId,
+        code: res.error.code,
+        message: res.error.message,
+      });
+    } else if (!res.data.ok) {
+      logger.warn('Long-poll acknowledge returned non-2xx', {
+        instanceId: params.instanceId,
+        status: res.data.status,
+      });
+    }
+  } catch (err) {
+    logger.warn('Long-poll acknowledge threw', {
+      instanceId: params.instanceId,
+      error: err instanceof Error ? err.message : String(err),
+    });
+  } finally {
+    setLongPollAck('acknowledged');
   }
 }
 

@@ -25,6 +25,8 @@ import {
   quickrunStartInstanceResult,
   quickrunExecuteFunctionParams,
   quickrunExecuteFunctionResult,
+  quickrunAcknowledgeLongPollParams,
+  quickrunAcknowledgeLongPollResult,
 } from './quickrun-schemas.js'
 
 type ProxyRequest = {
@@ -393,6 +395,35 @@ export function createQuickRunService(runtimeProxyService: RuntimeProxyService) 
     return parseJsonResponse(result.data, result.status, 'QuickRunService.executeFunction', traceId)
   }
 
+  /**
+   * Silently acknowledge a terminated long poll. The endpoint is
+   * deterministic — built from the workflow identifiers, not the
+   * engine-supplied href — and current request headers are forwarded:
+   *   POST /api/v1/<domain>/workflows/<flow>/instances/<instanceId>/longpoll/ack
+   * We only report the HTTP status. The ack response is commonly
+   * 204/empty, so we do NOT run `parseJsonResponse` here — a non-2xx
+   * status is surfaced via `ok: false` rather than thrown, since the
+   * caller treats ack failures as silent (logged client-side only).
+   */
+  async function acknowledgeLongPoll(
+    params: z.infer<typeof quickrunAcknowledgeLongPollParams>,
+    traceId?: string,
+  ): Promise<z.infer<typeof quickrunAcknowledgeLongPollResult>> {
+    const base = buildBasePath(params.domain, params.workflowKey)
+
+    const result = await proxyCall(
+      {
+        method: 'POST',
+        runtimePath: `${base}/instances/${params.instanceId}/longpoll/ack`,
+        headers: params.headers,
+        runtimeUrl: params.runtimeUrl,
+      },
+      traceId,
+    )
+
+    return { ok: result.status >= 200 && result.status < 300, status: result.status }
+  }
+
   return {
     startInstance,
     fireTransition,
@@ -405,6 +436,7 @@ export function createQuickRunService(runtimeProxyService: RuntimeProxyService) 
     listInstances,
     getInstance,
     executeFunction,
+    acknowledgeLongPoll,
   }
 }
 

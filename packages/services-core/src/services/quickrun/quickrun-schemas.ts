@@ -101,9 +101,36 @@ export const quickrunGetStateResult = z.object({
   data: z.object({
     href: z.string(),
   }).optional(),
+  interaction: z.object({
+    terminateLongPoll: z.boolean().optional(),
+    ack: z.object({ href: z.string() }).optional(),
+  }).optional(),
   eTag: z.string().optional(),
   entityEtag: z.string().optional(),
   responseHeaders: z.record(z.string(), z.string()).optional(),
+})
+
+// ── Acknowledge Long Poll ─────────────────────────────────────────────────────
+//
+// Fired silently when a State Function (LongPoll) response carries
+// `interaction.terminateLongPoll: true` plus an `interaction.ack`
+// descriptor. The endpoint is deterministic:
+//   POST /api/v1/<domain>/workflows/<flow>/instances/<instanceId>/longpoll/ack
+// so the service builds the path from the workflow identifiers rather
+// than trusting the engine-supplied href. Current request headers are
+// forwarded. The ack response is commonly 204/empty, so the result
+// only reports the HTTP status — no JSON body parsing.
+
+export const quickrunAcknowledgeLongPollParams = z.object({
+  ...workflowIdentifier,
+  instanceId: z.string().min(1),
+  headers: headersSchema,
+  runtimeUrl: z.string().optional(),
+})
+
+export const quickrunAcknowledgeLongPollResult = z.object({
+  ok: z.boolean(),
+  status: z.number(),
 })
 
 // ── Get View ─────────────────────────────────────────────────────────────────

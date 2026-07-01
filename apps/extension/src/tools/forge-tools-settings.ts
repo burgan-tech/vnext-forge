@@ -315,6 +315,19 @@ export class ForgeToolsSettingsService implements vscode.Disposable {
     return config.environments.find((e) => e.id === config.activeEnvironmentId) ?? null;
   }
 
+  /**
+   * Returns the base URLs of all currently cached environments.
+   * Returns an empty array if `loadEnvironments()` has not been called yet
+   * or if no environments are configured.
+   *
+   * Intended for use as a live callback in `RuntimeProxyService` so the
+   * proxy's allowlist automatically reflects Forge Tools environments without
+   * requiring a service restart.
+   */
+  getCachedEnvironmentUrls(): string[] {
+    return this.environmentsCache?.environments.map((e) => e.baseUrl) ?? [];
+  }
+
   async addEnvironment(name: string, baseUrl: string, dbName?: string): Promise<RuntimeEnvironment> {
     const config = await this.loadEnvironments();
     const env: RuntimeEnvironment = {

@@ -105,6 +105,13 @@ interface WebviewPublishFrame {
   filePath: string;
 }
 
+/** Webview → Extension Host: save generated content to disk via a native save dialog. */
+interface WebviewSaveFileFrame {
+  type: 'host:save-file';
+  fileName: string;
+  content: string;
+}
+
 // ── Router ────────────────────────────────────────────────────────────────────
 
 export interface MessageRouterDeps {
@@ -198,6 +205,11 @@ export class MessageRouter {
 
     if (isPublishFrame(raw)) {
       this.handlePublishFrame(raw);
+      return;
+    }
+
+    if (isSaveFileFrame(raw)) {
+      void this.handleSaveFile(raw);
       return;
     }
 
@@ -410,6 +422,44 @@ export class MessageRouter {
     });
   }
 
+  // ── Save generated file (native dialog) ────────────────────────────────────
+
+  private async handleSaveFile(frame: WebviewSaveFileFrame): Promise<void> {
+    // Defend the suggested name to a bare basename; the user still picks the
+    // final location via the dialog so traversal is not a concern.
+    const safeName = path.basename(frame.fileName || 'download.json');
+    const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+    const defaultUri = vscode.Uri.file(
+      workspaceRoot ? path.join(workspaceRoot, safeName) : safeName,
+    );
+
+    let target: vscode.Uri | undefined;
+    try {
+      target = await vscode.window.showSaveDialog({
+        defaultUri,
+        filters: { JSON: ['json'], 'All Files': ['*'] },
+      });
+    } catch (error) {
+      this.deps.logger.error(
+        { err: error } as Record<string, unknown>,
+        'host:save-file dialog failed',
+      );
+      return;
+    }
+    if (!target) return; // user cancelled
+
+    try {
+      await vscode.workspace.fs.writeFile(target, Buffer.from(frame.content ?? '', 'utf-8'));
+      void vscode.window.showInformationMessage(`Saved ${path.basename(target.fsPath)}`);
+    } catch (error) {
+      this.deps.logger.error(
+        { err: error, path: target.fsPath } as Record<string, unknown>,
+        'host:save-file write failed',
+      );
+      void vscode.window.showErrorMessage(`Could not save ${path.basename(target.fsPath)}`);
+    }
+  }
+
   // ── Notifications ─────────────────────────────────────────────────────────
 
   private async handleNotifyFrame(
@@ -608,6 +658,12 @@ function isPublishFrame(value: unknown): value is WebviewPublishFrame {
   if (typeof value !== 'object' || value === null) return false;
   const v = value as Record<string, unknown>;
   return v.type === 'host:publish' && typeof v.filePath === 'string';
+}
+
+function isSaveFileFrame(value: unknown): value is WebviewSaveFileFrame {
+  if (typeof value !== 'object' || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return v.type === 'host:save-file' && typeof v.fileName === 'string' && typeof v.content === 'string';
 }
 
 function toVnextForgeError(error: unknown, method: string, traceId: string): VnextForgeError {

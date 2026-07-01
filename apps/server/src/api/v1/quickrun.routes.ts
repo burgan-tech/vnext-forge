@@ -20,4 +20,5 @@ export function registerQuickrunRoutes(
   app.post('/quickrun/listInstances', (c) => helper(c, 'quickrun/listInstances', { source: 'json' }));
   app.post('/quickrun/getInstance', (c) => helper(c, 'quickrun/getInstance', { source: 'json' }));
   app.post('/quickrun/executeFunction', (c) => helper(c, 'quickrun/executeFunction', { source: 'json' }));
+  app.post('/quickrun/acknowledgeLongPoll', (c) => helper(c, 'quickrun/acknowledgeLongPoll', { source: 'json' }));
 }

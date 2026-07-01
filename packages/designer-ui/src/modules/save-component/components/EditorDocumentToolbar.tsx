@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { FileText, Loader2, Play, Redo2, Save, Undo2, Upload } from 'lucide-react';
+import { Braces, FileText, Loader2, Play, Redo2, Save, Undo2, Upload, Users } from 'lucide-react';
 import { Button } from '../../../ui/Button';
 import {
   Tooltip,
@@ -115,6 +115,8 @@ export interface EditorDocumentToolbarProps {
   publishing?: boolean;
   onOpenQuickRun?: () => void;
   onPreviewDocument?: () => void;
+  onPreviewOpenApi?: () => void;
+  onPreviewAudienceOpenApi?: () => void;
   autoSavePending?: boolean;
   autoSaved?: boolean;
   /**
@@ -137,6 +139,8 @@ export function EditorDocumentToolbar({
   publishing,
   onOpenQuickRun,
   onPreviewDocument,
+  onPreviewOpenApi,
+  onPreviewAudienceOpenApi,
   autoSavePending,
   autoSaved,
   arrangement,
@@ -208,6 +212,24 @@ export function EditorDocumentToolbar({
       />
     ) : null;
 
+  const previewOpenApiBtn =
+    onPreviewOpenApi != null ? (
+      <IconButton
+        icon={<Braces size={iconSize} />}
+        label="Preview OpenAPI"
+        onClick={onPreviewOpenApi}
+      />
+    ) : null;
+
+  const audienceOpenApiBtn =
+    onPreviewAudienceOpenApi != null ? (
+      <IconButton
+        icon={<Users size={iconSize} />}
+        label="Preview Audience OpenAPI"
+        onClick={onPreviewAudienceOpenApi}
+      />
+    ) : null;
+
   const quickRunBtn =
     onOpenQuickRun != null ? (
       <IconButton
@@ -243,6 +265,8 @@ export function EditorDocumentToolbar({
           {historyGroup}
           {saveBtn}
           {previewDocBtn}
+          {previewOpenApiBtn}
+          {audienceOpenApiBtn}
           {quickRunBtn}
           {publishBtn}
         </div>
@@ -261,6 +285,8 @@ export function EditorDocumentToolbar({
           {historyGroup}
           {saveBtn}
           {previewDocBtn}
+          {previewOpenApiBtn}
+          {audienceOpenApiBtn}
           {quickRunBtn}
           {publishBtn}
         </div>

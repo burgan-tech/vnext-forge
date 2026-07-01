@@ -1,0 +1,30 @@
+<h2>Audience Filtresi: Role Seçim Davranışı</h2>
+<p class="subtitle">Kullanıcı bir veya birden fazla rol seçtiğinde, hangi transition'lar OpenAPI çıktısına dahil edilsin?</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>Inclusive (Herhangi biri eşleşsin)</h3>
+      <p>Seçilen rollerden <strong>en az birine "allow"</strong> verilmiş olan tüm transition'lar dahil edilir. Geniş bir audience için — "bu rollerden herhangi biri bu transition'ı tetikleyebilir mi?" sorusuna göre filtreler.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Strict (Tümü eşleşsin)</h3>
+      <p>Seçilen <strong>tüm rollerin "allow"</strong> aldığı transition'lar dahil edilir. "Bu role sahip bir kullanıcı bu transition'ı kesinlikle tetikleyebilir mi?" sorusuna yanıt verir. Daha kısıtlayıcı.</p>
+    </div>
+  </div>
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Per-role ayrı çıktı</h3>
+      <p>Her seçilen rol için ayrı bir OpenAPI üretilir ya da çıktıda rol başlıklarıyla gruplandırılır. API tüketicilerine rol bazlı farklı dokümantasyon sunulur. Daha karmaşık UX gerektirir.</p>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:1.5rem;padding:1rem;background:var(--color-muted,#f5f5f5);border-radius:8px;font-size:0.85rem;">
+  <strong>Not:</strong> Transition'da hiç rol tanımlı değilse (roles: []) — bu transition <em>herkese açık</em> sayılır ve seçimden bağımsız olarak her zaman dahil edilir. Sadece açık "deny" içerenler çıkarılır.
+</div>

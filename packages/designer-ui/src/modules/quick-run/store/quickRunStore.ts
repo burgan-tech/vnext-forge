@@ -68,6 +68,13 @@ interface QuickRunState {
   pollingInstanceId: string | null;
   pollingConfig: { retryCount: number; intervalMs: number };
 
+  /**
+   * Status of the silent long-poll acknowledge fired when a State
+   * Function response carries `interaction.terminateLongPoll`. Shown as
+   * a small transient note; cleared at the start of each poll round.
+   */
+  longPollAck: 'acknowledging' | 'acknowledged' | null;
+
   runtimeHealth: 'healthy' | 'unhealthy' | 'unknown';
   runtimeDomain: string | null;
 
@@ -116,6 +123,7 @@ interface QuickRunState {
   setSessionHeaders: (headers: Record<string, string>) => void;
   setPollingInstanceId: (id: string | null) => void;
   setPollingConfig: (config: { retryCount: number; intervalMs: number }) => void;
+  setLongPollAck: (status: 'acknowledging' | 'acknowledged' | null) => void;
   setRuntimeHealth: (health: 'healthy' | 'unhealthy' | 'unknown') => void;
   setRuntimeDomain: (domain: string | null) => void;
   setFlowLabels: (labels: FlowLabelsMap | null) => void;
@@ -164,6 +172,7 @@ export const useQuickRunStore = create<QuickRunState>((set) => ({
 
   pollingInstanceId: null,
   pollingConfig: { retryCount: 15, intervalMs: 4000 },
+  longPollAck: null,
 
   runtimeHealth: 'unknown',
   runtimeDomain: null,
@@ -191,6 +200,7 @@ export const useQuickRunStore = create<QuickRunState>((set) => ({
       transitionDialogOpen: false,
       transitionDialogTarget: null,
       pollingInstanceId: null,
+      longPollAck: null,
       flowLabels: null,
     }),
 
@@ -298,6 +308,7 @@ export const useQuickRunStore = create<QuickRunState>((set) => ({
   setSessionHeaders: (sessionHeaders) => set({ sessionHeaders }),
   setPollingInstanceId: (pollingInstanceId) => set({ pollingInstanceId }),
   setPollingConfig: (pollingConfig) => set({ pollingConfig }),
+  setLongPollAck: (longPollAck) => set({ longPollAck }),
   setRuntimeHealth: (runtimeHealth) => set({ runtimeHealth }),
   setRuntimeDomain: (runtimeDomain) => set({ runtimeDomain }),
   setFlowLabels: (flowLabels) => set({ flowLabels }),
