@@ -10,7 +10,7 @@ export const SETTINGS_PERSIST_KEY = 'vnext-forge-studio-settings';
  * Host-agnostic shell ayarları (web SPA, VS Code webview). Renk teması tercihi
  * `DocumentThemeSync` ile `<html data-theme>` ve `class="dark"` üzerine yansır.
  *
- * Varsayılan `system`: OS `prefers-color-scheme` ile açılışta doğru tema yüklenir.
+ * Default `system`: respects the OS `prefers-color-scheme` on first paint.
  * Tercih `localStorage` ile kalıcıdır; ileride başka alanlar `partialize` ile eklenebilir.
  */
 export type ColorThemePreference = 'light' | 'dark' | 'system';
@@ -65,6 +65,18 @@ interface SettingsState {
   setPseudoUiTenantStyle: (patch: Partial<PseudoUiTenantStyleSettings>) => void;
   pseudoUiTenantTokens: PseudoUiTenantTokens;
   setPseudoUiTenantTokens: (tokens: PseudoUiTenantTokens) => void;
+  /**
+   * Raw brand-palette JSON string. `PseudoUiBrandPaletteSync` reads this,
+   * runs `JsonPalette.fromJson()` → `paletteToCssVars()`, and writes the
+   * resulting `--p-*` token map into `pseudoUiTenantTokens`. The brand
+   * JSON therefore feeds the existing tenant-token cascade; its output
+   * lands in the shadow root as familiar PrimeReact CSS variables.
+   *
+   * `null` = no brand JSON; the legacy tenant tokens / CSS path is left
+   * untouched.
+   */
+  pseudoUiBrandPalette: string | null;
+  setPseudoUiBrandPalette: (json: string | null) => void;
   pseudoUiLang: string;
   setPseudoUiLang: (lang: string) => void;
   /**
@@ -160,6 +172,12 @@ export const useSettingsStore = create<SettingsState>()(
       pseudoUiTenantTokens: null,
       setPseudoUiTenantTokens: (tokens) =>
         set({ pseudoUiTenantTokens: normalizePseudoUiTenantTokens(tokens) }),
+      pseudoUiBrandPalette: null,
+      setPseudoUiBrandPalette: (json) =>
+        set({
+          pseudoUiBrandPalette:
+            typeof json === 'string' && json.trim().length > 0 ? json : null,
+        }),
       pseudoUiLang: DEFAULT_PSEUDO_UI_LANG,
       setPseudoUiLang: (lang) => {
         const normalized = normalizePseudoUiLang(lang);
@@ -209,17 +227,26 @@ export const useSettingsStore = create<SettingsState>()(
         autoSaveEnabled: state.autoSaveEnabled,
         pseudoUiTenantStyle: state.pseudoUiTenantStyle,
         pseudoUiTenantTokens: state.pseudoUiTenantTokens,
+        // `pseudoUiBrandPalette` is intentionally NOT persisted. The single
+        // source of truth is `<workspace>/.vnext-forge/brand.json`;
+        // `useBrandPaletteFromWorkspace` reads it from disk on every mount.
+        // Persisting it here would cause flicker (stale value showing before
+        // the disk read finishes) and would leak brand state across workspaces.
         pseudoUiLang: state.pseudoUiLang,
         pseudoUiCustomLangs: state.pseudoUiCustomLangs,
         pseudoUiVerboseLogs: state.pseudoUiVerboseLogs,
       }),
-      version: 6,
+      version: 8,
       migrate: (persisted, version) => {
         const persistedObj = (persisted as Record<string, unknown>) ?? {};
         const next = {
           ...persistedObj,
           pseudoUiTenantStyle: normalizePseudoUiTenantStyle(persistedObj.pseudoUiTenantStyle),
           pseudoUiTenantTokens: normalizePseudoUiTenantTokens(persistedObj.pseudoUiTenantTokens),
+          // Persisted brand field was removed; any value left over from earlier
+          // versions is cleared — the actual brand is loaded from disk by
+          // `useBrandPaletteFromWorkspace` on mount.
+          pseudoUiBrandPalette: null,
           pseudoUiLang: normalizePseudoUiLang(persistedObj.pseudoUiLang),
           pseudoUiCustomLangs: normalizePseudoUiCustomLangs(persistedObj.pseudoUiCustomLangs),
           // R24 DEV TOGGLE — default false on every migration path so

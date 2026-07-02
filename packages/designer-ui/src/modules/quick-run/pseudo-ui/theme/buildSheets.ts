@@ -43,6 +43,7 @@ import primeMdcLightCss from 'primereact/resources/themes/mdc-light-indigo/theme
 import primeMdcDarkCss from 'primereact/resources/themes/mdc-dark-indigo/theme.css?raw';
 import designerChromeCss from './designerChrome.css?raw';
 
+import { customizeMdcTheme, hashReplacements } from './customizeMdcTheme';
 import { FORGE_DEFAULT_TOKENS, type AppTheme } from './forgeDefaults';
 import { buildTenantOverrideBlock } from './parseTenantCss';
 
@@ -91,19 +92,43 @@ const PRIMEREACT_BASE_UTILITIES_CSS = `
 // cost paid once per theme variant).
 // ──────────────────────────────────────────────────────────────────
 
-const baseSheetCache = new Map<AppTheme, CSSStyleSheet>();
+// Cache keys: plain theme name for un-customized base; `${theme}|${hash}`
+// when brand replacements are applied.
+const baseSheetCache = new Map<string, CSSStyleSheet>();
 const forgeOverrideCache = new Map<AppTheme, CSSStyleSheet>();
 const tenantSheetCache = new Map<string, CSSStyleSheet>();
 let utilitiesSheet: CSSStyleSheet | null = null;
 let designerChromeSheet: CSSStyleSheet | null = null;
 
-function getBaseSheet(theme: AppTheme): CSSStyleSheet {
-  const cached = baseSheetCache.get(theme);
+/**
+ * Build the Layer 1 (PrimeReact MDC theme) sheet.
+ *
+ * `replacements`: when a brand JSON is active, this is the
+ * "MDC hex → brand hex" map produced by `derivePrimeReactReplacements()`.
+ * Every hex in the raw MDC CSS is rewritten to its brand equivalent
+ * before adoption — PrimeReact's hardcoded indigo (`#3F51B5`) becomes
+ * the brand primary, the Material error (`#b00020`) becomes the brand
+ * error, and so on.
+ *
+ * Caching is brand-aware: a different replacement set produces a
+ * separate cached sheet so per-render swap cost is constant after
+ * the first build.
+ */
+function getBaseSheet(
+  theme: AppTheme,
+  replacements?: Record<string, string>,
+): CSSStyleSheet {
+  const cacheKey = replacements ? `${theme}|${hashReplacements(replacements)}` : theme;
+  const cached = baseSheetCache.get(cacheKey);
   if (cached) return cached;
+
+  let css = theme === 'dark' ? primeMdcDarkCss : primeMdcLightCss;
+  if (replacements) {
+    css = customizeMdcTheme(css, replacements);
+  }
   const sheet = new CSSStyleSheet();
-  const css = theme === 'dark' ? primeMdcDarkCss : primeMdcLightCss;
   sheet.replaceSync(shadowSafeThemeCss(css));
-  baseSheetCache.set(theme, sheet);
+  baseSheetCache.set(cacheKey, sheet);
   return sheet;
 }
 
@@ -164,6 +189,15 @@ function getTenantSheet(input: Record<string, string> | string | null | undefine
 export interface ThemeLayerInputs {
   appTheme: AppTheme;
   tenant?: Record<string, string> | string | null;
+  /**
+   * Brand-aware MDC hex replacements. When supplied, PrimeReact's
+   * Layer 1 MDC theme is rewritten with the brand's color set before
+   * adoption. Produced by `derivePrimeReactReplacements(brandPalette)`
+   * in the host frame.
+   *
+   * `undefined` = no brand JSON active → un-customized MDC theme.
+   */
+  replacements?: Record<string, string>;
 }
 
 /**
@@ -176,7 +210,9 @@ export interface ThemeLayerInputs {
 export function syncThemeLayers(shadow: ShadowRoot, input: ThemeLayerInputs): void {
   const tenantSheet = getTenantSheet(input.tenant);
   const sheets: CSSStyleSheet[] = [
-    getBaseSheet(input.appTheme),
+    // Layer 1 — PrimeReact MDC theme. Brand-customized when a brand
+    // JSON is active; un-customized otherwise.
+    getBaseSheet(input.appTheme, input.replacements),
     getUtilitiesSheet(),
     getDesignerChromeSheet(),
     getForgeOverrideSheet(input.appTheme),

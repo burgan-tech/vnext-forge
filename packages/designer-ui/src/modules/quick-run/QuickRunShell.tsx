@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { callApi } from '../../api/client';
 import * as QuickRunApi from './QuickRunApi';
 import type { SchemaReference, WorkflowBucketConfig } from './QuickRunApi';
+import { BrandPaletteDialog } from './components/BrandPaletteDialog';
 import { ContextPanel } from './components/ContextPanel';
 import { HeadersConfigDialog } from './components/HeadersConfigDialog';
 import { InstanceDashboard } from './components/InstanceDashboard';
@@ -15,6 +16,7 @@ import { TransitionDialog } from './components/TransitionDialog';
 import { useQuickRunPolling } from './hooks/useQuickRunPolling';
 import { useQuickRunStore } from './store/quickRunStore';
 import { extractLabelsMap } from './utils/extractLabelsMap';
+import { useProjectStore } from '../../store/useProjectStore';
 
 interface HealthMessage {
   type: 'quickrun:health';
@@ -64,6 +66,7 @@ export function QuickRunShell({
   const flowLabels = useQuickRunStore((s) => s.flowLabels);
   const [showNewRun, setShowNewRun] = useState(false);
   const [showHeaders, setShowHeaders] = useState(false);
+  const [showBrandPalette, setShowBrandPalette] = useState(false);
   const [savedHeaders, setSavedHeaders] = useState<{ name: string; value: string; isSecret?: boolean }[]>([]);
   const [leftWidth, setLeftWidth] = useState(220);
   const [rightWidth, setRightWidth] = useState(320);
@@ -80,6 +83,24 @@ export function QuickRunShell({
   useEffect(() => {
     setWorkflowContext(domain, workflowKey, environmentName, environmentUrl);
   }, [domain, workflowKey, environmentName, environmentUrl, setWorkflowContext]);
+
+  // The view-editor webview populates `useProjectStore` via `HostEditorBridge`;
+  // Quick Run is a separate VS Code panel (own isolated runtime) so we have to
+  // call `setActiveProject` ourselves. The extension host puts the workspace
+  // folder path into `projectId` (see `apps/extension/src/extension.ts`,
+  // `workspaceFolders[0]?.uri.fsPath`), so it doubles as both the id and the
+  // path. Without this, BrandPaletteDialog and useBrandPaletteFromWorkspace
+  // would see "no active project".
+  const setActiveProject = useProjectStore((s) => s.setActiveProject);
+  useEffect(() => {
+    if (!projectId) return;
+    setActiveProject({
+      id: projectId,
+      domain,
+      path: projectId,
+      linked: true,
+    });
+  }, [projectId, domain, setActiveProject]);
 
   useEffect(() => {
     if (pollingRetryCount != null || pollingIntervalMs != null) {
@@ -183,6 +204,13 @@ export function QuickRunShell({
           >
             Headers
           </button>
+          <button
+            className="rounded border border-[var(--vscode-panel-border)] px-2.5 py-1 text-[11px] hover:bg-[var(--vscode-list-hoverBackground)]"
+            onClick={() => setShowBrandPalette(true)}
+            title="Brand JSON palette"
+          >
+            Brand JSON
+          </button>
         </div>
         <span className="text-[11px] text-[var(--vscode-descriptionForeground)]">
           {domain}/{flowLabels?.workflowLabel ?? workflowKey}
@@ -232,6 +260,10 @@ export function QuickRunShell({
           const updated = { ...configRef.current, globalHeaders: record };
           persistConfig(updated);
         }}
+      />
+      <BrandPaletteDialog
+        open={showBrandPalette}
+        onOpenChange={setShowBrandPalette}
       />
     </div>
   );
