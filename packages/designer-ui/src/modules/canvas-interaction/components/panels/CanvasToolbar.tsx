@@ -11,6 +11,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from '../../../../ui/Tooltip';
+import { useCanvasMode } from '../../context/CanvasModeContext';
 import {
   useCanvasViewSettings,
   type LayoutAlgorithm,
@@ -54,6 +55,7 @@ export function CanvasToolbar({
   onExportSvg,
   onEnterPresentation,
 }: CanvasToolbarProps) {
+  const { isEditable } = useCanvasMode();
   const [open, setOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [canvasOptionsOpen, setCanvasOptionsOpen] = useState(false);
@@ -89,35 +91,39 @@ export function CanvasToolbar({
     <div
       ref={ref}
       className="fixed left-1/2 z-30 flex -translate-x-1/2 items-center gap-1 rounded-xl border border-border bg-surface/90 px-2 py-1.5 shadow-[0_8px_40px_rgba(0,0,0,0.08),0_2px_4px_rgba(0,0,0,0.04)] backdrop-blur-xl bottom-[max(1.5rem,calc(var(--designer-host-status-bar-height,0px)+0.75rem))]">
-      {/* Add State */}
-      <div className="relative">
-        <button
-          onClick={() => setOpen(!open)}
-          className="bg-action text-action-foreground hover:bg-action-hover shadow-md hover:shadow-lg flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-all duration-150 active:scale-[0.97]"
-          style={{ '--tw-shadow-color': 'var(--color-action-shadow)' } as React.CSSProperties}
-        >
-          <Plus size={14} strokeWidth={2.5} />
-          <span>Add State</span>
-          <ChevronDown size={12} className={`transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
-        </button>
+      {isEditable && (
+        <>
+          {/* Add State */}
+          <div className="relative">
+            <button
+              onClick={() => setOpen(!open)}
+              className="bg-action text-action-foreground hover:bg-action-hover shadow-md hover:shadow-lg flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-all duration-150 active:scale-[0.97]"
+              style={{ '--tw-shadow-color': 'var(--color-action-shadow)' } as React.CSSProperties}
+            >
+              <Plus size={14} strokeWidth={2.5} />
+              <span>Add State</span>
+              <ChevronDown size={12} className={`transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+            </button>
 
-        {open && (
-          <div className="absolute bottom-full mb-2.5 left-0 bg-surface/95 backdrop-blur-xl rounded-2xl border border-border shadow-[0_20px_60px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.05)] py-2 min-w-55 animate-scale-in">
-            <DropdownItem label="Initial State" icon={<Play size={14} />} color="text-initial" bg="bg-initial/10" onClick={() => add(1)} disabled={hasInitialState} />
-            <DropdownItem label="Intermediate" icon={<Square size={14} />} color="text-intermediate" bg="bg-intermediate/10" onClick={() => add(2)} />
-            <div className="h-px bg-border-subtle my-1.5 mx-3" />
-            <div className="px-3.5 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Final States</div>
-            <DropdownItem label="Success" icon={<CheckCircle2 size={14} />} color="text-final-success" bg="bg-final-success/10" onClick={() => add(3, 1)} indent />
-            <DropdownItem label="Error" icon={<XCircle size={14} />} color="text-final-error" bg="bg-final-error/10" onClick={() => add(3, 2)} indent />
-            <DropdownItem label="Terminated" icon={<StopCircle size={14} />} color="text-final-terminated" bg="bg-final-terminated/10" onClick={() => add(3, 3)} indent />
-            <DropdownItem label="Suspended" icon={<PauseCircle size={14} />} color="text-final-suspended" bg="bg-final-suspended/10" onClick={() => add(3, 4)} indent />
-            <div className="h-px bg-border-subtle my-1.5 mx-3" />
-            <DropdownItem label="SubFlow" icon={<Repeat2 size={14} />} color="text-subflow" bg="bg-subflow/10" onClick={() => add(4)} />
+            {open && (
+              <div className="absolute bottom-full mb-2.5 left-0 bg-surface/95 backdrop-blur-xl rounded-2xl border border-border shadow-[0_20px_60px_rgba(0,0,0,0.12),0_4px_12px_rgba(0,0,0,0.05)] py-2 min-w-55 animate-scale-in">
+                <DropdownItem label="Initial State" icon={<Play size={14} />} color="text-initial" bg="bg-initial/10" onClick={() => add(1)} disabled={hasInitialState} />
+                <DropdownItem label="Intermediate" icon={<Square size={14} />} color="text-intermediate" bg="bg-intermediate/10" onClick={() => add(2)} />
+                <div className="h-px bg-border-subtle my-1.5 mx-3" />
+                <div className="px-3.5 py-1 text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">Final States</div>
+                <DropdownItem label="Success" icon={<CheckCircle2 size={14} />} color="text-final-success" bg="bg-final-success/10" onClick={() => add(3, 1)} indent />
+                <DropdownItem label="Error" icon={<XCircle size={14} />} color="text-final-error" bg="bg-final-error/10" onClick={() => add(3, 2)} indent />
+                <DropdownItem label="Terminated" icon={<StopCircle size={14} />} color="text-final-terminated" bg="bg-final-terminated/10" onClick={() => add(3, 3)} indent />
+                <DropdownItem label="Suspended" icon={<PauseCircle size={14} />} color="text-final-suspended" bg="bg-final-suspended/10" onClick={() => add(3, 4)} indent />
+                <div className="h-px bg-border-subtle my-1.5 mx-3" />
+                <DropdownItem label="SubFlow" icon={<Repeat2 size={14} />} color="text-subflow" bg="bg-subflow/10" onClick={() => add(4)} />
+              </div>
+            )}
           </div>
-        )}
-      </div>
 
-      <div className="h-5 w-px bg-border" />
+          <div className="h-5 w-px bg-border" />
+        </>
+      )}
 
       <button
         onClick={onAutoLayout}

@@ -13,6 +13,7 @@ import {
   resolveIconStampSize,
 } from '../../context/CanvasViewSettingsContext';
 import { useWorkflowStore } from '../../../../store/useWorkflowStore';
+import { useCanvasMode } from '../../context/CanvasModeContext';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../../../ui/Tooltip';
 
 interface StateNodeData {
@@ -144,6 +145,14 @@ export const StateNodeBase = memo(function StateNodeBase({ data, selected }: Nod
   const removeState = useWorkflowStore((s) => s.removeState);
   const duplicateState = useWorkflowStore((s) => s.duplicateState);
   const diagramJson = useWorkflowStore((s) => s.diagramJson);
+  const { isEditable } = useCanvasMode();
+  const executionStatus = (d as Record<string, unknown>).executionStatus as
+    | 'current' | 'visited' | 'unreachable' | undefined;
+  const executionCls =
+    executionStatus === 'current' ? 'vf-node-current' :
+    executionStatus === 'visited' ? 'vf-node-visited' :
+    executionStatus === 'unreachable' ? 'vf-node-unreachable' :
+    '';
 
   const handleQuickDuplicate = useCallback(
     (e: React.MouseEvent) => {
@@ -197,7 +206,7 @@ export const StateNodeBase = memo(function StateNodeBase({ data, selected }: Nod
         selected
           ? `bg-surface border-[1.5px] border-primary-border-hover shadow-xl ring-4 ${config.ring}`
           : 'bg-surface border border-border shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] hover:border-muted-border-hover'
-      } ${isSpotlight ? 'animate-spotlight-pulse' : ''}`}
+      } ${isSpotlight ? 'animate-spotlight-pulse' : ''} ${executionCls}`}
     >
       <NodeResizer
         minWidth={160}
@@ -336,43 +345,46 @@ export const StateNodeBase = memo(function StateNodeBase({ data, selected }: Nod
        * canvas. The `nodrag nopan` classes are essential — React
        * Flow uses them to skip pan/drag handling, otherwise
        * clicking the button would start a node drag.
+       * Gated by `isEditable` so the toolbar is invisible in monitoring (read-only) mode.
        */}
-      <div
-        className="nodrag nopan pointer-events-none absolute -top-3 right-2 flex items-center gap-0.5 rounded-md border border-border bg-surface px-1 py-0.5 opacity-0 shadow-md transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100"
-      >
-        <TooltipProvider delayDuration={300}>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                onClick={handleQuickDuplicate}
-                className="flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer"
-                aria-label={`Duplicate state ${d.label}`}
-              >
-                <Copy size={11} />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="top" variant="default" className="text-[10px]">
-              Duplicate
-            </TooltipContent>
-          </Tooltip>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <button
-                type="button"
-                onClick={handleQuickDelete}
-                className="flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive-foreground cursor-pointer"
-                aria-label={`Delete state ${d.label}`}
-              >
-                <Trash2 size={11} />
-              </button>
-            </TooltipTrigger>
-            <TooltipContent side="top" variant="default" className="text-[10px]">
-              Delete
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-      </div>
+      {isEditable && (
+        <div
+          className="nodrag nopan pointer-events-none absolute -top-3 right-2 flex items-center gap-0.5 rounded-md border border-border bg-surface px-1 py-0.5 opacity-0 shadow-md transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100"
+        >
+          <TooltipProvider delayDuration={300}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={handleQuickDuplicate}
+                  className="flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-muted hover:text-foreground cursor-pointer"
+                  aria-label={`Duplicate state ${d.label}`}
+                >
+                  <Copy size={11} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top" variant="default" className="text-[10px]">
+                Duplicate
+              </TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={handleQuickDelete}
+                  className="flex size-5 items-center justify-center rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive-foreground cursor-pointer"
+                  aria-label={`Delete state ${d.label}`}
+                >
+                  <Trash2 size={11} />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="top" variant="default" className="text-[10px]">
+                Delete
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+      )}
 
       {showSubFlowButton && (
         <TooltipProvider delayDuration={300}>

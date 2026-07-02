@@ -1,3 +1,4 @@
+import { NotificationType } from '../constants/notification-types';
 import { StateType, StateSubType } from '../constants/state-types';
 import { TriggerType, TriggerKind } from '../constants/trigger-types';
 import { ErrorBoundary } from './error-boundary';
@@ -104,6 +105,19 @@ export interface StateInteraction {
   longPoll?: LongPollConfig;
 }
 
+/**
+ * A single notification rule attached to a state. The engine fires
+ * the notification when the state is entered.
+ */
+export interface StateNotification {
+  /** Notification channel type. Currently only {@link NotificationType.State} (0). */
+  type: NotificationType;
+  /** Required payload mapping script executed when the notification fires. */
+  mapping: MappingCode;
+  /** Optional condition — if omitted the notification always fires. */
+  rule?: MappingCode;
+}
+
 export interface State {
   key: string;
   alias?: StateAlias[];
@@ -120,4 +134,5 @@ export interface State {
   views?: ViewBinding[];
   subFlow?: SubFlowConfig;
   interaction?: StateInteraction | null;
+  notifications?: StateNotification[];
 }

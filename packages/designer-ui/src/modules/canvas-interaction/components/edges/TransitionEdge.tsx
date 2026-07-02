@@ -18,6 +18,7 @@ import {
 } from '../../context/CanvasViewSettingsContext';
 import { getFloatingEdgeParams } from '../../utils/floating-edge-utils';
 import { pickMarkerEnd } from './SharedEdgeMarkers';
+import { useCanvasMode } from '../../context/CanvasModeContext';
 
 export interface Waypoint {
   x: number;
@@ -178,6 +179,9 @@ export const TransitionEdge = memo(function TransitionEdge(props: EdgeProps) {
   const isSelfLoop = d.isSelfLoop ?? false;
   const waypoints: Waypoint[] = d.waypoints ?? [];
   const isSpotlight = Boolean(d.spotlight);
+  const { isEditable } = useCanvasMode();
+  const executionStatus = (d as Record<string, unknown>).executionStatus as
+    | 'traversed' | 'untaken' | undefined;
 
   const { settings } = useCanvasViewSettings();
   const { setEdges } = useReactFlow();
@@ -323,6 +327,7 @@ export const TransitionEdge = memo(function TransitionEdge(props: EdgeProps) {
   // Double-click on edge path to add a waypoint at that position
   const handleEdgeDoubleClick = useCallback(
     (e: React.MouseEvent<SVGPathElement>) => {
+      if (!isEditable) return;
       e.stopPropagation();
       const svg = (e.target as SVGElement).closest('svg');
       if (!svg) return;
@@ -371,12 +376,13 @@ export const TransitionEdge = memo(function TransitionEdge(props: EdgeProps) {
         ),
       );
     },
-    [id, waypoints, sourceX, sourceY, targetX, targetY, setEdges],
+    [id, waypoints, sourceX, sourceY, targetX, targetY, setEdges, isEditable],
   );
 
   // Drag a waypoint to reposition it
   const handleWaypointPointerDown = useCallback(
     (e: React.PointerEvent, idx: number) => {
+      if (!isEditable) return;
       e.stopPropagation();
       e.preventDefault();
       const target = e.currentTarget as HTMLElement;
@@ -388,7 +394,7 @@ export const TransitionEdge = memo(function TransitionEdge(props: EdgeProps) {
         origWp: { ...waypoints[idx] },
       };
     },
-    [waypoints],
+    [waypoints, isEditable],
   );
 
   const handleWaypointPointerMove = useCallback(
@@ -482,6 +488,14 @@ export const TransitionEdge = memo(function TransitionEdge(props: EdgeProps) {
     ? 'non-scaling-stroke'
     : undefined;
 
+  // Execution overlay — adjust opacity/stroke width based on traversal status.
+  const executionOpacity =
+    executionStatus === 'untaken' ? 0.3 :
+    1;
+  const executionStrokeWidth =
+    executionStatus === 'traversed' ? Math.max(strokeWidth, 2.5) :
+    strokeWidth;
+
   return (
     <>
       <BaseEdge
@@ -489,7 +503,8 @@ export const TransitionEdge = memo(function TransitionEdge(props: EdgeProps) {
         path={edgePath}
         style={{
           stroke: color,
-          strokeWidth,
+          strokeWidth: executionStrokeWidth,
+          opacity: executionOpacity,
           strokeDasharray: animated ? '6 4' : dash,
           transition: 'stroke-width 0.15s ease',
           vectorEffect,

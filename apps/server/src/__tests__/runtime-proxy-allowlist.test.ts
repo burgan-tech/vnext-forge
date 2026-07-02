@@ -114,6 +114,44 @@ describe('runtime-proxy SSRF allow-list', () => {
     expect(network.calls).toEqual(['http://localhost:4202/health'])
   })
 
+  it('accepts runtimeUrl returned by an allowedBaseUrls callback', async () => {
+    const network = createNetworkStub()
+    let dynamicUrls: string[] = []
+    const proxy = createRuntimeProxyService({
+      network,
+      logger: noopLogger,
+      defaultRuntimeUrl: 'http://localhost:4201',
+      allowRuntimeUrlOverride: true,
+      allowedBaseUrls: () => dynamicUrls,
+    })
+
+    // Before the URL is in the list → rejected
+    await expect(
+      proxy.proxy({ method: 'GET', runtimePath: '/health', runtimeUrl: 'http://runtime.example.com' }),
+    ).rejects.toMatchObject({ code: ERROR_CODES.API_FORBIDDEN })
+
+    // Add to dynamic list → now accepted
+    dynamicUrls = ['http://runtime.example.com']
+    await proxy.proxy({ method: 'GET', runtimePath: '/health', runtimeUrl: 'http://runtime.example.com' })
+    expect(network.calls).toEqual(['http://runtime.example.com/health'])
+  })
+
+  it('rejects runtimeUrl not returned by the allowedBaseUrls callback', async () => {
+    const network = createNetworkStub()
+    const proxy = createRuntimeProxyService({
+      network,
+      logger: noopLogger,
+      defaultRuntimeUrl: 'http://localhost:4201',
+      allowRuntimeUrlOverride: true,
+      allowedBaseUrls: () => ['http://localhost:4202'],
+    })
+
+    await expect(
+      proxy.proxy({ method: 'GET', runtimePath: '/health', runtimeUrl: 'http://169.254.169.254' }),
+    ).rejects.toMatchObject({ code: ERROR_CODES.API_FORBIDDEN })
+    expect(network.calls).toEqual([])
+  })
+
   it('falls back to defaultRuntimeUrl when no runtimeUrl is supplied', async () => {
     const network = createNetworkStub()
     const proxy = createRuntimeProxyService({

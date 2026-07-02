@@ -1,0 +1,86 @@
+<h2>Tasarım: Bileşen Mimarisi</h2>
+<p class="subtitle">Hangi katmanda ne değişiyor?</p>
+
+<div class="section">
+  <h3>Değişen / Eklenen Dosyalar</h3>
+
+  <div class="mockup">
+    <div class="mockup-header">packages/doc-gen — Generator katmanı</div>
+    <div class="mockup-body" style="font-size:0.82rem;font-family:monospace;line-height:1.7;">
+      <div><span style="color:#e67e22;">~ openapi-doc.ts</span> — Core değişiklikler:</div>
+      <div style="margin-left:1rem;color:#555;">
+        • <code>firstLabel(labels, fallback, <b>language?</b>)</code> → tercih edilen dil, yoksa 1. dil<br>
+        • <code>TransitionLike</code> → <code>roles?: RoleGrant[]</code> eklendi<br>
+        • <code>WorkflowLike</code> → root <code>_comment?</code> eklendi<br>
+        • <code>buildWorkflowOpenApi(wf, resolvers, <b>{ audienceRoles?, language? }</b>)</code><br>
+        • <code>isVisibleToAudience(roles, audienceRoles)</code> — filtre mantığı<br>
+        • <code>info.description</code> → workflow <code>_comment</code> dahil edilir<br>
+        • Transition operation <code>description</code> → <code>_comment</code> (zaten var, genişletilir)
+      </div>
+      <div style="margin-top:0.5rem;"><span style="color:#27ae60;">+ openapi-audience.ts</span> (veya doc-gen index'e eklenebilir):</div>
+      <div style="margin-left:1rem;color:#555;">
+        • <code>collectWorkflowRoles(workflowJson): string[]</code><br>
+        &nbsp;&nbsp;Tüm transition ve queryRoles'lardan unique rol adları toplar, sıralar
+      </div>
+    </div>
+  </div>
+
+  <div class="mockup" style="margin-top:1rem;">
+    <div class="mockup-header">packages/designer-ui — UI katmanı</div>
+    <div class="mockup-body" style="font-size:0.82rem;font-family:monospace;line-height:1.7;">
+      <div><span style="color:#27ae60;">+ flow-editor/components/AudienceRolePickerDialog.tsx</span></div>
+      <div style="margin-left:1rem;color:#555;">
+        • Workflow JSON'u alır, <code>collectWorkflowRoles</code> ile rolleri tarar<br>
+        • Multi-select rol listesi + dil dropdown (en, tr, …)<br>
+        • "Generate OpenAPI" → <code>onGenerate(roles, language)</code> callback
+      </div>
+      <div style="margin-top:0.5rem;"><span style="color:#e67e22;">~ OpenApiPreviewDialog.tsx</span></div>
+      <div style="margin-left:1rem;color:#555;">
+        • <code>audienceFilter?: &#123; roles: string[]; language: string &#125;</code> prop eklenir<br>
+        • <code>buildWorkflowOpenApi</code>'ye filtre geçilir<br>
+        • Dialog başlığında seçilen roller badge olarak gösterilir
+      </div>
+      <div style="margin-top:0.5rem;"><span style="color:#e67e22;">~ EditorDocumentToolbar.tsx</span></div>
+      <div style="margin-left:1rem;color:#555;">
+        • <code>onPreviewAudienceOpenApi?: () => void</code> prop eklenir<br>
+        • Users ikonu ile "Audience" butonu — mevcut "Preview OpenAPI" butonunun yanına
+      </div>
+      <div style="margin-top:0.5rem;"><span style="color:#e67e22;">~ FlowEditorView.tsx</span></div>
+      <div style="margin-left:1rem;color:#555;">
+        • <code>showAudienceRolePicker</code> ve <code>audienceFilter</code> state'leri<br>
+        • Akış: Audience butonu → Picker dialog → onGenerate → OpenAPI preview
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top:1rem;">
+  <h3>Kullanıcı Akışı</h3>
+  <div class="mockup">
+    <div class="mockup-header">Adım adım</div>
+    <div class="mockup-body" style="font-size:0.83rem;display:flex;flex-direction:column;gap:0.5rem;">
+      <div style="display:flex;align-items:center;gap:0.75rem;">
+        <div style="background:#4f46e5;color:#fff;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:0.75rem;flex-shrink:0;">1</div>
+        <span>Toolbar'da <strong>"Audience"</strong> butonuna tıkla (<code>Users</code> ikonu)</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:0.75rem;">
+        <div style="background:#4f46e5;color:#fff;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:0.75rem;flex-shrink:0;">2</div>
+        <span><strong>AudienceRolePickerDialog</strong> açılır → Workflow'daki tüm roller taranır ve listelenir</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:0.75rem;">
+        <div style="background:#4f46e5;color:#fff;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:0.75rem;flex-shrink:0;">3</div>
+        <span>Kullanıcı rolleri seçer + çıktı dilini belirler → <strong>"Generate OpenAPI"</strong></span>
+      </div>
+      <div style="display:flex;align-items:center;gap:0.75rem;">
+        <div style="background:#4f46e5;color:#fff;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:0.75rem;flex-shrink:0;">4</div>
+        <span><strong>OpenApiPreviewDialog</strong> açılır — başlığında seçilen roller badge olarak görünür, spec filtrelenmiş</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:0.75rem;">
+        <div style="background:#4f46e5;color:#fff;border-radius:50%;width:24px;height:24px;display:flex;align-items:center;justify-content:center;font-size:0.75rem;flex-shrink:0;">5</div>
+        <span>Download → dosya adı: <code>workflow-key.audience-admin-manager.openapi.json</code></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<p style="margin-top:1rem;font-size:0.85rem;color:#666;">Bu mimariye onay veriyor musunuz, yoksa değiştirmek istediğiniz bir yer var mı?</p>

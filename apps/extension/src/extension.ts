@@ -125,7 +125,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const webviewLogChannel = vscode.window.createOutputChannel('vnext-forge-studio:webview');
   context.subscriptions.push(webviewLogChannel);
 
-  const { services, registry } = composeExtensionServices(loggerAdapter);
+  const forgeToolsSettings = new ForgeToolsSettingsService(context.globalStorageUri);
+  context.subscriptions.push(forgeToolsSettings);
+
+  const { services, registry } = composeExtensionServices(loggerAdapter, forgeToolsSettings);
   const { bridge: lspBridge, installer: lspInstaller } = createExtensionHostLspStack(loggerAdapter);
 
   const diagnosticCollection = vscode.languages.createDiagnosticCollection('vnext-forge-studio');
@@ -191,9 +194,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   );
 
   // ── Forge Tools Sidebar ──────────────────────────────────────────────────
-
-  const forgeToolsSettings = new ForgeToolsSettingsService(context.globalStorageUri);
-  context.subscriptions.push(forgeToolsSettings);
 
   // Pre-load settings so DesignerPanel can inject them synchronously
   await forgeToolsSettings.loadSettings();

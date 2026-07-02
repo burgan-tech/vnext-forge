@@ -12,8 +12,12 @@ export interface RuntimeProxyServiceDeps {
    * `defaultRuntimeUrl` is implicitly always allowed; this list extends it.
    * If `allowRuntimeUrlOverride` is `false`, this list is ignored — only
    * the default is reachable.
+   *
+   * A callback form `() => readonly string[]` is also accepted. It is called
+   * on every request so callers can provide a live-updating list (e.g. Forge
+   * Tools environments) without recreating the service.
    */
-  allowedBaseUrls?: readonly string[]
+  allowedBaseUrls?: readonly string[] | (() => readonly string[])
   /**
    * When `false` (the default), the `runtimeUrl` parameter on
    * `runtime.proxy` is rejected and every request goes to
@@ -109,30 +113,35 @@ export function createRuntimeProxyService(deps: RuntimeProxyServiceDeps) {
   const {
     network,
     defaultRuntimeUrl = 'http://localhost:4201',
-    allowedBaseUrls = [],
+    allowedBaseUrls: allowedBaseUrlsSource = [],
     allowRuntimeUrlOverride = false,
   } = deps
 
-  // Normalize once at construction so per-request matching is a cheap
-  // string compare. Trailing slashes are dropped because `${base}${path}`
-  // joins them anyway.
+  // Trailing slashes are dropped because `${base}${path}` joins them anyway.
   const normalize = (u: string) => u.trim().replace(/\/+$/, '')
-  const allowed = new Set<string>([
-    normalize(defaultRuntimeUrl),
-    ...allowedBaseUrls.map(normalize),
-  ])
+  const normalizedDefault = normalize(defaultRuntimeUrl)
 
   async function proxy(
     req: z.infer<typeof runtimeProxyParams>,
     traceId?: string,
   ): Promise<z.infer<typeof runtimeProxyResult>> {
+    // Resolve allowlist fresh on each call so callback-based lists stay current.
+    const rawAllowedUrls =
+      typeof allowedBaseUrlsSource === 'function'
+        ? allowedBaseUrlsSource()
+        : allowedBaseUrlsSource
+    const allowed = new Set<string>([
+      normalizedDefault,
+      ...rawAllowedUrls.map(normalize),
+    ])
+
     let runtimeUrl: string
     if (req.runtimeUrl) {
       const candidate = normalize(req.runtimeUrl)
 
       // When the caller sends the same URL as the default, treat it as a
       // no-op — it is not an override and does not require the flag.
-      if (candidate !== normalize(defaultRuntimeUrl) && !allowRuntimeUrlOverride) {
+      if (candidate !== normalizedDefault && !allowRuntimeUrlOverride) {
         throw new VnextForgeError(
           ERROR_CODES.API_FORBIDDEN,
           'runtimeUrl override is disabled on this server. ' +
@@ -146,7 +155,11 @@ export function createRuntimeProxyService(deps: RuntimeProxyServiceDeps) {
           traceId,
         )
       }
-      const hasExplicitAllowlist = allowedBaseUrls.length > 0
+      // A callback source is always treated as an explicit allowlist, even when
+      // it currently returns an empty array, so we can reject URLs that aren't
+      // listed yet (the list may grow dynamically at runtime).
+      const hasExplicitAllowlist =
+        typeof allowedBaseUrlsSource === 'function' || rawAllowedUrls.length > 0
       if (hasExplicitAllowlist && !allowed.has(candidate)) {
         throw new VnextForgeError(
           ERROR_CODES.API_FORBIDDEN,
@@ -164,7 +177,7 @@ export function createRuntimeProxyService(deps: RuntimeProxyServiceDeps) {
       }
       runtimeUrl = candidate
     } else {
-      runtimeUrl = normalize(defaultRuntimeUrl)
+      runtimeUrl = normalizedDefault
     }
     const url = `${runtimeUrl}${req.runtimePath}`
     const queryString = req.query ? new URLSearchParams(req.query).toString() : ''
