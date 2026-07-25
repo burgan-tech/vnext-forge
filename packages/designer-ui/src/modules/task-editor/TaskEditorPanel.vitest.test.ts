@@ -80,6 +80,13 @@ describe('TaskEditorPanel layout', () => {
     expect(html).toContain('Extensions');
   });
 
+  it('renders a configuration form for Cache Aside tasks', () => {
+    const html = renderTaskEditorPanel('18');
+    expect(html).toContain('Cache Aside task settings.');
+    expect(html).toContain('Source Task');
+    expect(html).toContain('Key Expression');
+  });
+
   it('does not pin the Configuration card to a flex-1 / overflow-hidden chain', () => {
     const html = renderTaskEditorPanel('7');
     const cardClassLists = Array.from(html.matchAll(/data-slot="card" class="([^"]+)"/g)).map(

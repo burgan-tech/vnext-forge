@@ -13,6 +13,7 @@ import { GetInstancesTaskForm } from './GetInstancesTaskForm';
 import { NotificationTaskForm } from './NotificationTaskForm';
 import { SoapTaskForm } from './SoapTaskForm';
 import { StateStoreTaskForm } from './StateStoreTaskForm';
+import { CacheAsideTaskForm } from './CacheAsideTaskForm';
 
 interface TaskFormProps {
   config: Record<string, unknown>;
@@ -33,5 +34,6 @@ export const taskFormMap: Record<string, ComponentType<TaskFormProps>> = {
   '15': GetInstancesTaskForm,
   '16': SoapTaskForm,
   '17': StateStoreTaskForm,
+  '18': CacheAsideTaskForm,
   '19': GetInstanceTaskForm,
 };
