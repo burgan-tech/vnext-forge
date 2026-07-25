@@ -75,6 +75,7 @@ function getTaskTypeName(type: string): string {
     '17': 'State Store',
     '18': 'Cache Aside',
     '19': 'Get Instance',
+    '20': 'Dapr Conversation',
   };
   return names[type] || `Unknown (${type})`;
 }

@@ -87,6 +87,13 @@ describe('TaskEditorPanel layout', () => {
     expect(html).toContain('Key Expression');
   });
 
+  it('renders a configuration form for Dapr Conversation tasks', () => {
+    const html = renderTaskEditorPanel('20');
+    expect(html).toContain('Dapr Conversation task settings.');
+    expect(html).toContain('Component Name');
+    expect(html).toContain('Inputs (JSON)');
+  });
+
   it('does not pin the Configuration card to a flex-1 / overflow-hidden chain', () => {
     const html = renderTaskEditorPanel('7');
     const cardClassLists = Array.from(html.matchAll(/data-slot="card" class="([^"]+)"/g)).map(

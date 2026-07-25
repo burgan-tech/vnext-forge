@@ -14,6 +14,7 @@ import { NotificationTaskForm } from './NotificationTaskForm';
 import { SoapTaskForm } from './SoapTaskForm';
 import { StateStoreTaskForm } from './StateStoreTaskForm';
 import { CacheAsideTaskForm } from './CacheAsideTaskForm';
+import { DaprConversationTaskForm } from './DaprConversationTaskForm';
 
 interface TaskFormProps {
   config: Record<string, unknown>;
@@ -36,4 +37,5 @@ export const taskFormMap: Record<string, ComponentType<TaskFormProps>> = {
   '17': StateStoreTaskForm,
   '18': CacheAsideTaskForm,
   '19': GetInstanceTaskForm,
+  '20': DaprConversationTaskForm,
 };
