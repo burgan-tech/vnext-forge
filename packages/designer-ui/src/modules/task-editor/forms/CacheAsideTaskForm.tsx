@@ -3,7 +3,7 @@ import { Input } from '../../../ui/Input';
 import { Select } from '../../../ui/Select';
 import { Checkbox } from '../../../ui/Checkbox';
 import { DynamicExpressoField, type DynamicExpressoValue } from '../../../ui/DynamicExpressoField';
-import { CsxEditorField, type ScriptCode } from '../../save-component/components/CsxEditorField';
+import { JsonCodeField } from '../../../ui/JsonCodeField';
 
 interface Props {
   config: Record<string, unknown>;
@@ -112,18 +112,11 @@ export function CacheAsideTaskForm({ config, onChange }: Props) {
         </div>
       </div>
 
-      <Field label="Source Mapping" hint="Optional mapping applied to the raw source result before caching.">
-        <CsxEditorField
-          value={(config.sourceMapping as ScriptCode | undefined) ?? null}
-          onChange={(next) => onChange((d: any) => { d.sourceMapping = next ?? undefined; })}
-          onRemove={() => onChange((d: any) => { d.sourceMapping = undefined; })}
-          templateType="mapping"
-          contextName="cacheaside-source-mapping"
-          label="Source Mapping"
-          stateKey="cacheAsideTask"
-          listField="attributes"
-          index={0}
-          scriptField="config.sourceMapping"
+      <Field label="Source Mapping" hint="Optional C# mapping applied to the raw source result before caching (stored inline).">
+        <JsonCodeField
+          language="csharp"
+          value={String((config.sourceMapping as { code?: string } | undefined)?.code ?? '')}
+          onChange={(code) => onChange((d: any) => { d.sourceMapping = code ? { code, encoding: 'NAT' } : undefined; })}
         />
       </Field>
 
