@@ -15,4 +15,8 @@ export enum TaskType {
   SubProcess = 14,
   GetInstances = 15,
   Soap = 16,
+  StateStore = 17,
+  CacheAside = 18,
+  GetInstance = 19,
+  DaprConversation = 20,
 }
