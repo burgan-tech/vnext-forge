@@ -7,10 +7,12 @@ import { ScriptTaskForm } from './ScriptTaskForm';
 import { StartTaskForm } from './StartTaskForm';
 import { DirectTriggerTaskForm } from './DirectTriggerTaskForm';
 import { GetInstanceDataTaskForm } from './GetInstanceDataTaskForm';
+import { GetInstanceTaskForm } from './GetInstanceTaskForm';
 import { SubProcessTaskForm } from './SubProcessTaskForm';
 import { GetInstancesTaskForm } from './GetInstancesTaskForm';
 import { NotificationTaskForm } from './NotificationTaskForm';
 import { SoapTaskForm } from './SoapTaskForm';
+import { StateStoreTaskForm } from './StateStoreTaskForm';
 
 interface TaskFormProps {
   config: Record<string, unknown>;
@@ -30,4 +32,6 @@ export const taskFormMap: Record<string, ComponentType<TaskFormProps>> = {
   '14': SubProcessTaskForm,
   '15': GetInstancesTaskForm,
   '16': SoapTaskForm,
+  '17': StateStoreTaskForm,
+  '19': GetInstanceTaskForm,
 };

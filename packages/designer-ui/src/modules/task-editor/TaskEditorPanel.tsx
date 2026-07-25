@@ -72,6 +72,8 @@ function getTaskTypeName(type: string): string {
     '14': 'SubProcess',
     '15': 'Get Instances',
     '16': 'SOAP',
+    '17': 'State Store',
+    '19': 'Get Instance',
   };
   return names[type] || `Unknown (${type})`;
 }
