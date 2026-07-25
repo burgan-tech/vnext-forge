@@ -43,6 +43,11 @@ const TASK_TYPE_LABELS: Record<string, string> = {
   '13': 'Get Instance Data Task',
   '14': 'SubProcess Task',
   '15': 'Get Instances Task',
+  '16': 'SOAP Task',
+  '17': 'State Store Task',
+  '18': 'Cache Aside Task',
+  '19': 'Get Instance Task',
+  '20': 'Dapr Conversation Task',
 };
 
 function configToRows(config: Record<string, unknown>): string[][] {
