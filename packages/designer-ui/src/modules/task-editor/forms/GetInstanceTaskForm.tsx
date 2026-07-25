@@ -2,14 +2,13 @@ import { useState } from 'react';
 import type { DiscoveredVnextComponent } from '@vnext-forge-studio/app-contracts';
 import { Field } from '../../../ui/Field';
 import { Input } from '../../../ui/Input';
-import { Select } from '../../../ui/Select';
 import { TagEditor } from '../../../ui/TagEditor';
 import { useProjectStore } from '../../../store/useProjectStore';
 import {
   ChooseExistingVnextComponentDialog,
   ChooseFromExistingVnextComponentButton,
 } from '../../canvas-interaction/components/panels/tabs/ChooseExistingTaskDialog';
-import { HttpSettingsFields, WorkflowRefFields } from './shared';
+import { DaprToggleField, HttpSettingsFields, WorkflowRefFields } from './shared';
 
 interface Props { config: Record<string, unknown>; onChange: (updater: (draft: any) => void) => void; }
 
@@ -61,15 +60,7 @@ export function GetInstanceTaskForm({ config, onChange }: Props) {
           placeholder="Add extension"
         />
       </div>
-      <Field label="Use Dapr">
-        <Select
-          value={config.useDapr === true ? 'true' : 'false'}
-          onChange={(e) => onChange((d: any) => { d.useDapr = e.target.value === 'true' ? true : undefined; })}
-          className="text-xs">
-          <option value="false">No</option>
-          <option value="true">Yes</option>
-        </Select>
-      </Field>
+      <DaprToggleField value={config.useDapr as boolean | undefined} onChange={onChange} />
       <HttpSettingsFields config={config} onChange={onChange} />
       <ChooseExistingVnextComponentDialog
         open={extPickerOpen}
