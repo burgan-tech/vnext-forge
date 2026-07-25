@@ -4,6 +4,7 @@ import { Select } from '../../../ui/Select';
 import { Checkbox } from '../../../ui/Checkbox';
 import { DynamicExpressoField, type DynamicExpressoValue } from '../../../ui/DynamicExpressoField';
 import { JsonCodeField } from '../../../ui/JsonCodeField';
+import { isMappingCodeRef, type MappingCode } from '@vnext-forge-studio/vnext-types';
 
 interface Props {
   config: Record<string, unknown>;
@@ -12,6 +13,8 @@ interface Props {
 
 export function CacheAsideTaskForm({ config, onChange }: Props) {
   const sourceTask = (config.sourceTask as Record<string, unknown> | undefined) ?? {};
+  const sourceMappingCode = (config.sourceMapping as { code?: unknown } | undefined)?.code;
+  const sourceMappingIsRef = isMappingCodeRef(sourceMappingCode as MappingCode['code']);
   const setSource = (field: string, value: string) =>
     onChange((d: any) => {
       const s = (d.sourceTask as Record<string, unknown>) ?? {};
@@ -113,11 +116,17 @@ export function CacheAsideTaskForm({ config, onChange }: Props) {
       </div>
 
       <Field label="Source Mapping" hint="Optional C# mapping applied to the raw source result before caching (stored inline).">
-        <JsonCodeField
-          language="csharp"
-          value={String((config.sourceMapping as { code?: string } | undefined)?.code ?? '')}
-          onChange={(code) => onChange((d: any) => { d.sourceMapping = code ? { code, encoding: 'NAT' } : undefined; })}
-        />
+        {sourceMappingIsRef ? (
+          <div className="rounded-md border border-border p-2 text-xs text-muted-foreground">
+            References a sys-mappings component. Edit via the raw JSON editor.
+          </div>
+        ) : (
+          <JsonCodeField
+            language="csharp"
+            value={typeof sourceMappingCode === 'string' ? sourceMappingCode : ''}
+            onChange={(code) => onChange((d: any) => { d.sourceMapping = code ? { code, encoding: 'NAT' } : undefined; })}
+          />
+        )}
       </Field>
 
       <DynamicExpressoField
