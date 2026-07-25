@@ -1,4 +1,5 @@
 import { Label } from './label';
+import type { MappingCodeRef } from './mapping';
 
 export interface TaskDefinition {
   key: string;
@@ -206,15 +207,17 @@ export interface TaskReference {
   key: string;
   domain: string;
   /** Defaults to "sys-tasks" when omitted */
-  flow?: string;
+  flow?: 'sys-tasks';
   version: string;
 }
 
 /** ScriptCode shape as authored inline in task configs. */
 export interface TaskScriptCode {
+  /** 'G' = Global, 'L' = Local */
   type?: 'G' | 'L';
   location?: string;
-  code?: string;
+  /** Inline script code; a sys-mappings reference object when encoding is REF. */
+  code?: string | MappingCodeRef;
   encoding?: 'B64' | 'NAT' | 'REF';
 }
 
@@ -254,6 +257,7 @@ export interface GetInstanceTaskConfig {
   headers?: Record<string, string>;
   /** Default: 30 */
   timeoutSeconds?: number;
+  /** Status codes treated as successful, e.g. "403", "4xx" */
   acceptedStatusCodes?: string[];
 }
 
@@ -261,7 +265,7 @@ export interface DaprConversationTaskConfig {
   /** Dapr conversation component name, e.g. "openai" (required) */
   componentName: string;
   /** Conversation inputs — JSON array of role/content messages */
-  inputs?: unknown;
+  inputs?: unknown[];
   /** Provider-specific string parameters (model, maxTokens, …) */
   parameters?: Record<string, string>;
   /** Dapr component metadata */
