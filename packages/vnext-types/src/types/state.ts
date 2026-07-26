@@ -2,6 +2,7 @@ import { NotificationType } from '../constants/notification-types';
 import { StateType, StateSubType } from '../constants/state-types';
 import { TriggerType, TriggerKind } from '../constants/trigger-types';
 import { ErrorBoundary } from './error-boundary';
+import type { Event } from './event';
 import { Label } from './label';
 import { MappingCode } from './mapping';
 import type { RoleGrant } from './role';
@@ -37,6 +38,11 @@ export interface Transition {
   view?: ViewBinding;
   views?: ViewBinding[];
   annotations?: Record<string, string>;
+  /**
+   * Declares how an inbound external event is mapped before it triggers this
+   * transition. Required when `triggerType` is `Event`.
+   */
+  event?: Event;
 }
 
 export interface SharedTransition extends Transition {

@@ -1,4 +1,5 @@
 import { ErrorBoundary } from './error-boundary';
+import type { Event } from './event';
 import { Label } from './label';
 import { MappingCode } from './mapping';
 import { RoleGrant } from './role';
@@ -107,6 +108,17 @@ export interface WorkflowAttributes {
    * but applies once to the whole workflow runtime.
    */
   scripts?: ScriptsConfig;
+  /**
+   * Optional output mapping for the workflow. Shapes the data returned
+   * when the workflow completes. Based on the schema's ScriptCode
+   * definition (same shape as mapping slots).
+   */
+  output?: MappingCode;
+  /**
+   * Declares how an inbound external event is mapped before it starts the
+   * workflow. Present when the workflow is startable via an external event.
+   */
+  event?: Event;
 }
 
 export interface VnextWorkflow {
