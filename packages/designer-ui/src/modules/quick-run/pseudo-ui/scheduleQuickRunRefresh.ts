@@ -1,3 +1,4 @@
+import { extractEtag } from '../etagFromResponse';
 import { resolveStateViewSource } from '../hooks/resolveStateViewSource';
 import * as QuickRunApi from '../QuickRunApi';
 import { useQuickRunStore } from '../store/quickRunStore';
@@ -23,6 +24,8 @@ export async function scheduleQuickRunRefresh(params: RefreshParams): Promise<vo
     setActiveViewLoading,
     setActiveData,
     setActiveDataLoading,
+    setEtag,
+    etags,
   } = store;
 
   const base = {
@@ -61,9 +64,17 @@ export async function scheduleQuickRunRefresh(params: RefreshParams): Promise<vo
     const parallel: Promise<void>[] = [];
 
     parallel.push(
-      QuickRunApi.getData(base).then((dataRes) => {
-        if (dataRes.success) setActiveData(dataRes.data);
-        else setActiveData(null);
+      QuickRunApi.getData({ ...base, ifNoneMatch: etags.data }).then((dataRes) => {
+        if (!dataRes.success) {
+          setActiveData(null);
+          return;
+        }
+        if (dataRes.data.notModified) {
+          // 304: keep the cached activeData as-is.
+          return;
+        }
+        setEtag('data', extractEtag(dataRes.data));
+        setActiveData(dataRes.data);
       }),
     );
 

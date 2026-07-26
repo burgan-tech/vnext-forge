@@ -8,6 +8,7 @@ import {
   TooltipTrigger,
 } from '../../../ui/Tooltip';
 import { SchemaForm, validateAgainstSchema, type JsonSchemaRoot } from '../../schema-form';
+import { extractEtag } from '../etagFromResponse';
 import * as QuickRunApi from '../QuickRunApi';
 import type { PresetEntry, WorkflowBucketConfig } from '../QuickRunApi';
 import { createQuickRunPseudoDelegate } from '../pseudo-ui/createQuickRunPseudoDelegate';
@@ -49,6 +50,13 @@ export function TransitionDialog({ configRef, persistConfig, projectId }: Transi
 
   const [schema, setSchema] = useState<SchemaResponse | null>(null);
   const [schemaLoading, setSchemaLoading] = useState(false);
+  // This dialog is always mounted (QuickRunShell renders it unconditionally
+  // and it self-hides via `if (!open) return null`), so `schema` survives a
+  // close/reopen cycle. Tracks which (instance, transitionKey) the cached
+  // `schema` was fetched for, so a 304 on reopening the *same* transition
+  // can trust the still-held value instead of the effect below wiping it
+  // to null before the conditional request even resolves.
+  const lastFetchedSchemaKeyRef = useRef<string | null>(null);
   const [transitionView, setTransitionView] = useState<ViewResponse | null>(null);
   const [viewLoading, setViewLoading] = useState(false);
   const [attributes, setAttributes] = useState('{}');
@@ -151,7 +159,9 @@ export function TransitionDialog({ configRef, persistConfig, projectId }: Transi
   useEffect(() => {
     if (!open || !activeTabId) return;
 
-    setSchema(null);
+    // `schema` is reset further down, once we know whether this is the
+    // same (instance, transitionKey) resource whose cached value + ETag
+    // may still be valid (see `lastFetchedSchemaKeyRef`).
     setTransitionView(null);
     setAttributes('{}');
     setInstanceKey('');
@@ -197,13 +207,36 @@ export function TransitionDialog({ configRef, persistConfig, projectId }: Transi
       };
 
       if (hasSchema) {
+        // Only trust a still-held `schema` (and echo its ETag) when it was
+        // fetched for this exact (instance, transitionKey) resource — a
+        // different resource's ETag would never actually match server-side,
+        // but reusing the wrong resource's cached body on a stale ref would.
+        const resourceKey = `${activeTabId}::${transition.name}`;
+        const sameResourceCached = lastFetchedSchemaKeyRef.current === resourceKey;
+        if (!sameResourceCached) {
+          setSchema(null);
+        }
         setSchemaLoading(true);
-        QuickRunApi.getSchema(fetchParams)
+        QuickRunApi.getSchema({
+          ...fetchParams,
+          ifNoneMatch: sameResourceCached ? useQuickRunStore.getState().etags.schema : undefined,
+        })
           .then((res) => {
-            if (res.success) setSchema(res.data);
+            if (!res.success) return;
+            if (res.data.notModified) {
+              // 304: the cached `schema` for this same resource is still
+              // correct — keep it as-is.
+              return;
+            }
+            useQuickRunStore.getState().setEtag('schema', extractEtag(res.data));
+            setSchema(res.data);
+            lastFetchedSchemaKeyRef.current = resourceKey;
           })
           .catch(() => { /* schema not available */ })
           .finally(() => setSchemaLoading(false));
+      } else {
+        setSchema(null);
+        lastFetchedSchemaKeyRef.current = null;
       }
 
       if (hasView) {
@@ -215,6 +248,9 @@ export function TransitionDialog({ configRef, persistConfig, projectId }: Transi
           .catch(() => { /* view not available */ })
           .finally(() => setViewLoading(false));
       }
+    } else {
+      setSchema(null);
+      lastFetchedSchemaKeyRef.current = null;
     }
 
     setHeaderRows(rows);

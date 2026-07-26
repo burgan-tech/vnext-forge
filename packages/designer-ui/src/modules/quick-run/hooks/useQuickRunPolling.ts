@@ -1,6 +1,7 @@
 import { useCallback, useRef } from 'react';
 
 import { createLogger } from '../../../lib/logger/createLogger';
+import { extractEtag } from '../etagFromResponse';
 import * as QuickRunApi from '../QuickRunApi';
 import { useQuickRunStore } from '../store/quickRunStore';
 import { resolveStateViewSource } from './resolveStateViewSource';
@@ -45,6 +46,7 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
         setStateViewLoading,
         setStateViewError,
         setLongPollAck,
+        setEtag,
       } = store.getState();
 
       setPollingInstanceId(params.instanceId);
@@ -54,22 +56,36 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
       setActiveStateError(null);
       // Clear any prior long-poll acknowledge note before a new round.
       setLongPollAck(null);
-      setStateView(null);
-      setStateViewError(false);
-      // Show the View panel skeleton from the moment we kick off the
-      // state poll — earlier this flag was only flipped on once
-      // `fetchStateView` itself started, so users saw nothing during
-      // the (potentially long) `getState` round-trip. The flag is
-      // cleared on every terminal path below: poll failure, poll
-      // success with no view, abort, and inside `fetchStateView`.
-      setStateViewLoading(true);
+      // `stateView` is intentionally left untouched when this instance
+      // already has a cached state ETag: this pollState call may be a
+      // second round on an already-rendered instance (e.g. re-polling
+      // after firing a transition), and a 304 further down means that
+      // cached view is still correct — clearing it here would flash the
+      // panel to empty before we even know the answer. When there is no
+      // cached ETag yet, a 304 is impossible on the very first attempt,
+      // so it's safe (and desirable) to prime the skeleton immediately:
+      // earlier this flag was only flipped on once `fetchStateView`
+      // itself started, so users saw nothing during the (potentially
+      // long) initial `getState` round-trip. The flag is cleared on
+      // every terminal path below: poll failure, poll success with no
+      // view, abort, and inside `fetchStateView`.
+      if (!store.getState().etags.state) {
+        setStateView(null);
+        setStateViewError(false);
+        setStateViewLoading(true);
+      }
 
       for (let attempt = 0; attempt < config.retryCount; attempt++) {
         if (controller.signal.aborted) break;
 
+        // Read fresh on every attempt (not captured once before the loop)
+        // so a 304 on a later attempt echoes the ETag this same loop just
+        // captured on an earlier attempt.
+        const ifNoneMatch = store.getState().etags.state;
+
         let response;
         try {
-          response = await QuickRunApi.getState(params);
+          response = await QuickRunApi.getState({ ...params, ifNoneMatch });
         } catch (err) {
           setActiveStateLoading(false);
           setStateViewLoading(false);
@@ -84,6 +100,32 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
 
         if (response.success) {
           const stateData = response.data;
+
+          if (stateData.notModified) {
+            // 304: the upstream state is unchanged since our last ETag.
+            // No `status`/`interaction`/`state` fields are present on this
+            // payload, so terminal detection, ack, and view-selection must
+            // not run against it — treat this exactly like a non-advancing
+            // 'B' poll and keep the currently-cached activeState/stateView
+            // untouched, then retry on the next tick.
+            if (attempt < config.retryCount - 1) {
+              await sleep(config.intervalMs);
+            }
+            continue;
+          }
+
+          // Successful, non-304 response — capture the fresh ETag so the
+          // next attempt (or the next poll round) can conditionally request.
+          setEtag('state', extractEtag(stateData));
+
+          // We now know there is fresh state to show. If the pre-loop
+          // priming above was skipped (a cached ETag existed going in),
+          // this is the first point stale view content gets cleared —
+          // right as we confirm new data actually warrants it. When the
+          // priming above already ran, these are harmless no-ops.
+          setStateView(null);
+          setStateViewError(false);
+          setStateViewLoading(true);
 
           // The engine can ask the client to stop the long-poll loop
           // regardless of instance status via
@@ -185,22 +227,23 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
         setStateView,
         setStateViewLoading,
         setStateViewError,
+        setEtag,
       } = store.getState();
 
       setActiveStateLoading(true);
       setActiveStateError(null);
-      setStateView(null);
-      setStateViewError(false);
-      // Same rationale as in `pollState` above: show the View panel
-      // skeleton up front and clear the flag on every terminal path.
-      setStateViewLoading(true);
+      // `stateView` / `stateViewLoading` are intentionally left untouched
+      // here — a 304 below means the cached view is still correct and
+      // must not be wiped (or shown loading) while we wait on the
+      // response. They're reset just before the actual re-fetch, once we
+      // know the response is a real (non-304) state change.
 
+      const ifNoneMatch = store.getState().etags.state;
       let response;
       try {
-        response = await QuickRunApi.getState(params);
+        response = await QuickRunApi.getState({ ...params, ifNoneMatch });
       } catch (err) {
         setActiveStateLoading(false);
-        setStateViewLoading(false);
         setActiveStateError({
           code: 'THROWN',
           message: err instanceof Error ? err.message : String(err),
@@ -208,15 +251,26 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
         return null;
       }
       if (controller.signal.aborted) {
-        setStateViewLoading(false);
         return null;
       }
 
       if (response.success) {
         const stateData = response.data;
+
+        if (stateData.notModified) {
+          // 304: keep the currently-cached activeState + stateView as-is.
+          setActiveStateLoading(false);
+          return store.getState().activeState;
+        }
+
+        setEtag('state', extractEtag(stateData));
         setActiveState(stateData);
         updateInstanceState(params.instanceId, stateData);
         setActiveStateLoading(false);
+
+        setStateView(null);
+        setStateViewError(false);
+        setStateViewLoading(true);
 
         const viewSource = resolveStateViewSource(stateData);
         if (viewSource && (stateData.status === 'A' || stateData.status === 'C')) {

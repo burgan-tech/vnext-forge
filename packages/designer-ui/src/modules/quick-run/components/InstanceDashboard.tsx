@@ -1,5 +1,6 @@
 import { type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { extractEtag } from '../etagFromResponse';
 import * as QuickRunApi from '../QuickRunApi';
 import type { IncidentEntry, IncidentInfo, InstanceDetailResponse, WorkflowBucketConfig } from '../QuickRunApi';
 import { ResizableDialogShell } from '../../../ui/ResizableDialogShell';
@@ -899,15 +900,27 @@ function StateViewContent({
     if (activeData || !activeTabId || !domain || !workflowKey) return;
     let cancelled = false;
     setActiveDataLoading(true);
+    const ifNoneMatch = useQuickRunStore.getState().etags.data;
     void QuickRunApi.getData({
       domain,
       workflowKey,
       instanceId: activeTabId,
+      ifNoneMatch,
       headers: globalHeaders,
       runtimeUrl: environmentUrl,
     }).then((res) => {
       if (cancelled) return;
-      setActiveData(res.success ? res.data : null);
+      if (res.success) {
+        if (res.data.notModified) {
+          // 304: keep the cached activeData (it's already null here, but
+          // avoid clobbering it with an empty payload either way).
+          return;
+        }
+        useQuickRunStore.getState().setEtag('data', extractEtag(res.data));
+        setActiveData(res.data);
+      } else {
+        setActiveData(null);
+      }
     }).catch(() => {
       if (!cancelled) setActiveData(null);
     }).finally(() => {

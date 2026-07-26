@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 
+import { extractEtag } from '../etagFromResponse';
 import * as QuickRunApi from '../QuickRunApi';
 import { useQuickRunStore } from '../store/quickRunStore';
 import {
@@ -40,9 +41,15 @@ export function ContextPanel() {
     if (!activeTabId || !domain || !workflowKey) return;
     setActiveDataLoading(true);
     try {
-      const response = await QuickRunApi.getData({ domain, workflowKey, instanceId: activeTabId, headers: globalHeaders, runtimeUrl: environmentUrl });
+      const ifNoneMatch = useQuickRunStore.getState().etags.data;
+      const response = await QuickRunApi.getData({ domain, workflowKey, instanceId: activeTabId, ifNoneMatch, headers: globalHeaders, runtimeUrl: environmentUrl });
       if (response.success) {
-        setActiveData(response.data);
+        if (response.data.notModified) {
+          // 304: the cached activeData is still current — keep it.
+        } else {
+          useQuickRunStore.getState().setEtag('data', extractEtag(response.data));
+          setActiveData(response.data);
+        }
       } else {
         setActiveData(null);
       }
