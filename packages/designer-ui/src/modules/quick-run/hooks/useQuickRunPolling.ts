@@ -6,6 +6,7 @@ import * as QuickRunApi from '../QuickRunApi';
 import { useQuickRunStore } from '../store/quickRunStore';
 import { decideDataOutcome } from './decideDataOutcome';
 import { resolveStateViewSource } from './resolveStateViewSource';
+import { shouldFetchView } from './shouldFetchView';
 import { stateViewContentChanged } from './stateViewContentChanged';
 import type { StateResponse } from '../types/quickrun.types';
 
@@ -202,7 +203,29 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
             // workflow identifiers). Failures are logged only — never
             // surfaced as an error banner.
             if (terminate && stateData.interaction?.ack) {
-              void acknowledgeLongPoll(params);
+              // Once the ack resolves, do one more one-shot View fetch —
+              // the engine-side state may settle further as a direct
+              // result of the ack, so the view fetched moments earlier
+              // (fired above, before the ack even went out) can be
+              // stale. Signal-guarded like every other write in this
+              // loop so a superseded poll round never lands here.
+              void acknowledgeLongPoll(params).then(() => {
+                if (!controller.signal.aborted) {
+                  void fetchViewOnce({
+                    base: {
+                      domain: params.domain,
+                      workflowKey: params.workflowKey,
+                      instanceId: params.instanceId,
+                      headers: params.headers,
+                      runtimeUrl: params.runtimeUrl,
+                    },
+                    effectiveState: stateData,
+                    signal: controller.signal,
+                    applyStatusGate: true,
+                    terminate,
+                  });
+                }
+              });
             }
 
             return stateData;
@@ -367,7 +390,44 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
     store.getState().setPollingInstanceId(null);
   }, []);
 
-  return { pollState, fetchInstanceState, cancelPolling };
+  /**
+   * On-demand one-shot View refresh for the currently-active instance —
+   * used by the "Retry view" button and after an explicit "Retry State"
+   * round. Reads instance identity + `activeState` fresh from the store
+   * (no params) so it always targets whatever instance/state is current
+   * at click time, not whatever was current when the hook was invoked.
+   *
+   * Unlike the poll loop's view fetch, this bypasses the busy-state
+   * status gate (`applyStatusGate: false`): the user is asking to
+   * re-fetch a view they're already looking at, regardless of the
+   * instance's current status. `resolveStateViewSource` returning
+   * nothing still short-circuits to a no-op — there's nothing to
+   * re-fetch. A stale guard (keyed off `activeTabId`) discards the
+   * result if the user switches instance tabs while the request is in
+   * flight, instead of writing a fetched view onto whatever instance
+   * happens to be active by the time the response lands.
+   */
+  const refreshView = useCallback(async () => {
+    const { domain, workflowKey, activeTabId, globalHeaders, sessionHeaders, environmentUrl, activeState } =
+      store.getState();
+    if (!domain || !workflowKey || !activeTabId || !activeState) return;
+
+    const instanceId = activeTabId;
+    await fetchViewOnce({
+      base: {
+        domain,
+        workflowKey,
+        instanceId,
+        headers: { ...globalHeaders, ...sessionHeaders },
+        runtimeUrl: environmentUrl,
+      },
+      effectiveState: activeState,
+      applyStatusGate: false,
+      isStale: () => store.getState().activeTabId !== instanceId,
+    });
+  }, []);
+
+  return { pollState, fetchInstanceState, cancelPolling, refreshView };
 }
 
 /**
@@ -454,47 +514,84 @@ async function refreshViewAndData(
       })()
     : Promise.resolve();
 
-  const viewSource = resolveStateViewSource(effectiveState);
-  const canRenderView =
-    !!viewSource && (effectiveState.status === 'A' || effectiveState.status === 'C' || terminate);
-
-  const viewRefresh = canRenderView
-    ? (async () => {
-        const { setStateView, setStateViewLoading, setStateViewError } = useQuickRunStore.getState();
-        setStateViewLoading(true);
-        setStateViewError(false);
-
-        // The loading flag has to be cleared on EVERY exit (success,
-        // engine error, network throw, and signal abort) — see the
-        // history note above `refreshViewAndData` for why an early
-        // abort-return without clearing it previously left the View
-        // panel stuck on "Loading view…" indefinitely.
-        try {
-          const viewResponse = await QuickRunApi.getView({ ...base, transitionKey: viewSource?.transitionKey });
-
-          if (signal.aborted) return;
-
-          if (viewResponse.success) {
-            const current = useQuickRunStore.getState().stateView;
-            if (stateViewContentChanged(current, viewResponse.data)) {
-              setStateView(viewResponse.data);
-            }
-            setStateViewError(false);
-          } else {
-            setStateViewError(true);
-            setStateView(null);
-          }
-        } catch {
-          if (signal.aborted) return;
-          setStateViewError(true);
-          setStateView(null);
-        } finally {
-          setStateViewLoading(false);
-        }
-      })()
-    : Promise.resolve();
+  const viewRefresh = fetchViewOnce({ base, effectiveState, signal, applyStatusGate: true, terminate });
 
   await Promise.all([dataRefresh, viewRefresh]);
+}
+
+/**
+ * One-shot View fetch + store write, shared by every call site that
+ * needs "fetch the View once": `refreshViewAndData`'s view branch (every
+ * poll tick), the post-ack follow-up fetch in `pollState`'s stop branch,
+ * and the on-demand `refreshView()` exposed from this hook (manual
+ * "Retry view" button, post-retry-state refresh).
+ *
+ * Resolves the view source via `resolveStateViewSource` first — a
+ * `null` result (nothing eligible to render for this state) is always a
+ * no-op, regardless of `applyStatusGate`. When `applyStatusGate` is
+ * true, the same busy-state gate the poll loop has always used also
+ * applies: status `A`/`C`, or the caller's `terminate` flag. Callers
+ * doing an on-demand refresh of an already-rendered view pass
+ * `applyStatusGate: false` to skip that gate entirely.
+ *
+ * View has no ETag (product decision), so this always issues an
+ * unconditional GET and only writes the result to the store when
+ * `stateViewContentChanged` says the content actually differs — this is
+ * what keeps an unchanged view from re-mounting the pseudo-ui iframe on
+ * every tick / manual retry.
+ *
+ * `signal` (poll callers) and `isStale` (manual callers with no
+ * AbortController of their own) are independent staleness checks: both
+ * are consulted right after the network round-trip so a superseded
+ * request never writes a stale view. The loading flag is still cleared
+ * on every exit — success, engine error, network throw, `signal` abort,
+ * or `isStale` — matching the pre-existing invariant that an early
+ * return here must never leave the panel stuck on "Loading view…".
+ */
+async function fetchViewOnce({
+  base,
+  effectiveState,
+  signal,
+  applyStatusGate,
+  terminate = false,
+  isStale,
+}: {
+  base: { domain: string; workflowKey: string; instanceId: string; headers?: Record<string, string>; runtimeUrl?: string };
+  effectiveState: StateResponse;
+  signal?: AbortSignal;
+  applyStatusGate: boolean;
+  terminate?: boolean;
+  isStale?: () => boolean;
+}): Promise<void> {
+  if (!shouldFetchView(effectiveState, { applyStatusGate, terminate })) return;
+
+  const viewSource = resolveStateViewSource(effectiveState);
+  const { setStateView, setStateViewLoading, setStateViewError } = useQuickRunStore.getState();
+  setStateViewLoading(true);
+  setStateViewError(false);
+
+  try {
+    const viewResponse = await QuickRunApi.getView({ ...base, transitionKey: viewSource?.transitionKey });
+
+    if (signal?.aborted || isStale?.()) return;
+
+    if (viewResponse.success) {
+      const current = useQuickRunStore.getState().stateView;
+      if (stateViewContentChanged(current, viewResponse.data)) {
+        setStateView(viewResponse.data);
+      }
+      setStateViewError(false);
+    } else {
+      setStateViewError(true);
+      setStateView(null);
+    }
+  } catch {
+    if (signal?.aborted || isStale?.()) return;
+    setStateViewError(true);
+    setStateView(null);
+  } finally {
+    setStateViewLoading(false);
+  }
 }
 
 /**
