@@ -919,10 +919,17 @@ function StateViewContent({
         useQuickRunStore.getState().setEtag('data', extractEtag(res.data));
         setActiveData(res.data);
       } else {
+        // Clear the cached ETag along with the data so the next fetch is
+        // unconditional (a stale-but-valid ETag would otherwise get a 304
+        // and the "keep cache" branch would keep this `null` forever).
+        useQuickRunStore.getState().setEtag('data', undefined);
         setActiveData(null);
       }
     }).catch(() => {
-      if (!cancelled) setActiveData(null);
+      if (!cancelled) {
+        useQuickRunStore.getState().setEtag('data', undefined);
+        setActiveData(null);
+      }
     }).finally(() => {
       if (!cancelled) setActiveDataLoading(false);
     });

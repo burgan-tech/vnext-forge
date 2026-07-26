@@ -142,7 +142,7 @@ interface QuickRunState {
   resetEtags: () => void;
 }
 
-export const useQuickRunStore = create<QuickRunState>((set) => ({
+export const useQuickRunStore = create<QuickRunState>((set, get) => ({
   domain: '',
   workflowKey: '',
   environmentName: undefined,
@@ -194,7 +194,7 @@ export const useQuickRunStore = create<QuickRunState>((set) => ({
 
   etags: {},
 
-  setWorkflowContext: (domain, workflowKey, envName, envUrl) =>
+  setWorkflowContext: (domain, workflowKey, envName, envUrl) => {
     set({
       domain,
       workflowKey,
@@ -217,33 +217,37 @@ export const useQuickRunStore = create<QuickRunState>((set) => ({
       pollingInstanceId: null,
       longPollAck: null,
       flowLabels: null,
-      etags: {},
-    }),
+    });
+    get().resetEtags();
+  },
 
-  addTab: (tab) =>
+  addTab: (tab) => {
     set((state) => ({
       tabs: [...state.tabs, tab],
       activeTabId: tab.instanceId,
-      // New instance becomes active — its resources have never been
-      // fetched, so any cached ETag from the previously-active instance
-      // must not be echoed back for it.
-      etags: {},
-    })),
+    }));
+    // New instance becomes active — its resources have never been
+    // fetched, so any cached ETag from the previously-active instance
+    // must not be echoed back for it.
+    get().resetEtags();
+  },
 
-  removeTab: (instanceId) =>
+  removeTab: (instanceId) => {
+    const prevActiveTabId = get().activeTabId;
     set((state) => {
       const tabs = state.tabs.filter((t) => t.instanceId !== instanceId);
       const activeTabId =
         state.activeTabId === instanceId
           ? (tabs[tabs.length - 1]?.instanceId ?? null)
           : state.activeTabId;
-      // Only reset the ETag cache when the active instance actually
-      // changed as a result of closing this tab.
-      const etags = activeTabId !== state.activeTabId ? {} : state.etags;
-      return { tabs, activeTabId, etags };
-    }),
+      return { tabs, activeTabId };
+    });
+    // Only reset the ETag cache when the active instance actually
+    // changed as a result of closing this tab.
+    if (get().activeTabId !== prevActiveTabId) get().resetEtags();
+  },
 
-  removeAllTabs: () =>
+  removeAllTabs: () => {
     set({
       tabs: [],
       activeTabId: null,
@@ -254,23 +258,26 @@ export const useQuickRunStore = create<QuickRunState>((set) => ({
       activeData: null,
       activeSchema: null,
       activeHistory: null,
-      etags: {},
-    }),
+    });
+    get().resetEtags();
+  },
 
-  removeOtherTabs: (instanceId) =>
+  removeOtherTabs: (instanceId) => {
+    const prevActiveTabId = get().activeTabId;
     set((state) => {
       const tabs = state.tabs.filter((t) => t.instanceId === instanceId);
-      const etags = state.activeTabId !== instanceId ? {} : state.etags;
-      return { tabs, activeTabId: instanceId, etags };
-    }),
+      return { tabs, activeTabId: instanceId };
+    });
+    if (prevActiveTabId !== instanceId) get().resetEtags();
+  },
 
-  setActiveTab: (instanceId) =>
-    set((state) => ({
-      activeTabId: instanceId,
-      // Switching to a different instance's tab — an ETag captured for
-      // the previously-active instance must never be sent for this one.
-      etags: state.activeTabId !== instanceId ? {} : state.etags,
-    })),
+  setActiveTab: (instanceId) => {
+    const prevActiveTabId = get().activeTabId;
+    set({ activeTabId: instanceId });
+    // Switching to a different instance's tab — an ETag captured for
+    // the previously-active instance must never be sent for this one.
+    if (prevActiveTabId !== instanceId) get().resetEtags();
+  },
   setContextPanelTab: (tab) => set({ contextPanelTab: tab }),
 
   addInstance: (instance) =>

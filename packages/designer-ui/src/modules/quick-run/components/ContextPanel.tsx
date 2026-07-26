@@ -51,9 +51,17 @@ export function ContextPanel() {
           setActiveData(response.data);
         }
       } else {
+        // Invalidate the cached ETag along with the data: otherwise the
+        // next getData would echo a still-valid ETag, the server would
+        // correctly 304, and the "keep cache" branch above would keep
+        // this `null` forever — stuck until the user switches tabs.
+        // Clearing it here makes the next attempt unconditional so a
+        // transient failure self-heals, as it did before ETags existed.
+        useQuickRunStore.getState().setEtag('data', undefined);
         setActiveData(null);
       }
     } catch {
+      useQuickRunStore.getState().setEtag('data', undefined);
       setActiveData(null);
     }
     setActiveDataLoading(false);

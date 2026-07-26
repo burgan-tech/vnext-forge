@@ -66,6 +66,10 @@ export async function scheduleQuickRunRefresh(params: RefreshParams): Promise<vo
     parallel.push(
       QuickRunApi.getData({ ...base, ifNoneMatch: etags.data }).then((dataRes) => {
         if (!dataRes.success) {
+          // Clear the cached ETag along with the data so the next fetch is
+          // unconditional (a stale-but-valid ETag would otherwise get a
+          // 304 and the "keep cache" branch would keep this `null` forever).
+          setEtag('data', undefined);
           setActiveData(null);
           return;
         }
