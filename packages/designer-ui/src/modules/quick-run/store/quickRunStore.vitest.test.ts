@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
+import type { HistoryResponse, StateResponse } from '../types/quickrun.types';
 import { useQuickRunStore } from './quickRunStore';
 
 describe('useQuickRunStore — etag cache', () => {
@@ -61,5 +62,49 @@ describe('useQuickRunStore — etag cache', () => {
     useQuickRunStore.getState().resetEtags();
 
     expect(useQuickRunStore.getState().etags).toEqual({});
+  });
+});
+
+describe('useQuickRunStore — State 304 preserves activeState/activeHistory', () => {
+  beforeEach(() => {
+    useQuickRunStore.setState({ tabs: [], activeTabId: null, etags: {} });
+  });
+
+  it('a poll tick that only touches Data/View setters (the 304 path) leaves activeState + activeHistory (and its activeCorrelations) untouched', () => {
+    const activeState: StateResponse = {
+      state: 'AwaitingApproval',
+      status: 'B',
+      stateType: 'intermediate',
+      activeCorrelations: [
+        {
+          correlationId: 'corr-1',
+          parentState: 'AwaitingApproval',
+          subFlowInstanceId: 'sub-1',
+          subFlowType: 'workflow',
+          subFlowDomain: 'demo',
+          subFlowName: 'approval-flow',
+          subFlowVersion: '1.0.0',
+          isCompleted: false,
+        },
+      ],
+    };
+    const activeHistory: HistoryResponse = {
+      transitions: [],
+    };
+
+    useQuickRunStore.setState({ activeState, activeHistory });
+
+    // Mirrors exactly what pollState's State-304 branch (and its shared
+    // refreshViewAndData step) is allowed to touch: Data + View setters
+    // only. `setActiveState` / `patchActiveState` / `setActiveHistory`
+    // must never run on a 304 — this simulates the invariant at the
+    // store level without exercising the polling hook itself.
+    useQuickRunStore.getState().setActiveData({ data: { foo: 'bar' } });
+    useQuickRunStore.getState().setEtag('data', 'etag-data-v2');
+    useQuickRunStore.getState().setStateView(null);
+
+    expect(useQuickRunStore.getState().activeState).toBe(activeState);
+    expect(useQuickRunStore.getState().activeState?.activeCorrelations).toBe(activeState.activeCorrelations);
+    expect(useQuickRunStore.getState().activeHistory).toBe(activeHistory);
   });
 });
