@@ -1,4 +1,5 @@
 import { Plus, Trash2 } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
 
 import { Button } from '../../../../../ui/Button';
 import { Field } from '../../../../../ui/Field';
@@ -9,13 +10,15 @@ import { setKeyword } from '../../../model/mutators';
 import { useSchemaEditorStore } from '../../../useSchemaEditorStore';
 import { useSchemaNode } from '../../../hooks/useSchemaNode';
 import { useVNextEnabled } from '../../../hooks/useVNextEnabled';
+import {
+  CONTEXT_BOUNDARIES,
+  CONTEXT_STORAGES,
+  isContextBoundary,
+  isContextStorage,
+  type ContextBoundary,
+  type ContextStorage,
+} from './contextVocab';
 import { VNextCardShell } from './VNextCardShell';
-
-export type ContextBoundary = 'device' | 'user' | 'subject';
-export type ContextStorage = 'memory' | 'local' | 'secure';
-
-const BOUNDARIES: readonly ContextBoundary[] = ['device', 'user', 'subject'];
-const STORAGES: readonly ContextStorage[] = ['memory', 'local', 'secure'];
 
 export interface ContextTargetRow {
   path: string;
@@ -28,8 +31,41 @@ interface XContextTargetCardProps {
   pointer: JsonPointer;
 }
 
-function emptyRow(): ContextTargetRow {
+export function emptyContextTargetRow(): ContextTargetRow {
   return { path: '', boundary: 'user', key: '' };
+}
+
+/** Seeds the displayed row list: existing rows, or one blank row so the
+ * minProperties≥1 UX always has something to fill in. */
+export function seedContextTargetRows(rows: ContextTargetRow[]): ContextTargetRow[] {
+  return rows.length > 0 ? rows : [emptyContextTargetRow()];
+}
+
+export type ContextTargetRowAction =
+  | { type: 'add' }
+  | { type: 'update'; index: number; patch: Partial<ContextTargetRow> }
+  | { type: 'remove'; index: number };
+
+/**
+ * Pure reducer over the row list displayed in the editor. Kept separate
+ * from the component so add/update/remove transitions are unit-testable
+ * without mounting anything — this is the piece that must never collapse a
+ * blank-path row that the user is still filling in.
+ */
+export function applyTargetRowChange(
+  rows: ContextTargetRow[],
+  action: ContextTargetRowAction,
+): ContextTargetRow[] {
+  switch (action.type) {
+    case 'add':
+      return [...rows, emptyContextTargetRow()];
+    case 'update':
+      return rows.map((row, i) => (i === action.index ? { ...row, ...action.patch } : row));
+    case 'remove':
+      return rows.filter((_, i) => i !== action.index);
+    default:
+      return rows;
+  }
 }
 
 // Vocab `minProperties: 1` — seed with one empty-path row (mirrors the
@@ -63,13 +99,9 @@ export function normalizeContextTarget(raw: unknown): ContextTargetRow[] {
 
     const ctx = context as Record<string, unknown>;
     const boundary =
-      typeof ctx.boundary === 'string' && (BOUNDARIES as readonly string[]).includes(ctx.boundary)
-        ? (ctx.boundary as ContextBoundary)
-        : 'user';
+      typeof ctx.boundary === 'string' && isContextBoundary(ctx.boundary) ? ctx.boundary : 'user';
     const storage =
-      typeof ctx.storage === 'string' && (STORAGES as readonly string[]).includes(ctx.storage)
-        ? (ctx.storage as ContextStorage)
-        : undefined;
+      typeof ctx.storage === 'string' && isContextStorage(ctx.storage) ? ctx.storage : undefined;
 
     rows.push({
       path,
@@ -115,28 +147,68 @@ export function serializeContextTarget(rows: ContextTargetRow[]): Record<string,
  * `x-context-target` (root-only) maps instance-data field paths (dot
  * notation) to client-context slots that should populate them. Persisted
  * shape: `{ [path]: { context: { boundary, key, storage? } } }`.
+ *
+ * The store value is the *filtered* serialization (blank-path rows
+ * dropped), so it cannot be the render source of truth — re-deriving the
+ * displayed rows from it on every render would revert any edit made before
+ * a path is typed, and would filter out a freshly-added blank row before
+ * the user could type into it. Instead, the rows shown in the UI are held
+ * in local state; the store is written to (via `serializeContextTarget`)
+ * as a side effect of each edit, but local state remains authoritative for
+ * what's on screen. Local state is only resynced from the store when the
+ * store changes for a reason other than our own last commit — i.e. the
+ * keyword was just toggled on (fresh seed), or the document/selection was
+ * swapped out from under the card (undo/redo, loading a different file).
  */
 export function XContextTargetCard({ pointer }: XContextTargetCardProps) {
   const { node } = useSchemaNode(pointer);
   const updateComponent = useSchemaEditorStore((s) => s.updateComponent);
   const { enabled, toggle } = useVNextEnabled(pointer, 'x-context-target', DEFAULT_VALUE);
-  const rows = normalizeContextTarget(node?.['x-context-target']);
-  const displayRows = rows.length > 0 ? rows : [emptyRow()];
+
+  const storedValue = node?.['x-context-target'];
+  const lastWrittenJsonRef = useRef<string | null>(null);
+
+  const [rows, setRows] = useState<ContextTargetRow[]>(() =>
+    seedContextTargetRows(normalizeContextTarget(storedValue)),
+  );
+
+  useEffect(() => {
+    if (!enabled) {
+      return;
+    }
+
+    const storedJson = JSON.stringify(storedValue ?? null);
+
+    if (storedJson === lastWrittenJsonRef.current) {
+      // The store changed because of our own commit() below — local `rows`
+      // is already the source of truth (it may hold an in-flight
+      // blank-path row that the store intentionally omits).
+      return;
+    }
+
+    // External change: keyword just toggled on, undo/redo, or a different
+    // document/selection landed on this pointer — resync from the store.
+    setRows(seedContextTargetRows(normalizeContextTarget(storedValue)));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, storedValue]);
 
   function commit(next: ContextTargetRow[]) {
-    updateComponent(setKeyword(pointer, 'x-context-target', serializeContextTarget(next)));
+    setRows(next);
+    const serialized = serializeContextTarget(next);
+    lastWrittenJsonRef.current = JSON.stringify(serialized);
+    updateComponent(setKeyword(pointer, 'x-context-target', serialized));
   }
 
   function updateRow(index: number, patch: Partial<ContextTargetRow>) {
-    commit(displayRows.map((row, i) => (i === index ? { ...row, ...patch } : row)));
+    commit(applyTargetRowChange(rows, { type: 'update', index, patch }));
   }
 
   function removeRow(index: number) {
-    commit(displayRows.filter((_, i) => i !== index));
+    commit(applyTargetRowChange(rows, { type: 'remove', index }));
   }
 
   function addRow() {
-    commit([...displayRows, emptyRow()]);
+    commit(applyTargetRowChange(rows, { type: 'add' }));
   }
 
   return (
@@ -147,7 +219,7 @@ export function XContextTargetCard({ pointer }: XContextTargetCardProps) {
       enabled={enabled}
       onToggle={toggle}>
       <div className="space-y-2">
-        {displayRows.map((row, index) => (
+        {rows.map((row, index) => (
           <div
             key={index}
             className="space-y-2 rounded-md border border-primary-border bg-primary-muted/40 px-3 py-2">
@@ -178,7 +250,7 @@ export function XContextTargetCard({ pointer }: XContextTargetCardProps) {
                   className="h-8 text-xs"
                   value={row.boundary}
                   onChange={(event) => updateRow(index, { boundary: event.target.value as ContextBoundary })}>
-                  {BOUNDARIES.map((boundary) => (
+                  {CONTEXT_BOUNDARIES.map((boundary) => (
                     <option key={boundary} value={boundary}>
                       {boundary}
                     </option>
@@ -203,7 +275,7 @@ export function XContextTargetCard({ pointer }: XContextTargetCardProps) {
                     updateRow(index, { storage: value === '' ? undefined : (value as ContextStorage) });
                   }}>
                   <option value="">(default)</option>
-                  {STORAGES.map((storage) => (
+                  {CONTEXT_STORAGES.map((storage) => (
                     <option key={storage} value={storage}>
                       {storage}
                     </option>

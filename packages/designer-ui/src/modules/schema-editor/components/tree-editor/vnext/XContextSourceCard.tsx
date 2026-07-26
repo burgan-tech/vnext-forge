@@ -9,15 +9,20 @@ import { setKeyword } from '../../../model/mutators';
 import { useSchemaEditorStore } from '../../../useSchemaEditorStore';
 import { useSchemaNode } from '../../../hooks/useSchemaNode';
 import { useVNextEnabled } from '../../../hooks/useVNextEnabled';
+import {
+  CONTEXT_BOUNDARIES,
+  CONTEXT_STORAGES,
+  isContextBoundary,
+  isContextStorage,
+  type ContextBoundary,
+  type ContextStorage,
+} from './contextVocab';
 import { VNextCardShell } from './VNextCardShell';
 
 export type ContextSourceShape = 'const' | 'context' | 'identity';
-export type ContextBoundary = 'device' | 'user' | 'subject';
-export type ContextStorage = 'memory' | 'local' | 'secure';
+export type { ContextBoundary, ContextStorage };
 export type ContextIdentityRef = 'subject' | 'user';
 
-const BOUNDARIES: readonly ContextBoundary[] = ['device', 'user', 'subject'];
-const STORAGES: readonly ContextStorage[] = ['memory', 'local', 'secure'];
 const IDENTITIES: readonly ContextIdentityRef[] = ['subject', 'user'];
 
 export interface ContextSourceModel {
@@ -78,13 +83,9 @@ export function normalizeContextSource(raw: unknown): ContextSourceModel {
   if (context && typeof context === 'object' && !Array.isArray(context)) {
     const ctx = context as Record<string, unknown>;
     const boundary =
-      typeof ctx.boundary === 'string' && (BOUNDARIES as readonly string[]).includes(ctx.boundary)
-        ? (ctx.boundary as ContextBoundary)
-        : 'user';
+      typeof ctx.boundary === 'string' && isContextBoundary(ctx.boundary) ? ctx.boundary : 'user';
     const storage =
-      typeof ctx.storage === 'string' && (STORAGES as readonly string[]).includes(ctx.storage)
-        ? (ctx.storage as ContextStorage)
-        : '';
+      typeof ctx.storage === 'string' && isContextStorage(ctx.storage) ? ctx.storage : '';
 
     return {
       ...base,
@@ -168,7 +169,7 @@ export function XContextSourceCard({ pointer }: XContextSourceCardProps) {
               className="h-8 text-xs"
               value={current.boundary}
               onChange={(event) => update({ boundary: event.target.value as ContextBoundary })}>
-              {BOUNDARIES.map((boundary) => (
+              {CONTEXT_BOUNDARIES.map((boundary) => (
                 <option key={boundary} value={boundary}>
                   {boundary}
                 </option>
@@ -183,7 +184,7 @@ export function XContextSourceCard({ pointer }: XContextSourceCardProps) {
                 update({ storage: event.target.value as ContextStorage | '' })
               }>
               <option value="">(default)</option>
-              {STORAGES.map((storage) => (
+              {CONTEXT_STORAGES.map((storage) => (
                 <option key={storage} value={storage}>
                   {storage}
                 </option>
