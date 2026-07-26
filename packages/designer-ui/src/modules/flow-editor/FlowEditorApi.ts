@@ -270,6 +270,9 @@ function extractScripts(workflow: Record<string, unknown>): FlowEditorScriptEntr
     }
   }
 
+  collect(attrs.output);
+  collect((attrs.event as { mapping?: unknown } | undefined)?.mapping);
+
   return scripts;
 }
 

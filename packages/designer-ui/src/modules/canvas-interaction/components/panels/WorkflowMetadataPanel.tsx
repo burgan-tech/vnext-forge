@@ -19,6 +19,8 @@ import { WorkflowErrorBoundarySection } from './sections/WorkflowErrorBoundarySe
 import { WorkflowFunctionsSection } from './sections/WorkflowFunctionsSection';
 import { WorkflowExtensionsSection } from './sections/WorkflowExtensionsSection';
 import { WorkflowScriptsSection } from './sections/WorkflowScriptsSection';
+import { WorkflowOutputSection } from './sections/WorkflowOutputSection';
+import { WorkflowEventSection } from './sections/WorkflowEventSection';
 
 interface WorkflowMetadataPanelProps {
   onClose: () => void;
@@ -86,6 +88,8 @@ export function WorkflowMetadataPanel({ onClose, scrollToSection, onScrollComple
           <WorkflowFunctionsSection />
           <WorkflowExtensionsSection />
           <div id="wf-section-scripts"><WorkflowScriptsSection /></div>
+          <div id="wf-section-output"><WorkflowOutputSection /></div>
+          <div id="wf-section-event"><WorkflowEventSection /></div>
         </div>
       </div>
     </div>
