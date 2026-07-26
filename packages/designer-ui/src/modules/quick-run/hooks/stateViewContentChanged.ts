@@ -17,5 +17,28 @@ export function stateViewContentChanged(
   next: ViewResponse,
 ): boolean {
   if (!current) return true;
-  return JSON.stringify(current.content) !== JSON.stringify(next.content);
+  return stableStringify(current.content) !== stableStringify(next.content);
+}
+
+/**
+ * `JSON.stringify` with object keys sorted at every level, so two
+ * structurally-identical payloads compare equal regardless of key order.
+ * A plain `JSON.stringify` diff would otherwise treat a re-serialization
+ * with reordered keys (e.g. the same view content round-tripped through a
+ * different object construction order upstream) as "changed" and cause a
+ * spurious `setStateView` write / iframe flicker.
+ */
+function stableStringify(value: unknown): string {
+  return JSON.stringify(sortKeysDeep(value));
+}
+
+function sortKeysDeep(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(sortKeysDeep);
+  if (value !== null && typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+    const sorted: Record<string, unknown> = {};
+    for (const [key, val] of entries) sorted[key] = sortKeysDeep(val);
+    return sorted;
+  }
+  return value;
 }

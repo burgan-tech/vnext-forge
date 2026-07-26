@@ -33,4 +33,10 @@ describe('stateViewContentChanged', () => {
     const next = view({ foo: 'bar' }, { label: 'New label' });
     expect(stateViewContentChanged(current, next)).toBe(false);
   });
+
+  it('is stable against object key order — a re-serialization with reordered keys is not "changed"', () => {
+    const current = view({ a: 1, b: { x: 1, y: 2 }, c: [1, 2, 3] });
+    const next = view({ c: [1, 2, 3], a: 1, b: { y: 2, x: 1 } });
+    expect(stateViewContentChanged(current, next)).toBe(false);
+  });
 });

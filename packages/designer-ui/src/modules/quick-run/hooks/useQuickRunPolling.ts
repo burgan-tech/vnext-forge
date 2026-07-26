@@ -122,7 +122,15 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
             // activeState from a prior round, never the (absent) 304 body.
             const effectiveState = store.getState().activeState;
             if (effectiveState && !controller.signal.aborted) {
-              await refreshViewAndData(params, effectiveState, false, controller.signal);
+              // `pollingInstanceId` is set for the whole busy loop, so
+              // ContextPanel's own Data lazy-load is suppressed here —
+              // the loop is the sole Data source on this tick.
+              await refreshViewAndData(
+                params,
+                effectiveState,
+                { terminate: false, includeData: true },
+                controller.signal,
+              );
             }
 
             if (attempt < config.retryCount - 1) {
@@ -178,11 +186,15 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
               setStateViewLoading(false);
             }
             // Fire-and-forget, same as the previous inline view fetch
-            // this replaces — the return below must not wait on it. Also
-            // covers the Data refresh that previously only happened via
-            // the separate post-transition `scheduleQuickRunRefresh`, now
-            // folded into every poll tick (including this stop tick).
-            void refreshViewAndData(params, stateData, terminate, controller.signal);
+            // this replaces — the return below must not wait on it.
+            // `includeData: false` here: `setActiveStateLoading(false)` +
+            // `setPollingInstanceId(null)` just above unblock
+            // ContextPanel's own Data lazy-load effects, so fetching Data
+            // from the loop on this exact tick would race a concurrent
+            // `getData` against ContextPanel's. Data at/after stop is
+            // ContextPanel's job; the loop already covered Data on every
+            // busy/304 tick leading up to this one.
+            void refreshViewAndData(params, stateData, { terminate, includeData: false }, controller.signal);
 
             // Silently acknowledge the terminated long poll in the
             // background when the engine included an ack descriptor.
@@ -203,7 +215,10 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
           // effectively a Data-only refresh during the busy phase — but it
           // still runs the same shared, signal-guarded step for consistency.
           if (!controller.signal.aborted) {
-            await refreshViewAndData(params, stateData, terminate, controller.signal);
+            // `pollingInstanceId` is still set (this tick isn't stopping),
+            // so ContextPanel's Data lazy-load stays suppressed — the loop
+            // is the sole Data source here too.
+            await refreshViewAndData(params, stateData, { terminate, includeData: true }, controller.signal);
           }
 
           if (attempt < config.retryCount - 1) {
@@ -295,7 +310,12 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
           setActiveStateLoading(false);
           const effectiveState = store.getState().activeState;
           if (effectiveState && !controller.signal.aborted) {
-            void refreshViewAndData(params, effectiveState, false, controller.signal);
+            void refreshViewAndData(
+              params,
+              effectiveState,
+              { terminate: false, includeData: true },
+              controller.signal,
+            );
           }
           return store.getState().activeState;
         }
@@ -321,7 +341,11 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
         // Also refreshes Data on this tick — folded into the same shared
         // step the poll loop uses. `terminate` is always false here: this
         // single-shot tab-switch fetch has no long-poll interaction concept.
-        void refreshViewAndData(params, stateData, false, controller.signal);
+        // Unlike `pollState`'s stop tick, this function never touches
+        // `pollingInstanceId`, so it isn't the flag flip that suppresses
+        // ContextPanel's own Data lazy-load — that pre-existing overlap is
+        // unchanged by this fix and is out of scope here.
+        void refreshViewAndData(params, stateData, { terminate: false, includeData: true }, controller.signal);
         return stateData;
       }
 
@@ -347,12 +371,12 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
 }
 
 /**
- * Refreshes View and Data for `effectiveState` — the two resources are
- * independent of State (no shared ETag/cache-invalidation relationship)
- * and, per product decision, must be (re)queried on every poll tick
- * regardless of whether that tick's State response was a 200 or a 304.
- * `effectiveState` is whichever state is currently in effect for this
- * tick: the freshly-returned `stateData` on a State 200, or the
+ * Refreshes View and (optionally) Data for `effectiveState` — the two
+ * resources are independent of State (no shared ETag/cache-invalidation
+ * relationship) and, per product decision, must be (re)queried on every
+ * poll tick regardless of whether that tick's State response was a 200 or
+ * a 304. `effectiveState` is whichever state is currently in effect for
+ * this tick: the freshly-returned `stateData` on a State 200, or the
  * previously-cached `activeState` on a State 304 (never mutated here —
  * callers own State-side store updates).
  *
@@ -360,7 +384,8 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
  *   (`etags.data`), independent of the State ETag. 200 -> update
  *   `activeData` + capture the new ETag; 304 -> keep `activeData`
  *   as-is; failure -> clear both `activeData` and `etags.data` (mirrors
- *   the existing self-heal pattern in `scheduleQuickRunRefresh`).
+ *   the existing self-heal pattern in `scheduleQuickRunRefresh`). Only
+ *   fetched when `includeData` is true — see below.
  * - View: has no ETag (product decision), so it is always fetched
  *   unconditionally when `resolveStateViewSource` + the status gate
  *   (status A/C, or `terminate`) say a view is eligible for this state.
@@ -372,6 +397,18 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
  *   State 200 (vs. preserve it on a 304) do that themselves before or
  *   around calling this.
  *
+ * `includeData` exists to avoid a concurrent double-`getData` fetch at
+ * the poll-stop tick: `pollState`'s `shouldStop` branch flips
+ * `activeStateLoading` false and `pollingInstanceId` null synchronously,
+ * right before calling this function — and those are exactly the flags
+ * that un-gate `ContextPanel`'s own `loadData()` effects. If this
+ * function also fetched Data on that same tick, two independent
+ * `QuickRunApi.getData` calls would race for the same instance. Callers
+ * pass `includeData: false` at the stop tick (View is still essential and
+ * fetched there; ContextPanel/lazy-load owns Data at/after stop) and
+ * `includeData: true` on busy/304 ticks, where `pollingInstanceId` keeps
+ * ContextPanel's effects suppressed and the loop is the only Data source.
+ *
  * All store writes are guarded by `signal` so a superseded poll (a new
  * `pollState`/`fetchInstanceState` call aborts the previous one) never
  * writes stale View/Data after the fact.
@@ -379,9 +416,10 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
 async function refreshViewAndData(
   params: { domain: string; workflowKey: string; instanceId: string; headers?: Record<string, string>; runtimeUrl?: string },
   effectiveState: StateResponse,
-  terminate: boolean,
+  options: { terminate: boolean; includeData: boolean },
   signal: AbortSignal,
 ): Promise<void> {
+  const { terminate, includeData } = options;
   const base = {
     domain: params.domain,
     workflowKey: params.workflowKey,
@@ -390,29 +428,31 @@ async function refreshViewAndData(
     runtimeUrl: params.runtimeUrl,
   };
 
-  const dataRefresh = (async () => {
-    const { etags, setActiveData, setEtag } = useQuickRunStore.getState();
-    let dataRes;
-    try {
-      dataRes = await QuickRunApi.getData({ ...base, ifNoneMatch: etags.data });
-    } catch {
-      if (signal.aborted) return;
-      setActiveData(null);
-      setEtag('data', undefined);
-      return;
-    }
-    if (signal.aborted) return;
+  const dataRefresh = includeData
+    ? (async () => {
+        const { etags, setActiveData, setEtag } = useQuickRunStore.getState();
+        let dataRes;
+        try {
+          dataRes = await QuickRunApi.getData({ ...base, ifNoneMatch: etags.data });
+        } catch {
+          if (signal.aborted) return;
+          setActiveData(null);
+          setEtag('data', undefined);
+          return;
+        }
+        if (signal.aborted) return;
 
-    const outcome = decideDataOutcome(dataRes);
-    if (outcome.kind === 'update') {
-      setActiveData(outcome.data);
-      setEtag('data', outcome.etag);
-    } else if (outcome.kind === 'clear') {
-      setActiveData(null);
-      setEtag('data', undefined);
-    }
-    // 'keep' (304): leave `activeData` untouched.
-  })();
+        const outcome = decideDataOutcome(dataRes);
+        if (outcome.kind === 'update') {
+          setActiveData(outcome.data);
+          setEtag('data', outcome.etag);
+        } else if (outcome.kind === 'clear') {
+          setActiveData(null);
+          setEtag('data', undefined);
+        }
+        // 'keep' (304): leave `activeData` untouched.
+      })()
+    : Promise.resolve();
 
   const viewSource = resolveStateViewSource(effectiveState);
   const canRenderView =
