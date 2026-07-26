@@ -3,6 +3,7 @@ import { useCallback, useRef } from 'react';
 import { createLogger } from '../../../lib/logger/createLogger';
 import * as QuickRunApi from '../QuickRunApi';
 import { useQuickRunStore } from '../store/quickRunStore';
+import { resolveStateViewSource } from './resolveStateViewSource';
 
 const logger = createLogger('quick-run-polling');
 
@@ -106,13 +107,14 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
             setActiveStateLoading(false);
             setPollingInstanceId(null);
 
+            const viewSource = resolveStateViewSource(stateData);
             const canRenderView =
-              !!stateData.view?.hasView &&
+              !!viewSource &&
               (stateData.status === 'A' || stateData.status === 'C' || terminate);
             if (canRenderView) {
               // fetchStateView keeps the loading flag on until its
               // own response resolves.
-              void fetchStateView(params, controller.signal);
+              void fetchStateView(params, controller.signal, viewSource?.transitionKey);
             } else {
               // Stop with no view to fetch — drop the loading flag now
               // so the panel collapses cleanly.
@@ -216,9 +218,10 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
         updateInstanceState(params.instanceId, stateData);
         setActiveStateLoading(false);
 
-        if (stateData.view?.hasView && (stateData.status === 'A' || stateData.status === 'C')) {
+        const viewSource = resolveStateViewSource(stateData);
+        if (viewSource && (stateData.status === 'A' || stateData.status === 'C')) {
           // fetchStateView owns the loading flag from here on.
-          void fetchStateView(params, controller.signal);
+          void fetchStateView(params, controller.signal, viewSource.transitionKey);
         } else {
           // No view payload to fetch — drop the loading flag now so
           // the panel collapses without flashing a skeleton forever.
@@ -251,6 +254,7 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
 async function fetchStateView(
   params: { domain: string; workflowKey: string; instanceId: string; headers?: Record<string, string>; runtimeUrl?: string },
   signal: AbortSignal,
+  transitionKey?: string,
 ): Promise<void> {
   const { setStateView, setStateViewLoading, setStateViewError } =
     useQuickRunStore.getState();
@@ -268,6 +272,7 @@ async function fetchStateView(
       domain: params.domain,
       workflowKey: params.workflowKey,
       instanceId: params.instanceId,
+      transitionKey,
       headers: params.headers,
       runtimeUrl: params.runtimeUrl,
     });

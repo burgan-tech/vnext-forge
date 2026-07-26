@@ -1,3 +1,4 @@
+import { resolveStateViewSource } from '../hooks/resolveStateViewSource';
 import * as QuickRunApi from '../QuickRunApi';
 import { useQuickRunStore } from '../store/quickRunStore';
 
@@ -54,7 +55,8 @@ export async function scheduleQuickRunRefresh(params: RefreshParams): Promise<vo
     setActiveState(stateData);
     updateInstanceState(params.instanceId, stateData);
 
-    const fetchView = Boolean(stateData.view?.hasView && (stateData.status === 'A' || stateData.status === 'C'));
+    const viewSource = resolveStateViewSource(stateData);
+    const fetchView = Boolean(viewSource) && (stateData.status === 'A' || stateData.status === 'C');
 
     const parallel: Promise<void>[] = [];
 
@@ -67,7 +69,7 @@ export async function scheduleQuickRunRefresh(params: RefreshParams): Promise<vo
 
     if (fetchView) {
       parallel.push(
-        QuickRunApi.getView(base).then((viewRes) => {
+        QuickRunApi.getView({ ...base, transitionKey: viewSource?.transitionKey }).then((viewRes) => {
           if (viewRes.success) {
             setStateView(viewRes.data);
             setActiveView(viewRes.data);
