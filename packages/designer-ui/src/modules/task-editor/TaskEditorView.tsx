@@ -1,13 +1,21 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { isFailure } from '@vnext-forge-studio/app-contracts';
 
 import { useProjectStore } from '../../store/useProjectStore';
 import { useComponentStore } from '../../store/useComponentStore';
+import { useEditorPanelsStore } from '../../store/useEditorPanelsStore';
+import { useScriptPanelStore } from '../../modules/code-editor/ScriptPanelStore';
 import { useSaveComponent } from '../../modules/save-component/useSaveComponent';
 import { ComponentEditorLayout } from '../../modules/save-component/components/ComponentEditorLayout';
 import type { HostDocumentToolbarSlot } from '../../modules/save-component/components/hostDocumentToolbarSlot';
 import { usePublish } from '../../modules/save-component/PublishContext.js';
 import { showNotification } from '../../notification/notification-port.js';
+import { ComponentEditorModalProvider } from '../save-component/ComponentEditorModalContext.js';
+import { ScriptTaskChromeProvider } from './ScriptTaskChromeContext.js';
+import {
+  FlowEditorCanvasAndScriptResizableColumn,
+  ScriptEditorPanel,
+} from '../../modules/code-editor/layout/ScriptEditorPanel';
 import { useTaskEditor } from './useTaskEditor';
 import { TaskEditorPanel } from './TaskEditorPanel';
 import { persistScriptTaskScriptFile } from './persistScriptTaskScriptFile.js';
@@ -22,6 +30,7 @@ export interface TaskEditorViewProps {
   layoutSurface?: 'panel' | 'modal';
   /** After save (e.g. modal): sync workflow refs from JSON top-level fields. */
   onAtomicSaved?: (info: AtomicSavedInfo) => void;
+  onOpenScriptFileInHost?: (absolutePath: string) => void;
 }
 
 export function TaskEditorView({
@@ -31,6 +40,7 @@ export function TaskEditorView({
   registerToolbar,
   layoutSurface = 'panel',
   onAtomicSaved,
+  onOpenScriptFileInHost,
 }: TaskEditorViewProps) {
   const { activeProject, vnextConfig } = useProjectStore();
   const componentJson = useComponentStore((state) => state.componentJson);
@@ -82,40 +92,90 @@ export function TaskEditorView({
       : null;
   const { loading, error, isReady } = useTaskEditor({ filePath });
 
+  const scriptPanelOpen = useEditorPanelsStore((s) => s.scriptPanelOpen);
+  const activeScript = useScriptPanelStore((s) => s.activeScript);
+
+  const componentDirectoryPath = useMemo(() => {
+    if (!activeProject || !vnextConfig) return undefined;
+    const base = `${activeProject.path}/${vnextConfig.paths.componentsRoot}/${vnextConfig.paths.tasks}`;
+    return (group ? `${base}/${group}` : base)
+      .replace(/\\/g, '/')
+      .replace(/\/{2,}/g, '/');
+  }, [activeProject, vnextConfig, group]);
+
   const { publish: publishFile, publishing, canPublish } = usePublish();
   const handlePublish = useCallback(() => {
     void publishFile(save, filePath);
   }, [publishFile, save, filePath]);
 
-  if (loading || !isReady || !componentJson) {
-    return (
+  useEffect(() => {
+    return useScriptPanelStore.subscribe((state, prev) => {
+      if (!state.activeScript?.value || state.activeScript.value === prev.activeScript?.value) return;
+      const script = state.activeScript;
+
+      const { updateComponent: update } = useComponentStore.getState();
+
+      if (script.listField === 'attributes' && script.scriptField === 'config.sourceMapping') {
+        update((draft) => {
+          const attrs = (draft.attributes ?? {}) as Record<string, unknown>;
+          const cfg = (attrs.config ?? {}) as Record<string, unknown>;
+          cfg.sourceMapping = script.value;
+          attrs.config = cfg;
+          draft.attributes = attrs;
+        });
+        return;
+      }
+    });
+  }, []);
+
+  const content =
+    loading || !isReady || !componentJson ? (
       <div className="text-muted-foreground flex h-full items-center justify-center text-sm">
         {error?.toUserMessage().message || 'Loading task...'}
       </div>
+    ) : (
+      <FlowEditorCanvasAndScriptResizableColumn
+        canvas={
+          <ComponentEditorLayout
+            registerToolbar={registerToolbar}
+            surface={layoutSurface}
+            isDirty={isDirty}
+            hasSaved={!isDirty && undoStackLength > 0}
+            saving={saving}
+            saveErrorMessage={saveError?.toUserMessage().message ?? null}
+            onSave={save}
+            onUndo={undo}
+            onRedo={redo}
+            canUndo={undoStackLength > 0}
+            canRedo={redoStackLength > 0}
+            onPublish={canPublish ? handlePublish : undefined}
+            publishing={publishing}
+            autoSavePending={autoSavePending}
+            autoSaved={autoSaved}>
+            <TaskEditorPanel
+              json={componentJson}
+              onChange={updateComponent}
+            />
+          </ComponentEditorLayout>
+        }
+        scriptPanel={
+          scriptPanelOpen && activeScript ? (
+            <ScriptEditorPanel
+              workflowDirectoryPath={componentDirectoryPath}
+              onOpenScriptFileInHost={onOpenScriptFileInHost}
+            />
+          ) : null
+        }
+      />
     );
-  }
 
   return (
-    <ComponentEditorLayout
-      registerToolbar={registerToolbar}
-      surface={layoutSurface}
-      isDirty={isDirty}
-      hasSaved={!isDirty && undoStackLength > 0}
-      saving={saving}
-      saveErrorMessage={saveError?.toUserMessage().message ?? null}
-      onSave={save}
-      onUndo={undo}
-      onRedo={redo}
-      canUndo={undoStackLength > 0}
-      canRedo={redoStackLength > 0}
-      onPublish={canPublish ? handlePublish : undefined}
-      publishing={publishing}
-      autoSavePending={autoSavePending}
-      autoSaved={autoSaved}>
-      <TaskEditorPanel
-        json={componentJson}
-        onChange={updateComponent}
-      />
-    </ComponentEditorLayout>
+    <ScriptTaskChromeProvider
+      onOpenScriptFileInHost={onOpenScriptFileInHost}
+      scriptDirectoryPath={componentDirectoryPath}>
+      <ComponentEditorModalProvider onOpenScriptFileInHost={onOpenScriptFileInHost}>
+        {content}
+      </ComponentEditorModalProvider>
+    </ScriptTaskChromeProvider>
   );
 }

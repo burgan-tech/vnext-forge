@@ -12,6 +12,7 @@ export function TaskEditorPanel({ json, onChange }: TaskEditorPanelProps) {
   const attrs = json.attributes as Record<string, unknown> | undefined;
   const taskType = String(attrs?.type || '0');
   const config = (attrs?.config || {}) as Record<string, unknown>;
+  const taskKey = typeof json.key === 'string' ? json.key : 'task';
 
   const FormComponent = taskFormMap[taskType];
 
@@ -46,7 +47,7 @@ export function TaskEditorPanel({ json, onChange }: TaskEditorPanelProps) {
         </CardHeader>
         <CardContent className="px-4 sm:px-6">
           {FormComponent ? (
-            <FormComponent config={config} onChange={onConfigChange} />
+            <FormComponent config={config} onChange={onConfigChange} taskKey={taskKey} />
           ) : (
             <div className="text-xs text-muted-foreground">
               No form available for task type &quot;{taskType}&quot;. Edit as JSON.

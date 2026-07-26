@@ -19,6 +19,8 @@ import { DaprConversationTaskForm } from './DaprConversationTaskForm';
 interface TaskFormProps {
   config: Record<string, unknown>;
   onChange: (updater: (draft: any) => void) => void;
+  /** Task component's own `key` (for CsxEditorField script addressing). */
+  taskKey?: string;
 }
 
 export const taskFormMap: Record<string, ComponentType<TaskFormProps>> = {

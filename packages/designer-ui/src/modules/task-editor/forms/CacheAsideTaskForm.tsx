@@ -3,18 +3,17 @@ import { Input } from '../../../ui/Input';
 import { Select } from '../../../ui/Select';
 import { Checkbox } from '../../../ui/Checkbox';
 import { DynamicExpressoField, type DynamicExpressoValue } from '../../../ui/DynamicExpressoField';
-import { JsonCodeField } from '../../../ui/JsonCodeField';
-import { isMappingCodeRef, type MappingCode } from '@vnext-forge-studio/vnext-types';
+import { CsxEditorField, type ScriptCode } from '../../save-component/components/CsxEditorField';
 
 interface Props {
   config: Record<string, unknown>;
   onChange: (updater: (draft: any) => void) => void;
+  taskKey?: string;
 }
 
-export function CacheAsideTaskForm({ config, onChange }: Props) {
+export function CacheAsideTaskForm({ config, onChange, taskKey }: Props) {
   const sourceTask = (config.sourceTask as Record<string, unknown> | undefined) ?? {};
-  const sourceMappingCode = (config.sourceMapping as { code?: unknown } | undefined)?.code;
-  const sourceMappingIsRef = isMappingCodeRef(sourceMappingCode as MappingCode['code']);
+  const stateKey = taskKey || 'cacheAsideTask';
   const setSource = (field: string, value: string) =>
     onChange((d: any) => {
       const s = (d.sourceTask as Record<string, unknown>) ?? {};
@@ -115,18 +114,19 @@ export function CacheAsideTaskForm({ config, onChange }: Props) {
         </div>
       </div>
 
-      <Field label="Source Mapping" hint="Optional C# mapping applied to the raw source result before caching (stored inline).">
-        {sourceMappingIsRef ? (
-          <div className="rounded-md border border-border p-2 text-xs text-muted-foreground">
-            References a sys-mappings component. Edit via the raw JSON editor.
-          </div>
-        ) : (
-          <JsonCodeField
-            language="csharp"
-            value={typeof sourceMappingCode === 'string' ? sourceMappingCode : ''}
-            onChange={(code) => onChange((d: any) => { d.sourceMapping = code ? { code, encoding: 'NAT' } : undefined; })}
-          />
-        )}
+      <Field label="Source Mapping" hint="Optional C# mapping applied to the raw source result before caching.">
+        <CsxEditorField
+          value={config.sourceMapping as ScriptCode | null | undefined}
+          onChange={(value) => onChange((d: any) => { d.sourceMapping = value; })}
+          onRemove={() => onChange((d: any) => { d.sourceMapping = undefined; })}
+          templateType="mapping"
+          contextName={`${stateKey}-cache-aside-source-mapping`}
+          label="Source Mapping"
+          stateKey={stateKey}
+          listField="attributes"
+          index={0}
+          scriptField="config.sourceMapping"
+        />
       </Field>
 
       <DynamicExpressoField
