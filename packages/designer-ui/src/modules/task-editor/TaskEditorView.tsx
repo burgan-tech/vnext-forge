@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { isFailure } from '@vnext-forge-studio/app-contracts';
 
 import { useProjectStore } from '../../store/useProjectStore';
@@ -19,6 +19,7 @@ import {
 import { useTaskEditor } from './useTaskEditor';
 import { TaskEditorPanel } from './TaskEditorPanel';
 import { persistScriptTaskScriptFile } from './persistScriptTaskScriptFile.js';
+import { deriveTaskStateKey, shouldPersistCacheAsideSourceMapping } from './taskScriptPersistence.js';
 import { buildAtomicComponentJsonPath } from '../vnext-workspace/atomicComponentPaths.js';
 import type { AtomicSavedInfo } from '../save-component/componentEditorModalTypes.js';
 
@@ -94,6 +95,8 @@ export function TaskEditorView({
 
   const scriptPanelOpen = useEditorPanelsStore((s) => s.scriptPanelOpen);
   const activeScript = useScriptPanelStore((s) => s.activeScript);
+  const closeScript = useScriptPanelStore((s) => s.closeScript);
+  const setScriptPanelOpen = useEditorPanelsStore((s) => s.setScriptPanelOpen);
 
   const componentDirectoryPath = useMemo(() => {
     if (!activeProject || !vnextConfig) return undefined;
@@ -113,9 +116,17 @@ export function TaskEditorView({
       if (!state.activeScript?.value || state.activeScript.value === prev.activeScript?.value) return;
       const script = state.activeScript;
 
-      const { updateComponent: update } = useComponentStore.getState();
+      // `useScriptPanelStore` is a global singleton and `TaskEditorView` can
+      // stay mounted across in-app navigation between tasks (no remount key
+      // on the route). Re-derive the CURRENTLY loaded task's key fresh from
+      // the store on every fire (not from a render-scope closure, which
+      // would go stale) and only persist when the edited script actually
+      // belongs to this task — otherwise a script left open while switching
+      // tasks would clobber an unrelated task's JSON.
+      const { componentJson: currentJson, updateComponent: update } = useComponentStore.getState();
+      const currentTaskStateKey = deriveTaskStateKey(currentJson);
 
-      if (script.listField === 'attributes' && script.scriptField === 'config.sourceMapping') {
+      if (shouldPersistCacheAsideSourceMapping(script, currentTaskStateKey)) {
         update((draft) => {
           const attrs = (draft.attributes ?? {}) as Record<string, unknown>;
           const cfg = (attrs.config ?? {}) as Record<string, unknown>;
@@ -123,10 +134,22 @@ export function TaskEditorView({
           attrs.config = cfg;
           draft.attributes = attrs;
         });
-        return;
       }
     });
   }, []);
+
+  // Defensive: when the loaded task actually changes (in-app navigation to
+  // a different task without unmounting this view), close any still-open
+  // script panel instead of leaving a stale Task-A script rendered over
+  // Task B's editor. Skipped on initial mount (ref starts at null).
+  const prevFilePathRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (prevFilePathRef.current !== null && prevFilePathRef.current !== filePath) {
+      closeScript();
+      setScriptPanelOpen(false);
+    }
+    prevFilePathRef.current = filePath;
+  }, [filePath, closeScript, setScriptPanelOpen]);
 
   const content =
     loading || !isReady || !componentJson ? (

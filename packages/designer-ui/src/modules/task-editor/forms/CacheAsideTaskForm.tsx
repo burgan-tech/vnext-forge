@@ -13,7 +13,9 @@ interface Props {
 
 export function CacheAsideTaskForm({ config, onChange, taskKey }: Props) {
   const sourceTask = (config.sourceTask as Record<string, unknown> | undefined) ?? {};
-  const stateKey = taskKey || 'cacheAsideTask';
+  // Must match `deriveTaskStateKey`'s fallback exactly — `TaskEditorView`'s
+  // script-panel persistence guard compares against that same derivation.
+  const stateKey = taskKey || 'task';
   const setSource = (field: string, value: string) =>
     onChange((d: any) => {
       const s = (d.sourceTask as Record<string, unknown>) ?? {};

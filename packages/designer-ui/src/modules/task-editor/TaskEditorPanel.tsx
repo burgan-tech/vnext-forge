@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { ComponentValidationSummary } from '../save-component/components/ComponentValidationSummary';
 import { TaskMetadataForm } from './TaskMetadataForm';
 import { taskFormMap } from './forms';
+import { deriveTaskStateKey } from './taskScriptPersistence.js';
 
 interface TaskEditorPanelProps {
   json: Record<string, unknown>;
@@ -12,7 +13,10 @@ export function TaskEditorPanel({ json, onChange }: TaskEditorPanelProps) {
   const attrs = json.attributes as Record<string, unknown> | undefined;
   const taskType = String(attrs?.type || '0');
   const config = (attrs?.config || {}) as Record<string, unknown>;
-  const taskKey = typeof json.key === 'string' ? json.key : 'task';
+  // Same derivation `TaskEditorView`'s script-persistence guard uses — kept
+  // in one shared helper so the two can never drift apart (see
+  // taskScriptPersistence.ts for why that matters).
+  const taskKey = deriveTaskStateKey(json);
 
   const FormComponent = taskFormMap[taskType];
 
