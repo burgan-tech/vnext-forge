@@ -18,6 +18,9 @@ export interface TransitionMutations {
   updateTransitionMapping: (index: number, mapping: ScriptCode) => void;
   removeTransitionMapping: (index: number) => void;
   updateTransitionMappingScripts: (index: number, scripts: ScriptsConfig | undefined) => void;
+  updateTransitionEvent: (index: number, mapping: ScriptCode) => void;
+  removeTransitionEvent: (index: number) => void;
+  updateTransitionEventScripts: (index: number, scripts: ScriptsConfig | undefined) => void;
   updateTransitionScriptScripts: (
     index: number,
     scriptField: 'rule' | 'condition' | 'timer',
@@ -132,6 +135,39 @@ export function useTransitionMutations(findTransition: FindTransition): Transiti
     updateWorkflow((draft: any) => {
       const ctx = findTransition(draft);
       const m = ctx?.transitions?.[index]?.mapping;
+      if (!m) return;
+      if (scripts === undefined) {
+        delete m.scripts;
+      } else {
+        m.scripts = scripts;
+      }
+    });
+  }, [updateWorkflow, findTransition]);
+
+  const updateTransitionEvent = useCallback((index: number, mapping: ScriptCode) => {
+    updateWorkflow((draft: any) => {
+      const ctx = findTransition(draft);
+      if (!ctx?.transitions?.[index]) return;
+      if (!ctx.transitions[index].event) ctx.transitions[index].event = {};
+      ctx.transitions[index].event.mapping = mapping;
+    });
+  }, [updateWorkflow, findTransition]);
+
+  const removeTransitionEvent = useCallback((index: number) => {
+    updateWorkflow((draft: any) => {
+      const ctx = findTransition(draft);
+      if (!ctx?.transitions?.[index]) return;
+      delete ctx.transitions[index].event;
+    });
+  }, [updateWorkflow, findTransition]);
+
+  const updateTransitionEventScripts = useCallback((
+    index: number,
+    scripts: ScriptsConfig | undefined,
+  ) => {
+    updateWorkflow((draft: any) => {
+      const ctx = findTransition(draft);
+      const m = ctx?.transitions?.[index]?.event?.mapping;
       if (!m) return;
       if (scripts === undefined) {
         delete m.scripts;
@@ -344,6 +380,9 @@ export function useTransitionMutations(findTransition: FindTransition): Transiti
     updateTransitionMapping,
     removeTransitionMapping,
     updateTransitionMappingScripts,
+    updateTransitionEvent,
+    removeTransitionEvent,
+    updateTransitionEventScripts,
     updateTransitionScriptScripts,
     updateTransitionRoles,
     updateTransitionView,

@@ -86,6 +86,9 @@ export function WorkflowSharedTransitionsSection() {
             onUpdateMapping={mutations.updateTransitionMapping}
             onRemoveMapping={mutations.removeTransitionMapping}
             onUpdateMappingScripts={mutations.updateTransitionMappingScripts}
+            onUpdateEvent={mutations.updateTransitionEvent}
+            onRemoveEvent={mutations.removeTransitionEvent}
+            onUpdateEventScripts={mutations.updateTransitionEventScripts}
             onUpdateScriptScripts={mutations.updateTransitionScriptScripts}
             onUpdateRoles={mutations.updateTransitionRoles}
             onUpdateView={mutations.updateTransitionView}
