@@ -21,6 +21,7 @@ import { WorkflowExtensionsSection } from './sections/WorkflowExtensionsSection'
 import { WorkflowScriptsSection } from './sections/WorkflowScriptsSection';
 import { WorkflowOutputSection } from './sections/WorkflowOutputSection';
 import { WorkflowEventSection } from './sections/WorkflowEventSection';
+import { WorkflowConfigSection } from './sections/WorkflowConfigSection';
 
 interface WorkflowMetadataPanelProps {
   onClose: () => void;
@@ -90,6 +91,7 @@ export function WorkflowMetadataPanel({ onClose, scrollToSection, onScrollComple
           <div id="wf-section-scripts"><WorkflowScriptsSection /></div>
           <div id="wf-section-output"><WorkflowOutputSection /></div>
           <div id="wf-section-event"><WorkflowEventSection /></div>
+          <div id="wf-section-config"><WorkflowConfigSection /></div>
         </div>
       </div>
     </div>

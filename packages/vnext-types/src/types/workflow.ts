@@ -28,6 +28,23 @@ export interface WorkflowTimerConfig {
   duration?: string;
 }
 
+/**
+ * Cache TTL configuration for the workflow's built-in instance functions
+ * (data, view, schema). Author-controlled; absent → host default.
+ */
+export interface FunctionCacheDefinition {
+  ttlSeconds?: number;
+}
+
+/**
+ * Flow-level configuration container for the workflow. Currently only
+ * carries `functionCache`, but is a dedicated object so future flow-level
+ * settings can be added without new top-level `attributes` keys.
+ */
+export interface WorkflowConfig {
+  functionCache?: FunctionCacheDefinition;
+}
+
 export interface TimeoutTransition {
   key: string;
   target: string;
@@ -119,6 +136,12 @@ export interface WorkflowAttributes {
    * workflow. Present when the workflow is startable via an external event.
    */
   event?: Event;
+  /**
+   * Flow-level config container. Currently exposes `functionCache.ttlSeconds`,
+   * the author-controlled TTL for the built-in instance functions (data, view,
+   * schema); absent → host default.
+   */
+  config?: WorkflowConfig;
 }
 
 export interface VnextWorkflow {
