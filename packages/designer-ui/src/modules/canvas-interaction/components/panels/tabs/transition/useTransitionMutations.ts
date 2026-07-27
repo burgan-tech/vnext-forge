@@ -21,6 +21,14 @@ export interface TransitionMutations {
   updateTransitionEvent: (index: number, mapping: ScriptCode) => void;
   removeTransitionEvent: (index: number) => void;
   updateTransitionEventScripts: (index: number, scripts: ScriptsConfig | undefined) => void;
+  updateTransitionResourceLock: (index: number, keyExpression: ScriptCode) => void;
+  updateTransitionResourceLockField: (
+    index: number,
+    field: 'action' | 'ttlSeconds' | 'onConflict',
+    value: string | number | undefined,
+  ) => void;
+  removeTransitionResourceLock: (index: number) => void;
+  updateTransitionResourceLockKeyScripts: (index: number, scripts: ScriptsConfig | undefined) => void;
   updateTransitionScriptScripts: (
     index: number,
     scriptField: 'rule' | 'condition' | 'timer',
@@ -168,6 +176,59 @@ export function useTransitionMutations(findTransition: FindTransition): Transiti
     updateWorkflow((draft: any) => {
       const ctx = findTransition(draft);
       const m = ctx?.transitions?.[index]?.event?.mapping;
+      if (!m) return;
+      if (scripts === undefined) {
+        delete m.scripts;
+      } else {
+        m.scripts = scripts;
+      }
+    });
+  }, [updateWorkflow, findTransition]);
+
+  const updateTransitionResourceLock = useCallback((index: number, keyExpression: ScriptCode) => {
+    updateWorkflow((draft: any) => {
+      const ctx = findTransition(draft);
+      if (!ctx?.transitions?.[index]) return;
+      if (!ctx.transitions[index].resourceLock) ctx.transitions[index].resourceLock = {};
+      ctx.transitions[index].resourceLock.keyExpression = keyExpression;
+      if (!ctx.transitions[index].resourceLock.action) {
+        ctx.transitions[index].resourceLock.action = 'Acquire';
+      }
+    });
+  }, [updateWorkflow, findTransition]);
+
+  const updateTransitionResourceLockField = useCallback((
+    index: number,
+    field: 'action' | 'ttlSeconds' | 'onConflict',
+    value: string | number | undefined,
+  ) => {
+    updateWorkflow((draft: any) => {
+      const ctx = findTransition(draft);
+      if (!ctx?.transitions?.[index]) return;
+      if (!ctx.transitions[index].resourceLock) ctx.transitions[index].resourceLock = {};
+      if (value === undefined || value === '') {
+        delete ctx.transitions[index].resourceLock[field];
+      } else {
+        ctx.transitions[index].resourceLock[field] = value;
+      }
+    });
+  }, [updateWorkflow, findTransition]);
+
+  const removeTransitionResourceLock = useCallback((index: number) => {
+    updateWorkflow((draft: any) => {
+      const ctx = findTransition(draft);
+      if (!ctx?.transitions?.[index]) return;
+      delete ctx.transitions[index].resourceLock;
+    });
+  }, [updateWorkflow, findTransition]);
+
+  const updateTransitionResourceLockKeyScripts = useCallback((
+    index: number,
+    scripts: ScriptsConfig | undefined,
+  ) => {
+    updateWorkflow((draft: any) => {
+      const ctx = findTransition(draft);
+      const m = ctx?.transitions?.[index]?.resourceLock?.keyExpression;
       if (!m) return;
       if (scripts === undefined) {
         delete m.scripts;
@@ -383,6 +444,10 @@ export function useTransitionMutations(findTransition: FindTransition): Transiti
     updateTransitionEvent,
     removeTransitionEvent,
     updateTransitionEventScripts,
+    updateTransitionResourceLock,
+    updateTransitionResourceLockField,
+    removeTransitionResourceLock,
+    updateTransitionResourceLockKeyScripts,
     updateTransitionScriptScripts,
     updateTransitionRoles,
     updateTransitionView,

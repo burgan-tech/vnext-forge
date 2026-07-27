@@ -6,6 +6,7 @@ import type { Event } from './event';
 import { Label } from './label';
 import { MappingCode } from './mapping';
 import type { RoleGrant } from './role';
+import type { ResourceLock } from './resource-lock';
 import type { ViewBinding } from './view-binding';
 
 export interface ResourceReference {
@@ -43,6 +44,12 @@ export interface Transition {
    * transition. Required when `triggerType` is `Event`.
    */
   event?: Event;
+  /**
+   * Distributed-lock operation for this transition. Valid only for
+   * start, state-level, and shared transitions — never for cancel,
+   * exit, or updateData transitions.
+   */
+  resourceLock?: ResourceLock;
 }
 
 export interface SharedTransition extends Transition {

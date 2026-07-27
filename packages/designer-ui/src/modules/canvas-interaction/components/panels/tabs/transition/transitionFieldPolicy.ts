@@ -21,6 +21,7 @@ export type TransitionFieldKey =
   | 'timer'
   | 'mapping'
   | 'event'
+  | 'resourceLock'
   | 'onExecutionTasks'
   | 'roles'
   | 'availableIn'
@@ -68,6 +69,7 @@ function stateTransitionPolicy(
     timer: HIDDEN,
     mapping: HIDDEN,
     event: HIDDEN,
+    resourceLock: VISIBLE_OPTIONAL,
     onExecutionTasks: VISIBLE_OPTIONAL,
     roles: VISIBLE_OPTIONAL,
     availableIn: HIDDEN,
@@ -133,6 +135,10 @@ function manualOnlyPolicy(
     timer: HIDDEN,
     mapping: VISIBLE_OPTIONAL,
     event: HIDDEN,
+    // resourceLock is not supported on cancel / exit / updateData
+    // transitions — those are manual-only lifecycle transitions and
+    // the engine does not offer distributed-lock semantics on them.
+    resourceLock: HIDDEN,
     onExecutionTasks: VISIBLE_OPTIONAL,
     roles: VISIBLE_OPTIONAL,
     // exit / cancel / updateData transitions do not support
@@ -161,6 +167,7 @@ function startTransitionPolicy(): TransitionFieldPolicyMap {
     timer: HIDDEN,
     mapping: VISIBLE_OPTIONAL,
     event: HIDDEN,
+    resourceLock: VISIBLE_OPTIONAL,
     onExecutionTasks: VISIBLE_OPTIONAL,
     roles: VISIBLE_OPTIONAL,
     availableIn: HIDDEN,

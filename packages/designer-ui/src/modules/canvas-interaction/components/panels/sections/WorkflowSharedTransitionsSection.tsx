@@ -89,6 +89,10 @@ export function WorkflowSharedTransitionsSection() {
             onUpdateEvent={mutations.updateTransitionEvent}
             onRemoveEvent={mutations.removeTransitionEvent}
             onUpdateEventScripts={mutations.updateTransitionEventScripts}
+            onUpdateResourceLock={mutations.updateTransitionResourceLock}
+            onRemoveResourceLock={mutations.removeTransitionResourceLock}
+            onUpdateResourceLockField={mutations.updateTransitionResourceLockField}
+            onUpdateResourceLockKeyScripts={mutations.updateTransitionResourceLockKeyScripts}
             onUpdateScriptScripts={mutations.updateTransitionScriptScripts}
             onUpdateRoles={mutations.updateTransitionRoles}
             onUpdateView={mutations.updateTransitionView}
