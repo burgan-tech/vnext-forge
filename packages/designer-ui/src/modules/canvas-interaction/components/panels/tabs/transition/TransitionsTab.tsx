@@ -88,6 +88,13 @@ export function TransitionsTab({ state }: { state: any }) {
             onUpdateMapping={mutations.updateTransitionMapping}
             onRemoveMapping={mutations.removeTransitionMapping}
             onUpdateMappingScripts={mutations.updateTransitionMappingScripts}
+            onUpdateEvent={mutations.updateTransitionEvent}
+            onRemoveEvent={mutations.removeTransitionEvent}
+            onUpdateEventScripts={mutations.updateTransitionEventScripts}
+            onUpdateResourceLock={mutations.updateTransitionResourceLock}
+            onRemoveResourceLock={mutations.removeTransitionResourceLock}
+            onUpdateResourceLockField={mutations.updateTransitionResourceLockField}
+            onUpdateResourceLockKeyScripts={mutations.updateTransitionResourceLockKeyScripts}
             onUpdateScriptScripts={mutations.updateTransitionScriptScripts}
             onUpdateRoles={mutations.updateTransitionRoles}
             onUpdateView={mutations.updateTransitionView}

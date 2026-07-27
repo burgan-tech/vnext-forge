@@ -110,6 +110,13 @@ export interface StateResponse {
   eTag?: string;
   entityEtag?: string;
   responseHeaders?: Record<string, string>;
+  /**
+   * `true` when the upstream returned HTTP 304 Not Modified in response to
+   * `ifNoneMatch` — no JSON body was parsed; all fields above other than
+   * `responseHeaders` are absent. Callers must keep their cached
+   * state/view instead of overwriting it.
+   */
+  notModified?: boolean;
 }
 
 export interface ViewResponse {
@@ -126,12 +133,28 @@ export interface DataResponse {
   eTag?: string;
   entityEtag?: string;
   extensions?: Record<string, unknown>;
+  responseHeaders?: Record<string, string>;
+  /**
+   * `true` when the upstream returned HTTP 304 Not Modified in response to
+   * `ifNoneMatch` — no JSON body was parsed; `data` is absent. Callers
+   * must keep their cached data instead of overwriting it.
+   */
+  notModified?: boolean;
 }
 
 export interface SchemaResponse {
   key: string;
   type: string;
   schema: Record<string, unknown>;
+  eTag?: string;
+  responseHeaders?: Record<string, string>;
+  /**
+   * `true` when the upstream returned HTTP 304 Not Modified in response to
+   * `ifNoneMatch` — no JSON body was parsed; the fields above other than
+   * `responseHeaders` are absent. Callers must keep their cached schema
+   * instead of overwriting it.
+   */
+  notModified?: boolean;
 }
 
 export interface HistoryTransition {

@@ -10,6 +10,8 @@ export * from './types/schema';
 export * from './types/diagram';
 export * from './types/config';
 export * from './types/error-boundary';
+export * from './types/event';
+export * from './types/resource-lock';
 export * from './types/label';
 export * from './types/view-binding';
 export * from './types/instance';

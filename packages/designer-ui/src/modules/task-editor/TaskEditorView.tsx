@@ -1,16 +1,25 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { isFailure } from '@vnext-forge-studio/app-contracts';
 
 import { useProjectStore } from '../../store/useProjectStore';
 import { useComponentStore } from '../../store/useComponentStore';
+import { useEditorPanelsStore } from '../../store/useEditorPanelsStore';
+import { useScriptPanelStore } from '../../modules/code-editor/ScriptPanelStore';
 import { useSaveComponent } from '../../modules/save-component/useSaveComponent';
 import { ComponentEditorLayout } from '../../modules/save-component/components/ComponentEditorLayout';
 import type { HostDocumentToolbarSlot } from '../../modules/save-component/components/hostDocumentToolbarSlot';
 import { usePublish } from '../../modules/save-component/PublishContext.js';
 import { showNotification } from '../../notification/notification-port.js';
+import { ComponentEditorModalProvider } from '../save-component/ComponentEditorModalContext.js';
+import { ScriptTaskChromeProvider } from './ScriptTaskChromeContext.js';
+import {
+  FlowEditorCanvasAndScriptResizableColumn,
+  ScriptEditorPanel,
+} from '../../modules/code-editor/layout/ScriptEditorPanel';
 import { useTaskEditor } from './useTaskEditor';
 import { TaskEditorPanel } from './TaskEditorPanel';
 import { persistScriptTaskScriptFile } from './persistScriptTaskScriptFile.js';
+import { deriveTaskStateKey, shouldPersistCacheAsideSourceMapping } from './taskScriptPersistence.js';
 import { buildAtomicComponentJsonPath } from '../vnext-workspace/atomicComponentPaths.js';
 import type { AtomicSavedInfo } from '../save-component/componentEditorModalTypes.js';
 
@@ -22,6 +31,7 @@ export interface TaskEditorViewProps {
   layoutSurface?: 'panel' | 'modal';
   /** After save (e.g. modal): sync workflow refs from JSON top-level fields. */
   onAtomicSaved?: (info: AtomicSavedInfo) => void;
+  onOpenScriptFileInHost?: (absolutePath: string) => void;
 }
 
 export function TaskEditorView({
@@ -31,6 +41,7 @@ export function TaskEditorView({
   registerToolbar,
   layoutSurface = 'panel',
   onAtomicSaved,
+  onOpenScriptFileInHost,
 }: TaskEditorViewProps) {
   const { activeProject, vnextConfig } = useProjectStore();
   const componentJson = useComponentStore((state) => state.componentJson);
@@ -82,40 +93,112 @@ export function TaskEditorView({
       : null;
   const { loading, error, isReady } = useTaskEditor({ filePath });
 
+  const scriptPanelOpen = useEditorPanelsStore((s) => s.scriptPanelOpen);
+  const activeScript = useScriptPanelStore((s) => s.activeScript);
+  const closeScript = useScriptPanelStore((s) => s.closeScript);
+  const setScriptPanelOpen = useEditorPanelsStore((s) => s.setScriptPanelOpen);
+
+  const componentDirectoryPath = useMemo(() => {
+    if (!activeProject || !vnextConfig) return undefined;
+    const base = `${activeProject.path}/${vnextConfig.paths.componentsRoot}/${vnextConfig.paths.tasks}`;
+    return (group ? `${base}/${group}` : base)
+      .replace(/\\/g, '/')
+      .replace(/\/{2,}/g, '/');
+  }, [activeProject, vnextConfig, group]);
+
   const { publish: publishFile, publishing, canPublish } = usePublish();
   const handlePublish = useCallback(() => {
     void publishFile(save, filePath);
   }, [publishFile, save, filePath]);
 
-  if (loading || !isReady || !componentJson) {
-    return (
+  useEffect(() => {
+    return useScriptPanelStore.subscribe((state, prev) => {
+      if (!state.activeScript?.value || state.activeScript.value === prev.activeScript?.value) return;
+      const script = state.activeScript;
+
+      // `useScriptPanelStore` is a global singleton and `TaskEditorView` can
+      // stay mounted across in-app navigation between tasks (no remount key
+      // on the route). Re-derive the CURRENTLY loaded task's key fresh from
+      // the store on every fire (not from a render-scope closure, which
+      // would go stale) and only persist when the edited script actually
+      // belongs to this task — otherwise a script left open while switching
+      // tasks would clobber an unrelated task's JSON.
+      const { componentJson: currentJson, updateComponent: update } = useComponentStore.getState();
+      const currentTaskStateKey = deriveTaskStateKey(currentJson);
+
+      if (shouldPersistCacheAsideSourceMapping(script, currentTaskStateKey)) {
+        update((draft) => {
+          const attrs = (draft.attributes ?? {}) as Record<string, unknown>;
+          const cfg = (attrs.config ?? {}) as Record<string, unknown>;
+          cfg.sourceMapping = script.value;
+          attrs.config = cfg;
+          draft.attributes = attrs;
+        });
+      }
+    });
+  }, []);
+
+  // Defensive: when the loaded task actually changes (in-app navigation to
+  // a different task without unmounting this view), close any still-open
+  // script panel instead of leaving a stale Task-A script rendered over
+  // Task B's editor. Skipped on initial mount (ref starts at null).
+  const prevFilePathRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (prevFilePathRef.current !== null && prevFilePathRef.current !== filePath) {
+      closeScript();
+      setScriptPanelOpen(false);
+    }
+    prevFilePathRef.current = filePath;
+  }, [filePath, closeScript, setScriptPanelOpen]);
+
+  const content =
+    loading || !isReady || !componentJson ? (
       <div className="text-muted-foreground flex h-full items-center justify-center text-sm">
         {error?.toUserMessage().message || 'Loading task...'}
       </div>
+    ) : (
+      <FlowEditorCanvasAndScriptResizableColumn
+        canvas={
+          <ComponentEditorLayout
+            registerToolbar={registerToolbar}
+            surface={layoutSurface}
+            isDirty={isDirty}
+            hasSaved={!isDirty && undoStackLength > 0}
+            saving={saving}
+            saveErrorMessage={saveError?.toUserMessage().message ?? null}
+            onSave={save}
+            onUndo={undo}
+            onRedo={redo}
+            canUndo={undoStackLength > 0}
+            canRedo={redoStackLength > 0}
+            onPublish={canPublish ? handlePublish : undefined}
+            publishing={publishing}
+            autoSavePending={autoSavePending}
+            autoSaved={autoSaved}>
+            <TaskEditorPanel
+              json={componentJson}
+              onChange={updateComponent}
+            />
+          </ComponentEditorLayout>
+        }
+        scriptPanel={
+          scriptPanelOpen && activeScript ? (
+            <ScriptEditorPanel
+              workflowDirectoryPath={componentDirectoryPath}
+              onOpenScriptFileInHost={onOpenScriptFileInHost}
+            />
+          ) : null
+        }
+      />
     );
-  }
 
   return (
-    <ComponentEditorLayout
-      registerToolbar={registerToolbar}
-      surface={layoutSurface}
-      isDirty={isDirty}
-      hasSaved={!isDirty && undoStackLength > 0}
-      saving={saving}
-      saveErrorMessage={saveError?.toUserMessage().message ?? null}
-      onSave={save}
-      onUndo={undo}
-      onRedo={redo}
-      canUndo={undoStackLength > 0}
-      canRedo={redoStackLength > 0}
-      onPublish={canPublish ? handlePublish : undefined}
-      publishing={publishing}
-      autoSavePending={autoSavePending}
-      autoSaved={autoSaved}>
-      <TaskEditorPanel
-        json={componentJson}
-        onChange={updateComponent}
-      />
-    </ComponentEditorLayout>
+    <ScriptTaskChromeProvider
+      onOpenScriptFileInHost={onOpenScriptFileInHost}
+      scriptDirectoryPath={componentDirectoryPath}>
+      <ComponentEditorModalProvider onOpenScriptFileInHost={onOpenScriptFileInHost}>
+        {content}
+      </ComponentEditorModalProvider>
+    </ScriptTaskChromeProvider>
   );
 }

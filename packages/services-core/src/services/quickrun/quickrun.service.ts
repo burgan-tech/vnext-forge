@@ -147,16 +147,25 @@ export function createQuickRunService(runtimeProxyService: RuntimeProxyService) 
     traceId?: string,
   ): Promise<z.infer<typeof quickrunGetStateResult>> {
     const base = buildBasePath(params.domain, params.workflowKey)
+    const headers = { ...params.headers }
+    if (params.ifNoneMatch) headers['If-None-Match'] = params.ifNoneMatch
 
     const result = await proxyCall(
       {
         method: 'GET',
         runtimePath: `${base}/instances/${params.instanceId}/functions/state`,
-        headers: params.headers,
+        headers: Object.keys(headers).length > 0 ? headers : undefined,
         runtimeUrl: params.runtimeUrl,
       },
       traceId,
     )
+
+    if (result.status === 304) {
+      return {
+        notModified: true,
+        responseHeaders: result.responseHeaders,
+      } as z.infer<typeof quickrunGetStateResult>
+    }
 
     const parsed = parseJsonResponse<Record<string, unknown>>(
       result.data, result.status, 'QuickRunService.getState', traceId,
@@ -207,7 +216,17 @@ export function createQuickRunService(runtimeProxyService: RuntimeProxyService) 
       traceId,
     )
 
-    return parseJsonResponse(result.data, result.status, 'QuickRunService.getData', traceId)
+    if (result.status === 304) {
+      return {
+        notModified: true,
+        responseHeaders: result.responseHeaders,
+      } as z.infer<typeof quickrunGetDataResult>
+    }
+
+    const parsed = parseJsonResponse<Record<string, unknown>>(
+      result.data, result.status, 'QuickRunService.getData', traceId,
+    )
+    return { ...parsed, responseHeaders: result.responseHeaders } as z.infer<typeof quickrunGetDataResult>
   }
 
   async function getSchema(
@@ -217,19 +236,31 @@ export function createQuickRunService(runtimeProxyService: RuntimeProxyService) 
     const base = buildBasePath(params.domain, params.workflowKey)
     const query: Record<string, string> = {}
     if (params.transitionKey) query.transitionKey = params.transitionKey
+    const headers = { ...params.headers }
+    if (params.ifNoneMatch) headers['If-None-Match'] = params.ifNoneMatch
 
     const result = await proxyCall(
       {
         method: 'GET',
         runtimePath: `${base}/instances/${params.instanceId}/functions/schema`,
         query: Object.keys(query).length > 0 ? query : undefined,
-        headers: params.headers,
+        headers: Object.keys(headers).length > 0 ? headers : undefined,
         runtimeUrl: params.runtimeUrl,
       },
       traceId,
     )
 
-    return parseJsonResponse(result.data, result.status, 'QuickRunService.getSchema', traceId)
+    if (result.status === 304) {
+      return {
+        notModified: true,
+        responseHeaders: result.responseHeaders,
+      } as z.infer<typeof quickrunGetSchemaResult>
+    }
+
+    const parsed = parseJsonResponse<Record<string, unknown>>(
+      result.data, result.status, 'QuickRunService.getSchema', traceId,
+    )
+    return { ...parsed, responseHeaders: result.responseHeaders } as z.infer<typeof quickrunGetSchemaResult>
   }
 
   async function getHistory(

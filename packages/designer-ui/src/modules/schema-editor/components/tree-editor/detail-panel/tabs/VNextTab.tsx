@@ -1,4 +1,4 @@
-import { type JsonPointer } from '../../../../model/jsonPointer';
+import { ROOT_POINTER, type JsonPointer } from '../../../../model/jsonPointer';
 import { useSchemaNode } from '../../../../hooks/useSchemaNode';
 import { VNEXT_CARD_REGISTRY } from '../../vnext/vnextCardRegistry';
 
@@ -7,10 +7,14 @@ interface VNextTabProps {
 }
 
 /**
- * Renders every vNext (`x-*`) editor card for the selected node in a
- * single vertical stack. Each card manages its own enable/disable cycle
- * and value editor through the shared `VNextCardShell` so the tab feels
- * uniform across keywords.
+ * Renders every vNext (`x-*`) editor card whose `scope` matches the selected
+ * node's pointer, in a single vertical stack. At the schema root, `'root'`
+ * and `'any'`-scoped cards render; at a property pointer, `'property'` and
+ * `'any'`-scoped cards render. Every pre-existing card is registered with
+ * `scope: 'any'`, so this filter is a pure addition — it does not hide any
+ * card that used to render at the root or at a property. Each card manages
+ * its own enable/disable cycle and value editor through the shared
+ * `VNextCardShell` so the tab feels uniform across keywords.
  */
 export function VNextTab({ pointer }: VNextTabProps) {
   const { node } = useSchemaNode(pointer);
@@ -23,9 +27,14 @@ export function VNextTab({ pointer }: VNextTabProps) {
     );
   }
 
+  const isRoot = pointer === ROOT_POINTER;
+  const cards = VNEXT_CARD_REGISTRY.filter(({ scope }) =>
+    scope === 'any' ? true : isRoot ? scope === 'root' : scope === 'property',
+  );
+
   return (
     <div className="space-y-3">
-      {VNEXT_CARD_REGISTRY.map(({ xKey, component: Card }) => (
+      {cards.map(({ xKey, component: Card }) => (
         <Card key={xKey} pointer={pointer} />
       ))}
     </div>

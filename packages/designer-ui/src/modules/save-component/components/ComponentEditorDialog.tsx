@@ -95,6 +95,7 @@ export function ComponentEditorDialog({
           <TaskEditorView
             key={editorKey}
             {...common}
+            onOpenScriptFileInHost={onOpenScriptFileInHost}
           />
         );
       case 'schema':
@@ -102,9 +103,21 @@ export function ComponentEditorDialog({
       case 'view':
         return <ViewEditorView key={editorKey} {...common} />;
       case 'function':
-        return <FunctionEditorView key={editorKey} {...common} />;
+        return (
+          <FunctionEditorView
+            key={editorKey}
+            {...common}
+            onOpenScriptFileInHost={onOpenScriptFileInHost}
+          />
+        );
       case 'extension':
-        return <ExtensionEditorView key={editorKey} {...common} />;
+        return (
+          <ExtensionEditorView
+            key={editorKey}
+            {...common}
+            onOpenScriptFileInHost={onOpenScriptFileInHost}
+          />
+        );
       default:
         return null;
     }

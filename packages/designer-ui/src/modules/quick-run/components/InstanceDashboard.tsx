@@ -1,5 +1,7 @@
 import { type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { RefreshCw } from 'lucide-react';
 
+import { extractEtag } from '../etagFromResponse';
 import * as QuickRunApi from '../QuickRunApi';
 import type { IncidentEntry, IncidentInfo, InstanceDetailResponse, WorkflowBucketConfig } from '../QuickRunApi';
 import { ResizableDialogShell } from '../../../ui/ResizableDialogShell';
@@ -50,7 +52,7 @@ export function InstanceDashboard({ configRef, persistConfig }: InstanceDashboar
   const pollingConfig = useQuickRunStore((s) => s.pollingConfig);
   const pollingInstanceId = useQuickRunStore((s) => s.pollingInstanceId);
 
-  const { pollState } = useQuickRunPolling(pollingConfig);
+  const { pollState, refreshView } = useQuickRunPolling(pollingConfig);
 
   const [retryHeadersOpen, setRetryHeadersOpen] = useState(false);
   const [retryHeaders, setRetryHeaders] = useState<{ name: string; value: string }[]>([]);
@@ -103,9 +105,13 @@ export function InstanceDashboard({ configRef, persistConfig }: InstanceDashboar
     persistConfig(updated);
 
     await pollState({ domain, workflowKey, instanceId: activeTabId, headers: merged, runtimeUrl: environmentUrl });
+    // Belt-and-suspenders explicit View refresh on top of whatever
+    // `pollState` already fetched during its own loop — content-diffed,
+    // so a no-op re-fetch never re-mounts the pseudo-ui iframe.
+    void refreshView();
     setRetrying(false);
     setRetryHeadersOpen(false);
-  }, [activeTabId, domain, workflowKey, retryHeaders, globalHeaders, sessionHeaders, environmentUrl, pollState, configRef, persistConfig]);
+  }, [activeTabId, domain, workflowKey, retryHeaders, globalHeaders, sessionHeaders, environmentUrl, pollState, refreshView, configRef, persistConfig]);
 
   const handleCancelConfirmed = useCallback(async () => {
     if (!activeTabId || !domain || !workflowKey) return;
@@ -461,6 +467,7 @@ export function InstanceDashboard({ configRef, persistConfig }: InstanceDashboar
         hasView={activeState?.view?.hasView}
         configRef={configRef}
         persistConfig={persistConfig}
+        onRetryView={refreshView}
       />
 
       {cancelConfirmOpen && (
@@ -727,6 +734,7 @@ function StateViewSection({
   hasView,
   configRef,
   persistConfig,
+  onRetryView,
 }: {
   view: ReturnType<typeof useQuickRunStore.getState>['stateView'];
   loading: boolean;
@@ -734,6 +742,7 @@ function StateViewSection({
   hasView?: boolean;
   configRef: MutableRefObject<WorkflowBucketConfig>;
   persistConfig: (cfg: WorkflowBucketConfig) => void;
+  onRetryView?: () => void;
 }) {
   const [collapsed, setCollapsed] = useState(false);
 
@@ -741,20 +750,40 @@ function StateViewSection({
 
   return (
     <section className="rounded border border-[var(--vscode-panel-border)]">
-      <button
-        type="button"
-        className="flex w-full items-center justify-between px-3 py-2 text-left hover:bg-[var(--vscode-list-hoverBackground)]"
-        onClick={() => setCollapsed((prev) => !prev)}
-        aria-expanded={!collapsed}
-        aria-controls="state-view-body"
-      >
-        <p className="text-xs font-semibold uppercase text-[var(--vscode-descriptionForeground)]">
-          State View
-        </p>
-        <span className="text-[10px] text-[var(--vscode-descriptionForeground)]">
-          {collapsed ? '▸' : '▾'}
-        </span>
-      </button>
+      <div className="flex w-full items-center justify-between px-3 py-2 hover:bg-[var(--vscode-list-hoverBackground)]">
+        <button
+          type="button"
+          className="flex flex-1 items-center justify-between text-left"
+          onClick={() => setCollapsed((prev) => !prev)}
+          aria-expanded={!collapsed}
+          aria-controls="state-view-body"
+        >
+          <p className="text-xs font-semibold uppercase text-[var(--vscode-descriptionForeground)]">
+            State View
+          </p>
+          <span className="mr-2 text-[10px] text-[var(--vscode-descriptionForeground)]">
+            {collapsed ? '▸' : '▾'}
+          </span>
+        </button>
+        {onRetryView && (
+          <button
+            type="button"
+            className="inline-flex shrink-0 items-center rounded p-1 text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] hover:text-[var(--vscode-foreground)] disabled:opacity-50"
+            onClick={(e) => {
+              // Independent of the collapse toggle above — this button
+              // lives in the same header row but must not flip
+              // `collapsed` when clicked.
+              e.stopPropagation();
+              onRetryView();
+            }}
+            disabled={loading}
+            aria-label="Retry view"
+            title="Retry view"
+          >
+            <RefreshCw size={12} />
+          </button>
+        )}
+      </div>
 
       {!collapsed && (
         <div id="state-view-body" className="border-t border-[var(--vscode-panel-border)] p-3">
@@ -899,17 +928,36 @@ function StateViewContent({
     if (activeData || !activeTabId || !domain || !workflowKey) return;
     let cancelled = false;
     setActiveDataLoading(true);
+    const ifNoneMatch = useQuickRunStore.getState().etags.data;
     void QuickRunApi.getData({
       domain,
       workflowKey,
       instanceId: activeTabId,
+      ifNoneMatch,
       headers: globalHeaders,
       runtimeUrl: environmentUrl,
     }).then((res) => {
       if (cancelled) return;
-      setActiveData(res.success ? res.data : null);
+      if (res.success) {
+        if (res.data.notModified) {
+          // 304: keep the cached activeData (it's already null here, but
+          // avoid clobbering it with an empty payload either way).
+          return;
+        }
+        useQuickRunStore.getState().setEtag('data', extractEtag(res.data));
+        setActiveData(res.data);
+      } else {
+        // Clear the cached ETag along with the data so the next fetch is
+        // unconditional (a stale-but-valid ETag would otherwise get a 304
+        // and the "keep cache" branch would keep this `null` forever).
+        useQuickRunStore.getState().setEtag('data', undefined);
+        setActiveData(null);
+      }
     }).catch(() => {
-      if (!cancelled) setActiveData(null);
+      if (!cancelled) {
+        useQuickRunStore.getState().setEtag('data', undefined);
+        setActiveData(null);
+      }
     }).finally(() => {
       if (!cancelled) setActiveDataLoading(false);
     });

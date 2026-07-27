@@ -1,4 +1,5 @@
 import { Label } from './label';
+import type { MappingCodeRef } from './mapping';
 
 export interface TaskDefinition {
   key: string;
@@ -177,6 +178,103 @@ export interface GetInstancesTaskConfig {
   timeoutSeconds?: number;
   /** Status codes treated as successful, e.g. "403", "4xx" */
   acceptedStatusCodes?: string[];
+}
+
+export interface StateStoreTaskConfig {
+  /** Command to execute (required) */
+  command: 'get' | 'set' | 'delete';
+  /** Dapr state store component name. Empty → runtime DAPR_STATE_STORE_NAME */
+  storeName?: string;
+  /** Cache key targeted by get, set and single-key delete */
+  key?: string;
+  /** Keys for bulk delete */
+  keys?: string[];
+  /** Dapr state Query API filter (JSON) for tag/pattern based delete */
+  query?: Record<string, unknown>;
+  /** Value written by set (any JSON value) */
+  value?: unknown;
+  /** Time-to-live in seconds applied on set */
+  ttlInSeconds?: number;
+  /** ETag for optimistic concurrency on read/write */
+  etag?: string;
+  concurrency?: 'FirstWrite' | 'LastWrite';
+  consistency?: 'Eventual' | 'Strong';
+  /** Additional metadata passed to the Dapr state store operation */
+  metadata?: Record<string, unknown>;
+}
+
+export interface TaskReference {
+  key: string;
+  domain: string;
+  /** Defaults to "sys-tasks" when omitted */
+  flow?: 'sys-tasks';
+  version: string;
+}
+
+/** ScriptCode shape as authored inline in task configs. */
+export interface TaskScriptCode {
+  /** 'G' = Global, 'L' = Local */
+  type?: 'G' | 'L';
+  location?: string;
+  /** Inline script code; a sys-mappings reference object when encoding is REF. */
+  code?: string | MappingCodeRef;
+  encoding?: 'B64' | 'NAT' | 'REF';
+}
+
+export interface CacheAsideTaskConfig {
+  /** Static cache key (optional; may be derived via keyExpression) */
+  key?: string;
+  /** Dapr state store name. Empty → runtime DAPR_STATE_STORE_NAME */
+  storeName?: string;
+  /** TTL seconds; absent or 0 → no expiry */
+  ttlInSeconds?: number;
+  consistency?: 'Eventual' | 'Strong';
+  /** Task executed on a cache miss (required) */
+  sourceTask: TaskReference;
+  /** Mapping applied to the raw source result before caching/returning */
+  sourceMapping?: TaskScriptCode;
+  /** Dynamic Expresso expression overriding the cache key at runtime */
+  keyExpression?: TaskScriptCode;
+  /** Default: true */
+  bypassOnCacheError?: boolean;
+  /** Default: false */
+  forceRefresh?: boolean;
+}
+
+export interface GetInstanceTaskConfig {
+  /** Target workflow domain (required) */
+  domain: string;
+  /** Target workflow name (required) */
+  flow: string;
+  key?: string;
+  /** GUID */
+  instanceId?: string;
+  extensions?: string[];
+  /** Default: false */
+  useDapr?: boolean;
+  /** Default: true */
+  validateSsl?: boolean;
+  headers?: Record<string, string>;
+  /** Default: 30 */
+  timeoutSeconds?: number;
+  /** Status codes treated as successful, e.g. "403", "4xx" */
+  acceptedStatusCodes?: string[];
+}
+
+export interface DaprConversationTaskConfig {
+  /** Dapr conversation component name, e.g. "openai" (required) */
+  componentName: string;
+  /** Conversation inputs — JSON array of role/content messages */
+  inputs?: unknown[];
+  /** Provider-specific string parameters (model, maxTokens, …) */
+  parameters?: Record<string, string>;
+  /** Dapr component metadata */
+  metadata?: Record<string, string>;
+  contextId?: string;
+  temperature?: number;
+  scrubPII?: boolean;
+  /** Default: 30 */
+  timeoutSeconds?: number;
 }
 
 export interface GetInstanceDataTaskConfig {

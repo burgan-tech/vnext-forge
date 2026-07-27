@@ -80,6 +80,16 @@ interface QuickRunState {
 
   flowLabels: FlowLabelsMap | null;
 
+  /**
+   * Last-seen ETag per quickrun function kind, scoped to the *active*
+   * instance. Echoed back as `If-None-Match` on the next request for that
+   * function so an unchanged upstream resource can short-circuit to a 304.
+   * Reset whenever the active instance changes (new tab, tab switch,
+   * workflow context switch) so a stale ETag from a different instance is
+   * never sent for a different instance's resource.
+   */
+  etags: { state?: string; data?: string; schema?: string };
+
   setWorkflowContext: (domain: string, workflowKey: string, envName?: string, envUrl?: string) => void;
   addTab: (tab: QuickRunTab) => void;
   removeTab: (instanceId: string) => void;
@@ -127,9 +137,12 @@ interface QuickRunState {
   setRuntimeHealth: (health: 'healthy' | 'unhealthy' | 'unknown') => void;
   setRuntimeDomain: (domain: string | null) => void;
   setFlowLabels: (labels: FlowLabelsMap | null) => void;
+
+  setEtag: (fn: 'state' | 'data' | 'schema', etag: string | undefined) => void;
+  resetEtags: () => void;
 }
 
-export const useQuickRunStore = create<QuickRunState>((set) => ({
+export const useQuickRunStore = create<QuickRunState>((set, get) => ({
   domain: '',
   workflowKey: '',
   environmentName: undefined,
@@ -179,7 +192,9 @@ export const useQuickRunStore = create<QuickRunState>((set) => ({
 
   flowLabels: null,
 
-  setWorkflowContext: (domain, workflowKey, envName, envUrl) =>
+  etags: {},
+
+  setWorkflowContext: (domain, workflowKey, envName, envUrl) => {
     set({
       domain,
       workflowKey,
@@ -202,15 +217,23 @@ export const useQuickRunStore = create<QuickRunState>((set) => ({
       pollingInstanceId: null,
       longPollAck: null,
       flowLabels: null,
-    }),
+    });
+    get().resetEtags();
+  },
 
-  addTab: (tab) =>
+  addTab: (tab) => {
     set((state) => ({
       tabs: [...state.tabs, tab],
       activeTabId: tab.instanceId,
-    })),
+    }));
+    // New instance becomes active — its resources have never been
+    // fetched, so any cached ETag from the previously-active instance
+    // must not be echoed back for it.
+    get().resetEtags();
+  },
 
-  removeTab: (instanceId) =>
+  removeTab: (instanceId) => {
+    const prevActiveTabId = get().activeTabId;
     set((state) => {
       const tabs = state.tabs.filter((t) => t.instanceId !== instanceId);
       const activeTabId =
@@ -218,9 +241,13 @@ export const useQuickRunStore = create<QuickRunState>((set) => ({
           ? (tabs[tabs.length - 1]?.instanceId ?? null)
           : state.activeTabId;
       return { tabs, activeTabId };
-    }),
+    });
+    // Only reset the ETag cache when the active instance actually
+    // changed as a result of closing this tab.
+    if (get().activeTabId !== prevActiveTabId) get().resetEtags();
+  },
 
-  removeAllTabs: () =>
+  removeAllTabs: () => {
     set({
       tabs: [],
       activeTabId: null,
@@ -231,15 +258,26 @@ export const useQuickRunStore = create<QuickRunState>((set) => ({
       activeData: null,
       activeSchema: null,
       activeHistory: null,
-    }),
+    });
+    get().resetEtags();
+  },
 
-  removeOtherTabs: (instanceId) =>
+  removeOtherTabs: (instanceId) => {
+    const prevActiveTabId = get().activeTabId;
     set((state) => {
       const tabs = state.tabs.filter((t) => t.instanceId === instanceId);
       return { tabs, activeTabId: instanceId };
-    }),
+    });
+    if (prevActiveTabId !== instanceId) get().resetEtags();
+  },
 
-  setActiveTab: (instanceId) => set({ activeTabId: instanceId }),
+  setActiveTab: (instanceId) => {
+    const prevActiveTabId = get().activeTabId;
+    set({ activeTabId: instanceId });
+    // Switching to a different instance's tab — an ETag captured for
+    // the previously-active instance must never be sent for this one.
+    if (prevActiveTabId !== instanceId) get().resetEtags();
+  },
   setContextPanelTab: (tab) => set({ contextPanelTab: tab }),
 
   addInstance: (instance) =>
@@ -312,4 +350,7 @@ export const useQuickRunStore = create<QuickRunState>((set) => ({
   setRuntimeHealth: (runtimeHealth) => set({ runtimeHealth }),
   setRuntimeDomain: (runtimeDomain) => set({ runtimeDomain }),
   setFlowLabels: (flowLabels) => set({ flowLabels }),
+
+  setEtag: (fn, etag) => set((state) => ({ etags: { ...state.etags, [fn]: etag } })),
+  resetEtags: () => set({ etags: {} }),
 }));

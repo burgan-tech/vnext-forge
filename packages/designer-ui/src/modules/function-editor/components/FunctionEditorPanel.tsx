@@ -1,6 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../ui/Card';
 import { ComponentDescriptionField } from '../../../ui/ComponentDescriptionField';
 import { ComponentValidationSummary } from '../../save-component/components/ComponentValidationSummary';
+import { FunctionCacheSection } from './FunctionCacheSection';
 import { FunctionMetadataForm } from './FunctionMetadataForm';
 import { FunctionTaskModeSection } from './FunctionTaskModeSection';
 
@@ -45,6 +46,8 @@ export function FunctionEditorPanel({ json, onChange, onBeforeOpenModal }: Funct
           />
         </CardContent>
       </Card>
+
+      <FunctionCacheSection json={json} onChange={onChange} />
     </div>
   );
 }

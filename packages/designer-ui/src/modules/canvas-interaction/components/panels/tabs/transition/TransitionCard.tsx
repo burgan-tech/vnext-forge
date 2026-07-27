@@ -12,6 +12,8 @@ import { TriggerType } from '@vnext-forge-studio/vnext-types';
 import { TransitionExecutionTasksSection } from './TransitionExecutionTasksSection';
 import { TransitionSchemaSection } from './TransitionSchemaSection';
 import { TransitionMappingSection } from './TransitionMappingSection';
+import { TransitionEventSection } from './TransitionEventSection';
+import { TransitionResourceLockSection } from './TransitionResourceLockSection';
 import { TransitionConditionSection } from './TransitionConditionSection';
 import { TransitionTimerSection } from './TransitionTimerSection';
 import { TransitionRolesSection } from './TransitionRolesSection';
@@ -42,6 +44,17 @@ export interface TransitionCardProps {
   onUpdateMapping: (index: number, mapping: ScriptCode) => void;
   onRemoveMapping: (index: number) => void;
   onUpdateMappingScripts?: (index: number, scripts: ScriptsConfig | undefined) => void;
+  onUpdateEvent: (index: number, mapping: ScriptCode) => void;
+  onRemoveEvent: (index: number) => void;
+  onUpdateEventScripts?: (index: number, scripts: ScriptsConfig | undefined) => void;
+  onUpdateResourceLock: (index: number, keyExpression: ScriptCode) => void;
+  onRemoveResourceLock: (index: number) => void;
+  onUpdateResourceLockField: (
+    index: number,
+    field: 'action' | 'ttlSeconds' | 'onConflict',
+    value: string | number | undefined,
+  ) => void;
+  onUpdateResourceLockKeyScripts?: (index: number, scripts: ScriptsConfig | undefined) => void;
   onUpdateScriptScripts?: (
     index: number,
     scriptField: 'rule' | 'condition' | 'timer',
@@ -138,6 +151,13 @@ export function TransitionCard({
   onUpdateMapping,
   onRemoveMapping,
   onUpdateMappingScripts,
+  onUpdateEvent,
+  onRemoveEvent,
+  onUpdateEventScripts,
+  onUpdateResourceLock,
+  onRemoveResourceLock,
+  onUpdateResourceLockField,
+  onUpdateResourceLockKeyScripts,
   onUpdateScriptScripts,
   onUpdateRoles,
   onUpdateView,
@@ -364,6 +384,42 @@ export function TransitionCard({
             onScriptsChange={
               onUpdateMappingScripts
                 ? (next) => onUpdateMappingScripts(index, next)
+                : undefined
+            }
+          />
+        )}
+
+        {/* Event Mapping */}
+        {policy.event.visible && (
+          <TransitionEventSection
+            mapping={(transition.event?.mapping as ScriptCode | undefined) ?? null}
+            stateKey={currentStateKey}
+            transitionKey={transition.key}
+            index={index}
+            onChange={(m) => onUpdateEvent(index, m)}
+            onRemove={() => onRemoveEvent(index)}
+            scripts={(transition.event?.mapping as { scripts?: ScriptsConfig } | undefined)?.scripts}
+            onScriptsChange={
+              onUpdateEventScripts
+                ? (next) => onUpdateEventScripts(index, next)
+                : undefined
+            }
+          />
+        )}
+
+        {/* Resource Lock */}
+        {policy.resourceLock.visible && (
+          <TransitionResourceLockSection
+            resourceLock={transition.resourceLock}
+            stateKey={currentStateKey}
+            transitionKey={transition.key}
+            index={index}
+            onUpdateResourceLock={(m) => onUpdateResourceLock(index, m)}
+            onRemoveResourceLock={() => onRemoveResourceLock(index)}
+            onUpdateResourceLockField={(field, value) => onUpdateResourceLockField(index, field, value)}
+            onScriptsChange={
+              onUpdateResourceLockKeyScripts
+                ? (next) => onUpdateResourceLockKeyScripts(index, next)
                 : undefined
             }
           />

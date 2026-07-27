@@ -14,6 +14,10 @@ const TASK_TYPES = [
   { value: '14', label: 'SubProcess / Start Trigger', desc: 'Subprocess or start trigger' },
   { value: '15', label: 'Get Instances', desc: 'Query instances' },
   { value: '16', label: 'SOAP Request', desc: 'Outbound SOAP call' },
+  { value: '17', label: 'State Store', desc: 'Dapr state cache (get/set/delete)' },
+  { value: '18', label: 'Cache Aside', desc: 'Read-through cache pattern' },
+  { value: '19', label: 'Get Instance', desc: 'Read full instance projection' },
+  { value: '20', label: 'Dapr Conversation', desc: 'Invoke an LLM via Dapr' },
 ] as const;
 
 interface TaskTypePickerProps {

@@ -183,6 +183,7 @@ function ActiveEditor({ api, payload }: { api: VsCodeWebviewApi; payload: HostOp
           projectId={projectId}
           group={group}
           name={name}
+          onOpenScriptFileInHost={onOpenScriptFileInHost}
         />
       );
     case 'schema':

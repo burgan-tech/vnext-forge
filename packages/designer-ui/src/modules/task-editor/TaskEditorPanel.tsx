@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { ComponentValidationSummary } from '../save-component/components/ComponentValidationSummary';
 import { TaskMetadataForm } from './TaskMetadataForm';
 import { taskFormMap } from './forms';
+import { deriveTaskStateKey } from './taskScriptPersistence.js';
 
 interface TaskEditorPanelProps {
   json: Record<string, unknown>;
@@ -12,6 +13,10 @@ export function TaskEditorPanel({ json, onChange }: TaskEditorPanelProps) {
   const attrs = json.attributes as Record<string, unknown> | undefined;
   const taskType = String(attrs?.type || '0');
   const config = (attrs?.config || {}) as Record<string, unknown>;
+  // Same derivation `TaskEditorView`'s script-persistence guard uses — kept
+  // in one shared helper so the two can never drift apart (see
+  // taskScriptPersistence.ts for why that matters).
+  const taskKey = deriveTaskStateKey(json);
 
   const FormComponent = taskFormMap[taskType];
 
@@ -46,7 +51,7 @@ export function TaskEditorPanel({ json, onChange }: TaskEditorPanelProps) {
         </CardHeader>
         <CardContent className="px-4 sm:px-6">
           {FormComponent ? (
-            <FormComponent config={config} onChange={onConfigChange} />
+            <FormComponent config={config} onChange={onConfigChange} taskKey={taskKey} />
           ) : (
             <div className="text-xs text-muted-foreground">
               No form available for task type &quot;{taskType}&quot;. Edit as JSON.
@@ -72,6 +77,10 @@ function getTaskTypeName(type: string): string {
     '14': 'SubProcess',
     '15': 'Get Instances',
     '16': 'SOAP',
+    '17': 'State Store',
+    '18': 'Cache Aside',
+    '19': 'Get Instance',
+    '20': 'Dapr Conversation',
   };
   return names[type] || `Unknown (${type})`;
 }

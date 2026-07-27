@@ -66,6 +66,34 @@ describe('TaskEditorPanel layout', () => {
     expect(html).toContain('SOAP Version');
   });
 
+  it('renders a configuration form for State Store tasks', () => {
+    const html = renderTaskEditorPanel('17');
+    expect(html).toContain('State Store task settings.');
+    expect(html).toContain('Command');
+    expect(html).toContain('Store Name');
+  });
+
+  it('renders a configuration form for Get Instance tasks', () => {
+    const html = renderTaskEditorPanel('19');
+    expect(html).toContain('Get Instance task settings.');
+    expect(html).toContain('Target Workflow');
+    expect(html).toContain('Extensions');
+  });
+
+  it('renders a configuration form for Cache Aside tasks', () => {
+    const html = renderTaskEditorPanel('18');
+    expect(html).toContain('Cache Aside task settings.');
+    expect(html).toContain('Source Task');
+    expect(html).toContain('Key Expression');
+  });
+
+  it('renders a configuration form for Dapr Conversation tasks', () => {
+    const html = renderTaskEditorPanel('20');
+    expect(html).toContain('Dapr Conversation task settings.');
+    expect(html).toContain('Component Name');
+    expect(html).toContain('Inputs (JSON)');
+  });
+
   it('does not pin the Configuration card to a flex-1 / overflow-hidden chain', () => {
     const html = renderTaskEditorPanel('7');
     const cardClassLists = Array.from(html.matchAll(/data-slot="card" class="([^"]+)"/g)).map(

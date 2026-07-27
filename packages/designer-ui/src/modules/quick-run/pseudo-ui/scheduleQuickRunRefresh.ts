@@ -1,3 +1,5 @@
+import { extractEtag } from '../etagFromResponse';
+import { resolveStateViewSource } from '../hooks/resolveStateViewSource';
 import * as QuickRunApi from '../QuickRunApi';
 import { useQuickRunStore } from '../store/quickRunStore';
 
@@ -22,6 +24,8 @@ export async function scheduleQuickRunRefresh(params: RefreshParams): Promise<vo
     setActiveViewLoading,
     setActiveData,
     setActiveDataLoading,
+    setEtag,
+    etags,
   } = store;
 
   const base = {
@@ -54,20 +58,33 @@ export async function scheduleQuickRunRefresh(params: RefreshParams): Promise<vo
     setActiveState(stateData);
     updateInstanceState(params.instanceId, stateData);
 
-    const fetchView = Boolean(stateData.view?.hasView && (stateData.status === 'A' || stateData.status === 'C'));
+    const viewSource = resolveStateViewSource(stateData);
+    const fetchView = Boolean(viewSource) && (stateData.status === 'A' || stateData.status === 'C');
 
     const parallel: Promise<void>[] = [];
 
     parallel.push(
-      QuickRunApi.getData(base).then((dataRes) => {
-        if (dataRes.success) setActiveData(dataRes.data);
-        else setActiveData(null);
+      QuickRunApi.getData({ ...base, ifNoneMatch: etags.data }).then((dataRes) => {
+        if (!dataRes.success) {
+          // Clear the cached ETag along with the data so the next fetch is
+          // unconditional (a stale-but-valid ETag would otherwise get a
+          // 304 and the "keep cache" branch would keep this `null` forever).
+          setEtag('data', undefined);
+          setActiveData(null);
+          return;
+        }
+        if (dataRes.data.notModified) {
+          // 304: keep the cached activeData as-is.
+          return;
+        }
+        setEtag('data', extractEtag(dataRes.data));
+        setActiveData(dataRes.data);
       }),
     );
 
     if (fetchView) {
       parallel.push(
-        QuickRunApi.getView(base).then((viewRes) => {
+        QuickRunApi.getView({ ...base, transitionKey: viewSource?.transitionKey }).then((viewRes) => {
           if (viewRes.success) {
             setStateView(viewRes.data);
             setActiveView(viewRes.data);

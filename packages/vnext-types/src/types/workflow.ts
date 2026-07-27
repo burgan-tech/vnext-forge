@@ -1,4 +1,5 @@
 import { ErrorBoundary } from './error-boundary';
+import type { Event } from './event';
 import { Label } from './label';
 import { MappingCode } from './mapping';
 import { RoleGrant } from './role';
@@ -25,6 +26,23 @@ export interface StartTransition {
 export interface WorkflowTimerConfig {
   reset?: string;
   duration?: string;
+}
+
+/**
+ * Cache TTL configuration for the workflow's built-in instance functions
+ * (data, view, schema). Author-controlled; absent → host default.
+ */
+export interface FunctionCacheDefinition {
+  ttlSeconds?: number;
+}
+
+/**
+ * Flow-level configuration container for the workflow. Currently only
+ * carries `functionCache`, but is a dedicated object so future flow-level
+ * settings can be added without new top-level `attributes` keys.
+ */
+export interface WorkflowConfig {
+  functionCache?: FunctionCacheDefinition;
 }
 
 export interface TimeoutTransition {
@@ -107,6 +125,23 @@ export interface WorkflowAttributes {
    * but applies once to the whole workflow runtime.
    */
   scripts?: ScriptsConfig;
+  /**
+   * Optional output mapping for the workflow. Shapes the data returned
+   * when the workflow completes. Based on the schema's ScriptCode
+   * definition (same shape as mapping slots).
+   */
+  output?: MappingCode;
+  /**
+   * Declares how an inbound external event is mapped before it starts the
+   * workflow. Present when the workflow is startable via an external event.
+   */
+  event?: Event;
+  /**
+   * Flow-level config container. Currently exposes `functionCache.ttlSeconds`,
+   * the author-controlled TTL for the built-in instance functions (data, view,
+   * schema); absent → host default.
+   */
+  config?: WorkflowConfig;
 }
 
 export interface VnextWorkflow {

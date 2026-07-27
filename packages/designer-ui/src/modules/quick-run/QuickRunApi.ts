@@ -43,6 +43,8 @@ interface GetStateParams {
   domain: string;
   workflowKey: string;
   instanceId: string;
+  /** Conditional-request support: sent as `If-None-Match`. A 304 surfaces as `StateResponse.notModified`. */
+  ifNoneMatch?: string;
   headers?: Record<string, string>;
   runtimeUrl?: string;
 }
@@ -71,6 +73,8 @@ interface GetSchemaParams {
   workflowKey: string;
   instanceId: string;
   transitionKey?: string;
+  /** Conditional-request support: sent as `If-None-Match`. A 304 surfaces as `SchemaResponse.notModified`. */
+  ifNoneMatch?: string;
   headers?: Record<string, string>;
   runtimeUrl?: string;
 }

@@ -57,6 +57,10 @@ export const quickrunFireTransitionResult = z.object({
 export const quickrunGetStateParams = z.object({
   ...workflowIdentifier,
   instanceId: z.string().min(1),
+  /** Conditional-request support: sent as `If-None-Match` when present. A
+   *  304 response (see `quickrunGetStateResult.notModified`) means the
+   *  caller's cached state is still current. */
+  ifNoneMatch: z.string().optional(),
   headers: headersSchema,
   runtimeUrl: z.string().optional(),
 })
@@ -88,8 +92,10 @@ const correlationSchema = z.object({
 })
 
 export const quickrunGetStateResult = z.object({
-  state: z.string(),
-  status: instanceStatusSchema,
+  // Optional so a 304 (`notModified: true`, no JSON body) still validates —
+  // the fields below are only guaranteed present when `notModified` is falsy.
+  state: z.string().optional(),
+  status: instanceStatusSchema.optional(),
   transitions: z.array(transitionInfoSchema).optional(),
   sharedTransitions: z.array(transitionInfoSchema).optional(),
   activeCorrelations: z.array(correlationSchema).optional(),
@@ -108,6 +114,10 @@ export const quickrunGetStateResult = z.object({
   eTag: z.string().optional(),
   entityEtag: z.string().optional(),
   responseHeaders: z.record(z.string(), z.string()).optional(),
+  /** `true` when the upstream returned HTTP 304 Not Modified in response
+   *  to `ifNoneMatch` — no JSON body was parsed; all other fields above
+   *  are absent. */
+  notModified: z.boolean().optional(),
 })
 
 // ── Acknowledge Long Poll ─────────────────────────────────────────────────────
@@ -163,10 +173,15 @@ export const quickrunGetDataParams = z.object({
 })
 
 export const quickrunGetDataResult = z.object({
-  data: z.record(z.string(), z.unknown()),
+  // Optional so a 304 (`notModified: true`, no JSON body) still validates.
+  data: z.record(z.string(), z.unknown()).optional(),
   eTag: z.string().optional(),
   entityEtag: z.string().optional(),
   extensions: z.record(z.string(), z.unknown()).optional(),
+  responseHeaders: z.record(z.string(), z.string()).optional(),
+  /** `true` when the upstream returned HTTP 304 Not Modified in response
+   *  to `ifNoneMatch` — no JSON body was parsed; `data` is absent. */
+  notModified: z.boolean().optional(),
 })
 
 // ── Get Schema ───────────────────────────────────────────────────────────────
@@ -175,14 +190,25 @@ export const quickrunGetSchemaParams = z.object({
   ...workflowIdentifier,
   instanceId: z.string().min(1),
   transitionKey: z.string().optional(),
+  /** Conditional-request support: sent as `If-None-Match` when present. A
+   *  304 response (see `quickrunGetSchemaResult.notModified`) means the
+   *  caller's cached schema is still current. */
+  ifNoneMatch: z.string().optional(),
   headers: headersSchema,
   runtimeUrl: z.string().optional(),
 })
 
 export const quickrunGetSchemaResult = z.object({
-  key: z.string(),
-  type: z.string(),
-  schema: z.record(z.string(), z.unknown()),
+  // Optional so a 304 (`notModified: true`, no JSON body) still validates.
+  key: z.string().optional(),
+  type: z.string().optional(),
+  schema: z.record(z.string(), z.unknown()).optional(),
+  eTag: z.string().optional(),
+  responseHeaders: z.record(z.string(), z.string()).optional(),
+  /** `true` when the upstream returned HTTP 304 Not Modified in response
+   *  to `ifNoneMatch` — no JSON body was parsed; the fields above are
+   *  absent. */
+  notModified: z.boolean().optional(),
 })
 
 // ── Get History ──────────────────────────────────────────────────────────────
