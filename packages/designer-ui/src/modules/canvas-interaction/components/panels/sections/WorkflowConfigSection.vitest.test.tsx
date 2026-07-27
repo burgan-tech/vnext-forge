@@ -34,6 +34,11 @@ describe('applyFunctionCacheTtlChange', () => {
     expect(applyFunctionCacheTtlChange({ functionCache: { ttlSeconds: 60 } }, '-5')).toBeUndefined();
   });
 
+  it('rejects non-integer TTL input (schema types ttlSeconds as integer)', () => {
+    expect(applyFunctionCacheTtlChange({ functionCache: { ttlSeconds: 60 } }, '1.5')).toBeUndefined();
+    expect(applyFunctionCacheTtlChange(undefined, '1.5')).toBeUndefined();
+  });
+
   it('preserves sibling config keys when pruning functionCache', () => {
     const next = applyFunctionCacheTtlChange(
       { functionCache: { ttlSeconds: 60 }, otherSetting: true } as Record<string, unknown>,

@@ -9,8 +9,10 @@ const inputClass =
  * Pure collapse logic for `attributes.config.functionCache.ttlSeconds`.
  * Given the current `attributes.config` (or `undefined`) and the raw input
  * value, returns the next value of `attributes.config` — the updated config
- * object, or `undefined` when it has fully collapsed (empty/invalid input
- * prunes `ttlSeconds`, then `functionCache` if empty, then `config` itself).
+ * object, or `undefined` when it has fully collapsed (empty, non-integer, or
+ * sub-1 input prunes `ttlSeconds` — the schema types it as `integer`, so a
+ * decimal like "1.5" is treated the same as empty/invalid — then prunes
+ * `functionCache` if empty, then `config` itself).
  *
  * Exported (rather than kept inline) so the prune-to-undefined invariants
  * can be unit-tested without rendering the component or the store.
@@ -23,7 +25,7 @@ export function applyFunctionCacheTtlChange(
   const nextConfig = { ...(config ?? {}) };
   const functionCache = { ...((nextConfig.functionCache ?? {}) as Record<string, unknown>) };
 
-  if (raw === '' || !Number.isFinite(n) || n < 1) {
+  if (raw === '' || !Number.isInteger(n) || n < 1) {
     delete functionCache.ttlSeconds;
   } else {
     functionCache.ttlSeconds = n;
@@ -73,6 +75,7 @@ export function WorkflowConfigSection() {
           <input
             type="number"
             min={1}
+            step={1}
             value={ttl ?? ''}
             onChange={(e) => updateTtl(e.target.value)}
             className={inputClass}
