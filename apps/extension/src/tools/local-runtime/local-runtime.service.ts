@@ -22,6 +22,7 @@ import {
   type ContainerRuntimeDetection,
   type ContainerRuntimeInfo,
   type DomainEnvInfo,
+  type DomainPorts,
   type PreflightResult,
 } from '@vnext-forge-studio/services-core';
 import { ERROR_CODES, VnextForgeError } from '@vnext-forge-studio/app-contracts';
@@ -385,6 +386,7 @@ export class LocalRuntimeService {
     // matched neither branch — leaving the domain unprovisioned forever, with
     // no error and nothing in the log to say so.
     let portOffset = params.portOffset;
+    let ports: DomainPorts;
     const domainEnvPath = path.join(domainDir, '.env');
 
     let envContent: string | null = null;
@@ -398,6 +400,13 @@ export class LocalRuntimeService {
 
     if (existingEnv !== null) {
       portOffset = existingEnv.portOffset;
+      // Trust the file over the formula. `make up-vnext` runs with
+      // `--env-file domains/<d>/.env`, so that file — not the offset
+      // arithmetic — decides what the containers actually bind. If a port line
+      // was hand-edited the two disagree, and recomputing here would persist a
+      // baseUrl pointing where the runtime is not listening: an environment
+      // that looks provisioned but never answers.
+      ports = existingEnv.ports;
       this.log(`Domain "${params.domain}" already configured at offset ${portOffset}; reusing it.`);
     } else {
       this.log(
@@ -413,8 +422,10 @@ export class LocalRuntimeService {
         runtimePath,
         token,
       );
+      // Freshly rendered by create-domain from this exact offset, so the
+      // formula and the file agree by construction.
+      ports = computeDomainPorts(portOffset);
     }
-    const ports = computeDomainPorts(portOffset);
 
     // 5 — shared infrastructure
     if (await this.isInfraRunning()) {
