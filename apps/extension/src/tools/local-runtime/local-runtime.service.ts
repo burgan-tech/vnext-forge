@@ -13,8 +13,10 @@ import {
   evaluatePreflight,
   extractDbNameFromAppSettings,
   findFreePortOffset,
+  gitPullArgv,
   makeArgv,
   normalizeDbName,
+  orchestrationContainerName,
   parseDomainEnv,
   PORT_OFFSET_STEP,
   RUNTIME_POSTGRES,
@@ -279,6 +281,53 @@ export class LocalRuntimeService {
   }
 
   /**
+   * True when the runtime clone is present *and* complete.
+   *
+   * Gated on the Makefile rather than on the directory: a `git clone`
+   * interrupted by Cancel usually removes its own target, but when that
+   * cleanup loses the race it leaves a directory with no Makefile. Treating
+   * that as a clone wedges every later run at `make setup`. Shared by
+   * `provision` and `isProvisioned` so the two cannot drift apart.
+   */
+  private async isCloneIntact(runtimePath: string): Promise<boolean> {
+    return this.pathExists(path.join(runtimePath, 'Makefile'));
+  }
+
+  /**
+   * Absolute path of a domain's generated configuration directory.
+   *
+   * `teardown` hands this straight to a recursive delete, and the domain
+   * reaches us from `vnext.config.json` / `environments.json` having been
+   * checked only for being a non-empty string — never as a path. A domain of
+   * `..` would resolve to `vnext/docker` and take the compose file and every
+   * other domain with it. That is a bad hand-edit rather than an attack, but
+   * the blast radius earns a guard, so the name must be a single path segment
+   * and the result must still sit directly inside `domains/`.
+   */
+  private resolveDomainDir(runtimePath: string, domain: string): string {
+    const domainsDir = path.resolve(runtimePath, 'vnext', 'docker', 'domains');
+    const resolved = path.resolve(domainsDir, domain);
+    const isSingleSegment =
+      domain.length > 0 &&
+      domain !== '.' &&
+      domain !== '..' &&
+      path.basename(domain) === domain;
+
+    if (!isSingleSegment || path.dirname(resolved) !== domainsDir) {
+      throw new VnextForgeError(
+        ERROR_CODES.RUNTIME_EXECUTION_FAILED,
+        `"${domain}" is not a valid domain name.`,
+        {
+          source: 'LocalRuntimeService.resolveDomainDir',
+          layer: 'application',
+          details: { domain },
+        },
+      );
+    }
+    return resolved;
+  }
+
+  /**
    * Whether the shared infrastructure (vnext-postgres) is already running.
    *
    * Two accepted imprecisions, both consequences of the collision-defence
@@ -339,8 +388,9 @@ export class LocalRuntimeService {
     const git = this.requireTool('git');
     const make = this.requireTool('make');
     const runtimePath = path.join(params.workspacePath, VNEXT_RUNTIME_DIR_NAME);
-    const dockerDir = path.join(runtimePath, 'vnext', 'docker');
-    const domainDir = path.join(dockerDir, 'domains', params.domain);
+    // Validates the domain up front, so a name that could not be torn down
+    // safely is rejected before we shell out and create anything.
+    const domainDir = this.resolveDomainDir(runtimePath, params.domain);
 
     // 1 — clone
     //
@@ -350,9 +400,8 @@ export class LocalRuntimeService {
     // — and gating on mere existence would then skip the clone on every later
     // run and die at `make setup` with "no makefile found", escapable only by
     // deleting a hidden directory by hand.
-    const cloneMarker = path.join(runtimePath, 'Makefile');
     const cloneDirExists = await this.pathExists(runtimePath);
-    const cloneIntact = cloneDirExists && (await this.pathExists(cloneMarker));
+    const cloneIntact = await this.isCloneIntact(runtimePath);
 
     if (cloneIntact) {
       this.log(`Runtime clone already present at ${runtimePath}; skipping clone.`);
@@ -505,5 +554,134 @@ export class LocalRuntimeService {
       useDocker: true,
       dockerPostgresContainer: RUNTIME_POSTGRES.container,
     };
+  }
+
+  // ── Lifecycle ──────────────────────────────────────────────────────────────
+
+  /** True when the clone and this domain's configuration are both on disk. */
+  async isProvisioned(binding: LocalRuntimeBinding): Promise<boolean> {
+    if (!(await this.isCloneIntact(binding.runtimePath))) return false;
+
+    let domainDir: string;
+    try {
+      domainDir = this.resolveDomainDir(binding.runtimePath, binding.domain);
+    } catch {
+      // An unusable domain name is not something we would call provisioned;
+      // reporting false keeps Start off the menu rather than surfacing a
+      // throw from a predicate the tree view calls on every refresh.
+      return false;
+    }
+    return this.pathExists(path.join(domainDir, '.env'));
+  }
+
+  /**
+   * running | stopped | absent for a domain's orchestration container.
+   *
+   * Note that a missing container CLI also reports `absent`, because there is
+   * no way to ask. The tree view should decide what to show from
+   * `detectPreflight` before it trusts this value — see the report on this
+   * task; "Docker isn't installed" and "this environment isn't running" want
+   * very different UI.
+   */
+  async getContainerState(binding: LocalRuntimeBinding): Promise<ContainerState> {
+    const runtime = this.resolveRuntime();
+    if (!runtime) return 'absent';
+    const result = await runStreaming(
+      runtime.containerCli.path,
+      containerPsArgv(orchestrationContainerName(binding.domain)),
+      { cwd: process.cwd(), onLine: () => { /* probe only — output discarded */ } },
+    );
+    if (result.exitCode !== 0) return 'absent';
+    const status = result.output.trim();
+    if (status.length === 0) return 'absent';
+    return /^Up\b/i.test(status) ? 'running' : 'stopped';
+  }
+
+  async start(
+    binding: LocalRuntimeBinding,
+    progress: vscode.Progress<{ message?: string }>,
+    token: vscode.CancellationToken,
+  ): Promise<void> {
+    const make = this.requireTool('make');
+    if (!(await this.isInfraRunning())) {
+      progress.report({ message: 'Starting shared infrastructure…' });
+      await this.step('make up-infra', make, makeArgv('up-infra'), binding.runtimePath, token);
+    }
+    progress.report({ message: `Starting ${binding.domain}…` });
+    await this.step(
+      'make up-vnext',
+      make,
+      makeArgv('up-vnext', { domain: binding.domain }),
+      binding.runtimePath,
+      token,
+    );
+  }
+
+  async stop(
+    binding: LocalRuntimeBinding,
+    progress: vscode.Progress<{ message?: string }>,
+    token: vscode.CancellationToken,
+  ): Promise<void> {
+    const make = this.requireTool('make');
+    progress.report({ message: `Stopping ${binding.domain}…` });
+    await this.step(
+      'make down-vnext',
+      make,
+      makeArgv('down-vnext', { domain: binding.domain }),
+      binding.runtimePath,
+      token,
+    );
+  }
+
+  async restart(
+    binding: LocalRuntimeBinding,
+    progress: vscode.Progress<{ message?: string }>,
+    token: vscode.CancellationToken,
+  ): Promise<void> {
+    const make = this.requireTool('make');
+    progress.report({ message: `Restarting ${binding.domain}…` });
+    await this.step(
+      'make restart-vnext',
+      make,
+      makeArgv('restart-vnext', { domain: binding.domain }),
+      binding.runtimePath,
+      token,
+    );
+  }
+
+  /**
+   * Stop the containers and remove this domain's generated configuration.
+   * The database and the clone are deliberately preserved.
+   *
+   * Stopping first is safe for an already-stopped domain: `down-vnext` runs
+   * `compose -p vnext-<domain> --profile vnext down`, which exits 0 and only
+   * warns ("No resource found to remove for project ...") when the project
+   * has nothing running. Verified against the runtime repo's compose file.
+   * That matters because deleting an environment the user already stopped is
+   * the common case, not the exception.
+   */
+  async teardown(
+    binding: LocalRuntimeBinding,
+    progress: vscode.Progress<{ message?: string }>,
+    token: vscode.CancellationToken,
+  ): Promise<void> {
+    // Resolved before stopping so an unsafe domain name fails the whole
+    // operation rather than stopping the containers and then refusing.
+    const domainDir = this.resolveDomainDir(binding.runtimePath, binding.domain);
+
+    await this.stop(binding, progress, token);
+    progress.report({ message: 'Removing the domain configuration…' });
+    await fs.rm(domainDir, { recursive: true, force: true });
+    this.log(`Removed ${domainDir}`);
+  }
+
+  async updateRuntime(
+    binding: LocalRuntimeBinding,
+    progress: vscode.Progress<{ message?: string }>,
+    token: vscode.CancellationToken,
+  ): Promise<void> {
+    const git = this.requireTool('git');
+    progress.report({ message: 'Updating the runtime clone…' });
+    await this.step('git pull', git, gitPullArgv(), binding.runtimePath, token);
   }
 }
