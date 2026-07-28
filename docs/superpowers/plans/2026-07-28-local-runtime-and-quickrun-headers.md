@@ -2918,8 +2918,23 @@ Widen `runDomainAdd` to forward the discovered connection details when a binding
       // …existing success / failure notification logic, unchanged…
 ```
 
-> Keep the rest of `runDomainAdd`'s body exactly as it is today. A non-zero exit stays a
-> warning: the domain may simply already be registered, which must not fail the flow.
+> Keep the rest of `runDomainAdd`'s body exactly as it is today in every respect **except**
+> the one fixed below. A non-zero exit stays a warning: the domain may simply already be
+> registered, which must not fail the flow.
+
+**Amendment found during Task 10 — a second secret-exposure path.** `runDomainAdd`'s failure
+branch surfaces `result.stderr.trim() || result.stdout.trim()` verbatim in a VS Code warning
+toast. Once this task starts passing `--DB_PASSWORD` through, a `wf` usage error that echoes its
+own invocation would print that password into the UI. This path does **not** go through
+`process-runner.ts`, so the redaction added in Task 11 does not cover it. Apply
+`redactSecrets(...)` (exported from `apps/extension/src/tools/local-runtime/process-runner.ts`)
+to that message before showing it.
+
+Also noted and deliberately **not** fixed: passing `--DB_PASSWORD` on an argv puts it in the host
+process table, visible to `ps` for the lifetime of the call. That is inherent to any exec-based
+CLI that takes a secret as a flag and cannot be fixed here — it would need an env-var or stdin
+channel on the `wf` side. It is acceptable in this case because the value is `postgres`, the
+well-known local-development credential published in the runtime repo's own compose file.
 
 Also widen the `DomainAddFn` type at the top of the file:
 
