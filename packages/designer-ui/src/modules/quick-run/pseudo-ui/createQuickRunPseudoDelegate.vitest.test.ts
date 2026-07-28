@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import * as QuickRunApi from '../QuickRunApi';
+import type { WorkflowBucketConfig } from '../QuickRunApi';
 import { createQuickRunPseudoDelegate } from './createQuickRunPseudoDelegate';
 
 vi.mock('../QuickRunApi', () => ({
@@ -141,5 +142,85 @@ describe('createQuickRunPseudoDelegate', () => {
       expect(QuickRunApi.fireTransition).toHaveBeenCalledTimes(1);
       expect(onTransitionComplete).toHaveBeenCalledTimes(1);
     });
+  });
+});
+
+// Global Headers must ride along on every engine call Quick Run makes, not
+// just transitions (`firePseudoUiTransition` already merges them — see
+// `mergeQuickRunHeaders.ts`). These three call sites previously forwarded
+// only `getSessionHeaders()` and silently dropped `bucketConfig.globalHeaders`:
+// the `requestData` LOV/lookup path (bug's user-reported symptom), the
+// `dispatch` → `fn` function-call path, and the `dispatch` → `flow-start`
+// path.
+describe('createQuickRunPseudoDelegate — global header propagation', () => {
+  const GLOBAL_HEADERS = { 'X-Common': 'global', 'X-Global': 'gv' };
+  const SESSION_HEADERS = { 'X-Common': 'session', 'X-Session': 'sv' };
+  const EXPECTED_MERGED = { 'X-Common': 'session', 'X-Global': 'gv', 'X-Session': 'sv' };
+
+  function makeConfig(): WorkflowBucketConfig {
+    return {
+      key: 'wf-1',
+      globalHeaders: { ...GLOBAL_HEADERS },
+      start: { headers: {}, queryStrings: {}, body: { attributes: {} } },
+      transitions: [],
+    };
+  }
+
+  function makeDelegate() {
+    return createQuickRunPseudoDelegate({
+      domain: 'core',
+      workflowKey: 'wf',
+      instanceId: 'inst-1',
+      runtimeUrl: 'http://localhost:4201',
+      getBucketConfig: () => makeConfig(),
+      getSessionHeaders: () => ({ ...SESSION_HEADERS }),
+      getBindingContext: () => ({ data: null, extensions: null }),
+    });
+  }
+
+  beforeEach(() => {
+    vi.mocked(QuickRunApi.executeFunction).mockReset();
+    vi.mocked(QuickRunApi.startInstance).mockReset();
+  });
+
+  it('sends merged headers on requestData (x-lov lookup during view render)', async () => {
+    vi.mocked(QuickRunApi.executeFunction).mockResolvedValueOnce({
+      success: true,
+      data: { items: [] },
+    });
+
+    // `urn:vnext:fn:core:lookup-cities` — the verb segment is optional
+    // (defaults to `get`), leaving the 2-segment (domain, function) form.
+    await makeDelegate().requestData?.('urn:vnext:fn:core:lookup-cities', { q: 'is' });
+
+    expect(QuickRunApi.executeFunction).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(QuickRunApi.executeFunction).mock.calls[0][0].headers).toEqual(EXPECTED_MERGED);
+  });
+
+  it('sends merged headers on a function dispatch', async () => {
+    vi.mocked(QuickRunApi.executeFunction).mockResolvedValueOnce({ success: true, data: {} });
+
+    // `urn:vnext:fn:post:core:recalculate` — explicit `post` verb segment
+    // followed by the 2-segment (domain, function) form.
+    await makeDelegate().onAction?.(
+      'dispatch',
+      { amount: '10' },
+      'urn:vnext:fn:post:core:recalculate',
+    );
+
+    expect(QuickRunApi.executeFunction).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(QuickRunApi.executeFunction).mock.calls[0][0].headers).toEqual(EXPECTED_MERGED);
+  });
+
+  it('sends merged headers on flow-start', async () => {
+    vi.mocked(QuickRunApi.startInstance).mockResolvedValueOnce({
+      success: true,
+      data: { id: 'new-1', key: 'k', status: 'ok' },
+    });
+
+    await makeDelegate().onAction?.('dispatch', { a: 1 }, 'urn:vnext:flow:start:core:onboarding');
+
+    expect(QuickRunApi.startInstance).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(QuickRunApi.startInstance).mock.calls[0][0].headers).toEqual(EXPECTED_MERGED);
   });
 });

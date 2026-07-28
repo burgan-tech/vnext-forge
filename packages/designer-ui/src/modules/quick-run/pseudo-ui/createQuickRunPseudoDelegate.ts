@@ -4,6 +4,7 @@ import * as QuickRunApi from '../QuickRunApi';
 import type { WorkflowBucketConfig } from '../QuickRunApi';
 import { createLogger } from '../../../lib/logger/createLogger';
 import { firePseudoUiTransition } from './firePseudoUiTransition';
+import { mergeQuickRunHeaders } from './mergeQuickRunHeaders';
 import { resolveTransitionKey } from './resolveTransitionKey';
 import { parseVnextUrn, type ParsedVnextUrn } from './parseVnextUrn';
 import { resolveUrnBindings, type UrnBindingContext } from './resolveUrnBindings';
@@ -173,6 +174,14 @@ async function fireTransitionFromCommand(
 export function createQuickRunPseudoDelegate(params: QuickRunDelegateParams): PseudoViewDelegate {
   const runtimeUrl = params.runtimeUrl || undefined;
 
+  /**
+   * Quick Run acts as the client's mini-simulation, so Global Headers must
+   * travel with every engine call — not just transitions. Read through the
+   * live getters so the latest edits are picked up per dispatch.
+   */
+  const resolveHeaders = () =>
+    mergeQuickRunHeaders(params.getBucketConfig(), params.getSessionHeaders());
+
   return {
     requestData: async (ref, reqParams) => {
       // `ref` is the SDK-side `LovDefinition.source` /
@@ -244,7 +253,7 @@ export function createQuickRunPseudoDelegate(params: QuickRunDelegateParams): Ps
           functionUrn: lookup.resolved,
           method: parsed.command,
           params: Object.keys(fnParams).length > 0 ? fnParams : undefined,
-          headers: params.getSessionHeaders(),
+          headers: resolveHeaders(),
           runtimeUrl,
         });
       } catch (err) {
@@ -456,7 +465,7 @@ export function createQuickRunPseudoDelegate(params: QuickRunDelegateParams): Ps
               domain: parsed.domain,
               workflowKey: parsed.flow,
               attributes: formData,
-              headers: params.getSessionHeaders(),
+              headers: resolveHeaders(),
               runtimeUrl,
             });
           } catch (err) {
@@ -537,7 +546,7 @@ export function createQuickRunPseudoDelegate(params: QuickRunDelegateParams): Ps
               functionUrn: lookup.resolved,
               method: parsed.command,
               params: Object.keys(fnParams).length > 0 ? fnParams : undefined,
-              headers: params.getSessionHeaders(),
+              headers: resolveHeaders(),
               runtimeUrl,
             });
           } catch (err) {
