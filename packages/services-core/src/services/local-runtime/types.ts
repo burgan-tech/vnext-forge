@@ -18,7 +18,11 @@ export interface ContainerRuntimeInfo {
 
 export type ContainerRuntimeDetection =
   | { ok: true; info: ContainerRuntimeInfo }
-  | { ok: false; reason: 'no-container-cli' | 'no-compose' }
+  | { ok: false; reason: 'no-container-cli' }
+  // `cli` records which CLI *was* found, so the preflight layer can point the
+  // user at the compose tooling for the runtime they actually have (docker ->
+  // Docker Compose, podman -> podman-compose) instead of guessing.
+  | { ok: false; reason: 'no-compose'; cli: 'docker' | 'podman' }
 
 export type PreflightProblem = 'missing' | 'not-running'
 
@@ -30,6 +34,8 @@ export interface PreflightIssue {
 
 export interface PreflightResult {
   ok: boolean
+  /** Contract: order is always git -> make -> runtime. The UI joins these
+   *  into a single sentence, so reordering here is a user-visible change. */
   issues: PreflightIssue[]
 }
 

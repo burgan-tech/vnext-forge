@@ -58,7 +58,7 @@ describe('detectContainerRuntime', () => {
     expect(result.info.composeArgv).toEqual(['docker-compose'])
   })
 
-  it('prefers podman only when docker is absent', () => {
+  it('prefers docker over podman when both CLIs are present', () => {
     const result = detectContainerRuntime(
       lookupFor('docker', 'podman', 'podman-compose'),
       composeFor('docker compose'),
@@ -90,10 +90,19 @@ describe('detectContainerRuntime', () => {
     expect(result.info.composeArgv).toEqual(['podman', 'compose'])
   })
 
-  it('reports no-compose when a container CLI exists without any compose', () => {
+  it('reports no-compose when docker exists without any compose', () => {
     expect(detectContainerRuntime(lookupFor('docker'), noComposeSubcommand)).toEqual({
       ok: false,
       reason: 'no-compose',
+      cli: 'docker',
+    })
+  })
+
+  it('reports no-compose with cli: podman when podman exists without any compose', () => {
+    expect(detectContainerRuntime(lookupFor('podman'), noComposeSubcommand)).toEqual({
+      ok: false,
+      reason: 'no-compose',
+      cli: 'podman',
     })
   })
 

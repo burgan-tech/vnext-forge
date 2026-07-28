@@ -26,12 +26,15 @@ export function detectContainerRuntime(
 
   if (dockerPath !== null) {
     const flavor = lookup('orb') !== null ? 'orbstack' : 'docker'
+    // Docker's preference is intentionally the reverse of podman's below:
+    // the `docker compose` subcommand first, standalone `docker-compose` as
+    // fallback. Mirrors the vnext-runtime Makefile's COMPOSE_CMD order.
     const composeArgv = hasComposeSubcommand(['docker', 'compose'])
       ? ['docker', 'compose']
       : lookup('docker-compose') !== null
         ? ['docker-compose']
         : null
-    if (composeArgv === null) return { ok: false, reason: 'no-compose' }
+    if (composeArgv === null) return { ok: false, reason: 'no-compose', cli: 'docker' }
     return {
       ok: true,
       info: { containerCli: { bin: 'docker', path: dockerPath }, composeArgv, flavor },
@@ -39,12 +42,15 @@ export function detectContainerRuntime(
   }
 
   if (podmanPath !== null) {
+    // Podman's preference is intentionally the reverse of docker's above:
+    // standalone `podman-compose` first, the `podman compose` subcommand as
+    // fallback. Mirrors the vnext-runtime Makefile's COMPOSE_CMD order.
     const composeArgv = lookup('podman-compose') !== null
       ? ['podman-compose']
       : hasComposeSubcommand(['podman', 'compose'])
         ? ['podman', 'compose']
         : null
-    if (composeArgv === null) return { ok: false, reason: 'no-compose' }
+    if (composeArgv === null) return { ok: false, reason: 'no-compose', cli: 'podman' }
     return {
       ok: true,
       info: { containerCli: { bin: 'podman', path: podmanPath }, composeArgv, flavor: 'podman' },

@@ -12,6 +12,15 @@ const dockerOk: ContainerRuntimeDetection = {
   },
 }
 
+const podmanOk: ContainerRuntimeDetection = {
+  ok: true,
+  info: {
+    containerCli: { bin: 'podman', path: '/usr/local/bin/podman' },
+    composeArgv: ['podman-compose'],
+    flavor: 'podman',
+  },
+}
+
 describe('evaluatePreflight', () => {
   it('passes when git, make and a reachable runtime are present', () => {
     expect(
@@ -52,6 +61,22 @@ describe('evaluatePreflight', () => {
     expect(result.issues[0]?.tool).toBe('OrbStack')
   })
 
+  it('points a stopped podman daemon at podman docs, not OrbStack', () => {
+    const result = evaluatePreflight({
+      git: '/usr/bin/git',
+      make: '/usr/bin/make',
+      runtime: podmanOk,
+      daemonReachable: false,
+    })
+    expect(result.ok).toBe(false)
+    expect(result.issues).toHaveLength(1)
+    expect(result.issues[0]).toMatchObject({
+      tool: 'Podman',
+      problem: 'not-running',
+      helpUrl: 'https://podman.io/docs/installation',
+    })
+  })
+
   it('reports a missing container CLI', () => {
     const result = evaluatePreflight({
       git: '/usr/bin/git',
@@ -63,15 +88,30 @@ describe('evaluatePreflight', () => {
     expect(result.issues[0]).toMatchObject({ tool: 'Docker or Podman', problem: 'missing' })
   })
 
-  it('reports a missing compose command separately', () => {
+  it('reports a missing compose command for docker', () => {
     const result = evaluatePreflight({
       git: '/usr/bin/git',
       make: '/usr/bin/make',
-      runtime: { ok: false, reason: 'no-compose' },
+      runtime: { ok: false, reason: 'no-compose', cli: 'docker' },
       daemonReachable: null,
     })
     expect(result.ok).toBe(false)
     expect(result.issues[0]).toMatchObject({ tool: 'Docker Compose', problem: 'missing' })
+  })
+
+  it('reports a missing compose command for podman as podman-compose, not Docker Compose', () => {
+    const result = evaluatePreflight({
+      git: '/usr/bin/git',
+      make: '/usr/bin/make',
+      runtime: { ok: false, reason: 'no-compose', cli: 'podman' },
+      daemonReachable: null,
+    })
+    expect(result.ok).toBe(false)
+    expect(result.issues[0]).toMatchObject({
+      tool: 'podman-compose',
+      problem: 'missing',
+      helpUrl: 'https://podman.io/docs/installation',
+    })
   })
 
   it('accumulates every problem in one result', () => {
