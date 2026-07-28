@@ -31,6 +31,7 @@ export * from './services/quickrun-presets/index.js'
 export * from './services/schema-cache/index.js'
 export * from './services/file-router/index.js'
 export * from './services/project/index.js'
+export * from './services/local-runtime/index.js'
 
 export * from './registry/index.js'
 
