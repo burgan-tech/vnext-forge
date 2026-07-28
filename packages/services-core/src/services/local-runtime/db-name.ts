@@ -16,13 +16,51 @@ export function normalizeDbName(domain: string): string | null {
   return `vNext_${normalized}`
 }
 
-/**
- * Read the database name out of a generated
- * `domains/<domain>/appsettings.Development.json` by matching the
- * `Database=<name>` segment of its connection string.
- */
-export function extractDbNameFromAppSettings(content: string): string | null {
-  const match = /Database=([^;"'\s]+)/.exec(content)
+/** Pull the `Database=<name>` segment out of a single connection string. */
+function extractDatabaseSegment(connectionString: string): string | null {
+  const match = /Database=([^;"'\s]+)/.exec(connectionString)
   const name = match?.[1]?.trim()
   return name !== undefined && name.length > 0 ? name : null
+}
+
+/**
+ * Read the database name out of a generated
+ * `domains/<domain>/appsettings.Development.json`.
+ *
+ * The file contains more than one `Database=` segment — the real Postgres
+ * connection string under `ConnectionStrings.Default`, and at least one more
+ * under an unrelated block (e.g. `ClickHouse.ConnectionString`, used for
+ * analytics). Only `ConnectionStrings.Default` names the domain's own
+ * database, so this parses the file as JSON and reads that field specifically
+ * rather than scanning the whole content for the first `Database=` match,
+ * which could silently pick up the wrong connection string.
+ *
+ * Falls back to scanning the raw content only when the input is not valid
+ * JSON, or is valid JSON without a usable `ConnectionStrings.Default` string
+ * (this also covers a bare JSON string value, e.g. `'"Host=...;Database=..."'`,
+ * which `JSON.parse` accepts but which is not an object).
+ */
+export function extractDbNameFromAppSettings(content: string): string | null {
+  try {
+    const parsed: unknown = JSON.parse(content)
+
+    if (typeof parsed === 'string') {
+      return extractDatabaseSegment(parsed)
+    }
+
+    if (parsed !== null && typeof parsed === 'object') {
+      const connectionStrings = (parsed as Record<string, unknown>).ConnectionStrings
+      if (connectionStrings !== null && typeof connectionStrings === 'object') {
+        const defaultConnection = (connectionStrings as Record<string, unknown>).Default
+        if (typeof defaultConnection === 'string') {
+          const fromDefault = extractDatabaseSegment(defaultConnection)
+          if (fromDefault !== null) return fromDefault
+        }
+      }
+    }
+  } catch {
+    // Not valid JSON — fall through to the whole-content scan below.
+  }
+
+  return extractDatabaseSegment(content)
 }
