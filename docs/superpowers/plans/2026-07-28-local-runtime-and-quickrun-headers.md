@@ -1742,7 +1742,30 @@ git commit -m "feat(cli): accept optional DB and docker options on wf domain add
 - Create: `apps/extension/src/tools/local-runtime/process-runner.ts`
 
 > `apps/extension` has no test runner (see the spec's "Explicit gap"). These two files are
-> verified by the host build and by the manual pass in Task 17.
+> verified by the type-check gate below and by the manual pass in Task 18.
+
+**Type-check gate for every `apps/extension` task — use this, not the build.** Discovered during
+Task 11: `pnpm --filter vnext-forge-studio build:host` runs esbuild, which **strips types without
+checking them**. A passing host build says nothing about type correctness, so it is not a gate.
+
+There is no `typecheck` script in that workspace, but the project can be checked directly:
+
+```bash
+npx tsc --noEmit -p apps/extension/tsconfig.json
+```
+
+That command is **red at baseline** with exactly four pre-existing errors, none of them in
+local-runtime code:
+
+- `src/commands.ts` — `TS2741` missing `mapping` in a `Record<VnextComponentType, string>`
+- `src/commands.ts` — `TS2339` `description` does not exist on `InputBox`
+- `src/extension.ts` (×2) — `TS2345` a `(uri: vscode.Uri) => …` handler not assignable to
+  `safeAsync`'s `(...args: unknown[]) => Promise<unknown>`
+
+The gate is therefore: **no error naming a file this branch created or modified**, and the
+pre-existing four unchanged in kind. Do not "fix" them as a side effect — they are outside this
+branch's scope. Note the two `extension.ts` errors sit near the command registrations Task 17
+edits, so their **line numbers will shift**; match them by file and message, not by line.
 
 - [ ] **Step 1: Write the tool lookup**
 
