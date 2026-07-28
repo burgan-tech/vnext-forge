@@ -243,7 +243,14 @@ export class LocalRuntimeService {
       throw new VnextForgeError(
         ERROR_CODES.RUNTIME_EXECUTION_FAILED,
         `${label} was cancelled.`,
-        { source: 'LocalRuntimeService.step', layer: 'application' },
+        {
+          source: 'LocalRuntimeService.step',
+          layer: 'application',
+          // Structural marker so callers can tell a user-initiated Cancel from
+          // a genuine failure without sniffing the message text. Both share
+          // RUNTIME_EXECUTION_FAILED on purpose — see `isCancellation`.
+          details: { label, cancelled: true },
+        },
       );
     }
     if (result.exitCode !== 0) {
@@ -684,4 +691,18 @@ export class LocalRuntimeService {
     progress.report({ message: 'Updating the runtime clone…' });
     await this.step('git pull', git, gitPullArgv(), binding.runtimePath, token);
   }
+}
+
+/**
+ * True when `err` came from the user pressing Cancel rather than from
+ * something going wrong.
+ *
+ * Cancellation and failure deliberately share `RUNTIME_EXECUTION_FAILED`: the
+ * distinction is a UI concern, not a new entry for the shared taxonomy. It is
+ * carried structurally — in `context.details.cancelled` — so callers never
+ * have to match on message text, which would break the moment the wording
+ * changes.
+ */
+export function isCancellation(err: unknown): boolean {
+  return err instanceof VnextForgeError && err.context.details?.cancelled === true;
 }

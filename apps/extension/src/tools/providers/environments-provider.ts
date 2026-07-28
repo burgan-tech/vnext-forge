@@ -10,6 +10,7 @@ import type { VnextWorkspaceDetector, VnextWorkspaceRoot } from '../../workspace
 import { baseLogger } from '../../shared/logger.js';
 import { redactSecrets } from '../../shared/redact.js';
 import {
+  isCancellation,
   LocalRuntimeService,
   type ContainerState,
   type ProvisionResult,
@@ -407,7 +408,13 @@ export class EnvironmentsProvider implements vscode.TreeDataProvider<string> {
           service.provision({ workspacePath: root.folderPath, domain, portOffset }, progress, token),
       );
     } catch (err) {
-      await this.showFailure(`Local runtime setup failed: ${describeError(err)}`);
+      // Either way we return before persisting: a cancelled or failed
+      // provision must never leave a registered environment behind.
+      if (isCancellation(err)) {
+        this.showCancelled('Local runtime setup');
+      } else {
+        await this.showFailure(`Local runtime setup failed: ${describeError(err)}`);
+      }
       return;
     }
 
@@ -450,18 +457,27 @@ export class EnvironmentsProvider implements vscode.TreeDataProvider<string> {
           : `${issue.tool} is not installed`,
       )
       .join('; ');
+    // Both actions when the issues are mixed: a stopped daemon is fixed by
+    // Retry, a missing tool by the docs, and one user can have both. The link
+    // targets the first *missing* issue — the first issue overall could be the
+    // stopped daemon, whose help page says nothing about installing git.
     const canRetry = preflight.issues.some((issue) => issue.problem === 'not-running');
+    const firstMissing = preflight.issues.find((issue) => issue.problem === 'missing');
+    const actions = [
+      ...(canRetry ? ['Retry'] : []),
+      ...(firstMissing ? ['Open Install Docs'] : []),
+    ];
     const action = await vscode.window.showErrorMessage(
       `Cannot set up a local runtime: ${summary}.`,
-      canRetry ? 'Retry' : 'Open Install Docs',
+      ...actions,
     );
 
     if (action === 'Retry') {
       // `detectPreflight` drops its detection cache on every call, so this
       // genuinely re-checks rather than replaying the previous verdict.
       await this.addLocalEnvironment();
-    } else if (action === 'Open Install Docs') {
-      void vscode.env.openExternal(vscode.Uri.parse(preflight.issues[0].helpUrl));
+    } else if (action === 'Open Install Docs' && firstMissing) {
+      void vscode.env.openExternal(vscode.Uri.parse(firstMissing.helpUrl));
     }
     return false;
   }
@@ -500,8 +516,14 @@ export class EnvironmentsProvider implements vscode.TreeDataProvider<string> {
         (progress, token) => run(service, target.binding, progress, token),
       );
     } catch (err) {
+      // Still not a success — `updateRuntime` must not claim it updated —
+      // but presented as the user's own decision rather than as an error.
       succeeded = false;
-      await this.showFailure(`${title} failed: ${describeError(err)}`);
+      if (isCancellation(err)) {
+        this.showCancelled(title);
+      } else {
+        await this.showFailure(`${title} failed: ${describeError(err)}`);
+      }
     } finally {
       this.invalidateContainerState(envId);
     }
@@ -620,6 +642,20 @@ export class EnvironmentsProvider implements vscode.TreeDataProvider<string> {
     this.runTerminal?.(`make logs-vnext DOMAIN=${binding.domain}`, binding.runtimePath);
   }
 
+  /**
+   * Cancellation is a decision the user just made, not a failure. It gets a
+   * plain informational message with no action button — reporting it as an
+   * error would both misdescribe it and blunt the error toast a real failure
+   * needs. Not silence: these operations run for minutes and leave partial
+   * state behind, so a one-line confirmation that Forge actually stopped (and,
+   * where it differs from what was asked, what that means) is worth the toast.
+   */
+  private showCancelled(what: string, note?: string): void {
+    void vscode.window.showInformationMessage(
+      note ? `${what} was cancelled. ${note}` : `${what} was cancelled.`,
+    );
+  }
+
   private async showFailure(message: string, severity: 'error' | 'warning' = 'error'): Promise<void> {
     const action =
       severity === 'error'
@@ -712,6 +748,15 @@ export class EnvironmentsProvider implements vscode.TreeDataProvider<string> {
           (progress, token) => service.teardown(binding, progress, token),
         );
       } catch (err) {
+        if (isCancellation(err)) {
+          // Cancel here means "stop", so the entry stays. The
+          // strand-the-user argument below is about a teardown that *fails*;
+          // it does not apply when the user changed their mind and can simply
+          // run Delete again.
+          this.showCancelled('Local runtime teardown', 'The environment was not removed.');
+          this.invalidateContainerState(envId);
+          return;
+        }
         // Reported, but the entry still goes: refusing to delete it because a
         // container would not stop would strand the user with an environment
         // they cannot remove.
