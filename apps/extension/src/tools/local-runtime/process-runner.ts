@@ -6,6 +6,8 @@ import {
 } from '@vnext-forge-studio/services-core';
 import type * as vscode from 'vscode';
 
+import { redactSecrets } from '../../shared/redact.js';
+
 export interface RunStreamingOptions {
   cwd: string;
   /** Called once per output line, stdout and stderr interleaved. */
@@ -18,15 +20,6 @@ export interface RunStreamingResult {
   /** Everything emitted, already redacted. Used for error messages. */
   output: string;
   cancelled: boolean;
-}
-
-/**
- * Hide credentials passed as CLI flags before anything reaches the Output
- * channel. `postgres/postgres` is the runtime repo's public local-dev
- * credential, but a log is still the wrong place for it.
- */
-export function redactSecrets(text: string): string {
-  return text.replace(/(--DB_PASSWORD)(\s+|=)(\S+)/g, '$1$2***');
 }
 
 /**

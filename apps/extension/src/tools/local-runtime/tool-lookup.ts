@@ -60,9 +60,17 @@ function resolveIn(dir: string, bin: string): string | null {
 /**
  * Resolve an executable to an absolute path: PATH first, then the well-known
  * locations above. Returns null when the binary genuinely is not installed.
+ *
+ * Only successful resolutions are cached. A missing tool must be re-checked
+ * on every call: the preflight flow shows a Retry button when a tool is
+ * missing or the daemon isn't running, and the whole point of Retry is that
+ * the user goes and starts/installs the tool then clicks it again. Caching
+ * `null` would make Retry silently do nothing for the rest of the VS Code
+ * session. A failed lookup is a handful of cheap `stat`/`access` calls across
+ * a short directory list, so redoing it costs nothing.
  */
 export function createToolLookup(): ToolLookup {
-  const cache = new Map<string, string | null>();
+  const cache = new Map<string, string>();
 
   return (bin: string): string | null => {
     const cached = cache.get(bin);
@@ -75,7 +83,7 @@ export function createToolLookup(): ToolLookup {
       if (resolved !== null) break;
     }
 
-    cache.set(bin, resolved);
+    if (resolved !== null) cache.set(bin, resolved);
     return resolved;
   };
 }
