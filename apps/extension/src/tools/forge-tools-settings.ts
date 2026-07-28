@@ -32,11 +32,38 @@ export interface PseudoUiTenantStyleSettings {
 
 // ── Environment types ────────────────────────────────────────────────────────
 
+export type EnvironmentKind = 'remote' | 'local-docker';
+
+/** Ports a managed local domain occupies on the host. */
+export interface LocalRuntimePorts {
+  app: number;
+  execution: number;
+  inbox: number;
+  outbox: number;
+  init: number;
+}
+
+/** Everything needed to drive a managed local runtime after it is provisioned. */
+export interface LocalRuntimeBinding {
+  /** Domain from the workspace's vnext.config.json. */
+  domain: string;
+  portOffset: number;
+  /** Absolute path of the clone: <workspacePath>/.vnext-runtime */
+  runtimePath: string;
+  /** Workspace root that owns this runtime. */
+  workspacePath: string;
+  ports: LocalRuntimePorts;
+}
+
 export interface RuntimeEnvironment {
   id: string;
   name: string;
   baseUrl: string;
   dbName?: string;
+  /** Undefined means 'remote' — keeps pre-existing environments.json valid. */
+  kind?: EnvironmentKind;
+  /** Present only when kind === 'local-docker'. */
+  local?: LocalRuntimeBinding;
 }
 
 export interface EnvironmentsConfig {
@@ -200,6 +227,51 @@ function parseQuickRunSettings(raw: unknown): QuickRunSettings {
   return { globalHeaders, polling };
 }
 
+function parsePositiveInt(value: unknown): number | null {
+  return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : null;
+}
+
+function parseLocalRuntimePorts(raw: unknown): LocalRuntimePorts | null {
+  if (raw == null || typeof raw !== 'object') return null;
+  const o = raw as Record<string, unknown>;
+  const app = parsePositiveInt(o.app);
+  const execution = parsePositiveInt(o.execution);
+  const inbox = parsePositiveInt(o.inbox);
+  const outbox = parsePositiveInt(o.outbox);
+  const init = parsePositiveInt(o.init);
+  if (app === null || execution === null || inbox === null || outbox === null || init === null) {
+    return null;
+  }
+  return { app, execution, inbox, outbox, init };
+}
+
+/**
+ * Returns null when the binding is unusable. The caller then downgrades the
+ * environment to 'remote' rather than dropping it: the base URL still works,
+ * only the lifecycle actions go away.
+ */
+function parseLocalRuntimeBinding(raw: unknown): LocalRuntimeBinding | null {
+  if (raw == null || typeof raw !== 'object') return null;
+  const o = raw as Record<string, unknown>;
+  const ports = parseLocalRuntimePorts(o.ports);
+  if (
+    typeof o.domain !== 'string' || o.domain.length === 0 ||
+    typeof o.runtimePath !== 'string' || o.runtimePath.length === 0 ||
+    typeof o.workspacePath !== 'string' || o.workspacePath.length === 0 ||
+    typeof o.portOffset !== 'number' || !Number.isInteger(o.portOffset) || o.portOffset < 0 ||
+    ports === null
+  ) {
+    return null;
+  }
+  return {
+    domain: o.domain,
+    portOffset: o.portOffset,
+    runtimePath: o.runtimePath,
+    workspacePath: o.workspacePath,
+    ports,
+  };
+}
+
 function parseEnvironments(raw: unknown): EnvironmentsConfig {
   if (raw == null || typeof raw !== 'object') return { ...DEFAULT_ENVIRONMENTS, environments: [] };
   const obj = raw as Record<string, unknown>;
@@ -217,11 +289,15 @@ function parseEnvironments(raw: unknown): EnvironmentsConfig {
         const rawUrl = ((item as Record<string, unknown>).baseUrl as string).replace(/\/+$/, '');
         if (!isAllowedBaseUrl(rawUrl)) continue;
         const rec = item as Record<string, unknown>;
+        const local = rec.kind === 'local-docker' ? parseLocalRuntimeBinding(rec.local) : null;
         environments.push({
           id: rec.id as string,
           name: rec.name as string,
           baseUrl: rawUrl,
           ...(typeof rec.dbName === 'string' && rec.dbName.length > 0 ? { dbName: rec.dbName } : {}),
+          // A malformed binding downgrades the entry to remote instead of
+          // dropping it — the URL is still usable.
+          ...(local ? { kind: 'local-docker' as const, local } : { kind: 'remote' as const }),
         });
       }
     }
@@ -328,13 +404,19 @@ export class ForgeToolsSettingsService implements vscode.Disposable {
     return this.environmentsCache?.environments.map((e) => e.baseUrl) ?? [];
   }
 
-  async addEnvironment(name: string, baseUrl: string, dbName?: string): Promise<RuntimeEnvironment> {
+  async addEnvironment(
+    name: string,
+    baseUrl: string,
+    dbName?: string,
+    binding?: LocalRuntimeBinding,
+  ): Promise<RuntimeEnvironment> {
     const config = await this.loadEnvironments();
     const env: RuntimeEnvironment = {
       id: crypto.randomUUID(),
       name,
       baseUrl: baseUrl.replace(/\/+$/, ''),
       ...(dbName ? { dbName } : {}),
+      ...(binding ? { kind: 'local-docker' as const, local: binding } : { kind: 'remote' as const }),
     };
     config.environments.push(env);
     config.activeEnvironmentId ??= env.id;
