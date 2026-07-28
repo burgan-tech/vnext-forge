@@ -151,7 +151,8 @@ Workflow CLI (`wf domain add <name>`) accepts `--API_BASE_URL --API_VERSION --DB
 | `domain-env.ts` | `parseDomainEnv(content)` → offset + the five ports, read back from an existing `domains/<d>/.env`. |
 | `db-name.ts` | `normalizeDbName(domain)` (mirror of `create-domain.sh`: non-alphanumeric → `_`, first character upper-cased → `vNext_Core`) and `extractDbNameFromAppSettings(content)` (`Database=([^;]+)`). |
 | `commands.ts` | `cloneArgv(url, dest)`, `makeArgv(target, { domain, portOffset })`, `dockerPsArgv(containerName)`, `wfDomainAddArgv(params)`. Returns argv arrays — never a shell string. |
-| `preflight.ts` | `evaluatePreflight({ git, docker, compose, make })` → missing tools + install URLs. |
+| `preflight.ts` | `evaluatePreflight({ git, make, runtime })` → missing tools + install URLs, and the "installed but daemon not running" case. |
+| `container-runtime.ts` | `detectContainerRuntime(lookup, composeProbe)` → `ContainerRuntimeInfo` or a missing-runtime result. See below. |
 | `index.ts` | Barrel. |
 
 `apps/extension/src/tools/local-runtime/` — VS Code side:
@@ -160,15 +161,66 @@ Workflow CLI (`wf domain add <name>`) accepts `--API_BASE_URL --API_VERSION --DB
 |---|---|
 | `local-runtime.service.ts` | The orchestrator: `provision`, `start`, `stop`, `restart`, `teardown`, `updateRuntime`, `getContainerState`, `detectPreflight`, `probePort`. Chains steps on exit codes, reports through `withProgress`. |
 | `process-runner.ts` | `runStreaming(file, argv, { cwd, onLine, token })` → `{ exitCode }`. Uses `buildChildEnv(DEFAULT_CHILD_PROCESS_ENV_ALLOWLIST)` like `cli.service.ts`. Cancellation → `SIGTERM`. Redacts `--DB_PASSWORD <v>` in emitted lines. |
-
-Every `make` invocation runs with `cwd = runtimePath` (the clone root, where the Makefile lives);
-`git clone` runs with `cwd = workspacePath` and `git pull` with `cwd = runtimePath`.
-
-**Container CLI detection.** The Makefile auto-detects docker/podman internally, but Forge also
-runs its own `ps` calls for state detection. `local-runtime.service` resolves the container CLI
-once per session — `docker` if present, else `podman` — and uses that binary for every direct
-`ps` call. If neither exists, preflight has already stopped the flow.
 | `gitignore-writer.ts` | Idempotently ensures `.vnext-runtime/` is in the workspace `.gitignore`. |
+| `tool-lookup.ts` | Implements `ToolLookup` for the pure detector: `PATH` first, then the well-known-location fallback (see below). |
+
+### Container runtime detection (docker / OrbStack / Docker Desktop / Colima / podman)
+
+**OrbStack is not a third runtime.** It ships a Docker-compatible daemon plus the `docker`
+CLI; `orb` is only OrbStack's own management binary. Verified on a dev machine: `docker` and
+`orb` both resolve to `/usr/local/bin`, and `docker context ls` shows `orbstack *` as the
+active context. The same holds for Docker Desktop, Colima and Rancher Desktop — they differ
+only in the daemon behind the socket, which is invisible to us. The runtime repo's Makefile
+reaches the same conclusion (`orb` present → `CONTAINER_RUNTIME = docker`).
+
+So the real axis is binary: **docker-CLI vs podman-CLI**. The third name is a cosmetic label.
+
+```ts
+export type ToolLookup = (bin: string) => string | null;  // absolute path, or null
+
+export interface ContainerRuntimeInfo {
+  containerCli: { bin: 'docker' | 'podman'; path: string };
+  composeArgv: string[];                     // ['docker','compose'] | ['docker-compose']
+                                             // | ['podman','compose'] | ['podman-compose']
+  flavor: 'orbstack' | 'docker' | 'podman';  // label only — drives preflight wording
+}
+```
+
+Detection order **mirrors the Makefile exactly** so Forge and `make` never disagree, with
+three deliberate hardenings:
+
+1. **`orb` alone does not imply docker.** The Makefile maps `orb` → `docker` unconditionally;
+   if OrbStack is installed without its CLI helpers linked, `check-runtime` prints success and
+   the next command fails. Forge falls through to podman / none instead.
+2. **PATH fallback.** `PATH` is in `DEFAULT_CHILD_PROCESS_ENV_ALLOWLIST`, so we inherit the
+   extension host's PATH — but on macOS a VS Code launched from Dock/Finder gets launchd's
+   PATH (`/usr/bin:/bin:/usr/sbin:/sbin`), which excludes `/usr/local/bin` and
+   `/opt/homebrew/bin` where docker, orb and docker-compose usually live. VS Code normally
+   repairs this by resolving the login shell environment, but that can be disabled
+   (`terminal.integrated.inheritEnv: false`) or fail on unusual shell configs — producing a
+   false "Docker not found". Before declaring a binary missing, `lookup` therefore checks
+   well-known locations: `/usr/local/bin`, `/opt/homebrew/bin`, `/usr/bin`, `~/.docker/bin`,
+   `~/.rd/bin`, and on Windows `%ProgramFiles%\Docker\Docker\resources\bin`. When found there,
+   the **absolute path** is used to spawn.
+3. **Installed ≠ running.** Preflight also runs `<cli> info --format {{.ServerVersion}}` and
+   treats a non-zero exit as its own state, so the message becomes *"Docker is installed but
+   not running. Start OrbStack / Docker Desktop and retry."* instead of "not found". This is
+   the most common newcomer failure and deserves its own wording.
+
+**Why container-CLI `ps` and not compose for state detection:** `<cli> ps --filter
+name=^vnext-app-<domain>$ --format {{.Status}}` uses two flags podman implements
+docker-compatibly, whereas compose-level `--format json` is not available in
+`podman-compose`. The regex is anchored because an unanchored `name=core` filter would also
+match `vnext-app-core2`.
+
+**We never pass the detected runtime to `make`.** The Makefile does its own detection;
+overriding it would only create a second opinion. Forge's detection feeds exactly two things:
+preflight wording, and Forge's own `ps` calls. The result is resolved once per session and
+re-detected if a spawn fails with `ENOENT`.
+
+> Unverified: podman was not installed on the machine used during design, so the podman branch
+> was not executed. `podman ps` documents `--filter name=<regex>` and `--format`, but the first
+> person to run the podman path should confirm.
 
 `EnvironmentsProvider` receives the service by injection (same pattern as the existing
 `domainAdd` injection) so the tree logic stays separable from orchestration.
@@ -223,8 +275,10 @@ dbName → `wf domain add`).
 1. Workspace pick (skipped when there is exactly one root) → read `domain` from
    `vnext.config.json` via `services.workspaceService.getConfig`. If there is no domain,
    abort with: *"Local runtime needs a domain. Add a `domain` field to vnext.config.json first."*
-2. Preflight: detect `git`, `docker`, a compose command, `make`. If anything is missing, one
-   notification lists all of them with install links and the flow stops.
+2. Preflight: resolve `git`, `make` and the container runtime (see *Container runtime
+   detection*). If anything is missing, one notification lists all of it with install links and
+   the flow stops. A present-but-stopped daemon gets its own message and a **Retry** action
+   rather than being reported as missing.
 3. Port offset: input box pre-filled with the computed suggestion. Validation: integer, `>= 0`,
    multiple of 10.
 4. Environment name: input box, default `Local (<domain>)`.
@@ -331,7 +385,14 @@ lives there.
 - `domain-env` — parse a realistic template-shaped `.env`; missing and malformed lines.
 - `db-name` — `core → vNext_Core`, `my-domain → vNext_My_domain`, empty/invalid input;
   `extractDbNameFromAppSettings` hit and miss.
-- `preflight` — combinations of missing tools.
+- `preflight` — combinations of missing tools; installed-but-daemon-down produces the
+  "not running" state, not the "not found" state.
+- `container-runtime` — table test over every combination with a fake `ToolLookup`:
+  `orb`+`docker` → docker/orbstack; `docker` only → docker/docker; `orb` without `docker` →
+  falls through (the deliberate divergence from the Makefile); `podman` + `podman-compose`;
+  `podman` + `podman compose`; `docker` + `docker-compose` but no `docker compose`;
+  nothing installed → missing-runtime result. Also: a binary absent from `PATH` but present in
+  a well-known location resolves to its absolute path.
 - `commands` — argv shape for each command; regression lock that nothing builds a shell string.
 
 `packages/designer-ui` (vitest): the Part 1 tests listed above.
