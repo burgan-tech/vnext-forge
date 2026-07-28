@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { findFreePortOffset } from '../../src/services/local-runtime/port-allocator.js'
+import { DEFAULT_MAX_PORT_OFFSET, findFreePortOffset } from '../../src/services/local-runtime/port-allocator.js'
 
 const allFree = () => true
 
@@ -37,7 +37,12 @@ describe('findFreePortOffset', () => {
     expect(await findFreePortOffset({ usedOffsets: [], isPortFree, maxOffset: 20 })).toBeNull()
   })
 
-  it('defaults maxOffset to 200', async () => {
+  it('exhausts the default cap without needing an explicit maxOffset', async () => {
+    // Pin the constant itself: without this, raising DEFAULT_MAX_PORT_OFFSET
+    // later would go undetected below, since the stub's first qualifying
+    // offset (200) would still short-circuit the search either way.
+    expect(DEFAULT_MAX_PORT_OFFSET).toBe(200)
+
     // The init port (base 3005) is the slowest of the five to cross any given
     // threshold — it only reaches 3205 at offset 200, while the other four
     // (base 4201-4204) are already well past it. Threshold 3205 makes offset
