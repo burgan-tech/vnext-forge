@@ -80,7 +80,18 @@ export interface CliService {
     traceId?: string,
   ): Promise<{ exitCode: number; stdout: string; stderr: string }>
   domainAdd(
-    params: { domainName: string; apiBaseUrl: string; dbName: string; timeoutMs?: number },
+    params: {
+      domainName: string
+      apiBaseUrl: string
+      dbName: string
+      dbHost?: string
+      dbPort?: number
+      dbUser?: string
+      dbPassword?: string
+      useDocker?: boolean
+      dockerPostgresContainer?: string
+      timeoutMs?: number
+    },
     traceId?: string,
   ): Promise<{ exitCode: number; stdout: string; stderr: string }>
 }
@@ -293,6 +304,16 @@ export function createCliService(deps: CliServiceDeps = {}): CliService {
         '--API_BASE_URL', params.apiBaseUrl,
         '--DB_NAME', params.dbName,
       ]
+      // Only forward what the caller actually knows; unspecified options are
+      // inherited from the CLI's default domain.
+      if (params.dbHost !== undefined) argv.push('--DB_HOST', params.dbHost)
+      if (params.dbPort !== undefined) argv.push('--DB_PORT', String(params.dbPort))
+      if (params.dbUser !== undefined) argv.push('--DB_USER', params.dbUser)
+      if (params.dbPassword !== undefined) argv.push('--DB_PASSWORD', params.dbPassword)
+      if (params.useDocker !== undefined) argv.push('--USE_DOCKER', String(params.useDocker))
+      if (params.dockerPostgresContainer !== undefined) {
+        argv.push('--DOCKER_POSTGRES_CONTAINER', params.dockerPostgresContainer)
+      }
       const execOpts = execFileOptions(process.cwd(), timeoutMs)
       return runExecFile(WF_BINARY, argv, execOpts)
     },
