@@ -169,6 +169,37 @@ function clampTimeout(timeoutMs?: number): number {
 }
 
 /**
+ * Only forward what the caller actually knows; unspecified options are
+ * inherited from the CLI's default domain.
+ */
+export function buildDomainAddArgv(params: {
+  domainName: string
+  apiBaseUrl: string
+  dbName: string
+  dbHost?: string
+  dbPort?: number
+  dbUser?: string
+  dbPassword?: string
+  useDocker?: boolean
+  dockerPostgresContainer?: string
+}): string[] {
+  const argv = [
+    'domain', 'add', params.domainName,
+    '--API_BASE_URL', params.apiBaseUrl,
+    '--DB_NAME', params.dbName,
+  ]
+  if (params.dbHost !== undefined) argv.push('--DB_HOST', params.dbHost)
+  if (params.dbPort !== undefined) argv.push('--DB_PORT', String(params.dbPort))
+  if (params.dbUser !== undefined) argv.push('--DB_USER', params.dbUser)
+  if (params.dbPassword !== undefined) argv.push('--DB_PASSWORD', params.dbPassword)
+  if (params.useDocker !== undefined) argv.push('--USE_DOCKER', String(params.useDocker))
+  if (params.dockerPostgresContainer !== undefined) {
+    argv.push('--DOCKER_POSTGRES_CONTAINER', params.dockerPostgresContainer)
+  }
+  return argv
+}
+
+/**
  * Normalize and ensure `candidate` resolves under `projectRoot` (no traversal).
  */
 async function resolveFileInsideProject(params: {
@@ -299,21 +330,7 @@ export function createCliService(deps: CliServiceDeps = {}): CliService {
 
     async domainAdd(params, _traceId): Promise<{ exitCode: number; stdout: string; stderr: string }> {
       const timeoutMs = clampTimeout(params.timeoutMs)
-      const argv = [
-        'domain', 'add', params.domainName,
-        '--API_BASE_URL', params.apiBaseUrl,
-        '--DB_NAME', params.dbName,
-      ]
-      // Only forward what the caller actually knows; unspecified options are
-      // inherited from the CLI's default domain.
-      if (params.dbHost !== undefined) argv.push('--DB_HOST', params.dbHost)
-      if (params.dbPort !== undefined) argv.push('--DB_PORT', String(params.dbPort))
-      if (params.dbUser !== undefined) argv.push('--DB_USER', params.dbUser)
-      if (params.dbPassword !== undefined) argv.push('--DB_PASSWORD', params.dbPassword)
-      if (params.useDocker !== undefined) argv.push('--USE_DOCKER', String(params.useDocker))
-      if (params.dockerPostgresContainer !== undefined) {
-        argv.push('--DOCKER_POSTGRES_CONTAINER', params.dockerPostgresContainer)
-      }
+      const argv = buildDomainAddArgv(params)
       const execOpts = execFileOptions(process.cwd(), timeoutMs)
       return runExecFile(WF_BINARY, argv, execOpts)
     },
