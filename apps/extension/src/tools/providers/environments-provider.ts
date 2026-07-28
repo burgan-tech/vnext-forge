@@ -60,6 +60,24 @@ const CONTAINER_STATE_LABELS: Record<ContainerState, string> = {
  */
 const HOST_TOOL_PREFLIGHT_TOOLS: ReadonlySet<string> = new Set(['git', 'make']);
 
+/**
+ * True when `wf domain add` reported an error while still exiting 0.
+ *
+ * The CLI's `addDomain` catches the "already exists" throw and prints
+ * `✗ Error: Domain "x" already exists.` to stdout without ever setting an exit
+ * code (verified in vnext-workflow-cli `src/commands/domain.js`). Trusting the
+ * exit code alone would let Forge claim it registered the domain while `wf`
+ * kept pointing at a completely different runtime — the exact divergence this
+ * feature exists to prevent, and invisible on the happy path.
+ *
+ * Both halves are required: the error marker alone would also match unrelated
+ * failures, and "already exists" alone would match a success message that
+ * merely mentions the phrase.
+ */
+function isSilentDomainAddFailure(output: string): boolean {
+  return /already exists/i.test(output) && (output.includes('✗') || /error:/i.test(output));
+}
+
 function describeError(err: unknown): string {
   // Redacted defensively: a failing child process can echo its own argv, and
   // these messages go straight to a VS Code notification.
@@ -418,16 +436,30 @@ export class EnvironmentsProvider implements vscode.TreeDataProvider<string> {
       return;
     }
 
-    // 7 — persist + register with the Workflow CLI
+    // 7 — persist
     await this.settingsService.addEnvironment(
       name.trim(),
       result.baseUrl,
       result.dbName,
       result.binding,
     );
-    await this.runDomainAdd(domain, result.baseUrl, result.dbName, name.trim(), result.binding);
 
-    // 8 — outcome
+    // 8 — register with the Workflow CLI + report the outcome
+    await this.finishProvisioning(domain, result, name.trim());
+  }
+
+  /**
+   * Everything that follows a successful provision once the environment has
+   * been persisted. Shared by Add and by the provision-now branch of Start so
+   * the two cannot drift into registering with the CLI differently.
+   */
+  private async finishProvisioning(
+    domain: string,
+    result: ProvisionResult,
+    envLabel: string,
+  ): Promise<void> {
+    await this.runDomainAdd(domain, result.baseUrl, result.dbName, envLabel, result.binding);
+
     const message = result.healthy
       ? `Local runtime for domain "${domain}" is running at ${result.baseUrl}.`
       : `Local runtime for domain "${domain}" started at ${result.baseUrl}, but /health did not respond yet.`;
@@ -542,11 +574,16 @@ export class EnvironmentsProvider implements vscode.TreeDataProvider<string> {
         'Provision',
       );
       if (confirm !== 'Provision') return;
-      await this.runLifecycle(
+      // The result is captured rather than discarded: provisioning from here
+      // has to reach the same end state as provisioning from Add — values
+      // persisted, CLI registered, outcome reported — or the same operation
+      // would mean two different things depending on where it was started.
+      let result: ProvisionResult | undefined;
+      const provisioned = await this.runLifecycle(
         envId,
         `Provisioning local runtime for "${target.binding.domain}"`,
         async (svc, binding, progress, token) => {
-          await svc.provision(
+          result = await svc.provision(
             {
               workspacePath: binding.workspacePath,
               domain: binding.domain,
@@ -557,6 +594,14 @@ export class EnvironmentsProvider implements vscode.TreeDataProvider<string> {
           );
         },
       );
+      if (!provisioned || !result) return;
+
+      await this.settingsService.updateEnvironment(envId, {
+        baseUrl: result.baseUrl,
+        dbName: result.dbName,
+        local: result.binding,
+      });
+      await this.finishProvisioning(target.binding.domain, result, target.env.name);
       return;
     }
 
@@ -808,7 +853,23 @@ export class EnvironmentsProvider implements vscode.TreeDataProvider<string> {
         binding && this.localRuntime
           ? await this.domainAdd(this.localRuntime.buildDomainAddArgs(binding, dbName))
           : await this.domainAdd({ domainName: cliDomain, apiBaseUrl: baseUrl, dbName });
-      if (result.exitCode === 0) {
+      if (result.exitCode === 0 && isSilentDomainAddFailure(`${result.stdout}\n${result.stderr}`)) {
+        // Deliberately not repaired automatically: there is no verified safe
+        // way to update an existing registration in place, so the user is
+        // given the command instead. --DB_PASSWORD is omitted from it on
+        // purpose — a notification is the wrong place for a credential, and
+        // the CLI inherits the rest from the default domain.
+        const action = await vscode.window.showWarningMessage(
+          `Workflow CLI domain "${cliDomain}" is already registered, so its URL was not changed. ` +
+            `Forge provisioned ${baseUrl}. To point the CLI there, run: ` +
+            `wf domain remove ${cliDomain} && wf domain add ${cliDomain} ` +
+            `--API_BASE_URL ${baseUrl} --DB_NAME ${dbName}`,
+          'View CLI Docs',
+        );
+        if (action === 'View CLI Docs') {
+          void vscode.env.openExternal(vscode.Uri.parse(WORKFLOW_CLI_DOCS_URL));
+        }
+      } else if (result.exitCode === 0) {
         const action = await vscode.window.showInformationMessage(
           `Workflow CLI domain "${cliDomain}" registered for environment "${envLabel}".`,
           'View CLI Docs',
@@ -881,7 +942,18 @@ export class EnvironmentsProvider implements vscode.TreeDataProvider<string> {
     if (!(await this.isContainerRuntimeAvailable())) return 'unknown';
 
     try {
-      const state = await service.getContainerState(binding);
+      let state = await service.getContainerState(binding);
+      // `make down-vnext` runs `compose down`, which REMOVES the containers
+      // rather than stopping them — so Forge's own Stop button lands here with
+      // nothing left to find. Reported as `absent`, a stopped environment
+      // would be indistinguishable from one that was never provisioned, and
+      // the tree would invite the user to re-create what already exists. Disk
+      // state is the honest signal: the domain configuration is still there,
+      // so the environment exists and merely is not up. Do not "correct" this
+      // back to absent.
+      if (state === 'absent' && (await service.isProvisioned(binding))) {
+        state = 'stopped';
+      }
       this.containerStates.set(envId, state);
       return state;
     } catch (err) {

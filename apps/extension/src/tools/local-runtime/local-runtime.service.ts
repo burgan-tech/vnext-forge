@@ -256,7 +256,7 @@ export class LocalRuntimeService {
     if (result.exitCode !== 0) {
       throw new VnextForgeError(
         ERROR_CODES.RUNTIME_EXECUTION_FAILED,
-        `${label} failed (exit ${result.exitCode}). See the vnext-forge-studio output for details.`,
+        `${label} failed (exit ${result.exitCode}). See the vnext-forge-studio-core output for details.`,
         {
           source: 'LocalRuntimeService.step',
           layer: 'application',

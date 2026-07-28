@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import * as path from 'node:path';
 
 import {
   buildChildEnv,
@@ -7,6 +8,35 @@ import {
 import type * as vscode from 'vscode';
 
 import { redactSecrets } from '../../shared/redact.js';
+import { wellKnownDirs } from './tool-lookup.js';
+
+/**
+ * PATH for spawned children: the inherited PATH plus the directories
+ * `tool-lookup` searches.
+ *
+ * This is the child-process half of the problem `tool-lookup` solves. Resolving
+ * `make` to an absolute path is not enough: the runtime repo's Makefile does its
+ * own `command -v orb / docker / podman` against whatever PATH it inherits, and
+ * a Dock-launched VS Code on macOS passes down launchd's
+ * `/usr/bin:/bin:/usr/sbin:/sbin` — no `/usr/local/bin`, no `/opt/homebrew/bin`.
+ * Without this, preflight passes and then `make setup` dies with
+ * "No container runtime detected!", which sends the reader debugging the wrong
+ * layer entirely. Do not remove this without also removing `tool-lookup`.
+ *
+ * Appended, never prepended: the user's own PATH keeps priority. Deduplicated so
+ * an already-complete PATH does not accumulate entries.
+ */
+function augmentedPath(): string {
+  const merged: string[] = [];
+  const seen = new Set<string>();
+  const inherited = (process.env.PATH ?? '').split(path.delimiter).filter(Boolean);
+  for (const dir of [...inherited, ...wellKnownDirs()]) {
+    if (seen.has(dir)) continue;
+    seen.add(dir);
+    merged.push(dir);
+  }
+  return merged.join(path.delimiter);
+}
 
 export interface RunStreamingOptions {
   cwd: string;
@@ -37,7 +67,7 @@ export function runStreaming(
   return new Promise((resolve) => {
     const child = spawn(file, [...argv], {
       cwd: options.cwd,
-      env: buildChildEnv(DEFAULT_CHILD_PROCESS_ENV_ALLOWLIST),
+      env: buildChildEnv(DEFAULT_CHILD_PROCESS_ENV_ALLOWLIST, { PATH: augmentedPath() }),
       shell: false,
     });
 

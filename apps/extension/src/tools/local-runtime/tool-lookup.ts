@@ -13,8 +13,13 @@ import type { ToolLookup } from '@vnext-forge-studio/services-core';
  * VS Code usually repairs this by resolving the login shell environment, but
  * that can be disabled (`terminal.integrated.inheritEnv: false`) or fail on
  * unusual shell configs, and the symptom is a false "Docker not found".
+ *
+ * Exported because resolving an absolute path for *our* spawns only solves
+ * half of it: the runtime repo's Makefile runs its own `command -v docker`
+ * against the child's inherited PATH, so `process-runner` has to widen that
+ * PATH with the same list. Removing either half brings the bug back.
  */
-function wellKnownDirs(): string[] {
+export function wellKnownDirs(): string[] {
   const home = os.homedir();
   if (process.platform === 'win32') {
     const programFiles = process.env.ProgramFiles ?? 'C:\\Program Files';

@@ -424,12 +424,32 @@ export class ForgeToolsSettingsService implements vscode.Disposable {
     return env;
   }
 
-  async updateEnvironment(id: string, patch: { name?: string; baseUrl?: string }): Promise<void> {
+  /**
+   * `dbName` and `local` exist so that provisioning an environment that was
+   * added earlier reaches the same stored state as provisioning it through
+   * Add — otherwise the two paths persist different things.
+   */
+  async updateEnvironment(
+    id: string,
+    patch: {
+      name?: string;
+      baseUrl?: string;
+      dbName?: string;
+      local?: LocalRuntimeBinding;
+    },
+  ): Promise<void> {
     const config = await this.loadEnvironments();
     const env = config.environments.find((e) => e.id === id);
     if (!env) return;
     if (patch.name !== undefined) env.name = patch.name;
     if (patch.baseUrl !== undefined) env.baseUrl = patch.baseUrl.replace(/\/+$/, '');
+    if (patch.dbName !== undefined) env.dbName = patch.dbName;
+    if (patch.local !== undefined) {
+      // `kind` is set with it: parseEnvironments only keeps `local` when the
+      // kind says local-docker, so writing the binding alone would drop it.
+      env.kind = 'local-docker';
+      env.local = patch.local;
+    }
     await this.saveEnvironments(config);
   }
 
