@@ -1,4 +1,9 @@
 import * as vscode from 'vscode';
+import {
+  parseWfDomainList,
+  planDomainRegistration,
+  type WfDomainEntry,
+} from '@vnext-forge-studio/services-core';
 import type {
   ForgeToolsSettingsService,
   RuntimeEnvironment,
@@ -63,6 +68,47 @@ const CONTAINER_STATE_LABELS: Record<ContainerState, string> = {
 const HOST_TOOL_PREFLIGHT_TOOLS: ReadonlySet<string> = new Set(['git', 'make']);
 
 /**
+ * Whether the Workflow CLI's registration for a managed environment agrees
+ * with what Forge persisted for it.
+ *
+ * `'unknown'` is not a third kind of registration — it means Forge could not
+ * find out: no `wf` CLI on the host, a `domain list` that threw, or no
+ * database name on record to compare against. The Register action stays hidden
+ * in that state, because without the CLI (or without a DB_NAME) there is
+ * nothing Forge could correctly register.
+ */
+type CliRegistrationState = 'ok' | 'needs-registration' | 'unknown';
+
+/**
+ * `contextValue` per registration state.
+ *
+ * The suffix is what `package.json` keys the Register action off: a
+ * `view/item/context` `when` clause is the only way VS Code can hide a
+ * context-menu entry — menu items cannot be greyed out. Every other managed
+ * environment menu entry matches on `viewItem =~ /^environment-local/`, so all
+ * three variants keep the full lifecycle menu.
+ */
+const CLI_REGISTRATION_CONTEXT: Record<CliRegistrationState, string> = {
+  ok: 'environment-local-cli-ok',
+  'needs-registration': 'environment-local-cli-needs-registration',
+  unknown: 'environment-local',
+};
+
+const CLI_REGISTRATION_TOOLTIPS: Record<CliRegistrationState, string> = {
+  ok: 'Workflow CLI: registered and pointing at this runtime',
+  'needs-registration':
+    'Workflow CLI: not registered, or registered with different values — run "Register with Workflow CLI"',
+  unknown: 'Workflow CLI: unknown — Forge could not check the registration',
+};
+
+/**
+ * Domain names Forge is willing to put on a shell command line (`wf domain use
+ * <domain> && wf reset`). Matches what the runtime layout already implies — the
+ * domain is a single path segment and a database name suffix.
+ */
+const WF_DOMAIN_NAME_PATTERN = /^[A-Za-z0-9._-]+$/;
+
+/**
  * True when `wf domain add` reported an error while still exiting 0.
  *
  * Only used by the degraded fallback path — the one taken when the `domain
@@ -109,6 +155,16 @@ export class EnvironmentsProvider implements vscode.TreeDataProvider<string> {
    */
   private containerRuntimeProbe: Promise<boolean> | undefined;
 
+  /**
+   * The Workflow CLI's domain registry for the current refresh cycle, or
+   * `null` when it could not be read.
+   *
+   * Held as the *promise* for the same reason as `containerRuntimeProbe`: VS
+   * Code calls `getTreeItem` for every child in parallel, so caching the value
+   * would still spawn one `wf domain list` per environment.
+   */
+  private wfDomainsProbe: Promise<WfDomainEntry[] | null> | undefined;
+
   constructor(
     private readonly settingsService: ForgeToolsSettingsService,
     private readonly healthMonitor: EnvironmentHealthMonitor,
@@ -132,6 +188,7 @@ export class EnvironmentsProvider implements vscode.TreeDataProvider<string> {
       this.envConfig = undefined;
       this.containerStates.clear();
       this.containerRuntimeProbe = undefined;
+      this.wfDomainsProbe = undefined;
       this._onDidChangeTreeData.fire(undefined);
     });
     healthMonitor.onDidChangeHealth(() => {
@@ -157,9 +214,12 @@ export class EnvironmentsProvider implements vscode.TreeDataProvider<string> {
     // would advertise menu items that cannot run.
     const binding = env.kind === 'local-docker' ? env.local : undefined;
     if (binding && this.localRuntime) {
-      const state = await this.resolveContainerState(env.id, binding);
-      item.contextValue = 'environment-local';
-      item.tooltip = this.buildLocalTooltip(env, binding, state, isActive, health);
+      const [state, cliState] = await Promise.all([
+        this.resolveContainerState(env.id, binding),
+        this.resolveCliRegistrationState(env, binding),
+      ]);
+      item.contextValue = CLI_REGISTRATION_CONTEXT[cliState];
+      item.tooltip = this.buildLocalTooltip(env, binding, state, isActive, health, cliState);
       item.iconPath = this.getLocalIcon(state, isActive, health);
     } else {
       item.contextValue = 'environment';
@@ -334,7 +394,10 @@ export class EnvironmentsProvider implements vscode.TreeDataProvider<string> {
    * user dismissed the picker — the caller reports those differently, since
    * only the first one is something the user can act on.
    */
-  private async pickWorkspaceRoot(): Promise<VnextWorkspaceRoot | null | undefined> {
+  private async pickWorkspaceRoot(
+    title = 'Select vNext workspace for the local runtime',
+    placeHolder = 'Pick the workspace that will host the runtime clone.',
+  ): Promise<VnextWorkspaceRoot | null | undefined> {
     const roots = this.detector?.getRoots() ?? [];
     if (roots.length === 0) return null;
     if (roots.length === 1) return roots[0];
@@ -344,11 +407,7 @@ export class EnvironmentsProvider implements vscode.TreeDataProvider<string> {
         description: r.folderPath,
         root: r,
       })),
-      {
-        title: 'Select vNext workspace for the local runtime',
-        placeHolder: 'Pick the workspace that will host the runtime clone.',
-        ignoreFocusOut: true,
-      },
+      { title, placeHolder, ignoreFocusOut: true },
     );
     if (!pick) return undefined;
     return pick.root;
@@ -657,6 +716,153 @@ export class EnvironmentsProvider implements vscode.TreeDataProvider<string> {
     }
   }
 
+  /**
+   * Register (or re-register) this managed environment's domain with the
+   * Workflow CLI. Surfaced only while `contextValue` says the registration is
+   * missing or stale, and it disappears again once it is correct.
+   */
+  async registerCliDomain(envId: string): Promise<void> {
+    const target = await this.withEnvironment(envId);
+    if (!target) return;
+    const { env, binding } = target;
+
+    if (!this.domainAdd || !this.localRuntime) {
+      await this.notifyWithDocs(
+        'warning',
+        'Workflow CLI integration is not available, so Forge cannot register this domain.',
+      );
+      return;
+    }
+
+    // Never derived: registering a guessed DB_NAME would point the CLI at a
+    // database that does not exist, and every later `wf` call would fail
+    // against it while looking correctly configured.
+    if (!env.dbName) {
+      void vscode.window.showErrorMessage(
+        `Forge has no database name recorded for "${env.name}", so it cannot register the ` +
+          `Workflow CLI domain "${binding.domain}". Re-provision the runtime, or register the ` +
+          'domain with `wf domain add` by hand.',
+      );
+      return;
+    }
+
+    // Routed through the shared path on purpose: `runDomainAdd` owns building
+    // the args (`buildDomainAddArgs`) and reporting every outcome (added /
+    // replaced / up-to-date / blocked-default / failed). Duplicating either
+    // here would let the two entry points drift.
+    await this.runDomainAdd(binding.domain, env.baseUrl, env.dbName, env.name, binding);
+
+    // The registry just changed, so the cached list is stale — dropping it is
+    // what makes the action disappear from the menu when it succeeded.
+    this.wfDomainsProbe = undefined;
+    this._onDidChangeTreeData.fire(undefined);
+  }
+
+  /**
+   * Run `wf reset` for this environment's domain — a force update that deletes
+   * and re-publishes the domain's components in the database.
+   *
+   * Offered for remote environments too: they also have a CLI domain, and its
+   * components are just as resettable.
+   */
+  async resetComponents(envId: string): Promise<void> {
+    const runTerminal = this.runTerminal;
+    if (!runTerminal) return;
+
+    const config = await this.getConfig();
+    const env = config.environments.find((e) => e.id === envId);
+    if (!env) return;
+
+    const binding = env.kind === 'local-docker' ? env.local : undefined;
+
+    // A managed environment carries both values; a remote one has neither, so
+    // they come from the workspace the same way the remote add flow gets them.
+    let domain = binding?.domain ?? '';
+    let workspacePath = binding?.workspacePath ?? '';
+    if (!binding) {
+      const root = await this.pickWorkspaceRoot(
+        'Select vNext workspace to reset components for',
+        'Pick the workspace whose `vnext.config.json` components will be reset.',
+      );
+      if (root === undefined) return; // user cancelled
+      if (root === null) {
+        void vscode.window.showErrorMessage(
+          'Open a vNext workspace before resetting components — `wf reset` reads the ' +
+            'components from `vnext.config.json`.',
+        );
+        return;
+      }
+      workspacePath = root.folderPath;
+      if (this.resolveWorkspaceDomain) {
+        try {
+          domain = (await this.resolveWorkspaceDomain(root)).trim();
+        } catch (err) {
+          baseLogger.warn(
+            { folder: root.folderPath, error: (err as Error).message },
+            'Failed to read the vnext.config.json domain for a component reset.',
+          );
+        }
+      }
+    }
+
+    if (!domain) {
+      void vscode.window.showErrorMessage(
+        'Cannot reset components: no domain could be resolved. Add a `domain` field to ' +
+          'vnext.config.json first.',
+      );
+      return;
+    }
+    if (!workspacePath) {
+      void vscode.window.showErrorMessage(
+        'Cannot reset components: no workspace folder could be resolved. `wf reset` has to run ' +
+          'from the workspace root that holds vnext.config.json.',
+      );
+      return;
+    }
+    // The domain is interpolated into a shell command line below, so anything
+    // outside this set is refused rather than quoted: a domain name that needs
+    // quoting is one the runtime, the database and the CLI would not agree on
+    // anyway, and shell metacharacters here would run in the user's terminal.
+    if (!WF_DOMAIN_NAME_PATTERN.test(domain)) {
+      void vscode.window.showErrorMessage(
+        `Cannot reset components: "${domain}" is not a usable domain name. Use letters, digits, ` +
+          'dot, underscore or hyphen only.',
+      );
+      return;
+    }
+
+    // Modal, not a toast: this deletes the domain's component rows before
+    // re-publishing them, and a toast is dismissible by accident.
+    const confirm = await vscode.window.showWarningMessage(
+      `Reset components for domain "${domain}"?`,
+      {
+        modal: true,
+        detail:
+          `This force-updates the components of domain "${domain}": every matching component is ` +
+          'deleted from the database and published again from the files in ' +
+          `${workspacePath}.\n\n` +
+          'The command then asks which component types to include and for a final confirmation ' +
+          'in the terminal.',
+      },
+      'Reset Components',
+    );
+    if (confirm !== 'Reset Components') return;
+
+    // A terminal, and both commands, are both load-bearing — do not "simplify"
+    // this into `runStreaming`:
+    //   * `wf reset` is interactive. It prompts (inquirer) for which component
+    //     types to reset and then for a final confirmation, and the CLI
+    //     declares the command with no non-interactive flag. `runStreaming`
+    //     captures output and gives the child no stdin, so it would hang
+    //     forever on a prompt with nowhere to appear.
+    //   * `wf reset` acts on the CLI's *active* domain, so it must be preceded
+    //     by `wf domain use <domain>` or it would reset whichever domain the
+    //     user last selected — possibly a different environment entirely.
+    // The shell `&&` is fine here (unlike the argv arrays used for `spawn`):
+    // `runTerminal` hands a command line to a real shell.
+    runTerminal(`wf domain use ${domain} && wf reset`, workspacePath);
+  }
+
   async showLogsForEnvironment(envId: string): Promise<void> {
     const target = await this.withEnvironment(envId);
     if (!target) return;
@@ -728,8 +934,10 @@ export class EnvironmentsProvider implements vscode.TreeDataProvider<string> {
   private invalidateContainerState(envId: string): void {
     this.containerStates.delete(envId);
     // A lifecycle run is also the moment the container runtime may have become
-    // reachable (or gone away), so the shared probe is dropped with it.
+    // reachable (or gone away), so the shared probe is dropped with it. The
+    // domain registry goes too: provisioning from Start registers the domain.
     this.containerRuntimeProbe = undefined;
+    this.wfDomainsProbe = undefined;
     this._onDidChangeTreeData.fire(undefined);
   }
 
@@ -1084,12 +1292,68 @@ export class EnvironmentsProvider implements vscode.TreeDataProvider<string> {
     return this.containerRuntimeProbe;
   }
 
+  /**
+   * The Workflow CLI's domain registry, read once per refresh cycle, or `null`
+   * when Forge could not read it (no `wf` on PATH, or the call threw).
+   *
+   * The exit code is deliberately not consulted: every `wf domain` subcommand
+   * exits 0, even on error, so the output is the only signal — the same rule
+   * `wf-domain-registrar` follows. An unparseable body yields `[]`, which reads
+   * as "no domains registered"; that matches how the registrar treats it, so
+   * the tree and the registration it triggers cannot disagree.
+   */
+  private readWfDomains(): Promise<WfDomainEntry[] | null> {
+    const domainList = this.domainList;
+    if (!domainList) return Promise.resolve(null);
+    this.wfDomainsProbe ??= domainList().then(
+      (result) => parseWfDomainList(result.stdout),
+      (err: unknown) => {
+        baseLogger.warn(
+          { error: describeError(err) },
+          'Failed to read the Workflow CLI domain list; registration state is unknown.',
+        );
+        return null;
+      },
+    );
+    return this.wfDomainsProbe;
+  }
+
+  /**
+   * Does the Workflow CLI point at this managed runtime?
+   *
+   * The verdict comes from `planDomainRegistration` — the very function the
+   * registrar uses — so "needs registration" in the tree and what a
+   * registration would actually do can never diverge. A stale entry counts the
+   * same as a missing one: it is the more dangerous of the two, because the
+   * designer would talk to one runtime while `wf update` deploys to another.
+   */
+  private async resolveCliRegistrationState(
+    env: RuntimeEnvironment,
+    binding: LocalRuntimeBinding,
+  ): Promise<CliRegistrationState> {
+    const service = this.localRuntime;
+    // Without a persisted DB_NAME there is nothing to compare the CLI's entry
+    // against, and nothing Forge could register without guessing a database
+    // name that may not exist — so the state stays unknown and the action hidden.
+    if (!service || !env.dbName) return 'unknown';
+
+    const entries = await this.readWfDomains();
+    if (!entries) return 'unknown';
+
+    const { domainName, apiBaseUrl, dbName } = service.buildDomainAddArgs(binding, env.dbName);
+    const plan = planDomainRegistration(entries, { domainName, apiBaseUrl, dbName });
+    // `blocked-default` also needs registration: it is wrong and the user has
+    // to be told, even though only the CLI itself can repair that one.
+    return plan.action === 'up-to-date' ? 'ok' : 'needs-registration';
+  }
+
   private buildLocalTooltip(
     env: RuntimeEnvironment,
     binding: LocalRuntimeBinding,
     state: TreeContainerState,
     isActive: boolean,
-    health?: HealthStatus,
+    health: HealthStatus | undefined,
+    cliState: CliRegistrationState,
   ): string {
     const lines = [
       `Name: ${env.name}`,
@@ -1110,6 +1374,7 @@ export class EnvironmentsProvider implements vscode.TreeDataProvider<string> {
         ? 'Containers: unknown — the container runtime is not available'
         : `Containers: ${CONTAINER_STATE_LABELS[state]}`,
     );
+    lines.push(CLI_REGISTRATION_TOOLTIPS[cliState]);
     lines.push(
       'Ports:',
       `  Orchestration API: ${binding.ports.app}`,

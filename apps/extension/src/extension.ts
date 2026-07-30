@@ -317,6 +317,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     vscode.commands.registerCommand('vnextForge.tools.updateRuntime', safeAsync((envId) =>
       environmentsProvider.updateRuntime(envId as string),
     )),
+    vscode.commands.registerCommand('vnextForge.tools.registerCliDomain', safeAsync((envId) =>
+      environmentsProvider.registerCliDomain(envId as string),
+    )),
+    vscode.commands.registerCommand('vnextForge.tools.resetComponents', safeAsync((envId) =>
+      environmentsProvider.resetComponents(envId as string),
+    )),
     vscode.commands.registerCommand('vnextForge.tools.showEnvironmentLogs', safeAsync((envId) =>
       environmentsProvider.showLogsForEnvironment(envId as string),
     )),
