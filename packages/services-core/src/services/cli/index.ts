@@ -16,3 +16,4 @@ export {
   type CliAllowedCommand,
 } from './cli-schemas.js'
 export { createCliService, type CliService, type CliServiceDeps } from './cli.service.js'
+export { findWfDomain, parseWfDomainList, type WfDomainEntry } from './wf-domain-list.js'
