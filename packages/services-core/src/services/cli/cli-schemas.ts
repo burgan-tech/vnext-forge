@@ -88,6 +88,15 @@ export const cliDomainAddParams = z
     domainName: z.string().min(1),
     apiBaseUrl: z.string().url(),
     dbName: z.string().min(1),
+    // Optional connection details. Managed local environments discover these
+    // from the runtime repo's shared infrastructure; remote environments omit
+    // them and let the CLI inherit from its default domain.
+    dbHost: z.string().min(1).optional(),
+    dbPort: z.number().int().min(1).max(65535).optional(),
+    dbUser: z.string().min(1).optional(),
+    dbPassword: z.string().min(1).optional(),
+    useDocker: z.boolean().optional(),
+    dockerPostgresContainer: z.string().min(1).optional(),
     timeoutMs: z.number().int().min(1).max(MAX_CLI_TIMEOUT_MS).optional(),
   })
   .strict()

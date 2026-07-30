@@ -31,6 +31,7 @@ export * from './services/quickrun-presets/index.js'
 export * from './services/schema-cache/index.js'
 export * from './services/file-router/index.js'
 export * from './services/project/index.js'
+export * from './services/local-runtime/index.js'
 
 export * from './registry/index.js'
 
@@ -38,3 +39,5 @@ export {
   buildChildEnv,
   DEFAULT_CHILD_PROCESS_ENV_ALLOWLIST,
 } from './lib/child-env.js'
+
+export { stripAnsi } from './lib/ansi.js'

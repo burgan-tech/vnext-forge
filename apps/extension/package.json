@@ -268,6 +268,55 @@
         "icon": "$(pulse)"
       },
       {
+        "command": "vnextForge.tools.startEnvironment",
+        "title": "Start Local Runtime",
+        "category": "Forge",
+        "icon": "$(play)"
+      },
+      {
+        "command": "vnextForge.tools.stopEnvironment",
+        "title": "Stop Local Runtime",
+        "category": "Forge",
+        "icon": "$(debug-stop)"
+      },
+      {
+        "command": "vnextForge.tools.restartEnvironment",
+        "title": "Restart Local Runtime",
+        "category": "Forge",
+        "icon": "$(debug-restart)"
+      },
+      {
+        "command": "vnextForge.tools.showEnvironmentLogs",
+        "title": "Show Local Runtime Logs",
+        "category": "Forge",
+        "icon": "$(output)"
+      },
+      {
+        "command": "vnextForge.tools.openRuntimeFolder",
+        "title": "Open Runtime Folder",
+        "category": "Forge"
+      },
+      {
+        "command": "vnextForge.tools.revealEnvironmentPorts",
+        "title": "Reveal Ports",
+        "category": "Forge"
+      },
+      {
+        "command": "vnextForge.tools.updateRuntime",
+        "title": "Update Runtime",
+        "category": "Forge"
+      },
+      {
+        "command": "vnextForge.tools.registerCliDomain",
+        "title": "Register with Workflow CLI",
+        "category": "Forge"
+      },
+      {
+        "command": "vnextForge.tools.resetComponents",
+        "title": "Reset Components",
+        "category": "Forge"
+      },
+      {
         "command": "vnextForge.tools.wfUpdateAll",
         "title": "Deploy All (wf update --all)",
         "category": "Forge",
@@ -385,6 +434,71 @@
           "command": "vnextForge.tools.checkHealth",
           "when": "view == vnextForge.tools.environments && viewItem == environment",
           "group": "inline@4"
+        },
+        {
+          "command": "vnextForge.tools.startEnvironment",
+          "when": "view == vnextForge.tools.environments && viewItem =~ /^environment-local/",
+          "group": "inline@1"
+        },
+        {
+          "command": "vnextForge.tools.stopEnvironment",
+          "when": "view == vnextForge.tools.environments && viewItem =~ /^environment-local/",
+          "group": "inline@2"
+        },
+        {
+          "command": "vnextForge.tools.setActiveEnvironment",
+          "when": "view == vnextForge.tools.environments && viewItem =~ /^environment-local/",
+          "group": "inline@3"
+        },
+        {
+          "command": "vnextForge.tools.editEnvironment",
+          "when": "view == vnextForge.tools.environments && viewItem =~ /^environment-local/",
+          "group": "inline@4"
+        },
+        {
+          "command": "vnextForge.tools.deleteEnvironment",
+          "when": "view == vnextForge.tools.environments && viewItem =~ /^environment-local/",
+          "group": "inline@5"
+        },
+        {
+          "command": "vnextForge.tools.checkHealth",
+          "when": "view == vnextForge.tools.environments && viewItem =~ /^environment-local/",
+          "group": "inline@6"
+        },
+        {
+          "command": "vnextForge.tools.restartEnvironment",
+          "when": "view == vnextForge.tools.environments && viewItem =~ /^environment-local/",
+          "group": "lifecycle@1"
+        },
+        {
+          "command": "vnextForge.tools.showEnvironmentLogs",
+          "when": "view == vnextForge.tools.environments && viewItem =~ /^environment-local/",
+          "group": "diagnostics@1"
+        },
+        {
+          "command": "vnextForge.tools.openRuntimeFolder",
+          "when": "view == vnextForge.tools.environments && viewItem =~ /^environment-local/",
+          "group": "diagnostics@2"
+        },
+        {
+          "command": "vnextForge.tools.revealEnvironmentPorts",
+          "when": "view == vnextForge.tools.environments && viewItem =~ /^environment-local/",
+          "group": "diagnostics@3"
+        },
+        {
+          "command": "vnextForge.tools.updateRuntime",
+          "when": "view == vnextForge.tools.environments && viewItem =~ /^environment-local/",
+          "group": "maintenance@1"
+        },
+        {
+          "command": "vnextForge.tools.registerCliDomain",
+          "when": "view == vnextForge.tools.environments && viewItem == environment-local-cli-needs-registration",
+          "group": "maintenance@2"
+        },
+        {
+          "command": "vnextForge.tools.resetComponents",
+          "when": "view == vnextForge.tools.environments && viewItem =~ /^environment/",
+          "group": "maintenance@3"
         }
       ],
       "commandPalette": [
@@ -453,6 +567,42 @@
         },
         {
           "command": "vnextForge.tools.checkHealth",
+          "when": "false"
+        },
+        {
+          "command": "vnextForge.tools.startEnvironment",
+          "when": "false"
+        },
+        {
+          "command": "vnextForge.tools.stopEnvironment",
+          "when": "false"
+        },
+        {
+          "command": "vnextForge.tools.restartEnvironment",
+          "when": "false"
+        },
+        {
+          "command": "vnextForge.tools.showEnvironmentLogs",
+          "when": "false"
+        },
+        {
+          "command": "vnextForge.tools.openRuntimeFolder",
+          "when": "false"
+        },
+        {
+          "command": "vnextForge.tools.revealEnvironmentPorts",
+          "when": "false"
+        },
+        {
+          "command": "vnextForge.tools.updateRuntime",
+          "when": "false"
+        },
+        {
+          "command": "vnextForge.tools.registerCliDomain",
+          "when": "false"
+        },
+        {
+          "command": "vnextForge.tools.resetComponents",
           "when": "false"
         },
         {

@@ -15,4 +15,18 @@ export {
   cliUpdateGlobalResult,
   type CliAllowedCommand,
 } from './cli-schemas.js'
-export { createCliService, type CliService, type CliServiceDeps } from './cli.service.js'
+export {
+  buildDomainAddArgv,
+  buildDomainListArgv,
+  buildDomainRemoveArgv,
+  buildDomainUseArgv,
+  createCliService,
+  type CliService,
+  type CliServiceDeps,
+} from './cli.service.js'
+export {
+  planDomainRegistration,
+  type DesiredDomainRegistration,
+  type DomainRegistrationPlan,
+} from './domain-registration-plan.js'
+export { findWfDomain, parseWfDomainList, type WfDomainEntry } from './wf-domain-list.js'

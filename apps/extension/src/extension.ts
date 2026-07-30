@@ -32,6 +32,7 @@ import { CreateProjectProvider } from './tools/providers/create-project-provider
 import { EnvironmentsProvider } from './tools/providers/environments-provider.js';
 import { PackageDeployProvider } from './tools/providers/package-deploy-provider.js';
 import { QuickRunProvider } from './tools/providers/quickrun-provider.js';
+import { LocalRuntimeService } from './tools/local-runtime/local-runtime.service.js';
 
 /**
  * vnext-forge-studio extension entry point. Composes the shared `services-core` +
@@ -213,6 +214,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const globalSettingsProvider = new GlobalSettingsProvider(forgeToolsSettings);
   const projectActionsProvider = new ProjectActionsProvider(detector, forgeTerminal);
   const createProjectProvider = new CreateProjectProvider(detector, forgeTerminal);
+  const localRuntimeService = new LocalRuntimeService(outputChannel);
   const environmentsProvider = new EnvironmentsProvider(
     forgeToolsSettings,
     healthMonitor,
@@ -227,6 +229,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       const config = await services.workspaceService.getConfig(root.folderPath);
       return config.domain ?? '';
     },
+    localRuntimeService,
+    () => outputChannel.show(true),
+    (command, cwd) => forgeTerminal.run(command, { cwd }),
+    // The remaining `wf domain` verbs. Wired as a group with `domainAdd`
+    // above: together they let the provider replace a stale registration and
+    // verify the result, instead of a single `add` that cannot be checked.
+    services.cliService ? () => services.cliService!.domainList() : undefined,
+    services.cliService ? (name) => services.cliService!.domainRemove(name) : undefined,
+    services.cliService ? (name) => services.cliService!.domainUse(name) : undefined,
   );
   const packageDeployProvider = new PackageDeployProvider(detector, forgeTerminal);
   const quickRunProvider = new QuickRunProvider();
@@ -293,6 +304,33 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     )),
     vscode.commands.registerCommand('vnextForge.tools.setActiveEnvironment', safeAsync((envId) =>
       environmentsProvider.setActiveEnvironment(envId as string),
+    )),
+    vscode.commands.registerCommand('vnextForge.tools.startEnvironment', safeAsync((envId) =>
+      environmentsProvider.startEnvironment(envId as string),
+    )),
+    vscode.commands.registerCommand('vnextForge.tools.stopEnvironment', safeAsync((envId) =>
+      environmentsProvider.stopEnvironment(envId as string),
+    )),
+    vscode.commands.registerCommand('vnextForge.tools.restartEnvironment', safeAsync((envId) =>
+      environmentsProvider.restartEnvironment(envId as string),
+    )),
+    vscode.commands.registerCommand('vnextForge.tools.updateRuntime', safeAsync((envId) =>
+      environmentsProvider.updateRuntime(envId as string),
+    )),
+    vscode.commands.registerCommand('vnextForge.tools.registerCliDomain', safeAsync((envId) =>
+      environmentsProvider.registerCliDomain(envId as string),
+    )),
+    vscode.commands.registerCommand('vnextForge.tools.resetComponents', safeAsync((envId) =>
+      environmentsProvider.resetComponents(envId as string),
+    )),
+    vscode.commands.registerCommand('vnextForge.tools.showEnvironmentLogs', safeAsync((envId) =>
+      environmentsProvider.showLogsForEnvironment(envId as string),
+    )),
+    vscode.commands.registerCommand('vnextForge.tools.openRuntimeFolder', safeAsync((envId) =>
+      environmentsProvider.openRuntimeFolder(envId as string),
+    )),
+    vscode.commands.registerCommand('vnextForge.tools.revealEnvironmentPorts', safeAsync((envId) =>
+      environmentsProvider.revealPorts(envId as string),
     )),
     vscode.commands.registerCommand('vnextForge.tools.switchEnvironment', safeAsync(() =>
       switchEnvironmentQuickPick(forgeToolsSettings),

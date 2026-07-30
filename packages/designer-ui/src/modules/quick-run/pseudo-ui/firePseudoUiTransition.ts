@@ -3,6 +3,7 @@ import type {
   TransitionBucketEntry,
   WorkflowBucketConfig,
 } from '../QuickRunApi';
+import { mergeQuickRunHeaders } from './mergeQuickRunHeaders';
 
 type ApiResponse<T> =
   | { success: true; data: T }
@@ -57,18 +58,15 @@ export interface FirePseudoUiTransitionParams {
 export async function firePseudoUiTransition(
   p: FirePseudoUiTransitionParams,
 ): Promise<ApiResponse<FireTransitionResult>> {
-  const globalHeaders = p.bucketConfig?.globalHeaders ?? {};
-  const sessionHeaders = p.sessionHeaders ?? {};
   const prevEntry: TransitionBucketEntry | undefined = p.bucketConfig?.transitions?.find(
     (t) => t.key === p.transitionKey,
   );
-  const perTransitionHeaders = prevEntry?.headers ?? {};
 
-  const mergedHeaders: Record<string, string> = {
-    ...globalHeaders,
-    ...sessionHeaders,
-    ...perTransitionHeaders,
-  };
+  const mergedHeaders = mergeQuickRunHeaders(
+    p.bucketConfig,
+    p.sessionHeaders,
+    prevEntry?.headers,
+  );
 
   const result = await QuickRunApi.fireTransition({
     domain: p.domain,
