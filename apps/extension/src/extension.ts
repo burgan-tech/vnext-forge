@@ -232,6 +232,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     localRuntimeService,
     () => outputChannel.show(true),
     (command, cwd) => forgeTerminal.run(command, { cwd }),
+    // The remaining `wf domain` verbs. Wired as a group with `domainAdd`
+    // above: together they let the provider replace a stale registration and
+    // verify the result, instead of a single `add` that cannot be checked.
+    services.cliService ? () => services.cliService!.domainList() : undefined,
+    services.cliService ? (name) => services.cliService!.domainRemove(name) : undefined,
+    services.cliService ? (name) => services.cliService!.domainUse(name) : undefined,
   );
   const packageDeployProvider = new PackageDeployProvider(detector, forgeTerminal);
   const quickRunProvider = new QuickRunProvider();

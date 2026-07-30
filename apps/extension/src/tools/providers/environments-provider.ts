@@ -15,6 +15,13 @@ import {
   type ContainerState,
   type ProvisionResult,
 } from '../local-runtime/local-runtime.service.js';
+import {
+  registerWfDomain,
+  type RegistrationOutcome,
+  type WfCliResult,
+  type WfDomainAddArgs,
+  type WfDomainCalls,
+} from '../local-runtime/wf-domain-registrar.js';
 
 /**
  * Resolves the workspace domain from `vnext.config.json` (single source
@@ -26,17 +33,12 @@ export type ResolveWorkspaceDomainFn = (root: VnextWorkspaceRoot) => Promise<str
 
 const WORKFLOW_CLI_DOCS_URL = 'https://burgan-tech.github.io/vnext-docs/docs/tools/workflow-cli';
 
-export type DomainAddFn = (params: {
-  domainName: string;
-  apiBaseUrl: string;
-  dbName: string;
-  dbHost?: string;
-  dbPort?: number;
-  dbUser?: string;
-  dbPassword?: string;
-  useDocker?: boolean;
-  dockerPostgresContainer?: string;
-}) => Promise<{ exitCode: number; stdout: string; stderr: string }>;
+export type DomainAddFn = (params: WfDomainAddArgs) => Promise<WfCliResult>;
+
+/** `wf domain list` — the only reliable way to read the CLI's registry. */
+export type DomainListFn = () => Promise<WfCliResult>;
+/** `wf domain remove <name>` / `wf domain use <name>`. */
+export type DomainNameFn = (name: string) => Promise<WfCliResult>;
 
 /**
  * Container state as the tree renders it. `'unknown'` is not something
@@ -62,6 +64,11 @@ const HOST_TOOL_PREFLIGHT_TOOLS: ReadonlySet<string> = new Set(['git', 'make']);
 
 /**
  * True when `wf domain add` reported an error while still exiting 0.
+ *
+ * Only used by the degraded fallback path — the one taken when the `domain
+ * list` / `remove` / `use` calls were not wired, so the outcome cannot be
+ * confirmed by re-listing. Without it that path would report success on an
+ * "already exists" error.
  *
  * The CLI's `addDomain` catches the "already exists" throw and prints
  * `✗ Error: Domain "x" already exists.` to stdout without ever setting an exit
@@ -111,6 +118,15 @@ export class EnvironmentsProvider implements vscode.TreeDataProvider<string> {
     private readonly localRuntime?: LocalRuntimeService,
     private readonly showOutput?: () => void,
     private readonly runTerminal?: (command: string, cwd: string) => void,
+    /**
+     * The remaining `wf domain` verbs. Optional as a group: only when all
+     * three are wired can Forge read the CLI's registry, replace a stale
+     * entry, and verify the result — otherwise it falls back to a single
+     * unverifiable `domain add`.
+     */
+    private readonly domainList?: DomainListFn,
+    private readonly domainRemove?: DomainNameFn,
+    private readonly domainUse?: DomainNameFn,
   ) {
     settingsService.onDidChangeEnvironments(() => {
       this.envConfig = undefined;
@@ -837,6 +853,78 @@ export class EnvironmentsProvider implements vscode.TreeDataProvider<string> {
     return this.envConfig;
   }
 
+  /** Notification + the shared "View CLI Docs" affordance. */
+  private async notifyWithDocs(level: 'info' | 'warning', message: string): Promise<void> {
+    const action =
+      level === 'info'
+        ? await vscode.window.showInformationMessage(message, 'View CLI Docs')
+        : await vscode.window.showWarningMessage(message, 'View CLI Docs');
+    if (action === 'View CLI Docs') {
+      void vscode.env.openExternal(vscode.Uri.parse(WORKFLOW_CLI_DOCS_URL));
+    }
+  }
+
+  /**
+   * Register the domain through the registrar, which reads `wf domain list`,
+   * replaces a stale entry, and confirms the result by listing again — the
+   * only reliable check, since every `wf domain` subcommand exits 0.
+   */
+  private async runVerifiedDomainRegistration(
+    args: WfDomainAddArgs,
+    envLabel: string,
+    calls: WfDomainCalls,
+  ): Promise<void> {
+    const { domainName, apiBaseUrl } = args;
+    let outcome: RegistrationOutcome;
+    try {
+      outcome = await registerWfDomain(args, calls);
+    } catch {
+      await this.notifyWithDocs(
+        'warning',
+        'Workflow CLI is not available. Install it to enable domain registration.',
+      );
+      return;
+    }
+
+    switch (outcome.kind) {
+      case 'added':
+        await this.notifyWithDocs(
+          'info',
+          `Workflow CLI domain "${domainName}" registered for environment "${envLabel}".`,
+        );
+        return;
+      case 'replaced':
+        await this.notifyWithDocs(
+          'info',
+          `Workflow CLI domain "${domainName}" updated to ${apiBaseUrl} for environment "${envLabel}".`,
+        );
+        return;
+      case 'up-to-date':
+        await this.notifyWithDocs(
+          'info',
+          `Workflow CLI domain "${domainName}" already points at ${apiBaseUrl} for environment "${envLabel}".`,
+        );
+        return;
+      case 'blocked-default':
+        await this.notifyWithDocs(
+          'warning',
+          `The Workflow CLI refuses to remove its "default" domain, so Forge cannot repoint it ` +
+            `at ${apiBaseUrl}. Give environment "${envLabel}" a domain name other than "default", ` +
+            `or edit the CLI's default domain by hand.`,
+        );
+        return;
+      case 'failed': {
+        // Redacted: a failing `wf` invocation can echo its own command line,
+        // which carries --DB_PASSWORD for a local binding. This path does not
+        // go through process-runner, so its redaction does not cover it.
+        await this.notifyWithDocs(
+          'warning',
+          `Workflow CLI domain registration failed: ${redactSecrets(outcome.reason)}`,
+        );
+      }
+    }
+  }
+
   private async runDomainAdd(
     cliDomain: string,
     baseUrl: string,
@@ -847,12 +935,27 @@ export class EnvironmentsProvider implements vscode.TreeDataProvider<string> {
      *  connection details so `wf` targets the container we just started. */
     binding?: LocalRuntimeBinding,
   ): Promise<void> {
-    if (!this.domainAdd) return;
+    const domainAdd = this.domainAdd;
+    if (!domainAdd) return;
+
+    const args: WfDomainAddArgs =
+      binding && this.localRuntime
+        ? this.localRuntime.buildDomainAddArgs(binding, dbName)
+        : { domainName: cliDomain, apiBaseUrl: baseUrl, dbName };
+
+    const { domainList, domainRemove, domainUse } = this;
+    if (domainList && domainRemove && domainUse) {
+      await this.runVerifiedDomainRegistration(args, envLabel, {
+        domainList,
+        domainAdd,
+        domainRemove,
+        domainUse,
+      });
+      return;
+    }
+
     try {
-      const result =
-        binding && this.localRuntime
-          ? await this.domainAdd(this.localRuntime.buildDomainAddArgs(binding, dbName))
-          : await this.domainAdd({ domainName: cliDomain, apiBaseUrl: baseUrl, dbName });
+      const result = await domainAdd(args);
       if (result.exitCode === 0 && isSilentDomainAddFailure(`${result.stdout}\n${result.stderr}`)) {
         // Deliberately not repaired automatically: there is no verified safe
         // way to update an existing registration in place, so the user is
