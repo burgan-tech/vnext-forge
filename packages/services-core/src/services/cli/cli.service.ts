@@ -94,6 +94,26 @@ export interface CliService {
     },
     traceId?: string,
   ): Promise<{ exitCode: number; stdout: string; stderr: string }>
+  /**
+   * The `wf domain` read/lifecycle verbs.
+   *
+   * Deliberately *not* registered as dispatchable methods: they exist for
+   * in-process use by the extension host (see `wf-domain-registrar`), and
+   * registering them would widen the HTTP surface with domain mutation for
+   * no caller that needs it.
+   *
+   * Every `wf domain` subcommand exits 0 even on error, so callers must read
+   * the output (`parseWfDomainList`) rather than trusting `exitCode`.
+   */
+  domainList(timeoutMs?: number): Promise<{ exitCode: number; stdout: string; stderr: string }>
+  domainRemove(
+    name: string,
+    timeoutMs?: number,
+  ): Promise<{ exitCode: number; stdout: string; stderr: string }>
+  domainUse(
+    name: string,
+    timeoutMs?: number,
+  ): Promise<{ exitCode: number; stdout: string; stderr: string }>
 }
 
 export interface CliServiceDeps {
@@ -197,6 +217,18 @@ export function buildDomainAddArgv(params: {
     argv.push('--DOCKER_POSTGRES_CONTAINER', params.dockerPostgresContainer)
   }
   return argv
+}
+
+export function buildDomainListArgv(): string[] {
+  return ['domain', 'list']
+}
+
+export function buildDomainRemoveArgv(name: string): string[] {
+  return ['domain', 'remove', name]
+}
+
+export function buildDomainUseArgv(name: string): string[] {
+  return ['domain', 'use', name]
 }
 
 /**
@@ -333,6 +365,21 @@ export function createCliService(deps: CliServiceDeps = {}): CliService {
       const argv = buildDomainAddArgv(params)
       const execOpts = execFileOptions(process.cwd(), timeoutMs)
       return runExecFile(WF_BINARY, argv, execOpts)
+    },
+
+    async domainList(timeoutMs): Promise<{ exitCode: number; stdout: string; stderr: string }> {
+      const execOpts = execFileOptions(process.cwd(), clampTimeout(timeoutMs))
+      return runExecFile(WF_BINARY, buildDomainListArgv(), execOpts)
+    },
+
+    async domainRemove(name, timeoutMs): Promise<{ exitCode: number; stdout: string; stderr: string }> {
+      const execOpts = execFileOptions(process.cwd(), clampTimeout(timeoutMs))
+      return runExecFile(WF_BINARY, buildDomainRemoveArgv(name), execOpts)
+    },
+
+    async domainUse(name, timeoutMs): Promise<{ exitCode: number; stdout: string; stderr: string }> {
+      const execOpts = execFileOptions(process.cwd(), clampTimeout(timeoutMs))
+      return runExecFile(WF_BINARY, buildDomainUseArgv(name), execOpts)
     },
   }
 }
