@@ -13,7 +13,7 @@ import type {
 import type { EnvironmentHealthMonitor, HealthStatus } from '../environment-health-monitor.js';
 import type { VnextWorkspaceDetector, VnextWorkspaceRoot } from '../../workspace-detector.js';
 import { baseLogger } from '../../shared/logger.js';
-import { redactSecrets } from '../../shared/redact.js';
+import { sanitizeForDisplay } from '../../shared/redact.js';
 import {
   isCancellation,
   LocalRuntimeService,
@@ -132,9 +132,10 @@ function isSilentDomainAddFailure(output: string): boolean {
 }
 
 function describeError(err: unknown): string {
-  // Redacted defensively: a failing child process can echo its own argv, and
-  // these messages go straight to a VS Code notification.
-  return redactSecrets(err instanceof Error ? err.message : String(err));
+  // Sanitised defensively: these messages go straight to a VS Code
+  // notification, and a failing child process both echoes its own argv (which
+  // can carry --DB_PASSWORD) and colours its output with ANSI escapes.
+  return sanitizeForDisplay(err instanceof Error ? err.message : String(err));
 }
 
 export class EnvironmentsProvider implements vscode.TreeDataProvider<string> {
@@ -1122,12 +1123,14 @@ export class EnvironmentsProvider implements vscode.TreeDataProvider<string> {
         );
         return;
       case 'failed': {
-        // Redacted: a failing `wf` invocation can echo its own command line,
-        // which carries --DB_PASSWORD for a local binding. This path does not
-        // go through process-runner, so its redaction does not cover it.
+        // Sanitised: the reason quotes `wf` output, which is chalk-coloured
+        // (a toast reading `ESC[31m✗ Error…` is the same rendering bug as in
+        // the Output channel) and can echo a command line carrying
+        // --DB_PASSWORD for a local binding. This path does not go through
+        // process-runner, so its sanitising does not cover it.
         await this.notifyWithDocs(
           'warning',
-          `Workflow CLI domain registration failed: ${redactSecrets(outcome.reason)}`,
+          `Workflow CLI domain registration failed: ${sanitizeForDisplay(outcome.reason)}`,
         );
       }
     }
@@ -1189,10 +1192,11 @@ export class EnvironmentsProvider implements vscode.TreeDataProvider<string> {
           void vscode.env.openExternal(vscode.Uri.parse(WORKFLOW_CLI_DOCS_URL));
         }
       } else {
-        // Redacted: with a local binding the invocation carries --DB_PASSWORD,
-        // and a `wf` usage error echoes its own command line. This path does
-        // not go through process-runner, so its redaction does not cover it.
-        const msg = redactSecrets(
+        // Sanitised: raw `wf` output is chalk-coloured, and with a local
+        // binding the invocation carries --DB_PASSWORD that a usage error
+        // echoes back. This path does not go through process-runner, so its
+        // sanitising does not cover it.
+        const msg = sanitizeForDisplay(
           result.stderr.trim() || result.stdout.trim() || 'Unknown error',
         );
         const action = await vscode.window.showWarningMessage(

@@ -7,7 +7,7 @@ import {
 } from '@vnext-forge-studio/services-core';
 import type * as vscode from 'vscode';
 
-import { redactSecrets } from '../../shared/redact.js';
+import { sanitizeForDisplay } from '../../shared/redact.js';
 import { wellKnownDirs } from './tool-lookup.js';
 
 /**
@@ -47,7 +47,10 @@ export interface RunStreamingOptions {
 
 export interface RunStreamingResult {
   exitCode: number;
-  /** Everything emitted, already redacted. Used for error messages. */
+  /**
+   * Everything emitted, already sanitised (ANSI stripped, credentials
+   * redacted). Used for error messages, so it must not need a second pass.
+   */
   output: string;
   cancelled: boolean;
 }
@@ -80,7 +83,7 @@ export function runStreaming(
       const lines = pending.split(/\r?\n/);
       pending = lines.pop() ?? '';
       for (const line of lines) {
-        const safe = redactSecrets(line);
+        const safe = sanitizeForDisplay(line);
         collected += `${safe}\n`;
         options.onLine(safe);
       }
@@ -96,7 +99,7 @@ export function runStreaming(
 
     const finish = (exitCode: number) => {
       if (pending.length > 0) {
-        const safe = redactSecrets(pending);
+        const safe = sanitizeForDisplay(pending);
         collected += `${safe}\n`;
         options.onLine(safe);
         pending = '';
@@ -106,7 +109,7 @@ export function runStreaming(
     };
 
     child.on('error', (err) => {
-      const safe = redactSecrets(err.message);
+      const safe = sanitizeForDisplay(err.message);
       collected += `${safe}\n`;
       options.onLine(safe);
       // ENOENT here means our resolved path went stale; the caller re-detects.
