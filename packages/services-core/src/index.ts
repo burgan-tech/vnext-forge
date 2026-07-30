@@ -39,3 +39,5 @@ export {
   buildChildEnv,
   DEFAULT_CHILD_PROCESS_ENV_ALLOWLIST,
 } from './lib/child-env.js'
+
+export { stripAnsi } from './lib/ansi.js'
