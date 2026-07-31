@@ -1,5 +1,7 @@
+import { type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '@vnext-forge-studio/designer-ui/ui';
+import { Button, Skeleton } from '@vnext-forge-studio/designer-ui/ui';
+import { cn } from '@monitoring/shared/lib/utils';
 import type { Instance } from '@monitoring/shared/types';
 
 interface RecentFaultsSectionProps {
@@ -15,6 +17,65 @@ function formatRelativeTime(iso: string): string {
   if (hours < 24) return `${hours}h ago`;
   return `${Math.floor(hours / 24)}d ago`;
 }
+
+interface FaultColumn {
+  key: string;
+  label: string;
+  align: 'left' | 'right';
+  /** Extra classes for this column's `<td>` (header alignment is derived from `align`). */
+  cellClassName?: string;
+  render: (instance: Instance) => ReactNode;
+}
+
+/** Single source of truth for the header, the data cells and the skeleton cells. */
+const COLUMNS: FaultColumn[] = [
+  {
+    key: 'instanceKey',
+    label: 'Instance Key',
+    align: 'left',
+    render: (instance) => (
+      <span className="font-mono text-xs font-medium text-destructive">{instance.key}</span>
+    ),
+  },
+  {
+    key: 'workflow',
+    label: 'Workflow',
+    align: 'left',
+    cellClassName: 'text-muted-foreground',
+    render: (instance) => instance.workflowName,
+  },
+  {
+    key: 'state',
+    label: 'State',
+    align: 'left',
+    render: (instance) => (
+      <span className="font-mono text-xs text-muted-foreground">{instance.state}</span>
+    ),
+  },
+  {
+    key: 'error',
+    label: 'Error',
+    align: 'left',
+    cellClassName: 'max-w-xs',
+    render: (instance) => (
+      <span className="truncate text-xs text-muted-foreground">{instance.err ?? '—'}</span>
+    ),
+  },
+  {
+    key: 'time',
+    label: 'Time',
+    align: 'right',
+    cellClassName: 'text-right',
+    render: (instance) => (
+      <span className="font-mono text-xs text-muted-foreground">
+        {formatRelativeTime(instance.updatedAt ?? instance.createdAt)}
+      </span>
+    ),
+  },
+];
+
+/** Stable keys for the placeholder rows shown while the fault list loads. */
+const SKELETON_ROW_KEYS = ['s1', 's2', 's3'];
 
 export function RecentFaultsSection({ data, isLoading }: RecentFaultsSectionProps) {
   const navigate = useNavigate();
@@ -36,11 +97,7 @@ export function RecentFaultsSection({ data, isLoading }: RecentFaultsSectionProp
       </div>
 
       <div className="rounded-lg border border-border bg-card shadow-sm">
-        {isLoading ? (
-          <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
-            Loading…
-          </div>
-        ) : !data?.length ? (
+        {!isLoading && !data?.length ? (
           <div className="flex h-32 items-center justify-center text-sm text-muted-foreground">
             No recent faults
           </div>
@@ -48,51 +105,45 @@ export function RecentFaultsSection({ data, isLoading }: RecentFaultsSectionProp
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-border">
-                <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Instance Key
-                </th>
-                <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Workflow
-                </th>
-                <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  State
-                </th>
-                <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Error
-                </th>
-                <th className="px-4 py-2.5 text-right text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Time
-                </th>
+                {COLUMNS.map(({ key, label, align }) => (
+                  <th
+                    key={key}
+                    className={cn(
+                      'px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground',
+                      align === 'right' ? 'text-right' : 'text-left',
+                    )}
+                  >
+                    {label}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {data.map((instance) => (
-                <tr
-                  key={instance.id}
-                  onClick={() => { void navigate(`/definitions/workflows/${instance.workflow}/instances/${instance.id}`); }}
-                  className="cursor-pointer border-b border-border last:border-0 hover:bg-muted/40"
-                >
-                  <td className="px-4 py-3">
-                    <span className="font-mono text-xs font-medium text-destructive">
-                      {instance.key}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-muted-foreground">{instance.workflowName}</td>
-                  <td className="px-4 py-3">
-                    <span className="font-mono text-xs text-muted-foreground">{instance.state}</span>
-                  </td>
-                  <td className="px-4 py-3 max-w-xs">
-                    <span className="truncate text-xs text-muted-foreground">
-                      {instance.err ?? '—'}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <span className="font-mono text-xs text-muted-foreground">
-                      {formatRelativeTime(instance.updatedAt ?? instance.createdAt)}
-                    </span>
-                  </td>
-                </tr>
-              ))}
+              {isLoading
+                ? SKELETON_ROW_KEYS.map((rowKey) => (
+                    <tr key={rowKey} className="border-b border-border last:border-0">
+                      {COLUMNS.map(({ key, align }) => (
+                        <td key={key} className="px-4 py-3">
+                          <Skeleton
+                            className={cn('h-4', align === 'right' ? 'ml-auto w-16' : 'w-3/4')}
+                          />
+                        </td>
+                      ))}
+                    </tr>
+                  ))
+                : (data ?? []).map((instance) => (
+                    <tr
+                      key={instance.id}
+                      onClick={() => { void navigate(`/definitions/workflows/${instance.workflow}/instances/${instance.id}`); }}
+                      className="cursor-pointer border-b border-border last:border-0 hover:bg-muted/40"
+                    >
+                      {COLUMNS.map(({ key, cellClassName, render }) => (
+                        <td key={key} className={cn('px-4 py-3', cellClassName)}>
+                          {render(instance)}
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
             </tbody>
           </table>
         )}

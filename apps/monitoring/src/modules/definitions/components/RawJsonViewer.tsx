@@ -1,10 +1,33 @@
-import { useCallback, useRef, useState } from 'react';
-import { Button, JsonCodeField } from '@vnext-forge-studio/designer-ui/ui';
-import { Copy, Check } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  JsonCodeField,
+} from '@vnext-forge-studio/designer-ui/ui';
+import { Copy, Check, Maximize2 } from 'lucide-react';
 
 const MIN_HEIGHT = 200;
 const MAX_HEIGHT = 900;
 const DEFAULT_HEIGHT = 480;
+
+/**
+ * Vertical space the fullscreen dialog chrome (header band + content padding)
+ * takes away from the viewport. `JsonCodeField` only accepts a numeric height,
+ * so this is computed rather than expressed in CSS.
+ */
+const FULLSCREEN_CHROME_PX = 120;
+const FULLSCREEN_MIN_HEIGHT = 240;
+
+function fullScreenEditorHeight(): number {
+  if (typeof window === 'undefined') return DEFAULT_HEIGHT;
+  return Math.max(FULLSCREEN_MIN_HEIGHT, window.innerHeight - FULLSCREEN_CHROME_PX);
+}
+
+/** `JsonCodeField` is a controlled component; read-only use still needs a handler. */
+const noopChange = () => undefined;
 
 interface RawJsonViewerProps {
   data: unknown;
@@ -12,6 +35,8 @@ interface RawJsonViewerProps {
 
 export function RawJsonViewer({ data }: RawJsonViewerProps) {
   const [copied, setCopied] = useState(false);
+  const [fullScreen, setFullScreen] = useState(false);
+  const [fullScreenHeight, setFullScreenHeight] = useState(FULLSCREEN_MIN_HEIGHT);
   const [height, setHeight] = useState(DEFAULT_HEIGHT);
   const heightRef = useRef(DEFAULT_HEIGHT);
   const dragStartY = useRef(0);
@@ -25,6 +50,19 @@ export function RawJsonViewer({ data }: RawJsonViewerProps) {
       setTimeout(() => setCopied(false), 2000);
     });
   }
+
+  const openFullScreen = useCallback(() => {
+    setFullScreenHeight(fullScreenEditorHeight());
+    setFullScreen(true);
+  }, []);
+
+  // Keep the fullscreen editor filling the viewport across window resizes.
+  useEffect(() => {
+    if (!fullScreen || typeof window === 'undefined') return;
+    const handleResize = () => setFullScreenHeight(fullScreenEditorHeight());
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [fullScreen]);
 
   const handleMouseDown = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
@@ -51,7 +89,7 @@ export function RawJsonViewer({ data }: RawJsonViewerProps) {
 
   return (
     <div className="flex flex-col gap-1.5">
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-1">
         <Button
           variant="ghost"
           size="icon"
@@ -61,19 +99,45 @@ export function RawJsonViewer({ data }: RawJsonViewerProps) {
         >
           {copied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
         </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={openFullScreen}
+          className="h-7 w-7"
+          aria-label="Full screen"
+        >
+          <Maximize2 className="h-3.5 w-3.5" />
+        </Button>
       </div>
       <JsonCodeField
         value={json}
         language="json"
         readOnly
         height={height}
-        onChange={() => {}}
+        onChange={noopChange}
       />
       <div
         className="h-1.5 w-full cursor-row-resize rounded-full bg-border transition-colors hover:bg-primary/40"
         onMouseDown={handleMouseDown}
         aria-hidden="true"
       />
+      <Dialog open={fullScreen} onOpenChange={setFullScreen}>
+        <DialogContent className="flex h-screen max-h-screen w-screen max-w-none flex-col gap-0 rounded-none p-0">
+          <DialogHeader className="shrink-0">
+            <DialogTitle className="truncate font-mono text-sm">Raw JSON</DialogTitle>
+          </DialogHeader>
+          <div className="min-h-0 flex-1 p-4">
+            <JsonCodeField
+              value={json}
+              language="json"
+              readOnly
+              height={fullScreenHeight}
+              onChange={noopChange}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

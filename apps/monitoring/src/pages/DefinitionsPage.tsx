@@ -188,7 +188,7 @@ export function DefinitionsPage() {
     },
   });
 
-  const { data, isLoading, isError } = useDefinitionList(defType, page, pageSize, apiFilters);
+  const { data, isLoading, isFetching, isError } = useDefinitionList(defType, page, pageSize, apiFilters);
 
   const columns = useMemo(() => getDefinitionColumns(defType), [defType]);
   const filterableColumns = FILTERABLE_COLUMNS[defType] ?? [];
@@ -237,6 +237,7 @@ export function DefinitionsPage() {
         columns={columns}
         data={data?.items ?? []}
         isLoading={isLoading}
+        isFetching={isFetching}
         isError={isError}
         errorMessage={`Failed to load ${defType}s.`}
         emptyMessage={

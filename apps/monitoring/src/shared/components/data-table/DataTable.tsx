@@ -5,6 +5,7 @@ import {
   type ColumnDef,
 } from '@tanstack/react-table'
 import { ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-react'
+import { Skeleton } from '@vnext-forge-studio/designer-ui/ui'
 import { cn } from '@monitoring/shared/lib/utils'
 import { useColumnVisibility } from './useColumnVisibility'
 import { DataTableToolbar } from './DataTableToolbar'
@@ -22,6 +23,8 @@ interface DataTableProps<TData> {
   columns: ColumnDef<TData, any>[]
   data: TData[]
   isLoading?: boolean
+  /** true while a background refetch runs; body dims but keeps current rows */
+  isFetching?: boolean
   isError?: boolean
   errorMessage?: string
   emptyMessage?: string
@@ -44,6 +47,9 @@ interface DataTableProps<TData> {
   onQueryParamFiltersChange?: (filters: QueryParamFilters) => void
 }
 
+/** Stable keys for the placeholder rows shown while the first page loads. */
+const SKELETON_ROW_KEYS = ['s1', 's2', 's3', 's4', 's5']
+
 function getNextSortDir(
   colId: string,
   sortBy: string | undefined,
@@ -59,6 +65,7 @@ export function DataTable<TData>({
   columns,
   data,
   isLoading = false,
+  isFetching = false,
   isError = false,
   errorMessage = 'Failed to load data.',
   emptyMessage = 'No results found.',
@@ -146,17 +153,19 @@ export function DataTable<TData>({
               </tr>
             ))}
           </thead>
-          <tbody>
-            {isLoading && (
-              <tr>
-                <td
-                  colSpan={visibleColumnCount}
-                  className="px-4 py-8 text-center text-sm text-muted-foreground"
-                >
-                  Loading…
-                </td>
-              </tr>
-            )}
+          <tbody
+            className={cn(isFetching && !isLoading && 'opacity-60 transition-opacity duration-200')}
+          >
+            {isLoading &&
+              SKELETON_ROW_KEYS.map((rowKey) => (
+                <tr key={rowKey} className="border-b border-border last:border-0">
+                  {table.getVisibleLeafColumns().map((column) => (
+                    <td key={column.id} className="px-4 py-2.5">
+                      <Skeleton className="h-4 w-3/4" />
+                    </td>
+                  ))}
+                </tr>
+              ))}
             {!isLoading && isError && (
               <tr>
                 <td

@@ -37,6 +37,17 @@ const DEFINITION_TYPE_API_MAP: Record<DefinitionType, string> = {
   mapping: 'sys-mappings',
 };
 
+/**
+ * Inverse of `DEFINITION_TYPE_API_MAP`: API flow name → route segment.
+ * Used to turn a component reference's `flow` (e.g. `sys-tasks`) into the
+ * `/definitions/<type>/<key>` route segment.
+ */
+export const FLOW_TO_ROUTE_TYPE: Record<string, DefinitionType> = Object.fromEntries(
+  (Object.entries(DEFINITION_TYPE_API_MAP) as [DefinitionType, string][]).map(
+    ([routeType, apiType]) => [apiType, routeType],
+  ),
+);
+
 function pickLabel(labels?: { language: string; label: string }[], fallback = ''): string {
   if (!labels?.length) return fallback;
   return (

@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom';
 
 import type { InstanceStats } from '@monitoring/shared/types';
+import { KpiCardSkeleton } from '@monitoring/shared/components/skeletons';
 import { KpiCard } from './KpiCard';
 
 interface InstanceDistSectionProps {
@@ -17,9 +18,12 @@ const CARDS = [
   { key: 'passive'   as const, label: 'Passive',   valueClassName: 'text-muted-foreground' },
 ];
 
+/** One placeholder per rendered card: the five CARDS entries plus Faulted. */
+const SKELETON_KEYS = [...CARDS.map(({ key }) => key), 'faulted'];
+
 export function InstanceDistSection({ data, isLoading, rangeLabel }: InstanceDistSectionProps) {
   const navigate = useNavigate();
-  const v = (n: number | undefined) => (isLoading ? '—' : (n ?? 0));
+  const v = (n: number | undefined) => n ?? 0;
   const hasFaults = !isLoading && (data?.faulted ?? 0) > 0;
 
   return (
@@ -31,16 +35,22 @@ export function InstanceDistSection({ data, isLoading, rangeLabel }: InstanceDis
         <span className="text-xs text-muted-foreground">{rangeLabel}</span>
       </div>
       <div className="grid grid-cols-6 gap-3">
-        {CARDS.map(({ key, label, valueClassName }) => (
-          <KpiCard key={key} label={label} value={v(data?.[key])} valueClassName={valueClassName} />
-        ))}
-        <KpiCard
-          label="Faulted"
-          value={v(data?.faulted)}
-          onClick={() => { void navigate('/faults'); }}
-          valueClassName="text-rose-600 dark:text-rose-400"
-          className={hasFaults ? 'border-2 border-rose-400 dark:border-rose-600 shadow-sm shadow-rose-100 dark:shadow-rose-950' : undefined}
-        />
+        {isLoading ? (
+          SKELETON_KEYS.map((key) => <KpiCardSkeleton key={key} />)
+        ) : (
+          <>
+            {CARDS.map(({ key, label, valueClassName }) => (
+              <KpiCard key={key} label={label} value={v(data?.[key])} valueClassName={valueClassName} />
+            ))}
+            <KpiCard
+              label="Faulted"
+              value={v(data?.faulted)}
+              onClick={() => { void navigate('/faults'); }}
+              valueClassName="text-rose-600 dark:text-rose-400"
+              className={hasFaults ? 'border-2 border-rose-400 dark:border-rose-600 shadow-sm shadow-rose-100 dark:shadow-rose-950' : undefined}
+            />
+          </>
+        )}
       </div>
     </section>
   );

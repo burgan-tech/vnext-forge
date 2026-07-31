@@ -1,4 +1,5 @@
 import { Button } from '@vnext-forge-studio/designer-ui/ui';
+import { ChartSkeleton } from '@monitoring/shared/components/skeletons';
 import type { StatsTimePoint } from '@monitoring/shared/types';
 import type { StatsTimeRange } from '@monitoring/modules/dashboard/api/dashboard-queries';
 
@@ -85,9 +86,8 @@ export function ActivityChart({ data, isLoading, range, onRangeChange }: Activit
         </div>
 
         {isLoading ? (
-          <div className="flex h-[120px] items-center justify-center text-sm text-muted-foreground">
-            Loading chart data…
-          </div>
+          // Literal class, not interpolated from CHART_H — Tailwind only sees static text.
+          <ChartSkeleton heightClass="h-[120px]" />
         ) : (
           <svg
             viewBox={`0 0 ${CHART_W} ${CHART_H}`}

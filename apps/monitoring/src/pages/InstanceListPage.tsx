@@ -106,7 +106,7 @@ export function InstanceListPage() {
     [sortField, sortDir],
   )
 
-  const { data, isLoading, isError } = useInstanceList({
+  const { data, isLoading, isFetching, isError } = useInstanceList({
     workflowId: wfId ?? '',
     filter: filterParam,
     sort: sortParam,
@@ -189,6 +189,7 @@ export function InstanceListPage() {
         columns={columns}
         data={items}
         isLoading={isLoading}
+        isFetching={isFetching}
         isError={isError}
         errorMessage="Failed to load instances."
         emptyMessage="No instances found."
