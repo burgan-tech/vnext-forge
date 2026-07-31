@@ -1,6 +1,7 @@
 import { Plus } from 'lucide-react';
 
 import { Button } from '../../../../../ui/Button';
+import { useFormReadOnly } from '../../../../../ui/FormReadOnlyContext';
 import { type ArrayCompositionKeyword } from '../../../model/compositionKeywords';
 import { appendPointer, parsePointer, type JsonPointer } from '../../../model/jsonPointer';
 import {
@@ -28,6 +29,7 @@ interface CompositionListProps {
  * minimal.
  */
 export function CompositionList({ pointer, keyword }: CompositionListProps) {
+  const readOnly = useFormReadOnly();
   const { node, mutate } = useSchemaNode(pointer);
   const updateComponent = useSchemaEditorStore((s) => s.updateComponent);
   const stored = node?.[keyword];
@@ -92,15 +94,17 @@ export function CompositionList({ pointer, keyword }: CompositionListProps) {
         })
       )}
 
-      <Button
-        type="button"
-        variant="success"
-        size="sm"
-        className="h-7 gap-1 text-[10px]"
-        onClick={addItem}>
-        <Plus size={10} />
-        Add {keyword} subschema
-      </Button>
+      {!readOnly && (
+        <Button
+          type="button"
+          variant="success"
+          size="sm"
+          className="h-7 gap-1 text-[10px]"
+          onClick={addItem}>
+          <Plus size={10} />
+          Add {keyword} subschema
+        </Button>
+      )}
     </div>
   );
 }

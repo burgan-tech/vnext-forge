@@ -1,7 +1,9 @@
 import { type ReactNode, useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 
+import { Badge } from '../../../../../ui/Badge';
 import { Checkbox } from '../../../../../ui/Checkbox';
+import { useFormReadOnly } from '../../../../../ui/FormReadOnlyContext';
 import { cn } from '../../../../../lib/utils/cn';
 import { VNextHelpLink } from './VNextHelpLink';
 
@@ -48,7 +50,12 @@ export function VNextCardShell({
   toggleDisabled = false,
   toggleDisabledReason,
 }: VNextCardShellProps) {
-  const [expanded, setExpanded] = useState(enabled);
+  const readOnly = useFormReadOnly();
+  const [expandedState, setExpanded] = useState(enabled);
+  // Read-only hosts render cards without remounting on selection changes, so
+  // the seeded state cannot be trusted there: derive `expanded` from `enabled`
+  // instead, so a set keyword always shows its content.
+  const expanded = readOnly ? enabled : expandedState;
   const showBody = enabled && expanded;
   const toggleId = `vnext-toggle-${xKey}`;
 
@@ -86,15 +93,27 @@ export function VNextCardShell({
         <div
           className="flex items-center gap-2"
           title={toggleDisabled ? toggleDisabledReason : undefined}>
-          <label htmlFor={toggleId} className="text-[10px] text-primary-text/65">
-            {enabled ? 'Enabled' : 'Disabled'}
-          </label>
-          <Checkbox
-            id={toggleId}
-            checked={enabled}
-            disabled={toggleDisabled}
-            onCheckedChange={(value) => onToggle(value === true)}
-          />
+          {readOnly ? (
+            // Read-only: a plain Set / Not set badge communicates the state
+            // more honestly than a checkbox that cannot be toggled.
+            <Badge variant={enabled ? 'secondary' : 'outline'} className="text-[10px]">
+              {enabled ? 'Set' : 'Not set'}
+            </Badge>
+          ) : (
+            <>
+              <label htmlFor={toggleId} className="text-[10px] text-primary-text/65">
+                {enabled ? 'Enabled' : 'Disabled'}
+              </label>
+              <Checkbox
+                id={toggleId}
+                checked={enabled}
+                disabled={toggleDisabled}
+                onCheckedChange={(value) => {
+                  onToggle(value === true);
+                }}
+              />
+            </>
+          )}
         </div>
       </header>
 

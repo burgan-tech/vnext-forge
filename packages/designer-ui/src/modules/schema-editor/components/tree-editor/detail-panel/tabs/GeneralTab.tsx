@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { Checkbox } from '../../../../../../ui/Checkbox';
 import { Field } from '../../../../../../ui/Field';
+import { useFormReadOnly } from '../../../../../../ui/FormReadOnlyContext';
 import { Input } from '../../../../../../ui/Input';
 import { Label } from '../../../../../../ui/Label';
 import { Select } from '../../../../../../ui/Select';
@@ -327,20 +328,31 @@ function RequiredToggle({
   parentPointer: JsonPointer;
   propertyKey: string;
 }) {
+  const readOnly = useFormReadOnly();
   const updateComponent = useSchemaEditorStore((s) => s.updateComponent);
   const { node: parent } = useSchemaNode(parentPointer);
   const checked = isRequiredKey(parent, propertyKey);
 
   return (
     <div className="flex items-center gap-2 rounded-md border border-primary-border/60 px-3 py-2">
+      {/* Read-only: keep the designer look (not disabled/gray) but make the
+          control fully non-interactive. */}
       <Checkbox
         id={`required-${propertyKey}`}
         checked={checked}
+        aria-readonly={readOnly || undefined}
+        tabIndex={readOnly ? -1 : undefined}
+        className={readOnly ? 'pointer-events-none' : undefined}
         onCheckedChange={(value) => {
+          if (readOnly) {
+            return;
+          }
           updateComponent(setRequired(parentPointer, propertyKey, value === true));
         }}
       />
-      <Label htmlFor={`required-${propertyKey}`} className="cursor-pointer text-xs">
+      <Label
+        htmlFor={`required-${propertyKey}`}
+        className={readOnly ? 'pointer-events-none text-xs' : 'cursor-pointer text-xs'}>
         Required in parent object
       </Label>
     </div>

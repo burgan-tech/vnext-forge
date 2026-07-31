@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from '../../../../../ui/Dialog';
 import { Input } from '../../../../../ui/Input';
+import { useFormReadOnly } from '../../../../../ui/FormReadOnlyContext';
 import { appendPointer, type JsonPointer } from '../../../model/jsonPointer';
 import { addProp } from '../../../model/mutators';
 import { getNodeAt, getPropertyKeys } from '../../../model/schemaNode';
@@ -32,6 +33,7 @@ interface PropertyTreeProps {
  * root level (`depth === 0`); nested levels get a quieter inline button.
  */
 export function PropertyTree({ parentPointer, depth = 0 }: PropertyTreeProps) {
+  const readOnly = useFormReadOnly();
   const componentJson = useSchemaEditorStore((s) => s.componentJson);
   const node = getNodeAt(componentJson, parentPointer);
   const keys = getPropertyKeys(node);
@@ -43,7 +45,14 @@ export function PropertyTree({ parentPointer, depth = 0 }: PropertyTreeProps) {
 
       {keys.length === 0 && isRoot ? (
         <div className="px-2 py-4 text-center text-[11px] text-primary-text/55">
-          No properties yet. Click <span className="font-semibold">Add property</span> to begin.
+          {readOnly ? (
+            <>No properties.</>
+          ) : (
+            <>
+              No properties yet. Click <span className="font-semibold">Add property</span> to
+              begin.
+            </>
+          )}
         </div>
       ) : null}
 
@@ -56,7 +65,7 @@ export function PropertyTree({ parentPointer, depth = 0 }: PropertyTreeProps) {
         />
       ))}
 
-      {depth > 0 ? (
+      {depth > 0 && !readOnly ? (
         <NestedAddButton parentPointer={parentPointer} existingKeys={keys} depth={depth} />
       ) : null}
     </>

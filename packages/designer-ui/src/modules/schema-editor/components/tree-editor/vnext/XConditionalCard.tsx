@@ -5,6 +5,7 @@ import { Button } from '../../../../../ui/Button';
 import { Field } from '../../../../../ui/Field';
 import { Input } from '../../../../../ui/Input';
 import { Select } from '../../../../../ui/Select';
+import { useFormReadOnly } from '../../../../../ui/FormReadOnlyContext';
 import { cn } from '../../../../../lib/utils/cn';
 import { type JsonPointer } from '../../../model/jsonPointer';
 import { setKeyword } from '../../../model/mutators';
@@ -158,6 +159,7 @@ interface KindSectionProps {
 }
 
 function KindSection({ kind, value, onChange }: KindSectionProps) {
+  const readOnly = useFormReadOnly();
   const isActive = value !== undefined && value !== null;
 
   return (
@@ -172,7 +174,7 @@ function KindSection({ kind, value, onChange }: KindSectionProps) {
           )}
         </div>
 
-        {isActive ? (
+        {readOnly ? null : isActive ? (
           <Button
             type="button"
             variant="ghost"
@@ -232,6 +234,7 @@ interface GroupEditorProps {
 }
 
 function GroupEditor({ value, op, onChange, depth }: GroupEditorProps) {
+  const readOnly = useFormReadOnly();
   const children: unknown[] = (() => {
     if (op === 'not') {
       const inner: unknown = value.not;
@@ -318,14 +321,16 @@ function GroupEditor({ value, op, onChange, depth }: GroupEditorProps) {
               ? 'at least one of the following is true'
               : 'the following is NOT true'}
         </span>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="ml-auto h-6 gap-1 text-[10px]"
-          onClick={flattenToLeaf}>
-          Replace with single rule
-        </Button>
+        {!readOnly && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="ml-auto h-6 gap-1 text-[10px]"
+            onClick={flattenToLeaf}>
+            Replace with single rule
+          </Button>
+        )}
       </div>
 
       {children.map((child, index) => (
@@ -337,19 +342,21 @@ function GroupEditor({ value, op, onChange, depth }: GroupEditorProps) {
               depth={depth + 1}
             />
           </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="size-6 p-0 text-destructive-text"
-            aria-label={`Remove rule ${index + 1}`}
-            onClick={() => removeChild(index)}>
-            <Trash2 size={11} />
-          </Button>
+          {!readOnly && (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="size-6 p-0 text-destructive-text"
+              aria-label={`Remove rule ${index + 1}`}
+              onClick={() => removeChild(index)}>
+              <Trash2 size={11} />
+            </Button>
+          )}
         </div>
       ))}
 
-      {op !== 'not' ? (
+      {readOnly ? null : op !== 'not' ? (
         <div className="flex flex-wrap items-center gap-2">
           <Button
             type="button"
@@ -392,6 +399,7 @@ interface LeafEditorProps {
 }
 
 function LeafEditor({ value, onChange, depth }: LeafEditorProps) {
+  const readOnly = useFormReadOnly();
   const operator: Operator = (OPERATORS as readonly string[]).includes(value.operator)
     ? (value.operator as Operator)
     : 'equals';
@@ -514,18 +522,20 @@ function LeafEditor({ value, onChange, depth }: LeafEditorProps) {
         </Field>
       )}
 
-      <div className="flex items-end gap-1 pb-1">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="h-7 gap-1 text-[10px]"
-          onClick={wrapInGroup}
-          title="Wrap this rule in a logical group">
-          <Plus size={10} />
-          Group
-        </Button>
-      </div>
+      {!readOnly && (
+        <div className="flex items-end gap-1 pb-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1 text-[10px]"
+            onClick={wrapInGroup}
+            title="Wrap this rule in a logical group">
+            <Plus size={10} />
+            Group
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

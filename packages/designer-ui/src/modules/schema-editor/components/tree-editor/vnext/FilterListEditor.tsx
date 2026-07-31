@@ -3,6 +3,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '../../../../../ui/Button';
 import { Checkbox } from '../../../../../ui/Checkbox';
 import { Field } from '../../../../../ui/Field';
+import { useFormReadOnly } from '../../../../../ui/FormReadOnlyContext';
 import { Input } from '../../../../../ui/Input';
 
 export interface FilterEntry {
@@ -24,6 +25,8 @@ interface FilterListEditorProps {
  * available.
  */
 export function FilterListEditor({ filters, onChange }: FilterListEditorProps) {
+  const readOnly = useFormReadOnly();
+
   function updateEntry(index: number, patch: Partial<FilterEntry>) {
     onChange(filters.map((entry, i) => (i === index ? { ...entry, ...patch } : entry)));
   }
@@ -66,39 +69,55 @@ export function FilterListEditor({ filters, onChange }: FilterListEditorProps) {
               />
             </Field>
             <div className="flex items-end gap-1.5 pb-1">
+              {/* Read-only: keep the designer look (not disabled/gray) but
+                  make the control fully non-interactive. */}
               <Checkbox
                 id={`filter-required-${index}`}
                 checked={entry.required}
-                onCheckedChange={(value) => updateEntry(index, { required: value === true })}
+                aria-readonly={readOnly || undefined}
+                tabIndex={readOnly ? -1 : undefined}
+                className={readOnly ? 'pointer-events-none' : undefined}
+                onCheckedChange={(value) => {
+                  if (readOnly) {
+                    return;
+                  }
+                  updateEntry(index, { required: value === true });
+                }}
               />
-              <label htmlFor={`filter-required-${index}`} className="text-[10px]">
+              <label
+                htmlFor={`filter-required-${index}`}
+                className={readOnly ? 'pointer-events-none text-[10px]' : 'text-[10px]'}>
                 required
               </label>
             </div>
-            <div className="flex items-end pb-1">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="size-7 p-0 text-destructive-text"
-                aria-label={`Remove filter ${index + 1}`}
-                onClick={() => removeEntry(index)}>
-                <Trash2 size={12} />
-              </Button>
-            </div>
+            {!readOnly && (
+              <div className="flex items-end pb-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="size-7 p-0 text-destructive-text"
+                  aria-label={`Remove filter ${index + 1}`}
+                  onClick={() => removeEntry(index)}>
+                  <Trash2 size={12} />
+                </Button>
+              </div>
+            )}
           </div>
         ))
       )}
 
-      <Button
-        type="button"
-        variant="success"
-        size="sm"
-        className="h-7 gap-1 text-[10px]"
-        onClick={addEntry}>
-        <Plus size={10} />
-        Add filter
-      </Button>
+      {!readOnly && (
+        <Button
+          type="button"
+          variant="success"
+          size="sm"
+          className="h-7 gap-1 text-[10px]"
+          onClick={addEntry}>
+          <Plus size={10} />
+          Add filter
+        </Button>
+      )}
     </div>
   );
 }

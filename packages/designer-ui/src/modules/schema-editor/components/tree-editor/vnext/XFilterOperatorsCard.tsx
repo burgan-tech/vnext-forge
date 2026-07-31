@@ -1,4 +1,5 @@
 import { Checkbox } from '../../../../../ui/Checkbox';
+import { useFormReadOnly } from '../../../../../ui/FormReadOnlyContext';
 import { type JsonPointer } from '../../../model/jsonPointer';
 import { setKeyword } from '../../../model/mutators';
 import { useSchemaEditorStore } from '../../../useSchemaEditorStore';
@@ -72,6 +73,7 @@ function normalizeOperators(value: unknown): FilterOperator[] {
  * filterable.
  */
 export function XFilterOperatorsCard({ pointer }: XFilterOperatorsCardProps) {
+  const readOnly = useFormReadOnly();
   const { node } = useSchemaNode(pointer);
   const updateComponent = useSchemaEditorStore((s) => s.updateComponent);
   const { enabled, toggle } = useVNextEnabled(pointer, 'x-filterOperators', DEFAULT_VALUE);
@@ -112,11 +114,24 @@ export function XFilterOperatorsCard({ pointer }: XFilterOperatorsCardProps) {
                     <label
                       key={op.value}
                       htmlFor={id}
-                      className="flex cursor-pointer items-center gap-1 rounded-md border border-primary-border/60 bg-primary-muted/30 px-2 py-1 text-[10px] font-mono hover:bg-primary-muted/60">
+                      className={
+                        readOnly
+                          ? 'pointer-events-none flex items-center gap-1 rounded-md border border-primary-border/60 bg-primary-muted/30 px-2 py-1 text-[10px] font-mono'
+                          : 'flex cursor-pointer items-center gap-1 rounded-md border border-primary-border/60 bg-primary-muted/30 px-2 py-1 text-[10px] font-mono hover:bg-primary-muted/60'
+                      }>
+                      {/* Read-only: non-interactive, not disabled/gray. */}
                       <Checkbox
                         id={id}
                         checked={checked}
-                        onCheckedChange={(next) => setOperator(op.value, next === true)}
+                        aria-readonly={readOnly || undefined}
+                        tabIndex={readOnly ? -1 : undefined}
+                        className={readOnly ? 'pointer-events-none' : undefined}
+                        onCheckedChange={(next) => {
+                          if (readOnly) {
+                            return;
+                          }
+                          setOperator(op.value, next === true);
+                        }}
                       />
                       <span>{op.value}</span>
                     </label>

@@ -2,6 +2,7 @@ import { Plus, Trash2 } from 'lucide-react';
 
 import { Button } from '../../../../../ui/Button';
 import { Field } from '../../../../../ui/Field';
+import { useFormReadOnly } from '../../../../../ui/FormReadOnlyContext';
 import { Input } from '../../../../../ui/Input';
 import { Select } from '../../../../../ui/Select';
 
@@ -27,6 +28,8 @@ interface RoleGrantListEditorProps {
  * removes every row.
  */
 export function RoleGrantListEditor({ roles, onChange }: RoleGrantListEditorProps) {
+  const readOnly = useFormReadOnly();
+
   function updateEntry(index: number, patch: Partial<RoleGrantEntry>) {
     onChange(roles.map((entry, i) => (i === index ? { ...entry, ...patch } : entry)));
   }
@@ -72,30 +75,34 @@ export function RoleGrantListEditor({ roles, onChange }: RoleGrantListEditorProp
                 <option value="deny">Deny</option>
               </Select>
             </Field>
-            <div className="flex items-end pb-1">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="size-7 p-0 text-destructive-text"
-                onClick={() => removeEntry(index)}
-                aria-label={`Remove role ${entry.role || 'entry'}`}>
-                <Trash2 size={12} />
-              </Button>
-            </div>
+            {!readOnly && (
+              <div className="flex items-end pb-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="size-7 p-0 text-destructive-text"
+                  onClick={() => removeEntry(index)}
+                  aria-label={`Remove role ${entry.role || 'entry'}`}>
+                  <Trash2 size={12} />
+                </Button>
+              </div>
+            )}
           </div>
         ))
       )}
 
-      <Button
-        type="button"
-        variant="success"
-        size="sm"
-        className="h-7 gap-1 text-[10px]"
-        onClick={addEntry}>
-        <Plus size={10} />
-        Add role
-      </Button>
+      {!readOnly && (
+        <Button
+          type="button"
+          variant="success"
+          size="sm"
+          className="h-7 gap-1 text-[10px]"
+          onClick={addEntry}>
+          <Plus size={10} />
+          Add role
+        </Button>
+      )}
     </div>
   );
 }

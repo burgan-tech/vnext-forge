@@ -16,6 +16,7 @@ import { Field } from '../../../../../ui/Field';
 import { Input } from '../../../../../ui/Input';
 import { Select } from '../../../../../ui/Select';
 import { TagEditor } from '../../../../../ui/TagEditor';
+import { useFormReadOnly } from '../../../../../ui/FormReadOnlyContext';
 import { appendPointer, type JsonPointer } from '../../../model/jsonPointer';
 import { setKeyword } from '../../../model/mutators';
 import { getNodeAt, summarizeNode } from '../../../model/schemaNode';
@@ -130,6 +131,7 @@ function AdditionalPropertiesControl({ pointer }: { pointer: JsonPointer }) {
 }
 
 function PatternPropertiesList({ pointer }: { pointer: JsonPointer }) {
+  const readOnly = useFormReadOnly();
   const componentJson = useSchemaEditorStore((s) => s.componentJson);
   const updateComponent = useSchemaEditorStore((s) => s.updateComponent);
   const setSelection = useSetSelection();
@@ -216,81 +218,88 @@ function PatternPropertiesList({ pointer }: { pointer: JsonPointer }) {
                     <ExternalLink size={11} />
                     Open
                   </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-1.5 text-destructive-text"
-                    aria-label={`Remove pattern ${pattern}`}
-                    onClick={() => removePattern(pattern)}>
-                    <Trash2 size={11} />
-                  </Button>
+                  {!readOnly && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-1.5 text-destructive-text"
+                      aria-label={`Remove pattern ${pattern}`}
+                      onClick={() => removePattern(pattern)}>
+                      <Trash2 size={11} />
+                    </Button>
+                  )}
                 </div>
               </div>
             );
           })
         )}
 
-        <Button
-          type="button"
-          variant="success"
-          size="sm"
-          className="h-7 gap-1 text-[10px]"
-          onClick={() => {
-            setDialogOpen(true);
-            setError(null);
-          }}>
-          <Plus size={10} />
-          Add pattern
-        </Button>
-
-        <Dialog
-          open={dialogOpen}
-          onOpenChange={(next) => {
-            setDialogOpen(next);
-            if (!next) {
-              setDraft('');
-              setError(null);
-            }
-          }}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add pattern</DialogTitle>
-            </DialogHeader>
-            <DialogDescription>
-              Enter an ECMA-262 regular expression source (no slashes).
-            </DialogDescription>
-            <Input
-              type="text"
-              value={draft}
-              onChange={(event) => {
-                setDraft(event.target.value);
+        {!readOnly && (
+          <>
+            <Button
+              type="button"
+              variant="success"
+              size="sm"
+              className="h-7 gap-1 text-[10px]"
+              onClick={() => {
+                setDialogOpen(true);
                 setError(null);
-              }}
-              onKeyDown={(event) => {
-                if (event.key === 'Enter') {
-                  addPattern();
+              }}>
+              <Plus size={10} />
+              Add pattern
+            </Button>
+
+            <Dialog
+              open={dialogOpen}
+              onOpenChange={(next) => {
+                setDialogOpen(next);
+                if (!next) {
+                  setDraft('');
+                  setError(null);
                 }
-              }}
-              placeholder="^x-.*"
-              inputClassName="font-mono text-sm"
-              error={error}
-              autoFocus
-            />
-            <DialogFooter>
-              <DialogCancelButton variant="destructive">Cancel</DialogCancelButton>
-              <Button type="button" variant="success" onClick={addPattern}>
-                Add
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+              }}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Add pattern</DialogTitle>
+                </DialogHeader>
+                <DialogDescription>
+                  Enter an ECMA-262 regular expression source (no slashes).
+                </DialogDescription>
+                <Input
+                  type="text"
+                  value={draft}
+                  onChange={(event) => {
+                    setDraft(event.target.value);
+                    setError(null);
+                  }}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter') {
+                      addPattern();
+                    }
+                  }}
+                  placeholder="^x-.*"
+                  inputClassName="font-mono text-sm"
+                  error={error}
+                  autoFocus
+                />
+                <DialogFooter>
+                  <DialogCancelButton variant="destructive">Cancel</DialogCancelButton>
+                  <Button type="button" variant="success" onClick={addPattern}>
+                    Add
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </>
+        )}
       </div>
     </Field>
   );
 }
 
 function DependentRequiredEditor({ pointer }: { pointer: JsonPointer }) {
+  const readOnly = useFormReadOnly();
   const { node, mutate } = useSchemaNode(pointer);
   const map = isPlainObject(node?.dependentRequired) ? node.dependentRequired : {};
 
@@ -354,15 +363,17 @@ function DependentRequiredEditor({ pointer }: { pointer: JsonPointer }) {
                 className="space-y-2 rounded-md border border-primary-border bg-primary-muted/40 px-3 py-2">
                 <div className="flex items-center justify-between gap-2">
                   <p className="font-mono text-xs font-semibold">if "{trigger}" present</p>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-1.5 text-destructive-text"
-                    aria-label={`Remove rule for ${trigger}`}
-                    onClick={() => removeTrigger(trigger)}>
-                    <Trash2 size={11} />
-                  </Button>
+                  {!readOnly && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-1.5 text-destructive-text"
+                      aria-label={`Remove rule for ${trigger}`}
+                      onClick={() => removeTrigger(trigger)}>
+                      <Trash2 size={11} />
+                    </Button>
+                  )}
                 </div>
                 <TagEditor
                   tags={list}
@@ -374,6 +385,8 @@ function DependentRequiredEditor({ pointer }: { pointer: JsonPointer }) {
           })
         )}
 
+        {!readOnly && (
+        <>
         <Button
           type="button"
           variant="success"
@@ -428,12 +441,15 @@ function DependentRequiredEditor({ pointer }: { pointer: JsonPointer }) {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </>
+        )}
       </div>
     </Field>
   );
 }
 
 function DependentSchemasList({ pointer }: { pointer: JsonPointer }) {
+  const readOnly = useFormReadOnly();
   const componentJson = useSchemaEditorStore((s) => s.componentJson);
   const updateComponent = useSchemaEditorStore((s) => s.updateComponent);
   const setSelection = useSetSelection();
@@ -509,21 +525,25 @@ function DependentSchemasList({ pointer }: { pointer: JsonPointer }) {
                     <ExternalLink size={11} />
                     Open
                   </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-1.5 text-destructive-text"
-                    aria-label={`Remove rule for ${trigger}`}
-                    onClick={() => removeTrigger(trigger)}>
-                    <Trash2 size={11} />
-                  </Button>
+                  {!readOnly && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-1.5 text-destructive-text"
+                      aria-label={`Remove rule for ${trigger}`}
+                      onClick={() => removeTrigger(trigger)}>
+                      <Trash2 size={11} />
+                    </Button>
+                  )}
                 </div>
               </div>
             );
           })
         )}
 
+        {!readOnly && (
+        <>
         <Button
           type="button"
           variant="success"
@@ -578,6 +598,8 @@ function DependentSchemasList({ pointer }: { pointer: JsonPointer }) {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+        </>
+        )}
       </div>
     </Field>
   );

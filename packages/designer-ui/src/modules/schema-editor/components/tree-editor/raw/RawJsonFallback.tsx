@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { Field } from '../../../../../ui/Field';
+import { useFormReadOnly } from '../../../../../ui/FormReadOnlyContext';
 import { JsonCodeField } from '../../../../../ui/JsonCodeField';
 import { type JsonPointer } from '../../../model/jsonPointer';
 import { setKeyword } from '../../../model/mutators';
@@ -31,6 +32,7 @@ export function RawJsonFallback({
   hint,
   height = 160,
 }: RawJsonFallbackProps) {
+  const readOnly = useFormReadOnly();
   const { node } = useSchemaNode(pointer);
   const updateComponent = useSchemaEditorStore((s) => s.updateComponent);
 
@@ -52,7 +54,12 @@ export function RawJsonFallback({
       <JsonCodeField
         value={draft}
         height={height}
+        readOnly={readOnly}
         onChange={(value) => {
+          if (readOnly) {
+            return;
+          }
+
           setDraft(value);
 
           if (value.trim() === '') {

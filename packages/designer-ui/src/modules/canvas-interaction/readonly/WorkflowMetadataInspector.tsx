@@ -62,7 +62,7 @@ export function WorkflowMetadataInspector({ workflow: w, onClose }: WorkflowMeta
         </Section>
 
         {w.labels && w.labels.length > 0 && (
-          <Section title="Labels" count={w.labels.length} defaultOpen={false}>
+          <Section title="Labels" count={w.labels.length} defaultOpen>
             <LabelList labels={w.labels} />
           </Section>
         )}

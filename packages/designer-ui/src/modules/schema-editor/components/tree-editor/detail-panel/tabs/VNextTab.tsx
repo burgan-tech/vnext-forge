@@ -1,3 +1,4 @@
+import { useFormReadOnly } from '../../../../../../ui/FormReadOnlyContext';
 import { ROOT_POINTER, type JsonPointer } from '../../../../model/jsonPointer';
 import { useSchemaNode } from '../../../../hooks/useSchemaNode';
 import { VNEXT_CARD_REGISTRY } from '../../vnext/vnextCardRegistry';
@@ -17,6 +18,7 @@ interface VNextTabProps {
  * `VNextCardShell` so the tab feels uniform across keywords.
  */
 export function VNextTab({ pointer }: VNextTabProps) {
+  const readOnly = useFormReadOnly();
   const { node } = useSchemaNode(pointer);
 
   if (!node) {
@@ -28,14 +30,21 @@ export function VNextTab({ pointer }: VNextTabProps) {
   }
 
   const isRoot = pointer === ROOT_POINTER;
-  const cards = VNEXT_CARD_REGISTRY.filter(({ scope }) =>
+  const scopedCards = VNEXT_CARD_REGISTRY.filter(({ scope }) =>
     scope === 'any' ? true : isRoot ? scope === 'root' : scope === 'property',
   );
 
+  // Read-only hosts render EVERY scoped card — set ones expanded with their
+  // content, unset ones collapsed with a "Not set" badge — so reviewers can
+  // see at a glance which annotations were entered and which were not.
   return (
     <div className="space-y-3">
-      {cards.map(({ xKey, component: Card }) => (
-        <Card key={xKey} pointer={pointer} />
+      {scopedCards.map(({ xKey, component: Card }) => (
+        // Read-only only: keying by pointer remounts each card when the
+        // selection changes so per-card local state (e.g. x-context-target
+        // rows) is re-seeded from the newly selected node. Editor shells keep
+        // the stable key so remount behavior there is untouched.
+        <Card key={readOnly ? `${xKey}:${pointer}` : xKey} pointer={pointer} />
       ))}
     </div>
   );
