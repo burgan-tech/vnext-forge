@@ -3,6 +3,7 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { AlertCircle } from 'lucide-react';
 
 import { cn } from '../lib/utils/cn.js';
+import { useFormReadOnly } from './FormReadOnlyContext.js';
 
 const inputRootVariants = cva(
   [
@@ -289,7 +290,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
       leading,
       noAdornmentHover = false,
       noBorder = false,
-      readOnly = false,
+      readOnly: readOnlyProp,
       size,
       trailing,
       variant,
@@ -299,6 +300,8 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     },
     ref,
   ) => {
+    const contextReadOnly = useFormReadOnly();
+    const readOnly = readOnlyProp ?? contextReadOnly;
     const inputRef = React.useRef<HTMLInputElement>(null);
     const errorId = React.useId();
     const errorDescriptionId = error ? `${errorId}-error` : undefined;

@@ -1,5 +1,7 @@
 import { useId } from 'react';
 
+import { useFormReadOnly } from './FormReadOnlyContext.js';
+
 interface ComponentDescriptionFieldProps {
   value: string;
   onChange: (value: string) => void;
@@ -12,6 +14,7 @@ export function ComponentDescriptionField({
   value,
   onChange,
 }: ComponentDescriptionFieldProps) {
+  const readOnly = useFormReadOnly();
   const id = useId();
   return (
     <div className="space-y-1">
@@ -25,8 +28,13 @@ export function ComponentDescriptionField({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder="Component description..."
+        readOnly={readOnly}
         rows={2}
-        className={textareaClass}
+        className={
+          readOnly
+            ? `${textareaClass} focus:ring-0 focus:border-border focus:bg-muted-surface cursor-default`
+            : textareaClass
+        }
       />
     </div>
   );
