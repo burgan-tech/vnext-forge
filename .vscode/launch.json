@@ -72,6 +72,44 @@
         "${workspaceFolder}/apps/extension/dist/**/*.js"
       ],
       "preLaunchTask": "${defaultBuildTask}"
+    },
+    // ─── Monitoring App ───────────────────────────────────────────────────────
+    {
+      // One-click: starts the Vite dev server (port 3100) and opens Chrome
+      // with source-mapped breakpoint support as soon as the server is ready.
+      // Vite output lands in the Debug Console; do not switch to
+      // "integratedTerminal" or serverReadyAction can no longer see the URL.
+      "name": "Monitoring: Dev Server + Chrome",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/apps/monitoring/node_modules/vite/bin/vite.js",
+      "cwd": "${workspaceFolder}/apps/monitoring",
+      "console": "internalConsole",
+      "env": {
+        // Keeps Vite's banner ANSI-free so serverReadyAction can parse the URL.
+        "NO_COLOR": "1"
+      },
+      "serverReadyAction": {
+        "pattern": "Local:\\s+(https?://\\S+)",
+        "uriFormat": "%s",
+        "action": "debugWithChrome",
+        "webRoot": "${workspaceFolder}/apps/monitoring/src"
+      }
+    },
+    {
+      // Use when the dev server is already running (e.g. started from the
+      // "Monitoring: Dev Server" task or a terminal).
+      "name": "Monitoring: Chrome (server already running)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:3100",
+      "webRoot": "${workspaceFolder}/apps/monitoring/src",
+      "sourceMaps": true,
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/apps/monitoring/src/**",
+        "${workspaceFolder}/packages/*/src/**",
+        "!**/node_modules/**"
+      ]
     }
   ],
   "compounds": [
