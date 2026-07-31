@@ -1,7 +1,10 @@
 import { Field } from '../../../ui/Field';
 import { Input } from '../../../ui/Input';
 import { Select } from '../../../ui/Select';
-import { BodyJsonField, HttpSettingsFields } from './shared';
+// Import shared fields by direct path (not './shared') — the barrel drags
+// store/transport deps; component-readonly relies on this staying lean.
+import { BodyJsonField } from './shared/BodyJsonField.js';
+import { HttpSettingsFields } from './shared/HttpSettingsFields.js';
 
 interface Props { config: Record<string, unknown>; onChange: (updater: (draft: any) => void) => void; }
 

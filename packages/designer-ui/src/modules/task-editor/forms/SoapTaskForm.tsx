@@ -3,7 +3,9 @@ import { Input } from '../../../ui/Input';
 import { KVEditor } from '../../../ui/KeyValueEditor';
 import { Select } from '../../../ui/Select';
 import { Textarea } from '../../../ui/Textarea';
-import { AcceptedStatusCodesField } from './shared';
+// Import shared fields by direct path (not './shared') — the barrel drags
+// store/transport deps; component-readonly relies on this staying lean.
+import { AcceptedStatusCodesField } from './shared/AcceptedStatusCodesField.js';
 
 interface Props {
   config: Record<string, unknown>;

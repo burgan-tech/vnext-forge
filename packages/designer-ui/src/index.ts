@@ -45,6 +45,11 @@ export {
   SchemaEditorView,
   type SchemaEditorViewProps,
 } from './modules/schema-editor/SchemaEditorView.js';
+// Store-backed schema tree (two-pane property tree + detail panel), the same
+// surface SchemaEditorView renders. It has no transport or save path of its
+// own; `SchemaDetailCore` mounts it under `FormReadOnlyProvider` for the
+// read-only monitoring detail pages.
+export { SchemaTreeEditor } from './modules/schema-editor/components/tree-editor/SchemaTreeEditor.js';
 export {
   ViewEditorView,
   type ViewEditorViewProps,
@@ -275,3 +280,4 @@ export type {
   ExecutionOverlay,
 } from './modules/canvas-interaction/context/CanvasModeContext.js';
 export * from './modules/canvas-interaction/readonly/index.js';
+export * from './modules/component-readonly/index.js';
