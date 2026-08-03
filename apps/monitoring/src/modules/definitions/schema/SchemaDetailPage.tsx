@@ -1,16 +1,18 @@
 import { useState } from 'react';
-import { Badge, Button, JsonCodeField } from '@vnext-forge-studio/designer-ui/ui';
+import { Button, JsonCodeField } from '@vnext-forge-studio/designer-ui/ui';
+import { SchemaDetailCore } from '@vnext-forge-studio/designer-ui';
 import { cn } from '@monitoring/shared/lib/utils';
 import { VersionPicker } from '@monitoring/modules/definitions/components/VersionPicker';
 import { RawJsonViewer } from '@monitoring/modules/definitions/components/RawJsonViewer';
 import { useComponentDetail } from '@monitoring/modules/definitions/api/definitions-queries';
+import { DetailPageSkeleton } from '@monitoring/shared/components/skeletons';
 import Ajv from 'ajv/dist/2020';
 
 const ajv = new Ajv({ allErrors: true, strict: false });
 
-type Tab = 'overview' | 'definition' | 'test';
+type Tab = 'designer' | 'definition' | 'test';
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'overview', label: 'Overview' },
+  { id: 'designer', label: 'Designer' },
   { id: 'definition', label: 'Definition' },
   { id: 'test', label: 'Test' },
 ];
@@ -47,24 +49,14 @@ function validate(schemaData: Record<string, unknown>, input: string): Validatio
 }
 
 export function SchemaDetailPage({ id }: { id: string }) {
-  const [activeTab, setActiveTab] = useState<Tab>('overview');
+  const [activeTab, setActiveTab] = useState<Tab>('designer');
   const [testInput, setTestInput] = useState('{\n  \n}');
   const [result, setResult] = useState<ValidationResult | null>(null);
 
   const { data, isLoading } = useComponentDetail('schema', id);
 
-  if (isLoading) return <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">Loading schema…</div>;
+  if (isLoading) return <DetailPageSkeleton />;
   if (!data) return <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">Schema not found</div>;
-
-  const type = data.type != null ? String(data.type) : null;
-  const comment = data._comment ? String(data._comment) : null;
-  const key = String(data.key ?? '—');
-  const flow = String(data.flow ?? '—');
-  const flowVersion = String(data.flowVersion ?? '—');
-  type LabelItem = { label: string; language?: string } | string;
-  const rawLabels = Array.isArray(data.labels) ? (data.labels as LabelItem[]) : [];
-  const labels = rawLabels.map((l) => (typeof l === 'string' ? l : l.label));
-  const tags = Array.isArray(data.tags) ? (data.tags as string[]) : [];
 
   function handleValidate() {
     if (!data) return;
@@ -93,44 +85,7 @@ export function SchemaDetailPage({ id }: { id: string }) {
         </div>
       </div>
 
-      {activeTab === 'overview' && (
-        <div className="flex flex-col gap-4">
-          {type && (
-            <div className="flex items-center gap-2">
-              <Badge variant="secondary">{type}</Badge>
-            </div>
-          )}
-          {comment && <p className="text-sm text-muted-foreground">{comment}</p>}
-          <div className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-muted/20 p-4 text-sm">
-            <span className="text-muted-foreground">Key</span>
-            <span className="font-mono text-foreground">{key}</span>
-            <span className="text-muted-foreground">Flow</span>
-            <span className="font-mono text-foreground">{flow}</span>
-            <span className="text-muted-foreground">Flow Version</span>
-            <span className="font-mono text-foreground">{flowVersion}</span>
-          </div>
-          {labels.length > 0 && (
-            <div className="flex flex-col gap-1.5">
-              <span className="text-xs text-muted-foreground">Labels</span>
-              <div className="flex flex-wrap gap-1.5">
-                {labels.map((label) => (
-                  <Badge key={label} variant="secondary" className="text-xs">{label}</Badge>
-                ))}
-              </div>
-            </div>
-          )}
-          {tags.length > 0 && (
-            <div className="flex flex-col gap-1.5">
-              <span className="text-xs text-muted-foreground">Tags</span>
-              <div className="flex flex-wrap gap-1.5">
-                {tags.map((tag) => (
-                  <Badge key={tag} variant="outline" className="text-xs">{tag}</Badge>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+      {activeTab === 'designer' && <SchemaDetailCore json={data} />}
 
       {activeTab === 'definition' && <RawJsonViewer data={data} />}
 

@@ -3,7 +3,9 @@ import { Input } from '../../../ui/Input';
 import { KVEditor } from '../../../ui/KeyValueEditor';
 import { Select } from '../../../ui/Select';
 import { TagEditor } from '../../../ui/TagEditor';
-import { BodyJsonField } from './shared';
+// Import shared fields by direct path (not './shared') — the barrel drags
+// store/transport deps; component-readonly relies on this staying lean.
+import { BodyJsonField } from './shared/BodyJsonField.js';
 
 interface Props {
   config: Record<string, unknown>;

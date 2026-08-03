@@ -3,6 +3,7 @@ import { Plus, Trash2 } from 'lucide-react';
 import { Button } from '../../../../../ui/Button';
 import { LocalizedTextMapEditor, type LocalizedTextMap } from '../../../../../ui/LocalizedTextMapEditor';
 import { Select } from '../../../../../ui/Select';
+import { useFormReadOnly } from '../../../../../ui/FormReadOnlyContext';
 import { type JsonPointer } from '../../../model/jsonPointer';
 import { setKeyword } from '../../../model/mutators';
 import { useSchemaEditorStore } from '../../../useSchemaEditorStore';
@@ -68,6 +69,7 @@ function toErrorMessageMap(value: unknown): ErrorMessageMap {
  * which constraint keys to override and edit per-language text below.
  */
 export function XErrorMessagesCard({ pointer }: XErrorMessagesCardProps) {
+  const readOnly = useFormReadOnly();
   const { node } = useSchemaNode(pointer);
   const updateComponent = useSchemaEditorStore((s) => s.updateComponent);
   const { enabled, toggle } = useVNextEnabled(pointer, 'x-errorMessages', DEFAULT_VALUE);
@@ -123,15 +125,17 @@ export function XErrorMessagesCard({ pointer }: XErrorMessagesCardProps) {
               className="rounded-md border border-primary-border/60 bg-primary-muted/40 p-2">
               <div className="mb-1.5 flex items-center justify-between gap-2">
                 <p className="font-mono text-[11px] font-semibold">{constraint}</p>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="size-6 p-0 text-destructive-text"
-                  aria-label={`Remove ${constraint} override`}
-                  onClick={() => removeConstraint(constraint)}>
-                  <Trash2 size={11} />
-                </Button>
+                {!readOnly && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="size-6 p-0 text-destructive-text"
+                    aria-label={`Remove ${constraint} override`}
+                    onClick={() => removeConstraint(constraint)}>
+                    <Trash2 size={11} />
+                  </Button>
+                )}
               </div>
               <LocalizedTextMapEditor
                 label="Messages"
@@ -142,7 +146,7 @@ export function XErrorMessagesCard({ pointer }: XErrorMessagesCardProps) {
           ))
         )}
 
-        {availableKeys.length > 0 ? (
+        {!readOnly && availableKeys.length > 0 ? (
           <div className="flex flex-wrap items-end gap-2">
             <Select
               className="h-8 text-xs"

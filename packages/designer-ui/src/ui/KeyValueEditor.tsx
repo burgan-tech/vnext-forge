@@ -3,6 +3,7 @@ import { cva, type VariantProps } from 'class-variance-authority';
 import { Plus, X } from 'lucide-react';
 
 import { Button } from './Button';
+import { useFormReadOnly } from './FormReadOnlyContext.js';
 import { Input } from './Input';
 import { cn } from '../lib/utils/cn.js';
 
@@ -80,11 +81,14 @@ function KeyValueEditor({
   noBorder = false,
   onChange,
   pairs,
-  readOnly = false,
+  readOnly: readOnlyProp,
   variant,
   valuePlaceholder = 'Value',
   ...props
 }: KeyValueEditorProps) {
+  const contextReadOnly = useFormReadOnly();
+  const readOnly = readOnlyProp ?? contextReadOnly;
+
   function updatePair(index: number, field: keyof KeyValuePair, value: string) {
     onChange(
       pairs.map((pair, currentIndex) =>

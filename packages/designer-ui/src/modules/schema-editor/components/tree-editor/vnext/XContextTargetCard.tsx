@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { Button } from '../../../../../ui/Button';
 import { Field } from '../../../../../ui/Field';
+import { useFormReadOnly } from '../../../../../ui/FormReadOnlyContext';
 import { Input } from '../../../../../ui/Input';
 import { Select } from '../../../../../ui/Select';
 import { type JsonPointer } from '../../../model/jsonPointer';
@@ -161,6 +162,7 @@ export function serializeContextTarget(rows: ContextTargetRow[]): Record<string,
  * swapped out from under the card (undo/redo, loading a different file).
  */
 export function XContextTargetCard({ pointer }: XContextTargetCardProps) {
+  const readOnly = useFormReadOnly();
   const { node } = useSchemaNode(pointer);
   const updateComponent = useSchemaEditorStore((s) => s.updateComponent);
   const { enabled, toggle } = useVNextEnabled(pointer, 'x-context-target', DEFAULT_VALUE);
@@ -233,15 +235,17 @@ export function XContextTargetCard({ pointer }: XContextTargetCardProps) {
                   inputClassName="font-mono text-xs"
                 />
               </Field>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="size-7 shrink-0 p-0 text-destructive-text"
-                aria-label={`Remove context target ${index + 1}`}
-                onClick={() => removeRow(index)}>
-                <Trash2 size={12} />
-              </Button>
+              {!readOnly && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="size-7 shrink-0 p-0 text-destructive-text"
+                  aria-label={`Remove context target ${index + 1}`}
+                  onClick={() => removeRow(index)}>
+                  <Trash2 size={12} />
+                </Button>
+              )}
             </div>
 
             <div className="grid gap-2 sm:grid-cols-3">
@@ -287,15 +291,17 @@ export function XContextTargetCard({ pointer }: XContextTargetCardProps) {
         ))}
       </div>
 
-      <Button
-        type="button"
-        variant="success"
-        size="sm"
-        className="h-7 gap-1 text-[10px]"
-        onClick={addRow}>
-        <Plus size={10} />
-        Add context target
-      </Button>
+      {!readOnly && (
+        <Button
+          type="button"
+          variant="success"
+          size="sm"
+          className="h-7 gap-1 text-[10px]"
+          onClick={addRow}>
+          <Plus size={10} />
+          Add context target
+        </Button>
+      )}
     </VNextCardShell>
   );
 }

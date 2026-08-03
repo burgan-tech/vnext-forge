@@ -90,7 +90,7 @@ export function TransitionFields({ transition: t }: { transition: TransitionView
       )}
 
       {t.labels && t.labels.length > 0 && (
-        <Section title="Labels" count={t.labels.length} defaultOpen={false}>
+        <Section title="Labels" count={t.labels.length} defaultOpen>
           <LabelList labels={t.labels} />
         </Section>
       )}

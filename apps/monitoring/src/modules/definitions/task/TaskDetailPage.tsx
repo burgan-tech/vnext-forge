@@ -1,88 +1,24 @@
 import { useState } from 'react';
-import { Badge } from '@vnext-forge-studio/designer-ui/ui';
+import { TaskDetailCore } from '@vnext-forge-studio/designer-ui';
 import { useComponentDetail } from '@monitoring/modules/definitions/api/definitions-queries';
 import { VersionPicker } from '@monitoring/modules/definitions/components/VersionPicker';
 import { RawJsonViewer } from '@monitoring/modules/definitions/components/RawJsonViewer';
+import { DetailPageSkeleton } from '@monitoring/shared/components/skeletons';
 import { cn } from '@monitoring/shared/lib/utils';
 
-type Tab = 'overview' | 'definition';
+type Tab = 'designer' | 'definition';
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'overview', label: 'Overview' },
+  { id: 'designer', label: 'Designer' },
   { id: 'definition', label: 'Definition' },
 ];
 
-const TASK_TYPE_LABELS: Record<number, string> = {
-  1: 'DaprHttpEndpoint',
-  2: 'DaprBinding',
-  3: 'DaprService',
-  4: 'DaprPubSub',
-  5: 'HumanTask',
-  6: 'HttpTask',
-  7: 'ScriptTask',
-  8: 'ConditionTask',
-  9: 'TimerTask',
-  10: 'NotificationTask',
-  11: 'StartFlowTask',
-  12: 'TriggerTransitionTask',
-  13: 'GetInstanceDataTask',
-  14: 'SubProcessTask',
-  15: 'GetInstancesTask',
-  16: 'SoapTask',
-};
-
-interface OverviewContentProps {
-  data: Record<string, unknown>;
-}
-
-function OverviewContent({ data }: OverviewContentProps) {
-  const typeNum = data.type != null ? Number(data.type) : null;
-  const typeLabel = typeNum != null ? (TASK_TYPE_LABELS[typeNum] ?? `Type ${typeNum}`) : '—';
-  const isDeprecated = data.deprecated === true;
-  const comment = data._comment ? String(data._comment) : null;
-  const key = String(data.key ?? '—');
-  const flow = String(data.flow ?? '—');
-  const flowVersion = String(data.flowVersion ?? '—');
-  const tags = Array.isArray(data.tags) ? (data.tags as string[]) : [];
-
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center gap-2 flex-wrap">
-        {typeNum != null && <Badge variant="secondary">{typeLabel}</Badge>}
-        {isDeprecated && <Badge variant="destructive">Deprecated</Badge>}
-      </div>
-      {comment && <p className="text-sm text-muted-foreground">{comment}</p>}
-      <div className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-muted/20 p-4 text-sm">
-        <span className="text-muted-foreground">Key</span>
-        <span className="font-mono text-foreground">{key}</span>
-        <span className="text-muted-foreground">Flow</span>
-        <span className="font-mono text-foreground">{flow}</span>
-        <span className="text-muted-foreground">Flow Version</span>
-        <span className="font-mono text-foreground">{flowVersion}</span>
-      </div>
-      {tags.length > 0 && (
-        <div className="flex flex-wrap gap-1.5">
-          {tags.map((tag) => (
-            <Badge key={tag} variant="outline" className="text-xs">
-              {tag}
-            </Badge>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
 export function TaskDetailPage({ id }: { id: string }) {
-  const [activeTab, setActiveTab] = useState<Tab>('overview');
+  const [activeTab, setActiveTab] = useState<Tab>('designer');
   const { data, isLoading } = useComponentDetail('task', id);
 
   if (isLoading) {
-    return (
-      <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
-        Loading…
-      </div>
-    );
+    return <DetailPageSkeleton />;
   }
 
   if (!data) {
@@ -129,7 +65,7 @@ export function TaskDetailPage({ id }: { id: string }) {
         </div>
       </div>
 
-      {activeTab === 'overview' && <OverviewContent data={data} />}
+      {activeTab === 'designer' && <TaskDetailCore json={data} />}
       {activeTab === 'definition' && <RawJsonViewer data={data} />}
     </div>
   );

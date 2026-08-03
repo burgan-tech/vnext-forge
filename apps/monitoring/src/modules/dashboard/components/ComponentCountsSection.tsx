@@ -3,6 +3,7 @@ import { useResolvedColorTheme } from '@vnext-forge-studio/designer-ui/hooks';
 import { VNEXT_FOLDER_PALETTE } from '@vnext-forge-studio/designer-ui/component-icons';
 import type { ComponentCounts } from '@monitoring/shared/types';
 import { ComponentBadgeIcon } from '@monitoring/shared/components/ComponentBadgeIcon';
+import { KpiCardSkeleton } from '@monitoring/shared/components/skeletons';
 import { KpiCard } from './KpiCard';
 
 type FolderKey = keyof typeof VNEXT_FOLDER_PALETTE;
@@ -43,14 +44,15 @@ export function ComponentCountsSection({ data, isLoading }: ComponentCountsSecti
         Registered Components
       </h2>
       <div className="grid grid-cols-4 gap-3 sm:grid-cols-7">
-        {COMPONENT_CARDS.map(({ key, label, type }) => {
+        {isLoading && COMPONENT_CARDS.map(({ key }) => <KpiCardSkeleton key={key} />)}
+        {!isLoading && COMPONENT_CARDS.map(({ key, label, type }) => {
           const folderKey = TYPE_TO_FOLDER[type];
           const borderColor = VNEXT_FOLDER_PALETTE[folderKey][themeKey].fill;
           return (
             <KpiCard
               key={key}
               label={label}
-              value={isLoading ? '—' : (data?.[key] ?? 0)}
+              value={data?.[key] ?? 0}
               icon={<ComponentBadgeIcon type={type} className="h-7 w-7" />}
               onClick={() => { void navigate(`/definitions/${type}`); }}
               style={{ borderColor }}

@@ -3,6 +3,7 @@ import { Plus, X } from 'lucide-react';
 
 import { Button } from './Button.js';
 import { Field } from './Field.js';
+import { useFormReadOnly } from './FormReadOnlyContext.js';
 import { Input } from './Input.js';
 
 export type LocalizedTextMap = Record<string, string>;
@@ -29,6 +30,7 @@ export function LocalizedTextMapEditor({
   onChange,
   value,
 }: LocalizedTextMapEditorProps) {
+  const readOnly = useFormReadOnly();
   const [nextLanguage, setNextLanguage] = useState('');
   /**
    * Seed languages (`commonLanguages`) are rendered as input rows even
@@ -101,26 +103,28 @@ export function LocalizedTextMapEditor({
     <div className={className}>
       <div className="mb-1 flex items-center justify-between gap-2">
         <span className="text-primary-text/75 text-xs font-semibold">{label}</span>
-        <div className="flex items-center gap-1">
-          <Input
-            size="sm"
-            value={nextLanguage}
-            onChange={(event) => setNextLanguage(event.target.value)}
-            placeholder="fr"
-            inputClassName="h-7 w-16 font-mono text-[11px]"
-            aria-label={`${label} language code`}
-          />
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            className="h-7 gap-1 px-2 text-[10px]"
-            disabled={!canAddLanguage}
-            onClick={addLanguage}>
-            <Plus size={11} />
-            {addLabel}
-          </Button>
-        </div>
+        {!readOnly && (
+          <div className="flex items-center gap-1">
+            <Input
+              size="sm"
+              value={nextLanguage}
+              onChange={(event) => setNextLanguage(event.target.value)}
+              placeholder="fr"
+              inputClassName="h-7 w-16 font-mono text-[11px]"
+              aria-label={`${label} language code`}
+            />
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="h-7 gap-1 px-2 text-[10px]"
+              disabled={!canAddLanguage}
+              onClick={addLanguage}>
+              <Plus size={11} />
+              {addLabel}
+            </Button>
+          </div>
+        )}
       </div>
 
       <div className="grid gap-2 md:grid-cols-2">
@@ -133,16 +137,18 @@ export function LocalizedTextMapEditor({
                 onChange={(event) => setText(language, event.target.value)}
                 placeholder={language === 'en' ? 'English text' : ''}
               />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="size-8"
-                title={`Remove ${language}`}
-                aria-label={`Remove ${language}`}
-                onClick={() => removeLanguage(language)}>
-                <X size={12} />
-              </Button>
+              {!readOnly && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-8"
+                  title={`Remove ${language}`}
+                  aria-label={`Remove ${language}`}
+                  onClick={() => removeLanguage(language)}>
+                  <X size={12} />
+                </Button>
+              )}
             </div>
           </Field>
         ))}

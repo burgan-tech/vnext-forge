@@ -2,6 +2,7 @@ import * as React from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 
 import { cn } from '../lib/utils/cn.js';
+import { useFormReadOnly } from './FormReadOnlyContext.js';
 
 const textareaVariants = cva(
   [
@@ -92,13 +93,21 @@ function Textarea({
   className,
   hoverable,
   noBorder,
+  readOnly: readOnlyProp,
   variant,
   ...props
 }: React.ComponentProps<'textarea'> & VariantProps<typeof textareaVariants>) {
+  const contextReadOnly = useFormReadOnly();
+  const readOnly = readOnlyProp ?? contextReadOnly;
   return (
     <textarea
       data-slot="textarea"
-      className={cn(textareaVariants({ variant, hoverable, noBorder }), className)}
+      readOnly={readOnly}
+      className={cn(
+        textareaVariants({ variant, hoverable, noBorder }),
+        className,
+        readOnly && 'focus-visible:ring-0 cursor-default',
+      )}
       {...props}
     />
   );

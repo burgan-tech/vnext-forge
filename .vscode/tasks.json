@@ -22,6 +22,49 @@
         "panel": "shared"
       },
       "problemMatcher": []
+    },
+    {
+      // Long-running Vite dev server on http://localhost:3100.
+      // /api/* is proxied to the vnext runtime at http://localhost:4203.
+      "label": "Monitoring: Dev Server",
+      "type": "shell",
+      "command": "pnpm --filter @vnext-forge-studio/monitoring dev",
+      "isBackground": true,
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated"
+      },
+      "problemMatcher": {
+        "owner": "vite",
+        // The pattern is intentionally inert — this matcher exists only so VS Code
+        // can tell when the background server is up (endsPattern below).
+        "pattern": [
+          {
+            "regexp": "^$",
+            "file": 1,
+            "location": 2,
+            "message": 3
+          }
+        ],
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": "VITE v",
+          "endsPattern": "ready in"
+        }
+      }
+    },
+    {
+      "label": "Monitoring: Build",
+      "type": "shell",
+      "command": "pnpm --filter @vnext-forge-studio/monitoring build",
+      "group": "build",
+      "presentation": {
+        "reveal": "always",
+        "panel": "shared"
+      },
+      "problemMatcher": [
+        "$tsc"
+      ]
     }
   ]
 }

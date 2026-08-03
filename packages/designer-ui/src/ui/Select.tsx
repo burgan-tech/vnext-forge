@@ -2,6 +2,7 @@ import * as React from 'react';
 import { cva, type VariantProps } from 'class-variance-authority';
 
 import { cn } from '../lib/utils/cn.js';
+import { useFormReadOnly } from './FormReadOnlyContext.js';
 
 const selectVariants = cva(
   'flex h-10 w-full rounded-md border px-3 text-sm shadow-xs transition-all duration-200 ease-out outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50',
@@ -53,8 +54,25 @@ type SelectProps = React.SelectHTMLAttributes<HTMLSelectElement> &
   VariantProps<typeof selectVariants>;
 
 const Select = ({ className, children, hoverable, noBorder, variant, ...props }: SelectProps) => {
+  const readOnly = useFormReadOnly();
   return (
-    <select className={cn(selectVariants({ variant, hoverable, noBorder }), className)} {...props}>
+    <select
+      className={cn(
+        selectVariants({ variant, hoverable, noBorder }),
+        className,
+        readOnly && 'pointer-events-none appearance-none',
+      )}
+      {...props}
+      {...(readOnly
+        ? {
+            tabIndex: -1,
+            'aria-readonly': true,
+            // No-op (not undefined): keeps React's controlled-component contract
+            // satisfied while reverting any assistive-tech-driven change.
+            onChange: () => undefined,
+            onKeyDown: (event: React.KeyboardEvent<HTMLSelectElement>) => event.preventDefault(),
+          }
+        : {})}>
       {children}
     </select>
   );

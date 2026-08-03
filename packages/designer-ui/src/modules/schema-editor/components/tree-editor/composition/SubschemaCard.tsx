@@ -2,6 +2,7 @@ import { ChevronDown, ChevronUp, Copy, ExternalLink, Trash2 } from 'lucide-react
 
 import { Badge } from '../../../../../ui/Badge';
 import { Button } from '../../../../../ui/Button';
+import { useFormReadOnly } from '../../../../../ui/FormReadOnlyContext';
 import { type JsonPointer } from '../../../model/jsonPointer';
 import { getNodeAt, summarizeNode } from '../../../model/schemaNode';
 import { useSchemaEditorStore } from '../../../useSchemaEditorStore';
@@ -38,6 +39,7 @@ export function SubschemaCard({
   onClone,
   onRemove,
 }: SubschemaCardProps) {
+  const readOnly = useFormReadOnly();
   const componentJson = useSchemaEditorStore((s) => s.componentJson);
   const setSelection = useSetSelection();
   const node = getNodeAt(componentJson, pointer);
@@ -64,7 +66,7 @@ export function SubschemaCard({
           Open
         </Button>
 
-        {canMove ? (
+        {canMove && !readOnly ? (
           <>
             <Button
               type="button"
@@ -89,7 +91,7 @@ export function SubschemaCard({
           </>
         ) : null}
 
-        {onClone ? (
+        {onClone && !readOnly ? (
           <Button
             type="button"
             variant="ghost"
@@ -101,7 +103,7 @@ export function SubschemaCard({
           </Button>
         ) : null}
 
-        {onRemove ? (
+        {onRemove && !readOnly ? (
           <Button
             type="button"
             variant="ghost"

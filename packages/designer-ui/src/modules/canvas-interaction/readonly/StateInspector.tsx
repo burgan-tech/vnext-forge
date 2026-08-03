@@ -13,9 +13,21 @@ import { TransitionFields } from './TransitionFields';
 
 type Tab = 'general' | 'tasks' | 'transitions' | 'subflow' | 'error-boundary';
 
-function pickLabel(labels?: { language: string; label: string }[]): string | undefined {
-  if (!labels?.length) return undefined;
-  return labels.find((l) => l.language.startsWith('en'))?.label ?? labels[0].label;
+/** Every language entry, inline with its language code — never just one pick. */
+function HeaderLabels({ labels }: { labels?: { language: string; label: string }[] }) {
+  if (!labels?.length) return null;
+  return (
+    <div className="text-muted-foreground flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] leading-snug">
+      {labels.map((entry, index) => (
+        <span key={`${entry.language}-${index}`} className="inline-flex items-center gap-1">
+          <span className="font-mono text-[9px] font-bold uppercase opacity-70">
+            {entry.language || '?'}
+          </span>
+          {entry.label || '(empty)'}
+        </span>
+      ))}
+    </div>
+  );
 }
 
 function TaskRefRow({ task }: { task: TaskRefView }) {
@@ -67,7 +79,6 @@ export function StateInspector({ state, onClose, children }: StateInspectorProps
   const exits = state.onExits ?? [];
   const transitions = state.transitions ?? [];
   const ebCount = state.errorHandlers?.length ?? 0;
-  const label = pickLabel(state.labels);
 
   const tabs: { key: Tab; label: string; count?: number; show: boolean }[] = [
     { key: 'general', label: 'General', show: true },
@@ -99,7 +110,7 @@ export function StateInspector({ state, onClose, children }: StateInspectorProps
             </button>
           )}
         </div>
-        {label && <div className="text-muted-foreground truncate text-[11px] leading-snug">{label}</div>}
+        <HeaderLabels labels={state.labels} />
       </div>
 
       {/* Tabs */}

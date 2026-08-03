@@ -3,6 +3,7 @@ import { ChevronDown, ChevronRight, ChevronUp, ChevronDown as ChevronDownSolid, 
 
 import { Badge } from '../../../../../ui/Badge';
 import { Button } from '../../../../../ui/Button';
+import { useFormReadOnly } from '../../../../../ui/FormReadOnlyContext';
 import { cn } from '../../../../../lib/utils/cn';
 import { appendPointer, type JsonPointer } from '../../../model/jsonPointer';
 import { countCompositionItems } from '../../../model/compositionKeywords';
@@ -28,6 +29,7 @@ interface PropertyTreeNodeProps {
  */
 export function PropertyTreeNode({ parentPointer, propertyKey, depth }: PropertyTreeNodeProps) {
   const pointer = appendPointer(parentPointer, 'properties', propertyKey);
+  const readOnly = useFormReadOnly();
   const componentJson = useSchemaEditorStore((s) => s.componentJson);
   const updateComponent = useSchemaEditorStore((s) => s.updateComponent);
   const selection = useResolvedSelection();
@@ -110,13 +112,17 @@ export function PropertyTreeNode({ parentPointer, propertyKey, depth }: Property
 
           if (event.altKey && event.key === 'ArrowUp') {
             event.preventDefault();
-            moveBy(-1);
+            if (!readOnly) {
+              moveBy(-1);
+            }
             return;
           }
 
           if (event.altKey && event.key === 'ArrowDown') {
             event.preventDefault();
-            moveBy(1);
+            if (!readOnly) {
+              moveBy(1);
+            }
             return;
           }
 
@@ -148,16 +154,18 @@ export function PropertyTreeNode({ parentPointer, propertyKey, depth }: Property
           'group flex items-center gap-1 rounded-md px-1.5 py-1 text-xs cursor-pointer',
           'hover:bg-primary-hover/40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary-border-hover',
           isSelected && 'bg-primary-muted/80',
-          isDropTarget && 'ring-2 ring-info-border',
+          !readOnly && isDropTarget && 'ring-2 ring-info-border',
         )}
         style={{ paddingLeft: `${depth * 12 + 6}px` }}>
-        <span
-          {...dragProps}
-          className="grid size-4 place-items-center text-primary-text/40 hover:text-primary-text/70 cursor-grab active:cursor-grabbing"
-          aria-label={`Drag ${propertyKey}`}
-          onClick={(event) => event.stopPropagation()}>
-          <GripVertical size={11} />
-        </span>
+        {!readOnly && (
+          <span
+            {...dragProps}
+            className="grid size-4 place-items-center text-primary-text/40 hover:text-primary-text/70 cursor-grab active:cursor-grabbing"
+            aria-label={`Drag ${propertyKey}`}
+            onClick={(event) => event.stopPropagation()}>
+            <GripVertical size={11} />
+          </span>
+        )}
 
         {expandable ? (
           <button
@@ -209,43 +217,45 @@ export function PropertyTreeNode({ parentPointer, propertyKey, depth }: Property
           </Badge>
         ) : null}
 
-        <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="size-6 p-0"
-            disabled={!canMoveUp}
-            aria-label={`Move ${propertyKey} up`}
-            onClick={(event) => {
-              event.stopPropagation();
-              moveBy(-1);
-            }}>
-            <ChevronUp size={12} />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="size-6 p-0"
-            disabled={!canMoveDown}
-            aria-label={`Move ${propertyKey} down`}
-            onClick={(event) => {
-              event.stopPropagation();
-              moveBy(1);
-            }}>
-            <ChevronDownSolid size={12} />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="size-6 p-0"
-            aria-label={`Delete ${propertyKey}`}
-            onClick={onDelete}>
-            <Trash2 size={12} />
-          </Button>
-        </div>
+        {!readOnly && (
+          <div className="flex items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="size-6 p-0"
+              disabled={!canMoveUp}
+              aria-label={`Move ${propertyKey} up`}
+              onClick={(event) => {
+                event.stopPropagation();
+                moveBy(-1);
+              }}>
+              <ChevronUp size={12} />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="size-6 p-0"
+              disabled={!canMoveDown}
+              aria-label={`Move ${propertyKey} down`}
+              onClick={(event) => {
+                event.stopPropagation();
+                moveBy(1);
+              }}>
+              <ChevronDownSolid size={12} />
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="size-6 p-0"
+              aria-label={`Delete ${propertyKey}`}
+              onClick={onDelete}>
+              <Trash2 size={12} />
+            </Button>
+          </div>
+        )}
       </div>
 
       {expandable && expanded ? <PropertyTree parentPointer={pointer} depth={depth + 1} /> : null}

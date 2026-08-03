@@ -12,6 +12,7 @@ import {
   DialogTitle,
 } from '../../../../../ui/Dialog';
 import { Input } from '../../../../../ui/Input';
+import { useFormReadOnly } from '../../../../../ui/FormReadOnlyContext';
 import { appendPointer, type JsonPointer } from '../../../model/jsonPointer';
 import { addProp } from '../../../model/mutators';
 import { useSchemaEditorStore } from '../../../useSchemaEditorStore';
@@ -28,6 +29,7 @@ interface PropertyTreeHeaderProps {
  * auto-selected so the user can configure it immediately.
  */
 export function PropertyTreeHeader({ parentPointer, existingKeys }: PropertyTreeHeaderProps) {
+  const readOnly = useFormReadOnly();
   const updateComponent = useSchemaEditorStore((s) => s.updateComponent);
   const setSelection = useSetSelection();
   const [open, setOpen] = useState(false);
@@ -47,6 +49,14 @@ export function PropertyTreeHeader({ parentPointer, existingKeys }: PropertyTree
     setSelection(appendPointer(parentPointer, 'properties', trimmed));
     setName('');
     setOpen(false);
+  }
+
+  if (readOnly) {
+    return (
+      <div className="flex items-center justify-between gap-2 px-2 py-1.5">
+        <span className="text-xs font-semibold text-primary-text/75">Properties</span>
+      </div>
+    );
   }
 
   return (

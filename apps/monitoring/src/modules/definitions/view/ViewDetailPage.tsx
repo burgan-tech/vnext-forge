@@ -1,112 +1,26 @@
 import { useState } from 'react';
-import { Badge } from '@vnext-forge-studio/designer-ui/ui';
+import { ViewDetailCore } from '@vnext-forge-studio/designer-ui';
+import { PseudoUiViewSurface } from '@vnext-forge-studio/designer-ui/quickrun';
 import { useComponentDetail } from '@monitoring/modules/definitions/api/definitions-queries';
 import { VersionPicker } from '@monitoring/modules/definitions/components/VersionPicker';
 import { RawJsonViewer } from '@monitoring/modules/definitions/components/RawJsonViewer';
+import { DetailPageSkeleton } from '@monitoring/shared/components/skeletons';
 import { cn } from '@monitoring/shared/lib/utils';
-import { ViewPreviewTab } from './ViewPreviewTab';
+import { buildViewResponse } from './buildViewResponse';
 
-type Tab = 'overview' | 'definition' | 'preview';
+type Tab = 'designer' | 'definition';
 
 const TABS: { id: Tab; label: string }[] = [
-  { id: 'overview', label: 'Overview' },
+  { id: 'designer', label: 'Designer' },
   { id: 'definition', label: 'Definition' },
-  { id: 'preview', label: 'Visual Preview' },
 ];
 
-const VIEW_TYPE_LABELS: Record<number, string> = {
-  1: 'JSON',
-  2: 'HTML',
-  3: 'Markdown',
-  4: 'Deeplink',
-  5: 'Http',
-  6: 'URN',
-};
-
-interface OverviewContentProps {
-  data: Record<string, unknown>;
-}
-
-function OverviewContent({ data }: OverviewContentProps) {
-  const typeNum = data.type != null ? Number(data.type) : null;
-  const typeLabel = typeNum != null ? (VIEW_TYPE_LABELS[typeNum] ?? `Type ${typeNum}`) : null;
-  const comment = data._comment ? String(data._comment) : null;
-  const key = String(data.key ?? '—');
-  const flow = String(data.flow ?? '—');
-  const flowVersion = String(data.flowVersion ?? '—');
-  const display = data.display ? String(data.display) : null;
-  const renderer = data.renderer ? String(data.renderer) : null;
-  type LabelItem = { label: string; language?: string } | string;
-  const rawLabels = Array.isArray(data.labels) ? (data.labels as LabelItem[]) : [];
-  const labels = rawLabels.map((l) => (typeof l === 'string' ? l : l.label));
-  const tags = Array.isArray(data.tags) ? (data.tags as string[]) : [];
-
-  return (
-    <div className="flex flex-col gap-4">
-      {typeLabel && (
-        <div className="flex items-center gap-2">
-          <Badge variant="secondary">{typeLabel}</Badge>
-        </div>
-      )}
-      {comment && <p className="text-sm text-muted-foreground">{comment}</p>}
-      <div className="grid grid-cols-2 gap-3 rounded-lg border border-border bg-muted/20 p-4 text-sm">
-        <span className="text-muted-foreground">Key</span>
-        <span className="font-mono text-foreground">{key}</span>
-        <span className="text-muted-foreground">Flow</span>
-        <span className="font-mono text-foreground">{flow}</span>
-        <span className="text-muted-foreground">Flow Version</span>
-        <span className="font-mono text-foreground">{flowVersion}</span>
-        {display && (
-          <>
-            <span className="text-muted-foreground">Display</span>
-            <span className="text-foreground">{display}</span>
-          </>
-        )}
-        {renderer && (
-          <>
-            <span className="text-muted-foreground">Renderer</span>
-            <span className="font-mono text-foreground">{renderer}</span>
-          </>
-        )}
-      </div>
-      {labels.length > 0 && (
-        <div className="flex flex-col gap-1.5">
-          <span className="text-xs text-muted-foreground">Labels</span>
-          <div className="flex flex-wrap gap-1.5">
-            {labels.map((label) => (
-              <Badge key={label} variant="secondary" className="text-xs">
-                {label}
-              </Badge>
-            ))}
-          </div>
-        </div>
-      )}
-      {tags.length > 0 && (
-        <div className="flex flex-col gap-1.5">
-          <span className="text-xs text-muted-foreground">Tags</span>
-          <div className="flex flex-wrap gap-1.5">
-            {tags.map((tag) => (
-              <Badge key={tag} variant="outline" className="text-xs">
-                {tag}
-              </Badge>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 export function ViewDetailPage({ id }: { id: string }) {
-  const [activeTab, setActiveTab] = useState<Tab>('overview');
+  const [activeTab, setActiveTab] = useState<Tab>('designer');
   const { data, isLoading } = useComponentDetail('view', id);
 
   if (isLoading) {
-    return (
-      <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
-        Loading…
-      </div>
-    );
+    return <DetailPageSkeleton />;
   }
 
   if (!data) {
@@ -116,6 +30,23 @@ export function ViewDetailPage({ id }: { id: string }) {
       </div>
     );
   }
+
+  /**
+   * The pseudo-ui renderer is injected into the shared read-only core, which
+   * must not import quick-run itself. `content` comes from the core (it parses
+   * the definition), the rest of the `ViewResponse` from the raw document.
+   */
+  const renderPseudoUiPreview = (content: Record<string, unknown>) => {
+    const viewResponse = { ...buildViewResponse(data), content };
+    return (
+      <PseudoUiViewSurface
+        viewResponse={viewResponse}
+        mode="preview"
+        ariaLabel={`View preview: ${viewResponse.key}`}
+        fillHeight={false}
+      />
+    );
+  };
 
   return (
     <div className="flex flex-col gap-4">
@@ -153,9 +84,10 @@ export function ViewDetailPage({ id }: { id: string }) {
         </div>
       </div>
 
-      {activeTab === 'overview' && <OverviewContent data={data} />}
+      {activeTab === 'designer' && (
+        <ViewDetailCore json={data} renderPseudoUiPreview={renderPseudoUiPreview} />
+      )}
       {activeTab === 'definition' && <RawJsonViewer data={data} />}
-      {activeTab === 'preview' && <ViewPreviewTab data={data} />}
     </div>
   );
 }

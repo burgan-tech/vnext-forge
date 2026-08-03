@@ -2,6 +2,7 @@ import { ExternalLink, Plus, Trash2 } from 'lucide-react';
 
 import { Badge } from '../../../../../ui/Badge';
 import { Button } from '../../../../../ui/Button';
+import { useFormReadOnly } from '../../../../../ui/FormReadOnlyContext';
 import { cn } from '../../../../../lib/utils/cn';
 import { type JsonPointer } from '../../../model/jsonPointer';
 import { setKeyword } from '../../../model/mutators';
@@ -27,6 +28,7 @@ interface SubschemaLinkProps {
  * that subschema. The breadcrumb lets the user navigate back.
  */
 export function SubschemaLink({ targetPointer, label, emptyHint, className }: SubschemaLinkProps) {
+  const readOnly = useFormReadOnly();
   const componentJson = useSchemaEditorStore((s) => s.componentJson);
   const updateComponent = useSchemaEditorStore((s) => s.updateComponent);
   const setSelection = useSetSelection();
@@ -47,22 +49,24 @@ export function SubschemaLink({ targetPointer, label, emptyHint, className }: Su
             <p className="mt-0.5 text-[10px] text-primary-text/55">{emptyHint}</p>
           ) : null}
         </div>
-        <Button
-          type="button"
-          variant="success"
-          size="sm"
-          className="h-7 gap-1 text-[10px]"
-          onClick={() => {
-            const parent = parentOfSlot(targetPointer);
-            if (parent === null) {
-              return;
-            }
-            updateComponent(setKeyword(parent.pointer, parent.keyword, {}));
-            setSelection(targetPointer);
-          }}>
-          <Plus size={11} />
-          Add
-        </Button>
+        {!readOnly && (
+          <Button
+            type="button"
+            variant="success"
+            size="sm"
+            className="h-7 gap-1 text-[10px]"
+            onClick={() => {
+              const parent = parentOfSlot(targetPointer);
+              if (parent === null) {
+                return;
+              }
+              updateComponent(setKeyword(parent.pointer, parent.keyword, {}));
+              setSelection(targetPointer);
+            }}>
+            <Plus size={11} />
+            Add
+          </Button>
+        )}
       </div>
     );
   }
@@ -92,21 +96,23 @@ export function SubschemaLink({ targetPointer, label, emptyHint, className }: Su
           <ExternalLink size={11} />
           Open
         </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="h-7 gap-1 text-[10px] text-destructive-text"
-          aria-label={`Clear ${label}`}
-          onClick={() => {
-            const parent = parentOfSlot(targetPointer);
-            if (parent === null) {
-              return;
-            }
-            updateComponent(setKeyword(parent.pointer, parent.keyword, undefined));
-          }}>
-          <Trash2 size={11} />
-        </Button>
+        {!readOnly && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-7 gap-1 text-[10px] text-destructive-text"
+            aria-label={`Clear ${label}`}
+            onClick={() => {
+              const parent = parentOfSlot(targetPointer);
+              if (parent === null) {
+                return;
+              }
+              updateComponent(setKeyword(parent.pointer, parent.keyword, undefined));
+            }}>
+            <Trash2 size={11} />
+          </Button>
+        )}
       </div>
     </div>
   );

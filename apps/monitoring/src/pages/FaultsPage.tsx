@@ -71,7 +71,12 @@ export function FaultsPage() {
   })()
 
   // Per-workflow query — workflowId='' disables it automatically (enabled: Boolean(workflowId))
-  const { data: instancesPage, isLoading: loadingInstances, isError: instancesError } =
+  const {
+    data: instancesPage,
+    isLoading: loadingInstances,
+    isFetching: fetchingInstances,
+    isError: instancesError,
+  } =
     useInstanceList({
       workflowId: selectedWorkflow !== 'all' ? selectedWorkflow : '',
       filter: perWorkflowFilter,
@@ -83,6 +88,7 @@ export function FaultsPage() {
   const { data: workflowsPage, isLoading: loadingWorkflows } = useDefinitionList('workflow')
 
   const isLoading = isAllMode ? faultedQuery.isLoading : loadingInstances
+  const isFetching = isAllMode ? faultedQuery.isFetching : fetchingInstances
   const isError = isAllMode ? faultedQuery.isError : instancesError
 
   const rows: FaultRow[] = isAllMode
@@ -156,6 +162,7 @@ export function FaultsPage() {
         data={rows}
         initialColumnVisibility={isAllMode ? {} : { flow: false }}
         isLoading={isLoading}
+        isFetching={isFetching}
         isError={isError}
         emptyMessage="No faulted instances in this time range."
         sortBy={sort.field}

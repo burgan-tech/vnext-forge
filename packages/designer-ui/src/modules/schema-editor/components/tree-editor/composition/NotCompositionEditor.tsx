@@ -1,6 +1,7 @@
 import { Plus } from 'lucide-react';
 
 import { Button } from '../../../../../ui/Button';
+import { useFormReadOnly } from '../../../../../ui/FormReadOnlyContext';
 import { appendPointer, type JsonPointer } from '../../../model/jsonPointer';
 import { toggleNot } from '../../../model/mutators';
 import { useSchemaNode } from '../../../hooks/useSchemaNode';
@@ -16,6 +17,7 @@ interface NotCompositionEditorProps {
  * present subschema can be opened in the detail panel via `SubschemaCard`.
  */
 export function NotCompositionEditor({ pointer }: NotCompositionEditorProps) {
+  const readOnly = useFormReadOnly();
   const { node, mutate } = useSchemaNode(pointer);
   const isPresent = node?.not !== undefined;
 
@@ -28,15 +30,17 @@ export function NotCompositionEditor({ pointer }: NotCompositionEditorProps) {
             Instances must NOT validate against this schema.
           </p>
         </div>
-        <Button
-          type="button"
-          variant="success"
-          size="sm"
-          className="h-7 gap-1 text-[10px]"
-          onClick={() => mutate(toggleNot(pointer))}>
-          <Plus size={11} />
-          Add
-        </Button>
+        {!readOnly && (
+          <Button
+            type="button"
+            variant="success"
+            size="sm"
+            className="h-7 gap-1 text-[10px]"
+            onClick={() => mutate(toggleNot(pointer))}>
+            <Plus size={11} />
+            Add
+          </Button>
+        )}
       </div>
     );
   }

@@ -1,6 +1,6 @@
 # vnext-forge-studio
 
-Workflow designer and management interface for the vnext engine ecosystem — delivered as a **VS Code extension** and a **standalone desktop app** (Windows / macOS).
+Workflow designer and management interface for the vnext engine ecosystem — delivered as a **VS Code extension** and a **standalone desktop app** (Windows / macOS), plus a **runtime monitoring web app** for observing live workflow execution.
 
 ## What is it?
 
@@ -13,20 +13,29 @@ A Visual Studio Code extension that gives developers and business analysts a fir
 - Connect to a local vnext runtime for testing and simulation
 - Export projects in the vnext structure (TFS/Git compatible)
 
+Alongside the designer, `apps/monitoring` is a separate browser SPA that reads
+the vnext runtime's **monitor API** to observe what a deployed domain is
+actually doing: dashboards, component definitions, workflow instances and their
+timelines, scheduled jobs, faults, and runtime configuration. It is read-only —
+it never writes workflow definitions.
+
 ## Architecture
 
-The product is built as a monorepo with three delivery shells that all share the
-same React UI (`apps/web`) and business logic (`packages/services-core`):
+The product is built as a monorepo with three designer delivery shells that all
+share the same React UI (`apps/web`) and business logic
+(`packages/services-core`), plus a standalone monitoring SPA:
 
 ```
 apps/
   extension/   # VS Code extension (extension host + bundled business logic)
   desktop/     # Electron desktop app (Windows / macOS)
-  web/         # React UI — shared across all shells:
+  web/         # React UI — shared across all designer shells:
                #   extension webview  → bundled into extension/dist/webview-ui/
                #   desktop renderer   → served by embedded Hono server
                #   standalone browser → against apps/server (local dev only)
   server/      # Hono REST backend — used by web shell (dev) and desktop shell
+  monitoring/  # Runtime monitoring SPA (React + Vite) — talks directly to the
+               # vnext runtime monitor API; no services-core, no BFF
 
 packages/
   vnext-types/       # Shared domain model types (@vnext-forge-studio/vnext-types)
@@ -43,6 +52,7 @@ packages/
 | **VS Code Extension** | `postMessage` (acquireVsCodeApi) | Extension host Node.js process; `MessageRouter` dispatches to `services-core` |
 | **Desktop (Electron)** | HTTP REST (same-origin `http://127.0.0.1:<port>`) | Hono server spawned as `utilityProcess`; React SPA served from same port |
 | **Web (browser)** | HTTP REST (`http://127.0.0.1:3001`) | `apps/server` Hono process; CORS allows `localhost:3000` |
+| **Monitoring (browser)** | HTTP REST (`/api/v1.0/monitor/*`) | No forge backend — requests go straight to the vnext runtime monitor API (dev: Vite proxy → `http://localhost:4203`) |
 
 ### VS Code Extension — how it works
 
@@ -84,6 +94,41 @@ Electron Main Process
   └── Opens BrowserWindow → http://127.0.0.1:<port>/
 ```
 
+### Monitoring app — how it works
+
+The monitoring SPA has no backend of its own. Every request is a plain REST call
+to the runtime's monitor API, scoped by the configured domain:
+
+```
+Browser (React + TanStack Query)
+  │  domainGet('/workflows')      →  shared/api/monitoring-api.ts
+  │  workflowGet(wf, '/instances')    builds /api/v1.0/monitor/<domain>/...
+  │  instanceGet(wf, id, '/timeline')
+  │  monitorGet('config')             (endpoints without a domain scope)
+  ▼
+shared/api/api-client.ts  (MonitoringHttpClient)
+  ├── injects X-Trace-Id + traceparent   (shared/api/trace-headers.ts)
+  ├── 30s timeout
+  └── normalizes every reply into ApiResponse<T>  (shared/api/api-envelope.ts)
+  ▼
+vnext runtime monitor API
+  dev  → relative /api/* rewritten by the Vite proxy to http://localhost:4203
+  prod → absolute VITE_MONITORING_API_BASE_URL
+```
+
+Two deliberate departures from the designer shells (see
+[`apps/monitoring/docs/CLAUDE.md`](apps/monitoring/docs/CLAUDE.md)):
+
+- **No `DesignerUiProvider`.** It carries forge-only dependencies (LSP
+  capabilities, Monaco loader, forge `ApiTransport`). The monitoring app imports
+  from `designer-ui` selectively instead: `/ui` primitives, `/hooks`,
+  `DocumentThemeSync` for theming, `registerNotificationSink` + sonner for
+  toasts, and `styles.css` from `index.css`.
+- **No `ApiTransport` / method registry.** The monitor API is endpoint-based, not
+  method-id based, so `MonitoringHttpClient` talks in paths. The
+  `ApiResponse<T>` envelope from `@vnext-forge-studio/app-contracts` is still the
+  shared contract.
+
 ## Getting Started
 
 ### Prerequisites
@@ -91,6 +136,8 @@ Electron Main Process
 - Node.js LTS (20 or newer)
 - pnpm (see `packageManager` in root `package.json` — enable with Corepack)
 - Visual Studio Code ≥ 1.85 (for the extension shell)
+- A reachable vnext runtime exposing the monitor API (for `apps/monitoring`;
+  dev default `http://localhost:4203`)
 
 ### Install dependencies
 
@@ -237,6 +284,147 @@ VITE_API_BASE_URL=http://localhost:3001
 
 `Ctrl+C` in each terminal. Both processes are watch-mode (`tsx watch` /
 Vite HMR) and will reload on source changes.
+
+---
+
+## Monitoring App (runtime observability SPA)
+
+`apps/monitoring` (`@vnext-forge-studio/monitoring`) is an independent React 19 +
+Vite 6 browser app. It does **not** need `apps/server`, the extension host, or a
+`vnext.config.json` workspace — it needs a reachable vnext runtime.
+
+### Project structure
+
+```
+apps/monitoring/
+  index.html
+  vite.config.ts          # @monitoring alias → ./src, dev port 3100, /api proxy
+  vitest.config.ts
+  docs/                   # design notes + per-feature docs (CLAUDE.md, features/)
+  src/
+    main.tsx              # React root
+    App.tsx               # AppProviders + AppRouter
+    index.css             # Tailwind 4 entry; imports designer-ui/styles.css
+    app/                  # application shell (no business logic)
+      AppProviders.tsx    #   QueryClientProvider, theme sync, notification sink
+      AppRouter.tsx       #   route table (react-router-dom 7)
+      RouteErrorBoundary.tsx
+      layout/             #   AppShell, Sidebar, Topbar
+      favorites/          #   favorites store + breadcrumb helpers
+      notifications/      #   SonnerProvider (registerNotificationSink)
+    pages/                # route entry + composition only
+      DashboardPage, DefinitionsPage, ComponentDetailPage,
+      InstanceDetailPage, JobsPage, FaultsPage, ConfigPage,
+      NotFoundPage
+                          # (HomePage.tsx and InstanceListPage.tsx exist but are
+                          #  not wired into AppRouter yet)
+    modules/              # vertical slices — never import each other
+      dashboard/          #   KPIs, charts, recent faults
+      definitions/        #   component lists + per-type detail
+                          #   (workflow/task/function/mapping/extension/schema/view)
+      instances/          #   instance lists, timelines, incident periods
+      jobs/               #   scheduled jobs
+      faults/             #   fault list + detail
+      config/             #   runtime configuration view
+    shared/
+      api/                #   api-client.ts (MonitoringHttpClient), monitoring-api.ts
+                          #   (domainGet/workflowGet/instanceGet/monitorGet),
+                          #   api-envelope.ts, trace-headers.ts, query-client.ts
+      components/         #   DataTable, filters, generic monitoring widgets
+      config/config.ts    #   the only place import.meta.env is read
+      time-range/         #   app-wide time range filter
+      lib/                #   helpers
+      types/              #   shared types
+```
+
+Layering follows the same rule as `apps/web`: `app → pages → modules → shared`.
+Business logic belongs in `modules/`; pages stay thin; slices share code only
+through `shared/`.
+
+### Routes
+
+| Route | Page |
+|---|---|
+| `/` | Dashboard |
+| `/definitions/:type` | Component definitions list — `:type` is singular: `workflow`, `task`, `function`, `view`, `extension`, `schema`, `mapping` |
+| `/definitions/:type/:id` | Component detail — read-only **Designer** tab (shared forge designer forms, non-editable) + raw **Definition** tab |
+| `/definitions/workflows/:wfId/instances/:instanceId` | Instance detail (timeline, incidents, permissions) |
+| `/jobs` | Scheduled jobs |
+| `/faults` | Faults |
+| `/config` | Runtime configuration |
+
+### Run in development
+
+```bash
+pnpm --filter @vnext-forge-studio/monitoring dev
+```
+
+Then open <http://localhost:3100>. Vite proxies `/api/*` to
+`http://localhost:4203`, so a runtime listening there needs no CORS setup and no
+extra configuration.
+
+> `pnpm install` at the repo root is enough — the workspace packages are consumed
+> from source (`designer-ui` exports `./src/*`), so no pre-build step is needed
+> for dev.
+
+### Run from VS Code
+
+The repo ships launch configurations and tasks for the monitoring app:
+
+| Where | Entry | What it does |
+|---|---|---|
+| Run and Debug (`F5`) | **Monitoring: Dev Server + Chrome** | Starts Vite on 3100 and opens Chrome with source-mapped breakpoints once the server is ready |
+| Run and Debug | **Monitoring: Chrome (server already running)** | Attaches a debuggable Chrome to an already-running `http://localhost:3100` |
+| Terminal → Run Task | **Monitoring: Dev Server** | Dev server only, in its own terminal panel |
+| Terminal → Run Task | **Monitoring: Build** | `tsc -b` + `vite build` with the `$tsc` problem matcher |
+
+### Build for production
+
+```bash
+# monitoring only (tsc -b type check, then vite build)
+pnpm --filter @vnext-forge-studio/monitoring build
+# → apps/monitoring/dist/
+
+# or as part of the whole monorepo, in dependency order
+pnpm build
+```
+
+Serve the built bundle locally to verify it:
+
+```bash
+pnpm --filter @vnext-forge-studio/monitoring preview
+```
+
+The output in `apps/monitoring/dist/` is a static SPA — host it behind any web
+server or CDN. Configure the host to rewrite unknown paths to `index.html`
+(client-side routing), and point the app at the runtime with
+`VITE_MONITORING_API_BASE_URL` at build time, because there is no Vite proxy in
+production.
+
+### Configuration
+
+`apps/monitoring/.env` (git-ignored; only `VITE_*` keys reach the bundle):
+
+```bash
+# Absolute monitor API base URL. Leave empty in dev to use the Vite proxy.
+VITE_MONITORING_API_BASE_URL=https://runtime.example.com
+
+# Domain to monitor — used in /api/v1.0/monitor/<domain>/... (default: core)
+VITE_MONITORING_DOMAIN=banking
+```
+
+Both keys have defaults, so a missing `.env` is never fatal: the app boots
+against the proxy and logs a warning when `VITE_MONITORING_DOMAIN` is unset.
+Read them via `import { config } from '@monitoring/shared/config/config'` — never
+touch `import.meta.env` elsewhere.
+
+### Lint and test
+
+```bash
+pnpm --filter @vnext-forge-studio/monitoring lint
+pnpm --filter @vnext-forge-studio/monitoring test   # vitest run
+pnpm --filter @vnext-forge-studio/monitoring clean  # remove dist/
+```
 
 ## Using the extension
 

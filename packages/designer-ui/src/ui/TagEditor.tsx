@@ -4,6 +4,7 @@ import { cva, type VariantProps } from 'class-variance-authority';
 
 import { cn } from '../lib/utils/cn.js';
 import { Badge } from './Badge';
+import { useFormReadOnly } from './FormReadOnlyContext.js';
 
 const tagEditorVariants = cva(
   'flex min-h-9 flex-wrap gap-1 rounded-md border px-2 py-1.5 shadow-xs transition-all duration-200 ease-out',
@@ -73,11 +74,13 @@ function TagEditor({
   noBorder,
   onChange,
   placeholder = 'Add tag',
-  readOnly = false,
+  readOnly: readOnlyProp,
   tags,
   variant,
   ...props
 }: TagEditorProps) {
+  const contextReadOnly = useFormReadOnly();
+  const readOnly = readOnlyProp ?? contextReadOnly;
   const [input, setInput] = React.useState('');
 
   function addTag(value: string) {

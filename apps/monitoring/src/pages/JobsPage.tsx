@@ -47,6 +47,7 @@ export function JobsPage() {
   const { data: workflowsPage, isLoading: loadingWorkflows } = useDefinitionList('workflow')
 
   const isLoading = isAllMode ? domainQuery.isLoading : workflowQuery.isLoading
+  const isFetching = isAllMode ? domainQuery.isFetching : workflowQuery.isFetching
   const isError = isAllMode ? domainQuery.isError : workflowQuery.isError
 
   const rows: JobRow[] = isAllMode
@@ -121,6 +122,7 @@ export function JobsPage() {
         data={rows}
         initialColumnVisibility={isAllMode ? {} : { flow: false }}
         isLoading={isLoading}
+        isFetching={isFetching}
         isError={isError}
         emptyMessage="No active jobs in this time range."
         pagination={paginationState}

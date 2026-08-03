@@ -4,6 +4,7 @@ import { Badge } from '../../../../../ui/Badge';
 import { Button } from '../../../../../ui/Button';
 import { Checkbox } from '../../../../../ui/Checkbox';
 import { Field } from '../../../../../ui/Field';
+import { useFormReadOnly } from '../../../../../ui/FormReadOnlyContext';
 import { Label } from '../../../../../ui/Label';
 import { appendPointer, type JsonPointer } from '../../../model/jsonPointer';
 import { setKeyword } from '../../../model/mutators';
@@ -24,6 +25,7 @@ interface ArrayConstraintsProps {
  * prefixItems (array of subschemas — addressed positionally).
  */
 export function ArrayConstraints({ pointer }: ArrayConstraintsProps) {
+  const readOnly = useFormReadOnly();
   const { node, mutate } = useSchemaNode(pointer);
   const uniqueItems = node?.uniqueItems === true;
 
@@ -49,14 +51,24 @@ export function ArrayConstraints({ pointer }: ArrayConstraintsProps) {
       </div>
 
       <div className="flex items-center gap-2 rounded-md border border-primary-border/60 px-3 py-2">
+        {/* Read-only: keep the designer look (not disabled/gray) but make the
+            control fully non-interactive. */}
         <Checkbox
           id={`unique-items-${pointer || 'root'}`}
           checked={uniqueItems}
+          aria-readonly={readOnly || undefined}
+          tabIndex={readOnly ? -1 : undefined}
+          className={readOnly ? 'pointer-events-none' : undefined}
           onCheckedChange={(value) => {
+            if (readOnly) {
+              return;
+            }
             mutate(setKeyword(pointer, 'uniqueItems', value === true ? true : undefined));
           }}
         />
-        <Label htmlFor={`unique-items-${pointer || 'root'}`} className="cursor-pointer text-xs">
+        <Label
+          htmlFor={`unique-items-${pointer || 'root'}`}
+          className={readOnly ? 'pointer-events-none text-xs' : 'cursor-pointer text-xs'}>
           uniqueItems — all entries must be distinct
         </Label>
       </div>
@@ -83,6 +95,7 @@ interface PrefixItemsListProps {
 }
 
 function PrefixItemsList({ pointer }: PrefixItemsListProps) {
+  const readOnly = useFormReadOnly();
   const componentJson = useSchemaEditorStore((s) => s.componentJson);
   const updateComponent = useSchemaEditorStore((s) => s.updateComponent);
   const setSelection = useSetSelection();
@@ -140,30 +153,34 @@ function PrefixItemsList({ pointer }: PrefixItemsListProps) {
                     <ExternalLink size={11} />
                     Open
                   </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 px-1.5 text-destructive-text"
-                    aria-label={`Remove prefixItems[${index}]`}
-                    onClick={() => removeItem(index)}>
-                    <Trash2 size={11} />
-                  </Button>
+                  {!readOnly && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-1.5 text-destructive-text"
+                      aria-label={`Remove prefixItems[${index}]`}
+                      onClick={() => removeItem(index)}>
+                      <Trash2 size={11} />
+                    </Button>
+                  )}
                 </div>
               </div>
             );
           })
         )}
 
-        <Button
-          type="button"
-          variant="success"
-          size="sm"
-          className="h-7 gap-1 text-[10px]"
-          onClick={addItem}>
-          <Plus size={10} />
-          Add positional schema
-        </Button>
+        {!readOnly && (
+          <Button
+            type="button"
+            variant="success"
+            size="sm"
+            className="h-7 gap-1 text-[10px]"
+            onClick={addItem}>
+            <Plus size={10} />
+            Add positional schema
+          </Button>
+        )}
       </div>
     </Field>
   );

@@ -1,5 +1,6 @@
 import { useState, type DragEvent } from 'react';
 
+import { useFormReadOnly } from '../../../../../ui/FormReadOnlyContext';
 import { type JsonPointer } from '../../../model/jsonPointer';
 import { movePropToIndex } from '../../../model/mutators';
 import { getNodeAt, getPropertyKeys } from '../../../model/schemaNode';
@@ -19,7 +20,8 @@ interface UsePropertyTreeDndArgs {
 
 interface UsePropertyTreeDndResult {
   dragProps: {
-    draggable: true;
+    /** `true` in editors; `false` when the host renders read-only. */
+    draggable: boolean;
     onDragStart: (event: DragEvent<HTMLElement>) => void;
     onDragEnd: () => void;
   };
@@ -42,6 +44,7 @@ export function usePropertyTreeDnd({
   propertyKey,
 }: UsePropertyTreeDndArgs): UsePropertyTreeDndResult {
   const updateComponent = useSchemaEditorStore((s) => s.updateComponent);
+  const readOnly = useFormReadOnly();
   const [isDropTarget, setIsDropTarget] = useState(false);
 
   function onDragStart(event: DragEvent<HTMLElement>) {
@@ -80,6 +83,10 @@ export function usePropertyTreeDnd({
   }
 
   function onDragOver(event: DragEvent<HTMLElement>) {
+    if (readOnly) {
+      return;
+    }
+
     // dataTransfer.types is read-only and case-insensitive across browsers.
     if (!event.dataTransfer.types.includes(MIME)) {
       return;
@@ -96,6 +103,10 @@ export function usePropertyTreeDnd({
 
   function onDrop(event: DragEvent<HTMLElement>) {
     setIsDropTarget(false);
+
+    if (readOnly) {
+      return;
+    }
 
     const payload = readPayload(event);
 
@@ -127,7 +138,7 @@ export function usePropertyTreeDnd({
   }
 
   return {
-    dragProps: { draggable: true, onDragStart, onDragEnd },
+    dragProps: { draggable: !readOnly, onDragStart, onDragEnd },
     dropProps: { onDragOver, onDragLeave, onDrop },
     isDropTarget,
   };
