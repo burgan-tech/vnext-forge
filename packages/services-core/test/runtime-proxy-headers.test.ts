@@ -94,7 +94,7 @@ describe('createRuntimeProxyService outbound headers (R-b4)', () => {
   })
 })
 
-describe('buildRuntimeProxyOutboundHeaders — request Content-Type', () => {
+describe('buildRuntimeProxyOutboundHeaders — request Content-Type (R-b4)', () => {
   it('defaults to application/json for a body-bearing verb', () => {
     const headers = buildRuntimeProxyOutboundHeaders({ method: 'POST', body: '{"a":1}' })
     expect(headers['Content-Type']).toBe('application/json')
@@ -132,6 +132,36 @@ describe('buildRuntimeProxyOutboundHeaders — request Content-Type', () => {
   it('never sets Content-Type on a verb that sends no body', () => {
     const headers = buildRuntimeProxyOutboundHeaders({
       method: 'GET',
+      callerHeaders: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    })
+    expect(headers['Content-Type']).toBeUndefined()
+  })
+
+  it('falls back to JSON when the parameters are not a well-formed charset', () => {
+    // The allowlist is a safety boundary on the proxy: a caller must not be able
+    // to smuggle arbitrary text into an outbound header value.
+    const headers = buildRuntimeProxyOutboundHeaders({
+      method: 'POST',
+      body: '{}',
+      callerHeaders: { 'Content-Type': 'application/json;x=\r\nX-Evil: 1' },
+    })
+    expect(headers['Content-Type']).toBe('application/json')
+  })
+
+  it('leaves exactly one Content-Type key regardless of the caller’s casing', () => {
+    const headers = buildRuntimeProxyOutboundHeaders({
+      method: 'POST',
+      body: 'a=1',
+      callerHeaders: { 'content-type': 'application/x-www-form-urlencoded' },
+    })
+    expect(Object.keys(headers).filter((k) => k.toLowerCase() === 'content-type')).toHaveLength(1)
+  })
+
+  it('drops a caller Content-Type on a bodyless POST', () => {
+    // The one behaviour change this commit makes for existing callers: previously
+    // such a header was forwarded, now it is dropped.
+    const headers = buildRuntimeProxyOutboundHeaders({
+      method: 'POST',
       callerHeaders: { 'Content-Type': 'application/x-www-form-urlencoded' },
     })
     expect(headers['Content-Type']).toBeUndefined()

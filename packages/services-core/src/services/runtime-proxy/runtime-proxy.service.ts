@@ -1,4 +1,8 @@
-import { ERROR_CODES, VnextForgeError } from '@vnext-forge-studio/app-contracts'
+import {
+  ERROR_CODES,
+  RUNTIME_PROXY_ALLOWED_REQUEST_CONTENT_TYPES,
+  VnextForgeError,
+} from '@vnext-forge-studio/app-contracts'
 import { z } from 'zod'
 
 import type { LoggerAdapter, NetworkAdapter } from '../../adapters/index.js'
@@ -63,25 +67,53 @@ function stripHopByHopHeaders(
   return out
 }
 
-/**
- * Request content types a caller may choose. vNext functions accept JSON and
- * form-urlencoded; anything else falls back to JSON rather than erroring,
- * because this is a shared proxy and the conservative default is the safe one.
- */
-export const RUNTIME_PROXY_ALLOWED_REQUEST_CONTENT_TYPES = [
-  'application/json',
-  'application/x-www-form-urlencoded',
-] as const
+const allowedRequestContentTypesLower = new Set(
+  RUNTIME_PROXY_ALLOWED_REQUEST_CONTENT_TYPES.map((t) => t.toLowerCase()),
+)
 
-function pickRequestContentType(callerHeaders: Record<string, string> | undefined): string {
-  const supplied = Object.entries(callerHeaders ?? {}).find(
-    ([name]) => name.toLowerCase() === 'content-type',
-  )?.[1]
-  if (!supplied) return 'application/json'
-  // Compare on the media type alone so `; charset=UTF-8` still matches.
-  const mediaType = supplied.split(';')[0]?.trim().toLowerCase() ?? ''
-  const allowed = RUNTIME_PROXY_ALLOWED_REQUEST_CONTENT_TYPES.some((t) => t === mediaType)
-  return allowed ? supplied : 'application/json'
+/** A single well-formed `charset` parameter, e.g. `; charset=UTF-8`. */
+const CHARSET_ONLY_PARAM = /^;\s*charset=[\w.-]+$/i
+
+/**
+ * Removes every header matching `lowerName` (case-insensitively) from
+ * `headers` **in place** and returns the first value found, so callers get a
+ * single well-defined answer to "what did the caller send" even if the
+ * caller's object somehow had more than one casing of the same header.
+ */
+function takeHeader(headers: Record<string, string>, lowerName: string): string | undefined {
+  let found: string | undefined
+  for (const key of Object.keys(headers)) {
+    if (key.toLowerCase() !== lowerName) continue
+    found ??= headers[key]
+    delete headers[key]
+  }
+  return found
+}
+
+/**
+ * Resolves the outbound Content-Type from what the caller supplied. This is
+ * the safety boundary for the runtime proxy's SSRF-sensitive header path, so
+ * it validates the **whole** header value, not just the media type: the
+ * `charset` tail (if any) must be a single well-formed parameter, otherwise a
+ * caller could smuggle arbitrary bytes (e.g. a CRLF-injected header) through
+ * as a "content type". Falls back to `application/json` for anything that
+ * isn't recognised. If a caller's header object somehow contained duplicate
+ * Content-Type keys under different casing, `takeHeader` resolves that by
+ * insertion order — acceptable because the fallback direction is always the
+ * safe one.
+ */
+function resolveOutboundContentType(suppliedContentType: string | undefined): string {
+  if (!suppliedContentType) return 'application/json'
+  const semicolonIndex = suppliedContentType.indexOf(';')
+  const mediaType = (
+    semicolonIndex === -1 ? suppliedContentType : suppliedContentType.slice(0, semicolonIndex)
+  )
+    .trim()
+    .toLowerCase()
+  if (!allowedRequestContentTypesLower.has(mediaType)) return 'application/json'
+  const tail = semicolonIndex === -1 ? '' : suppliedContentType.slice(semicolonIndex)
+  if (tail !== '' && !CHARSET_ONLY_PARAM.test(tail)) return 'application/json'
+  return suppliedContentType
 }
 
 /**
@@ -99,9 +131,7 @@ export function buildRuntimeProxyOutboundHeaders(params: {
   const stripped = stripHopByHopHeaders(params.callerHeaders)
   // Drop any caller Content-Type; it is re-applied below only when a body is
   // actually sent, and only after allowlist validation.
-  for (const name of Object.keys(stripped)) {
-    if (name.toLowerCase() === 'content-type') delete stripped[name]
-  }
+  const suppliedContentType = takeHeader(stripped, 'content-type')
 
   const headers: Record<string, string> = {
     'User-Agent': RUNTIME_PROXY_USER_AGENT,
@@ -112,7 +142,7 @@ export function buildRuntimeProxyOutboundHeaders(params: {
   const hasBody = Boolean(params.body && params.body.length > 0)
   const sendsEntityBody = method !== 'GET' && method !== 'HEAD' && hasBody
   if (sendsEntityBody) {
-    headers['Content-Type'] = pickRequestContentType(params.callerHeaders)
+    headers['Content-Type'] = resolveOutboundContentType(suppliedContentType)
   }
 
   if (params.traceId) {
