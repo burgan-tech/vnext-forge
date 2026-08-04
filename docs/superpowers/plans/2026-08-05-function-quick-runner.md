@@ -196,7 +196,11 @@ export function buildRuntimeProxyOutboundHeaders(params: {
 }
 ```
 
-Export the new constant from `packages/services-core/src/index.ts` next to `RUNTIME_PROXY_HOP_BY_HOP_HEADER_NAMES`.
+Declare `RUNTIME_PROXY_ALLOWED_REQUEST_CONTENT_TYPES` in **`packages/app-contracts`**, not in `services-core`, and import it into the proxy. The client needs the same two strings (Task 8) and designer-ui may not import `services-core` under the dependency policy, so keeping the canonical pair in the shared contracts package is what stops the two sides drifting.
+
+The allowlist must validate the **whole** header value, not just the media type: returning the caller's string verbatim after matching only the part before `;` lets `application/json;x=\r\nX-Evil: 1` through, and this doc comment presents the allowlist as the safety boundary. Preserve a well-formed `charset` parameter (non-ASCII form bodies need it) and fall back to JSON for anything else.
+
+Extract the "which key is Content-Type" rule into a single `takeHeader(headers, lowerName)` helper that reads and deletes in one pass, then feed its result to a pure resolver. Writing the rule twice — once over `stripped`, once over the raw caller headers — makes the two silently disagree the day `content-type` joins the hop-by-hop list.
 
 - [ ] **Step 4: Run to verify they pass**
 
@@ -1116,12 +1120,19 @@ Expected: FAIL — module not found.
 - [ ] **Step 3: Implement**
 
 ```ts
+import { RUNTIME_PROXY_ALLOWED_REQUEST_CONTENT_TYPES } from '@vnext-forge-studio/app-contracts';
 import type { FunctionVerb } from '@vnext-forge-studio/vnext-types';
 
-/** The two media types `runtime-proxy` will forward. */
+/**
+ * The two media types `runtime-proxy` will forward, keyed for the UI selector.
+ *
+ * The strings themselves come from `app-contracts` so the client and the proxy
+ * cannot drift apart — designer-ui may not import `services-core`, so a local
+ * copy would be unlinked from the allowlist that actually enforces this.
+ */
 export const CONTENT_TYPES = {
-  json: 'application/json',
-  form: 'application/x-www-form-urlencoded',
+  json: RUNTIME_PROXY_ALLOWED_REQUEST_CONTENT_TYPES[0],
+  form: RUNTIME_PROXY_ALLOWED_REQUEST_CONTENT_TYPES[1],
 } as const;
 
 export type ContentTypeId = keyof typeof CONTENT_TYPES;
