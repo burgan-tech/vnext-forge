@@ -36,6 +36,17 @@ import { runStreaming } from './process-runner.js';
 
 export type ContainerState = 'running' | 'stopped' | 'absent';
 
+/**
+ * State of the shared `--profile infra` stack.
+ *
+ * No `absent` member, unlike {@link ContainerState}: `make down-infra` runs
+ * `compose down`, which removes the containers, so "never started" and "stopped
+ * by Forge" are the same observable state and there is nothing for a third
+ * value to mean. `unknown` covers only "we could not ask" — no container CLI —
+ * and must never be rendered as `stopped`.
+ */
+export type InfraState = 'running' | 'stopped' | 'unknown';
+
 export interface ProvisionParams {
   workspacePath: string;
   domain: string;
@@ -301,6 +312,15 @@ export class LocalRuntimeService {
   }
 
   /**
+   * Public form of {@link isCloneIntact}, for callers that need to know whether
+   * there is a runtime to run `make` in without also caring about any one
+   * domain's configuration — which is what `isProvisioned` answers.
+   */
+  async hasRuntimeClone(runtimePath: string): Promise<boolean> {
+    return this.isCloneIntact(runtimePath);
+  }
+
+  /**
    * Absolute path of a domain's generated configuration directory.
    *
    * `teardown` hands this straight to a recursive delete, and the domain
@@ -335,7 +355,7 @@ export class LocalRuntimeService {
   }
 
   /**
-   * Whether the shared infrastructure (vnext-postgres) is already running.
+   * State of the shared infrastructure, read from `vnext-postgres`.
    *
    * Two accepted imprecisions, both consequences of the collision-defence
    * design rather than oversights:
@@ -351,16 +371,34 @@ export class LocalRuntimeService {
    * Both are preferable to the alternative: postgres is fixed at 5432 and is
    * not offset-aware, so a second workspace's clone must never start infra
    * that is already up.
+   *
+   * The tri-state exists for the tree view, which must be able to say "we
+   * cannot ask" — see {@link InfraState}. `isInfraRunning` collapses it back to
+   * a boolean for the provisioning path; the two deliberately share this one
+   * probe so the badge in the tree and the decision to skip `make up-infra` can
+   * never disagree.
    */
-  private async isInfraRunning(): Promise<boolean> {
+  async getInfraState(): Promise<InfraState> {
     const runtime = this.resolveRuntime();
-    if (!runtime) return false;
+    if (!runtime) return 'unknown';
     const result = await runStreaming(
       runtime.containerCli.path,
       containerPsArgv(RUNTIME_POSTGRES.container),
       { cwd: process.cwd(), onLine: () => { /* probe only — output discarded */ } },
     );
-    return result.exitCode === 0 && /\bUp\b/i.test(result.output);
+    if (result.exitCode !== 0) return 'unknown';
+    return /\bUp\b/i.test(result.output) ? 'running' : 'stopped';
+  }
+
+  /**
+   * Whether the shared infrastructure is already running.
+   *
+   * `unknown` counts as not running: without a container CLI there is nothing
+   * to skip `make up-infra` for, and the step that follows fails on its own
+   * terms with a message that names the missing tool.
+   */
+  private async isInfraRunning(): Promise<boolean> {
+    return (await this.getInfraState()) === 'running';
   }
 
   private async waitForHealth(
@@ -690,6 +728,80 @@ export class LocalRuntimeService {
     const git = this.requireTool('git');
     progress.report({ message: 'Updating the runtime clone…' });
     await this.step('git pull', git, gitPullArgv(), binding.runtimePath, token);
+  }
+
+  // ── Shared infrastructure ──────────────────────────────────────────────────
+  //
+  // These take a bare `runtimePath` rather than a `LocalRuntimeBinding`: the
+  // infra profile is domain-independent, and every local environment in a
+  // workspace shares one `.vnext-runtime` clone. A binding would imply the
+  // operation were scoped to that one domain, which is exactly what these are
+  // not.
+
+  /** `make up-infra` — start the shared `--profile infra` stack. */
+  async startInfra(
+    runtimePath: string,
+    progress: vscode.Progress<{ message?: string }>,
+    token: vscode.CancellationToken,
+  ): Promise<void> {
+    const make = this.requireTool('make');
+    progress.report({ message: 'Starting shared infrastructure…' });
+    await this.step('make up-infra', make, makeArgv('up-infra'), runtimePath, token);
+  }
+
+  /**
+   * `make down-infra` — stop the shared stack.
+   *
+   * Note what this actually does: `compose --profile infra down` *removes* the
+   * containers rather than stopping them. Volumes are untouched (no `-v`), so
+   * the postgres data survives. Callers are responsible for saying both things
+   * before they get here — every domain on the host loses its dependencies.
+   */
+  async stopInfra(
+    runtimePath: string,
+    progress: vscode.Progress<{ message?: string }>,
+    token: vscode.CancellationToken,
+  ): Promise<void> {
+    const make = this.requireTool('make');
+    progress.report({ message: 'Stopping shared infrastructure…' });
+    await this.step('make down-infra', make, makeArgv('down-infra'), runtimePath, token);
+  }
+
+  /** `make restart-infra` — a `down-infra` followed by an `up-infra`. */
+  async restartInfra(
+    runtimePath: string,
+    progress: vscode.Progress<{ message?: string }>,
+    token: vscode.CancellationToken,
+  ): Promise<void> {
+    const make = this.requireTool('make');
+    progress.report({ message: 'Restarting shared infrastructure…' });
+    await this.step('make restart-infra', make, makeArgv('restart-infra'), runtimePath, token);
+  }
+
+  /**
+   * `make down-all-vnext` — stop every domain the clone knows about, leaving
+   * infra up. The target iterates `domains/*` on disk, so it also reaches
+   * domains that have no environment entry in Forge.
+   */
+  async stopAllDomains(
+    runtimePath: string,
+    progress: vscode.Progress<{ message?: string }>,
+    token: vscode.CancellationToken,
+  ): Promise<void> {
+    const make = this.requireTool('make');
+    progress.report({ message: 'Stopping all domains…' });
+    await this.step('make down-all-vnext', make, makeArgv('down-all-vnext'), runtimePath, token);
+  }
+
+  /** `make down` — every domain, then infra. Same volume caveat as `stopInfra`. */
+  async stopEverything(
+    runtimePath: string,
+    progress: vscode.Progress<{ message?: string }>,
+    token: vscode.CancellationToken,
+  ): Promise<void> {
+    const make = this.requireTool('make');
+    progress.report({ message: 'Stopping all domains and infrastructure…' });
+    await this.step('make down', make, makeArgv('down'), runtimePath, token);
   }
 }
 

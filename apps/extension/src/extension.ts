@@ -47,6 +47,20 @@ import { LocalRuntimeService } from './tools/local-runtime/local-runtime.service
  * background pre-download — there is no second installer factory in the
  * extension host (R-b8).
  */
+/**
+ * Narrow a command argument to a `vscode.Uri`.
+ *
+ * Commands wrapped in `safeAsync` receive `unknown[]`, because that is what a
+ * command invocation can actually carry: the Explorer context menu passes the
+ * resource, but the same command id reached from the palette or from
+ * `executeCommand` passes nothing. Annotating the parameter as `vscode.Uri`
+ * instead of narrowing is unsound — and would let `uri.fsPath` throw on
+ * whatever else a caller supplied.
+ */
+function asUri(value: unknown): vscode.Uri | undefined {
+  return value instanceof vscode.Uri ? value : undefined;
+}
+
 async function readWorkflowJson(uri: vscode.Uri): Promise<
   | {
       domain: string;
@@ -264,10 +278,18 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }),
   );
 
-  // Sidebar commands — wrapped to prevent unhandled rejections
-  const safeAsync = (fn: (...args: unknown[]) => Promise<unknown>) =>
+  // Sidebar commands — wrapped to prevent unhandled rejections.
+  //
+  // Accepts sync handlers as well as async ones. Invoking `fn` inside a `.then`
+  // is what makes that safe: it turns a *synchronous* throw into a rejection
+  // too, so a handler that fails before its first `await` is reported the same
+  // way as one that fails after — with `fn(...args).catch(...)` the sync throw
+  // escaped the wrapper entirely. A returned promise is flattened by `.then`,
+  // and a handler with nothing to await need not be declared `async` just to
+  // satisfy this signature.
+  const safeAsync = (fn: (...args: unknown[]) => unknown) =>
     (...args: unknown[]) => {
-      void fn(...args).catch((err) => {
+      void Promise.resolve().then(() => fn(...args)).catch((err: unknown) => {
         const msg = err instanceof Error ? err.message : String(err);
         baseLogger.error({ error: msg }, 'Forge Tools command failed');
         void vscode.window.showErrorMessage(`vnext-forge-studio: ${msg}`);
@@ -332,6 +354,31 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     vscode.commands.registerCommand('vnextForge.tools.revealEnvironmentPorts', safeAsync((envId) =>
       environmentsProvider.revealPorts(envId as string),
     )),
+    // Shared-infrastructure commands take no argument — the infra profile is a
+    // singleton, unlike the environment commands above, which are all keyed on
+    // an envId supplied by the tree item. That is what lets them be exposed in
+    // the command palette (see `commandPalette` in package.json).
+    vscode.commands.registerCommand('vnextForge.tools.startInfrastructure', safeAsync(() =>
+      environmentsProvider.startInfrastructure(),
+    )),
+    vscode.commands.registerCommand('vnextForge.tools.stopInfrastructure', safeAsync(() =>
+      environmentsProvider.stopInfrastructure(),
+    )),
+    vscode.commands.registerCommand('vnextForge.tools.restartInfrastructure', safeAsync(() =>
+      environmentsProvider.restartInfrastructure(),
+    )),
+    vscode.commands.registerCommand('vnextForge.tools.showInfrastructureLogs', safeAsync(() =>
+      environmentsProvider.showInfrastructureLogs(),
+    )),
+    vscode.commands.registerCommand('vnextForge.tools.showInfrastructureStatus', safeAsync(() =>
+      environmentsProvider.showInfrastructureStatus(),
+    )),
+    vscode.commands.registerCommand('vnextForge.tools.stopAllDomains', safeAsync(() =>
+      environmentsProvider.stopAllDomains(),
+    )),
+    vscode.commands.registerCommand('vnextForge.tools.stopEverything', safeAsync(() =>
+      environmentsProvider.stopEverything(),
+    )),
     vscode.commands.registerCommand('vnextForge.tools.switchEnvironment', safeAsync(() =>
       switchEnvironmentQuickPick(forgeToolsSettings),
     )),
@@ -385,7 +432,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         ...(wfJson.startSchemaRef ? { startSchemaRef: wfJson.startSchemaRef } : {}),
       });
     })),
-    vscode.commands.registerCommand('vnextForge.openQuickRunFromFile', safeAsync(async (uri: vscode.Uri) => {
+    vscode.commands.registerCommand('vnextForge.openQuickRunFromFile', safeAsync(async (arg) => {
+      const uri = asUri(arg);
       if (!uri) return;
       const wfJson = await readWorkflowJson(uri);
       if (!wfJson) return;
@@ -406,7 +454,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     // workflow JSON to the runtime via `wf update -f <path>`. Same
     // helper the Designer's Publish toolbar button uses, so the two
     // entry points stay behaviorally identical.
-    vscode.commands.registerCommand('vnextForge.publishFromFile', safeAsync(async (uri?: vscode.Uri) => {
+    // Not `async`: `publishWorkflowFile` sends the command to a terminal and
+    // returns synchronously. `safeAsync` accepts sync handlers.
+    vscode.commands.registerCommand('vnextForge.publishFromFile', safeAsync((arg) => {
+      const uri = asUri(arg);
       if (!uri) {
         void vscode.window.showWarningMessage('Forge Publish: right-click a workflow JSON file in the Explorer.');
         return;

@@ -95,6 +95,38 @@ Manage runtime environments that Quick Run connects to:
 - Use the **+** button to add new environments
 - Right-click an environment to edit, delete, or set it as active
 
+For a managed local runtime (Docker), right-click it to **Start**, **Stop** or
+**Restart Local Runtime**, show its logs, reveal its ports, or update the runtime clone.
+These act on that one domain.
+
+#### Shared Infrastructure
+
+When the workspace has a managed local runtime, a **Shared Infrastructure** node appears
+above the environments. It represents the shared service stack every local domain depends
+on — PostgreSQL, Redis, Vault, Dapr, OpenObserve and the OTel Collector — and its icon
+reports whether that stack is up, down, or unknown (Docker unreachable).
+
+Right-click it for:
+
+- **Start / Stop / Restart Infrastructure**
+- **Stop All Domains** — stops every domain in the runtime clone, leaves infrastructure up
+- **Stop All Domains and Infrastructure** — the full teardown
+- **Show Infrastructure Logs / Status** — opens a terminal with a follow-mode tail or a
+  one-shot service table
+
+The same commands are available from the Command Palette under **Forge**, so you do not need
+the tree open.
+
+Two things worth knowing before you use Stop:
+
+- The infrastructure is **shared machine-wide**. PostgreSQL is fixed at port 5432 and is not
+  port-offset aware, so stopping it also breaks domains running from other workspaces.
+  Forge lists the running domains it knows about in the confirmation, and when any are up it
+  offers to stop them along with the infrastructure.
+- Stopping **removes** the infrastructure containers rather than pausing them. Named volumes
+  are untouched, so no database data is lost — starting the infrastructure again restores
+  every domain database.
+
 ### Package Deploy
 
 Deploy workflows to the runtime using the `wf` CLI:

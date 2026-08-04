@@ -18,6 +18,7 @@ import {
   isCancellation,
   LocalRuntimeService,
   type ContainerState,
+  type InfraState,
   type ProvisionResult,
 } from '../local-runtime/local-runtime.service.js';
 import {
@@ -94,6 +95,42 @@ const CLI_REGISTRATION_CONTEXT: Record<CliRegistrationState, string> = {
   unknown: 'environment-local',
 };
 
+/**
+ * Tree id of the shared-infrastructure node.
+ *
+ * The provider's element type is a plain `string` and every other element is an
+ * environment id — a `crypto.randomUUID()`. This sentinel cannot collide with
+ * one even after a hand-edit of `environments.json`.
+ */
+const INFRA_NODE_ID = '__forge_shared_infrastructure__';
+
+/**
+ * `contextValue` per infra state.
+ *
+ * Deliberately NOT prefixed `environment`: the "Reset Components" entry matches
+ * `viewItem =~ /^environment/`, so an `environment-infra`-style value would leak
+ * a domain-scoped action onto a node that has no domain. The infra menu entries
+ * match `/^forgeInfrastructure/` instead, which nothing else can satisfy.
+ */
+const INFRA_CONTEXT: Record<InfraState, string> = {
+  running: 'forgeInfrastructure-running',
+  stopped: 'forgeInfrastructure-stopped',
+  unknown: 'forgeInfrastructure-unknown',
+};
+
+const INFRA_STATE_LABELS: Record<InfraState, string> = {
+  running: 'running',
+  stopped: 'stopped',
+  unknown: 'unknown',
+};
+
+/**
+ * The `--profile infra` services, for the node tooltip and the Stop
+ * confirmation. Mirrors the runtime repo's `vnext/docker/docker-compose.yml`;
+ * the list is cosmetic, so drift costs a stale sentence rather than a failure.
+ */
+const INFRA_SERVICES = 'PostgreSQL, Redis, Vault, Dapr, OpenObserve, OTel Collector';
+
 const CLI_REGISTRATION_TOOLTIPS: Record<CliRegistrationState, string> = {
   ok: 'Workflow CLI: registered and pointing at this runtime',
   'needs-registration':
@@ -157,6 +194,15 @@ export class EnvironmentsProvider implements vscode.TreeDataProvider<string> {
   private containerRuntimeProbe: Promise<boolean> | undefined;
 
   /**
+   * State of the shared infra stack for the current refresh cycle.
+   *
+   * Held as the *promise* for the same reason as `containerRuntimeProbe`: the
+   * infra node and every environment tooltip can end up asking within one
+   * refresh, and this must stay a single `docker ps`.
+   */
+  private infraStateProbe: Promise<InfraState> | undefined;
+
+  /**
    * The Workflow CLI's domain registry for the current refresh cycle, or
    * `null` when it could not be read.
    *
@@ -189,6 +235,7 @@ export class EnvironmentsProvider implements vscode.TreeDataProvider<string> {
       this.envConfig = undefined;
       this.containerStates.clear();
       this.containerRuntimeProbe = undefined;
+      this.infraStateProbe = undefined;
       this.wfDomainsProbe = undefined;
       this._onDidChangeTreeData.fire(undefined);
     });
@@ -198,6 +245,10 @@ export class EnvironmentsProvider implements vscode.TreeDataProvider<string> {
   }
 
   async getTreeItem(element: string): Promise<vscode.TreeItem> {
+    // Handled before the environment lookup: the sentinel matches no
+    // environment, and the fallthrough below renders a bare "Unknown" item.
+    if (element === INFRA_NODE_ID) return this.buildInfraTreeItem();
+
     const config = await this.getConfig();
     const env = config.environments.find((e) => e.id === element);
     if (!env) {
@@ -242,7 +293,102 @@ export class EnvironmentsProvider implements vscode.TreeDataProvider<string> {
   async getChildren(element?: string): Promise<string[]> {
     if (element) return [];
     const config = await this.getConfig();
-    return config.environments.map((e) => e.id);
+    const envIds = config.environments.map((e) => e.id);
+    const infraPath = await this.resolveInfraRuntimePath();
+    // No clone means no Makefile to run the infra targets in, so the node would
+    // only be able to advertise commands that must fail. A remote-only or
+    // not-yet-provisioned workspace shows the environments alone.
+    return infraPath ? [INFRA_NODE_ID, ...envIds] : envIds;
+  }
+
+  /**
+   * The clone to run infra targets in, or `undefined` when there is none.
+   *
+   * Every local environment in a workspace shares one `<workspace>/.vnext-runtime`,
+   * so any provisioned one is an equally valid `cwd`; the active environment is
+   * preferred only so the path shown in the tooltip matches what the user is
+   * looking at. The clone is verified rather than assumed — `environments.json`
+   * outlives a deleted `.vnext-runtime`.
+   */
+  private async resolveInfraRuntimePath(): Promise<string | undefined> {
+    const service = this.localRuntime;
+    if (!service) return undefined;
+
+    const config = await this.getConfig();
+    const locals = config.environments.filter(
+      (e): e is RuntimeEnvironment & { local: LocalRuntimeBinding } =>
+        e.kind === 'local-docker' && Boolean(e.local),
+    );
+    if (locals.length === 0) return undefined;
+
+    const active = locals.find((e) => e.id === config.activeEnvironmentId);
+    const ordered = active ? [active, ...locals.filter((e) => e !== active)] : locals;
+
+    for (const env of ordered) {
+      if (await service.hasRuntimeClone(env.local.runtimePath)) return env.local.runtimePath;
+    }
+    return undefined;
+  }
+
+  /** State of the shared infra stack, resolved once per refresh cycle. */
+  private resolveInfraState(): Promise<InfraState> {
+    const service = this.localRuntime;
+    if (!service) return Promise.resolve('unknown');
+    this.infraStateProbe ??= service.getInfraState().catch((err: unknown) => {
+      // A throw here would take the node down; unknown is honest.
+      baseLogger.warn(
+        { error: describeError(err) },
+        'Failed to read the shared infrastructure state.',
+      );
+      return 'unknown' as InfraState;
+    });
+    return this.infraStateProbe;
+  }
+
+  private async buildInfraTreeItem(): Promise<vscode.TreeItem> {
+    const [state, runtimePath] = await Promise.all([
+      this.resolveInfraState(),
+      this.resolveInfraRuntimePath(),
+    ]);
+
+    const item = new vscode.TreeItem(
+      'Shared Infrastructure',
+      vscode.TreeItemCollapsibleState.None,
+    );
+    item.description = INFRA_STATE_LABELS[state];
+    item.contextValue = INFRA_CONTEXT[state];
+    item.iconPath = this.getInfraIcon(state);
+    // No `item.command`: this is not an environment, so a click must not fall
+    // into "Set Active" the way every environment node does.
+    item.tooltip = [
+      'Shared Infrastructure',
+      `Services: ${INFRA_SERVICES}`,
+      state === 'unknown'
+        ? 'State: unknown — the container runtime is not available'
+        : `State: ${INFRA_STATE_LABELS[state]}`,
+      '',
+      'Shared by every local domain on this machine, including domains in other',
+      'workspaces — PostgreSQL is fixed at port 5432 and is not offset-aware.',
+      'Stopping it stops every running domain from working.',
+      ...(runtimePath ? ['', `Runtime path: ${runtimePath}`] : []),
+    ].join('\n');
+    return item;
+  }
+
+  private getInfraIcon(state: InfraState): vscode.ThemeIcon {
+    switch (state) {
+      case 'running':
+        return new vscode.ThemeIcon(
+          'circle-large-filled',
+          new vscode.ThemeColor('testing.iconPassed'),
+        );
+      case 'stopped':
+        return new vscode.ThemeIcon('debug-stop');
+      default:
+        // Neither the running nor the stopped icon: we do not know, and must
+        // not imply that we do.
+        return new vscode.ThemeIcon('question');
+    }
   }
 
   async addEnvironment(): Promise<void> {
@@ -717,6 +863,231 @@ export class EnvironmentsProvider implements vscode.TreeDataProvider<string> {
     }
   }
 
+  // ── Shared infrastructure ──────────────────────────────────────────────────
+
+  /**
+   * Runs one infra-level operation with progress + error reporting.
+   *
+   * Sibling of {@link runLifecycle}, differing in what it resolves and what it
+   * invalidates: there is no environment and no binding, and the whole cache has
+   * to go afterwards because these targets reach domains this provider never
+   * enumerated.
+   */
+  private async runInfraLifecycle(
+    title: string,
+    run: (
+      service: LocalRuntimeService,
+      runtimePath: string,
+      progress: vscode.Progress<{ message?: string }>,
+      token: vscode.CancellationToken,
+    ) => Promise<void>,
+  ): Promise<boolean> {
+    const service = this.localRuntime;
+    const runtimePath = await this.resolveInfraRuntimePath();
+    if (!service || !runtimePath) {
+      await this.showFailure(
+        'No local runtime was found in this workspace. Add a local environment first.',
+        'warning',
+      );
+      return false;
+    }
+
+    let succeeded = true;
+    try {
+      await vscode.window.withProgress(
+        { location: vscode.ProgressLocation.Notification, title, cancellable: true },
+        (progress, token) => run(service, runtimePath, progress, token),
+      );
+    } catch (err) {
+      succeeded = false;
+      if (isCancellation(err)) {
+        // A cancelled compose run leaves an indeterminate mix of containers up
+        // and down, so the note matters more here than for a single domain.
+        this.showCancelled(title, 'Some containers may be left in a partial state.');
+      } else {
+        await this.showFailure(`${title} failed: ${describeError(err)}`);
+      }
+    } finally {
+      this.invalidateAllState();
+    }
+    return succeeded;
+  }
+
+  /**
+   * Names of the local domains Forge knows about that are currently running.
+   *
+   * Goes through `resolveContainerState` rather than the service directly so it
+   * reuses the per-refresh cache instead of spawning a fresh `docker ps` per
+   * environment. It therefore only covers domains that have an environment entry
+   * — `make down` reaches more than this, which is why the confirmations phrase
+   * the list as what is known rather than as exhaustive.
+   */
+  private async listRunningLocalDomains(): Promise<string[]> {
+    const config = await this.getConfig();
+    const locals = config.environments.filter(
+      (e): e is RuntimeEnvironment & { local: LocalRuntimeBinding } =>
+        e.kind === 'local-docker' && Boolean(e.local),
+    );
+    const states = await Promise.all(
+      locals.map(async (env) => ({
+        domain: env.local.domain,
+        state: await this.resolveContainerState(env.id, env.local),
+      })),
+    );
+    return states.filter((entry) => entry.state === 'running').map((entry) => entry.domain);
+  }
+
+  async startInfrastructure(): Promise<void> {
+    // Additive and idempotent — `up-infra` on an already-running stack is a
+    // no-op — so no confirmation.
+    await this.runInfraLifecycle('Starting shared infrastructure', (svc, runtimePath, progress, token) =>
+      svc.startInfra(runtimePath, progress, token),
+    );
+  }
+
+  async stopInfrastructure(): Promise<void> {
+    const running = await this.listRunningLocalDomains();
+    const stopDomainsToo = 'Stop Domains and Infrastructure';
+    const infraOnly = running.length > 0 ? 'Stop Infrastructure Only' : 'Stop Infrastructure';
+
+    const detail = [
+      `Stops and removes the shared infrastructure containers (${INFRA_SERVICES}).`,
+      '',
+      'Database volumes are preserved, so no data is lost — starting the infrastructure again ' +
+        'restores every domain database.',
+      ...(running.length > 0
+        ? [
+            '',
+            `${running.length} running domain(s) depend on it and will stop working until it is ` +
+              `back up: ${running.join(', ')}.`,
+          ]
+        : []),
+    ].join('\n');
+
+    // Buttons, not a silent choice: leaving the domains up is a legitimate
+    // answer (a quick infra restart under a running domain), and so is taking
+    // everything down. VS Code cannot grey a menu item, so the decision belongs
+    // in the dialog.
+    const choice = await vscode.window.showWarningMessage(
+      'Stop the shared infrastructure?',
+      { modal: true, detail },
+      ...(running.length > 0 ? [stopDomainsToo, infraOnly] : [infraOnly]),
+    );
+    if (choice !== stopDomainsToo && choice !== infraOnly) return;
+
+    if (choice === stopDomainsToo) {
+      await this.runInfraLifecycle(
+        'Stopping all domains and infrastructure',
+        (svc, runtimePath, progress, token) => svc.stopEverything(runtimePath, progress, token),
+      );
+      return;
+    }
+
+    await this.runInfraLifecycle('Stopping shared infrastructure', (svc, runtimePath, progress, token) =>
+      svc.stopInfra(runtimePath, progress, token),
+    );
+  }
+
+  async restartInfrastructure(): Promise<void> {
+    const running = await this.listRunningLocalDomains();
+    const detail = [
+      `Recreates the shared infrastructure containers (${INFRA_SERVICES}).`,
+      '',
+      'Database volumes are preserved, so no data is lost.',
+      ...(running.length > 0
+        ? [
+            '',
+            `${running.length} running domain(s) will lose their dependencies while it restarts ` +
+              `and may need a restart of their own afterwards: ${running.join(', ')}.`,
+          ]
+        : []),
+    ].join('\n');
+
+    const confirm = await vscode.window.showWarningMessage(
+      'Restart the shared infrastructure?',
+      { modal: true, detail },
+      'Restart Infrastructure',
+    );
+    if (confirm !== 'Restart Infrastructure') return;
+
+    await this.runInfraLifecycle('Restarting shared infrastructure', (svc, runtimePath, progress, token) =>
+      svc.restartInfra(runtimePath, progress, token),
+    );
+  }
+
+  async stopAllDomains(): Promise<void> {
+    const running = await this.listRunningLocalDomains();
+    const detail = [
+      'Stops and removes the containers of every domain configured in this runtime clone, ' +
+        'leaving the shared infrastructure up.',
+      '',
+      'Domain configuration and databases are preserved.',
+      ...(running.length > 0 ? ['', `Currently running: ${running.join(', ')}.`] : []),
+    ].join('\n');
+
+    const confirm = await vscode.window.showWarningMessage(
+      'Stop all domains?',
+      { modal: true, detail },
+      'Stop All Domains',
+    );
+    if (confirm !== 'Stop All Domains') return;
+
+    await this.runInfraLifecycle('Stopping all domains', (svc, runtimePath, progress, token) =>
+      svc.stopAllDomains(runtimePath, progress, token),
+    );
+  }
+
+  async stopEverything(): Promise<void> {
+    const running = await this.listRunningLocalDomains();
+    const detail = [
+      'Stops and removes every domain container and then the shared infrastructure ' +
+        `(${INFRA_SERVICES}).`,
+      '',
+      'Domain configuration, databases and volumes are all preserved.',
+      ...(running.length > 0 ? ['', `Currently running: ${running.join(', ')}.`] : []),
+    ].join('\n');
+
+    const confirm = await vscode.window.showWarningMessage(
+      'Stop all domains and the shared infrastructure?',
+      { modal: true, detail },
+      'Stop Everything',
+    );
+    if (confirm !== 'Stop Everything') return;
+
+    await this.runInfraLifecycle(
+      'Stopping all domains and infrastructure',
+      (svc, runtimePath, progress, token) => svc.stopEverything(runtimePath, progress, token),
+    );
+  }
+
+  /**
+   * A follow-mode tail and a one-shot table both belong in a terminal — the same
+   * argument `showLogs` makes for a single domain.
+   *
+   * Reports the missing clone rather than returning quietly: unlike the tree
+   * node, which only exists once a clone is found, these are reachable from the
+   * command palette in any vNext workspace.
+   */
+  private async runInfraTerminalCommand(command: string): Promise<void> {
+    const runtimePath = await this.resolveInfraRuntimePath();
+    if (!runtimePath) {
+      await this.showFailure(
+        'No local runtime was found in this workspace. Add a local environment first.',
+        'warning',
+      );
+      return;
+    }
+    this.runTerminal?.(command, runtimePath);
+  }
+
+  async showInfrastructureLogs(): Promise<void> {
+    await this.runInfraTerminalCommand('make logs-infra');
+  }
+
+  async showInfrastructureStatus(): Promise<void> {
+    await this.runInfraTerminalCommand('make status-infra');
+  }
+
   /**
    * Register (or re-register) this managed environment's domain with the
    * Workflow CLI. Surfaced only while `contextValue` says the registration is
@@ -938,6 +1309,24 @@ export class EnvironmentsProvider implements vscode.TreeDataProvider<string> {
     // reachable (or gone away), so the shared probe is dropped with it. The
     // domain registry goes too: provisioning from Start registers the domain.
     this.containerRuntimeProbe = undefined;
+    // Start provisions infra when it is down, so a per-domain run can change
+    // the infra state as a side effect.
+    this.infraStateProbe = undefined;
+    this.wfDomainsProbe = undefined;
+    this._onDidChangeTreeData.fire(undefined);
+  }
+
+  /**
+   * Drop every cached probe after an infra-level operation.
+   *
+   * Broader than {@link invalidateContainerState} on purpose: `down-infra`,
+   * `down` and `down-all-vnext` change the state of domains this provider never
+   * named, so no per-domain entry can be trusted afterwards.
+   */
+  private invalidateAllState(): void {
+    this.containerStates.clear();
+    this.containerRuntimeProbe = undefined;
+    this.infraStateProbe = undefined;
     this.wfDomainsProbe = undefined;
     this._onDidChangeTreeData.fire(undefined);
   }
@@ -1056,9 +1445,7 @@ export class EnvironmentsProvider implements vscode.TreeDataProvider<string> {
   }
 
   private async getConfig(): Promise<EnvironmentsConfig> {
-    if (!this.envConfig) {
-      this.envConfig = await this.settingsService.loadEnvironments();
-    }
+    this.envConfig ??= await this.settingsService.loadEnvironments();
     return this.envConfig;
   }
 

@@ -31,6 +31,16 @@ describe('argv builders', () => {
     expect(makeArgv('setup')).toEqual(['setup'])
   })
 
+  it.each(['up-infra', 'down-infra', 'restart-infra', 'down-all-vnext', 'down'] as const)(
+    'builds %s with no variables',
+    (target) => {
+      // The environment-wide targets take no DOMAIN. Appending one would be
+      // worse than useless: `make down DOMAIN=core` reads as domain-scoped
+      // while still stopping every domain and the shared infra.
+      expect(makeArgv(target)).toEqual([target])
+    },
+  )
+
   it('passes DOMAIN as a make variable', () => {
     expect(makeArgv('up-vnext', { domain: 'core' })).toEqual(['up-vnext', 'DOMAIN=core'])
   })
