@@ -10,6 +10,10 @@ import { requestLoggerMiddleware } from '../../shared/middleware/logger.js';
 import { traceIdMiddleware } from '../../shared/middleware/trace-id.js';
 import type { Variables } from '../../shared/types/hono.js';
 
+// `trusted: false` forces the capability gate to fall through to the origin
+// allow-list, which is the behaviour these tests exercise. The allow-listed
+// origin below must therefore be a real entry of `config.corsAllowedOrigins`
+// — it defaults to apps/web's dev server on :3000 and this server on :3001.
 vi.mock('../../shared/config/config.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../shared/config/config.js')>();
   return {
@@ -52,7 +56,7 @@ describe('API v1 runtime routes', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Origin: 'http://localhost:5173',
+        Origin: 'http://localhost:3000',
       },
       body: JSON.stringify({ method: 'GET', runtimePath: '/health' }),
     });

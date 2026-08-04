@@ -260,7 +260,7 @@ function pathSegmentForKind(config: VnextWorkspaceConfig, kind: ComponentKind): 
     case 'config':
       throw new Error('vnext config is not a component kind');
     default: {
-      const k: string = String(kind);
+      const k = String(kind);
       throw new Error(`Unhandled component kind: ${k}`);
     }
   }
@@ -461,7 +461,7 @@ async function writeWorkflowScaffoldToDisk(
 }
 
 function getExplorerFolderTarget(uri: vscode.Uri | undefined): string | null {
-  if (uri && uri.scheme === 'file') {
+  if (uri?.scheme === 'file') {
     return uri.fsPath;
   }
   return null;
@@ -474,6 +474,7 @@ const FORGE_CREATE_TITLE: Record<VnextComponentJsonKind, string> = {
   view: 'Forge: View Create',
   function: 'Forge: Function Create',
   extension: 'Forge: Extension Create',
+  mapping: 'Forge: Mapping Create',
 };
 
 /**
@@ -515,7 +516,9 @@ async function promptForgeNewComponentName(
     };
 
     ib.title = FORGE_CREATE_TITLE[expectedKind];
-    ib.description = relHint;
+    // `prompt`, not `description`: InputBox has no `description` member, so the
+    // assignment was silently dropped and the target folder never showed.
+    ib.prompt = relHint;
     ib.placeholder = expectedKind === 'workflow' ? 'workflow-name' : 'name or name.json (optional .json)';
 
     const validate = (raw: string): string | undefined => {
@@ -624,7 +627,7 @@ async function forgeComponentCreateByKind(
 
   const domain = config.domain;
   const name = await promptForgeNewComponentName(resource, folderPath, expectedKind);
-  if (name == null || !name.trim()) {
+  if (!name?.trim()) {
     return;
   }
 
