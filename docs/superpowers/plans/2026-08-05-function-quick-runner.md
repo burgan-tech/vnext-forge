@@ -25,6 +25,18 @@ The client keeps only presentation helpers (`functionRunVerbs`, `functionRunPayl
 
 ---
 
+## Gotcha: app-contracts changes need a rebuild before services-core typechecks
+
+`services-core`'s `tsconfig.json` has a TS **project reference** to `app-contracts`. Project references resolve cross-package imports through the referenced project's **built `dist/*.d.ts`**, not its `src` — even though `package.json` points `types` at `src/index.ts`.
+
+So after adding an export to `app-contracts` (Tasks 1 and 5 both do), `tsc --noEmit` in `services-core` fails with a spurious *"has no exported member"* until you rebuild:
+
+```bash
+pnpm --filter @vnext-forge-studio/app-contracts exec tsc -b --force
+```
+
+`dist` is gitignored, so this is a local artifact problem, not something that lands in a commit. Do not "fix" the source in response to this error — rebuild and re-check first.
+
 ## File Structure
 
 **`packages/services-core/`**
