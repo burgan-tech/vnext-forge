@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
+import { formatViewDisplay } from '@vnext-forge-studio/vnext-types';
 import { domainGet, workflowGet } from '@monitoring/shared/api/monitoring-api';
 import type { Workflow, StatePermission } from '@monitoring/shared/types';
 import type {
@@ -81,7 +82,13 @@ function mapToDefinitionListItem(item: ApiComponentListItem, apiType: string): D
     domain: item.domain,
     type: mappedTypeName ?? (isNumericType ? undefined : (rawType as string | undefined) ?? undefined),
     scope: scopeName ?? undefined,
-    display: item.display ?? undefined,
+    // The monitor summary is documented to project `sdi` out of the per-mode
+    // object form, so this is normally already a string. Normalized anyway
+    // because Monitoring connects to whatever runtime the user points it at,
+    // including versions predating that projection — where the raw object would
+    // reach a `string`-typed field and render as "[object Object]".
+    // Left `undefined` when absent so the Badge renders its own dash.
+    display: item.display == null ? undefined : formatViewDisplay(item.display),
     renderer: item.renderer ?? undefined,
     labels: item.labels ?? undefined,
     taskType: apiType === 'sys-tasks' && isNumericType ? mappedTypeName : undefined,

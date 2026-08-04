@@ -280,12 +280,34 @@ Desteklenen view tipleri:
 
 Display modları:
 
+`attributes.display` iki şekilden birini kabul eder. Bare string SDI display'i
+bildirir ve geriye dönük uyumlu şekildir; nesne formu display'i istemci moduna
+göre bildirir.
+
+```jsonc
+"display": "popup"                             // legacy — sdi: "popup" demektir
+"display": { "sdi": "popup", "mdi": "drawer" } // her iki mod
+"display": { "mdi": "full-page" }              // yalnızca MDI
+```
+
+`sdi` / `mdi` alanlarından en az biri değer taşımak zorundadır; boş nesne
+component validation tarafından reddedilir.
+
+Her iki mod **aynı** değer kümesini kabul eder — mod, değerin hangi istemci
+arayüzüne uygulandığını belirler, hangi sunumların var olduğunu değil:
+
 - `full-page`
 - `popup`
 - `bottom-sheet`
 - `top-sheet`
 - `drawer`
 - `inline`
+
+- `sdi` — single-document istemciler (view ekrandaki tek doküman olduğunda)
+- `mdi` — multi-document istemciler (birden fazla doküman yan yana açıkken)
+
+Yalnızca SDI bildiren bir tanım bare string olarak geri yazılır, `mdi` bildiren
+her tanım nesne olarak — böylece component JSON churn olmadan round-trip eder.
 
 Platform override destekleri:
 

@@ -17,14 +17,29 @@ export const RUNTIME_POSTGRES = {
   container: 'vnext-postgres',
 } as const
 
+/**
+ * The `make` targets Forge is allowed to run, as declared by the runtime repo's
+ * Makefile.
+ *
+ * Two families, and the distinction matters for `makeArgv`: the `*-vnext` and
+ * `create-domain` / `db-create` targets act on one domain and need `DOMAIN=`,
+ * while the `*-infra` targets and the two bulk stops act on the whole
+ * environment and take no variables at all. `down-infra` / `down` reach the
+ * shared `--profile infra` stack, which is a singleton — postgres is fixed at
+ * 5432 for every domain and every workspace clone.
+ */
 export type MakeTarget =
   | 'setup'
   | 'up-infra'
+  | 'down-infra'
+  | 'restart-infra'
   | 'create-domain'
   | 'db-create'
   | 'up-vnext'
   | 'down-vnext'
   | 'restart-vnext'
+  | 'down-all-vnext'
+  | 'down'
 
 export interface MakeVars {
   domain?: string

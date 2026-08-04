@@ -458,7 +458,7 @@ on activation. This can be disabled by setting `vnextForge.lsp.autoInstall` to
 - **Transition Types**: Manual (0), Automatic (1), Scheduled (2), Event (3)
 - **Task Types**: Http (6), DaprPubSub (4), DaprService (3), DaprBinding (7), Script (5), Start (11), DirectTrigger (12), GetInstanceData (13), SubProcess (14), GetInstances (15), HumanTask
 - **Mapping Interfaces**: IMapping, IConditionMapping, ITimerMapping, ITransitionMapping, ISubFlowMapping, ISubProcessMapping
-- **View Strategies**: full-page, popup, bottom-sheet, top-sheet, drawer, inline
+- **View Display**: full-page, popup, bottom-sheet, top-sheet, drawer, inline — declared per client mode (`sdi` / `mdi`), both drawing from the same set
 - **Extension Types**: Global, GlobalAndRequested, DefinedFlows, DefinedFlowAndRequested
 - **Function Scopes**: Instance (I), Workflow (F), Domain (D)
 - **Error Boundary**: Abort, Retry, Rollback, Ignore, Log, Notify

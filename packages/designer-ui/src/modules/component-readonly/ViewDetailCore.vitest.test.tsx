@@ -68,6 +68,41 @@ describe('ViewDetailCore', () => {
     expect(html).toContain('value="full-page"');
   });
 
+  it('renders both modes for a per-mode display declaration', () => {
+    const html = renderToStaticMarkup(
+      h(ViewDetailCore, {
+        json: { ...base, attributes: { type: 1, display: { sdi: 'popup', mdi: 'drawer' }, content: {} } },
+      }),
+    );
+    // Before SDI/MDI support this rendered `full-page` — a value the component
+    // never declared — because the object failed a `typeof === 'string'` test.
+    expect(html).toContain('value="popup"');
+    expect(html).toContain('value="drawer"');
+    expect(html).not.toContain('value="full-page"');
+  });
+
+  it('shows the SDI default and omits the MDI row for an MDI-only declaration', () => {
+    const html = renderToStaticMarkup(
+      h(ViewDetailCore, {
+        json: { ...base, attributes: { type: 1, display: { mdi: 'top-sheet' }, content: {} } },
+      }),
+    );
+    expect(html).toContain('value="top-sheet"');
+    expect(html).toContain('Display (MDI)');
+    // No SDI value was declared, so the effective client default stands in.
+    expect(html).toContain('value="full-page"');
+  });
+
+  it('omits the MDI row entirely for an SDI-only declaration', () => {
+    const html = renderToStaticMarkup(
+      h(ViewDetailCore, {
+        json: { ...base, attributes: { type: 1, display: 'drawer', content: {} } },
+      }),
+    );
+    expect(html).toContain('value="drawer"');
+    expect(html).not.toContain('Display (MDI)');
+  });
+
   it('previews HTML views inside a fully sandboxed iframe and keeps raw reachable', () => {
     const html = renderToStaticMarkup(
       h(ViewDetailCore, { json: { ...base, type: 2, content: '<b>hello</b>' } }),

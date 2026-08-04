@@ -157,7 +157,16 @@ export const quickrunGetViewResult = z.object({
   key: z.string(),
   content: z.string(),
   type: z.string(),
+  // Stays a string on purpose. The runtime resolves a view authored with the
+  // per-mode object form down to its SDI value for this field and reports both
+  // modes separately in `modes`, so widening this would misdescribe the wire.
   display: z.string().optional(),
+  modes: z
+    .object({
+      sdi: z.string().optional(),
+      mdi: z.string().optional(),
+    })
+    .nullish(),
   label: z.string().optional(),
 })
 
