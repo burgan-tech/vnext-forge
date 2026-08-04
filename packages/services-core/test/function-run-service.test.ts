@@ -1,0 +1,104 @@
+import { describe, expect, it, vi } from 'vitest'
+
+import { createFunctionRunService } from '../src/index.js'
+
+function serviceWith(response: {
+  status: number; contentType?: string; data: string; responseHeaders?: Record<string, string>
+}) {
+  const proxy = vi.fn().mockResolvedValue({
+    status: response.status,
+    contentType: response.contentType ?? 'application/json',
+    data: response.data,
+    responseHeaders: response.responseHeaders ?? {},
+  })
+  return { service: createFunctionRunService({ proxy } as never), proxy }
+}
+
+describe('functionRunService.getInfo', () => {
+  it('builds the domain path and returns the parsed exchange', async () => {
+    const { service, proxy } = serviceWith({ status: 200, data: '{"key":"get-branches"}' })
+    const result = await service.getInfo({ domain: 'core', functionKey: 'get-branches', scope: 'D' })
+
+    expect(proxy).toHaveBeenCalledWith(
+      expect.objectContaining({ method: 'GET', runtimePath: '/api/v1/core/functions/get-branches/info' }),
+      undefined,
+    )
+    expect(result.status).toBe(200)
+    expect(result.json).toEqual({ key: 'get-branches' })
+  })
+
+  it('RETURNS a 403 instead of throwing', async () => {
+    // The whole point of this service: an authorization refusal is data the
+    // runner renders, not an exception that hides the status.
+    const { service } = serviceWith({ status: 403, data: '{"detail":"forbidden"}' })
+    const result = await service.getInfo({ domain: 'core', functionKey: 'f', scope: 'D' })
+    expect(result.status).toBe(403)
+    expect(result.json).toEqual({ detail: 'forbidden' })
+  })
+
+  it('returns a 500 with a non-JSON body and no json field', async () => {
+    const { service } = serviceWith({ status: 500, contentType: 'text/plain', data: 'boom' })
+    const result = await service.getInfo({ domain: 'core', functionKey: 'f', scope: 'D' })
+    expect(result.status).toBe(500)
+    expect(result.body).toBe('boom')
+    expect(result.json).toBeUndefined()
+  })
+
+  it('surfaces response headers', async () => {
+    const { service } = serviceWith({
+      status: 200, data: '{}', responseHeaders: { 'x-trace-id': 't-1' },
+    })
+    const result = await service.getInfo({ domain: 'core', functionKey: 'f', scope: 'D' })
+    expect(result.responseHeaders).toEqual({ 'x-trace-id': 't-1' })
+  })
+})
+
+describe('functionRunService.fetchContract', () => {
+  it('proxies a valid href', async () => {
+    const { service, proxy } = serviceWith({ status: 200, data: '{"type":"view"}' })
+    await service.fetchContract({ path: '/core/functions/f/view?target=input' })
+    expect(proxy).toHaveBeenCalledWith(
+      expect.objectContaining({ method: 'GET', runtimePath: '/core/functions/f/view?target=input' }),
+      undefined,
+    )
+  })
+
+  it('rejects an href that is not a runtime function path', async () => {
+    const { service, proxy } = serviceWith({ status: 200, data: '{}' })
+    await expect(service.fetchContract({ path: 'https://evil.test/x' })).rejects.toThrow(/path/i)
+    expect(proxy).not.toHaveBeenCalled()
+  })
+})
+
+describe('functionRunService.invoke', () => {
+  it('sends a body and content type for POST', async () => {
+    const { service, proxy } = serviceWith({ status: 200, data: '{"ok":true}' })
+    await service.invoke({
+      path: '/core/functions/f', verb: 'POST',
+      body: 'a=1', contentType: 'application/x-www-form-urlencoded',
+      headers: { authorization: 'Bearer t' },
+    })
+    expect(proxy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'POST', runtimePath: '/core/functions/f', body: 'a=1',
+        headers: { authorization: 'Bearer t', 'content-type': 'application/x-www-form-urlencoded' },
+      }),
+      undefined,
+    )
+  })
+
+  it('sends a query and no body for GET', async () => {
+    const { service, proxy } = serviceWith({ status: 200, data: '[]' })
+    await service.invoke({ path: '/core/functions/f', verb: 'GET', query: { page: '1' } })
+    const call = proxy.mock.calls[0]![0]
+    expect(call.query).toEqual({ page: '1' })
+    expect(call.body).toBeUndefined()
+  })
+
+  it('returns a 422 from the function as data', async () => {
+    const { service } = serviceWith({ status: 422, data: '{"errors":{"a":["required"]}}' })
+    const result = await service.invoke({ path: '/core/functions/f', verb: 'POST' })
+    expect(result.status).toBe(422)
+    expect(result.json).toEqual({ errors: { a: ['required'] } })
+  })
+})
