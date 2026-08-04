@@ -8,6 +8,7 @@ export {
 
 export {
   useComponentTypeSchema,
+  useBundledComponentTypeSchema,
   resetComponentTypeSchemaCache,
   type ComponentTypeSchemaState,
 } from './useComponentTypeSchema';
