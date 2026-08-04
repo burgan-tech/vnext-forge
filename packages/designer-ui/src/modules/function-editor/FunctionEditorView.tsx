@@ -32,6 +32,23 @@ export interface FunctionEditorViewProps {
 }
 
 /**
+ * Script-panel `listField` sentinel → the `attributes` key holding that
+ * slot's rule entries.
+ *
+ * `ScriptEditorPanel` only knows how to write into the *workflow* store, so
+ * the function editor bridges script edits into the component store by hand
+ * (see the subscription below). Every slot that can own a script needs an
+ * entry here, or its rule would be editable in the panel yet never reach
+ * the document. Keep in sync with `FunctionContractSection`'s `SLOTS`.
+ */
+const CONTRACT_SLOT_BY_SCRIPT_LIST_FIELD: Record<string, string> = {
+  functionInputView: 'inputView',
+  functionOutputView: 'outputView',
+  functionInputSchema: 'inputSchema',
+  functionOutputSchema: 'outputSchema',
+};
+
+/**
  * Restores the parent component store snapshot when the modal editor dialog
  * transitions from open → closed. Only fires on that edge, never on initial
  * mount or while the modal is still closed.
@@ -150,6 +167,19 @@ export function FunctionEditorView({
           const attrs = (draft.attributes ?? {}) as Record<string, unknown>;
           attrs.output = script.value;
           draft.attributes = attrs;
+        });
+        return;
+      }
+
+      const contractSlot = CONTRACT_SLOT_BY_SCRIPT_LIST_FIELD[script.listField];
+      if (contractSlot) {
+        update((draft) => {
+          const attrs = (draft.attributes ?? {}) as Record<string, unknown>;
+          const entries = attrs[contractSlot] as Record<string, unknown>[] | undefined;
+          // Rules only exist in rule-based mode, i.e. when the slot holds an
+          // array. A single-reference slot has nowhere to put a script.
+          if (!Array.isArray(entries) || !entries[script.index]) return;
+          entries[script.index][script.scriptField] = script.value;
         });
       }
     });

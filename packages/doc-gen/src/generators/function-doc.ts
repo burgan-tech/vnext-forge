@@ -41,6 +41,11 @@ interface FunctionJson {
     output?: unknown;
     labels?: LabelEntry[];
     roles?: { role: string; grant: string }[];
+    verbs?: string[];
+    inputSchema?: unknown;
+    outputSchema?: unknown;
+    inputView?: unknown;
+    outputView?: unknown;
   };
 }
 
@@ -54,6 +59,46 @@ function refDisplay(ref: Reference | undefined | null): string {
   if (!ref) return '-';
   if (ref.ref) return inlineCode(ref.ref);
   return inlineCode(ref.key ?? '?');
+}
+
+/**
+ * Flattens one contract slot (`inputView` / `outputView` / `inputSchema` /
+ * `outputSchema`) into table rows.
+ *
+ * A slot arrives in one of three wire shapes — a bare reference, an array
+ * of rule entries, or a `{views: […]}` / `{schemas: […]}` wrapper. Entries
+ * are evaluated in order and the first match wins; an entry without a rule
+ * always matches, so it is the fallback.
+ *
+ * The parsing is duplicated from designer-ui's `functionContractSlots`
+ * rather than imported: doc-gen depends only on `vnext-types`, and pulling
+ * in a React UI package for this would invert the dependency policy.
+ */
+function contractSlotRows(
+  label: string,
+  value: unknown,
+  entryKey: 'view' | 'schema',
+  wrapperKey: 'views' | 'schemas',
+): string[][] {
+  if (value == null || typeof value !== 'object') return [];
+
+  const wrapped = (value as Record<string, unknown>)[wrapperKey];
+  const entries = Array.isArray(value)
+    ? (value as unknown[])
+    : Array.isArray(wrapped)
+      ? (wrapped as unknown[])
+      : null;
+
+  if (!entries) return [[label, 'Always', refDisplay(value as Reference)]];
+
+  return entries.map((raw, index) => {
+    const entry = (raw ?? {}) as Record<string, unknown>;
+    return [
+      label,
+      entry.rule ? `Rule #${index + 1}` : 'Fallback',
+      refDisplay(entry[entryKey] as Reference | undefined),
+    ];
+  });
 }
 
 export function generateFunctionMarkdown(functionJson: unknown): string {
@@ -82,6 +127,23 @@ export function generateFunctionMarkdown(functionJson: unknown): string {
       ],
     ),
   );
+
+  const contractRows = [
+    ...contractSlotRows('Input Schema', attrs?.inputSchema, 'schema', 'schemas'),
+    ...contractSlotRows('Output Schema', attrs?.outputSchema, 'schema', 'schemas'),
+    ...contractSlotRows('Input View', attrs?.inputView, 'view', 'views'),
+    ...contractSlotRows('Output View', attrs?.outputView, 'view', 'views'),
+  ];
+
+  if (attrs?.verbs?.length || contractRows.length) {
+    sections.push(heading(2, 'Contract'));
+    if (attrs?.verbs?.length) {
+      sections.push(`${bold('Verbs')}: ${attrs.verbs.map((verb) => inlineCode(verb)).join(', ')}`);
+    }
+    if (contractRows.length) {
+      sections.push(table(['Contract', 'Selection', 'Reference'], contractRows));
+    }
+  }
 
   if (attrs?.task) {
     sections.push(heading(2, 'Task'));

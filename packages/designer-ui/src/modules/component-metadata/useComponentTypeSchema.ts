@@ -110,6 +110,45 @@ function getOrCreateEntry(
  */
 export function useComponentTypeSchema(type: string): ComponentTypeSchemaState {
   const schemaVersion = useProjectStore((s) => s.vnextConfig?.schemaVersion);
+  return useSchemaEntry(type, schemaVersion);
+}
+
+/**
+ * The schema bundled with *this Forge build* — i.e. the contract Forge
+ * itself offers, independent of whatever version the open project pins.
+ *
+ * Omitting `schemaVersion` is what selects it: `validate/getSchema` then
+ * takes the schema-cache's bundled fast path, and the module-level cache
+ * keys the entry as `<type>:__bundled__`.
+ *
+ * Use this to decide **what a user may author**; use
+ * {@link useComponentTypeSchema} to decide **what will validate**. The two
+ * diverge whenever a project pins an older release than Forge ships, and
+ * conflating them either hides current fields or blocks saves.
+ */
+export function useBundledComponentTypeSchema(
+  type: string | undefined,
+): ComponentTypeSchemaState {
+  return useSchemaEntry(type, undefined);
+}
+
+const NO_SCHEMA: ComponentTypeSchemaState = {
+  schema: null,
+  requiredFields: new Set<string>(),
+  loading: false,
+  error: null,
+};
+
+/**
+ * `type` is optional so callers with an optional component type (e.g.
+ * `useSaveComponent`) can call this unconditionally — hooks cannot be
+ * conditional — without firing a `validate/getSchema` request for an empty
+ * type.
+ */
+function useSchemaEntry(
+  type: string | undefined,
+  schemaVersion: string | undefined,
+): ComponentTypeSchemaState {
   const [, force] = useState(0);
   const isMountedRef = useRef(true);
 
@@ -121,12 +160,12 @@ export function useComponentTypeSchema(type: string): ComponentTypeSchemaState {
   }, []);
 
   const entry = useMemo(
-    () => getOrCreateEntry(type, schemaVersion),
+    () => (type ? getOrCreateEntry(type, schemaVersion) : null),
     [type, schemaVersion],
   );
 
   useEffect(() => {
-    if (entry.resolved) return;
+    if (!entry || entry.resolved) return;
     let cancelled = false;
     void entry.promise.then(() => {
       if (cancelled) return;
@@ -140,6 +179,7 @@ export function useComponentTypeSchema(type: string): ComponentTypeSchemaState {
   }, [entry]);
 
   return useMemo<ComponentTypeSchemaState>(() => {
+    if (!entry) return NO_SCHEMA;
     const required = new Set(
       Array.isArray((entry.schema as { required?: unknown })?.required)
         ? ((entry.schema as { required?: string[] }).required as string[])
@@ -151,7 +191,7 @@ export function useComponentTypeSchema(type: string): ComponentTypeSchemaState {
       loading: !entry.resolved,
       error: entry.error,
     };
-  }, [entry, entry.schema, entry.resolved, entry.error]);
+  }, [entry, entry?.schema, entry?.resolved, entry?.error]);
 }
 
 /**

@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { ComponentDescriptionField } from '../../../ui/ComponentDescriptionField';
 import { ComponentValidationSummary } from '../../save-component/components/ComponentValidationSummary';
 import { FunctionCacheSection } from './FunctionCacheSection';
+import { FunctionContractSection } from './FunctionContractSection';
 import { FunctionMetadataForm } from './FunctionMetadataForm';
 import { FunctionTaskModeSection } from './FunctionTaskModeSection';
 
@@ -30,6 +31,12 @@ export function FunctionEditorPanel({ json, onChange, onBeforeOpenModal }: Funct
           </div>
         </CardContent>
       </Card>
+
+      <FunctionContractSection
+        json={json}
+        onChange={onChange}
+        onBeforeOpenModal={onBeforeOpenModal}
+      />
 
       <Card variant="default" className="gap-3">
         <CardHeader className="border-border border-b">

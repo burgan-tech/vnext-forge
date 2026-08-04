@@ -10,6 +10,8 @@ import { normalizeContentForSave } from '../../modules/view-editor/viewContentHe
 import { showNotification } from '../../notification/notification-port';
 import { saveComponentFile } from './SaveComponentApi';
 import { validateComponentBeforeWrite } from './validateBeforeWrite';
+import { partitionVersionSkewErrors } from './versionSkewErrors';
+import { useBundledComponentTypeSchema } from '../component-metadata/useComponentTypeSchema';
 import {
   useComponentStore,
   type ComponentValidationError,
@@ -45,6 +47,11 @@ export function useSaveComponent(options?: UseSaveComponentOptions) {
   const componentType = options?.componentType;
   const beforeSave = options?.beforeSave;
   const afterSaveSuccess = options?.afterSaveSuccess;
+  // The contract THIS Forge build offers. Validation runs against the
+  // project's pinned schemaVersion, so a project pinned behind Forge reports
+  // current fields as `additionalProperties` violations. That is version skew,
+  // not a broken document, and must not make the file unsaveable.
+  const bundledSchema = useBundledComponentTypeSchema(componentType).schema;
 
   const saveFile = useCallback(
     (nextFilePath: string, content: string) => saveComponentFile(nextFilePath, content),
@@ -200,25 +207,45 @@ export function useSaveComponent(options?: UseSaveComponentOptions) {
     if (componentType) {
       const gate = await validateComponentBeforeWrite(cleanedJson, componentType, schemaVersion);
       if (!gate.valid && !gate.skipped) {
-        useComponentStore.getState().setValidationErrors(
-          gate.errors.map((e) => ({ path: e.path, message: e.message })),
-        );
-        const count = gate.errors.length;
-        showNotification({
-          kind: 'error',
-          message: `Validation failed — ${count} issue${count > 1 ? 's' : ''}`,
-          durationMs: 30_000,
-          action: {
-            label: 'View issues',
-            onPress: () => {
-              const el = document.getElementById('component-validation-summary');
-              el?.scrollIntoView({ behavior: 'smooth' });
-              el?.focus();
-            },
-          },
+        // Errors for properties Forge itself declares are pure version skew:
+        // the project's pin is behind, the document is not wrong. Everything
+        // else — typos, type errors, missing required fields — still blocks.
+        const { blocking, skewProperties } = partitionVersionSkewErrors(gate.errors, {
+          componentType,
+          bundledSchema,
         });
-        logger.warn('Save blocked by validation', { errors: gate.errors });
-        return;
+
+        if (blocking.length > 0) {
+          useComponentStore.getState().setValidationErrors(
+            blocking.map((e) => ({ path: e.path, message: e.message })),
+          );
+          const count = blocking.length;
+          showNotification({
+            kind: 'error',
+            message: `Validation failed — ${count} issue${count > 1 ? 's' : ''}`,
+            durationMs: 30_000,
+            action: {
+              label: 'View issues',
+              onPress: () => {
+                const el = document.getElementById('component-validation-summary');
+                el?.scrollIntoView({ behavior: 'smooth' });
+                el?.focus();
+              },
+            },
+          });
+          logger.warn('Save blocked by validation', { errors: blocking });
+          return;
+        }
+
+        showNotification({
+          kind: 'warning',
+          message: `Saved. Your project's schema${schemaVersion ? ` (${schemaVersion})` : ''} does not define: ${skewProperties.join(', ')} — raise schemaVersion in vnext.config.json to validate them.`,
+          durationMs: 15_000,
+        });
+        logger.warn('Saved through schema version skew', {
+          schemaVersion,
+          properties: skewProperties,
+        });
       }
     }
 
@@ -229,7 +256,16 @@ export function useSaveComponent(options?: UseSaveComponentOptions) {
       if (!ok) return;
     }
     await execute(filePath, JSON.stringify(cleanedJson, null, 2));
-  }, [beforeSave, componentJson, componentType, execute, filePath, isDirty, schemaVersion]);
+  }, [
+    beforeSave,
+    bundledSchema,
+    componentJson,
+    componentType,
+    execute,
+    filePath,
+    isDirty,
+    schemaVersion,
+  ]);
 
   const { autoSavePending, autoSaved, cancelAutoSave } = useDebouncedAutoSave({
     isDirty,
