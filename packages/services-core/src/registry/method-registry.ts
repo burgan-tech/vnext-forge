@@ -51,6 +51,15 @@ import {
   cliUpdateGlobalResult,
 } from '../services/cli/cli-schemas.js'
 import type { CliService } from '../services/cli/cli.service.js'
+import type { FunctionRunService } from '../services/function-run/index.js'
+import {
+  functionsFetchContractParams,
+  functionsFetchContractResult,
+  functionsGetInfoParams,
+  functionsGetInfoResult,
+  functionsInvokeParams,
+  functionsInvokeResult,
+} from '../services/function-run/index.js'
 import type { QuickRunService } from '../services/quickrun/quickrun.service.js'
 import type { QuickswitcherService } from '../services/quickswitcher/quickswitcher.service.js'
 import {
@@ -172,6 +181,7 @@ export interface ServiceRegistry {
   validateService: ValidateService
   runtimeProxyService: RuntimeProxyService
   quickRunService: QuickRunService
+  functionRunService: FunctionRunService
   /**
    * Used by `cli/*` methods. Optional so hosts that invoke `wf` only via other
    * means (for example an integrated terminal) can omit wiring.
@@ -673,6 +683,26 @@ export function buildMethodRegistry(): MethodRegistry {
       resultSchema: quickrunAcknowledgeLongPollResult,
       handler: async (params, { quickRunService }, traceId) =>
         quickRunService.acknowledgeLongPoll(params, traceId),
+    },
+
+    // ── functions (Quick Runner) ─────────────────────────────────────────────
+    'functions/getInfo': {
+      paramsSchema: functionsGetInfoParams,
+      resultSchema: functionsGetInfoResult,
+      handler: async (params, { functionRunService }, traceId) =>
+        functionRunService.getInfo(params, traceId),
+    },
+    'functions/fetchContract': {
+      paramsSchema: functionsFetchContractParams,
+      resultSchema: functionsFetchContractResult,
+      handler: async (params, { functionRunService }, traceId) =>
+        functionRunService.fetchContract(params, traceId),
+    },
+    'functions/invoke': {
+      paramsSchema: functionsInvokeParams,
+      resultSchema: functionsInvokeResult,
+      handler: async (params, { functionRunService }, traceId) =>
+        functionRunService.invoke(params, traceId),
     },
 
     // ── wf CLI ───────────────────────────────────────────────────────────────
