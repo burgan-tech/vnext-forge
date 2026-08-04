@@ -1,3 +1,4 @@
+import { ERROR_CODES } from '@vnext-forge-studio/app-contracts'
 import { describe, expect, it, vi } from 'vitest'
 
 import { createFunctionRunService } from '../src/index.js'
@@ -97,6 +98,19 @@ describe('functionRunService.fetchContract', () => {
   it('rejects an href that is not a runtime function path', async () => {
     const { service, proxy } = serviceWith({ status: 200, data: '{}' })
     await expect(service.fetchContract({ path: 'https://evil.test/x' })).rejects.toThrow(/path/i)
+    expect(proxy).not.toHaveBeenCalled()
+  })
+
+  it('rejects with API_BAD_REQUEST, not API_FORBIDDEN', async () => {
+    // API_FORBIDDEN maps to recovery: 'contact-support' and toUserMessage()
+    // strips `details` — a user whose legitimate href tripped this guard
+    // (e.g. an unanticipated character) would get "contact support" with no
+    // way to self-correct. Nothing currently pins the code, so reverting
+    // this half of the fix would keep the suite green.
+    const { service, proxy } = serviceWith({ status: 200, data: '{}' })
+    await expect(
+      service.fetchContract({ path: 'https://evil.test/x' }),
+    ).rejects.toMatchObject({ code: ERROR_CODES.API_BAD_REQUEST })
     expect(proxy).not.toHaveBeenCalled()
   })
 

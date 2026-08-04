@@ -11,15 +11,24 @@ export interface FunctionInfoPathInput {
 }
 
 /**
- * vNext domain/component keys are `^[a-z0-9-]+$` in the component schema, so
- * this is accurate to the domain rather than merely defensive. It also keeps
- * `buildFunctionInfoPath` honest: every caller-controlled segment goes
- * through here before it is spliced into a path string, so a `functionKey`
- * of `../../../../actuator/env` cannot ride into the URL unguarded next to
- * the validated href path (`isValidRuntimePath` below) — the two checks
- * cover different halves of the same concatenation.
+ * Deliberately narrower than a generic URL path segment: no `.`, so a
+ * segment of exactly `..` (or `.`) cannot pass. A single caller-controlled
+ * segment of `..` is still a traversal element once it's spliced between
+ * the literals this function inserts — `functionKey: '..'` builds
+ * `/api/v1/core/functions/../info`, which resolves to `/api/v1/core/info`.
+ * `isValidRuntimePath` already rejects any `..` outright; if this pattern
+ * admitted it, the two guards on the same concatenated path would disagree
+ * about the most important input either of them checks.
+ *
+ * Alphanumerics plus `_` and `-` covers every real vNext domain/component
+ * key (`^[a-z0-9-]+$` in the component schema, case-insensitively) and every
+ * instance id (UUIDs: hex digits and `-`), so this is not merely defensive —
+ * it is accurate to the domain. It intentionally does NOT match the schema
+ * pattern exactly (no `.`/`~`, not case-restricted): admitting `.` is what
+ * created this bug, so the two are kept apart on purpose rather than widened
+ * back toward "any legal URL character" for schema parity.
  */
-const PATH_SEGMENT = /^[A-Za-z0-9._~-]+$/
+const PATH_SEGMENT = /^[A-Za-z0-9_-]+$/
 
 function assertSegment(value: string, name: string): string {
   if (!PATH_SEGMENT.test(value)) {

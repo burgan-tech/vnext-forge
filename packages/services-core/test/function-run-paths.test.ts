@@ -65,6 +65,33 @@ describe('buildFunctionInfoPath', () => {
         }),
       ).toThrow(/instanceId/)
     })
+
+    it('rejects a dot-only segment, which the earlier "." + "~" allowance let through', () => {
+      // Regression: PATH_SEGMENT used to allow "." (and "~"), so a segment
+      // of exactly ".." was itself a legal "path segment" even though it's a
+      // traversal element once spliced between the literals this function
+      // inserts:
+      //   functionKey: '..' -> "/api/v1/core/functions/../info" -> resolves to "/api/v1/core/info"
+      //   domain: '..'      -> "/api/v1/../functions/env/info"  -> resolves to "/api/functions/env/info"
+      // isValidRuntimePath already rejects any ".." outright; PATH_SEGMENT
+      // must agree, or the two guards on the same concatenated path disagree
+      // about the most important input either of them checks.
+      expect(() =>
+        buildFunctionInfoPath({ domain: 'core', functionKey: '..', scope: 'D' }),
+      ).toThrow(/functionKey/)
+      expect(() =>
+        buildFunctionInfoPath({ domain: '..', functionKey: 'env', scope: 'D' }),
+      ).toThrow(/domain/)
+    })
+
+    it('still accepts a UUID instanceId (instance ids are UUIDs)', () => {
+      expect(
+        buildFunctionInfoPath({
+          domain: 'core', functionKey: 'f', scope: 'I',
+          workflowKey: 'onboarding', instanceId: 'f47ac10b-58cc-4372-a567-0e02b2c3d479',
+        }),
+      ).toBe('/api/v1/core/workflows/onboarding/instances/f47ac10b-58cc-4372-a567-0e02b2c3d479/functions/f/info')
+    })
   })
 })
 
@@ -102,6 +129,17 @@ describe('isValidRuntimePath', () => {
 
   it('rejects anything that could leave the runtime origin', () => {
     expect(isValidRuntimePath('https://evil.test/core/functions/f')).toBe(false)
+    // Unit-level only: called directly on this raw value, the leading "//"
+    // check rejects it here. But the service never calls isValidRuntimePath
+    // on a raw href — normalizeRuntimeHref runs first, and since this value
+    // starts with "/" but not "/api/v1/", it gets prefixed to
+    // "/api/v1//evil.test/core/functions/f", which *does* pass this
+    // validator (it starts with "/api/v1", not "//", and still contains
+    // "/functions/"). This never leaves the runtime origin regardless — the
+    // real protection is `runtime-proxy` pinning the base URL by string
+    // concatenation, not this check. Don't read this assertion as proof the
+    // service is protected against a leading "//" past normalization, and
+    // don't "simplify" normalizeRuntimeHref on the strength of it.
     expect(isValidRuntimePath('//evil.test/core/functions/f')).toBe(false)
     expect(isValidRuntimePath('/core/functions/../../admin')).toBe(false)
     expect(isValidRuntimePath('relative/functions/f')).toBe(false)
