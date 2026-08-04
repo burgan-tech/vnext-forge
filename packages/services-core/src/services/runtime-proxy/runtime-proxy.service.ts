@@ -64,8 +64,30 @@ function stripHopByHopHeaders(
 }
 
 /**
+ * Request content types a caller may choose. vNext functions accept JSON and
+ * form-urlencoded; anything else falls back to JSON rather than erroring,
+ * because this is a shared proxy and the conservative default is the safe one.
+ */
+export const RUNTIME_PROXY_ALLOWED_REQUEST_CONTENT_TYPES = [
+  'application/json',
+  'application/x-www-form-urlencoded',
+] as const
+
+function pickRequestContentType(callerHeaders: Record<string, string> | undefined): string {
+  const supplied = Object.entries(callerHeaders ?? {}).find(
+    ([name]) => name.toLowerCase() === 'content-type',
+  )?.[1]
+  if (!supplied) return 'application/json'
+  // Compare on the media type alone so `; charset=UTF-8` still matches.
+  const mediaType = supplied.split(';')[0]?.trim().toLowerCase() ?? ''
+  const allowed = RUNTIME_PROXY_ALLOWED_REQUEST_CONTENT_TYPES.some((t) => t === mediaType)
+  return allowed ? supplied : 'application/json'
+}
+
+/**
  * Builds outbound fetch headers for the runtime HTTP proxy. Content-Type is
- * owned by the server and set only when a JSON body is sent.
+ * owned by this function and set only when a body is sent, honouring an
+ * allowlisted caller-supplied Content-Type when present.
  */
 export function buildRuntimeProxyOutboundHeaders(params: {
   method: string
@@ -74,16 +96,23 @@ export function buildRuntimeProxyOutboundHeaders(params: {
   traceId?: string | undefined
 }): Record<string, string> {
   const method = params.method.toUpperCase()
+  const stripped = stripHopByHopHeaders(params.callerHeaders)
+  // Drop any caller Content-Type; it is re-applied below only when a body is
+  // actually sent, and only after allowlist validation.
+  for (const name of Object.keys(stripped)) {
+    if (name.toLowerCase() === 'content-type') delete stripped[name]
+  }
+
   const headers: Record<string, string> = {
     'User-Agent': RUNTIME_PROXY_USER_AGENT,
     Accept: 'application/json, text/plain, */*',
-    ...stripHopByHopHeaders(params.callerHeaders),
+    ...stripped,
   }
 
   const hasBody = Boolean(params.body && params.body.length > 0)
   const sendsEntityBody = method !== 'GET' && method !== 'HEAD' && hasBody
   if (sendsEntityBody) {
-    headers['Content-Type'] = 'application/json'
+    headers['Content-Type'] = pickRequestContentType(params.callerHeaders)
   }
 
   if (params.traceId) {

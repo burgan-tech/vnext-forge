@@ -93,3 +93,47 @@ describe('createRuntimeProxyService outbound headers (R-b4)', () => {
     expect(seen?.['X-Trace-Id']).toBe('rpc-trace')
   })
 })
+
+describe('buildRuntimeProxyOutboundHeaders — request Content-Type', () => {
+  it('defaults to application/json for a body-bearing verb', () => {
+    const headers = buildRuntimeProxyOutboundHeaders({ method: 'POST', body: '{"a":1}' })
+    expect(headers['Content-Type']).toBe('application/json')
+  })
+
+  it('honours an allowlisted caller Content-Type', () => {
+    // Functions accept form-urlencoded; the Quick Runner must be able to send it.
+    const headers = buildRuntimeProxyOutboundHeaders({
+      method: 'POST',
+      body: 'a=1&b=2',
+      callerHeaders: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    })
+    expect(headers['Content-Type']).toBe('application/x-www-form-urlencoded')
+  })
+
+  it('matches the allowlist case-insensitively and ignores parameters', () => {
+    const headers = buildRuntimeProxyOutboundHeaders({
+      method: 'POST',
+      body: 'a=1',
+      callerHeaders: { 'content-type': 'Application/X-WWW-Form-Urlencoded; charset=UTF-8' },
+    })
+    expect(headers['Content-Type']).toBe('Application/X-WWW-Form-Urlencoded; charset=UTF-8')
+  })
+
+  it('falls back to JSON for a content type that is not allowlisted', () => {
+    // Conservative default: this is a shared, security-relevant module.
+    const headers = buildRuntimeProxyOutboundHeaders({
+      method: 'POST',
+      body: '<xml/>',
+      callerHeaders: { 'Content-Type': 'application/xml' },
+    })
+    expect(headers['Content-Type']).toBe('application/json')
+  })
+
+  it('never sets Content-Type on a verb that sends no body', () => {
+    const headers = buildRuntimeProxyOutboundHeaders({
+      method: 'GET',
+      callerHeaders: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    })
+    expect(headers['Content-Type']).toBeUndefined()
+  })
+})
