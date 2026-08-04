@@ -1,12 +1,12 @@
 import { ERROR_CODES, VnextForgeError } from '@vnext-forge-studio/app-contracts'
-import { z } from 'zod'
+import { type z } from 'zod'
 
 import type { RuntimeProxyService } from '../runtime-proxy/runtime-proxy.service.js'
 import { buildFunctionInfoPath, isValidRuntimePath } from './function-run-paths.js'
 import {
-  functionsFetchContractParams,
-  functionsGetInfoParams,
-  functionsInvokeParams,
+  type functionsFetchContractParams,
+  type functionsGetInfoParams,
+  type functionsInvokeParams,
   type functionExchangeResult,
 } from './function-run-schemas.js'
 

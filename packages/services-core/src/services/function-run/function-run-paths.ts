@@ -57,7 +57,7 @@ const RUNTIME_PATH_PATTERN = /^\/[A-Za-z0-9._~\-/]*(\?[A-Za-z0-9._~\-/=&%]*)?$/
  * substring would say it is.
  */
 export function isValidRuntimePath(path: string): boolean {
-  if (!path || !path.startsWith('/')) return false
+  if (!path?.startsWith('/')) return false
   if (path.startsWith('//')) return false
   if (path.includes('..')) return false
   if (path.includes('#')) return false
