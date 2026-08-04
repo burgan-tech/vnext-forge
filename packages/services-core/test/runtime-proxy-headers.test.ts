@@ -166,4 +166,39 @@ describe('buildRuntimeProxyOutboundHeaders — request Content-Type (R-b4)', () 
     })
     expect(headers['Content-Type']).toBeUndefined()
   })
+
+  it('accepts a quoted charset parameter (RFC 7231 allows quoted-string)', () => {
+    // Rejecting it would silently downgrade to JSON while the body stays
+    // form-encoded, and the runtime would misparse it.
+    const headers = buildRuntimeProxyOutboundHeaders({
+      method: 'POST',
+      body: 'a=1',
+      callerHeaders: { 'Content-Type': 'application/x-www-form-urlencoded; charset="utf-8"' },
+    })
+    expect(headers['Content-Type']).toBe('application/x-www-form-urlencoded; charset="utf-8"')
+  })
+
+  it('does not mutate the caller’s header object', () => {
+    // takeHeader deletes in place; this is only safe because it operates on the
+    // copy stripHopByHopHeaders returns.
+    const callerHeaders = { 'Content-Type': 'application/json', 'X-Keep': '1' }
+    buildRuntimeProxyOutboundHeaders({ method: 'POST', body: '{}', callerHeaders })
+    expect(callerHeaders).toEqual({ 'Content-Type': 'application/json', 'X-Keep': '1' })
+  })
+
+  it('never emits a Content-Type containing control characters', () => {
+    for (const supplied of [
+      'application/json;\r\ncharset=utf-8',
+      '\r\napplication/json',
+      'application/json\r\n',
+      '\tapplication/json\t',
+    ]) {
+      const headers = buildRuntimeProxyOutboundHeaders({
+        method: 'POST',
+        body: '{}',
+        callerHeaders: { 'Content-Type': supplied },
+      })
+      expect(headers['Content-Type']).not.toMatch(/[\r\n\t]/)
+    }
+  })
 })

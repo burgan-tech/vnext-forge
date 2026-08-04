@@ -71,8 +71,14 @@ const allowedRequestContentTypesLower = new Set(
   RUNTIME_PROXY_ALLOWED_REQUEST_CONTENT_TYPES.map((t) => t.toLowerCase()),
 )
 
-/** A single well-formed `charset` parameter, e.g. `; charset=UTF-8`. */
-const CHARSET_ONLY_PARAM = /^;\s*charset=[\w.-]+$/i
+/**
+ * A single `charset` parameter, token or quoted-string, e.g. `; charset=UTF-8`
+ * or `; charset="utf-8"` (RFC 7231 allows both). Deliberately uses `[ \t]`
+ * rather than `\s` between the `;` and the parameter — `\s` also matches
+ * `\r` and `\n`, which would let a CRLF ride through inside an otherwise
+ * "well-formed" tail.
+ */
+const CHARSET_ONLY_PARAM = /^;[ \t]*charset=(?:[\w.-]+|"[\w.-]+")$/i
 
 /**
  * Removes every header matching `lowerName` (case-insensitively) from
@@ -93,11 +99,14 @@ function takeHeader(headers: Record<string, string>, lowerName: string): string 
 /**
  * Resolves the outbound Content-Type from what the caller supplied. This is
  * the safety boundary for the runtime proxy's SSRF-sensitive header path, so
- * it validates the **whole** header value, not just the media type: the
- * `charset` tail (if any) must be a single well-formed parameter, otherwise a
- * caller could smuggle arbitrary bytes (e.g. a CRLF-injected header) through
- * as a "content type". Falls back to `application/json` for anything that
- * isn't recognised. If a caller's header object somehow contained duplicate
+ * it validates the **whole** header value, not just the media type: any tail
+ * after the media type must be a single `charset` parameter (token or
+ * quoted-string per RFC 7231), separated only by spaces or tabs — deliberately
+ * narrower than RFC "whitespace", so a CRLF cannot ride along inside a tail
+ * that would otherwise look well-formed. Falls back to `application/json` for
+ * anything that isn't recognised (including a well-formed value with an
+ * unwanted CRLF/tab at either edge, since the accepted value is returned
+ * trimmed). If a caller's header object somehow contained duplicate
  * Content-Type keys under different casing, `takeHeader` resolves that by
  * insertion order — acceptable because the fallback direction is always the
  * safe one.
@@ -113,7 +122,7 @@ function resolveOutboundContentType(suppliedContentType: string | undefined): st
   if (!allowedRequestContentTypesLower.has(mediaType)) return 'application/json'
   const tail = semicolonIndex === -1 ? '' : suppliedContentType.slice(semicolonIndex)
   if (tail !== '' && !CHARSET_ONLY_PARAM.test(tail)) return 'application/json'
-  return suppliedContentType
+  return suppliedContentType.trim()
 }
 
 /**
