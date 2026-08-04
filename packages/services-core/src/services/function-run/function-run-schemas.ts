@@ -13,8 +13,21 @@ export const functionExchangeResult = z.object({
   contentType: z.string(),
   responseHeaders: z.record(z.string(), z.string()).default({}),
   body: z.string(),
-  /** Parsed body when the content type is JSON and parsing succeeded. */
+  /**
+   * Parsed body when the content type is JSON and parsing succeeded.
+   *
+   * A legitimate JSON body can decode to `null`, `0`, `false`, or `''` — all
+   * falsy. Consumers must check `'json' in exchange` to know whether parsing
+   * happened, never this field's truthiness.
+   */
   json: z.unknown().optional(),
+  /**
+   * Populated when the content type said JSON but `JSON.parse` failed. This
+   * is recorded, not merely tolerated: a malformed JSON body from a function
+   * under development is exactly the case this service exists to surface,
+   * not paper over. `body` still carries the raw text either way.
+   */
+  jsonParseError: z.string().optional(),
 })
 
 export const functionsGetInfoParams = z.object({

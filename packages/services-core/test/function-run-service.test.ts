@@ -51,14 +51,45 @@ describe('functionRunService.getInfo', () => {
     const result = await service.getInfo({ domain: 'core', functionKey: 'f', scope: 'D' })
     expect(result.responseHeaders).toEqual({ 'x-trace-id': 't-1' })
   })
+
+  it('records a jsonParseError instead of silently dropping a malformed JSON body', async () => {
+    const { service } = serviceWith({ status: 200, contentType: 'application/json', data: '{not valid json' })
+    const result = await service.getInfo({ domain: 'core', functionKey: 'f', scope: 'D' })
+    expect(result.json).toBeUndefined()
+    expect(result.jsonParseError).toBeTruthy()
+    expect(result.body).toBe('{not valid json')
+  })
+
+  it('rejects a functionKey attempting path traversal before ever calling the proxy', async () => {
+    // Regression: this used to build
+    // "/api/v1/core/functions/../../../../actuator/env/info" and proxy it.
+    const { service, proxy } = serviceWith({ status: 200, data: '{}' })
+    await expect(
+      service.getInfo({ domain: 'core', functionKey: '../../../../actuator/env', scope: 'D' }),
+    ).rejects.toThrow(/functionKey/)
+    expect(proxy).not.toHaveBeenCalled()
+  })
 })
 
 describe('functionRunService.fetchContract', () => {
-  it('proxies a valid href', async () => {
+  it('proxies a valid href, normalized under /api/v1', async () => {
     const { service, proxy } = serviceWith({ status: 200, data: '{"type":"view"}' })
     await service.fetchContract({ path: '/core/functions/f/view?target=input' })
     expect(proxy).toHaveBeenCalledWith(
-      expect.objectContaining({ method: 'GET', runtimePath: '/core/functions/f/view?target=input' }),
+      expect.objectContaining({
+        method: 'GET', runtimePath: '/api/v1/core/functions/f/view?target=input',
+      }),
+      undefined,
+    )
+  })
+
+  it('leaves an href that already carries /api/v1 unchanged', async () => {
+    const { service, proxy } = serviceWith({ status: 200, data: '{}' })
+    await service.fetchContract({ path: '/api/v1/core/functions/f/view?target=input' })
+    expect(proxy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'GET', runtimePath: '/api/v1/core/functions/f/view?target=input',
+      }),
       undefined,
     )
   })
@@ -68,10 +99,26 @@ describe('functionRunService.fetchContract', () => {
     await expect(service.fetchContract({ path: 'https://evil.test/x' })).rejects.toThrow(/path/i)
     expect(proxy).not.toHaveBeenCalled()
   })
+
+  it('never reaches the proxy for the query-smuggling bypass string', async () => {
+    const { service, proxy } = serviceWith({ status: 200, data: '{}' })
+    await expect(
+      service.fetchContract({ path: '/core/workflows/w/instances/i?x=/functions/y' }),
+    ).rejects.toThrow()
+    expect(proxy).not.toHaveBeenCalled()
+  })
+
+  it('threads traceId into the rejection so a legitimate href failure stays correlatable', async () => {
+    const { service, proxy } = serviceWith({ status: 200, data: '{}' })
+    await expect(
+      service.fetchContract({ path: 'https://evil.test/x' }, 'trace-abc'),
+    ).rejects.toMatchObject({ traceId: 'trace-abc' })
+    expect(proxy).not.toHaveBeenCalled()
+  })
 })
 
 describe('functionRunService.invoke', () => {
-  it('sends a body and content type for POST', async () => {
+  it('sends a body and content type for POST, with the path normalized under /api/v1', async () => {
     const { service, proxy } = serviceWith({ status: 200, data: '{"ok":true}' })
     await service.invoke({
       path: '/core/functions/f', verb: 'POST',
@@ -80,7 +127,7 @@ describe('functionRunService.invoke', () => {
     })
     expect(proxy).toHaveBeenCalledWith(
       expect.objectContaining({
-        method: 'POST', runtimePath: '/core/functions/f', body: 'a=1',
+        method: 'POST', runtimePath: '/api/v1/core/functions/f', body: 'a=1',
         headers: { authorization: 'Bearer t', 'content-type': 'application/x-www-form-urlencoded' },
       }),
       undefined,
@@ -100,5 +147,35 @@ describe('functionRunService.invoke', () => {
     const result = await service.invoke({ path: '/core/functions/f', verb: 'POST' })
     expect(result.status).toBe(422)
     expect(result.json).toEqual({ errors: { a: ['required'] } })
+  })
+
+  it('merges a query embedded in the href with an explicit query instead of concatenating a second "?"', async () => {
+    // Regression: runtime-proxy appends `query` unconditionally, so a
+    // runtimePath of ".../view?target=input" plus a `query` of { page: '1' }
+    // used to produce ".../view?target=input?page=1", silently corrupting
+    // `target` into the string "input?page=1".
+    const { service, proxy } = serviceWith({ status: 200, data: '{}' })
+    await service.invoke({
+      path: '/core/functions/f/view?target=input', verb: 'GET', query: { page: '1' },
+    })
+    const call = proxy.mock.calls[0]![0]
+    expect(call.runtimePath).toBe('/api/v1/core/functions/f/view')
+    expect(call.runtimePath).not.toContain('?')
+    expect(call.query).toEqual({ target: 'input', page: '1' })
+  })
+
+  it('lets an explicit query win over an embedded one on key collision', async () => {
+    const { service, proxy } = serviceWith({ status: 200, data: '{}' })
+    await service.invoke({ path: '/core/functions/f?target=old', verb: 'GET', query: { target: 'new' } })
+    const call = proxy.mock.calls[0]![0]
+    expect(call.query).toEqual({ target: 'new' })
+  })
+
+  it('rejects the query-smuggling bypass string before ever calling the proxy', async () => {
+    const { service, proxy } = serviceWith({ status: 200, data: '{}' })
+    await expect(
+      service.invoke({ path: '/core/workflows/w/instances/i?x=/functions/y', verb: 'GET' }),
+    ).rejects.toThrow()
+    expect(proxy).not.toHaveBeenCalled()
   })
 })

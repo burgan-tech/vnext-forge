@@ -11,15 +11,45 @@ export interface FunctionInfoPathInput {
 }
 
 /**
+ * vNext domain/component keys are `^[a-z0-9-]+$` in the component schema, so
+ * this is accurate to the domain rather than merely defensive. It also keeps
+ * `buildFunctionInfoPath` honest: every caller-controlled segment goes
+ * through here before it is spliced into a path string, so a `functionKey`
+ * of `../../../../actuator/env` cannot ride into the URL unguarded next to
+ * the validated href path (`isValidRuntimePath` below) — the two checks
+ * cover different halves of the same concatenation.
+ */
+const PATH_SEGMENT = /^[A-Za-z0-9._~-]+$/
+
+function assertSegment(value: string, name: string): string {
+  if (!PATH_SEGMENT.test(value)) {
+    throw new VnextForgeError(
+      ERROR_CODES.API_BAD_REQUEST,
+      `${name} is not a valid path segment.`,
+      { source: 'buildFunctionInfoPath', layer: 'domain', details: { name } },
+    )
+  }
+  return value
+}
+
+/**
  * The single place that knows the scope→route rule.
  *
  * The engine exposes a function at two different routes and picks by scope;
  * the domain route answers 403 for an F/I function. Getting this wrong
  * surfaces as an authorization error, which sends the user hunting the wrong
  * bug — hence one tested function rather than string building at call sites.
+ *
+ * Every caller-controlled segment (`domain`, `functionKey`, `workflowKey`,
+ * `instanceId`) is validated against `PATH_SEGMENT` before it is spliced in.
+ * Segments are used as-is, never `encodeURIComponent`-ed: encoding would emit
+ * `%`, which `isValidRuntimePath` rejects on the href side, and the two
+ * functions would end up disagreeing about what a legal path looks like.
  */
 export function buildFunctionInfoPath(input: FunctionInfoPathInput): string {
-  const { domain, functionKey, scope } = input
+  const { scope } = input
+  const domain = assertSegment(input.domain, 'domain')
+  const functionKey = assertSegment(input.functionKey, 'functionKey')
   if (scope === 'D') {
     return `/api/v1/${domain}/functions/${functionKey}/info`
   }
@@ -30,6 +60,7 @@ export function buildFunctionInfoPath(input: FunctionInfoPathInput): string {
       { source: 'buildFunctionInfoPath', layer: 'domain', details: { scope } },
     )
   }
+  const workflowKey = assertSegment(input.workflowKey, 'workflowKey')
   if (!input.instanceId) {
     throw new VnextForgeError(
       ERROR_CODES.API_BAD_REQUEST,
@@ -37,10 +68,58 @@ export function buildFunctionInfoPath(input: FunctionInfoPathInput): string {
       { source: 'buildFunctionInfoPath', layer: 'domain', details: { scope } },
     )
   }
-  return `/api/v1/${domain}/workflows/${input.workflowKey}/instances/${input.instanceId}/functions/${functionKey}/info`
+  const instanceId = assertSegment(input.instanceId, 'instanceId')
+  return `/api/v1/${domain}/workflows/${workflowKey}/instances/${instanceId}/functions/${functionKey}/info`
 }
 
-const RUNTIME_PATH_PATTERN = /^\/[A-Za-z0-9._~\-/]*(\?[A-Za-z0-9._~\-/=&%]*)?$/
+const API_V1_PREFIX = '/api/v1/'
+
+/**
+ * `/info` emits hrefs relative to the API root (e.g. `/core/functions/x`),
+ * while the runtime serves everything under `/api/v1` — see the route
+ * comments on `quickrun.service.ts`'s `executeFunction`
+ * (`/api/v1/{domain}/functions/{function}` and the instance-scoped
+ * equivalent). Following an `/info` href verbatim would therefore 404.
+ * Normalizing here means every caller of `fetchContract`/`invoke` gets the
+ * same shape whether it started from a domain path or already carried the
+ * prefix, instead of each call site having to know this.
+ *
+ * Idempotent: a href that already starts with `/api/v1/` is returned as-is.
+ * A href that doesn't start with `/` at all is returned unchanged too — it
+ * is not a same-origin path and `isValidRuntimePath` will reject it next.
+ */
+export function normalizeRuntimeHref(href: string): string {
+  if (!href.startsWith('/') || href.startsWith(API_V1_PREFIX)) return href
+  return `/api/v1${href}`
+}
+
+/**
+ * Path segment: unreserved characters only (RFC 3986 `unreserved`), plus `/`
+ * to allow multiple segments. Deliberately excludes `%`.
+ *
+ * That exclusion is the entire traversal defence for this half of the
+ * pattern: `path.includes('..')` below only catches a literal `..`, and
+ * cannot see `%2e%2e`. The only thing standing between this validator and
+ * `/core/functions/f/%2e%2e/%2e%2e/admin` is that `%` never appears in the
+ * allowed path character set, so a percent-encoded traversal segment fails
+ * the pattern match outright. Do NOT add `%` to this class to "fix" a
+ * legitimate-looking rejection (e.g. a function key with a space that someone
+ * encoded as `%20`) — that would silently reopen encoded path traversal.
+ * Encoded characters belong in the query string only, where they cannot
+ * change which route is requested.
+ */
+const PATH_CHARS = 'A-Za-z0-9._~\\-/'
+
+/**
+ * Query segment: RFC 3986 `query = *( pchar / "/" / "?" )`, where `pchar`
+ * includes unreserved, sub-delims, `:` and `@`. This is deliberately wider
+ * than the path class above — encoded/reserved characters are safe here
+ * because the query string cannot change which runtime route is requested,
+ * only what is passed to it.
+ */
+const QUERY_CHARS = "A-Za-z0-9._~\\-/=&%!$'()*+,;:@?"
+
+const RUNTIME_PATH_PATTERN = new RegExp(`^/[${PATH_CHARS}]*(\\?[${QUERY_CHARS}]*)?$`)
 
 /**
  * Validates an href handed back by `/info` before it is proxied.
@@ -57,7 +136,8 @@ const RUNTIME_PATH_PATTERN = /^\/[A-Za-z0-9._~\-/]*(\?[A-Za-z0-9._~\-/=&%]*)?$/
  * substring would say it is.
  */
 export function isValidRuntimePath(path: string): boolean {
-  if (!path?.startsWith('/')) return false
+  if (typeof path !== 'string') return false
+  if (!path.startsWith('/')) return false
   if (path.startsWith('//')) return false
   if (path.includes('..')) return false
   if (path.includes('#')) return false

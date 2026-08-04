@@ -1,6 +1,7 @@
 export {
   buildFunctionInfoPath,
   isValidRuntimePath,
+  normalizeRuntimeHref,
   type FunctionInfoPathInput,
   type FunctionScope,
 } from './function-run-paths.js'
