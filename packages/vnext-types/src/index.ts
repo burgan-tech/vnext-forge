@@ -24,3 +24,4 @@ export * from './constants/view-types';
 export * from './utils/csx-codec';
 export * from './utils/version';
 export * from './utils/editor-tab-presentation';
+export * from './utils/view-display';

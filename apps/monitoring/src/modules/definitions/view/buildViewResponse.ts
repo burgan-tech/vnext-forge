@@ -1,6 +1,6 @@
 import { normalizeDefinitionDoc, toDisplayText } from '@vnext-forge-studio/designer-ui';
 import type { ViewResponse } from '@vnext-forge-studio/designer-ui/quickrun';
-import { ViewRenderer } from '@vnext-forge-studio/vnext-types';
+import { parseViewDisplay, ViewRenderer } from '@vnext-forge-studio/vnext-types';
 
 const VIEW_TYPE_STRING: Record<number, string> = {
   1: 'Json',
@@ -21,13 +21,18 @@ export function buildViewResponse(data: Record<string, unknown>): ViewResponse {
   const doc = normalizeDefinitionDoc('view', data);
   const attrs = (doc.attributes ?? {}) as Record<string, unknown>;
   const typeNum = attrs.type != null ? Number(attrs.type) : 1;
-  const display = toDisplayText(attrs.display);
+  // Mirrors the runtime response contract: `display` stays the SDI string (so
+  // pre-MDI consumers are unaffected) and the per-mode declaration travels
+  // separately in `modes`. Parsing first is what makes the object authoring form
+  // resolve to its SDI value here instead of stringifying to `[object Object]`.
+  const displayModes = parseViewDisplay(attrs.display);
   const renderer = toDisplayText(attrs.renderer);
   return {
     key: toDisplayText(doc.key),
     content: (attrs.content as Record<string, unknown>) ?? {},
     type: VIEW_TYPE_STRING[typeNum] ?? 'Json',
-    display: display === '' ? undefined : display,
+    display: displayModes.sdi,
+    modes: displayModes.sdi !== undefined || displayModes.mdi !== undefined ? displayModes : undefined,
     renderer: renderer === '' ? ViewRenderer.PseudoUi : renderer,
   };
 }

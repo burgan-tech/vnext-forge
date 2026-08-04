@@ -223,7 +223,7 @@ All component types (`sys-flows`, `sys-tasks`, `sys-functions`, `sys-mappings`, 
 - **Mapping** (`sys-mappings`): `name`
 - **Extension** (`sys-extensions`): `type`, `scope` (D/F/I), `labels[]`
 - **Schema** (`sys-schemas`): `type`, `labels[]`
-- **View** (`sys-views`): `type` (1-6 → JSON, HTML, Markdown, Deeplink, Http, URN), `display`, `renderer`, `labels[]`
+- **View** (`sys-views`): `type` (1-6 → JSON, HTML, Markdown, Deeplink, Http, URN), `display` (bare SDI string or `{ sdi, mdi }` — read it with `parseViewDisplay` / `formatViewDisplay`), `renderer`, `labels[]`
 
 The mapping between the singular `:type` route values and the API's `sys-*` flow
 names lives in `modules/definitions/api/definitions-queries.ts`

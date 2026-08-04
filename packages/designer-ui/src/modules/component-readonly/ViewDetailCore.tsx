@@ -1,4 +1,10 @@
 import { type ReactNode, useMemo, useState } from 'react';
+// The only cross-package import in this module, which otherwise inlines shared
+// constants (see DEFAULT_VIEW_TYPE / PSEUDO_UI_RENDERER below). Duplicating a
+// bare scalar is free; duplicating the display parser is not — it has to agree
+// with the writer in `ViewEditorPanel`, and a second copy is exactly the drift
+// this shared codec exists to prevent.
+import { parseViewDisplay } from '@vnext-forge-studio/vnext-types';
 
 import { cn } from '../../lib/utils/cn.js';
 import { FormReadOnlyProvider } from '../../ui/FormReadOnlyContext.js';
@@ -25,7 +31,10 @@ import { toDisplayText } from './shared/readonlyText.js';
  */
 const DEFAULT_VIEW_TYPE = 1;
 
-/** Matches `ViewEditorPanel`'s `displayStrategyValue` fallback. */
+/**
+ * Shown for the SDI mode when a view declares no display at all — the schema
+ * makes `display` optional and `full-page` is the effective client default.
+ */
 const DEFAULT_DISPLAY = 'full-page';
 
 /**
@@ -140,8 +149,12 @@ export function ViewDetailCore({ json: raw, renderPseudoUiPreview }: ViewDetailC
       ? VIEW_TYPE_LABELS[String(DEFAULT_VIEW_TYPE)]
       : (VIEW_TYPE_LABELS[typeKey] ?? `Type ${typeKey}`);
 
-  const display =
-    typeof attrs.display === 'string' && attrs.display ? attrs.display : DEFAULT_DISPLAY;
+  // `display` carries either a bare SDI string or `{ sdi, mdi }`. The previous
+  // `typeof === 'string'` test collapsed the object form to `full-page`, i.e. it
+  // reported a value the component never declared.
+  const displayModes = parseViewDisplay(attrs.display);
+  const sdiDisplay = displayModes.sdi ?? DEFAULT_DISPLAY;
+  const mdiDisplay = displayModes.mdi ?? '';
   const renderer = typeof attrs.renderer === 'string' ? attrs.renderer : '';
   const content = attrs.content;
 
@@ -201,7 +214,10 @@ export function ViewDetailCore({ json: raw, renderPseudoUiPreview }: ViewDetailC
           title="View Metadata"
           description="Identity, flow bindings and presentation of this view.">
           <ReadOnlyValueField label="Type" value={typeLabel} />
-          <ReadOnlyValueField label="Display Strategy" value={display} />
+          <ReadOnlyValueField label="Display (SDI)" value={sdiDisplay} />
+          {/* Omitted rather than dashed when absent: most views target SDI only,
+              and an always-present empty MDI row would read as a missing value. */}
+          {mdiDisplay !== '' && <ReadOnlyValueField label="Display (MDI)" value={mdiDisplay} />}
           {renderer && <ReadOnlyValueField label="Renderer" value={renderer} />}
         </ReadOnlyMetadataSection>
 

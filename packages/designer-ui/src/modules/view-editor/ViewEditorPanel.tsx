@@ -1,5 +1,12 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from 'react';
-import { ViewRenderer, ViewType } from '@vnext-forge-studio/vnext-types';
+import {
+  parseViewDisplay,
+  serializeViewDisplay,
+  VIEW_DISPLAY_OPTIONS,
+  ViewRenderer,
+  ViewType,
+  type ViewDisplayModes,
+} from '@vnext-forge-studio/vnext-types';
 import { LabelEditor } from '../../modules/save-component/components/LabelEditor';
 import { getViewEditorFieldError } from '../../modules/view-editor/ViewEditorSchema';
 import {
@@ -130,8 +137,36 @@ export function ViewEditorPanel({ json, onChange }: ViewEditorPanelProps) {
 
   const rendererAttr = unknownToUiString(attrs.renderer);
 
-  const displayAttr = unknownToUiString(attrs.display);
-  const displayStrategyValue = displayAttr === '' ? 'full-page' : displayAttr;
+  // Both authored shapes collapse to this one form; `applyDisplay` writes the
+  // right one back. Note the card now shows "Not set" for an absent `display`
+  // rather than pretending it is `full-page` — the old fallback claimed a value
+  // the JSON did not contain, and it made an MDI-only view unreachable.
+  const displayModes = parseViewDisplay(attrs.display);
+
+  /**
+   * Write both modes back in the shape the runtime authors.
+   *
+   * `serializeViewDisplay` returns a bare string for an SDI-only declaration, so
+   * touching this picker on an existing view does not rewrite `"popup"` as
+   * `{"sdi":"popup"}` and churn the component JSON. When neither mode is set the
+   * key is **deleted** rather than set to `{}` — `display` is optional, but an
+   * empty object fails the schema's "at least one mode" rule.
+   */
+  const applyDisplay = useCallback(
+    (next: ViewDisplayModes) => {
+      const serialized = serializeViewDisplay(next);
+      onChange((draft) => {
+        draft.attributes ??= {};
+        const attributes = draft.attributes as Record<string, unknown>;
+        if (serialized === undefined) {
+          delete attributes.display;
+        } else {
+          attributes.display = serialized;
+        }
+      });
+    },
+    [onChange],
+  );
 
   const isJsonComponentType = currentType === Number(ViewType.Json);
 
@@ -414,18 +449,34 @@ export function ViewEditorPanel({ json, onChange }: ViewEditorPanelProps) {
       <Card variant="default" className="gap-3">
         <CardHeader className="border-border border-b">
           <CardTitle className="text-base">Display Strategy</CardTitle>
-          <CardDescription className="text-xs">How the view is presented.</CardDescription>
+          <CardDescription className="text-xs">
+            How the view is presented. Each mode is optional — declare only the client interfaces
+            this view targets.
+          </CardDescription>
         </CardHeader>
-        <CardContent className="px-4 sm:px-6">
-          <ViewDisplayStrategyPicker
-            value={displayStrategyValue}
-            onChange={(strategy) =>
-              onChange((draft) => {
-                draft.attributes ??= {};
-                (draft.attributes as Record<string, unknown>).display = strategy;
-              })
-            }
-          />
+        <CardContent className="flex flex-col gap-4 px-4 sm:px-6">
+          <Field
+            label="SDI — single-document"
+            hint="Presentation when this view is the only document on screen.">
+            <ViewDisplayStrategyPicker
+              value={displayModes.sdi}
+              options={VIEW_DISPLAY_OPTIONS}
+              allowUnset
+              ariaLabel="SDI display mode"
+              onChange={(sdi) => applyDisplay({ ...displayModes, sdi })}
+            />
+          </Field>
+          <Field
+            label="MDI — multi-document"
+            hint="Presentation when several documents are open side by side.">
+            <ViewDisplayStrategyPicker
+              value={displayModes.mdi}
+              options={VIEW_DISPLAY_OPTIONS}
+              allowUnset
+              ariaLabel="MDI display mode"
+              onChange={(mdi) => applyDisplay({ ...displayModes, mdi })}
+            />
+          </Field>
         </CardContent>
       </Card>
 

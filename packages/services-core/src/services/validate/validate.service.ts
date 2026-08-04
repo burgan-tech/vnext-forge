@@ -5,6 +5,7 @@ import { z } from 'zod'
 
 import type { LoggerAdapter } from '../../adapters/index.js'
 import type { SchemaCacheService } from '../schema-cache/index.js'
+import { patchViewDisplaySchema } from './view-display-schema-patch.js'
 
 interface VnextSchemaModule {
   getSchema(type: string): Record<string, unknown> | null
@@ -164,10 +165,24 @@ export function createValidateService(deps: ValidateServiceDeps) {
   // can warn the user about a possibly-mismatched validation.
   const fellBackToBundled = new Set<string>()
 
+  /**
+   * Every schema read goes through here, so a forward-port applies identically
+   * to the bundled module and to a version downloaded by `schemaCacheService`.
+   * Keeping it in one place is what stops the compiled validator and the schema
+   * handed to the UI from disagreeing about what is valid.
+   */
+  function readSchema(
+    module: VnextSchemaModule,
+    type: string,
+  ): Record<string, unknown> | null {
+    const schema = module.getSchema(type)
+    return schema ? patchViewDisplaySchema(type, schema) : schema
+  }
+
   function compileValidatorsForModule(module: VnextSchemaModule): Map<string, ValidatorEntry> {
     const map = new Map<string, ValidatorEntry>()
     for (const type of module.getAvailableTypes()) {
-      const schema = module.getSchema(type)
+      const schema = readSchema(module, type)
       if (!schema) continue
       try {
         const ajv = getAjvInstance(schema)
@@ -316,7 +331,7 @@ export function createValidateService(deps: ValidateServiceDeps) {
     const { module: mod } = ensureBundled()
     const result: Record<string, Record<string, unknown>> = {}
     for (const type of mod.getAvailableTypes()) {
-      const schema = mod.getSchema(type)
+      const schema = readSchema(mod, type)
       if (schema) result[type] = schema
     }
     return result
@@ -324,7 +339,7 @@ export function createValidateService(deps: ValidateServiceDeps) {
 
   function getSchema(type: string): Record<string, unknown> | null {
     const { module: mod } = ensureBundled()
-    return mod.getSchema(type)
+    return readSchema(mod, type)
   }
 
   /**
@@ -345,7 +360,7 @@ export function createValidateService(deps: ValidateServiceDeps) {
     }
     try {
       const resolved = await schemaCacheService.resolve(schemaVersion)
-      return resolved.module.getSchema(type)
+      return readSchema(resolved.module, type)
     } catch (err) {
       // Stay forward-compatible: if download / cache fails, fall back to
       // the bundled schema rather than blowing up the form.

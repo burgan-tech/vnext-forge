@@ -1,3 +1,5 @@
+import { formatViewDisplay } from '@vnext-forge-studio/vnext-types';
+
 import { resolveLabelOrKey } from '../utils/label-resolver.js';
 import {
   heading,
@@ -22,7 +24,8 @@ interface ViewJson {
   attributes?: {
     type?: number;
     content?: unknown;
-    display?: string;
+    /** Bare SDI string or the per-mode object — read via `formatViewDisplay`. */
+    display?: unknown;
     labels?: LabelEntry[];
     _comment?: string;
   };
@@ -63,7 +66,9 @@ export function generateViewMarkdown(viewJson: unknown): string {
           'Content Type',
           VIEW_TYPE_LABELS[attrs?.type ?? 0] ?? String(attrs?.type ?? '-'),
         ],
-        ['Display Mode', attrs?.display ?? '-'],
+        // Formatted, not interpolated: `display` may be the per-mode object, and
+        // a bare `?? '-'` would render it as "[object Object]".
+        ['Display Mode', formatViewDisplay(attrs?.display, '-')],
         ['Tags', view.tags?.length ? view.tags.map((t) => inlineCode(t)).join(', ') : '-'],
       ],
     ),

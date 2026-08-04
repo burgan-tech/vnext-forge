@@ -1,3 +1,5 @@
+import type { ViewDisplayModes } from '@vnext-forge-studio/vnext-types';
+
 export interface FlowLabelsMap {
   workflowLabel: string | null;
   states: Record<string, string>;
@@ -123,7 +125,19 @@ export interface ViewResponse {
   key: string;
   content: string | Record<string, unknown>;
   type: string;
+  /**
+   * The SDI display value — a plain string even for a view authored with the
+   * per-mode object form, and empty when only `mdi` is declared. This is the
+   * pre-MDI field every existing consumer reads, and the runtime deliberately
+   * keeps it a string, so it must NOT be widened to the object shape.
+   */
   display?: string;
+  /**
+   * Both display modes, or absent when the view declares no display. Added
+   * alongside `display` rather than replacing it; clients that render both
+   * interfaces read this and pick the value for the one they are in.
+   */
+  modes?: ViewDisplayModes | null;
   label?: string;
   renderer?: string;
 }
