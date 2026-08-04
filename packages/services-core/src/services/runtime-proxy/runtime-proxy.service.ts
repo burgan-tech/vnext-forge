@@ -67,18 +67,28 @@ function stripHopByHopHeaders(
   return out
 }
 
-const allowedRequestContentTypesLower = new Set(
-  RUNTIME_PROXY_ALLOWED_REQUEST_CONTENT_TYPES.map((t) => t.toLowerCase()),
-)
+function escapeForRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
 
 /**
- * A single `charset` parameter, token or quoted-string, e.g. `; charset=UTF-8`
- * or `; charset="utf-8"` (RFC 7231 allows both). Deliberately uses `[ \t]`
- * rather than `\s` between the `;` and the parameter — `\s` also matches
- * `\r` and `\n`, which would let a CRLF ride through inside an otherwise
- * "well-formed" tail.
+ * The complete set of Content-Type values this proxy will forward, anchored
+ * end to end: an allowlisted media type, optionally followed by a single
+ * `charset` parameter (token or quoted-string), separated only by spaces or
+ * tabs.
+ *
+ * Anchoring the whole value — rather than validating a trimmed slice and
+ * returning the original — is deliberate. Two earlier attempts checked the
+ * media type and the parameter tail separately, and both times a control
+ * character survived in the gap between them (first after the `;`, then
+ * before it) because the validated form and the returned form were not the
+ * same string. There is no gap to hide in here.
  */
-const CHARSET_ONLY_PARAM = /^;[ \t]*charset=(?:[\w.-]+|"[\w.-]+")$/i
+const SAFE_REQUEST_CONTENT_TYPE = new RegExp(
+  `^(?:${RUNTIME_PROXY_ALLOWED_REQUEST_CONTENT_TYPES.map(escapeForRegExp).join('|')})` +
+    `(?:[ \\t]*;[ \\t]*charset=(?:[\\w.-]+|"[\\w.-]+"))?$`,
+  'i',
+)
 
 /**
  * Removes every header matching `lowerName` (case-insensitively) from
@@ -98,31 +108,22 @@ function takeHeader(headers: Record<string, string>, lowerName: string): string 
 
 /**
  * Resolves the outbound Content-Type from what the caller supplied. This is
- * the safety boundary for the runtime proxy's SSRF-sensitive header path, so
- * it validates the **whole** header value, not just the media type: any tail
- * after the media type must be a single `charset` parameter (token or
- * quoted-string per RFC 7231), separated only by spaces or tabs — deliberately
- * narrower than RFC "whitespace", so a CRLF cannot ride along inside a tail
- * that would otherwise look well-formed. Falls back to `application/json` for
- * anything that isn't recognised (including a well-formed value with an
- * unwanted CRLF/tab at either edge, since the accepted value is returned
- * trimmed). If a caller's header object somehow contained duplicate
- * Content-Type keys under different casing, `takeHeader` resolves that by
- * insertion order — acceptable because the fallback direction is always the
- * safe one.
+ * the safety boundary for the runtime proxy's SSRF-sensitive header path.
+ * Leading/trailing spaces and tabs (HTTP's own optional whitespace) are
+ * stripped, and the remaining value must match `SAFE_REQUEST_CONTENT_TYPE`
+ * end to end; anything that doesn't match — including a value that only
+ * became safe after the strip, such as one with a bare CR or LF at either
+ * edge — falls back to `application/json`. If a caller's header object
+ * somehow contained duplicate Content-Type keys under different casing,
+ * `takeHeader` resolves that by insertion order — acceptable because the
+ * fallback direction is always the safe one.
  */
 function resolveOutboundContentType(suppliedContentType: string | undefined): string {
   if (!suppliedContentType) return 'application/json'
-  const semicolonIndex = suppliedContentType.indexOf(';')
-  const mediaType = (
-    semicolonIndex === -1 ? suppliedContentType : suppliedContentType.slice(0, semicolonIndex)
-  )
-    .trim()
-    .toLowerCase()
-  if (!allowedRequestContentTypesLower.has(mediaType)) return 'application/json'
-  const tail = semicolonIndex === -1 ? '' : suppliedContentType.slice(semicolonIndex)
-  if (tail !== '' && !CHARSET_ONLY_PARAM.test(tail)) return 'application/json'
-  return suppliedContentType.trim()
+  // Strip only HTTP optional whitespace (space and tab). Notably NOT \s —
+  // a CR or LF at either edge must fail the match, not be quietly removed.
+  const value = suppliedContentType.replace(/^[ \t]+|[ \t]+$/g, '')
+  return SAFE_REQUEST_CONTENT_TYPE.test(value) ? value : 'application/json'
 }
 
 /**

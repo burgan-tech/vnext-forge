@@ -186,19 +186,31 @@ describe('buildRuntimeProxyOutboundHeaders — request Content-Type (R-b4)', () 
     expect(callerHeaders).toEqual({ 'Content-Type': 'application/json', 'X-Keep': '1' })
   })
 
-  it('never emits a Content-Type containing control characters', () => {
-    for (const supplied of [
-      'application/json;\r\ncharset=utf-8',
-      '\r\napplication/json',
-      'application/json\r\n',
-      '\tapplication/json\t',
-    ]) {
-      const headers = buildRuntimeProxyOutboundHeaders({
-        method: 'POST',
-        body: '{}',
-        callerHeaders: { 'Content-Type': supplied },
-      })
-      expect(headers['Content-Type']).not.toMatch(/[\r\n\t]/)
+  it('never emits a Content-Type containing control or exotic whitespace, wherever it appears', () => {
+    const hostile = ['\r\n', '\r', '\n', '\t', '\f', '\v', ' ', '﻿']
+    const templates = (ws: string) => [
+      `${ws}application/json`,
+      `application/json${ws}`,
+      `application/json${ws};charset=utf-8`,
+      `application/json;${ws}charset=utf-8`,
+      `application/json; charset=utf-8${ws}`,
+    ]
+    for (const ws of hostile) {
+      for (const supplied of templates(ws)) {
+        const headers = buildRuntimeProxyOutboundHeaders({
+          method: 'POST',
+          body: '{}',
+          callerHeaders: { 'Content-Type': supplied },
+        })
+        // Either it fell back, or it was accepted with the whitespace stripped —
+        // never accepted with it intact. Space and tab are both excluded from
+        // this check (not just tab): both are legal HTTP OWS around `;`, so an
+        // interior occurrence of either is preserved by design when the rest of
+        // the value is well-formed — e.g. the fixed "; charset=utf-8" in the
+        // last template always contains a space. `\r`, `\n`, `\f`, `\v`, and the
+        // BOM are never legal here, so they must never survive.
+        expect(headers['Content-Type']).not.toMatch(/[\r\n\f\v﻿]/)
+      }
     }
   })
 })
