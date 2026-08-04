@@ -4,6 +4,7 @@ import type { MethodRegistry, ServiceRegistry } from '@vnext-forge-studio/servic
 import type { Variables } from '../../shared/types/hono.js';
 import { registerCliRoutes } from './cli.routes.js';
 import { registerFilesRoutes } from './files.routes.js';
+import { registerFunctionsRoutes } from './functions.routes.js';
 import { registerHealthRoutes } from './health.routes.js';
 import { registerProjectsRoutes } from './projects.routes.js';
 import { registerQuickrunRoutes } from './quickrun.routes.js';
@@ -25,6 +26,7 @@ export function createApiV1Router(deps: { registry: MethodRegistry; services: Se
   registerValidateRoutes(app, deps);
   registerTemplatesRoutes(app, deps);
   registerQuickrunRoutes(app, deps);
+  registerFunctionsRoutes(app, deps);
   registerRuntimeRoutes(app, deps);
   registerHealthRoutes(app, deps);
   registerVnextRoutes(app, deps);

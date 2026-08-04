@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import {
   buildMethodRegistry,
   createCliService,
+  createFunctionRunService,
   createPathPolicy,
   createProjectService,
   createQuickRunPresetsService,
@@ -135,6 +136,7 @@ export function composeWebServerServices(logger: LoggerAdapter): ComposedService
   });
 
   const quickRunService = createQuickRunService(runtimeProxyService);
+  const functionRunService = createFunctionRunService(runtimeProxyService);
   const quickswitcherService = createQuickswitcherService({ fs, logger, projectService });
 
   // Personal snippets live in the user's home dir; project snippets live
@@ -176,6 +178,7 @@ export function composeWebServerServices(logger: LoggerAdapter): ComposedService
     validateService,
     runtimeProxyService,
     quickRunService,
+    functionRunService,
     cliService,
     quickswitcherService,
     sessionsService,
