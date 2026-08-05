@@ -2461,98 +2461,103 @@ git commit -m "feat(function-run): shell assembly with testable orchestration"
 **Files:**
 - Modify: `packages/designer-ui/src/modules/function-editor/FunctionEditorView.tsx`
 
+**The slot conflict to resolve.** `FlowEditorCanvasAndScriptResizableColumn` takes exactly two slots, `canvas` and `scriptPanel`, and the script editor already owns the second one. The Run panel wants the same place.
+
+Make them **mutually exclusive and explicit**: opening Run closes the script panel, and opening a script closes Run. A silent precedence rule ("script wins") would mean clicking Run while a script is open does nothing visible, which reads as a broken button.
+
 - [ ] **Step 1: Implement**
 
-- Add `const [runOpen, setRunOpen] = useState(false)`.
-- Register a **Run** toolbar action through the existing `registerToolbar` slot, toggling `runOpen`.
-- When `runOpen`, render `<FunctionRunShell domain={...} functionKey={...} scope={...} projectId={id} />` in the `FlowEditorCanvasAndScriptResizableColumn`'s second slot — the same column the script panel uses.
-- Read `domain` / `functionKey` / `scope` from `componentJson` (`json.domain`, `json.key`, `json.attributes.scope`), defaulting scope to `'I'` to match `toFunctionMetadataFormValues`.
-- Do **not** offer Run when `layoutSurface === 'modal'`: `ComponentEditorDialog` exists to edit a referenced component, not to run it.
+- `const [runOpen, setRunOpen] = useState(false)`.
+- Register a **Run** toolbar action via the existing `registerToolbar` slot. Toggling it on sets `runOpen` **and** closes the script panel (`useEditorPanelsStore.setScriptPanelOpen(false)`).
+- The existing script-open path must set `runOpen` to false, so the two can never both be requested.
+- Second slot: `runOpen ? <FunctionRunShell … /> : scriptPanelOpen && activeScript ? <ScriptEditorPanel … /> : null`.
+- Read identity from `componentJson`: `json.domain`, `json.key`, and `json.attributes.scope` defaulting to `'I'` (matching `toFunctionMetadataFormValues`). Guard the non-string cases — this is hand-editable JSON.
+- Pass `toolWideHeaders={useToolHeadersStore((s) => s.headers)}` (Task 19 creates that store).
+- **Do not offer Run when `layoutSurface === 'modal'`** — `ComponentEditorDialog` exists to edit a referenced component, not to run it.
 
-- [ ] **Step 2: Verify the editor still typechecks and its tests pass**
-
-```bash
-pnpm --filter @vnext-forge-studio/designer-ui exec tsc --noEmit && pnpm --filter @vnext-forge-studio/designer-ui exec vitest run src/modules/function-editor
-```
-
-Expected: no tsc output; all function-editor tests green.
-
-- [ ] **Step 3: Commit**
+- [ ] **Step 2: Verify**
 
 ```bash
-git add packages/designer-ui/src/modules/function-editor/FunctionEditorView.tsx
-git commit -m "feat(function-editor): Run panel"
+pnpm --filter @vnext-forge-studio/designer-ui exec tsc --noEmit -p tsconfig.json
+pnpm --filter @vnext-forge-studio/designer-ui exec vitest run
 ```
+
+- [ ] **Step 3: Commit** — `feat(function-editor): Run panel`
 
 ---
 
 ### Task 19: Tool-wide headers plumbing
 
+**Correction to the original spec.** It put the store in `apps/web/src/app/store/`. That cannot work: `designer-ui` may not import from an app, so neither shell could ever read it. **The store belongs in `designer-ui`**, with each host populating it at bootstrap — the same shape as transport registration and `setDataBucketAdapter`.
+
 **Files:**
-- Modify: `apps/extension/src/panels/QuickRunPanel.ts` (context message), `apps/extension/src/panels/DesignerPanel.ts` (context message)
-- Create: `apps/web/src/app/store/useToolHeadersStore.ts`
-- Modify: consumers to pass `toolWide` into `mergeQuickRunHeaders`
+- Create: `packages/designer-ui/src/store/useToolHeadersStore.ts`
+- Modify: `apps/extension/src/panels/QuickRunPanel.ts`, `apps/extension/src/panels/DesignerPanel.ts`
+- Modify: the extension webview bootstraps and `apps/web/src/main.tsx` to populate the store
+- Modify: `QuickRunShell` to pass the layer through
 
-- [ ] **Step 1: Forward the existing setting**
-
-`forge-tools-settings.ts` already persists `QuickRunSettings.globalHeaders` (line 111) and exposes it through the async `loadQuickRunSettings()` (line 480, memoised in `quickRunCache`). `QuickRunPanel.sendContextWithPolling` (line 204) already awaits it but reads only `polling.*`. Extend that existing block — do **not** add a second settings read:
-
-```ts
-  private async sendContextWithPolling(entry: PanelEntry, ctx: QuickRunContext): Promise<void> {
-    let pollingRetryCount: number | undefined;
-    let pollingIntervalMs: number | undefined;
-    let globalHeaders: Record<string, string> | undefined;
-    if (this.forgeToolsSettings) {
-      const qr = await this.forgeToolsSettings.loadQuickRunSettings();
-      pollingRetryCount = qr.polling.retryCount;
-      pollingIntervalMs = qr.polling.intervalMs;
-      // Forge-wide headers. Persisted since the settings file was introduced
-      // but never forwarded, so the UI has never seen them.
-      globalHeaders = Object.fromEntries(qr.globalHeaders.map((h) => [h.name, h.value]));
-    }
-    void entry.panel.webview.postMessage({
-      type: 'quickrun:context',
-      ...ctx,
-      pollingRetryCount,
-      pollingIntervalMs,
-      globalHeaders,
-    });
-  }
-```
-
-`DesignerPanel` needs the same headers for the in-editor runner. It has no equivalent method, so add one modelled on the block above and include `globalHeaders` in the config it injects as `window.__VNEXT_CONFIG__` (`buildWebviewConfig`), since `DesignerPanel` passes context that way rather than by a `*:context` message.
-
-- [ ] **Step 2: Add the web store**
+- [ ] **Step 1: The store**
 
 ```ts
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 interface ToolHeadersState {
+  /** Forge-wide headers, shared by the workflow runner and the function runner. */
   headers: Record<string, string>;
   setHeaders: (headers: Record<string, string>) => void;
 }
 
-/** Forge-wide headers shared by the workflow and function runners. */
+/**
+ * Lives in designer-ui rather than a host app because both shells read it and
+ * `designer-ui` may not import from `apps/*`. Each host populates it at
+ * bootstrap: the extension from `window.__VNEXT_CONFIG__`, the web shell from
+ * its own persisted copy.
+ */
 export const useToolHeadersStore = create<ToolHeadersState>()(
-  persist(
-    (set) => ({ headers: {}, setHeaders: (headers) => set({ headers }) }),
-    { name: 'vnext-forge-tool-headers' },
-  ),
+  persist((set) => ({ headers: {}, setHeaders: (headers) => set({ headers }) }), {
+    name: 'vnext-forge-tool-headers',
+  }),
 );
 ```
 
-- [ ] **Step 3: Pass the layer through**
+- [ ] **Step 2: Forward the setting from the extension**
 
-Both `FunctionRunShell` and `QuickRunShell` read the tool-wide headers and pass them as the fourth `mergeQuickRunHeaders` argument.
+`forge-tools-settings.ts` already persists `QuickRunSettings.globalHeaders` (line 111) behind the async, memoised `loadQuickRunSettings()` (line 480). `QuickRunPanel.sendContextWithPolling` (line 204) already awaits it and reads only `polling.*` — **extend that existing block, do not add a second settings read**:
 
-- [ ] **Step 4: Verify and commit**
+```ts
+      const qr = await this.forgeToolsSettings.loadQuickRunSettings();
+      pollingRetryCount = qr.polling.retryCount;
+      pollingIntervalMs = qr.polling.intervalMs;
+      // Persisted since the settings file was introduced but never forwarded,
+      // so the UI has never seen these.
+      globalHeaders = Object.fromEntries(qr.globalHeaders.map((h) => [h.name, h.value]));
+```
+
+and include `globalHeaders` in the posted `quickrun:context` message.
+
+`DesignerPanel` needs the same for the in-editor runner. It has no equivalent method, so add one and include `globalHeaders` in `buildWebviewConfig`'s `window.__VNEXT_CONFIG__` — that is how `DesignerPanel` passes context, rather than a `*:context` message.
+
+- [ ] **Step 3: Populate the store in each host**
+
+- Extension designer webview: read `window.__VNEXT_CONFIG__.globalHeaders` at bootstrap → `setHeaders`.
+- Extension Quick Run webview: on the `quickrun:context` message → `setHeaders`.
+- Web (`apps/web/src/main.tsx`): the store persists itself, so nothing to fetch — just confirm it is imported so the persisted value rehydrates.
+
+- [ ] **Step 4: Pass the layer through**
+
+`QuickRunShell` reads the store and passes it as `mergeQuickRunHeaders`'s **fourth** argument. `FunctionRunShell` already accepts `toolWideHeaders` as a prop; Task 18 supplies it from the store.
+
+- [ ] **Step 5: Verify and commit**
 
 ```bash
-pnpm --filter @vnext-forge-studio/designer-ui exec vitest run src/modules/quick-run
-git add apps/extension/src/panels apps/web/src/app/store/useToolHeadersStore.ts packages/designer-ui/src
-git commit -m "feat(quick-run): forward tool-wide headers into both runners"
+pnpm --filter @vnext-forge-studio/designer-ui exec vitest run
+pnpm --filter @vnext-forge-studio/designer-ui exec tsc --noEmit -p tsconfig.json
+pnpm --filter vnext-forge-studio exec tsc --noEmit
+pnpm --filter @vnext-forge-studio/web exec tsc --noEmit
 ```
+
+`git commit -m "feat(quick-run): forward tool-wide headers into both runners"`
 
 ---
 
