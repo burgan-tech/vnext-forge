@@ -35,17 +35,27 @@ export function FunctionRunPage() {
     return `${dir}/${name}.json`.replace(/\\/g, '/').replace(/\/{2,}/g, '/');
   }, [projectPath, vnextConfig, group, name]);
 
-  const [identity, setIdentity] = useState<FunctionIdentity | null>(null);
-  const [loadError, setLoadError] = useState(false);
+  /**
+   * The read result, tagged with the path it belongs to.
+   *
+   * Keyed rather than reset-on-change so the effect never calls `setState`
+   * synchronously in its body (which cascades a render — `react-hooks/
+   * set-state-in-effect`). Tagging also makes a stale read harmless: a slow
+   * response for a previous function no longer matches `functionFilePath`,
+   * so it is ignored rather than rendering the wrong function's identity.
+   */
+  const [loaded, setLoaded] = useState<
+    { path: string; identity: FunctionIdentity | null } | null
+  >(null);
 
   useEffect(() => {
-    setIdentity(null);
-    setLoadError(false);
     if (!functionFilePath) return;
+    let cancelled = false;
 
     void filesService.read(functionFilePath).then((res) => {
+      if (cancelled) return;
       if (!res.success) {
-        setLoadError(true);
+        setLoaded({ path: functionFilePath, identity: null });
         return;
       }
       try {
@@ -53,16 +63,28 @@ export function FunctionRunPage() {
         // Same normalization the in-editor runner uses: `attributes.scope`
         // falls back to `scope`, defaulting to `'I'`.
         const values = toFunctionMetadataFormValues(json);
-        if (!values.domain || !values.key) {
-          setLoadError(true);
-          return;
-        }
-        setIdentity({ domain: values.domain, functionKey: values.key, scope: values.scope });
+        setLoaded({
+          path: functionFilePath,
+          identity:
+            values.domain && values.key
+              ? { domain: values.domain, functionKey: values.key, scope: values.scope }
+              : null,
+        });
       } catch {
-        setLoadError(true);
+        setLoaded({ path: functionFilePath, identity: null });
       }
     });
+
+    return () => {
+      cancelled = true;
+    };
   }, [functionFilePath]);
+
+  // A result for a previous path reads as "not loaded yet", not as this
+  // function's answer.
+  const current = loaded?.path === functionFilePath ? loaded : null;
+  const identity = current?.identity ?? null;
+  const loadError = current?.identity === null;
 
   useEffect(() => {
     if (!id || !group || !name) return;
