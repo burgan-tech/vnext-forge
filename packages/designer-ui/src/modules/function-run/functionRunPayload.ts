@@ -8,10 +8,10 @@ import type { FunctionVerb } from '@vnext-forge-studio/vnext-types';
  * cannot drift apart — designer-ui may not import `services-core`, so a local
  * copy would be unlinked from the allowlist that actually enforces this.
  */
-export const CONTENT_TYPES = {
+export const CONTENT_TYPES = Object.freeze({
   json: RUNTIME_PROXY_ALLOWED_REQUEST_CONTENT_TYPES[0],
   form: RUNTIME_PROXY_ALLOWED_REQUEST_CONTENT_TYPES[1],
-} as const;
+} as const);
 
 export type ContentTypeId = keyof typeof CONTENT_TYPES;
 export type RunMode = 'view' | 'payload';
@@ -74,6 +74,12 @@ function toFlatEntries(entries: [string, unknown][]): [string, string][] {
  * Every optional field is omitted entirely (rather than set to `undefined`)
  * when there is nothing to send, matching `functionsInvokeParams`'s `.optional()`
  * shape one-for-one.
+ *
+ * Note the verb changes what a `null` means. JSON bodies keep it, because JSON
+ * `null` is a real value (a PATCH sending `{"region": null}` is clearing the
+ * field). Query strings and form bodies drop the key, because `?region=`
+ * asserts an empty string rather than "not specified" — see `toFlatEntries`.
+ * So the same payload is not identical on the wire across verbs.
  */
 export function buildInvokeRequest(input: InvokeRequestInput): InvokeRequest {
   const source = input.mode === 'view' ? input.viewFormData : input.payload;

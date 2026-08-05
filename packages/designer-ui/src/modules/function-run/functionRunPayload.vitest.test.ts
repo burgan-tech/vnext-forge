@@ -81,11 +81,17 @@ describe('buildInvokeRequest — mode selection', () => {
 
 describe('buildInvokeRequest — empty input', () => {
   it('omits the body entirely when there is nothing to send', () => {
-    expect(buildInvokeRequest({ verb: 'POST', mode: 'payload', payload: {}, contentType: 'json' })).toEqual({
-      body: undefined,
-      contentType: undefined,
-      query: undefined,
+    // Asserted on the KEYS, not with toEqual against an all-undefined object:
+    // Vitest treats an absent property and one set to `undefined` as equal, so
+    // a toEqual assertion here passes against either shape and cannot protect
+    // the "omit rather than set undefined" behaviour it is named for.
+    const result = buildInvokeRequest({
+      verb: 'POST',
+      mode: 'payload',
+      payload: {},
+      contentType: 'json',
     });
+    expect(Object.keys(result)).toEqual([]);
   });
 
   it('omits the query when there is nothing to send', () => {
