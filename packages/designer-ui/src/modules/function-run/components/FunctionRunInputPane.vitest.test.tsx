@@ -63,7 +63,12 @@ describe('FunctionRunInputPane', () => {
   });
 
   it('marks the active mode for assistive technology', () => {
-    expect(render({ mode: 'payload' })).toContain('aria-checked="true"');
+    const html = render({ mode: 'payload' });
+    const triggers = html.match(/<button[^>]*>[\s\S]*?<\/button>/g) ?? [];
+    const payloadTrigger = triggers.find((t) => t.includes('>Payload<'));
+    const viewTrigger = triggers.find((t) => t.includes('>View<'));
+    expect(payloadTrigger).toContain('aria-selected="true"');
+    expect(viewTrigger).toContain('aria-selected="false"');
   });
 
   it('renders the input view with no delegate — the view collects input, the runner sends it', () => {
@@ -93,7 +98,7 @@ describe('FunctionRunInputPane', () => {
 describe('FunctionRunInputPane — payloadAvailable (Fix 2)', () => {
   it('does not render the two-way toggle when Payload is unavailable', () => {
     const html = render({ payloadAvailable: false, hasInputView: true, inputView: { key: 'v', type: 't', content: {} } });
-    expect(html).not.toContain('radiogroup');
+    expect(html).not.toContain('role="tablist"');
     expect(html).not.toContain('>Payload<');
   });
 
@@ -117,7 +122,7 @@ describe('FunctionRunInputPane — payloadAvailable (Fix 2)', () => {
 
   it('still offers the toggle and the payload editor when Payload is available', () => {
     const html = render({ payloadAvailable: true, hasInputView: false });
-    expect(html).toContain('radiogroup');
+    expect(html).toContain('role="tablist"');
     expect(html).toContain('Content type');
   });
 });

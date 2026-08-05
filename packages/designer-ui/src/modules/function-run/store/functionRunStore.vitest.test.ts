@@ -49,6 +49,7 @@ describe('functionRunStore reset', () => {
       queryString: 'a=1',
       workflowKey: 'wf-a',
       instanceId: 'inst-a',
+      activeRequestTab: 'headers',
       inputViewContent: { key: 'v', type: 't', content: {} },
       outputViewContent: { key: 'o', type: 't', content: {} },
       inputSchema: { type: 'object' },
@@ -74,6 +75,7 @@ describe('functionRunStore reset', () => {
     expect(state.queryString).toBe('');
     expect(state.workflowKey).toBe('');
     expect(state.instanceId).toBe('');
+    expect(state.activeRequestTab).toBe('body');
     expect(state.inputViewContent).toBeNull();
     expect(state.outputViewContent).toBeNull();
     expect(state.inputSchema).toBeNull();
@@ -111,6 +113,7 @@ describe('resetIfNewIdentity', () => {
       verb: 'POST',
       queryString: 'a=1',
       infoErrorIsAuthorization: true,
+      activeRequestTab: 'headers',
     });
 
     useFunctionRunStore.getState().resetIfNewIdentity('core::b');
@@ -120,6 +123,7 @@ describe('resetIfNewIdentity', () => {
     expect(state.verb).toBeNull();
     expect(state.queryString).toBe('');
     expect(state.infoErrorIsAuthorization).toBe(false);
+    expect(state.activeRequestTab).toBe('body');
     expect(state.loadedIdentity).toBe('core::b');
   });
 });

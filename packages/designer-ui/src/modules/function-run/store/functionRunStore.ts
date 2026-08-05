@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { FunctionVerb } from '@vnext-forge-studio/vnext-types';
 
-import type { ContentTypeId, RunMode } from '../functionRunPayload';
+import type { ContentTypeId, RequestTabId, RunMode } from '../functionRunPayload';
 import type { FunctionExchange, FunctionInfo } from '../types/functionRun.types';
 
 /**
@@ -52,6 +52,18 @@ interface FunctionRunState {
   /** Scope F/I only. */
   workflowKey: string;
   instanceId: string;
+
+  /**
+   * The request tab the user last picked (Params / Headers / Body) — see
+   * `resolveEffectiveRequestTab` in `functionRunPayload.ts` for the
+   * computed-override that hides this value when it says `'body'` but the
+   * selected verb carries none. Defaults to `'body'`, mirroring `mode`'s own
+   * default of `'payload'`: once `/info` resolves to a body-bearing verb,
+   * the Body tab activates on its own with no special-case wiring needed —
+   * the same override that hides it also stops hiding it the moment it
+   * would no longer need to.
+   */
+  activeRequestTab: RequestTabId;
 
   inputViewContent: unknown;
   outputViewContent: unknown;
@@ -127,6 +139,8 @@ function createInitialState(): FunctionRunData {
 
     workflowKey: '',
     instanceId: '',
+
+    activeRequestTab: 'body',
 
     inputViewContent: null,
     outputViewContent: null,

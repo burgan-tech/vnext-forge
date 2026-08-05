@@ -93,6 +93,58 @@ export function parseQueryString(raw: string): Record<string, string> {
   return result;
 }
 
+export interface QueryPair {
+  key: string;
+  value: string;
+}
+
+/**
+ * The inverse of `parseQueryString` — turns the Params tab's structured KV
+ * table back into a query string.
+ *
+ * `URLSearchParams` owns the encoding (the same authority `parseQueryString`
+ * defers *decoding* to), so this never hand-rolls percent-encoding — special
+ * characters, spaces, and `&`/`=` inside a value all come out exactly as
+ * `URLSearchParams` would produce them.
+ *
+ * An empty-key row is dropped, matching `parseQueryString`'s own
+ * `if (key === '') continue` — a row nobody has typed a key into yet has
+ * nothing to contribute to the wire request either way, on either side of
+ * this round trip. Duplicate keys are *preserved* in the string itself
+ * (`.append`, not `.set`) — collapsing them here would be a second, silent
+ * place where "last value wins" happens. `parseQueryString` already collapses
+ * a repeated key to its last value when the string is eventually parsed
+ * (e.g. by `buildInvokeRequest`), so nothing new is lost at send time that
+ * `parseQueryString`'s existing contract did not already lose.
+ */
+export function stringifyQueryPairs(pairs: readonly QueryPair[]): string {
+  const search = new URLSearchParams();
+  for (const { key, value } of pairs) {
+    if (key === '') continue;
+    search.append(key, value);
+  }
+  return search.toString();
+}
+
+export type RequestTabId = 'params' | 'headers' | 'body';
+
+/**
+ * The request tab that should actually be shown, as distinct from the raw
+ * `activeRequestTab` the store remembers — the same computed-override idiom
+ * `resolveEffectiveMode` uses just above, and for the same reason.
+ *
+ * The Body tab does not exist at all once the selected verb carries no body
+ * (see `carriesBody` and `FunctionRunRequestTabs`), so a stored tab of
+ * `'body'` left over from an earlier, body-bearing verb no longer corresponds
+ * to anything rendered on screen. Falling back to `'params'` in that case —
+ * without writing the fallback back into the store — means switching back to
+ * a body-bearing verb restores the Body tab automatically, the same way
+ * `resolveEffectiveMode` restores a body-bearing verb's stored payload mode.
+ */
+export function resolveEffectiveRequestTab(tab: RequestTabId, verb: FunctionVerb): RequestTabId {
+  return tab === 'body' && !carriesBody(verb) ? 'params' : tab;
+}
+
 /**
  * Renders one value into the flat string shape query params and
  * form-urlencoded bodies both need. Objects/arrays survive as JSON rather

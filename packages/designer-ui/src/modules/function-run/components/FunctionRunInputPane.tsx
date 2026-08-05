@@ -1,5 +1,6 @@
 import { PseudoUiOrJsonBlock } from '../../quick-run/pseudo-ui/PseudoUiOrJsonBlock';
 import type { ViewResponse } from '../../quick-run/types/quickrun.types';
+import { Tabs, TabsList, TabsTrigger } from '../../../ui/Tabs';
 import type { RunMode } from '../functionRunPayload';
 import { FunctionRunPayloadEditor, type FunctionRunPayloadEditorProps } from './FunctionRunPayloadEditor';
 
@@ -37,6 +38,16 @@ const NO_INPUT_VIEW_REASON = 'This function declares no input view';
  * has (or nothing, if the function also declares no view — the dedicated
  * query-string input is the whole input surface for that combination, which
  * is fine).
+ *
+ * The toggle itself is `ui/Tabs`, not a bespoke pill — this used to be one of
+ * three competing toggle idioms in this module (alongside `ui/Tabs` proper
+ * and `ViewModeToggle`); consolidating onto `ui/Tabs` here, the same
+ * component the new request tab strip (`FunctionRunRequestTabs`) uses,
+ * retires it. Only the `TabsList`/`TabsTrigger` chrome is used — the actual
+ * View/Payload content below is rendered manually off `effectiveMode`, not
+ * via `TabsContent`, since this pane's rendering rules (nothing at all when
+ * Payload is unavailable and no view exists either) do not map cleanly onto
+ * "one of these two panes is always mounted".
  */
 export function FunctionRunInputPane({
   mode,
@@ -56,39 +67,22 @@ export function FunctionRunInputPane({
   return (
     <div className="flex flex-col gap-2">
       {showToggle ? (
-        <div
-          className="bg-muted flex gap-0.5 rounded-lg p-0.5"
-          role="radiogroup"
-          aria-label="Function input mode">
-          <button
-            type="button"
-            role="radio"
-            aria-checked={mode === 'view'}
-            disabled={!hasInputView}
-            title={hasInputView ? undefined : NO_INPUT_VIEW_REASON}
-            onClick={() => onModeChange('view')}
-            className={`flex-1 rounded-md px-3 py-1.5 text-[11px] font-semibold transition-all ${
-              hasInputView ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'
-            } ${
-              mode === 'view'
-                ? 'bg-surface text-foreground shadow-sm ring-1 ring-border'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}>
-            View
-          </button>
-          <button
-            type="button"
-            role="radio"
-            aria-checked={mode === 'payload'}
-            onClick={() => onModeChange('payload')}
-            className={`flex-1 cursor-pointer rounded-md px-3 py-1.5 text-[11px] font-semibold transition-all ${
-              mode === 'payload'
-                ? 'bg-surface text-foreground shadow-sm ring-1 ring-border'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}>
-            Payload
-          </button>
-        </div>
+        <Tabs value={mode} onValueChange={(next) => onModeChange(next as RunMode)}>
+          <TabsList variant="default" noBorder aria-label="Function input mode" className="h-7 w-fit gap-1 rounded-md p-0.5">
+            <TabsTrigger
+              value="view"
+              variant="default"
+              noBorder
+              disabled={!hasInputView}
+              title={hasInputView ? undefined : NO_INPUT_VIEW_REASON}
+              className="rounded px-2.5 py-1 text-[10px] font-semibold">
+              View
+            </TabsTrigger>
+            <TabsTrigger value="payload" variant="default" noBorder className="rounded px-2.5 py-1 text-[10px] font-semibold">
+              Payload
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
       ) : null}
 
       {showToggle && !hasInputView ? (

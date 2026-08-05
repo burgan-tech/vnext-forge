@@ -8,18 +8,25 @@ import { HeadersConfigDialog } from '../quick-run/components/HeadersConfigDialog
 import { mergeQuickRunHeaders } from '../quick-run/pseudo-ui/mergeQuickRunHeaders';
 import type { ViewResponse } from '../quick-run/types/quickrun.types';
 
+import { areToolHeadersHostOwned } from '../../app/ToolHeadersSync.js';
+import { Field } from '../../ui/Field.js';
+import { Input } from '../../ui/Input.js';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '../../ui/Resizable.js';
 import { useEditorPanelsStore } from '../../store/useEditorPanelsStore.js';
+import { useToolHeadersStore } from '../../store/useToolHeadersStore.js';
 
 import * as FunctionRunApi from './FunctionRunApi';
 import { FunctionRunEndpointBar } from './components/FunctionRunEndpointBar';
+import { FunctionRunHeadersTab } from './components/FunctionRunHeadersTab';
 import { FunctionRunInfoError } from './components/FunctionRunInfoError';
 import { FunctionRunInputPane } from './components/FunctionRunInputPane';
+import { FunctionRunParamsTab, type ParamsView } from './components/FunctionRunParamsTab';
+import { FunctionRunRequestTabs } from './components/FunctionRunRequestTabs';
 import { FunctionRunResponsePane } from './components/FunctionRunResponsePane';
-import { FunctionRunToolbar } from './components/FunctionRunToolbar';
 import { buildEndpointPreview } from './functionRunEndpoint';
+import { sanitizeHeaderRecord } from './functionRunHeaders';
 import { computeInputViewAvailability, computeInvokeGate, loadFunctionInfo, runInvoke } from './functionRunOrchestration';
-import { buildInvokeRequest, carriesBody, resolveEffectiveMode } from './functionRunPayload';
+import { buildInvokeRequest, carriesBody, resolveEffectiveMode, resolveEffectiveRequestTab } from './functionRunPayload';
 import { resolveVerbs } from './functionRunVerbs';
 import { useFunctionRunStore } from './store/functionRunStore';
 
@@ -67,6 +74,23 @@ const DEFAULT_LAYOUT = {
  * should agree on what "maximized" means for that shared slot.
  */
 const MAXIMIZED_OUTER_SIZE = '70%';
+
+/**
+ * What the endpoint bar's quiet "Headers" button should do, given whether
+ * the Forge-wide set is host-owned (`areToolHeadersHostOwned`).
+ *
+ * `HeadersConfigDialog` only ever edits the Forge-wide set now (see the
+ * shell's own `HeadersConfigDialog` usage) — when the host owns that value,
+ * a save through the dialog would appear to work for the rest of the session
+ * and then be silently overwritten the next time the panel opens (the exact
+ * bug this whole reconciliation exists to fix). `'switch-to-headers-tab'`
+ * routes to a surface that is genuinely usable either way: the Forge-wide
+ * set is still visible there (read-only), and a per-run header — which
+ * always saves, in both hosts — is one click away.
+ */
+export function resolveOpenHeadersAction(toolWideHeadersHostOwned: boolean): 'switch-to-headers-tab' | 'open-dialog' {
+  return toolWideHeadersHostOwned ? 'switch-to-headers-tab' : 'open-dialog';
+}
 
 /**
  * Wires the pure function-run modules and the presentational components
@@ -135,6 +159,7 @@ export function FunctionRunShell({
   const queryString = useFunctionRunStore((s) => s.queryString);
   const workflowKey = useFunctionRunStore((s) => s.workflowKey);
   const instanceId = useFunctionRunStore((s) => s.instanceId);
+  const activeRequestTab = useFunctionRunStore((s) => s.activeRequestTab);
   const inputViewContent = useFunctionRunStore((s) => s.inputViewContent);
   const inputSchema = useFunctionRunStore((s) => s.inputSchema);
   const outputViewContent = useFunctionRunStore((s) => s.outputViewContent);
@@ -147,9 +172,30 @@ export function FunctionRunShell({
   // The runner has no per-workflow bucket config, so the first
   // `mergeQuickRunHeaders` argument is always `null` — see the plan's note
   // that this is deliberate, not an omission.
+  //
+  // `sessionHeaders` is deliberately *not* filtered as the Headers tab's
+  // `KeyValueEditor` writes it on every keystroke — a blank-key row the user
+  // just added (and has not typed a name into yet) has to survive being
+  // written here, or it would vanish on the very next render before the user
+  // could type into it. Filtering happens once, below, at the point these
+  // headers are actually merged for a request — see `sanitizeHeaderRecord`.
   const [sessionHeaders, setSessionHeaders] = useState<Record<string, string>>({});
-  const [savedHeaderEntries, setSavedHeaderEntries] = useState<{ name: string; value: string }[]>([]);
   const [headersOpen, setHeadersOpen] = useState(false);
+  // Params tab's table/raw toggle — ephemeral UI state, not persisted in the
+  // store (unlike `activeRequestTab`, which the plan calls out explicitly):
+  // losing this preference on a tab switch or remount is a minor cosmetic
+  // reset, not a loss of anything the user actually typed (`queryString`
+  // itself lives in the store either way).
+  const [paramsView, setParamsView] = useState<ParamsView>('table');
+
+  const toolWideHeadersRecord = toolWideHeaders ?? {};
+  // See `areToolHeadersHostOwned`'s own doc comment: true in the extension
+  // (where the host injects this value and overwrites the persisted store
+  // from it on every panel open, with no write-back path from here), false
+  // in the web shell (where the persisted store IS the truth). Drives both
+  // the Headers tab's Edit control and the two "Open Headers" shortcuts
+  // below.
+  const toolWideHeadersHostOwned = areToolHeadersHostOwned();
 
   // Maximize control (1d): only meaningful when this shell is hosted inside
   // `FlowEditorCanvasAndScriptResizableColumn` (`surface === 'panel'`) — that
@@ -174,7 +220,7 @@ export function FunctionRunShell({
   // hitting a permissions wall, leaving that error permanently unrecoverable
   // short of changing the function itself.
   const sessionHeadersKey = JSON.stringify(sessionHeaders);
-  const toolWideHeadersKey = JSON.stringify(toolWideHeaders ?? {});
+  const toolWideHeadersKey = JSON.stringify(toolWideHeadersRecord);
   // Keyed on the stable serializations above, deliberately not on
   // `sessionHeaders`/`toolWideHeaders` themselves (a fresh object each
   // render would defeat the memo and reintroduce the per-render identity
@@ -182,8 +228,12 @@ export function FunctionRunShell({
   // up in this package's eslint config, so there is no lint rule to satisfy
   // here either way — this is a deliberate, documented deviation, not an
   // oversight.
+  //
+  // `sanitizeHeaderRecord` is what actually drops a still-blank-key row from
+  // `sessionHeaders` — see its own doc comment for why that filtering must
+  // not happen any earlier, in the Headers tab's own `onChange`.
   const headers = useMemo(
-    () => mergeQuickRunHeaders(null, sessionHeaders, undefined, toolWideHeaders),
+    () => mergeQuickRunHeaders(null, sanitizeHeaderRecord(sessionHeaders), undefined, toolWideHeadersRecord),
     [sessionHeadersKey, toolWideHeadersKey],
   );
 
@@ -192,8 +242,8 @@ export function FunctionRunShell({
   // become available.
   //
   // `workflowKey`/`instanceId` are freeform text fields the user edits one
-  // keystroke at a time through `FunctionRunToolbar`'s `onChange` — if this
-  // effect fired its fetch unconditionally on every change to them, it would
+  // keystroke at a time (below, in the request panel) — if this effect fired
+  // its fetch unconditionally on every change to them, it would
   // issue one `/info` request per character typed once both fields already
   // have content. The debounce below collapses a burst of keystrokes into
   // the single request that actually matters: the one after the user stops
@@ -282,6 +332,29 @@ export function FunctionRunShell({
   }
 
   /**
+   * The endpoint bar's quiet "Headers" button handler, split from its
+   * decision (`resolveOpenHeadersAction`, just below) purely so the decision
+   * itself is directly unit-testable — this file's own test can only ever
+   * see the very first render, never a click.
+   *
+   * `FunctionRunInfoError`'s own "Open Headers" shortcut (the 403 recovery
+   * path) is *not* routed through this — that component is a section-3 file
+   * this task does not otherwise touch, and unlike here, switching tabs
+   * would have no visible effect there: `FunctionRunInfoError` renders
+   * *instead of* the request tabs while `infoError` is set, not alongside
+   * them, so there is no tab to switch into. It still opens the same dialog
+   * unconditionally for now — see the report on this task for the follow-up
+   * this leaves.
+   */
+  function handleOpenHeaders() {
+    if (resolveOpenHeadersAction(toolWideHeadersHostOwned) === 'switch-to-headers-tab') {
+      set({ activeRequestTab: 'headers' });
+    } else {
+      setHeadersOpen(true);
+    }
+  }
+
+  /**
    * Mirrors `ScriptEditorPanel`'s own `toggleMaximize` one-for-one — both
    * consume the same `ScriptPanelResizeContext` panel (the outer
    * script-panel slot), so growing/restoring it has to agree on what
@@ -321,6 +394,12 @@ export function FunctionRunShell({
   const effectiveVerb = verb ?? 'GET';
   const payloadAvailable = carriesBody(effectiveVerb);
   const effectiveMode = resolveEffectiveMode(mode, effectiveVerb);
+  // Same computed-override idiom as `effectiveMode` just above, applied to
+  // which request tab is shown: a stored `'body'` tab is hidden (falls back
+  // to Params) without being overwritten, so switching back to a
+  // body-bearing verb restores it with no special-case wiring — see
+  // `resolveEffectiveRequestTab`'s own doc comment.
+  const effectiveRequestTab = resolveEffectiveRequestTab(activeRequestTab, effectiveVerb);
 
   // I4: driven by whether the *adapted* view actually came back, not by
   // `/info`'s bare `hasView` flag — see `computeInputViewAvailability`.
@@ -353,7 +432,7 @@ export function FunctionRunShell({
             invokeDisabledReason={gate.reason}
             invoking={invoking}
             onInvoke={() => void handleInvoke()}
-            onOpenHeaders={() => setHeadersOpen(true)}
+            onOpenHeaders={handleOpenHeaders}
           />
         </div>
 
@@ -391,21 +470,62 @@ export function FunctionRunShell({
             className="flex min-h-0 flex-col overflow-hidden">
             <div className="min-h-0 flex-1 overflow-y-auto p-3">
               <div className="flex flex-col gap-2">
-                <FunctionRunToolbar
-                  scope={scope}
-                  workflowKey={workflowKey}
-                  instanceId={instanceId}
-                  onScopeIdsChange={(next) =>
-                    // I5: the ids just changed, so whatever `info` was loaded
-                    // for the *previous* ids no longer applies. Clear it
-                    // immediately (rather than waiting out the debounce +
-                    // request) so Send is not enabled — against the wrong
-                    // instance — for that whole window.
-                    set({ ...next, info: null, infoError: null, infoErrorIsAuthorization: false })
-                  }
-                  queryString={queryString}
-                  onQueryStringChange={(next) => set({ queryString: next })}
-                />
+                {/*
+                 * Scope-id fields (F/I only) live here, above the tab strip
+                 * — not inside a tab, and not folded into
+                 * `FunctionRunEndpointBar` (a section-1 file this task
+                 * leaves untouched). They are request *identity*: which
+                 * workflow instance the request targets, not a facet of the
+                 * request body/params/headers a user would expect to have
+                 * to switch tabs to find, and they drive the `/info` load
+                 * regardless of which of Params/Headers/Body is active. The
+                 * endpoint bar was the other option the plan offered, but
+                 * putting a scope-only concern there would mean every
+                 * domain-scoped (D) function pays for an empty second row,
+                 * and would touch a component this task does not otherwise
+                 * need to change.
+                 */}
+                {scope !== 'D' ? (
+                  <div className="flex flex-wrap items-end gap-2">
+                    <Field label="Workflow key" className="min-w-40 flex-1">
+                      <Input
+                        size="sm"
+                        value={workflowKey}
+                        onChange={(e) =>
+                          // I5: the ids just changed, so whatever `info` was
+                          // loaded for the *previous* ids no longer applies.
+                          // Clear it immediately (rather than waiting out the
+                          // debounce + request) so Send is not enabled —
+                          // against the wrong instance — for that whole
+                          // window.
+                          set({
+                            workflowKey: e.target.value,
+                            info: null,
+                            infoError: null,
+                            infoErrorIsAuthorization: false,
+                          })
+                        }
+                      />
+                    </Field>
+                    <Field label="Instance id" className="min-w-40 flex-1">
+                      <Input
+                        size="sm"
+                        value={instanceId}
+                        onChange={(e) =>
+                          set({
+                            instanceId: e.target.value,
+                            info: null,
+                            infoError: null,
+                            infoErrorIsAuthorization: false,
+                          })
+                        }
+                      />
+                    </Field>
+                    <span className="text-muted-foreground w-full text-[10px]">
+                      A {scope}-scoped function runs against a workflow instance.
+                    </span>
+                  </div>
+                ) : null}
 
                 {declaredButUnavailable ? (
                   <p className="text-muted-foreground text-[10px]">
@@ -413,20 +533,45 @@ export function FunctionRunShell({
                     {payloadAvailable ? ' — use Payload instead.' : ' — use the query string field instead.'}
                   </p>
                 ) : null}
-                <FunctionRunInputPane
-                  mode={mode}
-                  onModeChange={(nextMode) => set({ mode: nextMode })}
-                  hasInputView={hasUsableInputView}
-                  payloadAvailable={payloadAvailable}
-                  inputView={inputViewContent as ViewResponse | null}
-                  onViewFormChange={(data) => set({ viewFormData: data })}
-                  payloadEditorProps={{
-                    contentType,
-                    onContentTypeChange: (nextContentType) => set({ contentType: nextContentType }),
-                    value: payload,
-                    onChange: (nextPayload) => set({ payload: nextPayload }),
-                    schema: inputSchema,
-                  }}
+
+                <FunctionRunRequestTabs
+                  activeTab={effectiveRequestTab}
+                  onTabChange={(tab) => set({ activeRequestTab: tab })}
+                  bodyAvailable={payloadAvailable}
+                  paramsContent={
+                    <FunctionRunParamsTab
+                      queryString={queryString}
+                      onQueryStringChange={(next) => set({ queryString: next })}
+                      view={paramsView}
+                      onViewChange={setParamsView}
+                    />
+                  }
+                  headersContent={
+                    <FunctionRunHeadersTab
+                      toolWideHeaders={toolWideHeadersRecord}
+                      toolWideHeadersHostOwned={toolWideHeadersHostOwned}
+                      sessionHeaders={sessionHeaders}
+                      onSessionHeadersChange={setSessionHeaders}
+                      onEditToolWideHeaders={() => setHeadersOpen(true)}
+                    />
+                  }
+                  bodyContent={
+                    <FunctionRunInputPane
+                      mode={mode}
+                      onModeChange={(nextMode) => set({ mode: nextMode })}
+                      hasInputView={hasUsableInputView}
+                      payloadAvailable={payloadAvailable}
+                      inputView={inputViewContent as ViewResponse | null}
+                      onViewFormChange={(data) => set({ viewFormData: data })}
+                      payloadEditorProps={{
+                        contentType,
+                        onContentTypeChange: (nextContentType) => set({ contentType: nextContentType }),
+                        value: payload,
+                        onChange: (nextPayload) => set({ payload: nextPayload }),
+                        schema: inputSchema,
+                      }}
+                    />
+                  }
                 />
               </div>
             </div>
@@ -460,14 +605,22 @@ export function FunctionRunShell({
         </ResizablePanelGroup>
       )}
 
+      {/*
+       * Scoped to the Forge-wide set now, not this run's own headers — those
+       * are edited inline in the Headers tab's `KeyValueEditor` instead (see
+       * `FunctionRunHeadersTab`). This dialog is the one place in the app
+       * that already commits to `useToolHeadersStore`, so both the endpoint
+       * bar's quiet "Headers" button and the Headers tab's "Edit" control
+       * route here rather than each getting their own editor for the same
+       * shared data.
+       */}
       <HeadersConfigDialog
         open={headersOpen}
         onClose={() => setHeadersOpen(false)}
-        initialHeaders={savedHeaderEntries}
-        onSave={(nextHeaders) => {
-          setSavedHeaderEntries(nextHeaders);
-          setSessionHeaders(Object.fromEntries(nextHeaders.map((h) => [h.name, h.value])));
-        }}
+        initialHeaders={Object.entries(toolWideHeadersRecord).map(([name, value]) => ({ name, value }))}
+        onSave={(nextHeaders) =>
+          useToolHeadersStore.getState().setHeaders(Object.fromEntries(nextHeaders.map((h) => [h.name, h.value])))
+        }
       />
     </div>
   );

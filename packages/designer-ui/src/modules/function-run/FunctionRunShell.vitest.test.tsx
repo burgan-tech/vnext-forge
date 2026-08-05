@@ -14,7 +14,15 @@ vi.mock('./FunctionRunApi', () => ({
   invoke: vi.fn(),
 }));
 
-const { FunctionRunShell } = await import('./FunctionRunShell.js');
+// Not mocked: `areToolHeadersHostOwned` (`../../app/ToolHeadersSync.js`)
+// already guards `typeof window === 'undefined'` — the exact condition this
+// package's Node-only test environment is always in — and returns `false`
+// there, so every render below sees `toolWideHeadersHostOwned: false` with
+// no mock needed. `resolveOpenHeadersAction`'s own tests below exercise the
+// `true` branch directly, as a pure function, instead — see that describe
+// block's comment for why a render-level end-to-end test of the `true`
+// branch is not possible under this harness at all.
+const { FunctionRunShell, resolveOpenHeadersAction } = await import('./FunctionRunShell.js');
 
 const render = (over: Record<string, unknown> = {}) =>
   renderToStaticMarkup(
@@ -71,6 +79,31 @@ describe('FunctionRunShell', () => {
     expect(render()).toContain('/api/v1/core/functions/get-branches');
   });
 
+  it('shows the Params and Headers request tabs, with Body hidden before /info resolves a body-bearing verb', () => {
+    // No `/info` response yet at first render, so `verb` is still `null` and
+    // `effectiveVerb` falls back to `GET` — a body-less verb, so the Body
+    // tab must not exist at all yet (see `resolveEffectiveRequestTab` /
+    // `FunctionRunRequestTabs`), even though the store's own default
+    // `activeRequestTab` is `'body'`.
+    const html = render();
+    expect(html).toContain('>Params<');
+    expect(html).toContain('>Headers<');
+    expect(html).not.toContain('>Body<');
+  });
+
+  it('actually mounts the Params tab content on first render — not left with no active tab', () => {
+    // The store's default `activeRequestTab` is `'body'`, which does not
+    // exist as a tab yet (see the test above). If the shell passed that raw
+    // value straight to `FunctionRunRequestTabs` instead of resolving it
+    // through `resolveEffectiveRequestTab` first, Radix would find no
+    // trigger/content pair for `'body'` and mark *nothing* active — Params'
+    // own content (unlike its trigger label, which renders unconditionally)
+    // would then be missing too. Content-specific text, not the trigger
+    // label, is what actually distinguishes "resolved" from "unresolved"
+    // here.
+    expect(render()).toContain('Query parameters sent with every request');
+  });
+
   it('does not render a maximize control for the standalone surface', () => {
     // `ScriptPanelResizeContext` is only ever provided by
     // `FlowEditorCanvasAndScriptResizableColumn`, which this test does not
@@ -123,6 +156,7 @@ describe('FunctionRunShell', () => {
       instanceId: 'inst-a',
       mode: 'view',
       verb: 'POST',
+      activeRequestTab: 'headers',
     });
 
     render({ functionKey: 'other-function' });
@@ -134,6 +168,48 @@ describe('FunctionRunShell', () => {
     expect(state.instanceId).toBe('');
     expect(state.mode).toBe('payload');
     expect(state.verb).toBeNull();
+    // Request-tabs task (section 2): `activeRequestTab` is a store field
+    // added after this test was first written — pinned here so a future
+    // field added without updating `createInitialState()` fails loudly
+    // instead of silently leaking one function's tab choice into the next.
+    expect(state.activeRequestTab).toBe('body');
     expect(state.loadedIdentity).toBe('core::other-function');
+  });
+});
+
+describe('resolveOpenHeadersAction', () => {
+  // A render-level, end-to-end test of this wiring (seed the store, assert
+  // the Headers tab's HTML differs) is not possible here, and not just
+  // inconvenient: `useFunctionRunStore`'s React binding feeds
+  // `useSyncExternalStore`'s SSR snapshot argument `selector(api.getInitialState())`
+  // — the state as it was at *store creation*, frozen forever (see this
+  // file's other tests and `FunctionRunShell.tsx`'s own mount-effect
+  // comment) — so no `.set()` call made from a test can ever change what a
+  // `renderToStaticMarkup` render of this component sees, for *any* field,
+  // including `activeRequestTab`. Radix also does not mount an inactive
+  // `TabsContent`'s children at all (verified against this package's own
+  // harness — see `FunctionRunRequestTabs.vitest.test.tsx`), and the frozen
+  // initial `activeRequestTab` never resolves to `'headers'` on first
+  // render, so `FunctionRunHeadersTab`'s function body — and therefore
+  // `toolWideHeadersHostOwned`'s effect on it — can never execute inside a
+  // `FunctionRunShell` render at all. That logic is already covered
+  // directly: `FunctionRunHeadersTab.vitest.test.tsx`'s host-owned describe
+  // block asserts the rendering both ways, and the two tests below assert
+  // the decision `handleOpenHeaders` delegates to. Between the two, the
+  // only untested seam is three lines of prop-threading in
+  // `FunctionRunShell.tsx` (`toolWideHeadersHostOwned={toolWideHeadersHostOwned}`,
+  // `onOpenHeaders={handleOpenHeaders}`), which `tsc` already guards: an
+  // omitted or mistyped prop there is a compile error, not a silent gap.
+  it('switches to the Headers tab when the Forge-wide set is host-owned', () => {
+    // Host-owned (the extension): `HeadersConfigDialog` cannot actually
+    // save — the host overwrites `useToolHeadersStore` from its own
+    // injected value on every panel open — so this must not route there.
+    expect(resolveOpenHeadersAction(true)).toBe('switch-to-headers-tab');
+  });
+
+  it('opens the dialog when the Forge-wide set is not host-owned', () => {
+    // Not host-owned (the web shell): the persisted store IS the truth, so
+    // the previous, pre-fix behaviour is still correct.
+    expect(resolveOpenHeadersAction(false)).toBe('open-dialog');
   });
 });

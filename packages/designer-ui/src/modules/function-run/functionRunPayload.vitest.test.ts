@@ -6,6 +6,8 @@ import {
   CONTENT_TYPES,
   parseQueryString,
   resolveEffectiveMode,
+  resolveEffectiveRequestTab,
+  stringifyQueryPairs,
 } from './functionRunPayload';
 
 const PAYLOAD = { branchCode: '001', includeClosed: true };
@@ -308,5 +310,69 @@ describe('CONTENT_TYPES', () => {
   it('exposes exactly the two media types the proxy allows', () => {
     expect(CONTENT_TYPES.json).toBe('application/json');
     expect(CONTENT_TYPES.form).toBe('application/x-www-form-urlencoded');
+  });
+});
+
+describe('stringifyQueryPairs', () => {
+  it('round-trips a simple set of pairs through parseQueryString', () => {
+    const qs = stringifyQueryPairs([
+      { key: 'a', value: '1' },
+      { key: 'b', value: '2' },
+    ]);
+    expect(parseQueryString(qs)).toEqual({ a: '1', b: '2' });
+  });
+
+  it('returns an empty string for empty input', () => {
+    expect(stringifyQueryPairs([])).toBe('');
+  });
+
+  it('lets URLSearchParams encode special characters, and parseQueryString decodes them back', () => {
+    const qs = stringifyQueryPairs([{ key: 'q', value: 'a b&c=d' }]);
+    // Pinned to the exact wire form (not just the round trip) so a switch
+    // away from URLSearchParams — e.g. hand-rolled encodeURIComponent, which
+    // encodes a space as %20 rather than + — would be caught here even if it
+    // happened to still round-trip correctly.
+    expect(qs).toBe('q=a+b%26c%3Dd');
+    expect(parseQueryString(qs)).toEqual({ q: 'a b&c=d' });
+  });
+
+  it('drops an empty-key row, matching parseQueryString skipping it on the way back in', () => {
+    const qs = stringifyQueryPairs([
+      { key: '', value: 'orphaned' },
+      { key: 'a', value: '1' },
+    ]);
+    expect(qs).toBe('a=1');
+  });
+
+  it('preserves duplicate keys in the string itself, even though parseQueryString then collapses them', () => {
+    const qs = stringifyQueryPairs([
+      { key: 'a', value: '1' },
+      { key: 'a', value: '2' },
+    ]);
+    // Not collapsed here — a `.set`-based implementation would produce
+    // `a=2` directly and this assertion would not tell the two apart from
+    // the correct `.append`-based one, since parseQueryString collapses
+    // either way. Asserting the string itself pins down *which* layer does
+    // the collapsing.
+    expect(qs).toBe('a=1&a=2');
+    expect(parseQueryString(qs)).toEqual({ a: '2' });
+  });
+});
+
+describe('resolveEffectiveRequestTab', () => {
+  it('keeps the stored tab for params and headers regardless of verb', () => {
+    expect(resolveEffectiveRequestTab('params', 'GET')).toBe('params');
+    expect(resolveEffectiveRequestTab('headers', 'GET')).toBe('headers');
+    expect(resolveEffectiveRequestTab('headers', 'POST')).toBe('headers');
+  });
+
+  it('keeps the body tab for a body-bearing verb', () => {
+    expect(resolveEffectiveRequestTab('body', 'POST')).toBe('body');
+    expect(resolveEffectiveRequestTab('body', 'PATCH')).toBe('body');
+  });
+
+  it('falls back to params when the body tab is selected but the verb carries no body', () => {
+    expect(resolveEffectiveRequestTab('body', 'GET')).toBe('params');
+    expect(resolveEffectiveRequestTab('body', 'DELETE')).toBe('params');
   });
 });

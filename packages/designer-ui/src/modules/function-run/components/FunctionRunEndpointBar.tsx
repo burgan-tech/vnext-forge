@@ -22,12 +22,14 @@ export interface FunctionRunEndpointBarProps {
  * endpoint, and the action that fires the request — one horizontal bar,
  * always visible, never empty.
  *
- * Replaces `FunctionRunToolbar`'s former first row. Send is the primary
+ * Replaces the former `FunctionRunToolbar`'s first row (that component is
+ * gone now — the scope-id fields and query-string input it used to own moved
+ * into the request panel/tabs; see `FunctionRunShell`). Send is the primary
  * action (`variant="default"`, this package's actual "solid/primary" look —
  * there is no `variant="primary"` in `ui/Button`); Headers is intentionally
  * quieter (`variant="ghost"`) now that it is no longer the loudest control on
- * the bar. `FunctionRunToolbar` keeps the scope-id fields and the
- * query-string input for now (a later task moves them into request tabs).
+ * the bar — it still opens `HeadersConfigDialog`, now scoped to the
+ * Forge-wide header set (see the Headers tab).
  */
 export function FunctionRunEndpointBar({
   verbs,
