@@ -132,6 +132,7 @@ export function TransitionDialog({ configRef, persistConfig, projectId }: Transi
       // merged map to the SDK so a submit-from-preview inside the
       // dialog sees the row edits the user just typed.
       getSessionHeaders: () => sessionHeadersRef.current,
+      getToolWideHeaders: () => useQuickRunStore.getState().toolWideHeaders,
       // Binding context for `${param}` placeholders. Same source as
       // the dashboard's delegate — both read the live Data tab
       // snapshot so a transition fired through the dialog sees the

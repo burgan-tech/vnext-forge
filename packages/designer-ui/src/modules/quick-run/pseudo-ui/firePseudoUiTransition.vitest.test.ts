@@ -64,6 +64,30 @@ describe('firePseudoUiTransition (R24)', () => {
     });
   });
 
+  it('places toolWideHeaders at the lowest priority — below globalHeaders, sessionHeaders, and per-transition headers', async () => {
+    mockedFire.mockResolvedValueOnce({ success: true, data: { id: 'i', key: 'k', status: 'ok' } });
+
+    await firePseudoUiTransition({
+      domain: 'd',
+      workflowKey: 'wf',
+      instanceId: 'inst',
+      transitionKey: 'approve',
+      formData: {},
+      toolWideHeaders: { 'X-Common': 'tool-wide', 'X-Tool': 'tv', Authorization: 'Bearer tool-token' },
+      sessionHeaders: { 'X-Common': 'session' },
+      bucketConfig: makeConfig({ globalHeaders: {} }),
+    });
+
+    const call = mockedFire.mock.calls[0][0];
+    // Session wins over tool-wide on the shared key, and the tool-wide-only
+    // key still rides along — this is the whole point of the layer.
+    expect(call.headers).toEqual({
+      'X-Common': 'session',
+      'X-Tool': 'tv',
+      Authorization: 'Bearer tool-token',
+    });
+  });
+
   it('passes formData as attributes (no instance-data merge)', async () => {
     mockedFire.mockResolvedValueOnce({ success: true, data: { id: 'i', key: 'k', status: 'ok' } });
 

@@ -484,6 +484,17 @@ export class ForgeToolsSettingsService implements vscode.Disposable {
     return this.quickRunCache;
   }
 
+  /**
+   * Returns the in-memory cached Quick Run settings synchronously. Returns
+   * `undefined` if `loadQuickRunSettings()` has not been called yet — `activate()`
+   * pre-loads it at startup for exactly this reason, so `DesignerPanel` can
+   * inject `globalHeaders` into `window.__VNEXT_CONFIG__` without making
+   * `buildWebviewConfig` async.
+   */
+  getCachedQuickRunSettings(): QuickRunSettings | undefined {
+    return this.quickRunCache;
+  }
+
   async saveQuickRunSettings(patch: Partial<QuickRunSettings>): Promise<QuickRunSettings> {
     const current = await this.loadQuickRunSettings();
     const merged: QuickRunSettings = {

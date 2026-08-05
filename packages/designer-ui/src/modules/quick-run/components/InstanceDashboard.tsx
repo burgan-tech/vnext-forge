@@ -976,6 +976,7 @@ function StateViewContent({
       // edits; only identity inputs (domain/workflow/instance) bust it.
       getBucketConfig: () => configRef.current ?? null,
       getSessionHeaders: () => sessionHeadersRef.current,
+      getToolWideHeaders: () => useQuickRunStore.getState().toolWideHeaders,
       // `${param}` binding resolver reads from the same store
       // snapshot the Data tab renders, so authors can reference
       // `${customer.ownerUserId}` or `${session.id}` inside URNs and

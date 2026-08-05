@@ -213,6 +213,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // Pre-load settings so DesignerPanel can inject them synchronously
   await forgeToolsSettings.loadSettings();
   await forgeToolsSettings.loadEnvironments();
+  // Also pre-load Quick Run settings (`globalHeaders`) so DesignerPanel can
+  // inject them into the in-editor Function Run panel synchronously too —
+  // see `getCachedQuickRunSettings()`.
+  await forgeToolsSettings.loadQuickRunSettings();
 
   designerPanel.setForgeToolsSettings(forgeToolsSettings);
 

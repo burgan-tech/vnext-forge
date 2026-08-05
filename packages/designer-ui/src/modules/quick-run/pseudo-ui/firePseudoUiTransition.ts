@@ -25,6 +25,8 @@ export interface FirePseudoUiTransitionParams {
   bucketConfig: WorkflowBucketConfig | null;
   /** Session-level header overrides from the current quick-run tab. */
   sessionHeaders?: Record<string, string>;
+  /** Forge-wide headers (see `useToolHeadersStore`), lowest merge priority. */
+  toolWideHeaders?: Record<string, string>;
   runtimeUrl?: string;
   /**
    * Persist the updated config on successful fire. Pseudo-ui submit
@@ -47,9 +49,9 @@ export interface FirePseudoUiTransitionParams {
  * Transition" click produce the same wire request and leave the
  * persisted `WorkflowBucketConfig` in the same shape.
  *
- * Header merge order (lowest → highest priority): `globalHeaders` →
- * `sessionHeaders` → persisted `transitions[idx].headers` (the
- * per-transition delta the manual dialog writes). Pseudo-ui itself
+ * Header merge order (lowest → highest priority): `toolWideHeaders` →
+ * `globalHeaders` → `sessionHeaders` → persisted `transitions[idx].headers`
+ * (the per-transition delta the manual dialog writes). Pseudo-ui itself
  * doesn't add headers.
  *
  * Attributes: `formData` only (instance data is *not* merged in;
@@ -66,6 +68,7 @@ export async function firePseudoUiTransition(
     p.bucketConfig,
     p.sessionHeaders,
     prevEntry?.headers,
+    p.toolWideHeaders,
   );
 
   const result = await QuickRunApi.fireTransition({

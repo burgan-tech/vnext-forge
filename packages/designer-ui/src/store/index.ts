@@ -6,6 +6,7 @@ export {
 export { useProjectStore } from './useProjectStore.js';
 export { useEditorPanelsStore } from './useEditorPanelsStore.js';
 export { useRuntimeStore } from './useRuntimeStore.js';
+export { useToolHeadersStore } from './useToolHeadersStore.js';
 export { useValidationStore } from './useValidationStore.js';
 export { useEditorValidationStore } from './useEditorValidationStore.js';
 export { useWorkflowStore } from './useWorkflowStore.js';
