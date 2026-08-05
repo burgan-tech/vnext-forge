@@ -52,3 +52,25 @@ describe('mergeQuickRunHeaders', () => {
     expect(session).toEqual({ 'X-Session': 'sv' });
   });
 });
+
+describe('mergeQuickRunHeaders — tool-wide layer', () => {
+  it('applies tool-wide headers as the lowest priority layer', () => {
+    const merged = mergeQuickRunHeaders(
+      { globalHeaders: { b: 'bucket' } } as never,
+      { c: 'session' },
+      { d: 'extra' },
+      { a: 'tool', b: 'tool', c: 'tool', d: 'tool' },
+    );
+    expect(merged).toEqual({ a: 'tool', b: 'bucket', c: 'session', d: 'extra' });
+  });
+
+  it('works with only the tool-wide layer set', () => {
+    expect(mergeQuickRunHeaders(null, undefined, undefined, { authorization: 'Bearer t' }))
+      .toEqual({ authorization: 'Bearer t' });
+  });
+
+  it('is unchanged when no tool-wide headers are supplied', () => {
+    expect(mergeQuickRunHeaders({ globalHeaders: { a: '1' } } as never, { b: '2' }))
+      .toEqual({ a: '1', b: '2' });
+  });
+});

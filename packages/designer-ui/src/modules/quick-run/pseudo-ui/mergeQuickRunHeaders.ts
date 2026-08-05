@@ -4,7 +4,12 @@ import type { WorkflowBucketConfig } from '../QuickRunApi';
  * The single header-merge rule for every Quick Run engine call.
  *
  * Priority, lowest → highest:
- *   `bucketConfig.globalHeaders` → `sessionHeaders` → `extra`
+ *   `toolWide` → `bucketConfig.globalHeaders` → `sessionHeaders` → `extra`
+ *
+ * `toolWide` is the Forge-wide header set shared by the workflow runner and
+ * the function runner, so an auth token is entered once and applies
+ * everywhere. Per-workflow headers still override it, so existing setups keep
+ * their behaviour.
  *
  * `extra` exists for the per-transition delta the manual TransitionDialog
  * persists; ordinary callers omit it.
@@ -18,8 +23,10 @@ export function mergeQuickRunHeaders(
   bucketConfig: WorkflowBucketConfig | null | undefined,
   sessionHeaders: Record<string, string> | undefined,
   extra?: Record<string, string>,
+  toolWide?: Record<string, string>,
 ): Record<string, string> {
   return {
+    ...(toolWide ?? {}),
     ...(bucketConfig?.globalHeaders ?? {}),
     ...(sessionHeaders ?? {}),
     ...(extra ?? {}),
