@@ -14,6 +14,11 @@ export function buildNavigatePathForTab(projectId: string, tab: EditorTab): stri
     const n = encodeURIComponent(tab.name);
     return `/project/${projectId}/quickrun/${g}/${n}`;
   }
+  if (tab.kind === 'functionrun' && tab.group && tab.name) {
+    const g = encodeURIComponent(tab.group);
+    const n = encodeURIComponent(tab.name);
+    return `/project/${projectId}/function-run/${g}/${n}`;
+  }
   if (tab.kind === 'component' && tab.componentKind && tab.group && tab.name) {
     const g = encodeURIComponent(tab.group);
     const n = encodeURIComponent(tab.name);

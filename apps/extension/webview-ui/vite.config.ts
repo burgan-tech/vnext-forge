@@ -6,7 +6,8 @@ import tailwindcss from '@tailwindcss/vite';
 /**
  * Vite config for the VS Code extension webview bundle.
  *
- * Multi-page build: `index.html` (designer) and `quickrun.html` (QuickRun panel).
+ * Multi-page build: `index.html` (designer), `quickrun.html` (workflow Quick
+ * Run panel), and `functionrun.html` (Function Quick Run panel).
  *
  * - `root` is set to this directory so `index.html` is the Vite entry.
  * - `base: ''` emits relative asset paths, which the extension rewrites via
@@ -31,6 +32,7 @@ export default defineConfig({
       input: {
         main: path.resolve(__dirname, 'index.html'),
         quickrun: path.resolve(__dirname, 'quickrun.html'),
+        functionrun: path.resolve(__dirname, 'functionrun.html'),
       },
     },
   },

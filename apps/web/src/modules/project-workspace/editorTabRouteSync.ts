@@ -2,6 +2,7 @@ import { matchPath } from 'react-router-dom';
 
 import {
   componentEditorTabId,
+  functionRunTabId,
   quickRunTabId,
   vnextWorkspaceConfigTabId,
   type ComponentEditorKind,
@@ -33,6 +34,18 @@ export function activeTabIdFromPathname(projectId: string, pathname: string): st
     quickRunMatch.params.name
   ) {
     return quickRunTabId(projectId, quickRunMatch.params.group, quickRunMatch.params.name);
+  }
+
+  const functionRunMatch = matchPath(
+    { path: '/project/:id/function-run/:group/:name', end: true },
+    pathname,
+  );
+  if (
+    functionRunMatch?.params.id === projectId &&
+    functionRunMatch.params.group &&
+    functionRunMatch.params.name
+  ) {
+    return functionRunTabId(projectId, functionRunMatch.params.group, functionRunMatch.params.name);
   }
 
   const kinds: ComponentEditorKind[] = ['flow', 'task', 'schema', 'view', 'function', 'extension'];
