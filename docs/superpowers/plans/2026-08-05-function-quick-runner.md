@@ -1599,29 +1599,235 @@ git commit -m "feat(function-run): run store"
 ```
 
 ---
+### Task 12b: Expose the rendered view's form data
+
+**This task exists because the approved design cannot be built without it.** The design says the runner owns the Invoke button and the input view is "just a form". But `PseudoUiViewSurface` keeps `formData` in local state (`PseudoUiViewSurface.tsx:500`, `onFormChange={(next) => setFormData(next)}`) and never lifts it out — today the only way form data escapes is through `delegate.onAction`, which fires on a user action, not on every keystroke. So a runner-owned Invoke button has nothing to send in view mode.
+
+`PseudoUiPseudoViewFrame` already accepts an `onFormChange` prop and forwards it to the SDK. The change is to make it optional-passthrough one level up.
+
+**Files:**
+- Modify: `packages/designer-ui/src/modules/quick-run/pseudo-ui/PseudoUiViewSurface.tsx`
+- Modify: `packages/designer-ui/src/modules/quick-run/pseudo-ui/PseudoUiOrJsonBlock.tsx`
+
+- [ ] **Step 1: Add the prop to `PseudoUiViewSurface`**
+
+Add to `PseudoUiViewSurfaceProps`:
+
+```ts
+  /**
+   * Called on every form change inside the rendered view.
+   *
+   * The surface keeps `formData` in its own state so the SDK stays
+   * controlled; this is a read-only tap for hosts that need the current
+   * values without waiting for an action. The Function Quick Runner needs it
+   * because its Invoke button lives outside the view — the view collects
+   * input, the runner decides when to send it.
+   */
+  onFormChange?: (data: Record<string, unknown>) => void;
+```
+
+At line ~500, keep the existing `setFormData` and add the notification:
+
+```tsx
+        onFormChange={(next) => {
+          setFormData(next);
+          onFormChange?.(next);
+        }}
+```
+
+- [ ] **Step 2: Thread it through `PseudoUiOrJsonBlock`**
+
+Add `onFormChange?: (data: Record<string, unknown>) => void;` to `PseudoUiOrJsonBlockProps` and pass it to `PseudoUiViewSurface`. The JSON branch ignores it — there is no form to change.
+
+- [ ] **Step 3: Verify nothing regressed**
+
+```bash
+pnpm --filter @vnext-forge-studio/designer-ui exec vitest run
+pnpm --filter @vnext-forge-studio/designer-ui exec tsc --noEmit -p tsconfig.json
+```
+
+Both props are optional, so every existing call site is unaffected. Expected: 563/563 still, tsc clean.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add packages/designer-ui/src/modules/quick-run/pseudo-ui/PseudoUiViewSurface.tsx packages/designer-ui/src/modules/quick-run/pseudo-ui/PseudoUiOrJsonBlock.tsx
+git commit -m "feat(pseudo-ui): optional onFormChange tap on the view surface"
+```
+
+---
+
+## Primitive signatures for Tasks 13–16
+
+Verified against source. Use these; do not guess.
+
+```ts
+// ui/Select — a native <select> wrapper. Children are <option> elements.
+<Select value={string} onChange={(e) => …} className?={string}>…</Select>
+
+// ui/Input — extends native input props.
+interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  error?: React.ReactNode; hoverable?: boolean; inputClassName?: string;
+  leading?: React.ReactNode; trailing?: React.ReactNode; size?: 'sm' | …;
+}
+
+// ui/Field — label + children + hint + error.
+<Field label={string} hint?={string} errorMsg?={string} required?={boolean} className?={string}>
+
+// modules/schema-form — a discriminated union; pick ONE value form.
+type SchemaFormProps =
+  | { schema; value: string;  onChange: (next: string) => void;  showRawToggle?; jsonEditorRows?; jsonEditorLabel?; showAllErrors? }
+  | { schema; objectValue: Record<string, unknown>; onObjectChange: (next: Record<string, unknown>) => void; /* …same optionals */ };
+
+// modules/quick-run/components/CopyableJsonBlock
+<CopyableJsonBlock value={unknown} fillHeight?={boolean} />
+<JsonEditorWithCopy value={string} onChange={(v: string) => void} rows?={number} label?={string} />
+
+// modules/quick-run/components/HeadersConfigDialog
+// NOTE: neither HeaderEntry nor the props interface is exported — build the array inline.
+<HeadersConfigDialog open={boolean} onClose={() => void}
+  initialHeaders={{ name: string; value: string; isSecret?: boolean }[]}
+  onSave={(headers) => void} />
+
+// modules/quick-run/pseudo-ui/PseudoUiOrJsonBlock — takes a ViewResponse, NOT raw content.
+<PseudoUiOrJsonBlock
+  view={ViewResponse} jsonValue={unknown} displayContent={string}
+  ariaLabel={string} integrationMode={'simulation' | 'preview'}
+  panelStorageScope?={string} onFormChange?={(d) => void}  // ← added in Task 12b
+  delegate? pseudoUiSchema? resolveSchema? instanceData? initialFormData? fillHeight? onPseudoError? />
+
+// modules/quick-run/types/quickrun.types
+interface ViewResponse {
+  key: string; content: string | Record<string, unknown>; type: string;
+  display?: string; modes?: …; label?: string; renderer?: ViewRenderer;
+}
+```
+
+**The adapter this implies.** `functions/fetchContract` returns a `FunctionExchange` (`{status, contentType, body, json?}`), but `PseudoUiOrJsonBlock` needs a `ViewResponse`. Task 15 must convert one to the other — the view JSON arrives in `exchange.json`, and `key`/`type`/`renderer` come from that payload. Write this as a small pure `toViewResponse(exchange)` in `functionRunPayload.ts`'s sibling (a new `functionRunView.ts`) with a colocated test, rather than inline in JSX.
+
+---
 
 ### Task 13: Toolbar
 
 **Files:**
 - Create: `packages/designer-ui/src/modules/function-run/components/FunctionRunToolbar.tsx`
+- Test: `packages/designer-ui/src/modules/function-run/components/FunctionRunToolbar.vitest.test.tsx`
 
-- [ ] **Step 1: Implement**
+- [ ] **Step 1: Write the failing test**
 
-Props: `{ verbs, verb, onVerbChange, canInvoke, invokeDisabledReason, invoking, onInvoke, onOpenHeaders, scope, workflowKey, instanceId, onScopeIdsChange }`.
+```tsx
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { describe, expect, it } from 'vitest';
 
-Requirements the component must satisfy:
+import { FunctionRunToolbar } from './FunctionRunToolbar.js';
 
-- A `Select` of `verbs` (from `resolveVerbs`), value `verb`.
-- An **Invoke** `Button`, `disabled={!canInvoke || invoking}`, showing a spinner label while `invoking`.
-- When `!canInvoke`, render `invokeDisabledReason` next to the button as `text-[10px] text-muted-foreground` — never a silently disabled control.
-- A **Headers** button opening `HeadersConfigDialog`.
-- When `scope !== 'D'`, two `Input`s labelled *Workflow key* and *Instance id* wired to `onScopeIdsChange`, with the hint: `A {scope}-scoped function runs against a workflow instance.`
+const base = {
+  verbs: ['GET', 'POST'] as const,
+  verb: 'GET' as const,
+  onVerbChange: () => {},
+  canInvoke: true,
+  invokeDisabledReason: null,
+  invoking: false,
+  onInvoke: () => {},
+  onOpenHeaders: () => {},
+  scope: 'D' as const,
+  workflowKey: '',
+  instanceId: '',
+  onScopeIdsChange: () => {},
+};
 
-- [ ] **Step 2: Typecheck and commit**
+const render = (over: Record<string, unknown> = {}) =>
+  renderToStaticMarkup(createElement(FunctionRunToolbar, { ...base, ...over } as never));
+
+describe('FunctionRunToolbar', () => {
+  it('offers exactly the verbs it was given', () => {
+    const html = render();
+    expect(html).toContain('GET');
+    expect(html).toContain('POST');
+    expect(html).not.toContain('PATCH');
+  });
+
+  it('offers all four when the contract restricts nothing', () => {
+    const html = render({ verbs: ['GET', 'POST', 'PATCH', 'DELETE'] });
+    for (const verb of ['GET', 'POST', 'PATCH', 'DELETE']) expect(html).toContain(verb);
+  });
+
+  it('hides the instance fields for a domain-scoped function', () => {
+    const html = render();
+    expect(html).not.toContain('Workflow key');
+    expect(html).not.toContain('Instance id');
+  });
+
+  it('asks for workflow and instance for F and I scopes', () => {
+    for (const scope of ['F', 'I']) {
+      const html = render({ scope });
+      expect(html).toContain('Workflow key');
+      expect(html).toContain('Instance id');
+    }
+  });
+
+  it('states why Invoke is disabled rather than just disabling it', () => {
+    // A disabled control with no explanation is the failure mode this guards.
+    const html = render({ canInvoke: false, invokeDisabledReason: 'Enter an instance id to run this function.' });
+    expect(html).toContain('Enter an instance id to run this function.');
+    expect(html).toMatch(/<button[^>]*disabled/);
+  });
+
+  it('disables Invoke while a call is in flight', () => {
+    expect(render({ invoking: true })).toMatch(/<button[^>]*disabled/);
+  });
+});
+```
+
+- [ ] **Step 2: Run to verify it fails**
 
 ```bash
-pnpm --filter @vnext-forge-studio/designer-ui exec tsc --noEmit
-git add packages/designer-ui/src/modules/function-run/components/FunctionRunToolbar.tsx
+pnpm --filter @vnext-forge-studio/designer-ui exec vitest run src/modules/function-run/components/FunctionRunToolbar.vitest.test.tsx
+```
+
+Expected: FAIL — module not found.
+
+- [ ] **Step 3: Implement**
+
+Props:
+
+```ts
+import type { FunctionVerb, FunctionScope } from '@vnext-forge-studio/vnext-types';
+
+export interface FunctionRunToolbarProps {
+  verbs: readonly FunctionVerb[];
+  verb: FunctionVerb | null;
+  onVerbChange: (verb: FunctionVerb) => void;
+  canInvoke: boolean;
+  /** Shown next to a disabled Invoke; null when it is enabled. */
+  invokeDisabledReason: string | null;
+  invoking: boolean;
+  onInvoke: () => void;
+  onOpenHeaders: () => void;
+  scope: FunctionScope;
+  workflowKey: string;
+  instanceId: string;
+  onScopeIdsChange: (next: { workflowKey: string; instanceId: string }) => void;
+}
+```
+
+Layout — one flex row, `flex flex-wrap items-center gap-2`, matching the toolbar density used in `FunctionEditorPanel`'s cards:
+
+1. `<Select value={verb ?? ''} onChange={(e) => onVerbChange(e.target.value as FunctionVerb)} className="text-xs">` with one `<option>` per entry in `verbs`.
+2. Invoke `<Button variant="secondary" disabled={!canInvoke || invoking} onClick={onInvoke}>` — label `Invoke` or `Invoking…`.
+3. When `!canInvoke && invokeDisabledReason`, a `<span className="text-muted-foreground text-[10px]">{invokeDisabledReason}</span>` immediately after the button. **Never a silently disabled control.**
+4. A `Headers` button (`variant="default"`, `onClick={onOpenHeaders}`) — the dialog itself is the shell's, not the toolbar's.
+5. When `scope !== 'D'`, a second row: two `<Field label="Workflow key">` / `<Field label="Instance id">` wrapping `<Input size="sm">`, wired to `onScopeIdsChange`, plus a hint reading `A {scope}-scoped function runs against a workflow instance.`
+
+The toolbar is presentational — it holds no state and owns no dialog.
+
+- [ ] **Step 4: Verify** — 6 tests pass.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add packages/designer-ui/src/modules/function-run/components/FunctionRunToolbar.tsx packages/designer-ui/src/modules/function-run/components/FunctionRunToolbar.vitest.test.tsx
 git commit -m "feat(function-run): toolbar"
 ```
 
@@ -1631,48 +1837,231 @@ git commit -m "feat(function-run): toolbar"
 
 **Files:**
 - Create: `packages/designer-ui/src/modules/function-run/components/FunctionRunPayloadEditor.tsx`
+- Test: `packages/designer-ui/src/modules/function-run/components/FunctionRunPayloadEditor.vitest.test.tsx`
 
-- [ ] **Step 1: Implement**
+- [ ] **Step 1: Write the failing test**
 
-Props: `{ contentType, onContentTypeChange, value, onChange, schema, verb }`.
+```tsx
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { describe, expect, it, vi } from 'vitest';
 
-- Content-type `Select` with the two `CONTENT_TYPES` options.
-- `contentType === 'json'` **and** `schema` present → `SchemaForm` from `../../schema-form` (objectValue/onObjectChange), which already provides its own Form ⇄ JSON toggle.
-- `contentType === 'json'` **and no** schema → `JsonEditorWithCopy` from `../../quick-run/components/CopyableJsonBlock`.
-- `contentType === 'form'` → key/value rows (add / remove), producing a flat `Record<string, unknown>`.
-- When `verb` is `GET` or `DELETE`, show an inline note: `GET and DELETE send no body — these values are sent as query parameters.` Do **not** disable the editor.
+// Monaco does not run under this test setup (no jsdom); the JSON editor is
+// rendered by CopyableJsonBlock's sibling export.
+vi.mock('../../quick-run/components/CopyableJsonBlock', () => ({
+  JsonEditorWithCopy: () => null,
+  CopyableJsonBlock: () => null,
+}));
 
-- [ ] **Step 2: Typecheck and commit**
+const { FunctionRunPayloadEditor } = await import('./FunctionRunPayloadEditor.js');
 
-```bash
-pnpm --filter @vnext-forge-studio/designer-ui exec tsc --noEmit
-git add packages/designer-ui/src/modules/function-run/components/FunctionRunPayloadEditor.tsx
-git commit -m "feat(function-run): payload editor"
+const base = {
+  contentType: 'json' as const,
+  onContentTypeChange: () => {},
+  value: {},
+  onChange: () => {},
+  schema: null,
+  verb: 'POST' as const,
+};
+
+const render = (over: Record<string, unknown> = {}) =>
+  renderToStaticMarkup(createElement(FunctionRunPayloadEditor, { ...base, ...over } as never));
+
+describe('FunctionRunPayloadEditor', () => {
+  it('offers both content types the proxy allows', () => {
+    const html = render();
+    expect(html).toContain('application/json');
+    expect(html).toContain('application/x-www-form-urlencoded');
+  });
+
+  it('renders key/value rows for form-urlencoded', () => {
+    expect(render({ contentType: 'form', value: { a: '1' } })).toContain('a');
+  });
+
+  it('warns that GET and DELETE send no body, without disabling the editor', () => {
+    for (const verb of ['GET', 'DELETE']) {
+      const html = render({ verb });
+      expect(html).toContain('query parameters');
+    }
+  });
+
+  it('says nothing about query parameters for POST and PATCH', () => {
+    for (const verb of ['POST', 'PATCH']) {
+      expect(render({ verb })).not.toContain('query parameters');
+    }
+  });
+});
 ```
+
+- [ ] **Step 2: Run to verify it fails.**
+
+- [ ] **Step 3: Implement**
+
+```ts
+export interface FunctionRunPayloadEditorProps {
+  contentType: ContentTypeId;
+  onContentTypeChange: (next: ContentTypeId) => void;
+  value: Record<string, unknown>;
+  onChange: (next: Record<string, unknown>) => void;
+  /** From `inputSchema`, when the contract declares one. */
+  schema: Record<string, unknown> | null;
+  verb: FunctionVerb;
+}
+```
+
+Behaviour:
+
+- A `<Select>` of the two `CONTENT_TYPES` entries — label each with the media type itself, since that is what goes on the wire.
+- `contentType === 'json' && schema` → `<SchemaForm schema={schema} objectValue={value} onObjectChange={onChange} showRawToggle jsonEditorRows={10} />`. Use the **object** arm of the union, not the string arm — the runner holds a `Record`, and round-tripping through a string loses type fidelity.
+- `contentType === 'json' && !schema` → `<JsonEditorWithCopy value={JSON.stringify(value, null, 2)} onChange={…} rows={10} label="Payload (JSON)" />`. Parse on change; when the text is not valid JSON keep the last good object and surface the parse error under the editor rather than throwing.
+- `contentType === 'form'` → key/value rows: an `<Input>` pair per entry plus add/remove buttons, producing a flat `Record<string, unknown>`. Nested values are not representable in form encoding; say so in a hint rather than silently flattening.
+- When `verb` is `GET` or `DELETE`, render an inline note: `GET and DELETE send no body — these values are sent as query parameters.` **Do not disable the editor** — the values are still used, just as a query.
+
+- [ ] **Step 4: Verify** — 4 tests pass.
+
+- [ ] **Step 5: Commit** — `feat(function-run): payload editor`
 
 ---
 
 ### Task 15: Input pane
 
 **Files:**
+- Create: `packages/designer-ui/src/modules/function-run/functionRunView.ts` (+ colocated test)
 - Create: `packages/designer-ui/src/modules/function-run/components/FunctionRunInputPane.tsx`
+- Test: `packages/designer-ui/src/modules/function-run/components/FunctionRunInputPane.vitest.test.tsx`
 
-- [ ] **Step 1: Implement**
+- [ ] **Step 1: Write the failing test for the adapter**
 
-Props: `{ mode, onModeChange, hasInputView, inputViewContent, viewFormData, onViewFormChange, payloadEditorProps }`.
+`functionRunView.vitest.test.ts`:
 
-- A two-button `role="radiogroup"` toggle — `View` / `Payload` — copying the markup of `ViewBindingsSection.tsx:192-217`.
-- The `View` button is disabled with the title `This function declares no input view` when `!hasInputView`; **the Payload button is never disabled** — free input is always available.
-- `mode === 'view'` → `PseudoUiOrJsonBlock` with the fetched `inputViewContent`, `mode="simulation"`, and `onFormChange={onViewFormChange}`. The view is a form only; submission is the toolbar's job.
-- `mode === 'payload'` → `FunctionRunPayloadEditor`.
+```ts
+import { describe, expect, it } from 'vitest';
 
-- [ ] **Step 2: Typecheck and commit**
+import { toViewResponse } from './functionRunView';
 
-```bash
-pnpm --filter @vnext-forge-studio/designer-ui exec tsc --noEmit
-git add packages/designer-ui/src/modules/function-run/components/FunctionRunInputPane.tsx
-git commit -m "feat(function-run): input pane"
+describe('toViewResponse', () => {
+  it('adapts a contract exchange into the shape PseudoUiOrJsonBlock needs', () => {
+    const result = toViewResponse({
+      status: 200,
+      contentType: 'application/json',
+      responseHeaders: {},
+      body: '{"key":"branch-form","type":"pseudo-ui","content":{"component":"Column"}}',
+      json: { key: 'branch-form', type: 'pseudo-ui', content: { component: 'Column' } },
+    });
+    expect(result?.key).toBe('branch-form');
+    expect(result?.type).toBe('pseudo-ui');
+    expect(result?.content).toEqual({ component: 'Column' });
+  });
+
+  it('returns null when the contract returned no content', () => {
+    // `hasView: false`, or a 404 — "no contract right now" is not an error.
+    expect(toViewResponse(null)).toBeNull();
+    expect(
+      toViewResponse({ status: 404, contentType: 'application/json', responseHeaders: {}, body: '' }),
+    ).toBeNull();
+  });
+
+  it('returns null when the body was not parseable JSON', () => {
+    expect(
+      toViewResponse({
+        status: 200, contentType: 'application/json', responseHeaders: {},
+        body: 'not json', jsonParseError: 'Unexpected token',
+      }),
+    ).toBeNull();
+  });
+});
 ```
+
+- [ ] **Step 2: Implement `toViewResponse`**
+
+```ts
+/**
+ * Adapts a `functions/fetchContract` exchange into the `ViewResponse` that
+ * `PseudoUiOrJsonBlock` consumes.
+ *
+ * Returns `null` rather than throwing for every "no view to show" case — a
+ * non-2xx, an unparseable body, or a payload that is not a view. `/info`'s
+ * `hasView` means "following this href returns content *now*", so an empty
+ * result is an expected outcome, not a failure.
+ */
+export function toViewResponse(exchange: FunctionExchange | null): ViewResponse | null
+```
+
+Only a 2xx with a parsed object carrying a `content` field yields a `ViewResponse`. Carry `key`, `type`, `content`, and `renderer`/`display` through when present.
+
+- [ ] **Step 3: Write the failing test for the pane**
+
+```tsx
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('../../quick-run/pseudo-ui/PseudoUiOrJsonBlock', () => ({
+  PseudoUiOrJsonBlock: () => null,
+}));
+vi.mock('../../quick-run/components/CopyableJsonBlock', () => ({
+  JsonEditorWithCopy: () => null,
+  CopyableJsonBlock: () => null,
+}));
+
+const { FunctionRunInputPane } = await import('./FunctionRunInputPane.js');
+
+const base = {
+  mode: 'payload' as const,
+  onModeChange: () => {},
+  hasInputView: false,
+  inputView: null,
+  onViewFormChange: () => {},
+  payloadEditorProps: {
+    contentType: 'json' as const, onContentTypeChange: () => {},
+    value: {}, onChange: () => {}, schema: null, verb: 'POST' as const,
+  },
+};
+
+const render = (over: Record<string, unknown> = {}) =>
+  renderToStaticMarkup(createElement(FunctionRunInputPane, { ...base, ...over } as never));
+
+describe('FunctionRunInputPane', () => {
+  it('always offers the Payload mode, even when a view exists', () => {
+    // Free input must never be taken away — the whole point of the toggle.
+    const html = render({ hasInputView: true, mode: 'view' });
+    expect(html).toContain('Payload');
+    expect(html).not.toMatch(/Payload<\/button>[^]*?disabled/);
+  });
+
+  it('disables the View mode with a reason when the contract declares none', () => {
+    const html = render({ hasInputView: false });
+    expect(html).toMatch(/<button[^>]*disabled/);
+    expect(html).toContain('declares no input view');
+  });
+
+  it('marks the active mode for assistive technology', () => {
+    expect(render({ mode: 'payload' })).toContain('aria-checked="true"');
+  });
+});
+```
+
+- [ ] **Step 4: Implement the pane**
+
+```ts
+export interface FunctionRunInputPaneProps {
+  mode: RunMode;
+  onModeChange: (next: RunMode) => void;
+  hasInputView: boolean;
+  inputView: ViewResponse | null;
+  onViewFormChange: (data: Record<string, unknown>) => void;
+  payloadEditorProps: FunctionRunPayloadEditorProps;
+}
+```
+
+- A two-button `role="radiogroup"` toggle labelled `View` / `Payload`, copying the markup at `ViewBindingsSection.tsx:192-217` (`bg-muted flex gap-0.5 rounded-lg p-0.5`, each button `role="radio" aria-checked`, active gets `bg-surface text-foreground ring-border shadow-sm ring-1`).
+- The **View** button is `disabled` with `title="This function declares no input view"` when `!hasInputView`. The **Payload** button is never disabled.
+- `mode === 'view'` → `<PseudoUiOrJsonBlock view={inputView} jsonValue={inputView.content} displayContent="" ariaLabel="Function input view" integrationMode="simulation" panelStorageScope="function-run-input" onFormChange={onViewFormChange} />`. No `delegate` — the view is a form here, and submission is the toolbar's job (Task 12b is what makes this possible).
+- `mode === 'payload'` → `<FunctionRunPayloadEditor {...payloadEditorProps} />`.
+
+- [ ] **Step 5: Verify** — adapter tests + 3 pane tests pass.
+
+- [ ] **Step 6: Commit** — `feat(function-run): input pane and contract-to-view adapter`
 
 ---
 
