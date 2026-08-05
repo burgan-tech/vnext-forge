@@ -46,3 +46,18 @@ export function computeShadowedHeaderKeys(
 ): string[] {
   return Object.keys(sessionHeaders).filter((key) => Object.prototype.hasOwnProperty.call(toolWideHeaders, key));
 }
+
+/**
+ * Case-insensitive lookup of `x-trace-id` in a response's header map, or
+ * `null` when the response carries none.
+ *
+ * Exported so `FunctionRunResponsePane`'s summary row can pin the trace id
+ * there — visible regardless of which response tab (Body/Headers) is
+ * active, see that file's own comment on why — without duplicating the
+ * case-insensitive search `FunctionRunResponseHeaders` performs for its own,
+ * separately-cased, pinned row.
+ */
+export function findTraceId(headers: Record<string, string>): string | null {
+  const entry = Object.entries(headers).find(([key]) => key.toLowerCase() === 'x-trace-id');
+  return entry ? entry[1] : null;
+}

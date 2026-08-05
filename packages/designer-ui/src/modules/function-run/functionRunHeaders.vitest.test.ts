@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { computeShadowedHeaderKeys, sanitizeHeaderRecord } from './functionRunHeaders';
+import { computeShadowedHeaderKeys, findTraceId, sanitizeHeaderRecord } from './functionRunHeaders';
 
 describe('sanitizeHeaderRecord', () => {
   it('drops an entry whose key is blank', () => {
@@ -60,5 +60,29 @@ describe('computeShadowedHeaderKeys', () => {
   it('returns an empty array when either set is empty', () => {
     expect(computeShadowedHeaderKeys({}, { Authorization: 'tool-wide' })).toEqual([]);
     expect(computeShadowedHeaderKeys({ Authorization: 'session' }, {})).toEqual([]);
+  });
+});
+
+describe('findTraceId', () => {
+  it('finds the value by exact-case key', () => {
+    expect(findTraceId({ 'x-trace-id': 'trace-42' })).toBe('trace-42');
+  });
+
+  it('matches case-insensitively', () => {
+    expect(findTraceId({ 'X-Trace-Id': 'trace-42' })).toBe('trace-42');
+  });
+
+  it('returns null when no trace id header is present', () => {
+    expect(findTraceId({ 'content-type': 'application/json' })).toBeNull();
+  });
+
+  it('returns null for an empty header set', () => {
+    expect(findTraceId({})).toBeNull();
+  });
+
+  it('does not match a header that merely contains "trace" as a substring', () => {
+    // A prefixed or suffixed near-miss (e.g. a custom `x-trace-id-2`) is not
+    // the same header and must not be silently treated as one.
+    expect(findTraceId({ 'x-trace-id-2': 'not-it' })).toBeNull();
   });
 });

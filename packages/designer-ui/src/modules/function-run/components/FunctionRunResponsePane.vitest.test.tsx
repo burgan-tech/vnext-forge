@@ -41,15 +41,22 @@ const exchange = (over: Partial<Record<string, unknown>> = {}) => ({
   ...over,
 });
 
-function render(props: Record<string, unknown>) {
+const base = {
+  response: exchange(),
+  durationMs: 12,
+  activeTab: 'body' as const,
+  onTabChange: () => undefined,
+};
+
+function render(over: Record<string, unknown> = {}) {
   pseudoUiOrJsonBlockCalls.length = 0;
   copyableJsonBlockCalls.length = 0;
-  return renderToStaticMarkup(createElement(FunctionRunResponsePane, props as never));
+  return renderToStaticMarkup(createElement(FunctionRunResponsePane, { ...base, ...over } as never));
 }
 
 describe('FunctionRunResponsePane', () => {
   it('shows the numeric status for a success', () => {
-    expect(render({ response: exchange(), durationMs: 12 })).toContain('200');
+    expect(render({ durationMs: 12 })).toContain('200');
   });
 
   it('shows an error status rather than hiding it', () => {
@@ -71,17 +78,111 @@ describe('FunctionRunResponsePane', () => {
     expect(render({ response: exchange({ status: 404 }), durationMs: 3 })).not.toContain('not allowed to run');
   });
 
-  it('lists response headers', () => {
+  it('renders nothing before the first invoke', () => {
+    expect(render({ response: null, durationMs: null })).toBe('');
+  });
+
+  describe('response size (3a)', () => {
+    it('shows the byte size of the body', () => {
+      // '{}' is 2 ASCII bytes.
+      expect(render({ response: exchange({ body: '{}' }) })).toContain('2 B');
+    });
+
+    it('recomputes the size for a different body length', () => {
+      expect(render({ response: exchange({ body: '{"a":1}' }) })).toContain('7 B');
+    });
+  });
+
+  it('shows the content type in the summary row regardless of active tab', () => {
+    expect(render({ response: exchange({ contentType: 'application/json' }) })).toContain('application/json');
+    expect(
+      render({ response: exchange({ contentType: 'application/json' }), activeTab: 'headers' }),
+    ).toContain('application/json');
+  });
+
+  describe('trace id stays visible across tabs (3a/3b)', () => {
+    it('shows the trace id in the summary row while Body is active', () => {
+      const html = render({
+        response: exchange({ responseHeaders: { 'x-trace-id': 'trace-42' } }),
+        activeTab: 'body',
+      });
+      expect(html).toContain('trace-42');
+    });
+
+    it('keeps the summary chip present alongside the Headers tab\'s own pinned row, not replaced by it', () => {
+      // `FunctionRunResponseHeaders` pins its own x-trace-id row too (see
+      // that file's doc comment), so merely asserting the text is present
+      // while Headers is active would pass even if the summary chip itself
+      // were deleted — it would prove only that the *tab's* copy still
+      // renders. Counting occurrences distinguishes the two: one from the
+      // always-visible summary row (present on every tab, see the sibling
+      // 'Body is active' case above) plus one from the Headers tab's own
+      // list, once that tab is actually mounted.
+      const html = render({
+        response: exchange({ responseHeaders: { 'x-trace-id': 'trace-42' } }),
+        activeTab: 'headers',
+      });
+      expect((html.match(/trace-42/g) ?? []).length).toBe(2);
+    });
+
+    it('omits the trace chip entirely when the response carries none', () => {
+      const html = render({ response: exchange({ responseHeaders: { 'content-type': 'application/json' } }) });
+      expect(html).not.toContain('trace-42');
+    });
+  });
+
+  describe('Body | Headers tabs (3b)', () => {
+    it('mounts only the Body content when Body is the active tab', () => {
+      const html = render({
+        response: exchange({ responseHeaders: { server: 'nginx' } }),
+        activeTab: 'body',
+      });
+      expect(copyableJsonBlockCalls).toHaveLength(1);
+      // The Headers tab's own section is not in the tree at all — Radix does
+      // not render an inactive TabsContent's children.
+      expect(html).not.toContain('aria-label="Response headers"');
+    });
+
+    it('mounts only the Headers content when Headers is the active tab', () => {
+      const html = render({
+        response: exchange({ json: { a: 1 }, responseHeaders: { server: 'nginx' } }),
+        activeTab: 'headers',
+      });
+      expect(html).toContain('aria-label="Response headers"');
+      // The mutation this guards against: forgetting to gate ResponseBody
+      // behind the Body tab, which would mount CopyableJsonBlock regardless
+      // of which tab is actually selected.
+      expect(copyableJsonBlockCalls).toHaveLength(0);
+    });
+
+    it('unmounts a declared output view when the tab switches away from Body', () => {
+      const outputView = { key: 'k', type: 'pseudo-ui', content: { component: 'Column' } };
+      const html = render({
+        response: exchange({ json: { a: 1 } }),
+        outputView,
+        activeTab: 'headers',
+      });
+      expect(pseudoUiOrJsonBlockCalls).toHaveLength(0);
+      expect(html).toContain('aria-label="Response headers"');
+    });
+
+    it('marks the active trigger for assistive technology', () => {
+      const html = render({ activeTab: 'headers' });
+      const triggers = html.match(/<button[^>]*>[\s\S]*?<\/button>/g) ?? [];
+      const headersTrigger = triggers.find((t) => t.includes('>Headers<'));
+      const bodyTrigger = triggers.find((t) => t.includes('>Body<'));
+      expect(headersTrigger).toContain('aria-selected="true"');
+      expect(bodyTrigger).toContain('aria-selected="false"');
+    });
+  });
+
+  it('lists response headers when the Headers tab is active', () => {
     const html = render({
       response: exchange({ responseHeaders: { 'x-trace-id': 'trace-42' } }),
-      durationMs: 1,
+      activeTab: 'headers',
     });
     expect(html).toContain('x-trace-id');
     expect(html).toContain('trace-42');
-  });
-
-  it('renders nothing before the first invoke', () => {
-    expect(render({ response: null, durationMs: null })).toBe('');
   });
 
   it('surfaces a malformed-JSON body distinctly rather than showing it as plain text', () => {

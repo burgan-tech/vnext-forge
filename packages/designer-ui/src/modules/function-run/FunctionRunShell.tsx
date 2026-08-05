@@ -22,11 +22,21 @@ import { FunctionRunInfoError } from './components/FunctionRunInfoError';
 import { FunctionRunInputPane } from './components/FunctionRunInputPane';
 import { FunctionRunParamsTab, type ParamsView } from './components/FunctionRunParamsTab';
 import { FunctionRunRequestTabs } from './components/FunctionRunRequestTabs';
-import { FunctionRunResponsePane } from './components/FunctionRunResponsePane';
+import { FunctionRunResponsePane, type ResponseTabId } from './components/FunctionRunResponsePane';
 import { buildEndpointPreview } from './functionRunEndpoint';
 import { sanitizeHeaderRecord } from './functionRunHeaders';
-import { computeInputViewAvailability, computeInvokeGate, loadFunctionInfo, runInvoke } from './functionRunOrchestration';
-import { buildInvokeRequest, carriesBody, resolveEffectiveMode, resolveEffectiveRequestTab } from './functionRunPayload';
+import {
+  computeInputViewAvailability,
+  computeInvokeGate,
+  loadFunctionInfo,
+  runInvoke,
+} from './functionRunOrchestration';
+import {
+  buildInvokeRequest,
+  carriesBody,
+  resolveEffectiveMode,
+  resolveEffectiveRequestTab,
+} from './functionRunPayload';
 import { resolveVerbs } from './functionRunVerbs';
 import { useFunctionRunStore } from './store/functionRunStore';
 
@@ -88,7 +98,9 @@ const MAXIMIZED_OUTER_SIZE = '70%';
  * set is still visible there (read-only), and a per-run header — which
  * always saves, in both hosts — is one click away.
  */
-export function resolveOpenHeadersAction(toolWideHeadersHostOwned: boolean): 'switch-to-headers-tab' | 'open-dialog' {
+export function resolveOpenHeadersAction(
+  toolWideHeadersHostOwned: boolean,
+): 'switch-to-headers-tab' | 'open-dialog' {
   return toolWideHeadersHostOwned ? 'switch-to-headers-tab' : 'open-dialog';
 }
 
@@ -187,6 +199,10 @@ export function FunctionRunShell({
   // reset, not a loss of anything the user actually typed (`queryString`
   // itself lives in the store either way).
   const [paramsView, setParamsView] = useState<ParamsView>('table');
+  // Response pane's Body/Headers toggle (3b) — the same ephemeral-UI
+  // treatment as `paramsView` just above: which response tab was last open
+  // is not worth a store field, unlike `activeRequestTab`.
+  const [responseTab, setResponseTab] = useState<ResponseTabId>('body');
 
   const toolWideHeadersRecord = toolWideHeaders ?? {};
   // See `areToolHeadersHostOwned`'s own doc comment: true in the extension
@@ -233,7 +249,13 @@ export function FunctionRunShell({
   // `sessionHeaders` — see its own doc comment for why that filtering must
   // not happen any earlier, in the Headers tab's own `onChange`.
   const headers = useMemo(
-    () => mergeQuickRunHeaders(null, sanitizeHeaderRecord(sessionHeaders), undefined, toolWideHeadersRecord),
+    () =>
+      mergeQuickRunHeaders(
+        null,
+        sanitizeHeaderRecord(sessionHeaders),
+        undefined,
+        toolWideHeadersRecord,
+      ),
     [sessionHeadersKey, toolWideHeadersKey],
   );
 
@@ -337,14 +359,15 @@ export function FunctionRunShell({
    * itself is directly unit-testable — this file's own test can only ever
    * see the very first render, never a click.
    *
-   * `FunctionRunInfoError`'s own "Open Headers" shortcut (the 403 recovery
-   * path) is *not* routed through this — that component is a section-3 file
-   * this task does not otherwise touch, and unlike here, switching tabs
-   * would have no visible effect there: `FunctionRunInfoError` renders
-   * *instead of* the request tabs while `infoError` is set, not alongside
-   * them, so there is no tab to switch into. It still opens the same dialog
-   * unconditionally for now — see the report on this task for the follow-up
-   * this leaves.
+   * (3e) `FunctionRunInfoError`'s own "Open Headers" shortcut now routes
+   * through this same handler. That was not true before this task: UI-2's
+   * implementer deliberately left it opening the dialog unconditionally,
+   * because at the time `FunctionRunInfoError` rendered *instead of* the
+   * request tabs while `infoError` was set — there was no Headers tab to
+   * switch into. Section 3 restructures that: the error banner now renders
+   * *above* the request/response split rather than replacing it (see the
+   * JSX below), specifically so a host-owned 403 has somewhere for this
+   * handler's `'switch-to-headers-tab'` branch to actually land.
    */
   function handleOpenHeaders() {
     if (resolveOpenHeadersAction(toolWideHeadersHostOwned) === 'switch-to-headers-tab') {
@@ -403,13 +426,24 @@ export function FunctionRunShell({
 
   // I4: driven by whether the *adapted* view actually came back, not by
   // `/info`'s bare `hasView` flag — see `computeInputViewAvailability`.
-  const { hasUsableInputView, declaredButUnavailable } = computeInputViewAvailability({ info, inputViewContent });
+  const { hasUsableInputView, declaredButUnavailable } = computeInputViewAvailability({
+    info,
+    inputViewContent,
+  });
 
   // The path the request will actually hit — see `buildEndpointPreview`'s own
   // doc comment for why this has to reimplement `normalizeRuntimeHref`
   // locally rather than importing it (designer-ui may not depend on
   // services-core).
-  const endpoint = buildEndpointPreview({ info, scope, domain, functionKey, workflowKey, instanceId, queryString });
+  const endpoint = buildEndpointPreview({
+    info,
+    scope,
+    domain,
+    functionKey,
+    workflowKey,
+    instanceId,
+    queryString,
+  });
 
   // Only ever true for `surface === 'panel'`: `scriptLayoutPanelRef` comes
   // from `ScriptPanelResizeContext`, which only `FlowEditorCanvasAndScript-
@@ -447,163 +481,186 @@ export function FunctionRunShell({
         ) : null}
       </div>
 
+      {/*
+       * (3e) Renders *above* the request/response split rather than
+       * replacing it — the carried-over fix from UI-2. `FunctionRunInfoError`
+       * used to stand in for the entire body while `infoError` was set, which
+       * meant its own "Open Headers" shortcut had nowhere to send a
+       * host-owned session (`resolveOpenHeadersAction` would say
+       * `'switch-to-headers-tab'`, but no tab existed to switch into). A 403
+       * on `/info` is exactly the moment a user wants to reach Headers, so
+       * coexisting is the more useful shape: the banner states the problem
+       * and keeps Retry working, while the tabs underneath (Params, Headers,
+       * and Body once a verb is known) stay reachable the whole time. Nothing
+       * below this depends on `info` being non-null — the request tabs, the
+       * scope-id fields, and the response pane all already handle that case
+       * (`gate.canInvoke` is false, so Send stays disabled until `/info`
+       * eventually loads).
+       */}
       {infoError ? (
-        <div className="min-h-0 flex-1 overflow-y-auto p-3">
+        <div className="border-border-subtle border-b p-2">
           <FunctionRunInfoError
             message={infoError}
             isAuthorizationError={infoErrorIsAuthorization}
             loading={infoLoading}
             canRetry={idsReady}
             onRetry={() => void handleRetryInfo()}
-            onOpenHeaders={() => setHeadersOpen(true)}
+            onOpenHeaders={handleOpenHeaders}
           />
         </div>
-      ) : (
-        <ResizablePanelGroup
-          id="function-run-shell"
-          orientation={surface === 'standalone' ? 'vertical' : 'horizontal'}
-          defaultLayout={DEFAULT_LAYOUT}
-          className="min-h-0 flex-1">
-          <ResizablePanel
-            id="function-run-request"
-            minSize="20%"
-            className="flex min-h-0 flex-col overflow-hidden">
-            <div className="min-h-0 flex-1 overflow-y-auto p-3">
-              <div className="flex flex-col gap-2">
-                {/*
-                 * Scope-id fields (F/I only) live here, above the tab strip
-                 * — not inside a tab, and not folded into
-                 * `FunctionRunEndpointBar` (a section-1 file this task
-                 * leaves untouched). They are request *identity*: which
-                 * workflow instance the request targets, not a facet of the
-                 * request body/params/headers a user would expect to have
-                 * to switch tabs to find, and they drive the `/info` load
-                 * regardless of which of Params/Headers/Body is active. The
-                 * endpoint bar was the other option the plan offered, but
-                 * putting a scope-only concern there would mean every
-                 * domain-scoped (D) function pays for an empty second row,
-                 * and would touch a component this task does not otherwise
-                 * need to change.
-                 */}
-                {scope !== 'D' ? (
-                  <div className="flex flex-wrap items-end gap-2">
-                    <Field label="Workflow key" className="min-w-40 flex-1">
-                      <Input
-                        size="sm"
-                        value={workflowKey}
-                        onChange={(e) =>
-                          // I5: the ids just changed, so whatever `info` was
-                          // loaded for the *previous* ids no longer applies.
-                          // Clear it immediately (rather than waiting out the
-                          // debounce + request) so Send is not enabled —
-                          // against the wrong instance — for that whole
-                          // window.
-                          set({
-                            workflowKey: e.target.value,
-                            info: null,
-                            infoError: null,
-                            infoErrorIsAuthorization: false,
-                          })
-                        }
-                      />
-                    </Field>
-                    <Field label="Instance id" className="min-w-40 flex-1">
-                      <Input
-                        size="sm"
-                        value={instanceId}
-                        onChange={(e) =>
-                          set({
-                            instanceId: e.target.value,
-                            info: null,
-                            infoError: null,
-                            infoErrorIsAuthorization: false,
-                          })
-                        }
-                      />
-                    </Field>
-                    <span className="text-muted-foreground w-full text-[10px]">
-                      A {scope}-scoped function runs against a workflow instance.
-                    </span>
-                  </div>
-                ) : null}
+      ) : null}
 
-                {declaredButUnavailable ? (
-                  <p className="text-muted-foreground text-[10px]">
-                    This function declares an input view, but it could not be loaded
-                    {payloadAvailable ? ' — use Payload instead.' : ' — use the query string field instead.'}
-                  </p>
-                ) : null}
-
-                <FunctionRunRequestTabs
-                  activeTab={effectiveRequestTab}
-                  onTabChange={(tab) => set({ activeRequestTab: tab })}
-                  bodyAvailable={payloadAvailable}
-                  paramsContent={
-                    <FunctionRunParamsTab
-                      queryString={queryString}
-                      onQueryStringChange={(next) => set({ queryString: next })}
-                      view={paramsView}
-                      onViewChange={setParamsView}
+      <ResizablePanelGroup
+        id="function-run-shell"
+        orientation={surface === 'standalone' ? 'vertical' : 'horizontal'}
+        defaultLayout={DEFAULT_LAYOUT}
+        className="min-h-0 flex-1">
+        <ResizablePanel
+          id="function-run-request"
+          minSize="20%"
+          className="flex min-h-0 flex-col overflow-hidden">
+          <div className="min-h-0 flex-1 overflow-y-auto p-3">
+            <div className="flex flex-col gap-2">
+              {/*
+               * Scope-id fields (F/I only) live here, above the tab strip
+               * — not inside a tab, and not folded into
+               * `FunctionRunEndpointBar` (a section-1 file this task
+               * leaves untouched). They are request *identity*: which
+               * workflow instance the request targets, not a facet of the
+               * request body/params/headers a user would expect to have
+               * to switch tabs to find, and they drive the `/info` load
+               * regardless of which of Params/Headers/Body is active. The
+               * endpoint bar was the other option the plan offered, but
+               * putting a scope-only concern there would mean every
+               * domain-scoped (D) function pays for an empty second row,
+               * and would touch a component this task does not otherwise
+               * need to change.
+               */}
+              {scope !== 'D' ? (
+                <div className="flex flex-wrap items-end gap-2">
+                  <Field label="Workflow key" className="min-w-40 flex-1">
+                    <Input
+                      size="sm"
+                      value={workflowKey}
+                      onChange={(e) =>
+                        // I5: the ids just changed, so whatever `info` was
+                        // loaded for the *previous* ids no longer applies.
+                        // Clear it immediately (rather than waiting out the
+                        // debounce + request) so Send is not enabled —
+                        // against the wrong instance — for that whole
+                        // window.
+                        set({
+                          workflowKey: e.target.value,
+                          info: null,
+                          infoError: null,
+                          infoErrorIsAuthorization: false,
+                        })
+                      }
                     />
-                  }
-                  headersContent={
-                    <FunctionRunHeadersTab
-                      toolWideHeaders={toolWideHeadersRecord}
-                      toolWideHeadersHostOwned={toolWideHeadersHostOwned}
-                      sessionHeaders={sessionHeaders}
-                      onSessionHeadersChange={setSessionHeaders}
-                      onEditToolWideHeaders={() => setHeadersOpen(true)}
+                  </Field>
+                  <Field label="Instance id" className="min-w-40 flex-1">
+                    <Input
+                      size="sm"
+                      value={instanceId}
+                      onChange={(e) =>
+                        set({
+                          instanceId: e.target.value,
+                          info: null,
+                          infoError: null,
+                          infoErrorIsAuthorization: false,
+                        })
+                      }
                     />
-                  }
-                  bodyContent={
-                    <FunctionRunInputPane
-                      mode={mode}
-                      onModeChange={(nextMode) => set({ mode: nextMode })}
-                      hasInputView={hasUsableInputView}
-                      payloadAvailable={payloadAvailable}
-                      inputView={inputViewContent as ViewResponse | null}
-                      onViewFormChange={(data) => set({ viewFormData: data })}
-                      payloadEditorProps={{
-                        contentType,
-                        onContentTypeChange: (nextContentType) => set({ contentType: nextContentType }),
-                        value: payload,
-                        onChange: (nextPayload) => set({ payload: nextPayload }),
-                        schema: inputSchema,
-                      }}
-                    />
-                  }
-                />
-              </div>
-            </div>
-          </ResizablePanel>
+                  </Field>
+                  <span className="text-muted-foreground w-full text-[10px]">
+                    A {scope}-scoped function runs against a workflow instance.
+                  </span>
+                </div>
+              ) : null}
 
-          <ResizableHandle />
+              {declaredButUnavailable ? (
+                <p className="text-muted-foreground text-[10px]">
+                  This function declares an input view, but it could not be loaded
+                  {payloadAvailable
+                    ? ' — use Payload instead.'
+                    : ' — use the query string field instead.'}
+                </p>
+              ) : null}
 
-          <ResizablePanel
-            id="function-run-response"
-            minSize="20%"
-            className="flex min-h-0 flex-col overflow-hidden">
-            <div className="min-h-0 flex-1 overflow-y-auto p-3">
-              <div className="flex flex-col gap-2">
-                {invokeError ? (
-                  <p className="text-destructive-text text-xs" role="alert">
-                    {invokeError}
-                  </p>
-                ) : null}
-                {response ? (
-                  <FunctionRunResponsePane
-                    response={response}
-                    durationMs={responseDurationMs}
-                    outputView={outputViewContent as ViewResponse | null}
+              <FunctionRunRequestTabs
+                activeTab={effectiveRequestTab}
+                onTabChange={(tab) => set({ activeRequestTab: tab })}
+                bodyAvailable={payloadAvailable}
+                paramsContent={
+                  <FunctionRunParamsTab
+                    queryString={queryString}
+                    onQueryStringChange={(next) => set({ queryString: next })}
+                    view={paramsView}
+                    onViewChange={setParamsView}
                   />
-                ) : !invokeError ? (
-                  <p className="text-muted-foreground text-xs">Pick a verb and choose Send to run this function.</p>
-                ) : null}
-              </div>
+                }
+                headersContent={
+                  <FunctionRunHeadersTab
+                    toolWideHeaders={toolWideHeadersRecord}
+                    toolWideHeadersHostOwned={toolWideHeadersHostOwned}
+                    sessionHeaders={sessionHeaders}
+                    onSessionHeadersChange={setSessionHeaders}
+                    onEditToolWideHeaders={() => setHeadersOpen(true)}
+                  />
+                }
+                bodyContent={
+                  <FunctionRunInputPane
+                    mode={mode}
+                    onModeChange={(nextMode) => set({ mode: nextMode })}
+                    hasInputView={hasUsableInputView}
+                    payloadAvailable={payloadAvailable}
+                    inputView={inputViewContent as ViewResponse | null}
+                    onViewFormChange={(data) => set({ viewFormData: data })}
+                    payloadEditorProps={{
+                      contentType,
+                      onContentTypeChange: (nextContentType) =>
+                        set({ contentType: nextContentType }),
+                      value: payload,
+                      onChange: (nextPayload) => set({ payload: nextPayload }),
+                      schema: inputSchema,
+                    }}
+                  />
+                }
+              />
             </div>
-          </ResizablePanel>
-        </ResizablePanelGroup>
-      )}
+          </div>
+        </ResizablePanel>
+
+        <ResizableHandle />
+
+        <ResizablePanel
+          id="function-run-response"
+          minSize="20%"
+          className="flex min-h-0 flex-col overflow-hidden">
+          <div className="min-h-0 flex-1 overflow-y-auto p-3">
+            <div className="flex flex-col gap-2">
+              {invokeError ? (
+                <p className="text-destructive-text text-xs" role="alert">
+                  {invokeError}
+                </p>
+              ) : null}
+              {response ? (
+                <FunctionRunResponsePane
+                  response={response}
+                  durationMs={responseDurationMs}
+                  outputView={outputViewContent as ViewResponse | null}
+                  activeTab={responseTab}
+                  onTabChange={setResponseTab}
+                />
+              ) : !invokeError ? (
+                <p className="text-muted-foreground text-xs">
+                  Pick a verb and choose Send to run this function.
+                </p>
+              ) : null}
+            </div>
+          </div>
+        </ResizablePanel>
+      </ResizablePanelGroup>
 
       {/*
        * Scoped to the Forge-wide set now, not this run's own headers — those
@@ -617,9 +674,14 @@ export function FunctionRunShell({
       <HeadersConfigDialog
         open={headersOpen}
         onClose={() => setHeadersOpen(false)}
-        initialHeaders={Object.entries(toolWideHeadersRecord).map(([name, value]) => ({ name, value }))}
+        initialHeaders={Object.entries(toolWideHeadersRecord).map(([name, value]) => ({
+          name,
+          value,
+        }))}
         onSave={(nextHeaders) =>
-          useToolHeadersStore.getState().setHeaders(Object.fromEntries(nextHeaders.map((h) => [h.name, h.value])))
+          useToolHeadersStore
+            .getState()
+            .setHeaders(Object.fromEntries(nextHeaders.map((h) => [h.name, h.value])))
         }
       />
     </div>

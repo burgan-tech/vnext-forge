@@ -56,4 +56,20 @@ describe('FunctionRunInfoError', () => {
     expect(render({ isAuthorizationError: true })).toContain('Open Headers');
     expect(render({ isAuthorizationError: false })).not.toContain('Open Headers');
   });
+
+  it('wraps the message in ui/Alert rather than bare text (3d)', () => {
+    // `data-slot="alert"` only appears when `Alert` itself renders — a
+    // regression back to a plain `<div>` would drop it while every text
+    // assertion above kept passing.
+    expect(render()).toContain('data-slot="alert"');
+  });
+
+  it('uses the warning alert styling for an authorization failure and destructive otherwise', () => {
+    const authHtml = render({ isAuthorizationError: true });
+    const otherHtml = render({ isAuthorizationError: false });
+    expect(authHtml).toContain('border-warning-border');
+    expect(authHtml).not.toContain('border-destructive-border');
+    expect(otherHtml).toContain('border-destructive-border');
+    expect(otherHtml).not.toContain('border-warning-border');
+  });
 });
