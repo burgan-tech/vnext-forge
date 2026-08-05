@@ -5,6 +5,7 @@ import type { FunctionScope } from '@vnext-forge-studio/vnext-types';
 
 import { useScriptPanelResizePanelRef } from '../code-editor/layout/ScriptEditorPanel.js';
 import { HeadersConfigDialog } from '../quick-run/components/HeadersConfigDialog';
+import { createDataSchemaResolver } from '../quick-run/pseudo-ui/createDataSchemaResolver';
 import { mergeQuickRunHeaders } from '../quick-run/pseudo-ui/mergeQuickRunHeaders';
 import type { ViewResponse } from '../quick-run/types/quickrun.types';
 
@@ -23,6 +24,7 @@ import { FunctionRunInputPane } from './components/FunctionRunInputPane';
 import { FunctionRunParamsTab, type ParamsView } from './components/FunctionRunParamsTab';
 import { FunctionRunRequestTabs } from './components/FunctionRunRequestTabs';
 import { FunctionRunResponsePane, type ResponseTabId } from './components/FunctionRunResponsePane';
+import { createFunctionRunPseudoDelegate } from './createFunctionRunPseudoDelegate';
 import { buildEndpointPreview } from './functionRunEndpoint';
 import { sanitizeHeaderRecord } from './functionRunHeaders';
 import {
@@ -120,6 +122,7 @@ export function FunctionRunShell({
   functionKey,
   scope,
   runtimeUrl,
+  projectId,
   toolWideHeaders,
   surface = 'panel',
 }: FunctionRunShellProps) {
@@ -352,6 +355,66 @@ export function FunctionRunShell({
       api: FunctionRunApi,
     });
   }
+
+  // Live ref so the pseudo-ui delegate below (memoized, stable across header
+  // edits) always calls the *current* `handleInvoke` — which itself closes
+  // over `info` / `viewFormData` / `payload` / etc, all of which can change
+  // on every keystroke. Updated unconditionally on every render (no deps
+  // array) so it never wraps a stale closure from the render the delegate
+  // happened to be created on.
+  const handleInvokeRef = useRef(handleInvoke);
+  useEffect(() => {
+    handleInvokeRef.current = handleInvoke;
+  });
+
+  // Same "stable factory, live values" idiom `createQuickRunPseudoDelegate`
+  // documents for its own getters (`getSessionHeaders`, etc.) — `headers`
+  // changes on every Headers-tab keystroke and `runtimeUrl` can change if
+  // the host swaps environments, and neither should tear down and remount
+  // the SDK tree for the input/output views.
+  const headersRef = useRef(headers);
+  useEffect(() => {
+    headersRef.current = headers;
+  }, [headers]);
+  const runtimeUrlRef = useRef(runtimeUrl);
+  useEffect(() => {
+    runtimeUrlRef.current = runtimeUrl;
+  }, [runtimeUrl]);
+
+  // One delegate instance, shared by the input and output pseudo-ui
+  // surfaces (see `FunctionRunResponsePaneProps.delegate`'s own doc comment
+  // for why the output view gets one too, not just input) — recreated only
+  // when the identity-level inputs (`domain`, `projectId`) change.
+  const pseudoDelegate = useMemo(
+    () =>
+      createFunctionRunPseudoDelegate({
+        domain,
+        projectId,
+        getHeaders: () => headersRef.current,
+        getRuntimeUrl: () => runtimeUrlRef.current,
+        // The function runner has no polled workflow-instance snapshot the
+        // way Quick Run's `activeData` does — see the delegate's own doc
+        // comment on `getBindingContext`. The one live source available is
+        // the input view's own in-progress form values.
+        getBindingContext: () => ({
+          data: null,
+          extensions: null,
+          formData: useFunctionRunStore.getState().viewFormData,
+        }),
+        onSubmit: () => handleInvokeRef.current(),
+      }),
+    [domain, projectId],
+  );
+
+  // `createDataSchemaResolver` closes over `headers`/`runtimeUrl` directly
+  // (it has no live-getter escape hatch of its own), so — unlike
+  // `pseudoDelegate` above — this one *is* recreated whenever either
+  // changes, the same trade-off `InstanceDashboard.StateViewContent` makes
+  // for its own `schemaResolver`.
+  const resolveSchema = useMemo(
+    () => createDataSchemaResolver({ domain, headers, runtimeUrl }),
+    [domain, headers, runtimeUrl],
+  );
 
   /**
    * The endpoint bar's quiet "Headers" button handler, split from its
@@ -613,9 +676,12 @@ export function FunctionRunShell({
                     mode={mode}
                     onModeChange={(nextMode) => set({ mode: nextMode })}
                     hasInputView={hasUsableInputView}
+                    inputViewDeclaredButUnavailable={declaredButUnavailable}
                     payloadAvailable={payloadAvailable}
                     inputView={inputViewContent as ViewResponse | null}
                     onViewFormChange={(data) => set({ viewFormData: data })}
+                    delegate={pseudoDelegate}
+                    resolveSchema={resolveSchema}
                     payloadEditorProps={{
                       contentType,
                       onContentTypeChange: (nextContentType) =>
@@ -651,6 +717,8 @@ export function FunctionRunShell({
                   outputView={outputViewContent as ViewResponse | null}
                   activeTab={responseTab}
                   onTabChange={setResponseTab}
+                  delegate={pseudoDelegate}
+                  resolveSchema={resolveSchema}
                 />
               ) : !invokeError ? (
                 <p className="text-muted-foreground text-xs">

@@ -1,6 +1,9 @@
+import type { PseudoViewDelegate } from '@burgan-tech/pseudo-ui';
+
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../ui/Tabs';
 import { CopyableJsonBlock } from '../../quick-run/components/CopyableJsonBlock';
 import { PseudoUiOrJsonBlock } from '../../quick-run/pseudo-ui/PseudoUiOrJsonBlock';
+import type { SchemaResolver } from '../../quick-run/pseudo-ui/createDataSchemaResolver';
 import type { ViewResponse } from '../../quick-run/types/quickrun.types';
 import { findTraceId } from '../functionRunHeaders';
 import { computeResponseByteSize, formatResponseSize } from '../functionRunResponseSize';
@@ -8,6 +11,7 @@ import { classifyStatus, isAuthorizationFailure, type StatusClass } from '../fun
 import type { FunctionExchange } from '../types/functionRun.types';
 import { FunctionRunAuthzBanner } from './FunctionRunAuthzBanner';
 import { FunctionRunResponseHeaders } from './FunctionRunResponseHeaders';
+import { FunctionRunViewSection } from './FunctionRunViewSection';
 
 export type ResponseTabId = 'body' | 'headers';
 
@@ -29,6 +33,19 @@ export interface FunctionRunResponsePaneProps {
    */
   activeTab: ResponseTabId;
   onTabChange: (tab: ResponseTabId) => void;
+  /**
+   * Same delegate/resolver the input pane wires — see
+   * `createFunctionRunPseudoDelegate`. An output view is a read-only
+   * rendering of the *last* response, so `onAction('submit', …)` is not
+   * expected to fire from here in practice, but its `x-lov`/`x-lookup`
+   * fields (e.g. showing a looked-up display name for an id in the
+   * response) and `dataSchema` URN need the exact same resolution the input
+   * view gets — sharing one delegate/resolver instance keeps that "exactly
+   * one send path" property true across both surfaces instead of only
+   * incidentally true for input.
+   */
+  delegate?: PseudoViewDelegate;
+  resolveSchema?: SchemaResolver;
 }
 
 const STATUS_CLASS_STYLES: Record<StatusClass, string> = {
@@ -57,9 +74,13 @@ function responseBodyValue(response: FunctionExchange): unknown {
 function ResponseBody({
   response,
   outputView,
+  delegate,
+  resolveSchema,
 }: {
   response: FunctionExchange;
   outputView: ViewResponse | null | undefined;
+  delegate?: PseudoViewDelegate;
+  resolveSchema?: SchemaResolver;
 }) {
   // A declared output view wins: `PseudoUiOrJsonBlock` already carries its own
   // rendered/JSON toggle (see its internal `ViewModeToggle`), so this is not
@@ -78,14 +99,32 @@ function ResponseBody({
         ? (bodyValue as Record<string, unknown>)
         : undefined;
     return (
-      <PseudoUiOrJsonBlock
-        view={outputView}
-        jsonValue={bodyValue}
-        displayContent={response.body}
-        ariaLabel="Function output"
-        integrationMode="preview"
-        instanceData={instanceData}
-      />
+      <FunctionRunViewSection title="Output view" view={outputView} emptyMessage="">
+        <PseudoUiOrJsonBlock
+          view={outputView}
+          jsonValue={bodyValue}
+          displayContent={response.body}
+          ariaLabel="Function output"
+          // Was `"preview"` before this task, which — now that a real
+          // `resolveSchema` is wired — is actively wrong: `preview` mode
+          // skips `PseudoUiViewSurface`'s schema-readiness gate entirely
+          // (see that file's `showLoadingSkeleton` comment) and mounts the
+          // SDK immediately with an empty `{}` schema, before the async
+          // `dataSchema` resolution can land. Any enum/dropdown field in the
+          // output view would permanently render with zero options. `preview`
+          // also forces `ForEach` to render a single empty item and bypasses
+          // `x-conditional` visibility — both wrong for a view meant to
+          // display the function's *actual* returned data. `simulation` is
+          // the same mode the input view already uses, and is the correct
+          // one here too.
+          integrationMode="simulation"
+          panelStorageScope="function-run-output"
+          surfaceClassName="min-h-[200px]"
+          delegate={delegate}
+          resolveSchema={resolveSchema}
+          instanceData={instanceData}
+        />
+      </FunctionRunViewSection>
     );
   }
 
@@ -162,6 +201,8 @@ export function FunctionRunResponsePane({
   outputView,
   activeTab,
   onTabChange,
+  delegate,
+  resolveSchema,
 }: FunctionRunResponsePaneProps) {
   if (!response) return null;
 
@@ -204,7 +245,7 @@ export function FunctionRunResponsePane({
         </TabsList>
 
         <TabsContent value="body">
-          <ResponseBody response={response} outputView={outputView} />
+          <ResponseBody response={response} outputView={outputView} delegate={delegate} resolveSchema={resolveSchema} />
         </TabsContent>
         <TabsContent value="headers">
           <FunctionRunResponseHeaders headers={response.responseHeaders} />

@@ -71,18 +71,33 @@ describe('FunctionRunInputPane', () => {
     expect(viewTrigger).toContain('aria-selected="false"');
   });
 
-  it('renders the input view with no delegate — the view collects input, the runner sends it', () => {
+  it('renders the input view, forwarding the shell\'s delegate and schema resolver', () => {
     const view = { key: 'branch-form', type: 'pseudo-ui', content: { component: 'Column' } };
-    render({ hasInputView: true, mode: 'view', inputView: view });
+    const delegate = {
+      requestData: () => Promise.resolve(undefined),
+      loadComponent: () => Promise.resolve({} as never),
+      onAction: () => Promise.resolve(undefined),
+    };
+    const resolveSchema = () => Promise.resolve(null);
+    render({ hasInputView: true, mode: 'view', inputView: view, delegate, resolveSchema });
 
     expect(seenPseudoUiProps).toHaveLength(1);
     const props = seenPseudoUiProps[0];
     expect(props.view).toBe(view);
-    // The runner owns Invoke, not the view; a `delegate` would let the view
-    // submit on its own, which is exactly the design this pane must not
-    // reintroduce.
-    expect(props.delegate).toBeUndefined();
+    // Wiring the view's own submit button / `x-lov` dropdowns to the shell's
+    // single Invoke path is the whole point of this task — a pane that
+    // silently drops the prop it was handed would look identical from the
+    // "always offers Payload" tests above, so this is asserted directly.
+    expect(props.delegate).toBe(delegate);
+    expect(props.resolveSchema).toBe(resolveSchema);
     expect(typeof props.onFormChange).toBe('function');
+  });
+
+  it('renders the input view with no delegate when the shell provides none', () => {
+    const view = { key: 'branch-form', type: 'pseudo-ui', content: { component: 'Column' } };
+    render({ hasInputView: true, mode: 'view', inputView: view });
+    expect(seenPseudoUiProps[0]?.delegate).toBeUndefined();
+    expect(seenPseudoUiProps[0]?.resolveSchema).toBeUndefined();
   });
 
   it('does not render the view block at all in payload mode', () => {
@@ -124,5 +139,48 @@ describe('FunctionRunInputPane — payloadAvailable (Fix 2)', () => {
     const html = render({ payloadAvailable: true, hasInputView: false });
     expect(html).toContain('role="tablist"');
     expect(html).toContain('Content type');
+  });
+});
+
+// I4-follow-up: `declaredButUnavailable` distinguishes "no view was ever
+// declared" (blank pane, tested above) from "a view was declared but could
+// not be loaded" (an explanatory error inside the section chrome).
+describe('FunctionRunInputPane — inputViewDeclaredButUnavailable', () => {
+  it('shows the section chrome with an explanatory error, not a blank pane', () => {
+    const html = render({
+      mode: 'view',
+      payloadAvailable: false,
+      hasInputView: false,
+      inputViewDeclaredButUnavailable: true,
+      inputView: null,
+    });
+    expect(html).toContain('could not be loaded');
+    expect(seenPseudoUiProps).toHaveLength(0);
+  });
+
+  it('does not render the error, and stays a blank pane, when a view was never declared at all', () => {
+    // The mutation this guards against: dropping the `hasInputView ||
+    // inputViewDeclaredButUnavailable` condition down to just the latter,
+    // which would make every "no view" case show chrome.
+    const html = render({
+      mode: 'view',
+      payloadAvailable: false,
+      hasInputView: false,
+      inputViewDeclaredButUnavailable: false,
+      inputView: null,
+    });
+    expect(html).not.toContain('could not be loaded');
+    expect(html).not.toContain('This function declares no input view');
+  });
+
+  it('shows the section title even when the view is unavailable', () => {
+    const html = render({
+      mode: 'view',
+      payloadAvailable: false,
+      hasInputView: false,
+      inputViewDeclaredButUnavailable: true,
+      inputView: null,
+    });
+    expect(html).toContain('Input view');
   });
 });

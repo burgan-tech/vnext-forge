@@ -14,6 +14,39 @@ vi.mock('./FunctionRunApi', () => ({
   invoke: vi.fn(),
 }));
 
+// Whether the view surfaces actually *mount* `PseudoUiOrJsonBlock` with a
+// `delegate`/`resolveSchema` prop can't be asserted at this level — the
+// input/output views only render once `/info` (or an invoke) has resolved,
+// and `useFunctionRunStore`'s React binding feeds `renderToStaticMarkup`
+// the store's frozen `getInitialState()` snapshot regardless of what a test
+// seeds via `.set()` (see this file's other tests for the same limitation).
+// `FunctionRunInputPane.vitest.test.tsx` / `FunctionRunResponsePane.vitest.test.tsx`
+// already prove those components forward whatever `delegate`/`resolveSchema`
+// they are handed. What's left to prove *here* — the one seam those two
+// files cannot see — is that `FunctionRunShell` actually constructs and
+// hands them one, with the right identity. Both factories are mocked so
+// that construction is observable independent of the frozen-snapshot limit
+// above (a `useMemo` factory runs synchronously on the very first render,
+// unlike an effect).
+const createDelegateCalls: unknown[] = [];
+const createResolverCalls: unknown[] = [];
+vi.mock('./createFunctionRunPseudoDelegate', () => ({
+  createFunctionRunPseudoDelegate: (params: unknown) => {
+    createDelegateCalls.push(params);
+    return {
+      requestData: () => Promise.resolve(undefined),
+      loadComponent: () => Promise.resolve({}),
+      onAction: () => Promise.resolve(undefined),
+    };
+  },
+}));
+vi.mock('../quick-run/pseudo-ui/createDataSchemaResolver', () => ({
+  createDataSchemaResolver: (params: unknown) => {
+    createResolverCalls.push(params);
+    return () => Promise.resolve(null);
+  },
+}));
+
 // Not mocked: `areToolHeadersHostOwned` (`../../app/ToolHeadersSync.js`)
 // already guards `typeof window === 'undefined'` — the exact condition this
 // package's Node-only test environment is always in — and returns `false`
@@ -174,6 +207,36 @@ describe('FunctionRunShell', () => {
     // instead of silently leaking one function's tab choice into the next.
     expect(state.activeRequestTab).toBe('body');
     expect(state.loadedIdentity).toBe('core::other-function');
+  });
+});
+
+describe('FunctionRunShell — pseudo-ui delegate wiring (view surface quality)', () => {
+  it('builds a delegate for the same domain the shell was mounted with', () => {
+    createDelegateCalls.length = 0;
+    render({ domain: 'core' });
+    expect(createDelegateCalls).toHaveLength(1);
+    expect((createDelegateCalls[0] as { domain: string }).domain).toBe('core');
+  });
+
+  it('forwards projectId to the delegate factory when the host supplies one', () => {
+    // The regression this guards: `FunctionRunShellProps.projectId` used to
+    // be accepted but never read anywhere in this file.
+    createDelegateCalls.length = 0;
+    render({ projectId: 'proj-1' });
+    expect((createDelegateCalls[0] as { projectId?: string }).projectId).toBe('proj-1');
+  });
+
+  it('leaves projectId undefined for a host that does not supply one', () => {
+    createDelegateCalls.length = 0;
+    render({});
+    expect((createDelegateCalls[0] as { projectId?: string }).projectId).toBeUndefined();
+  });
+
+  it('builds a schema resolver for the same domain', () => {
+    createResolverCalls.length = 0;
+    render({ domain: 'core' });
+    expect(createResolverCalls).toHaveLength(1);
+    expect((createResolverCalls[0] as { domain: string }).domain).toBe('core');
   });
 });
 

@@ -250,4 +250,49 @@ describe('FunctionRunResponsePane', () => {
     render({ response: exchange(), durationMs: 1, outputView: null });
     expect(pseudoUiOrJsonBlockCalls).toHaveLength(0);
   });
+
+  describe('delegate / resolveSchema wiring (view surface quality)', () => {
+    const outputView = { key: 'k', type: 'pseudo-ui', content: { component: 'Column' } };
+
+    it('forwards the delegate and schema resolver to the output view', () => {
+      const delegate = {
+        requestData: () => Promise.resolve(undefined),
+        loadComponent: () => Promise.resolve({} as never),
+        onAction: () => Promise.resolve(undefined),
+      };
+      const resolveSchema = () => Promise.resolve(null);
+      render({ response: exchange({ json: {} }), durationMs: 1, outputView, delegate, resolveSchema });
+
+      expect(pseudoUiOrJsonBlockCalls).toHaveLength(1);
+      expect((pseudoUiOrJsonBlockCalls[0] as { delegate: unknown }).delegate).toBe(delegate);
+      expect((pseudoUiOrJsonBlockCalls[0] as { resolveSchema: unknown }).resolveSchema).toBe(resolveSchema);
+    });
+
+    it('renders the output view in simulation mode, not preview', () => {
+      // preview mode skips PseudoUiViewSurface's schema-readiness gate
+      // entirely and would leave an async dataSchema resolution racing the
+      // mount — see this file's own comment on why that regressed once a
+      // real resolveSchema was wired in.
+      render({ response: exchange({ json: {} }), durationMs: 1, outputView });
+      expect((pseudoUiOrJsonBlockCalls[0] as { integrationMode: unknown }).integrationMode).toBe('simulation');
+    });
+
+    it('scopes the output view\'s panel storage separately from the default scope', () => {
+      render({ response: exchange({ json: {} }), durationMs: 1, outputView });
+      expect((pseudoUiOrJsonBlockCalls[0] as { panelStorageScope: unknown }).panelStorageScope).toBe(
+        'function-run-output',
+      );
+    });
+
+    it('gives the surface a minimum height so an empty view is not a sliver', () => {
+      render({ response: exchange({ json: {} }), durationMs: 1, outputView });
+      expect((pseudoUiOrJsonBlockCalls[0] as { surfaceClassName: unknown }).surfaceClassName).toBe('min-h-[200px]');
+    });
+
+    it('shows the output view meta strip (section title, key, type badge)', () => {
+      const html = render({ response: exchange({ json: {} }), durationMs: 1, outputView });
+      expect(html).toContain('Output view');
+      expect(html).toContain('>k<');
+    });
+  });
 });
