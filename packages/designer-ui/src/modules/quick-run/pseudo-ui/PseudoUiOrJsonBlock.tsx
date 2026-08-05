@@ -22,6 +22,8 @@ export interface PseudoUiOrJsonBlockProps {
   instanceData?: Record<string, unknown>;
   initialFormData?: Record<string, unknown>;
   onPseudoError?: (message: string) => void;
+  /** Read-only tap on the rendered view's form values. Ignored by the JSON branch. */
+  onFormChange?: (data: Record<string, unknown>) => void;
 }
 
 function JsonBranch({
@@ -54,6 +56,7 @@ export function PseudoUiOrJsonBlock({
   instanceData,
   initialFormData,
   onPseudoError,
+  onFormChange,
 }: PseudoUiOrJsonBlockProps) {
   const [panelMode, setPanelMode] = usePseudoUiPanelMode(panelStorageScope);
 
@@ -84,6 +87,7 @@ export function PseudoUiOrJsonBlock({
           className={surfaceClassName}
           delegate={delegate}
           onError={onPseudoError}
+          onFormChange={onFormChange}
         />
       )}
     </div>
