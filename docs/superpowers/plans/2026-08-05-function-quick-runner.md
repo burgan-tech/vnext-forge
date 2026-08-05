@@ -2193,78 +2193,244 @@ git commit -m "feat(function-run): response pane with explicit authorization sur
 ```
 
 ---
-
 ### Task 17: `FunctionRunShell`
 
+The shell is pure orchestration, which is the most defect-prone part of this feature — and the part this package's test style cannot reach. There is no jsdom, so `renderToStaticMarkup` never runs effects: a render test sees only the initial state and can never observe a fetch, a state transition, or an error mapping.
+
+So the decisions come out of the component into a pure module, exactly as `functionContractSlots`, `functionRunPayload` and `functionRunView` already do. The component keeps only wiring.
+
 **Files:**
-- Create: `packages/designer-ui/src/modules/function-run/FunctionRunShell.tsx`
+- Create: `packages/designer-ui/src/modules/function-run/functionRunOrchestration.ts` + `.vitest.test.ts`
+- Create: `packages/designer-ui/src/modules/function-run/FunctionRunShell.tsx` + `.vitest.test.tsx`
 - Create: `packages/designer-ui/src/modules/function-run/index.ts`
-- Test: `packages/designer-ui/src/modules/function-run/FunctionRunShell.vitest.test.tsx`
+- Modify: `packages/designer-ui/src/index.ts` (export the module)
 
-- [ ] **Step 1: Implement the shell**
+#### Decisions already settled — do not relitigate
 
-Props:
+- The runner owns Invoke. The input view is a form; its values arrive via `onFormChange`. **No `delegate`** is passed to the input view.
+- Payload mode is always reachable; View mode is what gets disabled, with a stated reason.
+- A disabled control always states why.
+- Scope `D` runs immediately; `F`/`I` need a manually entered workflow key and instance id before Invoke is enabled.
+- Every request's headers go through `mergeQuickRunHeaders` — never an ad-hoc spread. The workflow runner has ~20 direct spreads that drifted from the helper and caused a real bug; this module does not repeat that.
+
+#### Where headers come from, for now
+
+Task 19 adds the tool-wide header source (extension context message, web store). It has not run yet. So **this task takes `toolWideHeaders` as an optional prop** and passes it as `mergeQuickRunHeaders`'s fourth argument. Task 19 supplies the real value from the host. Do not build the store here.
+
+- [ ] **Step 1: Write the failing test for the orchestration**
+
+`functionRunOrchestration.vitest.test.ts`:
+
+```ts
+import { describe, expect, it } from 'vitest';
+
+import { computeInvokeGate, readInfoExchange } from './functionRunOrchestration';
+
+const exchange = (over: Partial<Record<string, unknown>> = {}) => ({
+  status: 200, contentType: 'application/json', responseHeaders: {}, body: '{}', ...over,
+}) as never;
+
+const INFO = {
+  key: 'get-branches', domain: 'core', version: '1.0.0', scope: 'D',
+  function: { verbs: ['GET'], href: '/core/functions/get-branches' },
+};
+
+describe('readInfoExchange', () => {
+  it('parses a 200 into info', () => {
+    const result = readInfoExchange(exchange({ json: INFO }));
+    expect(result.info).toEqual(INFO);
+    expect(result.error).toBeNull();
+  });
+
+  it('explains a 404 as a missing component, not a failure', () => {
+    // Built-in system functions (state, view, data…) have no sys-functions
+    // component and legitimately 404 from /info.
+    const result = readInfoExchange(exchange({ status: 404, json: {} }));
+    expect(result.info).toBeNull();
+    expect(result.error).toMatch(/no sys-functions component/i);
+  });
+
+  it('explains a 403 as a permissions problem', () => {
+    const result = readInfoExchange(exchange({ status: 403, json: { detail: 'forbidden' } }));
+    expect(result.info).toBeNull();
+    expect(result.error).toMatch(/not allowed/i);
+  });
+
+  it('reports any other non-2xx with its status', () => {
+    const result = readInfoExchange(exchange({ status: 500, body: 'boom', contentType: 'text/plain' }));
+    expect(result.info).toBeNull();
+    expect(result.error).toContain('500');
+  });
+
+  it('reports a 200 whose body is not a usable info payload', () => {
+    // A 200 that does not carry `function.href` cannot drive the runner.
+    expect(readInfoExchange(exchange({ json: { key: 'x' } })).error).toMatch(/could not be read/i);
+    expect(readInfoExchange(exchange({ body: 'not json', jsonParseError: 'x' })).error).toMatch(/could not be read/i);
+  });
+});
+
+describe('computeInvokeGate', () => {
+  it('allows a domain-scoped function as soon as info is loaded', () => {
+    expect(computeInvokeGate({ info: INFO as never, scope: 'D', workflowKey: '', instanceId: '' }))
+      .toEqual({ canInvoke: true, reason: null });
+  });
+
+  it('blocks before info has loaded, and says why', () => {
+    const gate = computeInvokeGate({ info: null, scope: 'D', workflowKey: '', instanceId: '' });
+    expect(gate.canInvoke).toBe(false);
+    expect(gate.reason).toMatch(/contract/i);
+  });
+
+  it('names the missing field for F and I scopes', () => {
+    for (const scope of ['F', 'I'] as const) {
+      expect(computeInvokeGate({ info: INFO as never, scope, workflowKey: '', instanceId: 'i' }).reason)
+        .toMatch(/workflow key/i);
+      expect(computeInvokeGate({ info: INFO as never, scope, workflowKey: 'w', instanceId: '' }).reason)
+        .toMatch(/instance id/i);
+      expect(computeInvokeGate({ info: INFO as never, scope, workflowKey: 'w', instanceId: 'i' }))
+        .toEqual({ canInvoke: true, reason: null });
+    }
+  });
+
+  it('treats whitespace-only scope ids as missing', () => {
+    expect(computeInvokeGate({ info: INFO as never, scope: 'F', workflowKey: '  ', instanceId: 'i' }).canInvoke)
+      .toBe(false);
+  });
+});
+```
+
+- [ ] **Step 2: Run to verify it fails**
+
+```bash
+pnpm --filter @vnext-forge-studio/designer-ui exec vitest run src/modules/function-run/functionRunOrchestration.vitest.test.ts
+```
+
+- [ ] **Step 3: Implement the orchestration**
+
+```ts
+export interface InfoReadResult {
+  info: FunctionInfo | null;
+  /** User-facing explanation when `info` is null. */
+  error: string | null;
+}
+
+/**
+ * Maps an `/info` exchange onto what the runner shows.
+ *
+ * Each non-2xx gets its own sentence because they mean genuinely different
+ * things and send the user to different places: a 403 is a permissions
+ * problem (discovery and execution share one access policy), a 404 means the
+ * key has no `sys-functions` component at all — which is the expected answer
+ * for a built-in system function like `state` or `view`.
+ */
+export function readInfoExchange(exchange: FunctionExchange): InfoReadResult;
+
+export interface InvokeGate {
+  canInvoke: boolean;
+  /** Non-null exactly when `canInvoke` is false. Shown next to the button. */
+  reason: string | null;
+}
+
+/**
+ * Whether Invoke is enabled, and if not, which specific thing is missing.
+ *
+ * Names the field rather than saying "incomplete" — a disabled control with
+ * no explanation is the failure mode this whole surface is designed against.
+ */
+export function computeInvokeGate(input: {
+  info: FunctionInfo | null;
+  scope: FunctionScope;
+  workflowKey: string;
+  instanceId: string;
+}): InvokeGate;
+```
+
+A payload counts as usable info only when it is an object carrying `function.href`.
+
+- [ ] **Step 4: Implement the shell**
 
 ```ts
 export interface FunctionRunShellProps {
   domain: string;
   functionKey: string;
-  scope: 'D' | 'F' | 'I';
+  scope: FunctionScope;
   runtimeUrl?: string;
   projectId?: string;
+  /** Forge-wide headers. Task 19 supplies these from the host. */
+  toolWideHeaders?: Record<string, string>;
 }
 ```
 
-Behaviour:
+Wiring:
 
-1. On mount — and whenever `scope !== 'D'` and both scope ids become non-empty — call `FunctionRunApi.getInfo` with merged headers. Store the exchange; `status === 200` → parse `json` into `info`; otherwise set `infoError` (404 → `No sys-functions component for this key — built-in system functions have no /info.`).
-2. When `info` arrives: `verb = defaultVerbFor(resolveVerbs(info.function.verbs))`; if `info.inputView?.hasView` fetch `inputView.href`; if `info.inputSchema?.hasSchema` fetch `inputSchema.href`.
-3. `canInvoke` = `info !== null && (scope === 'D' || (workflowKey && instanceId))`; `invokeDisabledReason` states which field is missing.
-4. Invoke: `buildInvokeRequest(...)` → `FunctionRunApi.invoke({ path: info.function.href, verb, ...request, headers })`, timing the call for `responseDurationMs`. On success, if `info.outputView?.hasView`, fetch the output view.
-5. Every request's headers come from `mergeQuickRunHeaders(null, sessionHeaders, undefined, toolWideHeaders)` — **never** an ad-hoc spread.
+1. **Load `/info`** on mount, and again whenever `scope !== 'D'` and both scope ids are non-empty. Feed the exchange through `readInfoExchange` into the store.
+2. **On info:** `verb = defaultVerbFor(resolveVerbs(info.function.verbs))`. If `info.inputView?.hasView`, `fetchContract(info.inputView.href)` → `toViewResponse` → store. Same for `info.inputSchema?.hasSchema` → the parsed schema object.
+3. **Invoke:** `buildInvokeRequest({verb, mode, viewFormData, payload, contentType})` → `FunctionRunApi.invoke({path: info.function.href, verb, ...request, headers})`. Time it for `responseDurationMs`. Afterwards, if `info.outputView?.hasView`, fetch and adapt the output view.
+4. **Headers:** one helper, `mergeQuickRunHeaders(null, sessionHeaders, undefined, toolWideHeaders)`, used for `/info`, both contract fetches, and invoke. The first argument is `null` — a function run has no per-workflow bucket.
+5. **Own the `HeadersConfigDialog`.** The toolbar only signals `onOpenHeaders`. `HeaderEntry` is not exported, so build the array inline as `{name, value}[]` and keep session headers in local state.
+6. **Empty state.** `FunctionRunResponsePane` renders nothing before the first invoke, so the shell shows its own placeholder — "Pick a verb and choose Invoke to run this function." — in the response column.
+7. **`infoError`** renders in place of the input pane: without a contract there is nothing meaningful to fill in.
 
-- [ ] **Step 2: Write the render test**
+Layout: two columns on wide viewports (input | response), stacked below, inside the block layout the sibling editors use (`space-y-4 p-4`).
+
+- [ ] **Step 5: Write the shell render test**
+
+Effects do not run under SSR, so this covers the *initial* render only — the orchestration tests above are what cover the logic. Assert only what is true before any fetch resolves.
 
 ```tsx
-import { createElement } from 'react'
-import { renderToStaticMarkup } from 'react-dom/server'
-import { describe, expect, it, vi } from 'vitest'
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('../quick-run/pseudo-ui/PseudoUiOrJsonBlock', () => ({ PseudoUiOrJsonBlock: () => null }))
+vi.mock('../quick-run/pseudo-ui/PseudoUiOrJsonBlock', () => ({ PseudoUiOrJsonBlock: () => null }));
+vi.mock('../quick-run/components/CopyableJsonBlock', () => ({
+  CopyableJsonBlock: () => null, JsonEditorWithCopy: () => null,
+}));
 vi.mock('./FunctionRunApi', () => ({
   getInfo: vi.fn().mockResolvedValue({ success: true, data: { status: 200, contentType: 'application/json', responseHeaders: {}, body: '{}', json: {} } }),
-  fetchContract: vi.fn(), invoke: vi.fn(),
-}))
+  fetchContract: vi.fn(),
+  invoke: vi.fn(),
+}));
 
-const { FunctionRunShell } = await import('./FunctionRunShell.js')
+const { FunctionRunShell } = await import('./FunctionRunShell.js');
+
+const render = (over: Record<string, unknown> = {}) =>
+  renderToStaticMarkup(
+    createElement(FunctionRunShell, { domain: 'core', functionKey: 'get-branches', scope: 'D', ...over } as never),
+  );
+
+const disabledCount = (html: string) => (html.match(/ disabled=""/g) ?? []).length;
 
 describe('FunctionRunShell', () => {
   it('asks for workflow and instance when the function is not domain-scoped', () => {
-    const html = renderToStaticMarkup(
-      createElement(FunctionRunShell, { domain: 'core', functionKey: 'calc', scope: 'F' }),
-    )
-    expect(html).toContain('Workflow key')
-    expect(html).toContain('Instance id')
-  })
+    const html = render({ scope: 'F' });
+    expect(html).toContain('Workflow key');
+    expect(html).toContain('Instance id');
+  });
 
   it('does not ask for them for a domain-scoped function', () => {
-    const html = renderToStaticMarkup(
-      createElement(FunctionRunShell, { domain: 'core', functionKey: 'get-branches', scope: 'D' }),
-    )
-    expect(html).not.toContain('Instance id')
-  })
-})
+    expect(render()).not.toContain('Instance id');
+  });
+
+  it('disables Invoke before the contract has loaded, and says why', () => {
+    // Effects have not run, so /info has not resolved — exactly the state a
+    // user sees for the first moment, and it must not be a bare grey button.
+    const html = render();
+    expect(disabledCount(html)).toBeGreaterThan(0);
+    expect(html).toMatch(/contract/i);
+  });
+
+  it('shows a placeholder instead of an empty response column', () => {
+    expect(render()).toMatch(/Invoke to run this function/i);
+  });
+});
 ```
 
-- [ ] **Step 3: Run the test**
+- [ ] **Step 6: Mutation-check**
 
-```bash
-pnpm --filter @vnext-forge-studio/designer-ui exec vitest run src/modules/function-run/FunctionRunShell.vitest.test.tsx
-```
+Break each of these and confirm a test fails, then restore: the F/I field gating, the invoke-disabled reason, the placeholder. Report the results — an assertion that cannot fail is worse than none.
 
-Expected: PASS (2 tests).
-
-- [ ] **Step 4: Export the barrel**
+- [ ] **Step 7: Barrel and package export**
 
 ```ts
 export { FunctionRunShell, type FunctionRunShellProps } from './FunctionRunShell';
@@ -2272,13 +2438,18 @@ export { useFunctionRunStore } from './store/functionRunStore';
 export * as FunctionRunApi from './FunctionRunApi';
 ```
 
-Add the module to `packages/designer-ui/src/index.ts`.
+Add the module to `packages/designer-ui/src/index.ts` following how the sibling modules are exported.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 8: Verify and commit**
 
 ```bash
-git add packages/designer-ui/src/modules/function-run packages/designer-ui/src/index.ts
-git commit -m "feat(function-run): shell assembly"
+pnpm --filter @vnext-forge-studio/designer-ui exec vitest run
+pnpm --filter @vnext-forge-studio/designer-ui exec tsc --noEmit -p tsconfig.json
+pnpm exec eslint packages/designer-ui/src/modules/function-run
+```
+
+```bash
+git commit -m "feat(function-run): shell assembly with testable orchestration"
 ```
 
 ---
