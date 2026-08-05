@@ -36,8 +36,13 @@ export interface InvokeRequest {
  * Renders one value into the flat string shape query params and
  * form-urlencoded bodies both need. Objects/arrays survive as JSON rather
  * than becoming `"[object Object]"`.
+ *
+ * Exported so `FunctionRunPayloadEditor`'s form-urlencoded row editor can
+ * reuse the exact same encoding `buildInvokeRequest` uses on submit — the
+ * two halves of one feature (edit the payload, then send it) must not
+ * disagree about how a nested value is stringified.
  */
-function toQueryValue(value: string | number | boolean | object): string {
+export function toQueryValue(value: string | number | boolean | object): string {
   if (typeof value === 'string') return value;
   if (typeof value === 'number' || typeof value === 'boolean') return String(value);
   return JSON.stringify(value);

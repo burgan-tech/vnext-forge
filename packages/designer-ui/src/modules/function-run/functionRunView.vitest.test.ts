@@ -19,8 +19,18 @@ describe('toViewResponse', () => {
   it('returns null when the contract returned no content', () => {
     // `hasView: false`, or a 404 — "no contract right now" is not an error.
     expect(toViewResponse(null)).toBeNull();
+    // `json` deliberately carries a well-formed view payload here so this
+    // case actually exercises the status guard — without it, the earlier
+    // "is this a plain object with `content`" check would reject the
+    // fixture on its own, and the 404 branch would never be reached.
     expect(
-      toViewResponse({ status: 404, contentType: 'application/json', responseHeaders: {}, body: '' }),
+      toViewResponse({
+        status: 404,
+        contentType: 'application/json',
+        responseHeaders: {},
+        body: '{"key":"k","type":"pseudo-ui","content":{}}',
+        json: { key: 'k', type: 'pseudo-ui', content: {} },
+      }),
     ).toBeNull();
   });
 

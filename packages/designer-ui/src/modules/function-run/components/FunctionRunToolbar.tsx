@@ -52,6 +52,7 @@ export function FunctionRunToolbar({
         <Select
           value={verb ?? ''}
           onChange={(e) => onVerbChange(e.target.value as FunctionVerb)}
+          aria-label="HTTP verb"
           className="w-24 text-xs">
           {verbs.map((v) => (
             <option key={v} value={v}>

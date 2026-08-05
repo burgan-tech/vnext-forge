@@ -7,9 +7,8 @@ import { Field } from '../../../ui/Field';
 import { Input } from '../../../ui/Input';
 import { Select } from '../../../ui/Select';
 import { JsonEditorWithCopy } from '../../quick-run/components/CopyableJsonBlock';
-import { SchemaForm } from '../../schema-form';
-import type { JsonSchemaRoot } from '../../schema-form';
-import { CONTENT_TYPES, type ContentTypeId } from '../functionRunPayload';
+import { SchemaForm, type JsonSchemaRoot } from '../../schema-form';
+import { CONTENT_TYPES, toQueryValue, type ContentTypeId } from '../functionRunPayload';
 
 export interface FunctionRunPayloadEditorProps {
   contentType: ContentTypeId;
@@ -76,19 +75,35 @@ export function FunctionRunPayloadEditor({
 }
 
 /**
+ * Whether a controlled editor holding a canonical serialization of its
+ * parent's `value` must resync its local, editable copy.
+ *
+ * `lastPushed` is what this field itself last reported upstream via its
+ * `onChange` — deliberately *not* a "did we just push" boolean flag. A flag
+ * strands permanently the first time a push is semantically a no-op
+ * (reformatting the same object, or a parent that normalises to a
+ * content-equal value): nothing ever clears it again except the dependency
+ * firing, and a content-identical re-render never fires it, so the very
+ * next *genuine* external reset (switching function, say) finds the stale
+ * flag still set and is wrongly swallowed — the editor then silently
+ * diverges from the parent from that point on. Comparing serialized
+ * strings has nothing to strand: every call is judged independently, and
+ * "reset to a content-equal value" is correctly just `false`, not a special
+ * case that needs remembering.
+ */
+export function shouldResyncFromValue(serializedValue: string, lastPushed: string | null): boolean {
+  return serializedValue !== lastPushed;
+}
+
+/**
  * Free JSON editor for when the contract declares no input schema.
  *
- * Kept as its own controlled loop, decoupled from the parent's `value` via
- * `isLocalEchoRef`: the editor's own text is the source of truth for what
- * is on screen, and the parent only ever receives *valid* parsed objects.
- * Without this, a controlled `<JsonEditorWithCopy value=… onChange=…>` fed
- * straight from the parent's `Record` would have nothing to show while the
- * user's in-progress text fails to parse — the parent's `value` cannot
- * represent "half-typed JSON", so the editor would either freeze on the
- * last good object mid-keystroke or, worse, echo the parent's unchanged
- * `value` back over the user's own typing on the next unrelated re-render.
- * The ref flag distinguishes "this change came from us, don't resync" from
- * a genuine external reset (switching function, clearing the form).
+ * The editor's own `text` is the source of truth for what is on screen —
+ * the parent's `value` cannot represent "half-typed JSON", so a naive
+ * controlled loop fed straight from `value` would have nothing to show
+ * while the user's in-progress text fails to parse. Only a *valid* parsed
+ * object is ever reported upstream; see `shouldResyncFromValue` for how an
+ * echo of our own push is told apart from a genuine external reset.
  */
 function JsonPayloadField({
   value,
@@ -100,13 +115,10 @@ function JsonPayloadField({
   const serialized = useMemo(() => JSON.stringify(value, null, 2), [value]);
   const [text, setText] = useState(serialized);
   const [parseError, setParseError] = useState<string | null>(null);
-  const isLocalEchoRef = useRef(false);
+  const lastPushedRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (isLocalEchoRef.current) {
-      isLocalEchoRef.current = false;
-      return;
-    }
+    if (!shouldResyncFromValue(serialized, lastPushedRef.current)) return;
     setText(serialized);
     setParseError(null);
   }, [serialized]);
@@ -120,7 +132,10 @@ function JsonPayloadField({
         return;
       }
       setParseError(null);
-      isLocalEchoRef.current = true;
+      // Canonicalised the same way `serialized` is computed above, so a
+      // later comparison recognises this exact push regardless of how the
+      // user originally formatted their input (compact vs. pretty).
+      lastPushedRef.current = JSON.stringify(parsed, null, 2);
       onChange(parsed as Record<string, unknown>);
     } catch (error) {
       // The parse error is visible below; the parent is never told about
@@ -149,12 +164,15 @@ function nextFormRowId(): string {
   return `function-run-form-row-${formRowIdSeq}`;
 }
 
-function toFormRows(value: Record<string, unknown>): FormRow[] {
-  return Object.entries(value).map(([key, v]) => ({
-    id: nextFormRowId(),
-    key,
-    value: typeof v === 'string' ? v : v == null ? '' : String(v),
-  }));
+/**
+ * Renders one incoming value for a form row. Delegates to
+ * `toQueryValue` (the same helper `buildInvokeRequest` uses to encode the
+ * query/form-urlencoded wire shape) so a nested object survives as JSON
+ * instead of collapsing to `"[object Object]"` on the first unrelated edit.
+ */
+function toRowValue(v: unknown): string {
+  if (v === null || v === undefined) return '';
+  return toQueryValue(v as string | number | boolean | object);
 }
 
 function formRowsToRecord(rows: readonly FormRow[]): Record<string, unknown> {
@@ -167,9 +185,40 @@ function formRowsToRecord(rows: readonly FormRow[]): Record<string, unknown> {
 }
 
 /**
+ * Rebuilds the row list for a genuinely new `value` from outside (switching
+ * function, an external reset). Matches incoming entries to existing rows
+ * by key so an untouched row keeps its id — and therefore its mounted
+ * `<Input>` — instead of remounting and dropping focus/caret on every
+ * resync. Exported for direct unit testing: id-stability under a real
+ * external change is exactly the property that regenerating ids on every
+ * call broke.
+ */
+export function reconcileFormRows(prevRows: readonly FormRow[], value: Record<string, unknown>): FormRow[] {
+  const byKey = new Map<string, FormRow>();
+  for (const row of prevRows) {
+    if (row.key !== '' && !byKey.has(row.key)) byKey.set(row.key, row);
+  }
+  return Object.entries(value).map(([key, v]) => {
+    const existing = byKey.get(key);
+    return { id: existing?.id ?? nextFormRowId(), key, value: toRowValue(v) };
+  });
+}
+
+function toFormRows(value: Record<string, unknown>): FormRow[] {
+  return reconcileFormRows([], value);
+}
+
+/**
  * Key/value rows for `application/x-www-form-urlencoded`. Nested values
  * cannot survive this encoding, so a hint says so instead of silently
  * flattening a nested object into `"[object Object]"`.
+ *
+ * Resync follows the same `shouldResyncFromValue` rule as `JsonPayloadField`
+ * — an echo of a row edit this component itself just committed must not
+ * rebuild the row list (which would drop an in-progress blank row, or any
+ * row not yet reflected in `value` because its key is still being typed),
+ * while a genuine external reset must still replace it via
+ * `reconcileFormRows`.
  */
 function FormRows({
   value,
@@ -179,21 +228,23 @@ function FormRows({
   onChange: (next: Record<string, unknown>) => void;
 }) {
   const [rows, setRows] = useState<FormRow[]>(() => toFormRows(value));
-  const isLocalEchoRef = useRef(false);
-
+  const serializedValue = useMemo(() => JSON.stringify(value), [value]);
+  const lastPushedRef = useRef<string | null>(null);
+  // `value` itself is deliberately not a dependency: `serializedValue` is a
+  // string, so two content-equal-but-different-reference `value`s produce
+  // the *same* dependency-array entry (strings compare by value) and the
+  // effect correctly does not re-run — only a genuine content change does.
+  // The effect still reads the current `value` via closure when it does run.
   useEffect(() => {
-    if (isLocalEchoRef.current) {
-      isLocalEchoRef.current = false;
-      return;
-    }
-    setRows(toFormRows(value));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [value]);
+    if (!shouldResyncFromValue(serializedValue, lastPushedRef.current)) return;
+    setRows((prevRows) => reconcileFormRows(prevRows, value));
+  }, [serializedValue]);
 
   function commit(next: FormRow[]) {
     setRows(next);
-    isLocalEchoRef.current = true;
-    onChange(formRowsToRecord(next));
+    const record = formRowsToRecord(next);
+    lastPushedRef.current = JSON.stringify(record);
+    onChange(record);
   }
 
   return (
@@ -203,6 +254,7 @@ function FormRows({
           <Input
             size="sm"
             placeholder="key"
+            aria-label="Field name"
             value={row.key}
             onChange={(e) => {
               const next = rows.slice();
@@ -213,6 +265,7 @@ function FormRows({
           <Input
             size="sm"
             placeholder="value"
+            aria-label="Field value"
             value={row.value}
             onChange={(e) => {
               const next = rows.slice();
