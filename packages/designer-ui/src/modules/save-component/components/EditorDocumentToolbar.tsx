@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Braces, FileText, Loader2, Play, Redo2, Save, Undo2, Upload, Users } from 'lucide-react';
+import { Braces, FileText, Loader2, Play, Redo2, Save, Undo2, Upload, Users, X } from 'lucide-react';
 import { Button } from '../../../ui/Button';
 import {
   Tooltip,
@@ -17,9 +17,11 @@ interface IconButtonProps {
   disabled?: boolean;
   variant?: 'default' | 'success' | 'muted' | 'ghost';
   className?: string;
+  /** Reflects on/off state for a toggle-style action (e.g. the Run panel). */
+  pressed?: boolean;
 }
 
-function IconButton({ icon, label, onClick, disabled, variant = 'muted', className }: IconButtonProps) {
+function IconButton({ icon, label, onClick, disabled, variant = 'muted', className, pressed }: IconButtonProps) {
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -30,7 +32,8 @@ function IconButton({ icon, label, onClick, disabled, variant = 'muted', classNa
           variant={variant}
           size="icon"
           className={`size-7 min-h-7 ${className ?? ''}`}
-          aria-label={label}>
+          aria-label={label}
+          aria-pressed={pressed}>
           {icon}
         </Button>
       </TooltipTrigger>
@@ -117,6 +120,10 @@ export interface EditorDocumentToolbarProps {
   onPreviewDocument?: () => void;
   onPreviewOpenApi?: () => void;
   onPreviewAudienceOpenApi?: () => void;
+  /** Toggles the embedded Run panel (function editor only). */
+  onToggleRun?: () => void;
+  /** Whether the Run panel is currently open — drives the toggle button's pressed state and icon. */
+  runOpen?: boolean;
   autoSavePending?: boolean;
   autoSaved?: boolean;
   /**
@@ -141,6 +148,8 @@ export function EditorDocumentToolbar({
   onPreviewDocument,
   onPreviewOpenApi,
   onPreviewAudienceOpenApi,
+  onToggleRun,
+  runOpen,
   autoSavePending,
   autoSaved,
   arrangement,
@@ -239,6 +248,17 @@ export function EditorDocumentToolbar({
       />
     ) : null;
 
+  const runBtn =
+    onToggleRun != null ? (
+      <IconButton
+        icon={runOpen ? <X size={iconSize} /> : <Play size={iconSize} />}
+        label={runOpen ? 'Close Run panel' : 'Run'}
+        onClick={onToggleRun}
+        variant={runOpen ? 'default' : 'muted'}
+        pressed={runOpen}
+      />
+    ) : null;
+
   const publishBtn =
     onPublish != null ? (
       <IconButton
@@ -268,6 +288,7 @@ export function EditorDocumentToolbar({
           {previewOpenApiBtn}
           {audienceOpenApiBtn}
           {quickRunBtn}
+          {runBtn}
           {publishBtn}
         </div>
       </TooltipProvider>
@@ -288,6 +309,7 @@ export function EditorDocumentToolbar({
           {previewOpenApiBtn}
           {audienceOpenApiBtn}
           {quickRunBtn}
+          {runBtn}
           {publishBtn}
         </div>
       </div>

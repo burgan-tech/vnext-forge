@@ -25,6 +25,10 @@ export interface ComponentEditorLayoutProps {
   onPreviewOpenApi?: () => void;
   /** Opens the Audience OpenAPI specification preview dialog (flow editors only). */
   onPreviewAudienceOpenApi?: () => void;
+  /** Toggles the embedded Run panel (function editor only). */
+  onToggleRun?: () => void;
+  /** Whether the Run panel is currently open — drives the toggle button's pressed state. */
+  runOpen?: boolean;
   autoSavePending?: boolean;
   autoSaved?: boolean;
   children: ReactNode;
@@ -53,6 +57,8 @@ export function ComponentEditorLayout({
   onPreviewDocument,
   onPreviewOpenApi,
   onPreviewAudienceOpenApi,
+  onToggleRun,
+  runOpen,
   autoSavePending,
   autoSaved,
   children,
@@ -71,6 +77,7 @@ export function ComponentEditorLayout({
   const onPreviewDocumentRef = useRef(onPreviewDocument);
   const onPreviewOpenApiRef = useRef(onPreviewOpenApi);
   const onPreviewAudienceOpenApiRef = useRef(onPreviewAudienceOpenApi);
+  const onToggleRunRef = useRef(onToggleRun);
   onSaveRef.current = onSave;
   onUndoRef.current = onUndo;
   onRedoRef.current = onRedo;
@@ -79,6 +86,7 @@ export function ComponentEditorLayout({
   onPreviewDocumentRef.current = onPreviewDocument;
   onPreviewOpenApiRef.current = onPreviewOpenApi;
   onPreviewAudienceOpenApiRef.current = onPreviewAudienceOpenApi;
+  onToggleRunRef.current = onToggleRun;
 
   const stableOnSave = useCallback(() => {
     onSaveRef.current();
@@ -104,6 +112,9 @@ export function ComponentEditorLayout({
   const stableOnPreviewAudienceOpenApi = useCallback(() => {
     onPreviewAudienceOpenApiRef.current?.();
   }, []);
+  const stableOnToggleRun = useCallback(() => {
+    onToggleRunRef.current?.();
+  }, []);
 
   const hasUndoGroup = Boolean(onUndo);
   const hasRedoButton = Boolean(onRedo);
@@ -112,6 +123,7 @@ export function ComponentEditorLayout({
   const hasPreviewDocument = Boolean(onPreviewDocument);
   const hasPreviewOpenApi = Boolean(onPreviewOpenApi);
   const hasPreviewAudienceOpenApi = Boolean(onPreviewAudienceOpenApi);
+  const hasToggleRun = Boolean(onToggleRun);
 
   const hostToolbar = useMemo(
     () => (
@@ -130,6 +142,8 @@ export function ComponentEditorLayout({
         onPreviewDocument={hasPreviewDocument ? stableOnPreviewDocument : undefined}
         onPreviewOpenApi={hasPreviewOpenApi ? stableOnPreviewOpenApi : undefined}
         onPreviewAudienceOpenApi={hasPreviewAudienceOpenApi ? stableOnPreviewAudienceOpenApi : undefined}
+        onToggleRun={hasToggleRun ? stableOnToggleRun : undefined}
+        runOpen={runOpen}
         autoSavePending={autoSavePending}
         autoSaved={autoSaved}
         arrangement="host-row"
@@ -148,6 +162,8 @@ export function ComponentEditorLayout({
       hasPreviewDocument,
       hasPreviewOpenApi,
       hasPreviewAudienceOpenApi,
+      hasToggleRun,
+      runOpen,
       publishing,
       autoSavePending,
       autoSaved,
@@ -159,6 +175,7 @@ export function ComponentEditorLayout({
       stableOnPreviewDocument,
       stableOnPreviewOpenApi,
       stableOnPreviewAudienceOpenApi,
+      stableOnToggleRun,
     ],
   );
 
@@ -178,6 +195,8 @@ export function ComponentEditorLayout({
       onPreviewDocument={onPreviewDocument}
       onPreviewOpenApi={onPreviewOpenApi}
       onPreviewAudienceOpenApi={onPreviewAudienceOpenApi}
+      onToggleRun={onToggleRun}
+      runOpen={runOpen}
       autoSavePending={autoSavePending}
       autoSaved={autoSaved}
       arrangement="editor-chrome"

@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { HostDocumentToolbarSlot } from '../../modules/save-component/components/hostDocumentToolbarSlot';
 import { useProjectStore } from '../../store/useProjectStore';
 import { useComponentStore } from '../../store/useComponentStore';
 import { useEditorPanelsStore } from '../../store/useEditorPanelsStore';
+import { useRuntimeStore } from '../../store/useRuntimeStore';
+import { useToolHeadersStore } from '../../store/useToolHeadersStore';
 import { useScriptPanelStore } from '../../modules/code-editor/ScriptPanelStore';
 import { useSaveComponent } from '../../modules/save-component/useSaveComponent';
 import { ComponentEditorLayout } from '../../modules/save-component/components/ComponentEditorLayout';
@@ -18,6 +20,8 @@ import {
 } from '../../modules/code-editor/layout/ScriptEditorPanel';
 import { useFunctionEditor } from './UseFunctionEditor';
 import { FunctionEditorPanel } from './components/FunctionEditorPanel';
+import { toFunctionMetadataFormValues } from './FunctionEditorSchema.js';
+import { FunctionRunShell } from '../function-run/FunctionRunShell.js';
 import { buildAtomicComponentJsonPath } from '../vnext-workspace/atomicComponentPaths.js';
 import type { AtomicSavedInfo } from '../save-component/componentEditorModalTypes.js';
 
@@ -116,6 +120,50 @@ export function FunctionEditorView({
 
   const scriptPanelOpen = useEditorPanelsStore((s) => s.scriptPanelOpen);
   const activeScript = useScriptPanelStore((s) => s.activeScript);
+  const runtimeUrl = useRuntimeStore((s) => s.runtimeUrl);
+  const toolWideHeaders = useToolHeadersStore((s) => s.headers);
+
+  // `ComponentEditorDialog` exists to edit a component referenced from
+  // elsewhere, not to run it — the modal surface never offers Run.
+  const canRun = layoutSurface !== 'modal';
+  const [runOpen, setRunOpen] = useState(false);
+
+  // The Run panel and the script panel share the resizable column's second
+  // slot (`FlowEditorCanvasAndScriptResizableColumn` only has two slots), so
+  // they are made explicitly mutually exclusive rather than picking a silent
+  // precedence: opening Run closes the script panel (below), and opening a
+  // script closes Run (the subscription further down).
+  const handleToggleRun = useCallback(() => {
+    setRunOpen((prev) => {
+      const next = !prev;
+      if (next) {
+        useEditorPanelsStore.getState().setScriptPanelOpen(false);
+      }
+      return next;
+    });
+  }, []);
+
+  // Any script-open path (`CsxEditorField`, `TaskEditorView`, …) calls
+  // `setScriptPanelOpen(true)` directly on the shared store, not through a
+  // prop this view controls — so the other half of the exclusivity rule is
+  // enforced by observing the store rather than by touching every call site.
+  useEffect(() => {
+    return useEditorPanelsStore.subscribe((state, prev) => {
+      if (state.scriptPanelOpen && !prev.scriptPanelOpen) {
+        setRunOpen(false);
+      }
+    });
+  }, []);
+
+  // Identity for the runner, read from the hand-editable JSON the same way
+  // `FunctionMetadataForm` does: `attributes.scope` falls back to `scope`,
+  // defaulting to `'I'` when neither is a recognized value.
+  const functionIdentity = useMemo(() => {
+    if (!componentJson) return null;
+    const values = toFunctionMetadataFormValues(componentJson);
+    if (!values.domain || !values.key) return null;
+    return { domain: values.domain, functionKey: values.key, scope: values.scope };
+  }, [componentJson]);
 
   const componentDirectoryPath = useMemo(() => {
     if (!activeProject || !vnextConfig) return undefined;
@@ -207,6 +255,8 @@ export function FunctionEditorView({
             canRedo={redoStack.length > 0}
             onPublish={canPublish ? handlePublish : undefined}
             publishing={publishing}
+            onToggleRun={canRun ? handleToggleRun : undefined}
+            runOpen={runOpen}
             autoSavePending={autoSavePending}
             autoSaved={autoSaved}>
             <FunctionEditorPanel
@@ -217,7 +267,22 @@ export function FunctionEditorView({
           </ComponentEditorLayout>
         }
         scriptPanel={
-          scriptPanelOpen && activeScript ? (
+          runOpen && canRun ? (
+            functionIdentity ? (
+              <FunctionRunShell
+                domain={functionIdentity.domain}
+                functionKey={functionIdentity.functionKey}
+                scope={functionIdentity.scope}
+                runtimeUrl={runtimeUrl}
+                projectId={activeProject?.id}
+                toolWideHeaders={toolWideHeaders}
+              />
+            ) : (
+              <p className="text-muted-foreground p-4 text-sm">
+                This function is missing a domain or key, so it cannot be run yet.
+              </p>
+            )
+          ) : scriptPanelOpen && activeScript ? (
             <ScriptEditorPanel
               workflowDirectoryPath={componentDirectoryPath}
               onOpenScriptFileInHost={onOpenScriptFileInHost}
