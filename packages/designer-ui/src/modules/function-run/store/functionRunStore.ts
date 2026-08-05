@@ -47,17 +47,46 @@ interface FunctionRunState {
   invoking: boolean;
   response: FunctionExchange | null;
   responseDurationMs: number | null;
+  /**
+   * Populated when invoke itself failed at the transport level (network
+   * error, host rejected the request) — as opposed to a non-2xx `response`,
+   * which is a normal outcome the function legitimately returned. Cleared at
+   * the start of every invoke so a stale error never survives past the next
+   * attempt.
+   */
+  invokeError: string | null;
+
+  /**
+   * The `${domain}::${functionKey}` this state was last loaded for. Lets
+   * `resetIfNewIdentity` tell "a fresh mount for the same function" (survive)
+   * apart from "a fresh mount for a *different* function" (clear) — a
+   * genuine remount always calls it, but only the latter case is the bug it
+   * exists to prevent (see the store's own singleton comment: this state
+   * must never leak from one function into another).
+   */
+  loadedIdentity: string | null;
 
   /**
    * Patch the store. Excludes `set`/`reset` themselves from the patch type
    * so a caller cannot silently replace the store's own actions by spreading
    * an object that happens to carry a `set` or `reset` key.
    */
-  set: (patch: Partial<Omit<FunctionRunState, 'set' | 'reset'>>) => void;
+  set: (patch: Partial<Omit<FunctionRunState, 'set' | 'reset' | 'resetIfNewIdentity'>>) => void;
   reset: () => void;
+  /**
+   * Clears every field back to its initial value when `identity` differs
+   * from whatever this singleton last loaded — a no-op the first time any
+   * identity is ever recorded (nothing to clear yet) and a no-op when
+   * `identity` matches what is already loaded (not a new function, just a
+   * re-render). `FunctionRunShell` calls this once, synchronously, on its
+   * very first render (a `useState` lazy initializer, not an effect — see
+   * its own comment for why that specifically is what makes this testable
+   * under this package's SSR-only test harness).
+   */
+  resetIfNewIdentity: (identity: string) => void;
 }
 
-type FunctionRunData = Omit<FunctionRunState, 'set' | 'reset'>;
+type FunctionRunData = Omit<FunctionRunState, 'set' | 'reset' | 'resetIfNewIdentity'>;
 
 /**
  * Builds a fresh initial-state object on every call. `payload` and
@@ -91,11 +120,22 @@ function createInitialState(): FunctionRunData {
     invoking: false,
     response: null,
     responseDurationMs: null,
+    invokeError: null,
+
+    loadedIdentity: null,
   };
 }
 
-export const useFunctionRunStore = create<FunctionRunState>((set) => ({
+export const useFunctionRunStore = create<FunctionRunState>((set, get) => ({
   ...createInitialState(),
   set: (patch) => set(patch),
   reset: () => set(createInitialState()),
+  resetIfNewIdentity: (identity) => {
+    const current = get().loadedIdentity;
+    if (current !== null && current !== identity) {
+      set({ ...createInitialState(), loadedIdentity: identity });
+      return;
+    }
+    set({ loadedIdentity: identity });
+  },
 }));

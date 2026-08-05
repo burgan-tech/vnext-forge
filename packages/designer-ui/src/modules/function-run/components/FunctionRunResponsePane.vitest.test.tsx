@@ -130,6 +130,21 @@ describe('FunctionRunResponsePane', () => {
     expect((pseudoUiOrJsonBlockCalls[0] as { view: unknown }).view).toEqual(outputView);
   });
 
+  it('binds the parsed body as instanceData so a pseudo-ui output view has data to render', () => {
+    // I8: `PseudoUiViewSurface` reads `instanceData`, not `jsonValue`, as the
+    // data it feeds `<PseudoView>` — without it the rendered view is an
+    // empty shell regardless of what the function actually returned.
+    const outputView = { key: 'k', type: 'pseudo-ui', content: { component: 'Column' } };
+    render({ response: exchange({ json: { branch: 'main' } }), durationMs: 1, outputView });
+    expect((pseudoUiOrJsonBlockCalls[0] as { instanceData: unknown }).instanceData).toEqual({ branch: 'main' });
+  });
+
+  it('omits instanceData when the parsed body is not a plain object', () => {
+    const outputView = { key: 'k', type: 'pseudo-ui', content: { component: 'Column' } };
+    render({ response: exchange({ json: ['a', 'b'], body: '["a","b"]' }), durationMs: 1, outputView });
+    expect((pseudoUiOrJsonBlockCalls[0] as { instanceData: unknown }).instanceData).toBeUndefined();
+  });
+
   it('does not call PseudoUiOrJsonBlock when there is no output view', () => {
     render({ response: exchange(), durationMs: 1, outputView: null });
     expect(pseudoUiOrJsonBlockCalls).toHaveLength(0);

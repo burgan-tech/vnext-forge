@@ -130,13 +130,25 @@ function ResponseBody({
   // duplicated here — handing it the view is what the toggle in the plan's
   // spec refers to.
   if (outputView) {
+    const bodyValue = responseBodyValue(response);
+    // `instanceData` is what `PseudoUiViewSurface` actually feeds `<PseudoView>`
+    // as its data binding (see the workflow runner's `InstanceDashboard`) —
+    // without it a pseudo-ui output view renders as an empty shell instead of
+    // showing the function's own output, which is the entire point of
+    // declaring one. Only handed over when the parsed body is a plain object;
+    // an array or primitive JSON body isn't a valid instance-data shape.
+    const instanceData =
+      typeof bodyValue === 'object' && bodyValue !== null && !Array.isArray(bodyValue)
+        ? (bodyValue as Record<string, unknown>)
+        : undefined;
     return (
       <PseudoUiOrJsonBlock
         view={outputView}
-        jsonValue={responseBodyValue(response)}
+        jsonValue={bodyValue}
         displayContent={response.body}
         ariaLabel="Function output"
         integrationMode="preview"
+        instanceData={instanceData}
       />
     );
   }
