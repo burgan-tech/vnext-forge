@@ -128,6 +128,7 @@ export function FunctionRunPage() {
       runtimeUrl={runtimeUrl}
       projectId={id}
       toolWideHeaders={toolWideHeaders}
+      surface="standalone"
     />
   );
 }

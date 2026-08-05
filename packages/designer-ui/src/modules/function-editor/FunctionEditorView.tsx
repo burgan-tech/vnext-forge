@@ -276,6 +276,7 @@ export function FunctionEditorView({
                 runtimeUrl={runtimeUrl}
                 projectId={activeProject?.id}
                 toolWideHeaders={toolWideHeaders}
+                surface="panel"
               />
             ) : (
               <p className="text-muted-foreground p-4 text-sm">

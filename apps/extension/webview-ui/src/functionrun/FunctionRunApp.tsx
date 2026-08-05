@@ -81,6 +81,7 @@ export function FunctionRunApp({ api }: Props) {
       scope={context.scope}
       runtimeUrl={context.runtimeUrl}
       toolWideHeaders={toolWideHeaders}
+      surface="standalone"
     />
   );
 }

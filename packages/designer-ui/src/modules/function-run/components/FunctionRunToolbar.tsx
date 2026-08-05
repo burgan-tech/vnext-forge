@@ -1,20 +1,9 @@
-import type { FunctionScope, FunctionVerb } from '@vnext-forge-studio/vnext-types';
+import type { FunctionScope } from '@vnext-forge-studio/vnext-types';
 
-import { Button } from '../../../ui/Button';
 import { Field } from '../../../ui/Field';
 import { Input } from '../../../ui/Input';
-import { Select } from '../../../ui/Select';
 
 export interface FunctionRunToolbarProps {
-  verbs: readonly FunctionVerb[];
-  verb: FunctionVerb | null;
-  onVerbChange: (verb: FunctionVerb) => void;
-  canInvoke: boolean;
-  /** Shown next to a disabled Invoke; null when it is enabled. */
-  invokeDisabledReason: string | null;
-  invoking: boolean;
-  onInvoke: () => void;
-  onOpenHeaders: () => void;
   scope: FunctionScope;
   workflowKey: string;
   instanceId: string;
@@ -25,14 +14,14 @@ export interface FunctionRunToolbarProps {
 }
 
 /**
- * Verb selector, Invoke, Headers, the query-string input, and — for
- * F/I-scoped functions — the workflow/instance identifiers the invoke path
- * needs to build its route.
+ * The query-string input and — for F/I-scoped functions — the
+ * workflow/instance identifiers the invoke path needs to build its route.
  *
- * Presentational only: it holds no state and owns no dialog. `onOpenHeaders`
- * is a signal to the shell, which owns `HeadersConfigDialog`. The runner
- * owns Invoke, not any input view rendered alongside it, so this toolbar is
- * where the action always lives regardless of which input mode is active.
+ * The verb select, Send, and Headers moved to `FunctionRunEndpointBar`
+ * (this toolbar's former first row — see that component's doc comment).
+ * What remains here is request-shaping input that a later task (request
+ * tabs) will relocate again; this toolbar is not being deleted in the
+ * meantime, just narrowed to what it now owns.
  *
  * The query-string field lives here, not in the input pane: it applies to
  * the request itself regardless of mode or verb (a POST can legitimately
@@ -40,14 +29,6 @@ export interface FunctionRunToolbarProps {
  * request-level controls rather than with the payload.
  */
 export function FunctionRunToolbar({
-  verbs,
-  verb,
-  onVerbChange,
-  canInvoke,
-  invokeDisabledReason,
-  invoking,
-  onInvoke,
-  onOpenHeaders,
   scope,
   workflowKey,
   instanceId,
@@ -55,37 +36,8 @@ export function FunctionRunToolbar({
   queryString,
   onQueryStringChange,
 }: FunctionRunToolbarProps) {
-  const invokeDisabled = !canInvoke || invoking;
-
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <Select
-          value={verb ?? ''}
-          onChange={(e) => onVerbChange(e.target.value as FunctionVerb)}
-          aria-label="HTTP verb"
-          className="w-24 text-xs">
-          {verbs.map((v) => (
-            <option key={v} value={v}>
-              {v}
-            </option>
-          ))}
-        </Select>
-
-        <Button variant="secondary" size="sm" disabled={invokeDisabled} onClick={onInvoke}>
-          {invoking ? 'Invoking…' : 'Invoke'}
-        </Button>
-
-        {/* Never a silently disabled control — say why right next to it. */}
-        {!canInvoke && invokeDisabledReason ? (
-          <span className="text-muted-foreground text-[10px]">{invokeDisabledReason}</span>
-        ) : null}
-
-        <Button variant="default" size="sm" onClick={onOpenHeaders}>
-          Headers
-        </Button>
-      </div>
-
       <Field label="Query string" className="min-w-40">
         <Input
           size="sm"

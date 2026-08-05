@@ -1,15 +1,23 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Maximize2, Minimize2 } from 'lucide-react';
+import type { PanelSize } from 'react-resizable-panels';
 import type { FunctionScope } from '@vnext-forge-studio/vnext-types';
 
+import { useScriptPanelResizePanelRef } from '../code-editor/layout/ScriptEditorPanel.js';
 import { HeadersConfigDialog } from '../quick-run/components/HeadersConfigDialog';
 import { mergeQuickRunHeaders } from '../quick-run/pseudo-ui/mergeQuickRunHeaders';
 import type { ViewResponse } from '../quick-run/types/quickrun.types';
 
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '../../ui/Resizable.js';
+import { useEditorPanelsStore } from '../../store/useEditorPanelsStore.js';
+
 import * as FunctionRunApi from './FunctionRunApi';
+import { FunctionRunEndpointBar } from './components/FunctionRunEndpointBar';
 import { FunctionRunInfoError } from './components/FunctionRunInfoError';
 import { FunctionRunInputPane } from './components/FunctionRunInputPane';
 import { FunctionRunResponsePane } from './components/FunctionRunResponsePane';
 import { FunctionRunToolbar } from './components/FunctionRunToolbar';
+import { buildEndpointPreview } from './functionRunEndpoint';
 import { computeInputViewAvailability, computeInvokeGate, loadFunctionInfo, runInvoke } from './functionRunOrchestration';
 import { buildInvokeRequest, carriesBody, resolveEffectiveMode } from './functionRunPayload';
 import { resolveVerbs } from './functionRunVerbs';
@@ -23,9 +31,42 @@ export interface FunctionRunShellProps {
   projectId?: string;
   /** Forge-wide headers. Task 19 supplies these from the host. */
   toolWideHeaders?: Record<string, string>;
+  /**
+   * Which host this shell is mounted in.
+   *
+   * `'panel'` — the bottom slot of `FlowEditorCanvasAndScriptResizableColumn`
+   * in the function editor: a short, width-generous panel, so the request
+   * and response sit side by side. Also the only surface that gets a
+   * maximize control, via `ScriptPanelResizeContext` — that context only
+   * exists inside that host.
+   *
+   * `'standalone'` — the dedicated web page / extension webview: a
+   * full-height, often narrower surface, so request and response stack
+   * vertically (Postman classic).
+   *
+   * Explicit, not measured from width: it is testable and cannot flicker on
+   * first paint. Defaults to `'panel'`, the original (only) host.
+   */
+  surface?: 'panel' | 'standalone';
 }
 
 const IDS_DEBOUNCE_MS = 400;
+
+/** Stable across renders — `Group`'s `defaultLayout` only needs to be read once, on mount. */
+const DEFAULT_LAYOUT = {
+  'function-run-request': 50,
+  'function-run-response': 50,
+} as const;
+
+/**
+ * How far the maximize control grows the *outer* script-panel slot (the
+ * whole `FunctionRunShell`, relative to the canvas above it in
+ * `FlowEditorCanvasAndScriptResizableColumn`) — not this file's own inner
+ * request/response split. Matches `ScriptEditorPanel`'s own `toggleMaximize`
+ * exactly, since both consume the same `ScriptPanelResizeContext` panel and
+ * should agree on what "maximized" means for that shared slot.
+ */
+const MAXIMIZED_OUTER_SIZE = '70%';
 
 /**
  * Wires the pure function-run modules and the presentational components
@@ -44,6 +85,7 @@ export function FunctionRunShell({
   scope,
   runtimeUrl,
   toolWideHeaders,
+  surface = 'panel',
 }: FunctionRunShellProps) {
   // The store is a deliberate module-level singleton (see its own comment),
   // which means it survives a genuine unmount/remount for a *different*
@@ -108,6 +150,17 @@ export function FunctionRunShell({
   const [sessionHeaders, setSessionHeaders] = useState<Record<string, string>>({});
   const [savedHeaderEntries, setSavedHeaderEntries] = useState<{ name: string; value: string }[]>([]);
   const [headersOpen, setHeadersOpen] = useState(false);
+
+  // Maximize control (1d): only meaningful when this shell is hosted inside
+  // `FlowEditorCanvasAndScriptResizableColumn` (`surface === 'panel'`) — that
+  // is the only place `ScriptPanelResizeContext` is ever provided, so
+  // `scriptLayoutPanelRef` is `null` for the standalone surface and the
+  // control below simply does not render there. This toggles the *outer*
+  // script-panel slot (this whole shell, relative to the canvas above it),
+  // not the inner request/response split created further down.
+  const scriptLayoutPanelRef = useScriptPanelResizePanelRef();
+  const [isMaximized, setIsMaximized] = useState(false);
+  const sizeBeforeMaximizeRef = useRef<PanelSize | null>(null);
 
   // Keyed on a stable *serialization* of the header maps, not the maps
   // themselves — `mergeQuickRunHeaders` returns a fresh object every render,
@@ -228,6 +281,33 @@ export function FunctionRunShell({
     });
   }
 
+  /**
+   * Mirrors `ScriptEditorPanel`'s own `toggleMaximize` one-for-one — both
+   * consume the same `ScriptPanelResizeContext` panel (the outer
+   * script-panel slot), so growing/restoring it has to agree on what
+   * "maximized" means and what to fall back to when there is no captured
+   * previous size. A no-op if `scriptLayoutPanelRef` has no live handle
+   * (never true when `surface === 'panel'`, since that is the only host that
+   * renders the maximize control at all — see the JSX below).
+   */
+  function toggleMaximize() {
+    const api = scriptLayoutPanelRef?.current;
+    if (!api) return;
+    if (!isMaximized) {
+      sizeBeforeMaximizeRef.current = api.getSize();
+      api.resize(MAXIMIZED_OUTER_SIZE);
+      setIsMaximized(true);
+    } else {
+      const prev = sizeBeforeMaximizeRef.current;
+      if (prev) {
+        api.resize(`${prev.asPercentage}%`);
+      } else {
+        api.resize(useEditorPanelsStore.getState().scriptPanelHeight);
+      }
+      setIsMaximized(false);
+    }
+  }
+
   // `resolveVerbs(undefined)` returns all four verbs (no restriction known
   // yet), so the select always has options — even before `/info` resolves —
   // rather than rendering empty.
@@ -246,83 +326,138 @@ export function FunctionRunShell({
   // `/info`'s bare `hasView` flag — see `computeInputViewAvailability`.
   const { hasUsableInputView, declaredButUnavailable } = computeInputViewAvailability({ info, inputViewContent });
 
+  // The path the request will actually hit — see `buildEndpointPreview`'s own
+  // doc comment for why this has to reimplement `normalizeRuntimeHref`
+  // locally rather than importing it (designer-ui may not depend on
+  // services-core).
+  const endpoint = buildEndpointPreview({ info, scope, domain, functionKey, workflowKey, instanceId, queryString });
+
+  // Only ever true for `surface === 'panel'`: `scriptLayoutPanelRef` comes
+  // from `ScriptPanelResizeContext`, which only `FlowEditorCanvasAndScript-
+  // ResizableColumn` provides — the standalone web page / extension webview
+  // never wraps this shell in that context, so the ref is always `null`
+  // there and the control renders as if `surface` had no maximize concept at
+  // all (correctly — there is nothing outside this shell to grow into).
+  const showMaximizeControl = surface === 'panel' && scriptLayoutPanelRef != null;
+
   return (
-    <div className="space-y-4 p-4">
-      <FunctionRunToolbar
-        verbs={verbs}
-        verb={verb}
-        onVerbChange={(nextVerb) => set({ verb: nextVerb })}
-        canInvoke={gate.canInvoke}
-        invokeDisabledReason={gate.reason}
-        invoking={invoking}
-        onInvoke={() => void handleInvoke()}
-        onOpenHeaders={() => setHeadersOpen(true)}
-        scope={scope}
-        workflowKey={workflowKey}
-        instanceId={instanceId}
-        onScopeIdsChange={(next) =>
-          // I5: the ids just changed, so whatever `info` was loaded for the
-          // *previous* ids no longer applies. Clear it immediately (rather
-          // than waiting out the debounce + request) so Invoke is not
-          // enabled — against the wrong instance — for that whole window.
-          set({ ...next, info: null, infoError: null, infoErrorIsAuthorization: false })
-        }
-        queryString={queryString}
-        onQueryStringChange={(next) => set({ queryString: next })}
-      />
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="border-border-subtle flex items-start gap-1 border-b p-2">
+        <div className="min-w-0 flex-1">
+          <FunctionRunEndpointBar
+            verbs={verbs}
+            verb={verb}
+            onVerbChange={(nextVerb) => set({ verb: nextVerb })}
+            endpoint={endpoint}
+            canInvoke={gate.canInvoke}
+            invokeDisabledReason={gate.reason}
+            invoking={invoking}
+            onInvoke={() => void handleInvoke()}
+            onOpenHeaders={() => setHeadersOpen(true)}
+          />
+        </div>
+
+        {showMaximizeControl ? (
+          <button
+            type="button"
+            onClick={toggleMaximize}
+            className="text-muted-foreground hover:bg-muted hover:text-foreground shrink-0 rounded-lg p-1.5 transition-all"
+            aria-label={isMaximized ? 'Restore' : 'Maximize'}>
+            {isMaximized ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+          </button>
+        ) : null}
+      </div>
 
       {infoError ? (
-        <FunctionRunInfoError
-          message={infoError}
-          isAuthorizationError={infoErrorIsAuthorization}
-          loading={infoLoading}
-          canRetry={idsReady}
-          onRetry={() => void handleRetryInfo()}
-          onOpenHeaders={() => setHeadersOpen(true)}
-        />
-      ) : (
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <div className="flex flex-col gap-2">
-            {declaredButUnavailable ? (
-              <p className="text-muted-foreground text-[10px]">
-                This function declares an input view, but it could not be loaded
-                {payloadAvailable ? ' — use Payload instead.' : ' — use the query string field instead.'}
-              </p>
-            ) : null}
-            <FunctionRunInputPane
-              mode={mode}
-              onModeChange={(nextMode) => set({ mode: nextMode })}
-              hasInputView={hasUsableInputView}
-              payloadAvailable={payloadAvailable}
-              inputView={inputViewContent as ViewResponse | null}
-              onViewFormChange={(data) => set({ viewFormData: data })}
-              payloadEditorProps={{
-                contentType,
-                onContentTypeChange: (nextContentType) => set({ contentType: nextContentType }),
-                value: payload,
-                onChange: (nextPayload) => set({ payload: nextPayload }),
-                schema: inputSchema,
-              }}
-            />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            {invokeError ? (
-              <p className="text-destructive-text text-xs" role="alert">
-                {invokeError}
-              </p>
-            ) : null}
-            {response ? (
-              <FunctionRunResponsePane
-                response={response}
-                durationMs={responseDurationMs}
-                outputView={outputViewContent as ViewResponse | null}
-              />
-            ) : !invokeError ? (
-              <p className="text-muted-foreground text-xs">Pick a verb and choose Invoke to run this function.</p>
-            ) : null}
-          </div>
+        <div className="min-h-0 flex-1 overflow-y-auto p-3">
+          <FunctionRunInfoError
+            message={infoError}
+            isAuthorizationError={infoErrorIsAuthorization}
+            loading={infoLoading}
+            canRetry={idsReady}
+            onRetry={() => void handleRetryInfo()}
+            onOpenHeaders={() => setHeadersOpen(true)}
+          />
         </div>
+      ) : (
+        <ResizablePanelGroup
+          id="function-run-shell"
+          orientation={surface === 'standalone' ? 'vertical' : 'horizontal'}
+          defaultLayout={DEFAULT_LAYOUT}
+          className="min-h-0 flex-1">
+          <ResizablePanel
+            id="function-run-request"
+            minSize="20%"
+            className="flex min-h-0 flex-col overflow-hidden">
+            <div className="min-h-0 flex-1 overflow-y-auto p-3">
+              <div className="flex flex-col gap-2">
+                <FunctionRunToolbar
+                  scope={scope}
+                  workflowKey={workflowKey}
+                  instanceId={instanceId}
+                  onScopeIdsChange={(next) =>
+                    // I5: the ids just changed, so whatever `info` was loaded
+                    // for the *previous* ids no longer applies. Clear it
+                    // immediately (rather than waiting out the debounce +
+                    // request) so Send is not enabled — against the wrong
+                    // instance — for that whole window.
+                    set({ ...next, info: null, infoError: null, infoErrorIsAuthorization: false })
+                  }
+                  queryString={queryString}
+                  onQueryStringChange={(next) => set({ queryString: next })}
+                />
+
+                {declaredButUnavailable ? (
+                  <p className="text-muted-foreground text-[10px]">
+                    This function declares an input view, but it could not be loaded
+                    {payloadAvailable ? ' — use Payload instead.' : ' — use the query string field instead.'}
+                  </p>
+                ) : null}
+                <FunctionRunInputPane
+                  mode={mode}
+                  onModeChange={(nextMode) => set({ mode: nextMode })}
+                  hasInputView={hasUsableInputView}
+                  payloadAvailable={payloadAvailable}
+                  inputView={inputViewContent as ViewResponse | null}
+                  onViewFormChange={(data) => set({ viewFormData: data })}
+                  payloadEditorProps={{
+                    contentType,
+                    onContentTypeChange: (nextContentType) => set({ contentType: nextContentType }),
+                    value: payload,
+                    onChange: (nextPayload) => set({ payload: nextPayload }),
+                    schema: inputSchema,
+                  }}
+                />
+              </div>
+            </div>
+          </ResizablePanel>
+
+          <ResizableHandle />
+
+          <ResizablePanel
+            id="function-run-response"
+            minSize="20%"
+            className="flex min-h-0 flex-col overflow-hidden">
+            <div className="min-h-0 flex-1 overflow-y-auto p-3">
+              <div className="flex flex-col gap-2">
+                {invokeError ? (
+                  <p className="text-destructive-text text-xs" role="alert">
+                    {invokeError}
+                  </p>
+                ) : null}
+                {response ? (
+                  <FunctionRunResponsePane
+                    response={response}
+                    durationMs={responseDurationMs}
+                    outputView={outputViewContent as ViewResponse | null}
+                  />
+                ) : !invokeError ? (
+                  <p className="text-muted-foreground text-xs">Pick a verb and choose Send to run this function.</p>
+                ) : null}
+              </div>
+            </div>
+          </ResizablePanel>
+        </ResizablePanelGroup>
       )}
 
       <HeadersConfigDialog

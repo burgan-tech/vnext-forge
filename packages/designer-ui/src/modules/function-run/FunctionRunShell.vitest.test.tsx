@@ -22,25 +22,22 @@ const render = (over: Record<string, unknown> = {}) =>
   );
 
 /**
- * Finds the `<button>...</button>` block whose rendered text contains
- * `text`, and reports whether *that specific button* carries the boolean
- * `disabled` attribute.
+ * Finds the `<button>...</button>` block for the primary Send action —
+ * matching its text in both the ready state (`Send`) and in flight
+ * (`Invoking…`) — and reports whether *that specific button* carries the
+ * boolean `disabled` attribute.
  *
  * A bare `(html.match(/ disabled=""/g) ?? []).length > 0` check is vacuous
- * here: the "View" input-mode toggle is disabled independently of Invoke
- * (no input view before `/info` resolves), so it alone keeps that count
- * positive regardless of whether Invoke itself is ever disabled. Anchoring
- * on the Invoke button's own markup is what a mutation on `disabled={...}`
- * for just that button can actually be caught by.
+ * here: the "View" input-mode toggle is disabled independently of Send (no
+ * input view before `/info` resolves), so it alone keeps that count positive
+ * regardless of whether Send itself is ever disabled. Anchoring on Send's
+ * own markup is what a mutation on `disabled={...}` for just that button can
+ * actually be caught by.
  */
-function isButtonDisabled(html: string, text: string): boolean {
-  const buttons = html.match(/<button[^>]*>[\s\S]*?<\/button>/g) ?? [];
-  const button = buttons.find((btn) => btn.includes(text));
-  return button?.includes(' disabled=""') ?? false;
-}
-
 function isInvokeButtonDisabled(html: string): boolean {
-  return isButtonDisabled(html, 'Invoke');
+  const buttons = html.match(/<button[^>]*>[\s\S]*?<\/button>/g) ?? [];
+  const button = buttons.find((btn) => btn.includes('Send') || btn.includes('Invoking'));
+  return button?.includes(' disabled=""') ?? false;
 }
 
 describe('FunctionRunShell', () => {
@@ -63,7 +60,27 @@ describe('FunctionRunShell', () => {
   });
 
   it('shows a placeholder instead of an empty response column', () => {
-    expect(render()).toMatch(/Invoke to run this function/i);
+    expect(render()).toMatch(/Send to run this function/i);
+  });
+
+  it('shows the endpoint bar with the domain-scoped fallback route before /info loads', () => {
+    // No `/info` response yet at first render (effects never run under
+    // `renderToStaticMarkup`), so the endpoint bar must fall back to the
+    // scope→route shape rather than sitting empty — see
+    // `buildEndpointPreview`.
+    expect(render()).toContain('/api/v1/core/functions/get-branches');
+  });
+
+  it('does not render a maximize control for the standalone surface', () => {
+    // `ScriptPanelResizeContext` is only ever provided by
+    // `FlowEditorCanvasAndScriptResizableColumn`, which this test does not
+    // render inside of — so `surface: 'panel'` (the default) still shows no
+    // control here either. This asserts the *standalone* case explicitly so
+    // a future change that starts rendering the control unconditionally
+    // (ignoring the context) gets caught.
+    const html = render({ surface: 'standalone' });
+    expect(html).not.toContain('aria-label="Maximize"');
+    expect(html).not.toContain('aria-label="Restore"');
   });
 
   // I4 (whether the View toggle offers a mode it cannot actually render) is
