@@ -19,7 +19,6 @@ const base = {
   value: {},
   onChange: () => undefined,
   schema: null,
-  verb: 'POST' as const,
 };
 
 const render = (over: Record<string, unknown> = {}) =>
@@ -46,17 +45,14 @@ describe('FunctionRunPayloadEditor', () => {
     expect(html).not.toContain('[object Object]');
   });
 
-  it('warns that GET and DELETE send no body, without disabling the editor', () => {
-    for (const verb of ['GET', 'DELETE']) {
-      const html = render({ verb });
-      expect(html).toContain('query parameters');
-    }
-  });
-
-  it('says nothing about query parameters for POST and PATCH', () => {
-    for (const verb of ['POST', 'PATCH']) {
-      expect(render({ verb })).not.toContain('query parameters');
-    }
+  // Fix 2 removed the "GET and DELETE send no body — sent as query
+  // parameters" note along with the `verb` prop: `FunctionRunInputPane` now
+  // hides this editor entirely for a body-less verb instead of rendering it
+  // with a relabeling hint, so this component no longer needs to know the
+  // verb at all. The query-string input added by Fix 3 supersedes the note
+  // (see `FunctionRunToolbar.vitest.test.tsx`).
+  it('never mentions query parameters — that note moved to the dedicated query-string input', () => {
+    expect(render()).not.toContain('query parameters');
   });
 });
 

@@ -29,12 +29,25 @@ interface FunctionRunState {
   infoLoading: boolean;
   /** Populated when /info itself failed (403, 404, transport). */
   infoError: string | null;
+  /**
+   * True exactly when `infoError` reflects a 401/403 on `/info` — see
+   * `readInfoExchange`'s own field of the same name. Lets the shell offer a
+   * "Open Headers" shortcut alongside Retry only when that would actually
+   * help, without re-deriving which statuses count from `infoError`'s text.
+   */
+  infoErrorIsAuthorization: boolean;
 
   verb: FunctionVerb | null;
   mode: RunMode;
   contentType: ContentTypeId;
   payload: Record<string, unknown>;
   viewFormData: Record<string, unknown>;
+  /**
+   * Free-text query string from the runner's dedicated query input (Fix 3),
+   * e.g. `a=1&b=2`. Applies regardless of verb or mode; parsed at invoke
+   * time via `parseQueryString`.
+   */
+  queryString: string;
 
   /** Scope F/I only. */
   workflowKey: string;
@@ -103,12 +116,14 @@ function createInitialState(): FunctionRunData {
     infoExchange: null,
     infoLoading: false,
     infoError: null,
+    infoErrorIsAuthorization: false,
 
     verb: null,
     mode: 'payload',
     contentType: 'json',
     payload: {},
     viewFormData: {},
+    queryString: '',
 
     workflowKey: '',
     instanceId: '',

@@ -27,6 +27,7 @@ const base = {
   mode: 'payload' as const,
   onModeChange: () => undefined,
   hasInputView: false,
+  payloadAvailable: true,
   inputView: null,
   onViewFormChange: () => undefined,
   payloadEditorProps: {
@@ -35,7 +36,6 @@ const base = {
     value: {},
     onChange: () => undefined,
     schema: null,
-    verb: 'POST' as const,
   },
 };
 
@@ -84,5 +84,40 @@ describe('FunctionRunInputPane', () => {
     const view = { key: 'branch-form', type: 'pseudo-ui', content: {} };
     render({ hasInputView: true, mode: 'payload', inputView: view });
     expect(seenPseudoUiProps).toHaveLength(0);
+  });
+});
+
+// Fix 2: the payload editor (and the toggle above it) is hidden entirely for
+// a body-less verb — `payloadAvailable` is how the shell communicates that,
+// computed from `carriesBody` in `functionRunPayload.ts`.
+describe('FunctionRunInputPane — payloadAvailable (Fix 2)', () => {
+  it('does not render the two-way toggle when Payload is unavailable', () => {
+    const html = render({ payloadAvailable: false, hasInputView: true, inputView: { key: 'v', type: 't', content: {} } });
+    expect(html).not.toContain('radiogroup');
+    expect(html).not.toContain('>Payload<');
+  });
+
+  it('renders the view directly, with no toggle, when Payload is unavailable but a view exists', () => {
+    const view = { key: 'branch-form', type: 'pseudo-ui', content: { component: 'Column' } };
+    render({ payloadAvailable: false, hasInputView: true, inputView: view, mode: 'payload' });
+    // Forced to View even though the raw `mode` prop still says 'payload' —
+    // that stored mode is left untouched, only the render decision changes.
+    expect(seenPseudoUiProps).toHaveLength(1);
+    expect(seenPseudoUiProps[0]?.view).toBe(view);
+  });
+
+  it('renders nothing — not the payload editor — when Payload is unavailable and no view exists either', () => {
+    // The dedicated query-string input (rendered elsewhere, in the toolbar)
+    // is the whole input surface for this combination; a blank pane here is
+    // correct, not a bug.
+    const html = render({ payloadAvailable: false, hasInputView: false, inputView: null, mode: 'payload' });
+    expect(html).not.toContain('Content type');
+    expect(seenPseudoUiProps).toHaveLength(0);
+  });
+
+  it('still offers the toggle and the payload editor when Payload is available', () => {
+    const html = render({ payloadAvailable: true, hasInputView: false });
+    expect(html).toContain('radiogroup');
+    expect(html).toContain('Content type');
   });
 });

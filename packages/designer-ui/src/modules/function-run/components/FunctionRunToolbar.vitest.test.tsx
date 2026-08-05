@@ -23,6 +23,8 @@ const base = {
   workflowKey: '',
   instanceId: '',
   onScopeIdsChange: () => undefined,
+  queryString: '',
+  onQueryStringChange: () => undefined,
 };
 
 const render = (over: Record<string, unknown> = {}) =>
@@ -69,5 +71,21 @@ describe('FunctionRunToolbar', () => {
     expect(disabledCount(render({ invoking: true }))).toBe(1);
     // Mutation guard: nothing is disabled in the ordinary, enabled state.
     expect(disabledCount(render())).toBe(0);
+  });
+
+  it('offers a query-string input for every verb, including a domain-scoped GET', () => {
+    // Fix 3: available regardless of verb or scope — a body-less verb still
+    // needs somewhere to put query parameters now that its payload editor is
+    // hidden, and a body-bearing verb can legitimately want both a body and
+    // a query string.
+    const html = render({ scope: 'D', verb: 'GET', queryString: 'a=1' });
+    expect(html).toContain('Query string');
+    expect(html).toContain('value="a=1"');
+  });
+
+  it('offers the query-string input for F/I scopes too, alongside the workflow/instance fields', () => {
+    const html = render({ scope: 'F' });
+    expect(html).toContain('Query string');
+    expect(html).toContain('Workflow key');
   });
 });

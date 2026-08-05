@@ -40,11 +40,13 @@ describe('functionRunStore reset', () => {
       infoExchange: { status: 200, contentType: 'application/json', responseHeaders: {}, body: '{}' },
       infoLoading: true,
       infoError: 'some previous error',
+      infoErrorIsAuthorization: true,
       verb: 'POST',
       mode: 'view',
       contentType: 'form',
       payload: { region: 'eu' },
       viewFormData: { region: 'eu' },
+      queryString: 'a=1',
       workflowKey: 'wf-a',
       instanceId: 'inst-a',
       inputViewContent: { key: 'v', type: 't', content: {} },
@@ -63,11 +65,13 @@ describe('functionRunStore reset', () => {
     expect(state.infoExchange).toBeNull();
     expect(state.infoLoading).toBe(false);
     expect(state.infoError).toBeNull();
+    expect(state.infoErrorIsAuthorization).toBe(false);
     expect(state.verb).toBeNull();
     expect(state.mode).toBe('payload');
     expect(state.contentType).toBe('json');
     expect(state.payload).toEqual({});
     expect(state.viewFormData).toEqual({});
+    expect(state.queryString).toBe('');
     expect(state.workflowKey).toBe('');
     expect(state.instanceId).toBe('');
     expect(state.inputViewContent).toBeNull();
@@ -101,13 +105,21 @@ describe('resetIfNewIdentity', () => {
   it('clears everything when the identity differs from what was last loaded', () => {
     useFunctionRunStore.getState().reset();
     useFunctionRunStore.getState().resetIfNewIdentity('core::a');
-    useFunctionRunStore.getState().set({ workflowKey: 'wf-a', mode: 'view', verb: 'POST' });
+    useFunctionRunStore.getState().set({
+      workflowKey: 'wf-a',
+      mode: 'view',
+      verb: 'POST',
+      queryString: 'a=1',
+      infoErrorIsAuthorization: true,
+    });
 
     useFunctionRunStore.getState().resetIfNewIdentity('core::b');
     const state = useFunctionRunStore.getState();
     expect(state.workflowKey).toBe('');
     expect(state.mode).toBe('payload');
     expect(state.verb).toBeNull();
+    expect(state.queryString).toBe('');
+    expect(state.infoErrorIsAuthorization).toBe(false);
     expect(state.loadedIdentity).toBe('core::b');
   });
 });

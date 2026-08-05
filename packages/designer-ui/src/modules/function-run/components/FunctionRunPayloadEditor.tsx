@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { X } from 'lucide-react';
-import type { FunctionVerb } from '@vnext-forge-studio/vnext-types';
 
 import { Button } from '../../../ui/Button';
 import { Field } from '../../../ui/Field';
@@ -17,17 +16,15 @@ export interface FunctionRunPayloadEditorProps {
   onChange: (next: Record<string, unknown>) => void;
   /** From `inputSchema`, when the contract declares one. */
   schema: Record<string, unknown> | null;
-  verb: FunctionVerb;
 }
-
-const NO_BODY_VERBS: readonly FunctionVerb[] = ['GET', 'DELETE'];
 
 /**
  * Content-type selector plus the JSON/form editor for the free payload.
  *
- * Available in every mode and for every verb — GET/DELETE never disable it,
- * they just relabel where the values end up (query parameters instead of a
- * body), because free input must never be taken away.
+ * Only ever rendered for a body-bearing verb (POST/PATCH) — `FunctionRunInputPane`
+ * hides this editor entirely for GET/DELETE (see `carriesBody` in
+ * `functionRunPayload.ts`), so this component no longer needs to know the
+ * verb or relabel anything for a body-less one.
  */
 export function FunctionRunPayloadEditor({
   contentType,
@@ -35,10 +32,7 @@ export function FunctionRunPayloadEditor({
   value,
   onChange,
   schema,
-  verb,
 }: FunctionRunPayloadEditorProps) {
-  const sendsNoBody = NO_BODY_VERBS.includes(verb);
-
   return (
     <div className="flex flex-col gap-2">
       <Field label="Content type">
@@ -50,12 +44,6 @@ export function FunctionRunPayloadEditor({
           <option value="form">{CONTENT_TYPES.form}</option>
         </Select>
       </Field>
-
-      {sendsNoBody ? (
-        <p className="text-muted-foreground text-[10px]">
-          GET and DELETE send no body — these values are sent as query parameters.
-        </p>
-      ) : null}
 
       {contentType === 'form' ? (
         <FormRows value={value} onChange={onChange} />

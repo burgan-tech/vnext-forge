@@ -19,16 +19,25 @@ export interface FunctionRunToolbarProps {
   workflowKey: string;
   instanceId: string;
   onScopeIdsChange: (next: { workflowKey: string; instanceId: string }) => void;
+  /** Free-text query string, e.g. `a=1&b=2`. Available for every verb. */
+  queryString: string;
+  onQueryStringChange: (next: string) => void;
 }
 
 /**
- * Verb selector, Invoke, Headers, and — for F/I-scoped functions — the
- * workflow/instance identifiers the invoke path needs to build its route.
+ * Verb selector, Invoke, Headers, the query-string input, and — for
+ * F/I-scoped functions — the workflow/instance identifiers the invoke path
+ * needs to build its route.
  *
  * Presentational only: it holds no state and owns no dialog. `onOpenHeaders`
  * is a signal to the shell, which owns `HeadersConfigDialog`. The runner
  * owns Invoke, not any input view rendered alongside it, so this toolbar is
  * where the action always lives regardless of which input mode is active.
+ *
+ * The query-string field lives here, not in the input pane: it applies to
+ * the request itself regardless of mode or verb (a POST can legitimately
+ * carry both a body and query parameters), so it belongs with the other
+ * request-level controls rather than with the payload.
  */
 export function FunctionRunToolbar({
   verbs,
@@ -43,6 +52,8 @@ export function FunctionRunToolbar({
   workflowKey,
   instanceId,
   onScopeIdsChange,
+  queryString,
+  onQueryStringChange,
 }: FunctionRunToolbarProps) {
   const invokeDisabled = !canInvoke || invoking;
 
@@ -74,6 +85,16 @@ export function FunctionRunToolbar({
           Headers
         </Button>
       </div>
+
+      <Field label="Query string" className="min-w-40">
+        <Input
+          size="sm"
+          placeholder="a=1&b=2"
+          aria-label="Query string"
+          value={queryString}
+          onChange={(e) => onQueryStringChange(e.target.value)}
+        />
+      </Field>
 
       {scope !== 'D' ? (
         <div className="flex flex-wrap items-end gap-2">

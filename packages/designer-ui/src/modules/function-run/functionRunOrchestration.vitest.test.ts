@@ -27,6 +27,7 @@ describe('readInfoExchange', () => {
     const result = readInfoExchange(exchange({ json: INFO }));
     expect(result.info).toEqual(INFO);
     expect(result.error).toBeNull();
+    expect(result.isAuthorizationError).toBe(false);
   });
 
   it('explains a 404 as a missing component, not a failure', () => {
@@ -35,18 +36,28 @@ describe('readInfoExchange', () => {
     const result = readInfoExchange(exchange({ status: 404, json: {} }));
     expect(result.info).toBeNull();
     expect(result.error).toMatch(/no sys-functions component/i);
+    expect(result.isAuthorizationError).toBe(false);
   });
 
-  it('explains a 403 as a permissions problem', () => {
+  it('explains a 403 as a permissions problem and points at Headers + Retry', () => {
     const result = readInfoExchange(exchange({ status: 403, json: { detail: 'forbidden' } }));
     expect(result.info).toBeNull();
     expect(result.error).toMatch(/not allowed/i);
+    expect(result.error).toMatch(/headers/i);
+    expect(result.error).toMatch(/retry/i);
+    expect(result.isAuthorizationError).toBe(true);
+  });
+
+  it('flags a 401 the same way as a 403', () => {
+    const result = readInfoExchange(exchange({ status: 401, json: {} }));
+    expect(result.isAuthorizationError).toBe(true);
   });
 
   it('reports any other non-2xx with its status', () => {
     const result = readInfoExchange(exchange({ status: 500, body: 'boom', contentType: 'text/plain' }));
     expect(result.info).toBeNull();
     expect(result.error).toContain('500');
+    expect(result.isAuthorizationError).toBe(false);
   });
 
   it('reports a 200 whose body is not a usable info payload', () => {
@@ -270,6 +281,32 @@ describe('loadFunctionInfo', () => {
     });
     const failure = setCalls.find((p) => 'infoError' in p && p.infoError);
     expect(failure?.infoError).toBe('instanceId is not a valid path segment.');
+    // A transport failure never reached `readInfoExchange` — it must not be
+    // reported as an authorization problem regardless of what headers are set.
+    expect(failure?.infoErrorIsAuthorization).toBe(false);
+  });
+
+  it('reports a 403 on /info as an authorization failure so the shell can offer Headers + Retry', async () => {
+    // I1 (fix 1): the shell must not have to string-match `infoError` to
+    // learn this — `loadFunctionInfo` threads `readInfoExchange`'s
+    // discriminator straight into the store patch.
+    const setCalls: Record<string, unknown>[] = [];
+    const api: RunInfoApi = {
+      getInfo: () =>
+        Promise.resolve({
+          success: true,
+          data: { status: 403, contentType: 'application/json', responseHeaders: {}, body: '{}', json: {} },
+        } as ApiResponse<FunctionExchange>),
+      fetchContract: vi.fn(),
+    };
+    await loadFunctionInfo({
+      domain: 'core', functionKey: 'get-branches', scope: 'D', workflowKey: '', instanceId: '',
+      headers: {}, runtimeUrl: undefined, isCancelled: () => false,
+      set: (patch) => setCalls.push(patch),
+      api,
+    });
+    const failure = setCalls.find((p) => 'infoError' in p && p.infoError);
+    expect(failure?.infoErrorIsAuthorization).toBe(true);
   });
 });
 
@@ -293,6 +330,7 @@ describe('runInvoke', () => {
       viewFormData: {},
       payload: {},
       contentType: 'json',
+      queryString: '',
       headers: {},
       runtimeUrl: undefined,
       buildInvokeRequest,
@@ -312,10 +350,35 @@ describe('runInvoke', () => {
     const api: RunInvokeApi = { invoke: () => Promise.resolve(okExchange()), fetchContract: vi.fn() };
     await runInvoke({
       info: INFO as FunctionInfo, verb: 'GET', mode: 'payload', viewFormData: {}, payload: {}, contentType: 'json',
+      queryString: '',
       headers: {}, runtimeUrl: undefined, buildInvokeRequest,
       set: (patch) => setCalls.push(patch),
       api,
     });
     expect(setCalls[0]).toEqual({ invoking: true, invokeError: null });
+  });
+
+  it('threads the query-string input through buildInvokeRequest into the actual invoke call', async () => {
+    // Fix 3: the query-string input must reach the wire, not just live in
+    // the store — this exercises the real `buildInvokeRequest`, not a mock,
+    // so a regression in how `runInvoke` forwards `queryString` would show
+    // up here even if `functionRunPayload.vitest.test.ts` still passes.
+    const invokeMock = vi.fn().mockResolvedValue(okExchange());
+    const api: RunInvokeApi = { invoke: invokeMock, fetchContract: vi.fn() };
+    await runInvoke({
+      info: INFO as FunctionInfo,
+      verb: 'GET',
+      mode: 'payload',
+      viewFormData: {},
+      payload: {},
+      contentType: 'json',
+      queryString: 'a=1',
+      headers: {},
+      runtimeUrl: undefined,
+      buildInvokeRequest,
+      set: () => undefined,
+      api,
+    });
+    expect(invokeMock).toHaveBeenCalledWith(expect.objectContaining({ query: { a: '1' } }));
   });
 });

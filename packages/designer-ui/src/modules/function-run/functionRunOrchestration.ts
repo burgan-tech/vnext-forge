@@ -1,7 +1,7 @@
 import type { ApiResponse } from '@vnext-forge-studio/app-contracts';
 import type { FunctionScope, FunctionVerb } from '@vnext-forge-studio/vnext-types';
 
-import type { ContentTypeId, RunMode } from './functionRunPayload';
+import type { ContentTypeId, InvokeRequest, InvokeRequestInput, RunMode } from './functionRunPayload';
 import { isAuthorizationFailure } from './functionRunStatus';
 import { defaultVerbFor, resolveVerbs } from './functionRunVerbs';
 import { toViewResponse } from './functionRunView';
@@ -22,6 +22,15 @@ export interface InfoReadResult {
   info: FunctionInfo | null;
   /** User-facing explanation when `info` is null. */
   error: string | null;
+  /**
+   * True exactly when `error` reflects a 401/403 on `/info`.
+   *
+   * Lets a caller decide whether to point the user at Headers + Retry
+   * (a 403 is recoverable — configure auth and try again) without
+   * re-deriving which statuses count as an authorization failure by
+   * string-matching `error`'s text.
+   */
+  isAuthorizationError: boolean;
 }
 
 /**
@@ -41,26 +50,29 @@ export function readInfoExchange(exchange: FunctionExchange): InfoReadResult {
       info: null,
       error:
         'This function key has no sys-functions component (expected for a built-in system function such as state, view, or data).',
+      isAuthorizationError: false,
     };
   }
 
   if (isAuthorizationFailure(status)) {
     return {
       info: null,
-      error: 'You are not allowed to view this function\'s contract. Check your auth headers and the function\'s roles.',
+      error:
+        "You are not allowed to view this function's contract. Configure request headers (Headers) with the right credentials, then Retry.",
+      isAuthorizationError: true,
     };
   }
 
   if (status < 200 || status >= 300) {
-    return { info: null, error: `The function info request failed with status ${status}.` };
+    return { info: null, error: `The function info request failed with status ${status}.`, isAuthorizationError: false };
   }
 
   const json = 'json' in exchange ? exchange.json : undefined;
   if (!isUsableInfo(json)) {
-    return { info: null, error: 'The function info response could not be read.' };
+    return { info: null, error: 'The function info response could not be read.', isAuthorizationError: false };
   }
 
-  return { info: json, error: null };
+  return { info: json, error: null, isAuthorizationError: false };
 }
 
 export interface InvokeGate {
@@ -197,6 +209,7 @@ export type FunctionRunSetter = (
     info: FunctionInfo | null;
     infoExchange: FunctionExchange | null;
     infoError: string | null;
+    infoErrorIsAuthorization: boolean;
     verb: FunctionVerb | null;
     inputViewContent: unknown;
     inputSchema: Record<string, unknown> | null;
@@ -266,12 +279,16 @@ export async function loadFunctionInfo(params: LoadFunctionInfoParams): Promise<
       info: null,
       infoExchange: null,
       infoError: res.error.message || TRANSPORT_INFO_FALLBACK,
+      // A transport failure never went through `readInfoExchange` — it is a
+      // reachability problem, not an authorization one, whatever headers are
+      // configured.
+      infoErrorIsAuthorization: false,
     });
     return;
   }
 
-  const { info, error } = readInfoExchange(res.data);
-  set({ infoLoading: false, info, infoExchange: res.data, infoError: error });
+  const { info, error, isAuthorizationError } = readInfoExchange(res.data);
+  set({ infoLoading: false, info, infoExchange: res.data, infoError: error, infoErrorIsAuthorization: isAuthorizationError });
   if (!info) return;
 
   set({ verb: defaultVerbFor(resolveVerbs(info.function.verbs)) });
@@ -298,15 +315,11 @@ export interface RunInvokeParams {
   viewFormData: Record<string, unknown> | undefined;
   payload: Record<string, unknown> | undefined;
   contentType: ContentTypeId;
+  /** Free-text query-string input; see `functionRunPayload.ts`'s `parseQueryString`. */
+  queryString: string;
   headers: Record<string, string>;
   runtimeUrl: string | undefined;
-  buildInvokeRequest: (input: {
-    verb: FunctionVerb;
-    mode: RunMode;
-    viewFormData?: Record<string, unknown>;
-    payload?: Record<string, unknown>;
-    contentType: ContentTypeId;
-  }) => { body?: string; contentType?: string; query?: Record<string, string> };
+  buildInvokeRequest: (input: InvokeRequestInput) => InvokeRequest;
   set: FunctionRunSetter;
   api: RunInvokeApi;
 }
@@ -322,10 +335,22 @@ export interface RunInvokeParams {
  * shell renders, and which every earlier invoke's success clears.
  */
 export async function runInvoke(params: RunInvokeParams): Promise<void> {
-  const { info, verb, mode, viewFormData, payload, contentType, headers, runtimeUrl, buildInvokeRequest, set, api } =
-    params;
+  const {
+    info,
+    verb,
+    mode,
+    viewFormData,
+    payload,
+    contentType,
+    queryString,
+    headers,
+    runtimeUrl,
+    buildInvokeRequest,
+    set,
+    api,
+  } = params;
 
-  const request = buildInvokeRequest({ verb, mode, viewFormData, payload, contentType });
+  const request = buildInvokeRequest({ verb, mode, viewFormData, payload, contentType, queryString });
   set({ invoking: true, invokeError: null });
   const startedAt = Date.now();
 

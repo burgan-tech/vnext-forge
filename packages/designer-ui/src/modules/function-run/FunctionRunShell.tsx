@@ -6,11 +6,12 @@ import { mergeQuickRunHeaders } from '../quick-run/pseudo-ui/mergeQuickRunHeader
 import type { ViewResponse } from '../quick-run/types/quickrun.types';
 
 import * as FunctionRunApi from './FunctionRunApi';
+import { FunctionRunInfoError } from './components/FunctionRunInfoError';
 import { FunctionRunInputPane } from './components/FunctionRunInputPane';
 import { FunctionRunResponsePane } from './components/FunctionRunResponsePane';
 import { FunctionRunToolbar } from './components/FunctionRunToolbar';
 import { computeInputViewAvailability, computeInvokeGate, loadFunctionInfo, runInvoke } from './functionRunOrchestration';
-import { buildInvokeRequest } from './functionRunPayload';
+import { buildInvokeRequest, carriesBody, resolveEffectiveMode } from './functionRunPayload';
 import { resolveVerbs } from './functionRunVerbs';
 import { useFunctionRunStore } from './store/functionRunStore';
 
@@ -82,11 +83,14 @@ export function FunctionRunShell({
 
   const info = useFunctionRunStore((s) => s.info);
   const infoError = useFunctionRunStore((s) => s.infoError);
+  const infoErrorIsAuthorization = useFunctionRunStore((s) => s.infoErrorIsAuthorization);
+  const infoLoading = useFunctionRunStore((s) => s.infoLoading);
   const verb = useFunctionRunStore((s) => s.verb);
   const mode = useFunctionRunStore((s) => s.mode);
   const contentType = useFunctionRunStore((s) => s.contentType);
   const payload = useFunctionRunStore((s) => s.payload);
   const viewFormData = useFunctionRunStore((s) => s.viewFormData);
+  const queryString = useFunctionRunStore((s) => s.queryString);
   const workflowKey = useFunctionRunStore((s) => s.workflowKey);
   const instanceId = useFunctionRunStore((s) => s.instanceId);
   const inputViewContent = useFunctionRunStore((s) => s.inputViewContent);
@@ -143,8 +147,11 @@ export function FunctionRunShell({
   // typing. A domain-scoped function has no such fields (they are never
   // rendered for scope `D`), so there is nothing to debounce there — it
   // fires immediately on mount / identity change.
+  // Shared with the explicit Retry control below, so both agree on exactly
+  // when a load may fire.
+  const idsReady = scope === 'D' || (workflowKey.trim() !== '' && instanceId.trim() !== '');
+
   useEffect(() => {
-    const idsReady = scope === 'D' || (workflowKey.trim() !== '' && instanceId.trim() !== '');
     if (!idsReady) {
       // Ids are no longer both present (the user just cleared one) — there
       // is nothing to load, and any request that *was* in flight a moment
@@ -180,15 +187,39 @@ export function FunctionRunShell({
     };
   }, [domain, functionKey, scope, workflowKey, instanceId, headers, runtimeUrl, set]);
 
+  /**
+   * Re-runs `/info` immediately, bypassing the debounce above entirely — the
+   * fix for a 403 that never got surfaced as recoverable: the user opens
+   * Headers, saves a token, and needs to retry right away rather than wait
+   * out (or accidentally re-trigger) the keystroke debounce, which does not
+   * even apply to a header change in the first place.
+   */
+  async function handleRetryInfo() {
+    if (!idsReady) return;
+    await loadFunctionInfo({
+      domain,
+      functionKey,
+      scope,
+      workflowKey,
+      instanceId,
+      headers,
+      runtimeUrl,
+      isCancelled: () => false,
+      set,
+      api: FunctionRunApi,
+    });
+  }
+
   async function handleInvoke() {
     if (!info || !verb) return;
     await runInvoke({
       info,
       verb,
-      mode,
+      mode: effectiveMode,
       viewFormData,
       payload,
       contentType,
+      queryString,
       headers,
       runtimeUrl,
       buildInvokeRequest,
@@ -202,6 +233,14 @@ export function FunctionRunShell({
   // rather than rendering empty.
   const verbs = resolveVerbs(info?.function.verbs);
   const gate = computeInvokeGate({ info, infoError, scope, workflowKey, instanceId });
+
+  // GET is the same fallback `defaultVerbFor` prefers, used here only for
+  // the brief window before `/info` has set a real verb — see Fix 2: a
+  // body-less verb hides the payload editor outright rather than relabeling
+  // it, so this decision has to exist even before the contract is loaded.
+  const effectiveVerb = verb ?? 'GET';
+  const payloadAvailable = carriesBody(effectiveVerb);
+  const effectiveMode = resolveEffectiveMode(mode, effectiveVerb);
 
   // I4: driven by whether the *adapted* view actually came back, not by
   // `/info`'s bare `hasView` flag — see `computeInputViewAvailability`.
@@ -226,26 +265,35 @@ export function FunctionRunShell({
           // *previous* ids no longer applies. Clear it immediately (rather
           // than waiting out the debounce + request) so Invoke is not
           // enabled — against the wrong instance — for that whole window.
-          set({ ...next, info: null, infoError: null })
+          set({ ...next, info: null, infoError: null, infoErrorIsAuthorization: false })
         }
+        queryString={queryString}
+        onQueryStringChange={(next) => set({ queryString: next })}
       />
 
       {infoError ? (
-        <p className="text-destructive-text text-xs" role="alert">
-          {infoError}
-        </p>
+        <FunctionRunInfoError
+          message={infoError}
+          isAuthorizationError={infoErrorIsAuthorization}
+          loading={infoLoading}
+          canRetry={idsReady}
+          onRetry={() => void handleRetryInfo()}
+          onOpenHeaders={() => setHeadersOpen(true)}
+        />
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <div className="flex flex-col gap-2">
             {declaredButUnavailable ? (
               <p className="text-muted-foreground text-[10px]">
-                This function declares an input view, but it could not be loaded — use Payload instead.
+                This function declares an input view, but it could not be loaded
+                {payloadAvailable ? ' — use Payload instead.' : ' — use the query string field instead.'}
               </p>
             ) : null}
             <FunctionRunInputPane
               mode={mode}
               onModeChange={(nextMode) => set({ mode: nextMode })}
               hasInputView={hasUsableInputView}
+              payloadAvailable={payloadAvailable}
               inputView={inputViewContent as ViewResponse | null}
               onViewFormChange={(data) => set({ viewFormData: data })}
               payloadEditorProps={{
@@ -254,7 +302,6 @@ export function FunctionRunShell({
                 value: payload,
                 onChange: (nextPayload) => set({ payload: nextPayload }),
                 schema: inputSchema,
-                verb: verb ?? 'GET',
               }}
             />
           </div>

@@ -24,12 +24,73 @@ export interface InvokeRequestInput {
   /** Content of the free payload editor. */
   payload?: Record<string, unknown> | undefined;
   contentType: ContentTypeId;
+  /**
+   * Free-text query string from the runner's dedicated query input (e.g.
+   * `a=1&b=2`, optionally with a leading `?`). Applies to every verb — a
+   * function can legitimately take both a body and query parameters, not
+   * only the body-less ones. Required, not optional: every call site must
+   * decide what "nothing typed" means (`''`) instead of the field being
+   * silently absent and reintroducing that ambiguity.
+   */
+  queryString: string;
 }
 
 export interface InvokeRequest {
   body?: string;
   contentType?: string;
   query?: Record<string, string>;
+}
+
+/**
+ * Whether `verb` sends a request body at all.
+ *
+ * Matches `function-run.service.ts`'s own `sendsBody` check one-for-one:
+ * POST/PATCH do, GET/DELETE do not. Exported so the input pane can decide
+ * whether to render the payload editor using this exact rule, rather than
+ * re-deriving "GET and DELETE carry no body" a second time in the UI and
+ * risking the two disagreeing about a verb the other one has already been
+ * taught about.
+ */
+export function carriesBody(verb: FunctionVerb): boolean {
+  return verb === 'POST' || verb === 'PATCH';
+}
+
+/**
+ * The mode that actually governs what gets sent, as distinct from the raw
+ * `mode` the store remembers.
+ *
+ * The payload editor is hidden entirely once the selected verb carries no
+ * body (see `carriesBody`), so a stored `mode` of `'payload'` left over from
+ * an earlier, body-bearing verb selection no longer corresponds to anything
+ * rendered on screen. Forcing the effective mode to `'view'` whenever the
+ * verb carries no body — regardless of whether a view is actually declared —
+ * cannot leak stale payload data into the query string: `viewFormData` is
+ * only ever written by the rendered input view, and that view never mounts
+ * for a function that declares none, so it stays `{}` in that case too. The
+ * stored `mode` itself is left untouched by this — it is a computed
+ * override, not a write — so switching back to a body-bearing verb restores
+ * exactly what the user had in the payload editor.
+ */
+export function resolveEffectiveMode(mode: RunMode, verb: FunctionVerb): RunMode {
+  return carriesBody(verb) ? mode : 'view';
+}
+
+/**
+ * Parses a free-text query string — pasted straight from a browser address
+ * bar or API docs — into the `Record<string, string>` `functions/invoke`
+ * expects. Accepts a leading `?` and ignores it. `URLSearchParams` owns the
+ * decoding, so the caller never has to think about encoding.
+ */
+export function parseQueryString(raw: string): Record<string, string> {
+  const trimmed = raw.trim();
+  const withoutLeadingMark = trimmed.startsWith('?') ? trimmed.slice(1) : trimmed;
+  const result: Record<string, string> = {};
+  if (withoutLeadingMark === '') return result;
+  for (const [key, value] of new URLSearchParams(withoutLeadingMark)) {
+    if (key === '') continue;
+    result[key] = value;
+  }
+  return result;
 }
 
 /**
@@ -71,46 +132,59 @@ function toFlatEntries(entries: [string, unknown][]): [string, string][] {
  * Turns the runner's current state into the wire parameters for
  * `functions/invoke`.
  *
- * Kept as one function because the decisions are coupled: GET and DELETE carry
- * no body whatever content type is selected, and the two content types encode
- * the same map differently. Splitting it invites a call site that encodes a
- * body for a verb that cannot send one.
+ * `body` is produced only for a body-bearing verb (`carriesBody`), from the
+ * active mode's data (view form data or payload) exactly as before — GET and
+ * DELETE never carry one, whatever content type happens to be selected.
+ *
+ * `query` always starts from the explicit query-string input
+ * (`parseQueryString(input.queryString)`). For a body-less verb, the active
+ * mode's data is merged in underneath it — that is how a declared input view
+ * (or a free payload) on a GET function can do anything at all — with the
+ * explicit query-string input winning on a key conflict. This mirrors
+ * `function-run.service.ts`'s own `invoke`, where an explicit `query` record
+ * wins over whatever query string was already embedded in the path.
  *
  * Every optional field is omitted entirely (rather than set to `undefined`)
- * when there is nothing to send, matching `functionsInvokeParams`'s `.optional()`
- * shape one-for-one.
+ * when there is nothing to send, matching `functionsInvokeParams`'s
+ * `.optional()` shape one-for-one.
  *
- * Note the verb changes what a `null` means. JSON bodies keep it, because JSON
- * `null` is a real value (a PATCH sending `{"region": null}` is clearing the
- * field). Query strings and form bodies drop the key, because `?region=`
- * asserts an empty string rather than "not specified" — see `toFlatEntries`.
- * So the same payload is not identical on the wire across verbs.
+ * Note the verb changes what a `null` means in the *body-bearing* data. JSON
+ * bodies keep it, because JSON `null` is a real value (a PATCH sending
+ * `{"region": null}` is clearing the field). The query — whether it comes
+ * from the explicit input or from a body-less verb's mode data — drops the
+ * key instead, because `?region=` asserts an empty string rather than "not
+ * specified"; see `toFlatEntries`.
  */
 export function buildInvokeRequest(input: InvokeRequestInput): InvokeRequest {
+  const bodyBearing = carriesBody(input.verb);
   const source = input.mode === 'view' ? input.viewFormData : input.payload;
   const entries = Object.entries(source ?? {});
 
-  if (entries.length === 0) {
-    return {};
+  const result: InvokeRequest = {};
+
+  if (bodyBearing && entries.length > 0) {
+    if (input.contentType === 'form') {
+      const flat = toFlatEntries(entries);
+      if (flat.length > 0) {
+        const search = new URLSearchParams();
+        for (const [key, value] of flat) search.append(key, value);
+        result.body = search.toString();
+        result.contentType = CONTENT_TYPES.form;
+      }
+    } else {
+      result.body = JSON.stringify(Object.fromEntries(entries));
+      result.contentType = CONTENT_TYPES.json;
+    }
   }
 
-  const carriesBody = input.verb === 'POST' || input.verb === 'PATCH';
-  if (!carriesBody) {
-    const flat = toFlatEntries(entries);
-    if (flat.length === 0) return {};
-    return { query: Object.fromEntries(flat) };
+  const modeQuery = !bodyBearing && entries.length > 0 ? Object.fromEntries(toFlatEntries(entries)) : {};
+  const explicitQuery = parseQueryString(input.queryString);
+  // Explicit query-string input wins on a key conflict — see the function
+  // doc comment for the precedent this matches.
+  const mergedQuery = { ...modeQuery, ...explicitQuery };
+  if (Object.keys(mergedQuery).length > 0) {
+    result.query = mergedQuery;
   }
 
-  if (input.contentType === 'form') {
-    const flat = toFlatEntries(entries);
-    if (flat.length === 0) return {};
-    const search = new URLSearchParams();
-    for (const [key, value] of flat) search.append(key, value);
-    return { body: search.toString(), contentType: CONTENT_TYPES.form };
-  }
-
-  return {
-    body: JSON.stringify(Object.fromEntries(entries)),
-    contentType: CONTENT_TYPES.json,
-  };
+  return result;
 }
