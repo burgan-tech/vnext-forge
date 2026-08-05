@@ -4,6 +4,25 @@ import type { FunctionVerb } from '@vnext-forge-studio/vnext-types';
 import type { ContentTypeId, RunMode } from '../functionRunPayload';
 import type { FunctionExchange, FunctionInfo } from '../types/functionRun.types';
 
+/**
+ * A single module-level store, deliberately — one runner is mounted at a time
+ * in any given JavaScript realm:
+ *
+ *  - In the web SPA the in-editor runner (`function/:group/:name`) and the
+ *    standalone runner are sibling routes under one shell, so React Router
+ *    mounts exactly one.
+ *  - In the extension the designer and the standalone Quick Run panel are
+ *    separate webviews, so each gets its own copy of this module anyway.
+ *  - The runner is not offered when a function is opened as a nested modal
+ *    (`ComponentEditorDialog`), which is the one place two could otherwise
+ *    coexist.
+ *
+ * If any of those three stops being true — a split-pane editor, two runners in
+ * one webview — this must become per-mount state (a store factory, or a keyed
+ * map like `useQuickRunStore`'s `tabs`). Two runners sharing this singleton
+ * would silently stomp each other's verb, payload and response.
+ */
+
 interface FunctionRunState {
   info: FunctionInfo | null;
   infoExchange: FunctionExchange | null;
