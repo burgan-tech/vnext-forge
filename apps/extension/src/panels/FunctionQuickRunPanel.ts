@@ -12,6 +12,13 @@ export interface FunctionQuickRunContext {
   functionKey: string;
   scope: FunctionScope;
   runtimeUrl?: string;
+  /**
+   * Scope `F`/`I` binding, set when the runner is opened from a live instance
+   * in the workflow Quick Run panel. Pre-fills the runner's scope fields
+   * instead of making the developer retype what Quick Run already shows.
+   */
+  workflowKey?: string;
+  instanceId?: string;
 }
 
 function isWebviewReadyMessage(raw: unknown): boolean {
@@ -36,6 +43,8 @@ interface PanelEntry {
   panel: vscode.WebviewPanel;
   webviewReady: boolean;
   pendingContext: FunctionQuickRunContext | undefined;
+  /** What this panel is showing — re-sent when Forge Tools headers change. */
+  ctx: FunctionQuickRunContext;
   disposables: vscode.Disposable[];
 }
 
@@ -49,8 +58,14 @@ export class FunctionQuickRunPanel {
     private readonly forgeToolsSettings?: ForgeToolsSettingsService,
   ) {}
 
+  /**
+   * The instance is part of the key: a runner bound to one instance must not
+   * be revealed (and silently re-pointed) when the user opens the same
+   * function against a different instance, or from the domain-scoped entry
+   * points that carry no binding at all.
+   */
   private keyFor(ctx: FunctionQuickRunContext): string {
-    return `${ctx.domain}:${ctx.functionKey}`;
+    return `${ctx.domain}:${ctx.functionKey}:${ctx.instanceId ?? ''}`;
   }
 
   open(ctx: FunctionQuickRunContext): void {
@@ -58,6 +73,7 @@ export class FunctionQuickRunPanel {
     const existing = this.panels.get(key);
     if (existing) {
       existing.panel.reveal(vscode.ViewColumn.Active);
+      existing.ctx = ctx;
       if (existing.webviewReady) {
         void this.sendContext(existing, ctx);
       } else {
@@ -81,6 +97,7 @@ export class FunctionQuickRunPanel {
       panel,
       webviewReady: false,
       pendingContext: ctx,
+      ctx,
       disposables: [],
     };
     this.panels.set(key, entry);
@@ -112,6 +129,14 @@ export class FunctionQuickRunPanel {
               pseudoUiTenantStyle: this.resolvePseudoUiTenantStyleForWebview(entry.panel.webview, settings),
             });
           }
+        }),
+      );
+
+      // See `QuickRunPanel`'s counterpart — an open runner must pick up a
+      // header change without being closed and reopened.
+      entry.disposables.push(
+        this.forgeToolsSettings.onDidChangeQuickRunSettings(() => {
+          if (entry.webviewReady) void this.sendContext(entry, entry.ctx);
         }),
       );
     }

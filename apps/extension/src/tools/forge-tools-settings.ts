@@ -1,322 +1,33 @@
 import * as vscode from 'vscode';
 import * as fs from 'node:fs/promises';
-import * as path from 'node:path';
 import * as crypto from 'node:crypto';
 
-// ── Canvas settings types (mirrored from designer-ui CanvasViewSettingsContext) ──
+import type { ForgeConfigLocator, ResolvedConfigPath } from './forge-config-locator.js';
+import {
+  ENVIRONMENTS_FILE,
+  QUICKRUN_SETTINGS_FILE,
+  SETTINGS_FILE,
+  TENANT_STYLE_FILE,
+  parseEnvironments,
+  parsePseudoUiTenantStyle,
+  parseQuickRunSettings,
+  parseSettings,
+  writeJsonAtomic,
+  type EnvironmentsConfig,
+  type ForgeSettings,
+  type LocalRuntimeBinding,
+  type PseudoUiTenantStyleSettings,
+  type QuickRunSettings,
+  type RuntimeEnvironment,
+  type ShareableConfigBucket,
+} from './forge-settings-schema.js';
 
-export type LayoutAlgorithm = 'dagre' | 'elk';
-export type LayoutDirection = 'DOWN' | 'RIGHT';
-export type EdgePathStyle = 'smoothstep' | 'bezier' | 'straight';
-export type ThemeMode = 'dark' | 'light' | 'system';
-export type PseudoUiTenantStyleSource = 'url' | 'localFile';
-
-export interface CanvasSettings {
-  algorithm: LayoutAlgorithm;
-  direction: LayoutDirection;
-  edgePathStyle: EdgePathStyle;
-}
-
-export interface ForgeSettings {
-  canvas: CanvasSettings;
-  themeMode: ThemeMode;
-  autoSaveEnabled: boolean;
-  pseudoUiTenantStyle: PseudoUiTenantStyleSettings;
-}
-
-export interface PseudoUiTenantStyleSettings {
-  enabled: boolean;
-  sourceType: PseudoUiTenantStyleSource;
-  value: string;
-}
-
-// ── Environment types ────────────────────────────────────────────────────────
-
-export type EnvironmentKind = 'remote' | 'local-docker';
-
-/** Ports a managed local domain occupies on the host. */
-export interface LocalRuntimePorts {
-  app: number;
-  execution: number;
-  inbox: number;
-  outbox: number;
-  init: number;
-}
-
-/** Everything needed to drive a managed local runtime after it is provisioned. */
-export interface LocalRuntimeBinding {
-  /** Domain from the workspace's vnext.config.json. */
-  domain: string;
-  portOffset: number;
-  /** Absolute path of the clone: <workspacePath>/.vnext-runtime */
-  runtimePath: string;
-  /** Workspace root that owns this runtime. */
-  workspacePath: string;
-  ports: LocalRuntimePorts;
-}
-
-export interface RuntimeEnvironment {
-  id: string;
-  name: string;
-  baseUrl: string;
-  dbName?: string;
-  /** Undefined means 'remote' — keeps pre-existing environments.json valid. */
-  kind?: EnvironmentKind;
-  /** Present only when kind === 'local-docker'. */
-  local?: LocalRuntimeBinding;
-}
-
-export interface EnvironmentsConfig {
-  version: number;
-  environments: RuntimeEnvironment[];
-  activeEnvironmentId: string | null;
-}
-
-// ── Defaults ─────────────────────────────────────────────────────────────────
-
-const DEFAULT_SETTINGS: ForgeSettings = {
-  canvas: {
-    algorithm: 'dagre',
-    direction: 'DOWN',
-    edgePathStyle: 'smoothstep',
-  },
-  themeMode: 'system',
-  autoSaveEnabled: false,
-  pseudoUiTenantStyle: {
-    enabled: false,
-    sourceType: 'url',
-    value: '',
-  },
-};
-
-const DEFAULT_ENVIRONMENTS: EnvironmentsConfig = {
-  version: 1,
-  environments: [],
-  activeEnvironmentId: null,
-};
-
-// ── QuickRun types ───────────────────────────────────────────────────────────
-
-export interface QuickRunHeader {
-  name: string;
-  value: string;
-  isSecret?: boolean;
-}
-
-export interface QuickRunPollingConfig {
-  retryCount: number;
-  intervalMs: number;
-}
-
-export interface QuickRunSettings {
-  globalHeaders: QuickRunHeader[];
-  polling: QuickRunPollingConfig;
-}
-
-const DEFAULT_QUICKRUN_SETTINGS: QuickRunSettings = {
-  globalHeaders: [],
-  polling: {
-    retryCount: 15,
-    intervalMs: 4000,
-  },
-};
-
-const SETTINGS_FILE = 'forge-settings.json';
-const ENVIRONMENTS_FILE = 'environments.json';
-const QUICKRUN_SETTINGS_FILE = 'quickrun-settings.json';
-
-const ALLOWED_URL_SCHEMES = new Set(['http:', 'https:']);
-
-function isAllowedBaseUrl(url: string): boolean {
-  try {
-    const parsed = new URL(url);
-    return ALLOWED_URL_SCHEMES.has(parsed.protocol);
-  } catch {
-    return false;
-  }
-}
-
-// ── Validation helpers ───────────────────────────────────────────────────────
-
-const VALID_ALGORITHMS: readonly LayoutAlgorithm[] = ['dagre', 'elk'];
-const VALID_DIRECTIONS: readonly LayoutDirection[] = ['DOWN', 'RIGHT'];
-const VALID_EDGE_STYLES: readonly EdgePathStyle[] = ['smoothstep', 'bezier', 'straight'];
-const VALID_THEMES: readonly ThemeMode[] = ['dark', 'light', 'system'];
-
-function isValidAlgorithm(v: unknown): v is LayoutAlgorithm {
-  return typeof v === 'string' && (VALID_ALGORITHMS as readonly string[]).includes(v);
-}
-function isValidDirection(v: unknown): v is LayoutDirection {
-  return typeof v === 'string' && (VALID_DIRECTIONS as readonly string[]).includes(v);
-}
-function isValidEdgeStyle(v: unknown): v is EdgePathStyle {
-  return typeof v === 'string' && (VALID_EDGE_STYLES as readonly string[]).includes(v);
-}
-function isValidTheme(v: unknown): v is ThemeMode {
-  return typeof v === 'string' && (VALID_THEMES as readonly string[]).includes(v);
-}
-
-function parsePseudoUiTenantStyle(raw: unknown): PseudoUiTenantStyleSettings {
-  if (raw == null || typeof raw !== 'object') {
-    return { ...DEFAULT_SETTINGS.pseudoUiTenantStyle };
-  }
-  const obj = raw as Record<string, unknown>;
-  return {
-    enabled: typeof obj.enabled === 'boolean' ? obj.enabled : DEFAULT_SETTINGS.pseudoUiTenantStyle.enabled,
-    sourceType: obj.sourceType === 'localFile' ? 'localFile' : 'url',
-    value: typeof obj.value === 'string' ? obj.value : '',
-  };
-}
-
-function parseSettings(raw: unknown): ForgeSettings {
-  const defaults = DEFAULT_SETTINGS;
-  if (raw == null || typeof raw !== 'object') return { ...defaults };
-  const obj = raw as Record<string, unknown>;
-
-  const canvas = typeof obj.canvas === 'object' && obj.canvas != null
-    ? obj.canvas as Record<string, unknown>
-    : {};
-
-  return {
-    canvas: {
-      algorithm: isValidAlgorithm(canvas.algorithm) ? canvas.algorithm : defaults.canvas.algorithm,
-      direction: isValidDirection(canvas.direction) ? canvas.direction : defaults.canvas.direction,
-      edgePathStyle: isValidEdgeStyle(canvas.edgePathStyle) ? canvas.edgePathStyle : defaults.canvas.edgePathStyle,
-    },
-    themeMode: isValidTheme(obj.themeMode) ? obj.themeMode : defaults.themeMode,
-    autoSaveEnabled: typeof obj.autoSaveEnabled === 'boolean' ? obj.autoSaveEnabled : defaults.autoSaveEnabled,
-    pseudoUiTenantStyle: parsePseudoUiTenantStyle(obj.pseudoUiTenantStyle),
-  };
-}
-
-function parseQuickRunSettings(raw: unknown): QuickRunSettings {
-  if (raw == null || typeof raw !== 'object') {
-    return { globalHeaders: [], polling: { ...DEFAULT_QUICKRUN_SETTINGS.polling } };
-  }
-  const obj = raw as Record<string, unknown>;
-
-  const globalHeaders: QuickRunHeader[] = [];
-  if (Array.isArray(obj.globalHeaders)) {
-    for (const item of obj.globalHeaders) {
-      if (
-        item != null &&
-        typeof item === 'object' &&
-        typeof (item as Record<string, unknown>).name === 'string' &&
-        typeof (item as Record<string, unknown>).value === 'string'
-      ) {
-        globalHeaders.push({
-          name: (item as Record<string, unknown>).name as string,
-          value: (item as Record<string, unknown>).value as string,
-          isSecret: (item as Record<string, unknown>).isSecret === true,
-        });
-      }
-    }
-  }
-
-  const polling = { ...DEFAULT_QUICKRUN_SETTINGS.polling };
-  if (typeof obj.polling === 'object' && obj.polling != null) {
-    const p = obj.polling as Record<string, unknown>;
-    if (typeof p.retryCount === 'number' && p.retryCount > 0) {
-      polling.retryCount = p.retryCount;
-    }
-    if (typeof p.intervalMs === 'number' && p.intervalMs > 0) {
-      polling.intervalMs = p.intervalMs;
-    }
-  }
-
-  return { globalHeaders, polling };
-}
-
-function parsePositiveInt(value: unknown): number | null {
-  return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : null;
-}
-
-function parseLocalRuntimePorts(raw: unknown): LocalRuntimePorts | null {
-  if (raw == null || typeof raw !== 'object') return null;
-  const o = raw as Record<string, unknown>;
-  const app = parsePositiveInt(o.app);
-  const execution = parsePositiveInt(o.execution);
-  const inbox = parsePositiveInt(o.inbox);
-  const outbox = parsePositiveInt(o.outbox);
-  const init = parsePositiveInt(o.init);
-  if (app === null || execution === null || inbox === null || outbox === null || init === null) {
-    return null;
-  }
-  return { app, execution, inbox, outbox, init };
-}
-
-/**
- * Returns null when the binding is unusable. The caller then downgrades the
- * environment to 'remote' rather than dropping it: the base URL still works,
- * only the lifecycle actions go away.
- */
-function parseLocalRuntimeBinding(raw: unknown): LocalRuntimeBinding | null {
-  if (raw == null || typeof raw !== 'object') return null;
-  const o = raw as Record<string, unknown>;
-  const ports = parseLocalRuntimePorts(o.ports);
-  if (
-    typeof o.domain !== 'string' || o.domain.length === 0 ||
-    typeof o.runtimePath !== 'string' || o.runtimePath.length === 0 ||
-    typeof o.workspacePath !== 'string' || o.workspacePath.length === 0 ||
-    typeof o.portOffset !== 'number' || !Number.isInteger(o.portOffset) || o.portOffset < 0 ||
-    ports === null
-  ) {
-    return null;
-  }
-  return {
-    domain: o.domain,
-    portOffset: o.portOffset,
-    runtimePath: o.runtimePath,
-    workspacePath: o.workspacePath,
-    ports,
-  };
-}
-
-function parseEnvironments(raw: unknown): EnvironmentsConfig {
-  if (raw == null || typeof raw !== 'object') return { ...DEFAULT_ENVIRONMENTS, environments: [] };
-  const obj = raw as Record<string, unknown>;
-
-  const environments: RuntimeEnvironment[] = [];
-  if (Array.isArray(obj.environments)) {
-    for (const item of obj.environments) {
-      if (
-        item != null &&
-        typeof item === 'object' &&
-        typeof (item as Record<string, unknown>).id === 'string' &&
-        typeof (item as Record<string, unknown>).name === 'string' &&
-        typeof (item as Record<string, unknown>).baseUrl === 'string'
-      ) {
-        const rawUrl = ((item as Record<string, unknown>).baseUrl as string).replace(/\/+$/, '');
-        if (!isAllowedBaseUrl(rawUrl)) continue;
-        const rec = item as Record<string, unknown>;
-        const local = rec.kind === 'local-docker' ? parseLocalRuntimeBinding(rec.local) : null;
-        environments.push({
-          id: rec.id as string,
-          name: rec.name as string,
-          baseUrl: rawUrl,
-          ...(typeof rec.dbName === 'string' && rec.dbName.length > 0 ? { dbName: rec.dbName } : {}),
-          // A malformed binding downgrades the entry to remote instead of
-          // dropping it — the URL is still usable.
-          ...(local ? { kind: 'local-docker' as const, local } : { kind: 'remote' as const }),
-        });
-      }
-    }
-  }
-
-  const activeEnvironmentId =
-    typeof obj.activeEnvironmentId === 'string' &&
-    environments.some((e) => e.id === obj.activeEnvironmentId)
-      ? obj.activeEnvironmentId
-      : null;
-
-  return { version: 1, environments, activeEnvironmentId };
-}
+// Re-exported so every existing importer of this module keeps working.
+export * from './forge-settings-schema.js';
 
 // ── Service ──────────────────────────────────────────────────────────────────
 
 export class ForgeToolsSettingsService implements vscode.Disposable {
-  private readonly storageDir: string;
-
   private settingsCache: ForgeSettings | undefined;
   private environmentsCache: EnvironmentsConfig | undefined;
 
@@ -326,13 +37,77 @@ export class ForgeToolsSettingsService implements vscode.Disposable {
   private readonly _onDidChangeEnvironments = new vscode.EventEmitter<EnvironmentsConfig>();
   readonly onDidChangeEnvironments = this._onDidChangeEnvironments.event;
 
-  constructor(globalStorageUri: vscode.Uri) {
-    this.storageDir = globalStorageUri.fsPath;
-  }
+  /**
+   * Fired by `saveQuickRunSettings`.
+   *
+   * Its absence was a real gap: an open Quick Run panel kept whatever
+   * `globalHeaders` it was constructed with, so editing a header appeared to do
+   * nothing until the panel was closed and reopened. `GlobalSettingsProvider`
+   * worked around it by clearing its own caches by hand.
+   */
+  private readonly _onDidChangeQuickRunSettings = new vscode.EventEmitter<QuickRunSettings>();
+  readonly onDidChangeQuickRunSettings = this._onDidChangeQuickRunSettings.event;
+
+  constructor(private readonly locator: ForgeConfigLocator) {}
 
   dispose(): void {
     this._onDidChangeSettings.dispose();
     this._onDidChangeEnvironments.dispose();
+    this._onDidChangeQuickRunSettings.dispose();
+  }
+
+  /**
+   * Re-resolves every bucket from disk and fires the change events.
+   *
+   * Needed whenever the *set of files* could have changed underneath us rather
+   * than their contents: a workspace-folder switch (a different
+   * `.vnextstudio/forge-tools/`), or an import that just created one. The caches
+   * are otherwise write-through and never invalidated, so without this a
+   * newly-adopted workspace config stays invisible until the window reloads.
+   *
+   * **Assign after parse — never clear then await.** `DesignerPanel.buildWebviewConfig`
+   * reads `getCachedQuickRunSettings()` synchronously and silently omits
+   * `globalHeaders` when it returns `undefined`; a panel built during the gap
+   * of a clear-then-load would come up with no headers and no error. Each cache
+   * below is replaced in a single assignment once its value is fully parsed.
+   */
+  async reloadFromDisk(): Promise<void> {
+    const [rawPersonal, rawTenant, rawEnvironments, rawQuickRun] = await Promise.all([
+      this.readLocalJsonFile(SETTINGS_FILE),
+      this.readJsonFile(TENANT_STYLE_FILE),
+      this.readJsonFile(ENVIRONMENTS_FILE),
+      this.readJsonFile(QUICKRUN_SETTINGS_FILE),
+    ]);
+
+    const personal = parseSettings(rawPersonal);
+    const tenantStyle =
+      rawTenant == null ? personal.pseudoUiTenantStyle : parsePseudoUiTenantStyle(rawTenant);
+    const settings: ForgeSettings = { ...personal, pseudoUiTenantStyle: tenantStyle };
+    const environments = parseEnvironments(rawEnvironments);
+    const quickRun = parseQuickRunSettings(rawQuickRun);
+
+    this.tenantStyleCache = tenantStyle;
+    this.settingsCache = settings;
+    this.environmentsCache = environments;
+    this.quickRunCache = quickRun;
+
+    this._onDidChangeSettings.fire(settings);
+    this._onDidChangeEnvironments.fire(environments);
+    this._onDidChangeQuickRunSettings.fire(quickRun);
+  }
+
+  /** Which copy of each shareable bucket is currently in play — drives the Config Source tree. */
+  async resolveSources(): Promise<Record<ShareableConfigBucket, ResolvedConfigPath>> {
+    const [quickRun, environments, tenantStyle] = await Promise.all([
+      this.locator.resolveRead(QUICKRUN_SETTINGS_FILE),
+      this.locator.resolveRead(ENVIRONMENTS_FILE),
+      this.locator.resolveRead(TENANT_STYLE_FILE),
+    ]);
+    return { quickRun, environments, tenantStyle };
+  }
+
+  getLocator(): ForgeConfigLocator {
+    return this.locator;
   }
 
   // ── Settings ─────────────────────────────────────────────────────────────
@@ -346,27 +121,71 @@ export class ForgeToolsSettingsService implements vscode.Disposable {
     return this.settingsCache;
   }
 
+  private tenantStyleCache: PseudoUiTenantStyleSettings | undefined;
+
+  /**
+   * Composes one `ForgeSettings` out of two files.
+   *
+   * `canvas` / `themeMode` / `autoSaveEnabled` are personal preferences and are
+   * read **only** from the machine-local `forge-settings.json` — they must never
+   * ride along in a shared workspace file. `pseudoUiTenantStyle` describes a
+   * tenant, not a person, so it comes from the resolved `tenant-style.json`
+   * (workspace-first).
+   *
+   * Back-compat: an install predating the split has no `tenant-style.json` at
+   * all, and its tenant style still sits inside `forge-settings.json`. That
+   * legacy value is the last fallback, and it is left in the file untouched —
+   * there is no migration step to fail, and the first save simply starts writing
+   * the new file instead.
+   */
   async loadSettings(): Promise<ForgeSettings> {
     if (this.settingsCache) return this.settingsCache;
-    const raw = await this.readJsonFile(SETTINGS_FILE);
-    this.settingsCache = parseSettings(raw);
+    const raw = await this.readLocalJsonFile(SETTINGS_FILE);
+    const personal = parseSettings(raw);
+    this.settingsCache = {
+      ...personal,
+      pseudoUiTenantStyle: await this.loadTenantStyle(personal.pseudoUiTenantStyle),
+    };
     return this.settingsCache;
+  }
+
+  private async loadTenantStyle(
+    legacyFallback: PseudoUiTenantStyleSettings,
+  ): Promise<PseudoUiTenantStyleSettings> {
+    if (this.tenantStyleCache) return this.tenantStyleCache;
+    const raw = await this.readJsonFile(TENANT_STYLE_FILE);
+    this.tenantStyleCache = raw == null ? { ...legacyFallback } : parsePseudoUiTenantStyle(raw);
+    return this.tenantStyleCache;
   }
 
   async saveSettings(patch: Partial<ForgeSettings>): Promise<ForgeSettings> {
     const current = await this.loadSettings();
-    const merged: ForgeSettings = {
+    const personal: Omit<ForgeSettings, 'pseudoUiTenantStyle'> = {
       canvas: patch.canvas ? { ...current.canvas, ...patch.canvas } : current.canvas,
       themeMode: patch.themeMode ?? current.themeMode,
       autoSaveEnabled: patch.autoSaveEnabled ?? current.autoSaveEnabled,
-      pseudoUiTenantStyle: patch.pseudoUiTenantStyle
-        ? parsePseudoUiTenantStyle({ ...current.pseudoUiTenantStyle, ...patch.pseudoUiTenantStyle })
-        : current.pseudoUiTenantStyle,
     };
-    await this.writeJsonFile(SETTINGS_FILE, merged);
+    const tenantStyle = patch.pseudoUiTenantStyle
+      ? parsePseudoUiTenantStyle({ ...current.pseudoUiTenantStyle, ...patch.pseudoUiTenantStyle })
+      : current.pseudoUiTenantStyle;
+
+    // Personal keys always land locally; the tenant style follows the resolved
+    // source, so a workspace-shared stylesheet stays shared once adopted.
+    await this.writeLocalJsonFile(SETTINGS_FILE, personal);
+    if (patch.pseudoUiTenantStyle) {
+      await this.writeJsonFile(TENANT_STYLE_FILE, tenantStyle);
+      this.tenantStyleCache = tenantStyle;
+    }
+
+    const merged: ForgeSettings = { ...personal, pseudoUiTenantStyle: tenantStyle };
     this.settingsCache = merged;
     this._onDidChangeSettings.fire(merged);
     return merged;
+  }
+
+  /** Replaces the tenant style wholesale — used by Import. */
+  async saveTenantStyle(style: PseudoUiTenantStyleSettings): Promise<ForgeSettings> {
+    return this.saveSettings({ pseudoUiTenantStyle: parsePseudoUiTenantStyle(style) });
   }
 
   // ── Environments ─────────────────────────────────────────────────────────
@@ -503,18 +322,22 @@ export class ForgeToolsSettingsService implements vscode.Disposable {
     };
     await this.writeJsonFile(QUICKRUN_SETTINGS_FILE, merged);
     this.quickRunCache = merged;
+    this._onDidChangeQuickRunSettings.fire(merged);
     return merged;
   }
 
   // ── File I/O ─────────────────────────────────────────────────────────────
 
-  private async ensureStorageDir(): Promise<void> {
-    await fs.mkdir(this.storageDir, { recursive: true });
-  }
-
+  /**
+   * Reads whichever copy of `fileName` is in play — the workspace one when it
+   * exists, else the machine-local one. Returns `null` on a missing file or
+   * malformed JSON, exactly as before; every caller funnels the result through
+   * a `parseX()` that fills in defaults, so a hand-edited file can never break
+   * activation.
+   */
   private async readJsonFile(fileName: string): Promise<unknown> {
     try {
-      const filePath = path.join(this.storageDir, fileName);
+      const { path: filePath } = await this.locator.resolveRead(fileName);
       const content = await fs.readFile(filePath, 'utf-8');
       return JSON.parse(content);
     } catch {
@@ -522,12 +345,37 @@ export class ForgeToolsSettingsService implements vscode.Disposable {
     }
   }
 
+  /**
+   * Writes to whichever copy is in play — see `ForgeConfigLocator.resolveWrite`
+   * for why a save must land on the same file the read came from.
+   *
+   * Still atomic (tmp + rename). `mkdir` targets the *resolved* file's own
+   * directory rather than a fixed storage dir, since that may now be inside the
+   * workspace.
+   */
   private async writeJsonFile(fileName: string, data: unknown): Promise<void> {
-    await this.ensureStorageDir();
-    const filePath = path.join(this.storageDir, fileName);
-    const tmpPath = `${filePath}.${Date.now()}.tmp`;
-    const content = JSON.stringify(data, null, 2);
-    await fs.writeFile(tmpPath, content, 'utf-8');
-    await fs.rename(tmpPath, filePath);
+    const { path: filePath } = await this.locator.resolveWrite(fileName);
+    await writeJsonAtomic(filePath, data);
+  }
+
+  /**
+   * Machine-local read, bypassing workspace resolution.
+   *
+   * `forge-settings.json` holds personal preferences (`themeMode`,
+   * `autoSaveEnabled`, canvas layout) and is deliberately never shared — see
+   * `loadSettings`. Routing it through `readJsonFile` would let a stray
+   * workspace copy override another developer's theme.
+   */
+  private async readLocalJsonFile(fileName: string): Promise<unknown> {
+    try {
+      const content = await fs.readFile(this.locator.localPath(fileName), 'utf-8');
+      return JSON.parse(content);
+    } catch {
+      return null;
+    }
+  }
+
+  private async writeLocalJsonFile(fileName: string, data: unknown): Promise<void> {
+    await writeJsonAtomic(this.locator.localPath(fileName), data);
   }
 }

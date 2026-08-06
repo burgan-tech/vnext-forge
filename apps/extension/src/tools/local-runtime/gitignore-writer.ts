@@ -11,6 +11,8 @@ import * as path from 'node:path';
 export async function ensureGitignoreEntry(
   workspacePath: string,
   entry: string,
+  /** Comment written above the entry the first time it is added. */
+  comment = 'vNext Forge managed local runtime',
 ): Promise<void> {
   const gitignorePath = path.join(workspacePath, '.gitignore');
 
@@ -27,6 +29,6 @@ export async function ensureGitignoreEntry(
   if (alreadyPresent) return;
 
   const needsNewline = existing.length > 0 && !existing.endsWith('\n');
-  const addition = `${needsNewline ? '\n' : ''}\n# vNext Forge managed local runtime\n${entry}\n`;
+  const addition = `${needsNewline ? '\n' : ''}\n# ${comment}\n${entry}\n`;
   await fs.writeFile(gitignorePath, existing + addition, 'utf-8');
 }
