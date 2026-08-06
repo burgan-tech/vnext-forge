@@ -15,6 +15,8 @@ import { baseLogger } from './shared/logger.js';
 import { DesignerPanel } from './panels/DesignerPanel.js';
 import { publishWorkflowFile } from './lib/publishWorkflowFile.js';
 import { QuickRunPanel } from './panels/QuickRunPanel.js';
+import { FunctionQuickRunPanel } from './panels/FunctionQuickRunPanel.js';
+import { toFunctionMetadataFormValues } from '@vnext-forge-studio/designer-ui/function-editor-schema';
 import { VnextWorkspaceDetector, type VnextWorkspaceRoot } from './workspace-detector.js';
 import {
   applyMaterialIconAssociationsIfApplicable,
@@ -118,6 +120,34 @@ async function readWorkflowJson(uri: vscode.Uri): Promise<
   }
 }
 
+async function readFunctionJson(uri: vscode.Uri): Promise<
+  | {
+      domain: string;
+      functionKey: string;
+      scope: 'D' | 'F' | 'I';
+    }
+  | undefined
+> {
+  try {
+    const bytes = await vscode.workspace.fs.readFile(uri);
+    const json = JSON.parse(Buffer.from(bytes).toString('utf-8')) as Record<string, unknown>;
+    // Same normalization `FunctionEditorView`'s in-editor runner uses:
+    // `attributes.scope` falls back to `scope`, defaulting to `'I'`. Imported
+    // from designer-ui's pure (no-React) `function-editor-schema` subpath so
+    // the extension host doesn't need to duplicate this logic or pull the
+    // full React barrel into the esbuild-bundled host.
+    const values = toFunctionMetadataFormValues(json);
+    if (!values.domain || !values.key) {
+      void vscode.window.showWarningMessage('Function file is missing "domain" or "key" fields.');
+      return undefined;
+    }
+    return { domain: values.domain, functionKey: values.key, scope: values.scope };
+  } catch {
+    void vscode.window.showWarningMessage('Failed to read function JSON file.');
+    return undefined;
+  }
+}
+
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   baseLogger.info({}, 'vnext-forge-studio activating');
 
@@ -213,6 +243,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // Pre-load settings so DesignerPanel can inject them synchronously
   await forgeToolsSettings.loadSettings();
   await forgeToolsSettings.loadEnvironments();
+  // Also pre-load Quick Run settings (`globalHeaders`) so DesignerPanel can
+  // inject them into the in-editor Function Run panel synchronously too —
+  // see `getCachedQuickRunSettings()`.
+  await forgeToolsSettings.loadQuickRunSettings();
 
   designerPanel.setForgeToolsSettings(forgeToolsSettings);
 
@@ -221,6 +255,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   const quickRunPanel = new QuickRunPanel(context, router, forgeToolsSettings, healthMonitor);
   context.subscriptions.push({ dispose: () => quickRunPanel.dispose() });
+
+  const functionQuickRunPanel = new FunctionQuickRunPanel(context, router, forgeToolsSettings);
+  context.subscriptions.push({ dispose: () => functionQuickRunPanel.dispose() });
 
   const envStatusBar = new EnvironmentStatusBar(forgeToolsSettings, healthMonitor);
   context.subscriptions.push(envStatusBar);
@@ -448,6 +485,44 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         environmentName: activeEnv?.name,
         environmentUrl: activeEnv?.baseUrl,
         ...(wfJson.startSchemaRef ? { startSchemaRef: wfJson.startSchemaRef } : {}),
+      });
+    })),
+    vscode.commands.registerCommand('vnextForge.openFunctionQuickRun', safeAsync(async () => {
+      const functionFiles = await vscode.workspace.findFiles('**/Functions/**/*.json', '**/node_modules/**', 50);
+      if (functionFiles.length === 0) {
+        void vscode.window.showWarningMessage('No function files found in the workspace.');
+        return;
+      }
+      const items = functionFiles.map((f) => ({
+        label: path.basename(f.fsPath, '.json'),
+        description: vscode.workspace.asRelativePath(f),
+        uri: f,
+      }));
+      const picked = await vscode.window.showQuickPick(items, {
+        placeHolder: 'Select a function to run',
+      });
+      if (!picked) return;
+      const fnJson = await readFunctionJson(picked.uri);
+      if (!fnJson) return;
+      const activeEnv = await forgeToolsSettings.getActiveEnvironment();
+      functionQuickRunPanel.open({
+        domain: fnJson.domain,
+        functionKey: fnJson.functionKey,
+        scope: fnJson.scope,
+        runtimeUrl: activeEnv?.baseUrl,
+      });
+    })),
+    vscode.commands.registerCommand('vnextForge.openFunctionQuickRunFromFile', safeAsync(async (arg) => {
+      const uri = asUri(arg);
+      if (!uri) return;
+      const fnJson = await readFunctionJson(uri);
+      if (!fnJson) return;
+      const activeEnv = await forgeToolsSettings.getActiveEnvironment();
+      functionQuickRunPanel.open({
+        domain: fnJson.domain,
+        functionKey: fnJson.functionKey,
+        scope: fnJson.scope,
+        runtimeUrl: activeEnv?.baseUrl,
       });
     })),
     // Explorer right-click "Forge: Publish" — deploys the single

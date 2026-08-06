@@ -93,3 +93,124 @@ describe('createRuntimeProxyService outbound headers (R-b4)', () => {
     expect(seen?.['X-Trace-Id']).toBe('rpc-trace')
   })
 })
+
+describe('buildRuntimeProxyOutboundHeaders — request Content-Type (R-b4)', () => {
+  it('defaults to application/json for a body-bearing verb', () => {
+    const headers = buildRuntimeProxyOutboundHeaders({ method: 'POST', body: '{"a":1}' })
+    expect(headers['Content-Type']).toBe('application/json')
+  })
+
+  it('honours an allowlisted caller Content-Type', () => {
+    // Functions accept form-urlencoded; the Quick Runner must be able to send it.
+    const headers = buildRuntimeProxyOutboundHeaders({
+      method: 'POST',
+      body: 'a=1&b=2',
+      callerHeaders: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    })
+    expect(headers['Content-Type']).toBe('application/x-www-form-urlencoded')
+  })
+
+  it('matches the allowlist case-insensitively and ignores parameters', () => {
+    const headers = buildRuntimeProxyOutboundHeaders({
+      method: 'POST',
+      body: 'a=1',
+      callerHeaders: { 'content-type': 'Application/X-WWW-Form-Urlencoded; charset=UTF-8' },
+    })
+    expect(headers['Content-Type']).toBe('Application/X-WWW-Form-Urlencoded; charset=UTF-8')
+  })
+
+  it('falls back to JSON for a content type that is not allowlisted', () => {
+    // Conservative default: this is a shared, security-relevant module.
+    const headers = buildRuntimeProxyOutboundHeaders({
+      method: 'POST',
+      body: '<xml/>',
+      callerHeaders: { 'Content-Type': 'application/xml' },
+    })
+    expect(headers['Content-Type']).toBe('application/json')
+  })
+
+  it('never sets Content-Type on a verb that sends no body', () => {
+    const headers = buildRuntimeProxyOutboundHeaders({
+      method: 'GET',
+      callerHeaders: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    })
+    expect(headers['Content-Type']).toBeUndefined()
+  })
+
+  it('falls back to JSON when the parameters are not a well-formed charset', () => {
+    // The allowlist is a safety boundary on the proxy: a caller must not be able
+    // to smuggle arbitrary text into an outbound header value.
+    const headers = buildRuntimeProxyOutboundHeaders({
+      method: 'POST',
+      body: '{}',
+      callerHeaders: { 'Content-Type': 'application/json;x=\r\nX-Evil: 1' },
+    })
+    expect(headers['Content-Type']).toBe('application/json')
+  })
+
+  it('leaves exactly one Content-Type key regardless of the caller’s casing', () => {
+    const headers = buildRuntimeProxyOutboundHeaders({
+      method: 'POST',
+      body: 'a=1',
+      callerHeaders: { 'content-type': 'application/x-www-form-urlencoded' },
+    })
+    expect(Object.keys(headers).filter((k) => k.toLowerCase() === 'content-type')).toHaveLength(1)
+  })
+
+  it('drops a caller Content-Type on a bodyless POST', () => {
+    // The one behaviour change this commit makes for existing callers: previously
+    // such a header was forwarded, now it is dropped.
+    const headers = buildRuntimeProxyOutboundHeaders({
+      method: 'POST',
+      callerHeaders: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    })
+    expect(headers['Content-Type']).toBeUndefined()
+  })
+
+  it('accepts a quoted charset parameter (RFC 7231 allows quoted-string)', () => {
+    // Rejecting it would silently downgrade to JSON while the body stays
+    // form-encoded, and the runtime would misparse it.
+    const headers = buildRuntimeProxyOutboundHeaders({
+      method: 'POST',
+      body: 'a=1',
+      callerHeaders: { 'Content-Type': 'application/x-www-form-urlencoded; charset="utf-8"' },
+    })
+    expect(headers['Content-Type']).toBe('application/x-www-form-urlencoded; charset="utf-8"')
+  })
+
+  it('does not mutate the caller’s header object', () => {
+    // takeHeader deletes in place; this is only safe because it operates on the
+    // copy stripHopByHopHeaders returns.
+    const callerHeaders = { 'Content-Type': 'application/json', 'X-Keep': '1' }
+    buildRuntimeProxyOutboundHeaders({ method: 'POST', body: '{}', callerHeaders })
+    expect(callerHeaders).toEqual({ 'Content-Type': 'application/json', 'X-Keep': '1' })
+  })
+
+  it('never emits a Content-Type containing control or exotic whitespace, wherever it appears', () => {
+    const hostile = ['\r\n', '\r', '\n', '\t', '\f', '\v', ' ', '﻿']
+    const templates = (ws: string) => [
+      `${ws}application/json`,
+      `application/json${ws}`,
+      `application/json${ws};charset=utf-8`,
+      `application/json;${ws}charset=utf-8`,
+      `application/json; charset=utf-8${ws}`,
+    ]
+    for (const ws of hostile) {
+      for (const supplied of templates(ws)) {
+        const headers = buildRuntimeProxyOutboundHeaders({
+          method: 'POST',
+          body: '{}',
+          callerHeaders: { 'Content-Type': supplied },
+        })
+        // Either it fell back, or it was accepted with the whitespace stripped —
+        // never accepted with it intact. Space and tab are both excluded from
+        // this check (not just tab): both are legal HTTP OWS around `;`, so an
+        // interior occurrence of either is preserved by design when the rest of
+        // the value is well-formed — e.g. the fixed "; charset=utf-8" in the
+        // last template always contains a space. `\r`, `\n`, `\f`, `\v`, and the
+        // BOM are never legal here, so they must never survive.
+        expect(headers['Content-Type']).not.toMatch(/[\r\n\f\v﻿]/)
+      }
+    }
+  })
+})

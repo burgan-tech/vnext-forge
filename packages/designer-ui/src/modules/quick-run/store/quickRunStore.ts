@@ -64,6 +64,14 @@ interface QuickRunState {
 
   globalHeaders: Record<string, string>;
   sessionHeaders: Record<string, string>;
+  /**
+   * Forge-wide headers from `useToolHeadersStore`, mirrored in here so the
+   * live-getter pattern already used for `globalHeaders`/`sessionHeaders` by
+   * the pseudo-ui delegate (`InstanceDashboard`/`TransitionDialog`) can read
+   * them the same way. `QuickRunShell` is the only writer — see its
+   * `useToolHeadersStore` sync effect.
+   */
+  toolWideHeaders: Record<string, string>;
 
   pollingInstanceId: string | null;
   pollingConfig: { retryCount: number; intervalMs: number };
@@ -131,6 +139,7 @@ interface QuickRunState {
 
   setGlobalHeaders: (headers: Record<string, string>) => void;
   setSessionHeaders: (headers: Record<string, string>) => void;
+  setToolWideHeaders: (headers: Record<string, string>) => void;
   setPollingInstanceId: (id: string | null) => void;
   setPollingConfig: (config: { retryCount: number; intervalMs: number }) => void;
   setLongPollAck: (status: 'acknowledging' | 'acknowledged' | null) => void;
@@ -182,6 +191,7 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
 
   globalHeaders: {},
   sessionHeaders: {},
+  toolWideHeaders: {},
 
   pollingInstanceId: null,
   pollingConfig: { retryCount: 15, intervalMs: 4000 },
@@ -344,6 +354,7 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
 
   setGlobalHeaders: (globalHeaders) => set({ globalHeaders }),
   setSessionHeaders: (sessionHeaders) => set({ sessionHeaders }),
+  setToolWideHeaders: (toolWideHeaders) => set({ toolWideHeaders }),
   setPollingInstanceId: (pollingInstanceId) => set({ pollingInstanceId }),
   setPollingConfig: (pollingConfig) => set({ pollingConfig }),
   setLongPollAck: (longPollAck) => set({ longPollAck }),

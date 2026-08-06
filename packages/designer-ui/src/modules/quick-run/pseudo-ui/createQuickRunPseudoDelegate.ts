@@ -29,6 +29,12 @@ export interface QuickRunDelegateParams {
   getBucketConfig: () => WorkflowBucketConfig | null;
   getSessionHeaders: () => Record<string, string>;
   /**
+   * Forge-wide headers (see `useToolHeadersStore`), shared with the function
+   * runner. Optional so existing/test callers that don't wire it keep
+   * working — `mergeQuickRunHeaders`'s fourth argument tolerates `undefined`.
+   */
+  getToolWideHeaders?: () => Record<string, string>;
+  /**
    * Snapshot of `instance.data` + `extensions` (plus optional form
    * scratchpad) used by `resolveUrnBindings` to substitute
    * `${path}` placeholders inside URNs before they are parsed.
@@ -149,6 +155,7 @@ async function fireTransitionFromCommand(
     formData,
     bucketConfig: params.getBucketConfig(),
     sessionHeaders: params.getSessionHeaders(),
+    toolWideHeaders: params.getToolWideHeaders?.(),
     runtimeUrl,
     persist: params.persistBucketConfig,
     onPersistError: (err) => {
@@ -180,7 +187,12 @@ export function createQuickRunPseudoDelegate(params: QuickRunDelegateParams): Ps
    * live getters so the latest edits are picked up per dispatch.
    */
   const resolveHeaders = () =>
-    mergeQuickRunHeaders(params.getBucketConfig(), params.getSessionHeaders());
+    mergeQuickRunHeaders(
+      params.getBucketConfig(),
+      params.getSessionHeaders(),
+      undefined,
+      params.getToolWideHeaders?.(),
+    );
 
   return {
     requestData: async (ref, reqParams) => {

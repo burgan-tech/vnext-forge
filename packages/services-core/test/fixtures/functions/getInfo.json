@@ -1,0 +1,10 @@
+{
+  "params": { "domain": "core", "functionKey": "get-branches", "scope": "D" },
+  "result": {
+    "status": 200,
+    "contentType": "application/json",
+    "responseHeaders": { "x-trace-id": "fixture-trace" },
+    "body": "{\"key\":\"get-branches\",\"scope\":\"D\"}",
+    "json": { "key": "get-branches", "scope": "D" }
+  }
+}

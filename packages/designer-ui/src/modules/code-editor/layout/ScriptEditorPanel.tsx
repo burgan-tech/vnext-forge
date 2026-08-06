@@ -88,7 +88,15 @@ const ScriptPanelResizeContext = createContext<RefObject<PanelImperativeHandle |
   null,
 );
 
-function useScriptPanelResizePanelRef() {
+/**
+ * Exported so other panels hosted in the same script-panel resize slot (e.g.
+ * `FunctionRunShell`, when `surface === 'panel'`) can drive the same
+ * maximize/restore imperative API the script panel itself uses — see
+ * `toggleMaximize` below for the reference implementation. Reads
+ * `ScriptPanelResizeContext`, which stays module-private; only the hook is a
+ * public surface.
+ */
+export function useScriptPanelResizePanelRef() {
   return useContext(ScriptPanelResizeContext);
 }
 

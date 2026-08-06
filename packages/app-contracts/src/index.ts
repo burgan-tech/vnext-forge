@@ -100,3 +100,6 @@ export {
   getMethodHttpSpec,
   listMethodHttpSpecs,
 } from './method-http.js';
+
+export { RUNTIME_PROXY_ALLOWED_REQUEST_CONTENT_TYPES } from './http/request-content-types.js';
+export type { RuntimeProxyAllowedRequestContentType } from './http/request-content-types.js';

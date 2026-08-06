@@ -1,4 +1,8 @@
-import { ERROR_CODES, VnextForgeError } from '@vnext-forge-studio/app-contracts'
+import {
+  ERROR_CODES,
+  RUNTIME_PROXY_ALLOWED_REQUEST_CONTENT_TYPES,
+  VnextForgeError,
+} from '@vnext-forge-studio/app-contracts'
 import { z } from 'zod'
 
 import type { LoggerAdapter, NetworkAdapter } from '../../adapters/index.js'
@@ -63,9 +67,69 @@ function stripHopByHopHeaders(
   return out
 }
 
+function escapeForRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/**
+ * The complete set of Content-Type values this proxy will forward, anchored
+ * end to end: an allowlisted media type, optionally followed by a single
+ * `charset` parameter (token or quoted-string), separated only by spaces or
+ * tabs.
+ *
+ * Anchoring the whole value — rather than validating a trimmed slice and
+ * returning the original — is deliberate. Two earlier attempts checked the
+ * media type and the parameter tail separately, and both times a control
+ * character survived in the gap between them (first after the `;`, then
+ * before it) because the validated form and the returned form were not the
+ * same string. There is no gap to hide in here.
+ */
+const SAFE_REQUEST_CONTENT_TYPE = new RegExp(
+  `^(?:${RUNTIME_PROXY_ALLOWED_REQUEST_CONTENT_TYPES.map(escapeForRegExp).join('|')})` +
+    `(?:[ \\t]*;[ \\t]*charset=(?:[\\w.-]+|"[\\w.-]+"))?$`,
+  'i',
+)
+
+/**
+ * Removes every header matching `lowerName` (case-insensitively) from
+ * `headers` **in place** and returns the first value found, so callers get a
+ * single well-defined answer to "what did the caller send" even if the
+ * caller's object somehow had more than one casing of the same header.
+ */
+function takeHeader(headers: Record<string, string>, lowerName: string): string | undefined {
+  let found: string | undefined
+  for (const key of Object.keys(headers)) {
+    if (key.toLowerCase() !== lowerName) continue
+    found ??= headers[key]
+    delete headers[key]
+  }
+  return found
+}
+
+/**
+ * Resolves the outbound Content-Type from what the caller supplied. This is
+ * the safety boundary for the runtime proxy's SSRF-sensitive header path.
+ * Leading/trailing spaces and tabs (HTTP's own optional whitespace) are
+ * stripped, and the remaining value must match `SAFE_REQUEST_CONTENT_TYPE`
+ * end to end; anything that doesn't match — including a value that only
+ * became safe after the strip, such as one with a bare CR or LF at either
+ * edge — falls back to `application/json`. If a caller's header object
+ * somehow contained duplicate Content-Type keys under different casing,
+ * `takeHeader` resolves that by insertion order — acceptable because the
+ * fallback direction is always the safe one.
+ */
+function resolveOutboundContentType(suppliedContentType: string | undefined): string {
+  if (!suppliedContentType) return 'application/json'
+  // Strip only HTTP optional whitespace (space and tab). Notably NOT \s —
+  // a CR or LF at either edge must fail the match, not be quietly removed.
+  const value = suppliedContentType.replace(/^[ \t]+|[ \t]+$/g, '')
+  return SAFE_REQUEST_CONTENT_TYPE.test(value) ? value : 'application/json'
+}
+
 /**
  * Builds outbound fetch headers for the runtime HTTP proxy. Content-Type is
- * owned by the server and set only when a JSON body is sent.
+ * owned by this function and set only when a body is sent, honouring an
+ * allowlisted caller-supplied Content-Type when present.
  */
 export function buildRuntimeProxyOutboundHeaders(params: {
   method: string
@@ -74,16 +138,21 @@ export function buildRuntimeProxyOutboundHeaders(params: {
   traceId?: string | undefined
 }): Record<string, string> {
   const method = params.method.toUpperCase()
+  const stripped = stripHopByHopHeaders(params.callerHeaders)
+  // Drop any caller Content-Type; it is re-applied below only when a body is
+  // actually sent, and only after allowlist validation.
+  const suppliedContentType = takeHeader(stripped, 'content-type')
+
   const headers: Record<string, string> = {
     'User-Agent': RUNTIME_PROXY_USER_AGENT,
     Accept: 'application/json, text/plain, */*',
-    ...stripHopByHopHeaders(params.callerHeaders),
+    ...stripped,
   }
 
   const hasBody = Boolean(params.body && params.body.length > 0)
   const sendsEntityBody = method !== 'GET' && method !== 'HEAD' && hasBody
   if (sendsEntityBody) {
-    headers['Content-Type'] = 'application/json'
+    headers['Content-Type'] = resolveOutboundContentType(suppliedContentType)
   }
 
   if (params.traceId) {

@@ -526,6 +526,16 @@ export class DesignerPanel {
       config.pseudoUiTenantStyle = this.resolvePseudoUiTenantStyleForWebview(webview, cached);
     }
 
+    // Forge-wide headers (Task 19) — persisted in `quickrun-settings.json`,
+    // shared with the Quick Run panel. Populates `useToolHeadersStore` on
+    // the webview side so the in-editor Function Run panel can merge them
+    // into every request. `activate()` pre-loads this cache at startup so
+    // it's available here without making this method async.
+    const quickRun = this.forgeToolsSettings?.getCachedQuickRunSettings();
+    if (quickRun) {
+      config.globalHeaders = Object.fromEntries(quickRun.globalHeaders.map((h) => [h.name, h.value]));
+    }
+
     return config;
   }
 }

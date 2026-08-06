@@ -1,0 +1,10 @@
+{
+  "params": { "path": "/core/functions/get-branches/view?target=input" },
+  "result": {
+    "status": 200,
+    "contentType": "application/json",
+    "responseHeaders": {},
+    "body": "{\"key\":\"branch-form\",\"type\":\"pseudo-ui\"}",
+    "json": { "key": "branch-form", "type": "pseudo-ui" }
+  }
+}

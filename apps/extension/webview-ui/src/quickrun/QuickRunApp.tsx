@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-import { isMessageOriginAllowed } from '@vnext-forge-studio/designer-ui';
+import { isMessageOriginAllowed, useToolHeadersStore } from '@vnext-forge-studio/designer-ui';
 import {
   QuickRunApi,
   QuickRunShell,
@@ -30,6 +30,16 @@ interface Props {
   api: VsCodeWebviewApi;
 }
 
+/** Narrows an unknown `postMessage` field to a string-valued record, dropping any non-string entries. */
+function readStringRecord(value: unknown): Record<string, string> | null {
+  if (value == null || typeof value !== 'object') return null;
+  const out: Record<string, string> = {};
+  for (const [key, entry] of Object.entries(value as Record<string, unknown>)) {
+    if (typeof entry === 'string') out[key] = entry;
+  }
+  return out;
+}
+
 export function QuickRunApp({ api }: Props) {
   const [context, setContext] = useState<QuickRunContext | null>(null);
 
@@ -56,6 +66,14 @@ export function QuickRunApp({ api }: Props) {
           pollingIntervalMs: data.pollingIntervalMs,
           startSchemaRef: data.startSchemaRef,
         });
+        // Forge-wide headers (Task 19) — persisted in `quickrun-settings.json`,
+        // forwarded by `QuickRunPanel.sendContextWithPolling`. Populate the
+        // shared store so `QuickRunShell` can merge them into every engine call.
+        const messagePayload = data as { globalHeaders?: unknown };
+        const globalHeaders = readStringRecord(messagePayload.globalHeaders);
+        if (globalHeaders) {
+          useToolHeadersStore.getState().setHeaders(globalHeaders);
+        }
       }
     }
 

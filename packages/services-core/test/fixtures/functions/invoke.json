@@ -1,0 +1,4 @@
+{
+  "params": { "path": "/core/functions/get-branches", "verb": "GET" },
+  "result": { "status": 200, "contentType": "application/json", "responseHeaders": {}, "body": "[]", "json": [] }
+}

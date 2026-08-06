@@ -117,6 +117,18 @@ export interface PseudoUiViewSurfaceProps {
    * customization escape hatches.
    */
   designerClassNames?: DesignerClassNames;
+  /**
+   * Read-only tap on the rendered view's form values, fired on every change.
+   *
+   * The surface keeps `formData` in its own state so the SDK stays
+   * controlled — this does not take ownership away, it only mirrors. Hosts
+   * need it when the control that *submits* lives outside the view: the
+   * Function Quick Runner renders an input view purely to collect values and
+   * sends them with its own Invoke button, so waiting for `delegate.onAction`
+   * (which fires on a user action, not a keystroke) would leave it with
+   * nothing to send.
+   */
+  onFormChange?: (data: Record<string, unknown>) => void;
 }
 
 export function PseudoUiViewSurface({
@@ -128,6 +140,7 @@ export function PseudoUiViewSurface({
   lang: langProp,
   delegate,
   onError,
+  onFormChange,
   mode,
   ariaLabel,
   loading = false,
@@ -497,7 +510,10 @@ export function PseudoUiViewSurface({
         instanceData={instanceData}
         lang={lang}
         delegate={wrappedDelegate}
-        onFormChange={(next) => setFormData(next)}
+        onFormChange={(next) => {
+          setFormData(next);
+          onFormChange?.(next);
+        }}
         designer={effectiveDesigner}
         selectedNodePath={selectedNodePath}
         designerClassNames={designerClassNames}

@@ -39,6 +39,7 @@
     "onCommand:vnextForge.forgeCreateExtension",
     "onCommand:vnextForge.forgeCreateMapping",
     "onCommand:vnextForge.openQuickRun",
+    "onCommand:vnextForge.openFunctionQuickRun",
     "onCommand:vnextForge.publishFromFile",
     "onCommand:vnextForge.csxSync.syncCurrent",
     "onCommand:vnextForge.csxSync.syncAll",
@@ -393,6 +394,18 @@
         "icon": "$(play)"
       },
       {
+        "command": "vnextForge.openFunctionQuickRun",
+        "title": "Function Quick Run",
+        "category": "Forge",
+        "icon": "$(zap)"
+      },
+      {
+        "command": "vnextForge.openFunctionQuickRunFromFile",
+        "title": "Open Function Quick Run",
+        "category": "Forge",
+        "icon": "$(zap)"
+      },
+      {
         "command": "vnextForge.publishFromFile",
         "title": "Publish",
         "category": "Forge",
@@ -723,6 +736,14 @@
         {
           "command": "vnextForge.openQuickRunFromFile",
           "when": "false"
+        },
+        {
+          "command": "vnextForge.openFunctionQuickRun",
+          "when": "vnextForge.isVnextWorkspace"
+        },
+        {
+          "command": "vnextForge.openFunctionQuickRunFromFile",
+          "when": "false"
         }
       ],
       "explorer/context": [
@@ -787,6 +808,11 @@
           "group": "navigation@3"
         },
         {
+          "command": "vnextForge.openFunctionQuickRunFromFile",
+          "when": "vnextForge.isVnextWorkspace && resourceExtname == .json && resourcePath =~ /[\\\\/]Functions[\\\\/]/",
+          "group": "navigation@3"
+        },
+        {
           "command": "vnextForge.publishFromFile",
           "when": "vnextForge.isVnextWorkspace && resourceExtname == .json && resourcePath =~ /[\\\\/](Tasks|Views|Functions|Extensions|Workflows|Schemas|Mappings)[\\\\/]/",
           "group": "navigation@4"
@@ -821,6 +847,11 @@
         {
           "command": "vnextForge.openQuickRunFromFile",
           "when": "vnextForge.isVnextWorkspace && resourceExtname == .json && resourcePath =~ /[\\\\/]Workflows[\\\\/]/",
+          "group": "navigation@3"
+        },
+        {
+          "command": "vnextForge.openFunctionQuickRunFromFile",
+          "when": "vnextForge.isVnextWorkspace && resourceExtname == .json && resourcePath =~ /[\\\\/]Functions[\\\\/]/",
           "group": "navigation@3"
         }
       ]

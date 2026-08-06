@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type EditorTabKind = 'file' | 'component' | 'workspace-config' | 'quickrun';
+export type EditorTabKind = 'file' | 'component' | 'workspace-config' | 'quickrun' | 'functionrun';
 
 /** vNext component editor türleri (URL segment ile uyumlu). */
 export type ComponentEditorKind =
@@ -30,6 +30,10 @@ export function quickRunTabId(projectId: string, group: string, name: string): s
   return `${projectId}:quickrun:${group}:${name}`;
 }
 
+export function functionRunTabId(projectId: string, group: string, name: string): string {
+  return `${projectId}:functionrun:${group}:${name}`;
+}
+
 export interface EditorTab {
   id: string;
   title: string;
@@ -43,7 +47,7 @@ export interface EditorTab {
   name?: string;
 }
 
-/** Tabs that bulk-close actions remove; workspace-config and quickrun stay pinned. */
+/** Tabs that bulk-close actions remove; workspace-config, quickrun and functionrun stay pinned. */
 export function isClosableTab(tab: EditorTab): boolean {
   return tab.kind === 'file' || tab.kind === 'component';
 }

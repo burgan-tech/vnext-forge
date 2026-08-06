@@ -204,16 +204,21 @@ export class QuickRunPanel {
   private async sendContextWithPolling(entry: PanelEntry, ctx: QuickRunContext): Promise<void> {
     let pollingRetryCount: number | undefined;
     let pollingIntervalMs: number | undefined;
+    let globalHeaders: Record<string, string> = {};
     if (this.forgeToolsSettings) {
       const qr = await this.forgeToolsSettings.loadQuickRunSettings();
       pollingRetryCount = qr.polling.retryCount;
       pollingIntervalMs = qr.polling.intervalMs;
+      // Persisted since the settings file was introduced but never forwarded,
+      // so the UI has never seen these.
+      globalHeaders = Object.fromEntries(qr.globalHeaders.map((h) => [h.name, h.value]));
     }
     void entry.panel.webview.postMessage({
       type: 'quickrun:context',
       ...ctx,
       pollingRetryCount,
       pollingIntervalMs,
+      globalHeaders,
     });
   }
 

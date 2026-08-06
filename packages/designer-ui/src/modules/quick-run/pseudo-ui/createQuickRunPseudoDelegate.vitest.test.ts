@@ -224,3 +224,99 @@ describe('createQuickRunPseudoDelegate — global header propagation', () => {
     expect(vi.mocked(QuickRunApi.startInstance).mock.calls[0][0].headers).toEqual(EXPECTED_MERGED);
   });
 });
+
+// Task 19 — tool-wide headers (`useToolHeadersStore`) are the lowest-priority
+// header layer, threaded through an optional `getToolWideHeaders` getter so
+// existing callers that never wire it (tests above, older host code) keep
+// working unchanged.
+describe('createQuickRunPseudoDelegate — tool-wide header propagation', () => {
+  const TOOL_WIDE = { 'X-Common': 'tool-wide', Authorization: 'Bearer tool-token' };
+  const SESSION_HEADERS = { 'X-Common': 'session' };
+
+  function makeDelegateWithToolWide() {
+    return createQuickRunPseudoDelegate({
+      domain: 'core',
+      workflowKey: 'wf',
+      instanceId: 'inst-1',
+      runtimeUrl: 'http://localhost:4201',
+      getBucketConfig: () => null,
+      getSessionHeaders: () => ({ ...SESSION_HEADERS }),
+      getToolWideHeaders: () => ({ ...TOOL_WIDE }),
+      getBindingContext: () => ({ data: null, extensions: null }),
+    });
+  }
+
+  beforeEach(() => {
+    vi.mocked(QuickRunApi.executeFunction).mockReset();
+    vi.mocked(QuickRunApi.startInstance).mockReset();
+    vi.mocked(QuickRunApi.fireTransition).mockReset();
+  });
+
+  it('includes tool-wide headers on requestData, overridden by session on shared keys', async () => {
+    vi.mocked(QuickRunApi.executeFunction).mockResolvedValueOnce({ success: true, data: {} });
+
+    await makeDelegateWithToolWide().requestData?.('urn:vnext:fn:core:lookup-cities', {});
+
+    expect(vi.mocked(QuickRunApi.executeFunction).mock.calls[0][0].headers).toEqual({
+      'X-Common': 'session',
+      Authorization: 'Bearer tool-token',
+    });
+  });
+
+  it('includes tool-wide headers on a function dispatch', async () => {
+    vi.mocked(QuickRunApi.executeFunction).mockResolvedValueOnce({ success: true, data: {} });
+
+    await makeDelegateWithToolWide().onAction?.('dispatch', {}, 'urn:vnext:fn:post:core:recalculate');
+
+    expect(vi.mocked(QuickRunApi.executeFunction).mock.calls[0][0].headers).toEqual({
+      'X-Common': 'session',
+      Authorization: 'Bearer tool-token',
+    });
+  });
+
+  it('includes tool-wide headers on flow-start', async () => {
+    vi.mocked(QuickRunApi.startInstance).mockResolvedValueOnce({
+      success: true,
+      data: { id: 'new-1', key: 'k', status: 'ok' },
+    });
+
+    await makeDelegateWithToolWide().onAction?.('dispatch', {}, 'urn:vnext:flow:start:core:onboarding');
+
+    expect(vi.mocked(QuickRunApi.startInstance).mock.calls[0][0].headers).toEqual({
+      'X-Common': 'session',
+      Authorization: 'Bearer tool-token',
+    });
+  });
+
+  it('includes tool-wide headers on a submit-driven transition', async () => {
+    vi.mocked(QuickRunApi.fireTransition).mockResolvedValueOnce({
+      success: true,
+      data: { id: 'inst-1', key: 'approve', status: 'ok' },
+    });
+
+    await makeDelegateWithToolWide().onAction?.('submit', {}, 'approve');
+
+    expect(vi.mocked(QuickRunApi.fireTransition).mock.calls[0][0].headers).toEqual({
+      'X-Common': 'session',
+      Authorization: 'Bearer tool-token',
+    });
+  });
+
+  it('omits tool-wide headers entirely when the getter is not wired (back-compat)', async () => {
+    vi.mocked(QuickRunApi.executeFunction).mockResolvedValueOnce({ success: true, data: {} });
+
+    const delegate = createQuickRunPseudoDelegate({
+      domain: 'core',
+      workflowKey: 'wf',
+      instanceId: 'inst-1',
+      runtimeUrl: 'http://localhost:4201',
+      getBucketConfig: () => null,
+      getSessionHeaders: () => ({ ...SESSION_HEADERS }),
+      getBindingContext: () => ({ data: null, extensions: null }),
+    });
+
+    await delegate.requestData?.('urn:vnext:fn:core:lookup-cities', {});
+
+    expect(vi.mocked(QuickRunApi.executeFunction).mock.calls[0][0].headers).toEqual(SESSION_HEADERS);
+  });
+});

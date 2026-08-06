@@ -58,6 +58,21 @@ export {
   FunctionEditorView,
   type FunctionEditorViewProps,
 } from './modules/function-editor/FunctionEditorView.js';
+// Function identity normalization (`attributes.scope` falling back to `scope`,
+// defaulting to `'I'`) — shared by `FunctionEditorView`'s in-editor runner and
+// the standalone web/extension surfaces so both derive the exact same
+// `{ domain, functionKey, scope }` identity from a function's JSON.
+export * from './modules/function-editor/FunctionEditorSchema.js';
+// Function Quick Runner: pick a verb, fill an input view or raw payload,
+// invoke a vNext function, and read the status/headers/body. Consumed by
+// the in-editor Run panel (FunctionEditorView) and the standalone web/
+// extension surfaces.
+export {
+  FunctionRunShell,
+  type FunctionRunShellProps,
+} from './modules/function-run/FunctionRunShell.js';
+export { useFunctionRunStore } from './modules/function-run/store/functionRunStore.js';
+export * as FunctionRunApi from './modules/function-run/FunctionRunApi.js';
 export {
   ExtensionEditorView,
   type ExtensionEditorViewProps,
@@ -126,6 +141,7 @@ export {
   type EditorTabLabelProps,
   componentEditorTabId,
   quickRunTabId,
+  functionRunTabId,
   vnextWorkspaceConfigTabId,
   useEditorStore,
   type ComponentEditorKind,

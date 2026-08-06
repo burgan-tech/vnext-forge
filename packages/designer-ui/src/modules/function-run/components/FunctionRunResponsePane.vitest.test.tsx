@@ -1,0 +1,298 @@
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { describe, expect, it, vi } from 'vitest';
+
+// `PseudoUiOrJsonBlock` is mocked everywhere else in this module for the same
+// reason: it pulls in pseudo-ui rendering machinery this suite has no need to
+// exercise. Capturing the props (rather than the plan's bare `() => null`)
+// is what lets the outputView-delegation tests below actually assert
+// something — an uncaptured mock covers nothing about what was passed in.
+const pseudoUiOrJsonBlockCalls: unknown[] = [];
+vi.mock('../../quick-run/pseudo-ui/PseudoUiOrJsonBlock', () => ({
+  PseudoUiOrJsonBlock: (props: unknown) => {
+    pseudoUiOrJsonBlockCalls.push(props);
+    return null;
+  },
+}));
+
+// `CopyableJsonBlock` wraps a real Monaco editor. Its initial render is safe
+// without jsdom (Monaco only touches the DOM from a `useEffect`, which
+// `renderToStaticMarkup` never runs), so mocking it is not required to avoid
+// a crash here. It is mocked anyway, capturing the props, because the point
+// of the tests below is to assert exactly *which value* reaches it — the
+// `??` vs `'json' in exchange` distinction is invisible from the rendered
+// HTML alone (a real Monaco editor prints the same JSON text either way).
+const copyableJsonBlockCalls: unknown[] = [];
+vi.mock('../../quick-run/components/CopyableJsonBlock', () => ({
+  CopyableJsonBlock: (props: unknown) => {
+    copyableJsonBlockCalls.push(props);
+    return null;
+  },
+  JsonEditorWithCopy: () => null,
+}));
+
+const { FunctionRunResponsePane } = await import('./FunctionRunResponsePane.js');
+
+const exchange = (over: Partial<Record<string, unknown>> = {}) => ({
+  status: 200,
+  contentType: 'application/json',
+  responseHeaders: {},
+  body: '{}',
+  ...over,
+});
+
+const base = {
+  response: exchange(),
+  durationMs: 12,
+  activeTab: 'body' as const,
+  onTabChange: () => undefined,
+};
+
+function render(over: Record<string, unknown> = {}) {
+  pseudoUiOrJsonBlockCalls.length = 0;
+  copyableJsonBlockCalls.length = 0;
+  return renderToStaticMarkup(createElement(FunctionRunResponsePane, { ...base, ...over } as never));
+}
+
+describe('FunctionRunResponsePane', () => {
+  it('shows the numeric status for a success', () => {
+    expect(render({ durationMs: 12 })).toContain('200');
+  });
+
+  it('shows an error status rather than hiding it', () => {
+    // A function under development legitimately returns 5xx; the runner must
+    // render it like any other response.
+    const html = render({
+      response: exchange({ status: 500, body: 'boom', contentType: 'text/plain' }),
+      durationMs: 5,
+    });
+    expect(html).toContain('500');
+    expect(html).toContain('boom');
+  });
+
+  it('renders the authorization banner for 403', () => {
+    expect(render({ response: exchange({ status: 403 }), durationMs: 3 })).toContain('not allowed to run');
+  });
+
+  it('does not render the authorization banner for 404', () => {
+    expect(render({ response: exchange({ status: 404 }), durationMs: 3 })).not.toContain('not allowed to run');
+  });
+
+  it('renders nothing before the first invoke', () => {
+    expect(render({ response: null, durationMs: null })).toBe('');
+  });
+
+  describe('response size (3a)', () => {
+    it('shows the byte size of the body', () => {
+      // '{}' is 2 ASCII bytes.
+      expect(render({ response: exchange({ body: '{}' }) })).toContain('2 B');
+    });
+
+    it('recomputes the size for a different body length', () => {
+      expect(render({ response: exchange({ body: '{"a":1}' }) })).toContain('7 B');
+    });
+  });
+
+  it('shows the content type in the summary row regardless of active tab', () => {
+    expect(render({ response: exchange({ contentType: 'application/json' }) })).toContain('application/json');
+    expect(
+      render({ response: exchange({ contentType: 'application/json' }), activeTab: 'headers' }),
+    ).toContain('application/json');
+  });
+
+  describe('trace id stays visible across tabs (3a/3b)', () => {
+    it('shows the trace id in the summary row while Body is active', () => {
+      const html = render({
+        response: exchange({ responseHeaders: { 'x-trace-id': 'trace-42' } }),
+        activeTab: 'body',
+      });
+      expect(html).toContain('trace-42');
+    });
+
+    it('keeps the summary chip present alongside the Headers tab\'s own pinned row, not replaced by it', () => {
+      // `FunctionRunResponseHeaders` pins its own x-trace-id row too (see
+      // that file's doc comment), so merely asserting the text is present
+      // while Headers is active would pass even if the summary chip itself
+      // were deleted — it would prove only that the *tab's* copy still
+      // renders. Counting occurrences distinguishes the two: one from the
+      // always-visible summary row (present on every tab, see the sibling
+      // 'Body is active' case above) plus one from the Headers tab's own
+      // list, once that tab is actually mounted.
+      const html = render({
+        response: exchange({ responseHeaders: { 'x-trace-id': 'trace-42' } }),
+        activeTab: 'headers',
+      });
+      expect((html.match(/trace-42/g) ?? []).length).toBe(2);
+    });
+
+    it('omits the trace chip entirely when the response carries none', () => {
+      const html = render({ response: exchange({ responseHeaders: { 'content-type': 'application/json' } }) });
+      expect(html).not.toContain('trace-42');
+    });
+  });
+
+  describe('Body | Headers tabs (3b)', () => {
+    it('mounts only the Body content when Body is the active tab', () => {
+      const html = render({
+        response: exchange({ responseHeaders: { server: 'nginx' } }),
+        activeTab: 'body',
+      });
+      expect(copyableJsonBlockCalls).toHaveLength(1);
+      // The Headers tab's own section is not in the tree at all — Radix does
+      // not render an inactive TabsContent's children.
+      expect(html).not.toContain('aria-label="Response headers"');
+    });
+
+    it('mounts only the Headers content when Headers is the active tab', () => {
+      const html = render({
+        response: exchange({ json: { a: 1 }, responseHeaders: { server: 'nginx' } }),
+        activeTab: 'headers',
+      });
+      expect(html).toContain('aria-label="Response headers"');
+      // The mutation this guards against: forgetting to gate ResponseBody
+      // behind the Body tab, which would mount CopyableJsonBlock regardless
+      // of which tab is actually selected.
+      expect(copyableJsonBlockCalls).toHaveLength(0);
+    });
+
+    it('unmounts a declared output view when the tab switches away from Body', () => {
+      const outputView = { key: 'k', type: 'pseudo-ui', content: { component: 'Column' } };
+      const html = render({
+        response: exchange({ json: { a: 1 } }),
+        outputView,
+        activeTab: 'headers',
+      });
+      expect(pseudoUiOrJsonBlockCalls).toHaveLength(0);
+      expect(html).toContain('aria-label="Response headers"');
+    });
+
+    it('marks the active trigger for assistive technology', () => {
+      const html = render({ activeTab: 'headers' });
+      const triggers = html.match(/<button[^>]*>[\s\S]*?<\/button>/g) ?? [];
+      const headersTrigger = triggers.find((t) => t.includes('>Headers<'));
+      const bodyTrigger = triggers.find((t) => t.includes('>Body<'));
+      expect(headersTrigger).toContain('aria-selected="true"');
+      expect(bodyTrigger).toContain('aria-selected="false"');
+    });
+  });
+
+  it('lists response headers when the Headers tab is active', () => {
+    const html = render({
+      response: exchange({ responseHeaders: { 'x-trace-id': 'trace-42' } }),
+      activeTab: 'headers',
+    });
+    expect(html).toContain('x-trace-id');
+    expect(html).toContain('trace-42');
+  });
+
+  it('surfaces a malformed-JSON body distinctly rather than showing it as plain text', () => {
+    // `jsonParseError` exists specifically so the UI can say "claimed JSON,
+    // sent something malformed" instead of silently rendering raw text that
+    // looks like an ordinary text/plain reply.
+    const html = render({
+      response: exchange({ body: '{not valid', jsonParseError: 'Unexpected token n in JSON' }),
+      durationMs: 2,
+    });
+    expect(html).toContain('did not parse');
+    expect(html).toContain('Unexpected token n in JSON');
+    expect(html).toContain('{not valid');
+  });
+
+  it('does not show the malformed-JSON message for a clean parse', () => {
+    const html = render({ response: exchange(), durationMs: 1 });
+    expect(html).not.toContain('did not parse');
+  });
+
+  it('passes a literal JSON null body through as the parsed value, not the raw body text', () => {
+    // The documented hazard: `json ?? body` cannot tell "parsed to null" apart
+    // from "no json field at all" and would substitute the raw body string.
+    // `'json' in exchange` is the correct presence check.
+    render({ response: exchange({ body: 'null', json: null }), durationMs: 1 });
+    expect(copyableJsonBlockCalls).toHaveLength(1);
+    expect((copyableJsonBlockCalls[0] as { value: unknown }).value).toBeNull();
+  });
+
+  it('falls back to the raw body for a non-JSON content type without a json field', () => {
+    render({ response: exchange({ contentType: 'text/plain', body: 'plain text' }), durationMs: 1 });
+    expect(copyableJsonBlockCalls).toHaveLength(0);
+  });
+
+  it('delegates JSON body rendering to CopyableJsonBlock with the parsed value', () => {
+    render({ response: exchange({ json: { a: 1 } }), durationMs: 1 });
+    expect(copyableJsonBlockCalls).toHaveLength(1);
+    expect((copyableJsonBlockCalls[0] as { value: unknown }).value).toEqual({ a: 1 });
+  });
+
+  it('delegates to PseudoUiOrJsonBlock instead of the raw body when an output view is present', () => {
+    const outputView = { key: 'k', type: 'pseudo-ui', content: { component: 'Column' } };
+    render({ response: exchange({ json: { component: 'Column' } }), durationMs: 1, outputView });
+    expect(pseudoUiOrJsonBlockCalls).toHaveLength(1);
+    expect(copyableJsonBlockCalls).toHaveLength(0);
+    expect((pseudoUiOrJsonBlockCalls[0] as { view: unknown }).view).toEqual(outputView);
+  });
+
+  it('binds the parsed body as instanceData so a pseudo-ui output view has data to render', () => {
+    // I8: `PseudoUiViewSurface` reads `instanceData`, not `jsonValue`, as the
+    // data it feeds `<PseudoView>` — without it the rendered view is an
+    // empty shell regardless of what the function actually returned.
+    const outputView = { key: 'k', type: 'pseudo-ui', content: { component: 'Column' } };
+    render({ response: exchange({ json: { branch: 'main' } }), durationMs: 1, outputView });
+    expect((pseudoUiOrJsonBlockCalls[0] as { instanceData: unknown }).instanceData).toEqual({ branch: 'main' });
+  });
+
+  it('omits instanceData when the parsed body is not a plain object', () => {
+    const outputView = { key: 'k', type: 'pseudo-ui', content: { component: 'Column' } };
+    render({ response: exchange({ json: ['a', 'b'], body: '["a","b"]' }), durationMs: 1, outputView });
+    expect((pseudoUiOrJsonBlockCalls[0] as { instanceData: unknown }).instanceData).toBeUndefined();
+  });
+
+  it('does not call PseudoUiOrJsonBlock when there is no output view', () => {
+    render({ response: exchange(), durationMs: 1, outputView: null });
+    expect(pseudoUiOrJsonBlockCalls).toHaveLength(0);
+  });
+
+  describe('delegate / resolveSchema wiring (view surface quality)', () => {
+    const outputView = { key: 'k', type: 'pseudo-ui', content: { component: 'Column' } };
+
+    it('forwards the delegate and schema resolver to the output view', () => {
+      const delegate = {
+        requestData: () => Promise.resolve(undefined),
+        loadComponent: () => Promise.resolve({} as never),
+        onAction: () => Promise.resolve(undefined),
+      };
+      const resolveSchema = () => Promise.resolve(null);
+      render({ response: exchange({ json: {} }), durationMs: 1, outputView, delegate, resolveSchema });
+
+      expect(pseudoUiOrJsonBlockCalls).toHaveLength(1);
+      expect((pseudoUiOrJsonBlockCalls[0] as { delegate: unknown }).delegate).toBe(delegate);
+      expect((pseudoUiOrJsonBlockCalls[0] as { resolveSchema: unknown }).resolveSchema).toBe(resolveSchema);
+    });
+
+    it('renders the output view in simulation mode, not preview', () => {
+      // preview mode skips PseudoUiViewSurface's schema-readiness gate
+      // entirely and would leave an async dataSchema resolution racing the
+      // mount — see this file's own comment on why that regressed once a
+      // real resolveSchema was wired in.
+      render({ response: exchange({ json: {} }), durationMs: 1, outputView });
+      expect((pseudoUiOrJsonBlockCalls[0] as { integrationMode: unknown }).integrationMode).toBe('simulation');
+    });
+
+    it('scopes the output view\'s panel storage separately from the default scope', () => {
+      render({ response: exchange({ json: {} }), durationMs: 1, outputView });
+      expect((pseudoUiOrJsonBlockCalls[0] as { panelStorageScope: unknown }).panelStorageScope).toBe(
+        'function-run-output',
+      );
+    });
+
+    it('gives the surface a minimum height so an empty view is not a sliver', () => {
+      render({ response: exchange({ json: {} }), durationMs: 1, outputView });
+      expect((pseudoUiOrJsonBlockCalls[0] as { surfaceClassName: unknown }).surfaceClassName).toBe('min-h-[200px]');
+    });
+
+    it('shows the output view meta strip (section title, key, type badge)', () => {
+      const html = render({ response: exchange({ json: {} }), durationMs: 1, outputView });
+      expect(html).toContain('Output view');
+      expect(html).toContain('>k<');
+    });
+  });
+});

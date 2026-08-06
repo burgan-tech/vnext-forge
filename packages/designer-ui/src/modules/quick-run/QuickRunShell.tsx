@@ -17,6 +17,7 @@ import { useQuickRunPolling } from './hooks/useQuickRunPolling';
 import { useQuickRunStore } from './store/quickRunStore';
 import { extractLabelsMap } from './utils/extractLabelsMap';
 import { useProjectStore } from '../../store/useProjectStore';
+import { useToolHeadersStore } from '../../store/useToolHeadersStore';
 
 interface HealthMessage {
   type: 'quickrun:health';
@@ -60,6 +61,8 @@ export function QuickRunShell({
 }: QuickRunShellProps) {
   const setWorkflowContext = useQuickRunStore((s) => s.setWorkflowContext);
   const setGlobalHeaders = useQuickRunStore((s) => s.setGlobalHeaders);
+  const setToolWideHeaders = useQuickRunStore((s) => s.setToolWideHeaders);
+  const toolWideHeaders = useToolHeadersStore((s) => s.headers);
   const setRuntimeHealth = useQuickRunStore((s) => s.setRuntimeHealth);
   const setFlowLabels = useQuickRunStore((s) => s.setFlowLabels);
   const setPollingConfig = useQuickRunStore((s) => s.setPollingConfig);
@@ -83,6 +86,14 @@ export function QuickRunShell({
   useEffect(() => {
     setWorkflowContext(domain, workflowKey, environmentName, environmentUrl);
   }, [domain, workflowKey, environmentName, environmentUrl, setWorkflowContext]);
+
+  // Mirror the Forge-wide header store into `useQuickRunStore` so the
+  // pseudo-ui delegate's live-getter pattern (`getBucketConfig` /
+  // `getSessionHeaders`) can read tool-wide headers the same way — see
+  // `InstanceDashboard`/`TransitionDialog`'s `getToolWideHeaders` getter.
+  useEffect(() => {
+    setToolWideHeaders(toolWideHeaders);
+  }, [toolWideHeaders, setToolWideHeaders]);
 
   // The view-editor webview populates `useProjectStore` via `HostEditorBridge`;
   // Quick Run is a separate VS Code panel (own isolated runtime) so we have to
