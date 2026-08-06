@@ -15,6 +15,7 @@ import { ResizableHandle } from './components/ResizableHandle';
 import { TransitionDialog } from './components/TransitionDialog';
 import { useQuickRunPolling } from './hooks/useQuickRunPolling';
 import { useQuickRunStore } from './store/quickRunStore';
+import type { OpenFunctionRunTarget } from './types/quickrun.types';
 import { extractLabelsMap } from './utils/extractLabelsMap';
 import { useProjectStore } from '../../store/useProjectStore';
 import { useToolHeadersStore } from '../../store/useToolHeadersStore';
@@ -46,6 +47,16 @@ interface QuickRunShellProps {
   startSchemaRef?: SchemaReference;
   pollingRetryCount?: number;
   pollingIntervalMs?: number;
+  /**
+   * Open one of the running instance's functions in the Function Quick
+   * Runner, bound to this workflow + instance.
+   *
+   * A callback rather than navigation, because `designer-ui` owns no router:
+   * the web shell turns it into a route, the extension into a webview panel
+   * — the same split `FlowEditorView.onOpenQuickRun` uses. When omitted the
+   * catalog is still listed, without an Open button.
+   */
+  onOpenFunctionRun?: (target: OpenFunctionRunTarget) => void;
 }
 
 export function QuickRunShell({
@@ -58,6 +69,7 @@ export function QuickRunShell({
   startSchemaRef,
   pollingRetryCount,
   pollingIntervalMs,
+  onOpenFunctionRun,
 }: QuickRunShellProps) {
   const setWorkflowContext = useQuickRunStore((s) => s.setWorkflowContext);
   const setGlobalHeaders = useQuickRunStore((s) => s.setGlobalHeaders);
@@ -235,7 +247,11 @@ export function QuickRunShell({
         </div>
         <ResizableHandle onResize={handleLeftResize} direction="right" />
         <div className="flex-1 min-w-0">
-          <InstanceDashboard configRef={configRef} persistConfig={persistConfig} />
+          <InstanceDashboard
+            configRef={configRef}
+            persistConfig={persistConfig}
+            onOpenFunctionRun={onOpenFunctionRun}
+          />
         </div>
         <ResizableHandle onResize={handleRightResize} direction="left" />
         <div style={{ width: rightWidth, minWidth: 200, maxWidth: 500 }} className="flex-shrink-0">

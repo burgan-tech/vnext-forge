@@ -181,6 +181,106 @@ const INFO_WITH_VIEW: FunctionInfo = {
   inputView: { hasView: true, href: '/core/functions/get-branches/input-view' },
 };
 
+describe('loadFunctionInfo — contract fetch anchors', () => {
+  it("passes the engine's own domain alongside each href, so the host can strip the gateway prefix", async () => {
+    // The exact `/info` payload from the field report: gateway-prefixed
+    // hrefs. The host rebases them with `rebaseRuntimeHref`, which needs the
+    // domain as its anchor — sending the href alone is what produced
+    // `/api/v1/api/core/…` and the "input view could not be loaded" error.
+    const gatewayInfo: FunctionInfo = {
+      key: 'get-branches-func',
+      domain: 'core',
+      version: '1.0.0',
+      scope: 'D',
+      function: { verbs: [], href: '/api/core/functions/get-branches-func' },
+      inputView: {
+        hasView: true,
+        loadData: false,
+        href: '/api/core/functions/get-branches-func/view?target=input',
+      },
+    };
+    const fetchContract = vi.fn().mockResolvedValue(
+      okExchange({ body: '{"key":"v","type":"t","content":{}}', json: { key: 'v', type: 't', content: {} } }),
+    );
+
+    await loadFunctionInfo({
+      domain: 'core', functionKey: 'get-branches-func', scope: 'D', workflowKey: '', instanceId: '',
+      headers: {}, runtimeUrl: undefined,
+      isCancelled: () => false,
+      set: () => undefined,
+      api: { getInfo: () => Promise.resolve(infoExchange(gatewayInfo)), fetchContract },
+    });
+
+    expect(fetchContract).toHaveBeenCalledWith(
+      expect.objectContaining({
+        path: '/api/core/functions/get-branches-func/view?target=input',
+        domain: 'core',
+      }),
+    );
+  });
+});
+
+describe('loadFunctionInfo — input view loading', () => {
+  it('flags the view fetch as loading and clears it when the fetch lands', async () => {
+    // The input-view section is visible from the moment `/info` declares a
+    // view, and `infoLoading` is already false by then. Without this flag the
+    // section spends the whole fetch showing its "could not be loaded" error,
+    // because a declared view with no content yet is indistinguishable from a
+    // failed one — see `computeInputViewAvailability`.
+    const viewRes = deferred<ApiResponse<FunctionExchange>>();
+    const setCalls: Record<string, unknown>[] = [];
+
+    const call = loadFunctionInfo({
+      domain: 'core', functionKey: 'get-branches', scope: 'D', workflowKey: '', instanceId: '',
+      headers: {}, runtimeUrl: undefined,
+      isCancelled: () => false,
+      set: (patch) => setCalls.push(patch),
+      api: {
+        getInfo: () => Promise.resolve(infoExchange(INFO_WITH_VIEW)),
+        fetchContract: () => viewRes.promise,
+      },
+    });
+
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(setCalls.some((p) => p.inputViewLoading === true)).toBe(true);
+    expect(setCalls.some((p) => p.inputViewLoading === false)).toBe(false);
+
+    viewRes.resolve(
+      okExchange({ body: '{"key":"v","type":"t","content":{}}', json: { key: 'v', type: 't', content: {} } }),
+    );
+    await call;
+
+    expect(setCalls.some((p) => p.inputViewLoading === false)).toBe(true);
+    expect(setCalls.some((p) => 'inputViewContent' in p)).toBe(true);
+  });
+
+  it('clears the loading flag on a failed view fetch, rather than stranding a spinner', async () => {
+    const setCalls: Record<string, unknown>[] = [];
+
+    await loadFunctionInfo({
+      domain: 'core', functionKey: 'get-branches', scope: 'D', workflowKey: '', instanceId: '',
+      headers: {}, runtimeUrl: undefined,
+      isCancelled: () => false,
+      set: (patch) => setCalls.push(patch),
+      api: {
+        getInfo: () => Promise.resolve(infoExchange(INFO_WITH_VIEW)),
+        fetchContract: () =>
+          Promise.resolve({
+            success: false,
+            error: { code: 'RUNTIME_CONNECTION_FAILED', message: 'nope' },
+          } as ApiResponse<FunctionExchange>),
+      },
+    });
+
+    expect(setCalls.some((p) => p.inputViewLoading === false)).toBe(true);
+    // Nothing usable arrived, so the section falls through to its declared-
+    // but-unavailable error — which requires `inputViewContent` untouched.
+    expect(setCalls.some((p) => 'inputViewContent' in p)).toBe(false);
+  });
+});
+
 describe('loadFunctionInfo', () => {
   it('does not write the input view once cancelled, even if its fetch resolves later', async () => {
     const infoRes = deferred<ApiResponse<FunctionExchange>>();

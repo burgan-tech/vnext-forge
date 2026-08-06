@@ -64,7 +64,12 @@ function toPairs(queryString: string): KeyValuePair[] {
  * against — the same reasoning that already let the old toolbar's
  * query-string `Input` bind straight to the store with no local buffer.
  */
-export function FunctionRunParamsTab({ queryString, onQueryStringChange, view, onViewChange }: FunctionRunParamsTabProps) {
+export function FunctionRunParamsTab({
+  queryString,
+  onQueryStringChange,
+  view,
+  onViewChange,
+}: FunctionRunParamsTabProps) {
   const [pairs, setPairs] = useState<KeyValuePair[]>(() => toPairs(queryString));
   const lastPushedRef = useRef<string | null>(null);
 

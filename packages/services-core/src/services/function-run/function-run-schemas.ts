@@ -44,6 +44,13 @@ export const functionsGetInfoResult = functionExchangeResult
 export const functionsFetchContractParams = z.object({
   /** An href taken from the `/info` payload. */
   path: z.string().min(1),
+  /**
+   * The function's domain — the anchor `rebaseRuntimeHref` uses to strip
+   * whatever gateway prefix `path` arrived with. Required: without it the
+   * href can only be prefix-guessed, and a gateway-prefixed href guessed
+   * wrong 404s silently as "this contract could not be loaded".
+   */
+  domain: z.string().min(1),
   headers: headersSchema,
   runtimeUrl: z.string().optional(),
 })
@@ -51,6 +58,8 @@ export const functionsFetchContractResult = functionExchangeResult
 
 export const functionsInvokeParams = z.object({
   path: z.string().min(1),
+  /** See `functionsFetchContractParams.domain`. */
+  domain: z.string().min(1),
   verb: z.enum(['GET', 'POST', 'PATCH', 'DELETE']),
   body: z.string().optional(),
   contentType: z.string().optional(),

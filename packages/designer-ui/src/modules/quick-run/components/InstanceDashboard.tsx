@@ -14,20 +14,28 @@ import { useProjectStore } from '../../../store/useProjectStore';
 import { createDataSchemaResolver } from '../pseudo-ui/createDataSchemaResolver';
 import { PseudoUiLangPicker } from '../pseudo-ui/PseudoUiLangPicker';
 import { PseudoUiOrJsonBlock } from '../pseudo-ui/PseudoUiOrJsonBlock';
-import { safeViewContent, type TransitionInfo } from '../types/quickrun.types';
+import { mergeQuickRunHeaders } from '../pseudo-ui/mergeQuickRunHeaders';
+import {
+  safeViewContent,
+  type OpenFunctionRunTarget,
+  type TransitionInfo,
+} from '../types/quickrun.types';
 import { SchemaForm } from '../../schema-form';
 import { CopyableJsonBlock } from './CopyableJsonBlock';
 import { EnvBadge } from './EnvBadge';
 import { AvailableTransitions } from './AvailableTransitions';
+import { InstanceFunctions } from './InstanceFunctions';
 import { ProgressStepper } from './ProgressStepper';
 import { StatusBadge } from './StatusBadge';
 
 interface InstanceDashboardProps {
   configRef: MutableRefObject<WorkflowBucketConfig>;
   persistConfig: (cfg: WorkflowBucketConfig) => void;
+  /** See `QuickRunShellProps.onOpenFunctionRun`. */
+  onOpenFunctionRun?: (target: OpenFunctionRunTarget) => void;
 }
 
-export function InstanceDashboard({ configRef, persistConfig }: InstanceDashboardProps) {
+export function InstanceDashboard({ configRef, persistConfig, onOpenFunctionRun }: InstanceDashboardProps) {
   const activeTabId = useQuickRunStore((s) => s.activeTabId);
   const instances = useQuickRunStore((s) => s.instances);
   const activeState = useQuickRunStore((s) => s.activeState);
@@ -45,6 +53,13 @@ export function InstanceDashboard({ configRef, persistConfig }: InstanceDashboar
   const openTransitionDialog = useQuickRunStore((s) => s.openTransitionDialog);
   const openManualTransitionDialog = useQuickRunStore((s) => s.openManualTransitionDialog);
   const flowLabels = useQuickRunStore((s) => s.flowLabels);
+
+  const toolWideHeaders = useQuickRunStore((s) => s.toolWideHeaders);
+  const functionCatalog = useQuickRunStore((s) => s.functionCatalog);
+  const functionCatalogLoading = useQuickRunStore((s) => s.functionCatalogLoading);
+  const functionCatalogError = useQuickRunStore((s) => s.functionCatalogError);
+  const selectedFunctionName = useQuickRunStore((s) => s.selectedFunctionName);
+  const setSelectedFunctionName = useQuickRunStore((s) => s.setSelectedFunctionName);
 
   const stateView = useQuickRunStore((s) => s.stateView);
   const stateViewLoading = useQuickRunStore((s) => s.stateViewLoading);
@@ -67,6 +82,64 @@ export function InstanceDashboard({ configRef, persistConfig }: InstanceDashboar
   const [metaError, setMetaError] = useState<string | null>(null);
 
   const activeInstance = activeTabId ? instances.get(activeTabId) : undefined;
+
+  const hasFunctions = activeState?.functions?.hasFunctions === true;
+
+  /**
+   * Fetch the instance's function catalog once, the first time the state
+   * response says there is one.
+   *
+   * Deliberately not folded into `useQuickRunPolling`: the catalog is a
+   * property of the instance, not of a poll round, and the loop must not
+   * gain a second request per tick. `resetInstanceScopedCaches` clears
+   * `functionCatalog` whenever the active instance changes, which is what
+   * re-arms this effect for the next instance.
+   */
+  useEffect(() => {
+    if (!hasFunctions || !activeTabId || !domain || !workflowKey) return;
+    const { functionCatalog: cached, functionCatalogLoading: inFlight } = useQuickRunStore.getState();
+    if (cached || inFlight) return;
+
+    const store = useQuickRunStore.getState();
+    store.setFunctionCatalogLoading(true);
+    store.setFunctionCatalogError(null);
+
+    let cancelled = false;
+    void QuickRunApi.getFunctionCatalog({
+      domain,
+      workflowKey,
+      instanceId: activeTabId,
+      headers: mergeQuickRunHeaders(configRef.current, sessionHeaders, undefined, toolWideHeaders),
+      runtimeUrl: environmentUrl,
+    })
+      .then((response) => {
+        if (cancelled) return;
+        const s = useQuickRunStore.getState();
+        if (response.success) {
+          s.setFunctionCatalog(response.data.functions ?? []);
+        } else {
+          s.setFunctionCatalogError(response.error.message);
+        }
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        useQuickRunStore
+          .getState()
+          .setFunctionCatalogError(err instanceof Error ? err.message : String(err));
+      })
+      .finally(() => {
+        if (cancelled) return;
+        useQuickRunStore.getState().setFunctionCatalogLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+    // Header changes re-run this effect but the cache guard above turns that
+    // into a no-op once the catalog has loaded. The one case where it does
+    // fire again is a *failed* fetch, which is the behaviour you want: fix
+    // the auth header in the Headers dialog and the catalog retries itself.
+  }, [hasFunctions, activeTabId, domain, workflowKey, environmentUrl, configRef, sessionHeaders, toolWideHeaders]);
 
   const handleTransitionClick = (transition: TransitionInfo) => {
     openTransitionDialog(transition);
@@ -442,6 +515,29 @@ export function InstanceDashboard({ configRef, persistConfig }: InstanceDashboar
         onManualClick={openManualTransitionDialog}
         disabled={activeStateLoading}
       />
+
+      {/* Functions reachable on this instance — only when the engine says so. */}
+      {hasFunctions && (
+        <InstanceFunctions
+          entries={functionCatalog}
+          loading={functionCatalogLoading}
+          error={functionCatalogError}
+          selected={selectedFunctionName}
+          onSelect={setSelectedFunctionName}
+          onOpen={
+            onOpenFunctionRun && activeTabId
+              ? (entry) =>
+                  onOpenFunctionRun({
+                    domain,
+                    functionKey: entry.name,
+                    scope: entry.scope || 'I',
+                    workflowKey,
+                    instanceId: activeTabId,
+                  })
+              : undefined
+          }
+        />
+      )}
 
       {/* Quick Actions (View Data / History tabs) — placed above State View */}
       <section className="flex gap-2 border-t border-[var(--vscode-panel-border)] pt-3">

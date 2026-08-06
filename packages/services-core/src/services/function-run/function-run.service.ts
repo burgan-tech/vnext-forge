@@ -2,7 +2,7 @@ import { ERROR_CODES, VnextForgeError } from '@vnext-forge-studio/app-contracts'
 import { type z } from 'zod'
 
 import type { RuntimeProxyService } from '../runtime-proxy/runtime-proxy.service.js'
-import { buildFunctionInfoPath, isValidRuntimePath, normalizeRuntimeHref } from './function-run-paths.js'
+import { buildFunctionInfoPath, isValidRuntimePath, rebaseRuntimeHref } from './function-run-paths.js'
 import {
   type functionsFetchContractParams,
   type functionsGetInfoParams,
@@ -108,7 +108,7 @@ export function createFunctionRunService(runtimeProxyService: RuntimeProxyServic
     params: z.infer<typeof functionsFetchContractParams>,
     traceId?: string,
   ): Promise<Exchange> {
-    const runtimePath = normalizeRuntimeHref(params.path)
+    const runtimePath = rebaseRuntimeHref(params.path, params.domain)
     assertRuntimePath(runtimePath, 'FunctionRunService.fetchContract', traceId)
     return exchange(
       { method: 'GET', runtimePath, headers: params.headers, runtimeUrl: params.runtimeUrl },
@@ -120,7 +120,7 @@ export function createFunctionRunService(runtimeProxyService: RuntimeProxyServic
     params: z.infer<typeof functionsInvokeParams>,
     traceId?: string,
   ): Promise<Exchange> {
-    const normalizedHref = normalizeRuntimeHref(params.path)
+    const normalizedHref = rebaseRuntimeHref(params.path, params.domain)
     assertRuntimePath(normalizedHref, 'FunctionRunService.invoke', traceId)
     const { path: runtimePath, query: embeddedQuery } = splitEmbeddedQuery(normalizedHref)
     const sendsBody = params.verb === 'POST' || params.verb === 'PATCH'

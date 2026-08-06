@@ -103,6 +103,55 @@ export function normalizeRuntimeHref(href: string): string {
 }
 
 /**
+ * Rebases an `/info` href onto the runtime's own `/api/v1` root.
+ *
+ * `/info` hrefs are **gateway**-relative, and the gateway prefix is not
+ * stable. The same engine has emitted both of these for the same function:
+ *
+ *   /core/functions/get-branches-func/view?target=input
+ *   /api/core/functions/get-branches-func/view?target=input
+ *
+ * Forge talks to the runtime directly, where every route lives under
+ * `/api/v1`, so whatever prefix an href arrives with has to be *replaced*,
+ * not appended to. `normalizeRuntimeHref` alone only appends, which turns the
+ * second form into `/api/v1/api/core/...` — a path that still passes
+ * `isValidRuntimePath` and then 404s, surfacing as "this view could not be
+ * loaded" rather than as a routing bug.
+ *
+ * The **domain segment is the anchor**: everything before the first path
+ * segment equal to `domain` is gateway routing, everything from it onward is
+ * the runtime path. Anchoring beats stripping a list of known prefixes —
+ * it stays correct for a gateway prefix nobody has seen yet — and it
+ * preserves the rest of the href, `?target=input` included, so following
+ * hypermedia still works instead of being replaced by route rebuilding.
+ *
+ * Idempotent: an href that already reads `/api/v1/{domain}/…` finds its
+ * anchor at the same place and comes back unchanged.
+ *
+ * Falls back to `normalizeRuntimeHref` when `domain` is empty or does not
+ * appear in the path — a prefix-if-missing guess is better than mangling an
+ * href whose shape this function does not recognise.
+ *
+ * Known edge: a domain literally named `api` behind a gateway that also
+ * prefixes `/api` (`/api/api/functions/f`) anchors on the prefix instead of
+ * the domain. The failure is "kept one segment too many", never "dropped the
+ * domain", and no real vNext domain is named `api`.
+ */
+export function rebaseRuntimeHref(href: string, domain: string): string {
+  if (!href.startsWith('/') || domain === '') return normalizeRuntimeHref(href)
+
+  const queryIndex = href.indexOf('?')
+  const pathOnly = queryIndex === -1 ? href : href.slice(0, queryIndex)
+  const query = queryIndex === -1 ? '' : href.slice(queryIndex)
+
+  const segments = pathOnly.split('/').filter((segment) => segment !== '')
+  const domainIndex = segments.indexOf(domain)
+  if (domainIndex === -1) return normalizeRuntimeHref(href)
+
+  return `/api/v1/${segments.slice(domainIndex).join('/')}${query}`
+}
+
+/**
  * Path segment: unreserved characters only (RFC 3986 `unreserved`), plus `/`
  * to allow multiple segments. Deliberately excludes `%`.
  *

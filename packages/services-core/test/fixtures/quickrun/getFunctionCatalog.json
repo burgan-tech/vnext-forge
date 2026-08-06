@@ -1,0 +1,23 @@
+{
+  "params": {
+    "domain": "core",
+    "workflowKey": "account-opening",
+    "instanceId": "b9846b60-0b07-447b-8377-9e2b9ac3d470"
+  },
+  "result": {
+    "functions": [
+      {
+        "name": "multi-task-function-test",
+        "version": "1.0.0",
+        "scope": "I",
+        "href": "/core/workflows/account-opening/instances/b9846b60-0b07-447b-8377-9e2b9ac3d470/functions/multi-task-function-test/info"
+      },
+      {
+        "name": "get-cache-instance",
+        "version": "1.0.0",
+        "scope": "I",
+        "href": "/core/workflows/account-opening/instances/b9846b60-0b07-447b-8377-9e2b9ac3d470/functions/get-cache-instance/info"
+      }
+    ]
+  }
+}

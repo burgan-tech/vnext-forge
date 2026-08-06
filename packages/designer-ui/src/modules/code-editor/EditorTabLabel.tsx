@@ -38,7 +38,7 @@ export function EditorTabLabel({ tab, renderFileLeading, titleClassName }: Edito
     leading = <VnextConfigFileIcon className="size-4 shrink-0" />;
   } else if (tab.kind === 'quickrun') {
     leading = <Play className="text-primary size-4 shrink-0" aria-hidden />;
-  } else if (tab.kind === 'functionrun') {
+  } else if (tab.kind === 'functionrun' || tab.kind === 'functionrun-instance') {
     leading = <Zap className="text-primary size-4 shrink-0" aria-hidden />;
   }
 

@@ -87,7 +87,9 @@ export function FunctionRunHeadersTab({
           Shared with Quick Run for this workspace. Sent with every request unless a header below overrides it.
         </p>
         {toolWideHeadersHostOwned ? (
-          <p className="text-muted-foreground text-[10px]">Configured in vNext Forge Tools → Settings.</p>
+          <p className="text-muted-foreground text-[10px]">
+            Configured in vNext Forge Tools → Settings → Quick Run → Global Headers.
+          </p>
         ) : null}
         {toolWidePairs.length > 0 ? (
           <KeyValueEditor pairs={toolWidePairs} onChange={() => undefined} readOnly />

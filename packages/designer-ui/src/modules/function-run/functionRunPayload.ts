@@ -146,6 +146,30 @@ export function resolveEffectiveRequestTab(tab: RequestTabId, verb: FunctionVerb
 }
 
 /**
+ * Where a declared input view's form values end up on the next Send.
+ *
+ * The view is the function's *own* surface, not a body editor and not a param
+ * editor — it can be a form, or purely informational with a button that
+ * triggers the call through `delegate.onAction('submit', …)`. So it is always
+ * rendered when declared, and this only answers what its values contribute:
+ *
+ *  - `'body'`  — a body-bearing verb with View selected as the body source
+ *  - `'query'` — a body-less verb (GET/DELETE), where `buildInvokeRequest`
+ *                merges the view's values into the query string
+ *  - `'unused'`— a body-bearing verb with Payload selected instead. Worth
+ *                stating rather than leaving implicit: a button *inside* the
+ *                view still fires Send, and it would send the payload
+ *                editor's content, not what the view has on screen.
+ */
+export function resolveInputViewDestination(
+  verb: FunctionVerb,
+  mode: RunMode,
+): 'body' | 'query' | 'unused' {
+  if (resolveEffectiveMode(mode, verb) !== 'view') return 'unused';
+  return carriesBody(verb) ? 'body' : 'query';
+}
+
+/**
  * Renders one value into the flat string shape query params and
  * form-urlencoded bodies both need. Objects/arrays survive as JSON rather
  * than becoming `"[object Object]"`.

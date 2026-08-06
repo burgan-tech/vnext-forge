@@ -66,6 +66,7 @@ describe('method registry contract (R-b9 + R-a2)', () => {
         "quickrun/executeFunction",
         "quickrun/fireTransition",
         "quickrun/getData",
+        "quickrun/getFunctionCatalog",
         "quickrun/getHistory",
         "quickrun/getInstance",
         "quickrun/getSchema",

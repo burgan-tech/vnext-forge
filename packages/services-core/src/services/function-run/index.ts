@@ -2,6 +2,7 @@ export {
   buildFunctionInfoPath,
   isValidRuntimePath,
   normalizeRuntimeHref,
+  rebaseRuntimeHref,
   type FunctionInfoPathInput,
   type FunctionScope,
 } from './function-run-paths.js'

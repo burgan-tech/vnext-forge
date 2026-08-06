@@ -108,3 +108,64 @@ describe('useQuickRunStore — State 304 preserves activeState/activeHistory', (
     expect(useQuickRunStore.getState().activeHistory).toBe(activeHistory);
   });
 });
+
+describe('useQuickRunStore — last raw state response (Raw tab)', () => {
+  beforeEach(() => {
+    useQuickRunStore.setState({ tabs: [], activeTabId: null });
+    useQuickRunStore.getState().resetInstanceScopedCaches();
+  });
+
+  const fullBody: StateResponse = {
+    state: 'Draft',
+    status: 'A',
+    transitions: [{ name: 'submit', href: '/x' }],
+    responseHeaders: { etag: 'W/"1"' },
+  };
+
+  it('stores the whole response body, including rounds activeState never sees', () => {
+    // A busy round only reaches `patchActiveState`, so `activeState` is not
+    // a record of what the engine sent — this field is.
+    useQuickRunStore.getState().setLastStateResponse(fullBody, false);
+
+    expect(useQuickRunStore.getState().lastStateResponse).toBe(fullBody);
+    expect(useQuickRunStore.getState().lastStateNotModified).toBe(false);
+    expect(useQuickRunStore.getState().lastStateReceivedAt).toBeTypeOf('number');
+  });
+
+  it('a 304 keeps the previous full body and flags it', () => {
+    useQuickRunStore.getState().setLastStateResponse(fullBody, false);
+    const firstAt = useQuickRunStore.getState().lastStateReceivedAt;
+
+    // 304 responses carry no body — the caller passes what it got, and the
+    // store must ignore it rather than blanking the tab.
+    useQuickRunStore.getState().setLastStateResponse({ notModified: true } as StateResponse, true);
+
+    expect(useQuickRunStore.getState().lastStateResponse).toBe(fullBody);
+    expect(useQuickRunStore.getState().lastStateNotModified).toBe(true);
+    expect(useQuickRunStore.getState().lastStateReceivedAt).toBeGreaterThanOrEqual(firstAt ?? 0);
+  });
+
+  it('a later full body clears the 304 flag', () => {
+    useQuickRunStore.getState().setLastStateResponse(fullBody, true);
+    useQuickRunStore.getState().setLastStateResponse(fullBody, false);
+
+    expect(useQuickRunStore.getState().lastStateNotModified).toBe(false);
+  });
+
+  it('switching to another instance clears the payload and the function catalog', () => {
+    useQuickRunStore.getState().setActiveTab('instance-a');
+    useQuickRunStore.getState().setLastStateResponse(fullBody, false);
+    useQuickRunStore.getState().setFunctionCatalog([{ name: 'f', version: '1.0.0', scope: 'I', href: '/f' }]);
+    useQuickRunStore.getState().setSelectedFunctionName('f');
+
+    useQuickRunStore.getState().setActiveTab('instance-b');
+
+    const state = useQuickRunStore.getState();
+    expect(state.lastStateResponse).toBeNull();
+    expect(state.lastStateReceivedAt).toBeNull();
+    expect(state.lastStateNotModified).toBe(false);
+    expect(state.functionCatalog).toBeNull();
+    expect(state.selectedFunctionName).toBeNull();
+    expect(state.etags).toEqual({});
+  });
+});

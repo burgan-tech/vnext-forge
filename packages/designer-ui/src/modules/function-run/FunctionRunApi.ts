@@ -20,7 +20,14 @@ export async function getInfo(params: GetInfoParams): Promise<ApiResponse<Functi
 }
 
 export interface FetchContractParams {
+  /** An href straight from `/info` — gateway-relative, prefix not guaranteed. */
   path: string;
+  /**
+   * The function's domain. The host uses it to strip whatever gateway prefix
+   * `path` carries before rebasing onto the runtime's `/api/v1` root — see
+   * `rebaseRuntimeHref`.
+   */
+  domain: string;
   headers?: Record<string, string>;
   runtimeUrl?: string;
 }
@@ -33,6 +40,8 @@ export async function fetchContract(
 
 export interface InvokeParams {
   path: string;
+  /** See `FetchContractParams.domain`. */
+  domain: string;
   verb: FunctionVerb;
   body?: string;
   contentType?: string;

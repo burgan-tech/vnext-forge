@@ -199,6 +199,11 @@ export function createFunctionRunPseudoDelegate(params: FunctionRunDelegateParam
       try {
         result = await FunctionRunApi.invoke({
           path,
+          // `path` is built locally by `buildFunctionUrnInvokePath` and already
+          // carries `/api/v1`, so rebasing is a no-op here — passed anyway so
+          // every `functions/invoke` call site states its anchor rather than
+          // relying on one of them happening not to need it.
+          domain: parsed.domain,
           verb,
           query: !bodyBearing && hasParams ? fnParams : undefined,
           body: bodyBearing && hasParams ? JSON.stringify(fnParams) : undefined,

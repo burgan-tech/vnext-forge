@@ -1,6 +1,7 @@
 import { callApi } from '../../api/client';
 import type {
   DataResponse,
+  FunctionCatalogResponse,
   HistoryResponse,
   InstanceListResponse,
   SchemaResponse,
@@ -142,6 +143,27 @@ export async function acknowledgeLongPoll(
   params: AcknowledgeLongPollParams,
 ): Promise<ApiResponse<{ ok: boolean; status: number }>> {
   return callApi({ method: 'quickrun/acknowledgeLongPoll', params });
+}
+
+interface GetFunctionCatalogParams {
+  domain: string;
+  workflowKey: string;
+  instanceId: string;
+  headers?: Record<string, string>;
+  runtimeUrl?: string;
+}
+
+/**
+ * List the functions reachable on one instance.
+ *
+ * Called only when the state response declares `functions.hasFunctions`.
+ * As with `acknowledgeLongPoll`, the host rebuilds the endpoint from these
+ * identifiers rather than following the response's `functions.href`.
+ */
+export async function getFunctionCatalog(
+  params: GetFunctionCatalogParams,
+): Promise<ApiResponse<FunctionCatalogResponse>> {
+  return callApi({ method: 'quickrun/getFunctionCatalog', params });
 }
 
 export async function getView(params: GetViewParams): Promise<ApiResponse<ViewResponse>> {

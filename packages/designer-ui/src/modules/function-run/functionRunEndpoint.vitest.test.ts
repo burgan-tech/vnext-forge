@@ -103,6 +103,21 @@ describe('buildEndpointPreview', () => {
     ).toBe('/api/v1/core/functions/get-branches');
   });
 
+  it('strips a gateway prefix, matching what the request actually goes to', () => {
+    // The bar must not show `/api/v1/core/…` while the wire sends
+    // `/api/v1/api/core/…`, nor the reverse. Mirrors
+    // `rebaseRuntimeHref`'s own service-level test.
+    expect(
+      buildEndpointPreview({ ...baseInput, info: makeInfo('/api/core/functions/get-branches') }),
+    ).toBe('/api/v1/core/functions/get-branches');
+  });
+
+  it('falls back to prefixing when the href does not contain the domain', () => {
+    expect(
+      buildEndpointPreview({ ...baseInput, info: makeInfo('/other/functions/get-branches') }),
+    ).toBe('/api/v1/other/functions/get-branches');
+  });
+
   it('appends a query string that has no leading ?', () => {
     expect(buildEndpointPreview({ ...baseInput, queryString: 'a=1&b=2' })).toBe(
       '/api/v1/core/functions/get-branches?a=1&b=2',

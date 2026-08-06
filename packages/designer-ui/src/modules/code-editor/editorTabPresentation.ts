@@ -40,7 +40,11 @@ export function getEditorTabDisplayTitle(tab: EditorTab): string {
   if (tab.kind === 'workspace-config') {
     return 'vNext Config';
   }
-  if (tab.kind === 'quickrun' || tab.kind === 'functionrun') {
+  if (
+    tab.kind === 'quickrun' ||
+    tab.kind === 'functionrun' ||
+    tab.kind === 'functionrun-instance'
+  ) {
     return tab.title;
   }
   return formatHyphenatedTabTitle(tab.title);
