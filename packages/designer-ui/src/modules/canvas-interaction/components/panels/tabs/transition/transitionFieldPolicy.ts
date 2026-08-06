@@ -141,12 +141,12 @@ function manualOnlyPolicy(
     resourceLock: HIDDEN,
     onExecutionTasks: VISIBLE_OPTIONAL,
     roles: VISIBLE_OPTIONAL,
-    // exit / cancel / updateData transitions do not support
-    // `availableIn` on the engine side — they always apply at the
-    // workflow level and are never scoped to a subset of states. Hide
-    // the editor input so authors can't write a value that the
-    // runtime would silently ignore.
-    availableIn: HIDDEN,
+    // cancel / exit / updateData accept `availableIn` with the same
+    // semantics as shared transitions: empty or absent means every
+    // state, otherwise the transition is only offered in the listed
+    // ones. Optional rather than required — the common case is a
+    // lifecycle transition that applies workflow-wide.
+    availableIn: VISIBLE_OPTIONAL,
     from: VISIBLE_OPTIONAL,
     _comment: VISIBLE_OPTIONAL,
     annotations: VISIBLE_OPTIONAL,

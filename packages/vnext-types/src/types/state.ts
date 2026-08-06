@@ -1,4 +1,5 @@
 import { NotificationType } from '../constants/notification-types';
+import type { AvailableIn } from './available-in';
 import { StateType, StateSubType } from '../constants/state-types';
 import { TriggerType, TriggerKind } from '../constants/trigger-types';
 import { ErrorBoundary } from './error-boundary';
@@ -53,7 +54,7 @@ export interface Transition {
 }
 
 export interface SharedTransition extends Transition {
-  availableIn: string[];
+  availableIn: AvailableIn;
 }
 
 export interface SubFlowTimerConfig {

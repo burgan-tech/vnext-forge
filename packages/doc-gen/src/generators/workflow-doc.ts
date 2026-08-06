@@ -1,3 +1,4 @@
+import { parseAvailableIn, type AvailableIn } from '@vnext-forge-studio/vnext-types';
 import { resolveLabelOrKey, resolveLabel } from '../utils/label-resolver.js';
 import {
   heading,
@@ -78,7 +79,7 @@ interface StateDef {
 }
 
 interface SharedTransitionDef extends TransitionDef {
-  availableIn?: string[];
+  availableIn?: AvailableIn;
 }
 
 interface WorkflowJson {
@@ -391,9 +392,21 @@ export function generateWorkflowMarkdown(workflowJson: unknown): string {
       const label = resolveLabelOrKey(st.labels, st.key);
       const parts: string[] = [heading(3, `${label} (${inlineCode(st.key)})`)];
       if (st._comment) parts.push(st._comment);
-      if (st.availableIn?.length) {
+      const availableInEntries = parseAvailableIn(st.availableIn);
+      if (availableInEntries.length > 0) {
         parts.push(
-          `${bold('Available In:')} ${st.availableIn.map((s) => inlineCode(s)).join(', ')}`,
+          `${bold('Available In:')} ${availableInEntries
+            .map((entry) => {
+              const state = inlineCode(entry.state);
+              if (!entry.roles?.length) return state;
+              // Role-scoped entry — spell the grants out; they narrow the
+              // transition's own roles further for this one state.
+              const grants = entry.roles
+                .map((r) => `${r.grant}: ${r.role}`)
+                .join(', ');
+              return `${state} (${grants})`;
+            })
+            .join(', ')}`,
         );
       }
       parts.push(buildTransitionSection(st));

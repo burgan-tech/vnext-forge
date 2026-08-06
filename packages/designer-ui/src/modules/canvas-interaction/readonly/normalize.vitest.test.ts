@@ -9,7 +9,11 @@ const SEMI_FLAT = {
   type: 'F',
   tags: ['banking'],
   cancel: { key: 'cancel-workflow', target: 'terminated-state', triggerType: 0, availableIn: [] },
-  exit: { key: 'exit-workflow', target: 'done', availableIn: ['a'] },
+  exit: {
+    key: 'exit-workflow',
+    target: 'done',
+    availableIn: ['a', { state: 'b', roles: [{ role: 'supervisor', grant: 'allow' }] }],
+  },
   states: [
     {
       key: 'start-state',
@@ -31,7 +35,12 @@ describe('normalizeDefinition (semi-flat)', () => {
     expect(vm.workflow.type).toBe('F');
     expect(vm.workflow.tags).toEqual(['banking']);
     expect(vm.workflow.cancel?.target).toBe('terminated-state');
-    expect(vm.workflow.exit?.availableIn).toEqual(['a']);
+    // Both authored forms pass through untouched — the view layer formats
+    // them, so nothing here coerces an entry to a string.
+    expect(vm.workflow.exit?.availableIn).toEqual([
+      'a',
+      { state: 'b', roles: [{ role: 'supervisor', grant: 'allow' }] },
+    ]);
   });
 
   it('extracts states with transitions and task refs', () => {

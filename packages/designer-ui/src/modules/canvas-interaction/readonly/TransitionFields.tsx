@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { formatAvailableIn } from '@vnext-forge-studio/vnext-types';
 import type { TransitionView, ViewBindingView, TaskRefView } from './view-types';
 import { Section, InfoRow, Badge, ResourceRef, CodePreview, LabelList } from '../components/panels/tabs/PropertyPanelShared';
 import { getTriggerLabel, getTriggerKindLabel } from '../components/panels/tabs/PropertyPanelHelpers';
@@ -86,7 +87,7 @@ export function TransitionFields({ transition: t }: { transition: TransitionView
       )}
 
       {t.availableIn && t.availableIn.length > 0 && (
-        <InfoRow label="Available in" value={t.availableIn.join(', ')} mono />
+        <InfoRow label="Available in" value={formatAvailableIn(t.availableIn)} mono />
       )}
 
       {t.labels && t.labels.length > 0 && (

@@ -9,6 +9,7 @@ import {
   type EdgeProps,
 } from '@xyflow/react';
 import { memo, useCallback, useRef } from 'react';
+import { ShieldCheck } from 'lucide-react';
 import {
   useCanvasViewSettings,
   resolveEdgeStrokeWidth,
@@ -31,6 +32,12 @@ interface TransitionEdgeData {
   triggerType?: number;
   triggerKind?: number;
   isShared?: boolean;
+  /**
+   * Set on `availableIn` edges whose entry carries role grants. Those edges
+   * have no label of their own, so the marker below is the only cue that the
+   * transition is narrowed by role in that state.
+   */
+  roleScoped?: boolean;
   isSelfLoop?: boolean;
   isSelfKeyword?: boolean;
   waypoints?: Waypoint[];
@@ -611,6 +618,23 @@ export const TransitionEdge = memo(function TransitionEdge(props: EdgeProps) {
                 )}
               </div>
             </div>
+          </div>
+        </EdgeLabelRenderer>
+      )}
+
+      {!d.label && d.roleScoped === true && (
+        <EdgeLabelRenderer>
+          <div
+            style={{
+              position: 'absolute',
+              transform: settings.counterScaleLabels
+                ? `translate(-50%, -50%) translate(${labelX}px, ${labelY}px) scale(var(--rf-counter-scale, 1))`
+                : `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
+              pointerEvents: 'all',
+            }}
+            className="rounded-md bg-surface ring-2 ring-[var(--color-background)] border border-border p-0.5 text-muted-foreground shadow-sm"
+            title="Available in this state for specific roles only">
+            <ShieldCheck size={10} aria-hidden />
           </div>
         </EdgeLabelRenderer>
       )}

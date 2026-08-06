@@ -3,6 +3,8 @@
 // They are intentionally lean and presentation-oriented — only what the
 // inspectors render, not the full vNext domain model.
 
+import type { AvailableIn } from '@vnext-forge-studio/vnext-types';
+
 /** Reference to another vNext component (task / view / schema / function / extension). */
 export interface ComponentRef {
   key: string;
@@ -57,7 +59,7 @@ export interface TransitionView {
   timer?: CodeView | null;
   view?: ViewBindingView | null;
   views?: ViewBindingView[];
-  availableIn?: string[];
+  availableIn?: AvailableIn;
   annotations?: Record<string, string>;
   isStart?: boolean;
 }

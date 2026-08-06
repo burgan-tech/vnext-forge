@@ -1,3 +1,4 @@
+import type { AvailableIn } from './available-in';
 import { ErrorBoundary } from './error-boundary';
 import type { Event } from './event';
 import { Label } from './label';
@@ -64,7 +65,7 @@ export interface CancelTransition {
   mapping?: MappingCode;
   onExecutionTasks?: TaskExecution[];
   roles?: RoleGrant[];
-  availableIn?: string[];
+  availableIn?: AvailableIn;
   from?: string;
   _comment?: string;
   annotations?: Record<string, string>;
@@ -81,7 +82,7 @@ export interface ExitTransition {
   mapping?: MappingCode;
   onExecutionTasks?: TaskExecution[];
   roles?: RoleGrant[];
-  availableIn?: string[];
+  availableIn?: AvailableIn;
   from?: string;
   _comment?: string;
   annotations?: Record<string, string>;
@@ -98,7 +99,7 @@ export interface UpdateDataTransition {
   mapping?: MappingCode;
   onExecutionTasks?: TaskExecution[];
   roles?: RoleGrant[];
-  availableIn?: string[];
+  availableIn?: AvailableIn;
   from?: string;
   _comment?: string;
   annotations?: Record<string, string>;

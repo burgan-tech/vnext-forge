@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { Plus, LogOut } from 'lucide-react';
-import type { Transition } from '@vnext-forge-studio/vnext-types';
+import type { AvailableIn, Transition } from '@vnext-forge-studio/vnext-types';
 import { useWorkflowStore } from '../../../../../store/useWorkflowStore';
 import {
   TransitionCard,
@@ -46,7 +46,6 @@ export function WorkflowExitSection() {
         versionStrategy: 'Minor',
         labels: [{ language: 'en', label: 'Exit' }],
         onExecutionTasks: [],
-        availableIn: [],
       };
     });
   };
@@ -58,11 +57,13 @@ export function WorkflowExitSection() {
   };
 
   const updateAvailableIn = useCallback(
-    (keys: string[]) => {
+    (next: AvailableIn | undefined) => {
       updateWorkflow((draft: any) => {
-        if (draft.attributes?.exit) {
-          draft.attributes.exit.availableIn = keys;
-        }
+        if (!draft.attributes?.exit) return;
+        // Optional on exit: an empty list and an absent key both mean
+        // "every state", so drop the key instead of writing `[]`.
+        if (next) draft.attributes.exit.availableIn = next;
+        else delete draft.attributes.exit.availableIn;
       });
     },
     [updateWorkflow],
@@ -130,7 +131,7 @@ export function WorkflowExitSection() {
             canPickExisting={mutations.canPickExisting}
             projectDomain={mutations.projectDomain}
             standalone
-            availableIn={exit.availableIn || []}
+            availableIn={exit.availableIn}
             onUpdateAvailableIn={updateAvailableIn}
             availableInStateOptions={stateOptions}
             editorKind="exit"

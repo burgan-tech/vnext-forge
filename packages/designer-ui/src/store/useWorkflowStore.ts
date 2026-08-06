@@ -4,6 +4,63 @@ import { suggestTransitionName } from '../modules/canvas-interaction/utils/workf
 
 enableMapSet();
 
+/** An object in a workflow draft that can carry an `availableIn` list. */
+interface AvailableInHolder {
+  availableIn?: unknown;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+/**
+ * Every object in a workflow draft that can carry an `availableIn` list: the
+ * shared transitions plus the three lifecycle transitions.
+ */
+function availableInHolders(attrs: unknown): AvailableInHolder[] {
+  if (!isRecord(attrs)) return [];
+  const holders: AvailableInHolder[] = [];
+  const shared = attrs.sharedTransitions;
+  if (Array.isArray(shared)) {
+    for (const st of shared) {
+      if (isRecord(st)) holders.push(st);
+    }
+  }
+  for (const key of ['cancel', 'exit', 'updateData'] as const) {
+    const holder = attrs[key];
+    if (isRecord(holder)) holders.push(holder);
+  }
+  return holders;
+}
+
+/**
+ * Rewrite a renamed state key everywhere it appears in an `availableIn`.
+ *
+ * Items are mapped in place rather than round-tripped through the codec so an
+ * unrelated rename never rewrites an item's authored form or drops one the
+ * codec doesn't recognize.
+ */
+function renameStateInAvailableIn(attrs: unknown, oldKey: string, newKey: string): void {
+  for (const holder of availableInHolders(attrs)) {
+    if (!Array.isArray(holder.availableIn)) continue;
+    holder.availableIn = (holder.availableIn as unknown[]).map((item) => {
+      if (typeof item === 'string') return item === oldKey ? newKey : item;
+      if (isRecord(item) && item.state === oldKey) return { ...item, state: newKey };
+      return item;
+    });
+  }
+}
+
+/** Drop a deleted state from every `availableIn`, in either authored form. */
+function removeStateFromAvailableIn(attrs: unknown, key: string): void {
+  for (const holder of availableInHolders(attrs)) {
+    if (!Array.isArray(holder.availableIn)) continue;
+    holder.availableIn = (holder.availableIn as unknown[]).filter((item) =>
+      typeof item === 'string' ? item !== key : !isRecord(item) || item.state !== key,
+    );
+  }
+}
+
 export interface WorkflowState {
   workflowJson: Record<string, unknown> | null;
   diagramJson: Record<string, unknown> | null;
@@ -185,6 +242,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         if (st.target === oldKey) st.target = trimmed;
         if (st.to === oldKey) st.to = trimmed;
       }
+
+      renameStateInAvailableIn(draftAttrs, oldKey, trimmed);
     });
 
     get().updateDiagram((draft: any) => {
@@ -215,6 +274,8 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         if (st.target !== undefined) st.target = '';
         if (st.to !== undefined) st.to = '';
       }
+
+      removeStateFromAvailableIn(attrs, key);
     });
 
     get().updateDiagram((draft: any) => {
