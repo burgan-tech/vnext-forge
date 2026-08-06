@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import type { Transition, RoleGrant, ViewBinding, ErrorBoundary, ScriptsConfig } from '@vnext-forge-studio/vnext-types';
+import type { AvailableIn, Transition, RoleGrant, ViewBinding, ErrorBoundary, ScriptsConfig } from '@vnext-forge-studio/vnext-types';
 import type { ScriptCode } from '../../../../../../modules/save-component/components/CsxEditorField';
 import type { SchemaReference } from '../../../../../../modules/save-component/components/SchemaReferenceField';
 import type { DiscoveredVnextComponent } from '@vnext-forge-studio/app-contracts';
@@ -7,7 +7,7 @@ import type { AtomicSavedInfo } from '../../../../../../modules/save-component/c
 import { getTriggerLabel, getTriggerKindLabel } from '../PropertyPanelHelpers';
 import { Badge, IconTrash, Section, InfoRow } from '../PropertyPanelShared';
 import { ArrowRight, ChevronRight } from 'lucide-react';
-import { TriggerType } from '@vnext-forge-studio/vnext-types';
+import { parseAvailableIn, TriggerType } from '@vnext-forge-studio/vnext-types';
 
 import { TransitionExecutionTasksSection } from './TransitionExecutionTasksSection';
 import { TransitionSchemaSection } from './TransitionSchemaSection';
@@ -20,7 +20,8 @@ import { TransitionRolesSection } from './TransitionRolesSection';
 import { TransitionViewSection } from './TransitionViewSection';
 import { TransitionLabelsSection } from './TransitionLabelsSection';
 import { TransitionAnnotationsSection } from './TransitionAnnotationsSection';
-import { AvailableInMultiSelect, type StateOption } from '../shared/AvailableInMultiSelect';
+import { AvailableInEditor } from '../shared/AvailableInEditor';
+import { type StateOption } from '../shared/AvailableInMultiSelect';
 import {
   resolveFieldPolicy,
   getAllowedTriggerTypes,
@@ -90,8 +91,8 @@ export interface TransitionCardProps {
   /** Hide remove button when rendering a single transition (edge panel). */
   standalone?: boolean;
   /** When provided, renders the AvailableIn multi-select inside the card. */
-  availableIn?: string[];
-  onUpdateAvailableIn?: (keys: string[]) => void;
+  availableIn?: AvailableIn;
+  onUpdateAvailableIn?: (next: AvailableIn | undefined) => void;
   /** State options for the availableIn multi-select dropdown. */
   availableInStateOptions?: StateOption[];
   /** Controls field visibility per the transition matrix. Defaults to 'state'. */
@@ -193,6 +194,7 @@ export function TransitionCard({
   const triggerType = transition.triggerType ?? TriggerType.Manual;
 
   const policy = resolveFieldPolicy(editorKind, triggerType, transition.triggerKind);
+  const availableInEntryCount = parseAvailableIn(availableIn).length;
   const allowedTriggers = getAllowedTriggerTypes(editorKind);
   const isTriggerLocked = allowedTriggers.length === 1;
 
@@ -489,12 +491,12 @@ export function TransitionCard({
         )}
 
         {/* Available In */}
-        {policy.availableIn.visible && availableIn && onUpdateAvailableIn && availableInStateOptions && (
-          <Section title="Available in states" count={availableIn.length} defaultOpen={availableIn.length > 0}>
-            <p className="text-[10px] text-muted-foreground mb-2 leading-relaxed">
-              Limit this transition to specific states. Leave empty to apply everywhere.
-            </p>
-            <AvailableInMultiSelect
+        {policy.availableIn.visible && onUpdateAvailableIn && availableInStateOptions && (
+          <Section
+            title="Available in states"
+            count={availableInEntryCount}
+            defaultOpen={availableInEntryCount > 0}>
+            <AvailableInEditor
               value={availableIn}
               onChange={onUpdateAvailableIn}
               stateOptions={availableInStateOptions}

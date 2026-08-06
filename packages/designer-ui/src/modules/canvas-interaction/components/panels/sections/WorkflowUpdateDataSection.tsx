@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { Plus, Zap } from 'lucide-react';
-import type { Transition } from '@vnext-forge-studio/vnext-types';
+import type { AvailableIn, Transition } from '@vnext-forge-studio/vnext-types';
 import { useWorkflowStore } from '../../../../../store/useWorkflowStore';
 import {
   TransitionCard,
@@ -46,7 +46,6 @@ export function WorkflowUpdateDataSection() {
         versionStrategy: 'Major',
         labels: [{ language: 'en', label: 'Update Data' }],
         onExecutionTasks: [],
-        availableIn: [],
       };
     });
   };
@@ -58,11 +57,13 @@ export function WorkflowUpdateDataSection() {
   };
 
   const updateAvailableIn = useCallback(
-    (keys: string[]) => {
+    (next: AvailableIn | undefined) => {
       updateWorkflow((draft: any) => {
-        if (draft.attributes?.updateData) {
-          draft.attributes.updateData.availableIn = keys;
-        }
+        if (!draft.attributes?.updateData) return;
+        // Optional on updateData: an empty list and an absent key both mean
+        // "every state", so drop the key instead of writing `[]`.
+        if (next) draft.attributes.updateData.availableIn = next;
+        else delete draft.attributes.updateData.availableIn;
       });
     },
     [updateWorkflow],
@@ -130,7 +131,7 @@ export function WorkflowUpdateDataSection() {
             canPickExisting={mutations.canPickExisting}
             projectDomain={mutations.projectDomain}
             standalone
-            availableIn={updateData.availableIn || []}
+            availableIn={updateData.availableIn}
             onUpdateAvailableIn={updateAvailableIn}
             availableInStateOptions={stateOptions}
             editorKind="updateData"

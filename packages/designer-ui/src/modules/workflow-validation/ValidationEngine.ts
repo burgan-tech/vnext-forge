@@ -2,6 +2,7 @@ import {
   ERROR_CODES,
   VnextForgeError,
 } from '@vnext-forge-studio/app-contracts';
+import { availableInStateKeys } from '@vnext-forge-studio/vnext-types';
 import { ALL_ENABLED, hasFeature, type SchemaCapabilities } from '../schema-capabilities/SchemaCapabilities';
 import type { ValidationIssue } from './WorkflowValidationTypes';
 
@@ -32,11 +33,24 @@ type StartTransitionLike = {
   to?: string;
 };
 
+/**
+ * Anything carrying an `availableIn` list — shared transitions plus the
+ * `cancel` / `exit` / `updateData` lifecycle transitions.
+ */
+type AvailableInCarrier = {
+  key?: string;
+  availableIn?: unknown;
+};
+
 type WorkflowData = {
   attributes?: {
     startTransition?: StartTransitionLike;
     start?: StartTransitionLike;
     states?: WorkflowStateNode[];
+    sharedTransitions?: AvailableInCarrier[];
+    cancel?: AvailableInCarrier;
+    exit?: AvailableInCarrier;
+    updateData?: AvailableInCarrier;
   };
 };
 
@@ -159,6 +173,32 @@ export function validateWorkflow(
         });
       }
       transitionKeys.add(transition.key);
+    }
+  }
+
+  // `availableIn` names states this transition is offered in. A key that
+  // matches no state is inert — the transition is simply never offered there —
+  // so this is a warning, not an error like a dangling transition target.
+  const availableInCarriers: Array<{ label: string; carrier: AvailableInCarrier | undefined }> = [
+    ...(workflow.attributes?.sharedTransitions ?? []).map((st) => ({
+      label: `Shared transition "${st.key ?? ''}"`,
+      carrier: st as AvailableInCarrier | undefined,
+    })),
+    { label: 'Cancel transition', carrier: workflow.attributes?.cancel },
+    { label: 'Exit transition', carrier: workflow.attributes?.exit },
+    { label: 'Update data transition', carrier: workflow.attributes?.updateData },
+  ];
+
+  for (const { label, carrier } of availableInCarriers) {
+    if (!carrier) continue;
+    for (const stateKey of availableInStateKeys(carrier.availableIn)) {
+      if (stateKeys.has(stateKey)) continue;
+      results.push({
+        id: makeId(),
+        severity: 'warning',
+        message: `${label} is available in non-existent state "${stateKey}"`,
+        rule: 'available-in-state-valid',
+      });
     }
   }
 

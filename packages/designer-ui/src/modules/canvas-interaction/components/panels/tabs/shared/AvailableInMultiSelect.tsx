@@ -13,6 +13,12 @@ export interface AvailableInMultiSelectProps {
   onChange: (keys: string[]) => void;
   stateOptions: StateOption[];
   placeholder?: string;
+  /**
+   * Render the removable chip strip under the trigger. Turn it off when the
+   * caller renders its own richer list of the selected states (see
+   * `AvailableInEditor`, which needs a per-state roles editor there).
+   */
+  showChips?: boolean;
 }
 
 export function AvailableInMultiSelect({
@@ -20,6 +26,7 @@ export function AvailableInMultiSelect({
   onChange,
   stateOptions,
   placeholder = 'Select states…',
+  showChips = true,
 }: AvailableInMultiSelectProps) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -135,7 +142,7 @@ export function AvailableInMultiSelect({
         </PopoverContent>
       </Popover>
 
-      {value.length > 0 && (
+      {showChips && value.length > 0 && (
         <div className="mt-1.5 flex flex-wrap gap-1">
           {value.map((key) => {
             const opt = stateOptions.find((s) => s.key === key);

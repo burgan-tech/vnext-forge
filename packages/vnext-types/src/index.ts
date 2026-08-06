@@ -1,5 +1,6 @@
 export * from './types/workflow';
 export * from './types/role';
+export * from './types/available-in';
 export * from './types/state';
 export * from './types/mapping';
 export * from './types/scripts';
@@ -21,6 +22,7 @@ export * from './constants/state-types';
 export * from './constants/trigger-types';
 export * from './constants/task-types';
 export * from './constants/view-types';
+export * from './utils/available-in';
 export * from './utils/csx-codec';
 export * from './utils/version';
 export * from './utils/editor-tab-presentation';

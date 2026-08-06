@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import { Plus, Share2 } from 'lucide-react';
-import type { Transition } from '@vnext-forge-studio/vnext-types';
+import type { AvailableIn, Transition } from '@vnext-forge-studio/vnext-types';
 import { useWorkflowStore } from '../../../../../store/useWorkflowStore';
 import {
   TransitionCard,
@@ -51,10 +51,13 @@ export function WorkflowSharedTransitionsSection() {
   };
 
   const updateAvailableIn = useCallback(
-    (index: number, keys: string[]) => {
+    (index: number, next: AvailableIn | undefined) => {
       updateWorkflow((draft: any) => {
         if (draft.attributes?.sharedTransitions?.[index]) {
-          draft.attributes.sharedTransitions[index].availableIn = keys;
+          // Unlike the lifecycle transitions, `availableIn` is a required
+          // property of a shared transition — an empty list keeps the key
+          // present rather than dropping it.
+          draft.attributes.sharedTransitions[index].availableIn = next ?? [];
         }
       });
     },

@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { Plus, Ban } from 'lucide-react';
-import type { Transition } from '@vnext-forge-studio/vnext-types';
+import type { AvailableIn, Transition } from '@vnext-forge-studio/vnext-types';
 import { useWorkflowStore } from '../../../../../store/useWorkflowStore';
 import {
   TransitionCard,
@@ -46,7 +46,6 @@ export function WorkflowCancelSection() {
         versionStrategy: 'Minor',
         labels: [{ language: 'en', label: 'Cancel' }],
         onExecutionTasks: [],
-        availableIn: [],
       };
     });
   };
@@ -58,11 +57,13 @@ export function WorkflowCancelSection() {
   };
 
   const updateAvailableIn = useCallback(
-    (keys: string[]) => {
+    (next: AvailableIn | undefined) => {
       updateWorkflow((draft: any) => {
-        if (draft.attributes?.cancel) {
-          draft.attributes.cancel.availableIn = keys;
-        }
+        if (!draft.attributes?.cancel) return;
+        // Optional on cancel: an empty list and an absent key both mean
+        // "every state", so drop the key instead of writing `[]`.
+        if (next) draft.attributes.cancel.availableIn = next;
+        else delete draft.attributes.cancel.availableIn;
       });
     },
     [updateWorkflow],
@@ -130,7 +131,7 @@ export function WorkflowCancelSection() {
             canPickExisting={mutations.canPickExisting}
             projectDomain={mutations.projectDomain}
             standalone
-            availableIn={cancel.availableIn || []}
+            availableIn={cancel.availableIn}
             onUpdateAvailableIn={updateAvailableIn}
             availableInStateOptions={stateOptions}
             editorKind="cancel"

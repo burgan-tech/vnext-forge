@@ -1,3 +1,4 @@
+import { availableInStateKeys, type AvailableIn } from '@vnext-forge-studio/vnext-types';
 import { escapeMermaid, escapeMermaidLabel } from './markdown-helpers.js';
 
 interface StateEntry {
@@ -28,7 +29,7 @@ interface WorkflowJson {
 interface SharedTransitionEntry {
   key: string;
   target?: string;
-  availableIn?: string[];
+  availableIn?: AvailableIn;
   labels?: { language: string; label: string }[];
 }
 
@@ -89,7 +90,7 @@ export function buildStateDiagram(workflowJson: unknown): string {
 
   for (const st of attrs.sharedTransitions ?? []) {
     if (!st.target) continue;
-    for (const source of st.availableIn ?? []) {
+    for (const source of availableInStateKeys(st.availableIn)) {
       const trLabel = escapeMermaidLabel(resolveLabel(st.labels) ?? st.key);
       diagramLines.push(
         `    ${safeId(source)} --> ${safeId(st.target)}: ${trLabel}`,

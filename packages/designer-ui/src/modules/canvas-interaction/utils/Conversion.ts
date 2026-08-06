@@ -1,4 +1,5 @@
 import type { Node, Edge } from '@xyflow/react';
+import { parseAvailableIn, type AvailableIn } from '@vnext-forge-studio/vnext-types';
 
 export interface DiagramNodePos {
   x: number;
@@ -85,7 +86,7 @@ interface WorkflowTransition {
   // vnext uses "labels" (plural)
   labels?: Array<{ language: string; label: string }>;
   label?: Array<{ language: string; label: string }>;
-  availableIn?: string[];
+  availableIn?: AvailableIn;
 }
 
 interface WorkflowLevelTransition {
@@ -335,15 +336,20 @@ export function workflowToReactFlow(
       });
     }
 
-    const availableIn = (wt.data.availableIn as string[] | undefined) || [];
-    for (const stateKey of availableIn) {
+    for (const entry of parseAvailableIn(wt.data.availableIn)) {
       edges.push({
-        id: `${stateKey}->${wt.id}::availableIn`,
-        source: stateKey,
+        id: `${entry.state}->${wt.id}::availableIn`,
+        source: entry.state,
         target: wt.id,
         type: 'manualEdge',
         reconnectable: false,
-        data: { label: '', triggerType: 0, isWorkflowLevel: true, isAvailableIn: true },
+        data: {
+          label: '',
+          triggerType: 0,
+          isWorkflowLevel: true,
+          isAvailableIn: true,
+          roleScoped: (entry.roles?.length ?? 0) > 0,
+        },
       });
     }
   }
@@ -374,15 +380,20 @@ export function workflowToReactFlow(
       });
     }
 
-    const availableIn = st.availableIn || [];
-    for (const stateKey of availableIn) {
+    for (const entry of parseAvailableIn(st.availableIn)) {
       edges.push({
-        id: `${stateKey}->${nodeId}::availableIn`,
-        source: stateKey,
+        id: `${entry.state}->${nodeId}::availableIn`,
+        source: entry.state,
         target: nodeId,
         type: 'manualEdge',
         reconnectable: false,
-        data: { label: '', triggerType: 0, isWorkflowLevel: true, isAvailableIn: true },
+        data: {
+          label: '',
+          triggerType: 0,
+          isWorkflowLevel: true,
+          isAvailableIn: true,
+          roleScoped: (entry.roles?.length ?? 0) > 0,
+        },
       });
     }
   }
