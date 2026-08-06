@@ -16,19 +16,32 @@ export interface BuildEndpointPreviewInput {
 const API_V1_PREFIX = '/api/v1/';
 
 /**
- * Reimplements the display-time half of `normalizeRuntimeHref` in
+ * Reimplements `rebaseRuntimeHref` from
  * `packages/services-core/src/services/function-run/function-run-paths.ts` —
  * that is the single source of truth for the actual wire rule, and
  * `designer-ui` may not import `services-core` (see the dependency policy).
- * `/info` emits hrefs relative to the API root (e.g. `/core/functions/x`),
- * and `function-run.service.ts`'s `invoke`/`fetchContract` prepend `/api/v1`
- * before dispatching to the runtime. Keep this copy in step with that one —
- * if the wire rule ever changes, this preview must change with it or it will
- * show a path that does not match what actually gets requested.
+ * Keep this copy in step with that one: if the two disagree, the endpoint bar
+ * shows a URL that is not the one the request goes to, which is worse than
+ * showing nothing.
+ *
+ * `/info` hrefs are gateway-relative with an unstable prefix (`/core/…` and
+ * `/api/core/…` have both been observed), so the domain segment anchors the
+ * rebase rather than a prefix being appended — see `rebaseRuntimeHref` for
+ * the full rationale.
  */
-function normalizeRuntimeHrefForDisplay(href: string): string {
-  if (!href.startsWith('/') || href.startsWith(API_V1_PREFIX)) return href;
-  return `/api/v1${href}`;
+function rebaseRuntimeHrefForDisplay(href: string, domain: string): string {
+  if (!href.startsWith('/')) return href;
+  if (domain !== '') {
+    const queryIndex = href.indexOf('?');
+    const pathOnly = queryIndex === -1 ? href : href.slice(0, queryIndex);
+    const query = queryIndex === -1 ? '' : href.slice(queryIndex);
+    const segments = pathOnly.split('/').filter((segment) => segment !== '');
+    const domainIndex = segments.indexOf(domain);
+    if (domainIndex !== -1) {
+      return `/api/v1/${segments.slice(domainIndex).join('/')}${query}`;
+    }
+  }
+  return href.startsWith(API_V1_PREFIX) ? href : `/api/v1${href}`;
 }
 
 /**
@@ -70,7 +83,7 @@ function normalizeQueryStringForDisplay(queryString: string): string {
  */
 export function buildEndpointPreview(input: BuildEndpointPreviewInput): string {
   const path = input.info
-    ? normalizeRuntimeHrefForDisplay(input.info.function.href)
+    ? rebaseRuntimeHrefForDisplay(input.info.function.href, input.info.domain)
     : fallbackPath(input);
   return `${path}${normalizeQueryStringForDisplay(input.queryString)}`;
 }

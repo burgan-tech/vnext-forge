@@ -2,6 +2,7 @@ import { matchPath } from 'react-router-dom';
 
 import {
   componentEditorTabId,
+  functionRunInstanceTabId,
   functionRunTabId,
   quickRunTabId,
   vnextWorkspaceConfigTabId,
@@ -46,6 +47,25 @@ export function activeTabIdFromPathname(projectId: string, pathname: string): st
     functionRunMatch.params.name
   ) {
     return functionRunTabId(projectId, functionRunMatch.params.group, functionRunMatch.params.name);
+  }
+
+  // The instance binding lives in the query, deliberately outside the tab
+  // id: opening the same function against another instance reuses this tab
+  // rather than accumulating one per instance.
+  const functionRunInstanceMatch = matchPath(
+    { path: '/project/:id/function-run-instance/:domain/:functionKey', end: true },
+    pathname,
+  );
+  if (
+    functionRunInstanceMatch?.params.id === projectId &&
+    functionRunInstanceMatch.params.domain &&
+    functionRunInstanceMatch.params.functionKey
+  ) {
+    return functionRunInstanceTabId(
+      projectId,
+      functionRunInstanceMatch.params.domain,
+      functionRunInstanceMatch.params.functionKey,
+    );
   }
 
   const kinds: ComponentEditorKind[] = ['flow', 'task', 'schema', 'view', 'function', 'extension'];

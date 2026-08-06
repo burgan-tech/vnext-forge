@@ -101,6 +101,16 @@ export interface StateResponse {
     href: string;
   };
   /**
+   * Functions reachable on this instance. `href` points at the instance's
+   * function catalog; Forge does not follow it — `quickrun/getFunctionCatalog`
+   * rebuilds the path host-side, the same stance `acknowledgeLongPoll` takes
+   * towards `interaction.ack.href`. Only `hasFunctions` drives the UI.
+   */
+  functions?: {
+    hasFunctions: boolean;
+    href: string;
+  };
+  /**
    * Long-poll interaction signal from the State Function (LongPoll)
    * endpoint. When `terminateLongPoll` is true the client stops the
    * polling loop and silently POSTs to `ack.href` to acknowledge.
@@ -171,6 +181,35 @@ export interface SchemaResponse {
   notModified?: boolean;
 }
 
+/** One entry of an instance's function catalog. */
+export interface FunctionCatalogEntry {
+  /** The `sys-functions` component key — what the runner needs as `functionKey`. */
+  name: string;
+  version: string;
+  /** `'D' | 'F' | 'I'` as declared by the engine; passed through to the runner. */
+  scope: string;
+  /** The engine's link to this function's `/info`. Displayed only. */
+  href: string;
+}
+
+export interface FunctionCatalogResponse {
+  functions: FunctionCatalogEntry[];
+}
+
+/**
+ * Everything the Function Quick Runner needs to open bound to a live
+ * instance. `designer-ui` owns no router, so the host turns this into a
+ * route (web) or a webview panel (extension).
+ */
+export interface OpenFunctionRunTarget {
+  domain: string;
+  functionKey: string;
+  /** From the catalog entry — `'D' | 'F' | 'I'`. */
+  scope: string;
+  workflowKey: string;
+  instanceId: string;
+}
+
 export interface HistoryTransition {
   id: string;
   transitionId: string;
@@ -228,7 +267,7 @@ export type QuickRunTab = {
   label: string;
 };
 
-export type ContextPanelTab = 'data' | 'history' | 'correlations';
+export type ContextPanelTab = 'data' | 'history' | 'correlations' | 'raw';
 
 export function safeViewContent(content: string | Record<string, unknown> | unknown): string {
   if (typeof content === 'string') return content;

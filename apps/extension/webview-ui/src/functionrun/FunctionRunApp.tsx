@@ -15,6 +15,14 @@ interface FunctionRunContext {
   functionKey: string;
   scope: FunctionRunShellProps['scope'];
   runtimeUrl?: string;
+  /** Set when the host opened this runner from a live workflow instance. */
+  workflowKey?: string;
+  instanceId?: string;
+}
+
+/** Narrows an unknown `postMessage` field to a string, or drops it. */
+function readOptionalString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.length > 0 ? value : undefined;
 }
 
 interface Props {
@@ -43,11 +51,16 @@ export function FunctionRunApp({ api }: Props) {
 
       const data = event.data;
       if (data?.type === 'functionrun:context') {
+        // Narrowed once, like `messagePayload` below, so the scope binding is
+        // read without widening every access to `any`.
+        const scopeBinding = data as { workflowKey?: unknown; instanceId?: unknown };
         setContext({
           domain: data.domain,
           functionKey: data.functionKey,
           scope: data.scope,
           runtimeUrl: data.runtimeUrl,
+          workflowKey: readOptionalString(scopeBinding.workflowKey),
+          instanceId: readOptionalString(scopeBinding.instanceId),
         });
         // Forge-wide headers (Task 19) — forwarded by
         // `FunctionQuickRunPanel.sendContext`. Populate the shared store so
@@ -79,6 +92,8 @@ export function FunctionRunApp({ api }: Props) {
       domain={context.domain}
       functionKey={context.functionKey}
       scope={context.scope}
+      workflowKey={context.workflowKey}
+      instanceId={context.instanceId}
       runtimeUrl={context.runtimeUrl}
       toolWideHeaders={toolWideHeaders}
       surface="standalone"

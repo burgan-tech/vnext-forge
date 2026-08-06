@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import { buildFunctionInfoPath, isValidRuntimePath, normalizeRuntimeHref } from '../src/index.js'
+import {
+  buildFunctionInfoPath,
+  isValidRuntimePath,
+  normalizeRuntimeHref,
+  rebaseRuntimeHref,
+} from '../src/index.js'
 
 describe('buildFunctionInfoPath', () => {
   it('routes a domain-scoped function to the domain route', () => {
@@ -117,6 +122,105 @@ describe('normalizeRuntimeHref', () => {
   it('leaves a non-rooted or scheme-bearing value unchanged, deferring to isValidRuntimePath', () => {
     expect(normalizeRuntimeHref('https://evil.test/core/functions/f')).toBe('https://evil.test/core/functions/f')
     expect(normalizeRuntimeHref('relative/functions/f')).toBe('relative/functions/f')
+  })
+
+  it('rebases a contract href that carries a query string, keeping the query intact', () => {
+    // The exact shape `/info` returns for a declared view — the gateway-style
+    // path plus `?target=input`. Both halves matter: the path has to gain the
+    // /api/v1 root, and `target` has to survive, or the runtime cannot tell
+    // the input view from the output one.
+    const href = '/core/functions/get-branches-func/view?target=input'
+    const normalized = normalizeRuntimeHref(href)
+    expect(normalized).toBe('/api/v1/core/functions/get-branches-func/view?target=input')
+    expect(isValidRuntimePath(normalized)).toBe(true)
+  })
+
+  it('rebases a schema href the same way', () => {
+    expect(normalizeRuntimeHref('/core/functions/get-branches-func/schema?target=output')).toBe(
+      '/api/v1/core/functions/get-branches-func/schema?target=output',
+    )
+  })
+
+  it('APPENDS rather than replaces — which is why rebaseRuntimeHref exists', () => {
+    // Pinning the limitation this function has, so nobody "fixes" a
+    // gateway-prefixed href here and leaves `rebaseRuntimeHref` behind.
+    expect(normalizeRuntimeHref('/api/core/functions/f/view?target=input')).toBe(
+      '/api/v1/api/core/functions/f/view?target=input',
+    )
+  })
+})
+
+describe('rebaseRuntimeHref', () => {
+  const RUNTIME = '/api/v1/core/functions/get-branches-func/view?target=input'
+
+  it('strips the /api gateway prefix instead of stacking /api/v1 on top of it', () => {
+    // The bug this function exists for: the engine emits gateway-relative
+    // hrefs, and `normalizeRuntimeHref` only ever appends — so this href
+    // became `/api/v1/api/core/...`, which passes `isValidRuntimePath`, then
+    // 404s, and surfaces as "this input view could not be loaded".
+    expect(rebaseRuntimeHref('/api/core/functions/get-branches-func/view?target=input', 'core')).toBe(RUNTIME)
+  })
+
+  it('handles the un-prefixed form of the same href identically', () => {
+    // Both shapes have been observed from the same engine.
+    expect(rebaseRuntimeHref('/core/functions/get-branches-func/view?target=input', 'core')).toBe(RUNTIME)
+  })
+
+  it('is idempotent on an href that is already a runtime path', () => {
+    expect(rebaseRuntimeHref(RUNTIME, 'core')).toBe(RUNTIME)
+    expect(rebaseRuntimeHref(rebaseRuntimeHref(RUNTIME, 'core'), 'core')).toBe(RUNTIME)
+  })
+
+  it('rebases the invoke href too, not just contract hrefs', () => {
+    // `runInvoke` follows `info.function.href`, so a gateway prefix breaks
+    // Send exactly the same way it broke the view.
+    expect(rebaseRuntimeHref('/api/core/functions/get-branches-func', 'core')).toBe(
+      '/api/v1/core/functions/get-branches-func',
+    )
+  })
+
+  it('keeps the whole runtime path for an instance-scoped href', () => {
+    expect(
+      rebaseRuntimeHref('/api/core/workflows/acc/instances/i-1/functions/f/view?target=output', 'core'),
+    ).toBe('/api/v1/core/workflows/acc/instances/i-1/functions/f/view?target=output')
+  })
+
+  it('anchors on the first domain segment, not a later one that repeats it', () => {
+    // A function or workflow named the same as its domain must not move the
+    // anchor further right and swallow real path segments.
+    expect(rebaseRuntimeHref('/api/core/functions/core', 'core')).toBe('/api/v1/core/functions/core')
+  })
+
+  it('preserves an empty query and a multi-parameter one alike', () => {
+    expect(rebaseRuntimeHref('/api/core/functions/f?', 'core')).toBe('/api/v1/core/functions/f?')
+    expect(rebaseRuntimeHref('/api/core/functions/f?a=1&b=2', 'core')).toBe('/api/v1/core/functions/f?a=1&b=2')
+  })
+
+  it('falls back to prefix-if-missing when the domain is absent from the path', () => {
+    // Better a guess than mangling an href whose shape this does not know.
+    expect(rebaseRuntimeHref('/other/functions/f', 'core')).toBe('/api/v1/other/functions/f')
+    expect(rebaseRuntimeHref('/api/v1/other/functions/f', 'core')).toBe('/api/v1/other/functions/f')
+  })
+
+  it('falls back when no domain is supplied at all', () => {
+    expect(rebaseRuntimeHref('/core/functions/f', '')).toBe('/api/v1/core/functions/f')
+  })
+
+  it('leaves a scheme-bearing or non-rooted value for isValidRuntimePath to reject', () => {
+    expect(rebaseRuntimeHref('https://evil.test/core/functions/f', 'core')).toBe(
+      'https://evil.test/core/functions/f',
+    )
+    expect(rebaseRuntimeHref('relative/core/functions/f', 'core')).toBe('relative/core/functions/f')
+  })
+
+  it('produces paths that still satisfy isValidRuntimePath', () => {
+    for (const href of [
+      '/api/core/functions/f/view?target=input',
+      '/core/functions/f',
+      '/api/v1/core/workflows/w/instances/i/functions/f/schema?target=output',
+    ]) {
+      expect(isValidRuntimePath(rebaseRuntimeHref(href, 'core'))).toBe(true)
+    }
   })
 })
 

@@ -19,6 +19,14 @@ export function buildNavigatePathForTab(projectId: string, tab: EditorTab): stri
     const n = encodeURIComponent(tab.name);
     return `/project/${projectId}/function-run/${g}/${n}`;
   }
+  if (tab.kind === 'functionrun-instance' && tab.group && tab.name) {
+    const d = encodeURIComponent(tab.group);
+    const k = encodeURIComponent(tab.name);
+    // `search` carries the workflow/instance binding, which is not in the
+    // path — without it the restored tab would open the runner unbound.
+    const query = tab.search ? `?${tab.search}` : '';
+    return `/project/${projectId}/function-run-instance/${d}/${k}${query}`;
+  }
   if (tab.kind === 'component' && tab.componentKind && tab.group && tab.name) {
     const g = encodeURIComponent(tab.group);
     const n = encodeURIComponent(tab.name);

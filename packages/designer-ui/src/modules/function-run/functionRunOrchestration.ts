@@ -184,6 +184,8 @@ export interface RunInfoApi {
   }) => Promise<ApiResponse<FunctionExchange>>;
   fetchContract: (params: {
     path: string;
+    /** Anchor for stripping the href's gateway prefix — see `rebaseRuntimeHref`. */
+    domain: string;
     headers?: Record<string, string>;
     runtimeUrl?: string;
   }) => Promise<ApiResponse<FunctionExchange>>;
@@ -192,6 +194,7 @@ export interface RunInfoApi {
 export interface RunInvokeApi {
   invoke: (params: {
     path: string;
+    domain: string;
     verb: FunctionVerb;
     body?: string;
     contentType?: string;
@@ -212,6 +215,7 @@ export type FunctionRunSetter = (
     infoErrorIsAuthorization: boolean;
     verb: FunctionVerb | null;
     inputViewContent: unknown;
+    inputViewLoading: boolean;
     inputSchema: Record<string, unknown> | null;
     invoking: boolean;
     invokeError: string | null;
@@ -294,14 +298,37 @@ export async function loadFunctionInfo(params: LoadFunctionInfoParams): Promise<
   set({ verb: defaultVerbFor(resolveVerbs(info.function.verbs)) });
 
   if (info.inputView?.hasView) {
-    const viewRes = await api.fetchContract({ path: info.inputView.href, headers, runtimeUrl });
-    if (!isCancelled() && viewRes.success) {
-      set({ inputViewContent: toViewResponse(viewRes.data) });
+    // The view section is visible from the moment `/info` declares a view, so
+    // this step owns its own loading flag: `infoLoading` is already false by
+    // now, and without this the section would render its "could not be
+    // loaded" error for the whole duration of a healthy fetch.
+    set({ inputViewLoading: true });
+    const viewRes = await api.fetchContract({
+      path: info.inputView.href,
+      // `info.domain` rather than the caller's `domain` prop: the engine that
+      // emitted this href is the authority on which domain segment anchors it.
+      domain: info.domain,
+      headers,
+      runtimeUrl,
+    });
+    if (!isCancelled()) {
+      // Cleared on failure too — a fetch that came back is no longer loading,
+      // whatever it came back with. Leaving the flag set would strand the
+      // section on a spinner instead of stating the failure.
+      set({
+        inputViewLoading: false,
+        ...(viewRes.success ? { inputViewContent: toViewResponse(viewRes.data) } : {}),
+      });
     }
   }
 
   if (info.inputSchema?.hasSchema) {
-    const schemaRes = await api.fetchContract({ path: info.inputSchema.href, headers, runtimeUrl });
+    const schemaRes = await api.fetchContract({
+      path: info.inputSchema.href,
+      domain: info.domain,
+      headers,
+      runtimeUrl,
+    });
     if (!isCancelled() && schemaRes.success && isUsableSchemaExchange(schemaRes.data)) {
       set({ inputSchema: schemaRes.data.json });
     }
@@ -354,7 +381,14 @@ export async function runInvoke(params: RunInvokeParams): Promise<void> {
   set({ invoking: true, invokeError: null });
   const startedAt = Date.now();
 
-  const res = await api.invoke({ path: info.function.href, verb, ...request, headers, runtimeUrl });
+  const res = await api.invoke({
+    path: info.function.href,
+    domain: info.domain,
+    verb,
+    ...request,
+    headers,
+    runtimeUrl,
+  });
   const responseDurationMs = Date.now() - startedAt;
 
   if (!res.success) {
@@ -371,7 +405,12 @@ export async function runInvoke(params: RunInvokeParams): Promise<void> {
   });
 
   if (info.outputView?.hasView) {
-    const outputRes = await api.fetchContract({ path: info.outputView.href, headers, runtimeUrl });
+    const outputRes = await api.fetchContract({
+      path: info.outputView.href,
+      domain: info.domain,
+      headers,
+      runtimeUrl,
+    });
     if (outputRes.success) set({ outputViewContent: toViewResponse(outputRes.data) });
   }
 }

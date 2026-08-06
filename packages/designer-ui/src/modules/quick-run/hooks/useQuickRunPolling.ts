@@ -40,6 +40,7 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
 
       const {
         setActiveState,
+        setLastStateResponse,
         patchActiveState,
         setActiveStateLoading,
         setActiveStateError,
@@ -104,6 +105,12 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
 
         if (response.success) {
           const stateData = response.data;
+
+          // Record the round before any branching. The busy branch below
+          // only patches `status`/`state` onto `activeState`, so this is the
+          // one place every response body — including the ones that never
+          // reach `activeState` — is kept for the Raw tab.
+          setLastStateResponse(stateData, stateData.notModified === true);
 
           if (stateData.notModified) {
             // 304: the upstream state is unchanged since our last ETag.
@@ -290,6 +297,7 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
 
       const {
         setActiveState,
+        setLastStateResponse,
         setActiveStateLoading,
         setActiveStateError,
         updateInstanceState,
@@ -325,6 +333,8 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
 
       if (response.success) {
         const stateData = response.data;
+
+        setLastStateResponse(stateData, stateData.notModified === true);
 
         if (stateData.notModified) {
           // 304: keep the currently-cached activeState + stateView as-is.

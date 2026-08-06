@@ -21,6 +21,7 @@ import { FunctionRunEndpointBar } from './components/FunctionRunEndpointBar';
 import { FunctionRunHeadersTab } from './components/FunctionRunHeadersTab';
 import { FunctionRunInfoError } from './components/FunctionRunInfoError';
 import { FunctionRunInputPane } from './components/FunctionRunInputPane';
+import { FunctionRunInputViewSection } from './components/FunctionRunInputViewSection';
 import { FunctionRunParamsTab, type ParamsView } from './components/FunctionRunParamsTab';
 import { FunctionRunRequestTabs } from './components/FunctionRunRequestTabs';
 import { FunctionRunResponsePane, type ResponseTabId } from './components/FunctionRunResponsePane';
@@ -37,6 +38,7 @@ import {
   buildInvokeRequest,
   carriesBody,
   resolveEffectiveMode,
+  resolveInputViewDestination,
   resolveEffectiveRequestTab,
 } from './functionRunPayload';
 import { resolveVerbs } from './functionRunVerbs';
@@ -48,6 +50,20 @@ export interface FunctionRunShellProps {
   scope: FunctionScope;
   runtimeUrl?: string;
   projectId?: string;
+  /**
+   * Scope `F`/`I` binding, pre-filled by a host that already knows it — Quick
+   * Run's Functions section opens the runner straight from a live instance,
+   * so the developer does not retype what the workflow runner is already
+   * showing.
+   *
+   * Seeds the store's fields on the mount that establishes this identity; the
+   * inputs stay editable, so the runner can still be pointed at another
+   * instance afterwards. Both are part of the reset identity, so switching
+   * instances clears the previous one's response rather than showing it under
+   * the new binding.
+   */
+  workflowKey?: string;
+  instanceId?: string;
   /** Forge-wide headers. Task 19 supplies these from the host. */
   toolWideHeaders?: Record<string, string>;
   /**
@@ -123,6 +139,10 @@ export function FunctionRunShell({
   scope,
   runtimeUrl,
   projectId,
+  // Renamed locally: `workflowKey` / `instanceId` below are the *store*
+  // fields, which the user can edit after mount. These props only seed them.
+  workflowKey: initialWorkflowKey,
+  instanceId: initialInstanceId,
   toolWideHeaders,
   surface = 'panel',
 }: FunctionRunShellProps) {
@@ -157,8 +177,19 @@ export function FunctionRunShell({
   // `loadFunctionInfo` / `runInvoke`, which exist as plain functions
   // specifically so their logic can be tested without going through a
   // zustand-backed render at all.
+  //
+  // The identity includes the scope binding, not just the function: opening
+  // the same function against a different instance must clear the previous
+  // instance's response rather than present it under the new binding. The
+  // seed rides along so the reset lands with the ids already filled, in one
+  // `set` — never a blank frame followed by a correction.
   useState(() => {
-    useFunctionRunStore.getState().resetIfNewIdentity(`${domain}::${functionKey}`);
+    useFunctionRunStore
+      .getState()
+      .resetIfNewIdentity(
+        `${domain}::${functionKey}::${initialWorkflowKey ?? ''}::${initialInstanceId ?? ''}`,
+        { workflowKey: initialWorkflowKey, instanceId: initialInstanceId },
+      );
     return null;
   });
 
@@ -176,6 +207,7 @@ export function FunctionRunShell({
   const instanceId = useFunctionRunStore((s) => s.instanceId);
   const activeRequestTab = useFunctionRunStore((s) => s.activeRequestTab);
   const inputViewContent = useFunctionRunStore((s) => s.inputViewContent);
+  const inputViewLoading = useFunctionRunStore((s) => s.inputViewLoading);
   const inputSchema = useFunctionRunStore((s) => s.inputSchema);
   const outputViewContent = useFunctionRunStore((s) => s.outputViewContent);
   const invoking = useFunctionRunStore((s) => s.invoking);
@@ -494,6 +526,13 @@ export function FunctionRunShell({
     inputViewContent,
   });
 
+  // Whether the input view gets its own section at all. Keyed off what `/info`
+  // *declared*, not off what arrived, so the loading and failed-to-load states
+  // are visible too rather than the surface appearing out of nowhere once the
+  // fetch lands.
+  const showInputViewSection = Boolean(info?.inputView?.hasView) || hasUsableInputView;
+  const inputViewDestination = resolveInputViewDestination(effectiveVerb, mode);
+
   // The path the request will actually hit — see `buildEndpointPreview`'s own
   // doc comment for why this has to reimplement `normalizeRuntimeHref`
   // locally rather than importing it (designer-ui may not depend on
@@ -641,15 +680,6 @@ export function FunctionRunShell({
                 </div>
               ) : null}
 
-              {declaredButUnavailable ? (
-                <p className="text-muted-foreground text-[10px]">
-                  This function declares an input view, but it could not be loaded
-                  {payloadAvailable
-                    ? ' — use Payload instead.'
-                    : ' — use the query string field instead.'}
-                </p>
-              ) : null}
-
               <FunctionRunRequestTabs
                 activeTab={effectiveRequestTab}
                 onTabChange={(tab) => set({ activeRequestTab: tab })}
@@ -676,12 +706,7 @@ export function FunctionRunShell({
                     mode={mode}
                     onModeChange={(nextMode) => set({ mode: nextMode })}
                     hasInputView={hasUsableInputView}
-                    inputViewDeclaredButUnavailable={declaredButUnavailable}
                     payloadAvailable={payloadAvailable}
-                    inputView={inputViewContent as ViewResponse | null}
-                    onViewFormChange={(data) => set({ viewFormData: data })}
-                    delegate={pseudoDelegate}
-                    resolveSchema={resolveSchema}
                     payloadEditorProps={{
                       contentType,
                       onContentTypeChange: (nextContentType) =>
@@ -693,6 +718,33 @@ export function FunctionRunShell({
                   />
                 }
               />
+
+              {/*
+               * The declared input view — always rendered when `/info`
+               * declares one, for every verb (see
+               * `FunctionRunInputViewSection`): it is the function's own
+               * surface, possibly informational with its own trigger button.
+               *
+               * Below the tab strip, not above it, and that ordering is
+               * load-bearing. The view is the tall element here (a pseudo-ui
+               * surface with a 200px floor, often much more); putting it first
+               * pushed Params/Headers off the visible area of the in-editor
+               * panel entirely, so the query editor could only be reached by
+               * scrolling past a full form. The compact, always-needed request
+               * controls come first; the large surface follows and is what the
+               * user scrolls into.
+               */}
+              {showInputViewSection ? (
+                <FunctionRunInputViewSection
+                  view={inputViewContent as ViewResponse | null}
+                  loading={infoLoading || inputViewLoading}
+                  declaredButUnavailable={declaredButUnavailable}
+                  destination={inputViewDestination}
+                  onFormChange={(data) => set({ viewFormData: data })}
+                  delegate={pseudoDelegate}
+                  resolveSchema={resolveSchema}
+                />
+              ) : null}
             </div>
           </div>
         </ResizablePanel>

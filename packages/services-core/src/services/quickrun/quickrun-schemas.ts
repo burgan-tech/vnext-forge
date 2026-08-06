@@ -107,6 +107,12 @@ export const quickrunGetStateResult = z.object({
   data: z.object({
     href: z.string(),
   }).optional(),
+  /** Functions reachable on this instance; `href` points at the catalog.
+   *  See `quickrunGetFunctionCatalogParams` for why the href is not followed. */
+  functions: z.object({
+    hasFunctions: z.boolean(),
+    href: z.string(),
+  }).optional(),
   interaction: z.object({
     terminateLongPoll: z.boolean().optional(),
     ack: z.object({ href: z.string() }).optional(),
@@ -141,6 +147,40 @@ export const quickrunAcknowledgeLongPollParams = z.object({
 export const quickrunAcknowledgeLongPollResult = z.object({
   ok: z.boolean(),
   status: z.number(),
+})
+
+// ── Get Function Catalog ──────────────────────────────────────────────────────
+//
+// Lists the functions reachable on one instance, so the Quick Runner can
+// hand a developer straight to the Function Quick Runner bound to that
+// instance. Fetched only when the state response declares
+// `functions.hasFunctions`.
+//
+// The state response also carries `functions.href`, but — exactly as with
+// `interaction.ack.href` above — the path is rebuilt here from the workflow
+// identifiers rather than followed, so no engine-supplied string ever
+// reaches the proxy:
+//   GET /api/v1/<domain>/workflows/<flow>/instances/<instanceId>/functions/catalog
+
+export const quickrunGetFunctionCatalogParams = z.object({
+  ...workflowIdentifier,
+  instanceId: z.string().min(1),
+  headers: headersSchema,
+  runtimeUrl: z.string().optional(),
+})
+
+export const quickrunGetFunctionCatalogResult = z.object({
+  functions: z.array(
+    z.object({
+      /** The `sys-functions` component key. */
+      name: z.string(),
+      version: z.string().optional(),
+      /** `'D' | 'F' | 'I'`, left as a string so an unknown engine value
+       *  passes through instead of failing the whole catalog. */
+      scope: z.string().optional(),
+      href: z.string().optional(),
+    }),
+  ),
 })
 
 // ── Get View ─────────────────────────────────────────────────────────────────

@@ -27,6 +27,8 @@ import {
   quickrunExecuteFunctionResult,
   quickrunAcknowledgeLongPollParams,
   quickrunAcknowledgeLongPollResult,
+  quickrunGetFunctionCatalogParams,
+  quickrunGetFunctionCatalogResult,
 } from './quickrun-schemas.js'
 
 type ProxyRequest = {
@@ -455,6 +457,40 @@ export function createQuickRunService(runtimeProxyService: RuntimeProxyService) 
     return { ok: result.status >= 200 && result.status < 300, status: result.status }
   }
 
+  /**
+   * Lists the functions reachable on one instance.
+   *
+   * Like `acknowledgeLongPoll`, the path is rebuilt from the workflow
+   * identifiers rather than followed from the state response's
+   * `functions.href` — the engine's link is display-only here.
+   */
+  async function getFunctionCatalog(
+    params: z.infer<typeof quickrunGetFunctionCatalogParams>,
+    traceId?: string,
+  ): Promise<z.infer<typeof quickrunGetFunctionCatalogResult>> {
+    const base = buildBasePath(params.domain, params.workflowKey)
+
+    const result = await proxyCall(
+      {
+        method: 'GET',
+        runtimePath: `${base}/instances/${params.instanceId}/functions/catalog`,
+        headers: params.headers,
+        runtimeUrl: params.runtimeUrl,
+      },
+      traceId,
+    )
+
+    const parsed = parseJsonResponse<Record<string, unknown>>(
+      result.data, result.status, 'QuickRunService.getFunctionCatalog', traceId,
+    )
+    // An engine that answers with no `functions` array is reported as an
+    // empty catalog rather than a parse failure — "no functions" is a
+    // legitimate answer and the caller already renders nothing for it.
+    return {
+      functions: Array.isArray(parsed.functions) ? parsed.functions : [],
+    } as z.infer<typeof quickrunGetFunctionCatalogResult>
+  }
+
   return {
     startInstance,
     fireTransition,
@@ -468,6 +504,7 @@ export function createQuickRunService(runtimeProxyService: RuntimeProxyService) 
     getInstance,
     executeFunction,
     acknowledgeLongPoll,
+    getFunctionCatalog,
   }
 }
 

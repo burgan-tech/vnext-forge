@@ -2,8 +2,10 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 
+import type { FunctionScope } from '@vnext-forge-studio/vnext-types';
+
 import type { MessageRouter } from '../MessageRouter';
-import { DataBucketService, type WorkflowBucketConfig } from '../tools/data-bucket.service.js';
+import type { DataBucketService, WorkflowBucketConfig } from '../tools/data-bucket.service.js';
 import type { EnvironmentHealthMonitor } from '../tools/environment-health-monitor.js';
 import type { ForgeSettings, ForgeToolsSettingsService } from '../tools/forge-tools-settings.js';
 
@@ -44,6 +46,12 @@ interface PanelEntry {
   panel: vscode.WebviewPanel;
   webviewReady: boolean;
   pendingContext: QuickRunContext | undefined;
+  /**
+   * The context this panel is currently showing. Kept so a settings change can
+   * re-send it — `sendContextWithPolling` needs the workflow identity, and the
+   * only other copy is consumed once out of `pendingContext`.
+   */
+  ctx: QuickRunContext;
   disposables: vscode.Disposable[];
 }
 
@@ -52,16 +60,17 @@ export class QuickRunPanel {
   // disposables list owns the listeners attached to that single
   // panel; `onDidDispose` removes the entry and drains the list.
   private readonly panels = new Map<string, PanelEntry>();
-  private readonly dataBucket: DataBucketService;
 
   constructor(
     private readonly context: vscode.ExtensionContext,
     private readonly router: MessageRouter,
+    // Injected rather than constructed per panel: the bucket root is now
+    // resolved (workspace or machine-local), and one resolver shared by every
+    // panel is also the one an import has to invalidate.
+    private readonly dataBucket: DataBucketService,
     private readonly forgeToolsSettings?: ForgeToolsSettingsService,
     private readonly healthMonitor?: EnvironmentHealthMonitor,
-  ) {
-    this.dataBucket = new DataBucketService(context.globalStorageUri);
-  }
+  ) {}
 
   private keyFor(ctx: QuickRunContext): string {
     return `${ctx.domain}:${ctx.workflowKey}`;
@@ -75,6 +84,7 @@ export class QuickRunPanel {
       // Even though the key already matches, the ctx may carry fresh
       // environment / project info — re-send so the webview reflects
       // the latest active environment selection.
+      existing.ctx = ctx;
       if (existing.webviewReady) {
         void this.sendContextWithPolling(existing, ctx);
       } else {
@@ -98,6 +108,7 @@ export class QuickRunPanel {
       panel,
       webviewReady: false,
       pendingContext: ctx,
+      ctx,
       disposables: [],
     };
     this.panels.set(key, entry);
@@ -115,6 +126,7 @@ export class QuickRunPanel {
           this.sendCurrentHealthTo(entry);
           return;
         }
+        if (this.handleOpenFunctionRunMessage(raw)) return;
         void this.handleDataBucketMessage(entry, raw);
       }),
     );
@@ -132,6 +144,15 @@ export class QuickRunPanel {
               pseudoUiTenantStyle: this.resolvePseudoUiTenantStyleForWebview(entry.panel.webview, settings),
             });
           }
+        }),
+      );
+
+      // Global headers changed in Forge Tools — re-send context so an already
+      // open runner picks them up. Without this the panel keeps whatever it was
+      // opened with, and editing a header looks like it did nothing.
+      entry.disposables.push(
+        this.forgeToolsSettings.onDidChangeQuickRunSettings(() => {
+          if (entry.webviewReady) void this.sendContextWithPolling(entry, entry.ctx);
         }),
       );
     }
@@ -166,6 +187,46 @@ export class QuickRunPanel {
     for (const entry of [...this.panels.values()]) {
       entry.panel.dispose();
     }
+  }
+
+  /**
+   * `quickrun:open-function-run` — the webview's Functions section asking for
+   * the Function Quick Runner, bound to the instance it is showing.
+   *
+   * Every field is validated here rather than in the command: this is the
+   * trust boundary, and the payload is webview input. Returns `true` when the
+   * message was recognised, so the caller stops routing it further.
+   */
+  private handleOpenFunctionRunMessage(raw: unknown): boolean {
+    if (typeof raw !== 'object' || raw === null) return false;
+    const msg = raw as Record<string, unknown>;
+    if (msg.type !== 'quickrun:open-function-run') return false;
+
+    const str = (v: unknown): string | undefined =>
+      typeof v === 'string' && v.length > 0 ? v : undefined;
+
+    const domain = str(msg.domain);
+    const functionKey = str(msg.functionKey);
+    const workflowKey = str(msg.workflowKey);
+    const instanceId = str(msg.instanceId);
+    // Anything other than the three declared scopes is treated as instance
+    // scope: this message only ever originates from a running instance, and
+    // routing it to the domain endpoint would 403 with a misleading
+    // authorization error rather than a route mismatch.
+    const rawScope = str(msg.scope);
+    const scope: FunctionScope =
+      rawScope === 'D' || rawScope === 'F' || rawScope === 'I' ? rawScope : 'I';
+
+    if (!domain || !functionKey) return true;
+
+    void vscode.commands.executeCommand('vnextForge.openFunctionQuickRunForInstance', {
+      domain,
+      functionKey,
+      scope,
+      workflowKey,
+      instanceId,
+    });
+    return true;
   }
 
   private async handleDataBucketMessage(entry: PanelEntry, raw: unknown): Promise<void> {

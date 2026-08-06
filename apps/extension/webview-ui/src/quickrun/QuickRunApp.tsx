@@ -4,6 +4,7 @@ import { isMessageOriginAllowed, useToolHeadersStore } from '@vnext-forge-studio
 import {
   QuickRunApi,
   QuickRunShell,
+  type OpenFunctionRunTarget,
   type SchemaReference,
 } from '@vnext-forge-studio/designer-ui/quickrun';
 
@@ -101,6 +102,11 @@ export function QuickRunApp({ api }: Props) {
       pollingRetryCount={context.pollingRetryCount}
       pollingIntervalMs={context.pollingIntervalMs}
       {...(context.startSchemaRef ? { startSchemaRef: context.startSchemaRef } : {})}
+      onOpenFunctionRun={(target: OpenFunctionRunTarget) => {
+        // The host owns panel creation — this webview cannot open another
+        // one. `QuickRunPanel` validates the payload before acting on it.
+        api.postMessage({ type: 'quickrun:open-function-run', ...target });
+      }}
     />
   );
 }

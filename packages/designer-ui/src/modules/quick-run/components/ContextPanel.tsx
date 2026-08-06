@@ -7,6 +7,7 @@ import {
   type ContextPanelTab,
   type CorrelationInfo,
   type HistoryTransition,
+  type StateResponse,
 } from '../types/quickrun.types';
 import { CopyableJsonBlock } from './CopyableJsonBlock';
 
@@ -14,6 +15,7 @@ const TABS: { id: ContextPanelTab; label: string }[] = [
   { id: 'data', label: 'Data' },
   { id: 'history', label: 'History' },
   { id: 'correlations', label: 'Correlations' },
+  { id: 'raw', label: 'Raw' },
 ];
 
 export function ContextPanel() {
@@ -31,6 +33,10 @@ export function ContextPanel() {
   const activeDataLoading = useQuickRunStore((s) => s.activeDataLoading);
   const setActiveData = useQuickRunStore((s) => s.setActiveData);
   const setActiveDataLoading = useQuickRunStore((s) => s.setActiveDataLoading);
+
+  const lastStateResponse = useQuickRunStore((s) => s.lastStateResponse);
+  const lastStateReceivedAt = useQuickRunStore((s) => s.lastStateReceivedAt);
+  const lastStateNotModified = useQuickRunStore((s) => s.lastStateNotModified);
 
   const activeHistory = useQuickRunStore((s) => s.activeHistory);
   const activeHistoryLoading = useQuickRunStore((s) => s.activeHistoryLoading);
@@ -153,6 +159,13 @@ export function ContextPanel() {
         {contextPanelTab === 'correlations' && (
           <CorrelationsTabContent />
         )}
+        {contextPanelTab === 'raw' && (
+          <RawTabContent
+            response={lastStateResponse}
+            receivedAt={lastStateReceivedAt}
+            notModified={lastStateNotModified}
+          />
+        )}
       </div>
     </aside>
   );
@@ -180,6 +193,51 @@ function DataTabContent({ data, loading }: { data: ReturnType<typeof useQuickRun
           <CopyableJsonBlock value={data.extensions} />
         </section>
       ) : null}
+    </div>
+  );
+}
+
+export interface RawTabContentProps {
+  response: StateResponse | null;
+  receivedAt: number | null;
+  /** The last round was a 304 — `response` is the previous full body. */
+  notModified: boolean;
+}
+
+/**
+ * The State Function (LongPoll) response, verbatim.
+ *
+ * Forge maps this payload field by field into the dashboard (state,
+ * transitions, view, data href, interaction), so a developer debugging what
+ * the engine *actually* sent otherwise has to open DevTools. Every round is
+ * captured, including the busy ones the dashboard only reads `status`/`state`
+ * from — see `setLastStateResponse`.
+ *
+ * Props rather than store reads: this package's test harness is SSR-only
+ * (`renderToStaticMarkup`), where zustand serves the snapshot frozen at store
+ * creation, so a store-reading component cannot be asserted on.
+ */
+export function RawTabContent({ response, receivedAt, notModified }: RawTabContentProps) {
+  if (!response) return <EmptyState message="No state response yet" />;
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-1">
+      <div className="flex items-baseline justify-between gap-2">
+        <SectionLabel>State Response</SectionLabel>
+        {receivedAt != null ? (
+          <span className="text-[10px] text-[var(--vscode-descriptionForeground)]">
+            {new Date(receivedAt).toLocaleTimeString()}
+          </span>
+        ) : null}
+      </div>
+      {notModified ? (
+        <p className="text-[10px] text-[var(--vscode-descriptionForeground)]">
+          Last round returned 304 Not Modified — showing the last full body.
+        </p>
+      ) : null}
+      {/* `responseHeaders` and `notModified` on this object are added by
+          Forge (`quickrun.service.getState`); everything else is the parsed
+          engine body, passed through unfiltered. */}
+      <CopyableJsonBlock value={response} fillHeight />
     </div>
   );
 }

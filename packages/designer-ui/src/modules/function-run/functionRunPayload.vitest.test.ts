@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
+import { FUNCTION_VERBS } from '@vnext-forge-studio/vnext-types';
+
 import {
   buildInvokeRequest,
   carriesBody,
@@ -7,6 +9,7 @@ import {
   parseQueryString,
   resolveEffectiveMode,
   resolveEffectiveRequestTab,
+  resolveInputViewDestination,
   stringifyQueryPairs,
 } from './functionRunPayload';
 
@@ -374,5 +377,86 @@ describe('resolveEffectiveRequestTab', () => {
   it('falls back to params when the body tab is selected but the verb carries no body', () => {
     expect(resolveEffectiveRequestTab('body', 'GET')).toBe('params');
     expect(resolveEffectiveRequestTab('body', 'DELETE')).toBe('params');
+  });
+});
+
+describe('resolveInputViewDestination', () => {
+  it('reports the body for a body-bearing verb with View selected', () => {
+    expect(resolveInputViewDestination('POST', 'view')).toBe('body');
+    expect(resolveInputViewDestination('PATCH', 'view')).toBe('body');
+  });
+
+  it('reports the query for a body-less verb, whatever mode is stored', () => {
+    // `resolveEffectiveMode` already forces View for these verbs, so a stored
+    // 'payload' left over from an earlier POST must not read as 'unused'.
+    expect(resolveInputViewDestination('GET', 'view')).toBe('query');
+    expect(resolveInputViewDestination('GET', 'payload')).toBe('query');
+    expect(resolveInputViewDestination('DELETE', 'payload')).toBe('query');
+  });
+
+  it('reports unused when a body-bearing verb is set to Payload instead', () => {
+    expect(resolveInputViewDestination('POST', 'payload')).toBe('unused');
+    expect(resolveInputViewDestination('PATCH', 'payload')).toBe('unused');
+  });
+
+  it('never reports unused for a verb that cannot carry a body', () => {
+    // A body-less verb has no payload editor to send instead, so "unused"
+    // would be a lie for every one of them.
+    for (const verb of FUNCTION_VERBS) {
+      if (carriesBody(verb)) continue;
+      for (const mode of ['view', 'payload'] as const) {
+        expect(resolveInputViewDestination(verb, mode)).not.toBe('unused');
+      }
+    }
+  });
+
+  it('agrees with what buildInvokeRequest actually sends', () => {
+    // The caption is only worth showing if it matches the wire. Regression
+    // guard for `get-branches-func`: a GET whose view values must reach the
+    // query, from a view that is rendered regardless of verb.
+    const asQuery = buildInvokeRequest({
+      verb: 'GET',
+      mode: 'view',
+      viewFormData: { region: 'TR' },
+      contentType: 'json',
+      queryString: '',
+    });
+    expect(resolveInputViewDestination('GET', 'view')).toBe('query');
+    expect(asQuery.query).toEqual({ region: 'TR' });
+    expect(asQuery.body).toBeUndefined();
+
+    const asBody = buildInvokeRequest({
+      verb: 'POST',
+      mode: 'view',
+      viewFormData: { region: 'TR' },
+      contentType: 'json',
+      queryString: '',
+    });
+    expect(resolveInputViewDestination('POST', 'view')).toBe('body');
+    expect(asBody.body).toBe(JSON.stringify({ region: 'TR' }));
+
+    const ignored = buildInvokeRequest({
+      verb: 'POST',
+      mode: 'payload',
+      viewFormData: { region: 'TR' },
+      payload: { branchCode: '001' },
+      contentType: 'json',
+      queryString: '',
+    });
+    expect(resolveInputViewDestination('POST', 'payload')).toBe('unused');
+    expect(ignored.body).toBe(JSON.stringify({ branchCode: '001' }));
+  });
+
+  it('sends an empty object for a view with no fields, so a trigger-only view still invokes', () => {
+    // An informational view whose only control is a Run button contributes no
+    // values — the call must still go out, carrying nothing.
+    const request = buildInvokeRequest({
+      verb: 'GET',
+      mode: 'view',
+      viewFormData: {},
+      contentType: 'json',
+      queryString: '',
+    });
+    expect(request).toEqual({});
   });
 });

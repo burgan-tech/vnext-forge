@@ -66,6 +66,18 @@ interface FunctionRunState {
   activeRequestTab: RequestTabId;
 
   inputViewContent: unknown;
+  /**
+   * True while the declared input view's contract is being fetched — a
+   * separate step that runs *after* `/info` has resolved and cleared
+   * `infoLoading`.
+   *
+   * Needed because "declared but no content yet" is indistinguishable from
+   * "declared and the fetch failed" by inspecting `inputViewContent` alone
+   * (see `computeInputViewAvailability`). Without this the always-visible
+   * input-view section would show its could-not-be-loaded error for the whole
+   * duration of a perfectly healthy fetch.
+   */
+  inputViewLoading: boolean;
   outputViewContent: unknown;
   inputSchema: Record<string, unknown> | null;
 
@@ -107,8 +119,17 @@ interface FunctionRunState {
    * very first render (a `useState` lazy initializer, not an effect — see
    * its own comment for why that specifically is what makes this testable
    * under this package's SSR-only test harness).
+   *
+   * `seed` pre-fills the scope ids when a host opens the runner already
+   * bound to a workflow instance (Quick Run's Functions section). It is
+   * applied **only** on the calls that actually establish a new identity —
+   * on a same-identity re-render the user may have edited those fields by
+   * hand, and re-seeding would stomp what they just typed.
    */
-  resetIfNewIdentity: (identity: string) => void;
+  resetIfNewIdentity: (
+    identity: string,
+    seed?: { workflowKey?: string; instanceId?: string },
+  ) => void;
 }
 
 type FunctionRunData = Omit<FunctionRunState, 'set' | 'reset' | 'resetIfNewIdentity'>;
@@ -143,6 +164,7 @@ function createInitialState(): FunctionRunData {
     activeRequestTab: 'body',
 
     inputViewContent: null,
+    inputViewLoading: false,
     outputViewContent: null,
     inputSchema: null,
 
@@ -155,16 +177,31 @@ function createInitialState(): FunctionRunData {
   };
 }
 
+/**
+ * Only the keys the caller actually supplied, so an absent `instanceId`
+ * leaves the field alone instead of blanking it.
+ */
+function seedFields(seed?: { workflowKey?: string; instanceId?: string }) {
+  if (!seed) return {};
+  const patch: { workflowKey?: string; instanceId?: string } = {};
+  if (seed.workflowKey != null) patch.workflowKey = seed.workflowKey;
+  if (seed.instanceId != null) patch.instanceId = seed.instanceId;
+  return patch;
+}
+
 export const useFunctionRunStore = create<FunctionRunState>((set, get) => ({
   ...createInitialState(),
   set: (patch) => set(patch),
   reset: () => set(createInitialState()),
-  resetIfNewIdentity: (identity) => {
+  resetIfNewIdentity: (identity, seed) => {
     const current = get().loadedIdentity;
-    if (current !== null && current !== identity) {
-      set({ ...createInitialState(), loadedIdentity: identity });
+    const isNewIdentity = current !== identity;
+    if (current !== null && isNewIdentity) {
+      set({ ...createInitialState(), ...seedFields(seed), loadedIdentity: identity });
       return;
     }
-    set({ loadedIdentity: identity });
+    // First identity ever recorded — nothing to clear, but the seed still
+    // applies: this is the mount that establishes the binding.
+    set({ ...(isNewIdentity ? seedFields(seed) : {}), loadedIdentity: identity });
   },
 }));

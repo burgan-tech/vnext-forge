@@ -3,6 +3,7 @@ import type {
   ContextPanelTab,
   DataResponse,
   FlowLabelsMap,
+  FunctionCatalogEntry,
   HistoryResponse,
   InstanceListItem,
   InstanceStatus,
@@ -30,6 +31,27 @@ interface QuickRunState {
   activeState: StateResponse | null;
   activeStateLoading: boolean;
   /**
+   * The last *whole* State Function (LongPoll) response body, as received.
+   *
+   * Deliberately separate from `activeState`, which is not a faithful record
+   * of the last response: a busy round (`status === 'B'`) only reaches
+   * `patchActiveState`, so that round's `transitions` / `view` / `interaction`
+   * / `responseHeaders` never land in `activeState` at all. The Raw tab exists
+   * to answer "what did the engine actually return", so it reads this instead.
+   *
+   * `responseHeaders` and `notModified` on the stored object are added by
+   * Forge (`quickrun.service.getState`), not sent by the engine; every other
+   * field is an unfiltered pass-through of the parsed body.
+   */
+  lastStateResponse: StateResponse | null;
+  lastStateReceivedAt: number | null;
+  /**
+   * The most recent round was a 304 — the engine sent no body, so
+   * `lastStateResponse` is the previous full one. Surfaced as a note rather
+   * than blanking the tab.
+   */
+  lastStateNotModified: boolean;
+  /**
    * Surfacing slot for `getState` polling failures (authorisation,
    * runtime 5xx, etc.). The dashboard renders a small banner with
    * `code` + `message` + `details` so users see *why* polling stopped
@@ -56,6 +78,17 @@ interface QuickRunState {
 
   activeHistory: HistoryResponse | null;
   activeHistoryLoading: boolean;
+
+  /**
+   * Functions reachable on the active instance, from
+   * `quickrun/getFunctionCatalog`. Fetched once per instance — only when the
+   * state response declares `functions.hasFunctions` — and cleared with the
+   * rest of the instance-scoped caches, never refreshed per poll round.
+   */
+  functionCatalog: FunctionCatalogEntry[] | null;
+  functionCatalogLoading: boolean;
+  functionCatalogError: string | null;
+  selectedFunctionName: string | null;
 
   contextPanelTab: ContextPanelTab;
 
@@ -111,6 +144,11 @@ interface QuickRunState {
   updateInstanceState: (instanceId: string, stateResponse: StateResponse) => void;
 
   setActiveState: (state: StateResponse | null) => void;
+  /**
+   * Record a State Function round. `notModified` rounds carry no body, so
+   * `response` is ignored for those and only the timestamp/flag move.
+   */
+  setLastStateResponse: (response: StateResponse | null, notModified: boolean) => void;
   patchActiveState: (patch: { status: InstanceStatus; state?: string }) => void;
   setActiveStateLoading: (loading: boolean) => void;
   setActiveStateError: (
@@ -129,6 +167,11 @@ interface QuickRunState {
   setActiveSchemaLoading: (loading: boolean) => void;
   setActiveHistory: (history: HistoryResponse | null) => void;
   setActiveHistoryLoading: (loading: boolean) => void;
+
+  setFunctionCatalog: (entries: FunctionCatalogEntry[] | null) => void;
+  setFunctionCatalogLoading: (loading: boolean) => void;
+  setFunctionCatalogError: (error: string | null) => void;
+  setSelectedFunctionName: (name: string | null) => void;
 
   setInstanceList: (items: InstanceListItem[]) => void;
   setInstanceListLoading: (loading: boolean) => void;
@@ -149,6 +192,13 @@ interface QuickRunState {
 
   setEtag: (fn: 'state' | 'data' | 'schema', etag: string | undefined) => void;
   resetEtags: () => void;
+  /**
+   * Everything cached *for one specific instance*: the ETag echoes plus the
+   * last raw state response and the function catalog. Called wherever the
+   * active instance changes, so a previous instance's payload can never show
+   * under a new one.
+   */
+  resetInstanceScopedCaches: () => void;
 }
 
 export const useQuickRunStore = create<QuickRunState>((set, get) => ({
@@ -168,6 +218,10 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
   activeStateLoading: false,
   activeStateError: null,
 
+  lastStateResponse: null,
+  lastStateReceivedAt: null,
+  lastStateNotModified: false,
+
   stateView: null,
   stateViewLoading: false,
   stateViewError: false,
@@ -183,6 +237,11 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
 
   activeHistory: null,
   activeHistoryLoading: false,
+
+  functionCatalog: null,
+  functionCatalogLoading: false,
+  functionCatalogError: null,
+  selectedFunctionName: null,
 
   contextPanelTab: 'data',
 
@@ -228,7 +287,7 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
       longPollAck: null,
       flowLabels: null,
     });
-    get().resetEtags();
+    get().resetInstanceScopedCaches();
   },
 
   addTab: (tab) => {
@@ -239,7 +298,7 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
     // New instance becomes active — its resources have never been
     // fetched, so any cached ETag from the previously-active instance
     // must not be echoed back for it.
-    get().resetEtags();
+    get().resetInstanceScopedCaches();
   },
 
   removeTab: (instanceId) => {
@@ -254,7 +313,7 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
     });
     // Only reset the ETag cache when the active instance actually
     // changed as a result of closing this tab.
-    if (get().activeTabId !== prevActiveTabId) get().resetEtags();
+    if (get().activeTabId !== prevActiveTabId) get().resetInstanceScopedCaches();
   },
 
   removeAllTabs: () => {
@@ -269,7 +328,7 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
       activeSchema: null,
       activeHistory: null,
     });
-    get().resetEtags();
+    get().resetInstanceScopedCaches();
   },
 
   removeOtherTabs: (instanceId) => {
@@ -278,7 +337,7 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
       const tabs = state.tabs.filter((t) => t.instanceId === instanceId);
       return { tabs, activeTabId: instanceId };
     });
-    if (prevActiveTabId !== instanceId) get().resetEtags();
+    if (prevActiveTabId !== instanceId) get().resetInstanceScopedCaches();
   },
 
   setActiveTab: (instanceId) => {
@@ -286,7 +345,7 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
     set({ activeTabId: instanceId });
     // Switching to a different instance's tab — an ETag captured for
     // the previously-active instance must never be sent for this one.
-    if (prevActiveTabId !== instanceId) get().resetEtags();
+    if (prevActiveTabId !== instanceId) get().resetInstanceScopedCaches();
   },
   setContextPanelTab: (tab) => set({ contextPanelTab: tab }),
 
@@ -324,6 +383,14 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
     }),
 
   setActiveState: (activeState) => set({ activeState }),
+  setLastStateResponse: (response, notModified) =>
+    set(
+      notModified
+        ? // A 304 carries no body — keep the last full one and only record
+          // that this round did not change it.
+          { lastStateReceivedAt: Date.now(), lastStateNotModified: true }
+        : { lastStateResponse: response, lastStateReceivedAt: Date.now(), lastStateNotModified: false },
+    ),
   patchActiveState: (patch) =>
     set((state) => {
       if (!state.activeState) return state;
@@ -345,6 +412,11 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
   setActiveHistory: (activeHistory) => set({ activeHistory }),
   setActiveHistoryLoading: (activeHistoryLoading) => set({ activeHistoryLoading }),
 
+  setFunctionCatalog: (functionCatalog) => set({ functionCatalog }),
+  setFunctionCatalogLoading: (functionCatalogLoading) => set({ functionCatalogLoading }),
+  setFunctionCatalogError: (functionCatalogError) => set({ functionCatalogError }),
+  setSelectedFunctionName: (selectedFunctionName) => set({ selectedFunctionName }),
+
   setInstanceList: (instanceList) => set({ instanceList }),
   setInstanceListLoading: (instanceListLoading) => set({ instanceListLoading }),
 
@@ -364,4 +436,15 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
 
   setEtag: (fn, etag) => set((state) => ({ etags: { ...state.etags, [fn]: etag } })),
   resetEtags: () => set({ etags: {} }),
+  resetInstanceScopedCaches: () =>
+    set({
+      etags: {},
+      lastStateResponse: null,
+      lastStateReceivedAt: null,
+      lastStateNotModified: false,
+      functionCatalog: null,
+      functionCatalogLoading: false,
+      functionCatalogError: null,
+      selectedFunctionName: null,
+    }),
 }));

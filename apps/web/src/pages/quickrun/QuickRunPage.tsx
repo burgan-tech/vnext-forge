@@ -1,11 +1,17 @@
-import { useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 
-import { quickRunTabId, useEditorStore, useProjectStore } from '@vnext-forge-studio/designer-ui';
+import {
+  functionRunInstanceTabId,
+  quickRunTabId,
+  useEditorStore,
+  useProjectStore,
+} from '@vnext-forge-studio/designer-ui';
 import {
   QuickRunApi,
   QuickRunShell,
   type DataBucketAdapter,
+  type OpenFunctionRunTarget,
   type SchemaReference,
   type WorkflowBucketConfig,
 } from '@vnext-forge-studio/designer-ui/quickrun';
@@ -39,6 +45,7 @@ function quickRunLocalStorageAdapter(): DataBucketAdapter {
 
 export function QuickRunPage() {
   const { id, group, name } = useParams<{ id: string; group: string; name: string }>();
+  const navigate = useNavigate();
   const openTab = useEditorStore((s) => s.openTab);
   const domain = useProjectStore((s) => s.activeProject?.domain);
   const projectPath = useProjectStore((s) => s.activeProject?.path);
@@ -126,6 +133,36 @@ export function QuickRunPage() {
     });
   }, [id, group, name, openTab]);
 
+  /**
+   * Open one of the running instance's functions in the Function Quick
+   * Runner, as its own editor tab. Mirrors `FlowEditorPage.onOpenQuickRun`:
+   * designer-ui raises the intent, the web shell turns it into a route.
+   */
+  const openFunctionRun = useCallback(
+    (target: OpenFunctionRunTarget) => {
+      if (!id) return;
+      const search = new URLSearchParams({
+        scope: target.scope,
+        workflowKey: target.workflowKey,
+        instanceId: target.instanceId,
+      }).toString();
+      openTab({
+        id: functionRunInstanceTabId(id, target.domain, target.functionKey),
+        kind: 'functionrun-instance',
+        title: `Run: ${target.functionKey}`,
+        group: target.domain,
+        name: target.functionKey,
+        search,
+      });
+      navigate(
+        `/project/${id}/function-run-instance/${encodeURIComponent(target.domain)}/${encodeURIComponent(
+          target.functionKey,
+        )}?${search}`,
+      );
+    },
+    [id, openTab, navigate],
+  );
+
   if (!id || !group || !name) {
     return null;
   }
@@ -165,6 +202,7 @@ export function QuickRunPage() {
       {...(startSchemaRef ? { startSchemaRef } : {})}
       pollingRetryCount={pollingRetryCount}
       pollingIntervalMs={pollingIntervalMs}
+      onOpenFunctionRun={openFunctionRun}
     />
   );
 }

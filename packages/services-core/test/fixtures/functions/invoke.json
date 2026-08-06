@@ -1,4 +1,14 @@
 {
-  "params": { "path": "/core/functions/get-branches", "verb": "GET" },
-  "result": { "status": 200, "contentType": "application/json", "responseHeaders": {}, "body": "[]", "json": [] }
+  "params": {
+    "path": "/core/functions/get-branches",
+    "domain": "core",
+    "verb": "GET"
+  },
+  "result": {
+    "status": 200,
+    "contentType": "application/json",
+    "responseHeaders": {},
+    "body": "[]",
+    "json": []
+  }
 }

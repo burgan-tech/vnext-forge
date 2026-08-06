@@ -133,6 +133,8 @@ import {
   quickrunExecuteFunctionResult,
   quickrunAcknowledgeLongPollParams,
   quickrunAcknowledgeLongPollResult,
+  quickrunGetFunctionCatalogParams,
+  quickrunGetFunctionCatalogResult,
 } from '../services/quickrun/quickrun-schemas.js'
 import type { RuntimeProxyService } from '../services/runtime-proxy/runtime-proxy.service.js'
 import {
@@ -683,6 +685,12 @@ export function buildMethodRegistry(): MethodRegistry {
       resultSchema: quickrunAcknowledgeLongPollResult,
       handler: async (params, { quickRunService }, traceId) =>
         quickRunService.acknowledgeLongPoll(params, traceId),
+    },
+    'quickrun/getFunctionCatalog': {
+      paramsSchema: quickrunGetFunctionCatalogParams,
+      resultSchema: quickrunGetFunctionCatalogResult,
+      handler: async (params, { quickRunService }, traceId) =>
+        quickRunService.getFunctionCatalog(params, traceId),
     },
 
     // ── functions (Quick Runner) ─────────────────────────────────────────────

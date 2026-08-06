@@ -1,6 +1,14 @@
 import { create } from 'zustand';
 
-export type EditorTabKind = 'file' | 'component' | 'workspace-config' | 'quickrun' | 'functionrun';
+export type EditorTabKind =
+  | 'file'
+  | 'component'
+  | 'workspace-config'
+  | 'quickrun'
+  /** Function Quick Runner opened from a component file (`:group/:name`). */
+  | 'functionrun'
+  /** Function Quick Runner opened from a live workflow instance (query-bound). */
+  | 'functionrun-instance';
 
 /** vNext component editor türleri (URL segment ile uyumlu). */
 export type ComponentEditorKind =
@@ -34,6 +42,23 @@ export function functionRunTabId(projectId: string, group: string, name: string)
   return `${projectId}:functionrun:${group}:${name}`;
 }
 
+/**
+ * Function Quick Runner opened from a live workflow instance rather than from
+ * a component file, so there is no `group`/`name` path to key on.
+ *
+ * The instance binding is deliberately *not* part of the id: one Run tab per
+ * function is reused when the user opens the same function against another
+ * instance. The binding travels on the tab's `search` instead, which is what
+ * lets `buildNavigatePathForTab` restore it.
+ */
+export function functionRunInstanceTabId(
+  projectId: string,
+  domain: string,
+  functionKey: string,
+): string {
+  return `${projectId}:functionrun-instance:${domain}:${functionKey}`;
+}
+
 export interface EditorTab {
   id: string;
   title: string;
@@ -45,6 +70,15 @@ export interface EditorTab {
   componentKind?: ComponentEditorKind;
   group?: string;
   name?: string;
+  /**
+   * Query string (without `?`) to re-append when navigating back to this tab.
+   *
+   * Only used by tabs whose route carries state outside the path — today the
+   * instance-bound Function Quick Runner, whose workflow/instance binding
+   * lives in the query. Without it, restoring the tab after closing a sibling
+   * would drop the binding and leave the runner unbound.
+   */
+  search?: string;
 }
 
 /** Tabs that bulk-close actions remove; workspace-config, quickrun and functionrun stay pinned. */

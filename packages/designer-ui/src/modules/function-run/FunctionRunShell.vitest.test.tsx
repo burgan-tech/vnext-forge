@@ -206,7 +206,65 @@ describe('FunctionRunShell', () => {
     // field added without updating `createInitialState()` fails loudly
     // instead of silently leaking one function's tab choice into the next.
     expect(state.activeRequestTab).toBe('body');
-    expect(state.loadedIdentity).toBe('core::other-function');
+    // The identity carries the scope binding too, so the same function opened
+    // against a different instance also counts as a new identity. Unbound
+    // mounts (no `workflowKey`/`instanceId` props) leave those segments empty.
+    expect(state.loadedIdentity).toBe('core::other-function::::');
+  });
+
+  it('seeds the scope ids from props when a host opens it bound to an instance', () => {
+    useFunctionRunStore.getState().reset();
+
+    render({
+      functionKey: 'bound-function',
+      scope: 'I',
+      workflowKey: 'account-opening',
+      instanceId: 'b9846b60',
+    });
+
+    const state = useFunctionRunStore.getState();
+    expect(state.workflowKey).toBe('account-opening');
+    expect(state.instanceId).toBe('b9846b60');
+    expect(state.loadedIdentity).toBe('core::bound-function::account-opening::b9846b60');
+  });
+
+  it('does not re-seed an edited id on a same-identity re-render', () => {
+    useFunctionRunStore.getState().reset();
+
+    const props = {
+      functionKey: 'bound-function',
+      scope: 'I' as const,
+      workflowKey: 'account-opening',
+      instanceId: 'b9846b60',
+    };
+    render(props);
+
+    // The user points the runner at a different instance by hand.
+    useFunctionRunStore.getState().set({ instanceId: 'typed-by-hand' });
+
+    // A remount with the *same* props must not stomp that edit — only a
+    // genuine identity change re-seeds.
+    render(props);
+
+    expect(useFunctionRunStore.getState().instanceId).toBe('typed-by-hand');
+  });
+
+  it('treats a changed instance as a new identity and clears the previous response', () => {
+    useFunctionRunStore.getState().reset();
+
+    render({ functionKey: 'f', scope: 'I', workflowKey: 'wf', instanceId: 'inst-a' });
+    useFunctionRunStore.getState().set({
+      response: {
+        status: 200, contentType: 'application/json', responseHeaders: {},
+        body: '{"marker":"INSTANCE_A"}', json: { marker: 'INSTANCE_A' },
+      },
+    });
+
+    render({ functionKey: 'f', scope: 'I', workflowKey: 'wf', instanceId: 'inst-b' });
+
+    const state = useFunctionRunStore.getState();
+    expect(state.response).toBeNull();
+    expect(state.instanceId).toBe('inst-b');
   });
 });
 

@@ -86,10 +86,28 @@ describe('functionRunService.fetchContract', () => {
 
   it('leaves an href that already carries /api/v1 unchanged', async () => {
     const { service, proxy } = serviceWith({ status: 200, data: '{}' })
-    await service.fetchContract({ path: '/api/v1/core/functions/f/view?target=input' })
+    await service.fetchContract({ path: '/api/v1/core/functions/f/view?target=input', domain: 'core' })
     expect(proxy).toHaveBeenCalledWith(
       expect.objectContaining({
         method: 'GET', runtimePath: '/api/v1/core/functions/f/view?target=input',
+      }),
+      undefined,
+    )
+  })
+
+  it('strips the gateway prefix instead of stacking /api/v1 on top of it', async () => {
+    // The reported bug: `/info` returned `/api/core/functions/…`, this
+    // proxied `/api/v1/api/core/functions/…`, the runtime 404'd, and the
+    // runner reported "this input view could not be loaded".
+    const { service, proxy } = serviceWith({ status: 200, data: '{"type":"view"}' })
+    await service.fetchContract({
+      path: '/api/core/functions/get-branches-func/view?target=input',
+      domain: 'core',
+    })
+    expect(proxy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'GET',
+        runtimePath: '/api/v1/core/functions/get-branches-func/view?target=input',
       }),
       undefined,
     )
@@ -143,6 +161,24 @@ describe('functionRunService.invoke', () => {
       expect.objectContaining({
         method: 'POST', runtimePath: '/api/v1/core/functions/f', body: 'a=1',
         headers: { authorization: 'Bearer t', 'content-type': 'application/x-www-form-urlencoded' },
+      }),
+      undefined,
+    )
+  })
+
+  it('strips the gateway prefix from the invoke href too', async () => {
+    // `runInvoke` follows `info.function.href`, which carries the same
+    // gateway prefix the contract hrefs do — so Send was broken by the
+    // reported bug just as the input view was, only less visibly.
+    const { service, proxy } = serviceWith({ status: 200, data: '[]' })
+    await service.invoke({
+      path: '/api/core/functions/get-branches-func',
+      domain: 'core',
+      verb: 'GET',
+    })
+    expect(proxy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'GET', runtimePath: '/api/v1/core/functions/get-branches-func',
       }),
       undefined,
     )

@@ -15,7 +15,7 @@ import { baseLogger } from './shared/logger.js';
 import { DesignerPanel } from './panels/DesignerPanel.js';
 import { publishWorkflowFile } from './lib/publishWorkflowFile.js';
 import { QuickRunPanel } from './panels/QuickRunPanel.js';
-import { FunctionQuickRunPanel } from './panels/FunctionQuickRunPanel.js';
+import { FunctionQuickRunPanel, type FunctionQuickRunContext } from './panels/FunctionQuickRunPanel.js';
 import { toFunctionMetadataFormValues } from '@vnext-forge-studio/designer-ui/function-editor-schema';
 import { VnextWorkspaceDetector, type VnextWorkspaceRoot } from './workspace-detector.js';
 import {
@@ -24,6 +24,13 @@ import {
   resolveConfigsForMaterial,
 } from './material-icon-associations.js';
 import { clearRemovedFileIconThemeIfSet } from './stale-file-icon-theme.js';
+import { DataBucketService } from './tools/data-bucket.service.js';
+import { ForgeConfigLocator } from './tools/forge-config-locator.js';
+import {
+  exportForgeConfig,
+  importForgeConfig,
+  saveForgeConfigToWorkspace,
+} from './tools/forge-config-share.js';
 import { ForgeToolsSettingsService } from './tools/forge-tools-settings.js';
 import { ForgeTerminalManager } from './tools/forge-terminal.js';
 import { EnvironmentHealthMonitor } from './tools/environment-health-monitor.js';
@@ -170,8 +177,30 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const webviewLogChannel = vscode.window.createOutputChannel('vnext-forge-studio:webview');
   context.subscriptions.push(webviewLogChannel);
 
-  const forgeToolsSettings = new ForgeToolsSettingsService(context.globalStorageUri);
+  // Resolves every Forge Tools config file to either the workspace copy
+  // (`.vnextstudio/forge-tools/`, shared with the team through the repo) or the
+  // machine-local one. Constructed here, *before* the settings pre-load below,
+  // so the synchronously-readable caches `DesignerPanel.buildWebviewConfig`
+  // depends on are already the resolved ones.
+  //
+  // The workspace root is read from `workspaceFolders` rather than
+  // `VnextWorkspaceDetector`, because the detector's `refresh()` runs much later
+  // in activation while this is needed now; it is a live getter, so a folder
+  // change is picked up without rebuilding anything.
+  const forgeConfigLocator = new ForgeConfigLocator(
+    context.globalStorageUri.fsPath,
+    () => vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? null,
+  );
+  const forgeToolsSettings = new ForgeToolsSettingsService(forgeConfigLocator);
   context.subscriptions.push(forgeToolsSettings);
+
+  // A different folder means a different `.vnextstudio/forge-tools/` — re-resolve
+  // rather than keep serving the previous workspace's headers.
+  context.subscriptions.push(
+    vscode.workspace.onDidChangeWorkspaceFolders(() => {
+      void forgeToolsSettings.reloadFromDisk();
+    }),
+  );
 
   const { services, registry } = composeExtensionServices(loggerAdapter, forgeToolsSettings);
   const { bridge: lspBridge, installer: lspInstaller } = createExtensionHostLspStack(loggerAdapter);
@@ -253,7 +282,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const healthMonitor = new EnvironmentHealthMonitor(forgeToolsSettings);
   context.subscriptions.push(healthMonitor);
 
-  const quickRunPanel = new QuickRunPanel(context, router, forgeToolsSettings, healthMonitor);
+  const dataBucketService = new DataBucketService(forgeConfigLocator);
+
+  const quickRunPanel = new QuickRunPanel(
+    context,
+    router,
+    dataBucketService,
+    forgeToolsSettings,
+    healthMonitor,
+  );
   context.subscriptions.push({ dispose: () => quickRunPanel.dispose() });
 
   const functionQuickRunPanel = new FunctionQuickRunPanel(context, router, forgeToolsSettings);
@@ -336,6 +373,17 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   context.subscriptions.push(
     vscode.commands.registerCommand('vnextForge.tools.changeSetting', safeAsync((settingId) =>
       globalSettingsProvider.handleChangeSetting(settingId as Parameters<typeof globalSettingsProvider.handleChangeSetting>[0]),
+    )),
+    // Shared Forge Tools config: adopt the workspace copy, or move a working
+    // setup between machines. See `forge-config-share.ts`.
+    vscode.commands.registerCommand('vnextForge.tools.saveConfigToWorkspace', safeAsync(() =>
+      saveForgeConfigToWorkspace(forgeToolsSettings, dataBucketService),
+    )),
+    vscode.commands.registerCommand('vnextForge.tools.exportConfig', safeAsync(() =>
+      exportForgeConfig(forgeToolsSettings, dataBucketService),
+    )),
+    vscode.commands.registerCommand('vnextForge.tools.importConfig', safeAsync(() =>
+      importForgeConfig(forgeToolsSettings, dataBucketService),
     )),
     vscode.commands.registerCommand('vnextForge.tools.validateProject', () =>
       projectActionsProvider.runAction('validate'),
@@ -509,6 +557,28 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         domain: fnJson.domain,
         functionKey: fnJson.functionKey,
         scope: fnJson.scope,
+        runtimeUrl: activeEnv?.baseUrl,
+      });
+    })),
+    /**
+     * Internal bridge for the workflow Quick Run panel's Functions section:
+     * opens the Function Quick Runner already bound to a live instance.
+     *
+     * Registered but deliberately *not* contributed in `package.json` — it
+     * takes a structured context object, so it is meaningless from the
+     * command palette. `QuickRunPanel` validates the webview payload before
+     * getting here.
+     */
+    vscode.commands.registerCommand('vnextForge.openFunctionQuickRunForInstance', safeAsync(async (arg) => {
+      const ctx = arg as FunctionQuickRunContext | undefined;
+      if (!ctx?.domain || !ctx.functionKey) return;
+      const activeEnv = await forgeToolsSettings.getActiveEnvironment();
+      functionQuickRunPanel.open({
+        domain: ctx.domain,
+        functionKey: ctx.functionKey,
+        scope: ctx.scope,
+        workflowKey: ctx.workflowKey,
+        instanceId: ctx.instanceId,
         runtimeUrl: activeEnv?.baseUrl,
       });
     })),

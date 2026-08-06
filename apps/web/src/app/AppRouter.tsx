@@ -66,6 +66,11 @@ const QuickRunPage = lazy(() =>
 const FunctionRunPage = lazy(() =>
   import('../pages/function-run/FunctionRunPage').then((m) => ({ default: m.FunctionRunPage })),
 );
+const FunctionRunInstancePage = lazy(() =>
+  import('../pages/function-run/FunctionRunInstancePage').then((m) => ({
+    default: m.FunctionRunInstancePage,
+  })),
+);
 const TestPage = lazy(() => import('../pages/test/TestPage').then((m) => ({ default: m.TestPage })));
 
 /**
@@ -150,6 +155,12 @@ export function AppRouter() {
                   <Route path="flow/:group/:name" element={<FlowEditorPage />} />
                   <Route path="quickrun/:group/:name" element={<QuickRunPage />} />
                   <Route path="function-run/:group/:name" element={<FunctionRunPage />} />
+                  {/* Opened from a running instance in Quick Run — identity in
+                      the path, workflow/instance binding in the query. */}
+                  <Route
+                    path="function-run-instance/:domain/:functionKey"
+                    element={<FunctionRunInstancePage />}
+                  />
                   <Route path="task/:group/:name" element={<TaskEditorPage />} />
                   <Route path="schema/:group/:name" element={<SchemaEditorPage />} />
                   <Route path="view/:group/:name" element={<ViewEditorPage />} />
