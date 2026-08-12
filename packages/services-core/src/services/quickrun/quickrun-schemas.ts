@@ -79,6 +79,7 @@ const transitionInfoSchema = z.object({
   href: z.string(),
 })
 
+/** The trailing fields are sent by newer engines on `correlations` only. */
 const correlationSchema = z.object({
   correlationId: z.string(),
   parentState: z.string(),
@@ -89,6 +90,11 @@ const correlationSchema = z.object({
   subFlowVersion: z.string(),
   isCompleted: z.boolean(),
   href: z.string().optional(),
+  currentState: z.string().optional(),
+  terminalOutcome: z.string().optional(),
+  createdAt: z.string().optional(),
+  completedAt: z.string().optional(),
+  stateChangedAt: z.string().optional(),
 })
 
 export const quickrunGetStateResult = z.object({
@@ -99,6 +105,8 @@ export const quickrunGetStateResult = z.object({
   transitions: z.array(transitionInfoSchema).optional(),
   sharedTransitions: z.array(transitionInfoSchema).optional(),
   activeCorrelations: z.array(correlationSchema).optional(),
+  /** Open *and* closed correlations, with lifecycle detail. Newer engines only. */
+  correlations: z.array(correlationSchema).optional(),
   view: z.object({
     hasView: z.boolean(),
     loadData: z.boolean(),

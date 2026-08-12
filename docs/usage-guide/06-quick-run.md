@@ -239,10 +239,20 @@ A chronological list of all transitions that have been fired:
 Shows related subflow instances when the workflow uses SubFlow states:
 
 - **Subflow name**
-- **Status badge** (Active, Completed, etc.)
+- **Status badge** — `Active`, or `Completed · <outcome>` when the engine reports a terminal outcome (e.g. `faulted`)
 - **Domain** and **Type** with version
 - **Parent State** — The state in the parent workflow that triggered the subflow
-- **Instance** and **Correlation** IDs (truncated)
+- **Sub-Flow State**, **Created**, **State Changed**, **Completed At** — shown when the engine sends them
+- **Instance** and **Correlation** IDs — shown in full, each with a copy button
+
+Each correlation also offers two actions:
+
+- **Open Runner** — opens the subflow's own Quick Run panel (reveals it if it is already open). Pick the instance from the panel's instance list; the copied instance ID makes it easy to find.
+- **Open in Designer** — opens the subflow's workflow definition in the designer.
+
+Both resolve the subflow by its component key inside the current workspace. A subflow that belongs to a different domain cannot be resolved — Forge warns and you open that workspace manually.
+
+**Active / All filter** — newer runtime versions return every correlation of the instance, open and closed. When they do, an `Active | All` switch appears above the list: `Active` keeps the open correlations, `All` adds the completed ones with their lifecycle detail. Against older runtimes the switch is not shown and the tab lists active correlations only.
 
 ## Instance Filtering
 

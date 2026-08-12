@@ -5,11 +5,12 @@ import * as QuickRunApi from '../QuickRunApi';
 import { useQuickRunStore } from '../store/quickRunStore';
 import {
   type ContextPanelTab,
-  type CorrelationInfo,
   type HistoryTransition,
+  type OpenSubFlowTarget,
   type StateResponse,
 } from '../types/quickrun.types';
 import { CopyableJsonBlock } from './CopyableJsonBlock';
+import { CorrelationsTabContent } from './CorrelationsTab';
 
 const TABS: { id: ContextPanelTab; label: string }[] = [
   { id: 'data', label: 'Data' },
@@ -18,7 +19,16 @@ const TABS: { id: ContextPanelTab; label: string }[] = [
   { id: 'raw', label: 'Raw' },
 ];
 
-export function ContextPanel() {
+export interface ContextPanelProps {
+  /**
+   * Open a correlation's sub-flow — its Quick Runner or its definition in the
+   * designer. Forwarded from `QuickRunShell`; when omitted the Correlations
+   * tab lists correlations without action buttons.
+   */
+  onOpenSubFlowTarget?: (target: OpenSubFlowTarget) => void;
+}
+
+export function ContextPanel({ onOpenSubFlowTarget }: ContextPanelProps) {
   const contextPanelTab = useQuickRunStore((s) => s.contextPanelTab);
   const setContextPanelTab = useQuickRunStore((s) => s.setContextPanelTab);
   const activeTabId = useQuickRunStore((s) => s.activeTabId);
@@ -26,6 +36,7 @@ export function ContextPanel() {
   const workflowKey = useQuickRunStore((s) => s.workflowKey);
   const globalHeaders = useQuickRunStore((s) => s.globalHeaders);
   const environmentUrl = useQuickRunStore((s) => s.environmentUrl);
+  const activeState = useQuickRunStore((s) => s.activeState);
   const activeStateLoading = useQuickRunStore((s) => s.activeStateLoading);
   const pollingInstanceId = useQuickRunStore((s) => s.pollingInstanceId);
 
@@ -157,7 +168,11 @@ export function ContextPanel() {
           <HistoryTabContent history={activeHistory} loading={activeHistoryLoading} />
         )}
         {contextPanelTab === 'correlations' && (
-          <CorrelationsTabContent />
+          <CorrelationsTabContent
+            activeCorrelations={activeState?.activeCorrelations}
+            correlations={activeState?.correlations}
+            {...(onOpenSubFlowTarget ? { onOpenSubFlowTarget } : {})}
+          />
         )}
         {contextPanelTab === 'raw' && (
           <RawTabContent
@@ -437,48 +452,6 @@ function DetailRow({ label, value }: { label: string; value: string }) {
     <div className="flex items-start gap-2">
       <span className="w-24 shrink-0 font-semibold text-[var(--vscode-descriptionForeground)]">{label}</span>
       <span className="break-all">{value}</span>
-    </div>
-  );
-}
-
-function CorrelationsTabContent() {
-  const activeState = useQuickRunStore((s) => s.activeState);
-  const correlations: CorrelationInfo[] = activeState?.activeCorrelations ?? [];
-
-  if (correlations.length === 0) {
-    return <EmptyState message="No active correlations" />;
-  }
-
-  return (
-    <div className="flex flex-1 flex-col gap-2 overflow-y-auto min-h-0">
-      {correlations.map((c) => (
-        <div
-          key={c.correlationId}
-          className="rounded border border-[var(--vscode-panel-border)] p-2 text-[11px]"
-        >
-          <div className="flex items-center justify-between">
-            <span className="font-medium">{c.subFlowName}</span>
-            <span className={`inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-medium ${
-              c.isCompleted
-                ? 'bg-[var(--vscode-charts-green)] text-white'
-                : 'bg-[var(--vscode-charts-blue)] text-white'
-            }`}>
-              {c.isCompleted ? 'Completed' : 'Active'}
-            </span>
-          </div>
-          <div className="mt-1 flex flex-col gap-0.5 text-[10px] text-[var(--vscode-descriptionForeground)]">
-            <span>Domain: {c.subFlowDomain}</span>
-            <span>Type: {c.subFlowType} v{c.subFlowVersion}</span>
-            <span>Parent State: {c.parentState}</span>
-            <span className="truncate" title={c.subFlowInstanceId}>
-              Instance: {(c.subFlowInstanceId ?? '').slice(0, 12)}…
-            </span>
-            <span className="truncate" title={c.correlationId}>
-              Correlation: {(c.correlationId ?? '').slice(0, 12)}…
-            </span>
-          </div>
-        </div>
-      ))}
     </div>
   );
 }
