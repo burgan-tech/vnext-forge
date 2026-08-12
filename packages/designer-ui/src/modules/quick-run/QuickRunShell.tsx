@@ -15,7 +15,7 @@ import { ResizableHandle } from './components/ResizableHandle';
 import { TransitionDialog } from './components/TransitionDialog';
 import { useQuickRunPolling } from './hooks/useQuickRunPolling';
 import { useQuickRunStore } from './store/quickRunStore';
-import type { OpenFunctionRunTarget } from './types/quickrun.types';
+import type { OpenFunctionRunTarget, OpenSubFlowTarget } from './types/quickrun.types';
 import { extractLabelsMap } from './utils/extractLabelsMap';
 import { useProjectStore } from '../../store/useProjectStore';
 import { useToolHeadersStore } from '../../store/useToolHeadersStore';
@@ -57,6 +57,14 @@ interface QuickRunShellProps {
    * catalog is still listed, without an Open button.
    */
   onOpenFunctionRun?: (target: OpenFunctionRunTarget) => void;
+  /**
+   * Open the sub-flow behind a correlation — either its own Quick Runner or
+   * its workflow definition in the designer. Same host split as
+   * `onOpenFunctionRun`: `designer-ui` resolves the workflow file, the host
+   * turns it into a route (web) or a panel/editor (extension). When omitted
+   * the Correlations tab renders without action buttons.
+   */
+  onOpenSubFlowTarget?: (target: OpenSubFlowTarget) => void;
 }
 
 export function QuickRunShell({
@@ -70,6 +78,7 @@ export function QuickRunShell({
   pollingRetryCount,
   pollingIntervalMs,
   onOpenFunctionRun,
+  onOpenSubFlowTarget,
 }: QuickRunShellProps) {
   const setWorkflowContext = useQuickRunStore((s) => s.setWorkflowContext);
   const setGlobalHeaders = useQuickRunStore((s) => s.setGlobalHeaders);
@@ -255,7 +264,7 @@ export function QuickRunShell({
         </div>
         <ResizableHandle onResize={handleRightResize} direction="left" />
         <div style={{ width: rightWidth, minWidth: 200, maxWidth: 500 }} className="flex-shrink-0">
-          <ContextPanel />
+          <ContextPanel {...(onOpenSubFlowTarget ? { onOpenSubFlowTarget } : {})} />
         </div>
       </div>
       <QuickRunStatusBar />

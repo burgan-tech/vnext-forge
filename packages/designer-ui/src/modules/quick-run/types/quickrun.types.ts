@@ -55,6 +55,14 @@ export const TRANSITION_KINDS = [
 ] as const;
 export type TransitionKind = (typeof TRANSITION_KINDS)[number];
 
+/**
+ * One parent → sub-flow correlation.
+ *
+ * The fields below `isCompleted` only arrive from newer engine versions, on
+ * the full `StateResponse.correlations` array; the long-standing
+ * `activeCorrelations` array carries the base shape only. Everything optional
+ * is therefore rendered conditionally.
+ */
 export interface CorrelationInfo {
   correlationId: string;
   parentState: string;
@@ -65,6 +73,13 @@ export interface CorrelationInfo {
   subFlowVersion: string;
   isCompleted: boolean;
   href?: string;
+  /** Sub-flow instance's current state. */
+  currentState?: string;
+  /** How a completed sub-flow ended, e.g. `completed` / `faulted`. */
+  terminalOutcome?: string;
+  createdAt?: string;
+  completedAt?: string;
+  stateChangedAt?: string;
 }
 
 /**
@@ -92,6 +107,12 @@ export interface StateResponse {
   transitions?: TransitionInfo[];
   sharedTransitions?: TransitionInfo[];
   activeCorrelations?: CorrelationInfo[];
+  /**
+   * Every correlation of this instance — open *and* closed — with the
+   * lifecycle fields `activeCorrelations` omits. Newer engine versions only;
+   * the UI hides the "All" view entirely when it is absent.
+   */
+  correlations?: CorrelationInfo[];
   view?: {
     hasView: boolean;
     loadData: boolean;
@@ -208,6 +229,26 @@ export interface OpenFunctionRunTarget {
   scope: string;
   workflowKey: string;
   instanceId: string;
+}
+
+/**
+ * A correlation row asking for one of its sub-flow's editors. `designer-ui`
+ * owns no router, so it resolves the workflow file and the host turns this
+ * into a route (web) or a webview panel / editor (extension) — the same split
+ * `OpenFunctionRunTarget` uses.
+ */
+export interface OpenSubFlowTarget {
+  /** `designer` → the workflow definition; `quickrun` → the sub-flow's Quick Runner. */
+  intent: 'designer' | 'quickrun';
+  domain: string;
+  workflowKey: string;
+  /** Absolute path of the resolved workflow JSON. */
+  workflowFilePath: string;
+  /**
+   * Route coordinates under the workflows root. Present only when the
+   * workspace config is loaded (web shell); extension hosts use the path.
+   */
+  route?: { group: string; name: string };
 }
 
 export interface HistoryTransition {

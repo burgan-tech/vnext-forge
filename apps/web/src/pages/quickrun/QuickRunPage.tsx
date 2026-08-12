@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import {
   functionRunInstanceTabId,
   quickRunTabId,
+  showNotification,
   useEditorStore,
   useProjectStore,
 } from '@vnext-forge-studio/designer-ui';
@@ -12,6 +13,7 @@ import {
   QuickRunShell,
   type DataBucketAdapter,
   type OpenFunctionRunTarget,
+  type OpenSubFlowTarget,
   type SchemaReference,
   type WorkflowBucketConfig,
 } from '@vnext-forge-studio/designer-ui/quickrun';
@@ -57,7 +59,11 @@ export function QuickRunPage() {
   const workflowFilePath = useMemo(() => {
     if (!projectPath || !vnextConfig?.paths || !group || !name) return null;
     const base = `${projectPath}/${vnextConfig.paths.componentsRoot}/${vnextConfig.paths.workflows}`;
-    const dir = group ? `${base}/${group}` : base;
+    // `_` is the route placeholder for a workflow that sits directly under the
+    // workflows root (see `FlowEditorPage.onNavigateToWorkflow`) — it is not a
+    // real folder, so it must not end up in the path.
+    const folder = group === '_' ? '' : group;
+    const dir = folder ? `${base}/${folder}` : base;
     return `${dir}/${name}.json`.replace(/\\/g, '/').replace(/\/{2,}/g, '/');
   }, [projectPath, vnextConfig, group, name]);
 
@@ -163,6 +169,36 @@ export function QuickRunPage() {
     [id, openTab, navigate],
   );
 
+  /**
+   * Open the sub-flow behind a correlation. `designer-ui` has already resolved
+   * the workflow file; the web shell only needs the route coordinates it
+   * derived from the workspace config.
+   */
+  const openSubFlowTarget = useCallback(
+    (target: OpenSubFlowTarget) => {
+      if (!id) return;
+      if (!target.route) {
+        showNotification({
+          message: 'Workspace configuration is not loaded yet. Try again once the project finishes loading.',
+          kind: 'warning',
+        });
+        return;
+      }
+      // `_` stands in for a workflow directly under the workflows root, the
+      // same placeholder `FlowEditorPage.onNavigateToWorkflow` uses.
+      const routeGroup = target.route.group || '_';
+      const routeName = target.route.name;
+      // Both destinations register their own editor tab on mount (this page
+      // for Quick Run, `useRegisterComponentEditorTab` for the flow editor),
+      // so navigating is enough.
+      const section = target.intent === 'designer' ? 'flow' : 'quickrun';
+      navigate(
+        `/project/${id}/${section}/${encodeURIComponent(routeGroup)}/${encodeURIComponent(routeName)}`,
+      );
+    },
+    [id, navigate],
+  );
+
   if (!id || !group || !name) {
     return null;
   }
@@ -203,6 +239,7 @@ export function QuickRunPage() {
       pollingRetryCount={pollingRetryCount}
       pollingIntervalMs={pollingIntervalMs}
       onOpenFunctionRun={openFunctionRun}
+      onOpenSubFlowTarget={openSubFlowTarget}
     />
   );
 }

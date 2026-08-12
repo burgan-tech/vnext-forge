@@ -8,6 +8,7 @@ import type { MessageRouter } from '../MessageRouter';
 import type { DataBucketService, WorkflowBucketConfig } from '../tools/data-bucket.service.js';
 import type { EnvironmentHealthMonitor } from '../tools/environment-health-monitor.js';
 import type { ForgeSettings, ForgeToolsSettingsService } from '../tools/forge-tools-settings.js';
+import { parseOpenSubFlowRunMessage } from './open-subflow-run-message.js';
 
 export interface QuickRunContext {
   domain: string;
@@ -127,6 +128,7 @@ export class QuickRunPanel {
           return;
         }
         if (this.handleOpenFunctionRunMessage(raw)) return;
+        if (this.handleOpenSubFlowRunMessage(raw)) return;
         void this.handleDataBucketMessage(entry, raw);
       }),
     );
@@ -226,6 +228,33 @@ export class QuickRunPanel {
       workflowKey,
       instanceId,
     });
+    return true;
+  }
+
+  /**
+   * `quickrun:open-subflow-run` — a Correlations row asking for the sub-flow's
+   * own Quick Runner.
+   *
+   * Delegates to the existing `openQuickRunFromFile` command, which reads the
+   * workflow JSON for `domain`/`workflowKey`/`startSchemaRef`, resolves the
+   * active environment, and reveals rather than duplicates a panel that is
+   * already open for that workflow. Validation (including workspace
+   * containment) lives in `parseOpenSubFlowRunMessage`, since this is the
+   * trust boundary and the payload is webview input. Returns `true` when the
+   * message was recognised, so the caller stops routing it further.
+   */
+  private handleOpenSubFlowRunMessage(raw: unknown): boolean {
+    if (typeof raw !== 'object' || raw === null) return false;
+    if ((raw as { type?: unknown }).type !== 'quickrun:open-subflow-run') return false;
+
+    const roots = (vscode.workspace.workspaceFolders ?? []).map((f) => f.uri.fsPath);
+    const request = parseOpenSubFlowRunMessage(raw, roots);
+    if (!request) return true;
+
+    void vscode.commands.executeCommand(
+      'vnextForge.openQuickRunFromFile',
+      vscode.Uri.file(request.workflowFilePath),
+    );
     return true;
   }
 

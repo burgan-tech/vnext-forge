@@ -5,6 +5,7 @@ import {
   QuickRunApi,
   QuickRunShell,
   type OpenFunctionRunTarget,
+  type OpenSubFlowTarget,
   type SchemaReference,
 } from '@vnext-forge-studio/designer-ui/quickrun';
 
@@ -106,6 +107,22 @@ export function QuickRunApp({ api }: Props) {
         // The host owns panel creation — this webview cannot open another
         // one. `QuickRunPanel` validates the payload before acting on it.
         api.postMessage({ type: 'quickrun:open-function-run', ...target });
+      }}
+      onOpenSubFlowTarget={(target: OpenSubFlowTarget) => {
+        // `route` is a web-shell concept; in the extension both intents are
+        // driven off the resolved absolute path. `host:open-designer` is
+        // already handled by `MessageRouter` for every attached panel; the
+        // Quick Run intent is validated in `QuickRunPanel`.
+        if (target.intent === 'designer') {
+          api.postMessage({ type: 'host:open-designer', absolutePath: target.workflowFilePath });
+          return;
+        }
+        api.postMessage({
+          type: 'quickrun:open-subflow-run',
+          workflowFilePath: target.workflowFilePath,
+          domain: target.domain,
+          workflowKey: target.workflowKey,
+        });
       }}
     />
   );
