@@ -1,7 +1,11 @@
 {
   "params": {
     "domain": "TestDomain",
-    "workflowKey": "SampleFlow"
+    "workflowKey": "SampleFlow",
+    "page": 1,
+    "pageSize": 20,
+    "filter": "{\"and\": [{\"status\": {\"in\": [\"Active\", \"Busy\"]}}, {\"attributes\": {\"amount\": {\"gt\": 500}}}]}",
+    "sort": "{\"field\": \"createdAt\", \"direction\": \"desc\"}"
   },
   "result": {
     "links": {
@@ -17,7 +21,12 @@
           "currentState": "Draft",
           "effectiveState": "Draft",
           "status": "A",
-          "createdAt": "2026-01-01T00:00:00.000Z"
+          "createdAt": "2026-01-01T00:00:00.000Z",
+          "currentStateType": "1",
+          "currentStateSubType": "1",
+          "stage": "initial",
+          "modifiedAt": "2026-01-01T00:05:00.000Z",
+          "createdBy": "user-1"
         }
       }
     ]
