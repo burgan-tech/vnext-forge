@@ -6,8 +6,9 @@
  * sub-codes (`filter.unknownOperator`, `sort.invalidJson`, …) and correction
  * hints. This banner renders those instead of a bare "Runtime returned HTTP 400".
  *
- * Tolerant of the two body shapes the engine emits: the `Error` record
- * (`code`, `message`, `errors[]`) and RFC 7807 problem details (`title`,
+ * Tolerant of the body shapes the engine emits: the Aether error envelope
+ * (`{ error: { prefix, code, message, target, validationErrors[] } }`), a flat
+ * `code`/`message`/`errors[]` record, and RFC 7807 problem details (`title`,
  * `detail`, `status`, `errors{}`).
  */
 
@@ -25,13 +26,28 @@ interface RuntimeErrorBannerProps {
   onDismiss?: () => void;
 }
 
-interface DetailLine {
+export interface RuntimeErrorLine {
   code?: string;
   message: string;
 }
 
+export interface RuntimeErrorSummary {
+  httpStatus?: number;
+  /** Engine error code, e.g. `Validation:900011`. */
+  code?: string;
+  /** Human-readable headline from the body, falling back to the ApiFailure message. */
+  summary: string;
+  /** Individual rejection reasons (`filter.unknownOperator`, `sort.invalidJson`, …). */
+  lines: RuntimeErrorLine[];
+  traceId?: string;
+}
+
 function str(v: unknown): string | undefined {
   return typeof v === 'string' && v.length > 0 ? v : undefined;
+}
+
+function rec(v: unknown): Record<string, unknown> | undefined {
+  return v !== null && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : undefined;
 }
 
 function firstString(...values: unknown[]): string | undefined {
@@ -42,40 +58,85 @@ function firstString(...values: unknown[]): string | undefined {
   return undefined;
 }
 
-/** Normalise `errors` from either an array of objects/strings or an RFC 7807 dictionary. */
-export function extractRuntimeErrorLines(details: Record<string, unknown> | undefined): DetailLine[] {
-  const raw = details?.errors;
-  if (!raw) return [];
-  const out: DetailLine[] = [];
+/**
+ * Normalise the per-error list from any of the shapes the engine emits:
+ * - Aether `error.validationErrors[]` → `{ message, members[] }`
+ * - `errors[]` of objects (`code`/`message`/`target`) or plain strings
+ * - RFC 7807 `errors{}` dictionary → `{ field: [messages] }`
+ */
+export function extractRuntimeErrorLines(body: Record<string, unknown> | undefined): RuntimeErrorLine[] {
+  if (!body) return [];
+  const out: RuntimeErrorLine[] = [];
+
+  const validationErrors = body.validationErrors;
+  if (Array.isArray(validationErrors)) {
+    for (const item of validationErrors) {
+      const v = rec(item);
+      if (!v) continue;
+      const message = firstString(v.message, v.errorMessage);
+      if (!message) continue;
+      const members = Array.isArray(v.members) ? v.members : Array.isArray(v.memberNames) ? v.memberNames : [];
+      const code = members.filter((m): m is string => typeof m === 'string').join(', ') || undefined;
+      out.push({ code, message });
+    }
+  }
+
+  const raw = body.errors;
   if (Array.isArray(raw)) {
     for (const item of raw) {
       if (typeof item === 'string') out.push({ message: item });
-      else if (item && typeof item === 'object') {
-        const rec = item as Record<string, unknown>;
-        const message = firstString(rec.message, rec.errorMessage, rec.detail, rec.description);
-        const code = firstString(rec.code, rec.errorCode, rec.target);
+      else {
+        const r = rec(item);
+        if (!r) continue;
+        const message = firstString(r.message, r.errorMessage, r.detail, r.description);
+        const code = firstString(r.code, r.errorCode, r.target);
         if (message) out.push({ code, message });
         else if (code) out.push({ message: code });
       }
     }
-    return out;
-  }
-  if (typeof raw === 'object') {
-    for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
-      const messages = Array.isArray(value) ? value.filter((m): m is string => typeof m === 'string') : [str(value)].filter(Boolean) as string[];
-      for (const message of messages) out.push({ code: key, message });
+  } else {
+    const dict = rec(raw);
+    if (dict) {
+      for (const [key, value] of Object.entries(dict)) {
+        const messages = Array.isArray(value)
+          ? value.filter((m): m is string => typeof m === 'string')
+          : str(value) ? [value as string] : [];
+        for (const message of messages) out.push({ code: key, message });
+      }
     }
   }
   return out;
 }
 
-export function RuntimeErrorBanner({ title, error, onDismiss }: RuntimeErrorBannerProps) {
+/**
+ * Pull the useful parts out of an `ApiFailure` whose `details` carry the
+ * runtime's response body (merged there by `QuickRunService.parseJsonResponse`
+ * next to `httpStatus`). The engine wraps its payload as `{ "error": { … } }`
+ * (Aether error format); older / problem-details shapes put the fields at the
+ * top level, so both are read.
+ */
+export function summarizeRuntimeError(error: RuntimeErrorLike): RuntimeErrorSummary {
   const details = error.details ?? {};
-  const httpStatus = typeof details.httpStatus === 'number' ? details.httpStatus : typeof details.status === 'number' ? details.status : undefined;
-  const runtimeCode = firstString(details.code, details.errorCode, details.type);
-  const summary = firstString(details.message, details.detail, details.title) ?? error.message;
-  const lines = extractRuntimeErrorLines(details);
-  const traceId = firstString(details.traceId, error.traceId);
+  const body = rec(details.error) ?? details;
+  const httpStatus =
+    typeof details.httpStatus === 'number' ? details.httpStatus
+    : typeof body.status === 'number' ? body.status
+    : undefined;
+  const codeCore = firstString(body.code, body.errorCode, body.type);
+  const prefix = str(body.prefix);
+  const code = codeCore && prefix && !codeCore.startsWith(`${prefix}:`) ? `${prefix}:${codeCore}` : codeCore;
+  const summary = firstString(body.message, body.detail, body.title) ?? error.message;
+  return {
+    httpStatus,
+    code,
+    summary,
+    lines: extractRuntimeErrorLines(body),
+    traceId: firstString(details.traceId, body.traceId, error.traceId),
+  };
+}
+
+export function RuntimeErrorBanner({ title, error, onDismiss }: RuntimeErrorBannerProps) {
+  const { httpStatus, code: runtimeCode, summary, lines, traceId } = summarizeRuntimeError(error);
 
   return (
     <section
