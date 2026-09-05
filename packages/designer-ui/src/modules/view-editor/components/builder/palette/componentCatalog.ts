@@ -314,6 +314,21 @@ const LOCAL_UI_CATALOG: ComponentMeta[] = [
     propertySchema: bindableInputFields,
   },
   {
+    type: 'ImagePicker',
+    category: 'Input',
+    label: 'Image Picker',
+    iconName: 'Images',
+    description: 'Single-select image grid fed by schema x-lov (imageField → item image URL)',
+    defaultProps: { type: 'ImagePicker', bind: '', columns: 3, itemAspectRatio: 1, showTitles: false },
+    acceptsChildren: false,
+    propertySchema: [
+      { key: 'bind', kind: 'bind', label: 'Bind', placeholder: 'e.g. cardDesign', required: true },
+      { key: 'columns', kind: 'number', label: 'Columns', min: 1, max: 6, step: 1 },
+      { key: 'itemAspectRatio', kind: 'number', label: 'Item aspect ratio', min: 0.25, max: 4, step: 0.25, hint: 'width / height of each tile' },
+      { key: 'showTitles', kind: 'boolean', label: 'Show titles' },
+    ],
+  },
+  {
     type: 'Checkbox',
     category: 'Input',
     label: 'Checkbox',
@@ -371,6 +386,24 @@ const LOCAL_UI_CATALOG: ComponentMeta[] = [
     ],
   },
   {
+    type: 'Timer',
+    category: 'Input',
+    label: 'Timer',
+    iconName: 'TimerReset',
+    description: 'Countdown timer (display-only; ticks locally once per second)',
+    defaultProps: { type: 'Timer', duration: 180, format: 'mm:ss', variant: 'plain' },
+    acceptsChildren: false,
+    propertySchema: [
+      { key: 'duration', kind: 'number', label: 'Duration (seconds)', min: 1, step: 1, required: true },
+      { key: 'format', kind: 'select', label: 'Format', options: [
+        { value: 'mm:ss', label: 'mm:ss' }, { value: 'hh:mm:ss', label: 'hh:mm:ss' }, { value: 'ss', label: 'seconds' },
+      ], allowEmpty: true },
+      { key: 'variant', kind: 'select', label: 'Variant', options: [
+        { value: 'plain', label: 'plain' }, { value: 'outlined', label: 'outlined' }, { value: 'filled', label: 'filled' },
+      ], allowEmpty: true },
+    ],
+  },
+  {
     type: 'Slider',
     category: 'Input',
     label: 'Slider',
@@ -417,6 +450,16 @@ const LOCAL_UI_CATALOG: ComponentMeta[] = [
       ...bindableInputFields,
       { key: 'minLength', kind: 'number', label: 'Min chars', min: 0 },
     ],
+  },
+  {
+    type: 'ArrayField',
+    category: 'Input',
+    label: 'Array Field',
+    iconName: 'ListPlus',
+    description: 'Repeatable list editor auto-expanded from a type:"array" schema property',
+    defaultProps: { type: 'ArrayField', bind: '', variant: 'outlined' },
+    acceptsChildren: false,
+    propertySchema: bindableInputFields,
   },
 
   // ─── Display ──────────────────────────────────────────────────────────
