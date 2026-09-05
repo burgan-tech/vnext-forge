@@ -39,6 +39,31 @@
   filter: drop-shadow(0 0 8px rgba(14, 165, 233, 0.7)) !important;
 }
 
+/* ─── Edge hover emphasis ─── */
+/*
+ * Hovering a transition thickens the stroke and adds a soft glow so the
+ * link under the cursor is unambiguous before the user clicks it. The
+ * width comes from `--vf-edge-hover-w`, which TransitionEdge sets inline
+ * per edge (proportional to the Thin / Normal / Thick setting via
+ * `resolveEdgeHoverStrokeWidth`). `!important` is required because the
+ * base `stroke-width` is an inline style — same reason the pulse rules
+ * below use it. The stroke color is left alone: it encodes the trigger
+ * type and must not change on hover.
+ *
+ * Pulse / reachability highlights already set a fixed width and glow and
+ * are excluded so hovering does not fight the animation.
+ */
+.react-flow__edge:hover:not([class*='vf-pulse-edge']) .react-flow__edge-path {
+  stroke-width: var(--vf-edge-hover-w, 3.5) !important;
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--color-action) 55%, transparent));
+}
+
+/* Focus Mode fades non-selected edges; the one under the cursor must
+ * still read at full strength or the hover cue is lost. */
+[data-focus-mode='true'] .react-flow__edge:hover {
+  opacity: 1 !important;
+}
+
 /* ─── EasyConnect connection handles ─── */
 /*
  * Four small circular dots — one centered on each edge of the state
@@ -300,6 +325,10 @@
   .react-flow__edge[class*='vf-pulse-edge-L'] .react-flow__edge-path,
   .react-flow__node[class*='vf-pulse-node-L'] {
     animation: none !important;
+  }
+  /* Hover emphasis snaps instead of easing. */
+  .react-flow__edge .react-flow__edge-path {
+    transition: none !important;
   }
   .react-flow__edge[class*='vf-pulse-edge-L'] .react-flow__edge-path {
     stroke: var(--color-action);

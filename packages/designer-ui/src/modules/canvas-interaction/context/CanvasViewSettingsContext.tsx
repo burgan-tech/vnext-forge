@@ -391,6 +391,17 @@ export function resolveEdgeStrokeWidth(step: SizeStep): number {
   }
 }
 
+/**
+ * Stroke width an edge grows to while hovered. Proportional to the base so
+ * Thin / Normal / Thick keep their relative feel, with a floor of +1.25px so
+ * the thinnest setting still produces a visible jump. Applied by
+ * `canvas-overrides.css` through the `--vf-edge-hover-w` custom property that
+ * `TransitionEdge` sets inline on its path.
+ */
+export function resolveEdgeHoverStrokeWidth(base: number): number {
+  return Math.max(base * 1.6, base + 1.25);
+}
+
 export function resolveArrowSize(step: SizeStep): number {
   switch (step) {
     case 'sm':
