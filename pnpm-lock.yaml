@@ -92,8 +92,8 @@ importers:
   apps/extension:
     dependencies:
       '@burgan-tech/vnext-schema':
-        specifier: ^0.0.39
-        version: 0.0.39
+        specifier: ^0.0.53
+        version: 0.0.53
       '@burgan-tech/vnext-template':
         specifier: ^0.0.7
         version: 0.0.7
@@ -268,8 +268,8 @@ importers:
   apps/server:
     dependencies:
       '@burgan-tech/vnext-schema':
-        specifier: ^0.0.39
-        version: 0.0.39
+        specifier: ^0.0.53
+        version: 0.0.53
       '@burgan-tech/vnext-template':
         specifier: ^0.0.7
         version: 0.0.7
@@ -617,8 +617,8 @@ importers:
         version: 5.0.12(@types/react@19.2.14)(immer@10.2.0)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4))
     devDependencies:
       '@burgan-tech/vnext-schema':
-        specifier: ^0.0.39
-        version: 0.0.39
+        specifier: ^0.0.53
+        version: 0.0.53
       '@types/react':
         specifier: ^19.0.0
         version: 19.2.14
@@ -706,6 +706,9 @@ importers:
         specifier: ^4.3.6
         version: 4.3.6
     devDependencies:
+      '@burgan-tech/vnext-schema':
+        specifier: ^0.0.53
+        version: 0.0.53
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.17
@@ -931,6 +934,10 @@ packages:
 
   '@burgan-tech/vnext-schema@0.0.39':
     resolution: {integrity: sha512-H/EpP0yMCgH+6ITJid0USlSLok8ibtEFSY+I9PGnbMdBtP9x50tmZu7oZYTNC30utNAloO1uIqYiL/ckYX9Bxg==}
+    engines: {node: '>=14.0.0'}
+
+  '@burgan-tech/vnext-schema@0.0.53':
+    resolution: {integrity: sha512-YxvVEpZ8b/mh7p4Q7bbkOgfynWzf/jlB7N24OtIcpw8+TpEaNNVtkyu1rJqGNbviLlcTg8TLMIDx6JkzkjLzUA==}
     engines: {node: '>=14.0.0'}
 
   '@burgan-tech/vnext-template@0.0.7':
@@ -6859,6 +6866,8 @@ snapshots:
   '@burgan-tech/vnext-schema@0.0.38': {}
 
   '@burgan-tech/vnext-schema@0.0.39': {}
+
+  '@burgan-tech/vnext-schema@0.0.53': {}
 
   '@burgan-tech/vnext-template@0.0.7':
     dependencies:

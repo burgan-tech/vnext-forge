@@ -87,7 +87,7 @@
     "zustand": "^5.0.0"
   },
   "devDependencies": {
-    "@burgan-tech/vnext-schema": "^0.0.39",
+    "@burgan-tech/vnext-schema": "^0.0.53",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "react": "^19.0.0",
