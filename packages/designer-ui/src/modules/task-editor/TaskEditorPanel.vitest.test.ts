@@ -94,6 +94,21 @@ describe('TaskEditorPanel layout', () => {
     expect(html).toContain('Inputs (JSON)');
   });
 
+  it('renders a configuration form for Get Instances tasks', () => {
+    const html = renderTaskEditorPanel('15');
+    expect(html).toContain('Get Instances task settings.');
+    expect(html).toContain('Sort');
+    expect(html).toContain('Filter');
+  });
+
+  it('renders a configuration form for Fan-Out tasks', () => {
+    const html = renderTaskEditorPanel('21');
+    expect(html).toContain('Fan-Out task settings.');
+    expect(html).toContain('Inner Task');
+    expect(html).toContain('Join Policy');
+    expect(html).toContain('Per-item error boundary');
+  });
+
   it('does not pin the Configuration card to a flex-1 / overflow-hidden chain', () => {
     const html = renderTaskEditorPanel('7');
     const cardClassLists = Array.from(html.matchAll(/data-slot="card" class="([^"]+)"/g)).map(

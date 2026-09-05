@@ -27,6 +27,7 @@ export const TASK_TYPE_LABELS: Record<string, string> = {
   '18': 'Cache Aside',
   '19': 'Get Instance',
   '20': 'Dapr Conversation',
+  '21': 'Fan-Out',
 };
 
 export const EXTENSION_TYPE_LABELS: Record<number, string> = {

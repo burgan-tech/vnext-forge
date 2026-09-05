@@ -15,6 +15,7 @@ import { SoapTaskForm } from './SoapTaskForm';
 import { StateStoreTaskForm } from './StateStoreTaskForm';
 import { CacheAsideTaskForm } from './CacheAsideTaskForm';
 import { DaprConversationTaskForm } from './DaprConversationTaskForm';
+import { FanOutTaskForm } from './FanOutTaskForm';
 
 interface TaskFormProps {
   config: Record<string, unknown>;
@@ -40,4 +41,5 @@ export const taskFormMap: Record<string, ComponentType<TaskFormProps>> = {
   '18': CacheAsideTaskForm,
   '19': GetInstanceTaskForm,
   '20': DaprConversationTaskForm,
+  '21': FanOutTaskForm,
 };
