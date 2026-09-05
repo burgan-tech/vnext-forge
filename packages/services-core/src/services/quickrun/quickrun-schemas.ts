@@ -358,8 +358,9 @@ export const quickrunGetInstanceResult = z.object({
 
 export const quickrunListInstancesParams = z.object({
   ...workflowIdentifier,
-  page: z.number().int().positive().optional().default(1),
-  pageSize: z.number().int().positive().optional().default(20),
+  // Runtime bounds: page 1..1000, pageSize 1..100 (`GetInstanceListInput`).
+  page: z.number().int().min(1).max(1000).optional().default(1),
+  pageSize: z.number().int().min(1).max(100).optional().default(20),
   version: z.string().optional(),
   orderBy: z.string().optional(),
   sort: z.string().optional(),
@@ -375,6 +376,9 @@ const instanceMetadataSchema = z.object({
   status: instanceStatusSchema,
   effectiveStateType: z.string().optional(),
   effectiveStateSubType: z.string().optional(),
+  currentStateType: z.string().optional(),
+  currentStateSubType: z.string().optional(),
+  stage: z.string().optional(),
   completedAt: z.string().optional(),
   duration: z.number().optional(),
   createdAt: z.string(),

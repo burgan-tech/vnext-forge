@@ -81,6 +81,7 @@ function getTaskTypeName(type: string): string {
     '18': 'Cache Aside',
     '19': 'Get Instance',
     '20': 'Dapr Conversation',
+    '21': 'Fan-Out',
   };
   return names[type] || `Unknown (${type})`;
 }

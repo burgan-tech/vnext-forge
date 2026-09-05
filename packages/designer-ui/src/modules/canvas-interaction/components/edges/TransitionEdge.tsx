@@ -16,6 +16,7 @@ import {
   resolveLabelFontPx,
   resolveSelfLoopBox,
   type EdgePathStyle,
+  resolveEdgeHoverStrokeWidth,
 } from '../../context/CanvasViewSettingsContext';
 import { getFloatingEdgeParams } from '../../utils/floating-edge-utils';
 import { pickMarkerEnd } from './SharedEdgeMarkers';
@@ -503,6 +504,12 @@ export const TransitionEdge = memo(function TransitionEdge(props: EdgeProps) {
     executionStatus === 'traversed' ? Math.max(strokeWidth, 2.5) :
     strokeWidth;
 
+  // Hover emphasis lives in CSS (`.react-flow__edge:hover .react-flow__edge-path`
+  // in canvas-overrides.css) because xyflow owns the pointer events on the
+  // edge group. The target width is computed here so it stays proportional to
+  // the user's stroke setting and travels as a custom property the CSS reads.
+  const hoverStrokeWidth = resolveEdgeHoverStrokeWidth(executionStrokeWidth);
+
   return (
     <>
       <BaseEdge
@@ -513,10 +520,11 @@ export const TransitionEdge = memo(function TransitionEdge(props: EdgeProps) {
           strokeWidth: executionStrokeWidth,
           opacity: executionOpacity,
           strokeDasharray: animated ? '6 4' : dash,
-          transition: 'stroke-width 0.15s ease',
+          transition: 'stroke-width 0.15s ease, filter 0.15s ease',
           vectorEffect,
           animation: animated ? 'vf-edge-dash-flow 0.8s linear infinite' : undefined,
-        }}
+          ['--vf-edge-hover-w' as string]: hoverStrokeWidth,
+        } as React.CSSProperties}
         markerEnd={markerEnd}
       />
       {isSpotlight && (

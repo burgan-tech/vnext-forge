@@ -48,6 +48,7 @@ const TASK_TYPE_LABELS: Record<string, string> = {
   '18': 'Cache Aside Task',
   '19': 'Get Instance Task',
   '20': 'Dapr Conversation Task',
+  '21': 'FanOut Task',
 };
 
 function configToRows(config: Record<string, unknown>): string[][] {

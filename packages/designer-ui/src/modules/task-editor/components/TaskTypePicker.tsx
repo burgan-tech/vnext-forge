@@ -18,6 +18,7 @@ const TASK_TYPES = [
   { value: '18', label: 'Cache Aside', desc: 'Read-through cache pattern' },
   { value: '19', label: 'Get Instance', desc: 'Read full instance projection' },
   { value: '20', label: 'Dapr Conversation', desc: 'Invoke an LLM via Dapr' },
+  { value: '21', label: 'Fan-Out', desc: 'Run a task once per item, in parallel' },
 ] as const;
 
 interface TaskTypePickerProps {

@@ -92,8 +92,8 @@ importers:
   apps/extension:
     dependencies:
       '@burgan-tech/vnext-schema':
-        specifier: ^0.0.39
-        version: 0.0.39
+        specifier: ^0.0.53
+        version: 0.0.53
       '@burgan-tech/vnext-template':
         specifier: ^0.0.7
         version: 0.0.7
@@ -268,8 +268,8 @@ importers:
   apps/server:
     dependencies:
       '@burgan-tech/vnext-schema':
-        specifier: ^0.0.39
-        version: 0.0.39
+        specifier: ^0.0.53
+        version: 0.0.53
       '@burgan-tech/vnext-template':
         specifier: ^0.0.7
         version: 0.0.7
@@ -463,8 +463,8 @@ importers:
   packages/designer-ui:
     dependencies:
       '@burgan-tech/pseudo-ui':
-        specifier: ^0.3.0
-        version: 0.3.0(primereact@10.9.8(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)
+        specifier: ^0.4.0
+        version: 0.4.0(primereact@10.9.8(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)
       '@dagrejs/dagre':
         specifier: ^3.0.0
         version: 3.0.0
@@ -617,8 +617,8 @@ importers:
         version: 5.0.12(@types/react@19.2.14)(immer@10.2.0)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4))
     devDependencies:
       '@burgan-tech/vnext-schema':
-        specifier: ^0.0.39
-        version: 0.0.39
+        specifier: ^0.0.53
+        version: 0.0.53
       '@types/react':
         specifier: ^19.0.0
         version: 19.2.14
@@ -706,6 +706,9 @@ importers:
         specifier: ^4.3.6
         version: 4.3.6
     devDependencies:
+      '@burgan-tech/vnext-schema':
+        specifier: ^0.0.53
+        version: 0.0.53
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.17
@@ -887,8 +890,8 @@ packages:
   '@braintree/sanitize-url@7.1.2':
     resolution: {integrity: sha512-jigsZK+sMF/cuiB7sERuo9V7N9jx+dhmHHnQyDSVdpZwVutaBu7WvNYqMDLSgFgfB30n452TP3vjDAvFC973mA==}
 
-  '@burgan-tech/pseudo-ui@0.3.0':
-    resolution: {integrity: sha512-hcKG8DU4dUehrTMFpXyMcmC2rB/91hUR7Ryfel/DQ3LygUhGz2Qqjv0o74xZqNb9vzRnIYbAFfgq4u5teyfBcw==}
+  '@burgan-tech/pseudo-ui@0.4.0':
+    resolution: {integrity: sha512-RvmIdZmijJDIivjDJYJ5RbUmoDjtG9JdQ1M9pLo+FBt8IarBEpq4jvhCWoO4iuU9YSeX1lCWmvML3jx46XbeVA==}
     peerDependencies:
       '@angular/animations': '>=19.0.0 <21.0.0'
       '@angular/cdk': '>=19.0.0 <21.0.0'
@@ -931,6 +934,10 @@ packages:
 
   '@burgan-tech/vnext-schema@0.0.39':
     resolution: {integrity: sha512-H/EpP0yMCgH+6ITJid0USlSLok8ibtEFSY+I9PGnbMdBtP9x50tmZu7oZYTNC30utNAloO1uIqYiL/ckYX9Bxg==}
+    engines: {node: '>=14.0.0'}
+
+  '@burgan-tech/vnext-schema@0.0.53':
+    resolution: {integrity: sha512-YxvVEpZ8b/mh7p4Q7bbkOgfynWzf/jlB7N24OtIcpw8+TpEaNNVtkyu1rJqGNbviLlcTg8TLMIDx6JkzkjLzUA==}
     engines: {node: '>=14.0.0'}
 
   '@burgan-tech/vnext-template@0.0.7':
@@ -6842,7 +6849,7 @@ snapshots:
 
   '@braintree/sanitize-url@7.1.2': {}
 
-  '@burgan-tech/pseudo-ui@0.3.0(primereact@10.9.8(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)':
+  '@burgan-tech/pseudo-ui@0.4.0(primereact@10.9.8(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)':
     dependencies:
       '@primeuix/themes': 2.0.3
       primeicons: 7.0.0
@@ -6859,6 +6866,8 @@ snapshots:
   '@burgan-tech/vnext-schema@0.0.38': {}
 
   '@burgan-tech/vnext-schema@0.0.39': {}
+
+  '@burgan-tech/vnext-schema@0.0.53': {}
 
   '@burgan-tech/vnext-template@0.0.7':
     dependencies:

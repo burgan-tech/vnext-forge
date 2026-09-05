@@ -1,5 +1,6 @@
 import { Label } from './label';
 import type { MappingCodeRef } from './mapping';
+import type { ErrorBoundary } from './error-boundary';
 
 export interface TaskDefinition {
   key: string;
@@ -275,6 +276,52 @@ export interface DaprConversationTaskConfig {
   scrubPII?: boolean;
   /** Default: 30 */
   timeoutSeconds?: number;
+}
+
+export type FanOutJoinPolicy = 'all' | 'allSettled' | 'quorum' | 'firstSuccess';
+
+/** Inner task run once per item. All four parts are required by the runtime. */
+export interface FanOutInnerTaskReference {
+  key: string;
+  domain: string;
+  flow: string;
+  version: string;
+}
+
+export interface FanOutExecutionConfig {
+  /** Batch-local concurrency cap. Default: 4 */
+  maxDegreeOfParallelism?: number;
+  /** Per-item deadline; must be <= batchTimeoutSeconds. Default: 30 */
+  itemTimeoutSeconds?: number;
+  /** Whole-batch deadline. Default: 120 */
+  batchTimeoutSeconds?: number;
+}
+
+export interface FanOutJoinConfig {
+  /** Default: allSettled */
+  policy?: FanOutJoinPolicy;
+  /** Required when policy is quorum; ignored otherwise */
+  minSuccess?: number;
+  /** Instance-data key the default output packaging writes under. Default: fanOutResults */
+  resultKey?: string;
+  /** No-op in inline mode (results are always index-ordered); reserved for durable mode. Default: true */
+  ordered?: boolean;
+}
+
+/** FanOut task (type 21): resolve a collection at runtime, run `task` once per item in parallel, join the results. */
+export interface FanOutTaskConfig {
+  /** Only "inline" is supported by the runtime. Default: inline */
+  mode?: 'inline';
+  /** "$."-rooted dot path to the item array. Mutually exclusive with an ItemSelector override in the workflow mapping. */
+  itemsPath?: string;
+  /** Reporting label for logs/traces only; plays no role in input binding */
+  itemAlias?: string;
+  /** Inner task reference (required) */
+  task: FanOutInnerTaskReference;
+  execution?: FanOutExecutionConfig;
+  join?: FanOutJoinConfig;
+  /** Per-item error boundary, applied independently to every item */
+  errorBoundary?: ErrorBoundary;
 }
 
 export interface GetInstanceDataTaskConfig {

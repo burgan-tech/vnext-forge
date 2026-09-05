@@ -19,4 +19,5 @@ export enum TaskType {
   CacheAside = 18,
   GetInstance = 19,
   DaprConversation = 20,
+  FanOut = 21,
 }

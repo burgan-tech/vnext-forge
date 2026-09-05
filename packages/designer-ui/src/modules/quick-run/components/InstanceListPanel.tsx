@@ -12,6 +12,7 @@ import { useQuickRunStore } from '../store/quickRunStore';
 import type { InstanceListItem } from '../types/quickrun.types';
 import { EnvBadge } from './EnvBadge';
 import { InstanceFilterPanel } from './InstanceFilterPanel';
+import { RuntimeErrorBanner, type RuntimeErrorLike } from './RuntimeErrorBanner';
 import { StatusBadge } from './StatusBadge';
 
 export function InstanceListPanel() {
@@ -38,6 +39,10 @@ export function InstanceListPanel() {
   const [activeOrderBy, setActiveOrderBy] = useState<string | undefined>(
     JSON.stringify({ field: 'createdAt', direction: 'desc' }),
   );
+  // The runtime rejects malformed filter/sort with a 400 instead of silently
+  // returning every row (fail-closed since PR #881). Keep the last good list on
+  // screen, but say what was rejected and why.
+  const [listError, setListError] = useState<RuntimeErrorLike | null>(null);
 
   const openInstance = useCallback((item: InstanceListItem) => {
     if (instances.has(item.id)) {
@@ -86,9 +91,16 @@ export function InstanceListPanel() {
       });
       if (response.success) {
         setInstanceList(response.data.items);
+        setListError(null);
+      } else {
+        setListError(response.error);
       }
-    } catch {
-      /* network error — keep existing list */
+    } catch (err) {
+      // Transport-level failure (the RPC itself threw) — keep the existing list.
+      setListError({
+        code: 'RUNTIME_CONNECTION_FAILED',
+        message: err instanceof Error ? err.message : 'Could not reach the runtime.',
+      });
     }
     setInstanceListLoading(false);
   }, [domain, workflowKey, globalHeaders, environmentUrl, activeFilter, activeOrderBy, setInstanceList, setInstanceListLoading]);
@@ -99,7 +111,7 @@ export function InstanceListPanel() {
   }, []);
 
   useEffect(() => {
-    loadInstances();
+    void loadInstances();
   }, [loadInstances]);
 
   const activeInstances = Array.from(instances.values()).filter((i) => i.status === 'A' || i.status === 'B');
@@ -136,7 +148,7 @@ export function InstanceListPanel() {
                 <button
                   className="flex h-5 w-5 items-center justify-center rounded text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]"
                   aria-label="Refresh"
-                  onClick={loadInstances}
+                  onClick={() => void loadInstances()}
                 >
                   ↻
                 </button>
@@ -153,6 +165,14 @@ export function InstanceListPanel() {
         <InstanceFilterPanel
           onApply={handleFilterApply}
           onClose={() => setShowFilter(false)}
+        />
+      )}
+
+      {listError && (
+        <RuntimeErrorBanner
+          title="Instance list request failed"
+          error={listError}
+          onDismiss={() => setListError(null)}
         />
       )}
 

@@ -6,19 +6,20 @@
  *
  * `vnext-schema` PR #128 (merged 2026-08-02) turned `attributes.display` into
  * `oneOf: [sdiDisplay, displayModes]`, so a view can declare its display per
- * client mode. No npm release carries it yet — 0.0.51 was published 2026-07-27
- * and is still the string-only enum with no `definitions` block — while Forge
- * pins `^0.0.39` and projects pin their own `schemaVersion`. Without this patch
- * the View editor would author `{ "sdi": …, "mdi": … }` and then Forge's own
- * validation would reject it with `must be string`.
+ * client mode. The first npm release carrying it is 0.0.52; Forge's bundled
+ * pin is now `^0.0.53`, so the bundled schema no longer needs this patch and
+ * `patchViewDisplaySchema` is a no-op on it. Projects still pin their own
+ * `schemaVersion` in `vnext.config.json`, and the schema cache resolves that
+ * exact package — for anything at or below 0.0.51 the View editor would author
+ * `{ "sdi": …, "mdi": … }` and Forge's own validation would reject it with
+ * `must be string`. That is the only path this patch still serves.
  *
  * ## Why it is safe to delete later
  *
  * The patch is **shape-detected, not version-gated**: it fires only when the
- * resolved schema still has the old string-only `display`. The day a package
- * carrying #128 is published and a project pins it, this becomes a no-op for
- * that project, and the file can be removed outright once the pinned floor is
- * high enough everywhere.
+ * resolved schema still has the old string-only `display`. For the bundled
+ * package (0.0.53+) it is already a no-op; it can be removed outright once no
+ * supported project pins a `schemaVersion` below 0.0.52.
  *
  * Scoped to the `display` node and the three `definitions` it needs, so any
  * other view-schema change in a newer published version still takes effect —

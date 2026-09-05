@@ -284,9 +284,15 @@ export interface InstanceListItem {
     status: InstanceStatus;
     effectiveStateType?: string;
     effectiveStateSubType?: string;
+    currentStateType?: string;
+    currentStateSubType?: string;
+    stage?: string;
     completedAt?: string;
     duration?: number;
     createdAt: string;
+    modifiedAt?: string;
+    createdBy?: string;
+    modifiedBy?: string;
   };
 }
 
