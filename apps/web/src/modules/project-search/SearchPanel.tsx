@@ -161,7 +161,7 @@ function SearchPanelWorkspace() {
 
       if (route.navigateTo) {
         if (route.type === 'config') {
-          openVnextWorkspaceConfigTab(activeProject.id);
+          openVnextWorkspaceConfigTab(activeProject.id, activeProject.configFileName);
         } else {
           openEditorTabForComponentRoute(route, activeProject.id);
         }

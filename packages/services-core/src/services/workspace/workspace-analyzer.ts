@@ -14,52 +14,85 @@ import type {
   WorkspaceConfigReadStatus,
 } from './types.js'
 
+export interface ReadConfigOptions {
+  /** Solution file name inside the root; defaults to `vnext.config.json`. */
+  configFileName?: string
+}
+
+/**
+ * Pure: raw solution-file text → read status. `fileName` only decorates the
+ * human-readable messages so a domain-suffixed file is reported under its own name.
+ */
+export function parseConfigStatus(raw: string, fileName: string): WorkspaceConfigReadStatus {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    return { status: 'invalid', message: `${fileName} is not a valid JSON file.` }
+  }
+
+  const checked = workspaceRootConfigSchema.safeParse(parsed)
+  if (!checked.success) {
+    const fieldErrors = checked.error.issues.slice(0, 5).map((issue) => {
+      const field = issue.path.length > 0 ? issue.path.join('.') : null
+      return field ? `${field}: ${issue.message}` : issue.message
+    })
+    return {
+      status: 'invalid',
+      message: `${fileName} structure is invalid:\n${fieldErrors.join('\n')}`,
+    }
+  }
+
+  return { status: 'ok', config: normalizeWorkspaceRootToConfig(checked.data) }
+}
+
 export function createWorkspaceAnalyzer(deps: { fs: FileSystemAdapter }) {
   const { fs } = deps
 
-  async function readConfig(rootPath: string, traceId?: string): Promise<VnextWorkspaceConfig> {
+  async function readConfig(
+    rootPath: string,
+    traceId?: string,
+    opts?: ReadConfigOptions,
+  ): Promise<VnextWorkspaceConfig> {
+    const configFileName = opts?.configFileName ?? CONFIG_FILE
     try {
-      const raw = await fs.readFile(joinPosix(rootPath, CONFIG_FILE))
+      const raw = await fs.readFile(joinPosix(rootPath, configFileName))
       return JSON.parse(raw) as VnextWorkspaceConfig
     } catch (error) {
-      throw toAnalyzerError(error, 'WorkspaceAnalyzer.readConfig', traceId, { rootPath })
+      throw toAnalyzerError(error, 'WorkspaceAnalyzer.readConfig', traceId, {
+        rootPath,
+        configFileName,
+      })
     }
   }
 
   async function readConfigStatus(
     rootPath: string,
     traceId?: string,
+    opts?: ReadConfigOptions,
   ): Promise<WorkspaceConfigReadStatus> {
-    const configPath = joinPosix(rootPath, CONFIG_FILE)
+    const configFileName = opts?.configFileName ?? CONFIG_FILE
+    return readConfigStatusAtPath(joinPosix(rootPath, configFileName), traceId)
+  }
+
+  /**
+   * Read + zod-validate a solution file at an explicit path. Shared by the
+   * root-relative `readConfigStatus` and by the multi-solution scanner, so the
+   * `missing` / `invalid` semantics stay identical for every solution file.
+   */
+  async function readConfigStatusAtPath(
+    configPath: string,
+    traceId?: string,
+  ): Promise<WorkspaceConfigReadStatus> {
     let raw: string
     try {
       raw = await fs.readFile(configPath)
     } catch (error) {
       const code = getErrnoCode(error)
       if (code === 'ENOENT' || code === 'FileNotFound') return { status: 'missing' }
-      throw toAnalyzerError(error, 'WorkspaceAnalyzer.readConfigStatus', traceId, { rootPath })
+      throw toAnalyzerError(error, 'WorkspaceAnalyzer.readConfigStatus', traceId, { configPath })
     }
-
-    let parsed: unknown
-    try {
-      parsed = JSON.parse(raw)
-    } catch {
-      return { status: 'invalid', message: 'vnext.config.json is not a valid JSON file.' }
-    }
-
-    const checked = workspaceRootConfigSchema.safeParse(parsed)
-    if (!checked.success) {
-      const fieldErrors = checked.error.issues.slice(0, 5).map((issue) => {
-        const field = issue.path.length > 0 ? issue.path.join('.') : null
-        return field ? `${field}: ${issue.message}` : issue.message
-      })
-      return {
-        status: 'invalid',
-        message: `vnext.config.json structure is invalid:\n${fieldErrors.join('\n')}`,
-      }
-    }
-
-    return { status: 'ok', config: normalizeWorkspaceRootToConfig(checked.data) }
+    return parseConfigStatus(raw, basename(configPath))
   }
 
   async function buildTree(rootPath: string, traceId?: string): Promise<FileTreeNode> {
@@ -157,7 +190,7 @@ export function createWorkspaceAnalyzer(deps: { fs: FileSystemAdapter }) {
     )
   }
 
-  return { analyze, readConfig, readConfigStatus, buildTree }
+  return { analyze, readConfig, readConfigStatus, readConfigStatusAtPath, buildTree }
 }
 
 export type WorkspaceAnalyzer = ReturnType<typeof createWorkspaceAnalyzer>

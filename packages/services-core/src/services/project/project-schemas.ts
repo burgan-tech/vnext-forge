@@ -81,6 +81,7 @@ export const projectEntryShape = z.object({
   version: z.string().optional(),
   workflowCount: z.number().int().optional(),
   linked: z.boolean().optional(),
+  configFileName: z.string().optional(),
 })
 export const projectsListResult = z.array(projectEntryShape)
 
@@ -199,6 +200,7 @@ const vnextComponentRowShape = z.object({
   path: z.string(),
   flow: z.string(),
   version: z.string().optional(),
+  domain: z.string().optional(),
 })
 
 const vnextComponentsByCategoryShape = z.object({

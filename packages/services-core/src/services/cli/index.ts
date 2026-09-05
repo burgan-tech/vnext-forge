@@ -21,9 +21,23 @@ export {
   buildDomainRemoveArgv,
   buildDomainUseArgv,
   createCliService,
+  type CliCheckResult,
   type CliService,
   type CliServiceDeps,
 } from './cli.service.js'
+export { compareCoreSemver, extractCoreSemver } from './semver.js'
+export {
+  buildWfArgv,
+  buildWfShellCommand,
+  isValidWfDomainName,
+  quoteShellArg,
+  WF_DOMAIN_FLAG_MIN_VERSION,
+  WF_DOMAIN_NAME_PATTERN,
+  wfSupportsDomainFlag,
+  type WfCommandSpec,
+  type WfShellCommandOptions,
+  type WfWorkspaceCommand,
+} from './wf-argv.js'
 export {
   planDomainRegistration,
   type DesiredDomainRegistration,

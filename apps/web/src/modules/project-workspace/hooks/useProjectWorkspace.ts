@@ -70,7 +70,7 @@ export function useProjectWorkspace() {
       logger.info('File clicked', { path: node.path, resolvedRoute: route });
       if (route.navigateTo) {
         if (route.type === 'config') {
-          openVnextWorkspaceConfigTab(activeProject.id);
+          openVnextWorkspaceConfigTab(activeProject.id, activeProject.configFileName);
         } else {
           openEditorTabForComponentRoute(route, activeProject.id);
         }

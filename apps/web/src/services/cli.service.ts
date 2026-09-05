@@ -3,7 +3,7 @@ import { callApi } from '@shared/api/client';
 import { v1 } from './v1';
 
 export async function checkCliAvailable() {
-  return callApi<{ available: boolean; version?: string }>(
+  return callApi<{ available: boolean; version?: string; supportsDomainFlag: boolean }>(
     v1.cli.check.$post({ json: {} }),
   );
 }
@@ -12,6 +12,8 @@ export async function executeCliCommand(params: {
   command: string;
   projectId: string;
   filePath?: string;
+  /** Restrict the run to one solution / domain (multi-domain workspaces). */
+  domain?: string;
   timeoutMs?: number;
 }) {
   return callApi<{ exitCode: number; stdout: string; stderr: string }>(

@@ -73,19 +73,43 @@ npm install -g @burgan-tech/vnext-workflow-cli
 
 | Command | CLI Equivalent | Description |
 |---------|---------------|-------------|
-| **Deploy All** | `wf update --all` | Deploy all workflow definitions to the runtime |
-| **Deploy Changed** | `wf update` | Deploy only workflows with changes (git diff based) |
-| **CSX Update All** | `wf csx --all` | Upload all CSX script files to the runtime |
+| **Deploy All** | `wf update --all [--domain <d>]` | Deploy all component definitions to the runtime |
+| **Deploy Changed** | `wf update [--domain <d>]` | Deploy only components with changes (git diff based) |
+| **CSX Update All** | `wf csx --all [--domain <d>]` | Embed all CSX script files into their component JSON |
 
-These commands run in the VS Code integrated terminal at the detected vNext workspace root.
+These commands run in the VS Code integrated terminal at the vNext workspace root. When
+several vNext roots are open, Forge asks which one to deploy from first.
+
+#### Multi-domain workspaces
+
+A workspace root may hold several solution files (`vnext.config.json` plus
+`vnext.<domain>.config.json`). With Workflow CLI **1.0.13 or newer**:
+
+- Deploy commands first ask which domain to target: **All domains** runs the command once
+  per solution file, sequentially (the CLI default); picking a domain appends
+  `--domain <domain>` so only that solution is processed.
+- Every solution's `domain` must match a CLI domain profile (`wf domain list`); a solution
+  without a profile is skipped by the CLI with a warning.
+- Every component JSON must carry a `domain` equal to its solution's `domain`, otherwise the
+  CLI skips it with `DOMAIN_MISMATCH`. Forge flags such files in the Problems panel
+  (`component.missingDomain`).
+
+With an older CLI, Forge falls back to `wf domain use <domain> && wf …` (which also changes
+the CLI's active profile) and shows an **Update Workflow CLI** notice once per session; the
+"All domains" choice is not offered because older CLIs cannot iterate solution files.
 
 ### Per-File Publish
 
-From the workflow designer, click the **Publish** button (upload icon) in the top toolbar to deploy a single workflow file:
+From the designer toolbar (**Publish**, upload icon) or the Explorer context menu
+(**Forge: Publish**), a single component file is deployed from the workspace root that owns it:
 
 ```bash
-wf update -f <path-to-workflow.json>
+wf update -f <path-to-component.json> --domain <domain>
 ```
+
+The domain comes from the component's own `domain` field (falling back to the solution whose
+`componentsRoot` contains the file). If the file sits under another solution's folder, the CLI
+reports the conflict in the terminal.
 
 ## Build Commands
 

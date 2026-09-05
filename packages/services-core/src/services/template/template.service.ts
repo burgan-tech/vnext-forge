@@ -7,6 +7,7 @@ import type {
   ProcessAdapter,
 } from '../../adapters/index.js'
 import { joinPosix } from '../../internal/paths.js'
+import { CONFIG_FILE } from '../workspace/constants.js'
 import type {
   VnextWorkspaceConfig,
   VnextWorkspacePaths,
@@ -97,6 +98,7 @@ export function createTemplateService(deps: TemplateServiceDeps) {
     domainName: string,
     customConfig: VnextWorkspaceConfig,
     traceId?: string,
+    configFileName: string = CONFIG_FILE,
   ): Promise<void> {
     const domainDir = joinPosix(targetDir, domainName)
 
@@ -129,7 +131,7 @@ export function createTemplateService(deps: TemplateServiceDeps) {
       }
     }
 
-    const configPath = joinPosix(targetDir, 'vnext.config.json')
+    const configPath = joinPosix(targetDir, configFileName)
     await fs.writeFile(configPath, JSON.stringify(customConfig, null, 2))
     void traceId
   }

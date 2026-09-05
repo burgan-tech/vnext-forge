@@ -1,3 +1,4 @@
+import { isSolutionFileName } from '@vnext-forge-studio/vnext-types';
 import { createLogger, type VnextWorkspaceConfig } from '@vnext-forge-studio/designer-ui';
 
 export type FileRouteType =
@@ -34,11 +35,11 @@ export function resolveFileRoute(
 
   const relativePath = stripPrefix(normalizedFilePath, normalizedProjectPath) ?? normalizedFilePath;
 
-  if (relativePath.toLowerCase() === 'vnext.config.json') {
+  if (!relativePath.includes('/') && isSolutionFileName(relativePath)) {
     return {
       type: 'config',
       group: '',
-      name: 'vnext.config.json',
+      name: relativePath,
       navigateTo: `/project/${projectId}/workspace-config`,
     };
   }

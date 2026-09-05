@@ -5,7 +5,6 @@ import { isDesignerEditorRoute } from './designer-helpers.js'
 import { resolveFileRoute } from './file-router.js'
 import type { DesignerPanel } from './panels/DesignerPanel.js'
 import { baseLogger } from './shared/logger.js'
-import { readVnextConfigStatusSyncCached } from './sync-vnext-config-read.js'
 import type { VnextWorkspaceDetector } from './workspace-detector.js'
 
 /**
@@ -118,13 +117,17 @@ export class VnextComponentCustomTextEditorProvider implements vscode.CustomText
       return
     }
 
-    const status = readVnextConfigStatusSyncCached(root.folderPath)
-    if (status.status !== 'ok') {
+    // The document text is already in memory: resolve the owning solution from
+    // the component's own `$.domain` without another disk read. Solution files
+    // resolve to themselves; invalid ones fall back to the text editor.
+    const resolved = await this.detector.resolveSolutionForFile(target, { text: document.getText() })
+    const config = resolved?.solution.config
+    if (!resolved || !config) {
       await this.openInTextEditor(uri, webviewPanel)
       return
     }
 
-    const route = resolveFileRoute(target, status.config, root.folderPath)
+    const route = resolveFileRoute(target, config, root.folderPath)
     if (!isDesignerEditorRoute(route)) {
       await this.openInTextEditor(uri, webviewPanel)
       return
@@ -133,25 +136,28 @@ export class VnextComponentCustomTextEditorProvider implements vscode.CustomText
     this.designerPanel.adoptWebviewPanel(webviewPanel, {
       type: 'open-editor',
       kind: route.kind,
-      projectId: status.config.domain,
+      projectId: config.domain,
       projectPath: root.folderPath,
-      projectDomain: status.config.domain,
+      projectDomain: config.domain,
       group: route.group,
       name: route.name,
       filePath: route.filePath,
-      vnextConfig: status.config,
+      vnextConfig: config,
+      configFileName: resolved.solution.fileName,
     })
 
     promoteOutOfPreviewMode(webviewPanel)
 
     // Project registry hydration is best-effort — failures only mean the
     // designer's project store may need to refresh later.
-    void this.projectService.importProject(root.folderPath).catch((error) => {
-      baseLogger.warn(
-        { folder: root.folderPath, error: (error as Error).message },
-        'importProject after custom-editor open failed',
-      )
-    })
+    void this.projectService
+      .importProject(root.folderPath, undefined, { configFileName: resolved.solution.fileName })
+      .catch((error) => {
+        baseLogger.warn(
+          { folder: root.folderPath, error: (error as Error).message },
+          'importProject after custom-editor open failed',
+        )
+      })
   }
 
   /**

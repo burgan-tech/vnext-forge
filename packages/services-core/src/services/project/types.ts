@@ -8,12 +8,19 @@ export interface ProjectEntry {
   version?: string
   workflowCount?: number
   linked?: boolean
+  /**
+   * Solution file this project reads (`vnext.<domain>.config.json`). Absent for
+   * the default `vnext.config.json` so single-domain workspaces are unchanged.
+   */
+  configFileName?: string
 }
 
 export interface LinkFile {
   sourcePath: string
   domain: string
   importedAt: string
+  /** Solution file inside `sourcePath`; absent = default `vnext.config.json`. */
+  configFileName?: string
 }
 
 export type ProjectConfigStatus =

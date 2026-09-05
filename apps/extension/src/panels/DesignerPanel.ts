@@ -40,8 +40,13 @@ export interface DesignerOpenEditorMessage {
   name: string;
   /** Absolute file path the user opened, kept for diagnostics. */
   filePath: string;
-  /** Full `vnext.config.json` — hydrates `useProjectStore.vnextConfig`. */
+  /** Full solution config — hydrates `useProjectStore.vnextConfig`. */
   vnextConfig: VnextWorkspaceConfig;
+  /**
+   * Solution file the project reads (`vnext.<domain>.config.json`). Absent /
+   * `vnext.config.json` for the default solution.
+   */
+  configFileName?: string;
 }
 
 const EMPTY_DESIGNER_PANEL_KEY = '__vnext_forge_landing__';

@@ -27,3 +27,4 @@ export * from './utils/csx-codec';
 export * from './utils/version';
 export * from './utils/editor-tab-presentation';
 export * from './utils/view-display';
+export * from './utils/solution-file-name';

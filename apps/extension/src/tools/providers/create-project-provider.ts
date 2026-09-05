@@ -1,4 +1,7 @@
 import * as vscode from 'vscode';
+import * as path from 'node:path';
+
+import { isSolutionFileName } from '@vnext-forge-studio/services-core';
 import { execFile } from 'node:child_process';
 import type { VnextWorkspaceDetector } from '../../workspace-detector.js';
 import { baseLogger } from '../../shared/logger.js';
@@ -62,9 +65,10 @@ export class CreateProjectProvider implements vscode.TreeDataProvider<CreateProj
     this.terminal.run(command, { cwd });
 
     const watcher = vscode.workspace.createFileSystemWatcher(
-      new vscode.RelativePattern(cwd, '**/vnext.config.json'),
+      new vscode.RelativePattern(cwd, '**/vnext*.config.json'),
     );
-    const disposable = watcher.onDidCreate(() => {
+    const disposable = watcher.onDidCreate((uri) => {
+      if (!isSolutionFileName(path.basename(uri.fsPath))) return;
       void this.detector.refresh();
       disposable.dispose();
       watcher.dispose();

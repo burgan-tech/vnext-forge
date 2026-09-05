@@ -2,7 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import { Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import { isFailure } from '@vnext-forge-studio/app-contracts';
-import { ConfirmAlertDialog, PublishProvider, useEditorStore } from '@vnext-forge-studio/designer-ui';
+import { ConfirmAlertDialog, PublishProvider, useEditorStore, useProjectStore } from '@vnext-forge-studio/designer-ui';
 
 import { useVnextWorkspaceUiStore } from '../store/useVnextWorkspaceUiStore';
 import { VnextTemplateSeedDialog } from '../../modules/project-workspace/components/VnextTemplateSeedDialog';
@@ -141,6 +141,7 @@ function ProjectEditorShellInner() {
   const tabCount = tabs.length;
   const showChromeRow = tabCount > 0 || toolbar;
   const cliAvailable = useCliStore((s) => s.available === true);
+  const activeDomain = useProjectStore((s) => s.activeProject?.domain);
 
   const onPublishFile = useCallback(
     async (filePath: string) => {
@@ -151,6 +152,7 @@ function ProjectEditorShellInner() {
         command: 'update -f',
         projectId: id,
         filePath,
+        ...(activeDomain ? { domain: activeDomain } : {}),
       });
       if (isFailure(result)) {
         cliOut.setOutput({ command: 'publish', exitCode: -1, stdout: '', stderr: result.error.message });
@@ -159,7 +161,7 @@ function ProjectEditorShellInner() {
       const { exitCode, stdout, stderr } = result.data;
       cliOut.setOutput({ command: 'publish', exitCode, stdout, stderr });
     },
-    [id],
+    [activeDomain, id],
   );
 
   return (

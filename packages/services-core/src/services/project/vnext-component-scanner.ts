@@ -42,6 +42,7 @@ export function parseVnextComponentJson(content: string): {
   key: string
   flow: string
   version?: string
+  domain?: string
 } | null {
   let parsed: unknown;
   try {
@@ -56,10 +57,12 @@ export function parseVnextComponentJson(content: string): {
   if (typeof key !== 'string' || !key.trim()) return null;
   if (typeof flow !== 'string' || !flow.trim()) return null;
   const version = rec.version;
+  const domain = rec.domain;
   return {
     key: key.trim(),
     flow: flow.trim(),
     ...(typeof version === 'string' && version.trim() ? { version: version.trim() } : {}),
+    ...(typeof domain === 'string' && domain.trim() ? { domain: domain.trim() } : {}),
   }
 }
 
@@ -187,6 +190,7 @@ export async function scanVnextComponents(
         path,
         flow: meta.flow,
         ...(meta.version ? { version: meta.version } : {}),
+        ...(meta.domain ? { domain: meta.domain } : {}),
       };
       return row;
     } catch {

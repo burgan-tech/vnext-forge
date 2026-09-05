@@ -6,6 +6,14 @@
       "domain": "fixture-domain",
       "description": "Contract fixture",
       "path": "/workspace/fixture-domain"
+    },
+    {
+      "id": "fixture-partner",
+      "domain": "fixture-partner",
+      "description": "Second solution in the same workspace root",
+      "path": "/workspace/fixture-domain",
+      "linked": true,
+      "configFileName": "vnext.fixture-partner.config.json"
     }
   ]
 }

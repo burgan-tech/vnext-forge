@@ -81,7 +81,7 @@ Visual editor for `vnext.config.json` — manage project identity, runtime/schem
 
 - **Workflow documentation preview** — Live Markdown preview with Mermaid state diagrams, one-click copy
 - **Generate Documents** — Project-wide Markdown documentation for all components (workflows, tasks, schemas, views, functions, extensions, dependency tree)
-- **Package Deploy** — Deploy workflows (`wf update --all`, `wf update`, `wf csx --all`) from the sidebar or per-file from the designer toolbar
+- **Package Deploy** — Deploy workflows (`wf update --all`, `wf update`, `wf csx --all`) from the sidebar or per-file from the designer toolbar; multi-domain workspaces pick a domain (`--domain`) or run all solutions (Workflow CLI ≥ 1.0.13 recommended)
 
 ![Documentation Preview](https://raw.githubusercontent.com/burgan-tech/vnext-forge/main/docs/usage-guide/screenshots/component-document-preview.png)
 

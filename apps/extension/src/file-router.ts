@@ -1,5 +1,5 @@
 import * as path from 'node:path'
-import type { VnextWorkspaceConfig } from '@vnext-forge-studio/services-core'
+import { isSolutionFileName, type VnextWorkspaceConfig } from '@vnext-forge-studio/services-core'
 
 /**
  * Editor "kinds" the webview can render.
@@ -120,11 +120,11 @@ export function resolveFileRoute(
     .join('/')
   const relativePath = absRel && !absRel.startsWith('..') ? absRel : normalizedFile
 
-  if (relativePath.toLowerCase() === 'vnext.config.json') {
+  if (!relativePath.includes('/') && isSolutionFileName(relativePath)) {
     return {
       kind: 'config',
       group: '',
-      name: 'vnext.config.json',
+      name: relativePath,
       filePath: normalizedFile,
     }
   }

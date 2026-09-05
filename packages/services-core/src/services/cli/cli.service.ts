@@ -10,6 +10,8 @@ import {
   CLI_EXECUTE_MAX_TIMEOUT_MS,
   type CliAllowedCommand,
 } from './cli-schemas.js'
+import { compareCoreSemver, extractCoreSemver } from './semver.js'
+import { buildWfArgv, wfSupportsDomainFlag, type WfCommandSpec } from './wf-argv.js'
 
 const NPM_WORKFLOW_CLI_PACKAGE = '@burgan-tech/vnext-workflow-cli'
 const NPM_REGISTRY_CLI_URL = `https://registry.npmjs.org/${encodeURIComponent(NPM_WORKFLOW_CLI_PACKAGE)}`
@@ -18,30 +20,6 @@ const NPM_UPDATE_GLOBAL_TIMEOUT_MS = 120_000
 
 interface NpmDistTagsPayload {
   'dist-tags'?: { latest?: string }
-}
-
-/** First core semver matched in a version string ("v1.2.3", "wf 2.0.0", …). */
-function extractCoreSemver(raw: string): string | null {
-  const trimmed = raw.trim()
-  const m =
-    /\bv?(\d+\.\d+\.\d+)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?\b/.exec(trimmed) ??
-    /\b(\d+\.\d+\.\d+)\b/.exec(trimmed)
-  return m?.[1] ?? null
-}
-
-/** Compare two core semver strings (x.y.z). Returns positive if `a` is greater than `b`. */
-function compareCoreSemver(a: string, b: string): number {
-  const pa = a.split('.').map((x) => Number.parseInt(x, 10))
-  const pb = b.split('.').map((x) => Number.parseInt(x, 10))
-  if (pa.length !== 3 || pb.length !== 3 || pa.some(Number.isNaN) || pb.some(Number.isNaN)) {
-    return a.localeCompare(b)
-  }
-  for (let i = 0; i < 3; i++) {
-    if ((pa[i] ?? 0) !== (pb[i] ?? 0)) {
-      return (pa[i] ?? 0) - (pb[i] ?? 0)
-    }
-  }
-  return 0
 }
 
 async function fetchLatestNpmVersion(): Promise<string | null> {
@@ -66,8 +44,15 @@ async function fetchLatestNpmVersion(): Promise<string | null> {
   }
 }
 
+export interface CliCheckResult {
+  available: boolean
+  version?: string
+  /** Installed CLI understands the global `--domain` option (≥ 1.0.13). */
+  supportsDomainFlag: boolean
+}
+
 export interface CliService {
-  checkCliAvailable(): Promise<{ available: boolean; version?: string }>
+  checkCliAvailable(): Promise<CliCheckResult>
   checkForUpdate(): Promise<{ installed: string | null; latest: string | null; updateAvailable: boolean }>
   updateGlobal(traceId?: string): Promise<{ exitCode: number; stdout: string; stderr: string }>
   executeCommand(
@@ -75,6 +60,12 @@ export interface CliService {
       command: CliAllowedCommand
       projectPath: string
       filePath?: string
+      /**
+       * Restrict the run to one solution. With a CLI ≥ 1.0.13 this becomes
+       * `--domain <name>`; older CLIs get the legacy `wf domain use <name>`
+       * first (which also rewrites the CLI's active profile).
+       */
+      domain?: string
       timeoutMs?: number
     },
     traceId?: string,
@@ -152,33 +143,18 @@ function npmGlobalExecOptions(cwd: string, timeoutMs: number): ExecFileOpts {
   }
 }
 
-function mapCommandToArgv(command: CliAllowedCommand, resolvedFilePath?: string): string[] {
-  switch (command) {
-    case 'check':
-      return ['check']
-    case 'update':
-      return ['update', '--yes']
-    case 'update --all':
-      return ['update', '--all', '--yes']
-    case 'update -f': {
-      if (!resolvedFilePath || resolvedFilePath.length === 0) {
-        throw new VnextForgeError(
-          ERROR_CODES.FILE_INVALID_PATH,
-          'filePath is required for update -f.',
-          { source: 'CliService.mapCommandToArgv', layer: 'application' },
-        )
-      }
-      return ['update', '-f', resolvedFilePath, '--yes']
+function toWfCommandSpec(command: CliAllowedCommand, resolvedFilePath?: string): WfCommandSpec {
+  if (command === 'update -f') {
+    if (!resolvedFilePath || resolvedFilePath.length === 0) {
+      throw new VnextForgeError(
+        ERROR_CODES.FILE_INVALID_PATH,
+        'filePath is required for update -f.',
+        { source: 'CliService.toWfCommandSpec', layer: 'application' },
+      )
     }
-    case 'csx --all':
-      return ['csx', '--all']
-    case 'sync':
-      return ['sync']
-    default: {
-      const _never: never = command
-      return _never
-    }
+    return { base: 'update -f', filePath: resolvedFilePath }
   }
+  return { base: command }
 }
 
 function clampTimeout(timeoutMs?: number): number {
@@ -287,18 +263,35 @@ function runExecFile(file: string, args: readonly string[], options: ExecFileOpt
 export function createCliService(deps: CliServiceDeps = {}): CliService {
   const { pathPolicy } = deps
 
+  // `wf --version` is probed once per process and after every global update;
+  // a missing CLI is not memoized so an install made mid-session is picked up.
+  let versionProbe: Promise<CliCheckResult> | undefined
+
+  async function probeCli(): Promise<CliCheckResult> {
+    const opts = execFileOptions(process.cwd(), 10_000)
+    const result = await runExecFile(WF_BINARY, ['--version'], opts)
+    if (result.exitCode !== 0) {
+      return { available: false, supportsDomainFlag: false }
+    }
+    const versionLine = result.stdout.trim()
+    return {
+      available: true,
+      ...(versionLine.length > 0 ? { version: versionLine } : {}),
+      supportsDomainFlag: wfSupportsDomainFlag(versionLine),
+    }
+  }
+
+  function checkCliAvailableMemo(): Promise<CliCheckResult> {
+    versionProbe ??= probeCli().then((info) => {
+      if (!info.available) versionProbe = undefined
+      return info
+    })
+    return versionProbe
+  }
+
   return {
-    async checkCliAvailable(): Promise<{ available: boolean; version?: string }> {
-      const opts = execFileOptions(process.cwd(), 10_000)
-      const result = await runExecFile(WF_BINARY, ['--version'], opts)
-      if (result.exitCode !== 0) {
-        return { available: false }
-      }
-      const versionLine = result.stdout.trim()
-      return {
-        available: true,
-        ...(versionLine.length > 0 ? { version: versionLine } : {}),
-      }
+    checkCliAvailable(): Promise<CliCheckResult> {
+      return checkCliAvailableMemo()
     },
 
     async checkForUpdate(): Promise<{ installed: string | null; latest: string | null; updateAvailable: boolean }> {
@@ -322,7 +315,9 @@ export function createCliService(deps: CliServiceDeps = {}): CliService {
     async updateGlobal(_traceId): Promise<{ exitCode: number; stdout: string; stderr: string }> {
       const opts = npmGlobalExecOptions(process.cwd(), NPM_UPDATE_GLOBAL_TIMEOUT_MS)
       const npmExecutable = WINDOWS ? 'npm.cmd' : 'npm'
-      return runExecFile(npmExecutable, ['install', '-g', `${NPM_WORKFLOW_CLI_PACKAGE}@latest`], opts)
+      const result = await runExecFile(npmExecutable, ['install', '-g', `${NPM_WORKFLOW_CLI_PACKAGE}@latest`], opts)
+      versionProbe = undefined
+      return result
     },
 
     async executeCommand(params, traceId): Promise<{ exitCode: number; stdout: string; stderr: string }> {
@@ -355,9 +350,24 @@ export function createCliService(deps: CliServiceDeps = {}): CliService {
         })
       }
 
-      const argv = mapCommandToArgv(params.command, resolvedFileArg)
+      const spec = toWfCommandSpec(params.command, resolvedFileArg)
+      const domain = params.domain?.trim()
       const execOpts = execFileOptions(projectRootNorm, timeoutMs)
-      return runExecFile(WF_BINARY, argv, execOpts)
+
+      if (!domain) {
+        return runExecFile(WF_BINARY, buildWfArgv(spec), execOpts)
+      }
+
+      const info = await checkCliAvailableMemo()
+      if (info.supportsDomainFlag) {
+        return runExecFile(WF_BINARY, buildWfArgv(spec, { domain }), execOpts)
+      }
+
+      // Legacy CLI: no `--domain`; select the profile first. Same semantics as
+      // the extension's terminal fallback (`wf domain use X && wf …`).
+      const use = await runExecFile(WF_BINARY, buildDomainUseArgv(domain), execOpts)
+      if (use.exitCode !== 0) return use
+      return runExecFile(WF_BINARY, buildWfArgv(spec), execOpts)
     },
 
     async domainAdd(params, _traceId): Promise<{ exitCode: number; stdout: string; stderr: string }> {

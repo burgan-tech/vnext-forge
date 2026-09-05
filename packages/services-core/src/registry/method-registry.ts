@@ -750,6 +750,7 @@ export function buildMethodRegistry(): MethodRegistry {
             command: params.command,
             projectPath,
             filePath: params.filePath,
+            domain: params.domain,
             timeoutMs: params.timeoutMs,
           },
           traceId,

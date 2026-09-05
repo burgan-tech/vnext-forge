@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import type { VnextWorkspaceDetector } from '../../workspace-detector.js';
 import type { ForgeTerminalManager } from '../forge-terminal.js';
 import { generateProjectDocumentation } from '../doc-generator.js';
+import { pickWorkspaceRoot } from '../pick-workspace-root.js';
 
 type ProjectActionId = 'validate' | 'buildRuntime' | 'buildReference' | 'generateDocs';
 
@@ -91,7 +92,12 @@ export class ProjectActionsProvider implements vscode.TreeDataProvider<ProjectAc
       return;
     }
 
-    const cwd = roots[0].folderPath;
+    const root = await pickWorkspaceRoot(roots, {
+      title: 'Select vNext workspace',
+      placeHolder: 'Several vNext roots are open — pick the one to run the command in.',
+    });
+    if (!root) return;
+    const cwd = root.folderPath;
 
     if (actionId === 'generateDocs') {
       await generateProjectDocumentation(cwd);

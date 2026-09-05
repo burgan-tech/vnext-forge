@@ -2,6 +2,7 @@
   "params": {
     "command": "check",
     "projectPath": "/tmp/sample-vnext-project",
+    "domain": "core",
     "timeoutMs": 60000
   },
   "result": {

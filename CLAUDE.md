@@ -96,6 +96,43 @@ When adding or changing strings, default to English. Do not ship Turkish or othe
 
 ---
 
+### Solution files and multi-domain workspaces
+
+The workspace solution file is `vnext.config.json`. A workspace root may also hold
+domain-suffixed solution files named `vnext.<domain>.config.json`; `vnext.config.json`
+is the **default** solution. Each solution's `paths.componentsRoot` folder is that
+domain's sub-project; its `package.json` is looked up at `<root>/<componentsRoot>/package.json`
+first and falls back to `<root>/package.json` (legacy template layout).
+
+- Name helpers live in `@vnext-forge-studio/vnext-types` (`isSolutionFileName`,
+  `domainFromSolutionFileName`, `solutionFileNameForDomain`, `solutionDisplayLabel`).
+  Never compare against the literal file name; `CONFIG_FILE` in services-core is the default name only.
+- Discovery / validation / resolution: `packages/services-core/src/services/workspace/solution-files.ts`
+  (`scanSolutionRoot`, `validateSolutionSet`, `resolveSolutionForComponent`, `resolveSolutionForPath`).
+  A component belongs to the solution whose `domain` equals its `$.domain`; the file path is a
+  cross-check (`component.pathOutsideSolution`), and an unknown domain falls back to the default
+  solution with a `component.unknownDomain` warning.
+- Project identity stays `projectId = domain`. Link files and `ProjectEntry` / `ProjectInfo` carry an
+  optional `configFileName` (absent = default file); `ProjectService.resolveProjectPath` returns it and
+  every `projects/*` handler reads the right file. `projects/writeConfig` renames a domain-suffixed file
+  when its domain changes (never the default), refuses a domain already used by a sibling solution, and
+  syncs `@burgan-tech/vnext-schema` in the solution's `package.json` when `schemaVersion` changes
+  (`schema-version-sync.ts`).
+- Extension host: `VnextWorkspaceDetector` scans every root for all solution files in parallel and
+  exposes `resolveSolutionForFile` / `resolveSolutionForPath`; `SolutionDiagnosticsPublisher` writes the
+  issues (`solution.*`, `component.*` codes) to the Problems panel with one aggregated notification;
+  `SchemaVersionSyncController` runs `npm install` in the Forge terminal after a `schemaVersion` change
+  (first refresh only seeds; npm failures stay in the terminal). Quick Run keeps the workspace-folder
+  `projectId` for the default solution and uses the domain for domain-suffixed ones (preset compatibility).
+- Workflow CLI (`wf`, ≥ 1.0.13 runs workspace commands once per solution and accepts a global
+  `--domain <name>`; no `--yes` flag exists): every `wf` command line is built by
+  `packages/services-core/src/services/cli/wf-argv.ts` (`buildWfArgv`, `buildWfShellCommand`,
+  `wfSupportsDomainFlag`). The extension probes `wf --version` once (`apps/extension/src/tools/wf-cli-probe.ts`);
+  a legacy CLI gets `wf domain use <d> && wf …` plus a one-per-session `WfCliUpgradeNotice`. Package Deploy /
+  Publish / Reset Components pass the solution domain; `cli/execute` accepts an optional `domain`.
+  Remote `RuntimeEnvironment` entries carry an optional `domain` (profile name) and the tree shows a
+  `/health` domain mismatch inline.
+
 ### Cross-platform setup (macOS, Linux, Windows)
 
 The repo is intended to run the same way on macOS, Linux, and Windows.

@@ -1,3 +1,4 @@
+import { isSolutionFileName } from '@vnext-forge-studio/vnext-types';
 import {
   useCallback,
   useEffect,
@@ -79,8 +80,9 @@ function updateComponentFileTypeAfterSave(filePath: string, content: string): vo
 }
 
 function isVnextConfigFilePath(p: string): boolean {
-  const n = p.replace(/\\/g, '/').toLowerCase();
-  return n.endsWith('/vnext.config.json') || n === 'vnext.config.json';
+  const n = p.replace(/\\/g, '/');
+  const base = n.slice(n.lastIndexOf('/') + 1);
+  return isSolutionFileName(base);
 }
 
 function getMonacoUndoRedoState(ed: editor.IStandaloneCodeEditor): {

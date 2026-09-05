@@ -228,13 +228,16 @@ export class ForgeToolsSettingsService implements vscode.Disposable {
     baseUrl: string,
     dbName?: string,
     binding?: LocalRuntimeBinding,
+    domain?: string,
   ): Promise<RuntimeEnvironment> {
     const config = await this.loadEnvironments();
+    const trimmedDomain = domain?.trim();
     const env: RuntimeEnvironment = {
       id: crypto.randomUUID(),
       name,
       baseUrl: baseUrl.replace(/\/+$/, ''),
       ...(dbName ? { dbName } : {}),
+      ...(trimmedDomain && !binding ? { domain: trimmedDomain } : {}),
       ...(binding ? { kind: 'local-docker' as const, local: binding } : { kind: 'remote' as const }),
     };
     config.environments.push(env);
@@ -254,6 +257,7 @@ export class ForgeToolsSettingsService implements vscode.Disposable {
       name?: string;
       baseUrl?: string;
       dbName?: string;
+      domain?: string;
       local?: LocalRuntimeBinding;
     },
   ): Promise<void> {
@@ -263,6 +267,7 @@ export class ForgeToolsSettingsService implements vscode.Disposable {
     if (patch.name !== undefined) env.name = patch.name;
     if (patch.baseUrl !== undefined) env.baseUrl = patch.baseUrl.replace(/\/+$/, '');
     if (patch.dbName !== undefined) env.dbName = patch.dbName;
+    if (patch.domain !== undefined) env.domain = patch.domain;
     if (patch.local !== undefined) {
       // `kind` is set with it: parseEnvironments only keeps `local` when the
       // kind says local-docker, so writing the binding alone would drop it.

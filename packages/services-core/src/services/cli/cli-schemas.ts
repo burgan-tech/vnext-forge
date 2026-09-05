@@ -1,5 +1,7 @@
 import { z } from 'zod'
 
+import { WF_DOMAIN_NAME_PATTERN } from './wf-argv.js'
+
 export const CLI_ALLOWED_COMMANDS = [
   'check',
   'update',
@@ -18,6 +20,8 @@ export const cliCheckParams = z.object({}).strict()
 export const cliCheckResult = z.object({
   available: z.boolean(),
   version: z.string().optional(),
+  /** Installed CLI understands the global `--domain` option (≥ 1.0.13). */
+  supportsDomainFlag: z.boolean(),
 })
 
 export const cliCheckUpdateParams = z.object({}).strict()
@@ -45,6 +49,11 @@ export const cliExecuteParams = z
     projectId: z.string().optional(),
     projectPath: z.string().optional(),
     filePath: z.string().optional(),
+    /**
+     * Restrict the run to one solution (`vnext.<domain>.config.json`) in a
+     * multi-domain workspace. Omitted → the CLI processes every solution.
+     */
+    domain: z.string().regex(WF_DOMAIN_NAME_PATTERN, 'Invalid domain name').optional(),
     timeoutMs: z.number().int().min(1).max(MAX_CLI_TIMEOUT_MS).optional(),
   })
   .strict()

@@ -30,6 +30,8 @@ export interface DiscoveredVnextComponent {
   path: string
   flow: string
   version?: string
+  /** `$.domain` of the component JSON, when present — identifies its solution file. */
+  domain?: string
 }
 
 export type VnextComponentsByCategory = Record<VnextExportCategory, DiscoveredVnextComponent[]>
