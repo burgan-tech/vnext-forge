@@ -18,6 +18,8 @@ import { QuickRunPanel } from './panels/QuickRunPanel.js';
 import { FunctionQuickRunPanel, type FunctionQuickRunContext } from './panels/FunctionQuickRunPanel.js';
 import { toFunctionMetadataFormValues } from '@vnext-forge-studio/designer-ui/function-editor-schema';
 import { VnextWorkspaceDetector, type VnextWorkspaceRoot } from './workspace-detector.js';
+import { SolutionDiagnosticsPublisher } from './solution-diagnostics.js';
+import { SchemaVersionSyncController } from './schema-version-sync-controller.js';
 import {
   applyMaterialIconAssociationsIfApplicable,
   removeMaterialIconAssociations,
@@ -33,6 +35,8 @@ import {
 } from './tools/forge-config-share.js';
 import { ForgeToolsSettingsService } from './tools/forge-tools-settings.js';
 import { ForgeTerminalManager } from './tools/forge-terminal.js';
+import { WfCliProbe } from './tools/wf-cli-probe.js';
+import { WfCliUpgradeNotice } from './tools/wf-cli-upgrade-notice.js';
 import { EnvironmentHealthMonitor } from './tools/environment-health-monitor.js';
 import { EnvironmentStatusBar, switchEnvironmentQuickPick } from './tools/environment-status-bar.js';
 import { GlobalSettingsProvider } from './tools/providers/global-settings-provider.js';
@@ -202,7 +206,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }),
   );
 
-  const { services, registry } = composeExtensionServices(loggerAdapter, forgeToolsSettings);
+  const { services, registry, fs: fsAdapter } = composeExtensionServices(loggerAdapter, forgeToolsSettings);
   const { bridge: lspBridge, installer: lspInstaller } = createExtensionHostLspStack(loggerAdapter);
 
   const diagnosticCollection = vscode.languages.createDiagnosticCollection('vnext-forge-studio');
@@ -217,6 +221,17 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const forgeTerminal = new ForgeTerminalManager();
   context.subscriptions.push(forgeTerminal);
 
+  const detector = new VnextWorkspaceDetector(fsAdapter);
+  context.subscriptions.push(detector);
+
+  // Workflow CLI (`wf`) facts shared by Package Deploy, Publish and Environments:
+  // one `wf --version` probe decides whether the multi-domain `--domain` flag
+  // (CLI ≥ 1.0.13) can be used or the legacy `wf domain use … &&` form is needed.
+  const wfCli = new WfCliProbe();
+  const wfCliUpgradeNotice = new WfCliUpgradeNotice(async () => {
+    await packageDeployProvider.installWfCli();
+  });
+
   const router = new MessageRouter({
     registry,
     services,
@@ -226,11 +241,28 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     diagnosticCollection,
     statusBarItem,
     terminal: forgeTerminal,
+    detector,
+    wfCli,
+    onLegacyWfCli: (info) => void wfCliUpgradeNotice.maybeShow(info),
   });
   const designerPanel = new DesignerPanel(context, router);
 
-  const detector = new VnextWorkspaceDetector(services.workspaceService);
-  context.subscriptions.push(detector);
+  // Solution-file validation → Problems panel + one aggregated notification.
+  // Subscribed before the first `detector.refresh()` so activation publishes too.
+  const solutionDiagnostics = new SolutionDiagnosticsPublisher();
+  context.subscriptions.push(solutionDiagnostics);
+  context.subscriptions.push(
+    detector.onDidChange((roots) => {
+      solutionDiagnostics.publish(roots);
+      void solutionDiagnostics.scanComponents(roots, fsAdapter);
+    }),
+  );
+
+  // schemaVersion → package.json (`@burgan-tech/vnext-schema`) → `npm install`
+  // in the Forge terminal. First refresh only seeds; see the controller.
+  context.subscriptions.push(
+    new SchemaVersionSyncController({ detector, terminal: forgeTerminal, fs: fsAdapter }),
+  );
 
   // Native VS Code editor LSP client for .csx files. Reuses the same
   // `lspBridge` (and thus the same OmniSharp/csharp-ls + temp workspace +
@@ -257,7 +289,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   // decodes the `code` field per its sibling `encoding`.
   const csxSyncController = createCsxSyncController({
     detector,
-    workspaceService: services.workspaceService,
   });
   csxSyncController.activate(context);
   context.subscriptions.push(
@@ -310,13 +341,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       ? (params) => services.cliService!.domainAdd(params)
       : undefined,
     detector,
-    // Read the workspace domain from `vnext.config.json` through the
-    // shared services-core accessor so this stays in sync with every
-    // other consumer (LSP, template scaffolding, runtime proxy, etc).
-    async (root) => {
-      const config = await services.workspaceService.getConfig(root.folderPath);
-      return config.domain ?? '';
-    },
+    // Resolve the workspace domain from the root's solution files. A root with
+    // several domains asks the user which one the environment / local runtime
+    // targets; an empty string means "cancelled or none".
+    (root) => pickDomainForRoot(root),
     localRuntimeService,
     () => outputChannel.show(true),
     (command, cwd) => forgeTerminal.run(command, { cwd }),
@@ -326,8 +354,15 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     services.cliService ? () => services.cliService!.domainList() : undefined,
     services.cliService ? (name) => services.cliService!.domainRemove(name) : undefined,
     services.cliService ? (name) => services.cliService!.domainUse(name) : undefined,
+    wfCli,
+    wfCliUpgradeNotice,
   );
-  const packageDeployProvider = new PackageDeployProvider(detector, forgeTerminal);
+  const packageDeployProvider = new PackageDeployProvider(
+    detector,
+    forgeTerminal,
+    wfCli,
+    wfCliUpgradeNotice,
+  );
   const quickRunProvider = new QuickRunProvider();
 
   context.subscriptions.push(
@@ -501,12 +536,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       const wfJson = await readWorkflowJson(picked.uri);
       if (!wfJson) return;
       const activeEnv = await forgeToolsSettings.getActiveEnvironment();
-      // The extension shell doesn't have a project picker (workspace == project),
-      // so we derive a stable per-workspace projectId from the workspace
-      // folder path. The backend's test-data service uses this to resolve
-      // Schemas/ files relative to the workspace root.
-      const projectId =
-        vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? picked.uri.fsPath;
+      const projectId = await resolveQuickRunProjectId(picked.uri, wfJson.domain);
       quickRunPanel.open({
         domain: wfJson.domain,
         workflowKey: wfJson.workflowKey,
@@ -523,8 +553,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       const wfJson = await readWorkflowJson(uri);
       if (!wfJson) return;
       const activeEnv = await forgeToolsSettings.getActiveEnvironment();
-      const projectId =
-        vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? uri.fsPath;
+      const projectId = await resolveQuickRunProjectId(uri, wfJson.domain);
       quickRunPanel.open({
         domain: wfJson.domain,
         workflowKey: wfJson.workflowKey,
@@ -596,20 +625,21 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       });
     })),
     // Explorer right-click "Forge: Publish" — deploys the single
-    // workflow JSON to the runtime via `wf update -f <path>`. Same
-    // helper the Designer's Publish toolbar button uses, so the two
+    // component JSON to the runtime via `wf update -f <path> [--domain <d>]`.
+    // Same helper the Designer's Publish toolbar button uses, so the two
     // entry points stay behaviorally identical.
-    // Not `async`: `publishWorkflowFile` sends the command to a terminal and
-    // returns synchronously. `safeAsync` accepts sync handlers.
-    vscode.commands.registerCommand('vnextForge.publishFromFile', safeAsync((arg) => {
+    vscode.commands.registerCommand('vnextForge.publishFromFile', safeAsync(async (arg) => {
       const uri = asUri(arg);
       if (!uri) {
         void vscode.window.showWarningMessage('Forge Publish: right-click a workflow JSON file in the Explorer.');
         return;
       }
-      const result = publishWorkflowFile({
+      const result = await publishWorkflowFile({
         filePath: uri.fsPath,
         terminal: forgeTerminal,
+        detector,
+        wfCli,
+        onLegacyCli: (info) => void wfCliUpgradeNotice.maybeShow(info),
         logger: loggerAdapter,
       });
       if (!result.ok) {
@@ -628,7 +658,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   registerCommands(context, {
     projectService: services.projectService,
-    workspaceService: services.workspaceService,
     detector,
     designerPanel,
   });
@@ -675,6 +704,38 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }),
   );
 
+  /**
+   * Quick Run `projectId`: presets and test-data are keyed by it.
+   *
+   * - Default solution → the workspace folder path, exactly as before multi-domain
+   *   support, so existing presets under `quickrun-presets/<folder>/…` stay visible.
+   * - Domain-suffixed solution → its `domain`, linked in the project registry so
+   *   `projects/*` RPCs resolve the right solution file.
+   */
+  async function resolveQuickRunProjectId(uri: vscode.Uri, componentDomain: string): Promise<string> {
+    const fallback = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath ?? uri.fsPath;
+    let resolved;
+    try {
+      resolved = await detector.resolveSolutionForFile(uri.fsPath, { componentDomain });
+    } catch (error) {
+      baseLogger.warn({ error: (error as Error).message }, 'Quick Run: solution resolution failed');
+      return fallback;
+    }
+    if (!resolved?.solution.config) return fallback;
+    if (resolved.solution.isDefault) return resolved.root.folderPath;
+    try {
+      await services.projectService.importProject(resolved.root.folderPath, undefined, {
+        configFileName: resolved.solution.fileName,
+      });
+    } catch (error) {
+      baseLogger.warn(
+        { folder: resolved.root.folderPath, file: resolved.solution.fileName, error: (error as Error).message },
+        'Quick Run: failed to link solution in project registry',
+      );
+    }
+    return resolved.solution.config.domain;
+  }
+
   // Kullanici workbench.iconTheme'i Material'a degistirirse de associations'lari uygula.
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((e) => {
@@ -700,18 +761,43 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
 async function importDetectedRoots(
   roots: readonly { folderPath: string }[],
-  projectService: { importProject(path: string): Promise<unknown> },
+  projectService: { importSolutionsAtRoot(path: string): Promise<unknown> },
 ): Promise<void> {
   for (const root of roots) {
     try {
-      await projectService.importProject(root.folderPath);
+      await projectService.importSolutionsAtRoot(root.folderPath);
     } catch (error) {
       baseLogger.warn(
         { folder: root.folderPath, error: (error as Error).message },
-        'Failed to link vnext workspace into project registry',
+        'Failed to link vnext solutions into project registry',
       );
     }
   }
+}
+
+/**
+ * Domain a root-level action (environment registration, local runtime) targets.
+ * One valid solution → its domain; several → QuickPick; none → `''`.
+ * Returns `''` when the user dismisses the picker so callers fall back or abort.
+ */
+async function pickDomainForRoot(root: VnextWorkspaceRoot): Promise<string> {
+  const valid = root.solutions.filter((s) => s.status.status === 'ok' && s.config);
+  if (valid.length === 0) return '';
+  if (valid.length === 1) return valid[0].config!.domain;
+  const picked = await vscode.window.showQuickPick(
+    valid.map((s) => ({
+      label: s.config!.domain,
+      description: s.fileName,
+      detail: s.config!.description,
+      domain: s.config!.domain,
+    })),
+    {
+      title: 'Select vnext domain',
+      placeHolder: `${path.basename(root.folderPath)} holds several solution files — pick the domain to use.`,
+      ignoreFocusOut: true,
+    },
+  );
+  return picked?.domain ?? '';
 }
 
 export function deactivate(): void {

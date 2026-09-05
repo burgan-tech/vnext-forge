@@ -15,7 +15,11 @@ import {
   getRipgrepExecutablePath,
   runRipgrepSearchJsonStream,
 } from './workspace-search-ripgrep.js'
-import { createWorkspaceAnalyzer, type WorkspaceAnalyzer } from './workspace-analyzer.js'
+import {
+  createWorkspaceAnalyzer,
+  type ReadConfigOptions,
+  type WorkspaceAnalyzer,
+} from './workspace-analyzer.js'
 import type {
   DirectoryEntry,
   FileSearchHit,
@@ -939,15 +943,20 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
     return drives.filter((d): d is NonNullable<typeof d> => d !== null)
   }
 
-  async function getConfig(rootPath: string, traceId?: string): Promise<VnextWorkspaceConfig> {
-    return analyzer.readConfig(rootPath, traceId)
+  async function getConfig(
+    rootPath: string,
+    traceId?: string,
+    opts?: ReadConfigOptions,
+  ): Promise<VnextWorkspaceConfig> {
+    return analyzer.readConfig(rootPath, traceId, opts)
   }
 
   async function readConfigStatus(
     rootPath: string,
     traceId?: string,
+    opts?: ReadConfigOptions,
   ): Promise<WorkspaceConfigReadStatus> {
-    return analyzer.readConfigStatus(rootPath, traceId)
+    return analyzer.readConfigStatus(rootPath, traceId, opts)
   }
 
   async function getFileTree(rootPath: string, traceId?: string): Promise<WorkspaceStructure> {
@@ -972,8 +981,8 @@ export function createWorkspaceService(deps: WorkspaceServiceDeps) {
     })
   }
 
-  function getConfigPath(rootPath: string): string {
-    return joinPosix(rootPath, CONFIG_FILE)
+  function getConfigPath(rootPath: string, configFileName: string = CONFIG_FILE): string {
+    return joinPosix(rootPath, configFileName)
   }
 
   return {

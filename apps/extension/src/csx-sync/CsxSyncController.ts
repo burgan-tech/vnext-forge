@@ -1,7 +1,7 @@
 import * as path from 'node:path';
 import * as vscode from 'vscode';
 
-import type { WorkspaceService, VnextWorkspaceConfig } from '@vnext-forge-studio/services-core';
+import type { VnextWorkspaceConfig } from '@vnext-forge-studio/services-core';
 
 import { baseLogger } from '../shared/logger.js';
 import type { VnextWorkspaceDetector, VnextWorkspaceRoot } from '../workspace-detector.js';
@@ -57,7 +57,6 @@ async function listComponentJsonPaths(
 
 interface ControllerDeps {
   detector: VnextWorkspaceDetector;
-  workspaceService: WorkspaceService;
 }
 
 /**
@@ -173,22 +172,24 @@ export class CsxSyncController implements vscode.Disposable {
     let totalUpdated = 0;
     const errors: Array<{ path: string; message: string }> = [];
     for (const root of roots) {
-      const configStatus = await this.deps.workspaceService.readConfigStatus(root.folderPath);
-      if (configStatus.status !== 'ok') continue;
-      const config = configStatus.config;
-      const componentsRoot = (config.paths?.componentsRoot ?? '').trim();
-      if (!componentsRoot) continue;
-      const csxBase = vscode.Uri.file(path.join(root.folderPath, componentsRoot));
-      const csxFiles = await vscode.workspace.findFiles(
-        new vscode.RelativePattern(csxBase, '**/*.csx'),
-        undefined,
-      );
-      for (const csxUri of csxFiles) {
-        totalFiles += 1;
-        const result = await this.syncCsxFile(csxUri.fsPath, root, { surface: 'silent' });
-        if (result) {
-          totalUpdated += result.updated;
-          errors.push(...result.errors);
+      // One pass per valid solution: each domain's componentsRoot is its own sub-project.
+      for (const solution of root.solutions) {
+        const config = solution.config;
+        if (solution.status.status !== 'ok' || !config) continue;
+        const componentsRoot = (config.paths?.componentsRoot ?? '').trim();
+        if (!componentsRoot) continue;
+        const csxBase = vscode.Uri.file(path.join(root.folderPath, componentsRoot));
+        const csxFiles = await vscode.workspace.findFiles(
+          new vscode.RelativePattern(csxBase, '**/*.csx'),
+          undefined,
+        );
+        for (const csxUri of csxFiles) {
+          totalFiles += 1;
+          const result = await this.syncCsxFile(csxUri.fsPath, root, { surface: 'silent' });
+          if (result) {
+            totalUpdated += result.updated;
+            errors.push(...result.errors);
+          }
         }
       }
     }
@@ -217,16 +218,19 @@ export class CsxSyncController implements vscode.Disposable {
     root: VnextWorkspaceRoot,
     opts: { surface: 'silent' | 'notification' },
   ): Promise<CsxSyncRunResult | null> {
-    const configStatus = await this.deps.workspaceService.readConfigStatus(root.folderPath);
-    if (configStatus.status !== 'ok') {
+    // `.csx` files carry no `$.domain`; the solution whose componentsRoot holds
+    // the file wins, else the root's default solution.
+    const resolved = this.deps.detector.resolveSolutionForPath(csxPath);
+    const config = resolved?.solution.config;
+    if (!config) {
       if (opts.surface === 'notification') {
         void vscode.window.showWarningMessage(
-          'Forge: vnext.config.json is missing or invalid; cannot sync.',
+          'Forge: No valid solution file (vnext.config.json) covers this file; cannot sync.',
         );
       }
       return null;
     }
-    const result = await runCsxSync(csxPath, root.folderPath, configStatus.config, {
+    const result = await runCsxSync(csxPath, root.folderPath, config, {
       defaultEncoding: this.settings.defaultEncoding,
       listComponentJsonPaths,
       log: {

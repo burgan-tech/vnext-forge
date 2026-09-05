@@ -10,7 +10,15 @@ import type {
 import { getErrnoCode } from '../../internal/errno.js'
 import { basename, isAbsolutePosix, joinPosix, relativePosix, toPosix } from '../../internal/paths.js'
 import type { PathPolicy } from '../../internal/path-policy.js'
+import {
+  domainFromSolutionFileName,
+  isSolutionFileName,
+  solutionFileNameForDomain,
+} from '@vnext-forge-studio/vnext-types'
+
 import { CONFIG_FILE } from '../workspace/constants.js'
+import { applySchemaVersionToPackageJson } from '../workspace/schema-version-sync.js'
+import { resolvePackageJsonPath, scanSolutionRoot } from '../workspace/solution-files.js'
 import type {
   VnextWorkspaceConfig,
   VnextWorkspacePaths,
@@ -85,30 +93,42 @@ export function createProjectService(deps: ProjectServiceDeps) {
     await fs.mkdir(root, { recursive: true })
   }
 
+  /**
+   * Project id → on-disk location.
+   *
+   * `configFileName` is the solution file the project reads. Link files written
+   * before multi-domain support carry no `configFileName`, and absolute-path ids
+   * (extension shell shortcut) have no link file at all — both resolve to the
+   * default `vnext.config.json`, so single-domain workspaces behave exactly as before.
+   */
   async function resolveProjectPath(
     id: string,
     traceId?: string,
-  ): Promise<{ projectPath: string; linked: boolean }> {
+  ): Promise<{ projectPath: string; linked: boolean; configFileName: string }> {
     // Extension shell convention: workspace folder IS the project, so we
     // pass its absolute path as the projectId. Honour that shortcut and
     // skip the projects-root link file lookup — there is no separate
     // project registry on that shell.
     if (id.startsWith('/') || /^[A-Za-z]:[\\/]/.test(id)) {
-      return { projectPath: toPosix(id), linked: false }
+      return { projectPath: toPosix(id), linked: false, configFileName: CONFIG_FILE }
     }
     const root = await getProjectsRoot()
     const linkPath = joinPosix(root, `${id}.link.json`)
     try {
       const linkRaw = await fs.readFile(linkPath)
       const link = JSON.parse(linkRaw) as LinkFile
-      return { projectPath: link.sourcePath, linked: true }
+      return {
+        projectPath: link.sourcePath,
+        linked: true,
+        configFileName: normalizeConfigFileName(link.configFileName),
+      }
     } catch (error) {
       const code = getErrnoCode(error)
       if (code && code !== 'ENOENT' && code !== 'FileNotFound') {
         throw toProjectError(error, 'ProjectService.resolveProjectPath', traceId, { id, linkPath })
       }
     }
-    return { projectPath: joinPosix(root, id), linked: false }
+    return { projectPath: joinPosix(root, id), linked: false, configFileName: CONFIG_FILE }
   }
 
   async function listProjects(traceId?: string): Promise<ProjectEntry[]> {
@@ -126,7 +146,9 @@ export function createProjectService(deps: ProjectServiceDeps) {
         try {
           const linkRaw = await fs.readFile(joinPosix(root, entry.name))
           const link = JSON.parse(linkRaw) as LinkFile
-          projects.push(await toProjectEntry(id, link.sourcePath, true, traceId, link.domain))
+          projects.push(
+            await toProjectEntry(id, link.sourcePath, true, traceId, link.domain, link.configFileName),
+          )
         } catch {
           // Ignore invalid link files while listing the rest.
         }
@@ -145,7 +167,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
   }
 
   async function getProject(id: string, traceId?: string): Promise<ProjectEntry> {
-    const { projectPath, linked } = await resolveProjectPath(id, traceId)
+    const { projectPath, linked, configFileName } = await resolveProjectPath(id, traceId)
     try {
       const stat = await fs.stat(projectPath)
       if (!stat.isDirectory) {
@@ -160,7 +182,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
       if (error instanceof VnextForgeError) throw error
       throw toProjectError(error, 'ProjectService.getProject', traceId, { id, projectPath })
     }
-    return toProjectEntry(id, projectPath, linked, traceId)
+    return toProjectEntry(id, projectPath, linked, traceId, undefined, configFileName)
   }
 
   async function createProject(
@@ -220,26 +242,51 @@ export function createProjectService(deps: ProjectServiceDeps) {
     }
   }
 
-  async function importProject(sourcePath: string, traceId?: string): Promise<ProjectEntry> {
+  async function importProject(
+    sourcePath: string,
+    traceId?: string,
+    opts?: { configFileName?: string },
+  ): Promise<ProjectEntry> {
     const resolvedSource = toPosix(sourcePath)
     if (pathPolicy) await pathPolicy.assertReadable(resolvedSource, traceId)
-    const status: WorkspaceConfigReadStatus = await workspaceService.readConfigStatus(resolvedSource, traceId)
+    const configFileName = normalizeConfigFileName(opts?.configFileName)
+    const status: WorkspaceConfigReadStatus = await workspaceService.readConfigStatus(
+      resolvedSource,
+      traceId,
+      { configFileName },
+    )
     await ensureProjectsDir()
 
     if (status.status === 'ok') {
       const domain = status.config.domain
-      await writeLinkFile(domain, resolvedSource)
-      return toProjectEntry(domain, resolvedSource, true, traceId)
+      await writeLinkFile(domain, resolvedSource, configFileName)
+      return toProjectEntry(domain, resolvedSource, true, traceId, undefined, configFileName)
     }
 
-    const fallbackDomain = deriveImportDomainFromPath(resolvedSource)
-    await writeLinkFile(fallbackDomain, resolvedSource)
-    return toProjectEntry(fallbackDomain, resolvedSource, true, traceId, fallbackDomain)
+    const fallbackDomain =
+      domainFromSolutionFileName(configFileName) ?? deriveImportDomainFromPath(resolvedSource)
+    await writeLinkFile(fallbackDomain, resolvedSource, configFileName)
+    return toProjectEntry(fallbackDomain, resolvedSource, true, traceId, fallbackDomain, configFileName)
+  }
+
+  /**
+   * Multi-domain roots: link every readable solution file at `rootPath` as its
+   * own project (id = domain). Invalid files are skipped; the caller surfaces
+   * them through the solution diagnostics.
+   */
+  async function importSolutionsAtRoot(rootPath: string, traceId?: string): Promise<ProjectEntry[]> {
+    const scan = await scanSolutionRoot(fs, toPosix(rootPath))
+    const entries: ProjectEntry[] = []
+    for (const solution of scan.solutions) {
+      if (solution.status.status !== 'ok') continue
+      entries.push(await importProject(rootPath, traceId, { configFileName: solution.fileName }))
+    }
+    return entries
   }
 
   async function getConfigStatus(id: string, traceId?: string): Promise<ProjectConfigStatus> {
-    const { projectPath } = await resolveProjectPath(id, traceId)
-    return workspaceService.readConfigStatus(projectPath, traceId)
+    const { projectPath, configFileName } = await resolveProjectPath(id, traceId)
+    return workspaceService.readConfigStatus(projectPath, traceId, { configFileName })
   }
 
   async function writeProjectConfig(
@@ -247,10 +294,59 @@ export function createProjectService(deps: ProjectServiceDeps) {
     input: WriteProjectConfigInput,
     traceId?: string,
   ): Promise<ProjectEntry> {
-    const { projectPath, linked } = await resolveProjectPath(id, traceId)
+    const { projectPath, linked, configFileName } = await resolveProjectPath(id, traceId)
     const configJson = input as VnextWorkspaceConfig
 
-    await fs.writeFile(joinPosix(projectPath, CONFIG_FILE), JSON.stringify(configJson, null, 2))
+    const previous = await workspaceService.readConfigStatus(projectPath, traceId, { configFileName })
+
+    // A sibling solution file in the same root must not silently take over
+    // this domain (its link file would be overwritten below).
+    const scan = await scanSolutionRoot(fs, projectPath)
+    const conflicting = scan.solutions.find(
+      (solution) =>
+        solution.status.status === 'ok' &&
+        solution.fileName.toLowerCase() !== configFileName.toLowerCase() &&
+        solution.config?.domain === configJson.domain,
+    )
+    if (conflicting) {
+      throw new VnextForgeError(
+        ERROR_CODES.PROJECT_ALREADY_EXISTS,
+        `Another solution file in this workspace already uses domain '${configJson.domain}'.`,
+        {
+          source: 'ProjectService.writeProjectConfig',
+          layer: 'application',
+          details: { id, configFileName, conflictingFile: conflicting.fileName },
+        },
+        traceId,
+      )
+    }
+
+    await fs.writeFile(joinPosix(projectPath, configFileName), JSON.stringify(configJson, null, 2))
+
+    // Domain-suffixed solution files follow their domain: `vnext.old.config.json`
+    // becomes `vnext.new.config.json`. The default file is never renamed.
+    let nextConfigFileName = configFileName
+    if (configFileName !== CONFIG_FILE) {
+      const expected = solutionFileNameForDomain(configJson.domain)
+      if (expected !== configFileName) {
+        const from = joinPosix(projectPath, configFileName)
+        const to = joinPosix(projectPath, expected)
+        if (await fs.exists(to)) {
+          throw new VnextForgeError(
+            ERROR_CODES.PROJECT_SAVE_ERROR,
+            `Cannot rename ${configFileName} to ${expected}: the target file already exists.`,
+            {
+              source: 'ProjectService.writeProjectConfig',
+              layer: 'application',
+              details: { id, from, to },
+            },
+            traceId,
+          )
+        }
+        await fs.rename(from, to)
+        nextConfigFileName = expected
+      }
+    }
 
     if (linked) {
       const root = await getProjectsRoot()
@@ -268,11 +364,45 @@ export function createProjectService(deps: ProjectServiceDeps) {
           }
         }
       }
-      await writeLinkFile(configJson.domain, projectPath)
+      await writeLinkFile(configJson.domain, projectPath, nextConfigFileName)
+    }
+
+    // schemaVersion drives the `@burgan-tech/vnext-schema` pin of this
+    // solution's package.json. Failures are logged, never surfaced: the config
+    // write itself already succeeded and the user can fix package.json by hand.
+    if (previous.status === 'ok' && previous.config.schemaVersion !== configJson.schemaVersion) {
+      await syncSchemaVersionToPackageJson(projectPath, configJson, traceId)
     }
 
     const nextId = linked ? configJson.domain : id
     return getProject(nextId, traceId)
+  }
+
+  async function syncSchemaVersionToPackageJson(
+    projectPath: string,
+    config: VnextWorkspaceConfig,
+    traceId?: string,
+  ): Promise<void> {
+    try {
+      const packageJsonPath = await resolvePackageJsonPath(fs, projectPath, config.paths.componentsRoot)
+      if (!packageJsonPath) {
+        deps.logger.warn(
+          { projectPath, domain: config.domain, traceId },
+          'schemaVersion changed but no package.json was found for this solution',
+        )
+        return
+      }
+      const result = await applySchemaVersionToPackageJson(fs, packageJsonPath, config.schemaVersion)
+      deps.logger.info(
+        { packageJsonPath, range: result.range, changed: result.changed, traceId },
+        'Synced @burgan-tech/vnext-schema to vnext.config schemaVersion',
+      )
+    } catch (error) {
+      deps.logger.warn(
+        { projectPath, error: error instanceof Error ? error.message : String(error), traceId },
+        'Failed to sync schemaVersion into package.json',
+      )
+    }
   }
 
   async function getFileTree(id: string, traceId?: string) {
@@ -281,8 +411,8 @@ export function createProjectService(deps: ProjectServiceDeps) {
   }
 
   async function getConfig(id: string, traceId?: string) {
-    const { projectPath } = await resolveProjectPath(id, traceId)
-    return workspaceService.getConfig(projectPath, traceId)
+    const { projectPath, configFileName } = await resolveProjectPath(id, traceId)
+    return workspaceService.getConfig(projectPath, traceId, { configFileName })
   }
 
   async function getValidateScriptStatus(id: string, traceId?: string): Promise<{ exists: boolean }> {
@@ -295,9 +425,8 @@ export function createProjectService(deps: ProjectServiceDeps) {
     const relevant = entries.filter(
       (e) => e.name !== '.DS_Store' && e.name !== 'Thumbs.db' && e.name !== 'desktop.ini',
     )
-    if (relevant.length !== 1) return false
-    const only = relevant[0]
-    return only.isFile && only.name === CONFIG_FILE
+    if (relevant.length === 0) return false
+    return relevant.every((entry) => entry.isFile && isSolutionFileName(entry.name))
   }
 
   async function computeVnextComponentLayoutStatus(
@@ -312,6 +441,12 @@ export function createProjectService(deps: ProjectServiceDeps) {
     const missingLayoutPaths: string[] = []
 
     for (const templateFile of EXPECTED_TEMPLATE_FILES) {
+      if (templateFile === 'package.json') {
+        // Sub-project layouts keep package.json under componentsRoot; accept either location.
+        const resolved = await resolvePackageJsonPath(fs, projectPath, config.paths.componentsRoot)
+        if (!resolved) missingLayoutPaths.push(templateFile)
+        continue
+      }
       const filePath = joinPosix(projectPath, templateFile)
       if (!(await fs.exists(filePath))) {
         missingLayoutPaths.push(templateFile)
@@ -360,12 +495,13 @@ export function createProjectService(deps: ProjectServiceDeps) {
     traceId?: string,
   ): Promise<VnextComponentLayoutStatusResult> {
     const { path: projectPath } = await getProject(id, traceId)
-    const status = await workspaceService.readConfigStatus(projectPath, traceId)
+    const { configFileName } = await resolveProjectPath(id, traceId)
+    const status = await workspaceService.readConfigStatus(projectPath, traceId, { configFileName })
 
     if (status.status !== 'ok') {
       const message =
         status.status === 'missing'
-          ? 'vnext.config.json was not found.'
+          ? `${configFileName} was not found.`
           : status.status === 'invalid'
             ? status.message
             : 'Project configuration could not be read.'
@@ -389,11 +525,12 @@ export function createProjectService(deps: ProjectServiceDeps) {
     traceId?: string,
   ): Promise<SeedVnextComponentLayoutResult> {
     const { path: projectPath } = await getProject(id, traceId)
-    const status = await workspaceService.readConfigStatus(projectPath, traceId)
+    const { configFileName } = await resolveProjectPath(id, traceId)
+    const status = await workspaceService.readConfigStatus(projectPath, traceId, { configFileName })
     if (status.status !== 'ok') {
       const message =
         status.status === 'missing'
-          ? 'vnext.config.json was not found.'
+          ? `${configFileName} was not found.`
           : status.status === 'invalid'
             ? status.message
             : 'Project configuration could not be read.'
@@ -430,7 +567,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
       await fs.rmrf(tmpDir)
     }
 
-    await templateService.applyCustomConfig(projectPath, config.domain, config, traceId)
+    await templateService.applyCustomConfig(projectPath, config.domain, config, traceId, configFileName)
 
     const dirs = collectComponentLayoutDirectories(projectPath, config.paths, traceId)
     const ensuredPaths: string[] = []
@@ -466,8 +603,8 @@ export function createProjectService(deps: ProjectServiceDeps) {
     id: string,
     traceId?: string,
   ): Promise<ComponentFileTypeMap> {
-    const { projectPath } = await resolveProjectPath(id, traceId)
-    const status = await workspaceService.readConfigStatus(projectPath, traceId)
+    const { projectPath, configFileName } = await resolveProjectPath(id, traceId)
+    const status = await workspaceService.readConfigStatus(projectPath, traceId, { configFileName })
     if (status.status !== 'ok') return {}
 
     return getComponentFileTypesFromResolved(projectPath, status.config)
@@ -580,10 +717,33 @@ export function createProjectService(deps: ProjectServiceDeps) {
     return candidate
   }
 
-  async function writeLinkFile(domain: string, sourcePath: string): Promise<void> {
+  async function writeLinkFile(
+    domain: string,
+    sourcePath: string,
+    configFileName: string = CONFIG_FILE,
+  ): Promise<void> {
     const root = await getProjectsRoot()
-    const link: LinkFile = { sourcePath, domain, importedAt: new Date().toISOString() }
+    const link: LinkFile = {
+      sourcePath,
+      domain,
+      importedAt: new Date().toISOString(),
+      ...(configFileName !== CONFIG_FILE ? { configFileName } : {}),
+    }
     await fs.writeFile(joinPosix(root, `${domain}.link.json`), JSON.stringify(link, null, 2))
+  }
+
+  /** Undefined / empty / default → `vnext.config.json`; anything else must be a solution file name. */
+  function normalizeConfigFileName(configFileName: string | undefined): string {
+    const trimmed = configFileName?.trim()
+    if (!trimmed) return CONFIG_FILE
+    if (!isSolutionFileName(trimmed) || trimmed.includes('/') || trimmed.includes('\\')) {
+      throw new VnextForgeError(
+        ERROR_CODES.PROJECT_INVALID_CONFIG,
+        `'${trimmed}' is not a valid solution file name.`,
+        { source: 'ProjectService.normalizeConfigFileName', layer: 'application' },
+      )
+    }
+    return trimmed.toLowerCase() === CONFIG_FILE ? CONFIG_FILE : trimmed
   }
 
   async function toProjectEntry(
@@ -592,9 +752,12 @@ export function createProjectService(deps: ProjectServiceDeps) {
     linked: boolean,
     traceId?: string,
     fallbackDomain?: string,
+    configFileName?: string,
   ): Promise<ProjectEntry> {
+    const fileName = normalizeConfigFileName(configFileName)
+    const extra = fileName !== CONFIG_FILE ? { configFileName: fileName } : {}
     try {
-      const config = await workspaceService.getConfig(rootPath, traceId)
+      const config = await workspaceService.getConfig(rootPath, traceId, { configFileName: fileName })
       return {
         id,
         domain: config.domain || fallbackDomain || id,
@@ -602,9 +765,10 @@ export function createProjectService(deps: ProjectServiceDeps) {
         path: rootPath,
         version: config.version,
         linked,
+        ...extra,
       }
     } catch {
-      return { id, domain: fallbackDomain || id, path: rootPath, linked }
+      return { id, domain: fallbackDomain || id, path: rootPath, linked, ...extra }
     }
   }
 
@@ -618,6 +782,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
     linked: boolean,
     configStatus: ProjectConfigStatus,
     traceId?: string,
+    configFileName: string = CONFIG_FILE,
   ): Promise<ProjectEntry> {
     if (configStatus.status === 'ok') {
       const c = configStatus.config
@@ -628,9 +793,10 @@ export function createProjectService(deps: ProjectServiceDeps) {
         path: projectPath,
         version: c.version,
         linked,
+        ...(configFileName !== CONFIG_FILE ? { configFileName } : {}),
       }
     }
-    return toProjectEntry(id, projectPath, linked, traceId)
+    return toProjectEntry(id, projectPath, linked, traceId, undefined, configFileName)
   }
 
   function collectComponentLayoutDirectories(
@@ -706,7 +872,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
     if (!target.toLowerCase().startsWith(`${root.toLowerCase()}/`)) {
       throw new VnextForgeError(
         ERROR_CODES.PROJECT_INVALID_CONFIG,
-        'vnext.config.json paths must not escape the project root.',
+        'Solution file paths must not escape the project root.',
         {
           source: 'ProjectService.assertResolvedPathInsideProject',
           layer: 'application',
@@ -778,7 +944,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
    * çözülmüş yol ve config kullanılır.
    */
   async function getWorkspaceBootstrap(id: string, traceId?: string) {
-    const { projectPath, linked } = await resolveProjectPath(id, traceId)
+    const { projectPath, linked, configFileName } = await resolveProjectPath(id, traceId)
     try {
       const stat = await fs.stat(projectPath)
       if (!stat.isDirectory) {
@@ -799,11 +965,18 @@ export function createProjectService(deps: ProjectServiceDeps) {
     }
 
     const [configStatus, tree] = await Promise.all([
-      workspaceService.readConfigStatus(projectPath, traceId),
+      workspaceService.readConfigStatus(projectPath, traceId, { configFileName }),
       workspaceService.getFileTree(projectPath, traceId),
     ])
 
-    const project = await buildProjectEntryForBootstrap(id, projectPath, linked, configStatus, traceId)
+    const project = await buildProjectEntryForBootstrap(
+      id,
+      projectPath,
+      linked,
+      configStatus,
+      traceId,
+      configFileName,
+    )
 
     if (configStatus.status !== 'ok') {
       return {
@@ -840,7 +1013,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
     input: { category?: VnextExportCategory; previewPaths?: string },
     traceId?: string,
   ): Promise<{ components: VnextComponentsByCategory }> {
-    const { projectPath } = await resolveProjectPath(id, traceId)
+    const { projectPath, configFileName } = await resolveProjectPath(id, traceId)
     let paths: VnextWorkspacePaths | undefined
 
     if (input.previewPaths != null && String(input.previewPaths).trim() !== '') {
@@ -866,7 +1039,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
       }
       paths = parsed.data
     } else {
-      const status = await workspaceService.readConfigStatus(projectPath, traceId)
+      const status = await workspaceService.readConfigStatus(projectPath, traceId, { configFileName })
       if (status.status !== 'ok') {
         return { components: emptyVnextComponentBuckets() }
       }
@@ -881,6 +1054,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
     getProject,
     createProject,
     importProject,
+    importSolutionsAtRoot,
     getConfigStatus,
     writeProjectConfig,
     getFileTree,

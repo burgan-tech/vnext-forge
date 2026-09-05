@@ -1,7 +1,11 @@
 import { useCallback } from 'react';
 
+import type { VnextWorkspaceConfig } from '@vnext-forge-studio/app-contracts';
+
+import { callApi } from '../../api/client.js';
 import { showNotification } from '../../notification/notification-port.js';
 import { useProjectStore } from '../../store/useProjectStore.js';
+import type { ProjectInfo } from '../../shared/projectTypes.js';
 import { discoverVnextComponentsByCategory } from './vnextComponentDiscovery.js';
 
 export interface WorkflowRoute {
@@ -18,6 +22,55 @@ export interface ResolvedWorkflowFile {
    * never populates `vnextConfig`, so hosts there work off `path` instead.
    */
   route?: WorkflowRoute;
+  /**
+   * Project the workflow belongs to. Equals the active project's id for
+   * same-domain references; for a sibling solution in the same workspace root
+   * (`vnext.<domain>.config.json`) it is that domain. Callers that navigate by
+   * `route` must not do so when this differs from the active project.
+   */
+  projectId: string;
+  /** Domain of the resolved workflow. */
+  domain: string;
+}
+
+export interface SiblingSolutionProject {
+  id: string;
+  path: string;
+  paths?: VnextWorkspaceConfig['paths'];
+}
+
+function normalizePath(p: string): string {
+  return p.replace(/\\/g, '/').replace(/\/+$/, '').toLowerCase();
+}
+
+/**
+ * A different domain is reachable when it is a sibling solution file in the
+ * same workspace root: the extension host / server link every solution as its
+ * own project (id = domain), so `projects/getById` resolves it and its `path`
+ * equals the active project's root.
+ */
+export async function resolveSiblingSolutionProject(
+  domain: string,
+  activeProject: ProjectInfo,
+): Promise<SiblingSolutionProject | null> {
+  const [siblingRes, currentRes] = await Promise.all([
+    callApi<ProjectInfo>({ method: 'projects/getById', params: { id: domain } }),
+    callApi<ProjectInfo>({ method: 'projects/getById', params: { id: activeProject.id } }),
+  ]);
+  if (!siblingRes.success || !currentRes.success) return null;
+  const sibling = siblingRes.data;
+  if (sibling.domain !== domain) return null;
+  if (normalizePath(sibling.path) !== normalizePath(currentRes.data.path)) return null;
+
+  const configRes = await callApi<VnextWorkspaceConfig>({
+    method: 'projects/getConfig',
+    params: { id: sibling.id },
+  });
+  return {
+    id: sibling.id,
+    path: sibling.path,
+    ...(configRes.success && configRes.data?.paths ? { paths: configRes.data.paths } : {}),
+  };
 }
 
 /**
@@ -26,7 +79,8 @@ export interface ResolvedWorkflowFile {
  *
  * Shared by the flow editor's subflow node navigation and Quick Run's
  * correlation actions: both hold a `key`, both need the file, and both must
- * refuse cross-domain references the same way.
+ * treat cross-domain references the same way — a sibling solution in the same
+ * workspace root is followed, anything else is refused.
  *
  * Note: component discovery de-dupes by key, so a workflow `version` cannot
  * select between sibling files — callers must treat version as display-only.
@@ -42,16 +96,6 @@ export function useWorkflowFileResolver(): (
     async (workflowKey: string, workflowDomain?: string) => {
       if (!workflowKey) return null;
 
-      const currentDomain = vnextConfig?.domain ?? activeProject?.domain ?? '';
-
-      if (workflowDomain && workflowDomain !== currentDomain) {
-        showNotification({
-          message: 'This subflow belongs to a different domain. Please open the target workspace manually.',
-          kind: 'warning',
-        });
-        return null;
-      }
-
       if (!activeProject) {
         showNotification({
           message: 'No active project. Cannot resolve subflow workflow.',
@@ -60,8 +104,32 @@ export function useWorkflowFileResolver(): (
         return null;
       }
 
+      const currentDomain = vnextConfig?.domain ?? activeProject.domain ?? '';
+
+      let target: SiblingSolutionProject = {
+        id: activeProject.id,
+        path: activeProject.path,
+        ...(vnextConfig?.paths ? { paths: vnextConfig.paths } : {}),
+      };
+      let targetDomain = currentDomain;
+
+      if (workflowDomain && workflowDomain !== currentDomain) {
+        const sibling = await resolveSiblingSolutionProject(workflowDomain, activeProject).catch(
+          () => null,
+        );
+        if (!sibling) {
+          showNotification({
+            message: `This subflow belongs to domain '${workflowDomain}', which is not a solution in this workspace. Open the target workspace manually.`,
+            kind: 'warning',
+          });
+          return null;
+        }
+        target = sibling;
+        targetDomain = workflowDomain;
+      }
+
       try {
-        const workflows = await discoverVnextComponentsByCategory(activeProject.id, 'workflows');
+        const workflows = await discoverVnextComponentsByCategory(target.id, 'workflows');
         const match = workflows.find((w) => w.key === workflowKey);
 
         if (!match) {
@@ -72,11 +140,16 @@ export function useWorkflowFileResolver(): (
           return null;
         }
 
-        const route = vnextConfig?.paths
-          ? resolveWorkflowRoute(match.path, activeProject.path, vnextConfig.paths)
+        const route = target.paths
+          ? resolveWorkflowRoute(match.path, target.path, target.paths)
           : null;
 
-        return { path: match.path, ...(route ? { route } : {}) };
+        return {
+          path: match.path,
+          ...(route ? { route } : {}),
+          projectId: target.id,
+          domain: targetDomain,
+        };
       } catch {
         showNotification({
           message: 'Failed to resolve subflow workflow file.',

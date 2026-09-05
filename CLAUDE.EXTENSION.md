@@ -50,7 +50,7 @@ Orientation only — **`apps/extension/package.json`** is authoritative.
 
 From `apps/extension/package.json`:
 
-- **Activation:** `workspaceContains:vnext.config.json`, `onCommand:vnextForge.open`, `onCommand:vnextForge.openDesigner`, `onCommand:vnextForge.createProject`, `onCommand:vnextForge.createComponent`.
+- **Activation:** `workspaceContains:vnext.config.json`, `workspaceContains:vnext.*.config.json`, `onCommand:vnextForge.open`, `onCommand:vnextForge.openDesigner`, `onCommand:vnextForge.createProject`, `onCommand:vnextForge.createComponent`.
 - **Commands:** `vnextForge.open`, `vnextForge.openDesigner`, `vnextForge.createProject`, `vnextForge.createComponent` (see contributes.commands and menus).
 
 ## Build

@@ -1,3 +1,4 @@
+import { isSolutionFileName, solutionDisplayLabel } from './solution-file-name';
 /**
  * Ortak sekme başlığı + ikon anahtarı: web SPA (`EditorTabBar`),
  * designer-ui (`EditorTabLabel`) ve VS Code extension host (`WebviewPanel`)
@@ -68,8 +69,11 @@ export function getVnextComponentEditorTabDisplayTitle(
       raw = stored ?? '';
     }
   }
-  if (raw.toLowerCase() === 'vnext.config.json' || raw.toLowerCase() === 'vnext.config') {
-    return 'vNext Config';
+  if (isSolutionFileName(raw)) {
+    return solutionDisplayLabel(raw);
+  }
+  if (isSolutionFileName(`${raw}.json`)) {
+    return solutionDisplayLabel(`${raw}.json`);
   }
   return formatHyphenatedTabTitle(raw);
 }

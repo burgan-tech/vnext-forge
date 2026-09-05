@@ -1,10 +1,19 @@
 import * as vscode from 'vscode';
-import { execFile } from 'node:child_process';
+
+import {
+  buildWfShellCommand,
+  type VnextSolutionFile,
+  type WfWorkspaceCommand,
+} from '@vnext-forge-studio/services-core';
+
 import type { VnextWorkspaceDetector } from '../../workspace-detector.js';
-import { baseLogger } from '../../shared/logger.js';
 import type { ForgeTerminalManager } from '../forge-terminal.js';
+import { pickWorkspaceRoot } from '../pick-workspace-root.js';
+import type { WfCliProbe } from '../wf-cli-probe.js';
+import type { WfCliUpgradeNotice } from '../wf-cli-upgrade-notice.js';
 
 type DeployNodeId = 'wfUpdateAll' | 'wfUpdate' | 'wfCsxAll' | 'installWfCli';
+type DeployCommandId = Exclude<DeployNodeId, 'installWfCli'>;
 
 interface DeployAction {
   id: DeployNodeId;
@@ -46,21 +55,23 @@ const INSTALL_ACTION: DeployAction = {
   command: 'vnextForge.tools.installWfCli',
 };
 
-const WF_COMMANDS: Record<string, string> = {
-  wfUpdateAll: 'wf update --all',
-  wfUpdate: 'wf update',
-  wfCsxAll: 'wf csx --all',
+const WF_COMMANDS: Record<DeployCommandId, WfWorkspaceCommand> = {
+  wfUpdateAll: 'update --all',
+  wfUpdate: 'update',
+  wfCsxAll: 'csx --all',
 };
+
+const ALL_DOMAINS_LABEL = 'All domains';
 
 export class PackageDeployProvider implements vscode.TreeDataProvider<DeployNodeId> {
   private readonly _onDidChangeTreeData = new vscode.EventEmitter<DeployNodeId | undefined>();
   readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
 
-  private wfInstalled: boolean | undefined;
-
   constructor(
     private readonly detector: VnextWorkspaceDetector,
     private readonly terminal: ForgeTerminalManager,
+    private readonly wfCli: WfCliProbe,
+    private readonly upgradeNotice: WfCliUpgradeNotice,
   ) {}
 
   getTreeItem(element: DeployNodeId): vscode.TreeItem {
@@ -81,11 +92,8 @@ export class PackageDeployProvider implements vscode.TreeDataProvider<DeployNode
   async getChildren(element?: DeployNodeId): Promise<DeployNodeId[]> {
     if (element) return [];
 
-    if (this.wfInstalled === undefined) {
-      this.wfInstalled = await this.checkWfInstalled();
-    }
-
-    if (!this.wfInstalled) {
+    const info = await this.wfCli.get();
+    if (!info.installed) {
       return ['installWfCli'];
     }
 
@@ -98,8 +106,8 @@ export class PackageDeployProvider implements vscode.TreeDataProvider<DeployNode
       return;
     }
 
-    const installed = await this.checkWfInstalled();
-    if (!installed) {
+    const info = await this.wfCli.get();
+    if (!info.installed) {
       const action = await vscode.window.showWarningMessage(
         'vnext-forge-studio: Workflow CLI (wf) is not installed.',
         'Install Now',
@@ -115,43 +123,82 @@ export class PackageDeployProvider implements vscode.TreeDataProvider<DeployNode
       void vscode.window.showWarningMessage('vnext-forge-studio: No vnext workspace found.');
       return;
     }
+    const root = await pickWorkspaceRoot(roots, {
+      title: 'Select vNext workspace',
+      placeHolder: 'Several vNext roots are open — pick the one to deploy from.',
+    });
+    if (!root) return;
 
-    const cwd = roots[0].folderPath;
-    const command = WF_COMMANDS[actionId];
-    if (!command) return;
+    // Multi-domain root: let the user narrow the run to one solution. With a
+    // legacy CLI "All domains" is not offered — it cannot iterate solutions.
+    const validSolutions = root.solutions.filter(
+      (solution) => solution.status.status === 'ok' && !!solution.config,
+    );
+    let domain: string | undefined;
+    if (validSolutions.length > 1) {
+      const picked = await this.pickDomain(validSolutions, info.supportsDomainFlag);
+      if (picked === undefined) return;
+      domain = picked || undefined;
+    }
 
-    this.terminal.run(command, { cwd });
+    const command = buildWfShellCommand(
+      { base: WF_COMMANDS[actionId] },
+      { domain, cliSupportsDomainFlag: info.supportsDomainFlag },
+    );
+    if (domain && !info.supportsDomainFlag) {
+      void this.upgradeNotice.maybeShow(info);
+    }
+
+    this.terminal.run(command, { cwd: root.folderPath });
   }
 
-  private async installWfCli(): Promise<void> {
+  /** `''` = all domains, a domain name = one solution, `undefined` = cancelled. */
+  private async pickDomain(
+    solutions: readonly VnextSolutionFile[],
+    offerAllDomains: boolean,
+  ): Promise<string | undefined> {
+    const domains = solutions.map((solution) => solution.config!.domain);
+    const items: (vscode.QuickPickItem & { domain: string })[] = [];
+    if (offerAllDomains) {
+      items.push({
+        label: ALL_DOMAINS_LABEL,
+        description: domains.join(', '),
+        detail: 'Run once per solution file, sequentially (Workflow CLI default).',
+        domain: '',
+      });
+    }
+    for (const solution of solutions) {
+      const config = solution.config!;
+      items.push({
+        label: config.domain,
+        description: solution.fileName,
+        ...(config.description ? { detail: config.description } : {}),
+        domain: config.domain,
+      });
+    }
+    const picked = await vscode.window.showQuickPick(items, {
+      title: 'Deploy: select domain',
+      placeHolder: 'This workspace holds several solution files — pick the domain to deploy.',
+      ignoreFocusOut: true,
+    });
+    return picked?.domain;
+  }
+
+  installWfCli(): Promise<void> {
     this.terminal.run('npm install -g @burgan-tech/vnext-workflow-cli');
 
     void vscode.window.showInformationMessage(
       'vnext-forge-studio: Installing Workflow CLI globally. Refresh the sidebar after installation completes.',
     );
 
-    this.wfInstalled = undefined;
+    this.wfCli.invalidate();
     this._onDidChangeTreeData.fire(undefined);
+    return Promise.resolve();
   }
 
-  async refreshInstallStatus(): Promise<void> {
-    this.wfInstalled = await this.checkWfInstalled();
+  refreshInstallStatus(): Promise<void> {
+    this.wfCli.invalidate();
     this._onDidChangeTreeData.fire(undefined);
-  }
-
-  private checkWfInstalled(): Promise<boolean> {
-    return new Promise((resolve) => {
-      execFile('wf', ['--version'], {
-        timeout: 10_000,
-        shell: process.platform === 'win32',
-      }, (error) => {
-        if (error) {
-          baseLogger.info({}, 'wf CLI not found');
-          resolve(false);
-        } else {
-          resolve(true);
-        }
-      });
-    });
+    return Promise.resolve();
   }
 }

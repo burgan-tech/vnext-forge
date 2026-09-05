@@ -4,6 +4,8 @@ import {
   vnextWorkspaceConfigTabId,
 } from '@vnext-forge-studio/designer-ui';
 
+import { solutionDisplayLabel } from '@vnext-forge-studio/vnext-types';
+
 import type { FileRoute } from './FileRouter';
 import { fileRouteTypeToComponentKind } from './fileRouteTypeToComponentKind';
 
@@ -21,11 +23,15 @@ export function openEditorTabForComponentRoute(route: FileRoute, projectId: stri
   });
 }
 
-/** `vnext.config.json` tam sayfa yapılandırma sekmesini açar (rota `navigate` ile tamamlanmalı). */
-export function openVnextWorkspaceConfigTab(projectId: string): void {
+/**
+ * Solution-file full-page configuration tab (route completed by `navigate`).
+ * `configFileName` names a domain-suffixed solution (`vnext.<domain>.config.json`);
+ * absent = default `vnext.config.json`.
+ */
+export function openVnextWorkspaceConfigTab(projectId: string, configFileName?: string): void {
   useEditorStore.getState().openTab({
     id: vnextWorkspaceConfigTabId(projectId),
     kind: 'workspace-config',
-    title: 'vnext.config.json',
+    title: solutionDisplayLabel(configFileName ?? 'vnext.config.json'),
   });
 }

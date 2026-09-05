@@ -1,7 +1,9 @@
 import * as vscode from 'vscode';
 import {
+  buildWfShellCommand,
   parseWfDomainList,
   planDomainRegistration,
+  WF_DOMAIN_NAME_PATTERN,
   type WfDomainEntry,
 } from '@vnext-forge-studio/services-core';
 import type {
@@ -28,6 +30,8 @@ import {
   type WfDomainAddArgs,
   type WfDomainCalls,
 } from '../local-runtime/wf-domain-registrar.js';
+import type { WfCliProbe } from '../wf-cli-probe.js';
+import type { WfCliUpgradeNotice } from '../wf-cli-upgrade-notice.js';
 
 /**
  * Resolves the workspace domain from `vnext.config.json` (single source
@@ -38,6 +42,11 @@ import {
 export type ResolveWorkspaceDomainFn = (root: VnextWorkspaceRoot) => Promise<string>;
 
 const WORKFLOW_CLI_DOCS_URL = 'https://burgan-tech.github.io/vnext-docs/docs/tools/workflow-cli';
+
+/** Tooltip line for a runtime whose `/health` domain differs from the registered one. */
+function domainMismatchLine(runtimeDomain: string, envDomain: string): string {
+  return `Warning: the runtime reports domain "${runtimeDomain}" — this environment is registered for "${envDomain}".`;
+}
 
 export type DomainAddFn = (params: WfDomainAddArgs) => Promise<WfCliResult>;
 
@@ -139,13 +148,6 @@ const CLI_REGISTRATION_TOOLTIPS: Record<CliRegistrationState, string> = {
 };
 
 /**
- * Domain names Forge is willing to put on a shell command line (`wf domain use
- * <domain> && wf reset`). Matches what the runtime layout already implies — the
- * domain is a single path segment and a database name suffix.
- */
-const WF_DOMAIN_NAME_PATTERN = /^[A-Za-z0-9._-]+$/;
-
-/**
  * True when `wf domain add` reported an error while still exiting 0.
  *
  * Only used by the degraded fallback path — the one taken when the `domain
@@ -230,6 +232,10 @@ export class EnvironmentsProvider implements vscode.TreeDataProvider<string> {
     private readonly domainList?: DomainListFn,
     private readonly domainRemove?: DomainNameFn,
     private readonly domainUse?: DomainNameFn,
+    /** Installed Workflow CLI facts — decides `--domain` vs the legacy `domain use` form. */
+    private readonly wfCli?: WfCliProbe,
+    /** One-per-session "update the CLI" notice for the legacy form. */
+    private readonly legacyNotice?: WfCliUpgradeNotice,
   ) {
     settingsService.onDidChangeEnvironments(() => {
       this.envConfig = undefined;
@@ -258,24 +264,38 @@ export class EnvironmentsProvider implements vscode.TreeDataProvider<string> {
     const isActive = config.activeEnvironmentId === env.id;
     const health = isActive ? this.healthMonitor.getHealth() : undefined;
 
-    const item = new vscode.TreeItem(env.name, vscode.TreeItemCollapsibleState.None);
-    item.description = env.baseUrl;
-
     // A managed entry without a wired LocalRuntimeService renders exactly like
     // a remote one: no lifecycle command is reachable, so `environment-local`
     // would advertise menu items that cannot run.
     const binding = env.kind === 'local-docker' ? env.local : undefined;
+
+    // The domain this environment is registered for, and — for the active
+    // environment only, the health monitor tracks nothing else — the domain the
+    // runtime itself reports. A disagreement is shown inline, never as a popup.
+    const envDomain = binding?.domain ?? env.domain;
+    const runtimeDomain = isActive ? this.healthMonitor.getRuntimeDomain() : null;
+    const mismatchDomain =
+      envDomain && runtimeDomain && runtimeDomain.toLowerCase() !== envDomain.toLowerCase()
+        ? runtimeDomain
+        : null;
+
+    const item = new vscode.TreeItem(env.name, vscode.TreeItemCollapsibleState.None);
+    item.description = envDomain ? `${env.baseUrl} · ${envDomain}` : env.baseUrl;
+    if (mismatchDomain) {
+      item.description += ' · $(warning) domain mismatch';
+    }
+
     if (binding && this.localRuntime) {
       const [state, cliState] = await Promise.all([
         this.resolveContainerState(env.id, binding),
         this.resolveCliRegistrationState(env, binding),
       ]);
       item.contextValue = CLI_REGISTRATION_CONTEXT[cliState];
-      item.tooltip = this.buildLocalTooltip(env, binding, state, isActive, health, cliState);
+      item.tooltip = this.buildLocalTooltip(env, binding, state, isActive, health, cliState, mismatchDomain);
       item.iconPath = this.getLocalIcon(state, isActive, health);
     } else {
       item.contextValue = 'environment';
-      item.tooltip = this.buildTooltip(env, isActive, health);
+      item.tooltip = this.buildTooltip(env, isActive, health, mismatchDomain);
       item.iconPath = this.getHealthIcon(isActive, health);
     }
 
@@ -474,7 +494,13 @@ export class EnvironmentsProvider implements vscode.TreeDataProvider<string> {
     });
     if (!dbName) return;
 
-    await this.settingsService.addEnvironment(name.trim(), baseUrl.trim(), dbName.trim());
+    await this.settingsService.addEnvironment(
+      name.trim(),
+      baseUrl.trim(),
+      dbName.trim(),
+      undefined,
+      workspaceDomain || undefined,
+    );
     // The wf CLI domain argument is the workspace domain (read from
     // vnext.config.json), NOT the environment label. Same domain can
     // be registered with multiple environment URLs (e.g. Local +
@@ -1154,18 +1180,28 @@ export class EnvironmentsProvider implements vscode.TreeDataProvider<string> {
     if (!binding) {
       const root = await this.pickWorkspaceRoot(
         'Select vNext workspace to reset components for',
-        'Pick the workspace whose `vnext.config.json` components will be reset.',
+        'Pick the workspace whose solution files hold the components to reset.',
       );
       if (root === undefined) return; // user cancelled
       if (root === null) {
         void vscode.window.showErrorMessage(
           'Open a vNext workspace before resetting components — `wf reset` reads the ' +
-            'components from `vnext.config.json`.',
+            'components from the workspace solution files.',
         );
         return;
       }
       workspacePath = root.folderPath;
-      if (this.resolveWorkspaceDomain) {
+      // A remote environment registered for a domain that the chosen root
+      // actually declares needs no picker; otherwise fall back to the
+      // workspace-domain resolver (QuickPick over the root's solutions).
+      const envDomainInRoot =
+        env.domain &&
+        root.solutions.some((s) => s.status.status === 'ok' && s.config?.domain === env.domain)
+          ? env.domain
+          : '';
+      if (envDomainInRoot) {
+        domain = envDomainInRoot;
+      } else if (this.resolveWorkspaceDomain) {
         try {
           domain = (await this.resolveWorkspaceDomain(root)).trim();
         } catch (err) {
@@ -1213,26 +1249,32 @@ export class EnvironmentsProvider implements vscode.TreeDataProvider<string> {
           `This force-updates the components of domain "${domain}": every matching component is ` +
           'deleted from the database and published again from the files in ' +
           `${workspacePath}.\n\n` +
-          'The command then asks which component types to include and for a final confirmation ' +
-          'in the terminal.',
+          `Runs \`wf reset --domain ${domain}\` from that folder; the command then asks which ` +
+          'component types to include and for a final confirmation in the terminal.',
       },
       'Reset Components',
     );
     if (confirm !== 'Reset Components') return;
 
-    // A terminal, and both commands, are both load-bearing — do not "simplify"
-    // this into `runStreaming`:
-    //   * `wf reset` is interactive. It prompts (inquirer) for which component
-    //     types to reset and then for a final confirmation, and the CLI
-    //     declares the command with no non-interactive flag. `runStreaming`
-    //     captures output and gives the child no stdin, so it would hang
-    //     forever on a prompt with nowhere to appear.
-    //   * `wf reset` acts on the CLI's *active* domain, so it must be preceded
-    //     by `wf domain use <domain>` or it would reset whichever domain the
-    //     user last selected — possibly a different environment entirely.
-    // The shell `&&` is fine here (unlike the argv arrays used for `spawn`):
-    // `runTerminal` hands a command line to a real shell.
-    runTerminal(`wf domain use ${domain} && wf reset`, workspacePath);
+    // A terminal is load-bearing — do not "simplify" this into `runStreaming`:
+    // `wf reset` is interactive. It prompts (inquirer) for which component
+    // types to reset and then for a final confirmation, and the CLI declares
+    // the command with no non-interactive flag. `runStreaming` captures output
+    // and gives the child no stdin, so it would hang forever on a prompt with
+    // nowhere to appear.
+    //
+    // CLI ≥ 1.0.13 scopes the run with the global `--domain` option (and no
+    // longer touches the active profile). Older CLIs act on the *active*
+    // domain, so they get the legacy `wf domain use <domain> && wf reset`.
+    const info = (await this.wfCli?.get()) ?? { installed: true, supportsDomainFlag: false };
+    const command = buildWfShellCommand(
+      { base: 'reset' },
+      { domain, cliSupportsDomainFlag: info.supportsDomainFlag },
+    );
+    if (!info.supportsDomainFlag) {
+      void this.legacyNotice?.maybeShow(info);
+    }
+    runTerminal(command, workspacePath);
   }
 
   async showLogsForEnvironment(envId: string): Promise<void> {
@@ -1605,17 +1647,28 @@ export class EnvironmentsProvider implements vscode.TreeDataProvider<string> {
     }
   }
 
-  private buildTooltip(env: RuntimeEnvironment, isActive: boolean, health?: HealthStatus): string {
+  private buildTooltip(
+    env: RuntimeEnvironment,
+    isActive: boolean,
+    health?: HealthStatus,
+    mismatchDomain: string | null = null,
+  ): string {
     const lines = [
       `Name: ${env.name}`,
       `URL: ${env.baseUrl}`,
       `Status: ${isActive ? 'Active' : 'Inactive'}`,
     ];
+    if (env.domain) {
+      lines.push(`Domain: ${env.domain}`);
+    }
     if (env.dbName) {
       lines.push(`DB Name: ${env.dbName}`);
     }
     if (health) {
       lines.push(`Health: ${health}`);
+    }
+    if (mismatchDomain && env.domain) {
+      lines.push(domainMismatchLine(mismatchDomain, env.domain));
     }
     return lines.join('\n');
   }
@@ -1745,6 +1798,7 @@ export class EnvironmentsProvider implements vscode.TreeDataProvider<string> {
     isActive: boolean,
     health: HealthStatus | undefined,
     cliState: CliRegistrationState,
+    mismatchDomain: string | null = null,
   ): string {
     const lines = [
       `Name: ${env.name}`,
@@ -1759,6 +1813,9 @@ export class EnvironmentsProvider implements vscode.TreeDataProvider<string> {
     }
     if (health) {
       lines.push(`Health: ${health}`);
+    }
+    if (mismatchDomain) {
+      lines.push(domainMismatchLine(mismatchDomain, binding.domain));
     }
     lines.push(
       state === 'unknown'

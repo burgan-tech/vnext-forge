@@ -63,6 +63,10 @@ export class EnvironmentHealthMonitor implements vscode.Disposable {
     this.stopRetrying();
     this.currentEnv = env;
     this.retryCount = 0;
+    // Facts reported by the previous runtime must not leak into the new
+    // environment (a stale `domain` would show a false "domain mismatch").
+    this.runtimeVersion = null;
+    this.runtimeDomain = null;
 
     if (!env) {
       this.setHealth('unknown');

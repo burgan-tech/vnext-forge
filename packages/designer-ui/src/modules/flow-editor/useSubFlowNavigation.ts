@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 
 import { showNotification } from '../../notification/notification-port.js';
+import { useProjectStore } from '../../store/useProjectStore.js';
 import { useWorkflowFileResolver } from '../vnext-workspace/resolveWorkflowFileByKey.js';
 
 export interface SubFlowNavigationDeps {
@@ -26,6 +27,18 @@ export function useSubFlowNavigation({ onNavigateToWorkflow, onOpenWorkflowFile 
 
       if (onOpenWorkflowFile) {
         onOpenWorkflowFile(resolved.path);
+        return;
+      }
+
+      // `route` is relative to the resolved project; navigating by group/name
+      // inside the *active* project would open the wrong file when the subflow
+      // lives in a sibling solution (`vnext.<domain>.config.json`).
+      const activeProjectId = useProjectStore.getState().activeProject?.id;
+      if (activeProjectId && resolved.projectId !== activeProjectId) {
+        showNotification({
+          message: `This subflow belongs to domain '${resolved.domain}'. Open it from that domain's workspace files.`,
+          kind: 'info',
+        });
         return;
       }
 

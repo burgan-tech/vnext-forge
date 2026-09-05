@@ -8,7 +8,8 @@ import type {
 } from '../../shared/projectTypes.js';
 
 /**
- * Shared `vnext.config.json` write hook. Both `apps/web` and the VS Code
+ * Shared solution-file (`vnext.config.json` / `vnext.<domain>.config.json`) write hook.
+ * The server resolves which file the project reads from its registry link. Both `apps/web` and the VS Code
  * extension webview use this — the underlying transport (HTTP vs.
  * `postMessage`) is resolved by `getApiTransport()` per host.
  *
@@ -37,7 +38,7 @@ export function useWriteVnextWorkspaceConfig(
         showNotificationOnError: true,
         errorMessage: 'Configuration could not be saved.',
         showNotificationOnSuccess: true,
-        successMessage: 'vnext.config.json created.',
+        successMessage: 'Configuration saved.',
         ...options,
       }),
       [options],

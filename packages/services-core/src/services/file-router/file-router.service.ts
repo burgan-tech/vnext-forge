@@ -1,3 +1,4 @@
+import { isSolutionFileName, solutionDisplayLabel } from '@vnext-forge-studio/vnext-types'
 import type { VnextWorkspaceConfig } from '../workspace/types.js'
 import { basename, joinPosix, relativePosix, toPosix } from '../../internal/paths.js'
 
@@ -136,14 +137,14 @@ export function resolveFileRoute(
   const relAbs = relativePosix(toPosix(projectPath), normalizedFile)
   const relativePath = relAbs && !relAbs.startsWith('..') ? relAbs : normalizedFile
 
-  if (relativePath.toLowerCase() === 'vnext.config.json') {
+  if (!relativePath.includes('/') && isSolutionFileName(relativePath)) {
     return {
       type: 'config',
       group: '',
-      name: 'vnext.config.json',
+      name: relativePath,
       filePath: normalizedFile,
       navigateTo: `/project/${projectId}/code/${encodeURIComponent(normalizedFile)}`,
-      editorTab: { filePath: normalizedFile, language: 'json', title: 'vnext.config.json' },
+      editorTab: { filePath: normalizedFile, language: 'json', title: solutionDisplayLabel(relativePath) },
     }
   }
 

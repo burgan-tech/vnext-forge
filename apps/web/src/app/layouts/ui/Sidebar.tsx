@@ -44,6 +44,8 @@ import { useWorkspaceDiagnosticsStore } from '../../store/useWorkspaceDiagnostic
 const WORKFLOW_CLI_DOCS_URL = 'https://burgan-tech.github.io/vnext-docs/docs/tools/workflow-cli';
 
 function EnvironmentsSection() {
+  // The wf profile name must equal the workspace domain (not the environment label).
+  const activeDomain = useProjectStore((s) => s.activeProject?.domain);
   const environments = useEnvironmentStore((s) => s.environments);
   const activeEnvironmentId = useEnvironmentStore((s) => s.activeEnvironmentId);
   const setActiveEnvironment = useEnvironmentStore((s) => s.setActiveEnvironment);
@@ -88,8 +90,10 @@ function EnvironmentsSection() {
       addEnvironment(addName, addUrl, trimmedDbName);
 
       if (cliAvailable) {
+        const trimmedActiveDomain = activeDomain?.trim();
+        const cliDomain = trimmedActiveDomain && trimmedActiveDomain.length > 0 ? trimmedActiveDomain : addName.trim();
         void domainAddCli({
-          domainName: addName.trim(),
+          domainName: cliDomain,
           apiBaseUrl: addUrl.trim(),
           dbName: trimmedDbName,
         }).then((result) => {
@@ -103,7 +107,7 @@ function EnvironmentsSection() {
           if (result.data.exitCode === 0) {
             showNotification({
               kind: 'success',
-              message: `Workflow CLI domain "${addName.trim()}" registered.`,
+              message: `Workflow CLI domain "${cliDomain}" registered.`,
             });
           } else {
             const msg = result.data.stderr.trim() || result.data.stdout.trim() || 'Unknown error';
@@ -529,6 +533,9 @@ const WORKFLOW_CLI_COMMANDS: { label: string; command: string }[] = [
 
 function WorkflowCliSection() {
   const projectId = useProjectStore((s) => s.activeProject?.id);
+  // One web project = one solution; scope every wf run to its domain so a
+  // multi-domain workspace root does not deploy sibling solutions.
+  const projectDomain = useProjectStore((s) => s.activeProject?.domain);
   const available = useCliStore((s) => s.available);
   const version = useCliStore((s) => s.version);
   const checking = useCliStore((s) => s.checking);
@@ -557,7 +564,11 @@ function WorkflowCliSection() {
     const store = useCliOutputStore.getState();
     store.setRunning(command);
     try {
-      const result = await executeCliCommand({ command, projectId });
+      const result = await executeCliCommand({
+        command,
+        projectId,
+        ...(projectDomain ? { domain: projectDomain } : {}),
+      });
       if (isFailure(result)) {
         store.setOutput({ command, exitCode: -1, stdout: '', stderr: result.error.message });
         return;

@@ -14,6 +14,8 @@ import type { LspBridge } from '@vnext-forge-studio/lsp-core';
 import { publishWorkflowFile } from './lib/publishWorkflowFile.js';
 import { createWebviewLspTransport, type WebviewLspTransport } from './panels/lsp-transport.js';
 import type { ForgeTerminalManager } from './tools/forge-terminal.js';
+import type { WfCliInfo, WfCliProbe } from './tools/wf-cli-probe.js';
+import type { VnextWorkspaceDetector } from './workspace-detector.js';
 
 // ── Message protocol ──────────────────────────────────────────────────────────
 
@@ -131,6 +133,12 @@ export interface MessageRouterDeps {
   statusBarItem: vscode.StatusBarItem;
   /** Shared terminal pool for running CLI commands from webview requests. */
   terminal?: ForgeTerminalManager;
+  /** Owning-root / solution resolution for `host:publish` (multi-domain `--domain`). */
+  detector?: VnextWorkspaceDetector;
+  /** Installed Workflow CLI facts (`--domain` support) for `host:publish`. */
+  wfCli?: WfCliProbe;
+  /** Invoked when publish had to use the legacy `wf domain use … &&` form. */
+  onLegacyWfCli?: (info: WfCliInfo) => void;
 }
 
 /**
@@ -204,7 +212,7 @@ export class MessageRouter {
     }
 
     if (isPublishFrame(raw)) {
-      this.handlePublishFrame(raw);
+      void this.handlePublishFrame(raw);
       return;
     }
 
@@ -405,21 +413,26 @@ export class MessageRouter {
 
   // ── Publish ──────────────────────────────────────────────────────────────
 
-  private handlePublishFrame(frame: WebviewPublishFrame): void {
-    const terminal = this.deps.terminal;
-    if (!terminal) {
-      this.deps.logger.warn({}, 'host:publish received but no terminal manager configured');
+  private async handlePublishFrame(frame: WebviewPublishFrame): Promise<void> {
+    const { terminal, detector, wfCli } = this.deps;
+    if (!terminal || !detector || !wfCli) {
+      this.deps.logger.warn({}, 'host:publish received but publish dependencies are not configured');
       return;
     }
 
     // Delegate to the shared helper so the Explorer "Forge: Publish"
-    // command uses the same workspace-jail validation + terminal
-    // command shape.
-    publishWorkflowFile({
+    // command uses the same owning-root validation + terminal command shape.
+    const result = await publishWorkflowFile({
       filePath: frame.filePath ?? '',
       terminal,
+      detector,
+      wfCli,
+      onLegacyCli: this.deps.onLegacyWfCli,
       logger: this.deps.logger,
     });
+    if (!result.ok) {
+      void vscode.window.showErrorMessage(`Forge Publish failed: ${result.reason ?? 'Unknown error'}`);
+    }
   }
 
   // ── Save generated file (native dialog) ────────────────────────────────────

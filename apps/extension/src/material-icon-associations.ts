@@ -1,6 +1,6 @@
-import * as fs from 'node:fs/promises';
-
 import * as vscode from 'vscode';
+
+import { DEFAULT_SOLUTION_FILE_NAME } from '@vnext-forge-studio/services-core';
 
 import type { VnextWorkspaceRoot } from './workspace-detector.js';
 
@@ -62,6 +62,8 @@ type ManagedSnapshot = {
 
 export interface ResolvedConfig {
   rootPath: string;
+  /** `vnext.config.json` or `vnext.<domain>.config.json` — gets the settings icon. */
+  solutionFileName: string;
   componentsRootName?: string;
   folderNameByType: Partial<Record<keyof typeof FOLDER_ICON_BY_TYPE, string>>;
 }
@@ -163,13 +165,16 @@ function mergeAssociations(state: CurrentState, configs: readonly ResolvedConfig
     // existing var ve bizim degil -> kullaniciya saygi, atla.
   }
 
-  // vnext.config.json dosyasi
-  const fileKey = 'vnext.config.json';
-  const existingFile = files[fileKey];
-  const isOursFile = managedFiles.has(fileKey);
-  if (existingFile === undefined || isOursFile) {
-    files[fileKey] = VNEXT_CONFIG_FILE_ICON;
-    managedFiles.add(fileKey);
+  // Solution files: the default `vnext.config.json` plus every domain-suffixed
+  // `vnext.<domain>.config.json` detected in a root.
+  const fileKeys = new Set<string>([DEFAULT_SOLUTION_FILE_NAME, ...configs.map((c) => c.solutionFileName)]);
+  for (const fileKey of fileKeys) {
+    const existingFile = files[fileKey];
+    const isOursFile = managedFiles.has(fileKey);
+    if (existingFile === undefined || isOursFile) {
+      files[fileKey] = VNEXT_CONFIG_FILE_ICON;
+      managedFiles.add(fileKey);
+    }
   }
 
   return {
@@ -183,7 +188,7 @@ function mergeAssociations(state: CurrentState, configs: readonly ResolvedConfig
 }
 
 /**
- * Workspace root'larindaki vnext.config.json'lardan klasor isimlerini cozer.
+ * Workspace root'larindaki (gecerli) solution dosyalarindan klasor isimlerini cozer.
  * `{domainName}` placeholder'i `domain` ile resolve edilir. Cozulemeyen alanlar atlanir.
  */
 export async function resolveConfigsForMaterial(
@@ -191,25 +196,23 @@ export async function resolveConfigsForMaterial(
 ): Promise<ResolvedConfig[]> {
   const out: ResolvedConfig[] = [];
   for (const root of roots) {
-    try {
-      const raw = await fs.readFile(root.configPath, 'utf8');
-      const cfg = JSON.parse(raw) as {
-        domain?: unknown;
-        paths?: Partial<Record<string, unknown>>;
-      };
-      const domain = typeof cfg.domain === 'string' ? cfg.domain : '';
+    for (const solution of root.solutions) {
+      const cfg = solution.config;
+      if (solution.status.status !== 'ok' || !cfg) continue;
+      const domain = cfg.domain;
       const subst = (v: unknown): string | undefined => {
         if (typeof v !== 'string' || !v) return undefined;
         const r = v.replace('{domainName}', domain);
         return r.includes('{') ? undefined : r;
       };
 
-      const paths = cfg.paths ?? {};
+      const paths = cfg.paths as unknown as Partial<Record<string, unknown>>;
       const componentsRootRel = subst(paths.componentsRoot);
       const componentsRootName = folderLabelFromConfigPath(componentsRootRel);
 
       out.push({
         rootPath: root.folderPath,
+        solutionFileName: solution.fileName,
         componentsRootName,
         folderNameByType: {
           workflows: folderLabelFromConfigPath(subst(paths.workflows)),
@@ -220,11 +223,9 @@ export async function resolveConfigsForMaterial(
           extensions: folderLabelFromConfigPath(subst(paths.extensions)),
         },
       });
-    } catch {
-      // okunamayan config sessizce atlanir
     }
   }
-  return out;
+  return Promise.resolve(out);
 }
 
 /**

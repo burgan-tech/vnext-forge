@@ -17,6 +17,11 @@ export interface ProjectInfo {
   path: string;
   version?: string;
   linked?: boolean;
+  /**
+   * Solution file this project reads (`vnext.<domain>.config.json`). Absent for
+   * the default `vnext.config.json`.
+   */
+  configFileName?: string;
 }
 
 export interface FileTreeNode {

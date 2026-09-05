@@ -90,10 +90,15 @@ Actions for the active vNext workspace:
 
 Manage runtime environments that Quick Run connects to:
 
-- Each environment has a name and base URL
+- Each environment has a name and base URL; environments added from a vNext workspace also
+  record the **domain** they serve (shown after the URL and in the tooltip). This is the
+  Workflow CLI profile name Forge registers with `wf domain add`.
 - A green indicator shows the active/healthy environment
+- If the active runtime's `/health` reports a different domain than the environment is
+  registered for, the row shows a **domain mismatch** warning
 - Use the **+** button to add new environments
-- Right-click an environment to edit, delete, or set it as active
+- Right-click an environment to edit, delete, set it as active, or **Reset Components**
+  (`wf reset --domain <domain>`, interactive in the terminal)
 
 For a managed local runtime (Docker), right-click it to **Start**, **Stop** or
 **Restart Local Runtime**, show its logs, reveal its ports, or update the runtime clone.
@@ -134,6 +139,10 @@ Deploy workflows to the runtime using the `wf` CLI:
 - **Deploy All** — `wf update --all`
 - **Deploy Changed** — `wf update` (git diff based)
 - **CSX Update All** — `wf csx --all`
+
+In a workspace with several solution files (`vnext.<domain>.config.json`) each command first
+asks whether to run for **All domains** or a single domain (`--domain <domain>`). Workflow CLI
+1.0.13 or newer is recommended; older versions fall back to `wf domain use <domain> && …`.
 
 If the CLI is not installed, an **Install Workflow CLI** action appears instead.
 

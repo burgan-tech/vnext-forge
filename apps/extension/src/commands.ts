@@ -3,7 +3,7 @@ import * as path from 'node:path';
 import * as fs from 'node:fs/promises';
 import type {
   ProjectService,
-  WorkspaceService,
+  VnextSolutionFile,
   VnextWorkspaceConfig,
 } from '@vnext-forge-studio/services-core';
 import {
@@ -19,14 +19,17 @@ import {
   type VnextComponentJsonKind,
 } from '@vnext-forge-studio/designer-ui/vnext-defaults';
 import { baseLogger } from './shared/logger.js';
-import { isDesignerEditorRoute, resolveProjectForRoot } from './designer-helpers.js';
+import {
+  buildOpenEditorMessage,
+  isDesignerEditorRoute,
+  resolveProjectForFile,
+} from './designer-helpers.js';
 import { resolveFileRoute } from './file-router.js';
 import type { VnextWorkspaceDetector, VnextWorkspaceRoot } from './workspace-detector.js';
 import type { DesignerEditorKind, DesignerPanel } from './panels/DesignerPanel.js';
 
 interface CommandDeps {
   projectService: ProjectService;
-  workspaceService: WorkspaceService;
   detector: VnextWorkspaceDetector;
   designerPanel: DesignerPanel;
 }
@@ -85,18 +88,10 @@ async function openDesignerCommand(uri: vscode.Uri | undefined, deps: CommandDep
   }
 
   const target = targetUri.fsPath;
-  const root = deps.detector.findOwningRoot(target);
-  if (!root) {
-    void vscode.window.showWarningMessage(
-      'vnext-forge-studio: The selected file is not inside a vnext workspace (no vnext.config.json found).',
-    );
-    return;
-  }
-
-  const projectInfo = await resolveProjectForRoot(root, deps.workspaceService, deps.projectService);
+  const projectInfo = await resolveProjectForFile(target, deps);
   if (!projectInfo) return;
 
-  const route = resolveFileRoute(target, projectInfo.config, root.folderPath);
+  const route = resolveFileRoute(target, projectInfo.config, projectInfo.root.folderPath);
 
   // Files that don't map to a designer editor (vnext.config.json, generic
   // source files) are opened in VS Code's native editor — the webview only
@@ -115,17 +110,7 @@ async function openDesignerCommand(uri: vscode.Uri | undefined, deps: CommandDep
     return;
   }
 
-  deps.designerPanel.openEditor({
-    type: 'open-editor',
-    kind: route.kind,
-    projectId: projectInfo.projectId,
-    projectPath: root.folderPath,
-    projectDomain: projectInfo.config.domain,
-    group: route.group,
-    name: route.name,
-    filePath: route.filePath,
-    vnextConfig: projectInfo.config,
-  });
+  deps.designerPanel.openEditor(buildOpenEditorMessage(projectInfo, route));
 }
 
 // ── vnextForge.openInTextEditor ─────────────────────────────────────────────
@@ -267,26 +252,18 @@ function pathSegmentForKind(config: VnextWorkspaceConfig, kind: ComponentKind): 
 }
 
 async function createComponentCommand(deps: CommandDeps): Promise<void> {
-  const { detector, workspaceService, designerPanel } = deps;
-  const roots = detector.getRoots();
-  if (roots.length === 0) {
+  const { detector, designerPanel } = deps;
+  if (detector.getRoots().length === 0) {
     void vscode.window.showWarningMessage(
       'vnext-forge-studio: Open a folder containing vnext.config.json first.',
     );
     return;
   }
 
-  const root = roots.length === 1 ? roots[0] : await pickWorkspaceRoot(roots);
-  if (!root) return;
-
-  const status = await workspaceService.readConfigStatus(root.folderPath);
-  if (status.status !== 'ok') {
-    void vscode.window.showWarningMessage(
-      `vnext-forge-studio: vnext.config.json in ${path.basename(root.folderPath)} is not valid.`,
-    );
-    return;
-  }
-  const config = status.config;
+  const picked = await pickSolution(detector);
+  if (!picked) return;
+  const { root, solution } = picked;
+  const config = solution.config!;
 
   const pickedKind = await vscode.window.showQuickPick(
     COMPONENT_KINDS.map((k) => ({
@@ -356,14 +333,7 @@ async function createComponentCommand(deps: CommandDeps): Promise<void> {
 
   baseLogger.info({ targetFile, kind }, 'vnext component created');
 
-  try {
-    await deps.projectService.importProject(root.folderPath);
-  } catch (error) {
-    baseLogger.warn(
-      { folder: root.folderPath, error: (error as Error).message },
-      'Failed to link project registry entry after component creation',
-    );
-  }
+  await openOrRefreshProjectForSolution(deps, root, solution);
 
   designerPanel.openEditor({
     type: 'open-editor',
@@ -375,17 +345,52 @@ async function createComponentCommand(deps: CommandDeps): Promise<void> {
     name: fileBase,
     filePath: targetFile,
     vnextConfig: config,
+    configFileName: solution.fileName,
   });
 }
 
-async function pickWorkspaceRoot(
-  roots: readonly VnextWorkspaceRoot[],
-): Promise<VnextWorkspaceRoot | undefined> {
+interface PickedSolution {
+  root: VnextWorkspaceRoot;
+  /** Always a valid solution (`status.status === 'ok'`, `config` present). */
+  solution: VnextSolutionFile;
+}
+
+/**
+ * Pick the solution (root + solution file) a new component goes into. With a
+ * single valid solution across all roots it is returned directly; otherwise
+ * the user chooses by domain. Warns and returns `undefined` when no valid
+ * solution exists.
+ */
+async function pickSolution(detector: VnextWorkspaceDetector): Promise<PickedSolution | undefined> {
+  const candidates: PickedSolution[] = detector
+    .getSolutions()
+    .filter(({ solution }) => solution.status.status === 'ok' && !!solution.config)
+    .map(({ root, solution }) => ({ root, solution }));
+
+  if (candidates.length === 0) {
+    const invalid = detector.getSolutions().find(({ solution }) => solution.status.status === 'invalid');
+    void vscode.window.showWarningMessage(
+      invalid
+        ? `vnext-forge-studio: ${invalid.solution.fileName} in ${path.basename(invalid.root.folderPath)} is not valid.`
+        : 'vnext-forge-studio: No valid solution file (vnext.config.json) found in the workspace.',
+    );
+    return undefined;
+  }
+  if (candidates.length === 1) return candidates[0];
+
+  const multipleRoots = new Set(candidates.map((c) => c.root.folderPath)).size > 1;
   const picked = await vscode.window.showQuickPick(
-    roots.map((r) => ({ label: path.basename(r.folderPath), description: r.folderPath, root: r })),
-    { title: 'Select vnext workspace', placeHolder: 'Workspace root' },
+    candidates.map((c) => ({
+      label: c.solution.config!.domain,
+      description: multipleRoots
+        ? `${path.basename(c.root.folderPath)}/${c.solution.fileName}`
+        : c.solution.fileName,
+      detail: c.solution.config!.description,
+      candidate: c,
+    })),
+    { title: 'Select vnext solution', placeHolder: 'Domain the new component belongs to' },
   );
-  return picked?.root;
+  return picked?.candidate;
 }
 
 async function pickGroup(kindFolderAbs: string): Promise<string | undefined> {
@@ -572,6 +577,7 @@ async function forgeComponentCreateByKind(
 ): Promise<void> {
   let folderPath = getExplorerFolderTarget(resource);
   let root: VnextWorkspaceRoot | undefined;
+  let solution: VnextSolutionFile;
   let config: VnextWorkspaceConfig;
 
   if (folderPath) {
@@ -580,12 +586,17 @@ async function forgeComponentCreateByKind(
       void vscode.window.showErrorMessage('vnext-forge-studio: Not inside a vNext workspace.');
       return;
     }
-    const status = await deps.workspaceService.readConfigStatus(root.folderPath);
-    if (status.status !== 'ok') {
-      void vscode.window.showErrorMessage('vnext-forge-studio: vnext.config.json is not valid.');
+    // Folders carry no `$.domain`: the solution whose componentsRoot holds the
+    // folder wins, else the root's default solution.
+    const resolved = deps.detector.resolveSolutionForPath(folderPath);
+    if (!resolved?.solution.config) {
+      void vscode.window.showErrorMessage(
+        'vnext-forge-studio: No valid solution file (vnext.config.json) covers this folder.',
+      );
       return;
     }
-    config = status.config;
+    solution = resolved.solution;
+    config = solution.config!;
     const relPaths = buildComponentFolderRelPaths(config.paths);
     const c = classifyComponentTreePath(folderPath, root.folderPath, relPaths);
     if (!c) {
@@ -601,19 +612,15 @@ async function forgeComponentCreateByKind(
       return;
     }
   } else {
-    const roots = deps.detector.getRoots();
-    if (roots.length === 0) {
+    if (deps.detector.getRoots().length === 0) {
       void vscode.window.showErrorMessage('vnext-forge-studio: Open a folder containing vnext.config.json first.');
       return;
     }
-    root = roots.length === 1 ? roots[0] : await pickWorkspaceRoot(roots);
-    if (!root) return;
-    const status = await deps.workspaceService.readConfigStatus(root.folderPath);
-    if (status.status !== 'ok') {
-      void vscode.window.showErrorMessage('vnext-forge-studio: vnext.config.json is not valid.');
-      return;
-    }
-    config = status.config;
+    const picked = await pickSolution(deps.detector);
+    if (!picked) return;
+    root = picked.root;
+    solution = picked.solution;
+    config = solution.config!;
     const kindFolderAbs = path.resolve(
       root.folderPath,
       config.paths.componentsRoot,
@@ -672,7 +679,7 @@ async function forgeComponentCreateByKind(
     return;
   }
 
-  await openOrRefreshProjectForRoot(deps, root);
+  await openOrRefreshProjectForSolution(deps, root, solution);
 
   const kindFolderAbs = path.resolve(
     root.folderPath,
@@ -692,16 +699,23 @@ async function forgeComponentCreateByKind(
     name: fileBase,
     filePath: createdFilePath,
     vnextConfig: config,
+    configFileName: solution.fileName,
   });
 }
 
-async function openOrRefreshProjectForRoot(
+async function openOrRefreshProjectForSolution(
   deps: CommandDeps,
   root: VnextWorkspaceRoot,
+  solution: VnextSolutionFile,
 ): Promise<void> {
   try {
-    await deps.projectService.importProject(root.folderPath);
+    await deps.projectService.importProject(root.folderPath, undefined, {
+      configFileName: solution.fileName,
+    });
   } catch (err) {
-    baseLogger.warn({ error: (err as Error).message, folder: root.folderPath }, 'importProject failed');
+    baseLogger.warn(
+      { error: (err as Error).message, folder: root.folderPath, file: solution.fileName },
+      'importProject failed',
+    );
   }
 }

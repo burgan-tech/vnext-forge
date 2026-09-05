@@ -51,6 +51,7 @@ interface HostOpenEditorMessage {
   name: string;
   filePath: string;
   vnextConfig: VnextWorkspaceConfig;
+  configFileName?: string;
 }
 
 function isOpenEditorMessage(value: unknown): value is HostOpenEditorMessage {
@@ -90,6 +91,7 @@ export function HostEditorBridge({ api }: HostEditorBridgeProps) {
         domain: data.projectDomain,
         path: data.projectPath,
         linked: true,
+        ...(data.configFileName ? { configFileName: data.configFileName } : {}),
       });
       setVnextConfig(data.vnextConfig);
       setActive(data);

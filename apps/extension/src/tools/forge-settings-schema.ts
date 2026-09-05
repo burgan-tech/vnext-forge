@@ -70,6 +70,11 @@ export interface RuntimeEnvironment {
   name: string;
   baseUrl: string;
   dbName?: string;
+  /**
+   * Workspace domain this environment serves — also the Workflow CLI profile
+   * name. Remote entries only; managed runtimes carry it in `local.domain`.
+   */
+  domain?: string;
   /** Undefined means 'remote' — keeps pre-existing environments.json valid. */
   kind?: EnvironmentKind;
   /** Present only when kind === 'local-docker'. */
@@ -324,6 +329,9 @@ export function parseEnvironments(raw: unknown): EnvironmentsConfig {
           name: rec.name as string,
           baseUrl: rawUrl,
           ...(typeof rec.dbName === 'string' && rec.dbName.length > 0 ? { dbName: rec.dbName } : {}),
+          ...(typeof rec.domain === 'string' && rec.domain.trim().length > 0
+            ? { domain: rec.domain.trim() }
+            : {}),
           // A malformed binding downgrades the entry to remote instead of
           // dropping it — the URL is still usable.
           ...(local ? { kind: 'local-docker' as const, local } : { kind: 'remote' as const }),
@@ -361,11 +369,15 @@ export function sanitizeEnvironmentsForSharing(config: EnvironmentsConfig): Envi
     version: config.version,
     activeEnvironmentId: null,
     environments: config.environments.map((env) => {
+      // A downgraded managed runtime keeps its domain so the teammate still
+      // knows which solution the URL serves.
+      const domain = env.domain ?? env.local?.domain;
       const shared: RuntimeEnvironment = {
         id: env.id,
         name: env.name,
         baseUrl: env.baseUrl,
         ...(env.dbName === undefined ? {} : { dbName: env.dbName }),
+        ...(domain === undefined ? {} : { domain }),
       };
       return env.kind === undefined ? shared : { ...shared, kind: 'remote' as const };
     }),

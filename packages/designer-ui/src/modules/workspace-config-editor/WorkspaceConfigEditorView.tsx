@@ -48,7 +48,7 @@ export function WorkspaceConfigEditorView({ registerToolbar }: WorkspaceConfigEd
         <div className="max-w-md text-center">
           <h2 className="text-base font-semibold">vNext Config</h2>
           <p className="text-muted-foreground mt-2 text-sm">
-            Aktif proje bulunamadı. Lütfen bir vNext workspace açın.
+            No active project. Open a vNext workspace to edit its configuration.
           </p>
         </div>
       </div>

@@ -1,3 +1,4 @@
+import { isSolutionFileName } from '@vnext-forge-studio/vnext-types';
 import { useCallback, useMemo, type MouseEventHandler, type Ref } from 'react';
 
 import { ChevronRight } from 'lucide-react';
@@ -160,7 +161,7 @@ export function FileTreeNodeRow({
   const componentFileType = useComponentFileType(node.path, isJson);
 
   if (node.type === 'file') {
-    const isVnextConfig = node.name === 'vnext.config.json';
+    const isVnextConfig = isSolutionFileName(node.name);
     const fileTone = getFileTone(node.name);
 
     return (

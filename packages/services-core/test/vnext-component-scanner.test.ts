@@ -77,7 +77,7 @@ describe('parseVnextComponentJson', () => {
           version: '1.0.0',
         }),
       ),
-    ).toEqual({ key: 'my-task', flow: 'sys-tasks', version: '1.0.0' })
+    ).toEqual({ key: 'my-task', flow: 'sys-tasks', version: '1.0.0', domain: 'x' })
   })
 
   it('trims key and flow', () => {

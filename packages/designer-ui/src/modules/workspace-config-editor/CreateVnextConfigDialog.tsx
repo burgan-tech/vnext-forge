@@ -19,7 +19,7 @@ import {
 import { cn } from '../../lib/utils/cn.js';
 import { createLogger } from '../../lib/logger/createLogger.js';
 import { EditorDocumentToolbar } from '../save-component/components/EditorDocumentToolbar.js';
-import { readFile } from '../project-workspace/WorkspaceApi.js';
+import { callApi } from '../../api/client.js';
 import { useProjectStore } from '../../store/useProjectStore.js';
 import type { ProjectInfo, VnextComponentType } from '../../shared/projectTypes.js';
 import { Button } from '../../ui/Button.js';
@@ -532,7 +532,7 @@ export function CreateVnextConfigDialog({
       onError: () => {
         pendingSubmitValuesRef.current = null;
       },
-      successMessage: isEditMode ? 'vnext.config.json updated.' : 'vnext.config.json created.',
+      successMessage: isEditMode ? 'Configuration saved.' : 'Configuration created.',
     }),
     [isEditMode, onCompleted, onOpenChange, presentation, reset],
   );
@@ -552,8 +552,8 @@ export function CreateVnextConfigDialog({
       setDiscoveryLoading(false);
       return;
     }
-    const projectPath = useProjectStore.getState().activeProject?.path;
-    if (!projectPath) {
+    const activeProjectId = useProjectStore.getState().activeProject?.id;
+    if (!activeProjectId) {
       setDiscovery(null);
       setDiscoveryLoading(false);
       return;
@@ -607,8 +607,17 @@ export function CreateVnextConfigDialog({
 
     void (async () => {
       try {
-        const { content } = await readFile(`${projectPath}/vnext.config.json`);
-        const parsed: unknown = JSON.parse(content);
+        // `projects/getConfig` returns the raw JSON of whichever solution file
+        // this project is linked to (`vnext.config.json` or a domain-suffixed
+        // sibling) — the dialog must not compose the file name itself.
+        const response = await callApi<unknown>({
+          method: 'projects/getConfig',
+          params: { id: projectId },
+        });
+        if (!isSuccess(response)) {
+          throw new Error(response.error.message);
+        }
+        const parsed: unknown = response.data;
         if (cancelled) return;
 
         setUndoStack([]);
@@ -635,7 +644,7 @@ export function CreateVnextConfigDialog({
         }
       } catch {
         if (cancelled) return;
-        logger.info('Mevcut vnext.config.json okunamadı, yeni oluşturma modunda açılıyor.');
+        logger.info('Existing solution file could not be read; opening in create mode.');
         setUndoStack([]);
         setRedoStack([]);
         prevFormSerializedRef.current = null;
@@ -651,7 +660,7 @@ export function CreateVnextConfigDialog({
     return () => {
       cancelled = true;
     };
-  }, [open, reset, seed]);
+  }, [open, projectId, reset, seed]);
 
   useEffect(() => {
     if (!useCustomComponentsRoot && domain) {

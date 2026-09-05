@@ -1,5 +1,7 @@
 import * as path from 'path';
 import * as vscode from 'vscode';
+
+import { isSolutionFileName } from '@vnext-forge-studio/services-core';
 import {
   generateWorkflowMarkdown,
   generateTaskMarkdown,
@@ -83,7 +85,7 @@ async function discoverComponentFiles(projectRoot: string): Promise<DiscoveredFi
     const found = await vscode.workspace.findFiles(pattern, '{**/node_modules/**,**/.meta/**}', 500);
     for (const uri of found) {
       const basename = path.basename(uri.fsPath);
-      if (basename === 'vnext.config.json' || basename === 'package.json' || basename === 'tsconfig.json') {
+      if (isSolutionFileName(basename) || basename === 'package.json' || basename === 'tsconfig.json') {
         continue;
       }
       files.push({ uri, category });

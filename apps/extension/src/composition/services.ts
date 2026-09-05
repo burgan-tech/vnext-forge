@@ -18,6 +18,7 @@ import {
   createTestDataService,
   createValidateService,
   createWorkspaceService,
+  type FileSystemAdapter,
   type LoggerAdapter,
   type MethodRegistry,
   type ServiceRegistry,
@@ -76,6 +77,8 @@ const initScriptResolver: TemplateInitScriptResolver = {
 export interface ComposedServices {
   services: ServiceRegistry;
   registry: MethodRegistry;
+  /** The filesystem adapter the services were built on (shared with the workspace detector). */
+  fs: FileSystemAdapter;
 }
 
 /**
@@ -214,5 +217,5 @@ export function composeExtensionServices(
     quickRunPresetsService,
   };
 
-  return { services, registry: buildMethodRegistry() };
+  return { services, registry: buildMethodRegistry(), fs };
 }

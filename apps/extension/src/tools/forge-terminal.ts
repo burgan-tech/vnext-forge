@@ -1,3 +1,5 @@
+import * as path from 'node:path';
+
 import * as vscode from 'vscode';
 
 const TERMINAL_NAME = 'vnext-forge-studio';
@@ -5,7 +7,8 @@ const TERMINAL_NAME = 'vnext-forge-studio';
 /**
  * Manages a pool of VS Code terminals under the "vnext-forge-studio" name.
  * Reuses an existing idle terminal when possible; creates a new one
- * only when every managed terminal is either busy or closed.
+ * only when every managed terminal is either busy, closed, or was opened
+ * in a different working directory than the one requested.
  *
  * "Busy" is tracked via {@link vscode.window.onDidEndTerminalShellExecution}
  * (VS Code 1.93+). When shell integration is unavailable the terminal is
@@ -36,6 +39,9 @@ export class ForgeTerminalManager implements vscode.Disposable {
    *
    * @param command  The shell command to execute.
    * @param options  Optional overrides (working directory, whether to reveal).
+   *                 When `cwd` is given only a terminal created in that same
+   *                 directory is reused — multi-domain workspaces run
+   *                 `npm install` per sub-project, so the directory matters.
    */
   run(command: string, options?: { cwd?: string; show?: boolean }): void {
     const terminal = this.acquireTerminal(options?.cwd);
@@ -56,9 +62,24 @@ export class ForgeTerminalManager implements vscode.Disposable {
       (t) => t.name === TERMINAL_NAME && t.exitStatus === undefined,
     );
 
-    const idle = allTerminals.find((t) => !this.busyTerminals.has(t));
+    const idle = allTerminals.find(
+      (t) => !this.busyTerminals.has(t) && (cwd === undefined || sameDirectory(terminalCwd(t), cwd)),
+    );
     if (idle) return idle;
 
     return vscode.window.createTerminal({ name: TERMINAL_NAME, cwd });
   }
+}
+
+/** Directory a managed terminal was created in, when VS Code still knows it. */
+function terminalCwd(terminal: vscode.Terminal): string | undefined {
+  const options = terminal.creationOptions as vscode.TerminalOptions;
+  const cwd = options.cwd;
+  if (!cwd) return undefined;
+  return typeof cwd === 'string' ? cwd : cwd.fsPath;
+}
+
+function sameDirectory(left: string | undefined, right: string): boolean {
+  if (!left) return false;
+  return path.resolve(left) === path.resolve(right);
 }
