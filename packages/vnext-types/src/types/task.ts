@@ -97,7 +97,7 @@ export interface StartTaskConfig {
   /** Flow name of the target workflow (required) */
   triggerFlow: string;
   body?: unknown;
-  /** Default: true */
+  /** Default: false */
   triggerSync?: boolean;
   triggerVersion?: string;
   triggerKey?: string;
@@ -122,7 +122,7 @@ export interface DirectTriggerTaskConfig {
   triggerFlow: string;
   triggerKey?: string;
   triggerInstanceId?: string;
-  /** Default: true */
+  /** Default: false */
   triggerSync?: boolean;
   triggerTags?: string[];
   body?: unknown;
