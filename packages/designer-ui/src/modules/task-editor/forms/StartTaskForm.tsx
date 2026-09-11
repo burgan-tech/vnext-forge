@@ -25,11 +25,11 @@ export function StartTaskForm({ config, onChange }: Props) {
         </Field>
       </div>
       <Field label="Sync">
-        <Select value={config.sync === false ? 'false' : 'true'}
+        <Select value={config.sync === true ? 'true' : 'false'}
           onChange={(e) => onChange((d: any) => { d.sync = e.target.value === 'true'; })}
           className="text-xs">
-          <option value="true">Yes</option>
           <option value="false">No</option>
+          <option value="true">Yes</option>
         </Select>
       </Field>
       <Field label="Tags">
