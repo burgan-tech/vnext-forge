@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "server",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@vnext-forge-studio/server", "dev"],
+      "port": 3001
+    },
+    {
+      "name": "web",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@vnext-forge-studio/web", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "monitoring",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["--filter", "@vnext-forge-studio/monitoring", "dev"],
+      "port": 3100
+    }
+  ]
+}
