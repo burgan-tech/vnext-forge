@@ -37,7 +37,14 @@ export async function loadWorkflowMasterSchema(
     const componentAttributes = component?.attributes;
     const schemaRoot = isRecord(componentAttributes) ? componentAttributes.schema : undefined;
     if (!isRecord(schemaRoot)) return UNAVAILABLE;
-    return { status: 'ready', schemaKey: ref.key, fields: collectMasterSchemaFields(schemaRoot) };
+    const fields = collectMasterSchemaFields(schemaRoot);
+    // A master schema with zero collected fields is what the runtime's
+    // SchemaFilterMetadataResolver.Resolve returns null for — no field
+    // metadata means no filter enforcement, i.e. the same as declaring no
+    // master schema at all. Reporting `ready` with an empty list would
+    // instead read as "enforced, and nothing is allowed".
+    if (fields.length === 0) return NONE;
+    return { status: 'ready', schemaKey: ref.key, fields };
   } catch {
     return UNAVAILABLE;
   }

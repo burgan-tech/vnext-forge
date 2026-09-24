@@ -38,6 +38,15 @@ describe('loadWorkflowMasterSchema', () => {
     });
   });
 
+  it('reports none when the master schema collects zero fields (matches runtime Resolve() -> null, no enforcement)', async () => {
+    const emptyMaster = JSON.stringify({ key: 'mt-master', attributes: { type: 'master', schema: { type: 'object' } } });
+    const load = await loadWorkflowMasterSchema(
+      'mt',
+      deps({ '/p/Workflows/mt.json': WORKFLOW, '/p/Schemas/mt-master.json': emptyMaster }, LISTED),
+    );
+    expect(load).toEqual({ status: 'none' });
+  });
+
   it('reports none when the workflow has no master schema', async () => {
     const load = await loadWorkflowMasterSchema(
       'mt',
