@@ -85,19 +85,29 @@ export async function resolveSiblingSolutionProject(
  * Note: component discovery de-dupes by key, so a workflow `version` cannot
  * select between sibling files — callers must treat version as display-only.
  */
+export interface ResolveWorkflowFileOptions {
+  /**
+   * Suppress the warning notifications. For background lookups (the subflow
+   * override pickers) where a missing child just means "free text keys".
+   */
+  quiet?: boolean;
+}
+
 export function useWorkflowFileResolver(): (
   workflowKey: string,
   workflowDomain?: string,
+  options?: ResolveWorkflowFileOptions,
 ) => Promise<ResolvedWorkflowFile | null> {
   const activeProject = useProjectStore((s) => s.activeProject);
   const vnextConfig = useProjectStore((s) => s.vnextConfig);
 
   return useCallback(
-    async (workflowKey: string, workflowDomain?: string) => {
+    async (workflowKey: string, workflowDomain?: string, options?: ResolveWorkflowFileOptions) => {
+      const notify: typeof showNotification = options?.quiet ? () => undefined : showNotification;
       if (!workflowKey) return null;
 
       if (!activeProject) {
-        showNotification({
+        notify({
           message: 'No active project. Cannot resolve subflow workflow.',
           kind: 'warning',
         });
@@ -118,7 +128,7 @@ export function useWorkflowFileResolver(): (
           () => null,
         );
         if (!sibling) {
-          showNotification({
+          notify({
             message: `This subflow belongs to domain '${workflowDomain}', which is not a solution in this workspace. Open the target workspace manually.`,
             kind: 'warning',
           });
@@ -133,7 +143,7 @@ export function useWorkflowFileResolver(): (
         const match = workflows.find((w) => w.key === workflowKey);
 
         if (!match) {
-          showNotification({
+          notify({
             message: 'Subflow workflow file not found in the workspace.',
             kind: 'warning',
           });
@@ -151,7 +161,7 @@ export function useWorkflowFileResolver(): (
           domain: targetDomain,
         };
       } catch {
-        showNotification({
+        notify({
           message: 'Failed to resolve subflow workflow file.',
           kind: 'warning',
         });
