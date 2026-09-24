@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { Plus, Clock, ChevronRight } from 'lucide-react';
-import type { ScriptsConfig } from '@vnext-forge-studio/vnext-types';
+import type { ScriptsConfig, TimeoutTransition } from '@vnext-forge-studio/vnext-types';
 import { useWorkflowStore } from '../../../../../store/useWorkflowStore';
 import { CsxEditorField, type ScriptCode } from '../../../../../modules/save-component/components/CsxEditorField';
 import { MappingScriptsSection } from '../../../../../modules/save-component/components/MappingScriptsSection';
 import { MetadataSection } from './MetadataSection';
 import { useStateOptions } from './useStateOptions';
+import { TransitionAnnotationsSection } from '../tabs/transition/TransitionAnnotationsSection';
+import { setTimeoutAnnotations } from '../tabs/shared/timeoutFields';
 
 const inputClass =
   'w-full px-2.5 py-1.5 text-xs font-mono border border-border rounded-lg bg-muted-surface text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary-border focus:bg-surface transition-all placeholder:text-subtle';
@@ -134,6 +136,16 @@ export function WorkflowTimeoutSection() {
               className={inputClass + ' resize-y'}
             />
           </div>
+
+          <TransitionAnnotationsSection
+            annotations={(timeout as TimeoutTransition).annotations ?? undefined}
+            onChange={(next) => {
+              updateWorkflow((draft) => {
+                const t = (draft.attributes as { timeout?: TimeoutTransition } | undefined)?.timeout;
+                if (t) setTimeoutAnnotations(t, next);
+              });
+            }}
+          />
 
           <div>
             <label className="text-muted-foreground text-[10px] font-semibold">
