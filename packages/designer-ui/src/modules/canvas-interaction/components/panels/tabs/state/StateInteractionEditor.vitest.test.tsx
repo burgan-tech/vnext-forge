@@ -49,7 +49,13 @@ describe('StateInteractionEditor', () => {
     expect(html).toContain('No authorization is set');
   });
 
-  it('offers to add a long poll when there is none', () => {
-    expect(render(null)).toContain('Add long poll');
+  it('shows the collapsed Interaction section when there is no long poll', () => {
+    const html = render(null);
+    // Section defaults to collapsed when there's no longPoll (matches every
+    // sibling section's `defaultOpen={!!x}` convention) — assert on the
+    // header, not the body, since the body isn't rendered while collapsed.
+    expect(html).toContain('Interaction');
+    expect(html).toMatch(/>0<\/span>/);
+    expect(html).not.toContain('Add long poll');
   });
 });

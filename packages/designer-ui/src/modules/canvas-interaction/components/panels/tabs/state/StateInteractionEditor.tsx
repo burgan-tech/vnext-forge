@@ -93,7 +93,7 @@ export function StateInteractionEditor({ interaction, stateKey, onChange }: Stat
     <Section
       title="Interaction"
       count={longPoll ? 1 : 0}
-      defaultOpen>
+      defaultOpen={!!longPoll}>
       <p className="text-[10px] text-muted-foreground mb-2 leading-relaxed">
         Configure long polling so the client workflow manager knows when to
         terminate an open request for this state.
