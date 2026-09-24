@@ -20,6 +20,7 @@ export const nodeTypes = {
   finalState: StateNodeBase,
   subFlowState: StateNodeBase,
   wizardState: StateNodeBase,
+  humanState: StateNodeBase,
   workflowTransitionNode: WorkflowTransitionNode,
   noteNode: NoteNode,
   groupNode: GroupNode,

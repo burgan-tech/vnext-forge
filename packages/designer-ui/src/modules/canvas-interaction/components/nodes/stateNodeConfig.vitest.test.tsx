@@ -2,12 +2,26 @@ import { describe, expect, it } from 'vitest';
 import { getStateNodeConfig } from './stateNodeConfig';
 
 describe('getStateNodeConfig', () => {
-  it('overlays Human on an intermediate state', () => {
-    expect(getStateNodeConfig(2, 6).typeLabel).toBe('Human');
+  it('uses the Human look with a dotted border on an intermediate state', () => {
+    const config = getStateNodeConfig(2, 6);
+    expect(config.typeLabel).toBe('Human');
+    expect(config.borderStyle).toBe('border-dotted');
   });
 
-  it('overlays Busy on an intermediate state', () => {
+  it('uses the Human look on a wizard state', () => {
+    expect(getStateNodeConfig(5, 6).typeLabel).toBe('Human');
+  });
+
+  // Controller ruling F1: the Human (6) overlay also applies to Initial
+  // states (spec A3.1/C4) — Human wins over Initial, both here and in
+  // Conversion.ts's getNodeType (which checks subType 6 before stateType 1).
+  it('overlays Human on a Human initial state (Human wins over Initial)', () => {
+    expect(getStateNodeConfig(1, 6).typeLabel).toBe('Human');
+  });
+
+  it('overlays Busy on intermediate and initial states', () => {
     expect(getStateNodeConfig(2, 5).typeLabel).toBe('Busy');
+    expect(getStateNodeConfig(1, 5).typeLabel).toBe('Busy');
   });
 
   it('keeps the plain intermediate look without a subType', () => {

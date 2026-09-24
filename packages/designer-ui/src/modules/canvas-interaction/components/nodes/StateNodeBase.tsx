@@ -14,6 +14,7 @@ import { useWorkflowStore } from '../../../../store/useWorkflowStore';
 import { useCanvasMode } from '../../context/CanvasModeContext';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../../../ui/Tooltip';
 import { getStateNodeConfig } from './stateNodeConfig';
+import { HumanTaskGateDot, LongPollIndicator } from './StateNodeIndicators';
 
 interface StateNodeData {
   label: string;
@@ -28,6 +29,11 @@ interface StateNodeData {
   hasSubFlow: boolean;
   subFlowProcessKey: string;
   subFlowProcessDomain: string;
+  hasLongPoll?: boolean;
+  longPollAuth?: 'roles' | 'rule';
+  terminate?: boolean;
+  fallbackTimeoutSeconds?: number;
+  humanTaskGateMissing?: boolean;
   [key: string]: unknown;
 }
 
@@ -224,9 +230,10 @@ export const StateNodeBase = memo(function StateNodeBase({ data, selected }: Nod
           // class name — inline `width`/`height` gives us the same
           // effect without the bundling concern.
           style={{ width: `${iconStampNum * 0.25}rem`, height: `${iconStampNum * 0.25}rem` }}
-          className={`shrink-0 rounded-xl ${config.accent} flex items-center justify-center shadow-sm ring-1 ring-black/5`}
+          className={`relative shrink-0 rounded-xl ${config.accent} flex items-center justify-center shadow-sm ring-1 ring-black/5`}
         >
           <span className="text-white [&>svg]:size-[18px]">{config.icon}</span>
+          <HumanTaskGateDot show={Boolean(d.humanTaskGateMissing)} />
         </div>
         <div className="min-w-0 flex-1">
           <h4 className="text-[13px] font-semibold text-foreground truncate leading-tight tracking-tight">
@@ -250,8 +257,9 @@ export const StateNodeBase = memo(function StateNodeBase({ data, selected }: Nod
        *   - Eye          → "Has view" (view component attached)
        *   - AlertTriangle → "Error boundary" defined
        *   - Repeat2      → "SubFlow" embedded
+       *   - RadioTower   → "Long poll" (tooltip: terminate · window · arm)
        */}
-      {statsAllowed && (totalActions > 0 || d.transitionCount > 0 || d.hasView || d.hasErrorBoundary || d.hasSubFlow) && (
+      {statsAllowed && (totalActions > 0 || d.transitionCount > 0 || d.hasView || d.hasErrorBoundary || d.hasSubFlow || d.hasLongPoll) && (
         <div
           className={`px-3.5 pb-3 pt-0.5 vf-stats-row ${
             statsHoverOnly ? 'vf-stats-hover-only' : ''
@@ -298,6 +306,12 @@ export const StateNodeBase = memo(function StateNodeBase({ data, selected }: Nod
                 <Repeat2 size={11} strokeWidth={2.25} />
               </span>
             )}
+            <LongPollIndicator
+              hasLongPoll={d.hasLongPoll}
+              longPollAuth={d.longPollAuth}
+              terminate={d.terminate}
+              fallbackTimeoutSeconds={d.fallbackTimeoutSeconds}
+            />
           </div>
         </div>
       )}

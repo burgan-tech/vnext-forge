@@ -15,7 +15,7 @@ export interface StateNodeConfig {
 }
 
 const BUSY: StateNodeConfig = { bg: 'bg-sky-500/10', text: 'text-sky-600', accent: 'bg-sky-500', ring: 'ring-sky-500/20', icon: <Loader2 size={16} />, typeLabel: 'Busy' };
-const HUMAN: StateNodeConfig = { bg: 'bg-indigo-500/10', text: 'text-indigo-600', accent: 'bg-indigo-500', ring: 'ring-indigo-500/20', icon: <UserCircle size={16} />, typeLabel: 'Human' };
+const HUMAN: StateNodeConfig = { bg: 'bg-indigo-500/10', text: 'text-indigo-600', accent: 'bg-indigo-500', ring: 'ring-indigo-500/20', icon: <UserCircle size={16} />, typeLabel: 'Human', borderStyle: 'border-dotted' };
 
 function finalConfig(subType: number): StateNodeConfig {
   switch (subType) {
@@ -32,10 +32,12 @@ function finalConfig(subType: number): StateNodeConfig {
 }
 
 /**
- * Visual config for a state node. Busy (5) and Human (6) subTypes overlay
- * every state type except SubFlow — the runtime selects human tasks by
- * subType regardless of stateType, and Human is almost always on an
- * intermediate (2) state.
+ * Visual config for a state node. Final and SubFlow keep their own identity
+ * for any subType. Busy (5) and Human (6) subTypes overlay every other state
+ * type — including Initial (controller ruling F1: Human wins over Initial,
+ * matching `getNodeType` in Conversion.ts, which checks subType 6 before
+ * stateType 1 for the same reason). Human is almost always on an
+ * intermediate (2) or wizard (5) state, but the overlay applies uniformly.
  */
 export function getStateNodeConfig(stateType: number, subType: number): StateNodeConfig {
   if (stateType === 3) return finalConfig(subType);
