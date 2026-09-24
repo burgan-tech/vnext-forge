@@ -67,3 +67,29 @@ describe('InstanceFilterPanel with a master schema', () => {
     expect(html).toContain('amount · IDX');
   });
 });
+
+describe('InstanceFilterPanel excludes runtime-unsafe attribute paths', () => {
+  const UNSAFE_FIELDS = collectMasterSchemaFields({
+    properties: {
+      amount: { type: 'number' },
+      'bad-name': { type: 'string', 'x-sortable': true },
+    },
+  });
+
+  const html = renderToStaticMarkup(
+    createElement(InstanceFilterPanel, {
+      onApply: () => undefined,
+      onClose: () => undefined,
+      schemaFields: UNSAFE_FIELDS,
+    }),
+  );
+
+  it('does not suggest a path the runtime ValidateFieldName would reject', () => {
+    expect(html).toContain('value="amount"');
+    expect(html).not.toContain('value="bad-name"');
+  });
+
+  it('does not offer it as a sort option either', () => {
+    expect(html).not.toContain('value="attributes.bad-name"');
+  });
+});

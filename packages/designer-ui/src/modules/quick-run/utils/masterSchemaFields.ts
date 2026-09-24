@@ -174,9 +174,17 @@ export interface AttributeSortOption {
   indexed: boolean;
 }
 
+/** Runtime `InputValidator.ValidateFieldName`: each dotted segment must start with a letter and contain only `[A-Za-z0-9_]`. */
+const RUNTIME_SAFE_SEGMENT = /^[A-Za-z][A-Za-z0-9_]*$/;
+
+/** True when every dotted segment of `path` would pass the runtime's `ValidateFieldName`. */
+export function isRuntimeSafeFieldPath(path: string): boolean {
+  return path.split('.').every((seg) => RUNTIME_SAFE_SEGMENT.test(seg));
+}
+
 export function sortableAttributeOptions(fields?: readonly MasterSchemaField[]): AttributeSortOption[] {
   return (fields ?? [])
-    .filter((f) => f.sortable)
+    .filter((f) => f.sortable && isRuntimeSafeFieldPath(f.path))
     .map((f) => ({ value: `attributes.${f.path}`, label: f.path, indexed: f.indexed }));
 }
 

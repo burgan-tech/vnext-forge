@@ -6,6 +6,7 @@ import {
   describeSchemaField,
   fieldValueType,
   findSchemaField,
+  isRuntimeSafeFieldPath,
   operatorsForCondition,
   schemaFieldNotice,
   sortableAttributeOptions,
@@ -147,8 +148,33 @@ describe('sortableAttributeOptions and describeSchemaField', () => {
     expect(sortableAttributeOptions(undefined)).toEqual([]);
   });
 
+  it('excludes an x-sortable field whose path the runtime would reject (ValidateFieldName)', () => {
+    const unsafe = collectMasterSchemaFields({
+      type: 'object',
+      properties: { 'bad-name': { type: 'number', 'x-sortable': true } },
+    });
+    expect(sortableAttributeOptions(unsafe)).toEqual([]);
+  });
+
   it('describes type, index and filterability', () => {
     expect(describeSchemaField(field('amount'))).toBe('number · IDX');
     expect(describeSchemaField(field('plain'))).toBe('string · not filterable');
+  });
+});
+
+describe('isRuntimeSafeFieldPath (runtime InputValidator.ValidateFieldName)', () => {
+  it('accepts letters/digits/underscores per dotted segment, starting with a letter', () => {
+    expect(isRuntimeSafeFieldPath('amount')).toBe(true);
+    expect(isRuntimeSafeFieldPath('customer.name')).toBe(true);
+    expect(isRuntimeSafeFieldPath('a1_b2.c3_d4')).toBe(true);
+  });
+
+  it('rejects a segment starting with a digit or underscore, containing a hyphen/space/dot-adjacent issues', () => {
+    expect(isRuntimeSafeFieldPath('1amount')).toBe(false);
+    expect(isRuntimeSafeFieldPath('_amount')).toBe(false);
+    expect(isRuntimeSafeFieldPath('bad-name')).toBe(false);
+    expect(isRuntimeSafeFieldPath('has space')).toBe(false);
+    expect(isRuntimeSafeFieldPath('a..b')).toBe(false);
+    expect(isRuntimeSafeFieldPath('')).toBe(false);
   });
 });

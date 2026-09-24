@@ -25,6 +25,7 @@ import {
   describeSchemaField,
   fieldValueType,
   findSchemaField,
+  isRuntimeSafeFieldPath,
   operatorsForCondition,
   schemaFieldNotice,
   sortableAttributeOptions,
@@ -67,6 +68,13 @@ export function InstanceFilterPanel({ onApply, onClose, schemaFields, schemaKey 
   const [filterError, setFilterError] = useState<string | null>(null);
   const attrListId = useId();
   const attributeSortOptions = useMemo(() => sortableAttributeOptions(schemaFields), [schemaFields]);
+  // Only offer paths the runtime's ValidateFieldName would accept (letters/digits/
+  // underscores per dotted segment, starting with a letter) — anything else is
+  // rejected outright, so suggesting it just sets the user up for a 400.
+  const datalistFields = useMemo(
+    () => (schemaFields ?? []).filter((f) => isRuntimeSafeFieldPath(f.path)),
+    [schemaFields],
+  );
 
   const attrInputValid = attrInput.trim() === '' || isValidAttributePath(attrInput);
 
@@ -226,7 +234,7 @@ export function InstanceFilterPanel({ onApply, onClose, schemaFields, schemaKey 
             />
             {schemaFields && (
               <datalist id={attrListId}>
-                {schemaFields.map((f) => (
+                {datalistFields.map((f) => (
                   <option key={f.path} value={f.path} label={describeSchemaField(f)} />
                 ))}
               </datalist>
