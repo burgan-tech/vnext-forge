@@ -117,6 +117,22 @@ export function operatorsForCondition(
   return allowed.length > 0 ? allowed : base;
 }
 
+/**
+ * The operator to fall back to when `condition.operator` is no longer among
+ * the schema-aware {@link operatorsForCondition} list — e.g. the workflow's
+ * master schema (or its `x-filterOperators`) changed while a filter row was
+ * already configured. `null` means the current operator is still valid and
+ * no change is needed.
+ */
+export function staleOperatorFallback(
+  condition: FilterCondition,
+  fields?: readonly MasterSchemaField[],
+): FilterOperator | null {
+  const operators = operatorsForCondition(condition, fields);
+  if (operators.includes(condition.operator)) return null;
+  return operators[0] ?? 'eq';
+}
+
 /** Why the runtime may reject an attribute condition, or `null`. Only when a master schema was loaded. */
 export function schemaFieldNotice(c: FilterCondition, fields?: readonly MasterSchemaField[]): string | null {
   if (c.category !== 'attribute' || !fields) return null;

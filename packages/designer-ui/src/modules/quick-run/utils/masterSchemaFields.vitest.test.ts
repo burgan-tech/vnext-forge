@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import type { FilterCondition } from './instanceFilterSerializer';
+import type { FilterCondition, FilterOperator } from './instanceFilterSerializer';
 import {
   collectMasterSchemaFields,
   describeSchemaField,
@@ -10,6 +10,7 @@ import {
   operatorsForCondition,
   schemaFieldNotice,
   sortableAttributeOptions,
+  staleOperatorFallback,
   usesIndexProjection,
 } from './masterSchemaFields';
 
@@ -30,10 +31,14 @@ const SCHEMA = {
 };
 const FIELDS = collectMasterSchemaFields(SCHEMA);
 const field = (path: string) => findSchemaField(FIELDS, path)!;
-const attr = (path: string, valueType: FilterCondition['valueType'] = 'text'): FilterCondition => ({
+const attr = (
+  path: string,
+  valueType: FilterCondition['valueType'] = 'text',
+  operator: FilterOperator = 'eq',
+): FilterCondition => ({
   category: 'attribute',
   field: path,
-  operator: 'eq',
+  operator,
   value: '',
   valueType,
 });
@@ -159,6 +164,22 @@ describe('sortableAttributeOptions and describeSchemaField', () => {
   it('describes type, index and filterability', () => {
     expect(describeSchemaField(field('amount'))).toBe('number · IDX');
     expect(describeSchemaField(field('plain'))).toBe('string · not filterable');
+  });
+});
+
+describe('staleOperatorFallback', () => {
+  it('is null when the operator is still in the schema-aware list', () => {
+    expect(staleOperatorFallback(attr('amount', 'number', 'ge'), FIELDS)).toBeNull();
+  });
+
+  it('falls back to the first allowed operator when the schema no longer permits the current one', () => {
+    // 'amount' only allows eq/ne/ge/in (see operatorsForCondition tests); 'gt' is stale.
+    expect(staleOperatorFallback(attr('amount', 'number', 'gt'), FIELDS)).toBe('eq');
+  });
+
+  it('is null for instance-category conditions (no schema narrowing applies)', () => {
+    const status: FilterCondition = { category: 'instance', field: 'status', operator: 'eq', value: '' };
+    expect(staleOperatorFallback(status, FIELDS)).toBeNull();
   });
 });
 

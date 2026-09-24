@@ -1,4 +1,4 @@
-import { useCallback, useId, useMemo, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import {
   Tooltip,
   TooltipContent,
@@ -29,6 +29,7 @@ import {
   operatorsForCondition,
   schemaFieldNotice,
   sortableAttributeOptions,
+  staleOperatorFallback,
   usesIndexProjection,
   type MasterSchemaField,
 } from '../utils/masterSchemaFields';
@@ -334,6 +335,17 @@ export function FilterRow({ condition, error, schemaFields, onChange, onRemove }
   const isAttribute = condition.category === 'attribute';
   const schemaField = isAttribute ? findSchemaField(schemaFields, condition.field.trim()) : undefined;
   const notice = schemaFieldNotice(condition, schemaFields);
+
+  // A schema reload (e.g. x-filterOperators edited, or the workflow's master
+  // schema swapped) can leave `condition.operator` outside the freshly
+  // computed `operators` — the <select> below would then render a value with
+  // no matching <option>, showing one thing while a different (browser-
+  // chosen) operator is actually applied on the next change. Re-normalise
+  // through the same onChange path used for every other edit.
+  useEffect(() => {
+    const fallback = staleOperatorFallback(condition, schemaFields);
+    if (fallback) onChange({ operator: fallback });
+  }, [condition, schemaFields, onChange]);
 
   const enumOptions: readonly string[] | null =
     fieldType === 'status' ? STATUS_OPTIONS : fieldType === 'instanceType' ? INSTANCE_TYPE_OPTIONS : null;
