@@ -1,0 +1,83 @@
+import { execFile } from 'node:child_process';
+
+import { buildChildEnv, DEFAULT_CHILD_PROCESS_ENV_ALLOWLIST } from '@vnext-forge-studio/services-core';
+
+/**
+ * Captured (non-terminal) Workflow CLI run for commands whose result Forge must
+ * parse and that never prompt (`wf indexes generate`). No stdin is attached, so
+ * an interactive command would hang until the timeout — do not use this for
+ * `wf update` / `wf reset`, which stay in the Forge terminal.
+ *
+ * On Windows `wf` is a `.cmd` shim, so `shell` is on there (same as
+ * `execFileWfVersion`); argv must then hold only shell-safe tokens (flow keys
+ * are validated by `buildWfIndexesGenerateArgv`).
+ */
+export interface WfCapturedResult {
+  /** Process exit code; `null` when the process could not start or was killed. */
+  exitCode: number | null;
+  stdout: string;
+  stderr: string;
+  /** Why there is no exit code (binary missing, timeout). */
+  errorMessage?: string;
+}
+
+export interface WfExecOptions {
+  cwd: string;
+  timeout: number;
+  shell: boolean;
+  env: NodeJS.ProcessEnv;
+  encoding: 'utf8';
+  maxBuffer: number;
+  windowsHide: boolean;
+}
+
+export type WfExecFileFn = (
+  file: string,
+  args: readonly string[],
+  options: WfExecOptions,
+  callback: (error: (Error & { code?: unknown; killed?: boolean }) | null, stdout: string, stderr: string) => void,
+) => void;
+
+const defaultExec: WfExecFileFn = (file, args, options, callback) => {
+  execFile(file, [...args], options, (error, stdout, stderr) => {
+    callback(error as (Error & { code?: unknown; killed?: boolean }) | null, String(stdout), String(stderr));
+  });
+};
+
+export function runWfCaptured(
+  argv: readonly string[],
+  opts: { cwd: string; timeoutMs: number },
+  exec: WfExecFileFn = defaultExec,
+): Promise<WfCapturedResult> {
+  return new Promise((resolve) => {
+    exec(
+      'wf',
+      argv,
+      {
+        cwd: opts.cwd,
+        timeout: opts.timeoutMs,
+        shell: process.platform === 'win32',
+        env: buildChildEnv(DEFAULT_CHILD_PROCESS_ENV_ALLOWLIST),
+        encoding: 'utf8',
+        maxBuffer: 16 * 1024 * 1024,
+        windowsHide: true,
+      },
+      (error, stdout, stderr) => {
+        if (!error) {
+          resolve({ exitCode: 0, stdout, stderr });
+          return;
+        }
+        if (typeof error.code === 'number') {
+          resolve({ exitCode: error.code, stdout, stderr });
+          return;
+        }
+        const errorMessage = error.killed
+          ? `The Workflow CLI did not finish within ${Math.round(opts.timeoutMs / 1000)}s.`
+          : error.code === 'ENOENT'
+            ? 'The Workflow CLI (wf) was not found on PATH.'
+            : error.message;
+        resolve({ exitCode: null, stdout, stderr, errorMessage });
+      },
+    );
+  });
+}
