@@ -4,6 +4,7 @@ import { ComponentValidationSummary } from '../../save-component/components/Comp
 import { FunctionCacheSection } from './FunctionCacheSection';
 import { FunctionContractSection } from './FunctionContractSection';
 import { FunctionMetadataForm } from './FunctionMetadataForm';
+import { FunctionRolesSection } from './FunctionRolesSection';
 import { FunctionTaskModeSection } from './FunctionTaskModeSection';
 
 interface FunctionEditorPanelProps {
@@ -53,6 +54,8 @@ export function FunctionEditorPanel({ json, onChange, onBeforeOpenModal }: Funct
           />
         </CardContent>
       </Card>
+
+      <FunctionRolesSection json={json} onChange={onChange} />
 
       <FunctionCacheSection json={json} onChange={onChange} />
     </div>
