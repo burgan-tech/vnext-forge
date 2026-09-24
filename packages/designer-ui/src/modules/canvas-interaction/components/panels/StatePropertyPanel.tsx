@@ -21,6 +21,9 @@ import { TransitionsTab } from './tabs/TransitionsTab';
 import { SubFlowTab } from './tabs/SubFlowTab';
 import { ErrorBoundaryTab } from './tabs/ErrorBoundaryTab';
 import { StartNodePanel } from './tabs/StartNodePanel';
+import type { RoleGrant } from '@vnext-forge-studio/vnext-types';
+import { HumanTaskTab } from './tabs/HumanTaskTab';
+import { offeredTransitionsForState } from '../../utils/humanTask';
 import { MousePointer2, PanelRightOpen, X } from 'lucide-react';
 import {
   Tooltip,
@@ -29,7 +32,7 @@ import {
   TooltipTrigger,
 } from '../../../../ui/Tooltip';
 
-type Tab = 'general' | 'tasks' | 'transitions' | 'subflow' | 'error-boundary';
+type Tab = 'general' | 'human-task' | 'tasks' | 'transitions' | 'subflow' | 'error-boundary';
 
 const FLOW_EDITOR_CANVAS_PANEL_ID = 'flow-editor-canvas';
 const FLOW_EDITOR_PROPERTIES_PANEL_ID = 'flow-editor-properties';
@@ -194,11 +197,19 @@ export function StatePropertyPanel({ defaultTaskFolder }: { defaultTaskFolder?: 
 
   const tabs: { key: Tab; label: string; count?: number; show: boolean }[] = [
     { key: 'general', label: 'General', show: true },
+    { key: 'human-task', label: 'Human Task', show: subType === 6 },
     { key: 'tasks', label: 'Tasks', count: entries.length + exits.length, show: true },
     { key: 'transitions', label: 'Transitions', count: transitions.length, show: true },
     { key: 'subflow', label: 'SubFlow', show: stateType === 4 },
     { key: 'error-boundary', label: 'Error Boundary', count: errorHandlerCount, show: true },
   ];
+
+  // A tab can disappear when the state changes (e.g. subType no longer Human);
+  // fall back to General instead of rendering an empty panel.
+  const shownTab: Tab = tabs.some((t) => t.key === activeTab && t.show) ? activeTab : 'general';
+  // `state` is `any` in this file; read the Human Task inputs through typed views.
+  const workflowAttributes = (workflowJson as { attributes?: Record<string, unknown> } | null)?.attributes;
+  const humanState = state as { key: string; queryRoles?: RoleGrant[]; interaction?: unknown };
 
   return (
     <div className="flex h-full flex-col">
@@ -247,7 +258,7 @@ export function StatePropertyPanel({ defaultTaskFolder }: { defaultTaskFolder?: 
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
               className={`cursor-pointer border-b-2 px-2.5 py-1.5 text-[11px] font-semibold tracking-tight whitespace-nowrap transition-all ${
-                activeTab === tab.key
+                shownTab === tab.key
                   ? 'border-secondary-border text-secondary-icon'
                   : 'text-muted-foreground hover:text-primary-icon hover:border-muted-border-hover border-transparent'
               }`}>
@@ -255,7 +266,7 @@ export function StatePropertyPanel({ defaultTaskFolder }: { defaultTaskFolder?: 
               {tab.count !== undefined && tab.count > 0 && (
                 <span
                   className={`ml-1.5 rounded-md px-1.5 py-0.5 text-[10px] font-semibold tabular-nums ${
-                    activeTab === tab.key
+                    shownTab === tab.key
                       ? 'bg-secondary-muted text-secondary-icon'
                       : 'bg-muted text-muted-foreground'
                   }`}>
@@ -268,11 +279,35 @@ export function StatePropertyPanel({ defaultTaskFolder }: { defaultTaskFolder?: 
 
       {/* Content */}
       <div className="flex-1 space-y-3 overflow-y-auto p-3">
-        {activeTab === 'general' && <GeneralTab state={state} updateWorkflow={updateWorkflow} />}
-        {activeTab === 'tasks' && <TasksTab state={state} defaultTaskFolder={defaultTaskFolder} />}
-        {activeTab === 'transitions' && <TransitionsTab state={state} />}
-        {activeTab === 'subflow' && <SubFlowTab state={state} />}
-        {activeTab === 'error-boundary' && <ErrorBoundaryTab state={state} updateWorkflow={updateWorkflow} />}
+        {shownTab === 'general' && <GeneralTab state={state} updateWorkflow={updateWorkflow} />}
+        {shownTab === 'human-task' && (
+          <HumanTaskTab
+            stateType={Number(stateType)}
+            subType={Number(subType ?? 0)}
+            queryRoles={humanState.queryRoles ?? []}
+            workflowQueryRoles={(workflowAttributes?.queryRoles as RoleGrant[] | undefined) ?? []}
+            offeredTransitions={offeredTransitionsForState(workflowAttributes, humanState.key)}
+            interaction={humanState.interaction}
+            onUpdateQueryRoles={(roles) =>
+              updateWorkflow((draft) => {
+                const states = (draft.attributes as { states?: { key: string; queryRoles?: RoleGrant[] }[] } | undefined)
+                  ?.states;
+                const s = states?.find((x) => x.key === humanState.key);
+                if (s) {
+                  if (roles.length > 0) {
+                    s.queryRoles = roles;
+                  } else {
+                    delete s.queryRoles;
+                  }
+                }
+              })
+            }
+          />
+        )}
+        {shownTab === 'tasks' && <TasksTab state={state} defaultTaskFolder={defaultTaskFolder} />}
+        {shownTab === 'transitions' && <TransitionsTab state={state} />}
+        {shownTab === 'subflow' && <SubFlowTab state={state} />}
+        {shownTab === 'error-boundary' && <ErrorBoundaryTab state={state} updateWorkflow={updateWorkflow} />}
       </div>
     </div>
   );
