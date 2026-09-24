@@ -47,6 +47,13 @@ describe('InteractionBanner', () => {
     expect(html).toMatch(/<button[^>]*disabled=""[^>]*>Acknowledging…<\/button>/);
   });
 
+  it('does not claim to be resuming while an acknowledge is in flight', () => {
+    const html = render({ acking: true });
+    expect(html).not.toContain('resuming…');
+    expect(html).not.toContain('resumes in');
+    expect(html).toContain('Sending the acknowledge');
+  });
+
   it('shows the runtime error of a refused acknowledge', () => {
     const html = render({
       error: { code: 'RUNTIME_EXECUTION_FAILED', message: 'Runtime returned HTTP 403', details: { httpStatus: 403 } },

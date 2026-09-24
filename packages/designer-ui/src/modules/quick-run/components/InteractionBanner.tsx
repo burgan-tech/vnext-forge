@@ -20,6 +20,12 @@ export function InteractionBanner({ phase, nowMs, onAcknowledge, onWaitForFallba
   const lead = phase.waitingForFallback
     ? 'Waiting for the fallback'
     : 'Acknowledge to continue now, or wait for the fallback';
+  // While an acknowledge is in flight the outcome is unknown — no countdown
+  // wording ("resumes in" / "resuming…") until it settles or the deadline
+  // resumes the machine.
+  const message = phase.acking
+    ? 'The runtime paused after this transition. Sending the acknowledge…'
+    : `The runtime paused after this transition. ${lead} — ${left > 0 ? `resumes in ${formatCountdown(left)}` : 'resuming…'}.`;
   return (
     <section
       role="status"
@@ -28,10 +34,7 @@ export function InteractionBanner({ phase, nowMs, onAcknowledge, onWaitForFallba
     >
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-semibold">Awaiting acknowledge</span>
-        <span className="text-[var(--vscode-foreground)]">
-          The runtime paused after this transition. {lead} —{' '}
-          {left > 0 ? `resumes in ${formatCountdown(left)}` : 'resuming…'}.
-        </span>
+        <span className="text-[var(--vscode-foreground)]">{message}</span>
         <div className="ml-auto flex items-center gap-1">
           <button
             type="button"

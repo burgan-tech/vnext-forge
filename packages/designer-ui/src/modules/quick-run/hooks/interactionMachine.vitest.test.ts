@@ -106,11 +106,26 @@ describe('interactionReducer', () => {
     });
   });
 
-  it('does not resume on the deadline while an acknowledge is in flight', () => {
-    expect(run([paused(1_000, 10), { type: 'ACK_REQUESTED', instanceId: 'i1' }, { type: 'TICK', nowMs: 20_000 }])).toMatchObject({
+  it('keeps an in-flight acknowledge waiting before the deadline', () => {
+    expect(run([paused(1_000, 10), { type: 'ACK_REQUESTED', instanceId: 'i1' }, { type: 'TICK', nowMs: 10_999 }])).toMatchObject({
       kind: 'awaitingAck',
       acking: true,
     });
+  });
+
+  it('resumes on the deadline even while an acknowledge hangs (the runtime fallback resumes anyway)', () => {
+    expect(run([paused(1_000, 10), { type: 'ACK_REQUESTED', instanceId: 'i1' }, { type: 'TICK', nowMs: 11_000 }])).toEqual({
+      kind: 'resumed',
+      instanceId: 'i1',
+      stateName: 's1',
+      reason: 'fallback',
+    });
+  });
+
+  it('a late acknowledge outcome after the fallback resume is harmless', () => {
+    const resumed = run([paused(1_000, 10), { type: 'ACK_REQUESTED', instanceId: 'i1' }, { type: 'TICK', nowMs: 11_000 }]);
+    expect(interactionReducer(resumed, { type: 'ACK_SUCCEEDED', instanceId: 'i1' })).toBe(resumed);
+    expect(interactionReducer(resumed, { type: 'ACK_FAILED', instanceId: 'i1', error: { code: 'X', message: 'late' } })).toBe(resumed);
   });
 
   it('ignores ack events for another instance or outside the window', () => {

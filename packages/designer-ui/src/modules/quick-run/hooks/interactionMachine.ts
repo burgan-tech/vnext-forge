@@ -28,7 +28,7 @@ import { stopsPolling } from '../utils/instanceStatus';
  * survives the in-flight request that reads the stale flag.
  *
  *   idle ─POLL_STARTED→ polling ─STATE_RECEIVED(pending)→ awaitingAck
- *   awaitingAck ─ACK_SUCCEEDED | TICK≥deadline→ resumed
+ *   awaitingAck ─ACK_SUCCEEDED | TICK≥deadline (even while acking)→ resumed
  *   resumed ─STATE_RECEIVED(same state, still B)→ resumed (interaction ignored)
  *   resumed ─STATE_RECEIVED(state changed | status≠B)→ polling | idle
  */
@@ -178,7 +178,12 @@ export function interactionReducer(phase: InteractionPhase, event: InteractionEv
     }
 
     case 'TICK':
-      if (phase.kind === 'awaitingAck' && !phase.acking && event.nowMs >= phase.deadlineMs) {
+      // The deadline resumes even while an acknowledge is in flight: the
+      // runtime's fallback resumes the chain on its own, and the transports
+      // have no request timeout, so a hung ack must not lock the UI in
+      // `acking`. A late ACK_SUCCEEDED / ACK_FAILED then finds no
+      // `awaitingAck` phase and is ignored.
+      if (phase.kind === 'awaitingAck' && event.nowMs >= phase.deadlineMs) {
         return { kind: 'resumed', instanceId: phase.instanceId, stateName: phase.stateName, reason: 'fallback' };
       }
       return phase;

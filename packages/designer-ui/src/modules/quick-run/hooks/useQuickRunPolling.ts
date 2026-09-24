@@ -420,9 +420,11 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
       dispatchInteraction({ type: 'ACK_REQUESTED', instanceId: params.instanceId });
       const role = currentRoleFromHeaders(params.headers);
       try {
-        // No client-side timeout here: an ack that never settles keeps the
-        // phase `acking` (the countdown does not expire while acking) until
-        // the transport's own request timeout rejects it into ACK_FAILED.
+        // No client-side timeout here and none in the transports either: an
+        // ack that never settles stays `acking` only until the fallback
+        // deadline — the countdown's TICK then moves the machine to
+        // `resumed` (the runtime's fallback resumes the chain anyway), and
+        // this call's late outcome is ignored by the reducer.
         const res = await QuickRunApi.acknowledgeLongPoll({ ...params, ...(role ? { role } : {}) });
         if (res.success) {
           dispatchInteraction({ type: 'ACK_SUCCEEDED', instanceId: params.instanceId });
