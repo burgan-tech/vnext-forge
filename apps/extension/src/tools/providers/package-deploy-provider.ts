@@ -10,6 +10,7 @@ import type { VnextWorkspaceDetector } from '../../workspace-detector.js';
 import type { ForgeTerminalManager } from '../forge-terminal.js';
 import { pickWorkspaceRoot } from '../pick-workspace-root.js';
 import type { WfCliProbe } from '../wf-cli-probe.js';
+import { WF_CLI_FEATURES } from '../wf-cli-features.js';
 import type { WfCliUpgradeNotice } from '../wf-cli-upgrade-notice.js';
 
 type DeployNodeId = 'wfUpdateAll' | 'wfUpdate' | 'wfCsxAll' | 'installWfCli';
@@ -146,7 +147,7 @@ export class PackageDeployProvider implements vscode.TreeDataProvider<DeployNode
       { domain, cliSupportsDomainFlag: info.supportsDomainFlag },
     );
     if (domain && !info.supportsDomainFlag) {
-      void this.upgradeNotice.maybeShow(info);
+      void this.upgradeNotice.maybeShow(info, WF_CLI_FEATURES.domainFlag);
     }
 
     this.terminal.run(command, { cwd: root.folderPath });

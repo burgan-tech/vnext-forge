@@ -36,6 +36,7 @@ import {
 import { ForgeToolsSettingsService } from './tools/forge-tools-settings.js';
 import { ForgeTerminalManager } from './tools/forge-terminal.js';
 import { WfCliProbe } from './tools/wf-cli-probe.js';
+import { WF_CLI_FEATURES } from './tools/wf-cli-features.js';
 import { WfCliUpgradeNotice } from './tools/wf-cli-upgrade-notice.js';
 import { EnvironmentHealthMonitor } from './tools/environment-health-monitor.js';
 import { EnvironmentStatusBar, switchEnvironmentQuickPick } from './tools/environment-status-bar.js';
@@ -243,7 +244,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     terminal: forgeTerminal,
     detector,
     wfCli,
-    onLegacyWfCli: (info) => void wfCliUpgradeNotice.maybeShow(info),
+    onLegacyWfCli: (info) => void wfCliUpgradeNotice.maybeShow(info, WF_CLI_FEATURES.domainFlag),
   });
   const designerPanel = new DesignerPanel(context, router);
 
@@ -639,7 +640,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         terminal: forgeTerminal,
         detector,
         wfCli,
-        onLegacyCli: (info) => void wfCliUpgradeNotice.maybeShow(info),
+        onLegacyCli: (info) => void wfCliUpgradeNotice.maybeShow(info, WF_CLI_FEATURES.domainFlag),
         logger: loggerAdapter,
       });
       if (!result.ok) {

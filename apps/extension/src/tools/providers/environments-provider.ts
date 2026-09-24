@@ -30,6 +30,7 @@ import {
   type WfDomainAddArgs,
   type WfDomainCalls,
 } from '../local-runtime/wf-domain-registrar.js';
+import { WF_CLI_FEATURES } from '../wf-cli-features.js';
 import type { WfCliInfo, WfCliProbe } from '../wf-cli-probe.js';
 import type { WfCliUpgradeNotice } from '../wf-cli-upgrade-notice.js';
 
@@ -1277,7 +1278,7 @@ export class EnvironmentsProvider implements vscode.TreeDataProvider<string> {
       { domain, cliSupportsDomainFlag: info.supportsDomainFlag },
     );
     if (!info.supportsDomainFlag) {
-      void this.legacyNotice?.maybeShow(info);
+      void this.legacyNotice?.maybeShow(info, WF_CLI_FEATURES.domainFlag);
     }
     runTerminal(command, workspacePath);
   }
