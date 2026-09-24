@@ -6,6 +6,14 @@ import * as QuickRunApi from '../QuickRunApi';
 import type { InstanceDetailResponse, WorkflowBucketConfig } from '../QuickRunApi';
 import { normalizeIncident } from '../utils/incident';
 import { displayStatus, instanceTypeLabel } from '../utils/instanceStatus';
+import { currentRoleFromHeaders } from '../utils/currentRole';
+import {
+  checkableTransitionKeys,
+  permissionCacheKey,
+  resolveVerdict,
+  runPermissionChecks,
+  type AuthorizeVerdict,
+} from '../utils/permissionChecks';
 import { ResizableDialogShell } from '../../../ui/ResizableDialogShell';
 import { useInteractionDriver } from '../hooks/useInteractionDriver';
 import { useNow } from '../hooks/useNow';
@@ -21,10 +29,12 @@ import { PseudoUiOrJsonBlock } from '../pseudo-ui/PseudoUiOrJsonBlock';
 import { mergeQuickRunHeaders } from '../pseudo-ui/mergeQuickRunHeaders';
 import {
   safeViewContent,
+  type AuthorizeTarget,
   type OpenFunctionRunTarget,
   type TransitionInfo,
 } from '../types/quickrun.types';
 import { SchemaForm } from '../../schema-form';
+import { AuthorizePanel } from './AuthorizePanel';
 import { EnvBadge } from './EnvBadge';
 import { AvailableTransitions } from './AvailableTransitions';
 import {
@@ -37,6 +47,7 @@ import {
 import { InstanceFunctions } from './InstanceFunctions';
 import { InteractionBanner } from './InteractionBanner';
 import { ProgressStepper } from './ProgressStepper';
+import { RuntimeErrorBanner } from './RuntimeErrorBanner';
 import { StateTimeoutChip } from './StateTimeoutChip';
 import { StatusBadge } from './StatusBadge';
 
@@ -191,6 +202,60 @@ export function InstanceDashboard({ configRef, persistConfig, onOpenFunctionRun 
     [activeTabId, domain, workflowKey, liveHeaders, environmentUrl],
   );
   const liveIncident = normalizeIncident(activeState?.incident);
+
+  const permissionChecksEnabled = useQuickRunStore((s) => s.permissionChecksEnabled);
+  const permissionChecks = useQuickRunStore((s) => s.permissionChecks);
+  const setPermissionChecksEnabled = useQuickRunStore((s) => s.setPermissionChecksEnabled);
+  const currentRole = currentRoleFromHeaders(liveHeaders());
+  const permissionKey =
+    activeState && activeTabId ? permissionCacheKey(activeState.eTag, `${activeTabId}:${activeState.state}`, currentRole) : null;
+  const currentChecks = permissionChecksEnabled && permissionChecks?.key === permissionKey ? permissionChecks : null;
+
+  // Opt-in checks: one authorize call per transition + queryRoles, cached per
+  // (eTag, role). Skipped while a poll round runs — every busy tick replaces
+  // `activeState` and would otherwise restart the batch.
+  useEffect(() => {
+    if (!permissionChecksEnabled || !permissionKey || !activeState || !activeTabId || pollingInstanceId) return;
+    if (!domain || !workflowKey) return;
+    if (useQuickRunStore.getState().permissionChecks?.key === permissionKey) return;
+    const instanceId = activeTabId;
+    const headers = liveHeaders();
+    let cancelled = false;
+    void runPermissionChecks({
+      key: permissionKey,
+      role: currentRole,
+      transitionKeys: checkableTransitionKeys(activeState.transitions ?? [], activeState.sharedTransitions ?? []),
+      authorize: (target, role) =>
+        QuickRunApi.authorize({ domain, workflowKey, instanceId, target, ...(role ? { role } : {}), headers, runtimeUrl: environmentUrl }),
+    }).then((result) => {
+      if (cancelled || useQuickRunStore.getState().activeTabId !== instanceId) return;
+      useQuickRunStore.getState().setPermissionChecks(result);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [permissionChecksEnabled, permissionKey, activeState, activeTabId, pollingInstanceId, domain, workflowKey, currentRole, liveHeaders, environmentUrl]);
+
+  const runAuthorize = useCallback(
+    (request: { target: AuthorizeTarget; role?: string; version?: string }): Promise<AuthorizeVerdict> => {
+      if (!activeTabId || !domain || !workflowKey) {
+        return Promise.resolve({ kind: 'error', message: 'No active instance.' });
+      }
+      return resolveVerdict(
+        QuickRunApi.authorize({
+          domain,
+          workflowKey,
+          instanceId: activeTabId,
+          target: request.target,
+          ...(request.role ? { role: request.role } : {}),
+          ...(request.version ? { version: request.version } : {}),
+          headers: liveHeaders(),
+          runtimeUrl: environmentUrl,
+        }),
+      );
+    },
+    [activeTabId, domain, workflowKey, liveHeaders, environmentUrl],
+  );
 
   const awaitingAck =
     interaction.kind === 'awaitingAck' && interaction.instanceId === activeTabId ? interaction : null;
@@ -410,17 +475,9 @@ export function InstanceDashboard({ configRef, persistConfig, onOpenFunctionRun 
         <StatusBadge status={displayStatus(activeInstance)} />
       </div>
 
-      {/* Polling error banner — surfaced when `getState` fails
-          (most commonly engine 403 Authorization, e.g.
-          `forbidden.Authorization:110001`). Lets the user see WHY
-          polling stopped without diving into DevTools. Dismissable
-          via the × button; the next successful poll round clears it
-          automatically. */}
+      {/* Why polling stopped — runtime error body, status and trace id. */}
       {activeStateError && (
-        <PollingErrorBanner
-          error={activeStateError}
-          onDismiss={() => setActiveStateError(null)}
-        />
+        <RuntimeErrorBanner title="Polling stopped" error={activeStateError} onDismiss={() => setActiveStateError(null)} />
       )}
 
       {/* Long-poll interaction window (D3) — polling is stopped until the
@@ -587,6 +644,7 @@ export function InstanceDashboard({ configRef, persistConfig, onOpenFunctionRun 
         disabled={activeStateLoading}
         lockedReason={awaitingAck ? 'Awaiting acknowledge' : undefined}
         nowMs={clockNow}
+        permissions={currentChecks?.transitions}
       />
 
       {/* Functions reachable on this instance — only when the engine says so. */}
@@ -611,6 +669,17 @@ export function InstanceDashboard({ configRef, persistConfig, onOpenFunctionRun 
           }
         />
       )}
+
+      <AuthorizePanel
+        key={activeTabId ?? ''}
+        transitionKeys={checkableTransitionKeys(transitions, sharedTransitions)}
+        functionKeys={(functionCatalog ?? []).map((f) => f.name)}
+        defaultRole={currentRole}
+        onRun={runAuthorize}
+        checksEnabled={permissionChecksEnabled}
+        onChecksEnabledChange={setPermissionChecksEnabled}
+        visibility={currentChecks?.queryRoles}
+      />
 
       {/* Quick Actions (View Data / History tabs) — placed above State View */}
       <section className="flex gap-2 border-t border-[var(--vscode-panel-border)] pt-3">
@@ -1426,95 +1495,6 @@ function InstanceMetaDialog({
       </ResizableDialogShell>
     </div>
   );
-}
-
-// ── Polling Error Banner ────────────────────────────────────────────────────
-
-interface PollingErrorBannerProps {
-  error: { code: string; message: string; details?: Record<string, unknown> };
-  onDismiss: () => void;
-}
-
-/**
- * Surfaces `getState` polling failures to the user with enough
- * context to debug — most often a 403 from the engine's authorization
- * layer (`forbidden.Authorization:110001`) when the active role
- * cannot read the current state. Renders `code` + `message` + an
- * expandable details section carrying status / errorCode / traceId
- * / instance URL when present on the API failure payload.
- */
-function PollingErrorBanner({ error, onDismiss }: PollingErrorBannerProps) {
-  const details = error.details ?? {};
-  // Common RFC7807 + engine fields surfaced as a single-line summary;
-  // the rest land inside a collapsed <details> block so the strip
-  // stays compact when everything is fine.
-  const status = pickString(details, 'status') ?? pickNumber(details, 'status');
-  const errorCode = pickString(details, 'errorCode');
-  const traceId = pickString(details, 'traceId');
-  const instance = pickString(details, 'instance');
-  const detail = pickString(details, 'detail');
-
-  const summaryMessage = detail || error.message;
-
-  return (
-    <section
-      role="alert"
-      aria-live="polite"
-      className="rounded border border-[var(--vscode-inputValidation-errorBorder)] bg-[var(--vscode-inputValidation-errorBackground)] px-3 py-2 text-[11px] text-[var(--vscode-errorForeground)]">
-      <div className="flex items-start gap-2">
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 16 16"
-          fill="currentColor"
-          className="mt-0.5 shrink-0">
-          <path d="M7.56 1h.88l6.54 12.26-.44.74H1.44L1 13.26 7.56 1zM8 2.28 2.28 13h11.44L8 2.28zM8.5 12v-1h-1v1h1zm0-2V6h-1v4h1z" />
-        </svg>
-        <div className="min-w-0 flex-1">
-          <p className="font-medium text-[var(--vscode-foreground)]">
-            Polling stopped {status ? `(${status})` : ''} {errorCode ? `· ${errorCode}` : `· ${error.code}`}
-          </p>
-          <p className="mt-0.5 text-[var(--vscode-foreground)]">{summaryMessage}</p>
-          {(traceId || instance) && (
-            <details className="mt-1 text-[10px] text-[var(--vscode-descriptionForeground)]">
-              <summary className="cursor-pointer select-none">Technical details</summary>
-              <ul className="mt-1 space-y-0.5">
-                {instance && (
-                  <li>
-                    <span className="font-semibold">instance:</span>{' '}
-                    <code className="break-all">{instance}</code>
-                  </li>
-                )}
-                {traceId && (
-                  <li>
-                    <span className="font-semibold">traceId:</span>{' '}
-                    <code className="break-all">{traceId}</code>
-                  </li>
-                )}
-              </ul>
-            </details>
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={onDismiss}
-          className="shrink-0 rounded p-0.5 text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] hover:text-[var(--vscode-foreground)]"
-          aria-label="Dismiss polling error">
-          ✕
-        </button>
-      </div>
-    </section>
-  );
-}
-
-function pickString(obj: Record<string, unknown>, key: string): string | undefined {
-  const v = obj[key];
-  return typeof v === 'string' && v.length > 0 ? v : undefined;
-}
-
-function pickNumber(obj: Record<string, unknown>, key: string): number | undefined {
-  const v = obj[key];
-  return typeof v === 'number' ? v : undefined;
 }
 
 function MetaRow({ label, children }: { label: string; children: React.ReactNode }) {

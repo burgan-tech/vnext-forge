@@ -104,3 +104,28 @@ describe('AvailableTransitions — scheduled countdown and annotations', () => {
     expect(renderScheduled('2026-09-30T11:00:00Z')).toContain('Settling…');
   });
 });
+
+describe('AvailableTransitions — permission badges', () => {
+  it('marks allowed and denied transitions', () => {
+    const html = renderToStaticMarkup(
+      createElement(AvailableTransitions, {
+        transitions: [
+          { name: 'approve', href: '/a', kind: 'stateTransition' },
+          { name: 'reject', href: '/r', kind: 'stateTransition' },
+        ],
+        sharedTransitions: [],
+        flowLabels: null,
+        onTransitionClick: noop,
+        showManual: false,
+        onManualClick: noop,
+        disabled: false,
+        permissions: {
+          approve: { kind: 'verdict', allowed: true, status: 200 },
+          reject: { kind: 'verdict', allowed: false, status: 403 },
+        },
+      }),
+    );
+    expect(html).toContain('aria-label="Allowed (HTTP 200)"');
+    expect(html).toContain('aria-label="Denied (HTTP 403)"');
+  });
+});

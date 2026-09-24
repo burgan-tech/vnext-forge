@@ -20,6 +20,7 @@ import {
   type InteractionEvent,
   type InteractionPhase,
 } from '../hooks/interactionMachine';
+import type { PermissionCheckResult } from '../utils/permissionChecks';
 
 interface QuickRunState {
   domain: string;
@@ -58,16 +59,20 @@ interface QuickRunState {
    */
   lastStateNotModified: boolean;
   /**
-   * Surfacing slot for `getState` polling failures (authorisation,
-   * runtime 5xx, etc.). The dashboard renders a small banner with
-   * `code` + `message` + `details` so users see *why* polling stopped
-   * — most commonly the engine 403 (`forbidden.Authorization:110001`)
-   * when the active role cannot read the current state. Cleared on
-   * every successful poll round.
+   * Surfacing slot for `getState` polling failures (runtime 4xx/5xx,
+   * connection errors). The dashboard renders it with `RuntimeErrorBanner`
+   * so users see *why* polling stopped. Cleared on every successful poll round.
    */
   activeStateError:
     | { code: string; message: string; details?: Record<string, unknown> }
     | null;
+
+  /** Opt-in "Check permissions for role" (B6). A user preference — survives instance switches. */
+  permissionChecksEnabled: boolean;
+  /** Last opt-in check, keyed by `permissionCacheKey`. Instance-scoped. */
+  permissionChecks: PermissionCheckResult | null;
+  setPermissionChecksEnabled: (enabled: boolean) => void;
+  setPermissionChecks: (result: PermissionCheckResult | null) => void;
 
   stateView: ViewResponse | null;
   stateViewLoading: boolean;
@@ -222,6 +227,8 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
   activeState: null,
   activeStateLoading: false,
   activeStateError: null,
+  permissionChecksEnabled: false,
+  permissionChecks: null,
 
   lastStateResponse: null,
   lastStateReceivedAt: null,
@@ -405,6 +412,8 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
     }),
   setActiveStateLoading: (activeStateLoading) => set({ activeStateLoading }),
   setActiveStateError: (activeStateError) => set({ activeStateError }),
+  setPermissionChecksEnabled: (permissionChecksEnabled) => set({ permissionChecksEnabled }),
+  setPermissionChecks: (permissionChecks) => set({ permissionChecks }),
   setStateView: (stateView) => set({ stateView }),
   setStateViewLoading: (stateViewLoading) => set({ stateViewLoading }),
   setStateViewError: (stateViewError) => set({ stateViewError }),
@@ -452,5 +461,6 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
       functionCatalogError: null,
       selectedFunctionName: null,
       interaction: INITIAL_INTERACTION,
+      permissionChecks: null,
     }),
 }));

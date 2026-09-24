@@ -28,6 +28,7 @@ import { useMemo } from 'react';
 
 import { type FlowLabelsMap, type TransitionInfo, TRANSITION_KINDS, type TransitionKind } from '../types/quickrun.types';
 import { scheduleCountdownLabel } from '../utils/countdown';
+import { verdictText, type AuthorizeVerdict } from '../utils/permissionChecks';
 import { AnnotationChips } from './AnnotationChips';
 import { kindStyle, resolveTransitionKind } from './transitionKindStyles';
 
@@ -48,6 +49,8 @@ export interface AvailableTransitionsProps {
   lockedReason?: string;
   /** Clock for scheduled-entry countdowns; defaults to render time. */
   nowMs?: number;
+  /** Opt-in authorize verdicts per transition key, for the current role. */
+  permissions?: Readonly<Record<string, AuthorizeVerdict>>;
 }
 
 interface NormalizedTransition {
@@ -65,6 +68,7 @@ export function AvailableTransitions({
   disabled,
   lockedReason,
   nowMs,
+  permissions,
 }: AvailableTransitionsProps) {
   // Merge + normalize kinds. Legacy responses without `kind` keep the
   // bucket they arrived in so the visual grouping doesn't suddenly
@@ -123,16 +127,18 @@ export function AvailableTransitions({
                     nowMs={now}
                   />
                 ) : (
-                  <button
-                    key={`${kind}-${info.name}`}
-                    className={style.buttonClass}
-                    onClick={() => onTransitionClick(info)}
-                    disabled={locked}
-                    title={style.description}
-                  >
-                    {style.glyph ? `${style.glyph} ` : ''}
-                    {flowLabels?.transitions[info.name] ?? info.name}
-                  </button>
+                  <span key={`${kind}-${info.name}`} className="inline-flex items-center gap-1">
+                    <button
+                      className={style.buttonClass}
+                      onClick={() => onTransitionClick(info)}
+                      disabled={locked}
+                      title={style.description}
+                    >
+                      {style.glyph ? `${style.glyph} ` : ''}
+                      {flowLabels?.transitions[info.name] ?? info.name}
+                    </button>
+                    {permissions?.[info.name] && <PermissionBadge verdict={permissions[info.name]} />}
+                  </span>
                 ),
               )}
               {kind === 'stateTransition' && showManual && (
@@ -181,6 +187,21 @@ function ScheduledEntry({
       {label}
       {countdown && <span className="ml-1 opacity-70">· {countdown}</span>}
       <AnnotationChips annotations={info.annotations} className="ml-1" />
+    </span>
+  );
+}
+
+function PermissionBadge({ verdict }: { verdict: AuthorizeVerdict }) {
+  const text = verdictText(verdict);
+  const [glyph, tone] =
+    verdict.kind === 'error'
+      ? ['?', 'text-warning-text']
+      : verdict.allowed
+        ? ['✓', 'text-[var(--vscode-charts-green)]']
+        : ['✕', 'text-[var(--vscode-errorForeground)]'];
+  return (
+    <span className={`text-[11px] font-semibold ${tone}`} title={text} aria-label={text}>
+      {glyph}
     </span>
   );
 }
