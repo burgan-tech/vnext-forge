@@ -99,6 +99,9 @@ const METHOD_CAPABILITIES: Readonly<Record<string, MethodCapability>> = Object.f
   'quickrun/executeFunction': 'privileged',
   'quickrun/acknowledgeLongPoll': 'privileged',
   'quickrun/getFunctionCatalog': 'privileged',
+  'quickrun/getIncidents': 'privileged',
+  'quickrun/getActiveIncident': 'privileged',
+  'quickrun/getTaskHistory': 'privileged',
 
   // ── functions — the Quick Runner's discovery + invoke path; proxies to the
   // runtime engine exactly as quickrun/* does.

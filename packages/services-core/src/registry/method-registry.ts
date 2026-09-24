@@ -135,6 +135,12 @@ import {
   quickrunAcknowledgeLongPollResult,
   quickrunGetFunctionCatalogParams,
   quickrunGetFunctionCatalogResult,
+  quickrunGetIncidentsParams,
+  quickrunGetIncidentsResult,
+  quickrunGetActiveIncidentParams,
+  quickrunGetActiveIncidentResult,
+  quickrunGetTaskHistoryParams,
+  quickrunGetTaskHistoryResult,
 } from '../services/quickrun/quickrun-schemas.js'
 import type { RuntimeProxyService } from '../services/runtime-proxy/runtime-proxy.service.js'
 import {
@@ -691,6 +697,24 @@ export function buildMethodRegistry(): MethodRegistry {
       resultSchema: quickrunGetFunctionCatalogResult,
       handler: async (params, { quickRunService }, traceId) =>
         quickRunService.getFunctionCatalog(params, traceId),
+    },
+    'quickrun/getIncidents': {
+      paramsSchema: quickrunGetIncidentsParams,
+      resultSchema: quickrunGetIncidentsResult,
+      handler: async (params, { quickRunService }, traceId) =>
+        quickRunService.getIncidents(params, traceId),
+    },
+    'quickrun/getActiveIncident': {
+      paramsSchema: quickrunGetActiveIncidentParams,
+      resultSchema: quickrunGetActiveIncidentResult,
+      handler: async (params, { quickRunService }, traceId) =>
+        quickRunService.getActiveIncident(params, traceId),
+    },
+    'quickrun/getTaskHistory': {
+      paramsSchema: quickrunGetTaskHistoryParams,
+      resultSchema: quickrunGetTaskHistoryResult,
+      handler: async (params, { quickRunService }, traceId) =>
+        quickRunService.getTaskHistory(params, traceId),
     },
 
     // ── functions (Quick Runner) ─────────────────────────────────────────────

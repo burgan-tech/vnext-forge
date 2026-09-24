@@ -208,6 +208,95 @@ export const quickrunGetFunctionCatalogResult = z.object({
   ),
 })
 
+// ── Incidents ─────────────────────────────────────────────────────────────────
+//
+// Targets of the state function's `incident.history.href` / `incident.active.href`:
+//   GET /api/v1/<domain>/workflows/<flow>/instances/<id>/incidents?page&pageSize
+//   GET /api/v1/<domain>/workflows/<flow>/instances/<id>/incidents/active
+// As with `acknowledgeLongPoll`, the paths are rebuilt from the identifiers.
+// `incidents/active` answers 404 `Instance:100037` when nothing is open — a
+// normal answer, surfaced as `{ incident: null }`.
+
+const incidentEntrySchema = z.object({
+  id: z.string(),
+  createdAt: z.string(),
+  state: z.string(),
+  transition: z.string(),
+  task: z.string().nullable().optional(),
+  message: z.string(),
+  errorCode: z.string().nullable().optional(),
+  errorLayer: z.string().nullable().optional(),
+  statusCode: z.number().int().nullable().optional(),
+  boundaryAction: z.string().nullable().optional(),
+  boundaryLevel: z.string().nullable().optional(),
+  traceId: z.string().nullable().optional(),
+  isResolved: z.boolean(),
+  resolvedAt: z.string().nullable().optional(),
+  retryCount: z.number().int(),
+})
+
+export const quickrunGetIncidentsParams = z.object({
+  ...workflowIdentifier,
+  instanceId: z.string().min(1),
+  page: z.number().int().min(1).optional().default(1),
+  // The runtime clamps pageSize to 1..100.
+  pageSize: z.number().int().min(1).max(100).optional().default(20),
+  headers: headersSchema,
+  runtimeUrl: z.string().optional(),
+})
+
+export const quickrunGetIncidentsResult = z.object({
+  hasActiveIncident: z.boolean(),
+  items: z.array(incidentEntrySchema),
+  page: z.number().int(),
+  pageSize: z.number().int(),
+  hasNext: z.boolean(),
+})
+
+export const quickrunGetActiveIncidentParams = z.object({
+  ...workflowIdentifier,
+  instanceId: z.string().min(1),
+  headers: headersSchema,
+  runtimeUrl: z.string().optional(),
+})
+
+export const quickrunGetActiveIncidentResult = z.object({
+  incident: incidentEntrySchema.nullable(),
+})
+
+// ── Task History ──────────────────────────────────────────────────────────────
+//
+//   GET /api/v1/<domain>/workflows/<flow>/instances/<id>/functions/tasks
+// Metadata only (no request/response payloads), StartedAt ascending, unpaged.
+
+const taskHistoryItemSchema = z.object({
+  id: z.string(),
+  taskKey: z.string(),
+  transitionKey: z.string(),
+  fromState: z.string(),
+  toState: z.string().nullable().optional(),
+  triggerType: z.string(),
+  /** waiting | busy | completed | faulted */
+  status: z.string(),
+  /** unknown | success | failed */
+  businessStatus: z.string(),
+  startedAt: z.string(),
+  finishedAt: z.string().nullable().optional(),
+  durationMs: z.number().nullable().optional(),
+  error: z.string().nullable().optional(),
+})
+
+export const quickrunGetTaskHistoryParams = z.object({
+  ...workflowIdentifier,
+  instanceId: z.string().min(1),
+  headers: headersSchema,
+  runtimeUrl: z.string().optional(),
+})
+
+export const quickrunGetTaskHistoryResult = z.object({
+  items: z.array(taskHistoryItemSchema),
+})
+
 // ── Get View ─────────────────────────────────────────────────────────────────
 
 export const quickrunGetViewParams = z.object({

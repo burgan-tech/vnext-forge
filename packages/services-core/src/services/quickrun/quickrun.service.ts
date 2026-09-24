@@ -29,6 +29,12 @@ import {
   quickrunAcknowledgeLongPollResult,
   quickrunGetFunctionCatalogParams,
   quickrunGetFunctionCatalogResult,
+  quickrunGetIncidentsParams,
+  quickrunGetIncidentsResult,
+  quickrunGetActiveIncidentParams,
+  quickrunGetActiveIncidentResult,
+  quickrunGetTaskHistoryParams,
+  quickrunGetTaskHistoryResult,
 } from './quickrun-schemas.js'
 
 type ProxyRequest = {
@@ -44,6 +50,20 @@ function buildBasePath(domain: string, workflowKey: string): string {
   return `/api/v1/${domain}/workflows/${workflowKey}`
 }
 
+/** The error every non-2xx runtime answer becomes; the body lands in `details`. */
+function runtimeHttpError(data: string, status: number, source: string, traceId?: string): VnextForgeError {
+  let details: Record<string, unknown> = { httpStatus: status }
+  try {
+    details = { ...details, ...JSON.parse(data) }
+  } catch { /* non-JSON error body */ }
+  return new VnextForgeError(
+    ERROR_CODES.RUNTIME_EXECUTION_FAILED,
+    `Runtime returned HTTP ${status}`,
+    { source, layer: 'infrastructure', details },
+    traceId,
+  )
+}
+
 function parseJsonResponse<T>(
   data: string,
   status: number,
@@ -51,16 +71,7 @@ function parseJsonResponse<T>(
   traceId?: string,
 ): T {
   if (status < 200 || status >= 300) {
-    let details: Record<string, unknown> = { httpStatus: status }
-    try {
-      details = { ...details, ...JSON.parse(data) }
-    } catch { /* non-JSON error body */ }
-    throw new VnextForgeError(
-      ERROR_CODES.RUNTIME_EXECUTION_FAILED,
-      `Runtime returned HTTP ${status}`,
-      { source, layer: 'infrastructure', details },
-      traceId,
-    )
+    throw runtimeHttpError(data, status, source, traceId)
   }
   try {
     return JSON.parse(data) as T
@@ -72,6 +83,44 @@ function parseJsonResponse<T>(
       traceId,
     )
   }
+}
+
+/** `Instance:100037` — `incidents/active` has nothing open. A normal answer. */
+const ACTIVE_INCIDENT_NOT_FOUND = 'Instance:100037'
+
+/**
+ * The runtime error code of an error body, normalised to `<prefix>:<code>`.
+ * Reads the Aether envelope (`{ error: { prefix, code } }`) and flat bodies.
+ */
+function runtimeErrorCode(data: string): string | undefined {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(data)
+  } catch {
+    return undefined
+  }
+  if (!parsed || typeof parsed !== 'object') return undefined
+  const outer = parsed as Record<string, unknown>
+  const body = (outer.error && typeof outer.error === 'object' ? outer.error : outer) as Record<string, unknown>
+  const code =
+    typeof body.code === 'string' ? body.code : typeof body.errorCode === 'string' ? body.errorCode : undefined
+  if (!code) return undefined
+  const prefix = typeof body.prefix === 'string' ? body.prefix : undefined
+  return prefix && !code.startsWith(`${prefix}:`) ? `${prefix}:${code}` : code
+}
+
+/** Case-insensitive response-header lookup. */
+function headerValue(headers: Record<string, string> | undefined, name: string): string | undefined {
+  if (!headers) return undefined
+  const wanted = name.toLowerCase()
+  for (const [key, value] of Object.entries(headers)) {
+    if (key.toLowerCase() === wanted) return value
+  }
+  return undefined
+}
+
+function instancePath(domain: string, workflowKey: string, instanceId: string): string {
+  return `${buildBasePath(domain, workflowKey)}/instances/${encodeURIComponent(instanceId)}`
 }
 
 export function createQuickRunService(runtimeProxyService: RuntimeProxyService) {
@@ -491,6 +540,75 @@ export function createQuickRunService(runtimeProxyService: RuntimeProxyService) 
     } as z.infer<typeof quickrunGetFunctionCatalogResult>
   }
 
+  async function getIncidents(
+    params: z.infer<typeof quickrunGetIncidentsParams>,
+    traceId?: string,
+  ): Promise<z.infer<typeof quickrunGetIncidentsResult>> {
+    const result = await proxyCall(
+      {
+        method: 'GET',
+        runtimePath: `${instancePath(params.domain, params.workflowKey, params.instanceId)}/incidents`,
+        query: { page: String(params.page), pageSize: String(params.pageSize) },
+        headers: params.headers,
+        runtimeUrl: params.runtimeUrl,
+      },
+      traceId,
+    )
+    const parsed = parseJsonResponse<Record<string, unknown>>(
+      result.data, result.status, 'QuickRunService.getIncidents', traceId,
+    )
+    return {
+      hasActiveIncident: parsed.hasActiveIncident === true,
+      items: Array.isArray(parsed.items) ? parsed.items : [],
+      page: typeof parsed.page === 'number' ? parsed.page : params.page,
+      pageSize: typeof parsed.pageSize === 'number' ? parsed.pageSize : params.pageSize,
+      hasNext: parsed.hasNext === true,
+    } as z.infer<typeof quickrunGetIncidentsResult>
+  }
+
+  async function getActiveIncident(
+    params: z.infer<typeof quickrunGetActiveIncidentParams>,
+    traceId?: string,
+  ): Promise<z.infer<typeof quickrunGetActiveIncidentResult>> {
+    const result = await proxyCall(
+      {
+        method: 'GET',
+        runtimePath: `${instancePath(params.domain, params.workflowKey, params.instanceId)}/incidents/active`,
+        headers: params.headers,
+        runtimeUrl: params.runtimeUrl,
+      },
+      traceId,
+    )
+    // The link is advertised while the flag is set, but a retry may have
+    // resolved the incident since — "nothing open" is an answer, not a failure.
+    if (result.status === 404 && runtimeErrorCode(result.data) === ACTIVE_INCIDENT_NOT_FOUND) {
+      return { incident: null }
+    }
+    const parsed = parseJsonResponse<Record<string, unknown>>(
+      result.data, result.status, 'QuickRunService.getActiveIncident', traceId,
+    )
+    return { incident: parsed } as z.infer<typeof quickrunGetActiveIncidentResult>
+  }
+
+  async function getTaskHistory(
+    params: z.infer<typeof quickrunGetTaskHistoryParams>,
+    traceId?: string,
+  ): Promise<z.infer<typeof quickrunGetTaskHistoryResult>> {
+    const result = await proxyCall(
+      {
+        method: 'GET',
+        runtimePath: `${instancePath(params.domain, params.workflowKey, params.instanceId)}/functions/tasks`,
+        headers: params.headers,
+        runtimeUrl: params.runtimeUrl,
+      },
+      traceId,
+    )
+    const parsed = parseJsonResponse<Record<string, unknown>>(
+      result.data, result.status, 'QuickRunService.getTaskHistory', traceId,
+    )
+    return { items: Array.isArray(parsed.items) ? parsed.items : [] } as z.infer<typeof quickrunGetTaskHistoryResult>
+  }
+
   return {
     startInstance,
     fireTransition,
@@ -505,6 +623,9 @@ export function createQuickRunService(runtimeProxyService: RuntimeProxyService) 
     executeFunction,
     acknowledgeLongPoll,
     getFunctionCatalog,
+    getIncidents,
+    getActiveIncident,
+    getTaskHistory,
   }
 }
 

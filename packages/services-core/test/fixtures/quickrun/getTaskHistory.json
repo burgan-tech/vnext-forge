@@ -1,0 +1,25 @@
+{
+  "params": {
+    "domain": "core",
+    "workflowKey": "account-opening",
+    "instanceId": "b9846b60-0b07-447b-8377-9e2b9ac3d470"
+  },
+  "result": {
+    "items": [
+      {
+        "id": "6f9c1d2e-3a4b-4c5d-8e6f-7a8b9c0d1e2f",
+        "taskKey": "send-otp",
+        "transitionKey": "approve",
+        "fromState": "draft",
+        "toState": "approved",
+        "triggerType": "manual",
+        "status": "completed",
+        "businessStatus": "success",
+        "startedAt": "2026-09-20T10:00:00Z",
+        "finishedAt": "2026-09-20T10:00:00.184Z",
+        "durationMs": 184.2,
+        "error": null
+      }
+    ]
+  }
+}
