@@ -33,6 +33,7 @@ export {
   isValidWfDomainName,
   isValidWfFlowKey,
   quoteShellArg,
+  SAFE_SHELL_ARG,
   WF_DOMAIN_FLAG_MIN_VERSION,
   WF_DOMAIN_NAME_PATTERN,
   WF_FLOW_KEY_MAX_LENGTH,

@@ -1,6 +1,6 @@
 import { execFile } from 'node:child_process';
 
-import { buildChildEnv, DEFAULT_CHILD_PROCESS_ENV_ALLOWLIST } from '@vnext-forge-studio/services-core';
+import { buildChildEnv, DEFAULT_CHILD_PROCESS_ENV_ALLOWLIST, SAFE_SHELL_ARG } from '@vnext-forge-studio/services-core';
 
 /**
  * Captured (non-terminal) Workflow CLI run for commands whose result Forge must
@@ -50,13 +50,29 @@ export function runWfCaptured(
   exec: WfExecFileFn = defaultExec,
 ): Promise<WfCapturedResult> {
   return new Promise((resolve) => {
+    const isWin32 = process.platform === 'win32';
+    if (isWin32) {
+      // `shell: true` on Windows (the `.cmd` shim) hands argv to cmd.exe's own
+      // tokenizer; an unquoted token outside this set could be reinterpreted
+      // as a shell operator. Refuse rather than spawn.
+      const unsafeToken = argv.find((token) => !SAFE_SHELL_ARG.test(token));
+      if (unsafeToken !== undefined) {
+        resolve({
+          exitCode: null,
+          stdout: '',
+          stderr: '',
+          errorMessage: `"${unsafeToken}" is not a safe argument to pass to the Workflow CLI on Windows.`,
+        });
+        return;
+      }
+    }
     exec(
       'wf',
       argv,
       {
         cwd: opts.cwd,
         timeout: opts.timeoutMs,
-        shell: process.platform === 'win32',
+        shell: isWin32,
         env: buildChildEnv(DEFAULT_CHILD_PROCESS_ENV_ALLOWLIST),
         encoding: 'utf8',
         maxBuffer: 16 * 1024 * 1024,
@@ -68,7 +84,16 @@ export function runWfCaptured(
           return;
         }
         if (typeof error.code === 'number') {
-          resolve({ exitCode: error.code, stdout, stderr });
+          // A non-zero exit still carries the CLI's own explanation on stderr
+          // (e.g. Windows' "'wf' is not recognized..." when the shim itself is
+          // missing) — surface it so the caller doesn't have to re-derive it.
+          const trimmedStderr = stderr.trim();
+          resolve({
+            exitCode: error.code,
+            stdout,
+            stderr,
+            ...(trimmedStderr ? { errorMessage: trimmedStderr } : {}),
+          });
           return;
         }
         const errorMessage = error.killed

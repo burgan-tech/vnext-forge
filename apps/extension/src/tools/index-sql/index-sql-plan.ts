@@ -77,6 +77,17 @@ export function resolveIndexSqlBatch(cwd: string, batchPath: string): { batchDir
   return { batchDir, readmePath: path.join(batchDir, 'README.txt') };
 }
 
+/**
+ * `true` when `batchDir` is `root` itself or nested under it. The CLI's `-o`
+ * output folder is not restricted to the workspace, so a caller must check
+ * this before offering "Reveal batch folder" / "Open README.txt" — acting on
+ * a path outside the workspace root would reveal or open an arbitrary file.
+ */
+export function isIndexSqlBatchInsideRoot(root: string, batchDir: string): boolean {
+  const relative = path.relative(root, batchDir);
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+}
+
 export const NO_DEFAULT_SOLUTION_MESSAGE =
   'Index SQL generation needs a valid vnext.config.json in the workspace root: the Workflow CLI only processes the default solution.';
 
@@ -94,6 +105,6 @@ export function nonDefaultSolutionWarning(chosen: IndexSqlSolution, fallback: In
 
 export function indexSqlSuccessMessage(count: number, batchDir: string, cwd: string): string {
   const relative = path.relative(cwd, batchDir);
-  const shown = relative && !relative.startsWith('..') && !path.isAbsolute(relative) ? relative : batchDir;
+  const shown = relative && isIndexSqlBatchInsideRoot(cwd, batchDir) ? relative : batchDir;
   return `Generated ${count} SQL file(s) in ${shown}. Nothing was executed; hand the batch to your DBA for review.`;
 }

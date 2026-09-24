@@ -165,7 +165,13 @@ export function buildWfIndexesGenerateArgv(spec: WfIndexesGenerateSpec): string[
   return argv
 }
 
-const SAFE_SHELL_ARG = /^[A-Za-z0-9_/.:@%+=,~-]+$/
+/**
+ * A shell-safe token on bash/zsh/pwsh (and, unquoted, on cmd.exe). Exported so
+ * callers that must spawn through `shell: true` (Windows `.cmd` shims, e.g.
+ * `runWfCaptured`) can refuse an argv token that would need quoting instead of
+ * spawning it.
+ */
+export const SAFE_SHELL_ARG = /^[A-Za-z0-9_/.:@%+=,~-]+$/
 
 /** Double-quote an argument unless it is shell-safe as-is (bash/zsh/pwsh tolerant). */
 export function quoteShellArg(arg: string): string {

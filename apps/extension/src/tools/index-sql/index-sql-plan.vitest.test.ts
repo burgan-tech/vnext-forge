@@ -10,6 +10,7 @@ import {
   checkIndexSqlSolution,
   databaseNodeIds,
   indexSqlSuccessMessage,
+  isIndexSqlBatchInsideRoot,
   listIndexSqlFlows,
   nonDefaultSolutionWarning,
   resolveIndexSqlBatch,
@@ -134,5 +135,11 @@ describe('batch paths and copy', () => {
     expect(indexSqlSuccessMessage(1, path.resolve('/elsewhere/b'), path.resolve('/ws'))).toBe(
       `Generated 1 SQL file(s) in ${path.resolve('/elsewhere/b')}. Nothing was executed; hand the batch to your DBA for review.`,
     );
+  });
+
+  it('flags whether the batch folder is inside the workspace root', () => {
+    expect(isIndexSqlBatchInsideRoot(path.resolve('/ws'), path.resolve('/ws/index-sql/b1'))).toBe(true);
+    expect(isIndexSqlBatchInsideRoot(path.resolve('/ws'), path.resolve('/elsewhere/b'))).toBe(false);
+    expect(isIndexSqlBatchInsideRoot(path.resolve('/ws'), path.resolve('/ws2/index-sql/b1'))).toBe(false);
   });
 });
