@@ -56,9 +56,11 @@ export interface InstanceFilterPanelProps {
   schemaFields?: readonly MasterSchemaField[];
   /** Key of that master schema, shown as the suggestion source. */
   schemaKey?: string;
+  /** The active workflow's key — used only to detect a workflow switch and drop a stale attribute sort. */
+  workflowKey?: string;
 }
 
-export function InstanceFilterPanel({ onApply, onClose, schemaFields, schemaKey }: InstanceFilterPanelProps) {
+export function InstanceFilterPanel({ onApply, onClose, schemaFields, schemaKey, workflowKey }: InstanceFilterPanelProps) {
   const [conditions, setConditions] = useState<FilterCondition[]>([]);
   const [sortField, setSortField] = useState('createdAt');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
@@ -69,6 +71,18 @@ export function InstanceFilterPanel({ onApply, onClose, schemaFields, schemaKey 
   const [filterError, setFilterError] = useState<string | null>(null);
   const attrListId = useId();
   const attributeSortOptions = useMemo(() => sortableAttributeOptions(schemaFields), [schemaFields]);
+
+  // A workflow switch (or its master schema loading/changing under it) can
+  // leave `sortField` pointing at an `attributes.*` path that no longer
+  // exists in `attributeSortOptions` — drop back to the default sort rather
+  // than sending a now-meaningless field.
+  useEffect(() => {
+    setSortField((current) => {
+      if (!current.startsWith('attributes.')) return current;
+      const stillValid = attributeSortOptions.some((o) => o.value === current);
+      return stillValid ? current : 'createdAt';
+    });
+  }, [workflowKey, attributeSortOptions]);
   // Only offer paths the runtime's ValidateFieldName would accept (letters/digits/
   // underscores per dotted segment, starting with a letter) — anything else is
   // rejected outright, so suggesting it just sets the user up for a 400.

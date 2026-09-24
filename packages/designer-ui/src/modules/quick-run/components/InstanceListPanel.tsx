@@ -136,6 +136,7 @@ export function InstanceListPanel() {
         <InstanceFilterPanel
           onApply={handleFilterApply}
           onClose={() => setShowFilter(false)}
+          workflowKey={workflowKey}
           {...(masterSchema.status === 'ready'
             ? { schemaFields: masterSchema.fields, schemaKey: masterSchema.schemaKey }
             : {})}

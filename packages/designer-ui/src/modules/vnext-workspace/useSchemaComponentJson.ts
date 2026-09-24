@@ -19,8 +19,10 @@ export function useSchemaComponentJson(ref: SchemaReferenceLike | null): Record<
   useEffect(() => subscribeWorkspaceFsChange(() => setRevision((r) => r + 1)), []);
 
   useEffect(() => {
+    // Reset first so a stale schema from the *previous* key/domain is never
+    // shown while the new one is still loading (or when there is no new one).
+    setJson(null);
     if (!projectId || !key) {
-      setJson(null);
       return;
     }
     let cancelled = false;

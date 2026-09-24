@@ -17,8 +17,11 @@ export function useWorkflowMasterSchema(workflowKey: string, workflowDomain?: st
   const [load, setLoad] = useState<MasterSchemaLoad>(NONE);
 
   useEffect(() => {
+    // Reset first so a stale master schema from the *previous* workflow key
+    // is never shown while the new one is still resolving (or when there is
+    // no new one) — the QuickRunner filter panel reads this synchronously.
+    setLoad(NONE);
     if (!workflowKey) {
-      setLoad(NONE);
       return;
     }
     let cancelled = false;

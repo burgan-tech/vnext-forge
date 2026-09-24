@@ -66,7 +66,7 @@ export function pinnedSchemaAllowsFreeTypeText(schemaVersion: string | undefined
 export function schemaTypeVersionHint(value: string, schemaVersion: string | undefined): string | null {
   if (LEGACY_SCHEMA_TYPE_ENUM.has(value)) return null;
   if (pinnedSchemaAllowsFreeTypeText(schemaVersion)) return null;
-  const label = schemaVersion ? schemaVersion : 'an older vnext-schema';
+  const label = schemaVersion && schemaVersion.trim() !== '' ? schemaVersion : 'an older vnext-schema';
   return (
     `Your pinned vnext-schema (${label}) only accepts workflow, task, function, view, schema, ` +
     'extension, headers — `npm run validate` will fail until you upgrade to a release that allows free-text types.'
