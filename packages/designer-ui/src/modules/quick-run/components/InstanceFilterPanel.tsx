@@ -8,6 +8,7 @@ import {
 import {
   ALL_OPERATORS,
   INSTANCE_FIELDS,
+  INSTANCE_TYPE_OPTIONS,
   STATUS_OPTIONS,
   getFieldType,
   getOperatorsForFieldType,
@@ -16,6 +17,7 @@ import {
   resolveValueType,
   serializeInstanceFilter,
   serializeInstanceSort,
+  sortableInstanceFields,
   type FilterCondition,
   type FilterOperator,
   type FilterValueType,
@@ -200,7 +202,7 @@ export function InstanceFilterPanel({ onApply, onClose }: InstanceFilterPanelPro
           value={sortField}
           onChange={(e) => setSortField(e.target.value)}
         >
-          {INSTANCE_FIELDS.map((f) => (
+          {sortableInstanceFields().map((f) => (
             <option key={f.value} value={f.value}>{f.label}</option>
           ))}
         </select>
@@ -254,7 +256,8 @@ function FilterRow({
   const operators = getOperatorsForFieldType(fieldType, condition.valueType);
   const valueType = resolveValueType(condition);
 
-  const isStatus = fieldType === 'status';
+  const enumOptions: readonly string[] | null =
+    fieldType === 'status' ? STATUS_OPTIONS : fieldType === 'instanceType' ? INSTANCE_TYPE_OPTIONS : null;
   const isAttribute = condition.category === 'attribute';
   const needsValue = operatorNeedsValue(condition.operator);
   const isBetween = condition.operator === 'between';
@@ -327,24 +330,24 @@ function FilterRow({
           <span className="flex-1 px-1 text-[10px] text-[var(--vscode-descriptionForeground)]">
             (no value needed)
           </span>
-        ) : isStatus && (condition.operator === 'eq' || condition.operator === 'ne') ? (
+        ) : enumOptions && (condition.operator === 'eq' || condition.operator === 'ne') ? (
           <select
             className={`flex-1 ${INPUT_CLASS} ${errorClass}`}
             value={condition.value}
             onChange={(e) => onChange({ value: e.target.value })}
           >
             <option value="">Select...</option>
-            {STATUS_OPTIONS.map((s) => (
+            {enumOptions.map((s) => (
               <option key={s} value={s}>{s}</option>
             ))}
           </select>
-        ) : isStatus ? (
+        ) : enumOptions ? (
           <input
             type="text"
             className={`flex-1 ${INPUT_CLASS} ${errorClass}`}
             value={condition.value}
-            placeholder="Active, Faulted"
-            title="Comma-separated status names"
+            placeholder={enumOptions.slice(0, 2).join(', ')}
+            title="Comma-separated names"
             onChange={(e) => onChange({ value: e.target.value })}
           />
         ) : (

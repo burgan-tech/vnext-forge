@@ -31,7 +31,7 @@ export type FieldCategory = 'instance' | 'attribute';
 /** How an attribute value should be coerced before it goes on the wire. */
 export type FilterValueType = 'text' | 'number' | 'boolean' | 'date';
 
-export type InstanceFieldType = 'string' | 'status' | 'date';
+export type InstanceFieldType = 'string' | 'status' | 'date' | 'instanceType';
 
 export interface FilterCondition {
   category: FieldCategory;
@@ -47,6 +47,8 @@ export interface FilterCondition {
 /** Instance columns the runtime accepts in `filter` (see `InstanceFieldDiscriminator`). */
 export const INSTANCE_FIELDS: { value: string; label: string; type: InstanceFieldType }[] = [
   { value: 'status', label: 'Status', type: 'status' },
+  { value: 'effectiveStatus', label: 'Effective Status', type: 'status' },
+  { value: 'instanceType', label: 'Instance Type', type: 'instanceType' },
   { value: 'currentState', label: 'Current State', type: 'string' },
   { value: 'effectiveState', label: 'Effective State', type: 'string' },
   { value: 'stage', label: 'Stage', type: 'string' },
@@ -61,6 +63,14 @@ export const INSTANCE_FIELDS: { value: string; label: string; type: InstanceFiel
 
 /** Runtime accepts names or single-letter codes; names read better in the UI. */
 export const STATUS_OPTIONS = ['Active', 'Busy', 'Completed', 'Faulted', 'Passive'] as const;
+
+/** `instanceType` accepts names or codes (`Root`/`R`, `SubFlow`/`S`, `SubProcess`/`P`). */
+export const INSTANCE_TYPE_OPTIONS = ['Root', 'SubFlow', 'SubProcess'] as const;
+
+/** Sort choices: `instanceType` is filter-only. */
+export function sortableInstanceFields(): typeof INSTANCE_FIELDS {
+  return INSTANCE_FIELDS.filter((f) => f.type !== 'instanceType');
+}
 
 export const ALL_OPERATORS: { value: FilterOperator; label: string }[] = [
   { value: 'eq', label: '=' },
@@ -90,7 +100,9 @@ export function getFieldType(category: FieldCategory, field: string): ResolvedFi
 
 export function getOperatorsForFieldType(type: ResolvedFieldType, valueType: FilterValueType = 'text'): FilterOperator[] {
   switch (type) {
-    case 'status': return ['eq', 'ne', 'in', 'nin'];
+    case 'status':
+    case 'instanceType':
+      return ['eq', 'ne', 'in', 'nin'];
     case 'date': return ['eq', 'gt', 'ge', 'lt', 'le', 'between', 'isNull'];
     case 'string': return ['eq', 'ne', 'like', 'match', 'startswith', 'endswith', 'in', 'nin', 'isNull'];
     case 'attribute':

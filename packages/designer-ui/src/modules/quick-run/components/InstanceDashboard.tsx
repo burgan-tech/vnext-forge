@@ -5,6 +5,7 @@ import { extractEtag } from '../etagFromResponse';
 import * as QuickRunApi from '../QuickRunApi';
 import type { InstanceDetailResponse, WorkflowBucketConfig } from '../QuickRunApi';
 import { normalizeIncident } from '../utils/incident';
+import { displayStatus, instanceTypeLabel } from '../utils/instanceStatus';
 import { ResizableDialogShell } from '../../../ui/ResizableDialogShell';
 import { useInteractionDriver } from '../hooks/useInteractionDriver';
 import { useNow } from '../hooks/useNow';
@@ -406,7 +407,7 @@ export function InstanceDashboard({ configRef, persistConfig, onOpenFunctionRun 
             <span>STARTED {new Date(activeInstance.startedAt).toLocaleTimeString()}</span>
           </div>
         </div>
-        <StatusBadge status={activeInstance.status} />
+        <StatusBadge status={displayStatus(activeInstance)} />
       </div>
 
       {/* Polling error banner — surfaced when `getState` fails
@@ -459,7 +460,7 @@ export function InstanceDashboard({ configRef, persistConfig, onOpenFunctionRun 
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-medium">STATUS</p>
-            <StatusBadge status={activeInstance.status} />
+            <StatusBadge status={displayStatus(activeInstance)} />
           </div>
           <div className="flex items-center gap-2">
             {!activeStateLoading && isActive && (
@@ -1388,6 +1389,12 @@ function InstanceMetaDialog({
                   <MetaRow label="Current State"><span>{data.metadata.currentState}</span></MetaRow>
                   <MetaRow label="Effective State"><span>{data.metadata.effectiveState}</span></MetaRow>
                   <MetaRow label="Status"><span>{data.metadata.status}</span></MetaRow>
+                  {data.metadata.effectiveStatus && (
+                    <MetaRow label="Effective Status"><span>{data.metadata.effectiveStatus}</span></MetaRow>
+                  )}
+                  {instanceTypeLabel(data.metadata.type) && (
+                    <MetaRow label="Type"><span>{instanceTypeLabel(data.metadata.type)}</span></MetaRow>
+                  )}
                   {data.metadata.stage && <MetaRow label="Stage"><span>{data.metadata.stage}</span></MetaRow>}
                   {data.metadata.currentStateType && <MetaRow label="State Type"><span>{data.metadata.currentStateType}</span></MetaRow>}
                   {data.metadata.currentStateSubType && <MetaRow label="State Sub-Type"><span>{data.metadata.currentStateSubType}</span></MetaRow>}

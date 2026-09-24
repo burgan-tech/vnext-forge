@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  INSTANCE_FIELDS,
+  INSTANCE_TYPE_OPTIONS,
   getOperatorsForFieldType,
   isValidAttributePath,
   serializeCondition,
   serializeInstanceFilter,
   serializeInstanceSort,
+  sortableInstanceFields,
   type FilterCondition,
 } from './instanceFilterSerializer';
 
@@ -139,5 +142,30 @@ describe('operators per type', () => {
 describe('serializeInstanceSort', () => {
   it('emits the JSON sort the runtime requires (no -field shorthand)', () => {
     expect(JSON.parse(serializeInstanceSort('createdAt', 'desc'))).toEqual({ field: 'createdAt', direction: 'desc' });
+  });
+});
+
+describe('instance metadata fields', () => {
+  it('offers instanceType and effectiveStatus as filter fields', () => {
+    expect(INSTANCE_FIELDS.find((f) => f.value === 'instanceType')?.type).toBe('instanceType');
+    expect(INSTANCE_FIELDS.find((f) => f.value === 'effectiveStatus')?.type).toBe('status');
+  });
+
+  it('instanceType accepts only eq / ne / in / nin', () => {
+    expect(getOperatorsForFieldType('instanceType')).toEqual(['eq', 'ne', 'in', 'nin']);
+  });
+
+  it('serializes instance type names', () => {
+    expect(parse(inst('instanceType', 'in', 'Root, SubFlow'))).toEqual({ instanceType: { in: ['Root', 'SubFlow'] } });
+    expect(parse(inst('effectiveStatus', 'eq', 'Active'))).toEqual({ effectiveStatus: { eq: 'Active' } });
+  });
+
+  it('lists the instance type options by name', () => {
+    expect(INSTANCE_TYPE_OPTIONS).toEqual(['Root', 'SubFlow', 'SubProcess']);
+  });
+
+  it('does not offer instanceType as a sort field', () => {
+    expect(sortableInstanceFields().some((f) => f.value === 'instanceType')).toBe(false);
+    expect(sortableInstanceFields().some((f) => f.value === 'effectiveStatus')).toBe(true);
   });
 });

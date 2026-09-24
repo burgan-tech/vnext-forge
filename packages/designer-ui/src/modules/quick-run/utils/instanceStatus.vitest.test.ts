@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { displayStatus, isActiveStatus, isInactiveStatus, stopsPolling } from './instanceStatus';
+import { displayStatus, instanceTypeLabel, isActiveStatus, isInactiveStatus, stopsPolling } from './instanceStatus';
 
 describe('instanceStatus', () => {
   it('prefers effectiveStatus', () => {
@@ -23,5 +23,15 @@ describe('stopsPolling', () => {
   it('stops on A, C, F and Passive; keeps polling on B', () => {
     expect(['A', 'C', 'F', 'P'].every((s) => stopsPolling(s as 'A'))).toBe(true);
     expect(stopsPolling('B')).toBe(false);
+  });
+});
+
+describe('instanceTypeLabel', () => {
+  it('names each instance type and tolerates null', () => {
+    expect(instanceTypeLabel('R')).toBe('Root');
+    expect(instanceTypeLabel('S')).toBe('SubFlow');
+    expect(instanceTypeLabel('P')).toBe('SubProcess');
+    expect(instanceTypeLabel(null)).toBeNull();
+    expect(instanceTypeLabel(undefined)).toBeNull();
   });
 });

@@ -206,3 +206,14 @@ describe('useQuickRunStore — interaction', () => {
     expect(useQuickRunStore.getState().interaction).toEqual({ kind: 'idle' });
   });
 });
+
+describe('useQuickRunStore — effective status', () => {
+  it('a poll result replaces both statuses (the state function reports the effective status)', () => {
+    useQuickRunStore.setState({ instances: new Map() });
+    useQuickRunStore.getState().addInstance({
+      id: 'i1', key: 'k', status: 'B', effectiveStatus: 'A', domain: 'core', workflowKey: 'wf', startedAt: '2026-09-01T00:00:00Z',
+    });
+    useQuickRunStore.getState().updateInstanceStatus('i1', 'B', 'child');
+    expect(useQuickRunStore.getState().instances.get('i1')).toMatchObject({ status: 'B', effectiveStatus: undefined });
+  });
+});

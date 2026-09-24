@@ -365,7 +365,7 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
       const instances = new Map(state.instances);
       const existing = instances.get(instanceId);
       if (existing) {
-        instances.set(instanceId, { ...existing, status, currentState: currentState ?? existing.currentState });
+        instances.set(instanceId, { ...existing, status, effectiveStatus: undefined, currentState: currentState ?? existing.currentState });
       }
       return { instances };
     }),
@@ -378,6 +378,7 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
         instances.set(instanceId, {
           ...existing,
           status: stateResponse.status,
+          effectiveStatus: undefined,
           currentState: stateResponse.state,
           transitions: stateResponse.transitions,
           sharedTransitions: stateResponse.sharedTransitions,

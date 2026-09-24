@@ -41,6 +41,12 @@ export interface QuickRunInstance {
   id: string;
   key: string;
   status: InstanceStatus;
+  /**
+   * Display status from the instance list (`metadata.effectiveStatus`). `status`
+   * stays the behavioural one (retry, cancel, polling). Cleared by poll results:
+   * the state function's own `status` already is the effective status.
+   */
+  effectiveStatus?: InstanceStatus;
   domain: string;
   workflowKey: string;
   environmentName?: string;

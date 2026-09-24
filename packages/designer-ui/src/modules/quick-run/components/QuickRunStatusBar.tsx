@@ -1,5 +1,6 @@
 import { useQuickRunStore } from '../store/quickRunStore';
 import { normalizeIncident } from '../utils/incident';
+import { displayStatus, isActiveStatus } from '../utils/instanceStatus';
 import { IncidentBadge } from './IncidentSection';
 
 const HEALTH_CONFIG = {
@@ -19,7 +20,7 @@ export function QuickRunStatusBar() {
   const runtimeDomain = useQuickRunStore((s) => s.runtimeDomain);
 
   const activeCount = Array.from(instances.values()).filter(
-    (i) => i.status === 'A' || i.status === 'B',
+    (i) => isActiveStatus(displayStatus(i)),
   ).length;
 
   const healthCfg = HEALTH_CONFIG[runtimeHealth];

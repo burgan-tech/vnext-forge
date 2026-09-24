@@ -1,4 +1,4 @@
-import type { InstanceStatus } from '../types/quickrun.types';
+import type { InstanceStatus, InstanceType } from '../types/quickrun.types';
 
 /**
  * Status to show for an instance. A parent sitting in a subflow is stored as
@@ -24,4 +24,11 @@ export function isInactiveStatus(s: InstanceStatus): boolean {
  */
 export function stopsPolling(s: InstanceStatus): boolean {
   return s !== 'B';
+}
+
+const INSTANCE_TYPE_LABELS: Record<InstanceType, string> = { R: 'Root', S: 'SubFlow', P: 'SubProcess' };
+
+/** How the instance was started. `P` here is SubProcess, not Passive. */
+export function instanceTypeLabel(type: InstanceType | null | undefined): string | null {
+  return type ? INSTANCE_TYPE_LABELS[type] : null;
 }

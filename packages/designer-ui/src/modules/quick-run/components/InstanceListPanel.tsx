@@ -7,10 +7,10 @@ import {
   TooltipTrigger,
 } from '../../../ui/Tooltip';
 import * as QuickRunApi from '../QuickRunApi';
-import { useQuickRunPolling } from '../hooks/useQuickRunPolling';
+import { useOpenInstance } from '../hooks/useOpenInstance';
 import { useQuickRunStore } from '../store/quickRunStore';
-import type { InstanceListItem } from '../types/quickrun.types';
 import { normalizeIncident } from '../utils/incident';
+import { instanceTargetFromListItem } from '../utils/instanceTarget';
 import { displayStatus, isActiveStatus, isInactiveStatus } from '../utils/instanceStatus';
 import { EnvBadge } from './EnvBadge';
 import { IncidentBadge } from './IncidentSection';
@@ -28,14 +28,11 @@ export function InstanceListPanel() {
   const instances = useQuickRunStore((s) => s.instances);
   const activeTabId = useQuickRunStore((s) => s.activeTabId);
   const setActiveTab = useQuickRunStore((s) => s.setActiveTab);
-  const addInstance = useQuickRunStore((s) => s.addInstance);
-  const addTab = useQuickRunStore((s) => s.addTab);
   const globalHeaders = useQuickRunStore((s) => s.globalHeaders);
   const environmentName = useQuickRunStore((s) => s.environmentName);
   const environmentUrl = useQuickRunStore((s) => s.environmentUrl);
 
-  const pollingConfig = useQuickRunStore((s) => s.pollingConfig);
-  const { pollState } = useQuickRunPolling(pollingConfig);
+  const openInstance = useOpenInstance();
 
   const [showFilter, setShowFilter] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string | undefined>();
@@ -46,37 +43,6 @@ export function InstanceListPanel() {
   // returning every row (fail-closed since PR #881). Keep the last good list on
   // screen, but say what was rejected and why.
   const [listError, setListError] = useState<RuntimeErrorLike | null>(null);
-
-  const openInstance = useCallback((item: InstanceListItem) => {
-    if (instances.has(item.id)) {
-      setActiveTab(item.id);
-      return;
-    }
-    addInstance({
-      id: item.id,
-      key: item.key,
-      status: displayStatus(item.metadata),
-      domain: item.domain,
-      workflowKey: item.flow,
-      environmentName,
-      currentState: item.metadata.currentState,
-      startedAt: item.metadata.createdAt,
-    });
-    addTab({
-      instanceId: item.id,
-      domain: item.domain,
-      workflowKey: item.flow,
-      environmentName,
-      label: item.key || (item.id ?? '').slice(0, 8),
-    });
-    void pollState({
-      domain: item.domain,
-      workflowKey: item.flow,
-      instanceId: item.id,
-      headers: globalHeaders,
-      runtimeUrl: environmentUrl,
-    });
-  }, [instances, addInstance, addTab, setActiveTab, environmentName, environmentUrl, globalHeaders, pollState]);
 
   const loadInstances = useCallback(async () => {
     if (!domain || !workflowKey) return;
@@ -117,8 +83,8 @@ export function InstanceListPanel() {
     void loadInstances();
   }, [loadInstances]);
 
-  const activeInstances = Array.from(instances.values()).filter((i) => isActiveStatus(i.status));
-  const completedInstances = Array.from(instances.values()).filter((i) => isInactiveStatus(i.status));
+  const activeInstances = Array.from(instances.values()).filter((i) => isActiveStatus(displayStatus(i)));
+  const completedInstances = Array.from(instances.values()).filter((i) => isInactiveStatus(displayStatus(i)));
 
   return (
     <aside className="flex h-full w-full flex-col bg-[var(--vscode-sideBar-background)]">
@@ -204,7 +170,7 @@ export function InstanceListPanel() {
                     {instance.currentState ?? 'Starting...'}
                   </div>
                 </div>
-                <StatusBadge status={instance.status} compact />
+                <StatusBadge status={displayStatus(instance)} compact />
               </button>
             ))}
           </section>
@@ -228,7 +194,7 @@ export function InstanceListPanel() {
                 <div className="flex-1 truncate">
                   <span className="truncate">{instance.workflowKey}</span>
                 </div>
-                <StatusBadge status={instance.status} compact />
+                <StatusBadge status={displayStatus(instance)} compact />
               </button>
             ))}
           </section>
@@ -260,7 +226,7 @@ export function InstanceListPanel() {
                     ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-list-activeSelectionForeground)]'
                     : 'hover:bg-[var(--vscode-list-hoverBackground)]'
                 }`}
-                onClick={() => openInstance(item)}
+                onClick={() => openInstance(instanceTargetFromListItem(item))}
               >
                 <div className="flex-1 truncate">
                   <span className="truncate">{(item.key ?? item.id ?? '').slice(0, 8)}</span>
