@@ -151,6 +151,10 @@ export {
 } from './modules/code-editor/index.js';
 export { useSaveFile } from './modules/code-editor/useSaveFile.js';
 export { setupMonacoWithLsp } from './modules/code-editor/editor/MonacoSetup.js';
+export {
+  configureJsonSchemaValidation,
+  type JsonSchemaValidationOptions,
+} from './modules/code-editor/editor/JsonSchemaSetup.js';
 export type { CsharpLspClient } from './modules/code-editor/editor/lspClient.js';
 export { setupMonacoLoader } from './editor/setupMonacoLoader.js';
 
