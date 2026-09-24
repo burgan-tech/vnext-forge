@@ -1511,7 +1511,7 @@ function IncidentActiveCard({ entry }: { entry: IncidentEntry }) {
             <button
               className="inline-flex shrink-0 rounded p-0.5 text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]"
               onClick={() => {
-                void navigator.clipboard.writeText(entry.traceId).then(() => {
+                void navigator.clipboard.writeText(entry.traceId ?? '').then(() => {
                   setCopiedTraceId(true);
                   setTimeout(() => setCopiedTraceId(false), 1500);
                 });

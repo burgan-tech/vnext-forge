@@ -313,7 +313,7 @@ export interface InstanceListItem {
     status: InstanceStatus;
     /** Deepest active subflow's status (or the instance's own). Prefer for display. */
     effectiveStatus?: InstanceStatus;
-    type?: InstanceType;
+    type?: InstanceType | null;
     incident?: IncidentLinks;
     effectiveStateType?: string;
     effectiveStateSubType?: string;
@@ -355,4 +355,59 @@ export function safeViewContent(content: string | Record<string, unknown> | unkn
     try { return JSON.stringify(content, null, 2); } catch { return String(content); }
   }
   return '';
+}
+
+/** One row of `…/functions/tasks` (metadata only, StartedAt ascending). */
+export interface TaskHistoryItem {
+  id: string;
+  taskKey: string;
+  transitionKey: string;
+  fromState: string;
+  /** `null` while the owning transition is in progress. */
+  toState?: string | null;
+  triggerType: string;
+  /** waiting | busy | completed | faulted */
+  status: string;
+  /** unknown | success | failed */
+  businessStatus: string;
+  startedAt: string;
+  finishedAt?: string | null;
+  durationMs?: number | null;
+  /** Fault reason on a faulted row; never a stack trace. */
+  error?: string | null;
+}
+
+export interface TaskHistoryResponse {
+  items: TaskHistoryItem[];
+}
+
+/** One row of `GET {domain}/functions/human-task`: the ROOT instance, the LEAF's text. */
+export interface HumanTaskItem {
+  /** Business key of the root (its own id for a SubProcess). */
+  instanceId?: string | null;
+  /** The root instance's own id — always unique; what Forge opens. */
+  id: string;
+  workflow?: string | null;
+  title?: string | null;
+  description?: string | null;
+  createdAt: string;
+}
+
+export interface HumanTaskListResponse {
+  items: HumanTaskItem[];
+  /** `X-VNext-HumanTask-Truncated: true` — the runtime capped the list. */
+  truncated: boolean;
+}
+
+/** The single question an `authorize` call asks. */
+export type AuthorizeTarget =
+  | { kind: 'transition'; transitionKey: string }
+  | { kind: 'function'; functionKey: string }
+  | { kind: 'queryRoles' }
+  | { kind: 'ack' };
+
+/** `authorize` verdict — the runtime answers 200 (allowed) or 403 (denied), both with a body. */
+export interface AuthorizeResult {
+  allowed: boolean;
+  status: number;
 }
