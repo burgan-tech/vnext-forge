@@ -91,20 +91,23 @@ export function overrideWarnings(
     }
     const longPoll = entry.interaction?.longPoll;
     if (!longPoll) continue;
-    if (isEmptyList(longPoll.roles)) {
+    const childState = child?.states.find((s) => s.key === key);
+    const usesRule = childState?.longPollAuth === 'rule';
+    // The runtime ignores roles on a rule-gated long poll, so an empty list is
+    // not "every caller is admitted" there — the rule decides regardless.
+    if (isEmptyList(longPoll.roles) && !usesRule) {
       warnings.push({
         code: 'roles-empty',
         message: `State "${key}" overrides long-poll roles with an empty list — every caller can acknowledge.`,
       });
     }
-    const childState = child?.states.find((s) => s.key === key);
     if (!childState) continue;
     if (childState.longPollAuth === null) {
       warnings.push({
         code: 'longpoll-inert',
         message: `Child state "${key}" declares no long poll — this long-poll override has no effect.`,
       });
-    } else if (childState.longPollAuth === 'rule' && longPoll.roles !== undefined) {
+    } else if (usesRule && longPoll.roles !== undefined) {
       warnings.push({
         code: 'roles-ignored-rule',
         message: `Child state "${key}" authorizes its long poll with a rule — the roles override is ignored at runtime.`,

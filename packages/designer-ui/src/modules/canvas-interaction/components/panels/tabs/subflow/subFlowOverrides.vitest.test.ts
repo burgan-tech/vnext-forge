@@ -87,6 +87,14 @@ describe('overrideWarnings', () => {
     expect(warnings.map((w) => w.code)).toEqual(['longpoll-inert']);
   });
 
+  it('does not flag an empty long-poll roles list on a rule-gated child state as roles-empty', () => {
+    const warnings = overrideWarnings(
+      { overrides: { states: { gate: { interaction: { longPoll: { roles: [] } } } } } },
+      CHILD,
+    );
+    expect(warnings.map((w) => w.code)).toEqual(['roles-ignored-rule']);
+  });
+
   it('does not judge child-dependent rules without a child or for unknown keys', () => {
     const sf = { overrides: { states: { gate: { interaction: { longPoll: { roles: [{ role: 'p', grant: 'allow' as const }] } } } } } };
     expect(overrideWarnings(sf, null)).toEqual([]);

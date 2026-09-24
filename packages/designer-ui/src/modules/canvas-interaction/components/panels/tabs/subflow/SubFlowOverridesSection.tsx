@@ -1,236 +1,408 @@
-import { useState } from 'react';
-import type { RoleGrant, SubFlowOverrides, SubFlowTimeoutOverride } from '@vnext-forge-studio/vnext-types';
-import { Section, EditableInput, IconPlus, IconTrash } from '../PropertyPanelShared';
-import { RoleGrantEditor } from './RoleGrantEditor';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import type { DiscoveredVnextComponent } from '@vnext-forge-studio/app-contracts';
+import type {
+  ResourceReference,
+  SubFlowConfig,
+  SubFlowLongPollOverride,
+  SubFlowOverrides,
+  SubFlowStateOverride,
+  SubFlowTransitionOverride,
+} from '@vnext-forge-studio/vnext-types';
+import { ChooseExistingVnextComponentDialog } from '../ChooseExistingTaskDialog';
+import { IconPlus, IconTrash, Section } from '../PropertyPanelShared';
+import type {
+  ChildStateSummary,
+  ChildTransitionSummary,
+  ChildWorkflowLoadStatus,
+  ChildWorkflowSummary,
+} from './childWorkflowSummary';
+import { KeyCombobox } from './KeyCombobox';
+import { OptionalRoleOverride } from './OptionalRoleOverride';
+import { TimeoutOverrideEditor } from './TimeoutOverrideEditor';
+import { ViewSwapMapEditor } from './ViewSwapMapEditor';
+import {
+  applyLegacyViewMigration,
+  countOverrides,
+  hasLegacyViews,
+  nextOverrideKey,
+  overrideWarnings,
+  parseFallbackSeconds,
+  planLegacyViewMigration,
+  renameRecordKey,
+  setLongPollOverride,
+  type LongPollOverridePatch,
+} from './subFlowOverrides';
 
-interface SubFlowOverridesSectionProps {
-  overrides: SubFlowOverrides | undefined;
-  onUpdateOverrides: (updater: (overrides: SubFlowOverrides) => void) => void;
+export interface SubFlowOverridesSectionProps {
+  subFlow: SubFlowConfig;
+  /** Parent state owning the subflow. */
+  stateKey: string;
+  child: ChildWorkflowSummary | null;
+  childStatus: ChildWorkflowLoadStatus;
+  projectDomain: string;
+  canPickViews: boolean;
+  onUpdateSubFlow: (updater: (sf: SubFlowConfig) => void) => void;
 }
 
-export function SubFlowOverridesSection({ overrides, onUpdateOverrides }: SubFlowOverridesSectionProps) {
-  const timeoutConfigured = !!overrides?.timeout?.key;
-  const transitionCount = Object.keys(overrides?.transitions ?? {}).length;
-  const stateCount = Object.keys(overrides?.states ?? {}).length;
-  const totalCount = (timeoutConfigured ? 1 : 0) + transitionCount + stateCount;
+type OverrideScope = 'states' | 'transitions';
+interface ViewTarget {
+  scope: OverrideScope;
+  entryKey: string;
+  viewKey: string;
+}
+type BrowseView = (scope: OverrideScope, entryKey: string, viewKey: string) => void;
+
+function ensureOverrides(sf: SubFlowConfig): SubFlowOverrides {
+  sf.overrides ??= {};
+  return sf.overrides;
+}
+
+const NOTE = 'text-[10px] text-muted-foreground leading-relaxed';
+
+export function SubFlowOverridesSection({
+  subFlow,
+  stateKey,
+  child,
+  childStatus,
+  projectDomain,
+  canPickViews,
+  onUpdateSubFlow,
+}: SubFlowOverridesSectionProps) {
+  const [viewTarget, setViewTarget] = useState<ViewTarget | null>(null);
+  const overrides = subFlow.overrides ?? {};
+  const total = countOverrides(subFlow);
+  const warnings = overrideWarnings(subFlow, child);
+  const legacy = hasLegacyViews(subFlow);
+  const plan = useMemo(
+    () => (legacy && child ? planLegacyViewMigration(subFlow, child) : null),
+    [legacy, child, subFlow],
+  );
+  const isSubProcess = subFlow.type === 'P';
+
+  const updateStates = (updater: (states: Record<string, SubFlowStateOverride>) => void): void =>
+    onUpdateSubFlow((sf) => {
+      const o = ensureOverrides(sf);
+      o.states ??= {};
+      updater(o.states);
+    });
+
+  const updateTransitions = (updater: (transitions: Record<string, SubFlowTransitionOverride>) => void): void =>
+    onUpdateSubFlow((sf) => {
+      const o = ensureOverrides(sf);
+      o.transitions ??= {};
+      updater(o.transitions);
+    });
+
+  const browseView: BrowseView | undefined = canPickViews
+    ? (scope, entryKey, viewKey) => setViewTarget({ scope, entryKey, viewKey })
+    : undefined;
+
+  const handlePickView = (component: DiscoveredVnextComponent): void => {
+    const target = viewTarget;
+    setViewTarget(null);
+    if (!target) return;
+    const replacement: ResourceReference = {
+      key: component.key,
+      domain: projectDomain,
+      version: component.version ?? '1.0.0',
+      flow: component.flow || 'sys-views',
+    };
+    onUpdateSubFlow((sf) => {
+      const bucket = ensureOverrides(sf)[target.scope];
+      const entry = bucket?.[target.entryKey];
+      if (!entry) return;
+      entry.views = { ...(entry.views ?? {}), [target.viewKey]: replacement };
+    });
+  };
 
   return (
-    <Section title="Overrides" count={totalCount} defaultOpen={totalCount > 0}>
+    <Section title="Overrides" count={total} defaultOpen={total > 0}>
       <div className="space-y-3">
-        <TimeoutOverrideSection
-          timeout={overrides?.timeout ?? undefined}
-          onUpdate={(updater) => onUpdateOverrides((o) => {
-            if (!o.timeout) o.timeout = { key: '', target: '' };
-            updater(o.timeout);
-          })}
-          onClear={() => onUpdateOverrides((o) => { delete o.timeout; })}
+        <p className={NOTE}>
+          <span className="font-semibold">Type:</span> {isSubProcess ? 'SubProcess (P)' : 'SubFlow (S)'} —
+          overrides apply to SubFlow (S) only.
+        </p>
+        {childStatus === 'loading' && <p className={NOTE}>Loading the child workflow…</p>}
+        {childStatus === 'unavailable' && (
+          <p className={NOTE}>Child workflow not found in this workspace — keys are free text.</p>
+        )}
+
+        {warnings.length > 0 && (
+          <ul className="space-y-1">
+            {warnings.map((warning, index) => (
+              <li
+                key={`${warning.code}-${index}`}
+                className="rounded-md border border-warning-border bg-warning-surface px-2 py-1 text-[10px] text-warning-text leading-relaxed">
+                {warning.message}
+              </li>
+            ))}
+          </ul>
+        )}
+
+        {legacy &&
+          (plan?.unplaced.length === 0 ? (
+            <button
+              type="button"
+              onClick={() => onUpdateSubFlow((sf) => applyLegacyViewMigration(sf, plan))}
+              className="text-[11px] font-semibold text-secondary-icon hover:text-secondary-foreground bg-secondary-surface hover:bg-secondary-muted border border-secondary-border rounded-lg px-2.5 py-1 cursor-pointer transition-colors">
+              Migrate to scoped views
+            </button>
+          ) : (
+            <p className={NOTE}>
+              {plan
+                ? `Automatic migration is not possible: no child state or transition selects ${plan.unplaced.join(', ')}.`
+                : 'Load the child workflow to migrate the legacy view overrides.'}
+            </p>
+          ))}
+
+        <TimeoutOverrideEditor
+          timeout={overrides.timeout ?? undefined}
+          stateKey={stateKey}
+          childStateKeys={child?.states.map((s) => s.key) ?? []}
+          onUpdate={(updater) =>
+            onUpdateSubFlow((sf) => {
+              const o = ensureOverrides(sf);
+              o.timeout ??= { key: '', target: '' };
+              updater(o.timeout);
+            })
+          }
+          onClear={() =>
+            onUpdateSubFlow((sf) => {
+              if (sf.overrides) delete sf.overrides.timeout;
+            })
+          }
         />
-        <TransitionRoleOverridesSection
-          transitions={overrides?.transitions}
-          onUpdate={(updater) => onUpdateOverrides((o) => {
-            if (!o.transitions) o.transitions = {};
-            updater(o.transitions);
-          })}
+
+        <TransitionOverridesGroup
+          transitions={overrides.transitions}
+          childTransitions={child?.transitions ?? []}
+          onUpdate={updateTransitions}
+          browseView={browseView}
         />
-        <StateQueryRoleOverridesSection
-          states={overrides?.states}
-          onUpdate={(updater) => onUpdateOverrides((o) => {
-            if (!o.states) o.states = {};
-            updater(o.states);
-          })}
+
+        <StateOverridesGroup
+          states={overrides.states}
+          childStates={child?.states ?? []}
+          onUpdate={updateStates}
+          browseView={browseView}
         />
       </div>
+
+      <ChooseExistingVnextComponentDialog
+        open={viewTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) setViewTarget(null);
+        }}
+        category="views"
+        onSelect={handlePickView}
+      />
     </Section>
   );
 }
 
-/* ────────────── Timeout Override ────────────── */
+/* ────────────── Transition overrides ────────────── */
 
-function TimeoutOverrideSection({
-  timeout,
-  onUpdate,
-  onClear,
-}: {
-  timeout: SubFlowTimeoutOverride | undefined;
-  onUpdate: (updater: (t: SubFlowTimeoutOverride) => void) => void;
-  onClear: () => void;
-}) {
-  const [open, setOpen] = useState(!!timeout?.key);
-  const configured = !!timeout?.key;
-
-  return (
-    <div className="rounded-lg bg-muted-surface overflow-hidden">
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className="w-full flex items-center gap-2 px-2.5 py-2 text-left group hover:bg-muted transition-colors cursor-pointer"
-        aria-expanded={open}>
-        <span className="text-[11px] font-semibold text-muted-foreground tracking-tight flex-1">
-          Timeout override
-        </span>
-        <span className="text-[10px] text-muted-foreground font-mono tabular-nums bg-surface px-1.5 py-0.5 rounded-md border border-border-subtle font-semibold">
-          {configured ? 'Configured' : 'Not set'}
-        </span>
-      </button>
-      {open && (
-        <div className="px-2.5 pb-2.5 pt-1 space-y-1.5">
-          <div>
-            <label className="text-[10px] font-medium text-muted-foreground mb-0.5 block">Key</label>
-            <EditableInput value={timeout?.key || ''} onChange={(v) => onUpdate((t) => { t.key = v; })} mono placeholder="e.g. push-timeout" />
-          </div>
-          <div>
-            <label className="text-[10px] font-medium text-muted-foreground mb-0.5 block">Target</label>
-            <EditableInput value={timeout?.target || ''} onChange={(v) => onUpdate((t) => { t.target = v; })} mono placeholder="e.g. cancelled" />
-          </div>
-          <div>
-            <label className="text-[10px] font-medium text-muted-foreground mb-0.5 block">Version strategy</label>
-            <EditableInput value={timeout?.versionStrategy || ''} onChange={(v) => onUpdate((t) => { t.versionStrategy = v || undefined; })} placeholder="e.g. Minor" />
-          </div>
-          <div>
-            <label className="text-[10px] font-medium text-muted-foreground mb-0.5 block">Timer reset</label>
-            <EditableInput value={timeout?.timer?.reset || ''} onChange={(v) => onUpdate((t) => { if (!t.timer) t.timer = {}; t.timer.reset = v || undefined; })} placeholder="e.g. OnEntry" />
-          </div>
-          <div>
-            <label className="text-[10px] font-medium text-muted-foreground mb-0.5 block">Duration (ISO 8601)</label>
-            <EditableInput value={timeout?.timer?.duration || ''} onChange={(v) => onUpdate((t) => { if (!t.timer) t.timer = {}; t.timer.duration = v || undefined; })} mono placeholder="e.g. PT25M" />
-          </div>
-          {configured && (
-            <button
-              type="button"
-              onClick={onClear}
-              className="text-subtle hover:text-destructive-text inline-flex min-h-0 cursor-pointer items-center gap-1 text-[10px] font-semibold transition-colors mt-1">
-              <IconTrash />
-              Clear timeout override
-            </button>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ────────────── Transition Role Overrides ────────────── */
-
-function TransitionRoleOverridesSection({
+function TransitionOverridesGroup({
   transitions,
+  childTransitions,
   onUpdate,
+  browseView,
 }: {
-  transitions: Record<string, { roles?: RoleGrant[] }> | undefined;
-  onUpdate: (updater: (t: Record<string, { roles?: RoleGrant[] }>) => void) => void;
+  transitions: Record<string, SubFlowTransitionOverride> | undefined;
+  childTransitions: ChildTransitionSummary[];
+  onUpdate: (updater: (t: Record<string, SubFlowTransitionOverride>) => void) => void;
+  browseView: BrowseView | undefined;
 }) {
   const keys = Object.keys(transitions ?? {});
-  const [open, setOpen] = useState(keys.length > 0);
-
-  const addTransition = () => {
-    onUpdate((t) => {
-      const newKey = `transition-${Object.keys(t).length + 1}`;
-      t[newKey] = { roles: [] };
-    });
-  };
-
-  const removeTransition = (key: string) => {
-    onUpdate((t) => { delete t[key]; });
-  };
-
-  const renameTransition = (oldKey: string, newKey: string) => {
-    if (!newKey || newKey === oldKey) return;
-    onUpdate((t) => {
-      const entry = t[oldKey];
-      if (!entry) return;
-      delete t[oldKey];
-      t[newKey] = entry;
-    });
-  };
-
-  const updateRoles = (key: string, roles: RoleGrant[]) => {
-    onUpdate((t) => {
-      if (!t[key]) t[key] = {};
-      t[key].roles = roles;
-    });
-  };
+  const options = childTransitions.map((t) => t.key);
 
   return (
-    <div className="rounded-lg bg-muted-surface overflow-hidden">
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className="w-full flex items-center gap-2 px-2.5 py-2 text-left group hover:bg-muted transition-colors cursor-pointer"
-        aria-expanded={open}>
-        <span className="text-[11px] font-semibold text-muted-foreground tracking-tight flex-1">
-          Transition role overrides
-        </span>
-        {keys.length > 0 && (
-          <span className="text-[10px] text-muted-foreground font-mono tabular-nums bg-surface px-1.5 py-0.5 rounded-md border border-border-subtle font-semibold">
-            {keys.length}
-          </span>
-        )}
-      </button>
-      {open && (
-        <div className="px-2.5 pb-2.5 pt-1 space-y-2">
-          {keys.map((key) => (
-            <KeyedRoleGroup
-              key={key}
-              groupKey={key}
-              keyLabel="Transition key"
-              roles={transitions?.[key]?.roles ?? []}
-              onRename={(newKey) => renameTransition(key, newKey)}
-              onRemove={() => removeTransition(key)}
-              onUpdateRoles={(roles) => updateRoles(key, roles)}
+    <GroupShell title="Transition overrides" count={keys.length}>
+      {keys.map((key) => {
+        const entry: SubFlowTransitionOverride = transitions?.[key] ?? {};
+        const viewKeyOptions = childTransitions.find((t) => t.key === key)?.viewKeys ?? [];
+        return (
+          <EntryCard
+            key={key}
+            entryKey={key}
+            keyLabel="Child transition key"
+            options={options}
+            onRename={(to) => onUpdate((t) => { renameRecordKey(t, key, to); })}
+            onRemove={() => onUpdate((t) => { delete t[key]; })}>
+            <OptionalRoleOverride
+              label="Roles"
+              roles={entry.roles}
+              contextLabel={key}
+              onChange={(roles) =>
+                onUpdate((t) => {
+                  const e = t[key];
+                  if (!e) return;
+                  if (roles === undefined) delete e.roles;
+                  else e.roles = roles;
+                })
+              }
             />
-          ))}
-          <button
-            type="button"
-            onClick={addTransition}
-            className="text-secondary-icon hover:text-secondary-foreground inline-flex min-h-0 cursor-pointer items-center gap-1 text-[11px] font-semibold transition-colors">
-            <IconPlus />
-            Add transition
-          </button>
-        </div>
-      )}
-    </div>
+            <ViewSwapMapEditor
+              value={entry.views}
+              viewKeyOptions={viewKeyOptions}
+              onChange={(views) =>
+                onUpdate((t) => {
+                  const e = t[key];
+                  if (!e) return;
+                  if (views) e.views = views;
+                  else delete e.views;
+                })
+              }
+              onBrowse={browseView ? (viewKey) => browseView('transitions', key, viewKey) : undefined}
+            />
+          </EntryCard>
+        );
+      })}
+      <AddButton
+        label="Add transition override"
+        onClick={() => onUpdate((t) => { t[nextOverrideKey(t, options, 'transition')] = {}; })}
+      />
+    </GroupShell>
   );
 }
 
-/* ────────────── State QueryRole Overrides ────────────── */
+/* ────────────── State overrides ────────────── */
 
-function StateQueryRoleOverridesSection({
+function StateOverridesGroup({
   states,
+  childStates,
   onUpdate,
+  browseView,
 }: {
-  states: Record<string, { queryRoles?: RoleGrant[] }> | undefined;
-  onUpdate: (updater: (s: Record<string, { queryRoles?: RoleGrant[] }>) => void) => void;
+  states: Record<string, SubFlowStateOverride> | undefined;
+  childStates: ChildStateSummary[];
+  onUpdate: (updater: (s: Record<string, SubFlowStateOverride>) => void) => void;
+  browseView: BrowseView | undefined;
 }) {
   const keys = Object.keys(states ?? {});
-  const [open, setOpen] = useState(keys.length > 0);
+  const options = childStates.map((s) => s.key);
 
-  const addState = () => {
-    onUpdate((s) => {
-      const newKey = `state-${Object.keys(s).length + 1}`;
-      s[newKey] = { queryRoles: [] };
-    });
-  };
+  return (
+    <GroupShell title="State overrides" count={keys.length}>
+      {keys.map((key) => {
+        const entry: SubFlowStateOverride = states?.[key] ?? {};
+        const childState = childStates.find((s) => s.key === key);
+        const longPoll = entry.interaction?.longPoll;
+        const showLongPoll = (childState?.longPollAuth ?? null) !== null || longPoll !== undefined;
+        return (
+          <EntryCard
+            key={key}
+            entryKey={key}
+            keyLabel="Child state key"
+            options={options}
+            onRename={(to) => onUpdate((s) => { renameRecordKey(s, key, to); })}
+            onRemove={() => onUpdate((s) => { delete s[key]; })}>
+            <OptionalRoleOverride
+              label="Query roles"
+              roles={entry.queryRoles}
+              contextLabel={key}
+              onChange={(roles) =>
+                onUpdate((s) => {
+                  const e = s[key];
+                  if (!e) return;
+                  if (roles === undefined) delete e.queryRoles;
+                  else e.queryRoles = roles;
+                })
+              }
+            />
+            {showLongPoll && (
+              <LongPollOverrideFields
+                entryKey={key}
+                longPoll={longPoll}
+                onPatch={(patch) =>
+                  onUpdate((s) => {
+                    const e = s[key];
+                    if (e) setLongPollOverride(e, patch);
+                  })
+                }
+              />
+            )}
+            <ViewSwapMapEditor
+              value={entry.views}
+              viewKeyOptions={childState?.viewKeys ?? []}
+              onChange={(views) =>
+                onUpdate((s) => {
+                  const e = s[key];
+                  if (!e) return;
+                  if (views) e.views = views;
+                  else delete e.views;
+                })
+              }
+              onBrowse={browseView ? (viewKey) => browseView('states', key, viewKey) : undefined}
+            />
+          </EntryCard>
+        );
+      })}
+      <AddButton
+        label="Add state override"
+        onClick={() => onUpdate((s) => { s[nextOverrideKey(s, options, 'state')] = {}; })}
+      />
+    </GroupShell>
+  );
+}
 
-  const removeState = (key: string) => {
-    onUpdate((s) => { delete s[key]; });
-  };
+function LongPollOverrideFields({
+  entryKey,
+  longPoll,
+  onPatch,
+}: {
+  entryKey: string;
+  longPoll: SubFlowLongPollOverride | undefined;
+  onPatch: (patch: LongPollOverridePatch) => void;
+}) {
+  const stored = longPoll?.fallbackTimeoutSeconds;
+  const [text, setText] = useState(stored === undefined ? '' : String(stored));
+  const [invalid, setInvalid] = useState(false);
 
-  const renameState = (oldKey: string, newKey: string) => {
-    if (!newKey || newKey === oldKey) return;
-    onUpdate((s) => {
-      const entry = s[oldKey];
-      if (!entry) return;
-      delete s[oldKey];
-      s[newKey] = entry;
-    });
-  };
+  useEffect(() => {
+    setText(stored === undefined ? '' : String(stored));
+    setInvalid(false);
+  }, [stored]);
 
-  const updateRoles = (key: string, roles: RoleGrant[]) => {
-    onUpdate((s) => {
-      if (!s[key]) s[key] = {};
-      s[key].queryRoles = roles;
-    });
-  };
+  return (
+    <div className="rounded-lg border border-border-subtle p-2 space-y-1.5">
+      <span className="text-[10px] font-semibold text-muted-foreground block">Long poll</span>
+      <div>
+        <label className="text-[10px] font-medium text-muted-foreground mb-0.5 block">Fallback window (s)</label>
+        <input
+          type="text"
+          inputMode="numeric"
+          value={text}
+          onChange={(e) => {
+            const next = e.target.value;
+            setText(next);
+            const parsed = parseFallbackSeconds(next);
+            setInvalid(!parsed.ok);
+            if (parsed.ok) onPatch({ fallbackTimeoutSeconds: parsed.value });
+          }}
+          aria-label={`Long-poll fallback window for ${entryKey}`}
+          aria-invalid={invalid}
+          placeholder="Child value"
+          className="w-full px-3 py-2 text-xs font-mono border border-border rounded-xl bg-muted-surface text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary-border focus:bg-surface transition-all placeholder:text-subtle"
+        />
+        {invalid && (
+          <p className="mt-0.5 text-[10px] text-destructive-text">Enter a whole number of seconds (1 or more).</p>
+        )}
+      </div>
+      <OptionalRoleOverride
+        label="Long-poll roles"
+        roles={longPoll?.roles}
+        contextLabel={`${entryKey} long poll`}
+        onChange={(roles) => onPatch({ roles })}
+      />
+    </div>
+  );
+}
 
+/* ────────────── Shared shells ────────────── */
+
+function GroupShell({ title, count, children }: { title: string; count: number; children: ReactNode }) {
+  const [open, setOpen] = useState(count > 0);
   return (
     <div className="rounded-lg bg-muted-surface overflow-hidden">
       <button
@@ -238,108 +410,61 @@ function StateQueryRoleOverridesSection({
         onClick={() => setOpen(!open)}
         className="w-full flex items-center gap-2 px-2.5 py-2 text-left group hover:bg-muted transition-colors cursor-pointer"
         aria-expanded={open}>
-        <span className="text-[11px] font-semibold text-muted-foreground tracking-tight flex-1">
-          State query role overrides
-        </span>
-        {keys.length > 0 && (
+        <span className="text-[11px] font-semibold text-muted-foreground tracking-tight flex-1">{title}</span>
+        {count > 0 && (
           <span className="text-[10px] text-muted-foreground font-mono tabular-nums bg-surface px-1.5 py-0.5 rounded-md border border-border-subtle font-semibold">
-            {keys.length}
+            {count}
           </span>
         )}
       </button>
-      {open && (
-        <div className="px-2.5 pb-2.5 pt-1 space-y-2">
-          {keys.map((key) => (
-            <KeyedRoleGroup
-              key={key}
-              groupKey={key}
-              keyLabel="State key"
-              roles={states?.[key]?.queryRoles ?? []}
-              onRename={(newKey) => renameState(key, newKey)}
-              onRemove={() => removeState(key)}
-              onUpdateRoles={(roles) => updateRoles(key, roles)}
-            />
-          ))}
-          <button
-            type="button"
-            onClick={addState}
-            className="text-secondary-icon hover:text-secondary-foreground inline-flex min-h-0 cursor-pointer items-center gap-1 text-[11px] font-semibold transition-colors">
-            <IconPlus />
-            Add state
-          </button>
-        </div>
-      )}
+      {open && <div className="px-2.5 pb-2.5 pt-1 space-y-2">{children}</div>}
     </div>
   );
 }
 
-/* ────────────── Shared: keyed role group (transition or state) ────────────── */
-
-function KeyedRoleGroup({
-  groupKey,
+function EntryCard({
+  entryKey,
   keyLabel,
-  roles,
+  options,
   onRename,
   onRemove,
-  onUpdateRoles,
+  children,
 }: {
-  groupKey: string;
+  entryKey: string;
   keyLabel: string;
-  roles: RoleGrant[];
-  onRename: (newKey: string) => void;
+  options: string[];
+  onRename: (to: string) => void;
   onRemove: () => void;
-  onUpdateRoles: (roles: RoleGrant[]) => void;
+  children: ReactNode;
 }) {
-  const [editingKey, setEditingKey] = useState(false);
-  const [keyDraft, setKeyDraft] = useState(groupKey);
-
-  const commitRename = () => {
-    const trimmed = keyDraft.trim();
-    if (trimmed && trimmed !== groupKey) {
-      onRename(trimmed);
-    } else {
-      setKeyDraft(groupKey);
-    }
-    setEditingKey(false);
-  };
-
   return (
-    <div className="border border-border-subtle rounded-lg p-2 bg-surface/50">
-      <div className="flex items-center gap-1.5 mb-1.5">
-        {editingKey ? (
-          <input
-            type="text"
-            value={keyDraft}
-            onChange={(e) => setKeyDraft(e.target.value)}
-            onBlur={commitRename}
-            onKeyDown={(e) => { if (e.key === 'Enter') commitRename(); if (e.key === 'Escape') { setKeyDraft(groupKey); setEditingKey(false); } }}
-            className="min-w-0 flex-1 px-2 py-1 text-[11px] font-mono border border-primary-border rounded bg-surface text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20"
-            autoFocus
-            aria-label={keyLabel}
-          />
-        ) : (
-          <button
-            type="button"
-            onClick={() => { setKeyDraft(groupKey); setEditingKey(true); }}
-            className="min-w-0 flex-1 text-left text-[11px] font-mono font-semibold text-foreground hover:text-secondary-icon cursor-pointer truncate"
-            title={`Click to edit ${keyLabel.toLowerCase()}`}>
-            {groupKey}
-          </button>
-        )}
+    <div className="border border-border-subtle rounded-lg p-2 bg-surface/50 space-y-2">
+      <div className="flex items-center gap-1.5">
+        <div className="min-w-0 flex-1">
+          <KeyCombobox value={entryKey} options={options} onCommit={onRename} ariaLabel={keyLabel} placeholder={keyLabel} />
+        </div>
         <button
           type="button"
           onClick={onRemove}
           className="text-subtle hover:text-destructive-text hover:bg-destructive-surface shrink-0 cursor-pointer rounded-lg p-1 transition-all"
-          title={`Remove ${keyLabel.toLowerCase()} "${groupKey}"`}
-          aria-label={`Remove ${keyLabel.toLowerCase()} ${groupKey}`}>
+          aria-label={`Remove ${keyLabel.toLowerCase()} ${entryKey}`}
+          title={`Remove ${keyLabel.toLowerCase()} ${entryKey}`}>
           <IconTrash />
         </button>
       </div>
-      <RoleGrantEditor
-        roles={roles}
-        onChange={onUpdateRoles}
-        contextLabel={groupKey}
-      />
+      {children}
     </div>
+  );
+}
+
+function AddButton({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="text-secondary-icon hover:text-secondary-foreground inline-flex min-h-0 cursor-pointer items-center gap-1 text-[11px] font-semibold transition-colors">
+      <IconPlus />
+      {label}
+    </button>
   );
 }
