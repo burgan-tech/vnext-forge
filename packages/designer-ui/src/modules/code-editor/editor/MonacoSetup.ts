@@ -1,7 +1,6 @@
 import type { Monaco } from '@monaco-editor/react';
 import { createLogger } from '../../../lib/logger/createLogger';
 import { registerContextAwareCompletions } from './CsxCompletions';
-import { configureJsonSchemaValidation } from './JsonSchemaSetup';
 import { createCsharpLspClient, type CsharpLspClient } from './lspClient';
 
 const logger = createLogger('MonacoSetup');
@@ -410,7 +409,6 @@ export function registerCSharpSnippets(monaco: Monaco) {
 export function setupMonaco(monaco: Monaco) {
   registerContextAwareCompletions(monaco);
   registerCSharpSnippets(monaco);
-  void configureJsonSchemaValidation(monaco);
 }
 
 /**
