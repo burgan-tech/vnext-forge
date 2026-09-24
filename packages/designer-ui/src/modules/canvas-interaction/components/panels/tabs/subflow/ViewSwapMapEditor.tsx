@@ -3,6 +3,48 @@ import { EditableInput, IconPlus, IconTrash } from '../PropertyPanelShared';
 import { KeyCombobox } from './KeyCombobox';
 import { nextOverrideKey, renameRecordKey } from './subFlowOverrides';
 
+/**
+ * The schema's `reference` definition is `oneOf` an explicit
+ * `{ key, domain, flow, version }` or a shorthand `{ ref: "…" }` pointing at
+ * a component file. `ResourceReference` only models the explicit form, so a
+ * value loaded from disk can structurally be the shorthand form even though
+ * it is typed as `ResourceReference` here — read it duck-typed rather than
+ * assuming the type is accurate, and never spread into it.
+ */
+export interface RefFormReference {
+  ref: string;
+}
+
+export function isRefForm(replacement: ResourceReference): replacement is ResourceReference & RefFormReference {
+  return typeof (replacement as unknown as RefFormReference).ref === 'string';
+}
+
+/**
+ * Sets one field of an explicit-form replacement. A ref-form entry is left
+ * untouched (returns the map unchanged) — it must never be spread into,
+ * which would silently bolt `key`/`domain`/... onto a `{ ref }` object.
+ */
+export function patchViewSwapMap(
+  map: Record<string, ResourceReference> | undefined,
+  viewKey: string,
+  field: keyof ResourceReference,
+  text: string,
+): Record<string, ResourceReference> | undefined {
+  const current = map?.[viewKey];
+  if (!current || isRefForm(current)) return map;
+  return { ...map, [viewKey]: { ...current, [field]: text } };
+}
+
+/** Replaces a `{ ref: "…" }` entry with an empty explicit key/version/flow reference. */
+export function convertViewSwapEntryToKeyVersion(
+  map: Record<string, ResourceReference> | undefined,
+  viewKey: string,
+): Record<string, ResourceReference> {
+  return { ...map, [viewKey]: { ...EMPTY_REF } };
+}
+
+const EMPTY_REF: ResourceReference = { key: '', domain: '', version: '1.0.0', flow: 'sys-views' };
+
 interface ViewSwapMapEditorProps {
   /** Key = the view key the child selected; value = the replacement view. */
   value: Record<string, ResourceReference> | undefined;
@@ -12,8 +54,6 @@ interface ViewSwapMapEditorProps {
   /** Opens the view picker for one entry; omitted when no project is open. */
   onBrowse?: (viewKey: string) => void;
 }
-
-const EMPTY_REF: ResourceReference = { key: '', domain: '', version: '1.0.0', flow: 'sys-views' };
 
 export function ViewSwapMapEditor({ value, viewKeyOptions, onChange, onBrowse }: ViewSwapMapEditorProps) {
   const entries = Object.entries(value ?? {});
@@ -40,9 +80,12 @@ export function ViewSwapMapEditor({ value, viewKeyOptions, onChange, onBrowse }:
   };
 
   const patchRef = (viewKey: string, field: keyof ResourceReference, text: string): void => {
-    const next = { ...(value ?? {}) };
-    next[viewKey] = { ...next[viewKey], [field]: text };
-    write(next);
+    const next = patchViewSwapMap(value, viewKey, field, text);
+    if (next) write(next);
+  };
+
+  const convertToKeyVersion = (viewKey: string): void => {
+    write(convertViewSwapEntryToKeyVersion(value, viewKey));
   };
 
   return (
@@ -70,12 +113,26 @@ export function ViewSwapMapEditor({ value, viewKeyOptions, onChange, onBrowse }:
             </button>
           </div>
           <span className="text-[9px] font-medium text-muted-foreground block">Replacement view</span>
-          <div className="grid grid-cols-2 gap-1.5">
-            <EditableInput value={replacement.key} onChange={(v) => patchRef(viewKey, 'key', v)} mono placeholder="key" />
-            <EditableInput value={replacement.domain} onChange={(v) => patchRef(viewKey, 'domain', v)} mono placeholder="domain" />
-            <EditableInput value={replacement.version} onChange={(v) => patchRef(viewKey, 'version', v)} mono placeholder="version" />
-            <EditableInput value={replacement.flow} onChange={(v) => patchRef(viewKey, 'flow', v)} mono placeholder="flow" />
-          </div>
+          {isRefForm(replacement) ? (
+            <div className="space-y-1.5">
+              <code className="block w-full truncate rounded-xl border border-border bg-muted-surface px-3 py-2 text-xs text-foreground">
+                {replacement.ref}
+              </code>
+              <button
+                type="button"
+                onClick={() => convertToKeyVersion(viewKey)}
+                className="text-secondary-icon hover:text-secondary-foreground cursor-pointer text-[10px] font-semibold">
+                Convert to key/version
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-1.5">
+              <EditableInput value={replacement.key} onChange={(v) => patchRef(viewKey, 'key', v)} mono placeholder="key" />
+              <EditableInput value={replacement.domain} onChange={(v) => patchRef(viewKey, 'domain', v)} mono placeholder="domain" />
+              <EditableInput value={replacement.version} onChange={(v) => patchRef(viewKey, 'version', v)} mono placeholder="version" />
+              <EditableInput value={replacement.flow} onChange={(v) => patchRef(viewKey, 'flow', v)} mono placeholder="flow" />
+            </div>
+          )}
           {onBrowse && (
             <button
               type="button"
