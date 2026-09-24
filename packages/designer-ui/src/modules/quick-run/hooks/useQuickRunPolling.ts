@@ -317,6 +317,19 @@ export async function runPollLoop(params: PollParams, config: PollingConfig): Pr
     setStateViewLoading(true);
   }
 
+  // Stale / aborted exit: write nothing, except releasing the polling flag
+  // when this loop still owns it — a tab switch leaves `pollingInstanceId`
+  // naming this instance, which would otherwise suppress the new tab's
+  // lazy loads. An aborted loop was superseded by a newer loop (which may
+  // poll the same instance and owns the flag now) or by `cancelPolling`
+  // (which clears it itself), so it never touches the flag.
+  const exitWithoutWrites = (): null => {
+    if (!controller.signal.aborted && useQuickRunStore.getState().pollingInstanceId === params.instanceId) {
+      setPollingInstanceId(null);
+    }
+    return null;
+  };
+
   for (let attempt = 0; attempt < config.retryCount; attempt++) {
     if (controller.signal.aborted) break;
 
@@ -329,7 +342,7 @@ export async function runPollLoop(params: PollParams, config: PollingConfig): Pr
     try {
       response = await QuickRunApi.getState({ ...params, ifNoneMatch });
     } catch (err) {
-      if (controller.signal.aborted || isStaleRound(params.instanceId)) return null;
+      if (controller.signal.aborted || isStaleRound(params.instanceId)) return exitWithoutWrites();
       setActiveStateLoading(false);
       setStateViewLoading(false);
       setPollingInstanceId(null);
@@ -343,7 +356,7 @@ export async function runPollLoop(params: PollParams, config: PollingConfig): Pr
     // Stale round (the user switched tabs, or the interaction machine
     // tracks another instance): this loop no longer owns the store's
     // instance-scoped fields — return before any write, ETag included.
-    if (isStaleRound(params.instanceId)) return null;
+    if (isStaleRound(params.instanceId)) return exitWithoutWrites();
 
     if (response.success) {
       const stateData = response.data;
@@ -478,7 +491,7 @@ export async function runPollLoop(params: PollParams, config: PollingConfig): Pr
 
   // Aborted (a newer loop or `cancelPolling` took over) or stale: the
   // loading / polling flags belong to whoever owns the store now.
-  if (controller.signal.aborted || isStaleRound(params.instanceId)) return null;
+  if (controller.signal.aborted || isStaleRound(params.instanceId)) return exitWithoutWrites();
   setActiveStateLoading(false);
   setStateViewLoading(false);
   setPollingInstanceId(null);

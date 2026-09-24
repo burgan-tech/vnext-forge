@@ -88,16 +88,16 @@ describe('runPollLoop', () => {
     expect(s.pollingInstanceId).toBeNull();
   });
 
-  it('a stale round (tab switched mid-request) writes nothing to the store', async () => {
+  it('a stale round (tab switched mid-request) writes nothing but releases its own polling flag', async () => {
     const otherState: StateResponse = { state: 'other-state', status: 'A' };
     getState.mockImplementationOnce(async () => {
-      // The user switches to another instance while this request is in flight;
-      // that instance's own round has already populated the store.
+      // A real switch to an already-open tab: setActiveTab + the Shell's
+      // single-shot fetch, which never touches pollingInstanceId (still 'i1').
       const store = useQuickRunStore.getState();
       store.setActiveTab('i2');
       store.setActiveState(otherState);
       store.setEtag('state', 'etag-i2');
-      store.setPollingInstanceId('i2');
+      expect(store.pollingInstanceId).toBe('i1');
       return ok(busy('s1', { eTag: 'etag-i1' } as Partial<StateResponse>));
     });
 
@@ -108,9 +108,33 @@ describe('runPollLoop', () => {
     const s = useQuickRunStore.getState();
     expect(s.activeState).toBe(otherState);
     expect(s.etags.state).toBe('etag-i2');
-    expect(s.pollingInstanceId).toBe('i2');
+    expect(s.pollingInstanceId).toBeNull();
     expect(s.lastStateResponse).toBeNull();
     expect(getData).not.toHaveBeenCalled();
+  });
+
+  it('a stale exit does not clear a polling flag that names another instance', async () => {
+    getState.mockImplementationOnce(async () => {
+      const store = useQuickRunStore.getState();
+      store.setActiveTab('i2');
+      store.setPollingInstanceId('i2');
+      return ok(busy('s1'));
+    });
+
+    expect(await runPollLoop(PARAMS, CONFIG)).toBeNull();
+    expect(useQuickRunStore.getState().pollingInstanceId).toBe('i2');
+  });
+
+  it('a stale exit on a thrown request also releases its own polling flag', async () => {
+    getState.mockImplementationOnce(async () => {
+      useQuickRunStore.getState().setActiveTab('i2');
+      throw new Error('offline');
+    });
+
+    expect(await runPollLoop(PARAMS, CONFIG)).toBeNull();
+    const s = useQuickRunStore.getState();
+    expect(s.pollingInstanceId).toBeNull();
+    expect(s.activeStateError).toBeNull();
   });
 
   it('starting a new loop aborts the previous one, which then writes nothing', async () => {
@@ -122,8 +146,12 @@ describe('runPollLoop', () => {
     await runPollLoop(PARAMS, CONFIG);
     const afterSecond = useQuickRunStore.getState().activeState;
 
+    // The newer loop for the same instance is still "polling" from the
+    // aborted loop's point of view — it must not release that flag.
+    useQuickRunStore.getState().setPollingInstanceId('i1');
     releaseFirst(ok({ state: 'late', status: 'C' }));
     expect(await first).toBeNull();
     expect(useQuickRunStore.getState().activeState).toBe(afterSecond);
+    expect(useQuickRunStore.getState().pollingInstanceId).toBe('i1');
   });
 });
