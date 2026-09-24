@@ -66,6 +66,27 @@ export async function runPermissionChecks(input: {
   return { key: input.key, role: input.role, transitions, queryRoles };
 }
 
+/**
+ * A batch in which every verdict is an error (runtime unreachable, auth
+ * header missing, …) is shown but not treated as cached: the next render
+ * whose inputs change — or toggling the checks — retries it.
+ */
+export function isCacheablePermissionBatch(result: PermissionCheckResult): boolean {
+  return [result.queryRoles, ...Object.values(result.transitions)].some((v) => v.kind !== 'error');
+}
+
+/**
+ * What a manual authorize verdict is about: the state (eTag) and the keys
+ * that were available. A verdict is cleared once this changes.
+ */
+export function authorizeVerdictScope(
+  stateETag: string | undefined,
+  transitionKeys: readonly string[],
+  functionKeys: readonly string[],
+): string {
+  return JSON.stringify([stateETag ?? null, transitionKeys, functionKeys]);
+}
+
 export function verdictText(v: AuthorizeVerdict): string {
   if (v.kind === 'error') return `Check failed: ${v.message}`;
   return `${v.allowed ? 'Allowed' : 'Denied'} (HTTP ${v.status})`;

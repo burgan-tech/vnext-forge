@@ -3,7 +3,9 @@ import { describe, expect, it, vi } from 'vitest';
 import type { AuthorizeTarget } from '../types/quickrun.types';
 import {
   buildAuthorizeTarget,
+  authorizeVerdictScope,
   checkableTransitionKeys,
+  isCacheablePermissionBatch,
   permissionCacheKey,
   resolveVerdict,
   runPermissionChecks,
@@ -92,5 +94,31 @@ describe('buildAuthorizeTarget', () => {
     expect(buildAuthorizeTarget('function', 'f')).toEqual({ kind: 'function', functionKey: 'f' });
     expect(buildAuthorizeTarget('queryRoles', '')).toEqual({ kind: 'queryRoles' });
     expect(buildAuthorizeTarget('ack', '')).toEqual({ kind: 'ack' });
+  });
+});
+
+describe('isCacheablePermissionBatch', () => {
+  const err = { kind: 'error' as const, message: 'offline' };
+  const ok = { kind: 'verdict' as const, allowed: true, status: 200 };
+
+  it('does not cache a batch in which every verdict is an error', () => {
+    expect(isCacheablePermissionBatch({ key: 'k', role: 'r', queryRoles: err, transitions: { a: err, b: err } })).toBe(false);
+    expect(isCacheablePermissionBatch({ key: 'k', role: 'r', queryRoles: err, transitions: {} })).toBe(false);
+  });
+
+  it('caches a batch with at least one real verdict', () => {
+    expect(isCacheablePermissionBatch({ key: 'k', role: 'r', queryRoles: err, transitions: { a: ok } })).toBe(true);
+    expect(isCacheablePermissionBatch({ key: 'k', role: 'r', queryRoles: ok, transitions: { a: err } })).toBe(true);
+  });
+});
+
+describe('authorizeVerdictScope', () => {
+  it('changes when the state eTag or the available keys change', () => {
+    const base = authorizeVerdictScope('e1', ['a', 'b'], ['f']);
+    expect(authorizeVerdictScope('e1', ['a', 'b'], ['f'])).toBe(base);
+    expect(authorizeVerdictScope('e2', ['a', 'b'], ['f'])).not.toBe(base);
+    expect(authorizeVerdictScope('e1', ['a'], ['f'])).not.toBe(base);
+    expect(authorizeVerdictScope('e1', ['a', 'b'], ['f', 'g'])).not.toBe(base);
+    expect(authorizeVerdictScope('e1', ['ab'], [])).not.toBe(authorizeVerdictScope('e1', ['a', 'b'], []));
   });
 });

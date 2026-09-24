@@ -9,6 +9,7 @@ import { displayStatus, instanceTypeLabel } from '../utils/instanceStatus';
 import { currentRoleFromHeaders } from '../utils/currentRole';
 import {
   checkableTransitionKeys,
+  isCacheablePermissionBatch,
   permissionCacheKey,
   resolveVerdict,
   runPermissionChecks,
@@ -217,7 +218,8 @@ export function InstanceDashboard({ configRef, persistConfig, onOpenFunctionRun 
   useEffect(() => {
     if (!permissionChecksEnabled || !permissionKey || !activeState || !activeTabId || pollingInstanceId) return;
     if (!domain || !workflowKey) return;
-    if (useQuickRunStore.getState().permissionChecks?.key === permissionKey) return;
+    const cached = useQuickRunStore.getState().permissionChecks;
+    if (cached?.key === permissionKey && isCacheablePermissionBatch(cached)) return;
     const instanceId = activeTabId;
     const headers = liveHeaders();
     let cancelled = false;
@@ -235,6 +237,16 @@ export function InstanceDashboard({ configRef, persistConfig, onOpenFunctionRun 
       cancelled = true;
     };
   }, [permissionChecksEnabled, permissionKey, activeState, activeTabId, pollingInstanceId, domain, workflowKey, currentRole, liveHeaders, environmentUrl]);
+
+  const handleChecksEnabledChange = useCallback(
+    (enabled: boolean) => {
+      // Turning the checks off drops the batch, so turning them back on
+      // asks the runtime again instead of showing a stale answer.
+      if (!enabled) useQuickRunStore.getState().setPermissionChecks(null);
+      setPermissionChecksEnabled(enabled);
+    },
+    [setPermissionChecksEnabled],
+  );
 
   const runAuthorize = useCallback(
     (request: { target: AuthorizeTarget; role?: string; version?: string }): Promise<AuthorizeVerdict> => {
@@ -677,7 +689,8 @@ export function InstanceDashboard({ configRef, persistConfig, onOpenFunctionRun 
         defaultRole={currentRole}
         onRun={runAuthorize}
         checksEnabled={permissionChecksEnabled}
-        onChecksEnabledChange={setPermissionChecksEnabled}
+        onChecksEnabledChange={handleChecksEnabledChange}
+        stateETag={activeState?.eTag}
         visibility={currentChecks?.queryRoles}
       />
 

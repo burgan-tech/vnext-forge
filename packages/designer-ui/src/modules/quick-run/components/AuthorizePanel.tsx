@@ -1,7 +1,13 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 
 import type { AuthorizeTarget } from '../types/quickrun.types';
-import { buildAuthorizeTarget, verdictText, visibilityText, type AuthorizeVerdict } from '../utils/permissionChecks';
+import {
+  authorizeVerdictScope,
+  buildAuthorizeTarget,
+  verdictText,
+  visibilityText,
+  type AuthorizeVerdict,
+} from '../utils/permissionChecks';
 
 export interface AuthorizePanelProps {
   transitionKeys: readonly string[];
@@ -12,6 +18,8 @@ export interface AuthorizePanelProps {
   onChecksEnabledChange: (enabled: boolean) => void;
   /** `queryRoles` verdict of the opt-in checks for the current role. */
   visibility?: AuthorizeVerdict;
+  /** The active state's eTag — a manual verdict is cleared when it moves. */
+  stateETag?: string;
 }
 
 const TARGETS: { value: AuthorizeTarget['kind']; label: string }[] = [
@@ -43,6 +51,7 @@ export function AuthorizePanel({
   checksEnabled,
   onChecksEnabledChange,
   visibility,
+  stateETag,
 }: AuthorizePanelProps) {
   const [kind, setKind] = useState<AuthorizeTarget['kind']>('transition');
   const [key, setKey] = useState('');
@@ -51,6 +60,18 @@ export function AuthorizePanel({
   const [running, setRunning] = useState(false);
   const [verdict, setVerdict] = useState<AuthorizeVerdict | null>(null);
 
+  // A manual verdict answers a question about one state and its keys: drop
+  // it when the state eTag or the available transition/function keys change,
+  // and ignore a request that was still in flight across that change.
+  const scope = authorizeVerdictScope(stateETag, transitionKeys, functionKeys);
+  const [verdictScope, setVerdictScope] = useState(scope);
+  if (verdictScope !== scope) {
+    setVerdictScope(scope);
+    setVerdict(null);
+  }
+  const scopeRef = useRef(scope);
+  scopeRef.current = scope;
+
   const options = kind === 'transition' ? transitionKeys : kind === 'function' ? functionKeys : [];
   const selectedKey = options.includes(key) ? key : (options[0] ?? '');
   const target = buildAuthorizeTarget(kind, selectedKey);
@@ -58,14 +79,14 @@ export function AuthorizePanel({
   const run = async () => {
     if (!target) return;
     setRunning(true);
+    const runScope = scope;
     try {
-      setVerdict(
-        await onRun({
-          target,
-          ...(role.trim() ? { role: role.trim() } : {}),
-          ...(version.trim() ? { version: version.trim() } : {}),
-        }),
-      );
+      const result = await onRun({
+        target,
+        ...(role.trim() ? { role: role.trim() } : {}),
+        ...(version.trim() ? { version: version.trim() } : {}),
+      });
+      if (scopeRef.current === runScope) setVerdict(result);
     } finally {
       setRunning(false);
     }
