@@ -343,7 +343,7 @@ export function FilterRow({ condition, error, schemaFields, onChange, onRemove }
       : valueType === 'boolean'
         ? 'true / false'
         : isBetween ? 'from' : 'value';
-  const idxTitle = usesIndexProjection(condition.operator)
+  const idxTitle = usesIndexProjection(condition.operator, schemaField)
     ? 'Indexed field (x-indexed). This operator reads the index column once the generated index SQL has been run.'
     : 'Indexed field (x-indexed). This operator uses JSON containment, not the index column.';
 

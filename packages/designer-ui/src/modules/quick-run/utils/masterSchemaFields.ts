@@ -6,6 +6,7 @@
  *   → schema spelling, case-insensitive exact match in `x-filterOperators`);
  * - index use: `AttributeConditionBuilder` storage switch.
  */
+import { indexColumnsFor } from '../../schema-editor/model/indexEligibility';
 import {
   getFieldType,
   getOperatorsForFieldType,
@@ -132,13 +133,39 @@ export function schemaFieldNotice(c: FilterCondition, fields?: readonly MasterSc
   return null;
 }
 
-const INDEX_BACKED_OPERATORS: ReadonlySet<FilterOperator> = new Set<FilterOperator>([
-  'gt', 'ge', 'lt', 'le', 'between', 'like', 'match', 'startswith', 'endswith', 'in', 'nin', 'isNull',
+/** Operators whose `AttributeConditionBuilder` storage type is the text column (always present when indexed). */
+const TEXT_BACKED_OPERATORS: ReadonlySet<FilterOperator> = new Set<FilterOperator>([
+  'like', 'match', 'startswith', 'endswith', 'in', 'nin', 'isNull',
 ]);
 
-/** True when the runtime reads the x-indexed projection for this operator (not for eq, ne, includes). */
-export function usesIndexProjection(op: FilterOperator): boolean {
-  return INDEX_BACKED_OPERATORS.has(op);
+/** Operators whose `AttributeConditionBuilder` storage type is `timestamptz` (string fields) or `numeric` (everything else). */
+const COMPARISON_OPERATORS: ReadonlySet<FilterOperator> = new Set<FilterOperator>([
+  'gt', 'ge', 'lt', 'le', 'between',
+]);
+
+/**
+ * True when the runtime reads the `x-indexed` projection for this operator on
+ * this field (`AttributeConditionBuilder` storage switch + `AttributeSqlExpression.Resolve`
+ * type guard): never for `eq`/`ne`/`includes` (JSON containment only); the
+ * text column for `like`/`match`/`startswith`/`endswith`/`in`/`nin`/`isNull`
+ * (present whenever the field is indexed at all); and for the comparison
+ * operators (`gt`/`ge`/`lt`/`le`/`between`) only when `indexColumnsFor(field)`
+ * actually contains the storage type they use — `timestamptz` for string
+ * fields, `numeric` otherwise (so e.g. an indexed boolean field never gets a
+ * numeric or timestamptz projection, and the comparison falls back to JSON
+ * containment even though the field is indexed).
+ *
+ * Without a `field` (legacy callers), the comparison operators are assumed
+ * index-backed, matching the pre-fix behaviour.
+ */
+export function usesIndexProjection(op: FilterOperator, field?: MasterSchemaField): boolean {
+  if (TEXT_BACKED_OPERATORS.has(op)) return true;
+  if (!COMPARISON_OPERATORS.has(op)) return false;
+  if (!field) return true;
+  const storageType = field.type === 'string' ? 'timestamptz' : 'numeric';
+  return indexColumnsFor({ type: field.type, ...(field.format ? { format: field.format } : {}) }).includes(
+    storageType,
+  );
 }
 
 export interface AttributeSortOption {

@@ -98,11 +98,46 @@ describe('operatorsForCondition (runtime SchemaFilterContext.IsOperatorAllowed)'
 });
 
 describe('usesIndexProjection (runtime AttributeConditionBuilder)', () => {
-  it('is true for comparisons, text, membership and isNull; false for containment operators', () => {
-    for (const op of ['gt', 'ge', 'lt', 'le', 'between', 'like', 'match', 'startswith', 'endswith', 'in', 'nin', 'isNull'] as const) {
+  it('is true for text/membership/isNull operators regardless of field type (text column always present when indexed)', () => {
+    for (const op of ['like', 'match', 'startswith', 'endswith', 'in', 'nin', 'isNull'] as const) {
+      expect(usesIndexProjection(op, field('amount'))).toBe(true);
+      expect(usesIndexProjection(op, field('active'))).toBe(true);
+    }
+  });
+
+  it('is false for eq/ne/includes (JSON containment only, no projection) regardless of field', () => {
+    for (const op of ['eq', 'ne', 'includes'] as const) {
+      expect(usesIndexProjection(op, field('amount'))).toBe(false);
+      expect(usesIndexProjection(op)).toBe(false);
+    }
+  });
+
+  it('is true for comparisons on a numeric field (numeric column present)', () => {
+    for (const op of ['gt', 'ge', 'lt', 'le', 'between'] as const) {
+      expect(usesIndexProjection(op, field('amount'))).toBe(true);
+    }
+  });
+
+  it('is true for comparisons on a date-time string field (timestamptz column present)', () => {
+    for (const op of ['gt', 'ge', 'lt', 'le', 'between'] as const) {
+      expect(usesIndexProjection(op, field('when'))).toBe(true);
+    }
+  });
+
+  it('is false for comparisons on a boolean field (neither numeric nor timestamptz column exists)', () => {
+    for (const op of ['gt', 'ge', 'lt', 'le', 'between'] as const) {
+      expect(usesIndexProjection(op, field('active'))).toBe(false);
+    }
+  });
+
+  it('is false for comparisons on a plain (non-date-time) string field', () => {
+    expect(usesIndexProjection('gt', field('customer.name'))).toBe(false);
+  });
+
+  it('without a field, assumes comparisons are index-backed (legacy callers)', () => {
+    for (const op of ['gt', 'ge', 'lt', 'le', 'between'] as const) {
       expect(usesIndexProjection(op)).toBe(true);
     }
-    for (const op of ['eq', 'ne', 'includes'] as const) expect(usesIndexProjection(op)).toBe(false);
   });
 });
 
