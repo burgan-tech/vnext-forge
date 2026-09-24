@@ -3,11 +3,14 @@ import { useEffect, useId, useState } from 'react';
 import { Field } from '../../../ui/Field';
 import { useFormReadOnly } from '../../../ui/FormReadOnlyContext';
 import { SCHEMA_TYPE_SUGGESTIONS } from '../SchemaEditorSchema';
+import { schemaTypeVersionHint } from '../schemaTypeVersionHint';
 
 export interface SchemaTypeFieldProps {
   value: string;
   onCommit: (next: string) => void;
   errorMsg?: string;
+  /** The project's pinned `vnext.config.json#schemaVersion`, when known. */
+  schemaVersion?: string;
 }
 
 /**
@@ -15,10 +18,11 @@ export interface SchemaTypeFieldProps {
  * Commits on blur or Enter so the document is not rewritten per keystroke;
  * blank input reverts because the field is a required string.
  */
-export function SchemaTypeField({ value, onCommit, errorMsg }: SchemaTypeFieldProps) {
+export function SchemaTypeField({ value, onCommit, errorMsg, schemaVersion }: SchemaTypeFieldProps) {
   const listId = useId();
   const readOnly = useFormReadOnly();
   const [draft, setDraft] = useState(value);
+  const versionHint = schemaTypeVersionHint(value, schemaVersion);
 
   useEffect(() => {
     setDraft(value);
@@ -64,6 +68,11 @@ export function SchemaTypeField({ value, onCommit, errorMsg }: SchemaTypeFieldPr
           <option key={option} value={option} />
         ))}
       </datalist>
+      {versionHint && (
+        <p className="text-[10px] text-amber-600 dark:text-amber-400" role="alert">
+          {versionHint}
+        </p>
+      )}
     </Field>
   );
 }
