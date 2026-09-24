@@ -10,6 +10,7 @@ import * as QuickRunApi from '../QuickRunApi';
 import { useQuickRunPolling } from '../hooks/useQuickRunPolling';
 import { useQuickRunStore } from '../store/quickRunStore';
 import type { InstanceListItem } from '../types/quickrun.types';
+import { displayStatus, isActiveStatus, isInactiveStatus } from '../utils/instanceStatus';
 import { EnvBadge } from './EnvBadge';
 import { InstanceFilterPanel } from './InstanceFilterPanel';
 import { RuntimeErrorBanner, type RuntimeErrorLike } from './RuntimeErrorBanner';
@@ -52,7 +53,7 @@ export function InstanceListPanel() {
     addInstance({
       id: item.id,
       key: item.key,
-      status: item.metadata.status,
+      status: displayStatus(item.metadata),
       domain: item.domain,
       workflowKey: item.flow,
       environmentName,
@@ -114,8 +115,8 @@ export function InstanceListPanel() {
     void loadInstances();
   }, [loadInstances]);
 
-  const activeInstances = Array.from(instances.values()).filter((i) => i.status === 'A' || i.status === 'B');
-  const completedInstances = Array.from(instances.values()).filter((i) => i.status === 'C' || i.status === 'F');
+  const activeInstances = Array.from(instances.values()).filter((i) => isActiveStatus(i.status));
+  const completedInstances = Array.from(instances.values()).filter((i) => isInactiveStatus(i.status));
 
   return (
     <aside className="flex h-full w-full flex-col bg-[var(--vscode-sideBar-background)]">
@@ -270,7 +271,7 @@ export function InstanceListPanel() {
                     </div>
                   )}
                 </div>
-                <StatusBadge status={item.metadata.status} compact />
+                <StatusBadge status={displayStatus(item.metadata)} compact />
               </button>
             ))}
           </section>
