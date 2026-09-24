@@ -16,15 +16,24 @@
  *
  * ## Why it is safe
  *
- * Shape-detected, not version-gated (same stance as `view-display-schema-patch`):
- * it fires only while the loaded schema still has the old shape. A vnext-schema
- * release carrying these commits makes it inert. After bumping the pin, delete
- * `./unreleased/` and this file.
+ * The workflow forward-port is narrowed to 0.0.52-era pinned schemas: it only
+ * fires when `definitions.availableInEntry` is present (introduced in
+ * `v0.0.52`, still present in `v0.0.53` and master) AND `longPoll` exists
+ * without `longPoll.properties.rule`. Pinned schemas v0.0.47–v0.0.51 have
+ * `longPoll` but predate `availableInEntry` (and predate `resourceLock`,
+ * `event` triggers, `workflowConfig.functionCache` too) and so are left
+ * untouched — patching them against master would let the designer accept
+ * constructs those runtimes reject. A vnext-schema release that ships
+ * `longPoll.rule` makes the marker check moot for v0.0.52/v0.0.53 too (the
+ * `longPoll.rule` presence check alone turns the patch inert). After bumping
+ * the pin past that release, delete `./unreleased/` and this file.
  *
- * Projects pinning a much older `schemaVersion` also receive the master schema.
- * Master is a superset for authored documents except the new constraints
- * (roles/rule exclusivity, `x-indexed` eligibility), which the runtime enforces
- * at publish anyway.
+ * The schema-definition forward-port stays shape-detected across every
+ * pinned version (same stance as `view-display-schema-patch`), not narrowed
+ * by a version marker: master's only changes there are additive/permissive
+ * for authored documents — `x-indexed` eligibility rules (a new constraint
+ * the runtime enforces at publish anyway) and freeing `attributes.type` from
+ * a closed enum. Accepted trade-off, not a gap.
  */
 import unreleasedSchemaDefinition from './unreleased/schema.master.js'
 import unreleasedWorkflowDefinition from './unreleased/workflow.master.js'
@@ -37,9 +46,15 @@ function asRecord(value: unknown): Record<string, unknown> | null {
     : null
 }
 
-/** Pre-ac42026 workflow schema: `longPoll` exists but has no `rule` arm. */
+/**
+ * Pre-ac42026, 0.0.52-era workflow schema: carries the `availableInEntry`
+ * marker (present from v0.0.52 onward, absent in v0.0.51 and earlier) and
+ * still has `longPoll` without `longPoll.properties.rule`.
+ */
 function isStaleWorkflowSchema(schema: Record<string, unknown>): boolean {
-  const longPoll = asRecord(asRecord(schema.definitions)?.longPoll)
+  const definitions = asRecord(schema.definitions)
+  if (definitions?.availableInEntry === undefined) return false
+  const longPoll = asRecord(definitions.longPoll)
   if (!longPoll) return false
   return asRecord(longPoll.properties)?.rule === undefined
 }

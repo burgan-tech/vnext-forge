@@ -19,7 +19,7 @@ A Forge release whose designer writes schema-valid documents for the current run
 | # | Decision |
 |---|---|
 | D1 | Decompose into phases A–E on one branch (`f/vnext-runtime-sync`); each phase gets its own implementation plan and commit group. A first, then B/C/D (independent), E any time. |
-| D2 | Unreleased vnext-schema changes are applied through a **local patch layer** in services-core (pattern: `view-display-schema-patch.ts`), shape-detected (inert once a release carries the changes); vendored master files under `services-core/src/services/validate/unreleased/`. When vnext-schema is released: bump the pin and delete the patch. |
+| D2 | Unreleased vnext-schema changes are applied through a **local patch layer** in services-core (pattern: `view-display-schema-patch.ts`), shape-detected (inert once a release carries the changes); vendored master files under `services-core/src/services/validate/unreleased/`. When vnext-schema is released: bump the pin and delete the patch. The workflow forward-port applies only to 0.0.52-era schemas (marker `definitions.availableInEntry`); the schema-definition forward-port applies to every pinned version (accepted: master only adds `x-indexed` eligibility rules and frees `attributes.type`). |
 | D3 | Interaction (long-poll `terminate`) in QuickRunner: **user decision + countdown** — stop polling, show view + countdown, offer *Acknowledge* / *Wait for fallback*, then resume polling. |
 | D4 | `authorize` in QuickRunner: **panel + opt-in inline badges**. |
 | D5 | `human-task` list: **QuickRunner tab** next to the instance list. |

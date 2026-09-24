@@ -42,6 +42,14 @@ describe('patchRuntimeSyncSchema — workflow', () => {
     expect(patchRuntimeSyncSchema('task', task)).toBe(task)
   })
 
+  it('is a no-op on a pre-0.0.52-era schema (marker definitions.availableInEntry absent)', () => {
+    const original = installed.getSchema('workflow')!
+    const derived = JSON.parse(JSON.stringify(original)) as Record<string, unknown>
+    const definitions = derived.definitions as Record<string, unknown>
+    delete definitions.availableInEntry
+    expect(patchRuntimeSyncSchema('workflow', derived)).toBe(derived)
+  })
+
   it.each(['timeout-lab-root', 'subflow-override-lab-parent', 'subflow-override-lab-child'])(
     'accepts vnext-example %s',
     (name) => {
