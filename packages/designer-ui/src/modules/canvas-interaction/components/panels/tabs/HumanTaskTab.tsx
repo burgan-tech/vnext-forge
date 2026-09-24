@@ -67,7 +67,8 @@ export function HumanTaskTab({
             <p
               role="alert"
               className="mb-2 rounded-md border border-destructive-border bg-destructive-surface px-2 py-1 text-[10px] text-destructive-text leading-relaxed">
-              No queryRoles on this state or the workflow — this task is listed for nobody.
+              No queryRoles on this state or the workflow — this task is listed for nobody, unless a
+              parent subflow overrides queryRoles for this state.
             </p>
           ))}
         <RoleGrantEditor roles={queryRoles} onChange={onUpdateQueryRoles} contextLabel="human task" />

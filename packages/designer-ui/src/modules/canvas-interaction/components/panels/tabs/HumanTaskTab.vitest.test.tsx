@@ -29,6 +29,7 @@ describe('HumanTaskTab', () => {
     expect(html.indexOf('Query roles (required)')).toBeLessThan(html.indexOf('Task text'));
     expect(html).toContain('fails closed');
     expect(html).toContain('listed for nobody');
+    expect(html).toContain('unless a parent subflow overrides queryRoles for this state');
   });
 
   it('accepts the workflow queryRoles as the fallback gate', () => {
