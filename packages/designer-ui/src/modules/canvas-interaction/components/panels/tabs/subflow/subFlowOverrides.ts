@@ -22,7 +22,7 @@ function overridesOf(sf: SubFlowOverrideSource): SubFlowOverrides {
 
 export function countOverrides(sf: SubFlowOverrideSource): number {
   const o = overridesOf(sf);
-  let n = o.timeout?.key ? 1 : 0;
+  let n = o.timeout !== undefined && o.timeout !== null ? 1 : 0;
   for (const entry of Object.values(o.transitions ?? {})) {
     if (entry.roles !== undefined) n += 1;
     n += Object.keys(entry.views ?? {}).length;

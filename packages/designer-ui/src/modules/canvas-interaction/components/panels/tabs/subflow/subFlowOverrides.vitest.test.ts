@@ -1,3 +1,4 @@
+import { produce } from 'immer';
 import { describe, expect, it } from 'vitest';
 import type { ResourceReference, SubFlowConfig, SubFlowStateOverride } from '@vnext-forge-studio/vnext-types';
 import type { ChildWorkflowSummary } from './childWorkflowSummary';
@@ -249,6 +250,27 @@ describe('setLongPollOverride', () => {
 
     setLongPollOverride(entry, { roles: undefined });
     expect(entry).toEqual({});
+  });
+});
+
+describe('F2: an incomplete (key-less) timeout override can still be cleared', () => {
+  // Mirrors SubFlowOverridesSection's onUpdateSubFlow / onClear wiring, which
+  // runs the updater through an immer draft (`updateWorkflow`).
+  it('clears overrides.timeout via an immer draft even though timeout.key is empty', () => {
+    const sf: SubFlowConfig = {
+      type: 'S',
+      process: PROCESS,
+      overrides: { timeout: { key: '', target: 'child-timedout' } },
+    };
+    expect(countOverrides(sf)).toBe(1);
+
+    const onClear = (draft: SubFlowConfig): void => {
+      if (draft.overrides) delete draft.overrides.timeout;
+    };
+    const cleared = produce(sf, onClear);
+
+    expect(cleared.overrides?.timeout).toBeUndefined();
+    expect(countOverrides(cleared)).toBe(0);
   });
 });
 

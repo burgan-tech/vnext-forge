@@ -26,8 +26,9 @@ export function TimeoutOverrideEditor({
   onUpdate,
   onClear,
 }: TimeoutOverrideEditorProps) {
-  const [open, setOpen] = useState(!!timeout?.key);
-  const configured = !!timeout?.key;
+  const configured = timeout !== undefined && timeout !== null;
+  const incomplete = configured && !timeout?.key;
+  const [open, setOpen] = useState(configured);
   const mapping = timeout?.mapping;
 
   return (
@@ -41,7 +42,7 @@ export function TimeoutOverrideEditor({
           Timeout override
         </span>
         <span className="text-[10px] text-muted-foreground font-mono tabular-nums bg-surface px-1.5 py-0.5 rounded-md border border-border-subtle font-semibold">
-          {configured ? 'Configured' : 'Not set'}
+          {incomplete ? 'Incomplete' : configured ? 'Configured' : 'Not set'}
         </span>
       </button>
       {open && (
@@ -100,6 +101,9 @@ export function TimeoutOverrideEditor({
               }
               placeholder="e.g. never"
             />
+            <p className="mt-0.5 text-[10px] text-muted-foreground leading-relaxed">
+              The runtime does not read reset yet — the timeout always counts from instance start.
+            </p>
           </div>
           <div>
             <label className={LABEL}>Duration (ISO 8601)</label>

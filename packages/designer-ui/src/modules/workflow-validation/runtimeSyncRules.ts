@@ -19,25 +19,10 @@ export interface RuntimeSyncFinding {
 const TRIGGER_AUTOMATIC = 1;
 const TRIGGER_SCHEDULED = 2;
 
-function timerReset(timeout: unknown): string | null {
-  if (!isRec(timeout) || !isRec(timeout.timer)) return null;
-  const reset = timeout.timer.reset;
-  return typeof reset === 'string' && reset.trim() !== '' ? reset : null;
-}
-
 export function runtimeSyncFindings(workflow: unknown): RuntimeSyncFinding[] {
   if (!isRec(workflow) || !isRec(workflow.attributes)) return [];
   const attributes = workflow.attributes;
   const findings: RuntimeSyncFinding[] = [];
-
-  const workflowReset = timerReset(attributes.timeout);
-  if (workflowReset !== null) {
-    findings.push({
-      severity: 'info',
-      rule: 'timeout-timer-reset-ignored',
-      message: `Workflow timeout timer.reset "${workflowReset}" has no effect — the runtime does not implement reset strategies.`,
-    });
-  }
 
   const states = Array.isArray(attributes.states) ? (attributes.states as unknown[]).filter(isRec) : [];
   for (const state of states) {
@@ -49,16 +34,6 @@ export function runtimeSyncFindings(workflow: unknown): RuntimeSyncFinding[] {
         severity: 'error',
         rule: 'subflow-state-subprocess',
         message: `State "${key}" starts a SubProcess from its subFlow (type "P"). A state may only start a SubFlow — start a SubProcess with a SubProcessTask (type 14).`,
-        stateKey: key,
-      });
-    }
-
-    const overrideReset = subFlow && isRec(subFlow.overrides) ? timerReset(subFlow.overrides.timeout) : null;
-    if (overrideReset !== null) {
-      findings.push({
-        severity: 'info',
-        rule: 'timeout-timer-reset-ignored',
-        message: `SubFlow timeout override in state "${key}": timer.reset "${overrideReset}" has no effect — the runtime does not implement reset strategies.`,
         stateKey: key,
       });
     }

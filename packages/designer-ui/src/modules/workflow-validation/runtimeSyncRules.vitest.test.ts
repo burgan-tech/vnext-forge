@@ -25,32 +25,6 @@ describe('runtimeSyncFindings', () => {
     expect(rules({ states: [{ key: 'h', stateType: 3, subType: 6 }] })).toEqual([]);
   });
 
-  it('notes that timer.reset on the workflow timeout has no effect', () => {
-    const findings = runtimeSyncFindings(
-      wf({ timeout: { key: 'root-abandoned', target: 'root-timedout', timer: { reset: 'never', duration: 'PT20S' } }, states: [] }),
-    );
-    expect(findings).toEqual([expect.objectContaining({ severity: 'info', rule: 'timeout-timer-reset-ignored' })]);
-    expect(findings[0].stateKey).toBeUndefined();
-    expect(findings[0].message).toContain('"never"');
-  });
-
-  it('notes timer.reset on a subflow timeout override, on the parent state', () => {
-    const findings = runtimeSyncFindings(
-      wf({
-        states: [
-          {
-            key: 'parent-subflow',
-            stateType: 4,
-            subFlow: { type: 'S', overrides: { timeout: { key: 'k', target: 't', timer: { reset: 'never', duration: 'PT20S' } } } },
-          },
-        ],
-      }),
-    );
-    expect(findings).toEqual([
-      expect.objectContaining({ severity: 'info', rule: 'timeout-timer-reset-ignored', stateKey: 'parent-subflow' }),
-    ]);
-  });
-
   it('notes a state with both automatic and scheduled transitions', () => {
     expect(
       runtimeSyncFindings(

@@ -56,4 +56,23 @@ describe('TimeoutOverrideEditor', () => {
     expect(html).toContain('Not set');
     expect(html).not.toContain('data-csx');
   });
+
+  it('shows an inline note that the runtime ignores timer.reset', () => {
+    const html = render(TIMEOUT);
+    expect(html).toContain('The runtime does not read reset yet');
+  });
+
+  it('shows Incomplete (not Configured/Not set) for a key-less override, and still offers Clear', () => {
+    const html = render({ key: '', target: 'child-timedout' });
+    expect(html).toContain('Incomplete');
+    expect(html).not.toContain('>Configured<');
+    expect(html).not.toContain('>Not set<');
+    expect(html).toContain('Clear timeout override');
+  });
+
+  it('treats a fully-set override as Configured', () => {
+    const html = render(TIMEOUT);
+    expect(html).toContain('Configured');
+    expect(html).not.toContain('Incomplete');
+  });
 });

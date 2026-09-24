@@ -175,6 +175,9 @@ export function WorkflowTimeoutSection() {
                   className={inputClass}
                   placeholder="workflow-start"
                 />
+                <p className="mt-0.5 text-[9px] text-muted-foreground leading-relaxed">
+                  The runtime does not read reset yet — the timeout always counts from instance start.
+                </p>
               </div>
               <div>
                 <label className="text-muted-foreground text-[9px] font-medium">
