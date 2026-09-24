@@ -22,9 +22,16 @@ describe('AvailableTransitions — scheduled entries', () => {
         disabled: false,
       }),
     );
-    const buttons = html.match(/<button[^>]*>[^<]*<\/button>/g) ?? [];
+    // Non-greedy match so a button with a nested child element (e.g. an
+    // executeAtUtc <span>) is still captured as a single button segment,
+    // rather than silently passing the old [^<]* content-only regex.
+    const buttons = html.match(/<button\b[\s\S]*?<\/button>/g) ?? [];
     expect(buttons.some((b) => b.includes('approve'))).toBe(true);
     expect(buttons.some((b) => b.includes('reminder'))).toBe(false);
+    // Belt-and-suspenders: only the 'approve' transition should render as a
+    // button at all — the scheduled 'reminder' entry must not, even if it
+    // wraps its text in nested markup.
+    expect((html.match(/<button\b/g) ?? []).length).toBe(1);
     expect(html).toContain('reminder');
     expect(html).toContain('Scheduled');
   });
