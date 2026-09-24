@@ -18,7 +18,7 @@ export function SubFlowOverridesSection({ overrides, onUpdateOverrides }: SubFlo
     <Section title="Overrides" count={totalCount} defaultOpen={totalCount > 0}>
       <div className="space-y-3">
         <TimeoutOverrideSection
-          timeout={overrides?.timeout}
+          timeout={overrides?.timeout ?? undefined}
           onUpdate={(updater) => onUpdateOverrides((o) => {
             if (!o.timeout) o.timeout = { key: '', target: '' };
             updater(o.timeout);

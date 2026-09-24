@@ -19,7 +19,7 @@
  * `interaction` field entirely when cleared so the saved JSON stays
  * minimal.
  */
-import type { LongPollConfig, RoleGrant, StateInteraction } from '@vnext-forge-studio/vnext-types';
+import type { StateInteraction } from '@vnext-forge-studio/vnext-types';
 import {
   EditableInput,
   IconPlus,
@@ -28,6 +28,7 @@ import {
   Section,
 } from '../PropertyPanelShared';
 import { RoleGrantEditor } from '../subflow/RoleGrantEditor';
+import { isRuleArm, makeEmptyLongPoll, patchLongPoll as applyLongPollPatch, type LongPollPatch } from './longPollConfig';
 
 interface StateInteractionEditorProps {
   interaction: StateInteraction | null;
@@ -39,18 +40,11 @@ const TERMINATE_OPTIONS = [
   { value: 'false', label: 'No' },
 ] as const;
 
-function makeEmptyLongPoll(): LongPollConfig {
-  // Schema requires `terminate` and `roles`. Seed with one role row so
-  // the user can type straight away.
-  return { terminate: true, roles: [{ role: '', grant: 'allow' }] };
-}
-
 export function StateInteractionEditor({ interaction, onChange }: StateInteractionEditorProps) {
   const longPoll = interaction?.longPoll ?? null;
 
-  const patchLongPoll = (patch: Partial<LongPollConfig>): void => {
-    const base = longPoll ?? makeEmptyLongPoll();
-    onChange({ longPoll: { ...base, ...patch } });
+  const patchLongPoll = (patch: LongPollPatch): void => {
+    onChange({ longPoll: applyLongPollPatch(longPoll, patch) });
   };
 
   const addLongPoll = (): void => {
@@ -63,7 +57,8 @@ export function StateInteractionEditor({ interaction, onChange }: StateInteracti
     onChange(null);
   };
 
-  const roles: RoleGrant[] = Array.isArray(longPoll?.roles) ? longPoll!.roles : [];
+  const ruleArm = longPoll !== null && isRuleArm(longPoll);
+  const roles = longPoll && !isRuleArm(longPoll) && Array.isArray(longPoll.roles) ? longPoll.roles : [];
 
   return (
     <Section
@@ -126,16 +121,22 @@ export function StateInteractionEditor({ interaction, onChange }: StateInteracti
             </button>
           </div>
 
-          <div>
-            <label className="text-[9px] font-medium text-muted-foreground mb-1 block">
-              Roles
-            </label>
-            <RoleGrantEditor
-              roles={roles}
-              onChange={(next) => patchLongPoll({ roles: next })}
-              contextLabel="long poll"
-            />
-          </div>
+          {ruleArm ? (
+            <p className="text-[10px] text-muted-foreground leading-relaxed">
+              This long poll is authorized by a condition rule. Role grants do not apply.
+            </p>
+          ) : (
+            <div>
+              <label className="text-[9px] font-medium text-muted-foreground mb-1 block">
+                Roles
+              </label>
+              <RoleGrantEditor
+                roles={roles}
+                onChange={(next) => patchLongPoll({ roles: next })}
+                contextLabel="long poll"
+              />
+            </div>
+          )}
         </div>
       )}
     </Section>
