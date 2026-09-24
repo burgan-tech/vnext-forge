@@ -68,11 +68,31 @@ export function applyScriptValueToWorkflow(
     return;
   }
 
-  const entries = state[activeScript.listField];
-  if (!Array.isArray(entries)) return;
+  const holder = state[activeScript.listField];
 
-  const entry = entries[activeScript.index] as Record<string, unknown> | undefined;
-  if (!entry) return;
+  if (Array.isArray(holder)) {
+    const entry = holder[activeScript.index] as Record<string, unknown> | undefined;
+    if (!entry) return;
+    entry[activeScript.scriptField] = value;
+    return;
+  }
 
-  entry[activeScript.scriptField] = value;
+  // Object holders on a state (`interaction`, `subFlow`): `scriptField` is a
+  // dotted path inside the holder, e.g. `longPoll.rule` or
+  // `overrides.timeout.mapping`. Intermediate objects must already exist —
+  // the owning editor creates them before the script panel opens.
+  if (holder && typeof holder === 'object') {
+    setAtDottedPath(holder as Record<string, unknown>, activeScript.scriptField, value);
+  }
+}
+
+function setAtDottedPath(root: Record<string, unknown>, path: string, value: unknown): void {
+  const segments = path.split('.');
+  let cursor: Record<string, unknown> = root;
+  for (const segment of segments.slice(0, -1)) {
+    const next = cursor[segment];
+    if (!next || typeof next !== 'object' || Array.isArray(next)) return;
+    cursor = next as Record<string, unknown>;
+  }
+  cursor[segments[segments.length - 1]] = value;
 }

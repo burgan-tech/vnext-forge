@@ -151,3 +151,65 @@ describe('applyScriptValueToWorkflow', () => {
     expect(draft.attributes.states[0]).toEqual({ key: 'other', onEntries: [] });
   });
 });
+
+describe('applyScriptValueToWorkflow — object holders on a state', () => {
+  it('writes the long-poll rule under interaction.longPoll', () => {
+    const draft = {
+      attributes: {
+        states: [
+          { key: 'state-a', interaction: { longPoll: { terminate: true, rule: { location: '', code: '' } } } },
+        ],
+      },
+    };
+
+    applyScriptValueToWorkflow(
+      draft,
+      makeActiveScript({ listField: 'interaction', scriptField: 'longPoll.rule' }),
+      nextValue,
+    );
+
+    expect(draft.attributes.states[0]!.interaction.longPoll.rule).toEqual(nextValue);
+  });
+
+  it('writes the subflow timeout override mapping', () => {
+    const draft = {
+      attributes: {
+        states: [{ key: 'state-a', subFlow: { overrides: { timeout: { key: 't', target: 'x' } } } }],
+      },
+    };
+
+    applyScriptValueToWorkflow(
+      draft,
+      makeActiveScript({ listField: 'subFlow', scriptField: 'overrides.timeout.mapping' }),
+      nextValue,
+    );
+
+    expect((draft.attributes.states[0]!.subFlow.overrides.timeout as Record<string, unknown>).mapping).toEqual(
+      nextValue,
+    );
+  });
+
+  it('writes a flat field on an object holder (subFlow.mapping)', () => {
+    const draft = { attributes: { states: [{ key: 'state-a', subFlow: { mapping: { code: 'old' } } }] } };
+
+    applyScriptValueToWorkflow(
+      draft,
+      makeActiveScript({ listField: 'subFlow', scriptField: 'mapping' }),
+      nextValue,
+    );
+
+    expect(draft.attributes.states[0]!.subFlow.mapping).toEqual(nextValue);
+  });
+
+  it('is a no-op when an intermediate holder is missing', () => {
+    const draft = { attributes: { states: [{ key: 'state-a', subFlow: {} as Record<string, unknown> }] } };
+
+    applyScriptValueToWorkflow(
+      draft,
+      makeActiveScript({ listField: 'subFlow', scriptField: 'overrides.timeout.mapping' }),
+      nextValue,
+    );
+
+    expect(draft.attributes.states[0]!.subFlow).toEqual({});
+  });
+});
