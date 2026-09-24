@@ -317,6 +317,7 @@ export function GeneralTab({ state, updateWorkflow }: GeneralTabProps) {
       {/* Interaction (long poll) */}
       <StateInteractionEditor
         interaction={(state.interaction as StateInteraction | null | undefined) ?? null}
+        stateKey={String(stateKey)}
         onChange={updateInteraction}
       />
 
