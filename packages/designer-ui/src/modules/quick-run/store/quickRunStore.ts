@@ -11,6 +11,7 @@ import type {
   QuickRunTab,
   SchemaResponse,
   StateResponse,
+  TaskHistoryItem,
   TransitionInfo,
   ViewResponse,
 } from '../types/quickrun.types';
@@ -89,6 +90,11 @@ interface QuickRunState {
 
   activeHistory: HistoryResponse | null;
   activeHistoryLoading: boolean;
+
+  /** `…/functions/tasks` of the active instance; loaded by the Tasks tab. */
+  activeTaskHistory: TaskHistoryItem[] | null;
+  activeTaskHistoryLoading: boolean;
+  activeTaskHistoryError: { code: string; message: string; details?: Record<string, unknown> } | null;
 
   /**
    * Functions reachable on the active instance, from
@@ -178,6 +184,10 @@ interface QuickRunState {
   setActiveHistory: (history: HistoryResponse | null) => void;
   setActiveHistoryLoading: (loading: boolean) => void;
 
+  setActiveTaskHistory: (items: TaskHistoryItem[] | null) => void;
+  setActiveTaskHistoryLoading: (loading: boolean) => void;
+  setActiveTaskHistoryError: (error: { code: string; message: string; details?: Record<string, unknown> } | null) => void;
+
   setFunctionCatalog: (entries: FunctionCatalogEntry[] | null) => void;
   setFunctionCatalogLoading: (loading: boolean) => void;
   setFunctionCatalogError: (error: string | null) => void;
@@ -249,6 +259,10 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
 
   activeHistory: null,
   activeHistoryLoading: false,
+
+  activeTaskHistory: null,
+  activeTaskHistoryLoading: false,
+  activeTaskHistoryError: null,
 
   functionCatalog: null,
   functionCatalogLoading: false,
@@ -426,6 +440,10 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
   setActiveHistory: (activeHistory) => set({ activeHistory }),
   setActiveHistoryLoading: (activeHistoryLoading) => set({ activeHistoryLoading }),
 
+  setActiveTaskHistory: (activeTaskHistory) => set({ activeTaskHistory }),
+  setActiveTaskHistoryLoading: (activeTaskHistoryLoading) => set({ activeTaskHistoryLoading }),
+  setActiveTaskHistoryError: (activeTaskHistoryError) => set({ activeTaskHistoryError }),
+
   setFunctionCatalog: (functionCatalog) => set({ functionCatalog }),
   setFunctionCatalogLoading: (functionCatalogLoading) => set({ functionCatalogLoading }),
   setFunctionCatalogError: (functionCatalogError) => set({ functionCatalogError }),
@@ -462,5 +480,8 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
       selectedFunctionName: null,
       interaction: INITIAL_INTERACTION,
       permissionChecks: null,
+      activeTaskHistory: null,
+      activeTaskHistoryLoading: false,
+      activeTaskHistoryError: null,
     }),
 }));
