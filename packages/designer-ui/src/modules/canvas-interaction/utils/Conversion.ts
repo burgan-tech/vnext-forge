@@ -1,5 +1,6 @@
 import type { Node, Edge } from '@xyflow/react';
 import { parseAvailableIn, type AvailableIn } from '@vnext-forge-studio/vnext-types';
+import { deriveStateNodeData } from './stateNodeData';
 
 export interface DiagramNodePos {
   x: number;
@@ -74,6 +75,8 @@ interface WorkflowState {
   view?: unknown;
   errorBoundary?: unknown;
   subFlow?: unknown;
+  queryRoles?: unknown;
+  interaction?: unknown;
 }
 
 interface WorkflowTransition {
@@ -108,6 +111,7 @@ export interface VnextWorkflow {
     cancel?: WorkflowLevelTransition;
     timeout?: WorkflowLevelTransition;
     exit?: WorkflowLevelTransition;
+    queryRoles?: unknown;
   };
 }
 
@@ -136,15 +140,27 @@ function getTransitionTarget(t: WorkflowTransition): string {
   return t.target || t.to || '';
 }
 
-function getNodeType(stateType: number): string {
+/**
+ * Final and SubFlow keep their identity for any subType (terminal, child
+ * workflow) — they never become a Human node. A Human (6) Intermediate,
+ * Initial or Wizard state is the dedicated `humanState` node: subType 6 is
+ * checked before stateType 1, so an Initial state carrying subType 6 still
+ * becomes `humanState`, not `initialState` (controller ruling F1 — Human
+ * wins). This only changes the node *type*; the start/entry handle
+ * behaviour an Initial state gets in `StateNodeBase` is keyed off
+ * `data.stateType`, not `node.type`, and `humanState` renders through the
+ * same `StateNodeBase` component as `initialState` (see nodes/index.ts), so
+ * nothing about handles or entry behaviour is lost.
+ */
+function getNodeType(stateType: number, subType: number): string {
   switch (stateType) {
-    case 1: return 'initialState';
-    case 2: return 'intermediateState';
     case 3: return 'finalState';
     case 4: return 'subFlowState';
-    case 5: return 'wizardState';
-    default: return 'intermediateState';
   }
+  if (subType === 6) return 'humanState';
+  if (stateType === 1) return 'initialState';
+  if (stateType === 5) return 'wizardState';
+  return 'intermediateState';
 }
 
 function getEdgeType(triggerType?: number): string {
@@ -199,7 +215,7 @@ export function workflowToReactFlow(
     const pos = diagram.nodePos?.[state.key] || { x: 200, y: 200 };
     const nodeData: Node = {
       id: state.key,
-      type: getNodeType(state.stateType),
+      type: getNodeType(state.stateType, state.subType ?? 0),
       position: pos,
       data: {
         label: getStateLabel(state),
@@ -214,6 +230,7 @@ export function workflowToReactFlow(
         hasSubFlow: !!state.subFlow,
         subFlowProcessKey: (state.subFlow as any)?.process?.key || '',
         subFlowProcessDomain: (state.subFlow as any)?.process?.domain || '',
+        ...deriveStateNodeData(state, workflow.attributes?.queryRoles),
       },
     };
 
