@@ -11,6 +11,14 @@ import { shouldFetchView } from './shouldFetchView';
 import { stateViewContentChanged } from './stateViewContentChanged';
 import type { StateResponse } from '../types/quickrun.types';
 
+interface PollParams {
+  domain: string;
+  workflowKey: string;
+  instanceId: string;
+  headers?: Record<string, string>;
+  runtimeUrl?: string;
+}
+
 interface PollingConfig {
   retryCount: number;
   intervalMs: number;
@@ -25,221 +33,10 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
   const abortRef = useRef<AbortController | null>(null);
   const store = useQuickRunStore;
 
+  const { retryCount, intervalMs } = config;
   const pollState = useCallback(
-    async (params: {
-      domain: string;
-      workflowKey: string;
-      instanceId: string;
-      headers?: Record<string, string>;
-      runtimeUrl?: string;
-    }) => {
-      abortRef.current?.abort();
-      const controller = new AbortController();
-      abortRef.current = controller;
-
-      const {
-        setActiveState,
-        setLastStateResponse,
-        patchActiveState,
-        setActiveStateLoading,
-        setActiveStateError,
-        updateInstanceState,
-        updateInstanceStatus,
-        setPollingInstanceId,
-        setStateView,
-        setStateViewLoading,
-        setStateViewError,
-        dispatchInteraction,
-        setEtag,
-      } = store.getState();
-
-      setPollingInstanceId(params.instanceId);
-      setActiveStateLoading(true);
-      // Clear any prior poll error so the banner doesn't linger from
-      // a previous instance / round.
-      setActiveStateError(null);
-      // A poll while an acknowledge is pending (or right after resuming)
-      // keeps that phase (the reducer decides); any other phase becomes
-      // `polling`.
-      dispatchInteraction({ type: 'POLL_STARTED', instanceId: params.instanceId });
-      // `stateView` is intentionally left untouched when this instance
-      // already has a cached state ETag: this pollState call may be a
-      // second round on an already-rendered instance (e.g. re-polling
-      // after firing a transition), and a 304 further down means that
-      // cached view is still correct — clearing it here would flash the
-      // panel to empty before we even know the answer. When there is no
-      // cached ETag yet, a 304 is impossible on the very first attempt,
-      // so it's safe (and desirable) to prime the skeleton immediately:
-      // earlier this flag was only flipped on once the view fetch
-      // itself started, so users saw nothing during the (potentially
-      // long) initial `getState` round-trip. The flag is cleared on
-      // every terminal path below: poll failure, poll success with no
-      // view, abort, and inside `refreshViewAndData`'s view branch.
-      if (!store.getState().etags.state) {
-        setStateView(null);
-        setStateViewError(false);
-        setStateViewLoading(true);
-      }
-
-      for (let attempt = 0; attempt < config.retryCount; attempt++) {
-        if (controller.signal.aborted) break;
-
-        // Read fresh on every attempt (not captured once before the loop)
-        // so a 304 on a later attempt echoes the ETag this same loop just
-        // captured on an earlier attempt.
-        const ifNoneMatch = store.getState().etags.state;
-
-        let response;
-        try {
-          response = await QuickRunApi.getState({ ...params, ifNoneMatch });
-        } catch (err) {
-          setActiveStateLoading(false);
-          setStateViewLoading(false);
-          setPollingInstanceId(null);
-          setActiveStateError({
-            code: 'THROWN',
-            message: err instanceof Error ? err.message : String(err),
-          });
-          return null;
-        }
-        if (controller.signal.aborted) break;
-
-        if (response.success) {
-          const stateData = response.data;
-
-          // Record the round before any branching. The busy branch below
-          // only patches `status`/`state` onto `activeState`, so this is the
-          // one place every response body — including the ones that never
-          // reach `activeState` — is kept for the Raw tab.
-          setLastStateResponse(stateData, stateData.notModified === true);
-
-          if (stateData.notModified) {
-            // 304: the upstream state is unchanged since our last ETag.
-            // No `status`/`interaction`/`state` fields are present on this
-            // payload, so terminal detection, ack, and view-selection must
-            // not run against it — treat this exactly like a non-advancing
-            // 'B' poll and keep the currently-cached activeState/stateView
-            // untouched, then retry on the next tick.
-            //
-            // View and Data are separate resources from State and must
-            // still refresh independently on this tick — a 304 on State
-            // says nothing about whether the instance's Data changed (Data
-            // has its own ETag) or, in the rare case a view is already
-            // eligible to render, whether its content changed (View has no
-            // ETag, so it's always fetched unconditionally and diffed
-            // client-side). `effectiveState` is the currently-cached
-            // activeState from a prior round, never the (absent) 304 body.
-            const effectiveState = store.getState().activeState;
-            if (effectiveState && !controller.signal.aborted) {
-              // `pollingInstanceId` is set for the whole busy loop, so
-              // ContextPanel's own Data lazy-load is suppressed here —
-              // the loop is the sole Data source on this tick.
-              await refreshViewAndData(
-                params,
-                effectiveState,
-                { terminate: false, includeData: true },
-                controller.signal,
-              );
-            }
-
-            if (attempt < config.retryCount - 1) {
-              await sleep(config.intervalMs);
-            }
-            continue;
-          }
-
-          // Successful, non-304 response — capture the fresh ETag so the
-          // next attempt (or the next poll round) can conditionally request.
-          setEtag('state', extractEtag(stateData));
-
-          // We now know there is fresh state to show. If the pre-loop
-          // priming above was skipped (a cached ETag existed going in),
-          // this is the first point stale view content gets cleared —
-          // right as we confirm new data actually warrants it. When the
-          // priming above already ran, these are harmless no-ops.
-          setStateView(null);
-          setStateViewError(false);
-          setStateViewLoading(true);
-
-          // Every full response feeds the interaction machine; whether the
-          // loop stops comes from the resulting phase (controller ruling
-          // F1), never from the raw `interaction.terminateLongPoll` flag —
-          // a stale flag right after resuming must not stop it again.
-          const { stop: shouldStop, paused: terminate } = recordStateRound(params.instanceId, stateData);
-
-          if (stateData.status === 'B' && !shouldStop) {
-            patchActiveState({ status: stateData.status, state: stateData.state });
-            updateInstanceStatus(params.instanceId, stateData.status, stateData.state);
-          } else {
-            // Full state set on stop so transitions/view are available
-            // even when terminate fired while status was still 'B'.
-            setActiveState(stateData);
-            updateInstanceState(params.instanceId, stateData);
-          }
-
-          if (shouldStop) {
-            setActiveStateLoading(false);
-            setPollingInstanceId(null);
-
-            const canRenderView = shouldFetchView(stateData, { applyStatusGate: true, terminate });
-            if (!canRenderView) {
-              // Stop with no view to fetch — drop the loading flag now
-              // so the panel collapses cleanly. (When a view IS eligible,
-              // refreshViewAndData below owns the loading flag until its
-              // own response resolves.)
-              setStateViewLoading(false);
-            }
-            // Fire-and-forget, same as the previous inline view fetch
-            // this replaces — the return below must not wait on it.
-            // `includeData: false` here: `setActiveStateLoading(false)` +
-            // `setPollingInstanceId(null)` just above unblock
-            // ContextPanel's own Data lazy-load effects, so fetching Data
-            // from the loop on this exact tick would race a concurrent
-            // `getData` against ContextPanel's. Data at/after stop is
-            // ContextPanel's job; the loop already covered Data on every
-            // busy/304 tick leading up to this one.
-            void refreshViewAndData(params, stateData, { terminate, includeData: false }, controller.signal);
-
-            return stateData;
-          }
-
-          // Non-stop 200 (still busy): View/Data are independent resources
-          // and must refresh on this tick too. In practice `canRenderView`
-          // inside refreshViewAndData will be false here (busy states don't
-          // expose a view per the same status gate as above), so this is
-          // effectively a Data-only refresh during the busy phase — but it
-          // still runs the same shared, signal-guarded step for consistency.
-          if (!controller.signal.aborted) {
-            // `pollingInstanceId` is still set (this tick isn't stopping),
-            // so ContextPanel's Data lazy-load stays suppressed — the loop
-            // is the sole Data source here too.
-            await refreshViewAndData(params, stateData, { terminate, includeData: true }, controller.signal);
-          }
-
-          if (attempt < config.retryCount - 1) {
-            await sleep(config.intervalMs);
-          }
-        } else {
-          // Surface the engine-side failure so the user sees why polling
-          // stopped instead of staring at a quietly empty panel.
-          setActiveStateLoading(false);
-          setStateViewLoading(false);
-          setPollingInstanceId(null);
-          setActiveStateError({
-            code: response.error.code,
-            message: response.error.message,
-            details: response.error.details,
-          });
-          return null;
-        }
-      }
-
-      setActiveStateLoading(false);
-      setStateViewLoading(false);
-      setPollingInstanceId(null);
-      return store.getState().activeState;
-    },
-    [config.retryCount, config.intervalMs],
+    (params: PollParams) => runPollLoop(params, { retryCount, intervalMs }),
+    [retryCount, intervalMs],
   );
 
   /**
@@ -360,6 +157,8 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
   );
 
   const cancelPolling = useCallback(() => {
+    pollLoopAbort?.abort();
+    pollLoopAbort = null;
     abortRef.current?.abort();
     abortRef.current = null;
     store.getState().setPollingInstanceId(null);
@@ -446,6 +245,247 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
 }
 
 /**
+ * The one abort controller shared by every `pollState` loop, whichever
+ * component's hook started it: starting a loop aborts the previous one, so
+ * a loop orphaned by an unmounted caller (e.g. the instance list hidden
+ * behind the Human Tasks tab) can never keep writing to the store.
+ */
+let pollLoopAbort: AbortController | null = null;
+
+/**
+ * True when `instanceId`'s loop no longer owns the store's instance-scoped
+ * fields: the user switched to another tab, or the interaction machine now
+ * tracks another instance. A stale loop must not write anything.
+ */
+function isStaleRound(instanceId: string): boolean {
+  const { activeTabId, interaction } = useQuickRunStore.getState();
+  if (activeTabId !== instanceId) return true;
+  return interaction.kind !== 'idle' && interaction.instanceId !== instanceId;
+}
+
+/**
+ * The poll loop behind `useQuickRunPolling().pollState` — module-level (not
+ * a hook closure) so it shares `pollLoopAbort` across hook instances and can
+ * be unit-tested with a mocked `QuickRunApi`.
+ */
+export async function runPollLoop(params: PollParams, config: PollingConfig): Promise<StateResponse | null> {
+  pollLoopAbort?.abort();
+  const controller = new AbortController();
+  pollLoopAbort = controller;
+
+  const {
+    setActiveState,
+    setLastStateResponse,
+    patchActiveState,
+    setActiveStateLoading,
+    setActiveStateError,
+    updateInstanceState,
+    updateInstanceStatus,
+    setPollingInstanceId,
+    setStateView,
+    setStateViewLoading,
+    setStateViewError,
+    dispatchInteraction,
+    setEtag,
+  } = useQuickRunStore.getState();
+
+  setPollingInstanceId(params.instanceId);
+  setActiveStateLoading(true);
+  // Clear any prior poll error so the banner doesn't linger from
+  // a previous instance / round.
+  setActiveStateError(null);
+  // A poll while an acknowledge is pending (or right after resuming)
+  // keeps that phase (the reducer decides); any other phase becomes
+  // `polling`.
+  dispatchInteraction({ type: 'POLL_STARTED', instanceId: params.instanceId });
+  // `stateView` is intentionally left untouched when this instance
+  // already has a cached state ETag: this pollState call may be a
+  // second round on an already-rendered instance (e.g. re-polling
+  // after firing a transition), and a 304 further down means that
+  // cached view is still correct — clearing it here would flash the
+  // panel to empty before we even know the answer. When there is no
+  // cached ETag yet, a 304 is impossible on the very first attempt,
+  // so it's safe (and desirable) to prime the skeleton immediately:
+  // earlier this flag was only flipped on once the view fetch
+  // itself started, so users saw nothing during the (potentially
+  // long) initial `getState` round-trip. The flag is cleared on
+  // every terminal path below: poll failure, poll success with no
+  // view, abort, and inside `refreshViewAndData`'s view branch.
+  if (!useQuickRunStore.getState().etags.state) {
+    setStateView(null);
+    setStateViewError(false);
+    setStateViewLoading(true);
+  }
+
+  for (let attempt = 0; attempt < config.retryCount; attempt++) {
+    if (controller.signal.aborted) break;
+
+    // Read fresh on every attempt (not captured once before the loop)
+    // so a 304 on a later attempt echoes the ETag this same loop just
+    // captured on an earlier attempt.
+    const ifNoneMatch = useQuickRunStore.getState().etags.state;
+
+    let response;
+    try {
+      response = await QuickRunApi.getState({ ...params, ifNoneMatch });
+    } catch (err) {
+      if (controller.signal.aborted || isStaleRound(params.instanceId)) return null;
+      setActiveStateLoading(false);
+      setStateViewLoading(false);
+      setPollingInstanceId(null);
+      setActiveStateError({
+        code: 'THROWN',
+        message: err instanceof Error ? err.message : String(err),
+      });
+      return null;
+    }
+    if (controller.signal.aborted) break;
+    // Stale round (the user switched tabs, or the interaction machine
+    // tracks another instance): this loop no longer owns the store's
+    // instance-scoped fields — return before any write, ETag included.
+    if (isStaleRound(params.instanceId)) return null;
+
+    if (response.success) {
+      const stateData = response.data;
+
+      // Record the round before any branching. The busy branch below
+      // only patches `status`/`state` onto `activeState`, so this is the
+      // one place every response body — including the ones that never
+      // reach `activeState` — is kept for the Raw tab.
+      setLastStateResponse(stateData, stateData.notModified === true);
+
+      if (stateData.notModified) {
+        // 304: the upstream state is unchanged since our last ETag.
+        // No `status`/`interaction`/`state` fields are present on this
+        // payload, so terminal detection, ack, and view-selection must
+        // not run against it — treat this exactly like a non-advancing
+        // 'B' poll and keep the currently-cached activeState/stateView
+        // untouched, then retry on the next tick.
+        //
+        // View and Data are separate resources from State and must
+        // still refresh independently on this tick — a 304 on State
+        // says nothing about whether the instance's Data changed (Data
+        // has its own ETag) or, in the rare case a view is already
+        // eligible to render, whether its content changed (View has no
+        // ETag, so it's always fetched unconditionally and diffed
+        // client-side). `effectiveState` is the currently-cached
+        // activeState from a prior round, never the (absent) 304 body.
+        const effectiveState = useQuickRunStore.getState().activeState;
+        if (effectiveState && !controller.signal.aborted) {
+          // `pollingInstanceId` is set for the whole busy loop, so
+          // ContextPanel's own Data lazy-load is suppressed here —
+          // the loop is the sole Data source on this tick.
+          await refreshViewAndData(
+            params,
+            effectiveState,
+            { terminate: false, includeData: true },
+            controller.signal,
+          );
+        }
+
+        if (attempt < config.retryCount - 1) {
+          await sleep(config.intervalMs);
+        }
+        continue;
+      }
+
+      // Successful, non-304 response — capture the fresh ETag so the
+      // next attempt (or the next poll round) can conditionally request.
+      setEtag('state', extractEtag(stateData));
+
+      // We now know there is fresh state to show. If the pre-loop
+      // priming above was skipped (a cached ETag existed going in),
+      // this is the first point stale view content gets cleared —
+      // right as we confirm new data actually warrants it. When the
+      // priming above already ran, these are harmless no-ops.
+      setStateView(null);
+      setStateViewError(false);
+      setStateViewLoading(true);
+
+      // Every full response feeds the interaction machine; whether the
+      // loop stops comes from the resulting phase (controller ruling
+      // F1), never from the raw `interaction.terminateLongPoll` flag —
+      // a stale flag right after resuming must not stop it again.
+      const { stop: shouldStop, paused: terminate } = recordStateRound(params.instanceId, stateData);
+
+      if (stateData.status === 'B' && !shouldStop) {
+        patchActiveState({ status: stateData.status, state: stateData.state });
+        updateInstanceStatus(params.instanceId, stateData.status, stateData.state);
+      } else {
+        // Full state set on stop so transitions/view are available
+        // even when terminate fired while status was still 'B'.
+        setActiveState(stateData);
+        updateInstanceState(params.instanceId, stateData);
+      }
+
+      if (shouldStop) {
+        setActiveStateLoading(false);
+        setPollingInstanceId(null);
+
+        const canRenderView = shouldFetchView(stateData, { applyStatusGate: true, terminate });
+        if (!canRenderView) {
+          // Stop with no view to fetch — drop the loading flag now
+          // so the panel collapses cleanly. (When a view IS eligible,
+          // refreshViewAndData below owns the loading flag until its
+          // own response resolves.)
+          setStateViewLoading(false);
+        }
+        // Fire-and-forget, same as the previous inline view fetch
+        // this replaces — the return below must not wait on it.
+        // `includeData: false` here: `setActiveStateLoading(false)` +
+        // `setPollingInstanceId(null)` just above unblock
+        // ContextPanel's own Data lazy-load effects, so fetching Data
+        // from the loop on this exact tick would race a concurrent
+        // `getData` against ContextPanel's. Data at/after stop is
+        // ContextPanel's job; the loop already covered Data on every
+        // busy/304 tick leading up to this one.
+        void refreshViewAndData(params, stateData, { terminate, includeData: false }, controller.signal);
+
+        return stateData;
+      }
+
+      // Non-stop 200 (still busy): View/Data are independent resources
+      // and must refresh on this tick too. In practice `canRenderView`
+      // inside refreshViewAndData will be false here (busy states don't
+      // expose a view per the same status gate as above), so this is
+      // effectively a Data-only refresh during the busy phase — but it
+      // still runs the same shared, signal-guarded step for consistency.
+      if (!controller.signal.aborted) {
+        // `pollingInstanceId` is still set (this tick isn't stopping),
+        // so ContextPanel's Data lazy-load stays suppressed — the loop
+        // is the sole Data source here too.
+        await refreshViewAndData(params, stateData, { terminate, includeData: true }, controller.signal);
+      }
+
+      if (attempt < config.retryCount - 1) {
+        await sleep(config.intervalMs);
+      }
+    } else {
+      // Surface the engine-side failure so the user sees why polling
+      // stopped instead of staring at a quietly empty panel. (Staleness
+      // was already checked right after the response arrived.)
+      setActiveStateLoading(false);
+      setStateViewLoading(false);
+      setPollingInstanceId(null);
+      setActiveStateError({
+        code: response.error.code,
+        message: response.error.message,
+        details: response.error.details,
+      });
+      return null;
+    }
+  }
+
+  // Aborted (a newer loop or `cancelPolling` took over) or stale: the
+  // loading / polling flags belong to whoever owns the store now.
+  if (controller.signal.aborted || isStaleRound(params.instanceId)) return null;
+  setActiveStateLoading(false);
+  setStateViewLoading(false);
+  setPollingInstanceId(null);
+  return useQuickRunStore.getState().activeState;
+}
+
+/**
  * Feeds one full (non-304) State response to the interaction machine and
  * derives the poll decision from the resulting phase (controller rulings
  * F1/F8 — shared by `pollState` and `fetchInstanceState`):
@@ -520,6 +560,9 @@ async function refreshViewAndData(
   signal: AbortSignal,
 ): Promise<void> {
   const { terminate, includeData } = options;
+  // Besides `signal`, a tab switch makes this refresh stale — its View/Data
+  // must never land on the instance that is active by then.
+  const isStale = () => isStaleRound(params.instanceId);
   const base = {
     domain: params.domain,
     workflowKey: params.workflowKey,
@@ -535,12 +578,12 @@ async function refreshViewAndData(
         try {
           dataRes = await QuickRunApi.getData({ ...base, ifNoneMatch: etags.data });
         } catch {
-          if (signal.aborted) return;
+          if (signal.aborted || isStale()) return;
           setActiveData(null);
           setEtag('data', undefined);
           return;
         }
-        if (signal.aborted) return;
+        if (signal.aborted || isStale()) return;
 
         const outcome = decideDataOutcome(dataRes);
         if (outcome.kind === 'update') {
@@ -554,7 +597,7 @@ async function refreshViewAndData(
       })()
     : Promise.resolve();
 
-  const viewRefresh = fetchViewOnce({ base, effectiveState, signal, applyStatusGate: true, terminate });
+  const viewRefresh = fetchViewOnce({ base, effectiveState, signal, applyStatusGate: true, terminate, isStale });
 
   await Promise.all([dataRefresh, viewRefresh]);
 }

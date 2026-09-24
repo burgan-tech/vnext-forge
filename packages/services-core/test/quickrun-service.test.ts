@@ -112,6 +112,13 @@ describe('quickRunService.getTaskHistory', () => {
     const { service } = serviceWith({ status: 200, data: '{}' })
     expect(await service.getTaskHistory(ids)).toEqual({ items: [] })
   })
+
+  it('throws a runtime error on a non-2xx instead of reporting an empty history', async () => {
+    const { service } = serviceWith({ status: 404, data: JSON.stringify({ code: 'Function:100001' }) })
+    await expect(service.getTaskHistory(ids)).rejects.toMatchObject({
+      code: ERROR_CODES.RUNTIME_EXECUTION_FAILED,
+    })
+  })
 })
 
 describe('quickrunAuthorizeParams', () => {
