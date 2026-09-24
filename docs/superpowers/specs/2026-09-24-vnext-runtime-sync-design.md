@@ -83,6 +83,15 @@ Tests: fixture-driven — each vnext-example document using a new construct (`ti
 
 ## Phase B — QuickRunner
 
+### B0. Carry-overs from Phase A
+
+- Passive (`P`) is not handled by polling / `shouldFetchView` (`useQuickRunPolling.ts`, `shouldFetchView.ts`): treat it as terminal in B2.
+- `InstanceListPanel.openInstance` writes `displayStatus()` into `QuickRunInstance.status`, which also drives behaviour (retry button, active checks). Keep the raw `status` for behaviour and use the effective status for display only (B2/B5).
+- The Instance Details status row still shows raw `metadata.status`; show `effectiveStatus` alongside it (B5).
+- TS `InstanceType` should accept `null` (the zod schema already does) before B5 consumes `metadata.type`.
+- `IncidentSection` moves out of `InstanceDashboard.tsx` in B4; then drop the suite-wide `server.deps.inline` in `packages/designer-ui/vitest.config.ts`.
+- Read-only scheduled entries: add `aria-disabled` / a non-interactive role when B3 touches `AvailableTransitions`.
+
 ### B1. New RPC methods
 
 Each follows the rpc-method-policy: registry entry (params/result schema), `policy.ts` (`privileged`), `METHOD_HTTP_METADATA` + `MethodId`, `apps/server/src/api/v1/quickrun.routes.ts`, fixture + snapshot, `registry-contract.test.ts`, `QuickRunApi.ts` wrapper. Paths are rebuilt from identifiers (as `acknowledgeLongPoll` does), never by following server hrefs.
