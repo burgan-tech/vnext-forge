@@ -153,18 +153,18 @@ export const quickrunGetStateResult = z.object({
 
 // ── Acknowledge Long Poll ─────────────────────────────────────────────────────
 //
-// Fired silently when a State Function (LongPoll) response carries
-// `interaction.terminateLongPoll: true` plus an `interaction.ack`
-// descriptor. The endpoint is deterministic:
-//   POST /api/v1/<domain>/workflows/<flow>/instances/<instanceId>/longpoll/ack
-// so the service builds the path from the workflow identifiers rather
-// than trusting the engine-supplied href. Current request headers are
-// forwarded. The ack response is commonly 204/empty, so the result
-// only reports the HTTP status — no JSON body parsing.
+// Sent when the user acknowledges a paused long poll (state response carries
+// `interaction.terminateLongPoll: true`). The endpoint is deterministic:
+//   POST /api/v1/<domain>/workflows/<flow>/instances/<instanceId>/longpoll/ack?role=
+// so the service builds the path from the workflow identifiers rather than
+// trusting the engine-supplied href. `role` names which of the caller's roles
+// acknowledges (additive to the provider's roles). Idempotent: 200 when nothing
+// is pending. A non-2xx is thrown to the caller.
 
 export const quickrunAcknowledgeLongPollParams = z.object({
   ...workflowIdentifier,
   instanceId: z.string().min(1),
+  role: z.string().min(1).optional(),
   headers: headersSchema,
   runtimeUrl: z.string().optional(),
 })
@@ -172,6 +172,72 @@ export const quickrunAcknowledgeLongPollParams = z.object({
 export const quickrunAcknowledgeLongPollResult = z.object({
   ok: z.boolean(),
   status: z.number(),
+})
+
+// ── Authorize ─────────────────────────────────────────────────────────────────
+//
+//   GET /api/v1/<domain>/workflows/<flow>/instances/<id>/functions/authorize
+// The runtime's authorization oracle. Exactly one selector; the verdict is in
+// the body on BOTH 200 (`{"allowed":true}`) and 403 (`{"allowed":false}`).
+
+export const quickrunAuthorizeParams = z
+  .object({
+    ...workflowIdentifier,
+    instanceId: z.string().min(1),
+    transitionKey: z.string().min(1).optional(),
+    functionKey: z.string().min(1).optional(),
+    queryRoles: z.literal(true).optional(),
+    ack: z.literal(true).optional(),
+    /** Probe role: fallback for transition/function/queryRoles, additive for ack. */
+    role: z.string().min(1).optional(),
+    version: z.string().min(1).optional(),
+    headers: headersSchema,
+    runtimeUrl: z.string().optional(),
+  })
+  .refine(
+    (p) =>
+      [p.transitionKey !== undefined, p.functionKey !== undefined, p.queryRoles === true, p.ack === true]
+        .filter(Boolean).length === 1,
+    { message: 'Provide exactly one of transitionKey, functionKey, queryRoles or ack.' },
+  )
+
+export const quickrunAuthorizeResult = z.object({
+  allowed: z.boolean(),
+  /** 200 or 403. */
+  status: z.number().int(),
+})
+
+// ── Human Tasks ───────────────────────────────────────────────────────────────
+//
+//   GET /api/v1/<domain>/functions/human-task
+// Domain-level; the body is a bare JSON array, truncation is signalled by the
+// `X-VNext-HumanTask-Truncated` response header. `cacheOverride` sends
+// `X-VNext-Cache-Override: true` (forces a rebuild of the per-caller cache).
+
+export const quickrunGetHumanTasksParams = z.object({
+  domain: z.string().min(1),
+  cacheOverride: z.boolean().optional(),
+  headers: headersSchema,
+  runtimeUrl: z.string().optional(),
+})
+
+const humanTaskItemSchema = z
+  .object({
+    /** Business key of the ROOT instance (its own Id for a SubProcess). */
+    instanceId: z.string().nullable().optional(),
+    /** The root instance's own id — always unique. */
+    id: z.string(),
+    workflow: z.string().nullable().optional(),
+    /** From the LEAF instance's `humanTask.title`. */
+    title: z.string().nullable().optional(),
+    description: z.string().nullable().optional(),
+    createdAt: z.string(),
+  })
+  .passthrough()
+
+export const quickrunGetHumanTasksResult = z.object({
+  items: z.array(humanTaskItemSchema),
+  truncated: z.boolean(),
 })
 
 // ── Get Function Catalog ──────────────────────────────────────────────────────

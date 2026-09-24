@@ -141,6 +141,10 @@ import {
   quickrunGetActiveIncidentResult,
   quickrunGetTaskHistoryParams,
   quickrunGetTaskHistoryResult,
+  quickrunAuthorizeParams,
+  quickrunAuthorizeResult,
+  quickrunGetHumanTasksParams,
+  quickrunGetHumanTasksResult,
 } from '../services/quickrun/quickrun-schemas.js'
 import type { RuntimeProxyService } from '../services/runtime-proxy/runtime-proxy.service.js'
 import {
@@ -715,6 +719,18 @@ export function buildMethodRegistry(): MethodRegistry {
       resultSchema: quickrunGetTaskHistoryResult,
       handler: async (params, { quickRunService }, traceId) =>
         quickRunService.getTaskHistory(params, traceId),
+    },
+    'quickrun/authorize': {
+      paramsSchema: quickrunAuthorizeParams,
+      resultSchema: quickrunAuthorizeResult,
+      handler: async (params, { quickRunService }, traceId) =>
+        quickRunService.authorize(params, traceId),
+    },
+    'quickrun/getHumanTasks': {
+      paramsSchema: quickrunGetHumanTasksParams,
+      resultSchema: quickrunGetHumanTasksResult,
+      handler: async (params, { quickRunService }, traceId) =>
+        quickRunService.getHumanTasks(params, traceId),
     },
 
     // ── functions (Quick Runner) ─────────────────────────────────────────────

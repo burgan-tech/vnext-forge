@@ -35,6 +35,10 @@ import {
   quickrunGetActiveIncidentResult,
   quickrunGetTaskHistoryParams,
   quickrunGetTaskHistoryResult,
+  quickrunAuthorizeParams,
+  quickrunAuthorizeResult,
+  quickrunGetHumanTasksParams,
+  quickrunGetHumanTasksResult,
 } from './quickrun-schemas.js'
 
 type ProxyRequest = {
@@ -478,32 +482,32 @@ export function createQuickRunService(runtimeProxyService: RuntimeProxyService) 
   }
 
   /**
-   * Silently acknowledge a terminated long poll. The endpoint is
-   * deterministic — built from the workflow identifiers, not the
-   * engine-supplied href — and current request headers are forwarded:
+   * Acknowledge a paused long poll. The endpoint is deterministic — built
+   * from the workflow identifiers, not the engine-supplied href:
    *   POST /api/v1/<domain>/workflows/<flow>/instances/<instanceId>/longpoll/ack
-   * We only report the HTTP status. The ack response is commonly
-   * 204/empty, so we do NOT run `parseJsonResponse` here — a non-2xx
-   * status is surfaced via `ok: false` rather than thrown, since the
-   * caller treats ack failures as silent (logged client-side only).
+   * The response is commonly empty, so no JSON is parsed on success. A
+   * non-2xx is thrown so the QuickRunner can show why the acknowledge was
+   * refused.
    */
   async function acknowledgeLongPoll(
     params: z.infer<typeof quickrunAcknowledgeLongPollParams>,
     traceId?: string,
   ): Promise<z.infer<typeof quickrunAcknowledgeLongPollResult>> {
-    const base = buildBasePath(params.domain, params.workflowKey)
-
     const result = await proxyCall(
       {
         method: 'POST',
-        runtimePath: `${base}/instances/${params.instanceId}/longpoll/ack`,
+        runtimePath: `${instancePath(params.domain, params.workflowKey, params.instanceId)}/longpoll/ack`,
+        query: params.role ? { role: params.role } : undefined,
         headers: params.headers,
         runtimeUrl: params.runtimeUrl,
       },
       traceId,
     )
 
-    return { ok: result.status >= 200 && result.status < 300, status: result.status }
+    if (result.status < 200 || result.status >= 300) {
+      throw runtimeHttpError(result.data, result.status, 'QuickRunService.acknowledgeLongPoll', traceId)
+    }
+    return { ok: true, status: result.status }
   }
 
   /**
@@ -609,6 +613,81 @@ export function createQuickRunService(runtimeProxyService: RuntimeProxyService) 
     return { items: Array.isArray(parsed.items) ? parsed.items : [] } as z.infer<typeof quickrunGetTaskHistoryResult>
   }
 
+  async function authorize(
+    params: z.infer<typeof quickrunAuthorizeParams>,
+    traceId?: string,
+  ): Promise<z.infer<typeof quickrunAuthorizeResult>> {
+    const query: Record<string, string> = {}
+    if (params.transitionKey) query.transitionKey = params.transitionKey
+    if (params.functionKey) query.functionKey = params.functionKey
+    if (params.queryRoles) query.queryRoles = 'true'
+    if (params.ack) query.ack = 'true'
+    if (params.role) query.role = params.role
+    if (params.version) query.version = params.version
+
+    const result = await proxyCall(
+      {
+        method: 'GET',
+        runtimePath: `${instancePath(params.domain, params.workflowKey, params.instanceId)}/functions/authorize`,
+        query,
+        headers: params.headers,
+        runtimeUrl: params.runtimeUrl,
+      },
+      traceId,
+    )
+
+    if (result.status === 200 || result.status === 403) {
+      let allowed: unknown
+      try {
+        allowed = (JSON.parse(result.data) as Record<string, unknown> | null)?.allowed
+      } catch { /* handled below */ }
+      if (typeof allowed === 'boolean') return { allowed, status: result.status }
+      if (result.status === 403) {
+        // A 403 without a verdict came from somewhere else (e.g. a gateway).
+        throw runtimeHttpError(result.data, result.status, 'QuickRunService.authorize', traceId)
+      }
+      throw new VnextForgeError(
+        ERROR_CODES.RUNTIME_INVALID_RESPONSE,
+        'Authorize response has no boolean "allowed" field',
+        { source: 'QuickRunService.authorize', layer: 'infrastructure', details: { rawData: result.data.slice(0, 200) } },
+        traceId,
+      )
+    }
+    throw runtimeHttpError(result.data, result.status, 'QuickRunService.authorize', traceId)
+  }
+
+  async function getHumanTasks(
+    params: z.infer<typeof quickrunGetHumanTasksParams>,
+    traceId?: string,
+  ): Promise<z.infer<typeof quickrunGetHumanTasksResult>> {
+    const headers: Record<string, string> = { ...(params.headers ?? {}) }
+    if (params.cacheOverride) headers['X-VNext-Cache-Override'] = 'true'
+
+    const result = await proxyCall(
+      {
+        method: 'GET',
+        runtimePath: `/api/v1/${encodeURIComponent(params.domain)}/functions/human-task`,
+        headers: Object.keys(headers).length > 0 ? headers : undefined,
+        runtimeUrl: params.runtimeUrl,
+      },
+      traceId,
+    )
+
+    const parsed = parseJsonResponse<unknown>(result.data, result.status, 'QuickRunService.getHumanTasks', traceId)
+    if (!Array.isArray(parsed)) {
+      throw new VnextForgeError(
+        ERROR_CODES.RUNTIME_INVALID_RESPONSE,
+        'Human-task response is not a JSON array',
+        { source: 'QuickRunService.getHumanTasks', layer: 'infrastructure', details: { rawData: result.data.slice(0, 200) } },
+        traceId,
+      )
+    }
+    return {
+      items: parsed,
+      truncated: headerValue(result.responseHeaders, 'X-VNext-HumanTask-Truncated')?.toLowerCase() === 'true',
+    } as z.infer<typeof quickrunGetHumanTasksResult>
+  }
+
   return {
     startInstance,
     fireTransition,
@@ -626,6 +705,8 @@ export function createQuickRunService(runtimeProxyService: RuntimeProxyService) 
     getIncidents,
     getActiveIncident,
     getTaskHistory,
+    authorize,
+    getHumanTasks,
   }
 }
 

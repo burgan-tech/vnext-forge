@@ -1,0 +1,14 @@
+{
+  "params": {
+    "domain": "core",
+    "workflowKey": "authorization-chain-lab",
+    "instanceId": "5d2b0a3c-1e4f-4b6a-9c8d-7e6f5a4b3c2d",
+    "transitionKey": "approve",
+    "role": "chain.viewer",
+    "runtimeUrl": "http://localhost:4201"
+  },
+  "result": {
+    "allowed": false,
+    "status": 403
+  }
+}

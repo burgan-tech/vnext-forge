@@ -1,0 +1,20 @@
+{
+  "params": {
+    "domain": "core",
+    "cacheOverride": true,
+    "headers": { "role": "ht-approver", "x-roles": "ht-approver" }
+  },
+  "result": {
+    "items": [
+      {
+        "instanceId": "APP-2026-0001",
+        "id": "11111111-2222-3333-4444-555555555555",
+        "workflow": "ht-a",
+        "title": "Approve application",
+        "description": "Level C approval pending",
+        "createdAt": "2026-09-20T10:00:00Z"
+      }
+    ],
+    "truncated": false
+  }
+}
