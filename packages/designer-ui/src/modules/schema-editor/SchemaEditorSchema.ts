@@ -29,10 +29,15 @@ export const schemaEditorDocumentSchema = z
     domain: z.string().trim().min(1),
     flow: z.string().optional(),
     flowVersion: z.string().optional(),
-    type: z.string().optional(),
     tags: z.array(z.string()).optional(),
     attributes: z
       .object({
+        /**
+         * Free-text schema purpose (vnext-schema master). Only `master` permits
+         * `x-indexed`. Kept permissive here so a legacy file with a wrong type
+         * still opens for repair; the UI reads it via `readSchemaAttributesType`.
+         */
+        type: z.unknown().optional(),
         schema: schemaNodeSchema,
       })
       .passthrough()
@@ -89,4 +94,33 @@ export function assertSchemaEditorDocument(
   }
 
   return parsed.data;
+}
+
+/** The only `attributes.type` value that permits `x-indexed` (runtime + vnext-schema master). */
+export const MASTER_SCHEMA_TYPE = 'master';
+
+/** Suggestions for the free-text `attributes.type` combobox (D1). */
+export const SCHEMA_TYPE_SUGGESTIONS = [MASTER_SCHEMA_TYPE, 'schema', 'view', 'headers'] as const;
+
+/** `attributes.type` when it is a string, otherwise `undefined`. */
+export function readSchemaAttributesType(
+  json: Record<string, unknown> | null | undefined,
+): string | undefined {
+  const attributes = json?.attributes;
+  if (!attributes || typeof attributes !== 'object' || Array.isArray(attributes)) {
+    return undefined;
+  }
+  const type = (attributes as Record<string, unknown>).type;
+  return typeof type === 'string' ? type : undefined;
+}
+
+/** Write `attributes.type` on an Immer draft, creating `attributes` when missing. */
+export function setSchemaAttributesType(draft: Record<string, unknown>, value: string): void {
+  const current = draft.attributes;
+  const attributes =
+    current && typeof current === 'object' && !Array.isArray(current)
+      ? (current as Record<string, unknown>)
+      : {};
+  attributes.type = value;
+  draft.attributes = attributes;
 }

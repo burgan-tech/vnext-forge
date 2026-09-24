@@ -9,10 +9,13 @@ import {
 import { Field } from '../../../ui/Field';
 import { TagEditor } from '../../../ui/TagEditor';
 import {
+  readSchemaAttributesType,
   schemaMetadataFormSchema,
+  setSchemaAttributesType,
   type SchemaMetadataFormValues,
   toSchemaMetadataFormValues,
 } from '../SchemaEditorSchema';
+import { SchemaTypeField } from './SchemaTypeField';
 
 interface SchemaMetadataFormProps {
   json: Record<string, unknown>;
@@ -31,6 +34,7 @@ export function SchemaMetadataForm({ json, onChange }: SchemaMetadataFormProps) 
   const domainServerError = useFieldValidationError('domain');
   const flowServerError = useFieldValidationError('flow');
   const flowVersionServerError = useFieldValidationError('flowVersion');
+  const schemaTypeServerError = useFieldValidationError('attributes/type');
   const form = useForm<SchemaMetadataFormValues>({
     mode: 'onChange',
     defaultValues: toSchemaMetadataFormValues(json),
@@ -158,6 +162,11 @@ export function SchemaMetadataForm({ json, onChange }: SchemaMetadataFormProps) 
             aria-invalid={Boolean(form.formState.errors.flowVersion) || Boolean(flowVersionServerError)}
           />
         </Field>
+        <SchemaTypeField
+          value={readSchemaAttributesType(json) ?? ''}
+          errorMsg={schemaTypeServerError}
+          onCommit={(next) => onChange((draft) => setSchemaAttributesType(draft, next))}
+        />
       </div>
 
       <Controller
