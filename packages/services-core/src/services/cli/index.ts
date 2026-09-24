@@ -53,3 +53,4 @@ export {
   type DomainRegistrationPlan,
 } from './domain-registration-plan.js'
 export { findWfDomain, parseWfDomainList, type WfDomainEntry } from './wf-domain-list.js'
+export { parseWfIndexesGenerateOutput, type WfIndexesGenerateOutcome } from './wf-indexes-output.js'
