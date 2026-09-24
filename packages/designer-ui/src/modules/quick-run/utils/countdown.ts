@@ -14,3 +14,15 @@ export function formatCountdown(ms: number): string {
   if (m > 0) return `${m}m ${s}s`;
   return `${s}s`;
 }
+
+/**
+ * Label for an engine-scheduled instant (timeout, scheduled transition):
+ * `in 4m 10s` while in the future, `Settling…` once due (the runtime fires it
+ * shortly after), `null` when the value does not parse.
+ */
+export function scheduleCountdownLabel(executeAtUtc: string, nowMs: number): string | null {
+  const at = Date.parse(executeAtUtc);
+  if (Number.isNaN(at)) return null;
+  const left = at - nowMs;
+  return left > 0 ? `in ${formatCountdown(left)}` : 'Settling…';
+}

@@ -7,6 +7,7 @@ import type { IncidentEntry, InstanceDetailResponse, WorkflowBucketConfig } from
 import { normalizeIncident, type NormalizedIncident } from '../utils/incident';
 import { ResizableDialogShell } from '../../../ui/ResizableDialogShell';
 import { useInteractionDriver } from '../hooks/useInteractionDriver';
+import { useNow } from '../hooks/useNow';
 import { useQuickRunPolling } from '../hooks/useQuickRunPolling';
 import { useQuickRunStore } from '../store/quickRunStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
@@ -29,6 +30,7 @@ import { AvailableTransitions } from './AvailableTransitions';
 import { InstanceFunctions } from './InstanceFunctions';
 import { InteractionBanner } from './InteractionBanner';
 import { ProgressStepper } from './ProgressStepper';
+import { StateTimeoutChip } from './StateTimeoutChip';
 import { StatusBadge } from './StatusBadge';
 
 interface InstanceDashboardProps {
@@ -163,6 +165,10 @@ export function InstanceDashboard({ configRef, persistConfig, onOpenFunctionRun 
   );
 
   const interactionNow = useInteractionDriver(resumeAfterInteraction);
+  const hasScheduled = [...(activeState?.transitions ?? []), ...(activeState?.sharedTransitions ?? [])].some(
+    (t) => t.kind === 'scheduled',
+  );
+  const clockNow = useNow(activeState?.timeout || hasScheduled ? 1000 : null);
   const awaitingAck =
     interaction.kind === 'awaitingAck' && interaction.instanceId === activeTabId ? interaction : null;
 
@@ -407,16 +413,19 @@ export function InstanceDashboard({ configRef, persistConfig, onOpenFunctionRun 
 
       {/* Progress */}
       <section>
-        <ProgressStepper
-          currentStep={currentStep}
-          totalSteps={Math.max(totalSteps, 3)}
-          currentStateName={(() => {
-            const rawState = activeState?.state ?? activeInstance.currentState;
-            if (!rawState) return undefined;
-            return flowLabels?.states[rawState] ?? rawState;
-          })()}
-          stateType={activeState?.stateType}
-        />
+        <div className="flex flex-col gap-1.5">
+          <ProgressStepper
+            currentStep={currentStep}
+            totalSteps={Math.max(totalSteps, 3)}
+            currentStateName={(() => {
+              const rawState = activeState?.state ?? activeInstance.currentState;
+              if (!rawState) return undefined;
+              return flowLabels?.states[rawState] ?? rawState;
+            })()}
+            stateType={activeState?.stateType}
+          />
+          <StateTimeoutChip timeout={activeState?.timeout} nowMs={clockNow} />
+        </div>
       </section>
 
       {/* Status */}
@@ -550,6 +559,7 @@ export function InstanceDashboard({ configRef, persistConfig, onOpenFunctionRun 
         onManualClick={openManualTransitionDialog}
         disabled={activeStateLoading}
         lockedReason={awaitingAck ? 'Awaiting acknowledge' : undefined}
+        nowMs={clockNow}
       />
 
       {/* Functions reachable on this instance — only when the engine says so. */}

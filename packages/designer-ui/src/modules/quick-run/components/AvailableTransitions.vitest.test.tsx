@@ -74,3 +74,33 @@ describe('AvailableTransitions — locked while awaiting acknowledge', () => {
     expect(html).toContain('Awaiting acknowledge');
   });
 });
+
+describe('AvailableTransitions — scheduled countdown and annotations', () => {
+  const NOW = Date.parse('2026-09-30T12:00:00Z');
+  const renderScheduled = (executeAtUtc: string) =>
+    renderToStaticMarkup(
+      createElement(AvailableTransitions, {
+        transitions: [
+          { name: 'reminder', href: '/t/r', kind: 'scheduled', executeAtUtc, annotations: { 'ui/priority': 'high' } },
+        ],
+        sharedTransitions: [],
+        flowLabels: null,
+        onTransitionClick: noop,
+        showManual: false,
+        onManualClick: noop,
+        disabled: false,
+        nowMs: NOW,
+      }),
+    );
+
+  it('counts down and shows annotation chips on a non-interactive entry', () => {
+    const html = renderScheduled('2026-09-30T12:01:00Z');
+    expect(html).toContain('in 1m 0s');
+    expect(html).toContain('ui/priority');
+    expect(html).toContain('aria-disabled="true"');
+  });
+
+  it('says Settling… once executeAtUtc has passed', () => {
+    expect(renderScheduled('2026-09-30T11:00:00Z')).toContain('Settling…');
+  });
+});

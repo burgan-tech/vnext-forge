@@ -27,6 +27,8 @@
 import { useMemo } from 'react';
 
 import { type FlowLabelsMap, type TransitionInfo, TRANSITION_KINDS, type TransitionKind } from '../types/quickrun.types';
+import { scheduleCountdownLabel } from '../utils/countdown';
+import { AnnotationChips } from './AnnotationChips';
 import { kindStyle, resolveTransitionKind } from './transitionKindStyles';
 
 export interface AvailableTransitionsProps {
@@ -44,6 +46,8 @@ export interface AvailableTransitionsProps {
    * section title (e.g. "Awaiting acknowledge" while a long poll is paused).
    */
   lockedReason?: string;
+  /** Clock for scheduled-entry countdowns; defaults to render time. */
+  nowMs?: number;
 }
 
 interface NormalizedTransition {
@@ -60,6 +64,7 @@ export function AvailableTransitions({
   onManualClick,
   disabled,
   lockedReason,
+  nowMs,
 }: AvailableTransitionsProps) {
   // Merge + normalize kinds. Legacy responses without `kind` keep the
   // bucket they arrived in so the visual grouping doesn't suddenly
@@ -81,6 +86,7 @@ export function AvailableTransitions({
     })).filter((group) => group.items.length > 0 || (group.kind === 'stateTransition' && showManual));
   }, [transitions, sharedTransitions, showManual]);
   const locked = disabled || !!lockedReason;
+  const now = nowMs ?? Date.now();
 
   if (grouped.length === 0) return null;
 
@@ -107,17 +113,15 @@ export function AvailableTransitions({
             <div className="flex flex-wrap gap-2">
               {items.map(({ info }) =>
                 style.readOnly ? (
-                  <span
+                  <ScheduledEntry
                     key={`${kind}-${info.name}`}
+                    info={info}
+                    label={flowLabels?.transitions[info.name] ?? info.name}
                     className={style.buttonClass}
-                    title={style.description}
-                  >
-                    {style.glyph ? `${style.glyph} ` : ''}
-                    {flowLabels?.transitions[info.name] ?? info.name}
-                    {info.executeAtUtc && !Number.isNaN(Date.parse(info.executeAtUtc)) && (
-                      <span className="ml-1 opacity-70">· {new Date(info.executeAtUtc).toLocaleString()}</span>
-                    )}
-                  </span>
+                    description={style.description}
+                    glyph={style.glyph}
+                    nowMs={now}
+                  />
                 ) : (
                   <button
                     key={`${kind}-${info.name}`}
@@ -146,5 +150,37 @@ export function AvailableTransitions({
         );
       })}
     </section>
+  );
+}
+
+/** Engine-fired entry: not callable, so a non-interactive label with its countdown. */
+function ScheduledEntry({
+  info,
+  label,
+  className,
+  description,
+  glyph,
+  nowMs,
+}: {
+  info: TransitionInfo;
+  label: string;
+  className: string;
+  description: string;
+  glyph?: string;
+  nowMs: number;
+}) {
+  const countdown = info.executeAtUtc ? scheduleCountdownLabel(info.executeAtUtc, nowMs) : null;
+  const at = info.executeAtUtc ? Date.parse(info.executeAtUtc) : Number.NaN;
+  return (
+    <span
+      className={className}
+      title={Number.isNaN(at) ? description : `${description} — ${new Date(at).toLocaleString()}`}
+      aria-disabled="true"
+    >
+      {glyph ? `${glyph} ` : ''}
+      {label}
+      {countdown && <span className="ml-1 opacity-70">· {countdown}</span>}
+      <AnnotationChips annotations={info.annotations} className="ml-1" />
+    </span>
   );
 }
