@@ -40,6 +40,25 @@ import unreleasedWorkflowDefinition from './unreleased/workflow.master.js'
 
 export const UNRELEASED_SCHEMA_SOURCE = 'vnext-schema@ac42026'
 
+/**
+ * Recursively `Object.freeze`s an object graph in place. Used once at module
+ * load on the vendored schemas below so no consumer (Ajv, a caller mutating
+ * a "just to tweak one field" copy, …) can mutate the shared object that
+ * every stale-schema project receives from `patchRuntimeSyncSchema`.
+ */
+function deepFreeze<T>(value: T): T {
+  if (value !== null && typeof value === 'object' && !Object.isFrozen(value)) {
+    Object.freeze(value)
+    for (const key of Object.getOwnPropertyNames(value)) {
+      deepFreeze((value as Record<string, unknown>)[key])
+    }
+  }
+  return value
+}
+
+deepFreeze(unreleasedSchemaDefinition)
+deepFreeze(unreleasedWorkflowDefinition)
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value !== null && typeof value === 'object' && !Array.isArray(value)
     ? (value as Record<string, unknown>)

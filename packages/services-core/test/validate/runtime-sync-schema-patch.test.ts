@@ -42,6 +42,14 @@ describe('patchRuntimeSyncSchema — workflow', () => {
     expect(patchRuntimeSyncSchema('task', task)).toBe(task)
   })
 
+  it('returns a deep-frozen vendored schema (and still compiles with Ajv)', () => {
+    const patched = workflowSchema()
+    expect(Object.isFrozen(patched)).toBe(true)
+    expect(Object.isFrozen(patched.definitions)).toBe(true)
+    expect(Object.isFrozen((patched.definitions as Record<string, unknown>).longPoll)).toBe(true)
+    expect(() => compile(patched)).not.toThrow()
+  })
+
   it('is a no-op on a pre-0.0.52-era schema (marker definitions.availableInEntry absent)', () => {
     const original = installed.getSchema('workflow')!
     const derived = JSON.parse(JSON.stringify(original)) as Record<string, unknown>
