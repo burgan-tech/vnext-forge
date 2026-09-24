@@ -28,15 +28,12 @@ describe('resolveFieldPolicy — resourceLock visibility', () => {
 });
 
 describe('resolveFieldPolicy — availableIn visibility', () => {
-  it('is visible and required for a manual shared transition', () => {
-    const policy = resolveFieldPolicy('shared', TriggerType.Manual).availableIn;
-    expect(policy.visible).toBe(true);
-    expect(policy.required).toBe(true);
-  });
-
-  it('is hidden for scheduled and event shared transitions', () => {
-    expect(resolveFieldPolicy('shared', TriggerType.Scheduled).availableIn.visible).toBe(false);
-    expect(resolveFieldPolicy('shared', TriggerType.Event).availableIn.visible).toBe(false);
+  it('is visible but optional for manual, scheduled and event shared transitions', () => {
+    for (const triggerType of [TriggerType.Manual, TriggerType.Scheduled, TriggerType.Event]) {
+      const policy = resolveFieldPolicy('shared', triggerType).availableIn;
+      expect(policy.visible).toBe(true);
+      expect(policy.required).toBe(false);
+    }
   });
 
   it('is visible but optional for cancel, exit, and updateData transitions', () => {
