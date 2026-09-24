@@ -53,3 +53,15 @@ describe('resolveFieldPolicy — availableIn visibility', () => {
     expect(resolveFieldPolicy('start', TriggerType.Manual).availableIn.visible).toBe(false);
   });
 });
+
+describe('resolveFieldPolicy — annotations visibility', () => {
+  it('is hidden for the start transition (schema has no annotations there)', () => {
+    expect(resolveFieldPolicy('start', TriggerType.Manual).annotations.visible).toBe(false);
+  });
+
+  it('stays visible for every other transition kind', () => {
+    for (const kind of ['state', 'shared', 'cancel', 'exit', 'updateData'] as const) {
+      expect(resolveFieldPolicy(kind, TriggerType.Manual).annotations.visible).toBe(true);
+    }
+  });
+});

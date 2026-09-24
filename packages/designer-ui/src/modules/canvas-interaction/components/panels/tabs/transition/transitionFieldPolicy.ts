@@ -173,7 +173,9 @@ function startTransitionPolicy(): TransitionFieldPolicyMap {
     availableIn: HIDDEN,
     from: HIDDEN,
     _comment: HIDDEN,
-    annotations: VISIBLE_OPTIONAL,
+    // The start transition schema has `additionalProperties: false` and no
+    // `annotations`; existing values are left in the JSON untouched.
+    annotations: HIDDEN,
   };
 }
 
