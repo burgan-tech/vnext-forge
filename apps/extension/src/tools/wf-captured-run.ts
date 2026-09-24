@@ -1,6 +1,17 @@
 import { execFile } from 'node:child_process';
 
-import { buildChildEnv, DEFAULT_CHILD_PROCESS_ENV_ALLOWLIST, SAFE_SHELL_ARG } from '@vnext-forge-studio/services-core';
+import { buildChildEnv, DEFAULT_CHILD_PROCESS_ENV_ALLOWLIST } from '@vnext-forge-studio/services-core';
+
+/**
+ * `SAFE_SHELL_ARG` (services-core) tolerates `%`, `,` and `=` because it is
+ * shared with bash/zsh/pwsh quoting, where none of those are meta. On
+ * cmd.exe — the tokenizer `shell: true` hands argv to on win32 — `%` triggers
+ * variable expansion (`%PATH%`) even inside an unquoted token, and `,`/`=`
+ * are argument separators in cmd.exe's own parsing. `runWfCaptured` only ever
+ * spawns through cmd.exe on win32, so it refuses those here rather than
+ * relying on the POSIX-oriented allowlist.
+ */
+const WIN32_SAFE_SHELL_ARG = /^[A-Za-z0-9_/.:@+~-]+$/;
 
 /**
  * Captured (non-terminal) Workflow CLI run for commands whose result Forge must
@@ -55,7 +66,7 @@ export function runWfCaptured(
       // `shell: true` on Windows (the `.cmd` shim) hands argv to cmd.exe's own
       // tokenizer; an unquoted token outside this set could be reinterpreted
       // as a shell operator. Refuse rather than spawn.
-      const unsafeToken = argv.find((token) => !SAFE_SHELL_ARG.test(token));
+      const unsafeToken = argv.find((token) => !WIN32_SAFE_SHELL_ARG.test(token));
       if (unsafeToken !== undefined) {
         resolve({
           exitCode: null,

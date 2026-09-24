@@ -87,6 +87,27 @@ describe('runWfCaptured', () => {
     });
   });
 
+  it('rejects a token containing "%" on win32 without spawning (cmd.exe variable expansion)', async () => {
+    setPlatform('win32');
+    const exec = fakeExec(null, 'should not run');
+    const result = await runWfCaptured(['indexes', 'generate', '--flow', 'a%b'], { cwd: '/ws', timeoutMs: 1000 }, exec);
+    expect(exec).not.toHaveBeenCalled();
+    expect(result).toEqual({
+      exitCode: null,
+      stdout: '',
+      stderr: '',
+      errorMessage: '"a%b" is not a safe argument to pass to the Workflow CLI on Windows.',
+    });
+  });
+
+  it('accepts a token containing "%" on posix (shell: false, no cmd.exe tokenizer)', async () => {
+    setPlatform('linux');
+    const exec = fakeExec(null, 'ok');
+    const result = await runWfCaptured(['indexes', 'generate', '--flow', 'a%b'], { cwd: '/ws', timeoutMs: 1000 }, exec);
+    expect(exec).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({ exitCode: 0, stdout: 'ok', stderr: '' });
+  });
+
   it('spawns a safe argv on win32', async () => {
     setPlatform('win32');
     const exec = fakeExec(null, 'ok');
