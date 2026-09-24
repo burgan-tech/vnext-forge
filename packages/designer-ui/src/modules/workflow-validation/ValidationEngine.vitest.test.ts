@@ -76,3 +76,24 @@ describe('available-in-state-valid', () => {
     expect(availableInIssues({ cancel: { key: 'cancel', availableIn: [] } })).toEqual([]);
   });
 });
+
+describe('runtime-sync rules in validateWorkflow', () => {
+  it('reports a state-level SubProcess as an error on its node', () => {
+    const issues = validateWorkflow(
+      workflowWith({
+        states: [
+          { key: 'review', stateType: 1, transitions: [{ key: 'go', target: 'spawn' }] },
+          {
+            key: 'spawn',
+            stateType: 4,
+            subFlow: { type: 'P', process: { key: 'x', domain: 'core', version: '1.0.0', flow: 'sys-flows' } },
+            transitions: [{ key: 'done', target: 'done' }],
+          },
+          { key: 'done', stateType: 3, transitions: [] },
+        ],
+      }),
+    ).filter((issue) => issue.rule === 'subflow-state-subprocess');
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toMatchObject({ severity: 'error', nodeId: 'spawn' });
+  });
+});
