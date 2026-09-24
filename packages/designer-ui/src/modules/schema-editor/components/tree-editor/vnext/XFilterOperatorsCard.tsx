@@ -6,14 +6,16 @@ import { useSchemaEditorStore } from '../../../useSchemaEditorStore';
 import { useSchemaNode } from '../../../hooks/useSchemaNode';
 import { useVNextEnabled } from '../../../hooks/useVNextEnabled';
 import { VNextCardShell } from './VNextCardShell';
-import { FILTER_OPERATORS, mergeOperators, splitOperators, type FilterOperator } from './filterOperators';
+import {
+  FILTER_OPERATOR_CATEGORIES,
+  FILTER_OPERATORS,
+  mergeOperators,
+  splitOperators,
+  type FilterOperator,
+} from './filterOperators';
 
-const CATEGORIES = ['Equality', 'Comparison', 'Text', 'Membership'] as const;
-
-// Seed with the most common operator so the toggle-on state is
-// immediately valid (vocab allows empty array but it's semantically
-// equivalent to "not filterable" → users should toggle the whole
-// card off in that case).
+// Seed with the most common operator so the toggle-on state is immediately
+// valid (an empty list means "not filterable" — toggle the card off instead).
 const DEFAULT_VALUE = (): FilterOperator[] => ['eq'];
 
 interface XFilterOperatorsCardProps {
@@ -21,22 +23,22 @@ interface XFilterOperatorsCardProps {
 }
 
 /**
- * `x-filterOperators` lists the filter operators a tabular consumer
- * may apply to this field. Persisted shape: an array of strings drawn
- * from `eq | ne | gt | ge | lt | le | between | match | like |
- * startswith | endswith | in | nin`. Empty or absent → field is not
- * filterable.
+ * `x-filterOperators` lists the filter operators the runtime accepts for this
+ * field, in runtime spelling (`eq neq gt gte lt lte between contains startsWith
+ * endsWith in nin includes isNull`). Legacy spellings (`ge`, `like`, …) are shown
+ * as their runtime equivalent and rewritten only on the next user change; values
+ * Forge does not know are kept verbatim.
  */
 export function XFilterOperatorsCard({ pointer }: XFilterOperatorsCardProps) {
   const readOnly = useFormReadOnly();
   const { node } = useSchemaNode(pointer);
   const updateComponent = useSchemaEditorStore((s) => s.updateComponent);
   const { enabled, toggle } = useVNextEnabled(pointer, 'x-filterOperators', DEFAULT_VALUE);
-  const { known: value, unknown: preserved } = splitOperators(node?.['x-filterOperators']);
-  const selected = new Set(value);
+  const { known, unknown: preserved, legacy } = splitOperators(node?.['x-filterOperators']);
+  const selected = new Set<string>(known);
 
   function setOperator(op: FilterOperator, on: boolean): void {
-    const next = new Set(value);
+    const next = new Set<string>(known);
     if (on) next.add(op);
     else next.delete(op);
     updateComponent(setKeyword(pointer, 'x-filterOperators', mergeOperators(next, preserved)));
@@ -46,11 +48,11 @@ export function XFilterOperatorsCard({ pointer }: XFilterOperatorsCardProps) {
     <VNextCardShell
       xKey="x-filterOperators"
       title="Filter operators"
-      purpose="Operators a tabular consumer may apply to this field. Turn off the card to remove all operators (field becomes unfilterable)."
+      purpose="Operators the runtime accepts when instances are filtered by this field. Turn off the card to remove all operators (field becomes unfilterable)."
       enabled={enabled}
       onToggle={toggle}>
       <div className="space-y-2">
-        {CATEGORIES.map((category) => {
+        {FILTER_OPERATOR_CATEGORIES.map((category) => {
           const ops = FILTER_OPERATORS.filter((o) => o.category === category);
           return (
             <div key={category}>
@@ -93,6 +95,13 @@ export function XFilterOperatorsCard({ pointer }: XFilterOperatorsCardProps) {
           );
         })}
       </div>
+      {legacy.length > 0 && (
+        <p className="mt-2 text-[10px] text-muted-foreground">
+          Shown with runtime names:{' '}
+          <span className="font-mono">{legacy.map((l) => `${l.raw} → ${l.normalized}`).join(', ')}</span>.
+          They are saved with these names on your next change.
+        </p>
+      )}
       {preserved.length > 0 && (
         <p className="mt-2 text-[10px] text-muted-foreground">
           Also kept: <span className="font-mono">{preserved.join(', ')}</span>
