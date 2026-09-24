@@ -100,7 +100,7 @@ export function AvailableTransitions({
                   >
                     {style.glyph ? `${style.glyph} ` : ''}
                     {flowLabels?.transitions[info.name] ?? info.name}
-                    {info.executeAtUtc && (
+                    {info.executeAtUtc && !Number.isNaN(Date.parse(info.executeAtUtc)) && (
                       <span className="ml-1 opacity-70">· {new Date(info.executeAtUtc).toLocaleString()}</span>
                     )}
                   </span>

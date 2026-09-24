@@ -35,4 +35,21 @@ describe('AvailableTransitions — scheduled entries', () => {
     expect(html).toContain('reminder');
     expect(html).toContain('Scheduled');
   });
+
+  it('renders a malformed executeAtUtc without an "Invalid Date" suffix', () => {
+    const html = renderToStaticMarkup(
+      createElement(AvailableTransitions, {
+        transitions: [
+          { name: 'reminder', href: '/t/reminder', kind: 'scheduled', executeAtUtc: 'not-a-date' },
+        ],
+        sharedTransitions: [],
+        flowLabels: null,
+        onTransitionClick: noop,
+        showManual: false,
+        onManualClick: noop,
+        disabled: false,
+      }),
+    );
+    expect(html).not.toContain('Invalid Date');
+  });
 });
