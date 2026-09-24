@@ -6,6 +6,7 @@ import { useProjectStore } from '../../../../../store/useProjectStore';
 import { ChooseExistingVnextComponentDialog } from '../tabs/ChooseExistingTaskDialog';
 import { CreateNewComponentDialog } from '../tabs/CreateNewComponentDialog';
 import { OpenVnextComponentInModalButton } from '../../../../save-component/components/OpenVnextComponentInModalButton';
+import { MASTER_SCHEMA_TYPE } from '../../../../schema-editor/SchemaEditorSchema';
 import { MetadataSection } from './MetadataSection';
 
 export function WorkflowSchemaSection() {
@@ -107,6 +108,7 @@ export function WorkflowSchemaSection() {
         open={createOpen}
         onOpenChange={setCreateOpen}
         category="schemas"
+        schemaType={MASTER_SCHEMA_TYPE}
         onCreated={setSchema}
       />
     </MetadataSection>
