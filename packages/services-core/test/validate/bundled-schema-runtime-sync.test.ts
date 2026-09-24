@@ -5,12 +5,18 @@ import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { describe, expect, it } from 'vitest'
 
-import { patchRuntimeSyncSchema } from '../../src/services/validate/runtime-sync-schema-patch.js'
-
+/**
+ * The September 2026 runtime constructs (timeout annotations, expanded
+ * subFlow.overrides, long-poll roles/rule oneOf, free-text attributes.type,
+ * x-indexed rules) shipped in @burgan-tech/vnext-schema 0.0.54. Forge carried a
+ * local forward-port until that release; these tests now pin the bundled
+ * package itself so a future pin change cannot silently drop them.
+ */
 const require_ = createRequire(import.meta.url)
 const installed = require_('@burgan-tech/vnext-schema') as {
   getSchema(type: string): Record<string, unknown> | null
 }
+const installedVersion = (require_('@burgan-tech/vnext-schema/package.json') as { version: string }).version
 
 function compile(schema: Record<string, unknown>) {
   const opts = { strict: false, allErrors: true }
@@ -23,39 +29,20 @@ function fixture(name: string): unknown {
   return JSON.parse(readFileSync(new URL(`../fixtures/runtime-sync/${name}.json`, import.meta.url), 'utf8'))
 }
 
-const workflowSchema = () => patchRuntimeSyncSchema('workflow', installed.getSchema('workflow')!)
-const schemaSchema = () => patchRuntimeSyncSchema('schema', installed.getSchema('schema')!)
+const workflowSchema = () => installed.getSchema('workflow')!
+const schemaSchema = () => installed.getSchema('schema')!
 
-describe('patchRuntimeSyncSchema — workflow', () => {
-  it('replaces the stale installed workflow schema', () => {
-    const original = installed.getSchema('workflow')!
-    expect(patchRuntimeSyncSchema('workflow', original)).not.toBe(original)
+describe('bundled vnext-schema — workflow definition', () => {
+  it('is 0.0.54 or newer', () => {
+    const [major, minor, patch] = installedVersion.split('.').map(Number)
+    expect(major * 1e6 + minor * 1e3 + patch).toBeGreaterThanOrEqual(54)
   })
 
-  it('is a no-op once the schema already carries longPoll.rule', () => {
-    const patched = workflowSchema()
-    expect(patchRuntimeSyncSchema('workflow', patched)).toBe(patched)
-  })
-
-  it('leaves other component types untouched', () => {
-    const task = installed.getSchema('task')!
-    expect(patchRuntimeSyncSchema('task', task)).toBe(task)
-  })
-
-  it('returns a deep-frozen vendored schema (and still compiles with Ajv)', () => {
-    const patched = workflowSchema()
-    expect(Object.isFrozen(patched)).toBe(true)
-    expect(Object.isFrozen(patched.definitions)).toBe(true)
-    expect(Object.isFrozen((patched.definitions as Record<string, unknown>).longPoll)).toBe(true)
-    expect(() => compile(patched)).not.toThrow()
-  })
-
-  it('is a no-op on a pre-0.0.52-era schema (marker definitions.availableInEntry absent)', () => {
-    const original = installed.getSchema('workflow')!
-    const derived = JSON.parse(JSON.stringify(original)) as Record<string, unknown>
-    const definitions = derived.definitions as Record<string, unknown>
-    delete definitions.availableInEntry
-    expect(patchRuntimeSyncSchema('workflow', derived)).toBe(derived)
+  it('carries the long-poll rule arm and availableIn entries', () => {
+    const definitions = workflowSchema().definitions as Record<string, { properties?: Record<string, unknown> }>
+    expect(definitions.longPoll?.properties?.rule).toBeDefined()
+    expect(definitions.availableInEntry).toBeDefined()
+    expect(definitions.workflowTimeout?.properties?.annotations).toBeDefined()
   })
 
   it.each(['timeout-lab-root', 'subflow-override-lab-parent', 'subflow-override-lab-child'])(
@@ -78,7 +65,7 @@ describe('patchRuntimeSyncSchema — workflow', () => {
   })
 })
 
-describe('patchRuntimeSyncSchema — schema definition', () => {
+describe('bundled vnext-schema — schema definition', () => {
   const base = {
     key: 'order-master',
     version: '1.0.0',

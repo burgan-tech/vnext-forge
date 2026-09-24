@@ -24,17 +24,17 @@ function fixture(name: string): unknown {
   return JSON.parse(readFileSync(new URL(`../fixtures/runtime-sync/${name}.json`, import.meta.url), 'utf8'))
 }
 
-describe('createValidateService — runtime-sync forward-port wiring', () => {
+describe('createValidateService — serves the bundled 0.0.54 runtime-sync constructs', () => {
   const service = createValidateService({ schemaLoader, logger: noopLogger })
 
-  it('serves the forward-ported workflow schema (definitions.longPoll.properties.rule)', () => {
+  it('serves the workflow schema with the long-poll rule arm (definitions.longPoll.properties.rule)', () => {
     const workflow = service.getAllSchemas().workflow as {
       definitions?: { longPoll?: { properties?: Record<string, unknown> } }
     }
     expect(workflow?.definitions?.longPoll?.properties?.rule).toBeDefined()
   })
 
-  it('serves the forward-ported schema definition (no enum on attributes.type)', () => {
+  it('serves the schema definition with a free-text attributes.type (no enum on attributes.type)', () => {
     const schemaDef = service.getSchema('schema') as {
       properties?: { attributes?: { properties?: { type?: { enum?: unknown } } } }
     }

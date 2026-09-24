@@ -1,10 +1,9 @@
 /**
  * Published `@burgan-tech/vnext-schema` releases at or below `0.0.53` restrict
  * `attributes.type` to a fixed enum. Free text (including our `master`
- * default) only exists in the unreleased master branch. A project pinned to
- * one of those older releases will pass Forge's own (forward-ported)
- * validation but fail that project's own `npm run validate` for any value
- * outside the legacy enum.
+ * default) arrived in 0.0.54. A project pinned to one of those older releases
+ * fails both Forge's pinned-version validation and its own `npm run validate`
+ * for any value outside the legacy enum, so the hint tells the user to upgrade.
  *
  * This module is a small pure helper (no I/O) so the version comparison and
  * message wording can be unit tested without rendering.

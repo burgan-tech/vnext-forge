@@ -14,7 +14,7 @@ const logger = {
   error: () => undefined,
 } as unknown as LoggerAdapter
 
-/** A pre-ac42026 schema definition: `attributes.type` is still a closed enum. */
+/** A pre-0.0.54 schema definition: `attributes.type` is still a closed enum. */
 const staleSchemaDefinition = {
   properties: { attributes: { properties: { type: { type: 'string', enum: ['workflow', 'schema'] } } } },
 }
@@ -29,7 +29,7 @@ function cache(resolve: SchemaCacheService['resolve']): SchemaCacheService {
 }
 
 describe('getAllSchemasVersioned', () => {
-  it('serves the pinned package, with the forward-port applied', async () => {
+  it('serves the pinned package as published (no forward-port since 0.0.54)', async () => {
     const resolve = vi.fn(() => Promise.resolve({ module: pinnedModule, version: '0.0.40', fromBundle: false }))
     const service = createValidateService({ schemaLoader, logger, schemaCacheService: cache(resolve) })
 
@@ -39,7 +39,9 @@ describe('getAllSchemasVersioned', () => {
     expect(Object.keys(schemas)).toEqual(['schema'])
     const type = (schemas.schema as { properties: { attributes: { properties: { type: { enum?: unknown } } } } })
       .properties.attributes.properties.type
-    expect(type.enum).toBeUndefined()
+    // A project pinned below 0.0.54 is validated exactly as its own
+    // `npm run validate` would validate it.
+    expect(type.enum).toEqual(['workflow', 'schema'])
   })
 
   it('serves the bundled package without a version', async () => {
