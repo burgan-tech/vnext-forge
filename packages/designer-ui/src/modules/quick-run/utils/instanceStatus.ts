@@ -17,3 +17,11 @@ export function isActiveStatus(s: InstanceStatus): boolean {
 export function isInactiveStatus(s: InstanceStatus): boolean {
   return s === 'C' || s === 'F' || s === 'P';
 }
+
+/**
+ * The poll loop stops on every status except Busy: Active waits for the user,
+ * Completed / Faulted / Passive are terminal.
+ */
+export function stopsPolling(s: InstanceStatus): boolean {
+  return s !== 'B';
+}

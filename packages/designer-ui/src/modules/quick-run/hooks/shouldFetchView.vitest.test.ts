@@ -41,4 +41,8 @@ describe('shouldFetchView', () => {
     expect(shouldFetchView(stateA, { applyStatusGate: true })).toBe(true);
     expect(shouldFetchView(stateC, { applyStatusGate: true })).toBe(true);
   });
+
+  it('applyStatusGate: true accepts Passive (P) like a terminal status', () => {
+    expect(shouldFetchView({ ...withView, status: 'P' }, { applyStatusGate: true })).toBe(true);
+  });
 });
