@@ -166,10 +166,17 @@ export function buildWfIndexesGenerateArgv(spec: WfIndexesGenerateSpec): string[
 }
 
 /**
- * A shell-safe token on bash/zsh/pwsh (and, unquoted, on cmd.exe). Exported so
- * callers that must spawn through `shell: true` (Windows `.cmd` shims, e.g.
- * `runWfCaptured`) can refuse an argv token that would need quoting instead of
- * spawning it.
+ * A conservative allowlist for a bare (unquoted) shell token — safe on
+ * bash/zsh/pwsh without quoting. It is *not* a claim that every character here
+ * (`%`, `,`, `=`) is inert on cmd.exe specifically (`%` triggers cmd.exe
+ * variable expansion, for one); `quoteShellArg` below only relies on this
+ * matching common, already-restricted values (flow keys, domain names, our
+ * own subcommand literals), never arbitrary user text. Exported so callers
+ * that must spawn through `shell: true` (Windows `.cmd` shims, e.g.
+ * `runWfCaptured`) can refuse an argv token outside this set instead of
+ * spawning it — `runWfCaptured` itself only ever sees flow keys already
+ * restricted by `WF_FLOW_KEY_PATTERN`, so this is a second, defense-in-depth
+ * check, not the primary validation.
  */
 export const SAFE_SHELL_ARG = /^[A-Za-z0-9_/.:@%+=,~-]+$/
 

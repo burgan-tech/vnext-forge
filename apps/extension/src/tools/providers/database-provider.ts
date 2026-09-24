@@ -93,6 +93,10 @@ export class DatabaseProvider implements vscode.TreeDataProvider<DatabaseNodeId>
   }
 
   async generateIndexSql(scope: 'all' | 'flow'): Promise<void> {
+    if (this.running) {
+      void vscode.window.showInformationMessage('vnext-forge-studio: Index SQL generation is already running.');
+      return;
+    }
     const info = await this.deps.wfCli.get();
     if (!info.installed) {
       const action = await vscode.window.showWarningMessage(
@@ -245,8 +249,17 @@ export class DatabaseProvider implements vscode.TreeDataProvider<DatabaseNodeId>
 
     const outcome = parseWfIndexesGenerateOutput(result.stdout, result.stderr);
     if (result.exitCode !== 0 || outcome.kind !== 'generated') {
+      // `runWfCaptured` fills `errorMessage` with the raw (possibly
+      // ANSI/multi-line) stderr on any non-zero exit, but a normal CLI failure
+      // already has a clean, parsed message in `outcome` — prefer that one. Only
+      // when the process never produced an exit code (spawn failure, timeout)
+      // is `errorMessage` the more specific explanation.
       const message =
-        result.errorMessage ?? (outcome.kind === 'failed' ? outcome.message : 'The Workflow CLI reported an error.');
+        result.exitCode === null
+          ? (result.errorMessage ?? (outcome.kind === 'failed' ? outcome.message : 'The Workflow CLI reported an error.'))
+          : (outcome.kind === 'failed'
+              ? outcome.message
+              : (result.errorMessage ?? 'The Workflow CLI reported an error.'));
       const action = await vscode.window.showErrorMessage(
         `vnext-forge-studio: Index SQL generation failed: ${message}`,
         SHOW_OUTPUT,
