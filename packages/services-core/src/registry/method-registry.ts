@@ -601,7 +601,10 @@ export function buildMethodRegistry(): MethodRegistry {
     'validate/getAllSchemas': {
       paramsSchema: validateGetAllSchemasParams,
       resultSchema: validateGetAllSchemasResult,
-      handler: async (_p, { validateService }) => validateService.getAllSchemas(),
+      // Monaco asks with the project's `schemaVersion` so editor diagnostics
+      // match save-time validation; omitted → bundled package.
+      handler: async ({ schemaVersion }, { validateService }) =>
+        validateService.getAllSchemasVersioned(schemaVersion),
     },
     'validate/getSchema': {
       paramsSchema: validateGetSchemaParams,

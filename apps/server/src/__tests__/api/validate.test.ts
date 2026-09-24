@@ -91,4 +91,30 @@ describe('API v1 validate routes', () => {
     const body = (await res.json()) as { error: { code: string } };
     expect(body.error.code).toBe(ERROR_CODES.API_BAD_REQUEST);
   });
+
+  it('forwards schemaVersion from the query to getAllSchemasVersioned', async () => {
+    const getAllSchemasVersioned = vi.fn(() => Promise.resolve({ schema: { type: 'object' } }));
+    const services = {
+      ...emptyServices,
+      validateService: {
+        getAvailableTypes: vi.fn(),
+        validate: vi.fn(),
+        validateComponent: vi.fn(),
+        getAllSchemas: vi.fn(),
+        getAllSchemasVersioned,
+        getSchema: vi.fn(),
+      },
+    } as unknown as ServiceRegistry;
+
+    const app = buildTestApp(services);
+    const res = await app.request('/api/v1/validate/getAllSchemas?schemaVersion=0.0.53');
+    expect(res.status).toBe(200);
+    expect(getAllSchemasVersioned).toHaveBeenCalledWith('0.0.53');
+    const body = (await res.json()) as { success: boolean; data: unknown };
+    expect(body.data).toEqual({ schema: { type: 'object' } });
+
+    const bundled = await app.request('/api/v1/validate/getAllSchemas');
+    expect(bundled.status).toBe(200);
+    expect(getAllSchemasVersioned).toHaveBeenLastCalledWith(undefined);
+  });
 });
