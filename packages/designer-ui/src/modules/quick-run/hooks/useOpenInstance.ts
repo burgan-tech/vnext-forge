@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 
+import { quickRunHeadersFromState } from '../pseudo-ui/mergeQuickRunHeaders';
 import { useQuickRunStore } from '../store/quickRunStore';
 import type { OpenInstanceTarget } from '../utils/instanceTarget';
 import { useQuickRunPolling } from './useQuickRunPolling';
@@ -10,7 +11,6 @@ export function useOpenInstance(): (target: OpenInstanceTarget) => void {
   const setActiveTab = useQuickRunStore((s) => s.setActiveTab);
   const addInstance = useQuickRunStore((s) => s.addInstance);
   const addTab = useQuickRunStore((s) => s.addTab);
-  const globalHeaders = useQuickRunStore((s) => s.globalHeaders);
   const environmentName = useQuickRunStore((s) => s.environmentName);
   const environmentUrl = useQuickRunStore((s) => s.environmentUrl);
   const pollingConfig = useQuickRunStore((s) => s.pollingConfig);
@@ -44,10 +44,11 @@ export function useOpenInstance(): (target: OpenInstanceTarget) => void {
         domain: target.domain,
         workflowKey: target.workflowKey,
         instanceId: target.id,
-        headers: globalHeaders,
+        // The shared Quick Run header rule, read live (tool-wide < global < session).
+        headers: quickRunHeadersFromState(useQuickRunStore.getState()),
         runtimeUrl: environmentUrl,
       });
     },
-    [instances, setActiveTab, addInstance, addTab, environmentName, environmentUrl, globalHeaders, pollState],
+    [instances, setActiveTab, addInstance, addTab, environmentName, environmentUrl, pollState],
   );
 }

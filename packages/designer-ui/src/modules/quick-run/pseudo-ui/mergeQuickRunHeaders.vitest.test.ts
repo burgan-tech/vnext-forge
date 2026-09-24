@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { mergeQuickRunHeaders } from './mergeQuickRunHeaders';
+import { mergeQuickRunHeaders, quickRunHeadersFromState } from './mergeQuickRunHeaders';
 import type { WorkflowBucketConfig } from '../QuickRunApi';
 
 function makeConfig(globalHeaders: Record<string, string>): WorkflowBucketConfig {
@@ -72,5 +72,17 @@ describe('mergeQuickRunHeaders — tool-wide layer', () => {
   it('is unchanged when no tool-wide headers are supplied', () => {
     expect(mergeQuickRunHeaders({ globalHeaders: { a: '1' } } as never, { b: '2' }))
       .toEqual({ a: '1', b: '2' });
+  });
+});
+
+describe('quickRunHeadersFromState', () => {
+  it('applies the same rule over the store slices: tool-wide < global < session', () => {
+    expect(
+      quickRunHeadersFromState({
+        toolWideHeaders: { a: 'tool', b: 'tool', c: 'tool' },
+        globalHeaders: { b: 'global', c: 'global' },
+        sessionHeaders: { c: 'session' },
+      }),
+    ).toEqual({ a: 'tool', b: 'global', c: 'session' });
   });
 });

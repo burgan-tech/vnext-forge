@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { extractEtag } from '../etagFromResponse';
+import { quickRunHeadersFromState } from '../pseudo-ui/mergeQuickRunHeaders';
 import * as QuickRunApi from '../QuickRunApi';
 import { useQuickRunStore } from '../store/quickRunStore';
 import {
@@ -37,6 +38,8 @@ export function ContextPanel({ onOpenSubFlowTarget }: ContextPanelProps) {
   const domain = useQuickRunStore((s) => s.domain);
   const workflowKey = useQuickRunStore((s) => s.workflowKey);
   const globalHeaders = useQuickRunStore((s) => s.globalHeaders);
+  const sessionHeaders = useQuickRunStore((s) => s.sessionHeaders);
+  const toolWideHeaders = useQuickRunStore((s) => s.toolWideHeaders);
   const environmentUrl = useQuickRunStore((s) => s.environmentUrl);
   const activeState = useQuickRunStore((s) => s.activeState);
   const activeStateLoading = useQuickRunStore((s) => s.activeStateLoading);
@@ -107,13 +110,28 @@ export function ContextPanel({ onOpenSubFlowTarget }: ContextPanelProps) {
     setActiveHistoryLoading(false);
   }, [activeTabId, domain, workflowKey, globalHeaders, environmentUrl, setActiveHistory, setActiveHistoryLoading]);
 
+  // The shared Quick Run header rule (tool-wide < global < session).
+  const taskHeaders = useMemo(
+    () => quickRunHeadersFromState({ globalHeaders, sessionHeaders, toolWideHeaders }),
+    [globalHeaders, sessionHeaders, toolWideHeaders],
+  );
+  // Bumped per Tasks load: a load superseded by a newer one, or whose
+  // instance is no longer active, must not write its result, error or
+  // loading flag.
+  const taskLoadSeqRef = useRef(0);
+
   const loadTasks = useCallback(async () => {
     if (!activeTabId || !domain || !workflowKey) return;
+    const seq = ++taskLoadSeqRef.current;
+    const instanceId = activeTabId;
+    const isCurrent = () =>
+      taskLoadSeqRef.current === seq && useQuickRunStore.getState().activeTabId === instanceId;
     const store = useQuickRunStore.getState();
     store.setActiveTaskHistoryLoading(true);
+    store.setActiveTaskHistoryError(null);
     try {
-      const response = await QuickRunApi.getTaskHistory({ domain, workflowKey, instanceId: activeTabId, headers: globalHeaders, runtimeUrl: environmentUrl });
-      if (useQuickRunStore.getState().activeTabId !== activeTabId) return;
+      const response = await QuickRunApi.getTaskHistory({ domain, workflowKey, instanceId, headers: taskHeaders, runtimeUrl: environmentUrl });
+      if (!isCurrent()) return;
       if (response.success) {
         store.setActiveTaskHistory(response.data.items);
         store.setActiveTaskHistoryError(null);
@@ -121,11 +139,12 @@ export function ContextPanel({ onOpenSubFlowTarget }: ContextPanelProps) {
         store.setActiveTaskHistoryError(response.error);
       }
     } catch (err) {
+      if (!isCurrent()) return;
       store.setActiveTaskHistoryError({ code: 'THROWN', message: err instanceof Error ? err.message : String(err) });
     } finally {
-      useQuickRunStore.getState().setActiveTaskHistoryLoading(false);
+      if (isCurrent()) useQuickRunStore.getState().setActiveTaskHistoryLoading(false);
     }
-  }, [activeTabId, domain, workflowKey, globalHeaders, environmentUrl]);
+  }, [activeTabId, domain, workflowKey, taskHeaders, environmentUrl]);
 
   useEffect(() => {
     if (!activeTabId || pollingInstanceId) return;

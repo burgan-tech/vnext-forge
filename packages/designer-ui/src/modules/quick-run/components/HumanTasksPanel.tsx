@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useWorkflowFileResolver } from '../../vnext-workspace/resolveWorkflowFileByKey';
 import { useOpenInstance } from '../hooks/useOpenInstance';
+import { quickRunHeadersFromState } from '../pseudo-ui/mergeQuickRunHeaders';
 import * as QuickRunApi from '../QuickRunApi';
 import { useQuickRunStore } from '../store/quickRunStore';
 import type { HumanTaskItem, OpenSubFlowTarget } from '../types/quickrun.types';
@@ -18,12 +19,17 @@ export function HumanTasksPanel({ onOpenSubFlowTarget }: { onOpenSubFlowTarget?:
   const domain = useQuickRunStore((s) => s.domain);
   const workflowKey = useQuickRunStore((s) => s.workflowKey);
   const globalHeaders = useQuickRunStore((s) => s.globalHeaders);
+  const sessionHeaders = useQuickRunStore((s) => s.sessionHeaders);
   const toolWideHeaders = useQuickRunStore((s) => s.toolWideHeaders);
   const environmentUrl = useQuickRunStore((s) => s.environmentUrl);
   const openInstance = useOpenInstance();
   const resolveWorkflowFile = useWorkflowFileResolver();
 
-  const baseHeaders = useMemo(() => ({ ...toolWideHeaders, ...globalHeaders }), [toolWideHeaders, globalHeaders]);
+  // The shared Quick Run header rule (tool-wide < global < session).
+  const baseHeaders = useMemo(
+    () => quickRunHeadersFromState({ globalHeaders, sessionHeaders, toolWideHeaders }),
+    [globalHeaders, sessionHeaders, toolWideHeaders],
+  );
   const [role, setRole] = useState(() => currentRoleFromHeaders(baseHeaders) ?? '');
   const [cacheOverride, setCacheOverride] = useState(false);
   const [rows, setRows] = useState<HumanTaskItem[]>([]);

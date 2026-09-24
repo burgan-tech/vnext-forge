@@ -20,7 +20,7 @@ import type { WorkflowBucketConfig } from '../QuickRunApi';
  * flow-start. Anything that talks to the engine goes through here.
  */
 export function mergeQuickRunHeaders(
-  bucketConfig: WorkflowBucketConfig | null | undefined,
+  bucketConfig: Pick<WorkflowBucketConfig, 'globalHeaders'> | null | undefined,
   sessionHeaders: Record<string, string> | undefined,
   extra?: Record<string, string>,
   toolWide?: Record<string, string>,
@@ -31,4 +31,17 @@ export function mergeQuickRunHeaders(
     ...(sessionHeaders ?? {}),
     ...(extra ?? {}),
   };
+}
+
+/**
+ * `mergeQuickRunHeaders` over the Quick Run store's header slices — for
+ * callers without a bucket-config ref (the store's `globalHeaders` mirrors
+ * the bucket config's). Pass `useQuickRunStore.getState()` for a live read.
+ */
+export function quickRunHeadersFromState(state: {
+  globalHeaders: Record<string, string>;
+  sessionHeaders: Record<string, string>;
+  toolWideHeaders: Record<string, string>;
+}): Record<string, string> {
+  return mergeQuickRunHeaders({ globalHeaders: state.globalHeaders }, state.sessionHeaders, undefined, state.toolWideHeaders);
 }

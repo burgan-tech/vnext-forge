@@ -22,10 +22,15 @@ export function currentRoleFromHeaders(headers?: Record<string, string>): string
   return first ?? undefined;
 }
 
-/** Headers with `role` and `x-roles` replaced by `role` (any existing spelling removed). */
+/**
+ * Headers with `role` and `x-roles` replaced by `role` (any existing spelling
+ * removed) — only once the user edited the role. While the input still equals
+ * the role derived from the headers, they go out untouched, so a multi-value
+ * `x-roles` is not collapsed to its first entry.
+ */
 export function withRoleHeaders(headers: Record<string, string>, role: string | undefined): Record<string, string> {
   const trimmed = role?.trim();
-  if (!trimmed) return { ...headers };
+  if (!trimmed || trimmed === currentRoleFromHeaders(headers)) return { ...headers };
   const out: Record<string, string> = {};
   for (const [key, value] of Object.entries(headers)) {
     const lower = key.toLowerCase();

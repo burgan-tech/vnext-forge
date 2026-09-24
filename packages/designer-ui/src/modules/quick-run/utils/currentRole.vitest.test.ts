@@ -29,4 +29,19 @@ describe('withRoleHeaders', () => {
   it('leaves the headers alone for an empty role', () => {
     expect(withRoleHeaders({ role: 'a' }, ' ')).toEqual({ role: 'a' });
   });
+
+  it('keeps a multi-value x-roles when the role was not edited', () => {
+    const headers = { 'X-Roles': 'viewer, admin', auth: 't' };
+    expect(withRoleHeaders(headers, 'viewer')).toEqual(headers);
+    expect(withRoleHeaders(headers, ' viewer ')).toEqual(headers);
+  });
+
+  it('keeps role + x-roles untouched when the role header already names the input', () => {
+    const headers = { role: 'approver', 'x-roles': 'approver,auditor' };
+    expect(withRoleHeaders(headers, 'approver')).toEqual(headers);
+  });
+
+  it('still collapses to the edited role once it differs from the headers', () => {
+    expect(withRoleHeaders({ 'x-roles': 'viewer,admin' }, 'admin')).toEqual({ role: 'admin', 'x-roles': 'admin' });
+  });
 });
