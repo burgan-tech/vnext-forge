@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  DEFAULT_FALLBACK_TIMEOUT_SECONDS,
   INITIAL_INTERACTION,
   interactionReducer,
   remainingMs,
@@ -152,9 +153,13 @@ describe('interactionReducer', () => {
       expect(shouldStopPolling(phase)).toBe(false);
     });
 
-    it('resumed + state changed (or status not B) → normal polling phase', () => {
+    it('resumed + state changed (or status not B) → normal polling phase, and a real new pause still opens a fresh ack window', () => {
       const resumed = run([paused(), { type: 'ACK_SUCCEEDED', instanceId: 'i1' }]);
 
+      // Leaving `resumed` on a state change must fall through to ordinary
+      // STATE_RECEIVED handling, not just to `polling` — a genuinely new
+      // pause in the next state has to reopen awaitingAck, or a client
+      // polling conditionally (If-None-Match/304) could miss it forever.
       const advanced = interactionReducer(resumed, {
         type: 'STATE_RECEIVED',
         instanceId: 'i1',
@@ -163,8 +168,17 @@ describe('interactionReducer', () => {
         interaction: { terminateLongPoll: true, ack: { href: '/ack' } },
         nowMs: 5_000,
       });
-      expect(advanced).toEqual({ kind: 'polling', instanceId: 'i1' });
-      expect(shouldStopPolling(advanced)).toBe(false);
+      expect(advanced).toEqual({
+        kind: 'awaitingAck',
+        instanceId: 'i1',
+        stateName: 's2',
+        deadlineMs: 5_000 + DEFAULT_FALLBACK_TIMEOUT_SECONDS * 1000,
+        fallbackTimeoutSeconds: DEFAULT_FALLBACK_TIMEOUT_SECONDS,
+        acking: false,
+        waitingForFallback: false,
+        error: null,
+      });
+      expect(shouldStopPolling(advanced)).toBe(true);
 
       const finished = interactionReducer(resumed, {
         type: 'STATE_RECEIVED',
@@ -175,6 +189,31 @@ describe('interactionReducer', () => {
       });
       expect(finished).toEqual({ kind: 'idle' });
       expect(shouldStopPolling(finished)).toBe(true);
+    });
+  });
+
+  describe('instance scoping (controller ruling)', () => {
+    it('ignores a stale STATE_RECEIVED for an instance the machine has moved away from', () => {
+      const switched: InteractionPhase = { kind: 'polling', instanceId: 'i2' };
+
+      const staleStatus = interactionReducer(switched, {
+        type: 'STATE_RECEIVED',
+        instanceId: 'i1',
+        state: 's1',
+        status: 'A',
+        nowMs: 1_000,
+      });
+      expect(staleStatus).toEqual({ kind: 'polling', instanceId: 'i2' });
+
+      const staleInteraction = interactionReducer(switched, {
+        type: 'STATE_RECEIVED',
+        instanceId: 'i1',
+        state: 's1',
+        status: 'B',
+        interaction: { terminateLongPoll: true, ack: { href: '/ack' } },
+        nowMs: 1_000,
+      });
+      expect(staleInteraction).toEqual({ kind: 'polling', instanceId: 'i2' });
     });
   });
 });

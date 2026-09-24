@@ -122,13 +122,20 @@ export function interactionReducer(phase: InteractionPhase, event: InteractionEv
     }
 
     case 'STATE_RECEIVED': {
+      // A response for an instance the machine has since moved away from
+      // (the user switched tabs/instances) is stale — ignore it entirely,
+      // interaction flag included, rather than let it steer the *new*
+      // instance's phase.
+      if (phase.kind !== 'idle' && phase.instanceId !== event.instanceId) return phase;
+
       const resumed = resumedFor(phase, event.instanceId);
-      if (resumed) {
-        // F1 guard: same state, still Busy → the fallback job's stale flag
-        // (or a plain still-busy poll) does not reopen awaitingAck or stop.
-        if (event.state === resumed.stateName && event.status === 'B') return resumed;
-        return pollingOrIdle(event.instanceId, event.status);
-      }
+      // F1 guard: same state, still Busy → the fallback job's stale flag (or
+      // a plain still-busy poll) does not reopen awaitingAck or stop. Once
+      // the state name changes or the status leaves B, the guard no longer
+      // applies and this falls through to ordinary STATE_RECEIVED handling
+      // below — a real new pause in the next state must still open a fresh
+      // awaitingAck, not be swallowed as "leaving resumed".
+      if (resumed?.stateName === event.state && event.status === 'B') return resumed;
 
       if (event.interaction?.terminateLongPoll === true) {
         const existing = awaitingFor(phase, event.instanceId);
