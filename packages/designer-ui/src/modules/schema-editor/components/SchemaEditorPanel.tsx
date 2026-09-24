@@ -5,6 +5,7 @@ import { Field } from '../../../ui/Field';
 import { JsonCodeField } from '../../../ui/JsonCodeField';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../ui/Card';
 import { ComponentValidationSummary } from '../../save-component/components/ComponentValidationSummary';
+import { IndexedTypeMismatchBanner } from './IndexedTypeMismatchBanner';
 import { SchemaMetadataForm } from './SchemaMetadataForm';
 import { SchemaTreeEditor } from './tree-editor/SchemaTreeEditor';
 import { ValidatePayloadCard } from './ValidatePayloadCard';
@@ -46,6 +47,8 @@ export function SchemaEditorPanel({ json, onChange }: SchemaEditorPanelProps) {
           </div>
         </CardContent>
       </Card>
+
+      <IndexedTypeMismatchBanner json={json} onChange={onChange} />
 
       <Card variant="default" className="gap-3">
         <CardHeader className="border-border border-b flex-row items-center">
