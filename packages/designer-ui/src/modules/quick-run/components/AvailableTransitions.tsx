@@ -91,18 +91,32 @@ export function AvailableTransitions({
               <span className="text-[10px] text-muted-text">{style.description}</span>
             </div>
             <div className="flex flex-wrap gap-2">
-              {items.map(({ info }) => (
-                <button
-                  key={`${kind}-${info.name}`}
-                  className={style.buttonClass}
-                  onClick={() => onTransitionClick(info)}
-                  disabled={disabled}
-                  title={style.description}
-                >
-                  {style.glyph ? `${style.glyph} ` : ''}
-                  {flowLabels?.transitions[info.name] ?? info.name}
-                </button>
-              ))}
+              {items.map(({ info }) =>
+                style.readOnly ? (
+                  <span
+                    key={`${kind}-${info.name}`}
+                    className={style.buttonClass}
+                    title={style.description}
+                  >
+                    {style.glyph ? `${style.glyph} ` : ''}
+                    {flowLabels?.transitions[info.name] ?? info.name}
+                    {info.executeAtUtc && (
+                      <span className="ml-1 opacity-70">· {new Date(info.executeAtUtc).toLocaleString()}</span>
+                    )}
+                  </span>
+                ) : (
+                  <button
+                    key={`${kind}-${info.name}`}
+                    className={style.buttonClass}
+                    onClick={() => onTransitionClick(info)}
+                    disabled={disabled}
+                    title={style.description}
+                  >
+                    {style.glyph ? `${style.glyph} ` : ''}
+                    {flowLabels?.transitions[info.name] ?? info.name}
+                  </button>
+                ),
+              )}
               {kind === 'stateTransition' && showManual && (
                 <button
                   className="rounded border border-dashed border-primary-border px-3 py-1.5 text-xs text-muted-text hover:border-primary-border-hover hover:text-foreground disabled:opacity-50"

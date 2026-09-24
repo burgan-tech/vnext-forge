@@ -24,6 +24,8 @@ export interface TransitionKindStyle {
   badgeClass: string;
   /** Optional leading glyph rendered before the label inside the button. */
   glyph?: string;
+  /** Engine-fired entry the client cannot call — rendered as a label, not a button. */
+  readOnly?: boolean;
 }
 
 /**
@@ -95,6 +97,7 @@ export const TRANSITION_KIND_STYLES: Record<TransitionKind, TransitionKindStyle>
       'rounded border border-dashed border-primary-border px-3 py-1.5 text-xs font-medium text-muted-text',
     badgeClass: 'bg-muted text-muted-text',
     glyph: '⏰',
+    readOnly: true,
   },
 };
 
