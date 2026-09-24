@@ -16,7 +16,7 @@ describe('packageDeployNodeIds', () => {
     expect(packageDeployNodeIds(WF_CLI_NOT_INSTALLED)).toEqual(['installWfCli']);
   });
 
-  it('appends the publish-completed info node for a CLI below 1.1.0', () => {
+  it('appends the publish-completed info node for a CLI below 1.0.14', () => {
     expect(packageDeployNodeIds(cli('1.0.13', false))).toEqual([
       'wfUpdateAll',
       'wfUpdate',
@@ -26,7 +26,7 @@ describe('packageDeployNodeIds', () => {
   });
 
   it('shows only the deploy actions for a current CLI', () => {
-    expect(packageDeployNodeIds(cli('1.1.0', true))).toEqual(['wfUpdateAll', 'wfUpdate', 'wfCsxAll']);
+    expect(packageDeployNodeIds(cli('1.0.14', true))).toEqual(['wfUpdateAll', 'wfUpdate', 'wfCsxAll']);
   });
 
   it('uses the spec wording for the notice', () => {

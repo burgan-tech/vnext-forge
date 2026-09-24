@@ -130,19 +130,20 @@ describe('buildWfShellCommand', () => {
 })
 
 describe('wfSupportsIndexes / wfSupportsPublishCompleted', () => {
-  it('uses one 1.1.0 floor for both features', () => {
-    expect(WF_INDEXES_MIN_VERSION).toBe('1.1.0')
+  it('uses one 1.0.14 floor for both features', () => {
+    expect(WF_INDEXES_MIN_VERSION).toBe('1.0.14')
     expect(WF_PUBLISH_COMPLETED_MIN_VERSION).toBe(WF_INDEXES_MIN_VERSION)
   })
 
-  it('accepts 1.1.0 and newer, rejects older and unknown', () => {
+  it('accepts 1.0.14 and newer, rejects older and unknown', () => {
     for (const gate of [wfSupportsIndexes, wfSupportsPublishCompleted]) {
+      expect(gate('1.0.14')).toBe(true)
+      expect(gate('v1.0.14')).toBe(true)
       expect(gate('1.1.0')).toBe(true)
-      expect(gate('v1.1.0')).toBe(true)
       expect(gate('wf 1.2.3\n')).toBe(true)
       expect(gate('2.0.0-beta.1')).toBe(true)
-      expect(gate('1.0.14')).toBe(false)
       expect(gate('1.0.13')).toBe(false)
+      expect(gate('1.0.9')).toBe(false)
       expect(gate(undefined)).toBe(false)
       expect(gate(null)).toBe(false)
       expect(gate('')).toBe(false)

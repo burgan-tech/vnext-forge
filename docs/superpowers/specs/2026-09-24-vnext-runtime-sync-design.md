@@ -219,11 +219,11 @@ Registered in `vnextCardRegistry` (`scope: 'property'`) and `RECOGNIZED_VNEXT_KE
 
 ## Phase E — Forge Tools
 
-1. `wf-argv.ts`: `{ base: 'indexes generate'; flow?; output?; retireObsolete? }` → `['indexes','generate', --flow k, -o dir, --retire-obsolete]`. Validate `flow` with `/^[a-zA-Z_][a-zA-Z0-9_-]*$/`, ≤ 63 chars. **Never** append `--domain` or use the `wf domain use` fallback for this command (CLI ignores it; command is offline). `WF_INDEXES_MIN_VERSION = '1.1.0'` (single constant; release branch not yet decided) and `wfSupportsIndexes()`.
-2. `wf-cli-probe.ts`: `supportsIndexes`, `supportsPublishCompleted` (≥ 1.1.0).
+1. `wf-argv.ts`: `{ base: 'indexes generate'; flow?; output?; retireObsolete? }` → `['indexes','generate', --flow k, -o dir, --retire-obsolete]`. Validate `flow` with `/^[a-zA-Z_][a-zA-Z0-9_-]*$/`, ≤ 63 chars. **Never** append `--domain` or use the `wf domain use` fallback for this command (CLI ignores it; command is offline). `WF_INDEXES_MIN_VERSION = '1.0.14'` (single constant; CLI 1.0.14 published 2026-09 with `wf indexes` and publish-completed) and `wfSupportsIndexes()`.
+2. `wf-cli-probe.ts`: `supportsIndexes`, `supportsPublishCompleted` (≥ 1.0.14).
 3. `WfCliUpgradeNotice` generalized to `(featureName, minVersion)`.
 4. New Tools tree group **Database**: "Generate Index SQL (all flows)", "Generate Index SQL for flow…" (quick-pick of local workflows); `--retire-obsolete` behind modal confirm; unsupported CLI → "Update Workflow CLI" node. Multi-domain: when the chosen solution is not `vnext.config.json`, warn that the CLI only processes the default solution. Run captured (no prompts), parse `Generated N SQL file(s): <path>`, reveal the batch folder and offer to open `README.txt`. Contributes entries in `apps/extension/package.json`, registration in `extension.ts`.
-5. Package Deploy: info node when CLI < 1.1.0 — "This CLI does not signal publish-completed; the runtime discovery cache may stay stale."
+5. Package Deploy: info node when CLI < 1.0.14 — "This CLI does not signal publish-completed; the runtime discovery cache may stay stale."
 
 ---
 
@@ -237,6 +237,6 @@ Registered in `vnextCardRegistry` (`scope: 'property'`) and `RECOGNIZED_VNEXT_KE
 ## Risks
 
 - **Schema drift:** vnext-schema may change again before release; the patch is isolated in one file and version-gated, and its fixtures fail loudly on drift.
-- **CLI version:** `wf indexes` may ship as 1.0.14 instead of 1.1.0 — one constant to change.
+- **CLI version:** resolved — `wf indexes` shipped in CLI 1.0.14; `WF_INDEXES_MIN_VERSION` set accordingly.
 - **Authorize badge cost:** one call per transition per role; opt-in and cached per eTag.
 - **Runtime version skew:** users on older runtimes (pre-2026-09-07) still send embedded incident content; `IncidentLinks` parsing must tolerate the old shape (treat as "has incident" without links).

@@ -23,11 +23,10 @@ export const WF_DOMAIN_FLAG_MIN_VERSION = '1.0.13'
 export const WF_DOMAIN_NAME_PATTERN = /^[A-Za-z0-9._-]+$/
 
 /**
- * First CLI release with `wf indexes generate` (offline attribute-index SQL).
- * The CLI release branch is not decided yet — if the command ships as 1.0.14,
- * this is the one literal to change.
+ * First CLI release with `wf indexes generate` (offline attribute-index SQL)
+ * and the publish-completed signal: vnext-workflow-cli 1.0.14 (npm, 2026-09).
  */
-export const WF_INDEXES_MIN_VERSION = '1.1.0'
+export const WF_INDEXES_MIN_VERSION = '1.0.14'
 
 /**
  * First CLI release that signals publish-completed after publishing (CLI

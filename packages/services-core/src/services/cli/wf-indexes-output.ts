@@ -1,7 +1,7 @@
 import { stripAnsi } from '../../lib/ansi.js'
 
 /**
- * Parser for the output of `wf indexes generate` (vnext-workflow-cli ≥ 1.1.0,
+ * Parser for the output of `wf indexes generate` (vnext-workflow-cli ≥ 1.0.14,
  * `src/commands/indexes.js`). The CLI prints through chalk:
  *   success → `  ✓ Generated <N> SQL file(s): <absolute batch folder>`
  *   failure → `  ✗ <message>` and exit code 1

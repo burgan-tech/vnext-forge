@@ -36,7 +36,7 @@ function solution(fileName: string, domain: string, ok = true): VnextSolutionFil
 
 const cli = (supportsIndexes: boolean): WfCliInfo => ({
   installed: true,
-  version: supportsIndexes ? '1.1.0' : '1.0.13',
+  version: supportsIndexes ? '1.0.14' : '1.0.13',
   supportsDomainFlag: true,
   supportsIndexes,
   supportsPublishCompleted: supportsIndexes,

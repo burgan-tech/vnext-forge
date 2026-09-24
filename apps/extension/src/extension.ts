@@ -365,7 +365,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     wfCli,
     wfCliUpgradeNotice,
   );
-  // Offline attribute-index SQL (`wf indexes generate`, CLI ≥ 1.1.0). Runs
+  // Offline attribute-index SQL (`wf indexes generate`, CLI ≥ 1.0.14). Runs
   // captured — no terminal — so the batch folder can be revealed afterwards.
   const databaseProvider = new DatabaseProvider({
     detector,

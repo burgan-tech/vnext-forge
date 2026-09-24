@@ -13,6 +13,13 @@ describe('WfCliProbe', () => {
       supportsIndexes: true,
       supportsPublishCompleted: true,
     });
+    expect(await new WfCliProbe(resolves('1.0.14')).get()).toEqual({
+      installed: true,
+      version: '1.0.14',
+      supportsDomainFlag: true,
+      supportsIndexes: true,
+      supportsPublishCompleted: true,
+    });
     expect(await new WfCliProbe(resolves('1.0.13')).get()).toEqual({
       installed: true,
       version: '1.0.13',

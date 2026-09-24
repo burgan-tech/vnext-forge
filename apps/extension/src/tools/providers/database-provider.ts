@@ -45,7 +45,7 @@ export interface DatabaseProviderDeps {
 
 /**
  * Forge Tools "Database" view: offline attribute-index SQL through
- * `wf indexes generate` (Workflow CLI ≥ 1.1.0). Decisions live in
+ * `wf indexes generate` (Workflow CLI ≥ 1.0.14). Decisions live in
  * `index-sql-plan.ts`; this class only renders nodes and drives the prompts.
  */
 export class DatabaseProvider implements vscode.TreeDataProvider<DatabaseNodeId>, vscode.Disposable {
@@ -81,7 +81,7 @@ export class DatabaseProvider implements vscode.TreeDataProvider<DatabaseNodeId>
         );
         // Controller ruling F2: spell out that the required version must be a
         // published release, not just a version string comparison detail.
-        item.tooltip = `${wfCliUpgradeMessage(info.version, WF_CLI_FEATURES.indexes)} (requires a published ${WF_INDEXES_MIN_VERSION})`;
+        item.tooltip = wfCliUpgradeMessage(info.version, WF_CLI_FEATURES.indexes);
         return item;
       }
     }
