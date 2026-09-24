@@ -5,6 +5,8 @@
  * loading lives in `useChildWorkflowSummary`.
  */
 
+import { isRec } from '../../../../utils/isRec';
+
 export type ChildWorkflowLoadStatus = 'idle' | 'loading' | 'ready' | 'unavailable';
 
 export interface ChildStateSummary {
@@ -31,19 +33,38 @@ export interface ChildWorkflowLoad {
 
 type Rec = Record<string, unknown>;
 
-function isRec(value: unknown): value is Rec {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
+/**
+ * Collects the view key off a single binding (`{ view: reference, ... }`, the
+ * shape both the plain form and each rules-form entry share).
+ */
+function pushViewKey(binding: unknown, keys: string[]): void {
+  if (!isRec(binding) || !isRec(binding.view)) return;
+  const key = binding.view.key;
+  if (typeof key === 'string' && key !== '' && !keys.includes(key)) keys.push(key);
+}
+
+/**
+ * `view` (state/transition) or an entry of `views` can also be the schema's
+ * rules form — `{ rules: [{ rule, view }], default?: { view } }` — instead of
+ * a plain `{ view }` binding. Collect both `rules[].view.key` and
+ * `default.view.key` there too.
+ */
+function pushRulesFormViewKeys(binding: unknown, keys: string[]): void {
+  if (!isRec(binding) || !Array.isArray(binding.rules)) return;
+  for (const rule of binding.rules as unknown[]) pushViewKey(rule, keys);
+  if (isRec(binding.default)) pushViewKey(binding.default, keys);
 }
 
 function viewKeysOf(holder: Rec): string[] {
   const keys: string[] = [];
-  const push = (binding: unknown): void => {
-    if (!isRec(binding) || !isRec(binding.view)) return;
-    const key = binding.view.key;
-    if (typeof key === 'string' && key !== '' && !keys.includes(key)) keys.push(key);
-  };
-  push(holder.view);
-  if (Array.isArray(holder.views)) (holder.views as unknown[]).forEach(push);
+  pushViewKey(holder.view, keys);
+  pushRulesFormViewKeys(holder.view, keys);
+  if (Array.isArray(holder.views)) {
+    for (const binding of holder.views as unknown[]) {
+      pushViewKey(binding, keys);
+      pushRulesFormViewKeys(binding, keys);
+    }
+  }
   return keys;
 }
 

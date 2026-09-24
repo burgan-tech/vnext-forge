@@ -1,4 +1,5 @@
 import { availableInStateKeys } from '@vnext-forge-studio/vnext-types';
+import { isRec } from './isRec';
 
 /**
  * Human-task rules the designer mirrors from the runtime
@@ -20,10 +21,6 @@ export interface HumanTaskStateLike {
 }
 
 type Rec = Record<string, unknown>;
-
-function isRec(value: unknown): value is Rec {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
 
 export function isHumanTaskState(state: HumanTaskStateLike): boolean {
   return (

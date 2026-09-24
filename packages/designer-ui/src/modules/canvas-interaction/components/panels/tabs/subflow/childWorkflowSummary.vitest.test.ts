@@ -68,4 +68,40 @@ describe('summarizeChildWorkflow', () => {
     expect(summarizeChildWorkflow(null)).toBeNull();
     expect(summarizeChildWorkflow({ attributes: {} })).toBeNull();
   });
+
+  it('collects view keys from the rules form (view.rules[].view.key and view.default.view.key)', () => {
+    const json = {
+      attributes: {
+        states: [
+          {
+            key: 'rules-state',
+            view: {
+              rules: [
+                { rule: { location: './r.csx', code: 'eA==' }, view: view('rule-a-view').view },
+                { rule: { location: './r2.csx', code: 'eA==' }, view: view('rule-b-view').view },
+              ],
+              default: { view: view('default-view').view },
+            },
+            transitions: [
+              {
+                key: 'go',
+                views: [
+                  {
+                    rules: [{ rule: { location: './t.csx', code: 'eA==' }, view: view('transition-rule-view').view }],
+                    default: { view: view('transition-default-view').view },
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+    };
+    expect(summarizeChildWorkflow(json)?.states).toEqual([
+      { key: 'rules-state', longPollAuth: null, viewKeys: ['rule-a-view', 'rule-b-view', 'default-view'] },
+    ]);
+    expect(summarizeChildWorkflow(json)?.transitions).toEqual([
+      { key: 'go', viewKeys: ['transition-rule-view', 'transition-default-view'] },
+    ]);
+  });
 });

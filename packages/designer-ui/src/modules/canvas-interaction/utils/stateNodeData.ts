@@ -1,4 +1,5 @@
 import { isHumanTaskGateMissing, type HumanTaskStateLike } from './humanTask';
+import { isRec } from './isRec';
 
 /** Runtime default acknowledge window (vnext long-poll-termination.md). */
 export const DEFAULT_LONG_POLL_FALLBACK_SECONDS = 60;
@@ -14,14 +15,8 @@ export interface StateNodeExtraData extends InteractionNodeData {
   humanTaskGateMissing: boolean;
 }
 
-/**
- * Narrows to a plain object (not null, not an array). Exported so later
- * Phase C tasks (e.g. the human-task list panel) can reuse the same guard
- * instead of redefining it.
- */
-export function isRec(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
+/** @deprecated Import from `./isRec` — kept so existing consumers still resolve. */
+export { isRec };
 
 /**
  * A long poll authorizes its continuation check with either a `rule` (a
