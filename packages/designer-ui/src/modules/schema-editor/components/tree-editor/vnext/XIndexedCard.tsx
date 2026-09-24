@@ -72,6 +72,7 @@ export function XIndexedCardView({
               name={`x-indexed-${pointer}`}
               checked={value === option}
               aria-readonly={readOnly || undefined}
+              tabIndex={readOnly ? -1 : undefined}
               disabled={option && !info.eligible && value !== true}
               onChange={() => {
                 if (!readOnly) onSelect(option);

@@ -2,6 +2,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
+import { FormReadOnlyProvider } from '../../../../../ui/FormReadOnlyContext';
 import { INDEX_MESSAGES, type IndexNodeInfo } from '../../../model/indexEligibility';
 import { XIndexedCardView, type XIndexedCardViewProps } from './XIndexedCard';
 
@@ -63,5 +64,25 @@ describe('XIndexedCardView', () => {
   it('shows the violation', () => {
     const html = render({ enabled: true, value: true, violation: INDEX_MESSAGES.notMaster });
     expect(html).toContain(INDEX_MESSAGES.notMaster);
+  });
+
+  it('removes the tri-state radios from tab order in read-only hosts', () => {
+    const html = renderToStaticMarkup(
+      createElement(
+        FormReadOnlyProvider,
+        null,
+        createElement(XIndexedCardView, {
+          pointer: '/properties/amount',
+          enabled: true,
+          value: true,
+          info: { ...eligible, indexed: true },
+          columns: [],
+          violation: null,
+          onToggle: () => undefined,
+          onSelect: () => undefined,
+        }),
+      ),
+    );
+    expect(html.match(/type="radio"[^>]*tabindex="-1"/g)?.length ?? 0).toBe(2);
   });
 });
