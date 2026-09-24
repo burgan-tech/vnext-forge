@@ -10,8 +10,10 @@ import * as QuickRunApi from '../QuickRunApi';
 import { useQuickRunPolling } from '../hooks/useQuickRunPolling';
 import { useQuickRunStore } from '../store/quickRunStore';
 import type { InstanceListItem } from '../types/quickrun.types';
+import { normalizeIncident } from '../utils/incident';
 import { displayStatus, isActiveStatus, isInactiveStatus } from '../utils/instanceStatus';
 import { EnvBadge } from './EnvBadge';
+import { IncidentBadge } from './IncidentSection';
 import { InstanceFilterPanel } from './InstanceFilterPanel';
 import { RuntimeErrorBanner, type RuntimeErrorLike } from './RuntimeErrorBanner';
 import { StatusBadge } from './StatusBadge';
@@ -271,6 +273,7 @@ export function InstanceListPanel() {
                     </div>
                   )}
                 </div>
+                {normalizeIncident(item.metadata.incident)?.hasActiveIncident && <IncidentBadge />}
                 <StatusBadge status={displayStatus(item.metadata)} compact />
               </button>
             ))}

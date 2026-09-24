@@ -3,8 +3,8 @@ import { RefreshCw } from 'lucide-react';
 
 import { extractEtag } from '../etagFromResponse';
 import * as QuickRunApi from '../QuickRunApi';
-import type { IncidentEntry, InstanceDetailResponse, WorkflowBucketConfig } from '../QuickRunApi';
-import { normalizeIncident, type NormalizedIncident } from '../utils/incident';
+import type { InstanceDetailResponse, WorkflowBucketConfig } from '../QuickRunApi';
+import { normalizeIncident } from '../utils/incident';
 import { ResizableDialogShell } from '../../../ui/ResizableDialogShell';
 import { useInteractionDriver } from '../hooks/useInteractionDriver';
 import { useNow } from '../hooks/useNow';
@@ -24,9 +24,15 @@ import {
   type TransitionInfo,
 } from '../types/quickrun.types';
 import { SchemaForm } from '../../schema-form';
-import { CopyableJsonBlock } from './CopyableJsonBlock';
 import { EnvBadge } from './EnvBadge';
 import { AvailableTransitions } from './AvailableTransitions';
+import {
+  IncidentAlert,
+  IncidentAlertStrip,
+  IncidentSection,
+  createIncidentLoaders,
+  type IncidentLoaders,
+} from './IncidentSection';
 import { InstanceFunctions } from './InstanceFunctions';
 import { InteractionBanner } from './InteractionBanner';
 import { ProgressStepper } from './ProgressStepper';
@@ -169,6 +175,22 @@ export function InstanceDashboard({ configRef, persistConfig, onOpenFunctionRun 
     (t) => t.kind === 'scheduled',
   );
   const clockNow = useNow(activeState?.timeout || hasScheduled ? 1000 : null);
+
+  const incidentLoaders = useMemo(
+    () =>
+      activeTabId && domain && workflowKey
+        ? createIncidentLoaders({
+            domain,
+            workflowKey,
+            instanceId: activeTabId,
+            headers: liveHeaders(),
+            runtimeUrl: environmentUrl,
+          })
+        : undefined,
+    [activeTabId, domain, workflowKey, liveHeaders, environmentUrl],
+  );
+  const liveIncident = normalizeIncident(activeState?.incident);
+
   const awaitingAck =
     interaction.kind === 'awaitingAck' && interaction.instanceId === activeTabId ? interaction : null;
 
@@ -411,6 +433,10 @@ export function InstanceDashboard({ configRef, persistConfig, onOpenFunctionRun 
         />
       )}
 
+      {liveIncident?.hasActiveIncident && (
+        <IncidentAlert key={activeTabId ?? ''} incident={liveIncident} raw={activeState?.incident} loaders={incidentLoaders} />
+      )}
+
       {/* Progress */}
       <section>
         <div className="flex flex-col gap-1.5">
@@ -637,6 +663,7 @@ export function InstanceDashboard({ configRef, persistConfig, onOpenFunctionRun 
           error={metaError}
           onRetry={handleFetchMeta}
           onClose={() => { setMetaDialogOpen(false); setMetaData(null); setMetaError(null); }}
+          incidentLoaders={incidentLoaders}
         />
       )}
     </main>
@@ -1238,12 +1265,14 @@ function InstanceMetaDialog({
   error,
   onRetry,
   onClose,
+  incidentLoaders,
 }: {
   loading: boolean;
   data: InstanceDetailResponse | null;
   error: string | null;
   onRetry: () => void;
   onClose: () => void;
+  incidentLoaders?: IncidentLoaders;
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const [copiedKey, setCopiedKey] = useState(false);
@@ -1381,8 +1410,8 @@ function InstanceMetaDialog({
               </section>
 
               {/* Incident */}
-              {incident && (incident.hasActiveIncident || incident.active || incident.history.length > 0) && (
-                <IncidentSection incident={incident} raw={rawIncident} />
+              {incident && (incident.hasActiveIncident || incident.active || incident.history.length > 0 || incident.links?.history) && (
+                <IncidentSection incident={incident} raw={rawIncident} loaders={incidentLoaders} />
               )}
             </div>
           )}
@@ -1479,196 +1508,6 @@ function pickString(obj: Record<string, unknown>, key: string): string | undefin
 function pickNumber(obj: Record<string, unknown>, key: string): number | undefined {
   const v = obj[key];
   return typeof v === 'number' ? v : undefined;
-}
-
-// ── Incident Components ─────────────────────────────────────────────────────
-
-function IncidentAlertStrip() {
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      className="flex items-center gap-2 border-b border-[var(--vscode-panel-border)] bg-[var(--vscode-inputValidation-warningBackground)] px-4 py-2 text-[11px] text-[var(--vscode-inputValidation-warningForeground,var(--vscode-foreground))]"
-    >
-      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" className="shrink-0">
-        <path d="M7.56 1h.88l6.54 12.26-.44.74H1.44L1 13.26 7.56 1zM8 2.28 2.28 13h11.44L8 2.28zM8.5 12v-1h-1v1h1zm0-2V6h-1v4h1z" />
-      </svg>
-      <span>This instance has an active incident.</span>
-    </div>
-  );
-}
-
-export function IncidentSection({ incident, raw }: { incident: NormalizedIncident; raw: unknown }) {
-  return (
-    <section className="flex flex-col gap-3 border-t border-[var(--vscode-panel-border)] pt-4">
-      <p className="text-[10px] font-semibold uppercase text-[var(--vscode-descriptionForeground)]">Incident</p>
-
-      {incident.active ? (
-        <IncidentActiveCard entry={incident.active} />
-      ) : (
-        incident.hasActiveIncident && (
-          <p className="text-xs text-[var(--vscode-foreground)]">
-            This instance has an active incident. Details are served by the runtime&apos;s incidents endpoint.
-          </p>
-        )
-      )}
-
-      {incident.history.length > 0 && <IncidentHistorySection history={incident.history} />}
-
-      <IncidentRawJsonDisclosure incident={raw} />
-    </section>
-  );
-}
-
-function IncidentActiveCard({ entry }: { entry: IncidentEntry }) {
-  const [copiedTraceId, setCopiedTraceId] = useState(false);
-
-  return (
-    <div className="flex flex-col gap-2">
-      <p className="text-[10px] font-medium text-[var(--vscode-descriptionForeground)]">Current incident</p>
-      <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-        <MetaRow label="State"><span>{entry.state}</span></MetaRow>
-        <MetaRow label="Transition"><span>{entry.transition}</span></MetaRow>
-        <MetaRow label="Task"><span>{entry.task}</span></MetaRow>
-        <MetaRow label="Error Code">
-          <code className="break-all text-[10px]">{entry.errorCode}</code>
-        </MetaRow>
-        <MetaRow label="Layer"><span>{entry.errorLayer}</span></MetaRow>
-        <MetaRow label="Retry Count"><span>{entry.retryCount}</span></MetaRow>
-        <MetaRow label="Created At"><span>{formatDateTime(entry.createdAt)}</span></MetaRow>
-        {entry.resolvedAt && (
-          <MetaRow label="Resolved At"><span>{formatDateTime(entry.resolvedAt)}</span></MetaRow>
-        )}
-        {entry.boundaryAction && (
-          <MetaRow label="Boundary Action"><span>{entry.boundaryAction}</span></MetaRow>
-        )}
-        {entry.boundaryLevel && (
-          <MetaRow label="Boundary Level"><span>{entry.boundaryLevel}</span></MetaRow>
-        )}
-        <MetaRow label="Status">
-          <span className={entry.isResolved ? 'text-[var(--vscode-charts-green)]' : 'text-[var(--vscode-charts-orange)]'}>
-            {entry.isResolved ? 'Resolved' : 'Open'}
-          </span>
-        </MetaRow>
-        <MetaRow label="Trace ID">
-          <span className="flex items-center gap-1">
-            <code className="break-all text-[10px] text-[var(--vscode-textLink-foreground)]">{entry.traceId}</code>
-            <button
-              className="inline-flex shrink-0 rounded p-0.5 text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]"
-              onClick={() => {
-                void navigator.clipboard.writeText(entry.traceId ?? '').then(() => {
-                  setCopiedTraceId(true);
-                  setTimeout(() => setCopiedTraceId(false), 1500);
-                });
-              }}
-              title={copiedTraceId ? 'Copied!' : 'Copy Trace ID'}
-              aria-label="Copy Trace ID"
-            >
-              {copiedTraceId ? '✓' : '⧉'}
-            </button>
-          </span>
-        </MetaRow>
-      </div>
-
-      <IncidentMessageBlock message={entry.message} />
-    </div>
-  );
-}
-
-function IncidentMessageBlock({ message }: { message: string }) {
-  const [copied, setCopied] = useState(false);
-
-  return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] text-[var(--vscode-descriptionForeground)]">Message</span>
-        <button
-          className="flex items-center gap-1 text-[10px] text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]"
-          onClick={() => {
-            void navigator.clipboard.writeText(message).then(() => {
-              setCopied(true);
-              setTimeout(() => setCopied(false), 1500);
-            });
-          }}
-          title={copied ? 'Copied!' : 'Copy message'}
-          aria-label="Copy message"
-        >
-          {copied ? (
-            <span className="text-[var(--vscode-charts-green)]">Copied!</span>
-          ) : (
-            <span>Copy</span>
-          )}
-        </button>
-      </div>
-      <div className="max-h-48 overflow-y-auto rounded border border-[var(--vscode-input-border)] bg-[var(--vscode-textCodeBlock-background)] p-2">
-        <pre className="whitespace-pre-wrap break-words font-mono text-[11px] text-[var(--vscode-foreground)]">
-          {message}
-        </pre>
-      </div>
-    </div>
-  );
-}
-
-function IncidentHistorySection({ history }: { history: IncidentEntry[] }) {
-  return (
-    <details className="text-xs">
-      <summary className="flex cursor-pointer items-center gap-2 text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]">
-        <span>Past incidents</span>
-        <span className="rounded bg-[var(--vscode-badge-background)] px-1.5 py-0.5 text-[9px] text-[var(--vscode-badge-foreground)]">
-          {history.length}
-        </span>
-      </summary>
-      <div className="mt-2 flex flex-col gap-2">
-        {history.map((entry) => (
-          <IncidentHistoryItem key={entry.id} entry={entry} />
-        ))}
-      </div>
-    </details>
-  );
-}
-
-function IncidentHistoryItem({ entry }: { entry: IncidentEntry }) {
-  return (
-    <details className="rounded border border-[var(--vscode-panel-border)]">
-      <summary className="flex cursor-pointer items-center gap-2 px-2 py-1.5 text-[10px] hover:bg-[var(--vscode-list-hoverBackground)]">
-        <span className="text-[var(--vscode-descriptionForeground)]">{formatDateTime(entry.createdAt)}</span>
-        <code className="text-[var(--vscode-foreground)]">{entry.errorCode}</code>
-        <span className="text-[var(--vscode-descriptionForeground)]">@ {entry.state}</span>
-        <span className={`ml-auto text-[9px] ${entry.isResolved ? 'text-[var(--vscode-charts-green)]' : 'text-[var(--vscode-charts-orange)]'}`}>
-          {entry.isResolved ? 'Resolved' : 'Open'}
-        </span>
-      </summary>
-      <div className="flex flex-col gap-2 border-t border-[var(--vscode-panel-border)] p-2">
-        <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-          <MetaRow label="State"><span>{entry.state}</span></MetaRow>
-          <MetaRow label="Transition"><span>{entry.transition}</span></MetaRow>
-          <MetaRow label="Task"><span>{entry.task}</span></MetaRow>
-          <MetaRow label="Error Code"><code className="break-all text-[10px]">{entry.errorCode}</code></MetaRow>
-          <MetaRow label="Layer"><span>{entry.errorLayer}</span></MetaRow>
-          <MetaRow label="Retry Count"><span>{entry.retryCount}</span></MetaRow>
-          <MetaRow label="Created At"><span>{formatDateTime(entry.createdAt)}</span></MetaRow>
-          {entry.resolvedAt && <MetaRow label="Resolved At"><span>{formatDateTime(entry.resolvedAt)}</span></MetaRow>}
-          {entry.boundaryAction && <MetaRow label="Boundary Action"><span>{entry.boundaryAction}</span></MetaRow>}
-          {entry.boundaryLevel && <MetaRow label="Boundary Level"><span>{entry.boundaryLevel}</span></MetaRow>}
-          <MetaRow label="Trace ID"><code className="break-all text-[10px]">{entry.traceId}</code></MetaRow>
-        </div>
-        {entry.message && <IncidentMessageBlock message={entry.message} />}
-      </div>
-    </details>
-  );
-}
-
-function IncidentRawJsonDisclosure({ incident }: { incident: unknown }) {
-  return (
-    <details className="text-xs">
-      <summary className="cursor-pointer text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]">
-        Raw JSON
-      </summary>
-      <div className="mt-2">
-        <CopyableJsonBlock value={incident} />
-      </div>
-    </details>
-  );
 }
 
 function MetaRow({ label, children }: { label: string; children: React.ReactNode }) {

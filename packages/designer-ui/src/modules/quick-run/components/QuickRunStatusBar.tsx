@@ -1,4 +1,6 @@
 import { useQuickRunStore } from '../store/quickRunStore';
+import { normalizeIncident } from '../utils/incident';
+import { IncidentBadge } from './IncidentSection';
 
 const HEALTH_CONFIG = {
   healthy: { dot: 'bg-[var(--vscode-charts-green)]', label: 'Runtime Connected' },
@@ -48,6 +50,7 @@ export function QuickRunStatusBar() {
           State: <strong>{activeState.state}</strong>
         </span>
       )}
+      {normalizeIncident(activeState?.incident)?.hasActiveIncident && <IncidentBadge label="Incident" />}
       {pollingInstanceId && (
         <span className="flex items-center gap-1">
           <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--vscode-progressBar-background)]" />

@@ -3,10 +3,5 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     include: ['src/**/*.vitest.test.ts', 'src/**/*.vitest.test.tsx'],
-    server: {
-      deps: {
-        inline: [/primereact/, /@burgan-tech\/pseudo-ui/],
-      },
-    },
   },
 });
