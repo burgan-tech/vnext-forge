@@ -8,6 +8,7 @@ import {
 } from '../../../ui/Tooltip';
 import * as QuickRunApi from '../QuickRunApi';
 import { useOpenInstance } from '../hooks/useOpenInstance';
+import { useWorkflowMasterSchema } from '../hooks/useWorkflowMasterSchema';
 import { useQuickRunStore } from '../store/quickRunStore';
 import { normalizeIncident } from '../utils/incident';
 import { instanceTargetFromListItem } from '../utils/instanceTarget';
@@ -33,6 +34,7 @@ export function InstanceListPanel() {
   const environmentUrl = useQuickRunStore((s) => s.environmentUrl);
 
   const openInstance = useOpenInstance();
+  const masterSchema = useWorkflowMasterSchema(workflowKey, domain);
 
   const [showFilter, setShowFilter] = useState(false);
   const [activeFilter, setActiveFilter] = useState<string | undefined>();
@@ -134,6 +136,9 @@ export function InstanceListPanel() {
         <InstanceFilterPanel
           onApply={handleFilterApply}
           onClose={() => setShowFilter(false)}
+          {...(masterSchema.status === 'ready'
+            ? { schemaFields: masterSchema.fields, schemaKey: masterSchema.schemaKey }
+            : {})}
         />
       )}
 
