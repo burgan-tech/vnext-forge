@@ -14,11 +14,12 @@ describe('WF_CLI_FEATURES', () => {
 describe('wfCliUpgradeMessage', () => {
   it('names the feature, the installed version and the floor', () => {
     expect(wfCliUpgradeMessage('1.0.13', WF_CLI_FEATURES.indexes)).toBe(
-      'Workflow CLI 1.0.13 does not support index SQL generation (wf indexes generate). Update to 1.1.0 or newer.',
+      `Workflow CLI 1.0.13 does not support index SQL generation (wf indexes generate). ` +
+        `Update to ${WF_INDEXES_MIN_VERSION} or newer.`,
     );
     expect(wfCliUpgradeMessage('1.0.12', WF_CLI_FEATURES.domainFlag)).toBe(
       'Workflow CLI 1.0.12 does not support the --domain option, so Forge is using the legacy ' +
-        '"wf domain use <domain> && …" form. Update to 1.0.13 or newer.',
+        `"wf domain use <domain> && …" form. Update to ${WF_DOMAIN_FLAG_MIN_VERSION} or newer.`,
     );
   });
 
