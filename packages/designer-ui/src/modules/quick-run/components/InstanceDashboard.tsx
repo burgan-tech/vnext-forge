@@ -6,6 +6,7 @@ import * as QuickRunApi from '../QuickRunApi';
 import type { IncidentEntry, InstanceDetailResponse, WorkflowBucketConfig } from '../QuickRunApi';
 import { normalizeIncident, type NormalizedIncident } from '../utils/incident';
 import { ResizableDialogShell } from '../../../ui/ResizableDialogShell';
+import { useInteractionDriver } from '../hooks/useInteractionDriver';
 import { useQuickRunPolling } from '../hooks/useQuickRunPolling';
 import { useQuickRunStore } from '../store/quickRunStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
@@ -26,6 +27,7 @@ import { CopyableJsonBlock } from './CopyableJsonBlock';
 import { EnvBadge } from './EnvBadge';
 import { AvailableTransitions } from './AvailableTransitions';
 import { InstanceFunctions } from './InstanceFunctions';
+import { InteractionBanner } from './InteractionBanner';
 import { ProgressStepper } from './ProgressStepper';
 import { StatusBadge } from './StatusBadge';
 
@@ -42,7 +44,8 @@ export function InstanceDashboard({ configRef, persistConfig, onOpenFunctionRun 
   const activeState = useQuickRunStore((s) => s.activeState);
   const activeStateLoading = useQuickRunStore((s) => s.activeStateLoading);
   const activeStateError = useQuickRunStore((s) => s.activeStateError);
-  const longPollAck = useQuickRunStore((s) => s.longPollAck);
+  const interaction = useQuickRunStore((s) => s.interaction);
+  const dispatchInteraction = useQuickRunStore((s) => s.dispatchInteraction);
   const setActiveStateError = useQuickRunStore((s) => s.setActiveStateError);
   const domain = useQuickRunStore((s) => s.domain);
   const workflowKey = useQuickRunStore((s) => s.workflowKey);
@@ -68,7 +71,7 @@ export function InstanceDashboard({ configRef, persistConfig, onOpenFunctionRun 
   const pollingConfig = useQuickRunStore((s) => s.pollingConfig);
   const pollingInstanceId = useQuickRunStore((s) => s.pollingInstanceId);
 
-  const { pollState, refreshView } = useQuickRunPolling(pollingConfig);
+  const { pollState, refreshView, acknowledgeInteraction } = useQuickRunPolling(pollingConfig);
 
   const [retryHeadersOpen, setRetryHeadersOpen] = useState(false);
   const [retryHeaders, setRetryHeaders] = useState<{ name: string; value: string }[]>([]);
@@ -141,6 +144,42 @@ export function InstanceDashboard({ configRef, persistConfig, onOpenFunctionRun 
     // fire again is a *failed* fetch, which is the behaviour you want: fix
     // the auth header in the Headers dialog and the catalog retries itself.
   }, [hasFunctions, activeTabId, domain, workflowKey, environmentUrl, configRef, sessionHeaders, toolWideHeaders]);
+
+  /** Headers for interaction/authorize calls — the shared Quick Run merge rule. */
+  const liveHeaders = useCallback(
+    () => mergeQuickRunHeaders(configRef.current, sessionHeaders, undefined, toolWideHeaders),
+    [configRef, sessionHeaders, toolWideHeaders],
+  );
+
+  const resumeAfterInteraction = useCallback(
+    (instanceId: string) => {
+      if (instanceId !== useQuickRunStore.getState().activeTabId || !domain || !workflowKey) {
+        dispatchInteraction({ type: 'RESET' });
+        return;
+      }
+      void pollState({ domain, workflowKey, instanceId, headers: liveHeaders(), runtimeUrl: environmentUrl });
+    },
+    [domain, workflowKey, environmentUrl, liveHeaders, pollState, dispatchInteraction],
+  );
+
+  const interactionNow = useInteractionDriver(resumeAfterInteraction);
+  const awaitingAck =
+    interaction.kind === 'awaitingAck' && interaction.instanceId === activeTabId ? interaction : null;
+
+  const handleAcknowledge = useCallback(() => {
+    if (!awaitingAck || !domain || !workflowKey) return;
+    void acknowledgeInteraction({
+      domain,
+      workflowKey,
+      instanceId: awaitingAck.instanceId,
+      headers: liveHeaders(),
+      runtimeUrl: environmentUrl,
+    });
+  }, [awaitingAck, domain, workflowKey, liveHeaders, environmentUrl, acknowledgeInteraction]);
+
+  const handleWaitForFallback = useCallback(() => {
+    if (awaitingAck) dispatchInteraction({ type: 'WAIT_FOR_FALLBACK', instanceId: awaitingAck.instanceId });
+  }, [awaitingAck, dispatchInteraction]);
 
   const handleTransitionClick = (transition: TransitionInfo) => {
     openTransitionDialog(transition);
@@ -355,20 +394,15 @@ export function InstanceDashboard({ configRef, persistConfig, onOpenFunctionRun 
         />
       )}
 
-      {/* Long-poll acknowledge note — shown when the engine asked the
-          client to terminate the long poll and we silently POST the
-          ack. Informational only; ack failures are logged, not shown. */}
-      {longPollAck && (
-        <div className="border-border-subtle bg-muted-surface text-muted-foreground flex items-center gap-2 rounded-xl border px-3 py-2 text-[11px]">
-          <span
-            className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${
-              longPollAck === 'acknowledged' ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'
-            }`}
-          />
-          {longPollAck === 'acknowledged'
-            ? 'Long poll acknowledged.'
-            : 'Acknowledging long poll…'}
-        </div>
+      {/* Long-poll interaction window (D3) — polling is stopped until the
+          user acknowledges or the runtime's fallback fires. */}
+      {awaitingAck && (
+        <InteractionBanner
+          phase={awaitingAck}
+          nowMs={interactionNow}
+          onAcknowledge={handleAcknowledge}
+          onWaitForFallback={handleWaitForFallback}
+        />
       )}
 
       {/* Progress */}
@@ -515,6 +549,7 @@ export function InstanceDashboard({ configRef, persistConfig, onOpenFunctionRun 
         showManual={isActive}
         onManualClick={openManualTransitionDialog}
         disabled={activeStateLoading}
+        lockedReason={awaitingAck ? 'Awaiting acknowledge' : undefined}
       />
 
       {/* Functions reachable on this instance — only when the engine says so. */}

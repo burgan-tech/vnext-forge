@@ -39,6 +39,11 @@ export interface AvailableTransitionsProps {
   onManualClick: () => void;
   /** Disable all buttons while a transition / state refresh is in flight. */
   disabled: boolean;
+  /**
+   * When set, every button is disabled and this reason is shown next to the
+   * section title (e.g. "Awaiting acknowledge" while a long poll is paused).
+   */
+  lockedReason?: string;
 }
 
 interface NormalizedTransition {
@@ -54,6 +59,7 @@ export function AvailableTransitions({
   showManual,
   onManualClick,
   disabled,
+  lockedReason,
 }: AvailableTransitionsProps) {
   // Merge + normalize kinds. Legacy responses without `kind` keep the
   // bucket they arrived in so the visual grouping doesn't suddenly
@@ -74,12 +80,20 @@ export function AvailableTransitions({
       items: byKind.get(kind) ?? [],
     })).filter((group) => group.items.length > 0 || (group.kind === 'stateTransition' && showManual));
   }, [transitions, sharedTransitions, showManual]);
+  const locked = disabled || !!lockedReason;
 
   if (grouped.length === 0) return null;
 
   return (
     <section className="flex flex-col gap-3">
-      <p className="text-xs font-semibold uppercase text-muted-text">Available Transitions</p>
+      <div className="flex items-center gap-2">
+        <p className="text-xs font-semibold uppercase text-muted-text">Available Transitions</p>
+        {lockedReason && (
+          <span className="rounded border border-warning-border bg-warning-surface px-1.5 py-0.5 text-[10px] font-medium text-warning-text">
+            {lockedReason}
+          </span>
+        )}
+      </div>
       {grouped.map(({ kind, items }) => {
         const style = kindStyle(kind);
         return (
@@ -109,7 +123,7 @@ export function AvailableTransitions({
                     key={`${kind}-${info.name}`}
                     className={style.buttonClass}
                     onClick={() => onTransitionClick(info)}
-                    disabled={disabled}
+                    disabled={locked}
                     title={style.description}
                   >
                     {style.glyph ? `${style.glyph} ` : ''}
@@ -121,7 +135,7 @@ export function AvailableTransitions({
                 <button
                   className="rounded border border-dashed border-primary-border px-3 py-1.5 text-xs text-muted-text hover:border-primary-border-hover hover:text-foreground disabled:opacity-50"
                   onClick={onManualClick}
-                  disabled={disabled}
+                  disabled={locked}
                   title="Fire a transition by name (session-only, not persisted)"
                 >
                   + Manual

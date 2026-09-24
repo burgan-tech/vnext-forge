@@ -169,3 +169,40 @@ describe('useQuickRunStore — last raw state response (Raw tab)', () => {
     expect(state.etags).toEqual({});
   });
 });
+
+describe('useQuickRunStore — interaction', () => {
+  beforeEach(() => {
+    useQuickRunStore.setState({ tabs: [], activeTabId: null, interaction: { kind: 'idle' } });
+  });
+
+  it('dispatchInteraction runs the reducer', () => {
+    useQuickRunStore.getState().dispatchInteraction({
+      type: 'STATE_RECEIVED',
+      instanceId: 'i1',
+      state: 'review',
+      status: 'B',
+      interaction: { terminateLongPoll: true, fallbackTimeoutSeconds: 30 },
+      nowMs: 1_000,
+    });
+    expect(useQuickRunStore.getState().interaction).toMatchObject({
+      kind: 'awaitingAck',
+      instanceId: 'i1',
+      stateName: 'review',
+      deadlineMs: 31_000,
+    });
+  });
+
+  it('switching instance drops a pending acknowledge', () => {
+    useQuickRunStore.getState().setActiveTab('i1');
+    useQuickRunStore.getState().dispatchInteraction({
+      type: 'STATE_RECEIVED',
+      instanceId: 'i1',
+      state: 'review',
+      status: 'B',
+      interaction: { terminateLongPoll: true },
+      nowMs: 0,
+    });
+    useQuickRunStore.getState().setActiveTab('i2');
+    expect(useQuickRunStore.getState().interaction).toEqual({ kind: 'idle' });
+  });
+});

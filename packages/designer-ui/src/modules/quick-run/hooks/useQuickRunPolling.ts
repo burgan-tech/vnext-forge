@@ -1,16 +1,15 @@
 import { useCallback, useRef } from 'react';
 
-import { createLogger } from '../../../lib/logger/createLogger';
 import { extractEtag } from '../etagFromResponse';
 import * as QuickRunApi from '../QuickRunApi';
 import { useQuickRunStore } from '../store/quickRunStore';
+import { currentRoleFromHeaders } from '../utils/currentRole';
 import { decideDataOutcome } from './decideDataOutcome';
+import { shouldStopPolling } from './interactionMachine';
 import { resolveStateViewSource } from './resolveStateViewSource';
 import { shouldFetchView } from './shouldFetchView';
 import { stateViewContentChanged } from './stateViewContentChanged';
 import type { StateResponse } from '../types/quickrun.types';
-
-const logger = createLogger('quick-run-polling');
 
 interface PollingConfig {
   retryCount: number;
@@ -50,7 +49,7 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
         setStateView,
         setStateViewLoading,
         setStateViewError,
-        setLongPollAck,
+        dispatchInteraction,
         setEtag,
       } = store.getState();
 
@@ -59,8 +58,10 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
       // Clear any prior poll error so the banner doesn't linger from
       // a previous instance / round.
       setActiveStateError(null);
-      // Clear any prior long-poll acknowledge note before a new round.
-      setLongPollAck(null);
+      // A poll while an acknowledge is pending (or right after resuming)
+      // keeps that phase (the reducer decides); any other phase becomes
+      // `polling`.
+      dispatchInteraction({ type: 'POLL_STARTED', instanceId: params.instanceId });
       // `stateView` is intentionally left untouched when this instance
       // already has a cached state ETag: this pollState call may be a
       // second round on an already-rendered instance (e.g. re-polling
@@ -160,13 +161,11 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
           setStateViewError(false);
           setStateViewLoading(true);
 
-          // The engine can ask the client to stop the long-poll loop
-          // regardless of instance status via
-          // `interaction.terminateLongPoll`. Treat it as a stop signal.
-          const terminate = stateData.interaction?.terminateLongPoll === true;
-          const isTerminalStatus =
-            stateData.status === 'A' || stateData.status === 'C' || stateData.status === 'F';
-          const shouldStop = isTerminalStatus || terminate;
+          // Every full response feeds the interaction machine; whether the
+          // loop stops comes from the resulting phase (controller ruling
+          // F1), never from the raw `interaction.terminateLongPoll` flag —
+          // a stale flag right after resuming must not stop it again.
+          const { stop: shouldStop, paused: terminate } = recordStateRound(params.instanceId, stateData);
 
           if (stateData.status === 'B' && !shouldStop) {
             patchActiveState({ status: stateData.status, state: stateData.state });
@@ -182,10 +181,7 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
             setActiveStateLoading(false);
             setPollingInstanceId(null);
 
-            const viewSource = resolveStateViewSource(stateData);
-            const canRenderView =
-              !!viewSource &&
-              (stateData.status === 'A' || stateData.status === 'C' || terminate);
+            const canRenderView = shouldFetchView(stateData, { applyStatusGate: true, terminate });
             if (!canRenderView) {
               // Stop with no view to fetch — drop the loading flag now
               // so the panel collapses cleanly. (When a view IS eligible,
@@ -203,37 +199,6 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
             // ContextPanel's job; the loop already covered Data on every
             // busy/304 tick leading up to this one.
             void refreshViewAndData(params, stateData, { terminate, includeData: false }, controller.signal);
-
-            // Silently acknowledge the terminated long poll in the
-            // background when the engine included an ack descriptor.
-            // The endpoint is deterministic (built host-side from the
-            // workflow identifiers). Failures are logged only — never
-            // surfaced as an error banner.
-            if (terminate && stateData.interaction?.ack) {
-              // Once the ack resolves, do one more one-shot View fetch —
-              // the engine-side state may settle further as a direct
-              // result of the ack, so the view fetched moments earlier
-              // (fired above, before the ack even went out) can be
-              // stale. Signal-guarded like every other write in this
-              // loop so a superseded poll round never lands here.
-              void acknowledgeLongPoll(params).then(() => {
-                if (!controller.signal.aborted) {
-                  void fetchViewOnce({
-                    base: {
-                      domain: params.domain,
-                      workflowKey: params.workflowKey,
-                      instanceId: params.instanceId,
-                      headers: params.headers,
-                      runtimeUrl: params.runtimeUrl,
-                    },
-                    effectiveState: stateData,
-                    signal: controller.signal,
-                    applyStatusGate: true,
-                    terminate,
-                  });
-                }
-              });
-            }
 
             return stateData;
           }
@@ -255,10 +220,8 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
             await sleep(config.intervalMs);
           }
         } else {
-          // Surface the engine-side failure (e.g. 403 with
-          // `forbidden.Authorization:110001` for missing role
-          // permissions) so the user sees why polling stopped
-          // instead of staring at a quietly empty panel.
+          // Surface the engine-side failure so the user sees why polling
+          // stopped instead of staring at a quietly empty panel.
           setActiveStateLoading(false);
           setStateViewLoading(false);
           setPollingInstanceId(null);
@@ -354,6 +317,9 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
         }
 
         setEtag('state', extractEtag(stateData));
+        // Same interaction bookkeeping as the poll loop: a paused instance
+        // opens the acknowledge window even on this single-shot fetch.
+        const { paused: terminate } = recordStateRound(params.instanceId, stateData);
         setActiveState(stateData);
         updateInstanceState(params.instanceId, stateData);
         setActiveStateLoading(false);
@@ -362,8 +328,7 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
         setStateViewError(false);
         setStateViewLoading(true);
 
-        const viewSource = resolveStateViewSource(stateData);
-        const canRenderView = !!viewSource && (stateData.status === 'A' || stateData.status === 'C');
+        const canRenderView = shouldFetchView(stateData, { applyStatusGate: true, terminate });
         if (!canRenderView) {
           // No view payload to fetch — drop the loading flag now so
           // the panel collapses without flashing a skeleton forever.
@@ -372,13 +337,13 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
           setStateViewLoading(false);
         }
         // Also refreshes Data on this tick — folded into the same shared
-        // step the poll loop uses. `terminate` is always false here: this
-        // single-shot tab-switch fetch has no long-poll interaction concept.
+        // step the poll loop uses. A paused instance (`terminate`) still
+        // shows its view, exactly as the poll loop's stop tick does.
         // Unlike `pollState`'s stop tick, this function never touches
         // `pollingInstanceId`, so it isn't the flag flip that suppresses
         // ContextPanel's own Data lazy-load — that pre-existing overlap is
         // unchanged by this fix and is out of scope here.
-        void refreshViewAndData(params, stateData, { terminate: false, includeData: true }, controller.signal);
+        void refreshViewAndData(params, stateData, { terminate, includeData: true }, controller.signal);
         return stateData;
       }
 
@@ -437,7 +402,70 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
     });
   }, []);
 
-  return { pollState, fetchInstanceState, cancelPolling, refreshView };
+  /**
+   * Acknowledge the paused long poll of `params.instanceId` with the current
+   * role. Outcome goes to the interaction machine: success → `resumed` (the
+   * interaction driver polls again), failure → stays awaiting with the
+   * runtime error.
+   */
+  const acknowledgeInteraction = useCallback(
+    async (params: {
+      domain: string;
+      workflowKey: string;
+      instanceId: string;
+      headers?: Record<string, string>;
+      runtimeUrl?: string;
+    }) => {
+      const { dispatchInteraction } = store.getState();
+      dispatchInteraction({ type: 'ACK_REQUESTED', instanceId: params.instanceId });
+      const role = currentRoleFromHeaders(params.headers);
+      try {
+        // No client-side timeout here: an ack that never settles keeps the
+        // phase `acking` (the countdown does not expire while acking) until
+        // the transport's own request timeout rejects it into ACK_FAILED.
+        const res = await QuickRunApi.acknowledgeLongPoll({ ...params, ...(role ? { role } : {}) });
+        if (res.success) {
+          dispatchInteraction({ type: 'ACK_SUCCEEDED', instanceId: params.instanceId });
+        } else {
+          dispatchInteraction({ type: 'ACK_FAILED', instanceId: params.instanceId, error: res.error });
+        }
+      } catch (err) {
+        dispatchInteraction({
+          type: 'ACK_FAILED',
+          instanceId: params.instanceId,
+          error: { code: 'THROWN', message: err instanceof Error ? err.message : String(err) },
+        });
+      }
+    },
+    [],
+  );
+
+  return { pollState, fetchInstanceState, cancelPolling, refreshView, acknowledgeInteraction };
+}
+
+/**
+ * Feeds one full (non-304) State response to the interaction machine and
+ * derives the poll decision from the resulting phase (controller rulings
+ * F1/F8 — shared by `pollState` and `fetchInstanceState`):
+ * - `stop`: the phase says stop (`shouldStopPolling`: terminal status or an
+ *   acknowledge is pending), or the machine now tracks another instance —
+ *   this response is stale for it, so this loop has nothing left to drive.
+ * - `paused`: an acknowledge window is open for this instance; the view is
+ *   shown even though the status is still `B`.
+ */
+function recordStateRound(instanceId: string, stateData: StateResponse): { stop: boolean; paused: boolean } {
+  const { dispatchInteraction } = useQuickRunStore.getState();
+  dispatchInteraction({
+    type: 'STATE_RECEIVED',
+    instanceId,
+    state: stateData.state,
+    status: stateData.status,
+    interaction: stateData.interaction,
+    nowMs: Date.now(),
+  });
+  const phase = useQuickRunStore.getState().interaction;
+  if (phase.kind !== 'idle' && phase.instanceId !== instanceId) return { stop: true, paused: false };
+  return { stop: shouldStopPolling(phase), paused: phase.kind === 'awaitingAck' };
 }
 
 /**
@@ -458,7 +486,7 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
  *   fetched when `includeData` is true — see below.
  * - View: has no ETag (product decision), so it is always fetched
  *   unconditionally when `resolveStateViewSource` + the status gate
- *   (status A/C, or `terminate`) say a view is eligible for this state.
+ *   (see `shouldFetchView`, or `terminate`) say a view is eligible for this state.
  *   The fetched content is only written to the store when it actually
  *   differs from what's currently shown (`stateViewContentChanged`),
  *   so an unchanged view doesn't re-mount the pseudo-ui iframe on every
@@ -532,15 +560,14 @@ async function refreshViewAndData(
 /**
  * One-shot View fetch + store write, shared by every call site that
  * needs "fetch the View once": `refreshViewAndData`'s view branch (every
- * poll tick), the post-ack follow-up fetch in `pollState`'s stop branch,
- * and the on-demand `refreshView()` exposed from this hook (manual
+ * poll tick) and the on-demand `refreshView()` exposed from this hook (manual
  * "Retry view" button, post-retry-state refresh).
  *
  * Resolves the view source via `resolveStateViewSource` first — a
  * `null` result (nothing eligible to render for this state) is always a
  * no-op, regardless of `applyStatusGate`. When `applyStatusGate` is
  * true, the same busy-state gate the poll loop has always used also
- * applies: status `A`/`C`, or the caller's `terminate` flag. Callers
+ * applies (`shouldFetchView`), or the caller's `terminate` flag. Callers
  * doing an on-demand refresh of an already-rendered view pass
  * `applyStatusGate: false` to skip that gate entirely.
  *
@@ -601,51 +628,6 @@ async function fetchViewOnce({
     setStateView(null);
   } finally {
     setStateViewLoading(false);
-  }
-}
-
-/**
- * Fire-and-forget acknowledge of a terminated long poll. Surfaces an
- * "acknowledging" → "acknowledged" status to the user; any failure is
- * logged only (never an error banner) and still ends in "acknowledged"
- * so the user sees the interaction completed from the client side.
- */
-async function acknowledgeLongPoll(params: {
-  domain: string;
-  workflowKey: string;
-  instanceId: string;
-  headers?: Record<string, string>;
-  runtimeUrl?: string;
-}): Promise<void> {
-  const { setLongPollAck } = useQuickRunStore.getState();
-  setLongPollAck('acknowledging');
-  try {
-    const res = await QuickRunApi.acknowledgeLongPoll({
-      domain: params.domain,
-      workflowKey: params.workflowKey,
-      instanceId: params.instanceId,
-      headers: params.headers,
-      runtimeUrl: params.runtimeUrl,
-    });
-    if (!res.success) {
-      logger.warn('Long-poll acknowledge failed', {
-        instanceId: params.instanceId,
-        code: res.error.code,
-        message: res.error.message,
-      });
-    } else if (!res.data.ok) {
-      logger.warn('Long-poll acknowledge returned non-2xx', {
-        instanceId: params.instanceId,
-        status: res.data.status,
-      });
-    }
-  } catch (err) {
-    logger.warn('Long-poll acknowledge threw', {
-      instanceId: params.instanceId,
-      error: err instanceof Error ? err.message : String(err),
-    });
-  } finally {
-    setLongPollAck('acknowledged');
   }
 }
 

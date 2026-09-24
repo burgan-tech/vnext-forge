@@ -14,6 +14,12 @@ import type {
   TransitionInfo,
   ViewResponse,
 } from '../types/quickrun.types';
+import {
+  INITIAL_INTERACTION,
+  interactionReducer,
+  type InteractionEvent,
+  type InteractionPhase,
+} from '../hooks/interactionMachine';
 
 interface QuickRunState {
   domain: string;
@@ -110,11 +116,10 @@ interface QuickRunState {
   pollingConfig: { retryCount: number; intervalMs: number };
 
   /**
-   * Status of the silent long-poll acknowledge fired when a State
-   * Function response carries `interaction.terminateLongPoll`. Shown as
-   * a small transient note; cleared at the start of each poll round.
+   * Long-poll interaction phase of the active instance (spec D3) — see
+   * `hooks/interactionMachine.ts`. Reset with the instance-scoped caches.
    */
-  longPollAck: 'acknowledging' | 'acknowledged' | null;
+  interaction: InteractionPhase;
 
   runtimeHealth: 'healthy' | 'unhealthy' | 'unknown';
   runtimeDomain: string | null;
@@ -185,7 +190,7 @@ interface QuickRunState {
   setToolWideHeaders: (headers: Record<string, string>) => void;
   setPollingInstanceId: (id: string | null) => void;
   setPollingConfig: (config: { retryCount: number; intervalMs: number }) => void;
-  setLongPollAck: (status: 'acknowledging' | 'acknowledged' | null) => void;
+  dispatchInteraction: (event: InteractionEvent) => void;
   setRuntimeHealth: (health: 'healthy' | 'unhealthy' | 'unknown') => void;
   setRuntimeDomain: (domain: string | null) => void;
   setFlowLabels: (labels: FlowLabelsMap | null) => void;
@@ -254,7 +259,7 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
 
   pollingInstanceId: null,
   pollingConfig: { retryCount: 15, intervalMs: 4000 },
-  longPollAck: null,
+  interaction: INITIAL_INTERACTION,
 
   runtimeHealth: 'unknown',
   runtimeDomain: null,
@@ -284,7 +289,6 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
       transitionDialogOpen: false,
       transitionDialogTarget: null,
       pollingInstanceId: null,
-      longPollAck: null,
       flowLabels: null,
     });
     get().resetInstanceScopedCaches();
@@ -429,7 +433,7 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
   setToolWideHeaders: (toolWideHeaders) => set({ toolWideHeaders }),
   setPollingInstanceId: (pollingInstanceId) => set({ pollingInstanceId }),
   setPollingConfig: (pollingConfig) => set({ pollingConfig }),
-  setLongPollAck: (longPollAck) => set({ longPollAck }),
+  dispatchInteraction: (event) => set((state) => ({ interaction: interactionReducer(state.interaction, event) })),
   setRuntimeHealth: (runtimeHealth) => set({ runtimeHealth }),
   setRuntimeDomain: (runtimeDomain) => set({ runtimeDomain }),
   setFlowLabels: (flowLabels) => set({ flowLabels }),
@@ -446,5 +450,6 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
       functionCatalogLoading: false,
       functionCatalogError: null,
       selectedFunctionName: null,
+      interaction: INITIAL_INTERACTION,
     }),
 }));

@@ -53,3 +53,24 @@ describe('AvailableTransitions — scheduled entries', () => {
     expect(html).not.toContain('Invalid Date');
   });
 });
+
+describe('AvailableTransitions — locked while awaiting acknowledge', () => {
+  it('disables every button and shows the reason', () => {
+    const html = renderToStaticMarkup(
+      createElement(AvailableTransitions, {
+        transitions: [{ name: 'approve', href: '/t/approve', kind: 'stateTransition' }],
+        sharedTransitions: [],
+        flowLabels: null,
+        onTransitionClick: noop,
+        showManual: true,
+        onManualClick: noop,
+        disabled: false,
+        lockedReason: 'Awaiting acknowledge',
+      }),
+    );
+    const buttons = html.match(/<button\b[^>]*>/g) ?? [];
+    expect(buttons.length).toBe(2);
+    expect(buttons.every((b) => b.includes('disabled=""'))).toBe(true);
+    expect(html).toContain('Awaiting acknowledge');
+  });
+});
