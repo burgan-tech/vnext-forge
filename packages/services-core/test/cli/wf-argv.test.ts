@@ -2,10 +2,17 @@ import { describe, expect, it } from 'vitest'
 
 import {
   buildWfArgv,
+  buildWfIndexesGenerateArgv,
   buildWfShellCommand,
   isValidWfDomainName,
+  isValidWfFlowKey,
   quoteShellArg,
+  WF_INDEXES_MIN_VERSION,
+  WF_PUBLISH_COMPLETED_MIN_VERSION,
   wfSupportsDomainFlag,
+  wfSupportsIndexes,
+  wfSupportsPublishCompleted,
+  type WfIndexesGenerateSpec,
 } from '../../src/services/cli/wf-argv.js'
 
 describe('wfSupportsDomainFlag', () => {
@@ -119,5 +126,94 @@ describe('buildWfShellCommand', () => {
     expect(isValidWfDomainName('my.domain_v2-x')).toBe(true)
     expect(isValidWfDomainName('core partner')).toBe(false)
     expect(isValidWfDomainName('')).toBe(false)
+  })
+})
+
+describe('wfSupportsIndexes / wfSupportsPublishCompleted', () => {
+  it('uses one 1.1.0 floor for both features', () => {
+    expect(WF_INDEXES_MIN_VERSION).toBe('1.1.0')
+    expect(WF_PUBLISH_COMPLETED_MIN_VERSION).toBe(WF_INDEXES_MIN_VERSION)
+  })
+
+  it('accepts 1.1.0 and newer, rejects older and unknown', () => {
+    for (const gate of [wfSupportsIndexes, wfSupportsPublishCompleted]) {
+      expect(gate('1.1.0')).toBe(true)
+      expect(gate('v1.1.0')).toBe(true)
+      expect(gate('wf 1.2.3\n')).toBe(true)
+      expect(gate('2.0.0-beta.1')).toBe(true)
+      expect(gate('1.0.14')).toBe(false)
+      expect(gate('1.0.13')).toBe(false)
+      expect(gate(undefined)).toBe(false)
+      expect(gate(null)).toBe(false)
+      expect(gate('')).toBe(false)
+      expect(gate('dev-build')).toBe(false)
+    }
+  })
+
+  it('leaves the --domain gate at 1.0.13', () => {
+    expect(wfSupportsDomainFlag('1.0.13')).toBe(true)
+    expect(wfSupportsDomainFlag('1.0.12')).toBe(false)
+  })
+})
+
+describe('isValidWfFlowKey', () => {
+  it('follows the CLI physical-schema rule', () => {
+    expect(isValidWfFlowKey('money-transfer')).toBe(true)
+    expect(isValidWfFlowKey('_internal_flow')).toBe(true)
+    expect(isValidWfFlowKey('A1')).toBe(true)
+    expect(isValidWfFlowKey('a'.repeat(63))).toBe(true)
+    expect(isValidWfFlowKey('a'.repeat(64))).toBe(false)
+    expect(isValidWfFlowKey('1-starts-with-digit')).toBe(false)
+    expect(isValidWfFlowKey('-starts-with-dash')).toBe(false)
+    expect(isValidWfFlowKey('has space')).toBe(false)
+    expect(isValidWfFlowKey('has.dot')).toBe(false)
+    expect(isValidWfFlowKey('')).toBe(false)
+  })
+})
+
+describe('buildWfIndexesGenerateArgv', () => {
+  it('builds the all-flows form', () => {
+    expect(buildWfIndexesGenerateArgv({ base: 'indexes generate' })).toEqual(['indexes', 'generate'])
+  })
+
+  it('adds --flow, -o and --retire-obsolete in CLI order', () => {
+    expect(
+      buildWfIndexesGenerateArgv({
+        base: 'indexes generate',
+        flow: '  money-transfer ',
+        output: './index-sql',
+        retireObsolete: true,
+      }),
+    ).toEqual(['indexes', 'generate', '--flow', 'money-transfer', '-o', './index-sql', '--retire-obsolete'])
+    expect(buildWfIndexesGenerateArgv({ base: 'indexes generate', retireObsolete: false })).toEqual([
+      'indexes',
+      'generate',
+    ])
+  })
+
+  it('rejects an invalid flow key or output folder', () => {
+    expect(() => buildWfIndexesGenerateArgv({ base: 'indexes generate', flow: '' })).toThrow(/not a valid flow key/)
+    expect(() => buildWfIndexesGenerateArgv({ base: 'indexes generate', flow: 'x;rm' })).toThrow(
+      /not a valid flow key/,
+    )
+    expect(() => buildWfIndexesGenerateArgv({ base: 'indexes generate', flow: 'a'.repeat(64) })).toThrow(
+      /not a valid flow key/,
+    )
+    expect(() => buildWfIndexesGenerateArgv({ base: 'indexes generate', output: '  ' })).toThrow(
+      /output folder must not be empty/,
+    )
+    expect(() => buildWfIndexesGenerateArgv({ base: 'indexes generate', output: '--retire-obsolete' })).toThrow(
+      /must not start with "-"/,
+    )
+  })
+
+  it('never emits --domain, even when a caller smuggles one in', () => {
+    const spec = { base: 'indexes generate', flow: 'loan', domain: 'core' } as WfIndexesGenerateSpec & {
+      domain: string
+    }
+    const argv = buildWfIndexesGenerateArgv(spec)
+    expect(argv).toEqual(['indexes', 'generate', '--flow', 'loan'])
+    expect(argv).not.toContain('--domain')
+    expect(argv).not.toContain('core')
   })
 })

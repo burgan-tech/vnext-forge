@@ -28,13 +28,22 @@ export {
 export { compareCoreSemver, extractCoreSemver } from './semver.js'
 export {
   buildWfArgv,
+  buildWfIndexesGenerateArgv,
   buildWfShellCommand,
   isValidWfDomainName,
+  isValidWfFlowKey,
   quoteShellArg,
   WF_DOMAIN_FLAG_MIN_VERSION,
   WF_DOMAIN_NAME_PATTERN,
+  WF_FLOW_KEY_MAX_LENGTH,
+  WF_FLOW_KEY_PATTERN,
+  WF_INDEXES_MIN_VERSION,
+  WF_PUBLISH_COMPLETED_MIN_VERSION,
   wfSupportsDomainFlag,
+  wfSupportsIndexes,
+  wfSupportsPublishCompleted,
   type WfCommandSpec,
+  type WfIndexesGenerateSpec,
   type WfShellCommandOptions,
   type WfWorkspaceCommand,
 } from './wf-argv.js'

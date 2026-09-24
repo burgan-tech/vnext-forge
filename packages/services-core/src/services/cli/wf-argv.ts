@@ -22,6 +22,27 @@ export const WF_DOMAIN_FLAG_MIN_VERSION = '1.0.13'
  */
 export const WF_DOMAIN_NAME_PATTERN = /^[A-Za-z0-9._-]+$/
 
+/**
+ * First CLI release with `wf indexes generate` (offline attribute-index SQL).
+ * The CLI release branch is not decided yet — if the command ships as 1.0.14,
+ * this is the one literal to change.
+ */
+export const WF_INDEXES_MIN_VERSION = '1.1.0'
+
+/**
+ * First CLI release that signals publish-completed after publishing (CLI
+ * `524495f`, replacing the removed re-initialize call). It ships in the same
+ * release as `wf indexes generate`, so it is deliberately an alias.
+ */
+export const WF_PUBLISH_COMPLETED_MIN_VERSION = WF_INDEXES_MIN_VERSION
+
+/**
+ * The CLI turns a flow key into a PostgreSQL schema name
+ * (`src/lib/indexes/definitions.js`, `physicalSchema`) and rejects anything else.
+ */
+export const WF_FLOW_KEY_PATTERN = /^[a-zA-Z_][a-zA-Z0-9_-]*$/
+export const WF_FLOW_KEY_MAX_LENGTH = 63
+
 export type WfWorkspaceCommand = 'check' | 'update' | 'update --all' | 'csx --all' | 'sync' | 'reset'
 
 export type WfCommandSpec =
@@ -35,12 +56,30 @@ export interface WfShellCommandOptions {
   cliSupportsDomainFlag: boolean
 }
 
-/** `true` when the version string carries a core semver ≥ 1.0.13; unknown → `false`. */
-export function wfSupportsDomainFlag(version: string | null | undefined): boolean {
+function versionAtLeast(version: string | null | undefined, minVersion: string): boolean {
   if (!version) return false
   const core = extractCoreSemver(version)
   if (!core) return false
-  return compareCoreSemver(core, WF_DOMAIN_FLAG_MIN_VERSION) >= 0
+  return compareCoreSemver(core, minVersion) >= 0
+}
+
+/** `true` when the version string carries a core semver ≥ 1.0.13; unknown → `false`. */
+export function wfSupportsDomainFlag(version: string | null | undefined): boolean {
+  return versionAtLeast(version, WF_DOMAIN_FLAG_MIN_VERSION)
+}
+
+/** `true` when `wf indexes generate` exists (≥ `WF_INDEXES_MIN_VERSION`); unknown → `false`. */
+export function wfSupportsIndexes(version: string | null | undefined): boolean {
+  return versionAtLeast(version, WF_INDEXES_MIN_VERSION)
+}
+
+/** `true` when the CLI signals publish-completed (≥ `WF_PUBLISH_COMPLETED_MIN_VERSION`); unknown → `false`. */
+export function wfSupportsPublishCompleted(version: string | null | undefined): boolean {
+  return versionAtLeast(version, WF_PUBLISH_COMPLETED_MIN_VERSION)
+}
+
+export function isValidWfFlowKey(key: string): boolean {
+  return key.length <= WF_FLOW_KEY_MAX_LENGTH && WF_FLOW_KEY_PATTERN.test(key)
 }
 
 export function isValidWfDomainName(domain: string): boolean {
@@ -86,6 +125,43 @@ export function buildWfArgv(spec: WfCommandSpec, opts: { domain?: string } = {})
     }
     argv.push('--domain', domain)
   }
+  return argv
+}
+
+export interface WfIndexesGenerateSpec {
+  base: 'indexes generate'
+  /** One workflow key (all of its local versions); omit for every flow. */
+  flow?: string
+  /** Parent folder for the new batch; the CLI default is `index-sql` in cwd. */
+  output?: string
+  retireObsolete?: boolean
+}
+
+/**
+ * argv for `execFile('wf', argv)` running `wf indexes generate`.
+ *
+ * Deliberately separate from `WfCommandSpec` / `buildWfArgv` /
+ * `buildWfShellCommand`: the command is offline and reads only
+ * `vnext.config.json` in cwd, so it never takes `--domain`, and the legacy
+ * `wf domain use <d> &&` prefix would only rewrite the CLI's active profile
+ * for nothing.
+ */
+export function buildWfIndexesGenerateArgv(spec: WfIndexesGenerateSpec): string[] {
+  const argv = ['indexes', 'generate']
+  if (spec.flow !== undefined) {
+    const flow = spec.flow.trim()
+    if (!isValidWfFlowKey(flow)) {
+      throw new Error(`"${spec.flow}" is not a valid flow key for index generation.`)
+    }
+    argv.push('--flow', flow)
+  }
+  if (spec.output !== undefined) {
+    const output = spec.output.trim()
+    if (!output) throw new Error('The output folder must not be empty.')
+    if (output.startsWith('-')) throw new Error('The output folder must not start with "-".')
+    argv.push('-o', output)
+  }
+  if (spec.retireObsolete) argv.push('--retire-obsolete')
   return argv
 }
 
