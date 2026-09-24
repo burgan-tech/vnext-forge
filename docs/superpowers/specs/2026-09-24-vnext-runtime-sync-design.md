@@ -19,7 +19,7 @@ A Forge release whose designer writes schema-valid documents for the current run
 | # | Decision |
 |---|---|
 | D1 | Decompose into phases A–E on one branch (`f/vnext-runtime-sync`); each phase gets its own implementation plan and commit group. A first, then B/C/D (independent), E any time. |
-| D2 | Unreleased vnext-schema changes are applied through a **local patch layer** in services-core (pattern: `view-display-schema-patch.ts`), gated to schema versions ≤ 0.0.53. When vnext-schema is released: bump the pin and delete the patch. |
+| D2 | Unreleased vnext-schema changes are applied through a **local patch layer** in services-core (pattern: `view-display-schema-patch.ts`), shape-detected (inert once a release carries the changes); vendored master files under `services-core/src/services/validate/unreleased/`. When vnext-schema is released: bump the pin and delete the patch. |
 | D3 | Interaction (long-poll `terminate`) in QuickRunner: **user decision + countdown** — stop polling, show view + countdown, offer *Acknowledge* / *Wait for fallback*, then resume polling. |
 | D4 | `authorize` in QuickRunner: **panel + opt-in inline badges**. |
 | D5 | `human-task` list: **QuickRunner tab** next to the instance list. |
@@ -60,12 +60,12 @@ QuickRunner response types (`designer-ui/modules/quick-run/types`, `QuickRunApi.
 
 ### A2. Schema patch layer (`packages/services-core/src/services/validate/`)
 
-New `runtime-sync-schema-patch.ts`, applied in `validate.service.ts` next to the view-display patch, only when the resolved schema version ≤ 0.0.53. It ports these vnext-schema master changes (`git diff v0.0.53..HEAD`):
+New `runtime-sync-schema-patch.ts`, applied in `validate.service.ts` next to the view-display patch; when the loaded schema has the pre-`ac42026` shape it is replaced by the vendored master schema, which carries these changes. It ports these vnext-schema master changes (`git diff v0.0.53..HEAD`):
 
 - **workflow-definition:** `workflowTimeout.annotations`; `subFlow.overrides` expansion (`subFlowStateOverride.interaction.longPoll`, `.views`; `subFlowTransitionOverride.views`; deprecated `views`/`viewOverrides`); `longPoll` `required: ["terminate"]` + roles/rule `oneOf`; `availableIn` `["array","null"]` and removal of the Scheduled/Event `availableIn: null` constraint on shared transitions.
 - **schema-definition:** `attributes.type` free text (enum removed); `x-indexed` rules (non-master rejects any `x-indexed`; master validates eligibility — mirrored from master's `masterIndexSchema` / `indexableMasterField` / `unindexableMasterSchema`).
 
-Monaco: `validate/getAllSchemas` returns the patched schema so editor validation and save validation agree. (Today Monaco uses the bundled version; aligning it to the project-pinned version is included.)
+Monaco: `validate/getAllSchemas` returns the patched schema so editor validation and save validation agree. (Serving Monaco the project-pinned version instead of the bundled one moves to Phase D.)
 
 Tests: fixture-driven — each vnext-example document using a new construct (`timeout-lab/*`, `subflow-override-lab/*`, `human-task-chain/*`) validates; negative fixtures for longPoll roles+rule, `x-indexed` on non-master, `x-indexed` under `$ref`/`items`.
 

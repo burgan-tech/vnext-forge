@@ -5,6 +5,7 @@ import { z } from 'zod'
 
 import type { LoggerAdapter } from '../../adapters/index.js'
 import type { SchemaCacheService } from '../schema-cache/index.js'
+import { patchRuntimeSyncSchema } from './runtime-sync-schema-patch.js'
 import { patchViewDisplaySchema } from './view-display-schema-patch.js'
 
 interface VnextSchemaModule {
@@ -166,17 +167,18 @@ export function createValidateService(deps: ValidateServiceDeps) {
   const fellBackToBundled = new Set<string>()
 
   /**
-   * Every schema read goes through here, so a forward-port applies identically
-   * to the bundled module and to a version downloaded by `schemaCacheService`.
-   * Keeping it in one place is what stops the compiled validator and the schema
-   * handed to the UI from disagreeing about what is valid.
+   * Every schema read goes through here, so the forward-ports (view display,
+   * unreleased runtime-sync schemas) apply identically to the bundled module
+   * and to a version downloaded by `schemaCacheService`. Keeping it in one
+   * place is what stops the compiled validator and the schema handed to the UI
+   * from disagreeing about what is valid.
    */
   function readSchema(
     module: VnextSchemaModule,
     type: string,
   ): Record<string, unknown> | null {
     const schema = module.getSchema(type)
-    return schema ? patchViewDisplaySchema(type, schema) : schema
+    return schema ? patchRuntimeSyncSchema(type, patchViewDisplaySchema(type, schema)) : schema
   }
 
   function compileValidatorsForModule(module: VnextSchemaModule): Map<string, ValidatorEntry> {
