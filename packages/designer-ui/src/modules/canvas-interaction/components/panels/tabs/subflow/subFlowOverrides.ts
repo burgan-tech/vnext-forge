@@ -42,19 +42,35 @@ export type OverrideWarningCode =
   | 'roles-ignored-rule'
   | 'longpoll-inert'
   | 'legacy-views'
-  | 'mixed-views';
+  | 'mixed-views'
+  | 'legacy-views-ignored';
 
 export interface OverrideWarning {
   code: OverrideWarningCode;
   message: string;
 }
 
+/**
+ * Runtime: `SubFlow.EffectiveViewOverrides => Overrides?.Views ?? ViewOverrides`
+ * — whole-map replacement, never a merge. When `overrides.views` is present
+ * (even `{}`), `viewOverrides` is ignored entirely.
+ */
 export function legacyViewOverrides(sf: SubFlowOverrideSource): Record<string, ResourceReference> {
-  return { ...(sf.viewOverrides ?? {}), ...(overridesOf(sf).views ?? {}) };
+  return overridesOf(sf).views ?? sf.viewOverrides ?? {};
 }
 
+/**
+ * Runtime: `SubFlow.HasViewOverrides => Overrides?.Views != null || ViewOverrides != null`
+ * — a non-null test, so an empty `overrides.views: {}` still counts as
+ * "legacy present" even though it contributes no effective entries.
+ */
 export function hasLegacyViews(sf: SubFlowOverrideSource): boolean {
-  return Object.keys(legacyViewOverrides(sf)).length > 0;
+  return overridesOf(sf).views != null || sf.viewOverrides != null;
+}
+
+/** True when both legacy maps are set — `viewOverrides` is then dead weight. */
+function hasBothLegacyMaps(sf: SubFlowOverrideSource): boolean {
+  return overridesOf(sf).views != null && sf.viewOverrides != null;
 }
 
 function hasScopedViews(o: SubFlowOverrides): boolean {
@@ -126,6 +142,12 @@ export function overrideWarnings(
         code: 'mixed-views',
         message:
           'Legacy and scoped view overrides are mixed — the runtime rejects this subflow. Migrate or remove the legacy map.',
+      });
+    }
+    if (hasBothLegacyMaps(sf)) {
+      warnings.push({
+        code: 'legacy-views-ignored',
+        message: 'viewOverrides is ignored while overrides.views is set — the runtime reads overrides.views only.',
       });
     }
   }

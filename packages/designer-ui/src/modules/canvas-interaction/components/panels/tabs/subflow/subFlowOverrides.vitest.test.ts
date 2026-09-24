@@ -5,6 +5,7 @@ import {
   applyLegacyViewMigration,
   countOverrides,
   hasLegacyViews,
+  legacyViewOverrides,
   nextOverrideKey,
   overrideWarnings,
   parseFallbackSeconds,
@@ -109,6 +110,74 @@ describe('overrideWarnings', () => {
         null,
       ).map((w) => w.code),
     ).toEqual(['legacy-views', 'mixed-views']);
+  });
+
+  it('flags an empty overrides.views as legacy-present when scoped views also exist (mixed warning)', () => {
+    // overrides.views: {} is non-null, so HasViewOverrides is true even though
+    // the effective map (Overrides?.Views ?? ViewOverrides) contributes nothing.
+    const codes = overrideWarnings(
+      { overrides: { views: {}, states: { 'lp-wait': { views: { w: ref('y') } } } } },
+      null,
+    ).map((w) => w.code);
+    expect(codes).toEqual(['legacy-views', 'mixed-views']);
+  });
+
+  it('flags when both legacy maps are set — viewOverrides is ignored', () => {
+    const codes = overrideWarnings(
+      { viewOverrides: { v: ref('old') }, overrides: { views: { v: ref('new') } } },
+      null,
+    ).map((w) => w.code);
+    expect(codes).toEqual(['legacy-views', 'legacy-views-ignored']);
+  });
+});
+
+describe('F1: legacy view map is whole-map replacement, not a merge', () => {
+  it('legacyViewOverrides ignores viewOverrides entirely once overrides.views is set', () => {
+    expect(
+      legacyViewOverrides({ viewOverrides: { a: ref('legacy-a') }, overrides: { views: { b: ref('new-b') } } }),
+    ).toEqual({ b: ref('new-b') });
+    expect(legacyViewOverrides({ overrides: { views: {} }, viewOverrides: { a: ref('legacy-a') } })).toEqual({});
+  });
+
+  it('falls back to viewOverrides only when overrides.views is absent', () => {
+    expect(legacyViewOverrides({ viewOverrides: { a: ref('legacy-a') } })).toEqual({ a: ref('legacy-a') });
+    expect(legacyViewOverrides({})).toEqual({});
+  });
+
+  it('hasLegacyViews is a non-null test — an empty overrides.views still counts as legacy present', () => {
+    expect(hasLegacyViews({ overrides: { views: {} } })).toBe(true);
+    expect(hasLegacyViews({ viewOverrides: { a: ref('x') } })).toBe(true);
+    expect(hasLegacyViews({})).toBe(false);
+    expect(hasLegacyViews({ overrides: {} })).toBe(false);
+  });
+
+  it('countOverrides counts from the effective map only', () => {
+    expect(
+      countOverrides({ viewOverrides: { a: ref('legacy-a'), b: ref('legacy-b') }, overrides: { views: { c: ref('new-c') } } }),
+    ).toBe(1);
+    expect(countOverrides({ overrides: { views: {} }, viewOverrides: { a: ref('legacy-a') } })).toBe(0);
+  });
+
+  it('migration moves only overrides.views entries when both legacy maps are present', () => {
+    const sf: SubFlowConfig = {
+      type: 'S',
+      process: PROCESS,
+      viewOverrides: { 'child-confirm-view': ref('stale-legacy') },
+      overrides: { views: { 'child-lp-view': ref('effective-legacy') } },
+    };
+    const plan = planLegacyViewMigration(sf, CHILD);
+    expect(plan).toEqual({
+      states: { 'lp-wait': { 'child-lp-view': ref('effective-legacy') } },
+      transitions: { note: { 'child-lp-view': ref('effective-legacy') } },
+      unplaced: [],
+    });
+    applyLegacyViewMigration(sf, plan);
+    expect(sf.overrides?.states?.['lp-wait'].views).toEqual({ 'child-lp-view': ref('effective-legacy') });
+    expect(sf.overrides?.transitions?.note.views).toEqual({ 'child-lp-view': ref('effective-legacy') });
+    // Both legacy maps are cleared on a successful migration, even though only
+    // overrides.views entries were actually moved.
+    expect(sf.viewOverrides).toBeUndefined();
+    expect(sf.overrides?.views).toBeUndefined();
   });
 });
 
