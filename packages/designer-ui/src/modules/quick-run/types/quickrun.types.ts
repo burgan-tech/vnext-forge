@@ -6,7 +6,36 @@ export interface FlowLabelsMap {
   transitions: Record<string, string>;
 }
 
-export type InstanceStatus = 'A' | 'B' | 'C' | 'F';
+/** A Active, B Busy, C Completed, F Faulted, P Passive. */
+export type InstanceStatus = 'A' | 'B' | 'C' | 'F' | 'P';
+
+/** How an instance was started — immutable. `P` here is SubProcess, not Passive. */
+export type InstanceType = 'R' | 'S' | 'P';
+
+/** Incident block (runtime >= 2026-09-07): links, never content. */
+export interface IncidentLinks {
+  hasActiveIncident: boolean;
+  active?: { href: string };
+  history?: { href: string };
+}
+
+/** State-function `timeout` block: the armed workflow timeout of the polled instance. */
+export interface StateTimeout {
+  key: string;
+  target: string;
+  executeAtUtc: string;
+  annotations?: Record<string, string> | null;
+}
+
+/**
+ * State-function `interaction` block. Present only while the runtime is paused
+ * waiting for an acknowledge (`longPoll.terminate: true`).
+ */
+export interface InteractionSignal {
+  terminateLongPoll?: boolean;
+  fallbackTimeoutSeconds?: number;
+  ack?: { href: string };
+}
 
 export interface QuickRunInstance {
   id: string;
@@ -33,7 +62,7 @@ export interface TransitionInfo {
     href: string;
   };
   href: string;
-  annotations?: Record<string, string>;
+  annotations?: Record<string, string> | null;
   /**
    * R21: engine-declared semantic of this transition. Drives grouping
    * + colour of the button in the Available Transitions section.
@@ -42,6 +71,8 @@ export interface TransitionInfo {
    * or `'sharedTransition'` (when in `sharedTransitions[]`).
    */
   kind?: TransitionKind;
+  /** Scheduled entries only: when the engine will fire it. Not callable by clients. */
+  executeAtUtc?: string;
 }
 
 /** R21: known transition kinds — see Workflow engine state model. */
@@ -52,6 +83,7 @@ export const TRANSITION_KINDS = [
   'exit',
   'update-parent-data',
   '$timeout',
+  'scheduled',
 ] as const;
 export type TransitionKind = (typeof TRANSITION_KINDS)[number];
 
@@ -131,15 +163,12 @@ export interface StateResponse {
     hasFunctions: boolean;
     href: string;
   };
-  /**
-   * Long-poll interaction signal from the State Function (LongPoll)
-   * endpoint. When `terminateLongPoll` is true the client stops the
-   * polling loop and silently POSTs to `ack.href` to acknowledge.
-   */
-  interaction?: {
-    terminateLongPoll?: boolean;
-    ack?: { href: string };
-  };
+  /** See {@link InteractionSignal}. */
+  interaction?: InteractionSignal;
+  /** Armed workflow timeout; absent when none is armed or the instance is terminal. */
+  timeout?: StateTimeout;
+  /** Incident flag + links (part of the ETag). */
+  incident?: IncidentLinks;
   eTag?: string;
   entityEtag?: string;
   responseHeaders?: Record<string, string>;
@@ -282,6 +311,10 @@ export interface InstanceListItem {
     currentState: string;
     effectiveState: string;
     status: InstanceStatus;
+    /** Deepest active subflow's status (or the instance's own). Prefer for display. */
+    effectiveStatus?: InstanceStatus;
+    type?: InstanceType;
+    incident?: IncidentLinks;
     effectiveStateType?: string;
     effectiveStateSubType?: string;
     currentStateType?: string;

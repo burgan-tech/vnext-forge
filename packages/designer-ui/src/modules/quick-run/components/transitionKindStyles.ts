@@ -87,6 +87,15 @@ export const TRANSITION_KIND_STYLES: Record<TransitionKind, TransitionKindStyle>
     badgeClass: 'bg-muted text-muted-text',
     glyph: '⏱',
   },
+  scheduled: {
+    order: 6,
+    label: 'Scheduled',
+    description: 'Fired by the engine at the scheduled time — not callable',
+    buttonClass:
+      'rounded border border-dashed border-primary-border px-3 py-1.5 text-xs font-medium text-muted-text',
+    badgeClass: 'bg-muted text-muted-text',
+    glyph: '⏰',
+  },
 };
 
 const KNOWN_KINDS = new Set<TransitionKind>(Object.keys(TRANSITION_KIND_STYLES) as TransitionKind[]);

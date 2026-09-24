@@ -9,7 +9,13 @@ const workflowIdentifier = {
 
 const headersSchema = z.record(z.string(), z.string()).optional()
 
-const instanceStatusSchema = z.enum(['A', 'B', 'C', 'F'])
+const instanceStatusSchema = z.enum(['A', 'B', 'C', 'F', 'P'])
+const instanceTypeSchema = z.enum(['R', 'S', 'P'])
+
+/** Incident block: link shape (runtime >= 2026-09-07) or legacy embedded content. */
+const incidentBlockSchema = z
+  .object({ hasActiveIncident: z.boolean() })
+  .passthrough()
 
 // ── Start Instance ───────────────────────────────────────────────────────────
 
@@ -77,6 +83,9 @@ const transitionInfoSchema = z.object({
     href: z.string(),
   }).optional(),
   href: z.string(),
+  kind: z.string().optional(),
+  executeAtUtc: z.string().optional(),
+  annotations: z.record(z.string(), z.string()).nullable().optional(),
 })
 
 /** The trailing fields are sent by newer engines on `correlations` only. */
@@ -123,8 +132,16 @@ export const quickrunGetStateResult = z.object({
   }).optional(),
   interaction: z.object({
     terminateLongPoll: z.boolean().optional(),
+    fallbackTimeoutSeconds: z.number().int().optional(),
     ack: z.object({ href: z.string() }).optional(),
   }).optional(),
+  timeout: z.object({
+    key: z.string(),
+    target: z.string(),
+    executeAtUtc: z.string(),
+    annotations: z.record(z.string(), z.string()).nullable().optional(),
+  }).optional(),
+  incident: incidentBlockSchema.optional(),
   eTag: z.string().optional(),
   entityEtag: z.string().optional(),
   responseHeaders: z.record(z.string(), z.string()).optional(),
@@ -329,6 +346,9 @@ const getInstanceMetadataSchema = z.object({
   currentState: z.string(),
   effectiveState: z.string(),
   status: instanceStatusSchema,
+  effectiveStatus: instanceStatusSchema.optional(),
+  type: instanceTypeSchema.nullable().optional(),
+  incident: incidentBlockSchema.optional(),
   effectiveStateType: z.string().optional(),
   effectiveStateSubType: z.string().optional(),
   currentStateType: z.string().optional(),
@@ -374,6 +394,9 @@ const instanceMetadataSchema = z.object({
   currentState: z.string(),
   effectiveState: z.string(),
   status: instanceStatusSchema,
+  effectiveStatus: instanceStatusSchema.optional(),
+  type: instanceTypeSchema.nullable().optional(),
+  incident: incidentBlockSchema.optional(),
   effectiveStateType: z.string().optional(),
   effectiveStateSubType: z.string().optional(),
   currentStateType: z.string().optional(),

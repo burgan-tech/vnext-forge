@@ -3,7 +3,10 @@ import type {
   DataResponse,
   FunctionCatalogResponse,
   HistoryResponse,
+  IncidentLinks,
   InstanceListResponse,
+  InstanceStatus,
+  InstanceType,
   SchemaResponse,
   StateResponse,
   ViewResponse,
@@ -207,6 +210,8 @@ export interface IncidentEntry {
   message: string;
   errorCode: string;
   errorLayer: string;
+  /** HTTP status of the failed call, when the failure came from one. */
+  statusCode?: number | null;
   boundaryAction: string | null;
   boundaryLevel: string | null;
   traceId: string;
@@ -215,6 +220,10 @@ export interface IncidentEntry {
   retryCount: number;
 }
 
+/**
+ * Legacy embedded incident block — sent by runtimes before 2026-09-07. Newer
+ * runtimes send {@link IncidentLinks}. Read either through `normalizeIncident`.
+ */
 export interface IncidentInfo {
   hasActiveIncident: boolean;
   totalCount: number;
@@ -235,6 +244,8 @@ export interface InstanceDetailResponse {
     currentState: string;
     effectiveState: string;
     status: string;
+    type?: InstanceType;
+    effectiveStatus?: InstanceStatus;
     effectiveStateType?: string;
     effectiveStateSubType?: string;
     currentStateType?: string;
@@ -246,7 +257,7 @@ export interface InstanceDetailResponse {
     createdByBehalfOf?: string;
     modifiedBy?: string;
     modifiedByBehalfOf?: string;
-    incident?: IncidentInfo;
+    incident?: IncidentInfo | IncidentLinks;
   };
 }
 

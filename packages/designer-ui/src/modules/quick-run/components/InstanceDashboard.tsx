@@ -3,7 +3,8 @@ import { RefreshCw } from 'lucide-react';
 
 import { extractEtag } from '../etagFromResponse';
 import * as QuickRunApi from '../QuickRunApi';
-import type { IncidentEntry, IncidentInfo, InstanceDetailResponse, WorkflowBucketConfig } from '../QuickRunApi';
+import type { IncidentEntry, InstanceDetailResponse, WorkflowBucketConfig } from '../QuickRunApi';
+import { normalizeIncident, type NormalizedIncident } from '../utils/incident';
 import { ResizableDialogShell } from '../../../ui/ResizableDialogShell';
 import { useQuickRunPolling } from '../hooks/useQuickRunPolling';
 import { useQuickRunStore } from '../store/quickRunStore';
@@ -1219,8 +1220,9 @@ function InstanceMetaDialog({
     });
   }, []);
 
-  const incident = data?.metadata?.incident;
-  const showAlertStrip = incident?.hasActiveIncident && incident.active && !incident.active.isResolved;
+  const rawIncident = data?.metadata?.incident;
+  const incident = normalizeIncident(rawIncident);
+  const showAlertStrip = incident?.hasActiveIncident === true;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
@@ -1334,8 +1336,8 @@ function InstanceMetaDialog({
               </section>
 
               {/* Incident */}
-              {incident && (incident.active || (incident.history && incident.history.length > 0)) && (
-                <IncidentSection incident={incident} />
+              {incident && (incident.hasActiveIncident || incident.active || incident.history.length > 0) && (
+                <IncidentSection incident={incident} raw={rawIncident} />
               )}
             </div>
           )}
@@ -1451,20 +1453,24 @@ function IncidentAlertStrip() {
   );
 }
 
-function IncidentSection({ incident }: { incident: IncidentInfo }) {
+export function IncidentSection({ incident, raw }: { incident: NormalizedIncident; raw: unknown }) {
   return (
     <section className="flex flex-col gap-3 border-t border-[var(--vscode-panel-border)] pt-4">
       <p className="text-[10px] font-semibold uppercase text-[var(--vscode-descriptionForeground)]">Incident</p>
 
-      {incident.active && (
+      {incident.active ? (
         <IncidentActiveCard entry={incident.active} />
+      ) : (
+        incident.hasActiveIncident && (
+          <p className="text-xs text-[var(--vscode-foreground)]">
+            This instance has an active incident. Details are served by the runtime&apos;s incidents endpoint.
+          </p>
+        )
       )}
 
-      {incident.history && incident.history.length > 0 && (
-        <IncidentHistorySection history={incident.history} />
-      )}
+      {incident.history.length > 0 && <IncidentHistorySection history={incident.history} />}
 
-      <IncidentRawJsonDisclosure incident={incident} />
+      <IncidentRawJsonDisclosure incident={raw} />
     </section>
   );
 }
@@ -1607,7 +1613,7 @@ function IncidentHistoryItem({ entry }: { entry: IncidentEntry }) {
   );
 }
 
-function IncidentRawJsonDisclosure({ incident }: { incident: IncidentInfo }) {
+function IncidentRawJsonDisclosure({ incident }: { incident: unknown }) {
   return (
     <details className="text-xs">
       <summary className="cursor-pointer text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]">
