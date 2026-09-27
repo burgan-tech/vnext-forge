@@ -47,6 +47,14 @@ export function appendIncidentPage(prev: IncidentHistoryState, next: IncidentPag
   };
 }
 
+/**
+ * The history endpoint pages the full history, the open incident included.
+ * It is already shown as "Current incident", so keep it out of the past list.
+ */
+export function excludeCurrentIncident(entries: IncidentEntry[], currentId: string | undefined): IncidentEntry[] {
+  return currentId ? entries.filter((e) => e.id !== currentId) : entries;
+}
+
 function thrown(err: unknown): RuntimeErrorLike {
   return { code: 'THROWN', message: err instanceof Error ? err.message : String(err) };
 }
@@ -121,6 +129,10 @@ export function IncidentSection({ incident, raw, loaders }: IncidentSectionProps
     }
   }, [loaders, incident.hasActiveIncident, incident.active, loadActive]);
 
+  const currentId = (incident.active ?? active.entry)?.id;
+  const pastInline = excludeCurrentIncident(incident.history, currentId);
+  const pastLoaded = excludeCurrentIncident(history.items, currentId);
+
   let activeBlock: ReactNode = null;
   if (incident.active) {
     activeBlock = <IncidentEntryCard entry={incident.active} heading="Current incident" />;
@@ -151,7 +163,14 @@ export function IncidentSection({ incident, raw, loaders }: IncidentSectionProps
       {activeError && <RuntimeErrorBanner title="Could not load the active incident" error={activeError} />}
 
       {incident.history.length > 0 ? (
-        <IncidentHistoryList entries={incident.history} />
+        <div className="flex flex-col gap-2">
+          <p className="text-[10px] text-[var(--vscode-descriptionForeground)]">Past incidents</p>
+          {pastInline.length === 0 ? (
+            <p className="text-xs text-[var(--vscode-descriptionForeground)]">No past incidents.</p>
+          ) : (
+            <IncidentHistoryList entries={pastInline} />
+          )}
+        </div>
       ) : (
         loaders && (
           <div className="flex flex-col gap-2">
@@ -162,10 +181,10 @@ export function IncidentSection({ incident, raw, loaders }: IncidentSectionProps
             ) : (
               <>
                 <p className="text-[10px] text-[var(--vscode-descriptionForeground)]">Past incidents</p>
-                {history.items.length === 0 ? (
+                {pastLoaded.length === 0 ? (
                   <p className="text-xs text-[var(--vscode-descriptionForeground)]">No past incidents.</p>
                 ) : (
-                  <IncidentHistoryList entries={history.items} />
+                  <IncidentHistoryList entries={pastLoaded} />
                 )}
                 {history.hasNext && (
                   <button

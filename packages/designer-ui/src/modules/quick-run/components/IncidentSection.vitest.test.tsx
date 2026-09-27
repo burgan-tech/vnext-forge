@@ -10,7 +10,15 @@ vi.mock('./CopyableJsonBlock', () => ({
   CopyableJsonBlock: ({ value }: { value: unknown }) => createElement('pre', null, JSON.stringify(value)),
 }));
 
-const { IncidentSection, IncidentAlert, IncidentEntryCard, IncidentBadge, appendIncidentPage, EMPTY_INCIDENT_HISTORY } =
+const {
+  IncidentSection,
+  IncidentAlert,
+  IncidentEntryCard,
+  IncidentBadge,
+  appendIncidentPage,
+  excludeCurrentIncident,
+  EMPTY_INCIDENT_HISTORY,
+} =
   await import('./IncidentSection.js');
 
 const LINK_SHAPE = { hasActiveIncident: true, active: { href: '/a' }, history: { href: '/h' } };
@@ -56,6 +64,33 @@ describe('IncidentSection', () => {
     expect(html).toContain('Current incident');
     expect(html).toContain('upstream failed');
     expect(html).not.toContain('Show active incident');
+  });
+
+  it('keeps the current incident out of the past incidents list', () => {
+    const older: IncidentEntry = { ...ENTRY, id: 'i0', message: 'older failure', isResolved: true, resolvedAt: '2026-08-31T10:00:00Z' };
+    const raw = { hasActiveIncident: true, totalCount: 2, active: ENTRY, history: [ENTRY, older] };
+    const html = renderToStaticMarkup(createElement(IncidentSection, { incident: normalizeIncident(raw)!, raw: {}, loaders }));
+    expect(html.match(/upstream failed/g)).toHaveLength(1);
+    expect(html).toContain('older failure');
+  });
+
+  it('says there are no past incidents when the history holds only the current one', () => {
+    const raw = { hasActiveIncident: true, totalCount: 1, active: ENTRY, history: [ENTRY] };
+    const html = renderToStaticMarkup(createElement(IncidentSection, { incident: normalizeIncident(raw)!, raw: {}, loaders }));
+    expect(html.match(/upstream failed/g)).toHaveLength(1);
+    expect(html).toContain('No past incidents.');
+  });
+});
+
+describe('excludeCurrentIncident', () => {
+  it('drops the entry matching the current incident id', () => {
+    const older = { ...ENTRY, id: 'i0' };
+    expect(excludeCurrentIncident([ENTRY, older], 'i1')).toEqual([older]);
+  });
+
+  it('returns the list unchanged without a current incident', () => {
+    const list = [ENTRY];
+    expect(excludeCurrentIncident(list, undefined)).toBe(list);
   });
 });
 
