@@ -45,20 +45,21 @@ export function WorkflowSharedTransitionsSection() {
         triggerType: 0,
         schema: null,
         labels: [{ label: 'Shared Transition', language: 'en' }],
-        availableIn: [],
       });
     });
   };
 
   const updateAvailableIn = useCallback(
     (index: number, next: AvailableIn | undefined) => {
-      updateWorkflow((draft: any) => {
-        if (draft.attributes?.sharedTransitions?.[index]) {
-          // Unlike the lifecycle transitions, `availableIn` is a required
-          // property of a shared transition — an empty list keeps the key
-          // present rather than dropping it.
-          draft.attributes.sharedTransitions[index].availableIn = next ?? [];
-        }
+      updateWorkflow((draft) => {
+        const shared = (draft.attributes as { sharedTransitions?: { availableIn?: AvailableIn }[] } | undefined)
+          ?.sharedTransitions;
+        const st = shared?.[index];
+        if (!st) return;
+        // Same convention as cancel / exit / updateData: absent means every
+        // state, so a cleared list drops the key.
+        if (next) st.availableIn = next;
+        else delete st.availableIn;
       });
     },
     [updateWorkflow],

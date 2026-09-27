@@ -112,11 +112,9 @@ function sharedTransitionPolicy(
   triggerKind?: TriggerKind,
 ): TransitionFieldPolicyMap {
   const statePolicy = stateTransitionPolicy(triggerType, triggerKind);
-  return {
-    ...statePolicy,
-    availableIn:
-      triggerType === TriggerType.Manual ? VISIBLE_REQUIRED : HIDDEN,
-  };
+  // Absent, null or empty `availableIn` means every state, for every trigger
+  // type (vnext-schema master) — optional on Manual, Scheduled and Event alike.
+  return { ...statePolicy, availableIn: VISIBLE_OPTIONAL };
 }
 
 function manualOnlyPolicy(
@@ -173,7 +171,9 @@ function startTransitionPolicy(): TransitionFieldPolicyMap {
     availableIn: HIDDEN,
     from: HIDDEN,
     _comment: HIDDEN,
-    annotations: VISIBLE_OPTIONAL,
+    // The start transition schema has `additionalProperties: false` and no
+    // `annotations`; existing values are left in the JSON untouched.
+    annotations: HIDDEN,
   };
 }
 

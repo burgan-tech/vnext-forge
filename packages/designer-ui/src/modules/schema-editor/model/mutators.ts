@@ -534,4 +534,13 @@ export function toggleNot(pointer: JsonPointer, init: SchemaNode = {}): SchemaUp
   };
 }
 
+/** Delete `x-indexed` at every pointer (the non-master cleanup, D3). */
+export function removeIndexedKeywords(pointers: readonly JsonPointer[]): SchemaUpdater {
+  return (draft) => {
+    for (const pointer of pointers) {
+      setKeyword(pointer, 'x-indexed', undefined)(draft);
+    }
+  };
+}
+
 export type { JsonPointer };

@@ -3,43 +3,58 @@ import { createLogger } from '../../../lib/logger/createLogger';
 
 const logger = createLogger('JsonSchemaRegistry');
 
-interface SchemaCache {
-  schemas: Record<string, object>;
-  types: string[];
+/** `validate/getAllSchemas` result: component type → JSON Schema (forward-ports already applied by services-core). */
+export type VnextSchemaMap = Record<string, object>;
+
+const BUNDLED_KEY = '__bundled__';
+const cache = new Map<string, VnextSchemaMap>();
+const inflight = new Map<string, Promise<VnextSchemaMap | null>>();
+
+function cacheKey(schemaVersion: string | undefined): string {
+  return schemaVersion ?? BUNDLED_KEY;
 }
 
-let cache: SchemaCache | null = null;
-let fetchPromise: Promise<SchemaCache | null> | null = null;
+/**
+ * Component schemas for `schemaVersion` (the project's
+ * `vnext.config.json#schemaVersion`; omitted → the package bundled with the
+ * backend). Cached per version; concurrent calls share one request.
+ */
+export async function fetchVnextSchemas(schemaVersion?: string): Promise<VnextSchemaMap | null> {
+  const key = cacheKey(schemaVersion);
+  const cached = cache.get(key);
+  if (cached) return cached;
+  const pending = inflight.get(key);
+  if (pending) return pending;
 
-export async function fetchVnextSchemas(): Promise<SchemaCache | null> {
-  if (cache) return cache;
-  if (fetchPromise) return fetchPromise;
-
-  fetchPromise = (async () => {
+  const request = (async () => {
     try {
-      const response = await callApi<SchemaCache>({ method: 'validate/getAllSchemas' });
+      const response = await callApi<VnextSchemaMap>({
+        method: 'validate/getAllSchemas',
+        params: schemaVersion ? { schemaVersion } : {},
+      });
       if (response.success) {
-        cache = response.data as SchemaCache;
-        logger.info(`Loaded ${Object.keys(cache.schemas).length} vnext schemas`);
-        return cache;
+        cache.set(key, response.data);
+        logger.info(`Loaded ${Object.keys(response.data).length} vnext schemas (${key})`);
+        return response.data;
       }
       logger.warn('Failed to load vnext schemas from server');
       return null;
-    } catch (error) {
+    } catch {
       logger.warn('Error fetching vnext schemas');
       return null;
     } finally {
-      fetchPromise = null;
+      inflight.delete(key);
     }
   })();
-
-  return fetchPromise;
+  inflight.set(key, request);
+  return request;
 }
 
-export function getCachedSchemas(): SchemaCache | null {
-  return cache;
+export function getCachedSchemas(schemaVersion?: string): VnextSchemaMap | null {
+  return cache.get(cacheKey(schemaVersion)) ?? null;
 }
 
 export function invalidateSchemaCache(): void {
-  cache = null;
+  cache.clear();
+  inflight.clear();
 }

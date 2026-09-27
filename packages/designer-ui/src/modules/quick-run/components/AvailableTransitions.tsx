@@ -27,6 +27,9 @@
 import { useMemo } from 'react';
 
 import { type FlowLabelsMap, type TransitionInfo, TRANSITION_KINDS, type TransitionKind } from '../types/quickrun.types';
+import { scheduleCountdownLabel } from '../utils/countdown';
+import { verdictText, type AuthorizeVerdict } from '../utils/permissionChecks';
+import { AnnotationChips } from './AnnotationChips';
 import { kindStyle, resolveTransitionKind } from './transitionKindStyles';
 
 export interface AvailableTransitionsProps {
@@ -39,6 +42,15 @@ export interface AvailableTransitionsProps {
   onManualClick: () => void;
   /** Disable all buttons while a transition / state refresh is in flight. */
   disabled: boolean;
+  /**
+   * When set, every button is disabled and this reason is shown next to the
+   * section title (e.g. "Awaiting acknowledge" while a long poll is paused).
+   */
+  lockedReason?: string;
+  /** Clock for scheduled-entry countdowns; defaults to render time. */
+  nowMs?: number;
+  /** Opt-in authorize verdicts per transition key, for the current role. */
+  permissions?: Readonly<Record<string, AuthorizeVerdict>>;
 }
 
 interface NormalizedTransition {
@@ -54,6 +66,9 @@ export function AvailableTransitions({
   showManual,
   onManualClick,
   disabled,
+  lockedReason,
+  nowMs,
+  permissions,
 }: AvailableTransitionsProps) {
   // Merge + normalize kinds. Legacy responses without `kind` keep the
   // bucket they arrived in so the visual grouping doesn't suddenly
@@ -74,12 +89,21 @@ export function AvailableTransitions({
       items: byKind.get(kind) ?? [],
     })).filter((group) => group.items.length > 0 || (group.kind === 'stateTransition' && showManual));
   }, [transitions, sharedTransitions, showManual]);
+  const locked = disabled || !!lockedReason;
+  const now = nowMs ?? Date.now();
 
   if (grouped.length === 0) return null;
 
   return (
     <section className="flex flex-col gap-3">
-      <p className="text-xs font-semibold uppercase text-muted-text">Available Transitions</p>
+      <div className="flex items-center gap-2">
+        <p className="text-xs font-semibold uppercase text-muted-text">Available Transitions</p>
+        {lockedReason && (
+          <span className="rounded border border-warning-border bg-warning-surface px-1.5 py-0.5 text-[10px] font-medium text-warning-text">
+            {lockedReason}
+          </span>
+        )}
+      </div>
       {grouped.map(({ kind, items }) => {
         const style = kindStyle(kind);
         return (
@@ -91,23 +115,37 @@ export function AvailableTransitions({
               <span className="text-[10px] text-muted-text">{style.description}</span>
             </div>
             <div className="flex flex-wrap gap-2">
-              {items.map(({ info }) => (
-                <button
-                  key={`${kind}-${info.name}`}
-                  className={style.buttonClass}
-                  onClick={() => onTransitionClick(info)}
-                  disabled={disabled}
-                  title={style.description}
-                >
-                  {style.glyph ? `${style.glyph} ` : ''}
-                  {flowLabels?.transitions[info.name] ?? info.name}
-                </button>
-              ))}
+              {items.map(({ info }) =>
+                style.readOnly ? (
+                  <ScheduledEntry
+                    key={`${kind}-${info.name}`}
+                    info={info}
+                    label={flowLabels?.transitions[info.name] ?? info.name}
+                    className={style.buttonClass}
+                    description={style.description}
+                    glyph={style.glyph}
+                    nowMs={now}
+                  />
+                ) : (
+                  <span key={`${kind}-${info.name}`} className="inline-flex items-center gap-1">
+                    <button
+                      className={style.buttonClass}
+                      onClick={() => onTransitionClick(info)}
+                      disabled={locked}
+                      title={style.description}
+                    >
+                      {style.glyph ? `${style.glyph} ` : ''}
+                      {flowLabels?.transitions[info.name] ?? info.name}
+                    </button>
+                    {permissions?.[info.name] && <PermissionBadge verdict={permissions[info.name]} />}
+                  </span>
+                ),
+              )}
               {kind === 'stateTransition' && showManual && (
                 <button
                   className="rounded border border-dashed border-primary-border px-3 py-1.5 text-xs text-muted-text hover:border-primary-border-hover hover:text-foreground disabled:opacity-50"
                   onClick={onManualClick}
-                  disabled={disabled}
+                  disabled={locked}
                   title="Fire a transition by name (session-only, not persisted)"
                 >
                   + Manual
@@ -118,5 +156,52 @@ export function AvailableTransitions({
         );
       })}
     </section>
+  );
+}
+
+/** Engine-fired entry: not callable, so a non-interactive label with its countdown. */
+function ScheduledEntry({
+  info,
+  label,
+  className,
+  description,
+  glyph,
+  nowMs,
+}: {
+  info: TransitionInfo;
+  label: string;
+  className: string;
+  description: string;
+  glyph?: string;
+  nowMs: number;
+}) {
+  const countdown = info.executeAtUtc ? scheduleCountdownLabel(info.executeAtUtc, nowMs) : null;
+  const at = info.executeAtUtc ? Date.parse(info.executeAtUtc) : Number.NaN;
+  return (
+    <span
+      className={className}
+      title={Number.isNaN(at) ? description : `${description} — ${new Date(at).toLocaleString()}`}
+      aria-disabled="true"
+    >
+      {glyph ? `${glyph} ` : ''}
+      {label}
+      {countdown && <span className="ml-1 opacity-70">· {countdown}</span>}
+      <AnnotationChips annotations={info.annotations} className="ml-1" />
+    </span>
+  );
+}
+
+function PermissionBadge({ verdict }: { verdict: AuthorizeVerdict }) {
+  const text = verdictText(verdict);
+  const [glyph, tone] =
+    verdict.kind === 'error'
+      ? ['?', 'text-warning-text']
+      : verdict.allowed
+        ? ['✓', 'text-[var(--vscode-charts-green)]']
+        : ['✕', 'text-[var(--vscode-errorForeground)]'];
+  return (
+    <span className={`text-[11px] font-semibold ${tone}`} title={text} aria-label={text}>
+      {glyph}
+    </span>
   );
 }

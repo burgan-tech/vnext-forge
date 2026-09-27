@@ -31,7 +31,7 @@ export type FieldCategory = 'instance' | 'attribute';
 /** How an attribute value should be coerced before it goes on the wire. */
 export type FilterValueType = 'text' | 'number' | 'boolean' | 'date';
 
-export type InstanceFieldType = 'string' | 'status' | 'date';
+export type InstanceFieldType = 'string' | 'status' | 'date' | 'instanceType';
 
 export interface FilterCondition {
   category: FieldCategory;
@@ -47,6 +47,8 @@ export interface FilterCondition {
 /** Instance columns the runtime accepts in `filter` (see `InstanceFieldDiscriminator`). */
 export const INSTANCE_FIELDS: { value: string; label: string; type: InstanceFieldType }[] = [
   { value: 'status', label: 'Status', type: 'status' },
+  { value: 'effectiveStatus', label: 'Effective Status', type: 'status' },
+  { value: 'instanceType', label: 'Instance Type', type: 'instanceType' },
   { value: 'currentState', label: 'Current State', type: 'string' },
   { value: 'effectiveState', label: 'Effective State', type: 'string' },
   { value: 'stage', label: 'Stage', type: 'string' },
@@ -61,6 +63,14 @@ export const INSTANCE_FIELDS: { value: string; label: string; type: InstanceFiel
 
 /** Runtime accepts names or single-letter codes; names read better in the UI. */
 export const STATUS_OPTIONS = ['Active', 'Busy', 'Completed', 'Faulted', 'Passive'] as const;
+
+/** `instanceType` accepts names or codes (`Root`/`R`, `SubFlow`/`S`, `SubProcess`/`P`). */
+export const INSTANCE_TYPE_OPTIONS = ['Root', 'SubFlow', 'SubProcess'] as const;
+
+/** Sort choices: `instanceType` is filter-only. */
+export function sortableInstanceFields(): typeof INSTANCE_FIELDS {
+  return INSTANCE_FIELDS.filter((f) => f.type !== 'instanceType');
+}
 
 export const ALL_OPERATORS: { value: FilterOperator; label: string }[] = [
   { value: 'eq', label: '=' },
@@ -90,7 +100,9 @@ export function getFieldType(category: FieldCategory, field: string): ResolvedFi
 
 export function getOperatorsForFieldType(type: ResolvedFieldType, valueType: FilterValueType = 'text'): FilterOperator[] {
   switch (type) {
-    case 'status': return ['eq', 'ne', 'in', 'nin'];
+    case 'status':
+    case 'instanceType':
+      return ['eq', 'ne', 'in', 'nin'];
     case 'date': return ['eq', 'gt', 'ge', 'lt', 'le', 'between', 'isNull'];
     case 'string': return ['eq', 'ne', 'like', 'match', 'startswith', 'endswith', 'in', 'nin', 'isNull'];
     case 'attribute':
@@ -111,6 +123,17 @@ export function operatorNeedsValue(op: FilterOperator): boolean {
 
 const ATTRIBUTE_SEGMENT = /^[a-zA-Z0-9_]+$/;
 
+/** Runtime `InputValidator.MaxValueLength`: one scalar operand (each `in`/`nin` element, each `between` bound). */
+export const MAX_FILTER_VALUE_LENGTH = 1000;
+/** Runtime `InputValidator.MaxFilterLength`: the whole `filter` JSON string. */
+export const MAX_FILTER_LENGTH = 5000;
+
+function valueTooLong(value: string): string | undefined {
+  return value.length > MAX_FILTER_VALUE_LENGTH
+    ? `Values may be at most ${MAX_FILTER_VALUE_LENGTH} characters (this one has ${value.length}).`
+    : undefined;
+}
+
 /** `a`, `a.b`, `a_1.b2` — the runtime rejects any other segment shape as an unsafe path. */
 export function isValidAttributePath(path: string): boolean {
   const trimmed = path.trim();
@@ -130,6 +153,8 @@ type Scalar = string | number | boolean;
 function coerceScalar(raw: string, type: FilterValueType): { value?: Scalar; error?: string } {
   const v = raw.trim();
   if (!v) return { error: 'Value is required.' };
+  const tooLong = valueTooLong(v);
+  if (tooLong) return { error: tooLong };
   switch (type) {
     case 'number': {
       const n = Number(v);
@@ -209,6 +234,8 @@ export function serializeCondition(c: FilterCondition): SerializedCondition {
     case 'endswith': {
       const v = c.value.trim();
       if (!v) return { error: 'Value is required.' };
+      const tooLong = valueTooLong(v);
+      if (tooLong) return { error: tooLong };
       wireValue = v;
       break;
     }
@@ -233,6 +260,8 @@ export interface SerializedFilter {
   filter?: string;
   /** Row index → message. Empty when everything serialized. */
   errors: Record<number, string>;
+  /** Whole-filter problem (the runtime's 5000-character limit); `filter` is then undefined. */
+  filterError?: string;
 }
 
 /**
@@ -254,7 +283,14 @@ export function serializeInstanceFilter(conditions: FilterCondition[]): Serializ
 
   if (Object.keys(errors).length > 0) return { errors };
   if (nodes.length === 0) return { errors };
-  return { filter: JSON.stringify(nodes.length === 1 ? nodes[0] : { and: nodes }), errors };
+  const filter = JSON.stringify(nodes.length === 1 ? nodes[0] : { and: nodes });
+  if (filter.length > MAX_FILTER_LENGTH) {
+    return {
+      errors,
+      filterError: `The filter is ${filter.length} characters long; the runtime accepts at most ${MAX_FILTER_LENGTH}. Remove conditions or shorten values.`,
+    };
+  }
+  return { filter, errors };
 }
 
 /** Runtime `sort` parameter: `{"field":"createdAt","direction":"desc"}`. */

@@ -1,11 +1,18 @@
 import { callApi } from '../../api/client';
 import type {
+  AuthorizeResult,
+  AuthorizeTarget,
   DataResponse,
   FunctionCatalogResponse,
   HistoryResponse,
+  HumanTaskListResponse,
+  IncidentLinks,
   InstanceListResponse,
+  InstanceStatus,
+  InstanceType,
   SchemaResponse,
   StateResponse,
+  TaskHistoryResponse,
   ViewResponse,
 } from './types/quickrun.types';
 
@@ -128,16 +135,16 @@ interface AcknowledgeLongPollParams {
   domain: string;
   workflowKey: string;
   instanceId: string;
+  /** Which of the caller's roles acknowledges (runtime `?role=`, additive). */
+  role?: string;
   headers?: Record<string, string>;
   runtimeUrl?: string;
 }
 
 /**
- * Silently acknowledge a terminated long poll. The host builds the
- * deterministic endpoint
- * (`/api/v1/<domain>/workflows/<flow>/instances/<id>/longpoll/ack`)
- * from these identifiers and forwards the current headers. Callers
- * treat failures as silent (log-only).
+ * Acknowledge a paused long poll. The host builds the deterministic endpoint
+ * (`/api/v1/<domain>/workflows/<flow>/instances/<id>/longpoll/ack`) from these
+ * identifiers. A non-2xx arrives as an `ApiFailure` carrying the runtime body.
  */
 export async function acknowledgeLongPoll(
   params: AcknowledgeLongPollParams,
@@ -203,18 +210,24 @@ export interface IncidentEntry {
   createdAt: string;
   state: string;
   transition: string;
-  task: string;
+  task?: string | null;
   message: string;
-  errorCode: string;
-  errorLayer: string;
-  boundaryAction: string | null;
-  boundaryLevel: string | null;
-  traceId: string;
+  errorCode?: string | null;
+  errorLayer?: string | null;
+  /** HTTP status of the failed call, when the failure came from one. */
+  statusCode?: number | null;
+  boundaryAction?: string | null;
+  boundaryLevel?: string | null;
+  traceId?: string | null;
   isResolved: boolean;
-  resolvedAt: string | null;
+  resolvedAt?: string | null;
   retryCount: number;
 }
 
+/**
+ * Legacy embedded incident block — sent by runtimes before 2026-09-07. Newer
+ * runtimes send {@link IncidentLinks}. Read either through `normalizeIncident`.
+ */
 export interface IncidentInfo {
   hasActiveIncident: boolean;
   totalCount: number;
@@ -235,6 +248,8 @@ export interface InstanceDetailResponse {
     currentState: string;
     effectiveState: string;
     status: string;
+    type?: InstanceType | null;
+    effectiveStatus?: InstanceStatus;
     effectiveStateType?: string;
     effectiveStateSubType?: string;
     currentStateType?: string;
@@ -246,12 +261,79 @@ export interface InstanceDetailResponse {
     createdByBehalfOf?: string;
     modifiedBy?: string;
     modifiedByBehalfOf?: string;
-    incident?: IncidentInfo;
+    incident?: IncidentInfo | IncidentLinks;
   };
 }
 
 export async function getInstance(params: GetInstanceParams): Promise<ApiResponse<InstanceDetailResponse>> {
   return callApi({ method: 'quickrun/getInstance', params });
+}
+
+/** Identifiers every instance-scoped call carries. */
+export interface InstanceScopedParams {
+  domain: string;
+  workflowKey: string;
+  instanceId: string;
+  headers?: Record<string, string>;
+  runtimeUrl?: string;
+}
+
+/** One page of `…/incidents`, newest first. */
+export interface IncidentPage {
+  hasActiveIncident: boolean;
+  items: IncidentEntry[];
+  page: number;
+  pageSize: number;
+  hasNext: boolean;
+}
+
+export async function getIncidents(
+  params: InstanceScopedParams & { page?: number; pageSize?: number },
+): Promise<ApiResponse<IncidentPage>> {
+  return callApi({ method: 'quickrun/getIncidents', params });
+}
+
+/** `incident: null` means nothing is open any more (runtime 404 `Instance:100037`). */
+export async function getActiveIncident(
+  params: InstanceScopedParams,
+): Promise<ApiResponse<{ incident: IncidentEntry | null }>> {
+  return callApi({ method: 'quickrun/getActiveIncident', params });
+}
+
+export async function getTaskHistory(params: InstanceScopedParams): Promise<ApiResponse<TaskHistoryResponse>> {
+  return callApi({ method: 'quickrun/getTaskHistory', params });
+}
+
+export interface AuthorizeParams extends InstanceScopedParams {
+  target: AuthorizeTarget;
+  role?: string;
+  version?: string;
+}
+
+/** Ask the runtime's `authorize` oracle one question. 200 and 403 both resolve as data. */
+export async function authorize(params: AuthorizeParams): Promise<ApiResponse<AuthorizeResult>> {
+  const { target, ...rest } = params;
+  const selector =
+    target.kind === 'transition'
+      ? { transitionKey: target.transitionKey }
+      : target.kind === 'function'
+        ? { functionKey: target.functionKey }
+        : target.kind === 'queryRoles'
+          ? { queryRoles: true as const }
+          : { ack: true as const };
+  return callApi({ method: 'quickrun/authorize', params: { ...rest, ...selector } });
+}
+
+export interface GetHumanTasksParams {
+  domain: string;
+  /** Sends `X-VNext-Cache-Override: true`. */
+  cacheOverride?: boolean;
+  headers?: Record<string, string>;
+  runtimeUrl?: string;
+}
+
+export async function getHumanTasks(params: GetHumanTasksParams): Promise<ApiResponse<HumanTaskListResponse>> {
+  return callApi({ method: 'quickrun/getHumanTasks', params });
 }
 
 // ── Execute Function (R25.B-1) ───────────────────────────────────────────────

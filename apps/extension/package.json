@@ -27,6 +27,7 @@
     "onView:vnextForge.tools.createProject",
     "onView:vnextForge.tools.environments",
     "onView:vnextForge.tools.packageDeploy",
+    "onView:vnextForge.tools.database",
     "onCommand:vnextForge.open",
     "onCommand:vnextForge.openDesigner",
     "onCommand:vnextForge.openInTextEditor",
@@ -90,6 +91,11 @@
         {
           "id": "vnextForge.tools.packageDeploy",
           "name": "Package Deploy",
+          "when": "vnextForge.isVnextWorkspace"
+        },
+        {
+          "id": "vnextForge.tools.database",
+          "name": "Database",
           "when": "vnextForge.isVnextWorkspace"
         },
         {
@@ -401,6 +407,24 @@
         "icon": "$(desktop-download)"
       },
       {
+        "command": "vnextForge.tools.generateIndexSqlAll",
+        "title": "Generate Index SQL for All Flows (wf indexes generate)",
+        "category": "Forge",
+        "icon": "$(database)"
+      },
+      {
+        "command": "vnextForge.tools.generateIndexSqlForFlow",
+        "title": "Generate Index SQL for Flow... (wf indexes generate --flow)",
+        "category": "Forge",
+        "icon": "$(filter)"
+      },
+      {
+        "command": "vnextForge.tools.refreshWfCliStatus",
+        "title": "Refresh Workflow CLI Status",
+        "category": "Forge",
+        "icon": "$(refresh)"
+      },
+      {
         "command": "vnextForge.openQuickRun",
         "title": "Quick Run",
         "category": "Forge",
@@ -455,6 +479,11 @@
     ],
     "menus": {
       "view/title": [
+        {
+          "command": "vnextForge.tools.refreshWfCliStatus",
+          "when": "view == vnextForge.tools.database || view == vnextForge.tools.packageDeploy",
+          "group": "navigation"
+        },
         {
           "command": "vnextForge.tools.addEnvironment",
           "when": "view == vnextForge.tools.environments",
@@ -760,6 +789,18 @@
           "when": "false"
         },
         {
+          "command": "vnextForge.tools.generateIndexSqlAll",
+          "when": "vnextForge.isVnextWorkspace"
+        },
+        {
+          "command": "vnextForge.tools.generateIndexSqlForFlow",
+          "when": "vnextForge.isVnextWorkspace"
+        },
+        {
+          "command": "vnextForge.tools.refreshWfCliStatus",
+          "when": "vnextForge.isVnextWorkspace"
+        },
+        {
           "command": "vnextForge.tools.generateDocs",
           "when": "vnextForge.isVnextWorkspace"
         },
@@ -1014,7 +1055,7 @@
     "clean": "rm -rf dist *.vsix"
   },
   "dependencies": {
-    "@burgan-tech/vnext-schema": "^0.0.53",
+    "@burgan-tech/vnext-schema": "^0.0.54",
     "@burgan-tech/vnext-template": "^0.0.7",
     "@vnext-forge-studio/app-contracts": "workspace:*",
     "@vnext-forge-studio/designer-ui": "workspace:*",

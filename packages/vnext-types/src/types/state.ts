@@ -1,4 +1,5 @@
 import { NotificationType } from '../constants/notification-types';
+import type { Annotations } from './annotations';
 import type { AvailableIn } from './available-in';
 import { StateType, StateSubType } from '../constants/state-types';
 import { TriggerType, TriggerKind } from '../constants/trigger-types';
@@ -9,6 +10,7 @@ import { MappingCode } from './mapping';
 import type { RoleGrant } from './role';
 import type { ResourceLock } from './resource-lock';
 import type { ViewBinding } from './view-binding';
+import type { TimeoutTransition, WorkflowTimerConfig } from './workflow';
 
 export interface ResourceReference {
   key: string;
@@ -39,7 +41,7 @@ export interface Transition {
   roles?: RoleGrant[];
   view?: ViewBinding;
   views?: ViewBinding[];
-  annotations?: Record<string, string>;
+  annotations?: Annotations | null;
   /**
    * Declares how an inbound external event is mapped before it triggers this
    * transition. Required when `triggerType` is `Event`.
@@ -54,32 +56,59 @@ export interface Transition {
 }
 
 export interface SharedTransition extends Transition {
-  availableIn: AvailableIn;
+  /** Null, empty or absent means every state — for every trigger type. */
+  availableIn?: AvailableIn | null;
 }
 
-export interface SubFlowTimerConfig {
-  reset?: string;
-  duration?: string;
+/** @deprecated Use {@link WorkflowTimerConfig}. */
+export type SubFlowTimerConfig = WorkflowTimerConfig;
+
+/**
+ * @deprecated A subflow timeout override is a full workflow timeout; use
+ * {@link TimeoutTransition}.
+ */
+export type SubFlowTimeoutOverride = TimeoutTransition;
+
+/**
+ * Parent override of a child state's `interaction.longPoll`. Field-level:
+ * omitted fields keep the child's value. `terminate` and `rule` are not
+ * overridable; `roles` is ignored when the child uses a rule.
+ */
+export interface SubFlowLongPollOverride {
+  fallbackTimeoutSeconds?: number;
+  roles?: RoleGrant[];
 }
 
-export interface SubFlowTimeoutOverride {
-  key: string;
-  target: string;
-  versionStrategy?: string;
-  timer?: SubFlowTimerConfig;
+export interface SubFlowStateOverride {
+  queryRoles?: RoleGrant[];
+  interaction?: { longPoll?: SubFlowLongPollOverride };
+  /** View swap: key is the view key the child selected, value the replacement. */
+  views?: Record<string, ResourceReference>;
+}
+
+export interface SubFlowTransitionOverride {
+  roles?: RoleGrant[];
+  views?: Record<string, ResourceReference>;
 }
 
 export interface SubFlowOverrides {
-  timeout?: SubFlowTimeoutOverride;
-  transitions?: Record<string, { roles?: RoleGrant[] }>;
-  states?: Record<string, { queryRoles?: RoleGrant[] }>;
+  timeout?: TimeoutTransition | null;
+  transitions?: Record<string, SubFlowTransitionOverride>;
+  states?: Record<string, SubFlowStateOverride>;
+  /** @deprecated Use `states.<s>.views` / `transitions.<t>.views`. */
+  views?: Record<string, ResourceReference>;
 }
 
+/** `S` = SubFlow, `P` = SubProcess. Overrides apply to `S` only. */
+export type SubFlowType = 'S' | 'P';
+
 export interface SubFlowConfig {
-  type?: string;
+  type?: SubFlowType;
   process: ResourceReference;
   mapping?: MappingCode;
   overrides?: SubFlowOverrides;
+  /** @deprecated Use `overrides.states.<s>.views` / `overrides.transitions.<t>.views`. */
+  viewOverrides?: Record<string, ResourceReference>;
 }
 
 /**
@@ -100,19 +129,31 @@ export interface StateAlias {
   labels: Label[];
 }
 
-/**
- * Long polling configuration for a state. Tells the client workflow
- * manager when to terminate an open long-poll request. See `longPoll`
- * in the workflow-definition schema.
- */
-export interface LongPollConfig {
-  /** Whether the long poll terminates the open request when the state is left. */
+interface LongPollBase {
+  /** When true the runtime pauses after the triggering transition until the
+   *  client acknowledges (or `fallbackTimeoutSeconds` elapses). */
   terminate: boolean;
-  /** Maximum seconds to hold the request open before falling back. */
+  /** Acknowledge fallback window in seconds (runtime default 60). */
   fallbackTimeoutSeconds?: number;
-  /** Roles allowed to use the long poll interaction. DENY overrides ALLOW. */
-  roles: RoleGrant[];
 }
+
+/** Authorization by role grants. DENY overrides ALLOW. */
+export interface LongPollRolesArm extends LongPollBase {
+  roles: RoleGrant[];
+  rule?: never;
+}
+
+/** Authorization by a condition script (IConditionMapping), fail-closed. */
+export interface LongPollRuleArm extends LongPollBase {
+  rule: MappingCode;
+  roles?: never;
+}
+
+/**
+ * Long polling configuration for a state. Exactly one authorization arm:
+ * `roles` or `rule` — never both (schema `oneOf`).
+ */
+export type LongPollConfig = LongPollRolesArm | LongPollRuleArm;
 
 /** State interaction configuration (e.g. long polling). */
 export interface StateInteraction {

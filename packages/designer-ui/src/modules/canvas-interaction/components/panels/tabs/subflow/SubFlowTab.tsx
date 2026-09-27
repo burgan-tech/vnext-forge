@@ -1,12 +1,13 @@
 import { useCallback } from 'react';
 import type { DiscoveredVnextComponent } from '@vnext-forge-studio/app-contracts';
-import type { ScriptsConfig, SubFlowOverrides } from '@vnext-forge-studio/vnext-types';
+import type { ScriptsConfig, SubFlowConfig } from '@vnext-forge-studio/vnext-types';
 import { useWorkflowStore } from '../../../../../../store/useWorkflowStore';
 import { useProjectStore } from '../../../../../../store/useProjectStore';
 import type { ScriptCode } from '../../../../../../modules/save-component/components/CsxEditorField';
 import { SubFlowProcessRefSection } from './SubFlowProcessRefSection';
 import { SubFlowMappingSection } from './SubFlowMappingSection';
 import { SubFlowOverridesSection } from './SubFlowOverridesSection';
+import { useChildWorkflowSummary } from './useChildWorkflowSummary';
 import { GitBranch } from 'lucide-react';
 
 interface SubFlowTabProps {
@@ -22,6 +23,8 @@ export function SubFlowTab({ state }: SubFlowTabProps) {
   const sf = state.subFlow;
   const projectDomain = vnextConfig?.domain ?? activeProject?.domain ?? '';
   const canPickExisting = Boolean(activeProject && vnextConfig?.paths);
+  const subFlowConfig = sf as SubFlowConfig | undefined;
+  const childLoad = useChildWorkflowSummary(subFlowConfig?.process?.key ?? '', subFlowConfig?.process?.domain ?? '');
 
   const findState = useCallback(
     (draft: any) => draft.attributes?.states?.find((s: any) => s.key === stateKey),
@@ -120,13 +123,12 @@ export function SubFlowTab({ state }: SubFlowTabProps) {
     [updateWorkflow, findState],
   );
 
-  const updateOverrides = useCallback(
-    (updater: (overrides: SubFlowOverrides) => void) => {
+  const updateSubFlow = useCallback(
+    (updater: (subFlow: SubFlowConfig) => void) => {
       updateWorkflow((draft: any) => {
         const s = findState(draft);
         if (!s?.subFlow) return;
-        if (!s.subFlow.overrides) s.subFlow.overrides = {};
-        updater(s.subFlow.overrides);
+        updater(s.subFlow);
       });
     },
     [updateWorkflow, findState],
@@ -175,8 +177,13 @@ export function SubFlowTab({ state }: SubFlowTabProps) {
       />
 
       <SubFlowOverridesSection
-        overrides={sf.overrides}
-        onUpdateOverrides={updateOverrides}
+        subFlow={sf as SubFlowConfig}
+        stateKey={stateKey}
+        child={childLoad.summary}
+        childStatus={childLoad.status}
+        projectDomain={projectDomain}
+        canPickViews={canPickExisting}
+        onUpdateSubFlow={updateSubFlow}
       />
     </div>
   );

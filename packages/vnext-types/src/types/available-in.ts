@@ -21,11 +21,11 @@ export interface AvailableInEntry {
 export type AvailableInItem = string | AvailableInEntry;
 
 /**
- * States where a transition is available. Empty or absent means **every**
- * state.
+ * States where a transition is available. Null, empty or absent means
+ * **every** state. Fields hold `AvailableIn | null`.
  *
- * Supported on shared transitions (Manual only) and on the `cancel`, `exit`
- * and `updateData` lifecycle transitions. Read and written through the codec
- * in `utils/available-in` so the parse and write rules cannot drift apart.
+ * Supported on shared transitions (every trigger type) and on the `cancel`,
+ * `exit` and `updateData` lifecycle transitions. Read and written through the
+ * codec in `utils/available-in` so the parse and write rules cannot drift apart.
  */
 export type AvailableIn = AvailableInItem[];

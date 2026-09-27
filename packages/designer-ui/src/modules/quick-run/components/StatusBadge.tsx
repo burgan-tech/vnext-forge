@@ -6,6 +6,7 @@ const STATUS_CONFIG: Record<InstanceStatus, { label: string; className: string }
   B: { label: 'Running', className: 'border-warning-border bg-warning text-warning-foreground' },
   C: { label: 'Completed', className: 'border-success-border bg-success text-success-foreground' },
   F: { label: 'Failed', className: 'border-destructive-border bg-destructive-muted text-destructive-text' },
+  P: { label: 'Passive', className: 'border-border bg-muted text-muted-text' },
 };
 
 interface StatusBadgeProps {

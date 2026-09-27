@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useId, useMemo, useState } from 'react';
 import {
   Tooltip,
   TooltipContent,
@@ -8,18 +8,31 @@ import {
 import {
   ALL_OPERATORS,
   INSTANCE_FIELDS,
+  INSTANCE_TYPE_OPTIONS,
   STATUS_OPTIONS,
   getFieldType,
-  getOperatorsForFieldType,
   isValidAttributePath,
   operatorNeedsValue,
   resolveValueType,
   serializeInstanceFilter,
   serializeInstanceSort,
+  sortableInstanceFields,
   type FilterCondition,
   type FilterOperator,
   type FilterValueType,
 } from '../utils/instanceFilterSerializer';
+import {
+  describeSchemaField,
+  fieldValueType,
+  findSchemaField,
+  isRuntimeSafeFieldPath,
+  operatorsForCondition,
+  schemaFieldNotice,
+  sortableAttributeOptions,
+  staleOperatorFallback,
+  usesIndexProjection,
+  type MasterSchemaField,
+} from '../utils/masterSchemaFields';
 
 const DEFAULT_ORDER_BY = serializeInstanceSort('createdAt', 'desc');
 
@@ -33,12 +46,21 @@ const VALUE_TYPES: { value: FilterValueType; label: string }[] = [
 const INPUT_CLASS =
   'rounded border border-[var(--vscode-input-border)] bg-[var(--vscode-input-background)] px-1 py-0.5 text-[10px] text-[var(--vscode-input-foreground)] placeholder:text-[var(--vscode-input-placeholderForeground)]';
 
-interface InstanceFilterPanelProps {
+const IDX_BADGE_CLASS =
+  'shrink-0 rounded bg-[var(--vscode-testing-iconPassed)] px-1 py-0.5 text-[8px] font-semibold text-[var(--vscode-editor-background)]';
+
+export interface InstanceFilterPanelProps {
   onApply: (filter?: string, orderBy?: string, sort?: string) => void;
   onClose: () => void;
+  /** Fields of the workflow's local master schema; `undefined` when none was loaded. */
+  schemaFields?: readonly MasterSchemaField[];
+  /** Key of that master schema, shown as the suggestion source. */
+  schemaKey?: string;
+  /** The active workflow's key — used only to detect a workflow switch and drop a stale attribute sort. */
+  workflowKey?: string;
 }
 
-export function InstanceFilterPanel({ onApply, onClose }: InstanceFilterPanelProps) {
+export function InstanceFilterPanel({ onApply, onClose, schemaFields, schemaKey, workflowKey }: InstanceFilterPanelProps) {
   const [conditions, setConditions] = useState<FilterCondition[]>([]);
   const [sortField, setSortField] = useState('createdAt');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
@@ -46,52 +68,90 @@ export function InstanceFilterPanel({ onApply, onClose }: InstanceFilterPanelPro
   // Row index → message, populated on Apply (and cleared as rows change) so a
   // half-typed row is not shouted at while the author is still editing.
   const [rowErrors, setRowErrors] = useState<Record<number, string>>({});
+  const [filterError, setFilterError] = useState<string | null>(null);
+  const attrListId = useId();
+  const attributeSortOptions = useMemo(() => sortableAttributeOptions(schemaFields), [schemaFields]);
+
+  // A workflow switch (or its master schema loading/changing under it) can
+  // leave `sortField` pointing at an `attributes.*` path that no longer
+  // exists in `attributeSortOptions` — drop back to the default sort rather
+  // than sending a now-meaningless field.
+  useEffect(() => {
+    setSortField((current) => {
+      if (!current.startsWith('attributes.')) return current;
+      const stillValid = attributeSortOptions.some((o) => o.value === current);
+      return stillValid ? current : 'createdAt';
+    });
+  }, [workflowKey, attributeSortOptions]);
+  // Only offer paths the runtime's ValidateFieldName would accept (letters/digits/
+  // underscores per dotted segment, starting with a letter) — anything else is
+  // rejected outright, so suggesting it just sets the user up for a 400.
+  const datalistFields = useMemo(
+    () => (schemaFields ?? []).filter((f) => isRuntimeSafeFieldPath(f.path)),
+    [schemaFields],
+  );
 
   const attrInputValid = attrInput.trim() === '' || isValidAttributePath(attrInput);
 
   const addInstanceCondition = useCallback(() => {
     setRowErrors({});
+    setFilterError(null);
     setConditions((prev) => [
       ...prev,
       { category: 'instance', field: 'status', operator: 'eq', value: '' },
     ]);
   }, []);
 
-  const addAttributeCondition = useCallback((fieldName: string) => {
-    const name = fieldName.trim();
-    if (!name || !isValidAttributePath(name)) return;
-    setRowErrors({});
-    setConditions((prev) => [
-      ...prev,
-      { category: 'attribute', field: name, operator: 'eq', value: '', valueType: 'text' },
-    ]);
-  }, []);
+  const addAttributeCondition = useCallback(
+    (fieldName: string) => {
+      const name = fieldName.trim();
+      if (!name || !isValidAttributePath(name)) return;
+      setRowErrors({});
+      setFilterError(null);
+      const field = findSchemaField(schemaFields, name);
+      const draft: FilterCondition = {
+        category: 'attribute',
+        field: name,
+        operator: 'eq',
+        value: '',
+        valueType: field ? fieldValueType(field) : 'text',
+      };
+      const operator = operatorsForCondition(draft, schemaFields)[0] ?? 'eq';
+      setConditions((prev) => [...prev, { ...draft, operator }]);
+    },
+    [schemaFields],
+  );
 
   const removeCondition = useCallback((index: number) => {
     setRowErrors({});
+    setFilterError(null);
     setConditions((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
-  const updateCondition = useCallback((index: number, patch: Partial<FilterCondition>) => {
-    setRowErrors((prev) => {
-      if (!(index in prev)) return prev;
-      const next = { ...prev };
-      delete next[index];
-      return next;
-    });
-    setConditions((prev) =>
-      prev.map((c, i) => {
-        if (i !== index) return c;
-        const updated: FilterCondition = { ...c, ...patch };
-        if (patch.field !== undefined || patch.category !== undefined || patch.valueType !== undefined) {
-          const ops = getOperatorsForFieldType(getFieldType(updated.category, updated.field), updated.valueType);
-          if (!ops.includes(updated.operator)) updated.operator = ops[0];
-        }
-        if (patch.operator !== undefined && patch.operator !== 'between') updated.value2 = undefined;
-        return updated;
-      }),
-    );
-  }, []);
+  const updateCondition = useCallback(
+    (index: number, patch: Partial<FilterCondition>) => {
+      setFilterError(null);
+      setRowErrors((prev) => {
+        if (!(index in prev)) return prev;
+        const next = { ...prev };
+        delete next[index];
+        return next;
+      });
+      setConditions((prev) =>
+        prev.map((c, i) => {
+          if (i !== index) return c;
+          const updated: FilterCondition = { ...c, ...patch };
+          if (patch.field !== undefined || patch.category !== undefined || patch.valueType !== undefined) {
+            const ops = operatorsForCondition(updated, schemaFields);
+            if (!ops.includes(updated.operator)) updated.operator = ops[0] ?? 'eq';
+          }
+          if (patch.operator !== undefined && patch.operator !== 'between') updated.value2 = undefined;
+          return updated;
+        }),
+      );
+    },
+    [schemaFields],
+  );
 
   const handleApply = useCallback(() => {
     const result = serializeInstanceFilter(conditions);
@@ -99,13 +159,19 @@ export function InstanceFilterPanel({ onApply, onClose }: InstanceFilterPanelPro
       setRowErrors(result.errors);
       return;
     }
+    if (result.filterError) {
+      setFilterError(result.filterError);
+      return;
+    }
     setRowErrors({});
+    setFilterError(null);
     onApply(result.filter, serializeInstanceSort(sortField, sortDirection), undefined);
   }, [conditions, sortField, sortDirection, onApply]);
 
   const handleClear = useCallback(() => {
     setConditions([]);
     setRowErrors({});
+    setFilterError(null);
     setSortField('createdAt');
     setSortDirection('desc');
     onApply(undefined, DEFAULT_ORDER_BY, undefined);
@@ -137,11 +203,18 @@ export function InstanceFilterPanel({ onApply, onClose }: InstanceFilterPanelPro
         </TooltipProvider>
       </div>
 
+      {schemaKey && (
+        <span className="text-[10px] text-[var(--vscode-descriptionForeground)]">
+          Attribute suggestions from master schema <span className="font-mono">{schemaKey}</span>
+        </span>
+      )}
+
       {conditions.map((c, i) => (
         <FilterRow
           key={i}
           condition={c}
           error={rowErrors[i]}
+          schemaFields={schemaFields}
           onChange={(patch) => updateCondition(i, patch)}
           onRemove={() => removeCondition(i)}
         />
@@ -160,6 +233,7 @@ export function InstanceFilterPanel({ onApply, onClose }: InstanceFilterPanelPro
           <div className="flex items-center gap-1">
             <input
               type="text"
+              list={schemaFields ? attrListId : undefined}
               className={`w-28 ${INPUT_CLASS} ${attrInputValid ? '' : 'border-[var(--vscode-inputValidation-errorBorder)]'}`}
               placeholder="attribute path"
               title="Instance data path, e.g. amount or customer.id (letters, digits, underscores)"
@@ -173,6 +247,13 @@ export function InstanceFilterPanel({ onApply, onClose }: InstanceFilterPanelPro
                 }
               }}
             />
+            {schemaFields && (
+              <datalist id={attrListId}>
+                {datalistFields.map((f) => (
+                  <option key={f.path} value={f.path} label={describeSchemaField(f)} />
+                ))}
+              </datalist>
+            )}
             <button
               className="rounded bg-[var(--vscode-button-secondaryBackground)] px-1.5 py-0.5 text-[10px] text-[var(--vscode-button-secondaryForeground)] hover:bg-[var(--vscode-button-secondaryHoverBackground)] disabled:opacity-40"
               disabled={!attrInput.trim() || !attrInputValid}
@@ -200,9 +281,18 @@ export function InstanceFilterPanel({ onApply, onClose }: InstanceFilterPanelPro
           value={sortField}
           onChange={(e) => setSortField(e.target.value)}
         >
-          {INSTANCE_FIELDS.map((f) => (
-            <option key={f.value} value={f.value}>{f.label}</option>
-          ))}
+          <optgroup label="Instance">
+            {sortableInstanceFields().map((f) => (
+              <option key={f.value} value={f.value}>{f.label}</option>
+            ))}
+          </optgroup>
+          {attributeSortOptions.length > 0 && (
+            <optgroup label="Attributes (x-sortable)">
+              {attributeSortOptions.map((o) => (
+                <option key={o.value} value={o.value}>{o.indexed ? `${o.label} · IDX` : o.label}</option>
+              ))}
+            </optgroup>
+          )}
         </select>
         <button
           className="rounded border border-[var(--vscode-input-border)] px-1.5 py-0.5 text-[10px] text-[var(--vscode-foreground)] hover:bg-[var(--vscode-list-hoverBackground)]"
@@ -214,7 +304,7 @@ export function InstanceFilterPanel({ onApply, onClose }: InstanceFilterPanelPro
       </div>
 
       {/* Actions */}
-      <div className="flex items-center gap-1">
+      <div className="flex flex-wrap items-center gap-1">
         <button
           className="rounded bg-[var(--vscode-button-background)] px-2 py-0.5 text-[10px] text-[var(--vscode-button-foreground)] hover:bg-[var(--vscode-button-hoverBackground)] disabled:opacity-40"
           onClick={handleApply}
@@ -234,28 +324,45 @@ export function InstanceFilterPanel({ onApply, onClose }: InstanceFilterPanelPro
             Some conditions are invalid.
           </span>
         )}
+        {filterError && (
+          <span className="text-[10px] text-[var(--vscode-errorForeground)]" role="alert">
+            {filterError}
+          </span>
+        )}
       </div>
     </div>
   );
 }
 
-function FilterRow({
-  condition,
-  error,
-  onChange,
-  onRemove,
-}: {
+export interface FilterRowProps {
   condition: FilterCondition;
   error?: string;
+  schemaFields?: readonly MasterSchemaField[];
   onChange: (patch: Partial<FilterCondition>) => void;
   onRemove: () => void;
-}) {
-  const fieldType = getFieldType(condition.category, condition.field);
-  const operators = getOperatorsForFieldType(fieldType, condition.valueType);
-  const valueType = resolveValueType(condition);
+}
 
-  const isStatus = fieldType === 'status';
+export function FilterRow({ condition, error, schemaFields, onChange, onRemove }: FilterRowProps) {
+  const fieldType = getFieldType(condition.category, condition.field);
+  const operators = operatorsForCondition(condition, schemaFields);
+  const valueType = resolveValueType(condition);
   const isAttribute = condition.category === 'attribute';
+  const schemaField = isAttribute ? findSchemaField(schemaFields, condition.field.trim()) : undefined;
+  const notice = schemaFieldNotice(condition, schemaFields);
+
+  // A schema reload (e.g. x-filterOperators edited, or the workflow's master
+  // schema swapped) can leave `condition.operator` outside the freshly
+  // computed `operators` — the <select> below would then render a value with
+  // no matching <option>, showing one thing while a different (browser-
+  // chosen) operator is actually applied on the next change. Re-normalise
+  // through the same onChange path used for every other edit.
+  useEffect(() => {
+    const fallback = staleOperatorFallback(condition, schemaFields);
+    if (fallback) onChange({ operator: fallback });
+  }, [condition, schemaFields, onChange]);
+
+  const enumOptions: readonly string[] | null =
+    fieldType === 'status' ? STATUS_OPTIONS : fieldType === 'instanceType' ? INSTANCE_TYPE_OPTIONS : null;
   const needsValue = operatorNeedsValue(condition.operator);
   const isBetween = condition.operator === 'between';
   const isList = condition.operator === 'in' || condition.operator === 'nin';
@@ -270,6 +377,9 @@ function FilterRow({
       : valueType === 'boolean'
         ? 'true / false'
         : isBetween ? 'from' : 'value';
+  const idxTitle = usesIndexProjection(condition.operator, schemaField)
+    ? 'Indexed field (x-indexed). This operator reads the index column once the generated index SQL has been run.'
+    : 'Indexed field (x-indexed). This operator uses JSON containment, not the index column.';
 
   return (
     <div className="flex flex-col gap-0.5">
@@ -289,6 +399,11 @@ function FilterRow({
             <span className="shrink-0 rounded bg-[var(--vscode-badge-background)] px-1 py-0.5 text-[8px] text-[var(--vscode-badge-foreground)]">
               attr
             </span>
+            {schemaField?.indexed && (
+              <span className={IDX_BADGE_CLASS} title={idxTitle}>
+                IDX
+              </span>
+            )}
             <input
               type="text"
               className={`min-w-0 flex-1 ${INPUT_CLASS} ${errorClass}`}
@@ -327,24 +442,24 @@ function FilterRow({
           <span className="flex-1 px-1 text-[10px] text-[var(--vscode-descriptionForeground)]">
             (no value needed)
           </span>
-        ) : isStatus && (condition.operator === 'eq' || condition.operator === 'ne') ? (
+        ) : enumOptions && (condition.operator === 'eq' || condition.operator === 'ne') ? (
           <select
             className={`flex-1 ${INPUT_CLASS} ${errorClass}`}
             value={condition.value}
             onChange={(e) => onChange({ value: e.target.value })}
           >
             <option value="">Select...</option>
-            {STATUS_OPTIONS.map((s) => (
+            {enumOptions.map((s) => (
               <option key={s} value={s}>{s}</option>
             ))}
           </select>
-        ) : isStatus ? (
+        ) : enumOptions ? (
           <input
             type="text"
             className={`flex-1 ${INPUT_CLASS} ${errorClass}`}
             value={condition.value}
-            placeholder="Active, Faulted"
-            title="Comma-separated status names"
+            placeholder={enumOptions.slice(0, 2).join(', ')}
+            title="Comma-separated names"
             onChange={(e) => onChange({ value: e.target.value })}
           />
         ) : (
@@ -391,6 +506,9 @@ function FilterRow({
         <span className="pl-1 text-[10px] text-[var(--vscode-errorForeground)]" role="alert">
           {error}
         </span>
+      )}
+      {notice && (
+        <span className="pl-1 text-[10px] text-[var(--vscode-editorWarning-foreground)]">{notice}</span>
       )}
     </div>
   );

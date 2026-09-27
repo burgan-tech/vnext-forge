@@ -8,11 +8,15 @@ import {
 } from '../../component-metadata';
 import { Field } from '../../../ui/Field';
 import { TagEditor } from '../../../ui/TagEditor';
+import { useProjectStore } from '../../../store/useProjectStore';
 import {
+  readSchemaAttributesType,
   schemaMetadataFormSchema,
+  setSchemaAttributesType,
   type SchemaMetadataFormValues,
   toSchemaMetadataFormValues,
 } from '../SchemaEditorSchema';
+import { SchemaTypeField } from './SchemaTypeField';
 
 interface SchemaMetadataFormProps {
   json: Record<string, unknown>;
@@ -31,6 +35,10 @@ export function SchemaMetadataForm({ json, onChange }: SchemaMetadataFormProps) 
   const domainServerError = useFieldValidationError('domain');
   const flowServerError = useFieldValidationError('flow');
   const flowVersionServerError = useFieldValidationError('flowVersion');
+  const schemaTypeServerError = useFieldValidationError('attributes/type');
+  // Threaded into SchemaTypeField so it can warn when the current value
+  // would fail this project's own pinned vnext-schema `npm run validate`.
+  const schemaVersion = useProjectStore((s) => s.vnextConfig?.schemaVersion);
   const form = useForm<SchemaMetadataFormValues>({
     mode: 'onChange',
     defaultValues: toSchemaMetadataFormValues(json),
@@ -158,6 +166,12 @@ export function SchemaMetadataForm({ json, onChange }: SchemaMetadataFormProps) 
             aria-invalid={Boolean(form.formState.errors.flowVersion) || Boolean(flowVersionServerError)}
           />
         </Field>
+        <SchemaTypeField
+          value={readSchemaAttributesType(json) ?? ''}
+          errorMsg={schemaTypeServerError}
+          schemaVersion={schemaVersion}
+          onCommit={(next) => onChange((draft) => setSchemaAttributesType(draft, next))}
+        />
       </div>
 
       <Controller

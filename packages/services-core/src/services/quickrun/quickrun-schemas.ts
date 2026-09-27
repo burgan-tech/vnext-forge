@@ -9,7 +9,13 @@ const workflowIdentifier = {
 
 const headersSchema = z.record(z.string(), z.string()).optional()
 
-const instanceStatusSchema = z.enum(['A', 'B', 'C', 'F'])
+const instanceStatusSchema = z.enum(['A', 'B', 'C', 'F', 'P'])
+const instanceTypeSchema = z.enum(['R', 'S', 'P'])
+
+/** Incident block: link shape (runtime >= 2026-09-07) or legacy embedded content. */
+const incidentBlockSchema = z
+  .object({ hasActiveIncident: z.boolean() })
+  .passthrough()
 
 // ── Start Instance ───────────────────────────────────────────────────────────
 
@@ -77,6 +83,9 @@ const transitionInfoSchema = z.object({
     href: z.string(),
   }).optional(),
   href: z.string(),
+  kind: z.string().optional(),
+  executeAtUtc: z.string().optional(),
+  annotations: z.record(z.string(), z.string()).nullable().optional(),
 })
 
 /** The trailing fields are sent by newer engines on `correlations` only. */
@@ -123,8 +132,16 @@ export const quickrunGetStateResult = z.object({
   }).optional(),
   interaction: z.object({
     terminateLongPoll: z.boolean().optional(),
+    fallbackTimeoutSeconds: z.number().int().optional(),
     ack: z.object({ href: z.string() }).optional(),
   }).optional(),
+  timeout: z.object({
+    key: z.string(),
+    target: z.string(),
+    executeAtUtc: z.string(),
+    annotations: z.record(z.string(), z.string()).nullable().optional(),
+  }).optional(),
+  incident: incidentBlockSchema.optional(),
   eTag: z.string().optional(),
   entityEtag: z.string().optional(),
   responseHeaders: z.record(z.string(), z.string()).optional(),
@@ -136,18 +153,18 @@ export const quickrunGetStateResult = z.object({
 
 // ── Acknowledge Long Poll ─────────────────────────────────────────────────────
 //
-// Fired silently when a State Function (LongPoll) response carries
-// `interaction.terminateLongPoll: true` plus an `interaction.ack`
-// descriptor. The endpoint is deterministic:
-//   POST /api/v1/<domain>/workflows/<flow>/instances/<instanceId>/longpoll/ack
-// so the service builds the path from the workflow identifiers rather
-// than trusting the engine-supplied href. Current request headers are
-// forwarded. The ack response is commonly 204/empty, so the result
-// only reports the HTTP status — no JSON body parsing.
+// Sent when the user acknowledges a paused long poll (state response carries
+// `interaction.terminateLongPoll: true`). The endpoint is deterministic:
+//   POST /api/v1/<domain>/workflows/<flow>/instances/<instanceId>/longpoll/ack?role=
+// so the service builds the path from the workflow identifiers rather than
+// trusting the engine-supplied href. `role` names which of the caller's roles
+// acknowledges (additive to the provider's roles). Idempotent: 200 when nothing
+// is pending. A non-2xx is thrown to the caller.
 
 export const quickrunAcknowledgeLongPollParams = z.object({
   ...workflowIdentifier,
   instanceId: z.string().min(1),
+  role: z.string().min(1).optional(),
   headers: headersSchema,
   runtimeUrl: z.string().optional(),
 })
@@ -155,6 +172,72 @@ export const quickrunAcknowledgeLongPollParams = z.object({
 export const quickrunAcknowledgeLongPollResult = z.object({
   ok: z.boolean(),
   status: z.number(),
+})
+
+// ── Authorize ─────────────────────────────────────────────────────────────────
+//
+//   GET /api/v1/<domain>/workflows/<flow>/instances/<id>/functions/authorize
+// The runtime's authorization oracle. Exactly one selector; the verdict is in
+// the body on BOTH 200 (`{"allowed":true}`) and 403 (`{"allowed":false}`).
+
+export const quickrunAuthorizeParams = z
+  .object({
+    ...workflowIdentifier,
+    instanceId: z.string().min(1),
+    transitionKey: z.string().min(1).optional(),
+    functionKey: z.string().min(1).optional(),
+    queryRoles: z.literal(true).optional(),
+    ack: z.literal(true).optional(),
+    /** Probe role: fallback for transition/function/queryRoles, additive for ack. */
+    role: z.string().min(1).optional(),
+    version: z.string().min(1).optional(),
+    headers: headersSchema,
+    runtimeUrl: z.string().optional(),
+  })
+  .refine(
+    (p) =>
+      [p.transitionKey !== undefined, p.functionKey !== undefined, p.queryRoles === true, p.ack === true]
+        .filter(Boolean).length === 1,
+    { message: 'Provide exactly one of transitionKey, functionKey, queryRoles or ack.' },
+  )
+
+export const quickrunAuthorizeResult = z.object({
+  allowed: z.boolean(),
+  /** 200 or 403. */
+  status: z.number().int(),
+})
+
+// ── Human Tasks ───────────────────────────────────────────────────────────────
+//
+//   GET /api/v1/<domain>/functions/human-task
+// Domain-level; the body is a bare JSON array, truncation is signalled by the
+// `X-VNext-HumanTask-Truncated` response header. `cacheOverride` sends
+// `X-VNext-Cache-Override: true` (forces a rebuild of the per-caller cache).
+
+export const quickrunGetHumanTasksParams = z.object({
+  domain: z.string().min(1),
+  cacheOverride: z.boolean().optional(),
+  headers: headersSchema,
+  runtimeUrl: z.string().optional(),
+})
+
+const humanTaskItemSchema = z
+  .object({
+    /** Business key of the ROOT instance (its own Id for a SubProcess). */
+    instanceId: z.string().nullable().optional(),
+    /** The root instance's own id — always unique. */
+    id: z.string(),
+    workflow: z.string().nullable().optional(),
+    /** From the LEAF instance's `humanTask.title`. */
+    title: z.string().nullable().optional(),
+    description: z.string().nullable().optional(),
+    createdAt: z.string(),
+  })
+  .passthrough()
+
+export const quickrunGetHumanTasksResult = z.object({
+  items: z.array(humanTaskItemSchema),
+  truncated: z.boolean(),
 })
 
 // ── Get Function Catalog ──────────────────────────────────────────────────────
@@ -189,6 +272,95 @@ export const quickrunGetFunctionCatalogResult = z.object({
       href: z.string().optional(),
     }),
   ),
+})
+
+// ── Incidents ─────────────────────────────────────────────────────────────────
+//
+// Targets of the state function's `incident.history.href` / `incident.active.href`:
+//   GET /api/v1/<domain>/workflows/<flow>/instances/<id>/incidents?page&pageSize
+//   GET /api/v1/<domain>/workflows/<flow>/instances/<id>/incidents/active
+// As with `acknowledgeLongPoll`, the paths are rebuilt from the identifiers.
+// `incidents/active` answers 404 `Instance:100037` when nothing is open — a
+// normal answer, surfaced as `{ incident: null }`.
+
+const incidentEntrySchema = z.object({
+  id: z.string(),
+  createdAt: z.string(),
+  state: z.string(),
+  transition: z.string(),
+  task: z.string().nullable().optional(),
+  message: z.string(),
+  errorCode: z.string().nullable().optional(),
+  errorLayer: z.string().nullable().optional(),
+  statusCode: z.number().int().nullable().optional(),
+  boundaryAction: z.string().nullable().optional(),
+  boundaryLevel: z.string().nullable().optional(),
+  traceId: z.string().nullable().optional(),
+  isResolved: z.boolean(),
+  resolvedAt: z.string().nullable().optional(),
+  retryCount: z.number().int(),
+})
+
+export const quickrunGetIncidentsParams = z.object({
+  ...workflowIdentifier,
+  instanceId: z.string().min(1),
+  page: z.number().int().min(1).optional().default(1),
+  // The runtime clamps pageSize to 1..100.
+  pageSize: z.number().int().min(1).max(100).optional().default(20),
+  headers: headersSchema,
+  runtimeUrl: z.string().optional(),
+})
+
+export const quickrunGetIncidentsResult = z.object({
+  hasActiveIncident: z.boolean(),
+  items: z.array(incidentEntrySchema),
+  page: z.number().int(),
+  pageSize: z.number().int(),
+  hasNext: z.boolean(),
+})
+
+export const quickrunGetActiveIncidentParams = z.object({
+  ...workflowIdentifier,
+  instanceId: z.string().min(1),
+  headers: headersSchema,
+  runtimeUrl: z.string().optional(),
+})
+
+export const quickrunGetActiveIncidentResult = z.object({
+  incident: incidentEntrySchema.nullable(),
+})
+
+// ── Task History ──────────────────────────────────────────────────────────────
+//
+//   GET /api/v1/<domain>/workflows/<flow>/instances/<id>/functions/tasks
+// Metadata only (no request/response payloads), StartedAt ascending, unpaged.
+
+const taskHistoryItemSchema = z.object({
+  id: z.string(),
+  taskKey: z.string(),
+  transitionKey: z.string(),
+  fromState: z.string(),
+  toState: z.string().nullable().optional(),
+  triggerType: z.string(),
+  /** waiting | busy | completed | faulted */
+  status: z.string(),
+  /** unknown | success | failed */
+  businessStatus: z.string(),
+  startedAt: z.string(),
+  finishedAt: z.string().nullable().optional(),
+  durationMs: z.number().nullable().optional(),
+  error: z.string().nullable().optional(),
+})
+
+export const quickrunGetTaskHistoryParams = z.object({
+  ...workflowIdentifier,
+  instanceId: z.string().min(1),
+  headers: headersSchema,
+  runtimeUrl: z.string().optional(),
+})
+
+export const quickrunGetTaskHistoryResult = z.object({
+  items: z.array(taskHistoryItemSchema),
 })
 
 // ── Get View ─────────────────────────────────────────────────────────────────
@@ -329,6 +501,9 @@ const getInstanceMetadataSchema = z.object({
   currentState: z.string(),
   effectiveState: z.string(),
   status: instanceStatusSchema,
+  effectiveStatus: instanceStatusSchema.optional(),
+  type: instanceTypeSchema.nullable().optional(),
+  incident: incidentBlockSchema.optional(),
   effectiveStateType: z.string().optional(),
   effectiveStateSubType: z.string().optional(),
   currentStateType: z.string().optional(),
@@ -374,6 +549,9 @@ const instanceMetadataSchema = z.object({
   currentState: z.string(),
   effectiveState: z.string(),
   status: instanceStatusSchema,
+  effectiveStatus: instanceStatusSchema.optional(),
+  type: instanceTypeSchema.nullable().optional(),
+  incident: incidentBlockSchema.optional(),
   effectiveStateType: z.string().optional(),
   effectiveStateSubType: z.string().optional(),
   currentStateType: z.string().optional(),

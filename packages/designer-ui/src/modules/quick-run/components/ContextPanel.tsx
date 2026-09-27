@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { extractEtag } from '../etagFromResponse';
+import { quickRunHeadersFromState } from '../pseudo-ui/mergeQuickRunHeaders';
 import * as QuickRunApi from '../QuickRunApi';
 import { useQuickRunStore } from '../store/quickRunStore';
 import {
@@ -11,10 +12,12 @@ import {
 } from '../types/quickrun.types';
 import { CopyableJsonBlock } from './CopyableJsonBlock';
 import { CorrelationsTabContent } from './CorrelationsTab';
+import { TasksTabContent } from './TasksTab';
 
 const TABS: { id: ContextPanelTab; label: string }[] = [
   { id: 'data', label: 'Data' },
   { id: 'history', label: 'History' },
+  { id: 'tasks', label: 'Tasks' },
   { id: 'correlations', label: 'Correlations' },
   { id: 'raw', label: 'Raw' },
 ];
@@ -35,6 +38,8 @@ export function ContextPanel({ onOpenSubFlowTarget }: ContextPanelProps) {
   const domain = useQuickRunStore((s) => s.domain);
   const workflowKey = useQuickRunStore((s) => s.workflowKey);
   const globalHeaders = useQuickRunStore((s) => s.globalHeaders);
+  const sessionHeaders = useQuickRunStore((s) => s.sessionHeaders);
+  const toolWideHeaders = useQuickRunStore((s) => s.toolWideHeaders);
   const environmentUrl = useQuickRunStore((s) => s.environmentUrl);
   const activeState = useQuickRunStore((s) => s.activeState);
   const activeStateLoading = useQuickRunStore((s) => s.activeStateLoading);
@@ -53,6 +58,11 @@ export function ContextPanel({ onOpenSubFlowTarget }: ContextPanelProps) {
   const activeHistoryLoading = useQuickRunStore((s) => s.activeHistoryLoading);
   const setActiveHistory = useQuickRunStore((s) => s.setActiveHistory);
   const setActiveHistoryLoading = useQuickRunStore((s) => s.setActiveHistoryLoading);
+
+  const activeTaskHistory = useQuickRunStore((s) => s.activeTaskHistory);
+  const activeTaskHistoryLoading = useQuickRunStore((s) => s.activeTaskHistoryLoading);
+  const activeTaskHistoryError = useQuickRunStore((s) => s.activeTaskHistoryError);
+  const stateEtag = activeState?.eTag;
 
   const loadData = useCallback(async () => {
     if (!activeTabId || !domain || !workflowKey) return;
@@ -100,6 +110,42 @@ export function ContextPanel({ onOpenSubFlowTarget }: ContextPanelProps) {
     setActiveHistoryLoading(false);
   }, [activeTabId, domain, workflowKey, globalHeaders, environmentUrl, setActiveHistory, setActiveHistoryLoading]);
 
+  // The shared Quick Run header rule (tool-wide < global < session).
+  const taskHeaders = useMemo(
+    () => quickRunHeadersFromState({ globalHeaders, sessionHeaders, toolWideHeaders }),
+    [globalHeaders, sessionHeaders, toolWideHeaders],
+  );
+  // Bumped per Tasks load: a load superseded by a newer one, or whose
+  // instance is no longer active, must not write its result, error or
+  // loading flag.
+  const taskLoadSeqRef = useRef(0);
+
+  const loadTasks = useCallback(async () => {
+    if (!activeTabId || !domain || !workflowKey) return;
+    const seq = ++taskLoadSeqRef.current;
+    const instanceId = activeTabId;
+    const isCurrent = () =>
+      taskLoadSeqRef.current === seq && useQuickRunStore.getState().activeTabId === instanceId;
+    const store = useQuickRunStore.getState();
+    store.setActiveTaskHistoryLoading(true);
+    store.setActiveTaskHistoryError(null);
+    try {
+      const response = await QuickRunApi.getTaskHistory({ domain, workflowKey, instanceId, headers: taskHeaders, runtimeUrl: environmentUrl });
+      if (!isCurrent()) return;
+      if (response.success) {
+        store.setActiveTaskHistory(response.data.items);
+        store.setActiveTaskHistoryError(null);
+      } else {
+        store.setActiveTaskHistoryError(response.error);
+      }
+    } catch (err) {
+      if (!isCurrent()) return;
+      store.setActiveTaskHistoryError({ code: 'THROWN', message: err instanceof Error ? err.message : String(err) });
+    } finally {
+      if (isCurrent()) useQuickRunStore.getState().setActiveTaskHistoryLoading(false);
+    }
+  }, [activeTabId, domain, workflowKey, taskHeaders, environmentUrl]);
+
   useEffect(() => {
     if (!activeTabId || pollingInstanceId) return;
     switch (contextPanelTab) {
@@ -111,6 +157,13 @@ export function ContextPanel({ onOpenSubFlowTarget }: ContextPanelProps) {
         break;
     }
   }, [contextPanelTab, activeTabId, pollingInstanceId, loadData, loadHistory]);
+
+  // Tasks: load when the tab opens and whenever the state's eTag moves
+  // (a new transition ran), but never during a poll round.
+  useEffect(() => {
+    if (contextPanelTab !== 'tasks' || !activeTabId || pollingInstanceId) return;
+    void loadTasks();
+  }, [contextPanelTab, activeTabId, pollingInstanceId, stateEtag, loadTasks]);
 
   const prevStateLoadingRef = useRef(activeStateLoading);
   useEffect(() => {
@@ -166,6 +219,9 @@ export function ContextPanel({ onOpenSubFlowTarget }: ContextPanelProps) {
         )}
         {contextPanelTab === 'history' && (
           <HistoryTabContent history={activeHistory} loading={activeHistoryLoading} />
+        )}
+        {contextPanelTab === 'tasks' && (
+          <TasksTabContent items={activeTaskHistory} loading={activeTaskHistoryLoading} error={activeTaskHistoryError} />
         )}
         {contextPanelTab === 'correlations' && (
           <CorrelationsTabContent

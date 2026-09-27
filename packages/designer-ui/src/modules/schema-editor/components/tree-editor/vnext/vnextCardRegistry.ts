@@ -10,6 +10,7 @@ import { XEncryptionCard } from './XEncryptionCard';
 import { XEnumCard } from './XEnumCard';
 import { XErrorMessagesCard } from './XErrorMessagesCard';
 import { XFilterOperatorsCard } from './XFilterOperatorsCard';
+import { XIndexedCard } from './XIndexedCard';
 import { XLabelsCard } from './XLabelsCard';
 import { XLookupCard } from './XLookupCard';
 import { XLovCard } from './XLovCard';
@@ -42,7 +43,7 @@ export interface VNextCardEntry {
  *  2. Behavior + access         (`x-conditional`, `x-roles`)
  *  3. Data sourcing             (`x-lov`, `x-lookup`)
  *  4. Wiring                    (`x-binding`)
- *  5. Tabular display           (`x-filterOperators`, `x-sortable`, `x-displayFormat`)
+ *  5. Tabular display / indexing (`x-filterOperators`, `x-sortable`, `x-displayFormat`, `x-indexed`)
  *  6. Operational metadata      (`x-encryption`, `x-validation`)
  *  7. Data-vocab context wiring (`x-context-source`, `x-context-target`)
  */
@@ -58,6 +59,7 @@ export const VNEXT_CARD_REGISTRY: readonly VNextCardEntry[] = [
   { xKey: 'x-filterOperators', component: XFilterOperatorsCard, scope: 'any' },
   { xKey: 'x-sortable', component: XSortableCard, scope: 'any' },
   { xKey: 'x-displayFormat', component: XDisplayFormatCard, scope: 'any' },
+  { xKey: 'x-indexed', component: XIndexedCard, scope: 'property' },
   { xKey: 'x-encryption', component: XEncryptionCard, scope: 'any' },
   { xKey: 'x-validation', component: XValidationCard, scope: 'any' },
   { xKey: 'x-context-source', component: XContextSourceCard, scope: 'property' },

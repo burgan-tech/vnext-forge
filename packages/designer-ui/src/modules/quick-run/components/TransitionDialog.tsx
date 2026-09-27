@@ -603,7 +603,7 @@ export function TransitionDialog({ configRef, persistConfig, projectId }: Transi
   );
 }
 
-function TransitionAnnotations({ annotations }: { annotations?: Record<string, string> }) {
+function TransitionAnnotations({ annotations }: { annotations?: Record<string, string> | null }) {
   if (!annotations) return null;
   const entries = Object.entries(annotations);
   if (entries.length === 0) return null;

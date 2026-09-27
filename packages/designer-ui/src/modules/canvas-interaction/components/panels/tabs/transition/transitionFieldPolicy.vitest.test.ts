@@ -28,15 +28,12 @@ describe('resolveFieldPolicy — resourceLock visibility', () => {
 });
 
 describe('resolveFieldPolicy — availableIn visibility', () => {
-  it('is visible and required for a manual shared transition', () => {
-    const policy = resolveFieldPolicy('shared', TriggerType.Manual).availableIn;
-    expect(policy.visible).toBe(true);
-    expect(policy.required).toBe(true);
-  });
-
-  it('is hidden for scheduled and event shared transitions', () => {
-    expect(resolveFieldPolicy('shared', TriggerType.Scheduled).availableIn.visible).toBe(false);
-    expect(resolveFieldPolicy('shared', TriggerType.Event).availableIn.visible).toBe(false);
+  it('is visible but optional for manual, scheduled and event shared transitions', () => {
+    for (const triggerType of [TriggerType.Manual, TriggerType.Scheduled, TriggerType.Event]) {
+      const policy = resolveFieldPolicy('shared', triggerType).availableIn;
+      expect(policy.visible).toBe(true);
+      expect(policy.required).toBe(false);
+    }
   });
 
   it('is visible but optional for cancel, exit, and updateData transitions', () => {
@@ -51,5 +48,17 @@ describe('resolveFieldPolicy — availableIn visibility', () => {
     expect(resolveFieldPolicy('state', TriggerType.Manual).availableIn.visible).toBe(false);
     expect(resolveFieldPolicy('state', TriggerType.Event).availableIn.visible).toBe(false);
     expect(resolveFieldPolicy('start', TriggerType.Manual).availableIn.visible).toBe(false);
+  });
+});
+
+describe('resolveFieldPolicy — annotations visibility', () => {
+  it('is hidden for the start transition (schema has no annotations there)', () => {
+    expect(resolveFieldPolicy('start', TriggerType.Manual).annotations.visible).toBe(false);
+  });
+
+  it('stays visible for every other transition kind', () => {
+    for (const kind of ['state', 'shared', 'cancel', 'exit', 'updateData'] as const) {
+      expect(resolveFieldPolicy(kind, TriggerType.Manual).annotations.visible).toBe(true);
+    }
   });
 });

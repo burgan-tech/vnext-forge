@@ -6,12 +6,47 @@ export interface FlowLabelsMap {
   transitions: Record<string, string>;
 }
 
-export type InstanceStatus = 'A' | 'B' | 'C' | 'F';
+/** A Active, B Busy, C Completed, F Faulted, P Passive. */
+export type InstanceStatus = 'A' | 'B' | 'C' | 'F' | 'P';
+
+/** How an instance was started — immutable. `P` here is SubProcess, not Passive. */
+export type InstanceType = 'R' | 'S' | 'P';
+
+/** Incident block (runtime >= 2026-09-07): links, never content. */
+export interface IncidentLinks {
+  hasActiveIncident: boolean;
+  active?: { href: string };
+  history?: { href: string };
+}
+
+/** State-function `timeout` block: the armed workflow timeout of the polled instance. */
+export interface StateTimeout {
+  key: string;
+  target: string;
+  executeAtUtc: string;
+  annotations?: Record<string, string> | null;
+}
+
+/**
+ * State-function `interaction` block. Present only while the runtime is paused
+ * waiting for an acknowledge (`longPoll.terminate: true`).
+ */
+export interface InteractionSignal {
+  terminateLongPoll?: boolean;
+  fallbackTimeoutSeconds?: number;
+  ack?: { href: string };
+}
 
 export interface QuickRunInstance {
   id: string;
   key: string;
   status: InstanceStatus;
+  /**
+   * Display status from the instance list (`metadata.effectiveStatus`). `status`
+   * stays the behavioural one (retry, cancel, polling). Cleared by poll results:
+   * the state function's own `status` already is the effective status.
+   */
+  effectiveStatus?: InstanceStatus;
   domain: string;
   workflowKey: string;
   environmentName?: string;
@@ -33,7 +68,7 @@ export interface TransitionInfo {
     href: string;
   };
   href: string;
-  annotations?: Record<string, string>;
+  annotations?: Record<string, string> | null;
   /**
    * R21: engine-declared semantic of this transition. Drives grouping
    * + colour of the button in the Available Transitions section.
@@ -42,6 +77,8 @@ export interface TransitionInfo {
    * or `'sharedTransition'` (when in `sharedTransitions[]`).
    */
   kind?: TransitionKind;
+  /** Scheduled entries only: when the engine will fire it. Not callable by clients. */
+  executeAtUtc?: string;
 }
 
 /** R21: known transition kinds — see Workflow engine state model. */
@@ -52,6 +89,7 @@ export const TRANSITION_KINDS = [
   'exit',
   'update-parent-data',
   '$timeout',
+  'scheduled',
 ] as const;
 export type TransitionKind = (typeof TRANSITION_KINDS)[number];
 
@@ -131,15 +169,12 @@ export interface StateResponse {
     hasFunctions: boolean;
     href: string;
   };
-  /**
-   * Long-poll interaction signal from the State Function (LongPoll)
-   * endpoint. When `terminateLongPoll` is true the client stops the
-   * polling loop and silently POSTs to `ack.href` to acknowledge.
-   */
-  interaction?: {
-    terminateLongPoll?: boolean;
-    ack?: { href: string };
-  };
+  /** See {@link InteractionSignal}. */
+  interaction?: InteractionSignal;
+  /** Armed workflow timeout; absent when none is armed or the instance is terminal. */
+  timeout?: StateTimeout;
+  /** Incident flag + links (part of the ETag). */
+  incident?: IncidentLinks;
   eTag?: string;
   entityEtag?: string;
   responseHeaders?: Record<string, string>;
@@ -282,6 +317,10 @@ export interface InstanceListItem {
     currentState: string;
     effectiveState: string;
     status: InstanceStatus;
+    /** Deepest active subflow's status (or the instance's own). Prefer for display. */
+    effectiveStatus?: InstanceStatus;
+    type?: InstanceType | null;
+    incident?: IncidentLinks;
     effectiveStateType?: string;
     effectiveStateSubType?: string;
     currentStateType?: string;
@@ -314,7 +353,7 @@ export type QuickRunTab = {
   label: string;
 };
 
-export type ContextPanelTab = 'data' | 'history' | 'correlations' | 'raw';
+export type ContextPanelTab = 'data' | 'history' | 'tasks' | 'correlations' | 'raw';
 
 export function safeViewContent(content: string | Record<string, unknown> | unknown): string {
   if (typeof content === 'string') return content;
@@ -322,4 +361,59 @@ export function safeViewContent(content: string | Record<string, unknown> | unkn
     try { return JSON.stringify(content, null, 2); } catch { return String(content); }
   }
   return '';
+}
+
+/** One row of `…/functions/tasks` (metadata only, StartedAt ascending). */
+export interface TaskHistoryItem {
+  id: string;
+  taskKey: string;
+  transitionKey: string;
+  fromState: string;
+  /** `null` while the owning transition is in progress. */
+  toState?: string | null;
+  triggerType: string;
+  /** waiting | busy | completed | faulted */
+  status: string;
+  /** unknown | success | failed */
+  businessStatus: string;
+  startedAt: string;
+  finishedAt?: string | null;
+  durationMs?: number | null;
+  /** Fault reason on a faulted row; never a stack trace. */
+  error?: string | null;
+}
+
+export interface TaskHistoryResponse {
+  items: TaskHistoryItem[];
+}
+
+/** One row of `GET {domain}/functions/human-task`: the ROOT instance, the LEAF's text. */
+export interface HumanTaskItem {
+  /** Business key of the root (its own id for a SubProcess). */
+  instanceId?: string | null;
+  /** The root instance's own id — always unique; what Forge opens. */
+  id: string;
+  workflow?: string | null;
+  title?: string | null;
+  description?: string | null;
+  createdAt: string;
+}
+
+export interface HumanTaskListResponse {
+  items: HumanTaskItem[];
+  /** `X-VNext-HumanTask-Truncated: true` — the runtime capped the list. */
+  truncated: boolean;
+}
+
+/** The single question an `authorize` call asks. */
+export type AuthorizeTarget =
+  | { kind: 'transition'; transitionKey: string }
+  | { kind: 'function'; functionKey: string }
+  | { kind: 'queryRoles' }
+  | { kind: 'ack' };
+
+/** `authorize` verdict — the runtime answers 200 (allowed) or 403 (denied), both with a body. */
+export interface AuthorizeResult {
+  allowed: boolean;
+  status: number;
 }

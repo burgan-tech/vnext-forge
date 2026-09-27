@@ -1,4 +1,5 @@
 import type { VnextWorkflow } from './Conversion';
+import { runtimeSyncFindings } from '../../workflow-validation/runtimeSyncRules';
 
 /**
  * Severity tier for a lint finding. Mirrors the editor-style
@@ -167,6 +168,15 @@ export function lintWorkflow(workflow: VnextWorkflow): LintFinding[] {
         stateKey: s.key,
       });
     }
+  }
+
+  for (const finding of runtimeSyncFindings(workflow)) {
+    findings.push({
+      severity: finding.severity,
+      rule: finding.rule,
+      message: finding.message,
+      ...(finding.stateKey ? { stateKey: finding.stateKey } : {}),
+    });
   }
 
   return findings;

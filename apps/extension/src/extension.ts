@@ -36,6 +36,7 @@ import {
 import { ForgeToolsSettingsService } from './tools/forge-tools-settings.js';
 import { ForgeTerminalManager } from './tools/forge-terminal.js';
 import { WfCliProbe } from './tools/wf-cli-probe.js';
+import { WF_CLI_FEATURES } from './tools/wf-cli-features.js';
 import { WfCliUpgradeNotice } from './tools/wf-cli-upgrade-notice.js';
 import { EnvironmentHealthMonitor } from './tools/environment-health-monitor.js';
 import { EnvironmentStatusBar, switchEnvironmentQuickPick } from './tools/environment-status-bar.js';
@@ -44,6 +45,7 @@ import { ProjectActionsProvider } from './tools/providers/project-actions-provid
 import { CreateProjectProvider } from './tools/providers/create-project-provider.js';
 import { EnvironmentsProvider } from './tools/providers/environments-provider.js';
 import { PackageDeployProvider } from './tools/providers/package-deploy-provider.js';
+import { DatabaseProvider } from './tools/providers/database-provider.js';
 import { QuickRunProvider } from './tools/providers/quickrun-provider.js';
 import { LocalRuntimeService } from './tools/local-runtime/local-runtime.service.js';
 
@@ -243,7 +245,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     terminal: forgeTerminal,
     detector,
     wfCli,
-    onLegacyWfCli: (info) => void wfCliUpgradeNotice.maybeShow(info),
+    onLegacyWfCli: (info) => void wfCliUpgradeNotice.maybeShow(info, WF_CLI_FEATURES.domainFlag),
   });
   const designerPanel = new DesignerPanel(context, router);
 
@@ -363,6 +365,17 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     wfCli,
     wfCliUpgradeNotice,
   );
+  // Offline attribute-index SQL (`wf indexes generate`, CLI ≥ 1.0.14). Runs
+  // captured — no terminal — so the batch folder can be revealed afterwards.
+  const databaseProvider = new DatabaseProvider({
+    detector,
+    fs: fsAdapter,
+    wfCli,
+    upgradeNotice: wfCliUpgradeNotice,
+    output: outputChannel,
+    installWfCli: () => packageDeployProvider.installWfCli(),
+  });
+  context.subscriptions.push(databaseProvider);
   const quickRunProvider = new QuickRunProvider();
 
   context.subscriptions.push(
@@ -381,6 +394,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     }),
     vscode.window.createTreeView('vnextForge.tools.packageDeploy', {
       treeDataProvider: packageDeployProvider,
+    }),
+    vscode.window.createTreeView('vnextForge.tools.database', {
+      treeDataProvider: databaseProvider,
     }),
     vscode.window.createTreeView('vnextForge.tools.quickRun', {
       treeDataProvider: quickRunProvider,
@@ -518,6 +534,17 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     vscode.commands.registerCommand('vnextForge.tools.installWfCli', safeAsync(() =>
       packageDeployProvider.runDeployAction('installWfCli'),
     )),
+    vscode.commands.registerCommand('vnextForge.tools.generateIndexSqlAll', safeAsync(() =>
+      databaseProvider.generateIndexSql('all'),
+    )),
+    vscode.commands.registerCommand('vnextForge.tools.generateIndexSqlForFlow', safeAsync(() =>
+      databaseProvider.generateIndexSql('flow'),
+    )),
+    // Re-probe `wf --version` (after an install/update finished in the terminal);
+    // Package Deploy re-renders itself, Database listens to the probe.
+    vscode.commands.registerCommand('vnextForge.tools.refreshWfCliStatus', safeAsync(() =>
+      packageDeployProvider.refreshInstallStatus(),
+    )),
     vscode.commands.registerCommand('vnextForge.openQuickRun', safeAsync(async () => {
       const workflowFiles = await vscode.workspace.findFiles('**/Workflows/**/*.json', '**/node_modules/**', 50);
       if (workflowFiles.length === 0) {
@@ -639,7 +666,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         terminal: forgeTerminal,
         detector,
         wfCli,
-        onLegacyCli: (info) => void wfCliUpgradeNotice.maybeShow(info),
+        onLegacyCli: (info) => void wfCliUpgradeNotice.maybeShow(info, WF_CLI_FEATURES.domainFlag),
         logger: loggerAdapter,
       });
       if (!result.ok) {

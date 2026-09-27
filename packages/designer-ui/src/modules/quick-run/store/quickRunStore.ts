@@ -11,9 +11,17 @@ import type {
   QuickRunTab,
   SchemaResponse,
   StateResponse,
+  TaskHistoryItem,
   TransitionInfo,
   ViewResponse,
 } from '../types/quickrun.types';
+import {
+  INITIAL_INTERACTION,
+  interactionReducer,
+  type InteractionEvent,
+  type InteractionPhase,
+} from '../hooks/interactionMachine';
+import type { PermissionCheckResult } from '../utils/permissionChecks';
 
 interface QuickRunState {
   domain: string;
@@ -52,16 +60,20 @@ interface QuickRunState {
    */
   lastStateNotModified: boolean;
   /**
-   * Surfacing slot for `getState` polling failures (authorisation,
-   * runtime 5xx, etc.). The dashboard renders a small banner with
-   * `code` + `message` + `details` so users see *why* polling stopped
-   * — most commonly the engine 403 (`forbidden.Authorization:110001`)
-   * when the active role cannot read the current state. Cleared on
-   * every successful poll round.
+   * Surfacing slot for `getState` polling failures (runtime 4xx/5xx,
+   * connection errors). The dashboard renders it with `RuntimeErrorBanner`
+   * so users see *why* polling stopped. Cleared on every successful poll round.
    */
   activeStateError:
     | { code: string; message: string; details?: Record<string, unknown> }
     | null;
+
+  /** Opt-in "Check permissions for role" (B6). A user preference — survives instance switches. */
+  permissionChecksEnabled: boolean;
+  /** Last opt-in check, keyed by `permissionCacheKey`. Instance-scoped. */
+  permissionChecks: PermissionCheckResult | null;
+  setPermissionChecksEnabled: (enabled: boolean) => void;
+  setPermissionChecks: (result: PermissionCheckResult | null) => void;
 
   stateView: ViewResponse | null;
   stateViewLoading: boolean;
@@ -78,6 +90,11 @@ interface QuickRunState {
 
   activeHistory: HistoryResponse | null;
   activeHistoryLoading: boolean;
+
+  /** `…/functions/tasks` of the active instance; loaded by the Tasks tab. */
+  activeTaskHistory: TaskHistoryItem[] | null;
+  activeTaskHistoryLoading: boolean;
+  activeTaskHistoryError: { code: string; message: string; details?: Record<string, unknown> } | null;
 
   /**
    * Functions reachable on the active instance, from
@@ -110,11 +127,10 @@ interface QuickRunState {
   pollingConfig: { retryCount: number; intervalMs: number };
 
   /**
-   * Status of the silent long-poll acknowledge fired when a State
-   * Function response carries `interaction.terminateLongPoll`. Shown as
-   * a small transient note; cleared at the start of each poll round.
+   * Long-poll interaction phase of the active instance (spec D3) — see
+   * `hooks/interactionMachine.ts`. Reset with the instance-scoped caches.
    */
-  longPollAck: 'acknowledging' | 'acknowledged' | null;
+  interaction: InteractionPhase;
 
   runtimeHealth: 'healthy' | 'unhealthy' | 'unknown';
   runtimeDomain: string | null;
@@ -168,6 +184,10 @@ interface QuickRunState {
   setActiveHistory: (history: HistoryResponse | null) => void;
   setActiveHistoryLoading: (loading: boolean) => void;
 
+  setActiveTaskHistory: (items: TaskHistoryItem[] | null) => void;
+  setActiveTaskHistoryLoading: (loading: boolean) => void;
+  setActiveTaskHistoryError: (error: { code: string; message: string; details?: Record<string, unknown> } | null) => void;
+
   setFunctionCatalog: (entries: FunctionCatalogEntry[] | null) => void;
   setFunctionCatalogLoading: (loading: boolean) => void;
   setFunctionCatalogError: (error: string | null) => void;
@@ -185,7 +205,7 @@ interface QuickRunState {
   setToolWideHeaders: (headers: Record<string, string>) => void;
   setPollingInstanceId: (id: string | null) => void;
   setPollingConfig: (config: { retryCount: number; intervalMs: number }) => void;
-  setLongPollAck: (status: 'acknowledging' | 'acknowledged' | null) => void;
+  dispatchInteraction: (event: InteractionEvent) => void;
   setRuntimeHealth: (health: 'healthy' | 'unhealthy' | 'unknown') => void;
   setRuntimeDomain: (domain: string | null) => void;
   setFlowLabels: (labels: FlowLabelsMap | null) => void;
@@ -217,6 +237,8 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
   activeState: null,
   activeStateLoading: false,
   activeStateError: null,
+  permissionChecksEnabled: false,
+  permissionChecks: null,
 
   lastStateResponse: null,
   lastStateReceivedAt: null,
@@ -238,6 +260,10 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
   activeHistory: null,
   activeHistoryLoading: false,
 
+  activeTaskHistory: null,
+  activeTaskHistoryLoading: false,
+  activeTaskHistoryError: null,
+
   functionCatalog: null,
   functionCatalogLoading: false,
   functionCatalogError: null,
@@ -254,7 +280,7 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
 
   pollingInstanceId: null,
   pollingConfig: { retryCount: 15, intervalMs: 4000 },
-  longPollAck: null,
+  interaction: INITIAL_INTERACTION,
 
   runtimeHealth: 'unknown',
   runtimeDomain: null,
@@ -284,7 +310,6 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
       transitionDialogOpen: false,
       transitionDialogTarget: null,
       pollingInstanceId: null,
-      longPollAck: null,
       flowLabels: null,
     });
     get().resetInstanceScopedCaches();
@@ -361,7 +386,7 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
       const instances = new Map(state.instances);
       const existing = instances.get(instanceId);
       if (existing) {
-        instances.set(instanceId, { ...existing, status, currentState: currentState ?? existing.currentState });
+        instances.set(instanceId, { ...existing, status, effectiveStatus: undefined, currentState: currentState ?? existing.currentState });
       }
       return { instances };
     }),
@@ -374,6 +399,7 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
         instances.set(instanceId, {
           ...existing,
           status: stateResponse.status,
+          effectiveStatus: undefined,
           currentState: stateResponse.state,
           transitions: stateResponse.transitions,
           sharedTransitions: stateResponse.sharedTransitions,
@@ -400,6 +426,8 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
     }),
   setActiveStateLoading: (activeStateLoading) => set({ activeStateLoading }),
   setActiveStateError: (activeStateError) => set({ activeStateError }),
+  setPermissionChecksEnabled: (permissionChecksEnabled) => set({ permissionChecksEnabled }),
+  setPermissionChecks: (permissionChecks) => set({ permissionChecks }),
   setStateView: (stateView) => set({ stateView }),
   setStateViewLoading: (stateViewLoading) => set({ stateViewLoading }),
   setStateViewError: (stateViewError) => set({ stateViewError }),
@@ -411,6 +439,10 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
   setActiveSchemaLoading: (activeSchemaLoading) => set({ activeSchemaLoading }),
   setActiveHistory: (activeHistory) => set({ activeHistory }),
   setActiveHistoryLoading: (activeHistoryLoading) => set({ activeHistoryLoading }),
+
+  setActiveTaskHistory: (activeTaskHistory) => set({ activeTaskHistory }),
+  setActiveTaskHistoryLoading: (activeTaskHistoryLoading) => set({ activeTaskHistoryLoading }),
+  setActiveTaskHistoryError: (activeTaskHistoryError) => set({ activeTaskHistoryError }),
 
   setFunctionCatalog: (functionCatalog) => set({ functionCatalog }),
   setFunctionCatalogLoading: (functionCatalogLoading) => set({ functionCatalogLoading }),
@@ -429,7 +461,7 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
   setToolWideHeaders: (toolWideHeaders) => set({ toolWideHeaders }),
   setPollingInstanceId: (pollingInstanceId) => set({ pollingInstanceId }),
   setPollingConfig: (pollingConfig) => set({ pollingConfig }),
-  setLongPollAck: (longPollAck) => set({ longPollAck }),
+  dispatchInteraction: (event) => set((state) => ({ interaction: interactionReducer(state.interaction, event) })),
   setRuntimeHealth: (runtimeHealth) => set({ runtimeHealth }),
   setRuntimeDomain: (runtimeDomain) => set({ runtimeDomain }),
   setFlowLabels: (flowLabels) => set({ flowLabels }),
@@ -446,5 +478,10 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
       functionCatalogLoading: false,
       functionCatalogError: null,
       selectedFunctionName: null,
+      interaction: INITIAL_INTERACTION,
+      permissionChecks: null,
+      activeTaskHistory: null,
+      activeTaskHistoryLoading: false,
+      activeTaskHistoryError: null,
     }),
 }));

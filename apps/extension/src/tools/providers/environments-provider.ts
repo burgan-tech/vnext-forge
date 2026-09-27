@@ -30,7 +30,8 @@ import {
   type WfDomainAddArgs,
   type WfDomainCalls,
 } from '../local-runtime/wf-domain-registrar.js';
-import type { WfCliProbe } from '../wf-cli-probe.js';
+import { WF_CLI_FEATURES } from '../wf-cli-features.js';
+import type { WfCliInfo, WfCliProbe } from '../wf-cli-probe.js';
 import type { WfCliUpgradeNotice } from '../wf-cli-upgrade-notice.js';
 
 /**
@@ -1266,13 +1267,18 @@ export class EnvironmentsProvider implements vscode.TreeDataProvider<string> {
     // CLI ≥ 1.0.13 scopes the run with the global `--domain` option (and no
     // longer touches the active profile). Older CLIs act on the *active*
     // domain, so they get the legacy `wf domain use <domain> && wf reset`.
-    const info = (await this.wfCli?.get()) ?? { installed: true, supportsDomainFlag: false };
+    const info: WfCliInfo = (await this.wfCli?.get()) ?? {
+      installed: true,
+      supportsDomainFlag: false,
+      supportsIndexes: false,
+      supportsPublishCompleted: false,
+    };
     const command = buildWfShellCommand(
       { base: 'reset' },
       { domain, cliSupportsDomainFlag: info.supportsDomainFlag },
     );
     if (!info.supportsDomainFlag) {
-      void this.legacyNotice?.maybeShow(info);
+      void this.legacyNotice?.maybeShow(info, WF_CLI_FEATURES.domainFlag);
     }
     runTerminal(command, workspacePath);
   }

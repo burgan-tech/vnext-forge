@@ -1,9 +1,7 @@
 import { Handle, Position, NodeResizer, type NodeProps } from '@xyflow/react';
 import { memo, useCallback } from 'react';
 import {
-  Play, Square, CheckCircle2, XCircle, StopCircle,
-  PauseCircle, Circle, Repeat2, LayoutGrid, Activity,
-  Loader2, UserCircle, Ban, TimerOff, ArrowUpRight,
+  Repeat2, Activity, ArrowUpRight,
   ArrowUp, ArrowDown, ArrowLeft, ArrowRight,
   Eye, AlertTriangle, Copy, Trash2,
 } from 'lucide-react';
@@ -15,6 +13,8 @@ import {
 import { useWorkflowStore } from '../../../../store/useWorkflowStore';
 import { useCanvasMode } from '../../context/CanvasModeContext';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../../../../ui/Tooltip';
+import { getStateNodeConfig } from './stateNodeConfig';
+import { HumanTaskGateDot, LongPollIndicator } from './StateNodeIndicators';
 
 interface StateNodeData {
   label: string;
@@ -29,42 +29,12 @@ interface StateNodeData {
   hasSubFlow: boolean;
   subFlowProcessKey: string;
   subFlowProcessDomain: string;
+  hasLongPoll?: boolean;
+  longPollAuth?: 'roles' | 'rule';
+  terminate?: boolean;
+  fallbackTimeoutSeconds?: number;
+  humanTaskGateMissing?: boolean;
   [key: string]: unknown;
-}
-
-interface StateNodeConfig {
-  bg: string;
-  text: string;
-  accent: string;
-  ring: string;
-  icon: React.ReactNode;
-  typeLabel: string;
-  borderStyle?: string;
-}
-
-function getConfig(stateType: number, subType: number): StateNodeConfig {
-  switch (stateType) {
-    case 1:
-      return { bg: 'bg-initial/10', text: 'text-initial', accent: 'bg-initial', ring: 'ring-initial/20', icon: <Play size={16} />, typeLabel: 'Initial' };
-    case 3:
-      switch (subType) {
-        case 1: return { bg: 'bg-final-success/10', text: 'text-final-success', accent: 'bg-final-success', ring: 'ring-final-success/20', icon: <CheckCircle2 size={16} />, typeLabel: 'Success' };
-        case 2: return { bg: 'bg-final-error/10', text: 'text-final-error', accent: 'bg-final-error', ring: 'ring-final-error/20', icon: <XCircle size={16} />, typeLabel: 'Error' };
-        case 3: return { bg: 'bg-final-terminated/10', text: 'text-final-terminated', accent: 'bg-final-terminated', ring: 'ring-final-terminated/20', icon: <StopCircle size={16} />, typeLabel: 'Terminated' };
-        case 4: return { bg: 'bg-final-suspended/10', text: 'text-final-suspended', accent: 'bg-final-suspended', ring: 'ring-final-suspended/20', icon: <PauseCircle size={16} />, typeLabel: 'Suspended' };
-        case 5: return { bg: 'bg-sky-500/10', text: 'text-sky-600', accent: 'bg-sky-500', ring: 'ring-sky-500/20', icon: <Loader2 size={16} />, typeLabel: 'Busy' };
-        case 6: return { bg: 'bg-indigo-500/10', text: 'text-indigo-600', accent: 'bg-indigo-500', ring: 'ring-indigo-500/20', icon: <UserCircle size={16} />, typeLabel: 'Human' };
-        case 7: return { bg: 'bg-rose-500/10', text: 'text-rose-600', accent: 'bg-rose-500', ring: 'ring-rose-500/20', icon: <Ban size={16} />, typeLabel: 'Cancelled' };
-        case 8: return { bg: 'bg-amber-500/10', text: 'text-amber-600', accent: 'bg-amber-500', ring: 'ring-amber-500/20', icon: <TimerOff size={16} />, typeLabel: 'Timeout' };
-        default: return { bg: 'bg-final-terminated/10', text: 'text-final-terminated', accent: 'bg-final-terminated', ring: 'ring-final-terminated/20', icon: <Circle size={16} />, typeLabel: 'Final' };
-      }
-    case 4:
-      return { bg: 'bg-subflow/10', text: 'text-subflow', accent: 'bg-subflow', ring: 'ring-subflow/20', icon: <Repeat2 size={16} />, typeLabel: 'SubFlow', borderStyle: 'border-dashed' };
-    case 5:
-      return { bg: 'bg-wizard/10', text: 'text-wizard', accent: 'bg-wizard', ring: 'ring-wizard/20', icon: <LayoutGrid size={16} />, typeLabel: 'Wizard' };
-    default:
-      return { bg: 'bg-intermediate/10', text: 'text-intermediate', accent: 'bg-intermediate', ring: 'ring-intermediate/20', icon: <Square size={16} />, typeLabel: 'State' };
-  }
 }
 
 const ARROW_ICON = { [Position.Top]: ArrowUp, [Position.Bottom]: ArrowDown, [Position.Left]: ArrowLeft, [Position.Right]: ArrowRight } as const;
@@ -131,7 +101,7 @@ function TargetOnlyHandle({ position, id }: { position: Position; id: string }) 
 
 export const StateNodeBase = memo(function StateNodeBase({ data, selected }: NodeProps) {
   const d = data as StateNodeData;
-  const config = getConfig(d.stateType, d.subType);
+  const config = getStateNodeConfig(d.stateType, d.subType);
   const totalActions = d.onEntryCount + d.onExitCount;
   const { onOpenSubFlow } = useSubFlowNavigation();
   const { settings } = useCanvasViewSettings();
@@ -260,9 +230,10 @@ export const StateNodeBase = memo(function StateNodeBase({ data, selected }: Nod
           // class name — inline `width`/`height` gives us the same
           // effect without the bundling concern.
           style={{ width: `${iconStampNum * 0.25}rem`, height: `${iconStampNum * 0.25}rem` }}
-          className={`shrink-0 rounded-xl ${config.accent} flex items-center justify-center shadow-sm ring-1 ring-black/5`}
+          className={`relative shrink-0 rounded-xl ${config.accent} flex items-center justify-center shadow-sm ring-1 ring-black/5`}
         >
           <span className="text-white [&>svg]:size-[18px]">{config.icon}</span>
+          <HumanTaskGateDot show={Boolean(d.humanTaskGateMissing)} />
         </div>
         <div className="min-w-0 flex-1">
           <h4 className="text-[13px] font-semibold text-foreground truncate leading-tight tracking-tight">
@@ -286,8 +257,9 @@ export const StateNodeBase = memo(function StateNodeBase({ data, selected }: Nod
        *   - Eye          → "Has view" (view component attached)
        *   - AlertTriangle → "Error boundary" defined
        *   - Repeat2      → "SubFlow" embedded
+       *   - RadioTower   → "Long poll" (tooltip: terminate · window · arm)
        */}
-      {statsAllowed && (totalActions > 0 || d.transitionCount > 0 || d.hasView || d.hasErrorBoundary || d.hasSubFlow) && (
+      {statsAllowed && (totalActions > 0 || d.transitionCount > 0 || d.hasView || d.hasErrorBoundary || d.hasSubFlow || d.hasLongPoll) && (
         <div
           className={`px-3.5 pb-3 pt-0.5 vf-stats-row ${
             statsHoverOnly ? 'vf-stats-hover-only' : ''
@@ -334,6 +306,12 @@ export const StateNodeBase = memo(function StateNodeBase({ data, selected }: Nod
                 <Repeat2 size={11} strokeWidth={2.25} />
               </span>
             )}
+            <LongPollIndicator
+              hasLongPoll={d.hasLongPoll}
+              longPollAuth={d.longPollAuth}
+              terminate={d.terminate}
+              fallbackTimeoutSeconds={d.fallbackTimeoutSeconds}
+            />
           </div>
         </div>
       )}

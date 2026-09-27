@@ -1,25 +1,17 @@
 /**
- * Editor for the State.interaction field (currently `interaction.longPoll`).
+ * Editor for `state.interaction.longPoll`.
  *
- * Long polling tells the client workflow manager when to terminate an
- * open long-poll request for the state. See `LongPollConfig` /
- * `StateInteraction` in `@vnext-forge-studio/vnext-types` and the
- * `longPoll` definition in the workflow-definition schema.
+ * Authorization is exactly one arm — role grants or a condition rule
+ * (schema `oneOf`). "Authorize by" switches arms and clears the other one
+ * (`switchLongPollArm`). Every write goes through `longPollConfig.ts`, so the
+ * editor can never produce both arms.
  *
- * UI shape mirrors the other property-panel section editors:
- *   - Collapsible `Section` shell
- *   - An "Add long poll" / "Remove" toggle that adds or clears the
- *     `longPoll` block
- *   - When present: `terminate` (Yes/No), optional
- *     `fallbackTimeoutSeconds`, and a reused `RoleGrantEditor` for
- *     `roles`
- *
- * Fully controlled — `onChange(next | null)` fires for every mutation.
- * Parent (GeneralTab) decides how to write the draft and strips the
- * `interaction` field entirely when cleared so the saved JSON stays
- * minimal.
+ * Fully controlled — `onChange(next | null)` fires for every mutation;
+ * GeneralTab strips `interaction` when it is cleared.
  */
-import type { LongPollConfig, RoleGrant, StateInteraction } from '@vnext-forge-studio/vnext-types';
+import type { MappingCode, StateInteraction } from '@vnext-forge-studio/vnext-types';
+import { CsxEditorField, type ScriptCode } from '../../../../../../modules/save-component/components/CsxEditorField';
+import { MappingScriptsSection } from '../../../../../../modules/save-component/components/MappingScriptsSection';
 import {
   EditableInput,
   IconPlus,
@@ -28,9 +20,24 @@ import {
   Section,
 } from '../PropertyPanelShared';
 import { RoleGrantEditor } from '../subflow/RoleGrantEditor';
+import {
+  EMPTY_RULE,
+  currentLongPollArm,
+  isRuleArm,
+  longPollArmIssue,
+  makeEmptyLongPoll,
+  patchLongPoll as applyLongPollPatch,
+  setLongPollRule,
+  switchLongPollArm,
+  type LongPollArm,
+  type LongPollArmIssue,
+  type LongPollPatch,
+} from './longPollConfig';
 
 interface StateInteractionEditorProps {
   interaction: StateInteraction | null;
+  /** Owning state — addresses the rule script for the script panel. */
+  stateKey: string;
   onChange: (next: StateInteraction | null) => void;
 }
 
@@ -39,18 +46,21 @@ const TERMINATE_OPTIONS = [
   { value: 'false', label: 'No' },
 ] as const;
 
-function makeEmptyLongPoll(): LongPollConfig {
-  // Schema requires `terminate` and `roles`. Seed with one role row so
-  // the user can type straight away.
-  return { terminate: true, roles: [{ role: '', grant: 'allow' }] };
-}
+const ARMS: readonly { value: LongPollArm; label: string }[] = [
+  { value: 'roles', label: 'Roles' },
+  { value: 'rule', label: 'Rule' },
+];
 
-export function StateInteractionEditor({ interaction, onChange }: StateInteractionEditorProps) {
+const ARM_ISSUE_MESSAGES: Record<LongPollArmIssue, string> = {
+  both: 'Both roles and a rule are set. The schema allows only one — pick the arm to keep.',
+  neither: 'No authorization is set. Add role grants or create a rule script.',
+};
+
+export function StateInteractionEditor({ interaction, stateKey, onChange }: StateInteractionEditorProps) {
   const longPoll = interaction?.longPoll ?? null;
 
-  const patchLongPoll = (patch: Partial<LongPollConfig>): void => {
-    const base = longPoll ?? makeEmptyLongPoll();
-    onChange({ longPoll: { ...base, ...patch } });
+  const patchLongPoll = (patch: LongPollPatch): void => {
+    onChange({ longPoll: applyLongPollPatch(longPoll, patch) });
   };
 
   const addLongPoll = (): void => {
@@ -63,7 +73,21 @@ export function StateInteractionEditor({ interaction, onChange }: StateInteracti
     onChange(null);
   };
 
-  const roles: RoleGrant[] = Array.isArray(longPoll?.roles) ? longPoll!.roles : [];
+  const arm: LongPollArm | null = longPoll ? currentLongPollArm(longPoll) : null;
+  const issue = longPoll ? longPollArmIssue(longPoll) : null;
+  const ruleArm = longPoll && isRuleArm(longPoll) ? longPoll : null;
+  const roles = longPoll && !isRuleArm(longPoll) && Array.isArray(longPoll.roles) ? longPoll.roles : [];
+
+  const selectArm = (next: LongPollArm): void => {
+    if (!longPoll) return;
+    if (arm === next && issue !== 'both') return;
+    onChange({ longPoll: switchLongPollArm(longPoll, next) });
+  };
+
+  const writeRule = (rule: MappingCode): void => {
+    if (!longPoll) return;
+    onChange({ longPoll: setLongPollRule(longPoll, rule) });
+  };
 
   return (
     <Section
@@ -127,15 +151,83 @@ export function StateInteractionEditor({ interaction, onChange }: StateInteracti
           </div>
 
           <div>
-            <label className="text-[9px] font-medium text-muted-foreground mb-1 block">
-              Roles
-            </label>
-            <RoleGrantEditor
-              roles={roles}
-              onChange={(next) => patchLongPoll({ roles: next })}
-              contextLabel="long poll"
-            />
+            <span className="text-[9px] font-medium text-muted-foreground mb-0.5 block">
+              Authorize by
+            </span>
+            <div
+              role="group"
+              aria-label="Authorize by"
+              className="inline-flex rounded-lg border border-border bg-muted-surface p-0.5">
+              {ARMS.map((option) => {
+                const active = arm === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    aria-pressed={active}
+                    onClick={() => selectArm(option.value)}
+                    className={`cursor-pointer rounded-md px-2.5 py-1 text-[11px] font-semibold transition-colors ${
+                      active
+                        ? 'bg-surface text-secondary-icon shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    }`}>
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
+
+          {issue && (
+            <p
+              role="alert"
+              className="rounded-md border border-warning-border bg-warning-surface px-2 py-1 text-[10px] text-warning-text leading-relaxed">
+              {ARM_ISSUE_MESSAGES[issue]}
+            </p>
+          )}
+
+          {ruleArm ? (
+            <div>
+              <label className="text-[9px] font-medium text-muted-foreground mb-0.5 block">
+                Rule
+              </label>
+              <p className="text-[10px] text-muted-foreground mb-1 leading-relaxed">
+                Condition script (IConditionMapping) evaluated per caller. It reads
+                context.Instance.Data; context.Body is not populated here. A false,
+                throwing or non-compiling rule denies.
+              </p>
+              <CsxEditorField
+                value={ruleArm.rule as ScriptCode}
+                onChange={(sc) => writeRule(sc as MappingCode)}
+                onRemove={() => writeRule({ ...EMPTY_RULE })}
+                templateType="condition"
+                contextName={`${stateKey}-longpoll-rule`}
+                label="Long poll rule"
+                stateKey={stateKey}
+                listField="interaction"
+                index={0}
+                scriptField="longPoll.rule"
+                allowRefEncoding
+              />
+              {ruleArm.rule.code ? (
+                <MappingScriptsSection
+                  value={ruleArm.rule.scripts}
+                  onChange={(scripts) => writeRule({ ...ruleArm.rule, scripts })}
+                />
+              ) : null}
+            </div>
+          ) : (
+            <div>
+              <label className="text-[9px] font-medium text-muted-foreground mb-1 block">
+                Roles
+              </label>
+              <RoleGrantEditor
+                roles={roles}
+                onChange={(next) => patchLongPoll({ roles: next })}
+                contextLabel="long poll"
+              />
+            </div>
+          )}
         </div>
       )}
     </Section>

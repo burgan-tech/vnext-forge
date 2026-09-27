@@ -9,7 +9,7 @@ import {
   type MutableRefObject,
 } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import Editor, { type OnMount } from '@monaco-editor/react';
+import Editor, { type Monaco, type OnMount } from '@monaco-editor/react';
 import type { editor } from 'monaco-editor';
 import { BookOpen, Columns2, FileCode, Redo2, Save, Undo2 } from 'lucide-react';
 
@@ -17,6 +17,7 @@ import { isFailure } from '@vnext-forge-studio/app-contracts';
 import {
   Button,
   cn,
+  configureJsonSchemaValidation,
   readFile,
   ResizableHandle,
   ResizablePanel,
@@ -210,6 +211,16 @@ export function CodeEditorPage() {
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const lspClientRef = useRef<CsharpLspClient | null>(null);
   const lspSessionId = useRef(crypto.randomUUID());
+  // `Monaco` (`typeof monaco`) resolves cleanly under `tsc` but shows up as an
+  // unresolved/`any` type to eslint's type-aware rules on this file's project
+  // service — a pre-existing quirk also visible around Monaco call sites in
+  // designer-ui's JsonSchemaSetup.ts.
+  // eslint-disable-next-line @typescript-eslint/no-redundant-type-constituents
+  const monacoRef = useRef<Monaco | null>(null);
+  const [monacoReady, setMonacoReady] = useState(false);
+  const vnextConfig = useProjectStore((s) => s.vnextConfig);
+  const pinnedSchemaVersion = vnextConfig?.schemaVersion;
+  const workspacePaths = vnextConfig?.paths ?? null;
   const searchHitNavAppliedRef = useRef<string | null>(null);
   const searchParamsRef = useRef(searchParams);
   searchParamsRef.current = searchParams;
@@ -293,6 +304,20 @@ export function CodeEditorPage() {
     if (!filePath) return;
     loadFile(filePath);
   }, [filePath]);
+
+  // Monaco validates vNext component JSON against the project's pinned
+  // `@burgan-tech/vnext-schema` (vnext.config.json#schemaVersion) — the same
+  // contract save-time validation uses. The backend falls back to its bundled
+  // package when the pin cannot be resolved.
+  useEffect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- see monacoRef declaration
+    const monaco = monacoRef.current;
+    if (!monacoReady || !monaco || language !== 'json') return;
+    void configureJsonSchemaValidation(monaco, {
+      paths: workspacePaths,
+      ...(pinnedSchemaVersion ? { schemaVersion: pinnedSchemaVersion } : {}),
+    });
+  }, [monacoReady, language, workspacePaths, pinnedSchemaVersion]);
 
   async function loadFile(fp: string) {
     setLoading(true);
@@ -400,6 +425,9 @@ export function CodeEditorPage() {
   const handleMount: OnMount = useCallback(
     (editorInstance, monaco) => {
       editorRef.current = editorInstance;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment -- see monacoRef declaration
+      monacoRef.current = monaco;
+      setMonacoReady(true);
       if (!lspClientRef.current) {
         setupMonacoWithLsp(monaco, lspSessionId.current).then((client) => {
           lspClientRef.current = client;

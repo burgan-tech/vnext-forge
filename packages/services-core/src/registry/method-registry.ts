@@ -135,6 +135,16 @@ import {
   quickrunAcknowledgeLongPollResult,
   quickrunGetFunctionCatalogParams,
   quickrunGetFunctionCatalogResult,
+  quickrunGetIncidentsParams,
+  quickrunGetIncidentsResult,
+  quickrunGetActiveIncidentParams,
+  quickrunGetActiveIncidentResult,
+  quickrunGetTaskHistoryParams,
+  quickrunGetTaskHistoryResult,
+  quickrunAuthorizeParams,
+  quickrunAuthorizeResult,
+  quickrunGetHumanTasksParams,
+  quickrunGetHumanTasksResult,
 } from '../services/quickrun/quickrun-schemas.js'
 import type { RuntimeProxyService } from '../services/runtime-proxy/runtime-proxy.service.js'
 import {
@@ -591,7 +601,10 @@ export function buildMethodRegistry(): MethodRegistry {
     'validate/getAllSchemas': {
       paramsSchema: validateGetAllSchemasParams,
       resultSchema: validateGetAllSchemasResult,
-      handler: async (_p, { validateService }) => validateService.getAllSchemas(),
+      // Monaco asks with the project's `schemaVersion` so editor diagnostics
+      // match save-time validation; omitted → bundled package.
+      handler: async ({ schemaVersion }, { validateService }) =>
+        validateService.getAllSchemasVersioned(schemaVersion),
     },
     'validate/getSchema': {
       paramsSchema: validateGetSchemaParams,
@@ -691,6 +704,36 @@ export function buildMethodRegistry(): MethodRegistry {
       resultSchema: quickrunGetFunctionCatalogResult,
       handler: async (params, { quickRunService }, traceId) =>
         quickRunService.getFunctionCatalog(params, traceId),
+    },
+    'quickrun/getIncidents': {
+      paramsSchema: quickrunGetIncidentsParams,
+      resultSchema: quickrunGetIncidentsResult,
+      handler: async (params, { quickRunService }, traceId) =>
+        quickRunService.getIncidents(params, traceId),
+    },
+    'quickrun/getActiveIncident': {
+      paramsSchema: quickrunGetActiveIncidentParams,
+      resultSchema: quickrunGetActiveIncidentResult,
+      handler: async (params, { quickRunService }, traceId) =>
+        quickRunService.getActiveIncident(params, traceId),
+    },
+    'quickrun/getTaskHistory': {
+      paramsSchema: quickrunGetTaskHistoryParams,
+      resultSchema: quickrunGetTaskHistoryResult,
+      handler: async (params, { quickRunService }, traceId) =>
+        quickRunService.getTaskHistory(params, traceId),
+    },
+    'quickrun/authorize': {
+      paramsSchema: quickrunAuthorizeParams,
+      resultSchema: quickrunAuthorizeResult,
+      handler: async (params, { quickRunService }, traceId) =>
+        quickRunService.authorize(params, traceId),
+    },
+    'quickrun/getHumanTasks': {
+      paramsSchema: quickrunGetHumanTasksParams,
+      resultSchema: quickrunGetHumanTasksResult,
+      handler: async (params, { quickRunService }, traceId) =>
+        quickRunService.getHumanTasks(params, traceId),
     },
 
     // ── functions (Quick Runner) ─────────────────────────────────────────────

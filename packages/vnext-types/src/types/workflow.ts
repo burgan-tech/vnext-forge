@@ -1,3 +1,4 @@
+import type { Annotations } from './annotations';
 import type { AvailableIn } from './available-in';
 import { ErrorBoundary } from './error-boundary';
 import type { Event } from './event';
@@ -21,7 +22,6 @@ export interface StartTransition {
   mapping?: MappingCode;
   onExecutionTasks?: TaskExecution[];
   roles?: RoleGrant[];
-  annotations?: Record<string, string>;
 }
 
 export interface WorkflowTimerConfig {
@@ -52,6 +52,10 @@ export interface TimeoutTransition {
   versionStrategy?: string;
   timer?: WorkflowTimerConfig;
   mapping?: MappingCode;
+  /** Surfaced on the state function's `timeout` block. A subflow timeout
+   *  override replaces the child's timeout as a whole, annotations included. */
+  annotations?: Annotations | null;
+  _comment?: string;
 }
 
 export interface CancelTransition {
@@ -65,10 +69,10 @@ export interface CancelTransition {
   mapping?: MappingCode;
   onExecutionTasks?: TaskExecution[];
   roles?: RoleGrant[];
-  availableIn?: AvailableIn;
+  availableIn?: AvailableIn | null;
   from?: string;
   _comment?: string;
-  annotations?: Record<string, string>;
+  annotations?: Annotations | null;
 }
 
 export interface ExitTransition {
@@ -82,10 +86,10 @@ export interface ExitTransition {
   mapping?: MappingCode;
   onExecutionTasks?: TaskExecution[];
   roles?: RoleGrant[];
-  availableIn?: AvailableIn;
+  availableIn?: AvailableIn | null;
   from?: string;
   _comment?: string;
-  annotations?: Record<string, string>;
+  annotations?: Annotations | null;
 }
 
 export interface UpdateDataTransition {
@@ -99,10 +103,10 @@ export interface UpdateDataTransition {
   mapping?: MappingCode;
   onExecutionTasks?: TaskExecution[];
   roles?: RoleGrant[];
-  availableIn?: AvailableIn;
+  availableIn?: AvailableIn | null;
   from?: string;
   _comment?: string;
-  annotations?: Record<string, string>;
+  annotations?: Annotations | null;
 }
 
 export interface WorkflowAttributes {

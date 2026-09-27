@@ -11,7 +11,7 @@ type MinimalState = Pick<StateResponse, 'stateType' | 'view' | 'transitions' | '
  *
  * When `applyStatusGate` is true, the busy-state gate used by the poll
  * loop also applies: the view is only eligible while the instance is in
- * status `A`/`C`, or when the caller's own `terminate` flag says the
+ * status `A`/`C`/`P`, or when the caller's own `terminate` flag says the
  * long-poll loop is stopping anyway (a terminating instance may still be
  * mid-`B` when its view becomes eligible).
  *
@@ -27,5 +27,6 @@ export function shouldFetchView(
   const viewSource = resolveStateViewSource(effectiveState);
   if (!viewSource) return false;
   if (!options.applyStatusGate) return true;
-  return effectiveState.status === 'A' || effectiveState.status === 'C' || !!options.terminate;
+  const status = effectiveState.status;
+  return status === 'A' || status === 'C' || status === 'P' || !!options.terminate;
 }

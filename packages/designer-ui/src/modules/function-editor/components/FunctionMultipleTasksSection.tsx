@@ -2,6 +2,7 @@ import type { ScriptsConfig } from '@vnext-forge-studio/vnext-types';
 import { TaskExecutionList } from '../../../modules/save-component/components/TaskExecutionList';
 import { CsxEditorField, type ScriptCode } from '../../save-component/components/CsxEditorField';
 import { MappingScriptsSection } from '../../save-component/components/MappingScriptsSection';
+import { FunctionTaskKeyCollisions } from './FunctionTaskKeyCollisions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../ui/Card';
 
 interface FunctionMultipleTasksSectionProps {
@@ -52,6 +53,7 @@ export function FunctionMultipleTasksSection({
 
   return (
     <div className="space-y-4">
+      <FunctionTaskKeyCollisions tasks={tasks} />
       <TaskExecutionList
         tasks={tasks}
         onChange={(updater) => {

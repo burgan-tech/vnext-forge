@@ -63,6 +63,11 @@ export type MethodId =
   | 'quickrun/executeFunction'
   | 'quickrun/acknowledgeLongPoll'
   | 'quickrun/getFunctionCatalog'
+  | 'quickrun/getIncidents'
+  | 'quickrun/getActiveIncident'
+  | 'quickrun/getTaskHistory'
+  | 'quickrun/authorize'
+  | 'quickrun/getHumanTasks'
   | 'functions/getInfo'
   | 'functions/fetchContract'
   | 'functions/invoke'
@@ -141,6 +146,11 @@ export const METHOD_HTTP_METADATA: Readonly<Record<MethodId, MethodHttpSpec>> = 
   'quickrun/executeFunction': { verb: 'POST', paramSource: 'json' },
   'quickrun/acknowledgeLongPoll': { verb: 'POST', paramSource: 'json' },
   'quickrun/getFunctionCatalog': { verb: 'POST', paramSource: 'json' },
+  'quickrun/getIncidents': { verb: 'POST', paramSource: 'json' },
+  'quickrun/getActiveIncident': { verb: 'POST', paramSource: 'json' },
+  'quickrun/getTaskHistory': { verb: 'POST', paramSource: 'json' },
+  'quickrun/authorize': { verb: 'POST', paramSource: 'json' },
+  'quickrun/getHumanTasks': { verb: 'POST', paramSource: 'json' },
   'functions/getInfo': { verb: 'POST', paramSource: 'json' },
   'functions/fetchContract': { verb: 'POST', paramSource: 'json' },
   'functions/invoke': { verb: 'POST', paramSource: 'json' },

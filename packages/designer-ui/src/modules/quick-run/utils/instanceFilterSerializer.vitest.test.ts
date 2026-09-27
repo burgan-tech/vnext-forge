@@ -1,11 +1,16 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  INSTANCE_FIELDS,
+  INSTANCE_TYPE_OPTIONS,
+  MAX_FILTER_LENGTH,
+  MAX_FILTER_VALUE_LENGTH,
   getOperatorsForFieldType,
   isValidAttributePath,
   serializeCondition,
   serializeInstanceFilter,
   serializeInstanceSort,
+  sortableInstanceFields,
   type FilterCondition,
 } from './instanceFilterSerializer';
 
@@ -139,5 +144,72 @@ describe('operators per type', () => {
 describe('serializeInstanceSort', () => {
   it('emits the JSON sort the runtime requires (no -field shorthand)', () => {
     expect(JSON.parse(serializeInstanceSort('createdAt', 'desc'))).toEqual({ field: 'createdAt', direction: 'desc' });
+  });
+});
+
+describe('instance metadata fields', () => {
+  it('offers instanceType and effectiveStatus as filter fields', () => {
+    expect(INSTANCE_FIELDS.find((f) => f.value === 'instanceType')?.type).toBe('instanceType');
+    expect(INSTANCE_FIELDS.find((f) => f.value === 'effectiveStatus')?.type).toBe('status');
+  });
+
+  it('instanceType accepts only eq / ne / in / nin', () => {
+    expect(getOperatorsForFieldType('instanceType')).toEqual(['eq', 'ne', 'in', 'nin']);
+  });
+
+  it('serializes instance type names', () => {
+    expect(parse(inst('instanceType', 'in', 'Root, SubFlow'))).toEqual({ instanceType: { in: ['Root', 'SubFlow'] } });
+    expect(parse(inst('effectiveStatus', 'eq', 'Active'))).toEqual({ effectiveStatus: { eq: 'Active' } });
+  });
+
+  it('lists the instance type options by name', () => {
+    expect(INSTANCE_TYPE_OPTIONS).toEqual(['Root', 'SubFlow', 'SubProcess']);
+  });
+
+  it('does not offer instanceType as a sort field', () => {
+    expect(sortableInstanceFields().some((f) => f.value === 'instanceType')).toBe(false);
+    expect(sortableInstanceFields().some((f) => f.value === 'effectiveStatus')).toBe(true);
+  });
+});
+
+describe('runtime value limits', () => {
+  const long = 'x'.repeat(MAX_FILTER_VALUE_LENGTH + 1);
+
+  it('uses the runtime InputValidator limits', () => {
+    expect(MAX_FILTER_VALUE_LENGTH).toBe(1000);
+    expect(MAX_FILTER_LENGTH).toBe(5000);
+  });
+
+  it('accepts a value of exactly 1000 characters', () => {
+    expect(serializeCondition(attr('name', 'like', 'x'.repeat(1000))).error).toBeUndefined();
+  });
+
+  it('rejects longer text and scalar values', () => {
+    expect(serializeCondition(attr('name', 'like', long)).error).toContain('1000');
+    expect(serializeCondition(attr('name', 'eq', long)).error).toContain('1000');
+  });
+
+  it('checks every in / nin element', () => {
+    expect(serializeCondition(attr('name', 'in', `a, ${long}`)).error).toContain('1000');
+    expect(serializeCondition(attr('name', 'nin', `${long}, b`)).error).toContain('1000');
+  });
+
+  it('checks both between bounds', () => {
+    expect(serializeCondition(attr('name', 'between', 'a', undefined, long)).error).toMatch(/^Upper bound: .*1000/);
+    expect(serializeCondition(attr('name', 'between', long, undefined, 'b')).error).toMatch(/^Lower bound: .*1000/);
+  });
+
+  it('rejects a serialized filter longer than 5000 characters', () => {
+    const conditions = Array.from({ length: 6 }, (_, i) => attr(`f${i}`, 'eq', 'y'.repeat(900)));
+    const result = serializeInstanceFilter(conditions);
+    expect(result.filter).toBeUndefined();
+    expect(result.errors).toEqual({});
+    expect(result.filterError).toContain('5000');
+  });
+
+  it('keeps filters within the limit', () => {
+    const result = serializeInstanceFilter([attr('f', 'eq', 'y'.repeat(900))]);
+    expect(result.filter).toBeDefined();
+    expect(result.filterError).toBeUndefined();
   });
 });

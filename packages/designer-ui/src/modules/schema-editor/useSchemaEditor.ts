@@ -10,6 +10,7 @@ import { useProjectStore } from '../../store/useProjectStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useComponentStore } from '../../store/useComponentStore';
 import { validateComponentBeforeWrite } from '../save-component/validateBeforeWrite';
+import { translateIndexValidationErrors } from './model/indexValidationMessages';
 
 const logger = createLogger('schema-editor/useSchemaEditor');
 
@@ -82,10 +83,11 @@ export function useSchemaEditor({ filePath, onSaveSuccess }: UseSchemaEditorPara
 
     const gate = await validateComponentBeforeWrite(componentJson, 'schema', schemaVersion);
     if (!gate.valid && !gate.skipped) {
+      const errors = translateIndexValidationErrors(componentJson, gate.errors);
       useComponentStore.getState().setValidationErrors(
-        gate.errors.map((e) => ({ path: e.path, message: e.message })),
+        errors.map((e) => ({ path: e.path, message: e.message })),
       );
-      const count = gate.errors.length;
+      const count = errors.length;
       showNotification({
         kind: 'error',
         message: `Validation failed — ${count} issue${count > 1 ? 's' : ''}`,
@@ -99,7 +101,7 @@ export function useSchemaEditor({ filePath, onSaveSuccess }: UseSchemaEditorPara
           },
         },
       });
-      logger.warn('Schema save blocked by validation', { errors: gate.errors });
+      logger.warn('Schema save blocked by validation', { errors });
       return;
     }
 

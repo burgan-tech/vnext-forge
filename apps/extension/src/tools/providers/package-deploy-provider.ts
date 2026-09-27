@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 
 import {
   buildWfShellCommand,
+  WF_PUBLISH_COMPLETED_MIN_VERSION,
   type VnextSolutionFile,
   type WfWorkspaceCommand,
 } from '@vnext-forge-studio/services-core';
@@ -9,14 +10,18 @@ import {
 import type { VnextWorkspaceDetector } from '../../workspace-detector.js';
 import type { ForgeTerminalManager } from '../forge-terminal.js';
 import { pickWorkspaceRoot } from '../pick-workspace-root.js';
+import { WF_CLI_FEATURES } from '../wf-cli-features.js';
 import type { WfCliProbe } from '../wf-cli-probe.js';
 import type { WfCliUpgradeNotice } from '../wf-cli-upgrade-notice.js';
-
-type DeployNodeId = 'wfUpdateAll' | 'wfUpdate' | 'wfCsxAll' | 'installWfCli';
-type DeployCommandId = Exclude<DeployNodeId, 'installWfCli'>;
+import {
+  packageDeployNodeIds,
+  PUBLISH_COMPLETED_NOTICE,
+  type DeployCommandId,
+  type DeployNodeId,
+} from './package-deploy-nodes.js';
 
 interface DeployAction {
-  id: DeployNodeId;
+  id: DeployCommandId | 'installWfCli';
   label: string;
   description: string;
   icon: string;
@@ -75,6 +80,14 @@ export class PackageDeployProvider implements vscode.TreeDataProvider<DeployNode
   ) {}
 
   getTreeItem(element: DeployNodeId): vscode.TreeItem {
+    if (element === 'publishCompletedInfo') {
+      const notice = new vscode.TreeItem('Discovery cache may stay stale', vscode.TreeItemCollapsibleState.None);
+      notice.description = `Workflow CLI < ${WF_PUBLISH_COMPLETED_MIN_VERSION}`;
+      notice.tooltip = `${PUBLISH_COMPLETED_NOTICE} Update the Workflow CLI to ${WF_PUBLISH_COMPLETED_MIN_VERSION} or newer.`;
+      notice.iconPath = new vscode.ThemeIcon('info');
+      return notice;
+    }
+
     const action = element === 'installWfCli'
       ? INSTALL_ACTION
       : DEPLOY_ACTIONS.find((a) => a.id === element)!;
@@ -91,16 +104,10 @@ export class PackageDeployProvider implements vscode.TreeDataProvider<DeployNode
 
   async getChildren(element?: DeployNodeId): Promise<DeployNodeId[]> {
     if (element) return [];
-
-    const info = await this.wfCli.get();
-    if (!info.installed) {
-      return ['installWfCli'];
-    }
-
-    return DEPLOY_ACTIONS.map((a) => a.id);
+    return packageDeployNodeIds(await this.wfCli.get());
   }
 
-  async runDeployAction(actionId: DeployNodeId): Promise<void> {
+  async runDeployAction(actionId: DeployCommandId | 'installWfCli'): Promise<void> {
     if (actionId === 'installWfCli') {
       await this.installWfCli();
       return;
@@ -146,7 +153,7 @@ export class PackageDeployProvider implements vscode.TreeDataProvider<DeployNode
       { domain, cliSupportsDomainFlag: info.supportsDomainFlag },
     );
     if (domain && !info.supportsDomainFlag) {
-      void this.upgradeNotice.maybeShow(info);
+      void this.upgradeNotice.maybeShow(info, WF_CLI_FEATURES.domainFlag);
     }
 
     this.terminal.run(command, { cwd: root.folderPath });

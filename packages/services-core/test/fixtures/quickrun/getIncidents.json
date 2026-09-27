@@ -1,0 +1,35 @@
+{
+  "params": {
+    "domain": "core",
+    "workflowKey": "error-boundary-lab",
+    "instanceId": "0f3c2a4e-5b7d-4a51-9a0e-2d3c1b4a5e6f",
+    "page": 1,
+    "pageSize": 20,
+    "runtimeUrl": "http://localhost:4201"
+  },
+  "result": {
+    "hasActiveIncident": true,
+    "items": [
+      {
+        "id": "7a1b9c2d-0e3f-4a5b-8c6d-9e0f1a2b3c4d",
+        "createdAt": "2026-09-20T10:00:00Z",
+        "state": "call-api",
+        "transition": "go",
+        "task": "http-fail",
+        "message": "Upstream returned 503",
+        "errorCode": "Task:Http:503",
+        "errorLayer": "Task",
+        "statusCode": 503,
+        "boundaryAction": "Abort",
+        "boundaryLevel": "Task",
+        "traceId": "4bf92f3577b34da6a3ce929d0e0e4736",
+        "isResolved": false,
+        "resolvedAt": null,
+        "retryCount": 0
+      }
+    ],
+    "page": 1,
+    "pageSize": 20,
+    "hasNext": false
+  }
+}

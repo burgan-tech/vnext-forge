@@ -72,7 +72,18 @@ export const validationResultShape = z.object({
 export const validateGetAvailableTypesParams = z.object({}).optional().transform(() => ({}))
 export const validateGetAvailableTypesResult = z.array(z.string())
 
-export const validateGetAllSchemasParams = z.object({}).optional().transform(() => ({}))
+export const validateGetAllSchemasParams = z
+  .object({
+    /**
+     * Project's `vnext.config.json#schemaVersion`. When supplied (and a
+     * `schemaCacheService` is wired) the schemas come from that exact
+     * `@burgan-tech/vnext-schema` version — the contract save validation
+     * uses — instead of the bundled package.
+     */
+    schemaVersion: z.string().min(1).optional(),
+  })
+  .optional()
+  .transform((params) => params ?? {})
 export const validateGetAllSchemasResult = z.record(z.string(), z.record(z.string(), z.unknown()))
 
 export const validateGetSchemaParams = z.object({
@@ -166,10 +177,11 @@ export function createValidateService(deps: ValidateServiceDeps) {
   const fellBackToBundled = new Set<string>()
 
   /**
-   * Every schema read goes through here, so a forward-port applies identically
-   * to the bundled module and to a version downloaded by `schemaCacheService`.
-   * Keeping it in one place is what stops the compiled validator and the schema
-   * handed to the UI from disagreeing about what is valid.
+   * Every schema read goes through here, so the view-display forward-port
+   * applies identically to the bundled module and to a version downloaded by
+   * `schemaCacheService`. Keeping it in one
+   * place is what stops the compiled validator and the schema handed to the UI
+   * from disagreeing about what is valid.
    */
   function readSchema(
     module: VnextSchemaModule,
@@ -327,14 +339,41 @@ export function createValidateService(deps: ValidateServiceDeps) {
     return Array.from(validators.keys())
   }
 
-  function getAllSchemas(): Record<string, Record<string, unknown>> {
-    const { module: mod } = ensureBundled()
+  function collectSchemas(mod: VnextSchemaModule): Record<string, Record<string, unknown>> {
     const result: Record<string, Record<string, unknown>> = {}
     for (const type of mod.getAvailableTypes()) {
       const schema = readSchema(mod, type)
       if (schema) result[type] = schema
     }
     return result
+  }
+
+  function getAllSchemas(): Record<string, Record<string, unknown>> {
+    return collectSchemas(ensureBundled().module)
+  }
+
+  /**
+   * Every component schema of the project-pinned package (forward-ports
+   * applied), for Monaco. Same fallback rules as `getSchemaVersioned`: no
+   * version, no cache service, or a failed download → bundled package.
+   */
+  async function getAllSchemasVersioned(
+    schemaVersion?: string,
+  ): Promise<Record<string, Record<string, unknown>>> {
+    if (!schemaVersion || !schemaCacheService) {
+      return getAllSchemas()
+    }
+    try {
+      const resolved = await schemaCacheService.resolve(schemaVersion)
+      return collectSchemas(resolved.module)
+    } catch (err) {
+      deps.logger.warn(
+        `[validate.service] getAllSchemasVersioned fallback to bundled (${schemaVersion}): ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      )
+      return getAllSchemas()
+    }
   }
 
   function getSchema(type: string): Record<string, unknown> | null {
@@ -379,6 +418,7 @@ export function createValidateService(deps: ValidateServiceDeps) {
     validateComponentVersioned,
     getAvailableTypes,
     getAllSchemas,
+    getAllSchemasVersioned,
     getSchema,
     getSchemaVersioned,
   }

@@ -7,8 +7,8 @@ import { BrandPaletteDialog } from './components/BrandPaletteDialog';
 import { ContextPanel } from './components/ContextPanel';
 import { HeadersConfigDialog } from './components/HeadersConfigDialog';
 import { InstanceDashboard } from './components/InstanceDashboard';
-import { InstanceListPanel } from './components/InstanceListPanel';
 import { NewRunDialog } from './components/NewRunDialog';
+import { QuickRunSidebar } from './components/QuickRunSidebar';
 import { QuickRunStatusBar } from './components/QuickRunStatusBar';
 import { QuickRunTabBar } from './components/QuickRunTabBar';
 import { ResizableHandle } from './components/ResizableHandle';
@@ -252,7 +252,7 @@ export function QuickRunShell({
       <QuickRunTabBar />
       <div id="quickrun-main" className="flex flex-1 min-h-0">
         <div style={{ width: leftWidth, minWidth: 160, maxWidth: 400 }} className="flex-shrink-0">
-          <InstanceListPanel />
+          <QuickRunSidebar {...(onOpenSubFlowTarget ? { onOpenSubFlowTarget } : {})} />
         </div>
         <ResizableHandle onResize={handleLeftResize} direction="right" />
         <div className="flex-1 min-w-0">

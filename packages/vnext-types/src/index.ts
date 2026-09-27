@@ -1,3 +1,4 @@
+export * from './types/annotations';
 export * from './types/workflow';
 export * from './types/role';
 export * from './types/available-in';

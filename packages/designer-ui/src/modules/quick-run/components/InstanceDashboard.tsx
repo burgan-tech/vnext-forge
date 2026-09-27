@@ -3,8 +3,21 @@ import { RefreshCw } from 'lucide-react';
 
 import { extractEtag } from '../etagFromResponse';
 import * as QuickRunApi from '../QuickRunApi';
-import type { IncidentEntry, IncidentInfo, InstanceDetailResponse, WorkflowBucketConfig } from '../QuickRunApi';
+import type { InstanceDetailResponse, WorkflowBucketConfig } from '../QuickRunApi';
+import { normalizeIncident } from '../utils/incident';
+import { displayStatus, instanceTypeLabel } from '../utils/instanceStatus';
+import { currentRoleFromHeaders } from '../utils/currentRole';
+import {
+  checkableTransitionKeys,
+  isCacheablePermissionBatch,
+  permissionCacheKey,
+  resolveVerdict,
+  runPermissionChecks,
+  type AuthorizeVerdict,
+} from '../utils/permissionChecks';
 import { ResizableDialogShell } from '../../../ui/ResizableDialogShell';
+import { useInteractionDriver } from '../hooks/useInteractionDriver';
+import { useNow } from '../hooks/useNow';
 import { useQuickRunPolling } from '../hooks/useQuickRunPolling';
 import { useQuickRunStore } from '../store/quickRunStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
@@ -17,15 +30,26 @@ import { PseudoUiOrJsonBlock } from '../pseudo-ui/PseudoUiOrJsonBlock';
 import { mergeQuickRunHeaders } from '../pseudo-ui/mergeQuickRunHeaders';
 import {
   safeViewContent,
+  type AuthorizeTarget,
   type OpenFunctionRunTarget,
   type TransitionInfo,
 } from '../types/quickrun.types';
 import { SchemaForm } from '../../schema-form';
-import { CopyableJsonBlock } from './CopyableJsonBlock';
+import { AuthorizePanel } from './AuthorizePanel';
 import { EnvBadge } from './EnvBadge';
 import { AvailableTransitions } from './AvailableTransitions';
+import {
+  IncidentAlert,
+  IncidentAlertStrip,
+  IncidentSection,
+  createIncidentLoaders,
+  type IncidentLoaders,
+} from './IncidentSection';
 import { InstanceFunctions } from './InstanceFunctions';
+import { InteractionBanner } from './InteractionBanner';
 import { ProgressStepper } from './ProgressStepper';
+import { RuntimeErrorBanner } from './RuntimeErrorBanner';
+import { StateTimeoutChip } from './StateTimeoutChip';
 import { StatusBadge } from './StatusBadge';
 
 interface InstanceDashboardProps {
@@ -41,7 +65,8 @@ export function InstanceDashboard({ configRef, persistConfig, onOpenFunctionRun 
   const activeState = useQuickRunStore((s) => s.activeState);
   const activeStateLoading = useQuickRunStore((s) => s.activeStateLoading);
   const activeStateError = useQuickRunStore((s) => s.activeStateError);
-  const longPollAck = useQuickRunStore((s) => s.longPollAck);
+  const interaction = useQuickRunStore((s) => s.interaction);
+  const dispatchInteraction = useQuickRunStore((s) => s.dispatchInteraction);
   const setActiveStateError = useQuickRunStore((s) => s.setActiveStateError);
   const domain = useQuickRunStore((s) => s.domain);
   const workflowKey = useQuickRunStore((s) => s.workflowKey);
@@ -67,7 +92,7 @@ export function InstanceDashboard({ configRef, persistConfig, onOpenFunctionRun 
   const pollingConfig = useQuickRunStore((s) => s.pollingConfig);
   const pollingInstanceId = useQuickRunStore((s) => s.pollingInstanceId);
 
-  const { pollState, refreshView } = useQuickRunPolling(pollingConfig);
+  const { pollState, refreshView, acknowledgeInteraction } = useQuickRunPolling(pollingConfig);
 
   const [retryHeadersOpen, setRetryHeadersOpen] = useState(false);
   const [retryHeaders, setRetryHeaders] = useState<{ name: string; value: string }[]>([]);
@@ -140,6 +165,127 @@ export function InstanceDashboard({ configRef, persistConfig, onOpenFunctionRun 
     // fire again is a *failed* fetch, which is the behaviour you want: fix
     // the auth header in the Headers dialog and the catalog retries itself.
   }, [hasFunctions, activeTabId, domain, workflowKey, environmentUrl, configRef, sessionHeaders, toolWideHeaders]);
+
+  /** Headers for interaction/authorize calls — the shared Quick Run merge rule. */
+  const liveHeaders = useCallback(
+    () => mergeQuickRunHeaders(configRef.current, sessionHeaders, undefined, toolWideHeaders),
+    [configRef, sessionHeaders, toolWideHeaders],
+  );
+
+  const resumeAfterInteraction = useCallback(
+    (instanceId: string) => {
+      if (instanceId !== useQuickRunStore.getState().activeTabId || !domain || !workflowKey) {
+        dispatchInteraction({ type: 'RESET' });
+        return;
+      }
+      void pollState({ domain, workflowKey, instanceId, headers: liveHeaders(), runtimeUrl: environmentUrl });
+    },
+    [domain, workflowKey, environmentUrl, liveHeaders, pollState, dispatchInteraction],
+  );
+
+  const interactionNow = useInteractionDriver(resumeAfterInteraction);
+  const hasScheduled = [...(activeState?.transitions ?? []), ...(activeState?.sharedTransitions ?? [])].some(
+    (t) => t.kind === 'scheduled',
+  );
+  const clockNow = useNow(activeState?.timeout || hasScheduled ? 1000 : null);
+
+  const incidentLoaders = useMemo(
+    () =>
+      activeTabId && domain && workflowKey
+        ? createIncidentLoaders({
+            domain,
+            workflowKey,
+            instanceId: activeTabId,
+            headers: liveHeaders(),
+            runtimeUrl: environmentUrl,
+          })
+        : undefined,
+    [activeTabId, domain, workflowKey, liveHeaders, environmentUrl],
+  );
+  const liveIncident = normalizeIncident(activeState?.incident);
+
+  const permissionChecksEnabled = useQuickRunStore((s) => s.permissionChecksEnabled);
+  const permissionChecks = useQuickRunStore((s) => s.permissionChecks);
+  const setPermissionChecksEnabled = useQuickRunStore((s) => s.setPermissionChecksEnabled);
+  const currentRole = currentRoleFromHeaders(liveHeaders());
+  const permissionKey =
+    activeState && activeTabId ? permissionCacheKey(activeState.eTag, `${activeTabId}:${activeState.state}`, currentRole) : null;
+  const currentChecks = permissionChecksEnabled && permissionChecks?.key === permissionKey ? permissionChecks : null;
+
+  // Opt-in checks: one authorize call per transition + queryRoles, cached per
+  // (eTag, role). Skipped while a poll round runs — every busy tick replaces
+  // `activeState` and would otherwise restart the batch.
+  useEffect(() => {
+    if (!permissionChecksEnabled || !permissionKey || !activeState || !activeTabId || pollingInstanceId) return;
+    if (!domain || !workflowKey) return;
+    const cached = useQuickRunStore.getState().permissionChecks;
+    if (cached?.key === permissionKey && isCacheablePermissionBatch(cached)) return;
+    const instanceId = activeTabId;
+    const headers = liveHeaders();
+    let cancelled = false;
+    void runPermissionChecks({
+      key: permissionKey,
+      role: currentRole,
+      transitionKeys: checkableTransitionKeys(activeState.transitions ?? [], activeState.sharedTransitions ?? []),
+      authorize: (target, role) =>
+        QuickRunApi.authorize({ domain, workflowKey, instanceId, target, ...(role ? { role } : {}), headers, runtimeUrl: environmentUrl }),
+    }).then((result) => {
+      if (cancelled || useQuickRunStore.getState().activeTabId !== instanceId) return;
+      useQuickRunStore.getState().setPermissionChecks(result);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [permissionChecksEnabled, permissionKey, activeState, activeTabId, pollingInstanceId, domain, workflowKey, currentRole, liveHeaders, environmentUrl]);
+
+  const handleChecksEnabledChange = useCallback(
+    (enabled: boolean) => {
+      // Turning the checks off drops the batch, so turning them back on
+      // asks the runtime again instead of showing a stale answer.
+      if (!enabled) useQuickRunStore.getState().setPermissionChecks(null);
+      setPermissionChecksEnabled(enabled);
+    },
+    [setPermissionChecksEnabled],
+  );
+
+  const runAuthorize = useCallback(
+    (request: { target: AuthorizeTarget; role?: string; version?: string }): Promise<AuthorizeVerdict> => {
+      if (!activeTabId || !domain || !workflowKey) {
+        return Promise.resolve({ kind: 'error', message: 'No active instance.' });
+      }
+      return resolveVerdict(
+        QuickRunApi.authorize({
+          domain,
+          workflowKey,
+          instanceId: activeTabId,
+          target: request.target,
+          ...(request.role ? { role: request.role } : {}),
+          ...(request.version ? { version: request.version } : {}),
+          headers: liveHeaders(),
+          runtimeUrl: environmentUrl,
+        }),
+      );
+    },
+    [activeTabId, domain, workflowKey, liveHeaders, environmentUrl],
+  );
+
+  const awaitingAck =
+    interaction.kind === 'awaitingAck' && interaction.instanceId === activeTabId ? interaction : null;
+
+  const handleAcknowledge = useCallback(() => {
+    if (!awaitingAck || !domain || !workflowKey) return;
+    void acknowledgeInteraction({
+      domain,
+      workflowKey,
+      instanceId: awaitingAck.instanceId,
+      headers: liveHeaders(),
+      runtimeUrl: environmentUrl,
+    });
+  }, [awaitingAck, domain, workflowKey, liveHeaders, environmentUrl, acknowledgeInteraction]);
+
+  const handleWaitForFallback = useCallback(() => {
+    if (awaitingAck) dispatchInteraction({ type: 'WAIT_FOR_FALLBACK', instanceId: awaitingAck.instanceId });
+  }, [awaitingAck, dispatchInteraction]);
 
   const handleTransitionClick = (transition: TransitionInfo) => {
     openTransitionDialog(transition);
@@ -338,50 +484,44 @@ export function InstanceDashboard({ configRef, persistConfig, onOpenFunctionRun 
             <span>STARTED {new Date(activeInstance.startedAt).toLocaleTimeString()}</span>
           </div>
         </div>
-        <StatusBadge status={activeInstance.status} />
+        <StatusBadge status={displayStatus(activeInstance)} />
       </div>
 
-      {/* Polling error banner — surfaced when `getState` fails
-          (most commonly engine 403 Authorization, e.g.
-          `forbidden.Authorization:110001`). Lets the user see WHY
-          polling stopped without diving into DevTools. Dismissable
-          via the × button; the next successful poll round clears it
-          automatically. */}
+      {/* Why polling stopped — runtime error body, status and trace id. */}
       {activeStateError && (
-        <PollingErrorBanner
-          error={activeStateError}
-          onDismiss={() => setActiveStateError(null)}
+        <RuntimeErrorBanner title="Polling stopped" error={activeStateError} onDismiss={() => setActiveStateError(null)} />
+      )}
+
+      {/* Long-poll interaction window (D3) — polling is stopped until the
+          user acknowledges or the runtime's fallback fires. */}
+      {awaitingAck && (
+        <InteractionBanner
+          phase={awaitingAck}
+          nowMs={interactionNow}
+          onAcknowledge={handleAcknowledge}
+          onWaitForFallback={handleWaitForFallback}
         />
       )}
 
-      {/* Long-poll acknowledge note — shown when the engine asked the
-          client to terminate the long poll and we silently POST the
-          ack. Informational only; ack failures are logged, not shown. */}
-      {longPollAck && (
-        <div className="border-border-subtle bg-muted-surface text-muted-foreground flex items-center gap-2 rounded-xl border px-3 py-2 text-[11px]">
-          <span
-            className={`inline-block h-1.5 w-1.5 shrink-0 rounded-full ${
-              longPollAck === 'acknowledged' ? 'bg-emerald-500' : 'bg-amber-500 animate-pulse'
-            }`}
-          />
-          {longPollAck === 'acknowledged'
-            ? 'Long poll acknowledged.'
-            : 'Acknowledging long poll…'}
-        </div>
+      {liveIncident?.hasActiveIncident && (
+        <IncidentAlert key={`incident:${activeTabId ?? ''}`} incident={liveIncident} raw={activeState?.incident} loaders={incidentLoaders} />
       )}
 
       {/* Progress */}
       <section>
-        <ProgressStepper
-          currentStep={currentStep}
-          totalSteps={Math.max(totalSteps, 3)}
-          currentStateName={(() => {
-            const rawState = activeState?.state ?? activeInstance.currentState;
-            if (!rawState) return undefined;
-            return flowLabels?.states[rawState] ?? rawState;
-          })()}
-          stateType={activeState?.stateType}
-        />
+        <div className="flex flex-col gap-1.5">
+          <ProgressStepper
+            currentStep={currentStep}
+            totalSteps={Math.max(totalSteps, 3)}
+            currentStateName={(() => {
+              const rawState = activeState?.state ?? activeInstance.currentState;
+              if (!rawState) return undefined;
+              return flowLabels?.states[rawState] ?? rawState;
+            })()}
+            stateType={activeState?.stateType}
+          />
+          <StateTimeoutChip timeout={activeState?.timeout} nowMs={clockNow} />
+        </div>
       </section>
 
       {/* Status */}
@@ -389,7 +529,7 @@ export function InstanceDashboard({ configRef, persistConfig, onOpenFunctionRun 
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-medium">STATUS</p>
-            <StatusBadge status={activeInstance.status} />
+            <StatusBadge status={displayStatus(activeInstance)} />
           </div>
           <div className="flex items-center gap-2">
             {!activeStateLoading && isActive && (
@@ -514,6 +654,9 @@ export function InstanceDashboard({ configRef, persistConfig, onOpenFunctionRun 
         showManual={isActive}
         onManualClick={openManualTransitionDialog}
         disabled={activeStateLoading}
+        lockedReason={awaitingAck ? 'Awaiting acknowledge' : undefined}
+        nowMs={clockNow}
+        permissions={currentChecks?.transitions}
       />
 
       {/* Functions reachable on this instance — only when the engine says so. */}
@@ -538,6 +681,18 @@ export function InstanceDashboard({ configRef, persistConfig, onOpenFunctionRun 
           }
         />
       )}
+
+      <AuthorizePanel
+        key={`authorize:${activeTabId ?? ''}`}
+        transitionKeys={checkableTransitionKeys(transitions, sharedTransitions)}
+        functionKeys={(functionCatalog ?? []).map((f) => f.name)}
+        defaultRole={currentRole}
+        onRun={runAuthorize}
+        checksEnabled={permissionChecksEnabled}
+        onChecksEnabledChange={handleChecksEnabledChange}
+        stateETag={activeState?.eTag}
+        visibility={currentChecks?.queryRoles}
+      />
 
       {/* Quick Actions (View Data / History tabs) — placed above State View */}
       <section className="flex gap-2 border-t border-[var(--vscode-panel-border)] pt-3">
@@ -591,6 +746,7 @@ export function InstanceDashboard({ configRef, persistConfig, onOpenFunctionRun 
           error={metaError}
           onRetry={handleFetchMeta}
           onClose={() => { setMetaDialogOpen(false); setMetaData(null); setMetaError(null); }}
+          incidentLoaders={incidentLoaders}
         />
       )}
     </main>
@@ -1192,12 +1348,14 @@ function InstanceMetaDialog({
   error,
   onRetry,
   onClose,
+  incidentLoaders,
 }: {
   loading: boolean;
   data: InstanceDetailResponse | null;
   error: string | null;
   onRetry: () => void;
   onClose: () => void;
+  incidentLoaders?: IncidentLoaders;
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const [copiedKey, setCopiedKey] = useState(false);
@@ -1219,8 +1377,9 @@ function InstanceMetaDialog({
     });
   }, []);
 
-  const incident = data?.metadata?.incident;
-  const showAlertStrip = incident?.hasActiveIncident && incident.active && !incident.active.isResolved;
+  const rawIncident = data?.metadata?.incident;
+  const incident = normalizeIncident(rawIncident);
+  const showAlertStrip = incident?.hasActiveIncident === true;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
@@ -1312,6 +1471,12 @@ function InstanceMetaDialog({
                   <MetaRow label="Current State"><span>{data.metadata.currentState}</span></MetaRow>
                   <MetaRow label="Effective State"><span>{data.metadata.effectiveState}</span></MetaRow>
                   <MetaRow label="Status"><span>{data.metadata.status}</span></MetaRow>
+                  {data.metadata.effectiveStatus && (
+                    <MetaRow label="Effective Status"><span>{data.metadata.effectiveStatus}</span></MetaRow>
+                  )}
+                  {instanceTypeLabel(data.metadata.type) && (
+                    <MetaRow label="Type"><span>{instanceTypeLabel(data.metadata.type)}</span></MetaRow>
+                  )}
                   {data.metadata.stage && <MetaRow label="Stage"><span>{data.metadata.stage}</span></MetaRow>}
                   {data.metadata.currentStateType && <MetaRow label="State Type"><span>{data.metadata.currentStateType}</span></MetaRow>}
                   {data.metadata.currentStateSubType && <MetaRow label="State Sub-Type"><span>{data.metadata.currentStateSubType}</span></MetaRow>}
@@ -1334,289 +1499,14 @@ function InstanceMetaDialog({
               </section>
 
               {/* Incident */}
-              {incident && (incident.active || (incident.history && incident.history.length > 0)) && (
-                <IncidentSection incident={incident} />
+              {incident && (incident.hasActiveIncident || incident.active || incident.history.length > 0 || incident.links?.history) && (
+                <IncidentSection incident={incident} raw={rawIncident} loaders={incidentLoaders} />
               )}
             </div>
           )}
         </div>
       </ResizableDialogShell>
     </div>
-  );
-}
-
-// ── Polling Error Banner ────────────────────────────────────────────────────
-
-interface PollingErrorBannerProps {
-  error: { code: string; message: string; details?: Record<string, unknown> };
-  onDismiss: () => void;
-}
-
-/**
- * Surfaces `getState` polling failures to the user with enough
- * context to debug — most often a 403 from the engine's authorization
- * layer (`forbidden.Authorization:110001`) when the active role
- * cannot read the current state. Renders `code` + `message` + an
- * expandable details section carrying status / errorCode / traceId
- * / instance URL when present on the API failure payload.
- */
-function PollingErrorBanner({ error, onDismiss }: PollingErrorBannerProps) {
-  const details = error.details ?? {};
-  // Common RFC7807 + engine fields surfaced as a single-line summary;
-  // the rest land inside a collapsed <details> block so the strip
-  // stays compact when everything is fine.
-  const status = pickString(details, 'status') ?? pickNumber(details, 'status');
-  const errorCode = pickString(details, 'errorCode');
-  const traceId = pickString(details, 'traceId');
-  const instance = pickString(details, 'instance');
-  const detail = pickString(details, 'detail');
-
-  const summaryMessage = detail || error.message;
-
-  return (
-    <section
-      role="alert"
-      aria-live="polite"
-      className="rounded border border-[var(--vscode-inputValidation-errorBorder)] bg-[var(--vscode-inputValidation-errorBackground)] px-3 py-2 text-[11px] text-[var(--vscode-errorForeground)]">
-      <div className="flex items-start gap-2">
-        <svg
-          width="14"
-          height="14"
-          viewBox="0 0 16 16"
-          fill="currentColor"
-          className="mt-0.5 shrink-0">
-          <path d="M7.56 1h.88l6.54 12.26-.44.74H1.44L1 13.26 7.56 1zM8 2.28 2.28 13h11.44L8 2.28zM8.5 12v-1h-1v1h1zm0-2V6h-1v4h1z" />
-        </svg>
-        <div className="min-w-0 flex-1">
-          <p className="font-medium text-[var(--vscode-foreground)]">
-            Polling stopped {status ? `(${status})` : ''} {errorCode ? `· ${errorCode}` : `· ${error.code}`}
-          </p>
-          <p className="mt-0.5 text-[var(--vscode-foreground)]">{summaryMessage}</p>
-          {(traceId || instance) && (
-            <details className="mt-1 text-[10px] text-[var(--vscode-descriptionForeground)]">
-              <summary className="cursor-pointer select-none">Technical details</summary>
-              <ul className="mt-1 space-y-0.5">
-                {instance && (
-                  <li>
-                    <span className="font-semibold">instance:</span>{' '}
-                    <code className="break-all">{instance}</code>
-                  </li>
-                )}
-                {traceId && (
-                  <li>
-                    <span className="font-semibold">traceId:</span>{' '}
-                    <code className="break-all">{traceId}</code>
-                  </li>
-                )}
-              </ul>
-            </details>
-          )}
-        </div>
-        <button
-          type="button"
-          onClick={onDismiss}
-          className="shrink-0 rounded p-0.5 text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] hover:text-[var(--vscode-foreground)]"
-          aria-label="Dismiss polling error">
-          ✕
-        </button>
-      </div>
-    </section>
-  );
-}
-
-function pickString(obj: Record<string, unknown>, key: string): string | undefined {
-  const v = obj[key];
-  return typeof v === 'string' && v.length > 0 ? v : undefined;
-}
-
-function pickNumber(obj: Record<string, unknown>, key: string): number | undefined {
-  const v = obj[key];
-  return typeof v === 'number' ? v : undefined;
-}
-
-// ── Incident Components ─────────────────────────────────────────────────────
-
-function IncidentAlertStrip() {
-  return (
-    <div
-      role="status"
-      aria-live="polite"
-      className="flex items-center gap-2 border-b border-[var(--vscode-panel-border)] bg-[var(--vscode-inputValidation-warningBackground)] px-4 py-2 text-[11px] text-[var(--vscode-inputValidation-warningForeground,var(--vscode-foreground))]"
-    >
-      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" className="shrink-0">
-        <path d="M7.56 1h.88l6.54 12.26-.44.74H1.44L1 13.26 7.56 1zM8 2.28 2.28 13h11.44L8 2.28zM8.5 12v-1h-1v1h1zm0-2V6h-1v4h1z" />
-      </svg>
-      <span>This instance has an active incident.</span>
-    </div>
-  );
-}
-
-function IncidentSection({ incident }: { incident: IncidentInfo }) {
-  return (
-    <section className="flex flex-col gap-3 border-t border-[var(--vscode-panel-border)] pt-4">
-      <p className="text-[10px] font-semibold uppercase text-[var(--vscode-descriptionForeground)]">Incident</p>
-
-      {incident.active && (
-        <IncidentActiveCard entry={incident.active} />
-      )}
-
-      {incident.history && incident.history.length > 0 && (
-        <IncidentHistorySection history={incident.history} />
-      )}
-
-      <IncidentRawJsonDisclosure incident={incident} />
-    </section>
-  );
-}
-
-function IncidentActiveCard({ entry }: { entry: IncidentEntry }) {
-  const [copiedTraceId, setCopiedTraceId] = useState(false);
-
-  return (
-    <div className="flex flex-col gap-2">
-      <p className="text-[10px] font-medium text-[var(--vscode-descriptionForeground)]">Current incident</p>
-      <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-        <MetaRow label="State"><span>{entry.state}</span></MetaRow>
-        <MetaRow label="Transition"><span>{entry.transition}</span></MetaRow>
-        <MetaRow label="Task"><span>{entry.task}</span></MetaRow>
-        <MetaRow label="Error Code">
-          <code className="break-all text-[10px]">{entry.errorCode}</code>
-        </MetaRow>
-        <MetaRow label="Layer"><span>{entry.errorLayer}</span></MetaRow>
-        <MetaRow label="Retry Count"><span>{entry.retryCount}</span></MetaRow>
-        <MetaRow label="Created At"><span>{formatDateTime(entry.createdAt)}</span></MetaRow>
-        {entry.resolvedAt && (
-          <MetaRow label="Resolved At"><span>{formatDateTime(entry.resolvedAt)}</span></MetaRow>
-        )}
-        {entry.boundaryAction && (
-          <MetaRow label="Boundary Action"><span>{entry.boundaryAction}</span></MetaRow>
-        )}
-        {entry.boundaryLevel && (
-          <MetaRow label="Boundary Level"><span>{entry.boundaryLevel}</span></MetaRow>
-        )}
-        <MetaRow label="Status">
-          <span className={entry.isResolved ? 'text-[var(--vscode-charts-green)]' : 'text-[var(--vscode-charts-orange)]'}>
-            {entry.isResolved ? 'Resolved' : 'Open'}
-          </span>
-        </MetaRow>
-        <MetaRow label="Trace ID">
-          <span className="flex items-center gap-1">
-            <code className="break-all text-[10px] text-[var(--vscode-textLink-foreground)]">{entry.traceId}</code>
-            <button
-              className="inline-flex shrink-0 rounded p-0.5 text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]"
-              onClick={() => {
-                void navigator.clipboard.writeText(entry.traceId).then(() => {
-                  setCopiedTraceId(true);
-                  setTimeout(() => setCopiedTraceId(false), 1500);
-                });
-              }}
-              title={copiedTraceId ? 'Copied!' : 'Copy Trace ID'}
-              aria-label="Copy Trace ID"
-            >
-              {copiedTraceId ? '✓' : '⧉'}
-            </button>
-          </span>
-        </MetaRow>
-      </div>
-
-      <IncidentMessageBlock message={entry.message} />
-    </div>
-  );
-}
-
-function IncidentMessageBlock({ message }: { message: string }) {
-  const [copied, setCopied] = useState(false);
-
-  return (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center justify-between">
-        <span className="text-[10px] text-[var(--vscode-descriptionForeground)]">Message</span>
-        <button
-          className="flex items-center gap-1 text-[10px] text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]"
-          onClick={() => {
-            void navigator.clipboard.writeText(message).then(() => {
-              setCopied(true);
-              setTimeout(() => setCopied(false), 1500);
-            });
-          }}
-          title={copied ? 'Copied!' : 'Copy message'}
-          aria-label="Copy message"
-        >
-          {copied ? (
-            <span className="text-[var(--vscode-charts-green)]">Copied!</span>
-          ) : (
-            <span>Copy</span>
-          )}
-        </button>
-      </div>
-      <div className="max-h-48 overflow-y-auto rounded border border-[var(--vscode-input-border)] bg-[var(--vscode-textCodeBlock-background)] p-2">
-        <pre className="whitespace-pre-wrap break-words font-mono text-[11px] text-[var(--vscode-foreground)]">
-          {message}
-        </pre>
-      </div>
-    </div>
-  );
-}
-
-function IncidentHistorySection({ history }: { history: IncidentEntry[] }) {
-  return (
-    <details className="text-xs">
-      <summary className="flex cursor-pointer items-center gap-2 text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]">
-        <span>Past incidents</span>
-        <span className="rounded bg-[var(--vscode-badge-background)] px-1.5 py-0.5 text-[9px] text-[var(--vscode-badge-foreground)]">
-          {history.length}
-        </span>
-      </summary>
-      <div className="mt-2 flex flex-col gap-2">
-        {history.map((entry) => (
-          <IncidentHistoryItem key={entry.id} entry={entry} />
-        ))}
-      </div>
-    </details>
-  );
-}
-
-function IncidentHistoryItem({ entry }: { entry: IncidentEntry }) {
-  return (
-    <details className="rounded border border-[var(--vscode-panel-border)]">
-      <summary className="flex cursor-pointer items-center gap-2 px-2 py-1.5 text-[10px] hover:bg-[var(--vscode-list-hoverBackground)]">
-        <span className="text-[var(--vscode-descriptionForeground)]">{formatDateTime(entry.createdAt)}</span>
-        <code className="text-[var(--vscode-foreground)]">{entry.errorCode}</code>
-        <span className="text-[var(--vscode-descriptionForeground)]">@ {entry.state}</span>
-        <span className={`ml-auto text-[9px] ${entry.isResolved ? 'text-[var(--vscode-charts-green)]' : 'text-[var(--vscode-charts-orange)]'}`}>
-          {entry.isResolved ? 'Resolved' : 'Open'}
-        </span>
-      </summary>
-      <div className="flex flex-col gap-2 border-t border-[var(--vscode-panel-border)] p-2">
-        <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-          <MetaRow label="State"><span>{entry.state}</span></MetaRow>
-          <MetaRow label="Transition"><span>{entry.transition}</span></MetaRow>
-          <MetaRow label="Task"><span>{entry.task}</span></MetaRow>
-          <MetaRow label="Error Code"><code className="break-all text-[10px]">{entry.errorCode}</code></MetaRow>
-          <MetaRow label="Layer"><span>{entry.errorLayer}</span></MetaRow>
-          <MetaRow label="Retry Count"><span>{entry.retryCount}</span></MetaRow>
-          <MetaRow label="Created At"><span>{formatDateTime(entry.createdAt)}</span></MetaRow>
-          {entry.resolvedAt && <MetaRow label="Resolved At"><span>{formatDateTime(entry.resolvedAt)}</span></MetaRow>}
-          {entry.boundaryAction && <MetaRow label="Boundary Action"><span>{entry.boundaryAction}</span></MetaRow>}
-          {entry.boundaryLevel && <MetaRow label="Boundary Level"><span>{entry.boundaryLevel}</span></MetaRow>}
-          <MetaRow label="Trace ID"><code className="break-all text-[10px]">{entry.traceId}</code></MetaRow>
-        </div>
-        {entry.message && <IncidentMessageBlock message={entry.message} />}
-      </div>
-    </details>
-  );
-}
-
-function IncidentRawJsonDisclosure({ incident }: { incident: IncidentInfo }) {
-  return (
-    <details className="text-xs">
-      <summary className="cursor-pointer text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]">
-        Raw JSON
-      </summary>
-      <div className="mt-2">
-        <CopyableJsonBlock value={incident} />
-      </div>
-    </details>
   );
 }
 

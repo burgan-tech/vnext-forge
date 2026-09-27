@@ -7,10 +7,12 @@ import { useFormReadOnly } from '../../../../../ui/FormReadOnlyContext';
 import { cn } from '../../../../../lib/utils/cn';
 import { appendPointer, type JsonPointer } from '../../../model/jsonPointer';
 import { countCompositionItems } from '../../../model/compositionKeywords';
+import { getIndexAnalysis } from '../../../model/indexEligibility';
 import { moveProp, removeProp } from '../../../model/mutators';
 import { getNodeAt, getNodeType, getPropertyKeys, isObjectNode, isRequiredKey } from '../../../model/schemaNode';
 import { useResolvedSelection, useSetSelection } from '../../../hooks/useSchemaSelection';
 import { useSchemaEditorStore } from '../../../useSchemaEditorStore';
+import { IndexBadge } from './IndexBadge';
 import { PropertyTree } from './PropertyTree';
 import { usePropertyTreeDnd } from './usePropertyTreeDnd';
 
@@ -48,6 +50,7 @@ export function PropertyTreeNode({ parentPointer, propertyKey, depth }: Property
   const isSelected = selection === pointer;
   const isRequired = isRequiredKey(parentNode, propertyKey);
   const type = getNodeType(node);
+  const indexInfo = getIndexAnalysis(componentJson).get(pointer);
   const siblings = getPropertyKeys(parentNode);
   const indexInParent = siblings.indexOf(propertyKey);
   const canMoveUp = indexInParent > 0;
@@ -189,6 +192,8 @@ export function PropertyTreeNode({ parentPointer, propertyKey, depth }: Property
             {type}
           </Badge>
         ) : null}
+
+        <IndexBadge info={indexInfo} />
 
         {allOfCount > 0 ? (
           <Badge variant="info" className="px-1.5 py-0 text-[9px]">

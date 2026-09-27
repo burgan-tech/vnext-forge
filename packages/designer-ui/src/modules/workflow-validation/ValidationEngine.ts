@@ -5,6 +5,7 @@ import {
 import { availableInStateKeys } from '@vnext-forge-studio/vnext-types';
 import { ALL_ENABLED, hasFeature, type SchemaCapabilities } from '../schema-capabilities/SchemaCapabilities';
 import type { ValidationIssue } from './WorkflowValidationTypes';
+import { runtimeSyncFindings } from './runtimeSyncRules';
 
 type WorkflowStateNode = {
   key: string;
@@ -348,6 +349,16 @@ export function validateWorkflow(
         nodeId: state.key,
       });
     }
+  }
+
+  for (const finding of runtimeSyncFindings(workflow)) {
+    results.push({
+      id: makeId(),
+      severity: finding.severity,
+      message: finding.message,
+      rule: finding.rule,
+      ...(finding.stateKey ? { nodeId: finding.stateKey } : {}),
+    });
   }
 
   return results;
