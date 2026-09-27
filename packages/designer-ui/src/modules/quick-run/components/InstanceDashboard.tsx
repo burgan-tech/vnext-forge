@@ -504,7 +504,7 @@ export function InstanceDashboard({ configRef, persistConfig, onOpenFunctionRun 
       )}
 
       {liveIncident?.hasActiveIncident && (
-        <IncidentAlert key={activeTabId ?? ''} incident={liveIncident} raw={activeState?.incident} loaders={incidentLoaders} />
+        <IncidentAlert key={`incident:${activeTabId ?? ''}`} incident={liveIncident} raw={activeState?.incident} loaders={incidentLoaders} />
       )}
 
       {/* Progress */}
@@ -683,7 +683,7 @@ export function InstanceDashboard({ configRef, persistConfig, onOpenFunctionRun 
       )}
 
       <AuthorizePanel
-        key={activeTabId ?? ''}
+        key={`authorize:${activeTabId ?? ''}`}
         transitionKeys={checkableTransitionKeys(transitions, sharedTransitions)}
         functionKeys={(functionCatalog ?? []).map((f) => f.name)}
         defaultRole={currentRole}
