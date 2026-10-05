@@ -7,6 +7,7 @@ import type { InstanceDetailResponse, WorkflowBucketConfig } from '../QuickRunAp
 import { normalizeIncident } from '../utils/incident';
 import { displayStatus, instanceTypeLabel } from '../utils/instanceStatus';
 import { currentRoleFromHeaders } from '../utils/currentRole';
+import { stateDisplayLabel } from '../utils/displayLabels';
 import {
   checkableTransitionKeys,
   isCacheablePermissionBatch,
@@ -516,9 +517,11 @@ export function InstanceDashboard({ configRef, persistConfig, onOpenFunctionRun 
             currentStateName={(() => {
               const rawState = activeState?.state ?? activeInstance.currentState;
               if (!rawState) return undefined;
-              return flowLabels?.states[rawState] ?? rawState;
+              return stateDisplayLabel(rawState, flowLabels, activeState?.stateLabels);
             })()}
+            currentStateKey={activeState?.state ?? activeInstance.currentState}
             stateType={activeState?.stateType}
+            stateSubType={activeState?.stateSubType}
           />
           <StateTimeoutChip timeout={activeState?.timeout} nowMs={clockNow} />
         </div>
@@ -650,6 +653,7 @@ export function InstanceDashboard({ configRef, persistConfig, onOpenFunctionRun 
         transitions={transitions}
         sharedTransitions={sharedTransitions}
         flowLabels={flowLabels}
+        currentState={activeState?.state ?? activeInstance.currentState}
         onTransitionClick={handleTransitionClick}
         showManual={isActive}
         onManualClick={openManualTransitionDialog}

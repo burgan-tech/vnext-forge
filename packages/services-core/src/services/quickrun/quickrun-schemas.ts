@@ -71,6 +71,17 @@ export const quickrunGetStateParams = z.object({
   runtimeUrl: z.string().optional(),
 })
 
+const runtimeLabelSchema = z.object({ language: z.string(), label: z.string() })
+
+/** Target state description (runtime 0.0.99); only `key` when it does not resolve. */
+const transitionTargetSchema = z.object({
+  key: z.string(),
+  stateType: z.string().optional(),
+  stateSubType: z.string().optional(),
+  labels: z.array(runtimeLabelSchema).optional(),
+  subFlow: z.string().optional(),
+})
+
 const transitionInfoSchema = z.object({
   name: z.string(),
   view: z.object({
@@ -86,6 +97,8 @@ const transitionInfoSchema = z.object({
   kind: z.string().optional(),
   executeAtUtc: z.string().optional(),
   annotations: z.record(z.string(), z.string()).nullable().optional(),
+  labels: z.array(runtimeLabelSchema).optional(),
+  target: transitionTargetSchema.optional(),
 })
 
 /** The trailing fields are sent by newer engines on `correlations` only. */
@@ -111,6 +124,10 @@ export const quickrunGetStateResult = z.object({
   // the fields below are only guaranteed present when `notModified` is falsy.
   state: z.string().optional(),
   status: instanceStatusSchema.optional(),
+  stateType: z.string().optional(),
+  /** Runtime 0.0.99: sub type / labels of the displayed state. */
+  stateSubType: z.string().optional(),
+  stateLabels: z.array(runtimeLabelSchema).optional(),
   transitions: z.array(transitionInfoSchema).optional(),
   sharedTransitions: z.array(transitionInfoSchema).optional(),
   activeCorrelations: z.array(correlationSchema).optional(),
@@ -137,7 +154,8 @@ export const quickrunGetStateResult = z.object({
   }).optional(),
   timeout: z.object({
     key: z.string(),
-    target: z.string(),
+    /** String up to runtime 0.0.98, a target object from 0.0.99. */
+    target: z.union([z.string(), transitionTargetSchema]),
     executeAtUtc: z.string(),
     annotations: z.record(z.string(), z.string()).nullable().optional(),
   }).optional(),
@@ -270,6 +288,8 @@ export const quickrunGetFunctionCatalogResult = z.object({
        *  passes through instead of failing the whole catalog. */
       scope: z.string().optional(),
       href: z.string().optional(),
+      /** The function's `attributes.labels` (runtime 0.0.99). */
+      labels: z.array(runtimeLabelSchema).optional(),
     }),
   ),
 })

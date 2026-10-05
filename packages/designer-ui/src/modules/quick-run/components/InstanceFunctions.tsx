@@ -20,6 +20,7 @@
  */
 
 import type { FunctionCatalogEntry } from '../types/quickrun.types';
+import { pickLabel } from '../utils/extractLabelsMap';
 
 export interface InstanceFunctionsProps {
   /** `null` while the catalog has not been fetched yet. */
@@ -70,7 +71,7 @@ export function InstanceFunctions({
             <option value="">Select a function…</option>
             {entries.map((entry) => (
               <option key={entry.name} value={entry.name}>
-                {entry.version ? `${entry.name} — v${entry.version}` : entry.name}
+                {functionOptionText(entry)}
               </option>
             ))}
           </select>
@@ -90,4 +91,11 @@ export function InstanceFunctions({
       )}
     </section>
   );
+}
+
+/** `Label (key) — vX`; the key alone when the runtime sends no labels (≤ 0.0.98). */
+function functionOptionText(entry: FunctionCatalogEntry): string {
+  const label = pickLabel(entry.labels);
+  const name = label && label !== entry.name ? `${label} (${entry.name})` : entry.name;
+  return entry.version ? `${name} — v${entry.version}` : name;
 }
