@@ -24,12 +24,8 @@ import { TransitionRolesSection } from './transition/TransitionRolesSection';
 import { TransitionExecutionTasksSection } from './transition/TransitionExecutionTasksSection';
 import { ChooseExistingTaskDialog } from './ChooseExistingTaskDialog';
 import { ExecutionTypeSelect } from './shared/ExecutionTypeSelect';
-import { hasFeature } from '../../../../schema-capabilities/SchemaCapabilities';
-import { useSchemaCapabilities } from '../../../../schema-capabilities/useSchemaCapabilities';
 
 export function StartNodePanel({ startTransition }: { startTransition: any }) {
-  const workflowCaps = useSchemaCapabilities('workflow');
-  const executionTypeSupported = hasFeature(workflowCaps, 'definitions.startTransition.executionType');
   const { workflowJson, updateWorkflow } = useWorkflowStore();
   const vnextConfig = useProjectStore((s) => s.vnextConfig);
   const activeProject = useProjectStore((s) => s.activeProject);
@@ -290,14 +286,13 @@ export function StartNodePanel({ startTransition }: { startTransition: any }) {
 
         <InfoRow label="Trigger" value={getTriggerLabel(startTransition.triggerType ?? 0)} />
 
-        {(executionTypeSupported || startTransition.executionType !== undefined) && (
-          <ExecutionTypeSelect
-            scope="transition"
-            value={startTransition.executionType}
-            onChange={(v) => updateStartField('executionType', v)}
-            className="w-full px-3 py-2 text-xs border border-border rounded-xl bg-muted-surface text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary-border transition-all cursor-pointer"
-          />
-        )}
+        <ExecutionTypeSelect
+          scope="transition"
+          featurePath="definitions.startTransition.executionType"
+          value={startTransition.executionType}
+          onChange={(v) => updateStartField('executionType', v)}
+          className="w-full px-3 py-2 text-xs border border-border rounded-xl bg-muted-surface text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary-border transition-all cursor-pointer"
+        />
 
         {/* Editable version strategy */}
         <div>

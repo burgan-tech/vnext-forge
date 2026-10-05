@@ -11,8 +11,6 @@ import { Section, IconTask, IconTrash, IconUp, IconDown } from '../PropertyPanel
 import { TaskErrorBoundaryCollapsible } from '../shared/TaskErrorBoundaryCollapsible';
 import { TaskSlotIssues } from '../../../../../../modules/save-component/components/TaskSlotIssues';
 import { VariableKeyField } from '../../../../../../modules/save-component/components/VariableKeyField';
-import { hasFeature } from '../../../../../schema-capabilities/SchemaCapabilities';
-import { useSchemaCapabilities } from '../../../../../schema-capabilities/useSchemaCapabilities';
 
 interface TransitionExecutionTasksSectionProps {
   tasks: TaskExecution[];
@@ -51,8 +49,6 @@ export function TransitionExecutionTasksSection({
   onOpenCreator,
   canPickExisting,
 }: TransitionExecutionTasksSectionProps) {
-  const workflowCaps = useSchemaCapabilities('workflow');
-  const variableKeySupported = hasFeature(workflowCaps, 'definitions.onExecuteTask.variableKey');
   return (
     <Section
       title="On execution tasks"
@@ -79,11 +75,7 @@ export function TransitionExecutionTasksSection({
               onMoveUp={() => onMoveTask(i, i - 1)}
               onMoveDown={() => onMoveTask(i, i + 1)}
               onUpdateComment={onUpdateTaskComment ? (c) => onUpdateTaskComment(i, c) : undefined}
-              onUpdateVariableKey={
-                onUpdateTaskVariableKey && (variableKeySupported || entry.variableKey !== undefined)
-                  ? (v) => onUpdateTaskVariableKey(i, v)
-                  : undefined
-              }
+              onUpdateVariableKey={onUpdateTaskVariableKey ? (v) => onUpdateTaskVariableKey(i, v) : undefined}
               onUpdateMapping={(m) => onUpdateMapping(i, m)}
               onRemoveMapping={() => onRemoveMapping(i)}
               onUpdateMappingScripts={

@@ -3,11 +3,8 @@ import { setKeyword } from '../../../model/mutators';
 import { useSchemaEditorStore } from '../../../useSchemaEditorStore';
 import { useSchemaNode } from '../../../hooks/useSchemaNode';
 import { useVNextEnabled } from '../../../hooks/useVNextEnabled';
-import {
-  RoleGrantListEditor,
-  normalizeRoleEntries,
-  type RoleGrantEntry,
-} from './RoleGrantListEditor';
+import { RoleGrantEditor } from '../../../../role-grants/RoleGrantEditor';
+import { normalizeRoleEntries, type RoleGrantEntry } from './RoleGrantListEditor';
 import { VNextCardShell } from './VNextCardShell';
 
 // Vocab `minItems: 1` — seed with one empty row so the user has a
@@ -47,8 +44,13 @@ export function XRolesCard({ pointer }: XRolesCardProps) {
       purpose="Role-scoped allow/deny grants. DENY overrides ALLOW. A grant names one role or an all-of / any-of group; roles can be static names or dynamic expressions."
       enabled={enabled}
       onToggle={toggle}>
-      <RoleGrantListEditor
+      {/* The same editor as every flow / function role surface. The schema
+          component has no roleGrant definition of its own; the workflow
+          schema of the same vnext-schema release stands in for x-roles. */}
+      <RoleGrantEditor
         roles={value}
+        contextLabel="x-roles"
+        rolePlaceholder="morph-idm.initiator or $userBehalfOf.$.…"
         onChange={(next) => {
           updateComponent(setKeyword(pointer, 'x-roles', next));
         }}

@@ -8,7 +8,7 @@ import { setKeyword } from '../../../model/mutators';
 import { useSchemaEditorStore } from '../../../useSchemaEditorStore';
 import { useSchemaNode } from '../../../hooks/useSchemaNode';
 import { useVNextEnabled } from '../../../hooks/useVNextEnabled';
-import { RoleGrantListEditor, normalizeRoleEntries } from './RoleGrantListEditor';
+import { ExemptRoleListEditor, normalizeRoleEntries } from './RoleGrantListEditor';
 import { VNextCardShell } from './VNextCardShell';
 
 const ENCRYPTION_TYPES = ['none', 'hash', 'encrypt'] as const;
@@ -126,8 +126,7 @@ export function XEncryptionCard({ pointer }: XEncryptionCardProps) {
 
       {type === 'encrypt' && (
         <Field label="Callers who receive plaintext">
-          <RoleGrantListEditor
-            allowOnly
+          <ExemptRoleListEditor
             roles={normalizeRoleEntries(value.roles, { allowOnly: true })}
             onChange={(next) => patch('roles', next.length > 0 ? next : undefined)}
           />

@@ -22,8 +22,6 @@ import { TransitionLabelsSection } from './TransitionLabelsSection';
 import { TransitionAnnotationsSection } from './TransitionAnnotationsSection';
 import { AvailableInEditor } from '../shared/AvailableInEditor';
 import { ExecutionTypeSelect } from '../shared/ExecutionTypeSelect';
-import { hasFeature } from '../../../../../schema-capabilities/SchemaCapabilities';
-import { useSchemaCapabilities } from '../../../../../schema-capabilities/useSchemaCapabilities';
 import { type StateOption } from '../shared/AvailableInMultiSelect';
 import {
   resolveFieldPolicy,
@@ -199,11 +197,6 @@ export function TransitionCard({
   const triggerType = transition.triggerType ?? TriggerType.Manual;
 
   const policy = resolveFieldPolicy(editorKind, triggerType, transition.triggerKind);
-  const workflowCaps = useSchemaCapabilities('workflow');
-  const executionTypeSupported = hasFeature(
-    workflowCaps,
-    editorKind === 'shared' ? 'definitions.sharedTransition.executionType' : 'definitions.transition.executionType',
-  );
   const availableInEntryCount = parseAvailableIn(availableIn).length;
   const allowedTriggers = getAllowedTriggerTypes(editorKind);
   const isTriggerLocked = allowedTriggers.length === 1;
@@ -323,17 +316,17 @@ export function TransitionCard({
             </div>
           )}
 
-          {/* Execution mode (runtime 0.0.99) — offered when the project schema
-              knows it, always shown when the file already carries a value. */}
-          {policy.executionType.visible &&
-            (executionTypeSupported || transition.executionType !== undefined) && (
-              <ExecutionTypeSelect
-                scope="transition"
-                value={transition.executionType}
-                onChange={(v) => onUpdate(index, 'executionType', v)}
-                className={selectClass}
-              />
-            )}
+          {/* Execution mode (runtime 0.0.99) — always shown; locked with the
+              reason when the project schema predates it. */}
+          {policy.executionType.visible && (
+            <ExecutionTypeSelect
+              scope="transition"
+              featurePath={editorKind === 'shared' ? 'definitions.sharedTransition.executionType' : 'definitions.transition.executionType'}
+              value={transition.executionType}
+              onChange={(v) => onUpdate(index, 'executionType', v)}
+              className={selectClass}
+            />
+          )}
 
           {/* Trigger kind */}
           {policy.triggerKind.visible && (

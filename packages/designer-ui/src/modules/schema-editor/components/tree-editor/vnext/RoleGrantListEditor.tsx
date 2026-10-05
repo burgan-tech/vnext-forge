@@ -1,137 +1,65 @@
 import { Plus, Trash2 } from 'lucide-react';
-import { roleGrantMode, type RoleGrant, type RoleGrantMode } from '@vnext-forge-studio/vnext-types';
+import type { RoleGrant } from '@vnext-forge-studio/vnext-types';
 
 import { Button } from '../../../../../ui/Button';
 import { Field } from '../../../../../ui/Field';
 import { useFormReadOnly } from '../../../../../ui/FormReadOnlyContext';
 import { Input } from '../../../../../ui/Input';
-import { Select } from '../../../../../ui/Select';
 
-/**
- * One `x-roles` / exemption-list entry. `role` XOR `allOf` XOR `anyOf`
- * (vnext-schema 0.0.55 role-grant combinators); the plain `role` form is the
- * only one older schemas accept.
- */
+/** A stored role grant (`role` XOR `allOf` XOR `anyOf`, plus `grant`). */
 export type RoleGrantEntry = RoleGrant;
 
-interface RoleGrantListEditorProps {
+interface ExemptRoleListEditorProps {
   roles: RoleGrantEntry[];
   onChange: (next: RoleGrantEntry[]) => void;
-  /**
-   * Exemption lists of `x-masking` / `x-encryption`: plain `role` entries with
-   * `grant: 'allow'` only — no deny, no combinators.
-   */
-  allowOnly?: boolean;
 }
 
 /**
- * List editor for `x-roles` and the field-protection exemption lists. Each
- * entry binds a role identifier (a static name like `morph-idm.initiator` or
- * a dynamic expression such as `$userBehalfOf.$.context.Instance.Data...`),
- * or an `allOf` / `anyOf` group of roles, to a grant verb.
- *
- * The vocabulary contract for `x-roles`: at least one entry, DENY overrides
- * ALLOW. The card-level toggle seeds the first entry on enable.
+ * Exemption list of `x-masking` / `x-encryption` (vnext-schema 0.0.55): plain
+ * `{ role, grant: 'allow' }` entries only — no deny, no all-of / any-of. A
+ * caller holding a listed role sees the raw value. Every other role surface,
+ * `x-roles` included, uses the shared `RoleGrantEditor`.
  */
-export function RoleGrantListEditor({ roles, onChange, allowOnly = false }: RoleGrantListEditorProps) {
+export function ExemptRoleListEditor({ roles, onChange }: ExemptRoleListEditorProps) {
   const readOnly = useFormReadOnly();
-
-  function replaceEntry(index: number, next: RoleGrantEntry) {
-    onChange(roles.map((entry, i) => (i === index ? next : entry)));
-  }
-
-  function removeEntry(index: number) {
-    onChange(roles.filter((_, i) => i !== index));
-  }
-
-  function addEntry() {
-    onChange([...roles, { role: '', grant: 'allow' }]);
-  }
 
   return (
     <div className="space-y-2">
       {roles.length === 0 ? (
         <p className="rounded-md border border-dashed border-primary-border/60 bg-primary-muted/30 px-3 py-2 text-[10px] text-primary-text/55">
-          {allowOnly ? 'No exempt roles: every caller sees the protected value.' : 'No roles yet. DENY overrides ALLOW when both match.'}
+          No exempt roles: every caller sees the protected value.
         </p>
       ) : (
-        roles.map((entry, index) => {
-          const mode = roleGrantMode(entry);
-          return (
-            <div
-              key={index}
-              className={`grid gap-2 rounded-md border border-primary-border bg-primary-muted/40 px-3 py-2 ${
-                allowOnly ? 'sm:grid-cols-[1fr_auto]' : 'sm:grid-cols-[auto_2fr_auto_auto]'
-              }`}>
-              {!allowOnly && (
-                <Field label="Kind">
-                  <Select
-                    className="h-8 text-xs"
-                    value={mode}
-                    aria-label="Grant kind"
-                    onChange={(event) => replaceEntry(index, switchMode(entry, event.target.value as RoleGrantMode))}>
-                    <option value="role">Role</option>
-                    <option value="allOf">All of</option>
-                    <option value="anyOf">Any of</option>
-                  </Select>
-                </Field>
-              )}
-              {mode === 'role' ? (
-                <Field label="Role">
-                  <Input
-                    type="text"
-                    value={entry.role ?? ''}
-                    onChange={(event) => replaceEntry(index, { ...entry, role: event.target.value })}
-                    placeholder="morph-idm.initiator or $userBehalfOf.$.…"
-                    inputClassName="font-mono text-xs"
-                  />
-                </Field>
-              ) : (
-                <Field label={mode === 'allOf' ? 'Roles (all required)' : 'Roles (any one)'}>
-                  <Input
-                    type="text"
-                    value={(entry[mode] ?? []).map((c) => c.role).join(', ')}
-                    onChange={(event) =>
-                      replaceEntry(index, {
-                        ...entry,
-                        [mode]: splitRoles(event.target.value).map((role) => ({ role })),
-                      })
-                    }
-                    placeholder="role-a, role-b"
-                    inputClassName="font-mono text-xs"
-                    aria-label={mode === 'allOf' ? 'All-of roles, comma separated' : 'Any-of roles, comma separated'}
-                  />
-                </Field>
-              )}
-              {!allowOnly && (
-                <Field label="Grant">
-                  <Select
-                    className="h-8 text-xs"
-                    value={entry.grant}
-                    onChange={(event) =>
-                      replaceEntry(index, { ...entry, grant: event.target.value === 'deny' ? 'deny' : 'allow' })
-                    }>
-                    <option value="allow">Allow</option>
-                    <option value="deny">Deny</option>
-                  </Select>
-                </Field>
-              )}
-              {!readOnly && (
-                <div className="flex items-end pb-1">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="size-7 p-0 text-destructive-text"
-                    onClick={() => removeEntry(index)}
-                    aria-label={`Remove role ${entry.role || 'entry'}`}>
-                    <Trash2 size={12} />
-                  </Button>
-                </div>
-              )}
-            </div>
-          );
-        })
+        roles.map((entry, index) => (
+          <div
+            key={index}
+            className="grid gap-2 rounded-md border border-primary-border bg-primary-muted/40 px-3 py-2 sm:grid-cols-[1fr_auto]">
+            <Field label="Role (allow)">
+              <Input
+                type="text"
+                value={entry.role ?? ''}
+                onChange={(event) =>
+                  onChange(roles.map((r, i) => (i === index ? { role: event.target.value, grant: 'allow' } : r)))
+                }
+                placeholder="morph-idm.auditor"
+                inputClassName="font-mono text-xs"
+              />
+            </Field>
+            {!readOnly && (
+              <div className="flex items-end pb-1">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="size-7 p-0 text-destructive-text"
+                  onClick={() => onChange(roles.filter((_, i) => i !== index))}
+                  aria-label={`Remove role ${entry.role || 'entry'}`}>
+                  <Trash2 size={12} />
+                </Button>
+              </div>
+            )}
+          </div>
+        ))
       )}
 
       {!readOnly && (
@@ -140,29 +68,13 @@ export function RoleGrantListEditor({ roles, onChange, allowOnly = false }: Role
           variant="success"
           size="sm"
           className="h-7 gap-1 text-[10px]"
-          onClick={addEntry}>
+          onClick={() => onChange([...roles, { role: '', grant: 'allow' }])}>
           <Plus size={10} />
           Add role
         </Button>
       )}
     </div>
   );
-}
-
-/**
- * Comma-separated input → role names. Empty slots are kept so a trailing
- * comma survives while the user is still typing the next role.
- */
-function splitRoles(value: string): string[] {
-  return value.split(',').map((part) => part.trim());
-}
-
-function switchMode(entry: RoleGrantEntry, mode: RoleGrantMode): RoleGrantEntry {
-  const current = roleGrantMode(entry);
-  if (current === mode) return entry;
-  const names = current === 'role' ? (entry.role ? [entry.role] : []) : (entry[current] ?? []).map((c) => c.role);
-  if (mode === 'role') return { role: names[0] ?? '', grant: entry.grant };
-  return { [mode]: (names.length > 0 ? names : ['']).map((role) => ({ role })), grant: entry.grant };
 }
 
 /**

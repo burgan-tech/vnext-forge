@@ -1,3 +1,5 @@
+import { SchemaFeatureHint } from '../../role-grants/SchemaFeatureHint';
+import { useSchemaFeature } from '../../role-grants/useSchemaFeature';
 import { toVariableName, variableKeyError } from '../taskSlots';
 
 interface VariableKeyFieldProps {
@@ -14,6 +16,10 @@ interface VariableKeyFieldProps {
  * same order (those run in parallel).
  */
 export function VariableKeyField({ value, taskKey, onChange, className }: VariableKeyFieldProps) {
+  // The function schema inlines its task entries; the workflow schema's shared
+  // definition (same vnext-schema release) stands in for both.
+  const { supported, schemaVersion } = useSchemaFeature('workflow', 'definitions.onExecuteTask.variableKey');
+  const locked = !supported && !value;
   const error = value ? variableKeyError(value) : null;
   const fallback = taskKey ? toVariableName(taskKey) : '';
   return (
@@ -26,12 +32,15 @@ export function VariableKeyField({ value, taskKey, onChange, className }: Variab
         placeholder={fallback ? `${fallback} (default)` : 'variableKey'}
         aria-label="Response variable (variableKey)"
         aria-invalid={error ? true : undefined}
-        className={`w-full px-2.5 py-1.5 text-xs font-mono border rounded-lg bg-muted-surface text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:bg-surface transition-all placeholder:text-subtle ${
+        disabled={locked}
+        className={`w-full disabled:cursor-not-allowed disabled:opacity-60 px-2.5 py-1.5 text-xs font-mono border rounded-lg bg-muted-surface text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:bg-surface transition-all placeholder:text-subtle ${
           error ? 'border-destructive-border' : 'border-border focus:border-primary-border'
         }`}
       />
       {error ? (
         <p className="mt-0.5 text-[10px] text-destructive-text">{error}</p>
+      ) : !supported ? (
+        <SchemaFeatureHint feature="Response variable (variableKey)" schemaVersion={schemaVersion} />
       ) : (
         <p className="mt-0.5 text-[10px] text-muted-foreground">
           Slot this task's response is stored under. Set it when the same task runs twice at one order.

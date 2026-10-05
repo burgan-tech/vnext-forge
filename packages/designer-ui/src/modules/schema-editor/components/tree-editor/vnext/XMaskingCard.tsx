@@ -7,7 +7,7 @@ import { setKeyword } from '../../../model/mutators';
 import { useSchemaEditorStore } from '../../../useSchemaEditorStore';
 import { useSchemaNode } from '../../../hooks/useSchemaNode';
 import { useVNextEnabled } from '../../../hooks/useVNextEnabled';
-import { RoleGrantListEditor, normalizeRoleEntries } from './RoleGrantListEditor';
+import { ExemptRoleListEditor, normalizeRoleEntries } from './RoleGrantListEditor';
 import { VNextCardShell } from './VNextCardShell';
 
 type MaskingOperator = 'mask' | 'replace';
@@ -140,8 +140,7 @@ export function XMaskingCard({ pointer }: XMaskingCardProps) {
       )}
 
       <Field label="Callers who see the raw value">
-        <RoleGrantListEditor
-          allowOnly
+        <ExemptRoleListEditor
           roles={normalizeRoleEntries(value.roles, { allowOnly: true })}
           onChange={(next) => {
             const nextValue = { ...value };

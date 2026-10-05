@@ -26,8 +26,6 @@ interface TaskExecutionFormProps {
   onBeforeOpenModal?: () => void;
   /** When true, the error boundary / workflow failure handlers section is hidden. */
   hideErrorBoundary?: boolean;
-  /** Offer the `variableKey` field (vnext-schema 0.0.55+); existing values always show. */
-  showVariableKey?: boolean;
 }
 
 export function TaskExecutionForm({
@@ -42,7 +40,6 @@ export function TaskExecutionForm({
   listField,
   onBeforeOpenModal,
   hideErrorBoundary,
-  showVariableKey,
 }: TaskExecutionFormProps) {
   const [showErrorBoundary, setShowErrorBoundary] = useState(false);
 
@@ -161,14 +158,12 @@ export function TaskExecutionForm({
         </div>
       </div>
 
-      {(showVariableKey || execution.variableKey !== undefined) && (
-        <VariableKeyField
-          className="px-2.5 pb-2"
-          value={execution.variableKey}
-          taskKey={ref.key}
-          onChange={handleUpdateVariableKey}
-        />
-      )}
+      <VariableKeyField
+        className="px-2.5 pb-2"
+        value={execution.variableKey}
+        taskKey={ref.key}
+        onChange={handleUpdateVariableKey}
+      />
 
       <CsxEditorField
         value={mapping as ScriptCode | null | undefined}
