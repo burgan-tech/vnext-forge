@@ -33,9 +33,10 @@ const workflowSchema = () => installed.getSchema('workflow')!
 const schemaSchema = () => installed.getSchema('schema')!
 
 describe('bundled vnext-schema — workflow definition', () => {
-  it('is 0.0.54 or newer', () => {
-    const [major, minor, patch] = installedVersion.split('.').map(Number)
-    expect(major * 1e6 + minor * 1e3 + patch).toBeGreaterThanOrEqual(54)
+  it('is 0.0.55 or newer', () => {
+    // A local pre-release pin (`0.0.55-local.N`) counts as its core version.
+    const [major, minor, patch] = installedVersion.split('-')[0].split('.').map(Number)
+    expect(major * 1e6 + minor * 1e3 + patch).toBeGreaterThanOrEqual(55)
   })
 
   it('carries the long-poll rule arm and availableIn entries', () => {
@@ -99,5 +100,56 @@ describe('bundled vnext-schema — schema definition', () => {
   it('accepts a free-text attributes.type', () => {
     const validate = compile(schemaSchema())
     expect(validate(withSchema('headers-v2', { a: { type: 'string' } }))).toBe(true)
+  })
+})
+
+describe('bundled vnext-schema — runtime 0.0.99 constructs', () => {
+  type Doc = {
+    attributes: {
+      executionType?: string
+      startTransition: Record<string, unknown>
+      states: Record<string, unknown>[]
+    }
+  }
+  const doc = () => fixture('timeout-lab-root') as Doc
+  const validate = () => compile(workflowSchema())
+
+  it('accepts executionType S/A on the flow and on transitions', () => {
+    const d = doc()
+    d.attributes.executionType = 'A'
+    d.attributes.startTransition.executionType = 'S'
+    const v = validate()
+    expect(v(d)).toBe(true)
+  })
+
+  it('rejects an executionType outside S/A', () => {
+    const d = doc()
+    d.attributes.executionType = 'SYNC'
+    expect(validate()(d)).toBe(false)
+  })
+
+  it('accepts a workflow without an Initial state', () => {
+    const d = doc()
+    for (const s of d.attributes.states) if (s.stateType === 1) s.stateType = 2
+    const v = validate()
+    expect(v(d)).toBe(true)
+  })
+
+  it('accepts allOf / anyOf role grants on queryRoles', () => {
+    const d = doc()
+    ;(d.attributes as Record<string, unknown>).queryRoles = [
+      { allOf: [{ role: 'a' }, { role: 'b' }], grant: 'allow' },
+      { anyOf: [{ role: 'c' }], grant: 'deny' },
+    ]
+    const v = validate()
+    expect(v(d)).toBe(true)
+  })
+
+  it('rejects a role grant with both role and allOf', () => {
+    const d = doc()
+    ;(d.attributes as Record<string, unknown>).queryRoles = [
+      { role: 'a', allOf: [{ role: 'b' }], grant: 'allow' },
+    ]
+    expect(validate()(d)).toBe(false)
   })
 })
