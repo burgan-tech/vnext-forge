@@ -126,10 +126,14 @@ export function QuickRunShell({
   // folder path into `projectId` (see `apps/extension/src/extension.ts`,
   // `workspaceFolders[0]?.uri.fsPath`), so it doubles as both the id and the
   // path. Without this, BrandPaletteDialog and useBrandPaletteFromWorkspace
-  // would see "no active project".
+  // would see "no active project". The web shell has already hydrated the
+  // project (its `projectId` is the project id, not a path), so an active
+  // project with the same id is kept — overwriting its path with the id broke
+  // every project-relative read (e.g. the workflow file → `core/core/...`).
   const setActiveProject = useProjectStore((s) => s.setActiveProject);
   useEffect(() => {
     if (!projectId) return;
+    if (useProjectStore.getState().activeProject?.id === projectId) return;
     setActiveProject({
       id: projectId,
       domain,
