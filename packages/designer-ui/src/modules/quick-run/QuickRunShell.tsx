@@ -17,6 +17,7 @@ import { useQuickRunPolling } from './hooks/useQuickRunPolling';
 import { useQuickRunStore } from './store/quickRunStore';
 import type { OpenFunctionRunTarget, OpenSubFlowTarget } from './types/quickrun.types';
 import { extractLabelsMap } from './utils/extractLabelsMap';
+import { checkRuntimeHealth } from '../workflow-execution/WorkflowExecutionApi';
 import { useProjectStore } from '../../store/useProjectStore';
 import { useToolHeadersStore } from '../../store/useToolHeadersStore';
 
@@ -24,6 +25,7 @@ interface HealthMessage {
   type: 'quickrun:health';
   status: 'healthy' | 'unhealthy' | 'unknown';
   runtimeDomain?: string;
+  runtimeVersion?: string;
 }
 
 interface QuickRunShellProps {
@@ -173,6 +175,7 @@ export function QuickRunShell({
   }, [domain, workflowKey]);
 
   const setRuntimeDomain = useQuickRunStore((s) => s.setRuntimeDomain);
+  const setRuntimeVersion = useQuickRunStore((s) => s.setRuntimeVersion);
 
   useEffect(() => {
     const handler = (event: MessageEvent) => {
@@ -182,11 +185,30 @@ export function QuickRunShell({
         if (msg.runtimeDomain) {
           setRuntimeDomain(msg.runtimeDomain);
         }
+        if (msg.runtimeVersion) {
+          setRuntimeVersion(msg.runtimeVersion);
+        }
       }
     };
     window.addEventListener('message', handler);
     return () => window.removeEventListener('message', handler);
-  }, [setRuntimeHealth, setRuntimeDomain]);
+  }, [setRuntimeHealth, setRuntimeDomain, setRuntimeVersion]);
+
+  // Probe the runtime once per environment so version-gated surfaces
+  // (correlation tree, metrics, executionType locks) know what they talk to.
+  // Works in both shells; the extension's health push above may refine it.
+  useEffect(() => {
+    let cancelled = false;
+    setRuntimeVersion(null);
+    void checkRuntimeHealth(environmentUrl).then((res) => {
+      if (cancelled || !res.success) return;
+      if (res.data.version) setRuntimeVersion(res.data.version);
+      if (res.data.domain) setRuntimeDomain(res.data.domain);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [environmentUrl, setRuntimeVersion, setRuntimeDomain]);
 
   // --- Re-fetch state when active tab changes to a different instance ---
   const activeTabId = useQuickRunStore((s) => s.activeTabId);

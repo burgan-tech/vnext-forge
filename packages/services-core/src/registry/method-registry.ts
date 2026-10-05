@@ -981,6 +981,10 @@ export function buildMethodRegistry(): MethodRegistry {
         .optional(),
       resultSchema: z.object({
         status: z.enum(['ok', 'down']),
+        // Runtime-reported version (`/health` body, else `X-App-Version`) and
+        // domain. Absent when the runtime is down or does not report them.
+        version: z.string().optional(),
+        domain: z.string().optional(),
       }),
       handler: async (params, { runtimeProxyService }, traceId) => {
         const runtimeUrl =
@@ -1000,6 +1004,7 @@ export function buildMethodRegistry(): MethodRegistry {
             status: (proxied.status >= 200 && proxied.status < 300 ? 'ok' : 'down') as
               | 'ok'
               | 'down',
+            ...readRuntimeHealthIdentity(proxied.data, proxied.responseHeaders),
           }
         } catch (error) {
           if (
@@ -1014,6 +1019,33 @@ export function buildMethodRegistry(): MethodRegistry {
       },
     },
   }
+}
+
+/**
+ * Pulls `version` / `domain` out of a runtime `/health` reply. The body is
+ * `{ status, duration, domain, version, info }`; every runtime response also
+ * carries `X-App-Version`, used when the body has no version.
+ */
+function readRuntimeHealthIdentity(
+  body: string,
+  headers: Record<string, string> | undefined,
+): { version?: string; domain?: string } {
+  const out: { version?: string; domain?: string } = {}
+  try {
+    const parsed: unknown = JSON.parse(body)
+    if (parsed && typeof parsed === 'object') {
+      const { version, domain } = parsed as { version?: unknown; domain?: unknown }
+      if (typeof version === 'string' && version.length > 0) out.version = version
+      if (typeof domain === 'string' && domain.length > 0) out.domain = domain
+    }
+  } catch {
+    // Not JSON (older runtimes answer plain text) — fall through to the header.
+  }
+  if (!out.version && headers) {
+    const header = Object.entries(headers).find(([name]) => name.toLowerCase() === 'x-app-version')
+    if (header && header[1]) out.version = header[1]
+  }
+  return out
 }
 
 export type MethodId = keyof ReturnType<typeof buildMethodRegistry>

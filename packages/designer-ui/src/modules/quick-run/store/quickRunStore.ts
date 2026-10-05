@@ -134,6 +134,12 @@ interface QuickRunState {
 
   runtimeHealth: 'healthy' | 'unhealthy' | 'unknown';
   runtimeDomain: string | null;
+  /**
+   * Version the runtime reports (`/health` body or `X-App-Version`), e.g.
+   * `0.0.99`. Null until probed — callers treat null as "unknown" and use
+   * shape detection / try-then-fallback rather than guessing.
+   */
+  runtimeVersion: string | null;
 
   flowLabels: FlowLabelsMap | null;
 
@@ -208,6 +214,7 @@ interface QuickRunState {
   dispatchInteraction: (event: InteractionEvent) => void;
   setRuntimeHealth: (health: 'healthy' | 'unhealthy' | 'unknown') => void;
   setRuntimeDomain: (domain: string | null) => void;
+  setRuntimeVersion: (version: string | null) => void;
   setFlowLabels: (labels: FlowLabelsMap | null) => void;
 
   setEtag: (fn: 'state' | 'data' | 'schema', etag: string | undefined) => void;
@@ -284,6 +291,7 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
 
   runtimeHealth: 'unknown',
   runtimeDomain: null,
+  runtimeVersion: null,
 
   flowLabels: null,
 
@@ -464,6 +472,7 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
   dispatchInteraction: (event) => set((state) => ({ interaction: interactionReducer(state.interaction, event) })),
   setRuntimeHealth: (runtimeHealth) => set({ runtimeHealth }),
   setRuntimeDomain: (runtimeDomain) => set({ runtimeDomain }),
+  setRuntimeVersion: (runtimeVersion) => set({ runtimeVersion }),
   setFlowLabels: (flowLabels) => set({ flowLabels }),
 
   setEtag: (fn, etag) => set((state) => ({ etags: { ...state.etags, [fn]: etag } })),

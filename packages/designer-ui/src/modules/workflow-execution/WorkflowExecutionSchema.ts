@@ -2,6 +2,8 @@ import { z } from 'zod';
 
 const runtimeHealthResponseSchema = z.object({
   status: z.enum(['ok', 'down']),
+  version: z.string().optional(),
+  domain: z.string().optional(),
   traceId: z.string().optional(),
 });
 

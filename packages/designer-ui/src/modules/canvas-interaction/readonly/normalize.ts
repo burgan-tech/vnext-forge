@@ -1,3 +1,4 @@
+import { describeRoleGrant, type RoleGrant } from '@vnext-forge-studio/vnext-types';
 import type {
   ComponentRef,
   CodeView,
@@ -125,9 +126,14 @@ function asCode(v: any): CodeView | null {
 
 function asRoles(v: any): RoleGrantView[] | undefined {
   if (!Array.isArray(v)) return undefined;
-  return v.map((r: any) =>
-    typeof r === 'string' ? { role: r } : { role: r.role ?? r.key ?? '', grant: r.grant },
-  );
+  return v.map((r: any) => {
+    if (typeof r === 'string') return { role: r };
+    // allOf / anyOf grants render as their combinator description.
+    if (Array.isArray(r.allOf) || Array.isArray(r.anyOf)) {
+      return { role: describeRoleGrant(r as RoleGrant), grant: r.grant };
+    }
+    return { role: r.role ?? r.key ?? '', grant: r.grant };
+  });
 }
 
 function asViewBinding(v: any): ViewBindingView | null {

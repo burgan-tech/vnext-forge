@@ -13,6 +13,9 @@ export interface RuntimeHealthSnapshot {
   connected: boolean;
   healthStatus: 'healthy' | 'unhealthy';
   lastHealthCheck: string;
+  /** Runtime-reported version, e.g. `0.0.99` (may be 4-part). */
+  version?: string;
+  domain?: string;
 }
 
 export async function checkRuntimeHealth(
@@ -62,5 +65,7 @@ export async function checkRuntimeHealth(
     connected: isHealthy,
     healthStatus: isHealthy ? 'healthy' : 'unhealthy',
     lastHealthCheck: new Date().toISOString(),
+    ...(parsed.version ? { version: parsed.version } : {}),
+    ...(parsed.domain ? { domain: parsed.domain } : {}),
   });
 }
