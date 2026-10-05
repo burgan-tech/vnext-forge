@@ -148,6 +148,19 @@ export function StartNodePanel({ startTransition }: { startTransition: any }) {
     [updateWorkflow],
   );
 
+  const updateTaskVariableKey = useCallback(
+    (taskIndex: number, variableKey: string | undefined) => {
+      updateWorkflow((draft: any) => {
+        const st = resolveStart(draft);
+        const task = st?.onExecutionTasks?.[taskIndex];
+        if (!task) return;
+        if (variableKey) task.variableKey = variableKey;
+        else delete task.variableKey;
+      });
+    },
+    [updateWorkflow],
+  );
+
   const updateTaskMapping = useCallback(
     (taskIndex: number, mapping: ScriptCode) => {
       updateWorkflow((draft: any) => {
@@ -337,6 +350,7 @@ export function StartNodePanel({ startTransition }: { startTransition: any }) {
           onAddTask={addTask}
           onRemoveTask={removeTask}
           onMoveTask={moveTask}
+          onUpdateTaskVariableKey={updateTaskVariableKey}
           onUpdateMapping={updateTaskMapping}
           onRemoveMapping={removeTaskMapping}
           onUpdateMappingScripts={updateTaskMappingScripts}

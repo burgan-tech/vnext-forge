@@ -3,6 +3,8 @@ import { TaskExecutionList } from '../../../modules/save-component/components/Ta
 import { CsxEditorField, type ScriptCode } from '../../save-component/components/CsxEditorField';
 import { MappingScriptsSection } from '../../save-component/components/MappingScriptsSection';
 import { FunctionTaskKeyCollisions } from './FunctionTaskKeyCollisions';
+import { hasFeature } from '../../schema-capabilities/SchemaCapabilities';
+import { useSchemaCapabilities } from '../../schema-capabilities/useSchemaCapabilities';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../../ui/Card';
 
 interface FunctionMultipleTasksSectionProps {
@@ -20,6 +22,10 @@ export function FunctionMultipleTasksSection({
   functionKey,
   onBeforeOpenModal,
 }: FunctionMultipleTasksSectionProps) {
+  // The function schema inlines its task entries, so the workflow schema's
+  // shared definition (same vnext-schema release, 0.0.55) stands in.
+  const variableKeySupported = hasFeature(useSchemaCapabilities('workflow'), 'definitions.onExecuteTask.variableKey');
+
   function handleUpdateOutput(value: ScriptCode) {
     onChange((draft) => {
       const attrs = (draft.attributes ?? {}) as Record<string, unknown>;
@@ -68,6 +74,7 @@ export function FunctionMultipleTasksSection({
         listField="onExecutionTasks"
         onBeforeOpenModal={onBeforeOpenModal}
         hideErrorBoundary
+        showVariableKey={variableKeySupported}
       />
 
       <Card variant="default" className="gap-3">

@@ -6,6 +6,7 @@ import { VnextWorkflowErrorHandlersPanel } from '../error-boundary/VnextWorkflow
 import type { ScriptsConfig } from '@vnext-forge-studio/vnext-types';
 import { CsxEditorField, type ScriptCode } from './CsxEditorField';
 import { MappingScriptsSection } from './MappingScriptsSection';
+import { VariableKeyField } from './VariableKeyField';
 import { OpenVnextComponentInModalButton } from './OpenVnextComponentInModalButton.js';
 import type { AtomicSavedInfo } from '../componentEditorModalTypes.js';
 
@@ -25,6 +26,8 @@ interface TaskExecutionFormProps {
   onBeforeOpenModal?: () => void;
   /** When true, the error boundary / workflow failure handlers section is hidden. */
   hideErrorBoundary?: boolean;
+  /** Offer the `variableKey` field (vnext-schema 0.0.55+); existing values always show. */
+  showVariableKey?: boolean;
 }
 
 export function TaskExecutionForm({
@@ -39,6 +42,7 @@ export function TaskExecutionForm({
   listField,
   onBeforeOpenModal,
   hideErrorBoundary,
+  showVariableKey,
 }: TaskExecutionFormProps) {
   const [showErrorBoundary, setShowErrorBoundary] = useState(false);
 
@@ -68,6 +72,13 @@ export function TaskExecutionForm({
       } else {
         (current as Record<string, unknown>).scripts = next;
       }
+    });
+  };
+
+  const handleUpdateVariableKey = (value: string | undefined) => {
+    onChange((d) => {
+      if (value) d.variableKey = value;
+      else delete d.variableKey;
     });
   };
 
@@ -149,6 +160,15 @@ export function TaskExecutionForm({
           </button>
         </div>
       </div>
+
+      {(showVariableKey || execution.variableKey !== undefined) && (
+        <VariableKeyField
+          className="px-2.5 pb-2"
+          value={execution.variableKey}
+          taskKey={ref.key}
+          onChange={handleUpdateVariableKey}
+        />
+      )}
 
       <CsxEditorField
         value={mapping as ScriptCode | null | undefined}

@@ -191,6 +191,7 @@ export function TransitionPropertyPanel() {
             onRemoveTask={mutations.removeTask}
             onMoveTask={mutations.moveTask}
             onUpdateTaskComment={mutations.updateTaskComment}
+            onUpdateTaskVariableKey={mutations.updateTaskVariableKey}
             onUpdateTaskMapping={mutations.updateTaskMapping}
             onRemoveTaskMapping={mutations.removeTaskMapping}
             onUpdateTaskMappingScripts={mutations.updateTaskMappingScripts}
@@ -294,6 +295,7 @@ export function TransitionPropertyPanel() {
           onRemoveTask={mutations.removeTask}
           onMoveTask={mutations.moveTask}
           onUpdateTaskComment={mutations.updateTaskComment}
+          onUpdateTaskVariableKey={mutations.updateTaskVariableKey}
           onUpdateTaskMapping={mutations.updateTaskMapping}
           onRemoveTaskMapping={mutations.removeTaskMapping}
           onUpdateTaskMappingScripts={mutations.updateTaskMappingScripts}

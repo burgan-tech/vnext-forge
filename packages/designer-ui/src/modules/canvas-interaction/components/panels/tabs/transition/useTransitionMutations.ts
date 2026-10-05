@@ -42,6 +42,7 @@ export interface TransitionMutations {
   removeTask: (transitionIndex: number, taskIndex: number) => void;
   moveTask: (transitionIndex: number, fromIndex: number, toIndex: number) => void;
   updateTaskComment: (transitionIndex: number, taskIndex: number, comment: string | undefined) => void;
+  updateTaskVariableKey: (transitionIndex: number, taskIndex: number, variableKey: string | undefined) => void;
   updateTaskMapping: (transitionIndex: number, taskIndex: number, mapping: ScriptCode) => void;
   removeTaskMapping: (transitionIndex: number, taskIndex: number) => void;
   updateTaskMappingScripts: (
@@ -360,6 +361,20 @@ export function useTransitionMutations(findTransition: FindTransition): Transiti
     });
   }, [updateWorkflow, findTransition]);
 
+  const updateTaskVariableKey = useCallback((
+    transitionIndex: number,
+    taskIndex: number,
+    variableKey: string | undefined,
+  ) => {
+    updateWorkflow((draft: any) => {
+      const ctx = findTransition(draft);
+      const entry = ctx?.transitions?.[transitionIndex]?.onExecutionTasks?.[taskIndex];
+      if (!entry) return;
+      if (variableKey) entry.variableKey = variableKey;
+      else delete entry.variableKey;
+    });
+  }, [updateWorkflow, findTransition]);
+
   const updateTaskMapping = useCallback((
     transitionIndex: number,
     taskIndex: number,
@@ -457,6 +472,7 @@ export function useTransitionMutations(findTransition: FindTransition): Transiti
     removeTask,
     moveTask,
     updateTaskComment,
+    updateTaskVariableKey,
     updateTaskMapping,
     removeTaskMapping,
     updateTaskMappingScripts,

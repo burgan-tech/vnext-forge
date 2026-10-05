@@ -24,6 +24,8 @@ interface TaskExecutionListProps {
   onBeforeOpenModal?: () => void;
   /** When true, hides the error boundary section on each task card. */
   hideErrorBoundary?: boolean;
+  /** Offer the `variableKey` field (vnext-schema 0.0.55+); existing values always show. */
+  showVariableKey?: boolean;
 }
 
 export function TaskExecutionList({
@@ -33,6 +35,7 @@ export function TaskExecutionList({
   listField = 'tasks',
   onBeforeOpenModal,
   hideErrorBoundary,
+  showVariableKey,
 }: TaskExecutionListProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [creatorOpen, setCreatorOpen] = useState(false);
@@ -112,6 +115,7 @@ export function TaskExecutionList({
               listField={listField}
               onBeforeOpenModal={onBeforeOpenModal}
               hideErrorBoundary={hideErrorBoundary}
+              showVariableKey={showVariableKey}
             />
           ))}
         </div>

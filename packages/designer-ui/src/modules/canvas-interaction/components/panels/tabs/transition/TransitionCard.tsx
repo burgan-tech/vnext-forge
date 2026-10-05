@@ -72,6 +72,7 @@ export interface TransitionCardProps {
   onRemoveTask: (transitionIndex: number, taskIndex: number) => void;
   onMoveTask: (transitionIndex: number, fromIndex: number, toIndex: number) => void;
   onUpdateTaskComment?: (transitionIndex: number, taskIndex: number, comment: string | undefined) => void;
+  onUpdateTaskVariableKey?: (transitionIndex: number, taskIndex: number, variableKey: string | undefined) => void;
   onUpdateTaskMapping: (transitionIndex: number, taskIndex: number, mapping: ScriptCode) => void;
   onRemoveTaskMapping: (transitionIndex: number, taskIndex: number) => void;
   onUpdateTaskMappingScripts?: (
@@ -171,6 +172,7 @@ export function TransitionCard({
   onRemoveTask,
   onMoveTask,
   onUpdateTaskComment,
+  onUpdateTaskVariableKey,
   onUpdateTaskMapping,
   onRemoveTaskMapping,
   onUpdateTaskMappingScripts,
@@ -367,6 +369,9 @@ export function TransitionCard({
             onRemoveTask={(taskIndex) => onRemoveTask(index, taskIndex)}
             onMoveTask={(from, to) => onMoveTask(index, from, to)}
             onUpdateTaskComment={onUpdateTaskComment ? (taskIndex, comment) => onUpdateTaskComment(index, taskIndex, comment) : undefined}
+            onUpdateTaskVariableKey={
+              onUpdateTaskVariableKey ? (taskIndex, v) => onUpdateTaskVariableKey(index, taskIndex, v) : undefined
+            }
             onUpdateMapping={(taskIndex, mapping) => onUpdateTaskMapping(index, taskIndex, mapping)}
             onRemoveMapping={(taskIndex) => onRemoveTaskMapping(index, taskIndex)}
             onUpdateMappingScripts={

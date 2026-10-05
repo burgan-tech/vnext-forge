@@ -50,3 +50,36 @@ describe('lintWorkflow — optional Initial state (runtime 0.0.99)', () => {
     expect(unreachable).toEqual(['orphan']);
   });
 });
+
+describe('lintWorkflow — task response slots', () => {
+  it('flags the same task twice at one order without variableKey', () => {
+    const findings = lintWorkflow(
+      toVnextWorkflow({
+        key: 'wf',
+        attributes: {
+          startTransition: { key: 'start', target: 'a' },
+          states: [
+            {
+              key: 'a',
+              stateType: 1,
+              labels: [{ language: 'en', label: 'A' }],
+              onEntries: [
+                { order: 1, task: { key: 'spawn' } },
+                { order: 1, task: { key: 'spawn' } },
+                { order: 1, task: { key: 'spawn' }, variableKey: 'third' },
+              ],
+              transitions: [{ key: 'go', target: 'done', onExecutionTasks: [{ order: 1, task: { key: 't' }, variableKey: '9x' }] }],
+            },
+            { key: 'done', stateType: 3, labels: [{ language: 'en', label: 'Done' }], transitions: [] },
+          ],
+        },
+      }),
+    );
+    expect(findings.filter((f) => f.rule === 'task-slot-collision')).toEqual([
+      expect.objectContaining({ severity: 'error', stateKey: 'a' }),
+    ]);
+    expect(findings.filter((f) => f.rule === 'invalid-variable-key')).toEqual([
+      expect.objectContaining({ stateKey: 'a', transitionKey: 'go' }),
+    ]);
+  });
+});

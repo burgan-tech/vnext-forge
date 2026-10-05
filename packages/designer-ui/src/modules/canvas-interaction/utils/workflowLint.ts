@@ -1,5 +1,6 @@
 import type { VnextWorkflow } from './Conversion';
 import { runtimeSyncFindings } from '../../workflow-validation/runtimeSyncRules';
+import { findInvalidVariableKeys, findTaskKeyCollisions } from '../../save-component/taskSlots';
 
 /**
  * Severity tier for a lint finding. Mirrors the editor-style
@@ -170,6 +171,32 @@ export function lintWorkflow(workflow: VnextWorkflow, options: LintOptions = {})
         });
       }
       seen.add(t.key);
+    }
+  }
+
+  // ── Rule R-LINT-005b: task response slots (runtime 0.0.99). Entries of one
+  //    collection at the same order run in parallel and must not share a
+  //    slot (variableKey ?? camelCase(task.key)); variableKey must be valid.
+  for (const { tasks, where, stateKey, transitionKey } of taskCollections(workflow)) {
+    for (const c of findTaskKeyCollisions(tasks, 'workflow')) {
+      findings.push({
+        severity: 'error',
+        rule: 'task-slot-collision',
+        message: `${where}: tasks "${c.collidesWith}" and "${c.key}" both write "${c.variableName}"${
+          c.order !== undefined ? ` at order ${c.order}` : ''
+        }. Give one a distinct variableKey.`,
+        ...(stateKey ? { stateKey } : {}),
+        ...(transitionKey ? { transitionKey } : {}),
+      });
+    }
+    for (const v of findInvalidVariableKeys(tasks)) {
+      findings.push({
+        severity: 'error',
+        rule: 'invalid-variable-key',
+        message: `${where}: variableKey "${v.variableKey}" is invalid (${v.reason}).`,
+        ...(stateKey ? { stateKey } : {}),
+        ...(transitionKey ? { transitionKey } : {}),
+      });
     }
   }
 
@@ -349,4 +376,42 @@ export function suggestTransitionName(
 
   // Dedupe while preserving order.
   return Array.from(new Set(out)).slice(0, 4);
+}
+
+interface TaskCollection {
+  tasks: unknown[];
+  where: string;
+  stateKey?: string;
+  transitionKey?: string;
+}
+
+/** Every task-entry collection of a workflow, with a human-readable location. */
+function taskCollections(workflow: VnextWorkflow): TaskCollection[] {
+  const attrs = (workflow.attributes ?? {}) as Record<string, unknown>;
+  const out: TaskCollection[] = [];
+  const list = (v: unknown) => (Array.isArray(v) ? v : []);
+  const transitionTasks = (t: unknown, where: string, stateKey?: string) => {
+    const tr = t as { key?: string; onExecutionTasks?: unknown } | null | undefined;
+    if (!tr) return;
+    const tasks = list(tr.onExecutionTasks);
+    if (tasks.length > 0) out.push({ tasks, where, ...(stateKey ? { stateKey } : {}), ...(tr.key ? { transitionKey: tr.key } : {}) });
+  };
+
+  transitionTasks(attrs.startTransition, 'Start transition');
+  for (const t of list(attrs.sharedTransitions)) {
+    transitionTasks(t, `Shared transition "${(t as { key?: string }).key ?? ''}"`);
+  }
+  for (const name of ['cancel', 'exit', 'updateData'] as const) {
+    transitionTasks(attrs[name], `${name} transition`);
+  }
+  for (const state of list(attrs.states) as Array<Record<string, unknown> & { key: string }>) {
+    for (const hook of ['onEntries', 'onExits'] as const) {
+      const tasks = list(state[hook]);
+      if (tasks.length > 0) out.push({ tasks, where: `State "${state.key}" ${hook}`, stateKey: state.key });
+    }
+    for (const t of list(state.transitions)) {
+      transitionTasks(t, `Transition "${(t as { key?: string }).key ?? ''}" of "${state.key}"`, state.key);
+    }
+  }
+  return out;
 }
