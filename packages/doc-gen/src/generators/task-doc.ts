@@ -49,6 +49,7 @@ const TASK_TYPE_LABELS: Record<string, string> = {
   '19': 'Get Instance Task',
   '20': 'Dapr Conversation Task',
   '21': 'FanOut Task',
+  '22': 'External HTTP Task',
 };
 
 function configToRows(config: Record<string, unknown>): string[][] {

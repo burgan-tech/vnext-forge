@@ -2,7 +2,7 @@ import type { CsxTaskType } from './CsxContext';
 
 /* ────────────── Types ────────────── */
 
-export type TemplateType = 'mapping' | 'condition' | 'timer';
+export type TemplateType = 'mapping' | 'condition' | 'timer' | 'cacheKey';
 
 interface GeneratedTemplate {
   code: string;
@@ -22,6 +22,7 @@ const TEMPLATE_SUFFIX: Record<TemplateType, string> = {
   mapping: 'Mapping',
   condition: 'Rule',
   timer: 'Timer',
+  cacheKey: 'CacheKey',
 };
 
 /* ────────────── Using Blocks ────────────── */
@@ -356,6 +357,26 @@ function generateTimerTemplate(className: string): GeneratedTemplate {
   };
 }
 
+/* ────────────── Cache Key Template ────────────── */
+
+/** CacheAside `key` as a Roslyn script (runtime 0.0.99 `ICacheKeyMapping`). */
+function generateCacheKeyTemplate(className: string): GeneratedTemplate {
+  return {
+    usings: BASE_USINGS,
+    code: `public class ${className} : ICacheKeyMapping
+{
+    public async Task<string?> Handler(ScriptContext context)
+    {
+        // Return the cache key. null or whitespace keeps the previously
+        // resolved key (e.g. one set by the task mapping's SetCacheKey).
+        // var customerId = context.Instance?.Data?.customerId;
+        // return $"customer:{customerId}";
+        return null;
+    }
+}`,
+  };
+}
+
 /* ────────────── Mapping Template ────────────── */
 
 function generateMappingTemplate(className: string, taskType?: CsxTaskType): GeneratedTemplate {
@@ -410,6 +431,9 @@ export function generateTemplate(
       break;
     case 'timer':
       template = generateTimerTemplate(className);
+      break;
+    case 'cacheKey':
+      template = generateCacheKeyTemplate(className);
       break;
   }
 

@@ -12,6 +12,10 @@ interface Props {
   onChange: (updater: (draft: any) => void) => void;
 }
 
+/** Runtime 0.0.99 (#1054, #1059): caller credentials and the request id travel with every task call. */
+const CALLER_HEADERS_HINT =
+  'Runtime 0.0.99 forwards the caller\u2019s sub, act_sub, position, client_id and role, plus X-Request-Id, when they are left empty here and in the input mapping.';
+
 export function SoapTaskForm({ config, onChange }: Props) {
   const headers = config.headers as Record<string, string> | undefined;
   const headerPairs = headers
@@ -59,7 +63,9 @@ export function SoapTaskForm({ config, onChange }: Props) {
           className="min-h-40 font-mono text-xs"
         />
       </Field>
-      <Field label="Headers">
+      <Field
+        label="Headers"
+        hint={CALLER_HEADERS_HINT}>
         <KVEditor
           pairs={headerPairs}
           onChange={(pairs) => onChange((d: any) => {

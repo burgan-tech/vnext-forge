@@ -13,6 +13,10 @@ interface HttpTaskFormProps {
   onChange: (updater: (draft: any) => void) => void;
 }
 
+/** Runtime 0.0.99 (#1054, #1059): caller credentials and the request id travel with every task call. */
+const CALLER_HEADERS_HINT =
+  'Runtime 0.0.99 forwards the caller\u2019s sub, act_sub, position, client_id and role, plus X-Request-Id, when they are left empty here and in the input mapping.';
+
 export function HttpTaskForm({ config, onChange }: HttpTaskFormProps) {
   const headers = config.headers as Record<string, string> | undefined;
   const headerPairs = headers
@@ -41,7 +45,9 @@ export function HttpTaskForm({ config, onChange }: HttpTaskFormProps) {
       </Field>
       <BodyJsonField value={config.body} onChange={onChange} />
       <ContentTypeField value={config.contentType as string | undefined} onChange={onChange} />
-      <Field label="Headers">
+      <Field
+        label="Headers"
+        hint={CALLER_HEADERS_HINT}>
         <KVEditor pairs={headerPairs}
           onChange={(pairs) => onChange((d: any) => {
             d.headers = pairs.length > 0

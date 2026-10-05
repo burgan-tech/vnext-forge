@@ -79,7 +79,7 @@ else
     label: 'Error Handling',
     shortLabel: 'Try/Catch',
     description: 'Try/catch block with logging and safe return',
-    applicableTo: ['mapping', 'condition', 'timer'],
+    applicableTo: ['mapping', 'condition', 'timer', 'cacheKey'],
     category: 'error',
     code: `try
 {
@@ -109,7 +109,7 @@ if (string.IsNullOrEmpty(\${1}))
     label: 'Safe Property Access',
     shortLabel: 'HasProp',
     description: 'Check property existence before accessing dynamic data',
-    applicableTo: ['mapping', 'condition', 'timer'],
+    applicableTo: ['mapping', 'condition', 'timer', 'cacheKey'],
     category: 'data',
     code: `if (HasProperty(context.Instance?.Data, "\${1:propertyName}"))
 {
@@ -145,7 +145,7 @@ return new ScriptResponse
     label: 'Log Pattern',
     shortLabel: 'Log',
     description: 'Formatted logging with arguments',
-    applicableTo: ['mapping', 'condition', 'timer'],
+    applicableTo: ['mapping', 'condition', 'timer', 'cacheKey'],
     category: 'logging',
     code: `LogInformation("\${1:ClassName}: \${2:message} — {0}", args: new object?[] { \${3:value} });\${0}`,
   },
@@ -198,7 +198,7 @@ serviceTask.SetData(new
     label: 'ScriptResponse Return',
     shortLabel: 'Return',
     description: 'ScriptResponse with Data payload',
-    applicableTo: ['mapping', 'condition', 'timer'],
+    applicableTo: ['mapping', 'condition', 'timer', 'cacheKey'],
     category: 'response',
     code: `return new ScriptResponse
 {
