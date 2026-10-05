@@ -19,6 +19,12 @@ export interface SchemaCapabilities {
   attributes: Record<string, boolean>;
   attributesRequired: Set<string>;
   definitions: Record<string, DefinitionCapabilities>;
+  /**
+   * Workflow schemas only: the Initial state may be omitted (vnext-schema
+   * 0.0.55 / runtime 0.0.99 — the instance is born in the implicit `$start`).
+   * Derived from `attributes.states.minContains === 0`. Absent → not optional.
+   */
+  initialStateOptional?: boolean;
 }
 
 const ALL_ATTRIBUTES = new Proxy<Record<string, boolean>>({}, { get: () => true });
@@ -43,6 +49,7 @@ export const ALL_ENABLED: SchemaCapabilities = {
   attributes: ALL_ATTRIBUTES,
   attributesRequired: ALL_REQUIRED,
   definitions: ALL_DEFINITIONS,
+  initialStateOptional: true,
 };
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -157,7 +164,11 @@ export function deriveSchemaCapabilities(
     }
   }
 
-  return { attributes, attributesRequired, definitions };
+  const attrProps = isRecord(attrsSchema.properties) ? attrsSchema.properties : {};
+  const statesSchema = isRecord(attrProps.states) ? attrProps.states : null;
+  const initialStateOptional = !!statesSchema && isRecord(statesSchema.contains) && statesSchema.minContains === 0;
+
+  return { attributes, attributesRequired, definitions, initialStateOptional };
 }
 
 /**

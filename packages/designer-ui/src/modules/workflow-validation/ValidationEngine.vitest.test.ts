@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { ALL_ENABLED } from '../schema-capabilities/SchemaCapabilities';
 import { validateWorkflow } from './ValidationEngine';
 
 /**
@@ -95,5 +96,49 @@ describe('runtime-sync rules in validateWorkflow', () => {
     ).filter((issue) => issue.rule === 'subflow-state-subprocess');
     expect(issues).toHaveLength(1);
     expect(issues[0]).toMatchObject({ severity: 'error', nodeId: 'spawn' });
+  });
+});
+
+describe('optional Initial state (runtime 0.0.99)', () => {
+  const OPTIONAL = { ...ALL_ENABLED, initialStateOptional: true };
+  const LEGACY = { ...ALL_ENABLED, initialStateOptional: false };
+  const noInitial = {
+    attributes: {
+      startTransition: { key: 'start', target: 'review' },
+      states: [
+        { key: 'review', stateType: 2, transitions: [{ key: 'go', target: 'done' }] },
+        { key: 'done', stateType: 3, transitions: [] },
+      ],
+    },
+  };
+  const rules = (wf: unknown, caps = OPTIONAL) => validateWorkflow(wf, caps).map((i) => `${i.severity}:${i.rule}`);
+
+  it('only requires an Initial state on older schemas', () => {
+    expect(rules(noInitial, LEGACY)).toContain('error:initial-state-required');
+    expect(rules(noInitial)).not.toContain('error:initial-state-required');
+  });
+
+  it('makes a second Initial an error', () => {
+    const two = workflowWith({
+      states: [
+        { key: 'review', stateType: 1, transitions: [{ key: 'go', target: 'done' }] },
+        { key: 'other', stateType: 1, transitions: [{ key: 'go', target: 'done' }] },
+        { key: 'done', stateType: 3, transitions: [] },
+      ],
+    });
+    expect(rules(two)).toContain('error:single-initial-state');
+    expect(rules(two, LEGACY)).toContain('warning:single-initial-state');
+  });
+
+  it('reserves $start and rejects $self / $start as the start target', () => {
+    const reserved = workflowWith({
+      states: [
+        { key: '$start', stateType: 2, transitions: [{ key: 'go', target: 'done' }] },
+        { key: 'review', stateType: 1, transitions: [{ key: 'go', target: 'done' }] },
+        { key: 'done', stateType: 3, transitions: [] },
+      ],
+    });
+    expect(rules(reserved)).toContain('error:reserved-state-key');
+    expect(rules(workflowWith({ startTransition: { key: 'start', target: '$self' } }))).toContain('error:start-target-valid');
   });
 });
