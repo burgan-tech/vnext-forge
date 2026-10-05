@@ -27,7 +27,8 @@ export type TransitionFieldKey =
   | 'availableIn'
   | 'from'
   | '_comment'
-  | 'annotations';
+  | 'annotations'
+  | 'executionType';
 
 export interface FieldPolicy {
   visible: boolean;
@@ -76,6 +77,9 @@ function stateTransitionPolicy(
     from: VISIBLE_OPTIONAL,
     _comment: VISIBLE_OPTIONAL,
     annotations: VISIBLE_OPTIONAL,
+    // Runtime 0.0.99: per-transition S/A. Automatic transitions always run
+    // inline and ignore it, so it is not offered there.
+    executionType: triggerType === TriggerType.Automatic ? HIDDEN : VISIBLE_OPTIONAL,
   };
 
   switch (triggerType) {
@@ -148,6 +152,8 @@ function manualOnlyPolicy(
     from: VISIBLE_OPTIONAL,
     _comment: VISIBLE_OPTIONAL,
     annotations: VISIBLE_OPTIONAL,
+    // The schema has no executionType on cancel / exit / updateData.
+    executionType: HIDDEN,
   };
 }
 
@@ -174,6 +180,7 @@ function startTransitionPolicy(): TransitionFieldPolicyMap {
     // The start transition schema has `additionalProperties: false` and no
     // `annotations`; existing values are left in the JSON untouched.
     annotations: HIDDEN,
+    executionType: VISIBLE_OPTIONAL,
   };
 }
 

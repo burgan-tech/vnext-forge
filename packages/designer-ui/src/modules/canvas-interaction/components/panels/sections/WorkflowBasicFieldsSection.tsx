@@ -1,12 +1,16 @@
 import { Plus, Trash2, X, Tag, Globe } from 'lucide-react';
 import { useWorkflowStore } from '../../../../../store/useWorkflowStore';
 import { ComponentDescriptionField } from '../../../../../ui/ComponentDescriptionField';
+import { hasFeature } from '../../../../schema-capabilities/SchemaCapabilities';
+import { useSchemaCapabilities } from '../../../../schema-capabilities/useSchemaCapabilities';
+import { ExecutionTypeSelect } from '../tabs/shared/ExecutionTypeSelect';
 
 const inputClass =
   'w-full px-2.5 py-1.5 text-xs font-mono border border-border rounded-lg bg-muted-surface text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary-border focus:bg-surface transition-all placeholder:text-subtle';
 
 export function WorkflowBasicFieldsSection() {
   const { workflowJson, updateWorkflow } = useWorkflowStore();
+  const workflowCaps = useSchemaCapabilities('workflow');
   if (!workflowJson) return null;
 
   const wf = workflowJson as any;
@@ -119,6 +123,15 @@ export function WorkflowBasicFieldsSection() {
           </div>
         </div>
       </div>
+
+      {(hasFeature(workflowCaps, 'attributes.executionType') || attrs.executionType !== undefined) && (
+        <ExecutionTypeSelect
+          scope="flow"
+          value={attrs.executionType}
+          onChange={(v) => updateAttr('executionType', v)}
+          className={inputClass + ' cursor-pointer'}
+        />
+      )}
 
       <ComponentDescriptionField
         value={wf._comment || ''}
