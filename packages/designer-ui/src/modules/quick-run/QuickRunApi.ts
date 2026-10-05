@@ -119,11 +119,11 @@ interface ListInstancesParams {
   runtimeUrl?: string;
 }
 
-export async function startInstance(params: StartInstanceParams): Promise<ApiResponse<{ id: string; key: string; status: string }>> {
+export async function startInstance(params: StartInstanceParams): Promise<ApiResponse<{ id: string; key?: string; status: string }>> {
   return callApi({ method: 'quickrun/startInstance', params });
 }
 
-export async function fireTransition(params: FireTransitionParams): Promise<ApiResponse<{ id: string; key: string; status: string }>> {
+export async function fireTransition(params: FireTransitionParams): Promise<ApiResponse<{ id: string; key?: string; status: string }>> {
   return callApi({ method: 'quickrun/fireTransition', params });
 }
 
@@ -189,7 +189,7 @@ export async function getHistory(params: GetHistoryParams): Promise<ApiResponse<
   return callApi({ method: 'quickrun/getHistory', params });
 }
 
-export async function retryInstance(params: RetryInstanceParams): Promise<ApiResponse<{ id: string; key: string; status: string }>> {
+export async function retryInstance(params: RetryInstanceParams): Promise<ApiResponse<{ id: string; key?: string; status: string }>> {
   return callApi({ method: 'quickrun/retryInstance', params });
 }
 

@@ -22,6 +22,7 @@ import {
   type InteractionPhase,
 } from '../hooks/interactionMachine';
 import type { KeepPollingWindow } from '../hooks/keepPollingWindow';
+import type { FlowExecutionTypes } from '../utils/executionMode';
 import type { PermissionCheckResult } from '../utils/permissionChecks';
 
 interface QuickRunState {
@@ -148,6 +149,8 @@ interface QuickRunState {
   runtimeVersion: string | null;
 
   flowLabels: FlowLabelsMap | null;
+  /** executionType values from the local workflow file (runtime 0.0.99). */
+  flowExecutionTypes: FlowExecutionTypes | null;
 
   /**
    * Last-seen ETag per quickrun function kind, scoped to the *active*
@@ -223,6 +226,7 @@ interface QuickRunState {
   setRuntimeDomain: (domain: string | null) => void;
   setRuntimeVersion: (version: string | null) => void;
   setFlowLabels: (labels: FlowLabelsMap | null) => void;
+  setFlowExecutionTypes: (types: FlowExecutionTypes | null) => void;
 
   setEtag: (fn: 'state' | 'data' | 'schema', etag: string | undefined) => void;
   resetEtags: () => void;
@@ -302,6 +306,7 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
   runtimeVersion: null,
 
   flowLabels: null,
+  flowExecutionTypes: null,
 
   etags: {},
 
@@ -483,6 +488,7 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
   setRuntimeDomain: (runtimeDomain) => set({ runtimeDomain }),
   setRuntimeVersion: (runtimeVersion) => set({ runtimeVersion }),
   setFlowLabels: (flowLabels) => set({ flowLabels }),
+  setFlowExecutionTypes: (flowExecutionTypes) => set({ flowExecutionTypes }),
 
   setEtag: (fn, etag) => set((state) => ({ etags: { ...state.etags, [fn]: etag } })),
   resetEtags: () => set({ etags: {} }),

@@ -16,6 +16,7 @@ import { TransitionDialog } from './components/TransitionDialog';
 import { useQuickRunPolling } from './hooks/useQuickRunPolling';
 import { useQuickRunStore } from './store/quickRunStore';
 import type { OpenFunctionRunTarget, OpenSubFlowTarget } from './types/quickrun.types';
+import { extractExecutionTypes } from './utils/executionMode';
 import { extractLabelsMap } from './utils/extractLabelsMap';
 import { checkRuntimeHealth } from '../workflow-execution/WorkflowExecutionApi';
 import { useProjectStore } from '../../store/useProjectStore';
@@ -88,6 +89,7 @@ export function QuickRunShell({
   const toolWideHeaders = useToolHeadersStore((s) => s.headers);
   const setRuntimeHealth = useQuickRunStore((s) => s.setRuntimeHealth);
   const setFlowLabels = useQuickRunStore((s) => s.setFlowLabels);
+  const setFlowExecutionTypes = useQuickRunStore((s) => s.setFlowExecutionTypes);
   const setPollingConfig = useQuickRunStore((s) => s.setPollingConfig);
   const flowLabels = useQuickRunStore((s) => s.flowLabels);
   const [showNewRun, setShowNewRun] = useState(false);
@@ -165,9 +167,10 @@ export function QuickRunShell({
       try {
         const flowJson = JSON.parse(res.data.content);
         setFlowLabels(extractLabelsMap(flowJson));
+        setFlowExecutionTypes(extractExecutionTypes(flowJson));
       } catch { /* malformed JSON — ignore */ }
     });
-  }, [projectPath, setFlowLabels]);
+  }, [projectPath, setFlowLabels, setFlowExecutionTypes]);
 
   const persistConfig = useCallback((cfg: WorkflowBucketConfig) => {
     configRef.current = cfg;

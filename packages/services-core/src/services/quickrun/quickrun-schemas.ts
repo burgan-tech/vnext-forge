@@ -31,9 +31,12 @@ export const quickrunStartInstanceParams = z.object({
   runtimeUrl: z.string().optional(),
 })
 
+// 200 (sync) returns the full instance, 202 (async) only `{ id, status }`.
+// Which one arrives follows the effective mode — the definition's
+// executionType overrides ?sync= on runtime 0.0.99+ — so `key` is optional.
 export const quickrunStartInstanceResult = z.object({
   id: z.string(),
-  key: z.string(),
+  key: z.string().optional(),
   status: instanceStatusSchema,
 })
 
@@ -54,7 +57,7 @@ export const quickrunFireTransitionParams = z.object({
 
 export const quickrunFireTransitionResult = z.object({
   id: z.string(),
-  key: z.string(),
+  key: z.string().optional(),
   status: instanceStatusSchema,
 })
 

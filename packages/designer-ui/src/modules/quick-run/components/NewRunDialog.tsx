@@ -12,6 +12,7 @@ import type { JsonSchemaRoot } from '../../schema-form';
 import * as QuickRunApi from '../QuickRunApi';
 import type { PresetEntry, SchemaReference, WorkflowBucketConfig } from '../QuickRunApi';
 import { useQuickRunPolling } from '../hooks/useQuickRunPolling';
+import { useDefinedExecutionMode } from '../hooks/useDefinedExecutionMode';
 import { useQuickRunStore } from '../store/quickRunStore';
 import { ValidationErrorBlock } from './ValidationErrorBlock';
 
@@ -286,7 +287,7 @@ export function NewRunDialog({
       if (result.success) {
         const newInstance = {
           id: result.data.id,
-          key: result.data.key,
+          key: result.data.key ?? '',
           status: result.data.status as 'A' | 'B' | 'C' | 'F',
           domain,
           workflowKey,
@@ -384,6 +385,10 @@ export function NewRunDialog({
     }
     setHeaderRows(rows);
   }, [open]);
+
+  // Declared after the restore effect so a definition-level executionType
+  // wins over a saved preset's sync value.
+  const execMode = useDefinedExecutionMode(null, open, setSync);
 
   // Reset the auto-fill flag (and schema cache) when the dialog closes so
   // reopening triggers a fresh auto-fill instead of leaving last
@@ -519,9 +524,11 @@ export function NewRunDialog({
                   type="checkbox"
                   checked={sync}
                   onChange={(e) => setSync(e.target.checked)}
+                  disabled={execMode.locked}
                 />
                 Synchronous execution
               </label>
+              {execMode.note && <p className="-mt-1 text-[10px] text-muted-text">{execMode.note}</p>}
               <div className="flex flex-col gap-1">
                 <label className="text-xs font-medium">Version</label>
                 <input

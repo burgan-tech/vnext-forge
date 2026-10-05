@@ -17,6 +17,7 @@ import { PseudoUiLangPicker } from '../pseudo-ui/PseudoUiLangPicker';
 import { PseudoUiOrJsonBlock } from '../pseudo-ui/PseudoUiOrJsonBlock';
 import type { DataSchema, PseudoViewDelegate } from '@burgan-tech/pseudo-ui';
 import { useQuickRunPolling } from '../hooks/useQuickRunPolling';
+import { useDefinedExecutionMode } from '../hooks/useDefinedExecutionMode';
 import { useQuickRunStore } from '../store/quickRunStore';
 import { safeViewContent, type SchemaResponse, type ViewResponse } from '../types/quickrun.types';
 import { ValidationErrorBlock } from './ValidationErrorBlock';
@@ -93,6 +94,7 @@ export function TransitionDialog({ configRef, persistConfig, projectId }: Transi
   const hasSchema = transition?.schema?.hasSchema ?? false;
   const hasView = transition?.view?.hasView ?? false;
   const canPresets = Boolean(projectId && workflowKey);
+  const execMode = useDefinedExecutionMode(transitionName, open, setSync);
 
   const mergedDialogHeaders = useMemo(() => {
     const inherited = { ...globalHeaders, ...sessionHeaders };
@@ -550,6 +552,8 @@ export function TransitionDialog({ configRef, persistConfig, projectId }: Transi
             setTags={setTags}
             sync={sync}
             setSync={setSync}
+            syncLocked={execMode.locked}
+            syncNote={execMode.note}
             submitAttempted={submitAttempted}
             // Presets — wired only when projectId+workflowKey are known.
             // When `canPresets` is false the dropdown stays hidden.
@@ -725,6 +729,8 @@ function TransitionInputStep({
   setTags,
   sync,
   setSync,
+  syncLocked,
+  syncNote,
   submitAttempted,
   canPresets,
   presets,
@@ -754,6 +760,9 @@ function TransitionInputStep({
   setTags: (v: string) => void;
   sync: boolean;
   setSync: (v: boolean) => void;
+  /** The definition's executionType fixes the mode (runtime 0.0.99+). */
+  syncLocked: boolean;
+  syncNote: string | null;
   submitAttempted: boolean;
   canPresets: boolean;
   presets: PresetEntry[];
@@ -869,10 +878,12 @@ function TransitionInputStep({
               type="checkbox"
               checked={sync}
               onChange={(e) => setSync(e.target.checked)}
+              disabled={syncLocked}
               className="rounded"
             />
             <span>Sync (wait for transition to complete)</span>
           </label>
+          {syncNote && <p className="-mt-1 text-[10px] text-muted-text">{syncNote}</p>}
           <HeaderOverrideSection rows={headerRows} setRows={setHeaderRows} />
         </div>
       </details>
