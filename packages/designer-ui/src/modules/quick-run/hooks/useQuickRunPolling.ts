@@ -6,6 +6,7 @@ import { useQuickRunStore } from '../store/quickRunStore';
 import { currentRoleFromHeaders } from '../utils/currentRole';
 import { decideDataOutcome } from './decideDataOutcome';
 import { shouldStopPolling } from './interactionMachine';
+import { keepsPolling, nextKeepPollingWindow, type KeepPollingWindow } from './keepPollingWindow';
 import { resolveStateViewSource } from './resolveStateViewSource';
 import { shouldFetchView } from './shouldFetchView';
 import { stateViewContentChanged } from './stateViewContentChanged';
@@ -272,6 +273,25 @@ export async function runPollLoop(params: PollParams, config: PollingConfig): Pr
   pollLoopAbort?.abort();
   const controller = new AbortController();
   pollLoopAbort = controller;
+  try {
+    return await runPollLoopBody(params, config, controller);
+  } finally {
+    // The keep-polling window lives as long as the loop that opened it; a
+    // superseding loop owns the field from its own first response on.
+    const { keepPolling, setKeepPolling } = useQuickRunStore.getState();
+    if (!controller.signal.aborted && keepPolling?.instanceId === params.instanceId) setKeepPolling(null);
+  }
+}
+
+async function runPollLoopBody(
+  params: PollParams,
+  config: PollingConfig,
+  controller: AbortController,
+): Promise<StateResponse | null> {
+  // `interaction.longPoll.terminate: false` window (see keepPollingWindow.ts):
+  // while open, the loop outlives `retryCount` and does not stop on `A`.
+  let keepWindow: KeepPollingWindow | null = null;
+  const windowOpen = () => keepWindow !== null && Date.now() < keepWindow.deadlineMs;
 
   const {
     setActiveState,
@@ -287,6 +307,7 @@ export async function runPollLoop(params: PollParams, config: PollingConfig): Pr
     setStateViewError,
     dispatchInteraction,
     setEtag,
+    setKeepPolling,
   } = useQuickRunStore.getState();
 
   setPollingInstanceId(params.instanceId);
@@ -330,8 +351,9 @@ export async function runPollLoop(params: PollParams, config: PollingConfig): Pr
     return null;
   };
 
-  for (let attempt = 0; attempt < config.retryCount; attempt++) {
+  for (let attempt = 0; attempt < config.retryCount || windowOpen(); attempt++) {
     if (controller.signal.aborted) break;
+    const hasNextAttempt = () => attempt < config.retryCount - 1 || windowOpen();
 
     // Read fresh on every attempt (not captured once before the loop)
     // so a 304 on a later attempt echoes the ETag this same loop just
@@ -396,7 +418,7 @@ export async function runPollLoop(params: PollParams, config: PollingConfig): Pr
           );
         }
 
-        if (attempt < config.retryCount - 1) {
+        if (hasNextAttempt()) {
           await sleep(config.intervalMs);
         }
         continue;
@@ -419,7 +441,11 @@ export async function runPollLoop(params: PollParams, config: PollingConfig): Pr
       // loop stops comes from the resulting phase (controller ruling
       // F1), never from the raw `interaction.terminateLongPoll` flag —
       // a stale flag right after resuming must not stop it again.
-      const { stop: shouldStop, paused: terminate } = recordStateRound(params.instanceId, stateData);
+      const { stop: phaseStop, paused: terminate } = recordStateRound(params.instanceId, stateData);
+      keepWindow = nextKeepPollingWindow(keepWindow, params.instanceId, stateData, Date.now());
+      setKeepPolling(keepWindow);
+      const keepGoing = !terminate && keepsPolling(keepWindow, stateData.status, Date.now());
+      const shouldStop = phaseStop && !keepGoing;
 
       if (stateData.status === 'B' && !shouldStop) {
         patchActiveState({ status: stateData.status, state: stateData.state });
@@ -463,6 +489,12 @@ export async function runPollLoop(params: PollParams, config: PollingConfig): Pr
       // expose a view per the same status gate as above), so this is
       // effectively a Data-only refresh during the busy phase — but it
       // still runs the same shared, signal-guarded step for consistency.
+      // Kept going only because of a keep-polling window on a non-Busy
+      // instance: the state is final for now (full state already set
+      // above), so release the loading flag — transitions stay clickable —
+      // while the loop keeps watching in the background.
+      if (keepGoing && stateData.status !== 'B') setActiveStateLoading(false);
+
       if (!controller.signal.aborted) {
         // `pollingInstanceId` is still set (this tick isn't stopping),
         // so ContextPanel's Data lazy-load stays suppressed — the loop
@@ -470,7 +502,7 @@ export async function runPollLoop(params: PollParams, config: PollingConfig): Pr
         await refreshViewAndData(params, stateData, { terminate, includeData: true }, controller.signal);
       }
 
-      if (attempt < config.retryCount - 1) {
+      if (hasNextAttempt()) {
         await sleep(config.intervalMs);
       }
     } else {

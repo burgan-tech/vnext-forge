@@ -21,6 +21,7 @@ import {
   type InteractionEvent,
   type InteractionPhase,
 } from '../hooks/interactionMachine';
+import type { KeepPollingWindow } from '../hooks/keepPollingWindow';
 import type { PermissionCheckResult } from '../utils/permissionChecks';
 
 interface QuickRunState {
@@ -131,6 +132,11 @@ interface QuickRunState {
    * `hooks/interactionMachine.ts`. Reset with the instance-scoped caches.
    */
   interaction: InteractionPhase;
+  /**
+   * Open `terminate: false` keep-polling window of the instance the poll
+   * loop is driving — see `hooks/keepPollingWindow.ts`. Null otherwise.
+   */
+  keepPolling: KeepPollingWindow | null;
 
   runtimeHealth: 'healthy' | 'unhealthy' | 'unknown';
   runtimeDomain: string | null;
@@ -212,6 +218,7 @@ interface QuickRunState {
   setPollingInstanceId: (id: string | null) => void;
   setPollingConfig: (config: { retryCount: number; intervalMs: number }) => void;
   dispatchInteraction: (event: InteractionEvent) => void;
+  setKeepPolling: (window: KeepPollingWindow | null) => void;
   setRuntimeHealth: (health: 'healthy' | 'unhealthy' | 'unknown') => void;
   setRuntimeDomain: (domain: string | null) => void;
   setRuntimeVersion: (version: string | null) => void;
@@ -288,6 +295,7 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
   pollingInstanceId: null,
   pollingConfig: { retryCount: 15, intervalMs: 4000 },
   interaction: INITIAL_INTERACTION,
+  keepPolling: null,
 
   runtimeHealth: 'unknown',
   runtimeDomain: null,
@@ -470,6 +478,7 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
   setPollingInstanceId: (pollingInstanceId) => set({ pollingInstanceId }),
   setPollingConfig: (pollingConfig) => set({ pollingConfig }),
   dispatchInteraction: (event) => set((state) => ({ interaction: interactionReducer(state.interaction, event) })),
+  setKeepPolling: (keepPolling) => set({ keepPolling }),
   setRuntimeHealth: (runtimeHealth) => set({ runtimeHealth }),
   setRuntimeDomain: (runtimeDomain) => set({ runtimeDomain }),
   setRuntimeVersion: (runtimeVersion) => set({ runtimeVersion }),
@@ -488,6 +497,7 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
       functionCatalogError: null,
       selectedFunctionName: null,
       interaction: INITIAL_INTERACTION,
+      keepPolling: null,
       permissionChecks: null,
       activeTaskHistory: null,
       activeTaskHistoryLoading: false,

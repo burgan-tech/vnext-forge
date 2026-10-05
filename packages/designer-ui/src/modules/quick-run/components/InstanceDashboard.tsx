@@ -48,6 +48,7 @@ import {
 } from './IncidentSection';
 import { InstanceFunctions } from './InstanceFunctions';
 import { InteractionBanner } from './InteractionBanner';
+import { KeepPollingBanner } from './KeepPollingBanner';
 import { ProgressStepper } from './ProgressStepper';
 import { RuntimeErrorBanner } from './RuntimeErrorBanner';
 import { StateTimeoutChip } from './StateTimeoutChip';
@@ -492,6 +493,9 @@ export function InstanceDashboard({ configRef, persistConfig, onOpenFunctionRun 
       {activeStateError && (
         <RuntimeErrorBanner title="Polling stopped" error={activeStateError} onDismiss={() => setActiveStateError(null)} />
       )}
+
+      {/* interaction terminate: false — the poll stays open for the state's window. */}
+      <KeepPollingBanner instanceId={activeTabId} />
 
       {/* Long-poll interaction window (D3) — polling is stopped until the
           user acknowledges or the runtime's fallback fires. */}
