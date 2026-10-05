@@ -38,6 +38,7 @@ export function FunctionRolesSection({ json, onChange }: FunctionRolesSectionPro
           roles={roles}
           onChange={(next) => onChange((draft) => applyFunctionRoles(draft, next))}
           contextLabel="function"
+          componentType="function"
         />
       </CardContent>
     </Card>

@@ -62,3 +62,17 @@ describe('resolveFieldPolicy — annotations visibility', () => {
     }
   });
 });
+
+describe('executionType visibility (runtime 0.0.99)', () => {
+  it('is offered on manual state, shared and start transitions', () => {
+    expect(resolveFieldPolicy('state', TriggerType.Manual).executionType.visible).toBe(true);
+    expect(resolveFieldPolicy('shared', TriggerType.Event).executionType.visible).toBe(true);
+    expect(resolveFieldPolicy('start', TriggerType.Manual).executionType.visible).toBe(true);
+  });
+
+  it('is hidden on automatic transitions and on cancel / exit / updateData', () => {
+    expect(resolveFieldPolicy('state', TriggerType.Automatic).executionType.visible).toBe(false);
+    expect(resolveFieldPolicy('cancel', TriggerType.Manual).executionType.visible).toBe(false);
+    expect(resolveFieldPolicy('updateData', TriggerType.Manual).executionType.visible).toBe(false);
+  });
+});

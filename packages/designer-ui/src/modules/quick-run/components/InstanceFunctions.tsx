@@ -20,6 +20,8 @@
  */
 
 import type { FunctionCatalogEntry } from '../types/quickrun.types';
+import { FunctionMetricsToggle, type FunctionMetricsLoader } from './FunctionMetrics';
+import { pickLabel } from '../utils/extractLabelsMap';
 
 export interface InstanceFunctionsProps {
   /** `null` while the catalog has not been fetched yet. */
@@ -33,6 +35,8 @@ export interface InstanceFunctionsProps {
    * which case the catalog is still listed but Open is not offered.
    */
   onOpen?: (entry: FunctionCatalogEntry) => void;
+  /** Runtime 0.0.99 execution journal of the selected function; omitted on older runtimes. */
+  loadMetrics?: FunctionMetricsLoader;
 }
 
 /** Native `<select>` styling used across quick-run (see `InstanceFilterPanel`). */
@@ -46,6 +50,7 @@ export function InstanceFunctions({
   selected,
   onSelect,
   onOpen,
+  loadMetrics,
 }: InstanceFunctionsProps) {
   const selectedEntry = entries?.find((e) => e.name === selected) ?? null;
 
@@ -70,7 +75,7 @@ export function InstanceFunctions({
             <option value="">Select a function…</option>
             {entries.map((entry) => (
               <option key={entry.name} value={entry.name}>
-                {entry.version ? `${entry.name} — v${entry.version}` : entry.name}
+                {functionOptionText(entry)}
               </option>
             ))}
           </select>
@@ -88,6 +93,16 @@ export function InstanceFunctions({
           ) : null}
         </div>
       )}
+      {loadMetrics && selectedEntry && (
+        <FunctionMetricsToggle key={selectedEntry.name} functionKey={selectedEntry.name} load={loadMetrics} />
+      )}
     </section>
   );
+}
+
+/** `Label (key) — vX`; the key alone when the runtime sends no labels (≤ 0.0.98). */
+function functionOptionText(entry: FunctionCatalogEntry): string {
+  const label = pickLabel(entry.labels);
+  const name = label && label !== entry.name ? `${label} (${entry.name})` : entry.name;
+  return entry.version ? `${name} — v${entry.version}` : name;
 }

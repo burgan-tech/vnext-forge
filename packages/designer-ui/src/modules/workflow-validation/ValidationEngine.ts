@@ -62,6 +62,9 @@ type WorkflowData = {
  */
 const RUNTIME_TARGET_KEYWORDS = new Set(['$self']);
 
+/** Runtime 0.0.99's implicit start state; reserved as a state key. */
+const IMPLICIT_START_STATE = '$start';
+
 let ruleId = 0;
 
 function makeId() {
@@ -91,13 +94,29 @@ export function validateWorkflow(
   const initialStates = states.filter((state) => state.stateType === 1);
   const finalStates = states.filter((state) => state.stateType === 3);
 
-  if (initialStates.length === 0) {
+  // Runtime 0.0.99 / vnext-schema 0.0.55: the Initial state is optional —
+  // without one the instance is born in the implicit `$start` and the start
+  // transition's target decides where it enters.
+  const initialOptional = capabilities.initialStateOptional === true;
+  if (initialStates.length === 0 && !initialOptional) {
     results.push({
       id: makeId(),
       severity: 'error',
       message: 'No initial state (stateType=1) defined',
       rule: 'initial-state-required',
     });
+  }
+
+  for (const state of states) {
+    if (state.key === IMPLICIT_START_STATE) {
+      results.push({
+        id: makeId(),
+        severity: 'error',
+        message: `State key "${IMPLICIT_START_STATE}" is reserved for the runtime's implicit start state`,
+        rule: 'reserved-state-key',
+        nodeId: state.key,
+      });
+    }
   }
 
   if (finalStates.length === 0) {
@@ -117,6 +136,14 @@ export function validateWorkflow(
       severity: 'error',
       message: 'No start transition defined',
       rule: 'start-transition-required',
+    });
+  } else if (startTarget === '$self' || startTarget === IMPLICIT_START_STATE) {
+    results.push({
+      id: makeId(),
+      severity: 'error',
+      message: `Start transition must target a declared state, not "${startTarget}"`,
+      rule: 'start-target-valid',
+      nodeId: '__start__',
     });
   } else if (!stateKeys.has(startTarget)) {
     results.push({
@@ -262,8 +289,11 @@ export function validateWorkflow(
   if (initialStates.length > 1) {
     results.push({
       id: makeId(),
-      severity: 'warning',
-      message: `${initialStates.length} initial states found (expected 1)`,
+      // The 0.0.99 runtime rejects a second Initial at publish.
+      severity: initialOptional ? 'error' : 'warning',
+      message: initialOptional
+        ? `${initialStates.length} initial states found (at most 1 allowed)`
+        : `${initialStates.length} initial states found (expected 1)`,
       rule: 'single-initial-state',
     });
   }

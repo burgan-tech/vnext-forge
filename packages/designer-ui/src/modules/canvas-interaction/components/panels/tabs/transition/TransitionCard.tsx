@@ -21,6 +21,7 @@ import { TransitionViewSection } from './TransitionViewSection';
 import { TransitionLabelsSection } from './TransitionLabelsSection';
 import { TransitionAnnotationsSection } from './TransitionAnnotationsSection';
 import { AvailableInEditor } from '../shared/AvailableInEditor';
+import { ExecutionTypeSelect } from '../shared/ExecutionTypeSelect';
 import { type StateOption } from '../shared/AvailableInMultiSelect';
 import {
   resolveFieldPolicy,
@@ -69,6 +70,7 @@ export interface TransitionCardProps {
   onRemoveTask: (transitionIndex: number, taskIndex: number) => void;
   onMoveTask: (transitionIndex: number, fromIndex: number, toIndex: number) => void;
   onUpdateTaskComment?: (transitionIndex: number, taskIndex: number, comment: string | undefined) => void;
+  onUpdateTaskVariableKey?: (transitionIndex: number, taskIndex: number, variableKey: string | undefined) => void;
   onUpdateTaskMapping: (transitionIndex: number, taskIndex: number, mapping: ScriptCode) => void;
   onRemoveTaskMapping: (transitionIndex: number, taskIndex: number) => void;
   onUpdateTaskMappingScripts?: (
@@ -168,6 +170,7 @@ export function TransitionCard({
   onRemoveTask,
   onMoveTask,
   onUpdateTaskComment,
+  onUpdateTaskVariableKey,
   onUpdateTaskMapping,
   onRemoveTaskMapping,
   onUpdateTaskMappingScripts,
@@ -313,6 +316,18 @@ export function TransitionCard({
             </div>
           )}
 
+          {/* Execution mode (runtime 0.0.99) — always shown; locked with the
+              reason when the project schema predates it. */}
+          {policy.executionType.visible && (
+            <ExecutionTypeSelect
+              scope="transition"
+              featurePath={editorKind === 'shared' ? 'definitions.sharedTransition.executionType' : 'definitions.transition.executionType'}
+              value={transition.executionType}
+              onChange={(v) => onUpdate(index, 'executionType', v)}
+              className={selectClass}
+            />
+          )}
+
           {/* Trigger kind */}
           {policy.triggerKind.visible && (
             <div>
@@ -347,6 +362,9 @@ export function TransitionCard({
             onRemoveTask={(taskIndex) => onRemoveTask(index, taskIndex)}
             onMoveTask={(from, to) => onMoveTask(index, from, to)}
             onUpdateTaskComment={onUpdateTaskComment ? (taskIndex, comment) => onUpdateTaskComment(index, taskIndex, comment) : undefined}
+            onUpdateTaskVariableKey={
+              onUpdateTaskVariableKey ? (taskIndex, v) => onUpdateTaskVariableKey(index, taskIndex, v) : undefined
+            }
             onUpdateMapping={(taskIndex, mapping) => onUpdateTaskMapping(index, taskIndex, mapping)}
             onRemoveMapping={(taskIndex) => onRemoveTaskMapping(index, taskIndex)}
             onUpdateMappingScripts={

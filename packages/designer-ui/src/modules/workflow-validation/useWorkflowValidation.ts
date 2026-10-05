@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { useProjectStore } from '../../store/useProjectStore';
 import { useValidationStore } from '../../store/useValidationStore';
 import { useWorkflowStore } from '../../store/useWorkflowStore';
@@ -33,15 +33,44 @@ export function useWorkflowValidation() {
     },
   });
 
+  // `useAsync` drops a call made while one is in flight. The re-run that
+  // matters most — after the project's schema capabilities load — usually
+  // lands exactly then, which left capability-gated local rules evaluated
+  // against ALL_ENABLED until the next edit. Remember a dropped run and
+  // replay it with the latest document once the current one settles.
+  const inFlightRef = useRef(false);
+  const rerunRef = useRef(false);
+  const run = useCallback(
+    async (document: unknown, version: string | undefined): Promise<void> => {
+      if (inFlightRef.current) {
+        rerunRef.current = true;
+        return;
+      }
+      inFlightRef.current = true;
+      try {
+        await execute(document, version);
+      } finally {
+        inFlightRef.current = false;
+      }
+      if (rerunRef.current) {
+        rerunRef.current = false;
+        const latest = useWorkflowStore.getState().workflowJson;
+        if (latest) void run(latest, useProjectStore.getState().vnextConfig?.schemaVersion);
+      }
+    },
+    [execute],
+  );
+
   useEffect(() => {
     if (!workflowJson) {
+      rerunRef.current = false;
       reset();
       clearIssues();
       return;
     }
 
-    void execute(workflowJson, schemaVersion);
-  }, [clearIssues, execute, reset, schemaVersion, workflowJson, capabilities]);
+    void run(workflowJson, schemaVersion);
+  }, [clearIssues, run, reset, schemaVersion, workflowJson, capabilities]);
 
   return {
     issues,

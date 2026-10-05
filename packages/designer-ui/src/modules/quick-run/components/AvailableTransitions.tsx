@@ -28,6 +28,7 @@ import { useMemo } from 'react';
 
 import { type FlowLabelsMap, type TransitionInfo, TRANSITION_KINDS, type TransitionKind } from '../types/quickrun.types';
 import { scheduleCountdownLabel } from '../utils/countdown';
+import { targetDisplayLabel, transitionDisplayLabel } from '../utils/displayLabels';
 import { verdictText, type AuthorizeVerdict } from '../utils/permissionChecks';
 import { AnnotationChips } from './AnnotationChips';
 import { kindStyle, resolveTransitionKind } from './transitionKindStyles';
@@ -36,6 +37,8 @@ export interface AvailableTransitionsProps {
   transitions: readonly TransitionInfo[];
   sharedTransitions: readonly TransitionInfo[];
   flowLabels: FlowLabelsMap | null;
+  /** Current state key — scopes local transition labels to the state they are declared in. */
+  currentState?: string;
   onTransitionClick: (transition: TransitionInfo) => void;
   /** Whether the "+ Manual" button is rendered (active instances only). */
   showManual: boolean;
@@ -62,6 +65,7 @@ export function AvailableTransitions({
   transitions,
   sharedTransitions,
   flowLabels,
+  currentState,
   onTransitionClick,
   showManual,
   onManualClick,
@@ -120,7 +124,8 @@ export function AvailableTransitions({
                   <ScheduledEntry
                     key={`${kind}-${info.name}`}
                     info={info}
-                    label={flowLabels?.transitions[info.name] ?? info.name}
+                    label={transitionDisplayLabel(info, flowLabels, currentState)}
+                    targetLabel={targetDisplayLabel(info.target, flowLabels)}
                     className={style.buttonClass}
                     description={style.description}
                     glyph={style.glyph}
@@ -132,11 +137,12 @@ export function AvailableTransitions({
                       className={style.buttonClass}
                       onClick={() => onTransitionClick(info)}
                       disabled={locked}
-                      title={style.description}
+                      title={transitionTitle(info, style.description)}
                     >
                       {style.glyph ? `${style.glyph} ` : ''}
-                      {flowLabels?.transitions[info.name] ?? info.name}
+                      {transitionDisplayLabel(info, flowLabels, currentState)}
                     </button>
+                    {info.target && <TargetChip info={info} label={targetDisplayLabel(info.target, flowLabels)} />}
                     {permissions?.[info.name] && <PermissionBadge verdict={permissions[info.name]} />}
                   </span>
                 ),
@@ -160,9 +166,35 @@ export function AvailableTransitions({
 }
 
 /** Engine-fired entry: not callable, so a non-interactive label with its countdown. */
+/** Button tooltip: the kind description, plus the raw key and target detail when known. */
+function transitionTitle(info: TransitionInfo, description: string): string {
+  const parts = [description, `Key: ${info.name}`];
+  const t = info.target;
+  if (t) {
+    const kind = [t.stateType, t.stateSubType && t.stateSubType !== 'none' ? t.stateSubType : undefined]
+      .filter(Boolean)
+      .join(' / ');
+    parts.push(`Target: ${t.key}${kind ? ` (${kind})` : ''}${t.subFlow ? ` — starts ${t.subFlow}` : ''}`);
+  }
+  return parts.join('\n');
+}
+
+/** Runtime 0.0.99 target description next to a transition button. */
+function TargetChip({ info, label }: { info: TransitionInfo; label?: string }) {
+  const t = info.target;
+  if (!t) return null;
+  return (
+    <span className="text-[10px] text-muted-text" title={transitionTitle(info, 'Transition target')}>
+      → {label ?? t.key}
+      {t.subFlow && <span className="ml-1 rounded border border-border px-1">⤷ {t.subFlow}</span>}
+    </span>
+  );
+}
+
 function ScheduledEntry({
   info,
   label,
+  targetLabel,
   className,
   description,
   glyph,
@@ -170,6 +202,7 @@ function ScheduledEntry({
 }: {
   info: TransitionInfo;
   label: string;
+  targetLabel?: string;
   className: string;
   description: string;
   glyph?: string;
@@ -185,6 +218,7 @@ function ScheduledEntry({
     >
       {glyph ? `${glyph} ` : ''}
       {label}
+      {targetLabel && <span className="ml-1 opacity-70">→ {targetLabel}</span>}
       {countdown && <span className="ml-1 opacity-70">· {countdown}</span>}
       <AnnotationChips annotations={info.annotations} className="ml-1" />
     </span>

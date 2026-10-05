@@ -18,6 +18,8 @@ import { CreateNewTaskButton, CreateNewTaskDialog } from './CreateNewTaskDialog'
 import { useFlowEditorSave } from '../../../../../modules/flow-editor/FlowEditorSaveContext.js';
 import { Section, IconTask, IconTrash, IconUp, IconDown } from './PropertyPanelShared';
 import { TaskErrorBoundaryCollapsible } from './shared/TaskErrorBoundaryCollapsible';
+import { TaskSlotIssues } from '../../../../../modules/save-component/components/TaskSlotIssues';
+import { VariableKeyField } from '../../../../../modules/save-component/components/VariableKeyField';
 
 /* ────────────── TASKS TAB ────────────── */
 
@@ -203,6 +205,20 @@ export function TasksTab({
     });
   };
 
+  const updateTaskVariableKey = (
+    listField: 'onEntries' | 'onExits',
+    index: number,
+    variableKey: string | undefined,
+  ) => {
+    updateWorkflow((draft: any) => {
+      const s = draft.attributes?.states?.find((s: any) => s.key === stateKey);
+      const entry = s?.[listField]?.[index];
+      if (!entry) return;
+      if (variableKey) entry.variableKey = variableKey;
+      else delete entry.variableKey;
+    });
+  };
+
   const updateTaskComment = (
     listField: 'onEntries' | 'onExits',
     index: number,
@@ -270,6 +286,7 @@ export function TasksTab({
           </div>
         ) : (
           <div className="space-y-2">
+            <TaskSlotIssues tasks={entries} mode="workflow" />
             {entries.map((t: any, i: number) => (
               <EditableTaskCard
                 key={i}
@@ -281,6 +298,7 @@ export function TasksTab({
                 onRemove={removeTask}
                 onMove={moveTask}
                 onUpdateComment={updateTaskComment}
+                onUpdateVariableKey={updateTaskVariableKey}
                 onUpdateMapping={updateMapping}
                 onRemoveMapping={removeMapping}
                 onUpdateMappingScripts={updateMappingScripts}
@@ -322,6 +340,7 @@ export function TasksTab({
           </div>
         ) : (
           <div className="space-y-2">
+            <TaskSlotIssues tasks={exits} mode="workflow" />
             {exits.map((t: any, i: number) => (
               <EditableTaskCard
                 key={i}
@@ -333,6 +352,7 @@ export function TasksTab({
                 onRemove={removeTask}
                 onMove={moveTask}
                 onUpdateComment={updateTaskComment}
+                onUpdateVariableKey={updateTaskVariableKey}
                 onUpdateMapping={updateMapping}
                 onRemoveMapping={removeMapping}
                 onUpdateMappingScripts={updateMappingScripts}
@@ -381,6 +401,7 @@ function EditableTaskCard({
   onRemove,
   onMove,
   onUpdateComment,
+  onUpdateVariableKey,
   onUpdateMapping,
   onRemoveMapping,
   onUpdateMappingScripts,
@@ -395,6 +416,7 @@ function EditableTaskCard({
   onRemove: (listField: 'onEntries' | 'onExits', index: number) => void;
   onMove: (listField: 'onEntries' | 'onExits', fromIndex: number, toIndex: number) => void;
   onUpdateComment: (listField: 'onEntries' | 'onExits', index: number, comment: string | undefined) => void;
+  onUpdateVariableKey: (listField: 'onEntries' | 'onExits', index: number, variableKey: string | undefined) => void;
   onUpdateMapping: (listField: 'onEntries' | 'onExits', index: number, mapping: ScriptCode) => void;
   onRemoveMapping: (listField: 'onEntries' | 'onExits', index: number) => void;
   onUpdateMappingScripts: (listField: 'onEntries' | 'onExits', index: number, scripts: ScriptsConfig | undefined) => void;
@@ -480,6 +502,13 @@ function EditableTaskCard({
           className="w-full px-2.5 py-1.5 text-xs font-mono border border-border rounded-lg bg-muted-surface text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary-border focus:bg-surface transition-all resize-y placeholder:text-subtle"
         />
       </div>
+
+      <VariableKeyField
+        className="px-3 pb-2"
+        value={entry.variableKey}
+        taskKey={ref.key}
+        onChange={(v) => onUpdateVariableKey(listField, index, v)}
+      />
 
       <CsxEditorField
         value={mapping}

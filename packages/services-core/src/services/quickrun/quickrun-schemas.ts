@@ -31,9 +31,12 @@ export const quickrunStartInstanceParams = z.object({
   runtimeUrl: z.string().optional(),
 })
 
+// 200 (sync) returns the full instance, 202 (async) only `{ id, status }`.
+// Which one arrives follows the effective mode — the definition's
+// executionType overrides ?sync= on runtime 0.0.99+ — so `key` is optional.
 export const quickrunStartInstanceResult = z.object({
   id: z.string(),
-  key: z.string(),
+  key: z.string().optional(),
   status: instanceStatusSchema,
 })
 
@@ -54,7 +57,7 @@ export const quickrunFireTransitionParams = z.object({
 
 export const quickrunFireTransitionResult = z.object({
   id: z.string(),
-  key: z.string(),
+  key: z.string().optional(),
   status: instanceStatusSchema,
 })
 
@@ -69,6 +72,17 @@ export const quickrunGetStateParams = z.object({
   ifNoneMatch: z.string().optional(),
   headers: headersSchema,
   runtimeUrl: z.string().optional(),
+})
+
+const runtimeLabelSchema = z.object({ language: z.string(), label: z.string() })
+
+/** Target state description (runtime 0.0.99); only `key` when it does not resolve. */
+const transitionTargetSchema = z.object({
+  key: z.string(),
+  stateType: z.string().optional(),
+  stateSubType: z.string().optional(),
+  labels: z.array(runtimeLabelSchema).optional(),
+  subFlow: z.string().optional(),
 })
 
 const transitionInfoSchema = z.object({
@@ -86,6 +100,8 @@ const transitionInfoSchema = z.object({
   kind: z.string().optional(),
   executeAtUtc: z.string().optional(),
   annotations: z.record(z.string(), z.string()).nullable().optional(),
+  labels: z.array(runtimeLabelSchema).optional(),
+  target: transitionTargetSchema.optional(),
 })
 
 /** The trailing fields are sent by newer engines on `correlations` only. */
@@ -111,6 +127,10 @@ export const quickrunGetStateResult = z.object({
   // the fields below are only guaranteed present when `notModified` is falsy.
   state: z.string().optional(),
   status: instanceStatusSchema.optional(),
+  stateType: z.string().optional(),
+  /** Runtime 0.0.99: sub type / labels of the displayed state. */
+  stateSubType: z.string().optional(),
+  stateLabels: z.array(runtimeLabelSchema).optional(),
   transitions: z.array(transitionInfoSchema).optional(),
   sharedTransitions: z.array(transitionInfoSchema).optional(),
   activeCorrelations: z.array(correlationSchema).optional(),
@@ -137,7 +157,8 @@ export const quickrunGetStateResult = z.object({
   }).optional(),
   timeout: z.object({
     key: z.string(),
-    target: z.string(),
+    /** String up to runtime 0.0.98, a target object from 0.0.99. */
+    target: z.union([z.string(), transitionTargetSchema]),
     executeAtUtc: z.string(),
     annotations: z.record(z.string(), z.string()).nullable().optional(),
   }).optional(),
@@ -270,6 +291,8 @@ export const quickrunGetFunctionCatalogResult = z.object({
        *  passes through instead of failing the whole catalog. */
       scope: z.string().optional(),
       href: z.string().optional(),
+      /** The function's `attributes.labels` (runtime 0.0.99). */
+      labels: z.array(runtimeLabelSchema).optional(),
     }),
   ),
 })
@@ -350,6 +373,10 @@ const taskHistoryItemSchema = z.object({
   finishedAt: z.string().nullable().optional(),
   durationMs: z.number().nullable().optional(),
   error: z.string().nullable().optional(),
+  /** Runtime 0.0.99: onExecute | onEntry | onExit; null on pre-migration rows. */
+  hook: z.string().nullable().optional(),
+  /** Runtime 0.0.99: equal order ⇒ parallel group; null on pre-migration rows. */
+  order: z.number().nullable().optional(),
 })
 
 export const quickrunGetTaskHistoryParams = z.object({
@@ -630,3 +657,173 @@ export const quickrunExecuteFunctionParams = z.object({
 })
 
 export const quickrunExecuteFunctionResult = z.record(z.string(), z.unknown())
+
+// ── Correlation tree ─────────────────────────────────────────────────────────
+//
+// Runtime 0.0.99: GET …/instances/<id>/functions/instance-correlation — the
+// whole SubFlow/SubProcess tree under an instance. ≤ 0.0.98:
+// GET …/functions/hierarchy, also a tree but without ownState / resolved /
+// correlation detail. The service picks by `runtimeVersion` (≥ 0.0.99 → new,
+// older → old, unknown → new then old on 404) and normalizes the old shape.
+
+export const quickrunGetCorrelationTreeParams = z.object({
+  ...workflowIdentifier,
+  instanceId: z.string().min(1),
+  /** Version the caller learned from `health/check`; omitted when unknown. */
+  runtimeVersion: z.string().optional(),
+  headers: headersSchema,
+  runtimeUrl: z.string().optional(),
+})
+
+export interface CorrelationTreeNode {
+  id: string
+  key?: string | null
+  flow: string
+  domain: string
+  flowVersion?: string | null
+  currentState?: string | null
+  ownState?: string | null
+  status?: string | null
+  subFlowType?: string | null
+  isCompleted?: boolean
+  completedAt?: string | null
+  terminalOutcome?: string | null
+  parentState?: string | null
+  correlationId?: string | null
+  createdAt?: string | null
+  stateChangedAt?: string | null
+  href?: string | null
+  resolved: boolean
+  unresolvedReason?: string | null
+  children: CorrelationTreeNode[]
+}
+
+export const correlationTreeNodeSchema: z.ZodType<CorrelationTreeNode> = z.lazy(() =>
+  z.object({
+    id: z.string(),
+    key: z.string().nullable().optional(),
+    flow: z.string(),
+    domain: z.string(),
+    flowVersion: z.string().nullable().optional(),
+    currentState: z.string().nullable().optional(),
+    ownState: z.string().nullable().optional(),
+    status: z.string().nullable().optional(),
+    subFlowType: z.string().nullable().optional(),
+    isCompleted: z.boolean().optional(),
+    completedAt: z.string().nullable().optional(),
+    /** completed | faulted | canceled */
+    terminalOutcome: z.string().nullable().optional(),
+    parentState: z.string().nullable().optional(),
+    correlationId: z.string().nullable().optional(),
+    createdAt: z.string().nullable().optional(),
+    stateChangedAt: z.string().nullable().optional(),
+    href: z.string().nullable().optional(),
+    resolved: z.boolean(),
+    /** depth-exceeded | hop-failed | instance-missing */
+    unresolvedReason: z.string().nullable().optional(),
+    children: z.array(correlationTreeNodeSchema),
+  }),
+)
+
+export const quickrunGetCorrelationTreeResult = z.object({
+  root: correlationTreeNodeSchema,
+  /** Which runtime surface answered. */
+  source: z.enum(['instance-correlation', 'hierarchy']),
+})
+
+// ── Transition / state metrics ───────────────────────────────────────────────
+//
+// Runtime 0.0.99:
+//   GET …/instances/<id>/transitions/<transitionKey>/metrics
+//   GET …/instances/<id>/states/<stateKey>/metrics
+// One grammar for both: one attempt per firing (transition) or visit (state).
+
+const metricsTaskSchema = z.object({
+  id: z.string(),
+  taskKey: z.string(),
+  hook: z.string().nullable().optional(),
+  order: z.number().nullable().optional(),
+  status: z.string(),
+  businessStatus: z.string().nullable().optional(),
+  startedAt: z.string().nullable().optional(),
+  durationMs: z.number().nullable().optional(),
+  faultedTaskRef: z.string().nullable().optional(),
+  error: z.string().nullable().optional(),
+})
+
+const metricsAttemptSchema = z.object({
+  seq: z.number(),
+  startedAt: z.string().nullable().optional(),
+  finishedAt: z.string().nullable().optional(),
+  durationMs: z.number().nullable().optional(),
+  triggerType: z.string().nullable().optional(),
+  triggeredBy: z.string().nullable().optional(),
+  tasks: z.array(metricsTaskSchema),
+})
+
+export const quickrunGetElementMetricsParams = z.object({
+  ...workflowIdentifier,
+  instanceId: z.string().min(1),
+  /** Transition key or state key, per method. */
+  key: z.string().min(1),
+  headers: headersSchema,
+  runtimeUrl: z.string().optional(),
+})
+
+export const quickrunGetElementMetricsResult = z.object({
+  element: z.object({ kind: z.enum(['transition', 'state']), key: z.string() }),
+  count: z.number(),
+  attempts: z.array(metricsAttemptSchema),
+})
+
+// ── Function metrics ─────────────────────────────────────────────────────────
+//
+// Runtime 0.0.99, only for functions with `attributes.executionLog: "E"`:
+//   GET /api/v1/<domain>/functions/<fn>/metrics?page&pageSize&from&to&succeeded
+//   GET /api/v1/<domain>/workflows/<wf>/functions/<fn>/metrics?…   (flow-scoped)
+
+export const quickrunGetFunctionMetricsParams = z.object({
+  domain: z.string().min(1),
+  functionKey: z.string().min(1),
+  /** Flow-scoped sibling when set. */
+  workflowKey: z.string().min(1).optional(),
+  page: z.number().int().min(1).optional(),
+  pageSize: z.number().int().min(1).max(500).optional(),
+  from: z.string().optional(),
+  to: z.string().optional(),
+  succeeded: z.boolean().optional(),
+  headers: headersSchema,
+  runtimeUrl: z.string().optional(),
+})
+
+export const quickrunGetFunctionMetricsResult = z.object({
+  items: z.array(
+    z.object({
+      executionId: z.string(),
+      functionVersion: z.string().nullable().optional(),
+      invokedAt: z.string(),
+      durationMs: z.number().nullable().optional(),
+      scope: z.string().nullable().optional(),
+      workflow: z.string().nullable().optional(),
+      instanceId: z.string().nullable().optional(),
+      succeeded: z.boolean(),
+      status: z.string().nullable().optional(),
+      statusCode: z.number().nullable().optional(),
+      error: z.string().nullable().optional(),
+      fromCache: z.boolean().optional(),
+      traceId: z.string().nullable().optional(),
+      invokedBy: z.string().nullable().optional(),
+      invokedByBehalfOf: z.string().nullable().optional(),
+    }),
+  ),
+  summary: z
+    .object({
+      count: z.number(),
+      p50Ms: z.number().nullable().optional(),
+      p95Ms: z.number().nullable().optional(),
+      failureRate: z.number().nullable().optional(),
+    })
+    .nullable()
+    .optional(),
+  hasNext: z.boolean(),
+})

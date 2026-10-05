@@ -7,6 +7,8 @@ import type { InstanceDetailResponse, WorkflowBucketConfig } from '../QuickRunAp
 import { normalizeIncident } from '../utils/incident';
 import { displayStatus, instanceTypeLabel } from '../utils/instanceStatus';
 import { currentRoleFromHeaders } from '../utils/currentRole';
+import { stateDisplayLabel } from '../utils/displayLabels';
+import { useRuntimeSupports } from '../utils/runtimeFeatures';
 import {
   checkableTransitionKeys,
   isCacheablePermissionBatch,
@@ -47,6 +49,8 @@ import {
 } from './IncidentSection';
 import { InstanceFunctions } from './InstanceFunctions';
 import { InteractionBanner } from './InteractionBanner';
+import { KeepPollingBanner } from './KeepPollingBanner';
+import type { FunctionMetricsLoader } from './FunctionMetrics';
 import { ProgressStepper } from './ProgressStepper';
 import { RuntimeErrorBanner } from './RuntimeErrorBanner';
 import { StateTimeoutChip } from './StateTimeoutChip';
@@ -203,6 +207,24 @@ export function InstanceDashboard({ configRef, persistConfig, onOpenFunctionRun 
     [activeTabId, domain, workflowKey, liveHeaders, environmentUrl],
   );
   const liveIncident = normalizeIncident(activeState?.incident);
+
+  // Runtime 0.0.99 function execution journal. Domain-scoped functions read
+  // the domain endpoint, the rest the flow-scoped sibling.
+  const functionMetricsSupported = useRuntimeSupports('functionMetrics');
+  const loadFunctionMetrics = useMemo<FunctionMetricsLoader | undefined>(() => {
+    if (functionMetricsSupported !== true || !domain || !workflowKey) return undefined;
+    return (functionKey) => {
+      const scope = functionCatalog?.find((f) => f.name === functionKey)?.scope;
+      return QuickRunApi.getFunctionMetrics({
+        domain,
+        functionKey,
+        ...(scope === 'D' ? {} : { workflowKey }),
+        pageSize: 20,
+        headers: liveHeaders(),
+        runtimeUrl: environmentUrl,
+      });
+    };
+  }, [functionMetricsSupported, domain, workflowKey, functionCatalog, liveHeaders, environmentUrl]);
 
   const permissionChecksEnabled = useQuickRunStore((s) => s.permissionChecksEnabled);
   const permissionChecks = useQuickRunStore((s) => s.permissionChecks);
@@ -492,6 +514,9 @@ export function InstanceDashboard({ configRef, persistConfig, onOpenFunctionRun 
         <RuntimeErrorBanner title="Polling stopped" error={activeStateError} onDismiss={() => setActiveStateError(null)} />
       )}
 
+      {/* interaction terminate: false — the poll stays open for the state's window. */}
+      <KeepPollingBanner instanceId={activeTabId} />
+
       {/* Long-poll interaction window (D3) — polling is stopped until the
           user acknowledges or the runtime's fallback fires. */}
       {awaitingAck && (
@@ -516,9 +541,11 @@ export function InstanceDashboard({ configRef, persistConfig, onOpenFunctionRun 
             currentStateName={(() => {
               const rawState = activeState?.state ?? activeInstance.currentState;
               if (!rawState) return undefined;
-              return flowLabels?.states[rawState] ?? rawState;
+              return stateDisplayLabel(rawState, flowLabels, activeState?.stateLabels);
             })()}
+            currentStateKey={activeState?.state ?? activeInstance.currentState}
             stateType={activeState?.stateType}
+            stateSubType={activeState?.stateSubType}
           />
           <StateTimeoutChip timeout={activeState?.timeout} nowMs={clockNow} />
         </div>
@@ -650,6 +677,7 @@ export function InstanceDashboard({ configRef, persistConfig, onOpenFunctionRun 
         transitions={transitions}
         sharedTransitions={sharedTransitions}
         flowLabels={flowLabels}
+        currentState={activeState?.state ?? activeInstance.currentState}
         onTransitionClick={handleTransitionClick}
         showManual={isActive}
         onManualClick={openManualTransitionDialog}
@@ -667,6 +695,7 @@ export function InstanceDashboard({ configRef, persistConfig, onOpenFunctionRun 
           error={functionCatalogError}
           selected={selectedFunctionName}
           onSelect={setSelectedFunctionName}
+          {...(loadFunctionMetrics ? { loadMetrics: loadFunctionMetrics } : {})}
           onOpen={
             onOpenFunctionRun && activeTabId
               ? (entry) =>

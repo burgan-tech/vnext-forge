@@ -1,10 +1,16 @@
+import { useQuickRunStore } from '../store/quickRunStore';
 import type { StateTimeout } from '../types/quickrun.types';
 import { scheduleCountdownLabel } from '../utils/countdown';
+import { normalizeTimeoutTarget, targetDisplayLabel } from '../utils/displayLabels';
 import { AnnotationChips } from './AnnotationChips';
 
 /** The armed workflow timeout of the polled instance (state function `timeout`). */
 export function StateTimeoutChip({ timeout, nowMs }: { timeout?: StateTimeout; nowMs: number }) {
+  const flowLabels = useQuickRunStore((s) => s.flowLabels);
   if (!timeout) return null;
+  // Runtime ≤ 0.0.98 sends a state key, 0.0.99+ a target object — rendering
+  // the object directly would throw.
+  const target = normalizeTimeoutTarget(timeout);
   const label = scheduleCountdownLabel(timeout.executeAtUtc, nowMs);
   const at = Date.parse(timeout.executeAtUtc);
   return (
@@ -16,7 +22,11 @@ export function StateTimeoutChip({ timeout, nowMs }: { timeout?: StateTimeout; n
         <span aria-hidden="true">⏱</span>
         <span className="font-mono">{timeout.key}</span>
         <span aria-hidden="true">→</span>
-        <span className="font-mono">{timeout.target}</span>
+        {target && (
+          <span className="font-mono" title={target.key}>
+            {targetDisplayLabel(target, flowLabels)}
+          </span>
+        )}
         {label && <span className="opacity-80">· {label}</span>}
       </span>
       <AnnotationChips annotations={timeout.annotations} />

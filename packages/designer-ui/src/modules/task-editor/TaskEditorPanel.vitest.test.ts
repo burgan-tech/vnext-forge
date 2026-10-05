@@ -84,7 +84,10 @@ describe('TaskEditorPanel layout', () => {
     const html = renderTaskEditorPanel('18');
     expect(html).toContain('Cache Aside task settings.');
     expect(html).toContain('Source Task');
-    expect(html).toContain('Key Expression');
+    // Runtime 0.0.99: the key is a string or a script; keyExpression is gone.
+    expect(html).toContain('Cache key kind');
+    expect(html).toContain('ICacheKeyMapping');
+    expect(html).not.toContain('Key Expression');
   });
 
   it('renders a configuration form for Dapr Conversation tasks', () => {

@@ -20,4 +20,6 @@ export enum TaskType {
   GetInstance = 19,
   DaprConversation = 20,
   FanOut = 21,
+  /** Type-6 config contract, executed in-process by the orchestrator (no Dapr sidecar). */
+  ExternalHttp = 22,
 }

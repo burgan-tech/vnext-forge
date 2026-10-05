@@ -6,6 +6,7 @@ import { VnextWorkflowErrorHandlersPanel } from '../error-boundary/VnextWorkflow
 import type { ScriptsConfig } from '@vnext-forge-studio/vnext-types';
 import { CsxEditorField, type ScriptCode } from './CsxEditorField';
 import { MappingScriptsSection } from './MappingScriptsSection';
+import { VariableKeyField } from './VariableKeyField';
 import { OpenVnextComponentInModalButton } from './OpenVnextComponentInModalButton.js';
 import type { AtomicSavedInfo } from '../componentEditorModalTypes.js';
 
@@ -68,6 +69,13 @@ export function TaskExecutionForm({
       } else {
         (current as Record<string, unknown>).scripts = next;
       }
+    });
+  };
+
+  const handleUpdateVariableKey = (value: string | undefined) => {
+    onChange((d) => {
+      if (value) d.variableKey = value;
+      else delete d.variableKey;
     });
   };
 
@@ -149,6 +157,13 @@ export function TaskExecutionForm({
           </button>
         </div>
       </div>
+
+      <VariableKeyField
+        className="px-2.5 pb-2"
+        value={execution.variableKey}
+        taskKey={ref.key}
+        onChange={handleUpdateVariableKey}
+      />
 
       <CsxEditorField
         value={mapping as ScriptCode | null | undefined}

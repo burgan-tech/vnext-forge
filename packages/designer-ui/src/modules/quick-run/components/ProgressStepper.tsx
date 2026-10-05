@@ -8,9 +8,20 @@ interface ProgressStepperProps {
    *  finish / subflow / wizard). Rendered as a small coloured chip
    *  next to the state name. Unknown values are hidden. */
   stateType?: string;
+  /** Runtime 0.0.99 sub type (`human`, `busy`, …); `none` is not shown. */
+  stateSubType?: string;
+  /** Raw state key, shown as a tooltip when the name is a label. */
+  currentStateKey?: string;
 }
 
-export function ProgressStepper({ currentStep, totalSteps, currentStateName, stateType }: ProgressStepperProps) {
+export function ProgressStepper({
+  currentStep,
+  totalSteps,
+  currentStateName,
+  stateType,
+  stateSubType,
+  currentStateKey,
+}: ProgressStepperProps) {
   const steps = Array.from({ length: totalSteps }, (_, i) => i);
   const typeStyle = stateTypeStyle(stateType);
 
@@ -32,13 +43,26 @@ export function ProgressStepper({ currentStep, totalSteps, currentStateName, sta
       </div>
       {currentStateName && (
         <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted-text">
-          <span className="font-medium text-foreground">▶ {currentStateName}</span>
+          <span
+            className="font-medium text-foreground"
+            title={currentStateKey && currentStateKey !== currentStateName ? currentStateKey : undefined}
+          >
+            ▶ {currentStateName}
+          </span>
           {typeStyle && (
             <span
               className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${typeStyle.className}`}
               title={typeStyle.description}
             >
               {typeStyle.label}
+            </span>
+          )}
+          {stateSubType && stateSubType !== 'none' && (
+            <span
+              className="rounded border border-border px-1.5 py-0.5 text-[10px] font-medium tracking-wide"
+              title="State sub type"
+            >
+              {stateSubType}
             </span>
           )}
           <span>— Step {currentStep} of {totalSteps}</span>

@@ -44,7 +44,7 @@ importers:
     dependencies:
       '@burgan-tech/vnext-schema':
         specifier: '*'
-        version: 0.0.39
+        version: 0.0.55
       '@burgan-tech/vnext-template':
         specifier: '*'
         version: 0.0.7
@@ -92,8 +92,8 @@ importers:
   apps/extension:
     dependencies:
       '@burgan-tech/vnext-schema':
-        specifier: ^0.0.54
-        version: 0.0.54
+        specifier: ^0.0.55
+        version: 0.0.55
       '@burgan-tech/vnext-template':
         specifier: ^0.0.7
         version: 0.0.7
@@ -268,8 +268,8 @@ importers:
   apps/server:
     dependencies:
       '@burgan-tech/vnext-schema':
-        specifier: ^0.0.54
-        version: 0.0.54
+        specifier: ^0.0.55
+        version: 0.0.55
       '@burgan-tech/vnext-template':
         specifier: ^0.0.7
         version: 0.0.7
@@ -617,8 +617,8 @@ importers:
         version: 5.0.12(@types/react@19.2.14)(immer@10.2.0)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4))
     devDependencies:
       '@burgan-tech/vnext-schema':
-        specifier: ^0.0.54
-        version: 0.0.54
+        specifier: ^0.0.55
+        version: 0.0.55
       '@types/react':
         specifier: ^19.0.0
         version: 19.2.14
@@ -707,8 +707,8 @@ importers:
         version: 4.3.6
     devDependencies:
       '@burgan-tech/vnext-schema':
-        specifier: ^0.0.54
-        version: 0.0.54
+        specifier: ^0.0.55
+        version: 0.0.55
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.17
@@ -932,12 +932,8 @@ packages:
     resolution: {integrity: sha512-Lqrl5IjLVbJTirBSEK5w806PXjEJm6f/fR9rmvOMFkmvIII5vgFwKsL1cvfi28TIKp7UKwx/7vDZy71PQakyfA==}
     engines: {node: '>=14.0.0'}
 
-  '@burgan-tech/vnext-schema@0.0.39':
-    resolution: {integrity: sha512-H/EpP0yMCgH+6ITJid0USlSLok8ibtEFSY+I9PGnbMdBtP9x50tmZu7oZYTNC30utNAloO1uIqYiL/ckYX9Bxg==}
-    engines: {node: '>=14.0.0'}
-
-  '@burgan-tech/vnext-schema@0.0.54':
-    resolution: {integrity: sha512-awKLEnvMX/qr5WhPUCIBH3nMJHNIkEIrz3wrNk0DCGIBWtRcOEDjlYsdgIrIn0FmgfNRoyU2Y1TRbinPLBtyqQ==}
+  '@burgan-tech/vnext-schema@0.0.55':
+    resolution: {integrity: sha512-widh0Q+f0mrraxEyhC9J6GIhx9tGM6N5IRESOt6Q9HH4qiNtUSZ6A1MdRzZ8lJnU0s1/+LYNzxoW8FR09VcNrA==}
     engines: {node: '>=14.0.0'}
 
   '@burgan-tech/vnext-template@0.0.7':
@@ -6865,9 +6861,7 @@ snapshots:
 
   '@burgan-tech/vnext-schema@0.0.38': {}
 
-  '@burgan-tech/vnext-schema@0.0.39': {}
-
-  '@burgan-tech/vnext-schema@0.0.54': {}
+  '@burgan-tech/vnext-schema@0.0.55': {}
 
   '@burgan-tech/vnext-template@0.0.7':
     dependencies:

@@ -4,6 +4,8 @@ import type {
   WorkflowBucketConfig,
 } from '../QuickRunApi';
 import { mergeQuickRunHeaders } from './mergeQuickRunHeaders';
+import { useQuickRunStore } from '../store/quickRunStore';
+import { resolveEffectiveExecutionMode } from '../utils/executionMode';
 
 type ApiResponse<T> =
   | { success: true; data: T }
@@ -12,7 +14,7 @@ type ApiResponse<T> =
       error: { code: string; message: string; details?: Record<string, unknown> };
     };
 
-export type FireTransitionResult = { id: string; key: string; status: string };
+export type FireTransitionResult = { id: string; key?: string; status: string };
 
 export interface FirePseudoUiTransitionParams {
   domain: string;
@@ -71,11 +73,17 @@ export async function firePseudoUiTransition(
     p.toolWideHeaders,
   );
 
+  // The definition's executionType decides on runtime 0.0.99+; sending it
+  // as ?sync= keeps an older runtime on the same mode.
+  const { flowExecutionTypes, activeState } = useQuickRunStore.getState();
+  const mode = resolveEffectiveExecutionMode(flowExecutionTypes, p.transitionKey, activeState?.state);
+
   const result = await QuickRunApi.fireTransition({
     domain: p.domain,
     workflowKey: p.workflowKey,
     instanceId: p.instanceId,
     transitionKey: p.transitionKey,
+    ...(mode ? { sync: mode.sync } : {}),
     attributes: p.formData,
     headers: mergedHeaders,
     runtimeUrl: p.runtimeUrl,

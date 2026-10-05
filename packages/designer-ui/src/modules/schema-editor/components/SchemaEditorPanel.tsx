@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../..
 import { ComponentValidationSummary } from '../../save-component/components/ComponentValidationSummary';
 import { IndexedTypeMismatchBanner } from './IndexedTypeMismatchBanner';
 import { SchemaMetadataForm } from './SchemaMetadataForm';
+import { LabelEditor } from '../../save-component/components/LabelEditor';
 import { SchemaTreeEditor } from './tree-editor/SchemaTreeEditor';
 import { ValidatePayloadCard } from './ValidatePayloadCard';
 import { getSchemaSource } from '../SchemaEditorSchema';
@@ -14,6 +15,11 @@ import { getSchemaSource } from '../SchemaEditorSchema';
 interface SchemaEditorPanelProps {
   json: Record<string, unknown>;
   onChange: (updater: (draft: Record<string, unknown>) => void) => void;
+}
+
+function schemaLabels(json: Record<string, unknown>): { language: string; label: string }[] {
+  const labels = (json.attributes as { labels?: unknown } | undefined)?.labels;
+  return Array.isArray(labels) ? (labels as { language: string; label: string }[]) : [];
 }
 
 export function SchemaEditorPanel({ json, onChange }: SchemaEditorPanelProps) {
@@ -44,6 +50,21 @@ export function SchemaEditorPanel({ json, onChange }: SchemaEditorPanelProps) {
               value={String(json._comment || '')}
               onChange={(value) => onChange((d) => { d._comment = value || undefined; })}
             />
+          </div>
+          <div className="mt-3">
+            <Field label="Labels" hint="Display names; the runtime returns them on the schema and master functions (0.0.99).">
+              <LabelEditor
+                labels={schemaLabels(json)}
+                onChange={(labels) =>
+                  onChange((d) => {
+                    const attrs = (d.attributes ?? {}) as Record<string, unknown>;
+                    if (labels.length > 0) attrs.labels = labels;
+                    else delete attrs.labels;
+                    d.attributes = attrs;
+                  })
+                }
+              />
+            </Field>
           </div>
         </CardContent>
       </Card>

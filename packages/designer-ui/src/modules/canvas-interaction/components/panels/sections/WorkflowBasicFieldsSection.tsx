@@ -1,6 +1,7 @@
 import { Plus, Trash2, X, Tag, Globe } from 'lucide-react';
 import { useWorkflowStore } from '../../../../../store/useWorkflowStore';
 import { ComponentDescriptionField } from '../../../../../ui/ComponentDescriptionField';
+import { ExecutionTypeSelect } from '../tabs/shared/ExecutionTypeSelect';
 
 const inputClass =
   'w-full px-2.5 py-1.5 text-xs font-mono border border-border rounded-lg bg-muted-surface text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary-border focus:bg-surface transition-all placeholder:text-subtle';
@@ -119,6 +120,14 @@ export function WorkflowBasicFieldsSection() {
           </div>
         </div>
       </div>
+
+      <ExecutionTypeSelect
+        scope="flow"
+        featurePath="attributes.executionType"
+        value={attrs.executionType}
+        onChange={(v) => updateAttr('executionType', v)}
+        className={inputClass + ' cursor-pointer'}
+      />
 
       <ComponentDescriptionField
         value={wf._comment || ''}

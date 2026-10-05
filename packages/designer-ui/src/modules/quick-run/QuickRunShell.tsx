@@ -16,7 +16,9 @@ import { TransitionDialog } from './components/TransitionDialog';
 import { useQuickRunPolling } from './hooks/useQuickRunPolling';
 import { useQuickRunStore } from './store/quickRunStore';
 import type { OpenFunctionRunTarget, OpenSubFlowTarget } from './types/quickrun.types';
+import { extractExecutionTypes } from './utils/executionMode';
 import { extractLabelsMap } from './utils/extractLabelsMap';
+import { checkRuntimeHealth } from '../workflow-execution/WorkflowExecutionApi';
 import { useProjectStore } from '../../store/useProjectStore';
 import { useToolHeadersStore } from '../../store/useToolHeadersStore';
 
@@ -24,6 +26,7 @@ interface HealthMessage {
   type: 'quickrun:health';
   status: 'healthy' | 'unhealthy' | 'unknown';
   runtimeDomain?: string;
+  runtimeVersion?: string;
 }
 
 interface QuickRunShellProps {
@@ -86,6 +89,7 @@ export function QuickRunShell({
   const toolWideHeaders = useToolHeadersStore((s) => s.headers);
   const setRuntimeHealth = useQuickRunStore((s) => s.setRuntimeHealth);
   const setFlowLabels = useQuickRunStore((s) => s.setFlowLabels);
+  const setFlowExecutionTypes = useQuickRunStore((s) => s.setFlowExecutionTypes);
   const setPollingConfig = useQuickRunStore((s) => s.setPollingConfig);
   const flowLabels = useQuickRunStore((s) => s.flowLabels);
   const [showNewRun, setShowNewRun] = useState(false);
@@ -122,10 +126,14 @@ export function QuickRunShell({
   // folder path into `projectId` (see `apps/extension/src/extension.ts`,
   // `workspaceFolders[0]?.uri.fsPath`), so it doubles as both the id and the
   // path. Without this, BrandPaletteDialog and useBrandPaletteFromWorkspace
-  // would see "no active project".
+  // would see "no active project". The web shell has already hydrated the
+  // project (its `projectId` is the project id, not a path), so an active
+  // project with the same id is kept — overwriting its path with the id broke
+  // every project-relative read (e.g. the workflow file → `core/core/...`).
   const setActiveProject = useProjectStore((s) => s.setActiveProject);
   useEffect(() => {
     if (!projectId) return;
+    if (useProjectStore.getState().activeProject?.id === projectId) return;
     setActiveProject({
       id: projectId,
       domain,
@@ -163,9 +171,10 @@ export function QuickRunShell({
       try {
         const flowJson = JSON.parse(res.data.content);
         setFlowLabels(extractLabelsMap(flowJson));
+        setFlowExecutionTypes(extractExecutionTypes(flowJson));
       } catch { /* malformed JSON — ignore */ }
     });
-  }, [projectPath, setFlowLabels]);
+  }, [projectPath, setFlowLabels, setFlowExecutionTypes]);
 
   const persistConfig = useCallback((cfg: WorkflowBucketConfig) => {
     configRef.current = cfg;
@@ -173,6 +182,7 @@ export function QuickRunShell({
   }, [domain, workflowKey]);
 
   const setRuntimeDomain = useQuickRunStore((s) => s.setRuntimeDomain);
+  const setRuntimeVersion = useQuickRunStore((s) => s.setRuntimeVersion);
 
   useEffect(() => {
     const handler = (event: MessageEvent) => {
@@ -182,11 +192,30 @@ export function QuickRunShell({
         if (msg.runtimeDomain) {
           setRuntimeDomain(msg.runtimeDomain);
         }
+        if (msg.runtimeVersion) {
+          setRuntimeVersion(msg.runtimeVersion);
+        }
       }
     };
     window.addEventListener('message', handler);
     return () => window.removeEventListener('message', handler);
-  }, [setRuntimeHealth, setRuntimeDomain]);
+  }, [setRuntimeHealth, setRuntimeDomain, setRuntimeVersion]);
+
+  // Probe the runtime once per environment so version-gated surfaces
+  // (correlation tree, metrics, executionType locks) know what they talk to.
+  // Works in both shells; the extension's health push above may refine it.
+  useEffect(() => {
+    let cancelled = false;
+    setRuntimeVersion(null);
+    void checkRuntimeHealth(environmentUrl).then((res) => {
+      if (cancelled || !res.success) return;
+      if (res.data.version) setRuntimeVersion(res.data.version);
+      if (res.data.domain) setRuntimeDomain(res.data.domain);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [environmentUrl, setRuntimeVersion, setRuntimeDomain]);
 
   // --- Re-fetch state when active tab changes to a different instance ---
   const activeTabId = useQuickRunStore((s) => s.activeTabId);

@@ -169,6 +169,12 @@ export function AuthorizePanel({
           </button>
           {verdict && <VerdictChip verdict={verdict} />}
         </div>
+        {kind === 'queryRoles' && (
+          <p className="text-[10px] text-[var(--vscode-descriptionForeground)]">
+            Runtime 0.0.99+ decides instance visibility at the deepest active SubFlow only (parent override, else the
+            leaf state's or leaf workflow's queryRoles). Grants may combine roles with allOf / anyOf.
+          </p>
+        )}
       </div>
     </details>
   );

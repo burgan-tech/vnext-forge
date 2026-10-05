@@ -39,4 +39,19 @@ describe('StateTimeoutChip', () => {
     );
     expect(html).toContain('Settling…');
   });
+
+  it('renders the runtime 0.0.99 target object by its label, not as a React child', () => {
+    const html = renderToStaticMarkup(
+      createElement(StateTimeoutChip, {
+        nowMs: NOW,
+        timeout: {
+          key: 'expire',
+          target: { key: 'expired', stateType: 'finish', labels: [{ language: 'en-US', label: 'Expired' }] },
+          executeAtUtc: '2026-09-30T12:01:00Z',
+        },
+      }),
+    );
+    expect(html).toContain('Expired');
+    expect(html).toContain('title="expired"');
+  });
 });

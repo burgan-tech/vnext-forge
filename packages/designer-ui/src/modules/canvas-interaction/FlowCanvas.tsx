@@ -38,6 +38,7 @@ import { EmptyCanvasGuide } from './components/EmptyCanvasGuide';
 import { SaveStatusIndicator } from './components/SaveStatusIndicator';
 import { WorkflowInsights } from './components/WorkflowInsights';
 import { lintWorkflow, detectPatterns } from './utils/workflowLint';
+import { useSchemaCapabilities } from '../schema-capabilities/useSchemaCapabilities';
 import { getFloatingHandleIds } from './utils/floating-edge-utils';
 import { useWorkflowStore } from '../../store/useWorkflowStore';
 import {
@@ -106,6 +107,7 @@ function FlowCanvasInner({
   onNodeSelect,
   onEdgeSelect,
 }: FlowCanvasProps) {
+  const workflowCaps = useSchemaCapabilities('workflow');
   const selectedNodeId = useWorkflowStore((s) => s.selectedNodeId);
   // `isDirty` drives the SaveStatusIndicator chip in the top-right
   // corner so users see at-a-glance whether the workflow has
@@ -1594,7 +1596,9 @@ function FlowCanvasInner({
        * practice the linter is O(N+E) and well below 1ms. */}
       {isEditable && (
         <WorkflowInsights
-          findings={lintWorkflow(toVnextWorkflow(workflowJson))}
+          findings={lintWorkflow(toVnextWorkflow(workflowJson), {
+            initialStateOptional: workflowCaps.initialStateOptional === true,
+          })}
           patterns={detectPatterns(toVnextWorkflow(workflowJson))}
           onFocusState={(stateKey) => {
             fitView({ nodes: [{ id: stateKey }], padding: 0.3, duration: 400 });

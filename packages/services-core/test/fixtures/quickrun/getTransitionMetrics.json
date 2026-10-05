@@ -1,0 +1,36 @@
+{
+  "params": {
+    "domain": "core",
+    "workflowKey": "account-opening",
+    "instanceId": "b9846b60-0b07-447b-8377-9e2b9ac3d470",
+    "key": "to-review"
+  },
+  "result": {
+    "element": { "kind": "transition", "key": "to-review" },
+    "count": 1,
+    "attempts": [
+      {
+        "seq": 1,
+        "startedAt": "2026-10-01T10:00:00Z",
+        "finishedAt": "2026-10-01T10:00:01.104Z",
+        "durationMs": 1104,
+        "triggerType": "manual",
+        "triggeredBy": "alice",
+        "tasks": [
+          {
+            "id": "6f9c1d2e-3a4b-4c5d-8e6f-7a8b9c0d1e2f",
+            "taskKey": "ns-mock-risk-recalc",
+            "hook": "onExecute",
+            "order": 1,
+            "status": "completed",
+            "businessStatus": "success",
+            "startedAt": "2026-10-01T10:00:00.100Z",
+            "durationMs": 511,
+            "faultedTaskRef": null,
+            "error": null
+          }
+        ]
+      }
+    ]
+  }
+}

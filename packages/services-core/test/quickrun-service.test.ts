@@ -233,3 +233,79 @@ describe('quickRunService.acknowledgeLongPoll', () => {
     })
   })
 })
+
+describe('quickRunService.getCorrelationTree', () => {
+  const HIERARCHY = {
+    root: {
+      id: 'p',
+      key: 'k',
+      flow: 'parent',
+      domain: 'core',
+      currentState: 's1',
+      status: 'B',
+      children: [{ id: 'c', flow: 'child', domain: 'core', currentState: 'x', subFlowType: 'S', children: [] }],
+    },
+  }
+
+  function sequenced(...responses: Array<{ status: number; data: string }>) {
+    const proxy = vi.fn()
+    for (const r of responses) proxy.mockResolvedValueOnce({ ...r, contentType: 'application/json', responseHeaders: {} })
+    return { service: createQuickRunService({ proxy } as never), proxy }
+  }
+
+  it('calls instance-correlation on runtime 0.0.99+', async () => {
+    const { service, proxy } = sequenced({ status: 200, data: JSON.stringify({ root: { ...HIERARCHY.root, resolved: true, ownState: 's1' } }) })
+    const result = await service.getCorrelationTree({ ...ids, runtimeVersion: '0.0.99.0' })
+    expect(proxy.mock.calls[0][0].runtimePath).toBe('/api/v1/core/workflows/error-boundary-lab/instances/i-1/functions/instance-correlation')
+    expect(result.source).toBe('instance-correlation')
+  })
+
+  it('calls hierarchy on an older runtime and normalizes the nodes', async () => {
+    const { service, proxy } = sequenced({ status: 200, data: JSON.stringify(HIERARCHY) })
+    const result = await service.getCorrelationTree({ ...ids, runtimeVersion: '0.0.97' })
+    expect(proxy.mock.calls[0][0].runtimePath).toMatch(/\/functions\/hierarchy$/)
+    expect(result.source).toBe('hierarchy')
+    expect(result.root).toMatchObject({ resolved: true, ownState: 's1' })
+    expect(result.root.children[0]).toMatchObject({ resolved: true, ownState: 'x', subFlowType: 'S' })
+  })
+
+  it('falls back to hierarchy on 404 when the version is unknown', async () => {
+    const { service, proxy } = sequenced(
+      { status: 404, data: '{"code":"Cache:300001"}' },
+      { status: 200, data: JSON.stringify(HIERARCHY) },
+    )
+    const result = await service.getCorrelationTree(ids)
+    expect(proxy).toHaveBeenCalledTimes(2)
+    expect(result.source).toBe('hierarchy')
+  })
+
+  it('does not fall back when the version says the tree exists', async () => {
+    const { service } = sequenced({ status: 404, data: '{"code":"Instance:404"}' })
+    await expect(service.getCorrelationTree({ ...ids, runtimeVersion: '0.0.99' })).rejects.toBeDefined()
+  })
+})
+
+describe('quickRunService metrics', () => {
+  it('builds the transition and state metrics paths', async () => {
+    const { service, proxy } = serviceWith({ status: 200, data: '{"element":{"kind":"state","key":"a b"},"count":0,"attempts":[]}' })
+    await service.getTransitionMetrics({ ...ids, key: 'to-review' })
+    await service.getStateMetrics({ ...ids, key: 'a b' })
+    expect(proxy.mock.calls[0][0].runtimePath).toBe('/api/v1/core/workflows/error-boundary-lab/instances/i-1/transitions/to-review/metrics')
+    expect(proxy.mock.calls[1][0].runtimePath).toBe('/api/v1/core/workflows/error-boundary-lab/instances/i-1/states/a%20b/metrics')
+  })
+
+  it('reads function metrics from the domain or flow-scoped path and derives hasNext', async () => {
+    const { service, proxy } = serviceWith({
+      status: 200,
+      data: JSON.stringify({ links: { next: '/next' }, items: [], summary: { count: 0 } }),
+    })
+    const domainLevel = await service.getFunctionMetrics({ domain: 'core', functionKey: 'score', page: 2, succeeded: false })
+    await service.getFunctionMetrics({ domain: 'core', functionKey: 'score', workflowKey: 'wf' })
+    expect(proxy.mock.calls[0][0]).toMatchObject({
+      runtimePath: '/api/v1/core/functions/score/metrics',
+      query: { page: '2', succeeded: 'false' },
+    })
+    expect(proxy.mock.calls[1][0].runtimePath).toBe('/api/v1/core/workflows/wf/functions/score/metrics')
+    expect(domainLevel.hasNext).toBe(true)
+  })
+})

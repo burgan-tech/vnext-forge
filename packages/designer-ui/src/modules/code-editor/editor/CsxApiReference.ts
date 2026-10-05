@@ -53,6 +53,7 @@ export const CSX_API_REFERENCE: ApiSection[] = [
       { name: 'Headers', signature: '', returnType: 'dynamic', description: 'Request headers (all keys lowercase).', insertText: 'context.Headers' },
       { name: 'Instance', signature: '', returnType: 'Instance', description: 'Active workflow instance — .Data, .Id, .State, .Key, .Tags', insertText: 'context.Instance' },
       { name: 'Instance.Data', signature: '', returnType: 'dynamic', description: 'Instance data object. All properties camelCase.', insertText: 'context.Instance?.Data' },
+      { name: 'Instance.DecryptAsync', signature: '(string path, CancellationToken ct = default)', returnType: 'Task<string?>', description: 'Runtime 0.0.99: plaintext of one x-encryption "encrypt" field of this instance; Data holds the ENCRYPTED: token.', insertText: 'await context.Instance.DecryptAsync("$1")' },
       { name: 'TaskResponse', signature: '', returnType: 'Dictionary<string, dynamic?>', description: 'Results from completed tasks in current state.', insertText: 'context.TaskResponse' },
       { name: 'Transition', signature: '', returnType: 'Transition', description: 'Current state change information.', insertText: 'context.Transition' },
       { name: 'Workflow', signature: '', returnType: 'Workflow', description: 'Workflow blueprint and structure definition.', insertText: 'context.Workflow' },

@@ -288,7 +288,8 @@ export class QuickRunPanel {
   private postHealthTo(entry: PanelEntry, status: 'healthy' | 'unhealthy' | 'unknown'): void {
     if (!entry.webviewReady) return;
     const runtimeDomain = this.healthMonitor?.getRuntimeDomain() ?? undefined;
-    void entry.panel.webview.postMessage({ type: 'quickrun:health', status, runtimeDomain });
+    const runtimeVersion = this.healthMonitor?.getRuntimeVersion() ?? undefined;
+    void entry.panel.webview.postMessage({ type: 'quickrun:health', status, runtimeDomain, runtimeVersion });
   }
 
   private async sendContextWithPolling(entry: PanelEntry, ctx: QuickRunContext): Promise<void> {

@@ -72,6 +72,7 @@ export const RECOGNIZED_VNEXT_KEYWORDS = new Set<string>([
   'x-sortable',
   'x-displayFormat',
   'x-indexed',
+  'x-masking',
   'x-encryption',
   'x-validation',
   'x-context-source',

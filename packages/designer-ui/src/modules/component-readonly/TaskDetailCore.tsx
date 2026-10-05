@@ -35,6 +35,7 @@ const READONLY_TASK_FORM_MAP: Record<string, ComponentType<TaskFormProps>> = {
   '3': DaprServiceTaskForm,
   '4': DaprPubSubTaskForm,
   '6': HttpTaskForm,
+  '22': HttpTaskForm,
   '7': ScriptTaskForm,
   '10': NotificationTaskForm,
   '16': SoapTaskForm,

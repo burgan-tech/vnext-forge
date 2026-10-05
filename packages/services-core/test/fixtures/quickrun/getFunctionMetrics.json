@@ -1,0 +1,32 @@
+{
+  "params": {
+    "domain": "core",
+    "functionKey": "credit-score",
+    "workflowKey": "account-opening",
+    "page": 1,
+    "pageSize": 20
+  },
+  "result": {
+    "items": [
+      {
+        "executionId": "0a1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d",
+        "functionVersion": "1.0.0",
+        "invokedAt": "2026-10-01T10:00:00Z",
+        "durationMs": 42.5,
+        "scope": "I",
+        "workflow": "account-opening",
+        "instanceId": "b9846b60-0b07-447b-8377-9e2b9ac3d470",
+        "succeeded": true,
+        "status": "completed",
+        "statusCode": 200,
+        "error": null,
+        "fromCache": false,
+        "traceId": "4f5c8cc95f9f65cb2de3fbdf4b067abc",
+        "invokedBy": "alice",
+        "invokedByBehalfOf": null
+      }
+    ],
+    "summary": { "count": 1, "p50Ms": 42.5, "p95Ms": 42.5, "failureRate": 0 },
+    "hasNext": false
+  }
+}

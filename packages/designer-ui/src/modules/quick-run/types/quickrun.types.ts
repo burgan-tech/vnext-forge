@@ -1,9 +1,17 @@
 import type { ViewDisplayModes } from '@vnext-forge-studio/vnext-types';
 
+/**
+ * Display labels read from the local workflow file — the fallback for
+ * runtimes that send no labels (≤ 0.0.98) and for keys the runtime leaves
+ * unlabelled.
+ */
 export interface FlowLabelsMap {
   workflowLabel: string | null;
   states: Record<string, string>;
+  /** By transition key alone; the last declaration wins on a clash. */
   transitions: Record<string, string>;
+  /** By `<state>/<transition>` — disambiguates a key reused across states. */
+  stateTransitions?: Record<string, string>;
 }
 
 /** A Active, B Busy, C Completed, F Faulted, P Passive. */
@@ -19,17 +27,43 @@ export interface IncidentLinks {
   history?: { href: string };
 }
 
+/** `[{ language, label }]` as authored in the definition; every language is sent. */
+export interface RuntimeLabel {
+  language: string;
+  label: string;
+}
+
+/**
+ * Where a transition (or the armed timeout) leads, described with the same
+ * vocabulary as the current state (runtime 0.0.99). When the target state
+ * does not resolve only `key` (the raw authored key) is present.
+ */
+export interface TransitionTarget {
+  key: string;
+  stateType?: string;
+  stateSubType?: string;
+  labels?: RuntimeLabel[];
+  /** Present only when the target is a subFlow state: the flow it starts. */
+  subFlow?: string;
+}
+
 /** State-function `timeout` block: the armed workflow timeout of the polled instance. */
 export interface StateTimeout {
   key: string;
-  target: string;
+  /** A plain state key up to runtime 0.0.98, a {@link TransitionTarget} from 0.0.99. */
+  target: string | TransitionTarget;
   executeAtUtc: string;
   annotations?: Record<string, string> | null;
 }
 
 /**
- * State-function `interaction` block. Present only while the runtime is paused
- * waiting for an acknowledge (`longPoll.terminate: true`).
+ * State-function `interaction` block.
+ *
+ * - `terminateLongPoll: true` — present only while the runtime is paused
+ *   waiting for an acknowledge; carries `ack.href`.
+ * - `terminateLongPoll: false` — present whenever the instance is in the
+ *   declaring state (runtime 0.0.98+): no ack, the client keeps polling for
+ *   `fallbackTimeoutSeconds` instead of its own default.
  */
 export interface InteractionSignal {
   terminateLongPoll?: boolean;
@@ -79,6 +113,10 @@ export interface TransitionInfo {
   kind?: TransitionKind;
   /** Scheduled entries only: when the engine will fire it. Not callable by clients. */
   executeAtUtc?: string;
+  /** Transition display labels (runtime 0.0.99). Absent → fall back to the local definition. */
+  labels?: RuntimeLabel[];
+  /** Target state description (runtime 0.0.99). */
+  target?: TransitionTarget;
 }
 
 /** R21: known transition kinds — see Workflow engine state model. */
@@ -142,6 +180,13 @@ export interface StateResponse {
   status: InstanceStatus;
   /** R21: optional engine-declared classification of the current state. */
   stateType?: string;
+  /**
+   * Sub type of the displayed state, camelCase (`none`, `human`, `busy`, …).
+   * Describes the active subflow's state while one runs. Runtime 0.0.99.
+   */
+  stateSubType?: string;
+  /** Display labels of the displayed state (runtime 0.0.99). */
+  stateLabels?: RuntimeLabel[];
   transitions?: TransitionInfo[];
   sharedTransitions?: TransitionInfo[];
   activeCorrelations?: CorrelationInfo[];
@@ -189,6 +234,8 @@ export interface StateResponse {
 
 export interface ViewResponse {
   key: string;
+  /** The view component's labels (runtime 0.0.99); the old `label` string stays. */
+  labels?: RuntimeLabel[];
   content: string | Record<string, unknown>;
   type: string;
   /**
@@ -246,6 +293,8 @@ export interface FunctionCatalogEntry {
   scope: string;
   /** The engine's link to this function's `/info`. Displayed only. */
   href: string;
+  /** The function component's `attributes.labels` (runtime 0.0.99). */
+  labels?: RuntimeLabel[];
 }
 
 export interface FunctionCatalogResponse {
@@ -381,6 +430,10 @@ export interface TaskHistoryItem {
   durationMs?: number | null;
   /** Fault reason on a faulted row; never a stack trace. */
   error?: string | null;
+  /** Runtime 0.0.99: onExecute | onEntry | onExit; null on pre-migration rows. */
+  hook?: string | null;
+  /** Runtime 0.0.99: equal order ⇒ parallel group. */
+  order?: number | null;
 }
 
 export interface TaskHistoryResponse {
@@ -416,4 +469,99 @@ export type AuthorizeTarget =
 export interface AuthorizeResult {
   allowed: boolean;
   status: number;
+}
+
+/**
+ * One node of an instance's correlation tree (`quickrun/getCorrelationTree`).
+ * Runtime 0.0.99 `functions/instance-correlation`; on older runtimes the
+ * service reads `functions/hierarchy` and fills `resolved` / `ownState`.
+ */
+export interface CorrelationTreeNode {
+  id: string;
+  key?: string | null;
+  flow: string;
+  domain: string;
+  flowVersion?: string | null;
+  /** Deepest active state below this node (descends through running subflows). */
+  currentState?: string | null;
+  /** This instance's own state. */
+  ownState?: string | null;
+  status?: string | null;
+  /** `S` SubFlow, `P` SubProcess. Absent on the root. */
+  subFlowType?: string | null;
+  isCompleted?: boolean;
+  completedAt?: string | null;
+  /** completed | faulted | canceled */
+  terminalOutcome?: string | null;
+  parentState?: string | null;
+  correlationId?: string | null;
+  createdAt?: string | null;
+  stateChangedAt?: string | null;
+  href?: string | null;
+  /** False when the runtime could not descend into this node. */
+  resolved: boolean;
+  /** depth-exceeded | hop-failed | instance-missing */
+  unresolvedReason?: string | null;
+  children: CorrelationTreeNode[];
+}
+
+export interface CorrelationTreeResponse {
+  root: CorrelationTreeNode;
+  source: 'instance-correlation' | 'hierarchy';
+}
+
+/** One task under a metrics attempt (runtime 0.0.99). */
+export interface MetricsTask {
+  id: string;
+  taskKey: string;
+  /** onExecute | onEntry | onExit */
+  hook?: string | null;
+  order?: number | null;
+  status: string;
+  businessStatus?: string | null;
+  startedAt?: string | null;
+  durationMs?: number | null;
+  error?: string | null;
+}
+
+/** One firing (transition) or visit (state). */
+export interface MetricsAttempt {
+  seq: number;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+  /** Transition: execution time. State: dwell (null while still in it). */
+  durationMs?: number | null;
+  triggerType?: string | null;
+  triggeredBy?: string | null;
+  tasks: MetricsTask[];
+}
+
+export interface ElementMetricsResponse {
+  element: { kind: 'transition' | 'state'; key: string };
+  count: number;
+  attempts: MetricsAttempt[];
+}
+
+export interface FunctionMetricsItem {
+  executionId: string;
+  functionVersion?: string | null;
+  invokedAt: string;
+  durationMs?: number | null;
+  scope?: string | null;
+  workflow?: string | null;
+  instanceId?: string | null;
+  succeeded: boolean;
+  status?: string | null;
+  statusCode?: number | null;
+  error?: string | null;
+  fromCache?: boolean;
+  traceId?: string | null;
+  invokedBy?: string | null;
+  invokedByBehalfOf?: string | null;
+}
+
+export interface FunctionMetricsResponse {
+  items: FunctionMetricsItem[];
+  summary?: { count: number; p50Ms?: number | null; p95Ms?: number | null; failureRate?: number | null } | null;
+  hasNext: boolean;
 }

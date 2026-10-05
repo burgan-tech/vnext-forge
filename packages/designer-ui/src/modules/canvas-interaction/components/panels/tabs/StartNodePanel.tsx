@@ -23,6 +23,7 @@ import { TransitionMappingSection } from './transition/TransitionMappingSection'
 import { TransitionRolesSection } from './transition/TransitionRolesSection';
 import { TransitionExecutionTasksSection } from './transition/TransitionExecutionTasksSection';
 import { ChooseExistingTaskDialog } from './ChooseExistingTaskDialog';
+import { ExecutionTypeSelect } from './shared/ExecutionTypeSelect';
 
 export function StartNodePanel({ startTransition }: { startTransition: any }) {
   const { workflowJson, updateWorkflow } = useWorkflowStore();
@@ -138,6 +139,19 @@ export function StartNodePanel({ startTransition }: { startTransition: any }) {
         if (!tasks) return;
         const [item] = tasks.splice(fromIndex, 1);
         tasks.splice(toIndex, 0, item);
+      });
+    },
+    [updateWorkflow],
+  );
+
+  const updateTaskVariableKey = useCallback(
+    (taskIndex: number, variableKey: string | undefined) => {
+      updateWorkflow((draft: any) => {
+        const st = resolveStart(draft);
+        const task = st?.onExecutionTasks?.[taskIndex];
+        if (!task) return;
+        if (variableKey) task.variableKey = variableKey;
+        else delete task.variableKey;
       });
     },
     [updateWorkflow],
@@ -272,6 +286,14 @@ export function StartNodePanel({ startTransition }: { startTransition: any }) {
 
         <InfoRow label="Trigger" value={getTriggerLabel(startTransition.triggerType ?? 0)} />
 
+        <ExecutionTypeSelect
+          scope="transition"
+          featurePath="definitions.startTransition.executionType"
+          value={startTransition.executionType}
+          onChange={(v) => updateStartField('executionType', v)}
+          className="w-full px-3 py-2 text-xs border border-border rounded-xl bg-muted-surface text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary-border transition-all cursor-pointer"
+        />
+
         {/* Editable version strategy */}
         <div>
           <label className="text-muted-foreground mb-1 block text-[10px] font-semibold tracking-wide">
@@ -323,6 +345,7 @@ export function StartNodePanel({ startTransition }: { startTransition: any }) {
           onAddTask={addTask}
           onRemoveTask={removeTask}
           onMoveTask={moveTask}
+          onUpdateTaskVariableKey={updateTaskVariableKey}
           onUpdateMapping={updateTaskMapping}
           onRemoveMapping={removeTaskMapping}
           onUpdateMappingScripts={updateTaskMappingScripts}

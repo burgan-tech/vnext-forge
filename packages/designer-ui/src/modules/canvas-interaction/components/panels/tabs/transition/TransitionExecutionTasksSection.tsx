@@ -9,6 +9,8 @@ import { ChooseFromExistingTasksButton } from '../ChooseExistingTaskDialog';
 import { CreateNewTaskButton } from '../CreateNewTaskDialog';
 import { Section, IconTask, IconTrash, IconUp, IconDown } from '../PropertyPanelShared';
 import { TaskErrorBoundaryCollapsible } from '../shared/TaskErrorBoundaryCollapsible';
+import { TaskSlotIssues } from '../../../../../../modules/save-component/components/TaskSlotIssues';
+import { VariableKeyField } from '../../../../../../modules/save-component/components/VariableKeyField';
 
 interface TransitionExecutionTasksSectionProps {
   tasks: TaskExecution[];
@@ -18,6 +20,8 @@ interface TransitionExecutionTasksSectionProps {
   onRemoveTask: (taskIndex: number) => void;
   onMoveTask: (fromIndex: number, toIndex: number) => void;
   onUpdateTaskComment?: (taskIndex: number, comment: string | undefined) => void;
+  /** Omitted → the variableKey field is not offered. */
+  onUpdateTaskVariableKey?: (taskIndex: number, variableKey: string | undefined) => void;
   onUpdateMapping: (taskIndex: number, mapping: ScriptCode) => void;
   onRemoveMapping: (taskIndex: number) => void;
   onUpdateMappingScripts?: (taskIndex: number, scripts: ScriptsConfig | undefined) => void;
@@ -35,6 +39,7 @@ export function TransitionExecutionTasksSection({
   onRemoveTask,
   onMoveTask,
   onUpdateTaskComment,
+  onUpdateTaskVariableKey,
   onUpdateMapping,
   onRemoveMapping,
   onUpdateMappingScripts,
@@ -57,6 +62,7 @@ export function TransitionExecutionTasksSection({
         </div>
       ) : (
         <div className="space-y-2">
+          <TaskSlotIssues tasks={tasks} mode="workflow" />
           {tasks.map((entry, i) => (
             <ExecutionTaskCard
               key={i}
@@ -69,6 +75,7 @@ export function TransitionExecutionTasksSection({
               onMoveUp={() => onMoveTask(i, i - 1)}
               onMoveDown={() => onMoveTask(i, i + 1)}
               onUpdateComment={onUpdateTaskComment ? (c) => onUpdateTaskComment(i, c) : undefined}
+              onUpdateVariableKey={onUpdateTaskVariableKey ? (v) => onUpdateTaskVariableKey(i, v) : undefined}
               onUpdateMapping={(m) => onUpdateMapping(i, m)}
               onRemoveMapping={() => onRemoveMapping(i)}
               onUpdateMappingScripts={
@@ -120,6 +127,7 @@ function ExecutionTaskCard({
   onMoveUp,
   onMoveDown,
   onUpdateComment,
+  onUpdateVariableKey,
   onUpdateMapping,
   onRemoveMapping,
   onUpdateMappingScripts,
@@ -135,6 +143,7 @@ function ExecutionTaskCard({
   onMoveUp: () => void;
   onMoveDown: () => void;
   onUpdateComment?: (comment: string | undefined) => void;
+  onUpdateVariableKey?: (variableKey: string | undefined) => void;
   onUpdateMapping: (mapping: ScriptCode) => void;
   onRemoveMapping: () => void;
   onUpdateMappingScripts?: (scripts: ScriptsConfig | undefined) => void;
@@ -224,6 +233,15 @@ function ExecutionTaskCard({
             className="w-full px-2.5 py-1.5 text-xs font-mono border border-border rounded-lg bg-muted-surface text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary-border focus:bg-surface transition-all resize-y placeholder:text-subtle"
           />
         </div>
+      )}
+
+      {onUpdateVariableKey && (
+        <VariableKeyField
+          className="px-2.5 pb-2"
+          value={entry.variableKey}
+          taskKey={ref.key}
+          onChange={onUpdateVariableKey}
+        />
       )}
 
       <CsxEditorField

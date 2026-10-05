@@ -4,6 +4,7 @@ import { extractEtag } from '../etagFromResponse';
 import { quickRunHeadersFromState } from '../pseudo-ui/mergeQuickRunHeaders';
 import * as QuickRunApi from '../QuickRunApi';
 import { useQuickRunStore } from '../store/quickRunStore';
+import { useRuntimeSupports } from '../utils/runtimeFeatures';
 import {
   type ContextPanelTab,
   type HistoryTransition,
@@ -12,6 +13,7 @@ import {
 } from '../types/quickrun.types';
 import { CopyableJsonBlock } from './CopyableJsonBlock';
 import { CorrelationsTabContent } from './CorrelationsTab';
+import { ElementMetricsToggle, type ElementMetricsLoader } from './ElementMetrics';
 import { TasksTabContent } from './TasksTab';
 
 const TABS: { id: ContextPanelTab; label: string }[] = [
@@ -63,6 +65,39 @@ export function ContextPanel({ onOpenSubFlowTarget }: ContextPanelProps) {
   const activeTaskHistoryLoading = useQuickRunStore((s) => s.activeTaskHistoryLoading);
   const activeTaskHistoryError = useQuickRunStore((s) => s.activeTaskHistoryError);
   const stateEtag = activeState?.eTag;
+  const runtimeVersion = useQuickRunStore((s) => s.runtimeVersion);
+
+  // Transition / state attempts (runtime 0.0.99 only — older runtimes 404).
+  const metricsSupported = useRuntimeSupports('elementMetrics');
+  const loadElementMetrics = useMemo<ElementMetricsLoader | undefined>(() => {
+    if (metricsSupported !== true || !activeTabId || !domain || !workflowKey) return undefined;
+    return (kind, key) => {
+      const params = {
+        domain,
+        workflowKey,
+        instanceId: activeTabId,
+        key,
+        headers: quickRunHeadersFromState({ globalHeaders, sessionHeaders, toolWideHeaders }),
+        runtimeUrl: environmentUrl,
+      };
+      return kind === 'transition' ? QuickRunApi.getTransitionMetrics(params) : QuickRunApi.getStateMetrics(params);
+    };
+  }, [metricsSupported, activeTabId, domain, workflowKey, globalHeaders, sessionHeaders, toolWideHeaders, environmentUrl]);
+
+  // Whole correlation tree, on demand (runtime 0.0.99 instance-correlation,
+  // hierarchy on older runtimes — the host picks by version).
+  const loadCorrelationTree = useMemo(() => {
+    if (!activeTabId || !domain || !workflowKey) return undefined;
+    return () =>
+      QuickRunApi.getCorrelationTree({
+        domain,
+        workflowKey,
+        instanceId: activeTabId,
+        ...(runtimeVersion ? { runtimeVersion } : {}),
+        headers: quickRunHeadersFromState({ globalHeaders, sessionHeaders, toolWideHeaders }),
+        runtimeUrl: environmentUrl,
+      });
+  }, [activeTabId, domain, workflowKey, runtimeVersion, globalHeaders, sessionHeaders, toolWideHeaders, environmentUrl]);
 
   const loadData = useCallback(async () => {
     if (!activeTabId || !domain || !workflowKey) return;
@@ -218,16 +253,23 @@ export function ContextPanel({ onOpenSubFlowTarget }: ContextPanelProps) {
           <DataTabContent data={activeData} loading={activeDataLoading} />
         )}
         {contextPanelTab === 'history' && (
-          <HistoryTabContent history={activeHistory} loading={activeHistoryLoading} />
+          <HistoryTabContent
+            key={activeTabId ?? 'none'}
+            history={activeHistory}
+            loading={activeHistoryLoading}
+            {...(loadElementMetrics ? { loadMetrics: loadElementMetrics } : {})}
+          />
         )}
         {contextPanelTab === 'tasks' && (
           <TasksTabContent items={activeTaskHistory} loading={activeTaskHistoryLoading} error={activeTaskHistoryError} />
         )}
         {contextPanelTab === 'correlations' && (
           <CorrelationsTabContent
+            key={activeTabId ?? 'none'}
             activeCorrelations={activeState?.activeCorrelations}
             correlations={activeState?.correlations}
             {...(onOpenSubFlowTarget ? { onOpenSubFlowTarget } : {})}
+            {...(loadCorrelationTree ? { loadTree: loadCorrelationTree } : {})}
           />
         )}
         {contextPanelTab === 'raw' && (
@@ -367,7 +409,16 @@ function TriggerTypeBadge({ triggerType }: { triggerType: string }) {
   );
 }
 
-function HistoryTabContent({ history, loading }: { history: ReturnType<typeof useQuickRunStore.getState>['activeHistory']; loading: boolean }) {
+function HistoryTabContent({
+  history,
+  loading,
+  loadMetrics,
+}: {
+  history: ReturnType<typeof useQuickRunStore.getState>['activeHistory'];
+  loading: boolean;
+  /** Runtime 0.0.99 transition / state metrics; omitted on older runtimes. */
+  loadMetrics?: ElementMetricsLoader;
+}) {
   const [detailItem, setDetailItem] = useState<HistoryTransition | null>(null);
 
   if (loading) return <LoadingPlaceholder />;
@@ -405,6 +456,19 @@ function HistoryTabContent({ history, loading }: { history: ReturnType<typeof us
                 {new Date(t.startedAt).toLocaleTimeString()}
               </span>
             </div>
+            {loadMetrics && (
+              <div className="mt-1 flex flex-col gap-1">
+                <ElementMetricsToggle
+                  kind="transition"
+                  elementKey={t.transitionId}
+                  load={loadMetrics}
+                  label={`Attempts of ${t.transitionId}`}
+                />
+                {t.toState && (
+                  <ElementMetricsToggle kind="state" elementKey={t.toState} load={loadMetrics} label={`Visits of ${t.toState}`} />
+                )}
+              </div>
+            )}
           </div>
         ))}
       </div>

@@ -36,6 +36,7 @@ function resetStore() {
     pollingInstanceId: null,
     etags: {},
     interaction: INITIAL_INTERACTION,
+    keepPolling: null,
     stateView: null,
     lastStateResponse: null,
   });
@@ -153,5 +154,56 @@ describe('runPollLoop', () => {
     expect(await first).toBeNull();
     expect(useQuickRunStore.getState().activeState).toBe(afterSecond);
     expect(useQuickRunStore.getState().pollingInstanceId).toBe('i1');
+  });
+
+  describe('interaction terminate: false (keep polling)', () => {
+    const keep = (state: string, status: StateResponse['status']): StateResponse => ({
+      state,
+      status,
+      interaction: { terminateLongPoll: false, fallbackTimeoutSeconds: 120 },
+    });
+
+    it('does not stop on an Active instance while the window is open', async () => {
+      getState
+        .mockResolvedValueOnce(ok(keep('s1', 'A')))
+        .mockResolvedValueOnce(ok(keep('s1', 'A')))
+        .mockResolvedValueOnce(ok({ state: 's2', status: 'A' }));
+
+      const result = await runPollLoop(PARAMS, CONFIG);
+
+      expect(getState).toHaveBeenCalledTimes(3);
+      expect(result).toMatchObject({ state: 's2', status: 'A' });
+      const s = useQuickRunStore.getState();
+      expect(s.keepPolling).toBeNull();
+      expect(s.pollingInstanceId).toBeNull();
+      expect(s.activeStateLoading).toBe(false);
+    });
+
+    it('outlives retryCount until the window closes', async () => {
+      let now = 1_000_000;
+      const spy = vi.spyOn(Date, 'now').mockImplementation(() => now);
+      try {
+        getState.mockImplementation(async () => {
+          now += 50_000;
+          return ok(keep('s1', 'B'));
+        });
+
+        await runPollLoop(PARAMS, { retryCount: 1, intervalMs: 0 });
+
+        // Window opens on the first response (t0 + 50 s → deadline + 120 s):
+        // the loop keeps going past retryCount=1 until Date.now() passes it.
+        expect(getState.mock.calls.length).toBeGreaterThan(1);
+        expect(getState.mock.calls.length).toBeLessThanOrEqual(4);
+        expect(useQuickRunStore.getState().keepPolling).toBeNull();
+      } finally {
+        spy.mockRestore();
+      }
+    });
+
+    it('stops at once on a terminal status', async () => {
+      getState.mockResolvedValueOnce(ok(keep('s1', 'C')));
+      await runPollLoop(PARAMS, CONFIG);
+      expect(getState).toHaveBeenCalledTimes(1);
+    });
   });
 });

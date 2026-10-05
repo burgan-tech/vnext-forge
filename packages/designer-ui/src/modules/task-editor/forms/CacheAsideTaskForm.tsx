@@ -1,9 +1,12 @@
+import { useState } from 'react';
 import { Field } from '../../../ui/Field';
 import { Input } from '../../../ui/Input';
 import { Select } from '../../../ui/Select';
 import { Checkbox } from '../../../ui/Checkbox';
 import { DynamicExpressoField, type DynamicExpressoValue } from '../../../ui/DynamicExpressoField';
 import { CsxEditorField, type ScriptCode } from '../../save-component/components/CsxEditorField';
+import { Button } from '../../../ui/Button';
+import { cacheKeyMode, keyForMode, migrateKeyExpression, type CacheKeyMode } from './cacheAsideKey';
 
 interface Props {
   config: Record<string, unknown>;
@@ -13,6 +16,11 @@ interface Props {
 
 export function CacheAsideTaskForm({ config, onChange, taskKey }: Props) {
   const sourceTask = (config.sourceTask as Record<string, unknown> | undefined) ?? {};
+  const keyMode = cacheKeyMode(config.key);
+  const legacyKeyExpression = config.keyExpression != null;
+  // Choosing "C# script" leaves `key` empty until the editor seeds a
+  // template, so remember the choice locally to keep the editor shown.
+  const [scriptKeyPending, setScriptKeyPending] = useState(false);
   // Must match `deriveTaskStateKey`'s fallback exactly — `TaskEditorView`'s
   // script-panel persistence guard compares against that same derivation.
   const stateKey = taskKey || 'task';
@@ -25,15 +33,73 @@ export function CacheAsideTaskForm({ config, onChange, taskKey }: Props) {
 
   return (
     <div className="space-y-3">
-      <Field label="Cache Key" hint="Static key. Optional — may be derived by the key expression below.">
-        <Input
-          type="text"
-          value={String(config.key || '')}
-          onChange={(e) => onChange((d: any) => { d.key = e.target.value || undefined; })}
-          size="sm"
-          inputClassName="font-mono text-xs"
-        />
+      {legacyKeyExpression && (
+        <div role="alert" className="rounded-md border border-warning-border bg-warning-surface px-3 py-2 text-[11px] text-warning-text space-y-1">
+          <div className="font-semibold">keyExpression was removed in runtime 0.0.99</div>
+          <p>
+            vnext-schema 0.0.55 rejects it and the runtime ignores it. Move it into the cache key as a Dynamic Expresso
+            script — it replaces the static key, as it did at run time before.
+          </p>
+          <Button size="sm" variant="outline" onClick={() => onChange((d: any) => { migrateKeyExpression(d); })}>
+            Convert to key script
+          </Button>
+        </div>
+      )}
+
+      <Field
+        label="Cache Key"
+        hint="Optional when the task mapping sets it with SetCacheKey.">
+        <Select
+          value={scriptKeyPending ? 'script' : keyMode}
+          onChange={(e) => {
+            const mode = e.target.value as CacheKeyMode;
+            setScriptKeyPending(mode === 'script' && keyMode !== 'script');
+            onChange((d: any) => { d.key = keyForMode(d.key, mode); });
+          }}
+          className="text-xs"
+          aria-label="Cache key kind">
+          <option value="none">Set by the task mapping (SetCacheKey)</option>
+          <option value="static">Static text</option>
+          <option value="expression">Dynamic Expresso expression</option>
+          <option value="script">C# script (ICacheKeyMapping)</option>
+        </Select>
       </Field>
+      {keyMode === 'static' && (
+        <Field label="Key">
+          <Input
+            type="text"
+            value={String(config.key ?? '')}
+            onChange={(e) => onChange((d: any) => { d.key = e.target.value; })}
+            size="sm"
+            inputClassName="font-mono text-xs"
+            aria-label="Static cache key"
+          />
+        </Field>
+      )}
+      {keyMode === 'expression' && (
+        <DynamicExpressoField
+          label="Key expression"
+          hint="Its string result is the cache key."
+          value={config.key as DynamicExpressoValue | undefined}
+          onChange={(next) =>
+            onChange((d: any) => { d.key = next ?? { location: 'dynamicExpresso', code: '', encoding: 'NAT' }; })
+          }
+        />
+      )}
+      {(keyMode === 'script' || scriptKeyPending) && (
+        <CsxEditorField
+          value={keyMode === 'script' ? (config.key as ScriptCode) : null}
+          onChange={(value) => { setScriptKeyPending(false); onChange((d: any) => { d.key = value; }); }}
+          onRemove={() => { setScriptKeyPending(false); onChange((d: any) => { d.key = undefined; }); }}
+          templateType="cacheKey"
+          contextName={`${stateKey}-cache-key`}
+          label="Key script"
+          stateKey={stateKey}
+          listField="attributes"
+          index={0}
+          scriptField="config.key"
+        />
+      )}
 
       <div className="grid grid-cols-2 gap-3">
         <Field label="Store Name" hint="Empty → runtime DAPR_STATE_STORE_NAME.">
@@ -75,6 +141,10 @@ export function CacheAsideTaskForm({ config, onChange, taskKey }: Props) {
 
       <div className="rounded-md border border-border p-3 space-y-2">
         <span className="text-xs font-semibold text-primary-text/75">Source Task</span>
+        <p className="text-[10px] text-muted-foreground">
+          Runs on a cache miss through its own executor (same routing as in onExecutionTasks). Must not be another
+          CacheAside task.
+        </p>
         <div className="grid grid-cols-2 gap-3">
           <Field label="Key" required>
             <Input
@@ -116,7 +186,9 @@ export function CacheAsideTaskForm({ config, onChange, taskKey }: Props) {
         </div>
       </div>
 
-      <Field label="Source Mapping" hint="Optional C# mapping applied to the raw source result before caching.">
+      <Field
+        label="Source Mapping"
+        hint="The source task's own IMapping: InputHandler before the call, OutputHandler after. Its output is what gets cached. Post-cache shaping belongs in the task-level mapping, which runs on hits and misses.">
         <CsxEditorField
           value={config.sourceMapping as ScriptCode | null | undefined}
           onChange={(value) => onChange((d: any) => { d.sourceMapping = value; })}
@@ -130,13 +202,6 @@ export function CacheAsideTaskForm({ config, onChange, taskKey }: Props) {
           scriptField="config.sourceMapping"
         />
       </Field>
-
-      <DynamicExpressoField
-        label="Key Expression"
-        hint="Optional Dynamic Expresso expression whose string result overrides the cache key."
-        value={config.keyExpression as DynamicExpressoValue | undefined}
-        onChange={(next) => onChange((d: any) => { d.keyExpression = next; })}
-      />
 
       <label className="flex items-center gap-2 text-xs">
         <Checkbox

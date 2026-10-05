@@ -21,6 +21,8 @@ import {
   type InteractionEvent,
   type InteractionPhase,
 } from '../hooks/interactionMachine';
+import type { KeepPollingWindow } from '../hooks/keepPollingWindow';
+import type { FlowExecutionTypes } from '../utils/executionMode';
 import type { PermissionCheckResult } from '../utils/permissionChecks';
 
 interface QuickRunState {
@@ -131,11 +133,24 @@ interface QuickRunState {
    * `hooks/interactionMachine.ts`. Reset with the instance-scoped caches.
    */
   interaction: InteractionPhase;
+  /**
+   * Open `terminate: false` keep-polling window of the instance the poll
+   * loop is driving — see `hooks/keepPollingWindow.ts`. Null otherwise.
+   */
+  keepPolling: KeepPollingWindow | null;
 
   runtimeHealth: 'healthy' | 'unhealthy' | 'unknown';
   runtimeDomain: string | null;
+  /**
+   * Version the runtime reports (`/health` body or `X-App-Version`), e.g.
+   * `0.0.99`. Null until probed — callers treat null as "unknown" and use
+   * shape detection / try-then-fallback rather than guessing.
+   */
+  runtimeVersion: string | null;
 
   flowLabels: FlowLabelsMap | null;
+  /** executionType values from the local workflow file (runtime 0.0.99). */
+  flowExecutionTypes: FlowExecutionTypes | null;
 
   /**
    * Last-seen ETag per quickrun function kind, scoped to the *active*
@@ -206,9 +221,12 @@ interface QuickRunState {
   setPollingInstanceId: (id: string | null) => void;
   setPollingConfig: (config: { retryCount: number; intervalMs: number }) => void;
   dispatchInteraction: (event: InteractionEvent) => void;
+  setKeepPolling: (window: KeepPollingWindow | null) => void;
   setRuntimeHealth: (health: 'healthy' | 'unhealthy' | 'unknown') => void;
   setRuntimeDomain: (domain: string | null) => void;
+  setRuntimeVersion: (version: string | null) => void;
   setFlowLabels: (labels: FlowLabelsMap | null) => void;
+  setFlowExecutionTypes: (types: FlowExecutionTypes | null) => void;
 
   setEtag: (fn: 'state' | 'data' | 'schema', etag: string | undefined) => void;
   resetEtags: () => void;
@@ -281,11 +299,14 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
   pollingInstanceId: null,
   pollingConfig: { retryCount: 15, intervalMs: 4000 },
   interaction: INITIAL_INTERACTION,
+  keepPolling: null,
 
   runtimeHealth: 'unknown',
   runtimeDomain: null,
+  runtimeVersion: null,
 
   flowLabels: null,
+  flowExecutionTypes: null,
 
   etags: {},
 
@@ -462,9 +483,12 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
   setPollingInstanceId: (pollingInstanceId) => set({ pollingInstanceId }),
   setPollingConfig: (pollingConfig) => set({ pollingConfig }),
   dispatchInteraction: (event) => set((state) => ({ interaction: interactionReducer(state.interaction, event) })),
+  setKeepPolling: (keepPolling) => set({ keepPolling }),
   setRuntimeHealth: (runtimeHealth) => set({ runtimeHealth }),
   setRuntimeDomain: (runtimeDomain) => set({ runtimeDomain }),
+  setRuntimeVersion: (runtimeVersion) => set({ runtimeVersion }),
   setFlowLabels: (flowLabels) => set({ flowLabels }),
+  setFlowExecutionTypes: (flowExecutionTypes) => set({ flowExecutionTypes }),
 
   setEtag: (fn, etag) => set((state) => ({ etags: { ...state.etags, [fn]: etag } })),
   resetEtags: () => set({ etags: {} }),
@@ -479,6 +503,7 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
       functionCatalogError: null,
       selectedFunctionName: null,
       interaction: INITIAL_INTERACTION,
+      keepPolling: null,
       permissionChecks: null,
       activeTaskHistory: null,
       activeTaskHistoryLoading: false,

@@ -1,10 +1,20 @@
 import { useCallback, useState, type ReactNode } from 'react';
 
 import { useWorkflowFileResolver } from '../../vnext-workspace/resolveWorkflowFileByKey';
-import type { CorrelationInfo, OpenSubFlowTarget } from '../types/quickrun.types';
+import type {
+  CorrelationInfo,
+  CorrelationTreeNode,
+  CorrelationTreeResponse,
+  OpenSubFlowTarget,
+} from '../types/quickrun.types';
 import { CopyIdButton } from './CopyIdButton';
+import { CorrelationTreeView } from './CorrelationTree';
 
-type CorrelationView = 'active' | 'all';
+type CorrelationView = 'active' | 'all' | 'tree';
+
+type TreeLoadResult =
+  | { success: true; data: CorrelationTreeResponse }
+  | { success: false; error: { message: string } };
 
 export interface CorrelationsTabContentProps {
   /** Open correlations — every engine version sends these. */
@@ -16,6 +26,11 @@ export interface CorrelationsTabContentProps {
   correlations: CorrelationInfo[] | undefined;
   /** Omitted by hosts that cannot navigate — the row actions are then hidden. */
   onOpenSubFlowTarget?: (target: OpenSubFlowTarget) => void;
+  /**
+   * Loads the whole correlation tree on demand. When set, a "Tree" view is
+   * offered; the host resets this component (React `key`) per instance.
+   */
+  loadTree?: () => Promise<TreeLoadResult>;
 }
 
 /**
@@ -29,26 +44,48 @@ export function CorrelationsTabContent({
   activeCorrelations,
   correlations,
   onOpenSubFlowTarget,
+  loadTree,
 }: CorrelationsTabContentProps) {
   const [view, setView] = useState<CorrelationView>('active');
+  const [tree, setTree] = useState<CorrelationTreeResponse | null>(null);
+  const [treeLoading, setTreeLoading] = useState(false);
+  const [treeError, setTreeError] = useState<string | null>(null);
   const resolveWorkflowFile = useWorkflowFileResolver();
+
+  const refreshTree = useCallback(() => {
+    if (!loadTree) return;
+    setTreeLoading(true);
+    setTreeError(null);
+    void loadTree()
+      .then((res) => {
+        if (res.success) setTree(res.data);
+        else setTreeError(res.error.message);
+      })
+      .catch((err: unknown) => setTreeError(err instanceof Error ? err.message : String(err)))
+      .finally(() => setTreeLoading(false));
+  }, [loadTree]);
+
+  const showTree = () => {
+    setView('tree');
+    if (!tree && !treeLoading) refreshTree();
+  };
 
   const hasAll = (correlations?.length ?? 0) > 0;
   // The two arrays are kept as distinct sources rather than deriving "active"
   // from `correlations`: the engine decides what counts as active.
   const shown = hasAll && view === 'all' ? (correlations ?? []) : (activeCorrelations ?? []);
 
-  const openSubFlow = useCallback(
-    (correlation: CorrelationInfo, intent: OpenSubFlowTarget['intent']): void => {
+  const openFlow = useCallback(
+    (workflowKey: string, domain: string, intent: OpenSubFlowTarget['intent']): void => {
       if (!onOpenSubFlowTarget) return;
       // Unresolvable references (different domain, file missing) are reported
       // by the resolver as warning notifications.
-      void resolveWorkflowFile(correlation.subFlowName, correlation.subFlowDomain).then((resolved) => {
+      void resolveWorkflowFile(workflowKey, domain).then((resolved) => {
         if (!resolved) return;
         onOpenSubFlowTarget({
           intent,
-          domain: correlation.subFlowDomain,
-          workflowKey: correlation.subFlowName,
+          domain,
+          workflowKey,
           workflowFilePath: resolved.path,
           ...(resolved.route ? { route: resolved.route } : {}),
         });
@@ -57,20 +94,46 @@ export function CorrelationsTabContent({
     [onOpenSubFlowTarget, resolveWorkflowFile],
   );
 
+  const openSubFlow = useCallback(
+    (correlation: CorrelationInfo, intent: OpenSubFlowTarget['intent']): void =>
+      openFlow(correlation.subFlowName, correlation.subFlowDomain, intent),
+    [openFlow],
+  );
+
+  const openTreeNode = useCallback(
+    (node: CorrelationTreeNode, intent: OpenSubFlowTarget['intent']): void => openFlow(node.flow, node.domain, intent),
+    [openFlow],
+  );
+
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2">
-      {hasAll && (
+      {(hasAll || loadTree) && (
         <div className="flex items-center gap-1" role="group" aria-label="Correlation filter">
           <FilterButton selected={view === 'active'} onClick={() => setView('active')}>
             Active
           </FilterButton>
-          <FilterButton selected={view === 'all'} onClick={() => setView('all')}>
-            All ({correlations?.length ?? 0})
-          </FilterButton>
+          {hasAll && (
+            <FilterButton selected={view === 'all'} onClick={() => setView('all')}>
+              All ({correlations?.length ?? 0})
+            </FilterButton>
+          )}
+          {loadTree && (
+            <FilterButton selected={view === 'tree'} onClick={showTree}>
+              Tree
+            </FilterButton>
+          )}
         </div>
       )}
 
-      {shown.length === 0 ? (
+      {view === 'tree' ? (
+        <CorrelationTreeView
+          tree={tree}
+          loading={treeLoading}
+          error={treeError}
+          onRefresh={refreshTree}
+          {...(onOpenSubFlowTarget ? { onOpenNode: openTreeNode } : {})}
+        />
+      ) : shown.length === 0 ? (
         <div className="flex items-center justify-center py-8 text-xs text-[var(--vscode-descriptionForeground)]">
           {view === 'all' ? 'No correlations' : 'No active correlations'}
         </div>

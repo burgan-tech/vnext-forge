@@ -1,5 +1,6 @@
 import type { VnextWorkflow } from './Conversion';
 import { runtimeSyncFindings } from '../../workflow-validation/runtimeSyncRules';
+import { findInvalidVariableKeys, findTaskKeyCollisions } from '../../save-component/taskSlots';
 
 /**
  * Severity tier for a lint finding. Mirrors the editor-style
@@ -39,7 +40,15 @@ const STATE_TYPE_INITIAL = 1;
  * Performance: O(N + E) where N = number of states and E = total
  * transitions. Safe to call on every workflow change.
  */
-export function lintWorkflow(workflow: VnextWorkflow): LintFinding[] {
+export interface LintOptions {
+  /**
+   * vnext-schema 0.0.55 / runtime 0.0.99: an Initial state is optional (the
+   * implicit `$start` is the start transition's source). Default false.
+   */
+  initialStateOptional?: boolean;
+}
+
+export function lintWorkflow(workflow: VnextWorkflow, options: LintOptions = {}): LintFinding[] {
   const findings: LintFinding[] = [];
   const states = workflow.attributes?.states ?? [];
   if (states.length === 0) return findings;
@@ -47,9 +56,10 @@ export function lintWorkflow(workflow: VnextWorkflow): LintFinding[] {
   const stateByKey = new Map<string, (typeof states)[number]>();
   for (const s of states) stateByKey.set(s.key, s);
 
-  // ── Rule R-LINT-001: every workflow needs exactly one Initial state.
+  // ── Rule R-LINT-001: at most one Initial state; before runtime 0.0.99
+  //    exactly one.
   const initials = states.filter((s) => s.stateType === STATE_TYPE_INITIAL);
-  if (initials.length === 0) {
+  if (initials.length === 0 && !options.initialStateOptional) {
     findings.push({
       severity: 'error',
       rule: 'no-initial-state',
@@ -109,12 +119,19 @@ export function lintWorkflow(workflow: VnextWorkflow): LintFinding[] {
     }
   }
 
-  // ── Rule R-LINT-004: unreachable states (forward BFS from
-  //    Initial doesn't visit them). Skipped when there's no
-  //    Initial (R-LINT-001 already covers that gap).
-  if (initials.length === 1) {
-    const visited = new Set<string>([initials[0].key]);
-    const queue = [initials[0].key];
+  // ── Rule R-LINT-004: unreachable states (forward BFS from the entry
+  //    points doesn't visit them). Entry points are the Initial state and
+  //    the start transition's target — the only entry when no Initial is
+  //    declared (runtime 0.0.99's implicit `$start`). Skipped when the
+  //    entry is ambiguous or missing (R-LINT-001 covers that gap).
+  const startTarget = workflow.attributes?.startTransition?.target;
+  const roots = [
+    ...(initials.length === 1 ? [initials[0].key] : []),
+    ...(typeof startTarget === 'string' && stateByKey.has(startTarget) ? [startTarget] : []),
+  ];
+  if (initials.length <= 1 && roots.length > 0) {
+    const visited = new Set<string>(roots);
+    const queue = [...roots];
     while (queue.length > 0) {
       const cur = queue.shift()!;
       const s = stateByKey.get(cur);
@@ -133,7 +150,7 @@ export function lintWorkflow(workflow: VnextWorkflow): LintFinding[] {
         findings.push({
           severity: 'warning',
           rule: 'unreachable-state',
-          message: `State "${s.key}" is unreachable from the Initial state.`,
+          message: `State "${s.key}" is unreachable from the start of the workflow.`,
           stateKey: s.key,
         });
       }
@@ -154,6 +171,32 @@ export function lintWorkflow(workflow: VnextWorkflow): LintFinding[] {
         });
       }
       seen.add(t.key);
+    }
+  }
+
+  // ── Rule R-LINT-005b: task response slots (runtime 0.0.99). Entries of one
+  //    collection at the same order run in parallel and must not share a
+  //    slot (variableKey ?? camelCase(task.key)); variableKey must be valid.
+  for (const { tasks, where, stateKey, transitionKey } of taskCollections(workflow)) {
+    for (const c of findTaskKeyCollisions(tasks, 'workflow')) {
+      findings.push({
+        severity: 'error',
+        rule: 'task-slot-collision',
+        message: `${where}: tasks "${c.collidesWith}" and "${c.key}" both write "${c.variableName}"${
+          c.order !== undefined ? ` at order ${c.order}` : ''
+        }. Give one a distinct variableKey.`,
+        ...(stateKey ? { stateKey } : {}),
+        ...(transitionKey ? { transitionKey } : {}),
+      });
+    }
+    for (const v of findInvalidVariableKeys(tasks)) {
+      findings.push({
+        severity: 'error',
+        rule: 'invalid-variable-key',
+        message: `${where}: variableKey "${v.variableKey}" is invalid (${v.reason}).`,
+        ...(stateKey ? { stateKey } : {}),
+        ...(transitionKey ? { transitionKey } : {}),
+      });
     }
   }
 
@@ -333,4 +376,42 @@ export function suggestTransitionName(
 
   // Dedupe while preserving order.
   return Array.from(new Set(out)).slice(0, 4);
+}
+
+interface TaskCollection {
+  tasks: unknown[];
+  where: string;
+  stateKey?: string;
+  transitionKey?: string;
+}
+
+/** Every task-entry collection of a workflow, with a human-readable location. */
+function taskCollections(workflow: VnextWorkflow): TaskCollection[] {
+  const attrs = (workflow.attributes ?? {}) as Record<string, unknown>;
+  const out: TaskCollection[] = [];
+  const list = (v: unknown) => (Array.isArray(v) ? v : []);
+  const transitionTasks = (t: unknown, where: string, stateKey?: string) => {
+    const tr = t as { key?: string; onExecutionTasks?: unknown } | null | undefined;
+    if (!tr) return;
+    const tasks = list(tr.onExecutionTasks);
+    if (tasks.length > 0) out.push({ tasks, where, ...(stateKey ? { stateKey } : {}), ...(tr.key ? { transitionKey: tr.key } : {}) });
+  };
+
+  transitionTasks(attrs.startTransition, 'Start transition');
+  for (const t of list(attrs.sharedTransitions)) {
+    transitionTasks(t, `Shared transition "${(t as { key?: string }).key ?? ''}"`);
+  }
+  for (const name of ['cancel', 'exit', 'updateData'] as const) {
+    transitionTasks(attrs[name], `${name} transition`);
+  }
+  for (const state of list(attrs.states) as Array<Record<string, unknown> & { key: string }>) {
+    for (const hook of ['onEntries', 'onExits'] as const) {
+      const tasks = list(state[hook]);
+      if (tasks.length > 0) out.push({ tasks, where: `State "${state.key}" ${hook}`, stateKey: state.key });
+    }
+    for (const t of list(state.transitions)) {
+      transitionTasks(t, `Transition "${(t as { key?: string }).key ?? ''}" of "${state.key}"`, state.key);
+    }
+  }
+  return out;
 }

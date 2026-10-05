@@ -6,6 +6,11 @@ import { FunctionContractSection } from './FunctionContractSection';
 import { FunctionMetadataForm } from './FunctionMetadataForm';
 import { FunctionRolesSection } from './FunctionRolesSection';
 import { FunctionTaskModeSection } from './FunctionTaskModeSection';
+import { Field } from '../../../ui/Field';
+import { Select } from '../../../ui/Select';
+import { LabelEditor } from '../../save-component/components/LabelEditor';
+import { SchemaFeatureHint } from '../../role-grants/SchemaFeatureHint';
+import { useSchemaFeature } from '../../role-grants/useSchemaFeature';
 
 interface FunctionEditorPanelProps {
   json: Record<string, unknown>;
@@ -13,7 +18,17 @@ interface FunctionEditorPanelProps {
   onBeforeOpenModal?: () => void;
 }
 
+/** Sets (or, for `undefined`, removes) one `attributes` field. */
+function setAttribute(draft: Record<string, unknown>, field: string, value: unknown): void {
+  const attrs = (draft.attributes ?? {}) as Record<string, unknown>;
+  if (value === undefined) delete attrs[field];
+  else attrs[field] = value;
+  draft.attributes = attrs;
+}
+
 export function FunctionEditorPanel({ json, onChange, onBeforeOpenModal }: FunctionEditorPanelProps) {
+  const attrs = (json.attributes ?? {}) as Record<string, unknown>;
+  const executionLog = useSchemaFeature('function', 'attributes.executionLog');
   return (
     <div className="space-y-4 p-4">
       <ComponentValidationSummary />
@@ -29,6 +44,14 @@ export function FunctionEditorPanel({ json, onChange, onBeforeOpenModal }: Funct
               value={String(json._comment || '')}
               onChange={(value) => onChange((d) => { d._comment = value || undefined; })}
             />
+          </div>
+          <div className="mt-3">
+            <Field label="Labels" hint="Display names; the runtime returns them on the function catalog (0.0.99).">
+              <LabelEditor
+                labels={(attrs.labels as { language: string; label: string }[] | undefined) ?? []}
+                onChange={(labels) => onChange((d) => setAttribute(d, 'labels', labels.length > 0 ? labels : undefined))}
+              />
+            </Field>
           </div>
         </CardContent>
       </Card>
@@ -58,6 +81,33 @@ export function FunctionEditorPanel({ json, onChange, onBeforeOpenModal }: Funct
       <FunctionRolesSection json={json} onChange={onChange} />
 
       <FunctionCacheSection json={json} onChange={onChange} />
+
+      <Card variant="default" className="gap-3">
+        <CardHeader className="border-border border-b">
+          <CardTitle className="text-base">Execution log</CardTitle>
+          <CardDescription className="text-xs">
+            Runtime 0.0.99 records each invocation in the function execution journal (latency, outcome, caller) when
+            enabled; Quick Run shows it under the function's execution metrics.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="px-4 sm:px-6">
+          <Field label="executionLog">
+            <Select
+              value={typeof attrs.executionLog === 'string' ? attrs.executionLog : ''}
+              onChange={(e) => onChange((d) => setAttribute(d, 'executionLog', e.target.value || undefined))}
+              className="text-xs"
+              disabled={!executionLog.supported && attrs.executionLog === undefined}
+              aria-label="Execution log">
+              <option value="">Off (default)</option>
+              <option value="E">E — record every invocation</option>
+              <option value="D">D — do not record</option>
+            </Select>
+          </Field>
+          {!executionLog.supported && (
+            <SchemaFeatureHint feature="executionLog" schemaVersion={executionLog.schemaVersion} />
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -31,11 +31,16 @@ export const TASK_TYPE_MAP: Record<string, CsxTaskType> = {
   '13': 'GetInstanceDataTask',
   '14': 'SubProcessTask',
   '15': 'GetInstancesTask',
+  // External HTTP (runtime type 22) is an HttpTask in scripts.
+  '22': 'HttpTask',
 };
 
 /** Reverse map: name → type number */
 export const TASK_NAME_TO_TYPE: Record<CsxTaskType, string> = Object.fromEntries(
-  Object.entries(TASK_TYPE_MAP).map(([k, v]) => [v, k])
+  // First type wins, so HttpTask maps back to '6' rather than '22'.
+  Object.entries(TASK_TYPE_MAP)
+    .reverse()
+    .map(([k, v]) => [v, k]),
 ) as Record<CsxTaskType, string>;
 
 /** Human-readable labels */

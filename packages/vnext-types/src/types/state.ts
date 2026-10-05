@@ -24,7 +24,23 @@ export interface TaskExecution {
   task: ResourceReference;
   mapping?: MappingCode;
   errorBoundary?: ErrorBoundary;
+  /**
+   * Response slot the task's output is written to. Defaults to the task key
+   * in camelCase (`send-notification` → `sendNotification`). Needed when one
+   * task runs twice at the same `order`. Pattern `^[A-Za-z_][A-Za-z0-9_]*$`,
+   * max 100 chars. Runtime 0.0.99 / vnext-schema 0.0.55.
+   */
+  variableKey?: string;
+  _comment?: string;
 }
+
+/**
+ * Per-transition / per-flow execution mode. `S` blocks and returns the full
+ * instance, `A` is accepted and runs in the background. Overrides the
+ * caller's `?sync=` query parameter; a transition's value wins over the
+ * flow's. Ignored for automatic transitions. Runtime 0.0.99.
+ */
+export type ExecutionType = 'S' | 'A';
 
 export interface Transition {
   key: string;
@@ -53,6 +69,7 @@ export interface Transition {
    * exit, or updateData transitions.
    */
   resourceLock?: ResourceLock;
+  executionType?: ExecutionType;
 }
 
 export interface SharedTransition extends Transition {

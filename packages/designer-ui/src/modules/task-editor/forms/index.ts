@@ -42,4 +42,6 @@ export const taskFormMap: Record<string, ComponentType<TaskFormProps>> = {
   '19': GetInstanceTaskForm,
   '20': DaprConversationTaskForm,
   '21': FanOutTaskForm,
+  // External HTTP shares the type-6 config contract (in-process, no Dapr sidecar).
+  '22': HttpTaskForm,
 };

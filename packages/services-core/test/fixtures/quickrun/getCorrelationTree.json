@@ -1,0 +1,48 @@
+{
+  "params": {
+    "domain": "core",
+    "workflowKey": "parent",
+    "instanceId": "b9846b60-0b07-447b-8377-9e2b9ac3d470",
+    "runtimeVersion": "0.0.99"
+  },
+  "result": {
+    "source": "instance-correlation",
+    "root": {
+      "id": "b9846b60-0b07-447b-8377-9e2b9ac3d470",
+      "key": "order-4711",
+      "flow": "parent",
+      "domain": "core",
+      "flowVersion": "1.0.0",
+      "currentState": "s1",
+      "ownState": "s1",
+      "status": "B",
+      "isCompleted": false,
+      "href": "/api/v1/core/workflows/parent/instances/b9846b60-0b07-447b-8377-9e2b9ac3d470",
+      "resolved": true,
+      "children": [
+        {
+          "id": "1f0c2d3e-4a5b-4c6d-8e7f-9a0b1c2d3e4f",
+          "key": "child-1",
+          "flow": "child",
+          "domain": "core",
+          "flowVersion": "1.0.0",
+          "currentState": "grandchild-initial",
+          "ownState": "child-subflow-state",
+          "status": "B",
+          "subFlowType": "S",
+          "isCompleted": false,
+          "completedAt": null,
+          "terminalOutcome": null,
+          "parentState": "s1",
+          "correlationId": "7a8b9c0d-1e2f-4a3b-8c4d-5e6f7a8b9c0d",
+          "createdAt": "2026-10-01T10:00:00Z",
+          "stateChangedAt": "2026-10-01T10:00:02Z",
+          "href": "/api/v1/core/workflows/child/instances/1f0c2d3e-4a5b-4c6d-8e7f-9a0b1c2d3e4f",
+          "resolved": false,
+          "unresolvedReason": "hop-failed",
+          "children": []
+        }
+      ]
+    }
+  }
+}
