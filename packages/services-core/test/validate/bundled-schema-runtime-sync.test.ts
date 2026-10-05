@@ -34,7 +34,6 @@ const schemaSchema = () => installed.getSchema('schema')!
 
 describe('bundled vnext-schema — workflow definition', () => {
   it('is 0.0.55 or newer', () => {
-    // A local pre-release pin (`0.0.55-local.N`) counts as its core version.
     const [major, minor, patch] = installedVersion.split('-')[0].split('.').map(Number)
     expect(major * 1e6 + minor * 1e3 + patch).toBeGreaterThanOrEqual(55)
   })
