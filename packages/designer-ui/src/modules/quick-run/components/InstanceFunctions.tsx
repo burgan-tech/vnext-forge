@@ -20,6 +20,7 @@
  */
 
 import type { FunctionCatalogEntry } from '../types/quickrun.types';
+import { FunctionMetricsToggle, type FunctionMetricsLoader } from './FunctionMetrics';
 import { pickLabel } from '../utils/extractLabelsMap';
 
 export interface InstanceFunctionsProps {
@@ -34,6 +35,8 @@ export interface InstanceFunctionsProps {
    * which case the catalog is still listed but Open is not offered.
    */
   onOpen?: (entry: FunctionCatalogEntry) => void;
+  /** Runtime 0.0.99 execution journal of the selected function; omitted on older runtimes. */
+  loadMetrics?: FunctionMetricsLoader;
 }
 
 /** Native `<select>` styling used across quick-run (see `InstanceFilterPanel`). */
@@ -47,6 +50,7 @@ export function InstanceFunctions({
   selected,
   onSelect,
   onOpen,
+  loadMetrics,
 }: InstanceFunctionsProps) {
   const selectedEntry = entries?.find((e) => e.name === selected) ?? null;
 
@@ -88,6 +92,9 @@ export function InstanceFunctions({
             </button>
           ) : null}
         </div>
+      )}
+      {loadMetrics && selectedEntry && (
+        <FunctionMetricsToggle key={selectedEntry.name} functionKey={selectedEntry.name} load={loadMetrics} />
       )}
     </section>
   );

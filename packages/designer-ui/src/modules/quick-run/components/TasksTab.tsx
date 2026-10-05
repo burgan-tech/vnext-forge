@@ -53,7 +53,17 @@ export function TasksTabContent({
               return (
                 <li key={task.id} className="flex flex-col gap-0.5 text-[11px]">
                   <div className="flex flex-wrap items-center gap-1">
+                    {task.order != null && (
+                      <span className="text-[10px] text-[var(--vscode-descriptionForeground)]" title="Order — equal order runs in parallel">
+                        #{task.order}
+                      </span>
+                    )}
                     <span className="font-mono">{task.taskKey}</span>
+                    {task.hook && (
+                      <span className="rounded border border-[var(--vscode-panel-border)] px-1 text-[9px]" title="Hook">
+                        {task.hook}
+                      </span>
+                    )}
                     <StatusChip value={task.status} label="Platform status" />
                     <StatusChip value={task.businessStatus} label="Business status" />
                     {duration && <span className="ml-auto text-[10px] text-[var(--vscode-descriptionForeground)]">{duration}</span>}

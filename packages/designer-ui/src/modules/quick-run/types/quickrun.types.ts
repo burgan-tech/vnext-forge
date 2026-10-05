@@ -430,6 +430,10 @@ export interface TaskHistoryItem {
   durationMs?: number | null;
   /** Fault reason on a faulted row; never a stack trace. */
   error?: string | null;
+  /** Runtime 0.0.99: onExecute | onEntry | onExit; null on pre-migration rows. */
+  hook?: string | null;
+  /** Runtime 0.0.99: equal order ⇒ parallel group. */
+  order?: number | null;
 }
 
 export interface TaskHistoryResponse {

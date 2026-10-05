@@ -8,6 +8,7 @@ import { normalizeIncident } from '../utils/incident';
 import { displayStatus, instanceTypeLabel } from '../utils/instanceStatus';
 import { currentRoleFromHeaders } from '../utils/currentRole';
 import { stateDisplayLabel } from '../utils/displayLabels';
+import { useRuntimeSupports } from '../utils/runtimeFeatures';
 import {
   checkableTransitionKeys,
   isCacheablePermissionBatch,
@@ -49,6 +50,7 @@ import {
 import { InstanceFunctions } from './InstanceFunctions';
 import { InteractionBanner } from './InteractionBanner';
 import { KeepPollingBanner } from './KeepPollingBanner';
+import type { FunctionMetricsLoader } from './FunctionMetrics';
 import { ProgressStepper } from './ProgressStepper';
 import { RuntimeErrorBanner } from './RuntimeErrorBanner';
 import { StateTimeoutChip } from './StateTimeoutChip';
@@ -205,6 +207,24 @@ export function InstanceDashboard({ configRef, persistConfig, onOpenFunctionRun 
     [activeTabId, domain, workflowKey, liveHeaders, environmentUrl],
   );
   const liveIncident = normalizeIncident(activeState?.incident);
+
+  // Runtime 0.0.99 function execution journal. Domain-scoped functions read
+  // the domain endpoint, the rest the flow-scoped sibling.
+  const functionMetricsSupported = useRuntimeSupports('functionMetrics');
+  const loadFunctionMetrics = useMemo<FunctionMetricsLoader | undefined>(() => {
+    if (functionMetricsSupported !== true || !domain || !workflowKey) return undefined;
+    return (functionKey) => {
+      const scope = functionCatalog?.find((f) => f.name === functionKey)?.scope;
+      return QuickRunApi.getFunctionMetrics({
+        domain,
+        functionKey,
+        ...(scope === 'D' ? {} : { workflowKey }),
+        pageSize: 20,
+        headers: liveHeaders(),
+        runtimeUrl: environmentUrl,
+      });
+    };
+  }, [functionMetricsSupported, domain, workflowKey, functionCatalog, liveHeaders, environmentUrl]);
 
   const permissionChecksEnabled = useQuickRunStore((s) => s.permissionChecksEnabled);
   const permissionChecks = useQuickRunStore((s) => s.permissionChecks);
@@ -675,6 +695,7 @@ export function InstanceDashboard({ configRef, persistConfig, onOpenFunctionRun 
           error={functionCatalogError}
           selected={selectedFunctionName}
           onSelect={setSelectedFunctionName}
+          {...(loadFunctionMetrics ? { loadMetrics: loadFunctionMetrics } : {})}
           onOpen={
             onOpenFunctionRun && activeTabId
               ? (entry) =>
