@@ -39,7 +39,15 @@ import {
   quickrunAuthorizeResult,
   quickrunGetHumanTasksParams,
   quickrunGetHumanTasksResult,
+  quickrunGetCorrelationTreeParams,
+  quickrunGetCorrelationTreeResult,
+  quickrunGetElementMetricsParams,
+  quickrunGetElementMetricsResult,
+  quickrunGetFunctionMetricsParams,
+  quickrunGetFunctionMetricsResult,
+  type CorrelationTreeNode,
 } from './quickrun-schemas.js'
+import { compareCoreSemver, extractCoreSemver } from '../cli/semver.js'
 
 type ProxyRequest = {
   method: string
@@ -125,6 +133,31 @@ function headerValue(headers: Record<string, string> | undefined, name: string):
 
 function instancePath(domain: string, workflowKey: string, instanceId: string): string {
   return `${buildBasePath(domain, workflowKey)}/instances/${encodeURIComponent(instanceId)}`
+}
+
+/** First runtime with `functions/instance-correlation` (it replaced `functions/hierarchy`). */
+const CORRELATION_TREE_MIN_RUNTIME = '0.0.99'
+
+/** `undefined` when the version is unknown, so the caller tries the new path and falls back on 404. */
+function runtimeSupportsCorrelationTree(version: string | undefined): boolean | undefined {
+  const core = version ? extractCoreSemver(version) : null
+  if (!core) return undefined
+  return compareCoreSemver(core, CORRELATION_TREE_MIN_RUNTIME) >= 0
+}
+
+/** Fills the fields the ≤ 0.0.98 `hierarchy` node lacks so both shapes read alike. */
+export function normalizeCorrelationNode(raw: Record<string, unknown>): CorrelationTreeNode {
+  const children = Array.isArray(raw.children) ? (raw.children as Record<string, unknown>[]) : []
+  const str = (v: unknown) => (typeof v === 'string' ? v : null)
+  return {
+    ...(raw as Partial<CorrelationTreeNode>),
+    id: String(raw.id ?? ''),
+    flow: String(raw.flow ?? ''),
+    domain: String(raw.domain ?? ''),
+    ownState: str(raw.ownState) ?? str(raw.currentState),
+    resolved: typeof raw.resolved === 'boolean' ? raw.resolved : true,
+    children: children.map(normalizeCorrelationNode),
+  }
 }
 
 export function createQuickRunService(runtimeProxyService: RuntimeProxyService) {
@@ -688,7 +721,119 @@ export function createQuickRunService(runtimeProxyService: RuntimeProxyService) 
     } as z.infer<typeof quickrunGetHumanTasksResult>
   }
 
+  /**
+   * Correlation tree of one instance. See `quickrunGetCorrelationTreeParams`
+   * for the endpoint choice; the old `hierarchy` shape is normalized so the
+   * caller renders one tree grammar.
+   */
+  async function getCorrelationTree(
+    params: z.infer<typeof quickrunGetCorrelationTreeParams>,
+    traceId?: string,
+  ): Promise<z.infer<typeof quickrunGetCorrelationTreeResult>> {
+    const fetchTree = (fn: 'instance-correlation' | 'hierarchy') =>
+      proxyCall(
+        {
+          method: 'GET',
+          runtimePath: `${instancePath(params.domain, params.workflowKey, params.instanceId)}/functions/${fn}`,
+          headers: params.headers,
+          runtimeUrl: params.runtimeUrl,
+        },
+        traceId,
+      )
+
+    const supportsTree = runtimeSupportsCorrelationTree(params.runtimeVersion)
+    let source: 'instance-correlation' | 'hierarchy' = supportsTree === false ? 'hierarchy' : 'instance-correlation'
+    let result = await fetchTree(source)
+    if (result.status === 404 && supportsTree === undefined) {
+      source = 'hierarchy'
+      result = await fetchTree(source)
+    }
+    const parsed = parseJsonResponse<Record<string, unknown>>(
+      result.data, result.status, 'QuickRunService.getCorrelationTree', traceId,
+    )
+    const root = parsed.root
+    if (!root || typeof root !== 'object') {
+      throw new VnextForgeError(
+        ERROR_CODES.RUNTIME_INVALID_RESPONSE,
+        'Correlation response has no "root" node',
+        { source: 'QuickRunService.getCorrelationTree', layer: 'infrastructure', details: { rawData: result.data.slice(0, 200) } },
+        traceId,
+      )
+    }
+    return { root: normalizeCorrelationNode(root as Record<string, unknown>), source }
+  }
+
+  async function getElementMetrics(
+    kind: 'transitions' | 'states',
+    params: z.infer<typeof quickrunGetElementMetricsParams>,
+    traceId?: string,
+  ): Promise<z.infer<typeof quickrunGetElementMetricsResult>> {
+    const source = kind === 'transitions' ? 'QuickRunService.getTransitionMetrics' : 'QuickRunService.getStateMetrics'
+    const result = await proxyCall(
+      {
+        method: 'GET',
+        runtimePath: `${instancePath(params.domain, params.workflowKey, params.instanceId)}/${kind}/${encodeURIComponent(params.key)}/metrics`,
+        headers: params.headers,
+        runtimeUrl: params.runtimeUrl,
+      },
+      traceId,
+    )
+    const parsed = parseJsonResponse<Record<string, unknown>>(result.data, result.status, source, traceId)
+    const attempts = Array.isArray(parsed.attempts) ? parsed.attempts : []
+    return {
+      element: (parsed.element as { kind: 'transition' | 'state'; key: string } | undefined) ?? {
+        kind: kind === 'transitions' ? 'transition' : 'state',
+        key: params.key,
+      },
+      count: typeof parsed.count === 'number' ? parsed.count : attempts.length,
+      attempts,
+    } as z.infer<typeof quickrunGetElementMetricsResult>
+  }
+
+  async function getFunctionMetrics(
+    params: z.infer<typeof quickrunGetFunctionMetricsParams>,
+    traceId?: string,
+  ): Promise<z.infer<typeof quickrunGetFunctionMetricsResult>> {
+    const domain = encodeURIComponent(params.domain)
+    const fn = encodeURIComponent(params.functionKey)
+    const runtimePath = params.workflowKey
+      ? `/api/v1/${domain}/workflows/${encodeURIComponent(params.workflowKey)}/functions/${fn}/metrics`
+      : `/api/v1/${domain}/functions/${fn}/metrics`
+    const query: Record<string, string> = {}
+    if (params.page !== undefined) query.page = String(params.page)
+    if (params.pageSize !== undefined) query.pageSize = String(params.pageSize)
+    if (params.from) query.from = params.from
+    if (params.to) query.to = params.to
+    if (params.succeeded !== undefined) query.succeeded = String(params.succeeded)
+
+    const result = await proxyCall(
+      {
+        method: 'GET',
+        runtimePath,
+        query: Object.keys(query).length > 0 ? query : undefined,
+        headers: params.headers,
+        runtimeUrl: params.runtimeUrl,
+      },
+      traceId,
+    )
+    const parsed = parseJsonResponse<Record<string, unknown>>(
+      result.data, result.status, 'QuickRunService.getFunctionMetrics', traceId,
+    )
+    const links = (parsed.links ?? {}) as Record<string, unknown>
+    return {
+      items: Array.isArray(parsed.items) ? parsed.items : [],
+      summary: (parsed.summary as z.infer<typeof quickrunGetFunctionMetricsResult>['summary']) ?? null,
+      hasNext: typeof links.next === 'string' && links.next.length > 0,
+    } as z.infer<typeof quickrunGetFunctionMetricsResult>
+  }
+
   return {
+    getCorrelationTree,
+    getTransitionMetrics: (params: z.infer<typeof quickrunGetElementMetricsParams>, traceId?: string) =>
+      getElementMetrics('transitions', params, traceId),
+    getStateMetrics: (params: z.infer<typeof quickrunGetElementMetricsParams>, traceId?: string) =>
+      getElementMetrics('states', params, traceId),
+    getFunctionMetrics,
     startInstance,
     fireTransition,
     getState,

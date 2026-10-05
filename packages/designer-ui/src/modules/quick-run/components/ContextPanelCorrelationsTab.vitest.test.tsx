@@ -98,4 +98,19 @@ describe('Correlations tab', () => {
     expect(html).toContain('Open Runner');
     expect(html).toContain('Open in Designer');
   });
+
+  it('offers a Tree view only when the host can load the tree', () => {
+    const without = renderToStaticMarkup(
+      createElement(CorrelationsTabContent, { activeCorrelations: [ACTIVE], correlations: undefined }),
+    );
+    expect(without).not.toContain('>Tree<');
+    const withTree = renderToStaticMarkup(
+      createElement(CorrelationsTabContent, {
+        activeCorrelations: [ACTIVE],
+        correlations: undefined,
+        loadTree: async () => ({ success: false as const, error: { message: 'x' } }),
+      }),
+    );
+    expect(withTree).toContain('>Tree<');
+  });
 });

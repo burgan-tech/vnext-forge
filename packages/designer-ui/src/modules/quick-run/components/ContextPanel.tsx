@@ -63,6 +63,22 @@ export function ContextPanel({ onOpenSubFlowTarget }: ContextPanelProps) {
   const activeTaskHistoryLoading = useQuickRunStore((s) => s.activeTaskHistoryLoading);
   const activeTaskHistoryError = useQuickRunStore((s) => s.activeTaskHistoryError);
   const stateEtag = activeState?.eTag;
+  const runtimeVersion = useQuickRunStore((s) => s.runtimeVersion);
+
+  // Whole correlation tree, on demand (runtime 0.0.99 instance-correlation,
+  // hierarchy on older runtimes — the host picks by version).
+  const loadCorrelationTree = useMemo(() => {
+    if (!activeTabId || !domain || !workflowKey) return undefined;
+    return () =>
+      QuickRunApi.getCorrelationTree({
+        domain,
+        workflowKey,
+        instanceId: activeTabId,
+        ...(runtimeVersion ? { runtimeVersion } : {}),
+        headers: quickRunHeadersFromState({ globalHeaders, sessionHeaders, toolWideHeaders }),
+        runtimeUrl: environmentUrl,
+      });
+  }, [activeTabId, domain, workflowKey, runtimeVersion, globalHeaders, sessionHeaders, toolWideHeaders, environmentUrl]);
 
   const loadData = useCallback(async () => {
     if (!activeTabId || !domain || !workflowKey) return;
@@ -225,9 +241,11 @@ export function ContextPanel({ onOpenSubFlowTarget }: ContextPanelProps) {
         )}
         {contextPanelTab === 'correlations' && (
           <CorrelationsTabContent
+            key={activeTabId ?? 'none'}
             activeCorrelations={activeState?.activeCorrelations}
             correlations={activeState?.correlations}
             {...(onOpenSubFlowTarget ? { onOpenSubFlowTarget } : {})}
+            {...(loadCorrelationTree ? { loadTree: loadCorrelationTree } : {})}
           />
         )}
         {contextPanelTab === 'raw' && (

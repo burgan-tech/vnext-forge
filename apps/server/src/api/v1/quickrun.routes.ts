@@ -27,4 +27,8 @@ export function registerQuickrunRoutes(
   app.post('/quickrun/getTaskHistory', (c) => helper(c, 'quickrun/getTaskHistory', { source: 'json' }));
   app.post('/quickrun/authorize', (c) => helper(c, 'quickrun/authorize', { source: 'json' }));
   app.post('/quickrun/getHumanTasks', (c) => helper(c, 'quickrun/getHumanTasks', { source: 'json' }));
+  app.post('/quickrun/getCorrelationTree', (c) => helper(c, 'quickrun/getCorrelationTree', { source: 'json' }));
+  app.post('/quickrun/getTransitionMetrics', (c) => helper(c, 'quickrun/getTransitionMetrics', { source: 'json' }));
+  app.post('/quickrun/getStateMetrics', (c) => helper(c, 'quickrun/getStateMetrics', { source: 'json' }));
+  app.post('/quickrun/getFunctionMetrics', (c) => helper(c, 'quickrun/getFunctionMetrics', { source: 'json' }));
 }

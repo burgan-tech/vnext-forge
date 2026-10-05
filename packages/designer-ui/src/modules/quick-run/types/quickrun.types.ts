@@ -466,3 +466,98 @@ export interface AuthorizeResult {
   allowed: boolean;
   status: number;
 }
+
+/**
+ * One node of an instance's correlation tree (`quickrun/getCorrelationTree`).
+ * Runtime 0.0.99 `functions/instance-correlation`; on older runtimes the
+ * service reads `functions/hierarchy` and fills `resolved` / `ownState`.
+ */
+export interface CorrelationTreeNode {
+  id: string;
+  key?: string | null;
+  flow: string;
+  domain: string;
+  flowVersion?: string | null;
+  /** Deepest active state below this node (descends through running subflows). */
+  currentState?: string | null;
+  /** This instance's own state. */
+  ownState?: string | null;
+  status?: string | null;
+  /** `S` SubFlow, `P` SubProcess. Absent on the root. */
+  subFlowType?: string | null;
+  isCompleted?: boolean;
+  completedAt?: string | null;
+  /** completed | faulted | canceled */
+  terminalOutcome?: string | null;
+  parentState?: string | null;
+  correlationId?: string | null;
+  createdAt?: string | null;
+  stateChangedAt?: string | null;
+  href?: string | null;
+  /** False when the runtime could not descend into this node. */
+  resolved: boolean;
+  /** depth-exceeded | hop-failed | instance-missing */
+  unresolvedReason?: string | null;
+  children: CorrelationTreeNode[];
+}
+
+export interface CorrelationTreeResponse {
+  root: CorrelationTreeNode;
+  source: 'instance-correlation' | 'hierarchy';
+}
+
+/** One task under a metrics attempt (runtime 0.0.99). */
+export interface MetricsTask {
+  id: string;
+  taskKey: string;
+  /** onExecute | onEntry | onExit */
+  hook?: string | null;
+  order?: number | null;
+  status: string;
+  businessStatus?: string | null;
+  startedAt?: string | null;
+  durationMs?: number | null;
+  error?: string | null;
+}
+
+/** One firing (transition) or visit (state). */
+export interface MetricsAttempt {
+  seq: number;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+  /** Transition: execution time. State: dwell (null while still in it). */
+  durationMs?: number | null;
+  triggerType?: string | null;
+  triggeredBy?: string | null;
+  tasks: MetricsTask[];
+}
+
+export interface ElementMetricsResponse {
+  element: { kind: 'transition' | 'state'; key: string };
+  count: number;
+  attempts: MetricsAttempt[];
+}
+
+export interface FunctionMetricsItem {
+  executionId: string;
+  functionVersion?: string | null;
+  invokedAt: string;
+  durationMs?: number | null;
+  scope?: string | null;
+  workflow?: string | null;
+  instanceId?: string | null;
+  succeeded: boolean;
+  status?: string | null;
+  statusCode?: number | null;
+  error?: string | null;
+  fromCache?: boolean;
+  traceId?: string | null;
+  invokedBy?: string | null;
+  invokedByBehalfOf?: string | null;
+}
+
+export interface FunctionMetricsResponse {
+  items: FunctionMetricsItem[];
+  summary?: { count: number; p50Ms?: number | null; p95Ms?: number | null; failureRate?: number | null } | null;
+  hasNext: boolean;
+}

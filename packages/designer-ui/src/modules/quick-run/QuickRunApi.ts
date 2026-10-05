@@ -2,8 +2,11 @@ import { callApi } from '../../api/client';
 import type {
   AuthorizeResult,
   AuthorizeTarget,
+  CorrelationTreeResponse,
   DataResponse,
+  ElementMetricsResponse,
   FunctionCatalogResponse,
+  FunctionMetricsResponse,
   HistoryResponse,
   HumanTaskListResponse,
   IncidentLinks,
@@ -606,4 +609,45 @@ export async function deletePreset(args: {
     method: 'quickrun-presets/delete',
     params: args,
   });
+}
+
+/**
+ * Correlation tree of one instance. `runtimeVersion` (from `health/check`)
+ * picks `instance-correlation` (0.0.99+) or `hierarchy`; when omitted the
+ * host tries the new endpoint and falls back on 404.
+ */
+export async function getCorrelationTree(
+  params: InstanceScopedParams & { runtimeVersion?: string },
+): Promise<ApiResponse<CorrelationTreeResponse>> {
+  return callApi({ method: 'quickrun/getCorrelationTree', params });
+}
+
+/** Attempts of one transition key on one instance (runtime 0.0.99). */
+export async function getTransitionMetrics(
+  params: InstanceScopedParams & { key: string },
+): Promise<ApiResponse<ElementMetricsResponse>> {
+  return callApi({ method: 'quickrun/getTransitionMetrics', params });
+}
+
+/** Visits of one state on one instance (runtime 0.0.99). */
+export async function getStateMetrics(
+  params: InstanceScopedParams & { key: string },
+): Promise<ApiResponse<ElementMetricsResponse>> {
+  return callApi({ method: 'quickrun/getStateMetrics', params });
+}
+
+/** Execution journal of a function with `executionLog: "E"` (runtime 0.0.99). */
+export async function getFunctionMetrics(params: {
+  domain: string;
+  functionKey: string;
+  workflowKey?: string;
+  page?: number;
+  pageSize?: number;
+  from?: string;
+  to?: string;
+  succeeded?: boolean;
+  headers?: Record<string, string>;
+  runtimeUrl?: string;
+}): Promise<ApiResponse<FunctionMetricsResponse>> {
+  return callApi({ method: 'quickrun/getFunctionMetrics', params });
 }

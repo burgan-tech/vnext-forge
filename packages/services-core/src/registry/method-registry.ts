@@ -145,6 +145,12 @@ import {
   quickrunAuthorizeResult,
   quickrunGetHumanTasksParams,
   quickrunGetHumanTasksResult,
+  quickrunGetCorrelationTreeParams,
+  quickrunGetCorrelationTreeResult,
+  quickrunGetElementMetricsParams,
+  quickrunGetElementMetricsResult,
+  quickrunGetFunctionMetricsParams,
+  quickrunGetFunctionMetricsResult,
 } from '../services/quickrun/quickrun-schemas.js'
 import type { RuntimeProxyService } from '../services/runtime-proxy/runtime-proxy.service.js'
 import {
@@ -734,6 +740,32 @@ export function buildMethodRegistry(): MethodRegistry {
       resultSchema: quickrunGetHumanTasksResult,
       handler: async (params, { quickRunService }, traceId) =>
         quickRunService.getHumanTasks(params, traceId),
+    },
+    // Runtime 0.0.99 read surfaces: correlation tree (with ≤ 0.0.98
+    // `hierarchy` fallback) and transition / state / function metrics.
+    'quickrun/getCorrelationTree': {
+      paramsSchema: quickrunGetCorrelationTreeParams,
+      resultSchema: quickrunGetCorrelationTreeResult,
+      handler: async (params, { quickRunService }, traceId) =>
+        quickRunService.getCorrelationTree(params, traceId),
+    },
+    'quickrun/getTransitionMetrics': {
+      paramsSchema: quickrunGetElementMetricsParams,
+      resultSchema: quickrunGetElementMetricsResult,
+      handler: async (params, { quickRunService }, traceId) =>
+        quickRunService.getTransitionMetrics(params, traceId),
+    },
+    'quickrun/getStateMetrics': {
+      paramsSchema: quickrunGetElementMetricsParams,
+      resultSchema: quickrunGetElementMetricsResult,
+      handler: async (params, { quickRunService }, traceId) =>
+        quickRunService.getStateMetrics(params, traceId),
+    },
+    'quickrun/getFunctionMetrics': {
+      paramsSchema: quickrunGetFunctionMetricsParams,
+      resultSchema: quickrunGetFunctionMetricsResult,
+      handler: async (params, { quickRunService }, traceId) =>
+        quickRunService.getFunctionMetrics(params, traceId),
     },
 
     // ── functions (Quick Runner) ─────────────────────────────────────────────

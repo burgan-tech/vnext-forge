@@ -68,6 +68,10 @@ export type MethodId =
   | 'quickrun/getTaskHistory'
   | 'quickrun/authorize'
   | 'quickrun/getHumanTasks'
+  | 'quickrun/getCorrelationTree'
+  | 'quickrun/getTransitionMetrics'
+  | 'quickrun/getStateMetrics'
+  | 'quickrun/getFunctionMetrics'
   | 'functions/getInfo'
   | 'functions/fetchContract'
   | 'functions/invoke'
@@ -151,6 +155,10 @@ export const METHOD_HTTP_METADATA: Readonly<Record<MethodId, MethodHttpSpec>> = 
   'quickrun/getTaskHistory': { verb: 'POST', paramSource: 'json' },
   'quickrun/authorize': { verb: 'POST', paramSource: 'json' },
   'quickrun/getHumanTasks': { verb: 'POST', paramSource: 'json' },
+  'quickrun/getCorrelationTree': { verb: 'POST', paramSource: 'json' },
+  'quickrun/getTransitionMetrics': { verb: 'POST', paramSource: 'json' },
+  'quickrun/getStateMetrics': { verb: 'POST', paramSource: 'json' },
+  'quickrun/getFunctionMetrics': { verb: 'POST', paramSource: 'json' },
   'functions/getInfo': { verb: 'POST', paramSource: 'json' },
   'functions/fetchContract': { verb: 'POST', paramSource: 'json' },
   'functions/invoke': { verb: 'POST', paramSource: 'json' },
