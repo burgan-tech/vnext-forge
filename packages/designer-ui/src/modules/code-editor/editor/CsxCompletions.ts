@@ -3,7 +3,7 @@ import type { Monaco } from '@monaco-editor/react';
 /* ────────────── Scope Detection ────────────── */
 
 type HandlerScope = 'InputHandler' | 'OutputHandler' | 'Handler' | null;
-type InterfaceType = 'IMapping' | 'IConditionMapping' | 'ITimerMapping' | 'ITransitionMapping' | 'ISubFlowMapping' | 'ISubProcessMapping' | null;
+type InterfaceType = 'IMapping' | 'IConditionMapping' | 'ITimerMapping' | 'ITransitionMapping' | 'ISubFlowMapping' | 'ISubProcessMapping' | 'ICacheKeyMapping' | null;
 
 function detectHandlerScope(model: any, position: any): HandlerScope {
   for (let line = position.lineNumber; line >= 1; line--) {
@@ -19,6 +19,7 @@ function detectInterfaceType(model: any): InterfaceType {
   const fullText = model.getValue().substring(0, 500); // First 500 chars
   if (fullText.includes('IConditionMapping')) return 'IConditionMapping';
   if (fullText.includes('ITimerMapping')) return 'ITimerMapping';
+  if (fullText.includes('ICacheKeyMapping')) return 'ICacheKeyMapping';
   if (fullText.includes('ITransitionMapping')) return 'ITransitionMapping';
   if (fullText.includes('ISubFlowMapping')) return 'ISubFlowMapping';
   if (fullText.includes('ISubProcessMapping')) return 'ISubProcessMapping';
@@ -87,6 +88,7 @@ const INSTANCE_MEMBERS: CompletionDef[] = [
   { label: 'State', kind: 'Property', insertText: 'State', detail: 'string', documentation: 'Current workflow state key.' },
   { label: 'Key', kind: 'Property', insertText: 'Key', detail: 'string', documentation: 'Instance key.' },
   { label: 'Tags', kind: 'Property', insertText: 'Tags', detail: 'string[]', documentation: 'Instance categorization tags.' },
+  { label: 'DecryptAsync', kind: 'Method', insertText: 'DecryptAsync("${1:path}")', isSnippet: true, detail: 'Task<string?>', documentation: 'Runtime 0.0.99: decrypts one `x-encryption: encrypt` field of this instance (dotted path). Scripts otherwise see the `ENCRYPTED:` token.\n\n```csharp\nvar iban = await context.Instance.DecryptAsync("customer.iban");\n```' },
 ];
 
 // HttpTask methods

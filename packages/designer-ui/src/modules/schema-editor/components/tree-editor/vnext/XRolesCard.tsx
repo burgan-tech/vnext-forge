@@ -29,7 +29,10 @@ interface XRolesCardProps {
  *
  * Persisted shape (matches `vocabularies/view-vocab.json` x-roles):
  *
- *   [{ role: string, grant: 'allow' | 'deny' }, …]
+ *   [{ role: string, grant: 'allow' | 'deny' }
+ *    | { allOf: [{ role }], grant } | { anyOf: [{ role }], grant }, …]
+ *
+ * The combinators need vnext-schema 0.0.55 / runtime 0.0.99.
  */
 export function XRolesCard({ pointer }: XRolesCardProps) {
   const { node } = useSchemaNode(pointer);
@@ -41,7 +44,7 @@ export function XRolesCard({ pointer }: XRolesCardProps) {
     <VNextCardShell
       xKey="x-roles"
       title="Roles"
-      purpose="Role-scoped allow/deny grants. DENY overrides ALLOW. Roles can be static names or dynamic expressions."
+      purpose="Role-scoped allow/deny grants. DENY overrides ALLOW. A grant names one role or an all-of / any-of group; roles can be static names or dynamic expressions."
       enabled={enabled}
       onToggle={toggle}>
       <RoleGrantListEditor

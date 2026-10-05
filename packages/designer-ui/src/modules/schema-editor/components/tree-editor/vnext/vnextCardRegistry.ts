@@ -14,6 +14,7 @@ import { XIndexedCard } from './XIndexedCard';
 import { XLabelsCard } from './XLabelsCard';
 import { XLookupCard } from './XLookupCard';
 import { XLovCard } from './XLovCard';
+import { XMaskingCard } from './XMaskingCard';
 import { XRolesCard } from './XRolesCard';
 import { XSortableCard } from './XSortableCard';
 import { XValidationCard } from './XValidationCard';
@@ -44,7 +45,7 @@ export interface VNextCardEntry {
  *  3. Data sourcing             (`x-lov`, `x-lookup`)
  *  4. Wiring                    (`x-binding`)
  *  5. Tabular display / indexing (`x-filterOperators`, `x-sortable`, `x-displayFormat`, `x-indexed`)
- *  6. Operational metadata      (`x-encryption`, `x-validation`)
+ *  6. Field protection + metadata (`x-masking`, `x-encryption`, `x-validation`)
  *  7. Data-vocab context wiring (`x-context-source`, `x-context-target`)
  */
 export const VNEXT_CARD_REGISTRY: readonly VNextCardEntry[] = [
@@ -60,6 +61,8 @@ export const VNEXT_CARD_REGISTRY: readonly VNextCardEntry[] = [
   { xKey: 'x-sortable', component: XSortableCard, scope: 'any' },
   { xKey: 'x-displayFormat', component: XDisplayFormatCard, scope: 'any' },
   { xKey: 'x-indexed', component: XIndexedCard, scope: 'property' },
+  // Runtime 0.0.99: field-level transforms, property pointers only.
+  { xKey: 'x-masking', component: XMaskingCard, scope: 'property' },
   { xKey: 'x-encryption', component: XEncryptionCard, scope: 'any' },
   { xKey: 'x-validation', component: XValidationCard, scope: 'any' },
   { xKey: 'x-context-source', component: XContextSourceCard, scope: 'property' },
