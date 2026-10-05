@@ -6,7 +6,7 @@ import { Label } from './label';
 import { MappingCode } from './mapping';
 import { RoleGrant } from './role';
 import { ScriptsConfig } from './scripts';
-import { State, SharedTransition, ResourceReference, TaskExecution } from './state';
+import { State, SharedTransition, ResourceReference, TaskExecution, type ExecutionType } from './state';
 import { TriggerType } from '../constants/trigger-types';
 import type { ViewBinding } from './view-binding';
 
@@ -14,6 +14,7 @@ export type WorkflowType = 'F' | 'S' | 'P' | 'C';
 
 export interface StartTransition {
   key: string;
+  /** A declared state key; never `$self` or the reserved `$start`. */
   target: string;
   triggerType?: number;
   versionStrategy?: string;
@@ -22,6 +23,7 @@ export interface StartTransition {
   mapping?: MappingCode;
   onExecutionTasks?: TaskExecution[];
   roles?: RoleGrant[];
+  executionType?: ExecutionType;
 }
 
 export interface WorkflowTimerConfig {
@@ -112,6 +114,8 @@ export interface UpdateDataTransition {
 export interface WorkflowAttributes {
   type: WorkflowType;
   labels?: Label[];
+  /** Flow-level default execution mode; transitions may override it. */
+  executionType?: ExecutionType;
   startTransition: StartTransition;
   states: State[];
   sharedTransitions?: SharedTransition[];

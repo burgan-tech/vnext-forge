@@ -1,8 +1,12 @@
 import { Label } from './label';
 import { MappingCode } from './mapping';
+import type { RoleGrant } from './role';
 import { ResourceReference, TaskExecution } from './state';
 
 export type FunctionScope = 'I' | 'F' | 'D';
+
+/** `E` records every invocation in the function execution journal; `D` (default) does not. */
+export type FunctionExecutionLog = 'E' | 'D';
 
 /**
  * HTTP verbs a function may declare support for via `attributes.verbs`.
@@ -72,6 +76,8 @@ export interface FunctionDefinition {
   flow?: string;
   scope?: FunctionScope;
   labels?: Label[];
+  roles?: RoleGrant[];
+  executionLog?: FunctionExecutionLog;
   tasks?: TaskExecution[];
   mapping?: MappingCode;
   extensions?: ResourceReference[];

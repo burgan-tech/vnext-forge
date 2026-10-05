@@ -223,8 +223,13 @@ export interface TaskScriptCode {
 }
 
 export interface CacheAsideTaskConfig {
-  /** Static cache key (optional; may be derived via keyExpression) */
-  key?: string;
+  /**
+   * Cache key: a literal string, or a ScriptCode — `location:
+   * 'dynamicExpresso'` is a Dynamic Expresso expression, any other location a
+   * C# `ICacheKeyMapping`. Optional when the task-level mapping calls
+   * `SetCacheKey`.
+   */
+  key?: string | TaskScriptCode;
   /** Dapr state store name. Empty → runtime DAPR_STATE_STORE_NAME */
   storeName?: string;
   /** TTL seconds; absent or 0 → no expiry */
@@ -232,9 +237,16 @@ export interface CacheAsideTaskConfig {
   consistency?: 'Eventual' | 'Strong';
   /** Task executed on a cache miss (required) */
   sourceTask: TaskReference;
-  /** Mapping applied to the raw source result before caching/returning */
+  /**
+   * The source task's own `IMapping` (InputHandler before the call,
+   * OutputHandler after). Its output is what gets cached.
+   */
   sourceMapping?: TaskScriptCode;
-  /** Dynamic Expresso expression overriding the cache key at runtime */
+  /**
+   * @deprecated Removed in runtime 0.0.99 / vnext-schema 0.0.55 (rejected by
+   * the schema, ignored by the runtime). Kept only so editors can detect and
+   * migrate it into `key`.
+   */
   keyExpression?: TaskScriptCode;
   /** Default: true */
   bypassOnCacheError?: boolean;
