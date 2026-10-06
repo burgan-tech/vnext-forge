@@ -795,8 +795,11 @@ export function createQuickRunService(runtimeProxyService: RuntimeProxyService) 
     const supportsTree = runtimeSupportsCorrelationTree(params.runtimeVersion)
     let source: 'instance-correlation' | 'hierarchy' = supportsTree === false ? 'hierarchy' : 'instance-correlation'
     let result = await fetchTree(source)
-    if (result.status === 404 && supportsTree === undefined) {
-      source = 'hierarchy'
+    // A runtime may report a version that disagrees with the functions it
+    // serves (e.g. 0.0.98.0 built after instance-correlation landed), so a
+    // 404 tries the other endpoint whatever the version says.
+    if (result.status === 404) {
+      source = source === 'hierarchy' ? 'instance-correlation' : 'hierarchy'
       result = await fetchTree(source)
     }
     const parsed = parseJsonResponse<Record<string, unknown>>(

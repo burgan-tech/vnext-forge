@@ -9,7 +9,7 @@ import { DetailsBody } from '../../quick-run/components/panel-kit';
 import { RuntimeErrorBanner } from '../../quick-run/components/RuntimeErrorBanner';
 import { StatusBadge } from '../../quick-run/components/StatusBadge';
 import * as QuickRunApi from '../../quick-run/QuickRunApi';
-import type { CorrelationTreeNode, InstanceStatus } from '../../quick-run/types/quickrun.types';
+import type { CorrelationTreeNode, CorrelationTreeResponse, InstanceStatus } from '../../quick-run/types/quickrun.types';
 import { runtimeSupports } from '../../quick-run/utils/runtimeFeatures';
 import { useComponentIndex } from '../hooks/useComponentIndex';
 import { useRuntimeVersion } from '../hooks/useRuntimeVersion';
@@ -116,6 +116,18 @@ export function MonitorShell({ target, headers = EMPTY_HEADERS, onOpenComponent,
     };
   }, [dataTabOpen, currentKey, level, headers]);
 
+  // A refresh that returns no tree keeps showing the last good one for this instance.
+  const lastTree = useRef<{ instanceId: string; tree: CorrelationTreeResponse } | null>(null);
+  if (controller.load.kind === 'ready' && controller.load.data.correlation) {
+    lastTree.current = { instanceId: level.instanceId, tree: controller.load.data.correlation };
+  }
+  const load = useMemo(() => {
+    const current = controller.load;
+    if (current.kind !== 'ready' || current.data.correlation) return current;
+    const kept = lastTree.current?.instanceId === level.instanceId ? lastTree.current.tree : null;
+    return kept ? { ...current, data: { ...current.data, correlation: kept } } : current;
+  }, [controller.load, level.instanceId]);
+
   const drillInto = useCallback(
     (node: CorrelationTreeNode) => {
       const action = drillAction(controller.levels, node.id);
@@ -153,7 +165,7 @@ export function MonitorShell({ target, headers = EMPTY_HEADERS, onOpenComponent,
       levels={controller.levels}
       onPopTo={controller.popTo}
       onDrill={drillInto}
-      load={controller.load}
+      load={load}
       selection={controller.selection}
       pathOnly={controller.pathOnly}
       onRefresh={controller.refresh}

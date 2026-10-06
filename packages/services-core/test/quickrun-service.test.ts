@@ -282,9 +282,34 @@ describe('quickRunService.getCorrelationTree', () => {
     expect(result.source).toBe('hierarchy')
   })
 
-  it('does not fall back when the version says the tree exists', async () => {
-    const { service } = sequenced({ status: 404, data: '{"code":"Instance:404"}' })
-    await expect(service.getCorrelationTree({ ...ids, runtimeVersion: '0.0.99' })).rejects.toBeDefined()
+  it('falls back to instance-correlation when a 0.0.98.0 runtime lacks hierarchy', async () => {
+    const { service, proxy } = sequenced(
+      { status: 404, data: '{"code":"Function not found"}' },
+      { status: 200, data: JSON.stringify({ root: { ...HIERARCHY.root, resolved: true, ownState: 's1' } }) },
+    )
+    const result = await service.getCorrelationTree({ ...ids, runtimeVersion: '0.0.98.0' })
+    expect(proxy.mock.calls[0][0].runtimePath).toMatch(/\/functions\/hierarchy$/)
+    expect(proxy.mock.calls[1][0].runtimePath).toMatch(/\/functions\/instance-correlation$/)
+    expect(result.source).toBe('instance-correlation')
+  })
+
+  it('falls back to hierarchy when a 0.0.99 runtime lacks instance-correlation', async () => {
+    const { service } = sequenced(
+      { status: 404, data: '{"code":"Function not found"}' },
+      { status: 200, data: JSON.stringify(HIERARCHY) },
+    )
+    const result = await service.getCorrelationTree({ ...ids, runtimeVersion: '0.0.99' })
+    expect(result.source).toBe('hierarchy')
+  })
+
+  it('throws the second failure when both endpoints 404', async () => {
+    const { service } = sequenced(
+      { status: 404, data: '{"code":"Function not found"}' },
+      { status: 404, data: '{"code":"Function not found"}' },
+    )
+    await expect(service.getCorrelationTree({ ...ids, runtimeVersion: '0.0.99' })).rejects.toMatchObject({
+      code: 'RUNTIME_NOT_FOUND',
+    })
   })
 })
 

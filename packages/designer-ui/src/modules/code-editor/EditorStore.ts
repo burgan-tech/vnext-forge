@@ -65,6 +65,21 @@ export function monitorTabId(projectId: string, instanceId: string): string {
   return `${projectId}:monitor:${instanceId}`;
 }
 
+/**
+ * Monitor tab id for a `/project/:id/monitor/:group/:name/:instanceId` pathname,
+ * or null when the pathname is not that project's monitor route.
+ */
+export function monitorTabIdFromPath(projectId: string, pathname: string): string | null {
+  const parts = pathname.split('/').filter(Boolean);
+  if (parts.length !== 6 || parts[0] !== 'project' || parts[2] !== 'monitor') return null;
+  try {
+    if (decodeURIComponent(parts[1]) !== projectId) return null;
+    return monitorTabId(projectId, decodeURIComponent(parts[5]));
+  } catch {
+    return null;
+  }
+}
+
 export interface EditorTab {
   id: string;
   title: string;
