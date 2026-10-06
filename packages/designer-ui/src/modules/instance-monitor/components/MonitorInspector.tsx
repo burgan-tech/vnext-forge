@@ -2,15 +2,20 @@ import { findState, findTransition } from '../../canvas-interaction/readonly/nor
 import { StateInspector } from '../../canvas-interaction/readonly/StateInspector';
 import { TransitionInspector } from '../../canvas-interaction/readonly/TransitionInspector';
 import type { WorkflowViewModel } from '../../canvas-interaction/readonly/view-types';
-import type { HistoryTransition } from '../../quick-run/types/quickrun.types';
+import type { ElementMetricsLoader } from '../../quick-run/components/ElementMetrics';
+import type { HistoryTransition, TaskHistoryItem } from '../../quick-run/types/quickrun.types';
 import { describeFirings, describeStateVisits, summarizeState, transitionFirings } from '../model/monitorPath';
 import type { MonitorSelection } from '../types';
+import { StateExecution } from './StateExecution';
+import { TransitionExecution } from './TransitionExecution';
 
 export interface MonitorInspectorProps {
   vm: WorkflowViewModel;
   history: readonly HistoryTransition[];
   currentState: string | null;
   selection: MonitorSelection;
+  tasks: TaskHistoryItem[];
+  loadMetrics?: ElementMetricsLoader;
   onClose: () => void;
 }
 
@@ -19,7 +24,7 @@ const hint = (text: string) => (
 );
 
 /** Definition layer of the selected element, with one line of execution context. */
-export function MonitorInspector({ vm, history, currentState, selection, onClose }: MonitorInspectorProps) {
+export function MonitorInspector({ vm, history, currentState, selection, tasks, loadMetrics, onClose }: MonitorInspectorProps) {
   if (!selection) return hint('Select a state or transition on the canvas or in the path.');
 
   if (selection.kind === 'state') {
@@ -30,7 +35,9 @@ export function MonitorInspector({ vm, history, currentState, selection, onClose
         state={state}
         onClose={onClose}
         summary={describeStateVisits(summarizeState(history, state.key, currentState))}
-      />
+      >
+        <StateExecution stateKey={state.key} tasks={tasks} {...(loadMetrics ? { loadMetrics } : {})} />
+      </StateInspector>
     );
   }
 
@@ -41,6 +48,8 @@ export function MonitorInspector({ vm, history, currentState, selection, onClose
       transition={transition}
       onClose={onClose}
       summary={describeFirings(transitionFirings(history, selection.key).length)}
-    />
+    >
+      <TransitionExecution firings={transitionFirings(history, selection.key)} tasks={tasks} {...(loadMetrics ? { loadMetrics } : {})} />
+    </TransitionInspector>
   );
 }

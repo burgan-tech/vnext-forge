@@ -51,18 +51,18 @@ describe('PathTimeline', () => {
 
 describe('MonitorInspector', () => {
   it('prompts for a selection', () => {
-    expect(renderToStaticMarkup(h(MonitorInspector, { vm: VM, history: HISTORY, currentState: 'review', selection: null, onClose: noop }))).toContain('Select a state or transition');
+    expect(renderToStaticMarkup(h(MonitorInspector, { vm: VM, history: HISTORY, currentState: 'review', selection: null, tasks: [], onClose: noop }))).toContain('Select a state or transition');
   });
   it('shows a state with its visit summary', () => {
-    const html = renderToStaticMarkup(h(MonitorInspector, { vm: VM, history: HISTORY, currentState: 'review', selection: { kind: 'state', key: 'review' }, onClose: noop }));
+    const html = renderToStaticMarkup(h(MonitorInspector, { vm: VM, history: HISTORY, currentState: 'review', selection: { kind: 'state', key: 'review' }, tasks: [], onClose: noop }));
     expect(html).toContain('Visited 2× · now here');
   });
   it('shows a transition with its firing count', () => {
-    const html = renderToStaticMarkup(h(MonitorInspector, { vm: VM, history: HISTORY, currentState: 'review', selection: { kind: 'transition', key: 'submit' }, onClose: noop }));
+    const html = renderToStaticMarkup(h(MonitorInspector, { vm: VM, history: HISTORY, currentState: 'review', selection: { kind: 'transition', key: 'submit' }, tasks: [], onClose: noop }));
     expect(html).toContain('Fired 2×');
   });
   it('explains a key missing from the definition', () => {
-    const html = renderToStaticMarkup(h(MonitorInspector, { vm: VM, history: HISTORY, currentState: null, selection: { kind: 'state', key: 'ghost' }, onClose: noop }));
+    const html = renderToStaticMarkup(h(MonitorInspector, { vm: VM, history: HISTORY, currentState: null, selection: { kind: 'state', key: 'ghost' }, tasks: [], onClose: noop }));
     expect(html).toContain('not in the local definition');
   });
 });

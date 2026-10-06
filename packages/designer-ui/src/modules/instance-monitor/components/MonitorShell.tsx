@@ -3,10 +3,13 @@ import { RefreshCw } from 'lucide-react';
 
 import { ComponentLinkProvider, type ComponentLinkHandlers } from '../../canvas-interaction/readonly/ComponentLinkContext';
 import { resolveWorkflowScriptAbsolutePath } from '../../code-editor/createWorkflowScriptFile';
+import type { ElementMetricsLoader } from '../../quick-run/components/ElementMetrics';
 import { DetailsBody } from '../../quick-run/components/panel-kit';
 import { RuntimeErrorBanner } from '../../quick-run/components/RuntimeErrorBanner';
 import { StatusBadge } from '../../quick-run/components/StatusBadge';
+import * as QuickRunApi from '../../quick-run/QuickRunApi';
 import type { InstanceStatus } from '../../quick-run/types/quickrun.types';
+import { runtimeSupports } from '../../quick-run/utils/runtimeFeatures';
 import { useComponentIndex } from '../hooks/useComponentIndex';
 import { useRuntimeVersion } from '../hooks/useRuntimeVersion';
 import { useMonitorController } from '../hooks/useMonitorController';
@@ -37,6 +40,21 @@ export function MonitorShell({ target, headers = EMPTY_HEADERS, onOpenComponent,
   const controller = useMonitorController(target, headers, runtimeVersion);
   const index = useComponentIndex(target.projectId);
 
+  const loadMetrics = useMemo<ElementMetricsLoader | undefined>(() => {
+    if (runtimeSupports(runtimeVersion, 'elementMetrics') !== true) return undefined;
+    return (kind, key) => {
+      const params = {
+        domain: target.domain,
+        workflowKey: target.workflowKey,
+        instanceId: target.instanceId,
+        key,
+        headers,
+        ...(target.runtimeUrl ? { runtimeUrl: target.runtimeUrl } : {}),
+      };
+      return kind === 'transition' ? QuickRunApi.getTransitionMetrics(params) : QuickRunApi.getStateMetrics(params);
+    };
+  }, [runtimeVersion, target, headers]);
+
   const links = useMemo<ComponentLinkHandlers>(() => {
     const handlers: ComponentLinkHandlers = {};
     if (onOpenComponent) {
@@ -63,6 +81,7 @@ export function MonitorShell({ target, headers = EMPTY_HEADERS, onOpenComponent,
       onSelect={controller.select}
       onPathOnly={controller.setPathOnly}
       links={links}
+      {...(loadMetrics ? { loadMetrics } : {})}
       {...(onOpenQuickRun ? { onOpenQuickRun } : {})}
       {...(onOpenFlowDesigner ? { onOpenFlowDesigner } : {})}
     />
@@ -78,6 +97,7 @@ export interface MonitorShellViewProps {
   onSelect: (selection: MonitorSelection) => void;
   onPathOnly: (value: boolean) => void;
   links: ComponentLinkHandlers;
+  loadMetrics?: ElementMetricsLoader;
   onOpenQuickRun?: () => void;
   onOpenFlowDesigner?: () => void;
 }
@@ -192,6 +212,8 @@ export function MonitorShellView(props: MonitorShellViewProps) {
                       history={history}
                       currentState={currentState}
                       selection={selection}
+                      tasks={data.tasks}
+                      {...(props.loadMetrics ? { loadMetrics: props.loadMetrics } : {})}
                       onClose={() => onSelect(null)}
                     />
                   ),
