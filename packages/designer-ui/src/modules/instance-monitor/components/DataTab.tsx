@@ -4,7 +4,7 @@ import type { DataHistoryItem } from '../../quick-run/QuickRunApi';
 import { CopyableJsonBlock } from '../../quick-run/components/CopyableJsonBlock';
 import { RuntimeErrorBanner, type RuntimeErrorLike } from '../../quick-run/components/RuntimeErrorBanner';
 import type { HistoryTransition } from '../../quick-run/types/quickrun.types';
-import { attributeRows, previousRow } from '../model/dataAttribution';
+import { attributeRows, compareOrder, previousRow, rowLabel } from '../model/dataAttribution';
 import { diffJson } from '../model/jsonDiff';
 import { DataDiffView } from './DataDiffView';
 
@@ -12,6 +12,8 @@ export interface DataTabProps {
   /** Latest data from `getData`; undefined while loading. */
   current?: unknown;
   currentFailed?: boolean;
+  /** ETag of the current data. */
+  currentETag?: string;
   history: readonly HistoryTransition[];
   rows: DataHistoryItem[];
   state: 'idle' | 'loading' | 'ready' | 'unavailable' | 'error';
@@ -31,7 +33,7 @@ const muted = 'text-[var(--vscode-descriptionForeground,#9d9d9d)]';
 const changeCount = (d: ReturnType<typeof diffJson>) => d.added.length + d.removed.length + d.changed.length;
 
 /** Current data plus the version history (read-only). */
-export function DataTab({ current, currentFailed, history, rows, state, hasNext, error, onLoadMore, labelFor, onOpen }: DataTabProps) {
+export function DataTab({ current, currentFailed, currentETag, history, rows, state, hasNext, error, onLoadMore, labelFor, onOpen }: DataTabProps) {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [picked, setPicked] = useState<string[]>([]);
   const [compare, setCompare] = useState<[DataHistoryItem, DataHistoryItem] | null>(null);
@@ -66,8 +68,8 @@ export function DataTab({ current, currentFailed, history, rows, state, hasNext,
   const runCompare = () => {
     const pair = picked.map((id) => rows.find((r) => r.id === id)).filter((r): r is DataHistoryItem => !!r);
     if (pair.length !== 2) return;
-    const [a, b] = pair.sort((x, y) => x.versionNo - y.versionNo) as [DataHistoryItem, DataHistoryItem];
-    setCompare([a, b]);
+    // VersionNo restarts per version line, so order by time (list position breaks ties).
+    setCompare(compareOrder(rows, pair[0], pair[1]));
   };
 
   return (
@@ -79,7 +81,10 @@ export function DataTab({ current, currentFailed, history, rows, state, hasNext,
         ) : current === undefined ? (
           <p className={muted}>Loading…</p>
         ) : (
-          <CopyableJsonBlock value={current} />
+          <>
+            {currentETag && <p className={muted}>ETag: {currentETag}</p>}
+            <CopyableJsonBlock value={current} />
+          </>
         )}
       </section>
 
@@ -96,12 +101,13 @@ export function DataTab({ current, currentFailed, history, rows, state, hasNext,
                 const owner = owners.get(row.id);
                 const diff = diffs.get(row.id) ?? null;
                 const open = expanded === row.id;
+                const initial = !hasNext && row.id === rows[rows.length - 1]?.id;
                 return (
                   <li key={row.id} className="rounded border border-[var(--vscode-panel-border,#3c3c3c)]">
                     <div className="flex items-center gap-2 px-2 py-1">
                       <input
                         type="checkbox"
-                        aria-label={`Select version ${row.versionNo} to compare`}
+                        aria-label={`Select ${rowLabel(row)} to compare`}
                         checked={picked.includes(row.id)}
                         onChange={() => toggle(row.id)}
                         className="cursor-pointer"
@@ -113,12 +119,14 @@ export function DataTab({ current, currentFailed, history, rows, state, hasNext,
                         className="flex min-w-0 flex-1 cursor-pointer flex-col text-left"
                       >
                         <span className="truncate">
-                          <span className="font-semibold">#{row.versionNo}</span> · {new Date(row.enteredAt).toLocaleTimeString()} ·{' '}
+                          <span className="font-semibold">{rowLabel(row)}</span> · {new Date(row.enteredAt).toLocaleString()} ·{' '}
                           {owner
                             ? `after ${labelFor ? labelFor(owner.transitionId) : owner.transitionId} (${owner.fromState} → ${owner.toState})`
                             : 'Other write'}
                         </span>
-                        <span className={muted}>{diff ? `${changeCount(diff)} fields changed` : 'Previous version not loaded'}</span>
+                        <span className={muted}>
+                          {diff ? (initial ? 'Initial version' : `${changeCount(diff)} fields changed`) : 'Previous version not loaded'}
+                        </span>
                       </button>
                     </div>
                     {open && (
@@ -153,7 +161,7 @@ export function DataTab({ current, currentFailed, history, rows, state, hasNext,
             {compare && (
               <div className="flex flex-col gap-1">
                 <p className={muted}>
-                  #{compare[0].versionNo} → #{compare[1].versionNo}
+                  {rowLabel(compare[0])} → {rowLabel(compare[1])}
                 </p>
                 <DataDiffView diff={diffJson(compare[0].data, compare[1].data)} />
               </div>

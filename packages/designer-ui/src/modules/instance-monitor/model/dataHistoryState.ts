@@ -23,7 +23,7 @@ export function appendPage(prev: DataHistoryItem[], items: DataHistoryItem[]): D
 
 /** Fresh first page plus the already-loaded rows older than it, newest first. */
 export function mergeFirstPage(prev: DataHistoryItem[], fresh: DataHistoryItem[]): DataHistoryItem[] {
-  if (fresh.length === 0) return prev.length === 0 ? [] : fresh;
+  if (fresh.length === 0) return [];
   const oldest = Math.min(...fresh.map((r) => Date.parse(r.enteredAt)));
   const seen = new Set(fresh.map((r) => r.id));
   const older = prev.filter((r) => !seen.has(r.id) && Date.parse(r.enteredAt) <= oldest);

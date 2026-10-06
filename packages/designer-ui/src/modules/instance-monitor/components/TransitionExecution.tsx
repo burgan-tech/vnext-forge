@@ -6,7 +6,7 @@ import type { ElementMetricsLoader } from '../../quick-run/components/ElementMet
 import { transitionDetailTabs } from '../../quick-run/components/HistoryTab';
 import { DetailsBody } from '../../quick-run/components/panel-kit';
 import type { HistoryTransition, TaskHistoryItem } from '../../quick-run/types/quickrun.types';
-import { previousRow } from '../model/dataAttribution';
+import { firingDataMayBeUnloaded, previousRow } from '../model/dataAttribution';
 import { diffJson } from '../model/jsonDiff';
 import { DataDiffView } from './DataDiffView';
 
@@ -52,7 +52,7 @@ export function TransitionExecution({
             </button>
             {expanded && (
               <div className="border-t border-[var(--vscode-panel-border,#3c3c3c)] p-2">
-                <DetailsBody tabs={[...transitionDetailTabs(f, { ...(loadMetrics ? { loadMetrics } : {}), tasks }), ...dataChangeTab(f.id, dataRowsByFiring, allRows, dataHasNext)]} />
+                <DetailsBody tabs={[...transitionDetailTabs(f, { ...(loadMetrics ? { loadMetrics } : {}), tasks }), ...dataChangeTab(f.id, f, dataRowsByFiring, allRows, dataHasNext)]} />
               </div>
             )}
           </div>
@@ -62,9 +62,24 @@ export function TransitionExecution({
   );
 }
 
-function dataChangeTab(firingId: string, byFiring?: Map<string, DataHistoryItem[]>, allRows?: DataHistoryItem[], hasNext?: boolean) {
+export function dataChangeTab(
+  firingId: string,
+  firing: HistoryTransition,
+  byFiring?: Map<string, DataHistoryItem[]>,
+  allRows?: DataHistoryItem[],
+  hasNext?: boolean,
+) {
   const rows = byFiring?.get(firingId);
-  if (!rows || rows.length === 0) return [];
+  if (!rows || rows.length === 0) {
+    if (!allRows || !firingDataMayBeUnloaded(firing, allRows, !!hasNext)) return [];
+    return [
+      {
+        id: 'data-change',
+        label: 'Data change',
+        render: () => <p className={muted}>Data for this firing is not loaded — load more in the Data tab.</p>,
+      },
+    ];
+  }
   const newest = rows[0];
   const oldest = rows[rows.length - 1];
   const before = allRows ? previousRow(allRows, oldest) : null;

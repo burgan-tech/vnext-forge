@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pause, Play, RefreshCw } from 'lucide-react';
 
 import { ComponentLinkProvider, type ComponentLinkHandlers } from '../../canvas-interaction/readonly/ComponentLinkContext';
@@ -82,10 +82,13 @@ export function MonitorShell({ target, headers = EMPTY_HEADERS, onOpenComponent,
   const [dataTabOpenFor, setDataTabOpenFor] = useState<string | null>(null);
   const dataTabOpen = dataTabOpenFor === level.instanceId;
   const openDataTab = useCallback(() => setDataTabOpenFor(level.instanceId), [level.instanceId]);
-  const loadedAt = controller.load.kind === 'ready' ? controller.load.data.loadedAt : 0;
+  // Keys follow the last successful load of this instance, so they change only on a new load and not while loading/refreshing.
+  const lastReady = useRef<{ instanceId: string; loadedAt: number } | null>(null);
+  if (controller.load.kind === 'ready') lastReady.current = { instanceId: level.instanceId, loadedAt: controller.load.data.loadedAt };
+  const loadedAt = lastReady.current?.instanceId === level.instanceId ? lastReady.current.loadedAt : 0;
   const dataHistory = useDataHistory(level, headers, loadedAt, dataTabOpen || controller.selection?.kind === 'transition');
 
-  const [currentData, setCurrentData] = useState<{ key: string; value?: unknown; failed?: boolean } | null>(null);
+  const [currentData, setCurrentData] = useState<{ key: string; value?: unknown; eTag?: string; failed?: boolean } | null>(null);
   const currentKey = `${level.instanceId}:${loadedAt}`;
   useEffect(() => {
     if (!dataTabOpen) return;
@@ -99,7 +102,11 @@ export function MonitorShell({ target, headers = EMPTY_HEADERS, onOpenComponent,
     })
       .then((res) => {
         if (stale) return;
-        setCurrentData(res.success && res.data.data !== undefined ? { key: currentKey, value: res.data.data } : { key: currentKey, failed: true });
+        setCurrentData(
+          res.success && res.data.data !== undefined
+            ? { key: currentKey, value: res.data.data, ...(res.data.eTag ? { eTag: res.data.eTag } : {}) }
+            : { key: currentKey, failed: true },
+        );
       })
       .catch(() => {
         if (!stale) setCurrentData({ key: currentKey, failed: true });
@@ -160,7 +167,7 @@ export function MonitorShell({ target, headers = EMPTY_HEADERS, onOpenComponent,
       {...(openQuickRunForLevel ? { onOpenQuickRun: openQuickRunForLevel } : {})}
       dataHistory={dataHistory}
       onDataTabOpen={openDataTab}
-      {...(currentData?.key === currentKey ? { currentData: currentData.value, currentDataFailed: !!currentData.failed } : {})}
+      {...(currentData?.key === currentKey ? { currentData: currentData.value, currentDataFailed: !!currentData.failed, ...(currentData.eTag ? { currentETag: currentData.eTag } : {}) } : {})}
       isRoot={level.instanceId === rootInstanceId}
       {...(onOpenFlowDesigner ? { onOpenFlowDesigner } : {})}
     />
@@ -196,6 +203,7 @@ export interface MonitorShellViewProps {
   onDataTabOpen?: () => void;
   currentData?: unknown;
   currentDataFailed?: boolean;
+  currentETag?: string;
 }
 
 const muted = 'text-[var(--vscode-descriptionForeground,#9d9d9d)]';
@@ -396,6 +404,7 @@ export function MonitorShellView(props: MonitorShellViewProps) {
                       {...(props.onDataTabOpen ? { onOpen: props.onDataTabOpen } : {})}
                       {...('currentData' in props ? { current: props.currentData } : {})}
                       currentFailed={!!props.currentDataFailed}
+                      {...(props.currentETag ? { currentETag: props.currentETag } : {})}
                     />
                   ),
                 },

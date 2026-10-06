@@ -5,9 +5,9 @@ import { describe, expect, it } from 'vitest';
 import { diffJson } from '../model/jsonDiff';
 import { DataDiffView } from './DataDiffView';
 import { DataTab } from './DataTab';
-import { TransitionExecution } from './TransitionExecution';
+import { TransitionExecution, dataChangeTab } from './TransitionExecution';
 
-const row = (n: number, enteredAt: string, data: unknown) => ({ id: `r${n}`, version: `v${n}`, versionNo: n, enteredAt, eTag: `e${n}`, isLatest: n === 3, data }) as never;
+const row = (n: number, enteredAt: string, data: unknown) => ({ id: `r${n}`, version: `1.0.${n}`, versionNo: n, enteredAt, eTag: `e${n}`, isLatest: n === 3, data }) as never;
 const firing = { id: 'f1', transitionId: 'submit', fromState: 'init', toState: 'review', startedAt: '2026-10-06T10:00:00Z', finishedAt: '2026-10-06T10:00:10Z', triggerType: 'manual', createdAt: 'x' } as never;
 
 describe('DataDiffView', () => {
@@ -32,7 +32,7 @@ describe('DataTab', () => {
   const base = { history: [firing], rows, hasNext: true, error: null, onLoadMore: () => undefined, current: { a: 3 } };
   it('lists versions with attribution and compare', () => {
     const html = renderToStaticMarkup(h(DataTab, { ...base, state: 'ready' }));
-    expect(html).toContain('#3');
+    expect(html).toContain('v1.0.3 #3');
     expect(html).toContain('after submit');
     expect(html).toContain('Other write');
     expect(html).toContain('fields changed');
@@ -75,5 +75,46 @@ describe('TransitionExecution data change', () => {
   });
   it('has no tab without rows', () => {
     expect(renderToStaticMarkup(h(TransitionExecution, { firings: [firing], tasks: [] }))).not.toContain('Data change');
+  });
+});
+
+describe('DataTab compare ordering and labels', () => {
+  const vrow = (id: string, version: string, versionNo: number, enteredAt: string, data: unknown) =>
+    ({ id, version, versionNo, enteredAt, eTag: id, isLatest: false, data }) as never;
+  const rows = [
+    vrow('n', '1.1.0', 1, '2026-10-06T12:00:00Z', { a: 'new' }),
+    vrow('o', '1.0.0', 4, '2026-10-06T10:00:00Z', { a: 'old' }),
+  ];
+  it('labels rows with version line and number', () => {
+    const html = renderToStaticMarkup(h(DataTab, { history: [], rows, state: 'ready', hasNext: false, error: null, onLoadMore: () => undefined }));
+    expect(html).toContain('v1.1.0 #1');
+    expect(html).toContain('v1.0.0 #4');
+  });
+  it('shows the current ETag', () => {
+    const html = renderToStaticMarkup(h(DataTab, { history: [], rows, state: 'ready', hasNext: false, error: null, onLoadMore: () => undefined, current: {}, currentETag: 'abc123' }));
+    expect(html).toContain('ETag');
+    expect(html).toContain('abc123');
+  });
+  it('labels the oldest row of a fully loaded history as the initial version', () => {
+    const html = renderToStaticMarkup(h(DataTab, { history: [], rows, state: 'ready', hasNext: false, error: null, onLoadMore: () => undefined }));
+    expect(html).toContain('Initial version');
+  });
+});
+
+describe('Data change tab for an unloaded page', () => {
+  const loaded = [row(3, '2026-10-06T11:00:00Z', { a: 3 }), row(2, '2026-10-06T10:30:00Z', { a: 2 })];
+  const early = { ...(firing as object), id: 'early', startedAt: '2026-10-06T10:00:00Z', finishedAt: '2026-10-06T10:00:10Z' } as never;
+  const render = (tabs: ReturnType<typeof dataChangeTab>) => renderToStaticMarkup(h('div', null, tabs[0]?.render()));
+  it('notes that the firing data is not loaded', () => {
+    const tabs = dataChangeTab('early', early, undefined, loaded, true);
+    expect(tabs).toHaveLength(1);
+    expect(render(tabs)).toContain('Data for this firing is not loaded — load more in the Data tab.');
+  });
+  it('adds no tab once every page is loaded', () => {
+    expect(dataChangeTab('early', early, undefined, loaded, false)).toHaveLength(0);
+  });
+  it('adds no tab for a firing inside the loaded range', () => {
+    const inside = { ...(firing as object), id: 'inside', startedAt: '2026-10-06T10:45:00Z', finishedAt: '2026-10-06T10:45:01Z' } as never;
+    expect(dataChangeTab('inside', inside, undefined, loaded, true)).toHaveLength(0);
   });
 });
