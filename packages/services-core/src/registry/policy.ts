@@ -100,6 +100,8 @@ const METHOD_CAPABILITIES: Readonly<Record<string, MethodCapability>> = Object.f
   'quickrun/acknowledgeLongPoll': 'privileged',
   'quickrun/getFunctionCatalog': 'privileged',
   'quickrun/getIncidents': 'privileged',
+  'quickrun/getDataHistory': 'privileged',
+  'quickrun/getDataHistoryRow': 'privileged',
   'quickrun/getActiveIncident': 'privileged',
   'quickrun/getTaskHistory': 'privileged',
   'quickrun/authorize': 'privileged',

@@ -135,6 +135,10 @@ import {
   quickrunAcknowledgeLongPollResult,
   quickrunGetFunctionCatalogParams,
   quickrunGetFunctionCatalogResult,
+  quickrunGetDataHistoryParams,
+  quickrunGetDataHistoryResult,
+  quickrunGetDataHistoryRowParams,
+  quickrunGetDataHistoryRowResult,
   quickrunGetIncidentsParams,
   quickrunGetIncidentsResult,
   quickrunGetActiveIncidentParams,
@@ -710,6 +714,18 @@ export function buildMethodRegistry(): MethodRegistry {
       resultSchema: quickrunGetFunctionCatalogResult,
       handler: async (params, { quickRunService }, traceId) =>
         quickRunService.getFunctionCatalog(params, traceId),
+    },
+    'quickrun/getDataHistory': {
+      paramsSchema: quickrunGetDataHistoryParams,
+      resultSchema: quickrunGetDataHistoryResult,
+      handler: async (params, { quickRunService }, traceId) =>
+        quickRunService.getDataHistory(params, traceId),
+    },
+    'quickrun/getDataHistoryRow': {
+      paramsSchema: quickrunGetDataHistoryRowParams,
+      resultSchema: quickrunGetDataHistoryRowResult,
+      handler: async (params, { quickRunService }, traceId) =>
+        quickRunService.getDataHistoryRow(params, traceId),
     },
     'quickrun/getIncidents': {
       paramsSchema: quickrunGetIncidentsParams,

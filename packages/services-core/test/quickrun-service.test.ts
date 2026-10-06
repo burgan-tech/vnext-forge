@@ -312,3 +312,67 @@ describe('quickRunService metrics', () => {
     expect(domainLevel.hasNext).toBe(true)
   })
 })
+
+const ROW_ID = '7a1b9c2d-0e3f-4a5b-8c6d-9e0f1a2b3c4d'
+const HISTORY_ITEM = {
+  id: ROW_ID,
+  version: '1.0.0',
+  versionNo: 3,
+  enteredAt: '2026-09-20T10:00:00Z',
+  eTag: 'W/"abc"',
+  isLatest: true,
+  data: { amount: 5 },
+}
+
+describe('quickRunService.getDataHistory', () => {
+  it('pages the data history with includeData', async () => {
+    const { service, proxy } = serviceWith({
+      status: 200,
+      data: JSON.stringify({ items: [HISTORY_ITEM], page: 2, pageSize: 5, hasNext: true }),
+    })
+    const result = await service.getDataHistory({ ...ids, page: 2, pageSize: 5, includeData: false })
+    expect(proxy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'GET',
+        runtimePath: '/api/v1/core/workflows/error-boundary-lab/instances/i-1/data/history',
+        query: { page: '2', pageSize: '5', includeData: 'false' },
+      }),
+      undefined,
+    )
+    expect(result).toEqual({ items: [HISTORY_ITEM], page: 2, pageSize: 5, hasNext: true })
+  })
+
+  it('applies defaults when the runtime omits paging fields', async () => {
+    const { service } = serviceWith({ status: 200, data: '{}' })
+    expect(await service.getDataHistory({ ...ids, page: 1, pageSize: 20, includeData: true })).toEqual({
+      items: [],
+      page: 1,
+      pageSize: 20,
+      hasNext: false,
+    })
+  })
+
+  it('maps a 404 to RUNTIME_NOT_FOUND', async () => {
+    const { service } = serviceWith({ status: 404, data: '{}' })
+    await expect(
+      service.getDataHistory({ ...ids, page: 1, pageSize: 20, includeData: true }),
+    ).rejects.toMatchObject({ code: ERROR_CODES.RUNTIME_NOT_FOUND })
+  })
+})
+
+describe('quickRunService.getDataHistoryRow', () => {
+  it('fetches one row by encoded id', async () => {
+    const { service, proxy } = serviceWith({ status: 200, data: JSON.stringify(HISTORY_ITEM) })
+    expect(await service.getDataHistoryRow({ ...ids, rowId: ROW_ID })).toEqual(HISTORY_ITEM)
+    expect(proxy.mock.calls[0][0].runtimePath).toBe(
+      `/api/v1/core/workflows/error-boundary-lab/instances/i-1/data/history/${ROW_ID}`,
+    )
+  })
+
+  it('maps a 404 to RUNTIME_NOT_FOUND', async () => {
+    const { service } = serviceWith({ status: 404, data: '{}' })
+    await expect(service.getDataHistoryRow({ ...ids, rowId: ROW_ID })).rejects.toMatchObject({
+      code: ERROR_CODES.RUNTIME_NOT_FOUND,
+    })
+  })
+})

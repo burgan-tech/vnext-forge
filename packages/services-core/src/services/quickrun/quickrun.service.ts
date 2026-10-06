@@ -29,6 +29,10 @@ import {
   quickrunAcknowledgeLongPollResult,
   quickrunGetFunctionCatalogParams,
   quickrunGetFunctionCatalogResult,
+  quickrunGetDataHistoryParams,
+  quickrunGetDataHistoryResult,
+  quickrunGetDataHistoryRowParams,
+  quickrunGetDataHistoryRowResult,
   quickrunGetIncidentsParams,
   quickrunGetIncidentsResult,
   quickrunGetActiveIncidentParams,
@@ -603,6 +607,53 @@ export function createQuickRunService(runtimeProxyService: RuntimeProxyService) 
     } as z.infer<typeof quickrunGetIncidentsResult>
   }
 
+  async function getDataHistory(
+    params: z.infer<typeof quickrunGetDataHistoryParams>,
+    traceId?: string,
+  ): Promise<z.infer<typeof quickrunGetDataHistoryResult>> {
+    const result = await proxyCall(
+      {
+        method: 'GET',
+        runtimePath: `${instancePath(params.domain, params.workflowKey, params.instanceId)}/data/history`,
+        query: {
+          page: String(params.page),
+          pageSize: String(params.pageSize),
+          includeData: String(params.includeData),
+        },
+        headers: params.headers,
+        runtimeUrl: params.runtimeUrl,
+      },
+      traceId,
+    )
+    const parsed = parseJsonResponse<Record<string, unknown>>(
+      result.data, result.status, 'QuickRunService.getDataHistory', traceId,
+    )
+    return {
+      items: Array.isArray(parsed.items) ? parsed.items : [],
+      page: typeof parsed.page === 'number' ? parsed.page : params.page,
+      pageSize: typeof parsed.pageSize === 'number' ? parsed.pageSize : params.pageSize,
+      hasNext: parsed.hasNext === true,
+    } as z.infer<typeof quickrunGetDataHistoryResult>
+  }
+
+  async function getDataHistoryRow(
+    params: z.infer<typeof quickrunGetDataHistoryRowParams>,
+    traceId?: string,
+  ): Promise<z.infer<typeof quickrunGetDataHistoryRowResult>> {
+    const result = await proxyCall(
+      {
+        method: 'GET',
+        runtimePath: `${instancePath(params.domain, params.workflowKey, params.instanceId)}/data/history/${encodeURIComponent(params.rowId)}`,
+        headers: params.headers,
+        runtimeUrl: params.runtimeUrl,
+      },
+      traceId,
+    )
+    return parseJsonResponse<z.infer<typeof quickrunGetDataHistoryRowResult>>(
+      result.data, result.status, 'QuickRunService.getDataHistoryRow', traceId,
+    )
+  }
+
   async function getActiveIncident(
     params: z.infer<typeof quickrunGetActiveIncidentParams>,
     traceId?: string,
@@ -848,6 +899,8 @@ export function createQuickRunService(runtimeProxyService: RuntimeProxyService) 
     acknowledgeLongPoll,
     getFunctionCatalog,
     getIncidents,
+    getDataHistory,
+    getDataHistoryRow,
     getActiveIncident,
     getTaskHistory,
     authorize,

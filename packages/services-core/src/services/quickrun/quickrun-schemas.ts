@@ -342,6 +342,44 @@ export const quickrunGetIncidentsResult = z.object({
   hasNext: z.boolean(),
 })
 
+export const dataHistoryItemSchema = z.object({
+  id: z.string(),
+  version: z.string(),
+  versionNo: z.number().int(),
+  enteredAt: z.string(),
+  eTag: z.string(),
+  isLatest: z.boolean(),
+  data: z.unknown().optional(),
+})
+
+export const quickrunGetDataHistoryParams = z.object({
+  ...workflowIdentifier,
+  instanceId: z.string().min(1),
+  page: z.number().int().min(1).optional().default(1),
+  // The runtime clamps pageSize to 1..100.
+  pageSize: z.number().int().min(1).max(100).optional().default(20),
+  includeData: z.boolean().optional().default(true),
+  headers: headersSchema,
+  runtimeUrl: z.string().optional(),
+})
+
+export const quickrunGetDataHistoryResult = z.object({
+  items: z.array(dataHistoryItemSchema),
+  page: z.number().int(),
+  pageSize: z.number().int(),
+  hasNext: z.boolean(),
+})
+
+export const quickrunGetDataHistoryRowParams = z.object({
+  ...workflowIdentifier,
+  instanceId: z.string().min(1),
+  rowId: z.string().uuid(),
+  headers: headersSchema,
+  runtimeUrl: z.string().optional(),
+})
+
+export const quickrunGetDataHistoryRowResult = dataHistoryItemSchema
+
 export const quickrunGetActiveIncidentParams = z.object({
   ...workflowIdentifier,
   instanceId: z.string().min(1),

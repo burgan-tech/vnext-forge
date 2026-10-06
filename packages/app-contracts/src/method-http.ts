@@ -64,6 +64,8 @@ export type MethodId =
   | 'quickrun/acknowledgeLongPoll'
   | 'quickrun/getFunctionCatalog'
   | 'quickrun/getIncidents'
+  | 'quickrun/getDataHistory'
+  | 'quickrun/getDataHistoryRow'
   | 'quickrun/getActiveIncident'
   | 'quickrun/getTaskHistory'
   | 'quickrun/authorize'
@@ -151,6 +153,8 @@ export const METHOD_HTTP_METADATA: Readonly<Record<MethodId, MethodHttpSpec>> = 
   'quickrun/acknowledgeLongPoll': { verb: 'POST', paramSource: 'json' },
   'quickrun/getFunctionCatalog': { verb: 'POST', paramSource: 'json' },
   'quickrun/getIncidents': { verb: 'POST', paramSource: 'json' },
+  'quickrun/getDataHistory': { verb: 'POST', paramSource: 'json' },
+  'quickrun/getDataHistoryRow': { verb: 'POST', paramSource: 'json' },
   'quickrun/getActiveIncident': { verb: 'POST', paramSource: 'json' },
   'quickrun/getTaskHistory': { verb: 'POST', paramSource: 'json' },
   'quickrun/authorize': { verb: 'POST', paramSource: 'json' },

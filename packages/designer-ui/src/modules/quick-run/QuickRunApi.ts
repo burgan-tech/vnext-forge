@@ -295,6 +295,35 @@ export interface IncidentPage {
   hasNext: boolean;
 }
 
+export interface DataHistoryItem {
+  id: string;
+  version: string;
+  versionNo: number;
+  enteredAt: string;
+  eTag: string;
+  isLatest: boolean;
+  data?: unknown;
+}
+
+export interface DataHistoryPage {
+  items: DataHistoryItem[];
+  page: number;
+  pageSize: number;
+  hasNext: boolean;
+}
+
+export async function getDataHistory(
+  params: InstanceScopedParams & { page?: number; pageSize?: number; includeData?: boolean },
+): Promise<ApiResponse<DataHistoryPage>> {
+  return callApi({ method: 'quickrun/getDataHistory', params });
+}
+
+export async function getDataHistoryRow(
+  params: InstanceScopedParams & { rowId: string },
+): Promise<ApiResponse<DataHistoryItem>> {
+  return callApi({ method: 'quickrun/getDataHistoryRow', params });
+}
+
 export async function getIncidents(
   params: InstanceScopedParams & { page?: number; pageSize?: number },
 ): Promise<ApiResponse<IncidentPage>> {
