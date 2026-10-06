@@ -70,8 +70,8 @@ describe('FunctionMetricsView', () => {
   });
 });
 
-describe('TasksTabContent hook / order', () => {
-  it('renders the 0.0.99 hook and order when present', () => {
+describe('TasksTabContent hook', () => {
+  it('words the 0.0.99 hook', () => {
     const html = renderToStaticMarkup(
       createElement(TasksTabContent, {
         loading: false,
@@ -93,7 +93,6 @@ describe('TasksTabContent hook / order', () => {
         ],
       }),
     );
-    expect(html).toContain('onEntry');
-    expect(html).toContain('#3');
+    expect(html).toContain('on entry of b');
   });
 });

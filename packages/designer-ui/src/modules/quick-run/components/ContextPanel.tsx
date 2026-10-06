@@ -4,6 +4,7 @@ import { extractEtag } from '../etagFromResponse';
 import { quickRunHeadersFromState } from '../pseudo-ui/mergeQuickRunHeaders';
 import * as QuickRunApi from '../QuickRunApi';
 import { useQuickRunStore } from '../store/quickRunStore';
+import { transitionDisplayLabel } from '../utils/displayLabels';
 import { useRuntimeSupports } from '../utils/runtimeFeatures';
 import {
   type ContextPanelTab,
@@ -65,6 +66,12 @@ export function ContextPanel({ onOpenSubFlowTarget }: ContextPanelProps) {
   const activeTaskHistoryLoading = useQuickRunStore((s) => s.activeTaskHistoryLoading);
   const activeTaskHistoryError = useQuickRunStore((s) => s.activeTaskHistoryError);
   const stateEtag = activeState?.eTag;
+  const flowLabels = useQuickRunStore((s) => s.flowLabels);
+  const transitionLabel = useCallback(
+    (transitionKey: string, fromState: string) =>
+      transitionDisplayLabel({ name: transitionKey }, flowLabels, fromState),
+    [flowLabels],
+  );
   const runtimeVersion = useQuickRunStore((s) => s.runtimeVersion);
 
   // Transition / state attempts (runtime 0.0.99 only — older runtimes 404).
@@ -261,7 +268,12 @@ export function ContextPanel({ onOpenSubFlowTarget }: ContextPanelProps) {
           />
         )}
         {contextPanelTab === 'tasks' && (
-          <TasksTabContent items={activeTaskHistory} loading={activeTaskHistoryLoading} error={activeTaskHistoryError} />
+          <TasksTabContent
+            items={activeTaskHistory}
+            loading={activeTaskHistoryLoading}
+            error={activeTaskHistoryError}
+            transitionLabel={transitionLabel}
+          />
         )}
         {contextPanelTab === 'correlations' && (
           <CorrelationsTabContent
