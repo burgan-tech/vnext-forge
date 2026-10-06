@@ -12,7 +12,6 @@ import { Breadcrumb } from './Breadcrumb';
 import { InstanceTab } from './InstanceTab';
 import { MonitorInspector } from './MonitorInspector';
 import { MonitorShellView } from './MonitorShell';
-import { PathTimeline } from './PathTimeline';
 
 const noop = vi.fn();
 const LAYOUT0 = { size: () => 200, isOpen: () => true, resize: noop, setOpen: noop, toggle: noop };
@@ -39,18 +38,6 @@ const DATA: MonitorLevelData = {
   definition: { source: 'local', vm: VM, diagram: { nodePos: {} }, localVersion: '1.2.0' },
 };
 const TARGET = { domain: 'core', workflowKey: 'loan', instanceId: 'i1', environmentName: 'Local' };
-
-describe('PathTimeline', () => {
-  it('lists the path in order with labels', () => {
-    const html = renderToStaticMarkup(h(PathTimeline, { history: HISTORY, vm: VM, selectedKey: 'submit', onSelect: noop }));
-    expect(html).toContain('4 transitions');
-    expect(html).toContain('Submit');
-    expect(html).toContain('aria-pressed="true"');
-  });
-  it('says when nothing happened yet', () => {
-    expect(renderToStaticMarkup(h(PathTimeline, { history: [], vm: VM, selectedKey: null, onSelect: noop }))).toContain('No transitions yet');
-  });
-});
 
 describe('MonitorInspector', () => {
   it('prompts for a selection', () => {

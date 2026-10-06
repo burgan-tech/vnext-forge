@@ -24,6 +24,7 @@ import { attributeRows } from '../model/dataAttribution';
 import { childInstancesOf, childTarget, childWorkflowFile, drillAction } from '../model/correlation';
 import { definitionDrift } from '../model/definitionDrift';
 import { pickLabel } from '../model/monitorPath';
+import { pathRailSteps } from '../model/pathRail';
 import type { MonitorLoadState, MonitorSelection, MonitorTarget, OpenComponentTarget } from '../types';
 import { Breadcrumb } from './Breadcrumb';
 import { CorrelationsPanel } from './CorrelationsPanel';
@@ -32,7 +33,7 @@ import { IncidentsTab } from './IncidentsTab';
 import { DataTab } from './DataTab';
 import { MonitorCanvas } from './MonitorCanvas';
 import { MonitorInspector } from './MonitorInspector';
-import { PathTimeline } from './PathTimeline';
+import { PathRail, type PathRailFilter } from './PathRail';
 
 export interface MonitorShellProps {
   target: MonitorTarget;
@@ -250,6 +251,12 @@ export function MonitorShellView(props: MonitorShellViewProps) {
     () => (dh && load.kind === 'ready' ? attributeRows(dh.rows, load.data.history) : undefined),
     [dh?.rows, load],
   );
+  const [railFilter, setRailFilter] = useState<PathRailFilter>('all');
+  const [railFollow, setRailFollow] = useState(true);
+  const railSteps = useMemo(
+    () => (load.kind === 'ready' ? pathRailSteps(load.data.history, { tasks: load.data.tasks, vm: load.data.definition.vm, ...(attributed ? { rowsByFiring: attributed } : {}) }) : []),
+    [load, attributed],
+  );
 
   const crumbs =
     props.levels && props.levels.length > 1 && props.onPopTo ? (
@@ -357,150 +364,149 @@ export function MonitorShellView(props: MonitorShellViewProps) {
         )}
 
         <div className="flex min-h-0 flex-1 flex-col">
-        <div className="flex min-h-0 flex-1">
-          <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden bg-[var(--vscode-editor-background,#1e1e1e)] [contain:layout]">
-            <MonitorCanvas
-              vm={definition.vm}
-              diagram={definition.diagram}
-              history={history}
-              currentState={currentState}
-              pathOnly={pathOnly}
-              tasks={data.tasks}
-              activeIncident={data.activeIncident}
-              selection={selection}
-              onSelect={onSelect}
-            />
-            <label className="absolute left-2 top-2 z-10 flex cursor-pointer items-center gap-1 rounded bg-[var(--vscode-editor-background,#1e1e1e)] px-2 py-1 text-[11px] shadow">
-              <input type="checkbox" checked={pathOnly} onChange={(e) => onPathOnly(e.target.checked)} className="cursor-pointer" />
-              Path only
-            </label>
+          <div className="flex min-h-0 flex-1">
+            <div className="relative min-h-0 min-w-[200px] flex-1 overflow-hidden bg-[var(--vscode-editor-background,#1e1e1e)] [contain:layout]">
+              <MonitorCanvas
+                vm={definition.vm}
+                diagram={definition.diagram}
+                history={history}
+                currentState={currentState}
+                pathOnly={pathOnly}
+                tasks={data.tasks}
+                activeIncident={data.activeIncident}
+                selection={selection}
+                onSelect={onSelect}
+              />
+              <label className="absolute left-2 top-2 z-10 flex cursor-pointer items-center gap-1 rounded bg-[var(--vscode-editor-background,#1e1e1e)] px-2 py-1 text-[11px] shadow">
+                <input type="checkbox" checked={pathOnly} onChange={(e) => onPathOnly(e.target.checked)} className="cursor-pointer" />
+                Path only
+              </label>
+            </div>
+            {rightOpen && (
+              <>
+                <ResizableHandle
+                  direction="left"
+                  valueNow={layout.size('right')}
+                  label="Resize details panel"
+                  onResize={(d) => layout.resize('right', d)}
+                />
+                <aside
+                  style={{ width: layout.size('right') }}
+                  className="flex min-h-0 max-w-[60%] shrink-0 flex-col overflow-hidden border-l border-[var(--vscode-sideBar-border,var(--vscode-panel-border,#3c3c3c))] bg-[var(--vscode-sideBar-background,#252526)] text-[11px]"
+                >
+                <DetailsBody
+                  variant="panel"
+                  key={selection ? `${selection.kind}:${selection.key}` : 'none'}
+                  initialTab={selection ? 'inspector' : 'instance'}
+                  tabs={[
+                    {
+                      id: 'inspector',
+                      label: 'Inspector',
+                      render: () => (
+                        <MonitorInspector
+                          vm={definition.vm}
+                          history={history}
+                          currentState={currentState}
+                          selection={selection}
+                          tasks={data.tasks}
+                          {...(attributed ? { dataRowsByFiring: attributed } : {})}
+                          {...(dh ? { allDataRows: dh.rows, dataHasNext: dh.hasNext } : {})}
+                          {...(selection?.kind === 'state' && props.onDrill
+                            ? { childInstances: childInstancesOf(data.correlation, instance.id, selection.key), onDrill: props.onDrill }
+                            : {})}
+                          {...(props.loadMetrics ? { loadMetrics: props.loadMetrics } : {})}
+                          onClose={() => onSelect(null)}
+                        />
+                      ),
+                    },
+                    {
+                      id: 'instance',
+                      label: 'Instance',
+                      render: () => (
+                        <InstanceTab
+                          instance={instance}
+                          {...(definition.localVersion ? { localVersion: definition.localVersion } : {})}
+                          {...(target.environmentName ? { environmentName: target.environmentName } : {})}
+                          {...(rootQuickRun ? { onOpenQuickRun: rootQuickRun } : {})}
+                          {...(props.onOpenFlowDesigner ? { onOpenFlowDesigner: props.onOpenFlowDesigner } : {})}
+                        />
+                      ),
+                    },
+                    {
+                      id: 'incidents',
+                      label: data.activeIncident ? 'Incidents (1)' : 'Incidents',
+                      render: () => (
+                        <IncidentsTab
+                          active={data.activeIncident}
+                          {...(props.incidentLoaders ? { loaders: props.incidentLoaders } : {})}
+                          onShowOnCanvas={(e) => onSelect({ kind: 'state', key: e.state })}
+                          {...(rootQuickRun ? { onOpenQuickRun: rootQuickRun } : {})}
+                        />
+                      ),
+                    },
+                    {
+                      id: 'data',
+                      label: 'Data',
+                      render: () => (
+                        <DataTab
+                          history={history}
+                          rows={dh?.rows ?? []}
+                          state={dh?.state ?? 'idle'}
+                          hasNext={dh?.hasNext ?? false}
+                          error={dh?.error ?? null}
+                          onLoadMore={dh?.loadMore ?? (() => undefined)}
+                          labelFor={(key) => pickLabel(findTransition(definition.vm, key)?.labels, key)}
+                          {...(props.onDataTabOpen ? { onOpen: props.onDataTabOpen } : {})}
+                          {...('currentData' in props ? { current: props.currentData } : {})}
+                          currentFailed={!!props.currentDataFailed}
+                          {...(props.currentETag ? { currentETag: props.currentETag } : {})}
+                        />
+                      ),
+                    },
+                    {
+                      id: 'correlations',
+                      label: 'Correlations',
+                      render: () => (
+                        <CorrelationsPanel
+                          correlation={data.correlation}
+                          onRefresh={onRefresh}
+                          {...(props.onDrill ? { onDrill: props.onDrill } : {})}
+                        />
+                      ),
+                    },
+                  ]}
+                />
+                </aside>
+              </>
+            )}
           </div>
-          {rightOpen && (
+          {bottomOpen && (
             <>
               <ResizableHandle
+                orientation="horizontal"
                 direction="left"
-                valueNow={layout.size('right')}
-                label="Resize details panel"
-                onResize={(d) => layout.resize('right', d)}
+                valueNow={layout.size('bottom')}
+                label="Resize path panel"
+                onResize={(d) => layout.resize('bottom', d)}
               />
-              <aside
-                style={{ width: layout.size('right') }}
-                className="flex min-h-0 shrink-0 flex-col overflow-hidden border-l border-[var(--vscode-sideBar-border,var(--vscode-panel-border,#3c3c3c))] bg-[var(--vscode-sideBar-background,#252526)] text-[11px]"
+              <section
+                aria-label="Path"
+                style={{ height: layout.size('bottom') }}
+                className="flex max-h-[60%] shrink-0 flex-col overflow-hidden border-t border-[var(--vscode-panel-border,#3c3c3c)] bg-[var(--vscode-panel-background,#1e1e1e)]"
               >
-            <DetailsBody
-              variant="panel"
-              key={selection ? `${selection.kind}:${selection.key}` : 'none'}
-              initialTab={selection ? 'inspector' : 'instance'}
-              tabs={[
-                {
-                  id: 'inspector',
-                  label: 'Inspector',
-                  render: () => (
-                    <MonitorInspector
-                      vm={definition.vm}
-                      history={history}
-                      currentState={currentState}
-                      selection={selection}
-                      tasks={data.tasks}
-                      {...(attributed ? { dataRowsByFiring: attributed } : {})}
-                      {...(dh ? { allDataRows: dh.rows, dataHasNext: dh.hasNext } : {})}
-                      {...(selection?.kind === 'state' && props.onDrill
-                        ? { childInstances: childInstancesOf(data.correlation, instance.id, selection.key), onDrill: props.onDrill }
-                        : {})}
-                      {...(props.loadMetrics ? { loadMetrics: props.loadMetrics } : {})}
-                      onClose={() => onSelect(null)}
-                    />
-                  ),
-                },
-                {
-                  id: 'instance',
-                  label: 'Instance',
-                  render: () => (
-                    <InstanceTab
-                      instance={instance}
-                      {...(definition.localVersion ? { localVersion: definition.localVersion } : {})}
-                      {...(target.environmentName ? { environmentName: target.environmentName } : {})}
-                      {...(rootQuickRun ? { onOpenQuickRun: rootQuickRun } : {})}
-                      {...(props.onOpenFlowDesigner ? { onOpenFlowDesigner: props.onOpenFlowDesigner } : {})}
-                    />
-                  ),
-                },
-                {
-                  id: 'incidents',
-                  label: data.activeIncident ? 'Incidents (1)' : 'Incidents',
-                  render: () => (
-                    <IncidentsTab
-                      active={data.activeIncident}
-                      {...(props.incidentLoaders ? { loaders: props.incidentLoaders } : {})}
-                      onShowOnCanvas={(e) => onSelect({ kind: 'state', key: e.state })}
-                      {...(rootQuickRun ? { onOpenQuickRun: rootQuickRun } : {})}
-                    />
-                  ),
-                },
-                {
-                  id: 'data',
-                  label: 'Data',
-                  render: () => (
-                    <DataTab
-                      history={history}
-                      rows={dh?.rows ?? []}
-                      state={dh?.state ?? 'idle'}
-                      hasNext={dh?.hasNext ?? false}
-                      error={dh?.error ?? null}
-                      onLoadMore={dh?.loadMore ?? (() => undefined)}
-                      labelFor={(key) => pickLabel(findTransition(definition.vm, key)?.labels, key)}
-                      {...(props.onDataTabOpen ? { onOpen: props.onDataTabOpen } : {})}
-                      {...('currentData' in props ? { current: props.currentData } : {})}
-                      currentFailed={!!props.currentDataFailed}
-                      {...(props.currentETag ? { currentETag: props.currentETag } : {})}
-                    />
-                  ),
-                },
-                {
-                  id: 'correlations',
-                  label: 'Correlations',
-                  render: () => (
-                    <CorrelationsPanel
-                      correlation={data.correlation}
-                      onRefresh={onRefresh}
-                      {...(props.onDrill ? { onDrill: props.onDrill } : {})}
-                    />
-                  ),
-                },
-              ]}
-            />
-              </aside>
-            </>
-          )}
-        </div>
-        {bottomOpen && (
-          <>
-            <ResizableHandle
-              orientation="horizontal"
-              direction="left"
-              valueNow={layout.size('bottom')}
-              label="Resize path panel"
-              onResize={(d) => layout.resize('bottom', d)}
-            />
-            <section
-              aria-label="Path"
-              style={{ height: layout.size('bottom') }}
-              className="flex shrink-0 flex-col overflow-hidden border-t border-[var(--vscode-panel-border,#3c3c3c)] bg-[var(--vscode-panel-background,#1e1e1e)]"
-            >
-              <div className="shrink-0 border-b border-[var(--vscode-panel-border,#3c3c3c)] bg-[var(--vscode-sideBarSectionHeader-background,transparent)] px-1">
-                <span className="-mb-px inline-block border-b-2 border-[var(--vscode-panelTitle-activeBorder,var(--vscode-focusBorder,#007fd4))] px-2 py-1 text-[11px]">Path</span>
-              </div>
-              <div className="min-h-0 flex-1 overflow-auto">
-                <PathTimeline
-                  history={history}
-                  vm={definition.vm}
+                <PathRail
+                  steps={railSteps}
+                  currentState={currentState}
                   selectedKey={selection?.kind === 'transition' ? selection.key : null}
                   onSelect={onSelect}
+                  filter={railFilter}
+                  onFilterChange={setRailFilter}
+                  follow={railFollow}
+                  onFollowChange={setRailFollow}
                 />
-              </div>
-            </section>
-          </>
-        )}
+              </section>
+            </>
+          )}
         </div>
       </div>
     </ComponentLinkProvider>
