@@ -3,6 +3,7 @@ import { RefreshCw } from 'lucide-react';
 
 import { ComponentLinkProvider, type ComponentLinkHandlers } from '../../canvas-interaction/readonly/ComponentLinkContext';
 import { resolveWorkflowScriptAbsolutePath } from '../../code-editor/createWorkflowScriptFile';
+import { createIncidentLoaders, type IncidentLoaders } from '../../quick-run/components/IncidentSection';
 import type { ElementMetricsLoader } from '../../quick-run/components/ElementMetrics';
 import { DetailsBody } from '../../quick-run/components/panel-kit';
 import { RuntimeErrorBanner } from '../../quick-run/components/RuntimeErrorBanner';
@@ -17,6 +18,7 @@ import { lookupComponent } from '../model/componentIndex';
 import { definitionDrift } from '../model/definitionDrift';
 import type { MonitorLoadState, MonitorSelection, MonitorTarget, OpenComponentTarget } from '../types';
 import { InstanceTab } from './InstanceTab';
+import { IncidentsTab } from './IncidentsTab';
 import { MonitorCanvas } from './MonitorCanvas';
 import { MonitorInspector } from './MonitorInspector';
 import { PathTimeline } from './PathTimeline';
@@ -55,6 +57,18 @@ export function MonitorShell({ target, headers = EMPTY_HEADERS, onOpenComponent,
     };
   }, [runtimeVersion, target, headers]);
 
+  const incidentLoaders = useMemo<IncidentLoaders>(
+    () =>
+      createIncidentLoaders({
+        domain: target.domain,
+        workflowKey: target.workflowKey,
+        instanceId: target.instanceId,
+        headers,
+        ...(target.runtimeUrl ? { runtimeUrl: target.runtimeUrl } : {}),
+      }),
+    [target, headers],
+  );
+
   const links = useMemo<ComponentLinkHandlers>(() => {
     const handlers: ComponentLinkHandlers = {};
     if (onOpenComponent) {
@@ -81,6 +95,7 @@ export function MonitorShell({ target, headers = EMPTY_HEADERS, onOpenComponent,
       onSelect={controller.select}
       onPathOnly={controller.setPathOnly}
       links={links}
+      incidentLoaders={incidentLoaders}
       {...(loadMetrics ? { loadMetrics } : {})}
       {...(onOpenQuickRun ? { onOpenQuickRun } : {})}
       {...(onOpenFlowDesigner ? { onOpenFlowDesigner } : {})}
@@ -98,6 +113,7 @@ export interface MonitorShellViewProps {
   onPathOnly: (value: boolean) => void;
   links: ComponentLinkHandlers;
   loadMetrics?: ElementMetricsLoader;
+  incidentLoaders?: IncidentLoaders;
   onOpenQuickRun?: () => void;
   onOpenFlowDesigner?: () => void;
 }
@@ -228,6 +244,18 @@ export function MonitorShellView(props: MonitorShellViewProps) {
                       {...(target.environmentName ? { environmentName: target.environmentName } : {})}
                       {...(props.onOpenQuickRun ? { onOpenQuickRun: props.onOpenQuickRun } : {})}
                       {...(props.onOpenFlowDesigner ? { onOpenFlowDesigner: props.onOpenFlowDesigner } : {})}
+                    />
+                  ),
+                },
+                {
+                  id: 'incidents',
+                  label: data.activeIncident ? 'Incidents (1)' : 'Incidents',
+                  render: () => (
+                    <IncidentsTab
+                      active={data.activeIncident}
+                      {...(props.incidentLoaders ? { loaders: props.incidentLoaders } : {})}
+                      onShowOnCanvas={(e) => onSelect({ kind: 'state', key: e.state })}
+                      {...(props.onOpenQuickRun ? { onOpenQuickRun: props.onOpenQuickRun } : {})}
                     />
                   ),
                 },
