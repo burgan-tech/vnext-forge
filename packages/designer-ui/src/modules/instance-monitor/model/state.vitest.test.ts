@@ -30,7 +30,7 @@ describe('monitorReducer', () => {
   it('clears the selection on a new target, keeps it on refresh', () => {
     const selected = monitorReducer(initialMonitorState(T), { type: 'select', selection: { kind: 'state', key: 'a' } });
     expect(monitorReducer(selected, { type: 'refresh-start' }).stack[0].selection).toEqual({ kind: 'state', key: 'a' });
-    expect(monitorReducer(selected, { type: 'load-start' }).stack[0].selection).toBeNull();
+    expect(monitorReducer(selected, { type: 'reset', target: T }).stack[0].selection).toBeNull();
   });
 
   it('drills into a child and pops back with each level keeping its selection', () => {

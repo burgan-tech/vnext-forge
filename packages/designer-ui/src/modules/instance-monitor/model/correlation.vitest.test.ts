@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { buildComponentIndex } from './componentIndex';
-import { childInstancesOf, childTarget, childWorkflowFile, findCorrelationNode } from './correlation';
+import { childInstancesOf, childTarget, childWorkflowFile, drillAction, findCorrelationNode } from './correlation';
 
 const TREE = { source: 'instance-correlation', root: { id: 'r', flow: 'login', domain: 'core', resolved: true, children: [
   { id: 'c1', flow: 'contract', domain: 'core', parentState: 'sign', resolved: true, children: [
@@ -28,5 +28,19 @@ describe('correlation helpers', () => {
     const parent = { domain: 'core', workflowKey: 'login', instanceId: 'r', runtimeUrl: 'http://rt', environmentName: 'Local', projectId: 'p', workflowFilePath: '/a.json' };
     expect(childTarget(parent, findCorrelationNode(TREE, 'c1')!, '/c.json')).toEqual({ ...parent, workflowKey: 'contract', instanceId: 'c1', workflowFilePath: '/c.json' });
     expect(childTarget(parent, findCorrelationNode(TREE, 'c1')!)).not.toHaveProperty('workflowFilePath');
+  });
+});
+
+describe('drillAction', () => {
+  const levels = [{ instanceId: 'r' }, { instanceId: 'c1' }, { instanceId: 'g1' }] as never;
+  it('drills into an instance not on the stack', () => {
+    expect(drillAction(levels, 'c2')).toEqual({ kind: 'drill' });
+  });
+  it('pops to an ancestor or the root already on the stack', () => {
+    expect(drillAction(levels, 'r')).toEqual({ kind: 'pop', index: 0 });
+    expect(drillAction(levels, 'c1')).toEqual({ kind: 'pop', index: 1 });
+  });
+  it('does nothing for the current level', () => {
+    expect(drillAction(levels, 'g1')).toEqual({ kind: 'none' });
   });
 });

@@ -31,3 +31,16 @@ export function childWorkflowFile(index: ComponentIndex, level: MonitorTarget, n
   if (node.domain !== level.domain) return undefined;
   return lookupComponent(index, 'workflows', node.flow) ?? undefined;
 }
+
+export type DrillAction = { kind: 'pop'; index: number } | { kind: 'drill' } | { kind: 'none' };
+
+/**
+ * What picking `nodeId` in the correlation tree should do: the correlation tree is rooted at the
+ * root instance, so it can offer an instance that is already a breadcrumb level.
+ */
+export function drillAction(levels: readonly Pick<MonitorTarget, 'instanceId'>[], nodeId: string): DrillAction {
+  const at = levels.findIndex((l) => l.instanceId === nodeId);
+  if (at === -1) return { kind: 'drill' };
+  if (at === levels.length - 1) return { kind: 'none' };
+  return { kind: 'pop', index: at };
+}

@@ -15,7 +15,7 @@ import { useComponentIndex } from '../hooks/useComponentIndex';
 import { useRuntimeVersion } from '../hooks/useRuntimeVersion';
 import { useMonitorController } from '../hooks/useMonitorController';
 import { lookupComponent } from '../model/componentIndex';
-import { childInstancesOf, childTarget, childWorkflowFile } from '../model/correlation';
+import { childInstancesOf, childTarget, childWorkflowFile, drillAction } from '../model/correlation';
 import { definitionDrift } from '../model/definitionDrift';
 import type { MonitorLoadState, MonitorSelection, MonitorTarget, OpenComponentTarget } from '../types';
 import { Breadcrumb } from './Breadcrumb';
@@ -76,10 +76,11 @@ export function MonitorShell({ target, headers = EMPTY_HEADERS, onOpenComponent,
 
   const drillInto = useCallback(
     (node: CorrelationTreeNode) => {
-      if (node.id === level.instanceId) return;
-      controller.drill(childTarget(level, node, childWorkflowFile(index, level, node)));
+      const action = drillAction(controller.levels, node.id);
+      if (action.kind === 'pop') controller.popTo(action.index);
+      else if (action.kind === 'drill') controller.drill(childTarget(level, node, childWorkflowFile(index, level, node)));
     },
-    [level, index, controller.drill],
+    [level, index, controller.levels, controller.drill, controller.popTo],
   );
 
   const rootInstanceId = controller.levels[0]?.instanceId;
@@ -122,6 +123,7 @@ export function MonitorShell({ target, headers = EMPTY_HEADERS, onOpenComponent,
       incidentLoaders={incidentLoaders}
       {...(loadMetrics ? { loadMetrics } : {})}
       {...(openQuickRunForLevel ? { onOpenQuickRun: openQuickRunForLevel } : {})}
+      isRoot={level.instanceId === rootInstanceId}
       {...(onOpenFlowDesigner ? { onOpenFlowDesigner } : {})}
     />
   );
@@ -148,6 +150,8 @@ export interface MonitorShellViewProps {
   incidentLoaders?: IncidentLoaders;
   /** Opens Quick Run for the level on screen. */
   onOpenQuickRun?: () => void;
+  /** False while a drilled-in child is on screen: Quick Run only knows the root workflow, so its actions hide. Defaults to true. */
+  isRoot?: boolean;
   onOpenFlowDesigner?: () => void;
 }
 
@@ -156,6 +160,7 @@ const muted = 'text-[var(--vscode-descriptionForeground,#9d9d9d)]';
 /** Props-only layout so the SSR tests can render every state. */
 export function MonitorShellView(props: MonitorShellViewProps) {
   const { target, load, selection, pathOnly, onRefresh, onSelect, onPathOnly, links } = props;
+  const rootQuickRun = props.isRoot === false ? undefined : props.onOpenQuickRun;
 
   const crumbs =
     props.levels && props.levels.length > 1 && props.onPopTo ? (
@@ -176,14 +181,14 @@ export function MonitorShellView(props: MonitorShellViewProps) {
     return (
       <>
         {crumbs}
-      <div className="flex flex-col items-center gap-2 py-12 text-xs">
-        <p>Instance not found in {target.environmentName ?? 'this environment'}.</p>
-        {props.onOpenQuickRun && (
-          <button type="button" onClick={props.onOpenQuickRun} className="cursor-pointer underline">
-            Back to Quick Run
-          </button>
-        )}
-      </div>
+        <div className="flex flex-col items-center gap-2 py-12 text-xs">
+          <p>Instance not found in {target.environmentName ?? 'this environment'}.</p>
+          {rootQuickRun && (
+            <button type="button" onClick={rootQuickRun} className="cursor-pointer underline">
+              Back to Quick Run
+            </button>
+          )}
+        </div>
       </>
     );
   }
@@ -191,12 +196,12 @@ export function MonitorShellView(props: MonitorShellViewProps) {
     return (
       <>
         {crumbs}
-      <div className="flex flex-col gap-2">
-        <RuntimeErrorBanner title="Could not load the instance" error={load.error} />
-        <button type="button" onClick={onRefresh} className="mx-2 cursor-pointer self-start rounded border border-[var(--vscode-panel-border,#3c3c3c)] px-2 py-1 text-xs">
-          Retry
-        </button>
-      </div>
+        <div className="flex flex-col gap-2">
+          <RuntimeErrorBanner title="Could not load the instance" error={load.error} />
+          <button type="button" onClick={onRefresh} className="mx-2 cursor-pointer self-start rounded border border-[var(--vscode-panel-border,#3c3c3c)] px-2 py-1 text-xs">
+            Retry
+          </button>
+        </div>
       </>
     );
   }
@@ -309,7 +314,7 @@ export function MonitorShellView(props: MonitorShellViewProps) {
                       instance={instance}
                       {...(definition.localVersion ? { localVersion: definition.localVersion } : {})}
                       {...(target.environmentName ? { environmentName: target.environmentName } : {})}
-                      {...(props.onOpenQuickRun ? { onOpenQuickRun: props.onOpenQuickRun } : {})}
+                      {...(rootQuickRun ? { onOpenQuickRun: rootQuickRun } : {})}
                       {...(props.onOpenFlowDesigner ? { onOpenFlowDesigner: props.onOpenFlowDesigner } : {})}
                     />
                   ),
@@ -322,7 +327,7 @@ export function MonitorShellView(props: MonitorShellViewProps) {
                       active={data.activeIncident}
                       {...(props.incidentLoaders ? { loaders: props.incidentLoaders } : {})}
                       onShowOnCanvas={(e) => onSelect({ kind: 'state', key: e.state })}
-                      {...(props.onOpenQuickRun ? { onOpenQuickRun: props.onOpenQuickRun } : {})}
+                      {...(rootQuickRun ? { onOpenQuickRun: rootQuickRun } : {})}
                     />
                   ),
                 },

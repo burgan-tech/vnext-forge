@@ -34,10 +34,10 @@ export function useMonitorController(
   const levelKey = `${keyOf(level)}#${state.gen}`;
 
   const run = useCallback(
-    async (mode: 'initial' | 'refresh' | 'switch') => {
+    async (mode: 'refresh' | 'switch') => {
       const id = ++seq.current;
       // 'switch': reset / drill / pop-to already put the reducer in `loading`.
-      if (mode !== 'switch') dispatch({ type: mode === 'initial' ? 'load-start' : 'refresh-start' });
+      if (mode !== 'switch') dispatch({ type: 'refresh-start' });
       const result = await loadMonitorLevelSafe(levelRef.current, headersRef.current, loaders, {
         runtimeVersion: versionRef.current ?? undefined,
       });

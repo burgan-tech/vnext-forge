@@ -24,7 +24,6 @@ export type MonitorAction =
   | { type: 'reset'; target: MonitorTarget }
   | { type: 'drill'; target: MonitorTarget }
   | { type: 'pop-to'; index: number }
-  | { type: 'load-start' }
   | { type: 'refresh-start' }
   | { type: 'load-done'; result: MonitorLoadResult }
   | { type: 'select'; selection: MonitorSelection }
@@ -44,8 +43,6 @@ export function monitorReducer(state: MonitorState, action: MonitorAction): Moni
     case 'pop-to':
       if (action.index < 0 || action.index >= state.stack.length - 1) return state;
       return { ...state, gen: state.gen + 1, load: { kind: 'loading' }, stack: state.stack.slice(0, action.index + 1) };
-    case 'load-start':
-      return { ...state, load: { kind: 'loading' }, stack: withTop(state, null) };
     case 'refresh-start':
       return state.load.kind === 'ready'
         ? { ...state, load: { ...state.load, refreshing: true } }
