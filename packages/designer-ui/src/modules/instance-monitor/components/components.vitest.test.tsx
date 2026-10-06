@@ -15,6 +15,7 @@ import { MonitorShellView } from './MonitorShell';
 import { PathTimeline } from './PathTimeline';
 
 const noop = vi.fn();
+const LAYOUT0 = { size: () => 200, isOpen: () => true, resize: noop, setOpen: noop, toggle: noop };
 const row = (i: number, fromState: string, transitionId: string, toState: string): HistoryTransition => ({
   id: `h${i}`, transitionId, fromState, toState, startedAt: `2026-10-06T10:00:0${i}Z`, triggerType: 'manual', createdAt: 'x',
 });
@@ -100,7 +101,7 @@ describe('empty business key', () => {
   });
   it('the shell header falls back to the short id', () => {
     const html = renderToStaticMarkup(h(MonitorShellView, {
-      target: TARGET, selection: null, pathOnly: false, onRefresh: noop, onSelect: noop, onPathOnly: noop, links: {},
+      target: TARGET, selection: null, pathOnly: false, onRefresh: noop, onSelect: noop, onPathOnly: noop, links: {}, layout: LAYOUT0,
       load: { kind: 'ready', data: { ...DATA, instance: NOKEY }, refreshing: false, staleError: null },
     }));
     expect(html).toContain('<span class="font-mono">abcdef12</span>');
@@ -108,7 +109,7 @@ describe('empty business key', () => {
 });
 
 describe('MonitorShellView', () => {
-  const base = { target: TARGET, selection: null, pathOnly: false, onRefresh: noop, onSelect: noop, onPathOnly: noop, links: {} };
+  const base = { target: TARGET, selection: null, pathOnly: false, onRefresh: noop, onSelect: noop, onPathOnly: noop, links: {}, layout: LAYOUT0 };
   it('shows loading', () => {
     expect(renderToStaticMarkup(h(MonitorShellView, { ...base, load: { kind: 'loading' } }))).toContain('Loading instance');
   });
@@ -145,7 +146,7 @@ describe('Breadcrumb and correlations', () => {
   });
   it('keeps the breadcrumb on a not-found child so the user can pop back', () => {
     const html = renderToStaticMarkup(h(MonitorShellView, {
-      target: TARGET, levels: [L('root', 'r'), TARGET], onPopTo: noop, selection: null, pathOnly: false, onRefresh: noop, onSelect: noop, onPathOnly: noop, links: {},
+      target: TARGET, levels: [L('root', 'r'), TARGET], onPopTo: noop, selection: null, pathOnly: false, onRefresh: noop, onSelect: noop, onPathOnly: noop, links: {}, layout: LAYOUT0,
       load: { kind: 'not-found' },
     }));
     expect(html).toMatch(/<button[^>]*>root<\/button>/);
@@ -153,7 +154,7 @@ describe('Breadcrumb and correlations', () => {
   });
   it('shell shows the breadcrumb and the Correlations tab', () => {
     const html = renderToStaticMarkup(h(MonitorShellView, {
-      target: TARGET, levels: [L('root', 'r'), TARGET], onPopTo: noop, selection: null, pathOnly: false, onRefresh: noop, onSelect: noop, onPathOnly: noop, links: {},
+      target: TARGET, levels: [L('root', 'r'), TARGET], onPopTo: noop, selection: null, pathOnly: false, onRefresh: noop, onSelect: noop, onPathOnly: noop, links: {}, layout: LAYOUT0,
       load: { kind: 'ready', data: DATA, refreshing: false, staleError: null },
     }));
     expect(html).toContain('Instance levels');
@@ -165,5 +166,31 @@ describe('Breadcrumb and correlations', () => {
     expect(html).toContain('Child instances');
     expect(html).toContain('kyc · check');
     expect(html).toContain('Drill into');
+  });
+});
+
+describe('MonitorShellView layout', () => {
+  const ready = { kind: 'ready', data: DATA, refreshing: false, staleError: null } as const;
+  const base = { target: TARGET, selection: null, pathOnly: false, onRefresh: noop, onSelect: noop, onPathOnly: noop, links: {}, layout: LAYOUT0, load: ready };
+  const layout = (rightOpen: boolean, bottomOpen = true) => ({
+    size: (p: string) => (p === 'right' ? 340 : 132),
+    isOpen: (p: string) => (p === 'right' ? rightOpen : bottomOpen),
+    resize: noop,
+    setOpen: noop,
+    toggle: noop,
+  });
+  it('renders toggles, both separators and the sideBar surface', () => {
+    const html = renderToStaticMarkup(h(MonitorShellView, { ...base, layout: layout(true) }));
+    expect(html).toContain('Hide details panel');
+    expect(html).toContain('Hide path panel');
+    expect(html).toContain('aria-orientation="vertical"');
+    expect(html).toContain('aria-orientation="horizontal"');
+    expect(html).toContain('bg-[var(--vscode-sideBar-background');
+    expect(html).toContain('bg-[var(--vscode-panel-background');
+  });
+  it('unmounts the right panel content when closed', () => {
+    const html = renderToStaticMarkup(h(MonitorShellView, { ...base, layout: layout(false) }));
+    expect(html).toContain('Show details panel');
+    expect(html).not.toContain('role="tablist"');
   });
 });

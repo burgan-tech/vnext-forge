@@ -16,7 +16,9 @@ export function CorrelationsPanel({ correlation, onRefresh, onDrill }: Correlati
         <button
           type="button"
           onClick={onRefresh}
-          className="rounded border border-[var(--vscode-button-border,var(--vscode-panel-border,#454545))] px-2 py-0.5 text-[var(--vscode-foreground,#cccccc)] hover:bg-[var(--vscode-toolbar-hoverBackground,#2a2d2e)]"
+          aria-label="Retry loading correlations"
+          title="Retry loading correlations"
+          className="cursor-pointer rounded border border-[var(--vscode-button-border,var(--vscode-panel-border,#454545))] px-2 py-0.5 text-[var(--vscode-foreground,#cccccc)] hover:bg-[var(--vscode-toolbar-hoverBackground,#2a2d2e)]"
         >
           Retry
         </button>

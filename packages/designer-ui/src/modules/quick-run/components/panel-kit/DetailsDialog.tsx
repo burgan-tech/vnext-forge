@@ -13,19 +13,27 @@ export interface DetailsTab {
 export interface DetailsBodyProps {
   tabs: DetailsTab[];
   initialTab?: string;
+  /** 'panel' = docked-panel look (section-header strip, fills its parent); default is the dialog look. */
+  variant?: 'dialog' | 'panel';
 }
 
 /**
  * Tabs + content of a details dialog. Kept apart from the Radix dialog so the
  * SSR test harness (which cannot portal) can render it.
  */
-export function DetailsBody({ tabs, initialTab }: DetailsBodyProps) {
+export function DetailsBody({ tabs, initialTab, variant = 'dialog' }: DetailsBodyProps) {
+  const panel = variant === 'panel';
   const [selected, setSelected] = useState(initialTab ?? tabs[0]?.id);
   const current = tabs.find((t) => t.id === selected) ?? tabs[0];
   return (
-    <div className="flex min-h-0 flex-col gap-2">
+    <div className={`flex min-h-0 flex-col ${panel ? 'h-full' : 'gap-2'}`}>
       {tabs.length > 1 && (
-        <div className="flex flex-wrap gap-1 border-b border-[var(--vscode-panel-border)]" role="tablist">
+        <div
+          className={`flex flex-wrap gap-1 border-b border-[var(--vscode-panel-border)] ${
+            panel ? 'shrink-0 bg-[var(--vscode-sideBarSectionHeader-background,transparent)] px-1' : ''
+          }`}
+          role="tablist"
+        >
           {tabs.map((tab) => (
             <button
               key={tab.id}
@@ -35,7 +43,7 @@ export function DetailsBody({ tabs, initialTab }: DetailsBodyProps) {
               onClick={() => setSelected(tab.id)}
               className={`-mb-px cursor-pointer border-b-2 px-2 py-1 text-[11px] ${
                 tab.id === current?.id
-                  ? 'border-[var(--vscode-focusBorder)] text-[var(--vscode-foreground)]'
+                  ? `${panel ? 'border-[var(--vscode-panelTitle-activeBorder,var(--vscode-focusBorder))]' : 'border-[var(--vscode-focusBorder)]'} text-[var(--vscode-foreground)]`
                   : 'border-transparent text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]'
               }`}
             >
@@ -44,7 +52,7 @@ export function DetailsBody({ tabs, initialTab }: DetailsBodyProps) {
           ))}
         </div>
       )}
-      <div role="tabpanel" className="max-h-[60vh] min-h-0 overflow-y-auto text-[11px]">
+      <div role="tabpanel" className={`min-h-0 overflow-y-auto text-[11px] ${panel ? 'flex-1' : 'max-h-[60vh]'}`}>
         {current?.render()}
       </div>
     </div>

@@ -6,6 +6,9 @@ import { resolveWorkflowScriptAbsolutePath } from '../../code-editor/createWorkf
 import { createIncidentLoaders, type IncidentLoaders } from '../../quick-run/components/IncidentSection';
 import type { ElementMetricsLoader } from '../../quick-run/components/ElementMetrics';
 import { DetailsBody } from '../../quick-run/components/panel-kit';
+import { PanelToggleButton } from '../../quick-run/components/PanelToggleButton';
+import { ResizableHandle } from '../../quick-run/components/ResizableHandle';
+import { usePanelLayout } from '../../quick-run/hooks/usePanelLayout';
 import { RuntimeErrorBanner } from '../../quick-run/components/RuntimeErrorBanner';
 import { StatusBadge } from '../../quick-run/components/StatusBadge';
 import * as QuickRunApi from '../../quick-run/QuickRunApi';
@@ -42,11 +45,19 @@ export interface MonitorShellProps {
   onOpenFlowDesigner?: () => void;
 }
 
+const LAYOUT_KEY = 'vnext-forge.monitor.layout';
+const LAYOUT_DEFAULTS = {
+  right: { size: 340, open: true, min: 260, max: 640 },
+  bottom: { size: 132, open: true, min: 88, max: 360 },
+};
+export type MonitorLayout = ReturnType<typeof usePanelLayout>;
+
 const STATUS_KEYS = new Set<string>(['A', 'B', 'C', 'F', 'P']);
 const EMPTY_HEADERS: Record<string, string> = {};
 
 /** Wires loading and component links, then renders `MonitorShellView`. */
 export function MonitorShell({ target, headers = EMPTY_HEADERS, onOpenComponent, onOpenScript, onOpenQuickRun, onOpenFlowDesigner }: MonitorShellProps) {
+  const layout = usePanelLayout(LAYOUT_KEY, LAYOUT_DEFAULTS);
   const runtimeVersion = useRuntimeVersion(target.runtimeUrl);
   const controller = useMonitorController(target, headers, runtimeVersion);
   const level = controller.level;
@@ -174,6 +185,7 @@ export function MonitorShell({ target, headers = EMPTY_HEADERS, onOpenComponent,
       onSelect={controller.select}
       onPathOnly={controller.setPathOnly}
       links={links}
+      layout={layout}
       incidentLoaders={incidentLoaders}
       {...(loadMetrics ? { loadMetrics } : {})}
       {...(openQuickRunForLevel ? { onOpenQuickRun: openQuickRunForLevel } : {})}
@@ -203,6 +215,8 @@ export interface MonitorShellViewProps {
   onSelect: (selection: MonitorSelection) => void;
   onPathOnly: (value: boolean) => void;
   links: ComponentLinkHandlers;
+  /** Panel sizes/visibility (owned by MonitorShell; injectable for tests). */
+  layout: MonitorLayout;
   loadMetrics?: ElementMetricsLoader;
   incidentLoaders?: IncidentLoaders;
   /** Opens Quick Run for the level on screen. */
@@ -222,7 +236,14 @@ const muted = 'text-[var(--vscode-descriptionForeground,#9d9d9d)]';
 
 /** Props-only layout so the SSR tests can render every state. */
 export function MonitorShellView(props: MonitorShellViewProps) {
-  const { target, load, selection, pathOnly, onRefresh, onSelect, onPathOnly, links } = props;
+  const { target, load, selection, pathOnly, onRefresh, onSelect, onPathOnly, links, layout } = props;
+  const rightOpen = layout.isOpen('right');
+  const bottomOpen = layout.isOpen('bottom');
+  const setLayoutOpen = layout.setOpen;
+  // Any new selection reveals the details panel.
+  useEffect(() => {
+    if (selection) setLayoutOpen('right', true);
+  }, [selection, setLayoutOpen]);
   const rootQuickRun = props.isRoot === false ? undefined : props.onOpenQuickRun;
   const dh = props.dataHistory;
   const attributed = useMemo(
@@ -319,6 +340,8 @@ export function MonitorShellView(props: MonitorShellViewProps) {
             >
               <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} aria-hidden />
             </button>
+            <PanelToggleButton side="right" open={rightOpen} onToggle={() => layout.toggle('right')} label="details panel" />
+            <PanelToggleButton side="bottom" open={bottomOpen} onToggle={() => layout.toggle('bottom')} label="path panel" />
           </span>
         </header>
 
@@ -333,8 +356,9 @@ export function MonitorShellView(props: MonitorShellViewProps) {
           </p>
         )}
 
-        <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_minmax(260px,340px)]">
-          <div className="relative min-h-0 overflow-hidden [contain:layout]">
+        <div className="flex min-h-0 flex-1 flex-col">
+        <div className="flex min-h-0 flex-1">
+          <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden bg-[var(--vscode-editor-background,#1e1e1e)] [contain:layout]">
             <MonitorCanvas
               vm={definition.vm}
               diagram={definition.diagram}
@@ -351,8 +375,20 @@ export function MonitorShellView(props: MonitorShellViewProps) {
               Path only
             </label>
           </div>
-          <aside className="flex min-h-0 flex-col overflow-y-auto border-l border-[var(--vscode-panel-border,#3c3c3c)] text-[11px]">
+          {rightOpen && (
+            <>
+              <ResizableHandle
+                direction="left"
+                valueNow={layout.size('right')}
+                label="Resize details panel"
+                onResize={(d) => layout.resize('right', d)}
+              />
+              <aside
+                style={{ width: layout.size('right') }}
+                className="flex min-h-0 shrink-0 flex-col overflow-hidden border-l border-[var(--vscode-sideBar-border,var(--vscode-panel-border,#3c3c3c))] bg-[var(--vscode-sideBar-background,#252526)] text-[11px]"
+              >
             <DetailsBody
+              variant="panel"
               key={selection ? `${selection.kind}:${selection.key}` : 'none'}
               initialTab={selection ? 'inspector' : 'instance'}
               tabs={[
@@ -433,15 +469,39 @@ export function MonitorShellView(props: MonitorShellViewProps) {
                 },
               ]}
             />
-          </aside>
+              </aside>
+            </>
+          )}
         </div>
-
-        <PathTimeline
-          history={history}
-          vm={definition.vm}
-          selectedKey={selection?.kind === 'transition' ? selection.key : null}
-          onSelect={onSelect}
-        />
+        {bottomOpen && (
+          <>
+            <ResizableHandle
+              orientation="horizontal"
+              direction="left"
+              valueNow={layout.size('bottom')}
+              label="Resize path panel"
+              onResize={(d) => layout.resize('bottom', d)}
+            />
+            <section
+              aria-label="Path"
+              style={{ height: layout.size('bottom') }}
+              className="flex shrink-0 flex-col overflow-hidden border-t border-[var(--vscode-panel-border,#3c3c3c)] bg-[var(--vscode-panel-background,#1e1e1e)]"
+            >
+              <div className="shrink-0 border-b border-[var(--vscode-panel-border,#3c3c3c)] bg-[var(--vscode-sideBarSectionHeader-background,transparent)] px-1">
+                <span className="-mb-px inline-block border-b-2 border-[var(--vscode-panelTitle-activeBorder,var(--vscode-focusBorder,#007fd4))] px-2 py-1 text-[11px]">Path</span>
+              </div>
+              <div className="min-h-0 flex-1 overflow-auto">
+                <PathTimeline
+                  history={history}
+                  vm={definition.vm}
+                  selectedKey={selection?.kind === 'transition' ? selection.key : null}
+                  onSelect={onSelect}
+                />
+              </div>
+            </section>
+          </>
+        )}
+        </div>
       </div>
     </ComponentLinkProvider>
   );

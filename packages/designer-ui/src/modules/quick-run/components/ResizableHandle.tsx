@@ -74,7 +74,7 @@ export function ResizableHandle({
 
   return (
     <div
-      className={`group relative flex ${sizing} items-center justify-center hover:bg-[var(--vscode-focusBorder)] active:bg-[var(--vscode-focusBorder)] focus-visible:bg-[var(--vscode-focusBorder)] focus-visible:outline-none`}
+      className={`group relative flex ${sizing} items-center justify-center hover:bg-[var(--vscode-focusBorder)] active:bg-[var(--vscode-focusBorder)] focus-visible:bg-[var(--vscode-focusBorder)] focus-visible:outline-none focus-visible:[&>div]:opacity-100`}
       onMouseDown={handleMouseDown}
       onKeyDown={handleKeyDown}
       role="separator"
@@ -84,7 +84,7 @@ export function ResizableHandle({
       aria-label={label}
     >
       <div
-        className={`${grip} rounded-full bg-[var(--vscode-panel-border)] opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100`}
+        className={`${grip} rounded-full bg-[var(--vscode-panel-border)] opacity-0 transition-opacity motion-reduce:transition-none group-hover:opacity-100`}
       />
     </div>
   );
