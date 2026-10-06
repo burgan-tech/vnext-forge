@@ -75,10 +75,11 @@ export function pathRailSteps(
 }
 
 export function railSummary(steps: readonly PathRailStep[]): { count: number; totalMs: number | null; failedSteps: number } {
-  const known = steps.filter((s) => s.durationMs !== null);
+  // A partial total would read as complete, so any unknown duration makes the total unknown.
+  const complete = steps.length > 0 && steps.every((s) => s.durationMs !== null);
   return {
     count: steps.length,
-    totalMs: known.length > 0 ? known.reduce((sum, s) => sum + (s.durationMs ?? 0), 0) : null,
+    totalMs: complete ? steps.reduce((sum, s) => sum + (s.durationMs ?? 0), 0) : null,
     failedSteps: steps.filter((s) => s.failedTasks > 0).length,
   };
 }

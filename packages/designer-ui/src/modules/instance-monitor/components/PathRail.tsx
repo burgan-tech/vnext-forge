@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react';
-import { Database } from 'lucide-react';
+import { Database, TriangleAlert } from 'lucide-react';
 
 import { formatDurationMs } from '../../quick-run/utils/taskHistory';
 import { railSummary, type PathRailStep, type PathRailTrigger } from '../model/pathRail';
@@ -50,7 +50,12 @@ function timeOf(startedAt: string): string {
 /** The instance's path as a horizontal rail: one numbered node per transition, ending in the current state. */
 export function PathRail({ steps, currentState, selectedKey, onSelect, filter, onFilterChange, follow, onFollowChange }: PathRailProps) {
   const summary = useMemo(() => railSummary(steps), [steps]);
-  const visible = filter === 'failed' ? steps.filter((s) => s.failedTasks > 0) : steps;
+  const failedFilter = filter === 'failed' && summary.failedSteps > 0;
+  const visible = failedFilter ? steps.filter((s) => s.failedTasks > 0) : steps;
+  const noFailed = summary.failedSteps === 0;
+  useEffect(() => {
+    if (filter === 'failed' && noFailed) onFilterChange('all');
+  }, [filter, noFailed, onFilterChange]);
   const duration = formatDurationMs(summary.totalMs);
   const itemRefs = useRef(new Map<number, HTMLElement>());
   const seen = useRef(0);
@@ -62,11 +67,16 @@ export function PathRail({ steps, currentState, selectedKey, onSelect, filter, o
     // Only a changed selection scrolls; a refresh must not yank the rail around.
   }, [selectedKey]);
 
+  const lastVisible = visible.length > 0 ? visible[visible.length - 1].order : null;
+  const newest = steps.length > 0 ? steps[steps.length - 1].order : null;
   useEffect(() => {
     const grew = steps.length > seen.current;
     seen.current = steps.length;
-    if (!follow || !grew || visible.length === 0) return;
-    itemRefs.current.get(visible[visible.length - 1].order)?.scrollIntoView?.(scrollOptions());
+    if (!follow || lastVisible === null) return;
+    // Under a filter, growth only scrolls when the new step is itself visible.
+    if (grew && lastVisible !== newest && failedFilter) return;
+    itemRefs.current.get(lastVisible)?.scrollIntoView?.(scrollOptions());
+    // Re-runs when following is switched on or the step count changes.
   }, [steps.length, follow]);
 
   const segment = (value: PathRailFilter, label: string, disabled: boolean) => (
@@ -98,7 +108,7 @@ export function PathRail({ steps, currentState, selectedKey, onSelect, filter, o
         <span className="ml-auto flex items-center gap-3">
           <span role="group" aria-label="Filter steps" className="inline-flex overflow-hidden rounded border border-[var(--vscode-panel-border,#3c3c3c)]">
             {segment('all', 'All', false)}
-            {segment('failed', 'Show failed only', summary.failedSteps === 0)}
+            {segment('failed', 'Show failed only', noFailed)}
           </span>
           <label className="flex cursor-pointer items-center gap-1" title="Follow latest">
             <input type="checkbox" checked={follow} onChange={(e) => onFollowChange(e.target.checked)} className="cursor-pointer" aria-label="Follow latest" />
@@ -109,6 +119,8 @@ export function PathRail({ steps, currentState, selectedKey, onSelect, filter, o
 
       {steps.length === 0 ? (
         <p className={`px-3 py-3 ${muted}`}>No transitions yet — the path appears here as the instance moves.</p>
+      ) : visible.length === 0 ? (
+        <p className={`px-3 py-3 ${muted}`}>No failed steps.</p>
       ) : (
         <div className="min-h-0 flex-1 overflow-auto px-3 py-2">
           <ol className="m-0 flex w-max list-none items-start p-0">
@@ -135,7 +147,7 @@ export function PathRail({ steps, currentState, selectedKey, onSelect, filter, o
                     aria-label={`Step ${s.order}: ${s.label}, ${s.fromState} to ${s.toState}`}
                     title={`${s.label}\n${route}${meta ? `\n${meta}` : ''}${s.failedTasks > 0 ? `\n${s.failedTasks} failed ${s.failedTasks === 1 ? 'task' : 'tasks'}` : ''}${s.wroteData ? '\nWrote instance data' : ''}`}
                     onClick={() => onSelect({ kind: 'transition', key: s.transitionKey })}
-                    className="relative flex w-full cursor-pointer flex-col items-start gap-1 rounded text-left outline-offset-2"
+                    className="relative flex w-full cursor-pointer flex-col items-start gap-1 rounded text-left outline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--vscode-focusBorder,#007fd4)]"
                   >
                     <span className="flex items-center gap-1.5">
                       <span
@@ -150,19 +162,23 @@ export function PathRail({ steps, currentState, selectedKey, onSelect, filter, o
                         {s.order}
                       </span>
                       {s.failedTasks > 0 && (
-                        <span className="relative z-[1] tabular-nums text-[var(--vscode-errorForeground,#f48771)]" aria-label={`${s.failedTasks} failed ${s.failedTasks === 1 ? 'task' : 'tasks'}`}>
-                          ⚠ {s.failedTasks}
+                        <span
+                          className="relative z-[1] inline-flex items-center gap-0.5 bg-[var(--vscode-panel-background,#1e1e1e)] px-1 tabular-nums text-[var(--vscode-errorForeground,#f48771)]"
+                          aria-label={`${s.failedTasks} failed ${s.failedTasks === 1 ? 'task' : 'tasks'}`}
+                        >
+                          <TriangleAlert size={11} aria-hidden />
+                          {s.failedTasks}
                         </span>
                       )}
                       {s.wroteData && (
-                        <Database size={11} aria-label="Wrote instance data" className={`relative z-[1] ${muted}`} />
+                        <span className={`relative z-[1] inline-flex bg-[var(--vscode-panel-background,#1e1e1e)] px-1 ${muted}`}>
+                          <Database size={11} aria-label="Wrote instance data" />
+                        </span>
                       )}
                     </span>
                     <span className="block w-full truncate pr-2 font-medium">{s.label}</span>
-                    <span className={`block w-full truncate pr-2 tabular-nums ${muted}`}>
-                      {route}
-                      {meta ? ` · ${meta}` : ''}
-                    </span>
+                    <span className={`block w-full truncate pr-2 ${muted}`}>{route}</span>
+                    {meta && <span className={`block w-full truncate pr-2 tabular-nums ${muted}`}>{meta}</span>}
                   </button>
                 </li>
               );

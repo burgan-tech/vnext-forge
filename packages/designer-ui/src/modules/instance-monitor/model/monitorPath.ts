@@ -49,24 +49,6 @@ export function describeFirings(count: number): string {
   return count === 1 ? 'Fired once' : `Fired ${count}×`;
 }
 
-export interface PathStep {
-  order: number;
-  transitionKey: string;
-  fromState: string;
-  toState: string;
-  startedAt: string;
-}
-
-export function pathSteps(history: readonly HistoryTransition[]): PathStep[] {
-  return history.map((t, i) => ({
-    order: i + 1,
-    transitionKey: t.transitionId,
-    fromState: t.fromState,
-    toState: t.toState,
-    startedAt: t.startedAt,
-  }));
-}
-
 /** en-US first, then the first label, then the fallback — Quick Run's rule. */
 export function pickLabel(labels: readonly LabelView[] | undefined, fallback: string): string {
   if (!labels?.length) return fallback;

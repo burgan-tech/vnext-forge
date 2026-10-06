@@ -245,6 +245,15 @@ export function MonitorShellView(props: MonitorShellViewProps) {
   useEffect(() => {
     if (selection) setLayoutOpen('right', true);
   }, [selection, setLayoutOpen]);
+  const rowRef = useRef<HTMLDivElement>(null);
+  const columnRef = useRef<HTMLDivElement>(null);
+  // Grow only up to the CSS cap (60% of the container) so dragging past it adds no invisible size.
+  const resizeCapped = (panel: 'right' | 'bottom', delta: number) => {
+    const box = (panel === 'right' ? rowRef : columnRef).current;
+    const extent = box ? (panel === 'right' ? box.clientWidth : box.clientHeight) : 0;
+    const room = extent > 0 ? Math.max(0, extent * 0.6 - layout.size(panel)) : Infinity;
+    layout.resize(panel, delta > 0 ? Math.min(delta, room) : delta);
+  };
   const rootQuickRun = props.isRoot === false ? undefined : props.onOpenQuickRun;
   const dh = props.dataHistory;
   const attributed = useMemo(
@@ -363,8 +372,8 @@ export function MonitorShellView(props: MonitorShellViewProps) {
           </p>
         )}
 
-        <div className="flex min-h-0 flex-1 flex-col">
-          <div className="flex min-h-0 flex-1">
+        <div ref={columnRef} className="flex min-h-0 flex-1 flex-col">
+          <div ref={rowRef} className="flex min-h-0 flex-1">
             <div className="relative min-h-0 min-w-[200px] flex-1 overflow-hidden bg-[var(--vscode-editor-background,#1e1e1e)] [contain:layout]">
               <MonitorCanvas
                 vm={definition.vm}
@@ -388,35 +397,35 @@ export function MonitorShellView(props: MonitorShellViewProps) {
                   direction="left"
                   valueNow={layout.size('right')}
                   label="Resize details panel"
-                  onResize={(d) => layout.resize('right', d)}
+                  onResize={(d) => resizeCapped('right', d)}
                 />
                 <aside
                   style={{ width: layout.size('right') }}
                   className="flex min-h-0 max-w-[60%] shrink-0 flex-col overflow-hidden border-l border-[var(--vscode-sideBar-border,var(--vscode-panel-border,#3c3c3c))] bg-[var(--vscode-sideBar-background,#252526)] text-[11px]"
                 >
-                <DetailsBody
-                  variant="panel"
-                  key={selection ? `${selection.kind}:${selection.key}` : 'none'}
-                  initialTab={selection ? 'inspector' : 'instance'}
-                  tabs={[
-                    {
-                      id: 'inspector',
-                      label: 'Inspector',
-                      render: () => (
-                        <MonitorInspector
-                          vm={definition.vm}
-                          history={history}
-                          currentState={currentState}
-                          selection={selection}
-                          tasks={data.tasks}
-                          {...(attributed ? { dataRowsByFiring: attributed } : {})}
-                          {...(dh ? { allDataRows: dh.rows, dataHasNext: dh.hasNext } : {})}
-                          {...(selection?.kind === 'state' && props.onDrill
-                            ? { childInstances: childInstancesOf(data.correlation, instance.id, selection.key), onDrill: props.onDrill }
-                            : {})}
-                          {...(props.loadMetrics ? { loadMetrics: props.loadMetrics } : {})}
-                          onClose={() => onSelect(null)}
-                        />
+                  <DetailsBody
+                    variant="panel"
+                    key={selection ? `${selection.kind}:${selection.key}` : 'none'}
+                    initialTab={selection ? 'inspector' : 'instance'}
+                    tabs={[
+                      {
+                        id: 'inspector',
+                        label: 'Inspector',
+                        render: () => (
+                          <MonitorInspector
+                            vm={definition.vm}
+                            history={history}
+                            currentState={currentState}
+                            selection={selection}
+                            tasks={data.tasks}
+                            {...(attributed ? { dataRowsByFiring: attributed } : {})}
+                            {...(dh ? { allDataRows: dh.rows, dataHasNext: dh.hasNext } : {})}
+                            {...(selection?.kind === 'state' && props.onDrill
+                              ? { childInstances: childInstancesOf(data.correlation, instance.id, selection.key), onDrill: props.onDrill }
+                              : {})}
+                            {...(props.loadMetrics ? { loadMetrics: props.loadMetrics } : {})}
+                            onClose={() => onSelect(null)}
+                          />
                       ),
                     },
                     {
@@ -487,7 +496,7 @@ export function MonitorShellView(props: MonitorShellViewProps) {
                 direction="left"
                 valueNow={layout.size('bottom')}
                 label="Resize path panel"
-                onResize={(d) => layout.resize('bottom', d)}
+                onResize={(d) => resizeCapped('bottom', d)}
               />
               <section
                 aria-label="Path"

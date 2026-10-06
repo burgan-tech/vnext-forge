@@ -7,7 +7,6 @@ import { buildHistoryOnlyDefinition } from './historyGraph';
 import {
   describeFirings,
   describeStateVisits,
-  pathSteps,
   pickLabel,
   summarizeState,
   toExecutionOverlay,
@@ -50,10 +49,6 @@ describe('monitorPath', () => {
     expect(describeFirings(0)).toBe('Not fired');
     expect(describeFirings(1)).toBe('Fired once');
     expect(describeFirings(3)).toBe('Fired 3×');
-  });
-
-  it('numbers path steps from 1', () => {
-    expect(pathSteps(HISTORY)[3]).toMatchObject({ order: 4, transitionKey: 'submit', fromState: 'init', toState: 'review' });
   });
 
   it('prefers the en-US label, then the first, then the fallback', () => {

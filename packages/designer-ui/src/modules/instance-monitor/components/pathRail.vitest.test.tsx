@@ -26,7 +26,7 @@ describe('PathRail', () => {
   });
   it('marks failures and data writes', () => {
     const html = render();
-    expect(html).toContain('⚠ 2');
+    expect(html).toContain('2 failed tasks');
     expect(html).toContain('Wrote instance data');
   });
   it('marks the selected step', () => {
@@ -40,6 +40,9 @@ describe('PathRail', () => {
     expect(html).toContain('Label 2');
     expect(html).not.toContain('Label 1');
     expect(html).toContain('Now in review');
+  });
+  it('shows an empty note when the failed filter matches nothing', () => {
+    expect(render({ steps: [step(1)], filter: 'failed' })).toContain('1 step');
   });
   it('disables the failed filter when nothing failed', () => {
     const html = render({ steps: [step(1)] });

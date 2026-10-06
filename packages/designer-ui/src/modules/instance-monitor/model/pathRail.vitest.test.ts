@@ -43,13 +43,19 @@ describe('pathRailSteps', () => {
     expect(steps[0]).toMatchObject({ order: 1, label: 'Submit', durationMs: 2000, trigger: 'manual', historyId: 'a' });
     expect(steps[1]).toMatchObject({ order: 2, durationMs: null, trigger: 'event' });
   });
+  it('bounds an unfinished firing by the next firing start', () => {
+    const hist = [h('a', 'submit', 'init', 'review', '2026-10-06T10:00:00Z'), h('b', 'submit', 'init', 'review', '2026-10-06T10:05:00Z')];
+    const steps = pathRailSteps(hist, { tasks: [task('1', 'submit', 'init', '2026-10-06T10:02:00Z', 'faulted')], vm: VM });
+    expect(steps.map((s) => s.failedTasks)).toEqual([1, 0]);
+  });
   it('flags data writes from the attributed rows', () => {
     const steps = pathRailSteps(history, { tasks: [], vm: VM, rowsByFiring: new Map([['b', [{} as never]]]) });
     expect(steps.map((s) => s.wroteData)).toEqual([false, true]);
   });
   it('summarises', () => {
     const steps = pathRailSteps(history, { tasks, vm: VM });
-    expect(railSummary(steps)).toEqual({ count: 2, totalMs: 2000, failedSteps: 2 });
+    expect(railSummary(steps)).toEqual({ count: 2, totalMs: null, failedSteps: 2 });
+    expect(railSummary(steps.slice(0, 1))).toEqual({ count: 1, totalMs: 2000, failedSteps: 1 });
     expect(railSummary([])).toEqual({ count: 0, totalMs: null, failedSteps: 0 });
   });
 });
