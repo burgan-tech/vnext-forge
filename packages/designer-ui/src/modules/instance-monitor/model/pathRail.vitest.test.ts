@@ -59,3 +59,23 @@ describe('pathRailSteps', () => {
     expect(railSummary([])).toEqual({ count: 0, totalMs: null, failedSteps: 0 });
   });
 });
+
+import { railFocus } from './pathRail';
+
+describe('railFocus', () => {
+  const mk = (order: number, key: string) => ({ order, transitionKey: key });
+  const steps = [mk(1, 'a'), mk(2, 'b'), mk(3, 'a'), mk(4, 'c')];
+  it('targets the most recent firing when the selection came from elsewhere', () => {
+    expect(railFocus(steps, 'a', null)).toEqual({ ringOrder: null, scrollOrder: 3 });
+  });
+  it('keeps the clicked firing', () => {
+    expect(railFocus(steps, 'a', 1)).toEqual({ ringOrder: 1, scrollOrder: 1 });
+  });
+  it('ignores a clicked firing that no longer matches the key', () => {
+    expect(railFocus(steps, 'b', 1)).toEqual({ ringOrder: null, scrollOrder: 2 });
+  });
+  it('has no target without a selection or match', () => {
+    expect(railFocus(steps, null, 1)).toEqual({ ringOrder: null, scrollOrder: null });
+    expect(railFocus(steps, 'zzz', null)).toEqual({ ringOrder: null, scrollOrder: null });
+  });
+});

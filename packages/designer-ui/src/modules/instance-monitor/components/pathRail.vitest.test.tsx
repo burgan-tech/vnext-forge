@@ -51,4 +51,21 @@ describe('PathRail', () => {
   it('explains an empty path', () => {
     expect(render({ steps: [] })).toContain('No transitions yet — the path appears here as the instance moves.');
   });
+  it('derives the filter segment state from the effective filter', () => {
+    // filter "failed" but nothing failed: the effective filter is "all".
+    const html = render({ steps: [step(1)], filter: 'failed' });
+    expect(html).toMatch(/aria-pressed="true"[^>]*aria-label="All"/);
+    expect(html).toMatch(/aria-pressed="false"[^>]*aria-label="Show failed only"/);
+  });
+  it('describes failures and data writes in the step label', () => {
+    const html = render();
+    expect(html).toContain('aria-label="Step 2: Label 2, a to b, 2 failed tasks, wrote data"');
+    expect(html).toContain('aria-label="Step 1: Label 1, a to b"');
+  });
+  it('rings only the clicked firing of a repeated key', () => {
+    const steps = [step(1, { transitionKey: 'x' }), step(2, { transitionKey: 'x' })];
+    const html = render({ steps, selectedKey: 'x', clickedOrder: 1 });
+    expect(html.match(/aria-pressed="true"[^>]*aria-label="Step/g)).toHaveLength(1);
+    expect(html).toMatch(/aria-pressed="true"[^>]*aria-label="Step 1:/);
+  });
 });

@@ -83,3 +83,19 @@ export function railSummary(steps: readonly PathRailStep[]): { count: number; to
     failedSteps: steps.filter((s) => s.failedTasks > 0).length,
   };
 }
+
+/**
+ * Which firing of the selected transition key the rail emphasises and scrolls to.
+ * A firing the user clicked in the rail wins; otherwise the most recent firing.
+ */
+export function railFocus(
+  steps: readonly { order: number; transitionKey: string }[],
+  selectedKey: string | null,
+  clickedOrder: number | null,
+): { ringOrder: number | null; scrollOrder: number | null } {
+  if (!selectedKey) return { ringOrder: null, scrollOrder: null };
+  const clicked = clickedOrder === null ? undefined : steps.find((s) => s.order === clickedOrder && s.transitionKey === selectedKey);
+  if (clicked) return { ringOrder: clicked.order, scrollOrder: clicked.order };
+  const last = [...steps].reverse().find((s) => s.transitionKey === selectedKey);
+  return { ringOrder: null, scrollOrder: last?.order ?? null };
+}

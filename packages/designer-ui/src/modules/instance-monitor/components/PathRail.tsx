@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Database, TriangleAlert } from 'lucide-react';
 
 import { formatDurationMs } from '../../quick-run/utils/taskHistory';
-import { railSummary, type PathRailStep, type PathRailTrigger } from '../model/pathRail';
+import { railFocus, railSummary, type PathRailStep, type PathRailTrigger } from '../model/pathRail';
 import type { MonitorSelection } from '../types';
 
 export type PathRailFilter = 'all' | 'failed';
@@ -16,6 +16,8 @@ export interface PathRailProps {
   onFilterChange: (filter: PathRailFilter) => void;
   follow: boolean;
   onFollowChange: (follow: boolean) => void;
+  /** Firing the user last clicked in the rail (initial value; the rail tracks clicks itself). */
+  clickedOrder?: number | null;
 }
 
 /** Same palette as Quick Run's history dots. */
@@ -48,7 +50,7 @@ function timeOf(startedAt: string): string {
 }
 
 /** The instance's path as a horizontal rail: one numbered node per transition, ending in the current state. */
-export function PathRail({ steps, currentState, selectedKey, onSelect, filter, onFilterChange, follow, onFollowChange }: PathRailProps) {
+export function PathRail({ steps, currentState, selectedKey, onSelect, filter, onFilterChange, follow, onFollowChange, clickedOrder: initialClicked = null }: PathRailProps) {
   const summary = useMemo(() => railSummary(steps), [steps]);
   const failedFilter = filter === 'failed' && summary.failedSteps > 0;
   const visible = failedFilter ? steps.filter((s) => s.failedTasks > 0) : steps;
@@ -59,11 +61,25 @@ export function PathRail({ steps, currentState, selectedKey, onSelect, filter, o
   const duration = formatDurationMs(summary.totalMs);
   const itemRefs = useRef(new Map<number, HTMLElement>());
   const seen = useRef(0);
+  const [clicked, setClicked] = useState<number | null>(initialClicked);
+  const clickedRef = useRef(clicked);
+  clickedRef.current = clicked;
+  const fromRail = useRef(false);
+  const mounted = useRef(false);
+  const focus = railFocus(visible, selectedKey, clicked);
 
   useEffect(() => {
+    let origin = clickedRef.current;
+    if (fromRail.current) fromRail.current = false;
+    else if (mounted.current) {
+      // The selection came from elsewhere: go back to the latest firing.
+      origin = null;
+      setClicked(null);
+    }
+    mounted.current = true;
     if (!selectedKey) return;
-    const match = [...visible].reverse().find((s) => s.transitionKey === selectedKey);
-    itemRefs.current.get(match?.order ?? -1)?.scrollIntoView?.(scrollOptions());
+    const { scrollOrder } = railFocus(visible, selectedKey, origin);
+    itemRefs.current.get(scrollOrder ?? -1)?.scrollIntoView?.(scrollOptions());
     // Only a changed selection scrolls; a refresh must not yank the rail around.
   }, [selectedKey]);
 
@@ -82,13 +98,13 @@ export function PathRail({ steps, currentState, selectedKey, onSelect, filter, o
   const segment = (value: PathRailFilter, label: string, disabled: boolean) => (
     <button
       type="button"
-      aria-pressed={filter === value}
+      aria-pressed={(value === 'failed') === failedFilter}
       disabled={disabled}
       title={label}
       aria-label={label}
       onClick={() => onFilterChange(value)}
       className={`cursor-pointer px-2 py-0.5 disabled:cursor-not-allowed disabled:opacity-50 ${
-        filter === value
+        (value === 'failed') === failedFilter
           ? 'bg-[var(--vscode-button-secondaryBackground,#3a3d41)] text-[var(--vscode-button-secondaryForeground,#ffffff)]'
           : 'hover:bg-[var(--vscode-list-hoverBackground,#2a2d2e)]'
       }`}
@@ -125,7 +141,7 @@ export function PathRail({ steps, currentState, selectedKey, onSelect, filter, o
         <div className="min-h-0 flex-1 overflow-auto px-3 py-2">
           <ol className="m-0 flex w-max list-none items-start p-0">
             {visible.map((s, i) => {
-              const selected = selectedKey === s.transitionKey;
+              const selected = selectedKey === s.transitionKey && (focus.ringOrder === null || focus.ringOrder === s.order);
               const time = timeOf(s.startedAt);
               const dur = formatDurationMs(s.durationMs);
               const meta = [time, dur].filter(Boolean).join(' · ');
@@ -144,9 +160,13 @@ export function PathRail({ steps, currentState, selectedKey, onSelect, filter, o
                       else itemRefs.current.delete(s.order);
                     }}
                     aria-pressed={selected}
-                    aria-label={`Step ${s.order}: ${s.label}, ${s.fromState} to ${s.toState}`}
+                    aria-label={`Step ${s.order}: ${s.label}, ${s.fromState} to ${s.toState}${s.failedTasks > 0 ? `, ${s.failedTasks} failed ${s.failedTasks === 1 ? 'task' : 'tasks'}` : ''}${s.wroteData ? ', wrote data' : ''}`}
                     title={`${s.label}\n${route}${meta ? `\n${meta}` : ''}${s.failedTasks > 0 ? `\n${s.failedTasks} failed ${s.failedTasks === 1 ? 'task' : 'tasks'}` : ''}${s.wroteData ? '\nWrote instance data' : ''}`}
-                    onClick={() => onSelect({ kind: 'transition', key: s.transitionKey })}
+                    onClick={() => {
+                      if (s.transitionKey !== selectedKey) fromRail.current = true;
+                      setClicked(s.order);
+                      onSelect({ kind: 'transition', key: s.transitionKey });
+                    }}
                     className="relative flex w-full cursor-pointer flex-col items-start gap-1 rounded text-left outline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[var(--vscode-focusBorder,#007fd4)]"
                   >
                     <span className="flex items-center gap-1.5">
