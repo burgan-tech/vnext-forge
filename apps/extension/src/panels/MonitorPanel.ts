@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 
 import type { MessageRouter } from '../MessageRouter';
 import type { ForgeToolsSettingsService } from '../tools/forge-tools-settings.js';
-import { isOpenQuickRunFromMonitorMessage } from './monitor-messages.js';
+import { isOpenQuickRunFromMonitorMessage, type InstanceChangedEvent } from './monitor-messages.js';
 import { buildWebviewHtml } from './webview-html.js';
 
 export interface MonitorContext {
@@ -89,6 +89,14 @@ export class MonitorPanel {
     panel.webview.html = buildWebviewHtml(this.context.extensionUri, panel.webview, 'monitor.html', {
       POST_MESSAGE_ALLOWED_ORIGINS: ['vscode-webview:', 'vscode-file://vscode-app'],
     });
+  }
+
+  /** Quick Run changed an instance: tell every ready monitor of that domain (the webview filters by its own levels). */
+  notifyInstanceChanged(event: InstanceChangedEvent): void {
+    for (const entry of this.panels.values()) {
+      if (!entry.webviewReady || entry.ctx.domain !== event.domain) continue;
+      void entry.panel.webview.postMessage({ type: 'monitor:instance-changed', ...event });
+    }
   }
 
   dispose(): void {

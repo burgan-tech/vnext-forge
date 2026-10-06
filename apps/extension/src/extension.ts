@@ -652,6 +652,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       if (!ctx?.domain || !ctx.workflowKey || !ctx.instanceId || !ctx.workflowFilePath) return;
       monitorPanel.open(ctx);
     })),
+    /** Internal (not contributed): Quick Run -> monitor live-refresh relay. */
+    vscode.commands.registerCommand('vnextForge.notifyInstanceChanged', (arg: unknown) => {
+      const e = arg as { domain?: unknown; instanceId?: unknown } | undefined;
+      if (typeof e?.domain !== 'string' || typeof e.instanceId !== 'string') return;
+      monitorPanel.notifyInstanceChanged(arg as Parameters<typeof monitorPanel.notifyInstanceChanged>[0]);
+    }),
     vscode.commands.registerCommand('vnextForge.openFunctionQuickRunFromFile', safeAsync(async (arg) => {
       const uri = asUri(arg);
       if (!uri) return;

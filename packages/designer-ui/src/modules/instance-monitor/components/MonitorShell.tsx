@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react';
-import { RefreshCw } from 'lucide-react';
+import { Pause, Play, RefreshCw } from 'lucide-react';
 
 import { ComponentLinkProvider, type ComponentLinkHandlers } from '../../canvas-interaction/readonly/ComponentLinkContext';
 import { resolveWorkflowScriptAbsolutePath } from '../../code-editor/createWorkflowScriptFile';
@@ -107,6 +107,8 @@ export function MonitorShell({ target, headers = EMPTY_HEADERS, onOpenComponent,
       selection={controller.selection}
       pathOnly={controller.pathOnly}
       onRefresh={controller.refresh}
+      paused={controller.paused}
+      onPausedChange={controller.setPaused}
       onSelect={controller.select}
       onPathOnly={controller.setPathOnly}
       links={links}
@@ -129,6 +131,9 @@ export interface MonitorShellViewProps {
   selection: MonitorSelection;
   pathOnly: boolean;
   onRefresh: () => void;
+  /** Live-update pause toggle; the button shows only when `onPausedChange` is given. */
+  paused?: boolean;
+  onPausedChange?: (value: boolean) => void;
   onSelect: (selection: MonitorSelection) => void;
   onPathOnly: (value: boolean) => void;
   links: ComponentLinkHandlers;
@@ -211,6 +216,18 @@ export function MonitorShellView(props: MonitorShellViewProps) {
               </span>
             )}
             <span className={`text-[10px] ${muted}`}>Updated {new Date(data.loadedAt).toLocaleTimeString()}</span>
+            {props.onPausedChange && (
+              <button
+                type="button"
+                onClick={() => props.onPausedChange?.(!props.paused)}
+                aria-pressed={!!props.paused}
+                aria-label={props.paused ? 'Resume live updates' : 'Pause live updates'}
+                title={props.paused ? 'Resume live updates' : 'Pause live updates'}
+                className="cursor-pointer rounded p-1 hover:bg-[var(--vscode-list-hoverBackground,#2a2d2e)]"
+              >
+                {props.paused ? <Play size={13} aria-hidden /> : <Pause size={13} aria-hidden />}
+              </button>
+            )}
             <button
               type="button"
               onClick={onRefresh}

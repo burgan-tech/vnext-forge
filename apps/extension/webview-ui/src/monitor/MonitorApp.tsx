@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 import { isMessageOriginAllowed, useToolHeadersStore } from '@vnext-forge-studio/designer-ui';
-import { MonitorShell, type MonitorTarget } from '@vnext-forge-studio/designer-ui/monitor';
+import { MonitorShell, publishInstanceChange, type MonitorTarget } from '@vnext-forge-studio/designer-ui/monitor';
 
 import { resolveWebviewPostMessageAllowedOrigins } from '../host/webviewMessageOrigins';
 import type { VsCodeWebviewApi } from '../VsCodeTransport';
@@ -22,6 +22,19 @@ export function MonitorApp({ api }: { api: VsCodeWebviewApi }) {
     function handleMessage(event: MessageEvent) {
       if (!isMessageOriginAllowed(event.origin, allowedOrigins)) return;
       const data = event.data as Record<string, unknown> | null;
+      if (data?.type === 'monitor:instance-changed') {
+        if (typeof data.domain !== 'string' || typeof data.instanceId !== 'string') return;
+        publishInstanceChange(
+          {
+            domain: data.domain,
+            instanceId: data.instanceId,
+            ...(typeof data.status === 'string' ? { status: data.status } : {}),
+            ...(typeof data.state === 'string' ? { state: data.state } : {}),
+          },
+          { relay: false },
+        );
+        return;
+      }
       if (data?.type !== 'monitor:context') return;
       setTarget({
         domain: String(data.domain),

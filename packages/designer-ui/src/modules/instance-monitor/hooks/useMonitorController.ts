@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useReducer, useRef } from 'react';
 
+import { subscribeInstanceChanges } from '../bus/instanceChangeBus';
+import * as QuickRunApi from '../../quick-run/QuickRunApi';
 import { defaultMonitorLoaders, loadMonitorLevelSafe, type MonitorLoaders } from '../data/loadMonitorLevel';
 import { initialMonitorState, monitorReducer } from '../model/monitorReducer';
+import { nextPollDelay } from '../model/pollSchedule';
 import type { MonitorSelection, MonitorTarget } from '../types';
 
 const keyOf = (t: MonitorTarget) =>
@@ -67,6 +70,73 @@ export function useMonitorController(
     if (loadKindRef.current === 'ready') void run('refresh');
   }, [run, runtimeVersion]);
 
+  const refresh = useCallback(() => void run('refresh'), [run]);
+
+  // Live: Quick Run (or another webview) says one of the viewed instances changed.
+  const levelIdsRef = useRef<string[]>([]);
+  levelIdsRef.current = state.stack.map((e) => e.target.instanceId);
+  const refreshRef = useRef(refresh);
+  refreshRef.current = refresh;
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const off = subscribeInstanceChanges((event) => {
+      if (!levelIdsRef.current.includes(event.instanceId)) return;
+      clearTimeout(timer);
+      timer = setTimeout(() => refreshRef.current(), 300);
+    });
+    return () => {
+      off();
+      clearTimeout(timer);
+    };
+  }, []);
+
+  // Live: light polling of the current level while its instance is active.
+  const readyData = state.load.kind === 'ready' ? state.load.data : null;
+  const status = readyData?.instance.metadata.status;
+  const modifiedAt = readyData?.instance.metadata.modifiedAt;
+  const loadedAt = readyData?.loadedAt;
+  const paused = state.paused;
+  useEffect(() => {
+    if (typeof document === 'undefined' || loadedAt === undefined) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let cancelled = false;
+    const lastChangeAt = loadedAt;
+    const arm = () => {
+      clearTimeout(timer);
+      const delay = nextPollDelay({
+        status,
+        unchangedForMs: Date.now() - lastChangeAt,
+        visible: document.visibilityState !== 'hidden',
+        paused,
+      });
+      if (delay === null || cancelled) return;
+      timer = setTimeout(() => void tick(), delay);
+    };
+    const tick = async () => {
+      const target = levelRef.current;
+      const res = await QuickRunApi.getInstance({
+        domain: target.domain,
+        workflowKey: target.workflowKey,
+        instanceId: target.instanceId,
+        headers: headersRef.current,
+        ...(target.runtimeUrl ? { runtimeUrl: target.runtimeUrl } : {}),
+      });
+      if (cancelled) return;
+      if (res.success && res.data.metadata.modifiedAt !== modifiedAt) {
+        refreshRef.current();
+        return; // the reload re-arms this effect with fresh data
+      }
+      arm();
+    };
+    document.addEventListener('visibilitychange', arm);
+    arm();
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+      document.removeEventListener('visibilitychange', arm);
+    };
+  }, [status, modifiedAt, loadedAt, paused, levelKey]);
+
   return {
     load: state.load,
     selection: top.selection,
@@ -74,7 +144,7 @@ export function useMonitorController(
     paused: state.paused,
     levels: state.stack.map((e) => e.target),
     level,
-    refresh: useCallback(() => void run('refresh'), [run]),
+    refresh,
     select: useCallback((selection: MonitorSelection) => dispatch({ type: 'select', selection }), []),
     setPathOnly: useCallback((value: boolean) => dispatch({ type: 'path-only', value }), []),
     setPaused: useCallback((value: boolean) => dispatch({ type: 'paused', value }), []),

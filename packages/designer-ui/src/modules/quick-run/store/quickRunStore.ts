@@ -21,6 +21,7 @@ import {
   type InteractionEvent,
   type InteractionPhase,
 } from '../hooks/interactionMachine';
+import { publishInstanceChange } from '../../instance-monitor/bus/instanceChangeBus';
 import type { KeepPollingWindow } from '../hooks/keepPollingWindow';
 import type { FlowExecutionTypes } from '../utils/executionMode';
 import type { PermissionCheckResult } from '../utils/permissionChecks';
@@ -402,23 +403,29 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
       return { instances };
     }),
 
-  updateInstanceStatus: (instanceId, status, currentState) =>
+  updateInstanceStatus: (instanceId, status, currentState) => {
+    const existing = get().instances.get(instanceId);
     set((state) => {
       const instances = new Map(state.instances);
-      const existing = instances.get(instanceId);
-      if (existing) {
-        instances.set(instanceId, { ...existing, status, effectiveStatus: undefined, currentState: currentState ?? existing.currentState });
+      const current = instances.get(instanceId);
+      if (current) {
+        instances.set(instanceId, { ...current, status, effectiveStatus: undefined, currentState: currentState ?? current.currentState });
       }
       return { instances };
-    }),
+    });
+    if (existing && (existing.status !== status || (currentState !== undefined && existing.currentState !== currentState))) {
+      publishInstanceChange({ domain: existing.domain, instanceId, status, state: currentState ?? existing.currentState });
+    }
+  },
 
-  updateInstanceState: (instanceId, stateResponse) =>
+  updateInstanceState: (instanceId, stateResponse) => {
+    const existing = get().instances.get(instanceId);
     set((state) => {
       const instances = new Map(state.instances);
-      const existing = instances.get(instanceId);
-      if (existing) {
+      const current = instances.get(instanceId);
+      if (current) {
         instances.set(instanceId, {
-          ...existing,
+          ...current,
           status: stateResponse.status,
           effectiveStatus: undefined,
           currentState: stateResponse.state,
@@ -427,7 +434,11 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
         });
       }
       return { instances };
-    }),
+    });
+    if (existing && (existing.status !== stateResponse.status || existing.currentState !== stateResponse.state)) {
+      publishInstanceChange({ domain: existing.domain, instanceId, status: stateResponse.status, state: stateResponse.state });
+    }
+  },
 
   setActiveState: (activeState) => set({ activeState }),
   setLastStateResponse: (response, notModified) =>

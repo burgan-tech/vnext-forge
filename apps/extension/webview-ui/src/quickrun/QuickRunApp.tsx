@@ -9,6 +9,8 @@ import {
   type SchemaReference,
 } from '@vnext-forge-studio/designer-ui/quickrun';
 
+import { registerInstanceChangeRelay } from '@vnext-forge-studio/designer-ui/monitor';
+
 import { resolveWebviewPostMessageAllowedOrigins } from '../host/webviewMessageOrigins';
 import type { VsCodeWebviewApi } from '../VsCodeTransport';
 
@@ -47,6 +49,12 @@ export function QuickRunApp({ api }: Props) {
 
   useEffect(() => {
     QuickRunApi.setDataBucketPostMessage((msg) => api.postMessage(msg));
+  }, [api]);
+
+  // Quick Run changes reach monitor panels (other webviews) through the host.
+  useEffect(() => {
+    registerInstanceChangeRelay((e) => api.postMessage({ type: 'quickrun:instance-changed', ...e }));
+    return () => registerInstanceChangeRelay(null);
   }, [api]);
 
   useEffect(() => {

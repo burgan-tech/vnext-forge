@@ -8,7 +8,7 @@ import type { MessageRouter } from '../MessageRouter';
 import type { DataBucketService, WorkflowBucketConfig } from '../tools/data-bucket.service.js';
 import type { EnvironmentHealthMonitor } from '../tools/environment-health-monitor.js';
 import type { ForgeSettings, ForgeToolsSettingsService } from '../tools/forge-tools-settings.js';
-import { parseOpenMonitorMessage } from './monitor-messages.js';
+import { parseInstanceChangedMessage, parseOpenMonitorMessage } from './monitor-messages.js';
 import { parseOpenSubFlowRunMessage } from './open-subflow-run-message.js';
 
 export interface QuickRunContext {
@@ -126,6 +126,11 @@ export class QuickRunPanel {
             entry.pendingContext = undefined;
           }
           this.sendCurrentHealthTo(entry);
+          return;
+        }
+        const changed = parseInstanceChangedMessage(raw);
+        if (changed) {
+          void vscode.commands.executeCommand('vnextForge.notifyInstanceChanged', changed);
           return;
         }
         if (this.handleOpenFunctionRunMessage(raw)) return;

@@ -25,3 +25,28 @@ export function parseOpenMonitorMessage(raw: unknown): OpenMonitorRequest | null
 export function isOpenQuickRunFromMonitorMessage(raw: unknown): boolean {
   return typeof raw === 'object' && raw !== null && (raw as { type?: unknown }).type === 'monitor:open-quickrun';
 }
+
+export interface InstanceChangedEvent {
+  domain: string;
+  instanceId: string;
+  status?: string;
+  state?: string;
+}
+
+function optionalString(value: unknown): string | undefined {
+  return typeof value === 'string' && value.length > 0 && value.length <= 200 ? value : undefined;
+}
+
+/** `quickrun:instance-changed` from a Quick Run panel, relayed to monitor panels of the same domain. */
+export function parseInstanceChangedMessage(raw: unknown): InstanceChangedEvent | null {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const msg = raw as Record<string, unknown>;
+  if (msg.type !== 'quickrun:instance-changed') return null;
+  const domain = typeof msg.domain === 'string' ? msg.domain : '';
+  if (domain.length === 0 || domain.length > 100) return null;
+  const instanceId = typeof msg.instanceId === 'string' ? msg.instanceId : '';
+  if (!ID_PATTERN.test(instanceId)) return null;
+  const status = optionalString(msg.status);
+  const state = optionalString(msg.state);
+  return { domain, instanceId, ...(status ? { status } : {}), ...(state ? { state } : {}) };
+}
