@@ -49,7 +49,14 @@ describe('loadMonitorLevel', () => {
     expect(r.ok && r.data.definition.source).toBe('history');
   });
 
-  it('reports a 404 instance as not found', async () => {
+  it('reports a RUNTIME_NOT_FOUND instance (wire shape, no details) as not found', async () => {
+    const r = await loadMonitorLevel(TARGET, {}, loaders({
+      getInstance: vi.fn(async () => ({ success: false, error: { code: 'RUNTIME_NOT_FOUND', message: 'The runtime could not find the requested resource.', traceId: 't' } })) as unknown as MonitorLoaders['getInstance'],
+    }));
+    expect(r).toMatchObject({ ok: false, notFound: true });
+  });
+
+  it('falls back to details.httpStatus 404 as not found', async () => {
     const r = await loadMonitorLevel(TARGET, {}, loaders({
       getInstance: vi.fn(async () => ({ success: false, error: { code: 'RUNTIME_PROXY_ERROR', message: 'Not found', traceId: 't', details: { httpStatus: 404 } } })) as unknown as MonitorLoaders['getInstance'],
     }));

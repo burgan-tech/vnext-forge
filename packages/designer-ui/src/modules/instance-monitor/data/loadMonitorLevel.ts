@@ -1,4 +1,4 @@
-import type { ApiResponse } from '@vnext-forge-studio/app-contracts';
+import { ERROR_CODES, type ApiResponse } from '@vnext-forge-studio/app-contracts';
 
 import { normalizeDefinition } from '../../canvas-interaction/readonly/normalize';
 import { loadFlowEditorDocument, type LoadFlowEditorResult } from '../../flow-editor/FlowEditorApi';
@@ -59,7 +59,9 @@ export async function loadMonitorLevel(
   if (!instanceRes.success) {
     return {
       ok: false,
-      notFound: summarizeRuntimeError(instanceRes.error).httpStatus === 404,
+      notFound:
+        instanceRes.error.code === ERROR_CODES.RUNTIME_NOT_FOUND ||
+        summarizeRuntimeError(instanceRes.error).httpStatus === 404,
       error: instanceRes.error,
     };
   }

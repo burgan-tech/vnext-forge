@@ -88,9 +88,12 @@ describe('quickRunService.getActiveIncident', () => {
     expect(await service.getActiveIncident(ids)).toEqual({ incident: null })
   })
 
-  it('still fails on any other 404', async () => {
+  it('still fails on any other 404, as RUNTIME_NOT_FOUND with the body kept in details', async () => {
     const { service } = serviceWith({ status: 404, data: JSON.stringify({ code: 'Instance:100001' }) })
-    await expect(service.getActiveIncident(ids)).rejects.toMatchObject({ code: ERROR_CODES.RUNTIME_EXECUTION_FAILED })
+    await expect(service.getActiveIncident(ids)).rejects.toMatchObject({
+      code: ERROR_CODES.RUNTIME_NOT_FOUND,
+      context: { details: { httpStatus: 404, code: 'Instance:100001' } },
+    })
   })
 })
 
@@ -116,7 +119,7 @@ describe('quickRunService.getTaskHistory', () => {
   it('throws a runtime error on a non-2xx instead of reporting an empty history', async () => {
     const { service } = serviceWith({ status: 404, data: JSON.stringify({ code: 'Function:100001' }) })
     await expect(service.getTaskHistory(ids)).rejects.toMatchObject({
-      code: ERROR_CODES.RUNTIME_EXECUTION_FAILED,
+      code: ERROR_CODES.RUNTIME_NOT_FOUND,
     })
   })
 })

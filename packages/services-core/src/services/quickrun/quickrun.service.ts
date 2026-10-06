@@ -69,7 +69,7 @@ function runtimeHttpError(data: string, status: number, source: string, traceId?
     details = { ...details, ...JSON.parse(data) }
   } catch { /* non-JSON error body */ }
   return new VnextForgeError(
-    ERROR_CODES.RUNTIME_EXECUTION_FAILED,
+    status === 404 ? ERROR_CODES.RUNTIME_NOT_FOUND : ERROR_CODES.RUNTIME_EXECUTION_FAILED,
     `Runtime returned HTTP ${status}`,
     { source, layer: 'infrastructure', details },
     traceId,
