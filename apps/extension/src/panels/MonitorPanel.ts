@@ -95,7 +95,13 @@ export class MonitorPanel {
   notifyInstanceChanged(event: InstanceChangedEvent): void {
     for (const entry of this.panels.values()) {
       if (!entry.webviewReady || entry.ctx.domain !== event.domain) continue;
-      void entry.panel.webview.postMessage({ type: 'monitor:instance-changed', ...event });
+      void entry.panel.webview.postMessage({
+        type: 'monitor:instance-changed',
+        domain: event.domain,
+        instanceId: event.instanceId,
+        ...(event.status ? { status: event.status } : {}),
+        ...(event.state ? { state: event.state } : {}),
+      });
     }
   }
 

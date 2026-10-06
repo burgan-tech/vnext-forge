@@ -16,6 +16,7 @@ import { DesignerPanel } from './panels/DesignerPanel.js';
 import { publishWorkflowFile } from './lib/publishWorkflowFile.js';
 import { QuickRunPanel } from './panels/QuickRunPanel.js';
 import { MonitorPanel, type MonitorContext } from './panels/MonitorPanel.js';
+import { parseInstanceChangedMessage } from './panels/monitor-messages.js';
 import { FunctionQuickRunPanel, type FunctionQuickRunContext } from './panels/FunctionQuickRunPanel.js';
 import { toFunctionMetadataFormValues } from '@vnext-forge-studio/designer-ui/function-editor-schema';
 import { VnextWorkspaceDetector, type VnextWorkspaceRoot } from './workspace-detector.js';
@@ -654,9 +655,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     })),
     /** Internal (not contributed): Quick Run -> monitor live-refresh relay. */
     vscode.commands.registerCommand('vnextForge.notifyInstanceChanged', (arg: unknown) => {
-      const e = arg as { domain?: unknown; instanceId?: unknown } | undefined;
-      if (typeof e?.domain !== 'string' || typeof e.instanceId !== 'string') return;
-      monitorPanel.notifyInstanceChanged(arg as Parameters<typeof monitorPanel.notifyInstanceChanged>[0]);
+      const event = parseInstanceChangedMessage(
+        typeof arg === 'object' && arg !== null ? { ...arg, type: 'quickrun:instance-changed' } : null,
+      );
+      if (event) monitorPanel.notifyInstanceChanged(event);
     }),
     vscode.commands.registerCommand('vnextForge.openFunctionQuickRunFromFile', safeAsync(async (arg) => {
       const uri = asUri(arg);

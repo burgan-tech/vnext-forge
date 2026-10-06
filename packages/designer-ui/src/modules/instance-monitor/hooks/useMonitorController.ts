@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useReducer, useRef } from 'react';
 
 import { subscribeInstanceChanges } from '../bus/instanceChangeBus';
-import * as QuickRunApi from '../../quick-run/QuickRunApi';
 import { defaultMonitorLoaders, loadMonitorLevelSafe, type MonitorLoaders } from '../data/loadMonitorLevel';
 import { initialMonitorState, monitorReducer } from '../model/monitorReducer';
-import { nextPollDelay } from '../model/pollSchedule';
+import { instanceFingerprint, nextPollDelay, pollNeedsRefresh, shouldRefreshFromBus } from '../model/pollSchedule';
 import type { MonitorSelection, MonitorTarget } from '../types';
 
 const keyOf = (t: MonitorTarget) =>
@@ -73,6 +72,8 @@ export function useMonitorController(
   const refresh = useCallback(() => void run('refresh'), [run]);
 
   // Live: Quick Run (or another webview) says one of the viewed instances changed.
+  const pausedRef = useRef(state.paused);
+  pausedRef.current = state.paused;
   const levelIdsRef = useRef<string[]>([]);
   levelIdsRef.current = state.stack.map((e) => e.target.instanceId);
   const refreshRef = useRef(refresh);
@@ -80,7 +81,7 @@ export function useMonitorController(
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const off = subscribeInstanceChanges((event) => {
-      if (!levelIdsRef.current.includes(event.instanceId)) return;
+      if (!shouldRefreshFromBus(levelIdsRef.current, event.instanceId, pausedRef.current)) return;
       clearTimeout(timer);
       timer = setTimeout(() => refreshRef.current(), 300);
     });
@@ -93,7 +94,7 @@ export function useMonitorController(
   // Live: light polling of the current level while its instance is active.
   const readyData = state.load.kind === 'ready' ? state.load.data : null;
   const status = readyData?.instance.metadata.status;
-  const modifiedAt = readyData?.instance.metadata.modifiedAt;
+  const shownFingerprint = readyData ? instanceFingerprint(readyData.instance.metadata) : '';
   const loadedAt = readyData?.loadedAt;
   const paused = state.paused;
   useEffect(() => {
@@ -113,20 +114,23 @@ export function useMonitorController(
       timer = setTimeout(() => void tick(), delay);
     };
     const tick = async () => {
-      const target = levelRef.current;
-      const res = await QuickRunApi.getInstance({
-        domain: target.domain,
-        workflowKey: target.workflowKey,
-        instanceId: target.instanceId,
-        headers: headersRef.current,
-        ...(target.runtimeUrl ? { runtimeUrl: target.runtimeUrl } : {}),
-      });
-      if (cancelled) return;
-      if (res.success && res.data.metadata.modifiedAt !== modifiedAt) {
-        refreshRef.current();
-        return; // the reload re-arms this effect with fresh data
+      try {
+        const target = levelRef.current;
+        const res = await loaders.getInstance({
+          domain: target.domain,
+          workflowKey: target.workflowKey,
+          instanceId: target.instanceId,
+          headers: headersRef.current,
+          ...(target.runtimeUrl ? { runtimeUrl: target.runtimeUrl } : {}),
+        });
+        if (cancelled) return;
+        if (res.success && pollNeedsRefresh(shownFingerprint, instanceFingerprint(res.data.metadata))) {
+          refreshRef.current();
+        }
+      } catch {
+        /* a failed poll must not stop the loop */
       }
-      arm();
+      if (!cancelled) arm(); // always re-arm: a failed refresh keeps the same data, so the effect would not re-run
     };
     document.addEventListener('visibilitychange', arm);
     arm();
@@ -135,7 +139,7 @@ export function useMonitorController(
       clearTimeout(timer);
       document.removeEventListener('visibilitychange', arm);
     };
-  }, [status, modifiedAt, loadedAt, paused, levelKey]);
+  }, [status, shownFingerprint, loadedAt, paused, levelKey, loaders]);
 
   return {
     load: state.load,
