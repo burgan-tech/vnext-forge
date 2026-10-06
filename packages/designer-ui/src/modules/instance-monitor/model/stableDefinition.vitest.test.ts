@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { definitionSignature, stableDefinition } from './stableDefinition';
+import { definitionKey, definitionSignature, stableDefinition } from './stableDefinition';
 
 const make = (extra: Record<string, unknown> = {}, nodePos: Record<string, unknown> = { a: { x: 1, y: 2 } }) =>
   ({
@@ -31,5 +31,14 @@ describe('stableDefinition', () => {
   it('signs equal content equally and different content differently', () => {
     expect(definitionSignature(make())).toBe(definitionSignature(make()));
     expect(definitionSignature(make())).not.toBe(definitionSignature(make({ version: '2' })));
+  });
+});
+
+describe('definitionKey', () => {
+  it('is equal for equal content, different for changed content, and stable per object', () => {
+    const a = make();
+    expect(definitionKey(a)).toBe(definitionKey(make()));
+    expect(definitionKey(a)).not.toBe(definitionKey(make({ version: '2' })));
+    expect(definitionKey(a)).toBe(definitionKey(a));
   });
 });
