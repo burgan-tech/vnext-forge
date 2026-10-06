@@ -50,8 +50,24 @@ function quickRunLocalStorageAdapter(): DataBucketAdapter {
 export function QuickRunPage() {
   const { id, group, name } = useParams<{ id: string; group: string; name: string }>();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const focusInstanceId = searchParams.get('instance') ?? undefined;
+  const [searchParams, setSearchParams] = useSearchParams();
+  const instanceParam = searchParams.get('instance');
+  // One-shot: the monitor's "Open in Quick Run" arrives as `?instance=`. Capture it
+  // as a request, then drop it from the URL so an environment switch or reload
+  // does not re-open a stale id.
+  const [focusRequest, setFocusRequest] = useState<{ instanceId: string; nonce: number } | undefined>(undefined);
+  useEffect(() => {
+    if (!instanceParam) return;
+    setFocusRequest({ instanceId: instanceParam, nonce: Date.now() });
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('instance');
+        return next;
+      },
+      { replace: true },
+    );
+  }, [instanceParam, setSearchParams]);
   const openTab = useEditorStore((s) => s.openTab);
   const domain = useProjectStore((s) => s.activeProject?.domain);
   const projectPath = useProjectStore((s) => s.activeProject?.path);
@@ -249,7 +265,7 @@ export function QuickRunPage() {
       onOpenFunctionRun={openFunctionRun}
       onOpenSubFlowTarget={openSubFlowTarget}
       onOpenMonitor={openMonitor}
-      {...(focusInstanceId ? { focusInstanceId } : {})}
+      {...(focusRequest ? { focusRequest } : {})}
     />
   );
 }

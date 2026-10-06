@@ -109,14 +109,14 @@ export class MonitorPanel {
   }
 
   /**
-   * Reveal the root workflow's Quick Run, then focus the instance when the
-   * webview sent one (it does so for the root level only; the host cannot
-   * verify an id against a child level it does not know).
+   * Reveal the root workflow's Quick Run, then focus the instance only when it
+   * is this panel's root instance. The webview sends an id for the root level
+   * only, but it is untrusted input, so the host re-checks it.
    */
   private async openQuickRun(entry: PanelEntry, instanceId: string | undefined): Promise<void> {
     const { ctx } = entry;
     await vscode.commands.executeCommand('vnextForge.openQuickRunFromFile', vscode.Uri.file(ctx.workflowFilePath));
-    if (instanceId) {
+    if (instanceId && instanceId === ctx.instanceId) {
       await vscode.commands.executeCommand('vnextForge.focusQuickRunInstance', {
         domain: ctx.domain,
         workflowKey: ctx.workflowKey,

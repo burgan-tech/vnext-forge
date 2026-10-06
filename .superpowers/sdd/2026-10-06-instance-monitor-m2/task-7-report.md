@@ -16,3 +16,10 @@ designer-ui: 1613 tests pass, tsc -b ok. extension: 108 tests pass, build ok. we
 
 ## Concerns
 - Re-focusing the same instance id twice in a row on an already-open Quick Run (after the user switched tabs) is a no-op, since the webview state value does not change.
+
+## Fix round 1
+- F1: useOpenInstance now reads instances / environmentName / environmentUrl from useQuickRunStore.getState() at call time (no stale closure); deps trimmed. Test useOpenInstance.vitest.test.ts pins that setWorkflowContext clears instances so the live read sees the reset (store-level; the hook's decision is the same getState().instances.has).
+- F2: nonce end to end. QuickRunPanel posts {instanceId, nonce} (incrementing counter, queued until ready); QuickRunApp stores {instanceId, nonce}; QuickRunShell takes `focusRequest?: FocusRequest` (replaces focusInstanceId); useFocusInstance effect keys on nonce. Web QuickRunPage captures ?instance= into a request (nonce Date.now()) and removes the param with replace:true.
+- F3: MonitorPanel.openQuickRun only calls vnextForge.focusQuickRunInstance when instanceId === entry.ctx.instanceId; comment corrected.
+- Confirmed: the not-found "Back to Quick Run" link and IncidentsTab "Retry from Quick Run" both use MonitorShellView's single props.onOpenQuickRun, which MonitorShell supplies as the level-aware wrapper (level id + isRoot).
+- Results: designer-ui quick-run + instance-monitor 496 pass, tsc -b ok; extension 108 pass, build ok; web build ok.

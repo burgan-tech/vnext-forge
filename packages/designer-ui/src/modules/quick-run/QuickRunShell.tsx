@@ -13,7 +13,7 @@ import { QuickRunStatusBar } from './components/QuickRunStatusBar';
 import { QuickRunTabBar } from './components/QuickRunTabBar';
 import { ResizableHandle } from './components/ResizableHandle';
 import { TransitionDialog } from './components/TransitionDialog';
-import { useFocusInstance } from './hooks/useFocusInstance';
+import { useFocusInstance, type FocusRequest } from './hooks/useFocusInstance';
 import { useQuickRunPolling } from './hooks/useQuickRunPolling';
 import { useQuickRunStore } from './store/quickRunStore';
 import type { OpenFunctionRunTarget, OpenMonitorTarget, OpenSubFlowTarget } from './types/quickrun.types';
@@ -75,8 +75,8 @@ interface QuickRunShellProps {
    * When omitted the Monitor button is hidden.
    */
   onOpenMonitor?: (target: OpenMonitorTarget) => void;
-  /** Instance to bring into focus after mount — e.g. from the monitor's Open in Quick Run. */
-  focusInstanceId?: string;
+  /** Instance to bring into focus — e.g. from the monitor's Open in Quick Run. A new `nonce` re-applies it. */
+  focusRequest?: FocusRequest;
 }
 
 export function QuickRunShell({
@@ -92,7 +92,7 @@ export function QuickRunShell({
   onOpenFunctionRun,
   onOpenSubFlowTarget,
   onOpenMonitor,
-  focusInstanceId,
+  focusRequest,
 }: QuickRunShellProps) {
   const setWorkflowContext = useQuickRunStore((s) => s.setWorkflowContext);
   const setGlobalHeaders = useQuickRunStore((s) => s.setGlobalHeaders);
@@ -125,7 +125,7 @@ export function QuickRunShell({
 
   // Declared after the workflow-context effect: it keys on the store's domain /
   // workflowKey, so it runs once the context reset above has landed.
-  useFocusInstance(focusInstanceId, environmentUrl);
+  useFocusInstance(focusRequest, environmentUrl);
 
   // Mirror the Forge-wide header store into `useQuickRunStore` so the
   // pseudo-ui delegate's live-getter pattern (`getBucketConfig` /

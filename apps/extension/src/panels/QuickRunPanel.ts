@@ -64,6 +64,7 @@ export class QuickRunPanel {
   // disposables list owns the listeners attached to that single
   // panel; `onDidDispose` removes the entry and drains the list.
   private readonly panels = new Map<string, PanelEntry>();
+  private focusNonce = 0;
 
   constructor(
     private readonly context: vscode.ExtensionContext,
@@ -203,7 +204,8 @@ export class QuickRunPanel {
   }
 
   private postFocusInstance(entry: PanelEntry, instanceId: string): void {
-    void entry.panel.webview.postMessage({ type: 'quickrun:focus-instance', instanceId });
+    // The nonce lets the webview tell a repeat request for the same id from a stale one.
+    void entry.panel.webview.postMessage({ type: 'quickrun:focus-instance', instanceId, nonce: ++this.focusNonce });
   }
 
   dispose(): void {

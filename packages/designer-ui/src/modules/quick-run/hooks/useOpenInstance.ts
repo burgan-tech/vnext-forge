@@ -7,17 +7,17 @@ import { useQuickRunPolling } from './useQuickRunPolling';
 
 /** Focus an open instance tab, or add it and start polling it. */
 export function useOpenInstance(): (target: OpenInstanceTarget) => void {
-  const instances = useQuickRunStore((s) => s.instances);
   const setActiveTab = useQuickRunStore((s) => s.setActiveTab);
   const addInstance = useQuickRunStore((s) => s.addInstance);
   const addTab = useQuickRunStore((s) => s.addTab);
-  const environmentName = useQuickRunStore((s) => s.environmentName);
-  const environmentUrl = useQuickRunStore((s) => s.environmentUrl);
   const pollingConfig = useQuickRunStore((s) => s.pollingConfig);
   const { pollState } = useQuickRunPolling(pollingConfig);
 
   return useCallback(
     (target: OpenInstanceTarget) => {
+      // Read live: a caller may hold this callback across a store reset
+      // (`setWorkflowContext` clears instances), so closed-over values go stale.
+      const { instances, environmentName, environmentUrl } = useQuickRunStore.getState();
       if (instances.has(target.id)) {
         setActiveTab(target.id);
         return;
@@ -49,6 +49,6 @@ export function useOpenInstance(): (target: OpenInstanceTarget) => void {
         runtimeUrl: environmentUrl,
       });
     },
-    [instances, setActiveTab, addInstance, addTab, environmentName, environmentUrl, pollState],
+    [setActiveTab, addInstance, addTab, pollState],
   );
 }

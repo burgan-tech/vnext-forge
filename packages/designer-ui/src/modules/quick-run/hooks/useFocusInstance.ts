@@ -25,7 +25,15 @@ export function targetFromInstanceDetail(detail: InstanceDetailResponse, domain:
  * Runs once `domain` / `workflowKey` are set in the store (after the shell's
  * `setWorkflowContext`, which resets tabs), so a first-mount focus survives the reset.
  */
-export function useFocusInstance(instanceId: string | undefined, runtimeUrl: string | undefined): void {
+export interface FocusRequest {
+  instanceId: string;
+  /** Changes per request so focusing the same id again re-runs the focus. */
+  nonce: number;
+}
+
+export function useFocusInstance(request: FocusRequest | undefined, runtimeUrl: string | undefined): void {
+  const instanceId = request?.instanceId;
+  const nonce = request?.nonce;
   const openInstance = useOpenInstance();
   const domain = useQuickRunStore((s) => s.domain);
   const workflowKey = useQuickRunStore((s) => s.workflowKey);
@@ -51,5 +59,5 @@ export function useFocusInstance(instanceId: string | undefined, runtimeUrl: str
       cancelled = true;
     };
     // `openInstance` changes identity with store state; re-running on it would refetch needlessly.
-  }, [instanceId, domain, workflowKey, runtimeUrl]);
+  }, [instanceId, nonce, domain, workflowKey, runtimeUrl]);
 }
