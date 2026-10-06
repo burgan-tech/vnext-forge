@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 
-import { Play, Zap } from 'lucide-react';
+import { Activity, Play, Zap } from 'lucide-react';
 
 import { ComponentFileIcon } from '../component-icons/ComponentFileIcon.js';
 import { VnextConfigFileIcon } from '../component-icons/VnextConfigFileIcon.js';
@@ -40,6 +40,8 @@ export function EditorTabLabel({ tab, renderFileLeading, titleClassName }: Edito
     leading = <Play className="text-primary size-4 shrink-0" aria-hidden />;
   } else if (tab.kind === 'functionrun' || tab.kind === 'functionrun-instance') {
     leading = <Zap className="text-primary size-4 shrink-0" aria-hidden />;
+  } else if (tab.kind === 'monitor') {
+    leading = <Activity className="text-primary size-4 shrink-0" aria-hidden />;
   }
 
   return (

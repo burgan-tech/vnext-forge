@@ -13,6 +13,7 @@ import {
   QuickRunShell,
   type DataBucketAdapter,
   type OpenFunctionRunTarget,
+  type OpenMonitorTarget,
   type OpenSubFlowTarget,
   type SchemaReference,
   type WorkflowBucketConfig,
@@ -21,6 +22,7 @@ import {
 import { filesService } from '../../services';
 import { useEnvironmentStore } from '../../app/store/useEnvironmentStore';
 import { useQuickRunSettingsStore } from '../../app/store/useQuickRunSettingsStore';
+import { workflowFilePathFor } from './workflowFilePath';
 
 function quickRunLocalStorageAdapter(): DataBucketAdapter {
   return {
@@ -56,16 +58,10 @@ export function QuickRunPage() {
   const pollingRetryCount = useQuickRunSettingsStore((s) => s.polling.retryCount);
   const pollingIntervalMs = useQuickRunSettingsStore((s) => s.polling.intervalMs);
 
-  const workflowFilePath = useMemo(() => {
-    if (!projectPath || !vnextConfig?.paths || !group || !name) return null;
-    const base = `${projectPath}/${vnextConfig.paths.componentsRoot}/${vnextConfig.paths.workflows}`;
-    // `_` is the route placeholder for a workflow that sits directly under the
-    // workflows root (see `FlowEditorPage.onNavigateToWorkflow`) — it is not a
-    // real folder, so it must not end up in the path.
-    const folder = group === '_' ? '' : group;
-    const dir = folder ? `${base}/${folder}` : base;
-    return `${dir}/${name}.json`.replace(/\\/g, '/').replace(/\/{2,}/g, '/');
-  }, [projectPath, vnextConfig, group, name]);
+  const workflowFilePath = useMemo(
+    () => workflowFilePathFor(projectPath, vnextConfig?.paths, group, name),
+    [projectPath, vnextConfig, group, name],
+  );
 
   const [workflowKey, setWorkflowKey] = useState<string | null>(null);
   const [loadError, setLoadError] = useState(false);
@@ -169,6 +165,16 @@ export function QuickRunPage() {
     [id, openTab, navigate],
   );
 
+  const openMonitor = useCallback(
+    (target: OpenMonitorTarget) => {
+      if (!id || !group || !name) return;
+      navigate(
+        `/project/${id}/monitor/${encodeURIComponent(group)}/${encodeURIComponent(name)}/${encodeURIComponent(target.instanceId)}`,
+      );
+    },
+    [id, group, name, navigate],
+  );
+
   /**
    * Open the sub-flow behind a correlation. `designer-ui` has already resolved
    * the workflow file; the web shell only needs the route coordinates it
@@ -240,6 +246,7 @@ export function QuickRunPage() {
       pollingIntervalMs={pollingIntervalMs}
       onOpenFunctionRun={openFunctionRun}
       onOpenSubFlowTarget={openSubFlowTarget}
+      onOpenMonitor={openMonitor}
     />
   );
 }

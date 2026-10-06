@@ -43,7 +43,8 @@ export function getEditorTabDisplayTitle(tab: EditorTab): string {
   if (
     tab.kind === 'quickrun' ||
     tab.kind === 'functionrun' ||
-    tab.kind === 'functionrun-instance'
+    tab.kind === 'functionrun-instance' ||
+    tab.kind === 'monitor'
   ) {
     return tab.title;
   }
