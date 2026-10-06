@@ -31,6 +31,11 @@ export interface FocusRequest {
   nonce: number;
 }
 
+/** True when this request's nonce was already focused to completion. */
+export function isFocusApplied(applied: number | undefined, nonce: number | undefined): boolean {
+  return nonce !== undefined && applied === nonce;
+}
+
 export function useFocusInstance(request: FocusRequest | undefined, runtimeUrl: string | undefined): void {
   const instanceId = request?.instanceId;
   const nonce = request?.nonce;
@@ -41,11 +46,11 @@ export function useFocusInstance(request: FocusRequest | undefined, runtimeUrl: 
   const appliedNonce = useRef<number | undefined>(undefined);
   useEffect(() => {
     if (!instanceId || !domain || !workflowKey) return;
-    if (nonce !== undefined && appliedNonce.current === nonce) return;
-    appliedNonce.current = nonce;
+    if (isFocusApplied(appliedNonce.current, nonce)) return;
     const state = useQuickRunStore.getState();
     if (state.instances.has(instanceId)) {
       state.setActiveTab(instanceId);
+      appliedNonce.current = nonce;
       return;
     }
     let cancelled = false;
@@ -57,7 +62,10 @@ export function useFocusInstance(request: FocusRequest | undefined, runtimeUrl: 
       headers: quickRunHeadersFromState(state),
       ...(runtimeUrl ? { runtimeUrl } : {}),
     }).then((res) => {
-      if (!cancelled && res.success) openInstance(targetFromInstanceDetail(res.data, domain, workflowKey));
+      if (cancelled || !res.success) return;
+      openInstance(targetFromInstanceDetail(res.data, domain, workflowKey));
+      // Only a completed focus counts: a cancelled run (StrictMode, env switch) must be retried.
+      appliedNonce.current = nonce;
     });
     return () => {
       cancelled = true;
