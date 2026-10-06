@@ -40,8 +40,10 @@ import {
 } from '../model/correlation';
 import { definitionDrift } from '../model/definitionDrift';
 import { pickLabel } from '../model/monitorPath';
+import { definitionKey, stableDefinition } from '../model/stableDefinition';
 import { pathRailSteps } from '../model/pathRail';
 import type {
+  MonitorDefinition,
   MonitorLoadState,
   MonitorSelection,
   MonitorTarget,
@@ -179,11 +181,19 @@ export function MonitorShell({
   if (controller.load.kind === 'ready' && controller.load.data.correlation) {
     lastTree.current = { instanceId: level.instanceId, tree: controller.load.data.correlation };
   }
+  // A refresh re-reads the definition into new objects; keeping the old ones when the content is equal stops the canvas rebuilding (and re-stacking) its nodes.
+  const lastDefinition = useRef<{ instanceId: string; definition: MonitorDefinition } | null>(null);
   const load = useMemo(() => {
     const current = controller.load;
-    if (current.kind !== 'ready' || current.data.correlation) return current;
-    const kept = lastTree.current?.instanceId === level.instanceId ? lastTree.current.tree : null;
-    return kept ? { ...current, data: { ...current.data, correlation: kept } } : current;
+    if (current.kind !== 'ready') return current;
+    const prevDefinition =
+      lastDefinition.current?.instanceId === level.instanceId ? lastDefinition.current.definition : undefined;
+    const definition = stableDefinition(prevDefinition, current.data.definition);
+    lastDefinition.current = { instanceId: level.instanceId, definition };
+    const kept =
+      current.data.correlation ?? (lastTree.current?.instanceId === level.instanceId ? lastTree.current.tree : null);
+    if (definition === current.data.definition && kept === current.data.correlation) return current;
+    return { ...current, data: { ...current.data, definition, correlation: kept } };
   }, [controller.load, level.instanceId]);
 
   const drillInto = useCallback(
@@ -483,6 +493,7 @@ export function MonitorShellView(props: MonitorShellViewProps) {
           <div ref={rowRef} className="flex min-h-0 flex-1">
             <div className="relative min-h-0 min-w-[200px] flex-1 overflow-hidden bg-[var(--vscode-editor-background,#1e1e1e)] [contain:layout]">
               <MonitorCanvas
+                key={`${target.instanceId}:${definitionKey(definition)}`}
                 vm={definition.vm}
                 diagram={definition.diagram}
                 history={history}
