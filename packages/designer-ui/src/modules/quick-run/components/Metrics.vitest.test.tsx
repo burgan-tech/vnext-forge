@@ -2,44 +2,60 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
-import { ElementMetricsView } from './ElementMetrics';
+import { StateVisitsView, TransitionExecutionsView } from './ElementMetrics';
 import { FunctionMetricsView } from './FunctionMetrics';
 import { TasksTabContent } from './TasksTab';
 
-describe('ElementMetricsView', () => {
-  it('lists attempts with their tasks, hook and order', () => {
+describe('TransitionExecutionsView', () => {
+  it('splits the tasks of each execution into before / during / after', () => {
     const html = renderToStaticMarkup(
-      createElement(ElementMetricsView, {
+      createElement(TransitionExecutionsView, {
+        fromState: 'draft',
+        toState: 'review',
         metrics: {
-          element: { kind: 'transition', key: 'to-review' },
-          count: 1,
+          element: { kind: 'transition', key: 'submit' },
+          count: 2,
           attempts: [
             {
               seq: 1,
               durationMs: 1104,
               triggerType: 'manual',
               triggeredBy: 'alice',
-              tasks: [{ id: 't', taskKey: 'risk', hook: 'onExecute', order: 2, status: 'completed', durationMs: 511 }],
+              tasks: [
+                { id: 'x', taskKey: 'leave-draft', hook: 'onExit', status: 'completed', businessStatus: 'success' },
+                { id: 't', taskKey: 'risk', hook: 'onExecute', order: 2, status: 'completed', durationMs: 511 },
+                { id: 'e', taskKey: 'enter-review', hook: 'onEntry', status: 'faulted', error: 'boom' },
+              ],
             },
+            { seq: 2, durationMs: 20, tasks: [] },
           ],
         },
       }),
     );
-    expect(html).toContain('#1');
-    expect(html).toContain('by alice');
-    expect(html).toContain('1.1 s');
-    expect(html).toContain('risk');
-    expect(html).toContain('onExecute');
-    expect(html).toContain('#2');
+    for (const text of ['Execution 1 of 2', 'by alice', '1.1 s', 'Before · on exit of draft', 'During the transition', 'After · on entry of review', 'boom', 'No tasks ran.']) {
+      expect(html).toContain(text);
+    }
   });
+});
 
-  it('says a state visit is still open', () => {
+describe('StateVisitsView', () => {
+  it('says how long the instance stayed, or that it is still there', () => {
     const html = renderToStaticMarkup(
-      createElement(ElementMetricsView, {
-        metrics: { element: { kind: 'state', key: 'review' }, count: 1, attempts: [{ seq: 1, durationMs: null, tasks: [] }] },
+      createElement(StateVisitsView, {
+        stateKey: 'review',
+        metrics: {
+          element: { kind: 'state', key: 'review' },
+          count: 2,
+          attempts: [
+            { seq: 1, durationMs: 41900, tasks: [] },
+            { seq: 2, durationMs: null, tasks: [] },
+          ],
+        },
       }),
     );
+    expect(html).toContain('stayed 41.9 s');
     expect(html).toContain('still here');
+    expect(html).toContain('Visit 2 of 2');
   });
 });
 

@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
-import type { ElementMetricsResponse } from '../types/quickrun.types';
+import type { ElementMetricsResponse, MetricsTask } from '../types/quickrun.types';
 import { formatDurationMs } from '../utils/taskHistory';
+import { StatusIcon, resolveTaskOutcome } from './panel-kit';
 
 export type ElementMetricsKind = 'transition' | 'state';
 
@@ -10,96 +11,178 @@ export type ElementMetricsLoader = (
   key: string,
 ) => Promise<{ success: true; data: ElementMetricsResponse } | { success: false; error: { message: string } }>;
 
-/**
- * Attempts of one transition (each firing) or state (each visit), runtime
- * 0.0.99. Props-only so the SSR harness can assert it.
- */
-export function ElementMetricsView({ metrics }: { metrics: ElementMetricsResponse }) {
-  if (metrics.attempts.length === 0) {
-    return <p className="text-[10px] text-[var(--vscode-descriptionForeground)]">No attempts recorded</p>;
-  }
-  const durationLabel = metrics.element.kind === 'state' ? 'dwell' : 'execution';
+/** Loads one transition's or state's metrics once, when the tab that needs it mounts. */
+export function useElementMetrics(load: ElementMetricsLoader, kind: ElementMetricsKind, key: string) {
+  const [state, setState] = useState<{ data: ElementMetricsResponse | null; error: string | null; loading: boolean }>({
+    data: null,
+    error: null,
+    loading: true,
+  });
+  useEffect(() => {
+    let cancelled = false;
+    setState({ data: null, error: null, loading: true });
+    load(kind, key)
+      .then((res) => {
+        if (cancelled) return;
+        setState(res.success ? { data: res.data, error: null, loading: false } : { data: null, error: res.error.message, loading: false });
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) setState({ data: null, error: err instanceof Error ? err.message : String(err), loading: false });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [load, kind, key]);
+  return state;
+}
+
+function MetricsTaskRow({ task }: { task: MetricsTask }) {
   return (
-    <ol className="flex flex-col gap-1">
-      {metrics.attempts.map((a) => (
-        <li key={a.seq} className="rounded border border-[var(--vscode-panel-border)] p-1.5 text-[10px]">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="font-semibold">#{a.seq}</span>
-            {a.triggerType && <span>{a.triggerType}</span>}
-            {a.triggeredBy && <span className="text-[var(--vscode-descriptionForeground)]">by {a.triggeredBy}</span>}
-            <span className="ml-auto text-[var(--vscode-descriptionForeground)]" title={`${durationLabel} time`}>
-              {formatDurationMs(a.durationMs) ?? (metrics.element.kind === 'state' ? 'still here' : '')}
-            </span>
-          </div>
-          {a.tasks.length > 0 && (
-            <ul className="mt-1 flex flex-col gap-0.5 border-l border-[var(--vscode-panel-border)] pl-1.5">
-              {a.tasks.map((t) => (
-                <li key={t.id} className="flex flex-wrap items-center gap-1">
-                  {t.order != null && <span className="text-[var(--vscode-descriptionForeground)]">#{t.order}</span>}
-                  <span className="font-mono">{t.taskKey}</span>
-                  {t.hook && <span className="rounded border border-[var(--vscode-panel-border)] px-1 text-[9px]">{t.hook}</span>}
-                  <span>{t.status}</span>
-                  {t.businessStatus && <span className="text-[var(--vscode-descriptionForeground)]">{t.businessStatus}</span>}
-                  <span className="ml-auto text-[var(--vscode-descriptionForeground)]">{formatDurationMs(t.durationMs) ?? ''}</span>
-                  {t.error && <span className="w-full text-[var(--vscode-errorForeground)]">{t.error}</span>}
-                </li>
-              ))}
-            </ul>
-          )}
-        </li>
-      ))}
-    </ol>
+    <div className="flex items-start gap-1.5 py-0.5">
+      <StatusIcon outcome={resolveTaskOutcome(task.status, task.businessStatus)} size={12} />
+      <div className="min-w-0 flex-1">
+        <span className="font-mono">{task.taskKey}</span>
+        {task.error && <div className="text-[10px] text-[var(--vscode-errorForeground)]">{task.error}</div>}
+      </div>
+      <span className="shrink-0 tabular-nums text-[var(--vscode-descriptionForeground)]">
+        {formatDurationMs(task.durationMs) ?? ''}
+      </span>
+    </div>
   );
 }
 
-/** A "Metrics" toggle that loads on first open. */
-export function ElementMetricsToggle({
-  kind,
-  elementKey,
-  load,
-  label,
+/** Tasks of one execution grouped by when they ran relative to the transition. */
+function PhasedTasks({
+  tasks,
+  phases,
 }: {
-  kind: ElementMetricsKind;
-  elementKey: string;
-  load: ElementMetricsLoader;
-  label: string;
+  tasks: readonly MetricsTask[];
+  phases: Array<{ hook: string; label: string }>;
 }) {
-  const [open, setOpen] = useState(false);
-  const [metrics, setMetrics] = useState<ElementMetricsResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const toggle = () => {
-    const next = !open;
-    setOpen(next);
-    if (next && !metrics && !loading) {
-      setLoading(true);
-      setError(null);
-      void load(kind, elementKey)
-        .then((res) => (res.success ? setMetrics(res.data) : setError(res.error.message)))
-        .catch((err: unknown) => setError(err instanceof Error ? err.message : String(err)))
-        .finally(() => setLoading(false));
-    }
-  };
-
+  if (tasks.length === 0) {
+    return <p className="text-[var(--vscode-descriptionForeground)]">No tasks ran.</p>;
+  }
+  const known = new Set(phases.map((p) => p.hook));
+  const buckets = [
+    ...phases.map((p) => ({ label: p.label, items: tasks.filter((t) => t.hook === p.hook) })),
+    { label: 'Other', items: tasks.filter((t) => !t.hook || !known.has(t.hook)) },
+  ].filter((b) => b.items.length > 0);
   return (
     <div className="flex flex-col gap-1">
-      <button
-        type="button"
-        onClick={toggle}
-        aria-expanded={open}
-        className="self-start rounded border border-[var(--vscode-panel-border)] px-1.5 py-0.5 text-[10px] hover:bg-[var(--vscode-list-hoverBackground)]"
-      >
-        {open ? '▾' : '▸'} {label}
-      </button>
-      {open &&
-        (loading ? (
-          <p className="text-[10px] text-[var(--vscode-descriptionForeground)]">Loading…</p>
-        ) : error ? (
-          <p className="text-[10px] text-[var(--vscode-errorForeground)]">{error}</p>
-        ) : metrics ? (
-          <ElementMetricsView metrics={metrics} />
-        ) : null)}
+      {buckets.map((b) => (
+        <div key={b.label}>
+          <div className="text-[10px] text-[var(--vscode-descriptionForeground)]">{b.label}</div>
+          <div className="ml-1 border-l border-[var(--vscode-panel-border)] pl-1.5">
+            {b.items.map((t) => (
+              <MetricsTaskRow key={t.id} task={t} />
+            ))}
+          </div>
+        </div>
+      ))}
     </div>
   );
+}
+
+function AttemptCard({ title, meta, children }: { title: string; meta: string; children: React.ReactNode }) {
+  return (
+    <section className="flex flex-col gap-1 rounded border border-[var(--vscode-panel-border)] p-2">
+      <div className="flex items-baseline gap-2">
+        <span className="font-medium">{title}</span>
+        <span className="ml-auto text-[10px] text-[var(--vscode-descriptionForeground)]">{meta}</span>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+const time = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleTimeString() : null);
+
+/**
+ * Every firing of one transition (runtime 0.0.99 transition metrics), each
+ * with its tasks split into before / during / after the transition.
+ */
+export function TransitionExecutionsView({
+  metrics,
+  fromState,
+  toState,
+}: {
+  metrics: ElementMetricsResponse;
+  fromState: string;
+  toState: string;
+}) {
+  if (metrics.attempts.length === 0) {
+    return <p className="text-[var(--vscode-descriptionForeground)]">No executions recorded.</p>;
+  }
+  const phases = [
+    { hook: 'onExit', label: `Before · on exit of ${fromState}` },
+    { hook: 'onExecute', label: 'During the transition' },
+    { hook: 'onEntry', label: `After · on entry of ${toState}` },
+  ];
+  return (
+    <div className="flex flex-col gap-2">
+      {metrics.attempts.map((a) => (
+        <AttemptCard
+          key={a.seq}
+          title={metrics.attempts.length > 1 ? `Execution ${a.seq} of ${metrics.attempts.length}` : 'Execution'}
+          meta={[
+            a.triggerType,
+            a.triggeredBy && `by ${a.triggeredBy}`,
+            time(a.startedAt),
+            formatDurationMs(a.durationMs),
+          ]
+            .filter(Boolean)
+            .join(' · ')}
+        >
+          <PhasedTasks tasks={a.tasks} phases={phases} />
+        </AttemptCard>
+      ))}
+    </div>
+  );
+}
+
+/** Every stay in one state (runtime 0.0.99 state metrics): when, how long, and its entry / exit tasks. */
+export function StateVisitsView({ metrics, stateKey }: { metrics: ElementMetricsResponse; stateKey: string }) {
+  if (metrics.attempts.length === 0) {
+    return <p className="text-[var(--vscode-descriptionForeground)]">No visits recorded.</p>;
+  }
+  const phases = [
+    { hook: 'onEntry', label: `On entry of ${stateKey}` },
+    { hook: 'onExit', label: `On exit of ${stateKey}` },
+  ];
+  return (
+    <div className="flex flex-col gap-2">
+      {metrics.attempts.map((a) => (
+        <AttemptCard
+          key={a.seq}
+          title={metrics.attempts.length > 1 ? `Visit ${a.seq} of ${metrics.attempts.length}` : 'Visit'}
+          meta={[
+            time(a.startedAt) && `entered ${time(a.startedAt)}`,
+            a.durationMs != null ? `stayed ${formatDurationMs(a.durationMs)}` : 'still here',
+          ]
+            .filter(Boolean)
+            .join(' · ')}
+        >
+          <PhasedTasks tasks={a.tasks} phases={phases} />
+        </AttemptCard>
+      ))}
+    </div>
+  );
+}
+
+/** Loading / error wrapper for a lazily loaded metrics tab. */
+export function MetricsTab({
+  load,
+  kind,
+  elementKey,
+  children,
+}: {
+  load: ElementMetricsLoader;
+  kind: ElementMetricsKind;
+  elementKey: string;
+  children: (metrics: ElementMetricsResponse) => React.ReactNode;
+}) {
+  const { data, error, loading } = useElementMetrics(load, kind, elementKey);
+  if (loading) return <p className="text-[var(--vscode-descriptionForeground)]">Loading…</p>;
+  if (error) return <p className="text-[var(--vscode-errorForeground)]">{error}</p>;
+  return data ? <>{children(data)}</> : null;
 }

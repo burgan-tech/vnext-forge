@@ -8,13 +8,13 @@ import { transitionDisplayLabel } from '../utils/displayLabels';
 import { useRuntimeSupports } from '../utils/runtimeFeatures';
 import {
   type ContextPanelTab,
-  type HistoryTransition,
   type OpenSubFlowTarget,
   type StateResponse,
 } from '../types/quickrun.types';
 import { CopyableJsonBlock } from './CopyableJsonBlock';
 import { CorrelationsTabContent } from './CorrelationsTab';
-import { ElementMetricsToggle, type ElementMetricsLoader } from './ElementMetrics';
+import { type ElementMetricsLoader } from './ElementMetrics';
+import { HistoryTabContent } from './HistoryTab';
 import { TasksTabContent } from './TasksTab';
 
 const TABS: { id: ContextPanelTab; label: string }[] = [
@@ -265,6 +265,8 @@ export function ContextPanel({ onOpenSubFlowTarget }: ContextPanelProps) {
             history={activeHistory}
             loading={activeHistoryLoading}
             {...(loadElementMetrics ? { loadMetrics: loadElementMetrics } : {})}
+            tasks={activeTaskHistory}
+            transitionLabel={transitionLabel}
           />
         )}
         {contextPanelTab === 'tasks' && (
@@ -376,217 +378,6 @@ function SectionLabel({ children }: { children: ReactNode }) {
 }
 
 
-/** manual=info, timer=warning, signal=accent; other known types preserved; unknown = Badge muted. */
-const TRIGGER_TYPE_STYLES: Record<string, string> = {
-  Manual: 'border-info-border bg-info text-info-foreground',
-  Timer: 'border-warning-border bg-warning text-warning-foreground',
-  Signal: 'border-muted-border bg-accent text-accent-foreground',
-  Auto: 'border-success-border bg-success text-success-foreground',
-  Error: 'border-destructive-border bg-destructive-muted text-destructive-text',
-  SubFlow: 'border-tertiary-border bg-tertiary text-tertiary-foreground',
-  Schedule: 'border-warning-border bg-warning text-warning-foreground',
-};
-
-function triggerTypeBadgeClass(triggerType: string): string {
-  const raw = triggerType.trim();
-  const direct = TRIGGER_TYPE_STYLES[raw];
-  if (direct) return direct;
-  switch (raw.toLowerCase()) {
-    case 'manual':
-      return TRIGGER_TYPE_STYLES.Manual;
-    case 'timer':
-      return TRIGGER_TYPE_STYLES.Timer;
-    case 'signal':
-      return TRIGGER_TYPE_STYLES.Signal;
-    case 'auto':
-      return TRIGGER_TYPE_STYLES.Auto;
-    case 'error':
-      return TRIGGER_TYPE_STYLES.Error;
-    case 'subflow':
-      return TRIGGER_TYPE_STYLES.SubFlow;
-    case 'schedule':
-    case 'scheduled':
-      return TRIGGER_TYPE_STYLES.Schedule;
-    default:
-      return 'border-muted-border bg-muted text-muted-foreground';
-  }
-}
-
-function TriggerTypeBadge({ triggerType }: { triggerType: string }) {
-  const style = triggerTypeBadgeClass(triggerType);
-  return (
-    <span className={`inline-flex items-center rounded border px-1.5 py-0.5 text-[9px] font-medium ${style}`}>
-      {triggerType}
-    </span>
-  );
-}
-
-function HistoryTabContent({
-  history,
-  loading,
-  loadMetrics,
-}: {
-  history: ReturnType<typeof useQuickRunStore.getState>['activeHistory'];
-  loading: boolean;
-  /** Runtime 0.0.99 transition / state metrics; omitted on older runtimes. */
-  loadMetrics?: ElementMetricsLoader;
-}) {
-  const [detailItem, setDetailItem] = useState<HistoryTransition | null>(null);
-
-  if (loading) return <LoadingPlaceholder />;
-  if (!history || history.transitions.length === 0) return <EmptyState message="No transition history yet" />;
-  return (
-    <>
-      <div className="flex flex-1 flex-col gap-1 overflow-y-auto min-h-0">
-        {history.transitions.map((t) => (
-          <div
-            key={t.id}
-            className="rounded border border-[var(--vscode-panel-border)] p-2 text-[11px]"
-          >
-            <div className="flex items-center justify-between">
-              <span className="font-medium">{t.transitionId}</span>
-              <div className="flex items-center gap-1">
-                <span className="text-[var(--vscode-descriptionForeground)]">
-                  {t.durationSeconds != null ? `${t.durationSeconds.toFixed(2)}s` : ''}
-                </span>
-                <button
-                  className="flex h-4 w-4 items-center justify-center rounded text-[var(--vscode-descriptionForeground)] hover:bg-[var(--vscode-list-hoverBackground)] hover:text-[var(--vscode-foreground)]"
-                  onClick={() => setDetailItem(t)}
-                  aria-label={`View details for ${t.transitionId}`}
-                  title="View details"
-                >
-                  ⓘ
-                </button>
-              </div>
-            </div>
-            <div className="mt-0.5 text-[var(--vscode-descriptionForeground)]">
-              {t.fromState} → {t.toState}
-            </div>
-            <div className="mt-1 flex items-center gap-2 text-[10px]">
-              <TriggerTypeBadge triggerType={t.triggerType} />
-              <span className="text-[var(--vscode-descriptionForeground)]">
-                {new Date(t.startedAt).toLocaleTimeString()}
-              </span>
-            </div>
-            {loadMetrics && (
-              <div className="mt-1 flex flex-col gap-1">
-                <ElementMetricsToggle
-                  kind="transition"
-                  elementKey={t.transitionId}
-                  load={loadMetrics}
-                  label={`Attempts of ${t.transitionId}`}
-                />
-                {t.toState && (
-                  <ElementMetricsToggle kind="state" elementKey={t.toState} load={loadMetrics} label={`Visits of ${t.toState}`} />
-                )}
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-      {detailItem && (
-        <TransitionDetailModal item={detailItem} onClose={() => setDetailItem(null)} />
-      )}
-    </>
-  );
-}
-
-function TransitionDetailModal({ item, onClose }: { item: HistoryTransition; onClose: () => void }) {
-  const dialogRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    dialogRef.current?.focus();
-  }, []);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="transition-detail-title"
-    >
-      <div
-        ref={dialogRef}
-        tabIndex={-1}
-        className="flex w-[500px] max-h-[80vh] flex-col rounded border border-[var(--vscode-widget-border)] bg-background bg-[var(--vscode-editor-background,_theme(colors.background))] shadow-lg focus:outline-none"
-      >
-        <header className="flex items-center justify-between border-b border-[var(--vscode-panel-border)] px-4 py-3">
-          <h2 id="transition-detail-title" className="text-sm font-semibold">
-            Transition Detail
-          </h2>
-          <button
-            className="text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]"
-            onClick={onClose}
-            aria-label="Close"
-          >
-            ✕
-          </button>
-        </header>
-
-        <div className="flex-1 overflow-y-auto p-4 text-[11px]">
-          <div className="flex flex-col gap-3">
-            <DetailRow label="Transition" value={item.transitionId} />
-            <DetailRow label="From → To" value={`${item.fromState} → ${item.toState}`} />
-            <div className="flex items-center gap-2">
-              <span className="w-24 shrink-0 font-semibold text-[var(--vscode-descriptionForeground)]">Trigger</span>
-              <TriggerTypeBadge triggerType={item.triggerType} />
-            </div>
-            {item.durationSeconds != null && (
-              <DetailRow label="Duration" value={`${item.durationSeconds.toFixed(2)}s`} />
-            )}
-            <DetailRow label="Started" value={new Date(item.startedAt).toLocaleString()} />
-            {item.finishedAt && (
-              <DetailRow label="Finished" value={new Date(item.finishedAt).toLocaleString()} />
-            )}
-            <DetailRow label="Created" value={new Date(item.createdAt).toLocaleString()} />
-            {item.createdBy && <DetailRow label="Created By" value={item.createdBy} />}
-            {item.createdByBehalfOf && <DetailRow label="On Behalf Of" value={item.createdByBehalfOf} />}
-
-            {item.body && Object.keys(item.body).length > 0 && (
-              <div className="flex flex-col gap-1">
-                <span className="font-semibold text-[var(--vscode-descriptionForeground)]">Request Body</span>
-                <CopyableJsonBlock value={item.body} />
-              </div>
-            )}
-
-            {item.header && Object.keys(item.header).length > 0 && (
-              <div className="flex flex-col gap-1">
-                <span className="font-semibold text-[var(--vscode-descriptionForeground)]">Request Headers</span>
-                <CopyableJsonBlock value={item.header} />
-              </div>
-            )}
-          </div>
-        </div>
-
-        <footer className="flex justify-end border-t border-[var(--vscode-panel-border)] px-4 py-3">
-          <button
-            className="rounded border border-[var(--vscode-panel-border)] px-3 py-1.5 text-xs hover:bg-[var(--vscode-list-hoverBackground)]"
-            onClick={onClose}
-          >
-            Close
-          </button>
-        </footer>
-      </div>
-    </div>
-  );
-}
-
-function DetailRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-start gap-2">
-      <span className="w-24 shrink-0 font-semibold text-[var(--vscode-descriptionForeground)]">{label}</span>
-      <span className="break-all">{value}</span>
-    </div>
-  );
-}
 
 function LoadingPlaceholder() {
   return (
