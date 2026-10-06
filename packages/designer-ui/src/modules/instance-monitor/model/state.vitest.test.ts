@@ -46,6 +46,17 @@ describe('monitorReducer', () => {
     expect(s.stack[0].selection).toEqual({ kind: 'state', key: 'x' });
   });
 
+  it('bumps the generation on reset, drill and pop-to', () => {
+    const t = (id: string) => ({ domain: 'd', workflowKey: 'w', instanceId: id });
+    let s = initialMonitorState(t('1'));
+    s = monitorReducer(s, { type: 'drill', target: t('2') });
+    expect(s.gen).toBe(1);
+    s = monitorReducer(s, { type: 'pop-to', index: 0 });
+    expect(s.gen).toBe(2);
+    s = monitorReducer(s, { type: 'reset', target: t('2') });
+    expect(s.gen).toBe(3);
+  });
+
   it('pauses and resumes', () => {
     expect(monitorReducer(initialMonitorState({ domain: 'd', workflowKey: 'w', instanceId: 'i' }), { type: 'paused', value: true }).paused).toBe(true);
   });

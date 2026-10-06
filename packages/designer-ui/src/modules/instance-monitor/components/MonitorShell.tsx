@@ -15,7 +15,7 @@ import { useComponentIndex } from '../hooks/useComponentIndex';
 import { useRuntimeVersion } from '../hooks/useRuntimeVersion';
 import { useMonitorController } from '../hooks/useMonitorController';
 import { lookupComponent } from '../model/componentIndex';
-import { childInstancesOf, childTarget } from '../model/correlation';
+import { childInstancesOf, childTarget, childWorkflowFile } from '../model/correlation';
 import { definitionDrift } from '../model/definitionDrift';
 import type { MonitorLoadState, MonitorSelection, MonitorTarget, OpenComponentTarget } from '../types';
 import { Breadcrumb } from './Breadcrumb';
@@ -76,7 +76,7 @@ export function MonitorShell({ target, headers = EMPTY_HEADERS, onOpenComponent,
   const drillInto = useCallback(
     (node: CorrelationTreeNode) => {
       if (node.id === level.instanceId) return;
-      controller.drill(childTarget(level, node, lookupComponent(index, 'workflows', node.flow) ?? undefined));
+      controller.drill(childTarget(level, node, childWorkflowFile(index, level, node)));
     },
     [level, index, controller.drill],
   );
@@ -144,11 +144,25 @@ const muted = 'text-[var(--vscode-descriptionForeground,#9d9d9d)]';
 export function MonitorShellView(props: MonitorShellViewProps) {
   const { target, load, selection, pathOnly, onRefresh, onSelect, onPathOnly, links } = props;
 
+  const crumbs =
+    props.levels && props.levels.length > 1 && props.onPopTo ? (
+      <div className="border-b border-[var(--vscode-panel-border,#3c3c3c)] px-3 py-1">
+        <Breadcrumb levels={props.levels} onPopTo={props.onPopTo} />
+      </div>
+    ) : null;
+
   if (load.kind === 'loading') {
-    return <p className={`py-12 text-center text-xs ${muted}`}>Loading instance…</p>;
+    return (
+      <>
+        {crumbs}
+        <p className={`py-12 text-center text-xs ${muted}`}>Loading instance…</p>
+      </>
+    );
   }
   if (load.kind === 'not-found') {
     return (
+      <>
+        {crumbs}
       <div className="flex flex-col items-center gap-2 py-12 text-xs">
         <p>Instance not found in {target.environmentName ?? 'this environment'}.</p>
         {props.onOpenQuickRun && (
@@ -157,16 +171,20 @@ export function MonitorShellView(props: MonitorShellViewProps) {
           </button>
         )}
       </div>
+      </>
     );
   }
   if (load.kind === 'error') {
     return (
+      <>
+        {crumbs}
       <div className="flex flex-col gap-2">
         <RuntimeErrorBanner title="Could not load the instance" error={load.error} />
         <button type="button" onClick={onRefresh} className="mx-2 cursor-pointer self-start rounded border border-[var(--vscode-panel-border,#3c3c3c)] px-2 py-1 text-xs">
           Retry
         </button>
       </div>
+      </>
     );
   }
 
@@ -179,11 +197,7 @@ export function MonitorShellView(props: MonitorShellViewProps) {
   return (
     <ComponentLinkProvider value={links}>
       <div className="flex h-full min-h-0 flex-col text-[var(--vscode-foreground,#cccccc)]">
-        {props.levels && props.levels.length > 1 && props.onPopTo && (
-          <div className="border-b border-[var(--vscode-panel-border,#3c3c3c)] px-3 py-1">
-            <Breadcrumb levels={props.levels} onPopTo={props.onPopTo} />
-          </div>
-        )}
+        {crumbs}
         <header className="flex items-center gap-2 border-b border-[var(--vscode-panel-border,#3c3c3c)] px-3 py-1.5 text-xs">
           <span className="truncate font-semibold">
             {target.workflowKey} · <span className="font-mono">{instance.key || instance.id.slice(0, 8)}</span>

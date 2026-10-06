@@ -10,12 +10,14 @@ export interface MonitorState {
   load: MonitorLoadState;
   /** Index 0 = root instance; the last entry is the level on screen. */
   stack: MonitorLevel[];
+  /** Bumped by reset / drill / pop-to so the host effect reloads even when the level key is unchanged. */
+  gen: number;
   paused: boolean;
   pathOnly: boolean;
 }
 
 export function initialMonitorState(target: MonitorTarget): MonitorState {
-  return { load: { kind: 'loading' }, stack: [{ target, selection: null }], paused: false, pathOnly: false };
+  return { load: { kind: 'loading' }, stack: [{ target, selection: null }], gen: 0, paused: false, pathOnly: false };
 }
 
 export type MonitorAction =
@@ -36,12 +38,12 @@ function withTop(state: MonitorState, selection: MonitorSelection): MonitorLevel
 export function monitorReducer(state: MonitorState, action: MonitorAction): MonitorState {
   switch (action.type) {
     case 'reset':
-      return { ...state, load: { kind: 'loading' }, stack: [{ target: action.target, selection: null }] };
+      return { ...state, gen: state.gen + 1, load: { kind: 'loading' }, stack: [{ target: action.target, selection: null }] };
     case 'drill':
-      return { ...state, load: { kind: 'loading' }, stack: [...state.stack, { target: action.target, selection: null }] };
+      return { ...state, gen: state.gen + 1, load: { kind: 'loading' }, stack: [...state.stack, { target: action.target, selection: null }] };
     case 'pop-to':
       if (action.index < 0 || action.index >= state.stack.length - 1) return state;
-      return { ...state, load: { kind: 'loading' }, stack: state.stack.slice(0, action.index + 1) };
+      return { ...state, gen: state.gen + 1, load: { kind: 'loading' }, stack: state.stack.slice(0, action.index + 1) };
     case 'load-start':
       return { ...state, load: { kind: 'loading' }, stack: withTop(state, null) };
     case 'refresh-start':

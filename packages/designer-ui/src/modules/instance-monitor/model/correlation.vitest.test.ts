@@ -1,11 +1,21 @@
 import { describe, expect, it } from 'vitest';
 
-import { childInstancesOf, childTarget, findCorrelationNode } from './correlation';
+import { buildComponentIndex } from './componentIndex';
+import { childInstancesOf, childTarget, childWorkflowFile, findCorrelationNode } from './correlation';
 
 const TREE = { source: 'instance-correlation', root: { id: 'r', flow: 'login', domain: 'core', resolved: true, children: [
   { id: 'c1', flow: 'contract', domain: 'core', parentState: 'sign', resolved: true, children: [
     { id: 'g1', flow: 'online', domain: 'core', parentState: 'invoke', resolved: true, children: [] } ] },
   { id: 'c2', flow: 'kyc', domain: 'core', parentState: 'check', resolved: true, children: [] } ] } } as never;
+
+describe('childWorkflowFile', () => {
+  const index = buildComponentIndex([['workflows', [{ key: 'contract', path: '/c.json' } as never]]]);
+  const level = { domain: 'core', workflowKey: 'login', instanceId: 'r' };
+  it('resolves only same-domain children', () => {
+    expect(childWorkflowFile(index, level, { domain: 'core', flow: 'contract' } as never)).toBe('/c.json');
+    expect(childWorkflowFile(index, level, { domain: 'other', flow: 'contract' } as never)).toBeUndefined();
+  });
+});
 
 describe('correlation helpers', () => {
   it('finds nodes at any depth', () => { expect(findCorrelationNode(TREE, 'g1')?.flow).toBe('online'); expect(findCorrelationNode(TREE, 'zz')).toBeNull(); });

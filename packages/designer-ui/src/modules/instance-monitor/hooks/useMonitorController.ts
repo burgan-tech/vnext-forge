@@ -29,7 +29,7 @@ export function useMonitorController(
   const seq = useRef(0);
 
   const rootKey = keyOf(rootTarget);
-  const levelKey = keyOf(level);
+  const levelKey = `${keyOf(level)}#${state.gen}`;
 
   const run = useCallback(
     async (mode: 'initial' | 'refresh' | 'switch') => {
@@ -45,11 +45,13 @@ export function useMonitorController(
   );
 
   // The root target prop changed (skip the mount).
+  const rootTargetRef = useRef(rootTarget);
+  rootTargetRef.current = rootTarget;
   const lastRootKey = useRef(rootKey);
   useEffect(() => {
     if (lastRootKey.current === rootKey) return;
     lastRootKey.current = rootKey;
-    dispatch({ type: 'reset', target: rootTarget });
+    dispatch({ type: 'reset', target: rootTargetRef.current });
   }, [rootKey]);
 
   // Load the top level when its target changes. The runtime version is deliberately not part

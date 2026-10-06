@@ -128,6 +128,14 @@ describe('Breadcrumb and correlations', () => {
     expect(html).toContain('<button');
     expect(html).toContain('aria-current="page"');
   });
+  it('keeps the breadcrumb on a not-found child so the user can pop back', () => {
+    const html = renderToStaticMarkup(h(MonitorShellView, {
+      target: TARGET, levels: [L('root', 'r'), TARGET], onPopTo: noop, selection: null, pathOnly: false, onRefresh: noop, onSelect: noop, onPathOnly: noop, links: {},
+      load: { kind: 'not-found' },
+    }));
+    expect(html).toMatch(/<button[^>]*>root<\/button>/);
+    expect(html).toContain('Instance not found');
+  });
   it('shell shows the breadcrumb and the Correlations tab', () => {
     const html = renderToStaticMarkup(h(MonitorShellView, {
       target: TARGET, levels: [L('root', 'r'), TARGET], onPopTo: noop, selection: null, pathOnly: false, onRefresh: noop, onSelect: noop, onPathOnly: noop, links: {},
