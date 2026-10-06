@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 
 import type { MessageRouter } from '../MessageRouter';
 import type { ForgeToolsSettingsService } from '../tools/forge-tools-settings.js';
-import { isOpenQuickRunFromMonitorMessage, type InstanceChangedEvent } from './monitor-messages.js';
+import { parseOpenQuickRunFromMonitorMessage, type InstanceChangedEvent } from './monitor-messages.js';
 import { buildWebviewHtml } from './webview-html.js';
 
 export interface MonitorContext {
@@ -65,9 +65,8 @@ export class MonitorPanel {
           void this.sendContext(entry);
           return;
         }
-        if (isOpenQuickRunFromMonitorMessage(raw)) {
-          void vscode.commands.executeCommand('vnextForge.openQuickRunFromFile', vscode.Uri.file(entry.ctx.workflowFilePath));
-        }
+        const openQuickRun = parseOpenQuickRunFromMonitorMessage(raw);
+        if (openQuickRun) void this.openQuickRun(entry, openQuickRun.instanceId);
       }),
     );
     if (this.forgeToolsSettings) {
@@ -107,6 +106,23 @@ export class MonitorPanel {
 
   dispose(): void {
     for (const entry of [...this.panels.values()]) entry.panel.dispose();
+  }
+
+  /**
+   * Reveal the root workflow's Quick Run, then focus the instance when the
+   * webview sent one (it does so for the root level only; the host cannot
+   * verify an id against a child level it does not know).
+   */
+  private async openQuickRun(entry: PanelEntry, instanceId: string | undefined): Promise<void> {
+    const { ctx } = entry;
+    await vscode.commands.executeCommand('vnextForge.openQuickRunFromFile', vscode.Uri.file(ctx.workflowFilePath));
+    if (instanceId) {
+      await vscode.commands.executeCommand('vnextForge.focusQuickRunInstance', {
+        domain: ctx.domain,
+        workflowKey: ctx.workflowKey,
+        instanceId,
+      });
+    }
   }
 
   private async sendContext(entry: PanelEntry): Promise<void> {

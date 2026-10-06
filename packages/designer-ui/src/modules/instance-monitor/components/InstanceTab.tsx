@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react';
 
 import type { InstanceDetailResponse } from '../../quick-run/QuickRunApi';
+import { CopyableJsonBlock } from '../../quick-run/components/CopyableJsonBlock';
 import { DetailsList } from '../../quick-run/components/panel-kit';
+import { formatDurationMs } from '../../quick-run/utils/taskHistory';
 import { artifactVersion, definitionDrift } from '../model/definitionDrift';
 
 export interface InstanceTabProps {
@@ -21,6 +23,7 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
+const hasKeys = (o?: Record<string, unknown>) => !!o && Object.keys(o).length > 0;
 const when = (iso?: string) => (iso ? new Date(iso).toLocaleString() : undefined);
 
 /** Instance metadata, grouped. Read-only; actions only navigate. */
@@ -66,6 +69,8 @@ export function InstanceTab({ instance, localVersion, environmentName, onOpenQui
           rows={[
             { label: 'Created', value: when(m.createdAt) ?? '—' },
             !!m.modifiedAt && { label: 'Modified', value: when(m.modifiedAt) },
+            !!m.completedAt && { label: 'Completed', value: when(m.completedAt) },
+            m.duration != null && { label: 'Duration', value: formatDurationMs(m.duration * 1000) ?? '—' },
           ]}
         />
       </Group>
@@ -79,6 +84,16 @@ export function InstanceTab({ instance, localVersion, environmentName, onOpenQui
           ]}
         />
       </Group>
+      {hasKeys(instance.attributes) && (
+        <Group title="Attributes">
+          <CopyableJsonBlock value={instance.attributes} />
+        </Group>
+      )}
+      {hasKeys(instance.extensions) && (
+        <Group title="Extensions">
+          <CopyableJsonBlock value={instance.extensions} />
+        </Group>
+      )}
       {(onOpenQuickRun ?? onOpenFlowDesigner) && (
         <div className="flex flex-wrap gap-2">
           {onOpenQuickRun && (

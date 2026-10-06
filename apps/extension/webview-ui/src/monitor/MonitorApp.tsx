@@ -67,7 +67,10 @@ export function MonitorApp({ api }: { api: VsCodeWebviewApi }) {
         headers={headers}
         onOpenComponent={(t) => api.postMessage({ type: 'host:open-designer', absolutePath: t.filePath })}
         onOpenScript={(absolutePath) => api.postMessage({ type: 'host:open-workspace-file', absolutePath })}
-        onOpenQuickRun={() => api.postMessage({ type: 'monitor:open-quickrun' })}
+        onOpenQuickRun={(instanceId, isRoot) =>
+          // The host only knows the root workflow; a child level's id would be foreign to that Quick Run.
+          api.postMessage({ type: 'monitor:open-quickrun', ...(isRoot ? { instanceId } : {}) })
+        }
         {...(target.workflowFilePath
           ? { onOpenFlowDesigner: () => api.postMessage({ type: 'host:open-designer', absolutePath: target.workflowFilePath }) }
           : {})}

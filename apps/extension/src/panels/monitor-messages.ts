@@ -21,9 +21,18 @@ export function parseOpenMonitorMessage(raw: unknown): OpenMonitorRequest | null
   return { instanceId, ...(instanceKey ? { instanceKey } : {}) };
 }
 
-/** `monitor:open-quickrun` from a monitor panel; the host already knows which workflow. */
-export function isOpenQuickRunFromMonitorMessage(raw: unknown): boolean {
-  return typeof raw === 'object' && raw !== null && (raw as { type?: unknown }).type === 'monitor:open-quickrun';
+export interface OpenQuickRunRequest {
+  /** Present only when the webview sent a well-formed id; the panel is revealed either way. */
+  instanceId?: string;
+}
+
+/** `monitor:open-quickrun` from a monitor panel; the host already knows which workflow. A bad id is dropped, not rejected. */
+export function parseOpenQuickRunFromMonitorMessage(raw: unknown): OpenQuickRunRequest | null {
+  if (typeof raw !== 'object' || raw === null) return null;
+  const msg = raw as Record<string, unknown>;
+  if (msg.type !== 'monitor:open-quickrun') return null;
+  const instanceId = typeof msg.instanceId === 'string' ? msg.instanceId : '';
+  return ID_PATTERN.test(instanceId) ? { instanceId } : {};
 }
 
 export interface InstanceChangedEvent {

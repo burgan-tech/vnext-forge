@@ -46,6 +46,7 @@ function readStringRecord(value: unknown): Record<string, string> | null {
 
 export function QuickRunApp({ api }: Props) {
   const [context, setContext] = useState<QuickRunContext | null>(null);
+  const [focusInstanceId, setFocusInstanceId] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     QuickRunApi.setDataBucketPostMessage((msg) => api.postMessage(msg));
@@ -64,6 +65,10 @@ export function QuickRunApp({ api }: Props) {
       if (!isMessageOriginAllowed(event.origin, allowedOrigins)) return;
 
       const data = event.data;
+      if (data?.type === 'quickrun:focus-instance') {
+        if (typeof data.instanceId === 'string' && data.instanceId.length > 0) setFocusInstanceId(data.instanceId);
+        return;
+      }
       if (data?.type === 'quickrun:context') {
         setContext({
           domain: data.domain,
@@ -110,6 +115,7 @@ export function QuickRunApp({ api }: Props) {
       projectId={context.projectId}
       pollingRetryCount={context.pollingRetryCount}
       pollingIntervalMs={context.pollingIntervalMs}
+      {...(focusInstanceId ? { focusInstanceId } : {})}
       {...(context.startSchemaRef ? { startSchemaRef: context.startSchemaRef } : {})}
       onOpenMonitor={(target) => {
         // The host fills in the workflow, file and environment from this

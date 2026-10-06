@@ -32,7 +32,8 @@ export interface MonitorShellProps {
   onOpenComponent?: (target: OpenComponentTarget) => void;
   /** Absolute path of a script file to open in the editor. */
   onOpenScript?: (absolutePath: string) => void;
-  onOpenQuickRun?: () => void;
+  /** `isRoot` is false while a drilled-in child instance is on screen. */
+  onOpenQuickRun?: (instanceId: string, isRoot: boolean) => void;
   onOpenFlowDesigner?: () => void;
 }
 
@@ -81,6 +82,12 @@ export function MonitorShell({ target, headers = EMPTY_HEADERS, onOpenComponent,
     [level, index, controller.drill],
   );
 
+  const rootInstanceId = controller.levels[0]?.instanceId;
+  const openQuickRunForLevel = useMemo(
+    () => (onOpenQuickRun ? () => onOpenQuickRun(level.instanceId, level.instanceId === rootInstanceId) : undefined),
+    [onOpenQuickRun, level.instanceId, rootInstanceId],
+  );
+
   const links = useMemo<ComponentLinkHandlers>(() => {
     const handlers: ComponentLinkHandlers = {};
     if (onOpenComponent) {
@@ -114,7 +121,7 @@ export function MonitorShell({ target, headers = EMPTY_HEADERS, onOpenComponent,
       links={links}
       incidentLoaders={incidentLoaders}
       {...(loadMetrics ? { loadMetrics } : {})}
-      {...(onOpenQuickRun ? { onOpenQuickRun } : {})}
+      {...(openQuickRunForLevel ? { onOpenQuickRun: openQuickRunForLevel } : {})}
       {...(onOpenFlowDesigner ? { onOpenFlowDesigner } : {})}
     />
   );
@@ -139,6 +146,7 @@ export interface MonitorShellViewProps {
   links: ComponentLinkHandlers;
   loadMetrics?: ElementMetricsLoader;
   incidentLoaders?: IncidentLoaders;
+  /** Opens Quick Run for the level on screen. */
   onOpenQuickRun?: () => void;
   onOpenFlowDesigner?: () => void;
 }

@@ -7,6 +7,7 @@ vi.mock('./MonitorCanvas', () => ({ MonitorCanvas: () => h('div', { 'data-testid
 import { normalizeDefinition } from '../../canvas-interaction/readonly/normalize';
 import type { HistoryTransition } from '../../quick-run/types/quickrun.types';
 import type { MonitorLevelData } from '../types';
+import { formatDurationMs } from '../../quick-run/utils/taskHistory';
 import { Breadcrumb } from './Breadcrumb';
 import { InstanceTab } from './InstanceTab';
 import { MonitorInspector } from './MonitorInspector';
@@ -74,6 +75,20 @@ describe('InstanceTab', () => {
     for (const text of ['order-4711', 'i1', 'core/loan', '1.1.0', 'local 1.2.0', 'inside a subflow', 'vip', 'tester', 'Local']) {
       expect(html).toContain(text);
     }
+  });
+});
+
+describe('InstanceTab timing and payload', () => {
+  it('shows completion, a formatted duration and attributes', () => {
+    const done = {
+      ...INSTANCE,
+      attributes: { amount: 5 },
+      metadata: { ...INSTANCE.metadata, completedAt: '2026-10-06T10:02:05Z', duration: 125.4 },
+    } as MonitorLevelData['instance'];
+    const html = renderToStaticMarkup(h(InstanceTab, { instance: done }));
+    expect(html).toContain('Completed');
+    expect(html).toContain(formatDurationMs(125.4 * 1000)); // 2m 6s: the formatter rounds 125.4s up
+    expect(html).toContain('Attributes');
   });
 });
 

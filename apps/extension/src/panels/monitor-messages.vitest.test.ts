@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { isOpenQuickRunFromMonitorMessage, parseInstanceChangedMessage, parseOpenMonitorMessage } from './monitor-messages';
+import { parseInstanceChangedMessage, parseOpenQuickRunFromMonitorMessage, parseOpenMonitorMessage } from './monitor-messages';
 
 describe('parseOpenMonitorMessage', () => {
   it('accepts an instance id and an optional key', () => {
@@ -15,10 +15,18 @@ describe('parseOpenMonitorMessage', () => {
   });
 });
 
-describe('isOpenQuickRunFromMonitorMessage', () => {
-  it('recognises the message', () => {
-    expect(isOpenQuickRunFromMonitorMessage({ type: 'monitor:open-quickrun' })).toBe(true);
-    expect(isOpenQuickRunFromMonitorMessage({ type: 'quickrun:open-monitor' })).toBe(false);
+describe('parseOpenQuickRunFromMonitorMessage', () => {
+  it('returns the id when valid', () => {
+    expect(parseOpenQuickRunFromMonitorMessage({ type: 'monitor:open-quickrun', instanceId: 'a1' })).toEqual({ instanceId: 'a1' });
+  });
+  it('still reveals the panel without an id or with a bad id', () => {
+    expect(parseOpenQuickRunFromMonitorMessage({ type: 'monitor:open-quickrun' })).toEqual({});
+    expect(parseOpenQuickRunFromMonitorMessage({ type: 'monitor:open-quickrun', instanceId: '../x' })).toEqual({});
+    expect(parseOpenQuickRunFromMonitorMessage({ type: 'monitor:open-quickrun', instanceId: 5 })).toEqual({});
+  });
+  it('returns null for other messages', () => {
+    expect(parseOpenQuickRunFromMonitorMessage({ type: 'quickrun:open-monitor' })).toBeNull();
+    expect(parseOpenQuickRunFromMonitorMessage(null)).toBeNull();
   });
 });
 

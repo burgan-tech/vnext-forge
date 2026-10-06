@@ -48,6 +48,8 @@ interface PanelEntry {
   panel: vscode.WebviewPanel;
   webviewReady: boolean;
   pendingContext: QuickRunContext | undefined;
+  /** Focus request that arrived before the webview was ready. */
+  pendingFocusInstanceId?: string;
   /**
    * The context this panel is currently showing. Kept so a settings change can
    * re-send it — `sendContextWithPolling` needs the workflow identity, and the
@@ -126,6 +128,10 @@ export class QuickRunPanel {
             entry.pendingContext = undefined;
           }
           this.sendCurrentHealthTo(entry);
+          if (entry.pendingFocusInstanceId) {
+            this.postFocusInstance(entry, entry.pendingFocusInstanceId);
+            entry.pendingFocusInstanceId = undefined;
+          }
           return;
         }
         const changed = parseInstanceChangedMessage(raw);
@@ -186,6 +192,18 @@ export class QuickRunPanel {
     });
 
     panel.webview.html = this.buildHtml(panel.webview);
+  }
+
+  /** Ask an open panel to bring an instance into focus; queued until its webview is ready. */
+  focusInstance(domain: string, workflowKey: string, instanceId: string): void {
+    const entry = this.panels.get(`${domain}:${workflowKey}`);
+    if (!entry) return;
+    if (entry.webviewReady) this.postFocusInstance(entry, instanceId);
+    else entry.pendingFocusInstanceId = instanceId;
+  }
+
+  private postFocusInstance(entry: PanelEntry, instanceId: string): void {
+    void entry.panel.webview.postMessage({ type: 'quickrun:focus-instance', instanceId });
   }
 
   dispose(): void {

@@ -13,13 +13,15 @@ import { useQuickRunStore } from '../store/quickRunStore';
 import { normalizeIncident } from '../utils/incident';
 import { instanceTargetFromListItem } from '../utils/instanceTarget';
 import { displayStatus, isActiveStatus, isInactiveStatus } from '../utils/instanceStatus';
+import type { OpenMonitorTarget } from '../types/quickrun.types';
 import { EnvBadge } from './EnvBadge';
 import { IncidentBadge } from './IncidentSection';
 import { InstanceFilterPanel } from './InstanceFilterPanel';
 import { RuntimeErrorBanner, type RuntimeErrorLike } from './RuntimeErrorBanner';
+import { OpenMonitorButton } from './OpenMonitorButton';
 import { StatusBadge } from './StatusBadge';
 
-export function InstanceListPanel() {
+export function InstanceListPanel({ onOpenMonitor }: { onOpenMonitor?: (target: OpenMonitorTarget) => void }) {
   const domain = useQuickRunStore((s) => s.domain);
   const workflowKey = useQuickRunStore((s) => s.workflowKey);
   const instanceList = useQuickRunStore((s) => s.instanceList);
@@ -158,8 +160,8 @@ export function InstanceListPanel() {
               Active
             </h3>
             {activeInstances.map((instance) => (
+              <div key={instance.id} className="group relative">
               <button
-                key={instance.id}
                 className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs ${
                   activeTabId === instance.id
                     ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-list-activeSelectionForeground)]'
@@ -178,6 +180,12 @@ export function InstanceListPanel() {
                 </div>
                 <StatusBadge status={displayStatus(instance)} compact />
               </button>
+              {onOpenMonitor && (
+                <span className="absolute right-9 top-1/2 hidden -translate-y-1/2 group-hover:block group-focus-within:block">
+                  <OpenMonitorButton onClick={() => onOpenMonitor({ domain, workflowKey, instanceId: instance.id, instanceKey: instance.key })} />
+                </span>
+              )}
+              </div>
             ))}
           </section>
         )}
@@ -225,8 +233,8 @@ export function InstanceListPanel() {
               Recent ({environmentName ?? 'All'})
             </h3>
             {instanceList.map((item) => (
+              <div key={item.id} className="group relative">
               <button
-                key={item.id}
                 className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs ${
                   activeTabId === item.id
                     ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-list-activeSelectionForeground)]'
@@ -248,6 +256,12 @@ export function InstanceListPanel() {
                 {normalizeIncident(item.metadata.incident)?.hasActiveIncident && <IncidentBadge />}
                 <StatusBadge status={displayStatus(item.metadata)} compact />
               </button>
+              {onOpenMonitor && (
+                <span className="absolute right-9 top-1/2 hidden -translate-y-1/2 group-hover:block group-focus-within:block">
+                  <OpenMonitorButton onClick={() => onOpenMonitor({ domain, workflowKey, instanceId: item.id, instanceKey: item.key })} />
+                </span>
+              )}
+              </div>
             ))}
           </section>
         )}

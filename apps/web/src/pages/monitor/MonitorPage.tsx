@@ -144,9 +144,11 @@ export function MonitorPage() {
       headers={headers}
       onOpenComponent={(t: OpenComponentTarget) => openFile(t.filePath)}
       onOpenScript={(path) => navigate(`/project/${id}/code/${encodeURIComponent(path)}`)}
-      onOpenQuickRun={() =>
+      onOpenQuickRun={(instanceId, isRoot) =>
         navigate(
-          `/project/${id}/quickrun/${encodeURIComponent(group!)}/${encodeURIComponent(name!)}`,
+          `/project/${id}/quickrun/${encodeURIComponent(group!)}/${encodeURIComponent(name!)}${
+            isRoot ? `?instance=${encodeURIComponent(instanceId)}` : ''
+          }`,
         )
       }
       onOpenFlowDesigner={() => openFile(workflowFilePath)}

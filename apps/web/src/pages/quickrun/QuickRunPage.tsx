@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import {
   functionRunInstanceTabId,
@@ -50,6 +50,8 @@ function quickRunLocalStorageAdapter(): DataBucketAdapter {
 export function QuickRunPage() {
   const { id, group, name } = useParams<{ id: string; group: string; name: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const focusInstanceId = searchParams.get('instance') ?? undefined;
   const openTab = useEditorStore((s) => s.openTab);
   const domain = useProjectStore((s) => s.activeProject?.domain);
   const projectPath = useProjectStore((s) => s.activeProject?.path);
@@ -247,6 +249,7 @@ export function QuickRunPage() {
       onOpenFunctionRun={openFunctionRun}
       onOpenSubFlowTarget={openSubFlowTarget}
       onOpenMonitor={openMonitor}
+      {...(focusInstanceId ? { focusInstanceId } : {})}
     />
   );
 }
