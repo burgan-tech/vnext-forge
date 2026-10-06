@@ -45,4 +45,23 @@ describe('attributeRows', () => {
     expect(previousRow(rows, rows[0])?.id).toBe('r2');
     expect(previousRow(rows, rows[2])).toBeNull();
   });
+  it('attributes a row exactly on a window bound (inclusive)', () => {
+    const h = [fire('hb', '2026-10-06T10:00:00Z', '2026-10-06T10:00:10Z')];
+    const rs = [row('end', '2026-10-06T10:00:10Z'), row('start', '2026-10-06T10:00:00Z')];
+    const map = attributeRows(rs, h, Date.parse('2026-10-06T11:00:00Z'));
+    expect(map.get('hb')?.map((r) => r.id)).toEqual(['end', 'start']);
+  });
+  it('gives an overlapped row to the latest-starting firing', () => {
+    const h = [
+      fire('outer', '2026-10-06T10:00:00Z', '2026-10-06T10:10:00Z'),
+      fire('inner', '2026-10-06T10:02:00Z', '2026-10-06T10:03:00Z'),
+    ];
+    const map = attributeRows(
+      [row('x', '2026-10-06T10:02:30Z')],
+      h,
+      Date.parse('2026-10-06T11:00:00Z'),
+    );
+    expect(map.get('inner')?.map((r) => r.id)).toEqual(['x']);
+    expect(map.has('outer')).toBe(false);
+  });
 });

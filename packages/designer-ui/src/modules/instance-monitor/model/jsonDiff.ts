@@ -21,6 +21,10 @@ function entries(v: Record<string, unknown> | unknown[]): [string | number, unkn
 
 function collectLeaves(value: unknown, path: string, out: { path: string; value: string }[]): void {
   if (isContainer(value)) {
+    if (entries(value).length === 0) {
+      out.push({ path, value: Array.isArray(value) ? '[]' : '{}' });
+      return;
+    }
     for (const [k, v] of entries(value)) collectLeaves(v, childPath(path, k), out);
     return;
   }
@@ -33,6 +37,10 @@ function walk(before: unknown, after: unknown, path: string, diff: JsonDiff): vo
   if (bc && ac && Array.isArray(before) === Array.isArray(after)) {
     const b = new Map(entries(before));
     const a = new Map(entries(after));
+    if (b.size === 0 && a.size === 0) {
+      diff.unchangedCount += 1;
+      return;
+    }
     for (const [k, v] of b) {
       const p = childPath(path, k);
       if (a.has(k)) walk(v, a.get(k), p, diff);
