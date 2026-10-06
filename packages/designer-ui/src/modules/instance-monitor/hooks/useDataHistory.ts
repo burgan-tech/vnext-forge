@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ERROR_CODES } from '@vnext-forge-studio/app-contracts';
 
 import * as QuickRunApi from '../../quick-run/QuickRunApi';
 import type { DataHistoryItem } from '../../quick-run/QuickRunApi';
 import type { RuntimeErrorLike } from '../../quick-run/components/RuntimeErrorBanner';
+import { appendPage, mergeFirstPage, outcomeOf } from '../model/dataHistoryState';
 import type { MonitorTarget } from '../types';
 
 const PAGE_SIZE = 20;
@@ -16,7 +16,10 @@ export interface DataHistoryResult {
   loadMore: () => void;
 }
 
-/** Newest-first data versions of the level on screen; loads when `enabled` and reloads when `refreshKey` changes. */
+/**
+ * Newest-first data versions of the level on screen. Loads when `enabled`; a changed `refreshKey`
+ * refetches the first page in the background and keeps already-loaded older pages.
+ */
 export function useDataHistory(
   level: MonitorTarget,
   headers: Record<string, string>,
@@ -27,8 +30,13 @@ export function useDataHistory(
   const [rows, setRows] = useState<DataHistoryItem[]>([]);
   const [hasNext, setHasNext] = useState(false);
   const [error, setError] = useState<RuntimeErrorLike | null>(null);
-  const pageRef = useRef(0);
-  const seq = useRef(0);
+  const pageRef = useRef(1);
+  const gen = useRef(0);
+  const refreshSeq = useRef(0);
+  const moreBusy = useRef(false);
+  const loadedFor = useRef<string | null>(null);
+  const stateRef = useRef(state);
+  stateRef.current = state;
 
   const scope = useCallback(
     () => ({
@@ -41,47 +49,71 @@ export function useDataHistory(
     [level, headers],
   );
 
-  const fetchPage = useCallback(
-    async (page: number, append: boolean) => {
-      const mine = ++seq.current;
-      if (!append) setState('loading');
+  const thrown = (err: unknown): RuntimeErrorLike => ({ code: 'THROWN', message: err instanceof Error ? err.message : String(err) });
+
+  useEffect(() => {
+    if (!enabled) return;
+    if (loadedFor.current !== level.instanceId) {
+      gen.current += 1;
+      loadedFor.current = level.instanceId;
+      moreBusy.current = false;
+      pageRef.current = 1;
+      setRows([]);
+      setHasNext(false);
+      setError(null);
+      setState('loading');
+    }
+    const myGen = gen.current;
+    const mySeq = ++refreshSeq.current;
+    const initial = stateRef.current !== 'ready';
+    if (initial) setState('loading');
+    void (async () => {
       try {
-        const res = await QuickRunApi.getDataHistory({ ...scope(), page, pageSize: PAGE_SIZE, includeData: true });
-        if (mine !== seq.current) return;
-        if (res.success) {
-          pageRef.current = page;
-          setRows((prev) => (append ? [...prev, ...res.data.items] : res.data.items));
-          setHasNext(res.data.hasNext);
+        const out = outcomeOf(await QuickRunApi.getDataHistory({ ...scope(), page: 1, pageSize: PAGE_SIZE, includeData: true }));
+        if (myGen !== gen.current || mySeq !== refreshSeq.current) return;
+        if (out.kind === 'page') {
+          setRows((prev) => mergeFirstPage(prev, out.items));
+          setHasNext((prevNext) => (pageRef.current > 1 ? prevNext : out.hasNext));
           setError(null);
           setState('ready');
-        } else if (res.error.code === ERROR_CODES.RUNTIME_NOT_FOUND) {
+        } else if (out.kind === 'unavailable') {
           setRows([]);
           setHasNext(false);
           setState('unavailable');
         } else {
-          setError(res.error);
-          setState('error');
+          setError(out.error);
+          setState((s) => (s === 'ready' ? 'ready' : 'error'));
         }
       } catch (err) {
-        if (mine !== seq.current) return;
-        setError({ code: 'THROWN', message: err instanceof Error ? err.message : String(err) });
-        setState('error');
+        if (myGen !== gen.current || mySeq !== refreshSeq.current) return;
+        setError(thrown(err));
+        setState((s) => (s === 'ready' ? 'ready' : 'error'));
       }
-    },
-    [scope],
-  );
-
-  useEffect(() => {
-    if (!enabled) return;
-    void fetchPage(1, false);
-    return () => {
-      seq.current += 1;
-    };
-  }, [enabled, refreshKey, fetchPage]);
+    })();
+  }, [enabled, refreshKey, level.instanceId, scope]);
 
   const loadMore = useCallback(() => {
-    if (hasNext) void fetchPage(pageRef.current + 1, true);
-  }, [hasNext, fetchPage]);
+    if (!hasNext || moreBusy.current) return;
+    moreBusy.current = true;
+    const myGen = gen.current;
+    const page = pageRef.current + 1;
+    void (async () => {
+      try {
+        const out = outcomeOf(await QuickRunApi.getDataHistory({ ...scope(), page, pageSize: PAGE_SIZE, includeData: true }));
+        if (myGen !== gen.current) return;
+        if (out.kind === 'page') {
+          pageRef.current = page;
+          setRows((prev) => appendPage(prev, out.items));
+          setHasNext(out.hasNext);
+          setError(null);
+        } else if (out.kind === 'error') setError(out.error);
+      } catch (err) {
+        if (myGen === gen.current) setError(thrown(err));
+      } finally {
+        if (myGen === gen.current) moreBusy.current = false;
+      }
+    })();
+  }, [hasNext, scope]);
 
   return { state, rows, hasNext, error, loadMore };
 }

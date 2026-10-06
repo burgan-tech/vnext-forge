@@ -347,7 +347,7 @@ export function MonitorShellView(props: MonitorShellViewProps) {
                       selection={selection}
                       tasks={data.tasks}
                       {...(attributed ? { dataRowsByFiring: attributed } : {})}
-                      {...(dh ? { allDataRows: dh.rows } : {})}
+                      {...(dh ? { allDataRows: dh.rows, dataHasNext: dh.hasNext } : {})}
                       {...(selection?.kind === 'state' && props.onDrill
                         ? { childInstances: childInstancesOf(data.correlation, instance.id, selection.key), onDrill: props.onDrill }
                         : {})}

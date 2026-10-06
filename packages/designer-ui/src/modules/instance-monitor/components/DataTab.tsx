@@ -28,7 +28,6 @@ const BUTTON =
   'cursor-pointer rounded border border-[var(--vscode-panel-border,#3c3c3c)] px-2 py-1 text-[11px] hover:bg-[var(--vscode-list-hoverBackground,#2a2d2e)] disabled:cursor-not-allowed disabled:opacity-50';
 const muted = 'text-[var(--vscode-descriptionForeground,#9d9d9d)]';
 
-const diffOf = (before: DataHistoryItem | null, after: DataHistoryItem) => diffJson(before?.data, after.data);
 const changeCount = (d: ReturnType<typeof diffJson>) => d.added.length + d.removed.length + d.changed.length;
 
 /** Current data plus the version history (read-only). */
@@ -50,6 +49,16 @@ export function DataTab({ current, currentFailed, history, rows, state, hasNext,
     }
     return byRow;
   }, [rows, history]);
+
+  // Row diffs vs the previous row; null when the predecessor sits on a page that is not loaded yet.
+  const diffs = useMemo(() => {
+    const map = new Map<string, ReturnType<typeof diffJson> | null>();
+    rows.forEach((row, i) => {
+      const unloaded = i === rows.length - 1 && hasNext;
+      map.set(row.id, unloaded ? null : diffJson(previousRow(rows, row)?.data, row.data));
+    });
+    return map;
+  }, [rows, hasNext]);
 
   const toggle = (id: string) =>
     setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : p.length >= 2 ? [p[1], id] : [...p, id]));
@@ -85,7 +94,7 @@ export function DataTab({ current, currentFailed, history, rows, state, hasNext,
             <ul className="flex flex-col gap-1">
               {rows.map((row) => {
                 const owner = owners.get(row.id);
-                const diff = diffOf(previousRow(rows, row), row);
+                const diff = diffs.get(row.id) ?? null;
                 const open = expanded === row.id;
                 return (
                   <li key={row.id} className="rounded border border-[var(--vscode-panel-border,#3c3c3c)]">
@@ -109,12 +118,21 @@ export function DataTab({ current, currentFailed, history, rows, state, hasNext,
                             ? `after ${labelFor ? labelFor(owner.transitionId) : owner.transitionId} (${owner.fromState} → ${owner.toState})`
                             : 'Other write'}
                         </span>
-                        <span className={muted}>{changeCount(diff)} fields changed</span>
+                        <span className={muted}>{diff ? `${changeCount(diff)} fields changed` : 'Previous version not loaded'}</span>
                       </button>
                     </div>
                     {open && (
                       <div className="border-t border-[var(--vscode-panel-border,#3c3c3c)] p-2">
-                        <DataDiffView diff={diff} />
+                        {diff ? (
+                          <DataDiffView diff={diff} />
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            <span className={muted}>Previous version not loaded.</span>
+                            <button type="button" className={BUTTON} onClick={onLoadMore}>
+                              Load more
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </li>
@@ -131,6 +149,7 @@ export function DataTab({ current, currentFailed, history, rows, state, hasNext,
                 </button>
               )}
             </div>
+            {state === 'ready' && error && <RuntimeErrorBanner title="Data history request failed" error={error} />}
             {compare && (
               <div className="flex flex-col gap-1">
                 <p className={muted}>

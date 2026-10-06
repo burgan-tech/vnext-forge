@@ -19,6 +19,7 @@ export function TransitionExecution({
   loadMetrics,
   dataRowsByFiring,
   allRows,
+  dataHasNext,
 }: {
   firings: readonly HistoryTransition[];
   tasks: readonly TaskHistoryItem[];
@@ -27,6 +28,8 @@ export function TransitionExecution({
   dataRowsByFiring?: Map<string, DataHistoryItem[]>;
   /** Every loaded data row, newest first. */
   allRows?: DataHistoryItem[];
+  /** More data pages exist beyond `allRows`. */
+  dataHasNext?: boolean;
 }) {
   const [open, setOpen] = useState<string | null>(firings.length === 1 ? (firings[0]?.id ?? null) : null);
   return (
@@ -49,7 +52,7 @@ export function TransitionExecution({
             </button>
             {expanded && (
               <div className="border-t border-[var(--vscode-panel-border,#3c3c3c)] p-2">
-                <DetailsBody tabs={[...transitionDetailTabs(f, { ...(loadMetrics ? { loadMetrics } : {}), tasks }), ...dataChangeTab(f.id, dataRowsByFiring, allRows)]} />
+                <DetailsBody tabs={[...transitionDetailTabs(f, { ...(loadMetrics ? { loadMetrics } : {}), tasks }), ...dataChangeTab(f.id, dataRowsByFiring, allRows, dataHasNext)]} />
               </div>
             )}
           </div>
@@ -59,11 +62,23 @@ export function TransitionExecution({
   );
 }
 
-function dataChangeTab(firingId: string, byFiring?: Map<string, DataHistoryItem[]>, allRows?: DataHistoryItem[]) {
+function dataChangeTab(firingId: string, byFiring?: Map<string, DataHistoryItem[]>, allRows?: DataHistoryItem[], hasNext?: boolean) {
   const rows = byFiring?.get(firingId);
   if (!rows || rows.length === 0) return [];
   const newest = rows[0];
   const oldest = rows[rows.length - 1];
   const before = allRows ? previousRow(allRows, oldest) : null;
-  return [{ id: 'data-change', label: 'Data change', render: () => <DataDiffView diff={diffJson(before?.data, newest.data)} /> }];
+  const unloaded = !!hasNext && !before && (!allRows || allRows[allRows.length - 1]?.id === oldest.id);
+  return [
+    {
+      id: 'data-change',
+      label: 'Data change',
+      render: () =>
+        unloaded ? (
+          <p className={muted}>Previous version not loaded — load more in the Data tab.</p>
+        ) : (
+          <DataDiffView diff={diffJson(before?.data, newest.data)} />
+        ),
+    },
+  ];
 }

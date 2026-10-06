@@ -16,6 +16,10 @@ describe('DataDiffView', () => {
     expect(html).toContain('b.e');
     expect(html).toContain('gone');
     expect(html).toContain('~');
+    expect(html).toContain('−');
+    expect(html).toContain('line-through');
+    expect(html).toContain('>1<');
+    expect(html).toContain('>2<');
     expect(html).toContain('1 field unchanged');
   });
   it('says nothing changed', () => {
@@ -40,6 +44,26 @@ describe('DataTab', () => {
   });
   it('reports a failed current load', () => {
     expect(renderToStaticMarkup(h(DataTab, { ...base, state: 'ready', current: undefined, currentFailed: true }))).toContain('Current data could not be loaded.');
+  });
+});
+
+describe('unloaded predecessor', () => {
+  const rows = [row(3, '2026-10-06T11:00:00Z', { a: 3 }), row(2, '2026-10-06T10:00:05Z', { a: 2 })];
+  const base = { history: [firing], rows, state: 'ready' as const, error: null, onLoadMore: () => undefined, current: {} };
+  it('does not claim a change count for the oldest row while more pages exist', () => {
+    expect(renderToStaticMarkup(h(DataTab, { ...base, hasNext: true }))).toContain('Previous version not loaded');
+  });
+  it('treats the oldest row as the first write once everything is loaded', () => {
+    expect(renderToStaticMarkup(h(DataTab, { ...base, hasNext: false }))).not.toContain('Previous version not loaded');
+  });
+  it('shows a load error inline and keeps the rows', () => {
+    const html = renderToStaticMarkup(h(DataTab, { ...base, hasNext: true, error: { code: 'X', message: 'boom' } }));
+    expect(html).toContain('#3');
+    expect(html).toContain('Data history request failed');
+  });
+  it('the Data change tab notes a missing predecessor', () => {
+    const html = renderToStaticMarkup(h(TransitionExecution, { firings: [firing], tasks: [], dataRowsByFiring: new Map([['f1', [rows[1]!]]]), allRows: rows, dataHasNext: true }));
+    expect(html).toContain('Data change');
   });
 });
 

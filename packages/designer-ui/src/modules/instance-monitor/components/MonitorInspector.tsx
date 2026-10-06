@@ -23,6 +23,7 @@ export interface MonitorInspectorProps {
   /** Data rows attributed to each firing, and all loaded rows (newest first). */
   dataRowsByFiring?: Map<string, DataHistoryItem[]>;
   allDataRows?: DataHistoryItem[];
+  dataHasNext?: boolean;
   onClose: () => void;
 }
 
@@ -31,7 +32,7 @@ const hint = (text: string) => (
 );
 
 /** Definition layer of the selected element, with one line of execution context. */
-export function MonitorInspector({ vm, history, currentState, selection, tasks, loadMetrics, childInstances, onDrill, dataRowsByFiring, allDataRows, onClose }: MonitorInspectorProps) {
+export function MonitorInspector({ vm, history, currentState, selection, tasks, loadMetrics, childInstances, onDrill, dataRowsByFiring, allDataRows, dataHasNext, onClose }: MonitorInspectorProps) {
   if (!selection) return hint('Select a state or transition on the canvas or in the path.');
 
   if (selection.kind === 'state') {
@@ -77,6 +78,7 @@ export function MonitorInspector({ vm, history, currentState, selection, tasks, 
         {...(loadMetrics ? { loadMetrics } : {})}
         {...(dataRowsByFiring ? { dataRowsByFiring } : {})}
         {...(allDataRows ? { allRows: allDataRows } : {})}
+        {...(dataHasNext ? { dataHasNext } : {})}
       />
     </TransitionInspector>
   );
