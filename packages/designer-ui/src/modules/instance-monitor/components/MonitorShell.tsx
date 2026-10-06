@@ -14,6 +14,7 @@ import type { ElementMetricsLoader } from '../../quick-run/components/ElementMet
 import { DetailsBody } from '../../quick-run/components/panel-kit';
 import { PanelToggleButton } from '../../quick-run/components/PanelToggleButton';
 import { ResizableHandle } from '../../quick-run/components/ResizableHandle';
+import { cappedResizeDelta } from '../../quick-run/hooks/panelLayout';
 import { usePanelLayout } from '../../quick-run/hooks/usePanelLayout';
 import { RuntimeErrorBanner } from '../../quick-run/components/RuntimeErrorBanner';
 import { StatusBadge } from '../../quick-run/components/StatusBadge';
@@ -305,12 +306,25 @@ export function MonitorShellView(props: MonitorShellViewProps) {
   const rowRef = useRef<HTMLDivElement>(null);
   const columnRef = useRef<HTMLDivElement>(null);
   // Grow only up to the CSS cap (60% of the container) so dragging past it adds no invisible size.
-  const resizeCapped = (panel: 'right' | 'bottom', delta: number) => {
+  const layoutRef = useRef(layout);
+  layoutRef.current = layout;
+  const resizeCapped = useCallback((panel: 'right' | 'bottom', delta: number) => {
     const box = (panel === 'right' ? rowRef : columnRef).current;
     const extent = box ? (panel === 'right' ? box.clientWidth : box.clientHeight) : 0;
-    const room = extent > 0 ? Math.max(0, extent * 0.6 - layout.size(panel)) : Infinity;
-    layout.resize(panel, delta > 0 ? Math.min(delta, room) : delta);
-  };
+    const cap = extent > 0 ? extent * 0.6 : Infinity;
+    layoutRef.current.resize(panel, cappedResizeDelta(delta, layoutRef.current.size(panel), cap));
+  }, []);
+  const resizeRight = useCallback((d: number) => resizeCapped('right', d), [resizeCapped]);
+  const resizeBottom = useCallback((d: number) => resizeCapped('bottom', d), [resizeCapped]);
+  // The details tab lives here so hiding and re-showing the panel keeps it.
+  const selectionId = selection ? `${selection.kind}:${selection.key}` : 'none';
+  const [detailsTab, setDetailsTab] = useState(selection ? 'inspector' : 'instance');
+  const tabSeen = useRef(selectionId);
+  useEffect(() => {
+    if (tabSeen.current === selectionId) return;
+    tabSeen.current = selectionId;
+    setDetailsTab(selectionId === 'none' ? 'instance' : 'inspector');
+  }, [selectionId]);
   const rootQuickRun = props.isRoot === false ? undefined : props.onOpenQuickRun;
   const dh = props.dataHistory;
   const attributed = useMemo(
@@ -494,16 +508,19 @@ export function MonitorShellView(props: MonitorShellViewProps) {
                 <ResizableHandle
                   direction="left"
                   valueNow={layout.size('right')}
+                  valueMin={LAYOUT_DEFAULTS.right.min}
+                  valueMax={LAYOUT_DEFAULTS.right.max}
                   label="Resize details panel"
-                  onResize={(d) => resizeCapped('right', d)}
+                  onResize={resizeRight}
                 />
                 <aside
                   style={{ width: layout.size('right') }}
                   className="flex min-h-0 max-w-[60%] shrink-0 flex-col overflow-hidden border-l border-[var(--vscode-sideBar-border,var(--vscode-panel-border,#3c3c3c))] bg-[var(--vscode-sideBar-background,#252526)] text-[11px]">
                   <DetailsBody
                     variant="panel"
-                    key={selection ? `${selection.kind}:${selection.key}` : 'none'}
-                    initialTab={selection ? 'inspector' : 'instance'}
+                    key={selectionId}
+                    tab={detailsTab}
+                    onTabChange={setDetailsTab}
                     tabs={[
                       {
                         id: 'inspector',
@@ -607,8 +624,10 @@ export function MonitorShellView(props: MonitorShellViewProps) {
                 orientation="horizontal"
                 direction="left"
                 valueNow={layout.size('bottom')}
+                valueMin={LAYOUT_DEFAULTS.bottom.min}
+                valueMax={LAYOUT_DEFAULTS.bottom.max}
                 label="Resize path panel"
-                onResize={(d) => resizeCapped('bottom', d)}
+                onResize={resizeBottom}
               />
               <section
                 aria-label="Path"

@@ -56,3 +56,23 @@ describe('panelLayout', () => {
     expect(out.right.size).toBe(320);
   });
 });
+
+import { cappedResizeDelta } from './panelLayout';
+
+describe('cappedResizeDelta', () => {
+  it('passes the delta through when there is room', () => {
+    expect(cappedResizeDelta(20, 300, 500)).toBe(20);
+    expect(cappedResizeDelta(-20, 300, 500)).toBe(-20);
+  });
+  it('limits growth to the cap', () => {
+    expect(cappedResizeDelta(100, 450, 500)).toBe(50);
+  });
+  it('treats a persisted size above the cap as the cap', () => {
+    // 600 persisted, cap 500: no invisible shrink zone — the first shrink moves from 500.
+    expect(cappedResizeDelta(-10, 600, 500)).toBe(-110);
+    expect(cappedResizeDelta(10, 600, 500)).toBe(-100);
+  });
+  it('is unbounded without a measured cap', () => {
+    expect(cappedResizeDelta(50, 300, Infinity)).toBe(50);
+  });
+});

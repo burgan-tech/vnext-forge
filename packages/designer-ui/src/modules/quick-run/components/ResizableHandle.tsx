@@ -6,6 +6,8 @@ interface ResizableHandleProps {
   /** 'vertical' = column handle (default); 'horizontal' = row handle. */
   orientation?: 'vertical' | 'horizontal';
   valueNow?: number;
+  valueMin?: number;
+  valueMax?: number;
   label?: string;
 }
 
@@ -16,8 +18,12 @@ export function ResizableHandle({
   direction = 'right',
   orientation = 'vertical',
   valueNow,
+  valueMin,
+  valueMax,
   label = 'Resize panel',
 }: ResizableHandleProps) {
+  const onResizeRef = useRef(onResize);
+  onResizeRef.current = onResize;
   const dragging = useRef(false);
   const start = useRef(0);
   const horizontal = orientation === 'horizontal';
@@ -39,7 +45,7 @@ export function ResizableHandle({
       const pos = horizontal ? e.clientY : e.clientX;
       const delta = pos - start.current;
       start.current = pos;
-      onResize(direction === 'right' ? delta : -delta);
+      onResizeRef.current(direction === 'right' ? delta : -delta);
     };
 
     const handleMouseUp = () => {
@@ -55,7 +61,7 @@ export function ResizableHandle({
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [onResize, direction, horizontal]);
+  }, [direction, horizontal]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -64,9 +70,9 @@ export function ResizableHandle({
       if (e.key !== plus && e.key !== minus) return;
       e.preventDefault();
       const step = e.key === plus ? KEY_STEP : -KEY_STEP;
-      onResize(direction === 'right' ? step : -step);
+      onResizeRef.current(direction === 'right' ? step : -step);
     },
-    [onResize, direction, horizontal],
+    [direction, horizontal],
   );
 
   const sizing = horizontal ? 'h-[5px] w-full cursor-row-resize' : 'w-[5px] cursor-col-resize';
@@ -81,6 +87,8 @@ export function ResizableHandle({
       tabIndex={0}
       aria-orientation={orientation}
       aria-valuenow={valueNow}
+      aria-valuemin={valueNow !== undefined ? valueMin : undefined}
+      aria-valuemax={valueNow !== undefined ? valueMax : undefined}
       aria-label={label}
     >
       <div

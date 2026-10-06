@@ -228,7 +228,7 @@ export function ContextPanel({ onOpenSubFlowTarget }: ContextPanelProps) {
   return (
     <aside className="flex h-full w-full flex-col bg-[var(--vscode-sideBar-background,#252526)]">
       {/* Tab strip */}
-      <div className="flex border-b border-[var(--vscode-panel-border)]" role="tablist" aria-label="Context details">
+      <div className="flex border-b border-[var(--vscode-panel-border)] bg-[var(--vscode-sideBarSectionHeader-background,transparent)]" role="tablist" aria-label="Context details">
         {TABS.map((tab) => (
           <button
             key={tab.id}
@@ -239,7 +239,7 @@ export function ContextPanel({ onOpenSubFlowTarget }: ContextPanelProps) {
             tabIndex={contextPanelTab === tab.id ? 0 : -1}
             className={`flex-1 px-2 py-1.5 text-[11px] font-medium focus-visible:outline focus-visible:outline-[var(--vscode-focusBorder)] ${
               contextPanelTab === tab.id
-                ? 'border-b-2 border-b-[var(--vscode-focusBorder)] text-[var(--vscode-foreground)]'
+                ? 'border-b-2 border-b-[var(--vscode-panelTitle-activeBorder,var(--vscode-focusBorder))] text-[var(--vscode-foreground)]'
                 : 'text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]'
             }`}
             onClick={() => setContextPanelTab(tab.id)}

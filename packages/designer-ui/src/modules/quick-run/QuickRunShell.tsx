@@ -16,6 +16,7 @@ import { ResizableHandle } from './components/ResizableHandle';
 import { TransitionDialog } from './components/TransitionDialog';
 import { useFocusInstance, type FocusRequest } from './hooks/useFocusInstance';
 import { QUICKRUN_LAYOUT_DEFAULTS, QUICKRUN_LAYOUT_KEY } from './hooks/quickRunLayout';
+import { cappedResizeDelta } from './hooks/panelLayout';
 import { usePanelLayout } from './hooks/usePanelLayout';
 import { useQuickRunPolling } from './hooks/useQuickRunPolling';
 import { useQuickRunStore } from './store/quickRunStore';
@@ -25,6 +26,9 @@ import { extractLabelsMap } from './utils/extractLabelsMap';
 import { checkRuntimeHealth } from '../workflow-execution/WorkflowExecutionApi';
 import { useProjectStore } from '../../store/useProjectStore';
 import { useToolHeadersStore } from '../../store/useToolHeadersStore';
+
+const DASHBOARD_MIN = 280;
+const HANDLE_WIDTH = 5;
 
 interface HealthMessage {
   type: 'quickrun:health';
@@ -117,6 +121,20 @@ export function QuickRunShell({
   const contextPanelReveal = useQuickRunStore((s) => s.contextPanelReveal);
   const revealSeen = useRef(contextPanelReveal);
   const { setOpen } = layout;
+  const rowRef = useRef<HTMLDivElement>(null);
+  const layoutRef = useRef(layout);
+  layoutRef.current = layout;
+  // Keep the dashboard at least DASHBOARD_MIN wide: a side panel may grow only into the room the other panel leaves.
+  const resizeSide = useCallback((panel: 'left' | 'right', delta: number) => {
+    const current = layoutRef.current;
+    const other = panel === 'left' ? 'right' : 'left';
+    const width = rowRef.current?.clientWidth ?? 0;
+    const otherWidth = current.isOpen(other) ? current.size(other) + HANDLE_WIDTH : 0;
+    const cap = width > 0 ? Math.max(0, width - otherWidth - HANDLE_WIDTH - DASHBOARD_MIN) : Infinity;
+    current.resize(panel, cappedResizeDelta(delta, current.size(panel), cap));
+  }, []);
+  const resizeLeft = useCallback((d: number) => resizeSide('left', d), [resizeSide]);
+  const resizeRight = useCallback((d: number) => resizeSide('right', d), [resizeSide]);
 
   // Any `setContextPanelTab` call brings the context panel forward; the
   // mount value is skipped so a persisted "hidden" state survives load.
@@ -305,7 +323,7 @@ export function QuickRunShell({
       </div>
 
       <QuickRunTabBar />
-      <div id="quickrun-main" className="flex flex-1 min-h-0">
+      <div id="quickrun-main" ref={rowRef} className="flex flex-1 min-h-0">
         {leftOpen && (
           <>
             <div
@@ -318,14 +336,16 @@ export function QuickRunShell({
               />
             </div>
             <ResizableHandle
-              onResize={(d) => layout.resize('left', d)}
+              onResize={resizeLeft}
               direction="right"
               valueNow={layout.size('left')}
+              valueMin={QUICKRUN_LAYOUT_DEFAULTS.left.min}
+              valueMax={QUICKRUN_LAYOUT_DEFAULTS.left.max}
               label="Resize instances panel"
             />
           </>
         )}
-        <div className="flex-1 min-w-0">
+        <div className="min-w-[280px] flex-1">
           <InstanceDashboard
             configRef={configRef}
             persistConfig={persistConfig}
@@ -336,9 +356,11 @@ export function QuickRunShell({
         {rightOpen && (
           <>
             <ResizableHandle
-              onResize={(d) => layout.resize('right', d)}
+              onResize={resizeRight}
               direction="left"
               valueNow={layout.size('right')}
+              valueMin={QUICKRUN_LAYOUT_DEFAULTS.right.min}
+              valueMax={QUICKRUN_LAYOUT_DEFAULTS.right.max}
               label="Resize context panel"
             />
             <div

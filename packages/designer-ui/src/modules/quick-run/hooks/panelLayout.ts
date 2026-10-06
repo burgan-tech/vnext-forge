@@ -44,3 +44,13 @@ export function parseStoredLayout(raw: string | null, defaults: PanelLayoutState
   }
   return out;
 }
+
+/**
+ * Delta to apply to a panel of size `current` so it never ends up above `cap`.
+ * A persisted size already above the cap counts as the cap (no invisible shrink zone).
+ */
+export function cappedResizeDelta(delta: number, current: number, cap: number): number {
+  if (!Number.isFinite(cap)) return delta;
+  const target = Math.min(Math.min(current, cap) + delta, cap);
+  return target - current;
+}

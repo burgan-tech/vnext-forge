@@ -61,3 +61,17 @@ describe('DetailsBody', () => {
     expect(html).toContain('Copy Instance');
   });
 });
+
+
+describe('DetailsBody controlled tab', () => {
+  it('renders the controlled tab and equal-width panel tabs', () => {
+    const tabs = [
+      { id: 'a', label: 'A', render: () => 'content-a' },
+      { id: 'b', label: 'B', render: () => 'content-b' },
+    ];
+    const html = renderToStaticMarkup(createElement(DetailsBody, { tabs, tab: 'b', onTabChange: () => {}, variant: 'panel' }));
+    expect(html).toContain('content-b');
+    expect(html).not.toContain('content-a');
+    expect(html).toMatch(/role="tab"[^>]*class="[^"]*flex-1/);
+  });
+});
