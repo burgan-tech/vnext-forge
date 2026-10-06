@@ -33,6 +33,7 @@ export default defineConfig({
         main: path.resolve(__dirname, 'index.html'),
         quickrun: path.resolve(__dirname, 'quickrun.html'),
         functionrun: path.resolve(__dirname, 'functionrun.html'),
+        monitor: path.resolve(__dirname, 'monitor.html'),
       },
     },
   },

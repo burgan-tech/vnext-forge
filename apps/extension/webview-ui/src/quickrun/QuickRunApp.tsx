@@ -103,6 +103,15 @@ export function QuickRunApp({ api }: Props) {
       pollingRetryCount={context.pollingRetryCount}
       pollingIntervalMs={context.pollingIntervalMs}
       {...(context.startSchemaRef ? { startSchemaRef: context.startSchemaRef } : {})}
+      onOpenMonitor={(target) => {
+        // The host fills in the workflow, file and environment from this
+        // panel's own context; only the instance travels.
+        api.postMessage({
+          type: 'quickrun:open-monitor',
+          instanceId: target.instanceId,
+          ...(target.instanceKey ? { instanceKey: target.instanceKey } : {}),
+        });
+      }}
       onOpenFunctionRun={(target: OpenFunctionRunTarget) => {
         // The host owns panel creation — this webview cannot open another
         // one. `QuickRunPanel` validates the payload before acting on it.

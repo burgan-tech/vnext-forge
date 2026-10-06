@@ -15,6 +15,7 @@ import { baseLogger } from './shared/logger.js';
 import { DesignerPanel } from './panels/DesignerPanel.js';
 import { publishWorkflowFile } from './lib/publishWorkflowFile.js';
 import { QuickRunPanel } from './panels/QuickRunPanel.js';
+import { MonitorPanel, type MonitorContext } from './panels/MonitorPanel.js';
 import { FunctionQuickRunPanel, type FunctionQuickRunContext } from './panels/FunctionQuickRunPanel.js';
 import { toFunctionMetadataFormValues } from '@vnext-forge-studio/designer-ui/function-editor-schema';
 import { VnextWorkspaceDetector, type VnextWorkspaceRoot } from './workspace-detector.js';
@@ -329,6 +330,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const functionQuickRunPanel = new FunctionQuickRunPanel(context, router, forgeToolsSettings);
   context.subscriptions.push({ dispose: () => functionQuickRunPanel.dispose() });
 
+  const monitorPanel = new MonitorPanel(context, router, forgeToolsSettings);
+  context.subscriptions.push({ dispose: () => monitorPanel.dispose() });
+
   const envStatusBar = new EnvironmentStatusBar(forgeToolsSettings, healthMonitor);
   context.subscriptions.push(envStatusBar);
 
@@ -637,6 +641,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         instanceId: ctx.instanceId,
         runtimeUrl: activeEnv?.baseUrl,
       });
+    })),
+    /**
+     * Internal bridge for Quick Run's Monitor button. Registered but not
+     * contributed — it takes a structured context. `QuickRunPanel` validates
+     * the webview payload before getting here.
+     */
+    vscode.commands.registerCommand('vnextForge.openInstanceMonitor', safeAsync(async (arg) => {
+      const ctx = arg as MonitorContext | undefined;
+      if (!ctx?.domain || !ctx.workflowKey || !ctx.instanceId || !ctx.workflowFilePath) return;
+      monitorPanel.open(ctx);
     })),
     vscode.commands.registerCommand('vnextForge.openFunctionQuickRunFromFile', safeAsync(async (arg) => {
       const uri = asUri(arg);

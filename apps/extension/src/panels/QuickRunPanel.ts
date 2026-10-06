@@ -8,6 +8,7 @@ import type { MessageRouter } from '../MessageRouter';
 import type { DataBucketService, WorkflowBucketConfig } from '../tools/data-bucket.service.js';
 import type { EnvironmentHealthMonitor } from '../tools/environment-health-monitor.js';
 import type { ForgeSettings, ForgeToolsSettingsService } from '../tools/forge-tools-settings.js';
+import { parseOpenMonitorMessage } from './monitor-messages.js';
 import { parseOpenSubFlowRunMessage } from './open-subflow-run-message.js';
 
 export interface QuickRunContext {
@@ -129,6 +130,7 @@ export class QuickRunPanel {
         }
         if (this.handleOpenFunctionRunMessage(raw)) return;
         if (this.handleOpenSubFlowRunMessage(raw)) return;
+        if (this.handleOpenMonitorMessage(entry, raw)) return;
         void this.handleDataBucketMessage(entry, raw);
       }),
     );
@@ -255,6 +257,28 @@ export class QuickRunPanel {
       'vnextForge.openQuickRunFromFile',
       vscode.Uri.file(request.workflowFilePath),
     );
+    return true;
+  }
+
+  /**
+   * `quickrun:open-monitor` — the instance header's Monitor button. Only the
+   * instance id comes from the webview; the workflow identity, file and
+   * environment are this panel's own context.
+   */
+  private handleOpenMonitorMessage(entry: PanelEntry, raw: unknown): boolean {
+    const request = parseOpenMonitorMessage(raw);
+    if (!request) return false;
+    const ctx = entry.ctx;
+    void vscode.commands.executeCommand('vnextForge.openInstanceMonitor', {
+      domain: ctx.domain,
+      workflowKey: ctx.workflowKey,
+      instanceId: request.instanceId,
+      ...(request.instanceKey ? { instanceKey: request.instanceKey } : {}),
+      projectId: ctx.projectId,
+      workflowFilePath: ctx.projectPath,
+      ...(ctx.environmentName ? { environmentName: ctx.environmentName } : {}),
+      ...(ctx.environmentUrl ? { environmentUrl: ctx.environmentUrl } : {}),
+    });
     return true;
   }
 
