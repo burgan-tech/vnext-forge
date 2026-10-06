@@ -161,30 +161,30 @@ export function InstanceListPanel({ onOpenMonitor }: { onOpenMonitor?: (target: 
             </h3>
             {activeInstances.map((instance) => (
               <div key={instance.id} className="group relative">
-              <button
-                className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs ${
-                  activeTabId === instance.id
-                    ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-list-activeSelectionForeground)]'
-                    : 'hover:bg-[var(--vscode-list-hoverBackground)]'
-                }`}
-                onClick={() => setActiveTab(instance.id)}
-              >
-                <div className="flex-1 truncate">
-                  <div className="flex items-center gap-1.5">
-                    <span className="truncate font-medium">{instance.workflowKey}</span>
-                    {instance.environmentName && <EnvBadge name={instance.environmentName} />}
+                <button
+                  className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs ${
+                    activeTabId === instance.id
+                      ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-list-activeSelectionForeground)]'
+                      : 'hover:bg-[var(--vscode-list-hoverBackground)]'
+                  }`}
+                  onClick={() => setActiveTab(instance.id)}
+                >
+                  <div className="flex-1 truncate">
+                    <div className="flex items-center gap-1.5">
+                      <span className="truncate font-medium">{instance.workflowKey}</span>
+                      {instance.environmentName && <EnvBadge name={instance.environmentName} />}
+                    </div>
+                    <div className="text-[10px] text-[var(--vscode-descriptionForeground)]">
+                      {instance.currentState ?? 'Starting...'}
+                    </div>
                   </div>
-                  <div className="text-[10px] text-[var(--vscode-descriptionForeground)]">
-                    {instance.currentState ?? 'Starting...'}
-                  </div>
-                </div>
-                <StatusBadge status={displayStatus(instance)} compact />
-              </button>
-              {onOpenMonitor && (
-                <span className="absolute right-9 top-1/2 hidden -translate-y-1/2 group-hover:block group-focus-within:block">
-                  <OpenMonitorButton onClick={() => onOpenMonitor({ domain, workflowKey, instanceId: instance.id, instanceKey: instance.key })} />
-                </span>
-              )}
+                  <StatusBadge status={displayStatus(instance)} compact />
+                </button>
+                {onOpenMonitor && (
+                  <span className="absolute right-9 top-1/2 hidden -translate-y-1/2 group-hover:block group-focus-within:block">
+                    <OpenMonitorButton onClick={() => onOpenMonitor({ domain, workflowKey, instanceId: instance.id, instanceKey: instance.key })} />
+                  </span>
+                )}
               </div>
             ))}
           </section>
@@ -234,33 +234,33 @@ export function InstanceListPanel({ onOpenMonitor }: { onOpenMonitor?: (target: 
             </h3>
             {instanceList.map((item) => (
               <div key={item.id} className="group relative">
-              <button
-                className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs ${
-                  activeTabId === item.id
-                    ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-list-activeSelectionForeground)]'
-                    : 'hover:bg-[var(--vscode-list-hoverBackground)]'
-                }`}
-                onClick={() => openInstance(instanceTargetFromListItem(item))}
-              >
-                <div className="flex-1 truncate">
-                  <span className="truncate">{(item.key ?? item.id ?? '').slice(0, 8)}</span>
-                  <div className="text-[10px] text-[var(--vscode-descriptionForeground)]">
-                    {item.metadata.currentState}
-                  </div>
-                  {item.metadata.createdAt && (
-                    <div className="text-[9px] text-[var(--vscode-descriptionForeground)] opacity-70">
-                      {new Date(item.metadata.createdAt).toLocaleString()}
+                <button
+                  className={`flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-xs ${
+                    activeTabId === item.id
+                      ? 'bg-[var(--vscode-list-activeSelectionBackground)] text-[var(--vscode-list-activeSelectionForeground)]'
+                      : 'hover:bg-[var(--vscode-list-hoverBackground)]'
+                  }`}
+                  onClick={() => openInstance(instanceTargetFromListItem(item))}
+                >
+                  <div className="flex-1 truncate">
+                    <span className="truncate">{(item.key ?? item.id ?? '').slice(0, 8)}</span>
+                    <div className="text-[10px] text-[var(--vscode-descriptionForeground)]">
+                      {item.metadata.currentState}
                     </div>
-                  )}
-                </div>
-                {normalizeIncident(item.metadata.incident)?.hasActiveIncident && <IncidentBadge />}
-                <StatusBadge status={displayStatus(item.metadata)} compact />
-              </button>
-              {onOpenMonitor && (
-                <span className="absolute right-9 top-1/2 hidden -translate-y-1/2 group-hover:block group-focus-within:block">
-                  <OpenMonitorButton onClick={() => onOpenMonitor({ domain, workflowKey, instanceId: item.id, instanceKey: item.key })} />
-                </span>
-              )}
+                    {item.metadata.createdAt && (
+                      <div className="text-[9px] text-[var(--vscode-descriptionForeground)] opacity-70">
+                        {new Date(item.metadata.createdAt).toLocaleString()}
+                      </div>
+                    )}
+                  </div>
+                  {normalizeIncident(item.metadata.incident)?.hasActiveIncident && <IncidentBadge />}
+                  <StatusBadge status={displayStatus(item.metadata)} compact />
+                </button>
+                {onOpenMonitor && (
+                  <span className={`absolute ${normalizeIncident(item.metadata.incident)?.hasActiveIncident ? 'right-16' : 'right-9'} top-1/2 hidden -translate-y-1/2 group-hover:block group-focus-within:block`}>
+                    <OpenMonitorButton onClick={() => onOpenMonitor({ domain, workflowKey, instanceId: item.id, instanceKey: item.key })} />
+                  </span>
+                )}
               </div>
             ))}
           </section>

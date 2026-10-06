@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import * as QuickRunApi from '../QuickRunApi';
 import type { InstanceDetailResponse } from '../QuickRunApi';
@@ -37,8 +37,12 @@ export function useFocusInstance(request: FocusRequest | undefined, runtimeUrl: 
   const openInstance = useOpenInstance();
   const domain = useQuickRunStore((s) => s.domain);
   const workflowKey = useQuickRunStore((s) => s.workflowKey);
+  // A request stays in the caller's state; without this an environment switch (runtimeUrl) re-applies it.
+  const appliedNonce = useRef<number | undefined>(undefined);
   useEffect(() => {
     if (!instanceId || !domain || !workflowKey) return;
+    if (nonce !== undefined && appliedNonce.current === nonce) return;
+    appliedNonce.current = nonce;
     const state = useQuickRunStore.getState();
     if (state.instances.has(instanceId)) {
       state.setActiveTab(instanceId);
