@@ -1,9 +1,15 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pause, Play, RefreshCw } from 'lucide-react';
 
-import { ComponentLinkProvider, type ComponentLinkHandlers } from '../../canvas-interaction/readonly/ComponentLinkContext';
+import {
+  ComponentLinkProvider,
+  type ComponentLinkHandlers,
+} from '../../canvas-interaction/readonly/ComponentLinkContext';
 import { resolveWorkflowScriptAbsolutePath } from '../../code-editor/createWorkflowScriptFile';
-import { createIncidentLoaders, type IncidentLoaders } from '../../quick-run/components/IncidentSection';
+import {
+  createIncidentLoaders,
+  type IncidentLoaders,
+} from '../../quick-run/components/IncidentSection';
 import type { ElementMetricsLoader } from '../../quick-run/components/ElementMetrics';
 import { DetailsBody } from '../../quick-run/components/panel-kit';
 import { PanelToggleButton } from '../../quick-run/components/PanelToggleButton';
@@ -12,7 +18,11 @@ import { usePanelLayout } from '../../quick-run/hooks/usePanelLayout';
 import { RuntimeErrorBanner } from '../../quick-run/components/RuntimeErrorBanner';
 import { StatusBadge } from '../../quick-run/components/StatusBadge';
 import * as QuickRunApi from '../../quick-run/QuickRunApi';
-import type { CorrelationTreeNode, CorrelationTreeResponse, InstanceStatus } from '../../quick-run/types/quickrun.types';
+import type {
+  CorrelationTreeNode,
+  CorrelationTreeResponse,
+  InstanceStatus,
+} from '../../quick-run/types/quickrun.types';
 import { runtimeSupports } from '../../quick-run/utils/runtimeFeatures';
 import { useComponentIndex } from '../hooks/useComponentIndex';
 import { useRuntimeVersion } from '../hooks/useRuntimeVersion';
@@ -21,11 +31,21 @@ import { findTransition } from '../../canvas-interaction/readonly/normalize';
 import { lookupComponent } from '../model/componentIndex';
 import { useDataHistory, type DataHistoryResult } from '../hooks/useDataHistory';
 import { attributeRows } from '../model/dataAttribution';
-import { childInstancesOf, childTarget, childWorkflowFile, drillAction } from '../model/correlation';
+import {
+  childInstancesOf,
+  childTarget,
+  childWorkflowFile,
+  drillAction,
+} from '../model/correlation';
 import { definitionDrift } from '../model/definitionDrift';
 import { pickLabel } from '../model/monitorPath';
 import { pathRailSteps } from '../model/pathRail';
-import type { MonitorLoadState, MonitorSelection, MonitorTarget, OpenComponentTarget } from '../types';
+import type {
+  MonitorLoadState,
+  MonitorSelection,
+  MonitorTarget,
+  OpenComponentTarget,
+} from '../types';
 import { Breadcrumb } from './Breadcrumb';
 import { CorrelationsPanel } from './CorrelationsPanel';
 import { InstanceTab } from './InstanceTab';
@@ -57,7 +77,14 @@ const STATUS_KEYS = new Set<string>(['A', 'B', 'C', 'F', 'P']);
 const EMPTY_HEADERS: Record<string, string> = {};
 
 /** Wires loading and component links, then renders `MonitorShellView`. */
-export function MonitorShell({ target, headers = EMPTY_HEADERS, onOpenComponent, onOpenScript, onOpenQuickRun, onOpenFlowDesigner }: MonitorShellProps) {
+export function MonitorShell({
+  target,
+  headers = EMPTY_HEADERS,
+  onOpenComponent,
+  onOpenScript,
+  onOpenQuickRun,
+  onOpenFlowDesigner,
+}: MonitorShellProps) {
   const layout = usePanelLayout(LAYOUT_KEY, LAYOUT_DEFAULTS);
   const runtimeVersion = useRuntimeVersion(target.runtimeUrl);
   const controller = useMonitorController(target, headers, runtimeVersion);
@@ -75,7 +102,9 @@ export function MonitorShell({ target, headers = EMPTY_HEADERS, onOpenComponent,
         headers,
         ...(level.runtimeUrl ? { runtimeUrl: level.runtimeUrl } : {}),
       };
-      return kind === 'transition' ? QuickRunApi.getTransitionMetrics(params) : QuickRunApi.getStateMetrics(params);
+      return kind === 'transition'
+        ? QuickRunApi.getTransitionMetrics(params)
+        : QuickRunApi.getStateMetrics(params);
     };
   }, [runtimeVersion, level, headers]);
 
@@ -96,11 +125,23 @@ export function MonitorShell({ target, headers = EMPTY_HEADERS, onOpenComponent,
   const openDataTab = useCallback(() => setDataTabOpenFor(level.instanceId), [level.instanceId]);
   // Keys follow the last successful load of this instance, so they change only on a new load and not while loading/refreshing.
   const lastReady = useRef<{ instanceId: string; loadedAt: number } | null>(null);
-  if (controller.load.kind === 'ready') lastReady.current = { instanceId: level.instanceId, loadedAt: controller.load.data.loadedAt };
-  const loadedAt = lastReady.current?.instanceId === level.instanceId ? lastReady.current.loadedAt : 0;
-  const dataHistory = useDataHistory(level, headers, loadedAt, dataTabOpen || controller.selection?.kind === 'transition');
+  if (controller.load.kind === 'ready')
+    lastReady.current = { instanceId: level.instanceId, loadedAt: controller.load.data.loadedAt };
+  const loadedAt =
+    lastReady.current?.instanceId === level.instanceId ? lastReady.current.loadedAt : 0;
+  const dataHistory = useDataHistory(
+    level,
+    headers,
+    loadedAt,
+    dataTabOpen || controller.selection?.kind === 'transition',
+  );
 
-  const [currentData, setCurrentData] = useState<{ key: string; value?: unknown; eTag?: string; failed?: boolean } | null>(null);
+  const [currentData, setCurrentData] = useState<{
+    key: string;
+    value?: unknown;
+    eTag?: string;
+    failed?: boolean;
+  } | null>(null);
   const currentKey = `${level.instanceId}:${loadedAt}`;
   useEffect(() => {
     if (!dataTabOpen) return;
@@ -116,7 +157,11 @@ export function MonitorShell({ target, headers = EMPTY_HEADERS, onOpenComponent,
         if (stale) return;
         setCurrentData(
           res.success && res.data.data !== undefined
-            ? { key: currentKey, value: res.data.data, ...(res.data.eTag ? { eTag: res.data.eTag } : {}) }
+            ? {
+                key: currentKey,
+                value: res.data.data,
+                ...(res.data.eTag ? { eTag: res.data.eTag } : {}),
+              }
             : { key: currentKey, failed: true },
         );
       })
@@ -144,14 +189,18 @@ export function MonitorShell({ target, headers = EMPTY_HEADERS, onOpenComponent,
     (node: CorrelationTreeNode) => {
       const action = drillAction(controller.levels, node.id);
       if (action.kind === 'pop') controller.popTo(action.index);
-      else if (action.kind === 'drill') controller.drill(childTarget(level, node, childWorkflowFile(index, level, node)));
+      else if (action.kind === 'drill')
+        controller.drill(childTarget(level, node, childWorkflowFile(index, level, node)));
     },
     [level, index, controller.levels, controller.drill, controller.popTo],
   );
 
   const rootInstanceId = controller.levels[0]?.instanceId;
   const openQuickRunForLevel = useMemo(
-    () => (onOpenQuickRun ? () => onOpenQuickRun(level.instanceId, level.instanceId === rootInstanceId) : undefined),
+    () =>
+      onOpenQuickRun
+        ? () => onOpenQuickRun(level.instanceId, level.instanceId === rootInstanceId)
+        : undefined,
     [onOpenQuickRun, level.instanceId, rootInstanceId],
   );
 
@@ -166,7 +215,8 @@ export function MonitorShell({ target, headers = EMPTY_HEADERS, onOpenComponent,
     }
     if (onOpenScript && level.workflowFilePath) {
       const dir = level.workflowFilePath.replace(/\\/g, '/').replace(/\/[^/]*$/, '');
-      handlers.openScript = (location) => onOpenScript(resolveWorkflowScriptAbsolutePath(dir, location));
+      handlers.openScript = (location) =>
+        onOpenScript(resolveWorkflowScriptAbsolutePath(dir, location));
     }
     return handlers;
   }, [index, onOpenComponent, onOpenScript, level.workflowFilePath]);
@@ -192,7 +242,13 @@ export function MonitorShell({ target, headers = EMPTY_HEADERS, onOpenComponent,
       {...(openQuickRunForLevel ? { onOpenQuickRun: openQuickRunForLevel } : {})}
       dataHistory={dataHistory}
       onDataTabOpen={openDataTab}
-      {...(currentData?.key === currentKey ? { currentData: currentData.value, currentDataFailed: !!currentData.failed, ...(currentData.eTag ? { currentETag: currentData.eTag } : {}) } : {})}
+      {...(currentData?.key === currentKey
+        ? {
+            currentData: currentData.value,
+            currentDataFailed: !!currentData.failed,
+            ...(currentData.eTag ? { currentETag: currentData.eTag } : {}),
+          }
+        : {})}
       isRoot={level.instanceId === rootInstanceId}
       {...(onOpenFlowDesigner ? { onOpenFlowDesigner } : {})}
     />
@@ -237,7 +293,8 @@ const muted = 'text-[var(--vscode-descriptionForeground,#9d9d9d)]';
 
 /** Props-only layout so the SSR tests can render every state. */
 export function MonitorShellView(props: MonitorShellViewProps) {
-  const { target, load, selection, pathOnly, onRefresh, onSelect, onPathOnly, links, layout } = props;
+  const { target, load, selection, pathOnly, onRefresh, onSelect, onPathOnly, links, layout } =
+    props;
   const rightOpen = layout.isOpen('right');
   const bottomOpen = layout.isOpen('bottom');
   const setLayoutOpen = layout.setOpen;
@@ -263,7 +320,14 @@ export function MonitorShellView(props: MonitorShellViewProps) {
   const [railFilter, setRailFilter] = useState<PathRailFilter>('all');
   const [railFollow, setRailFollow] = useState(true);
   const railSteps = useMemo(
-    () => (load.kind === 'ready' ? pathRailSteps(load.data.history, { tasks: load.data.tasks, vm: load.data.definition.vm, ...(attributed ? { rowsByFiring: attributed } : {}) }) : []),
+    () =>
+      load.kind === 'ready'
+        ? pathRailSteps(load.data.history, {
+            tasks: load.data.tasks,
+            vm: load.data.definition.vm,
+            ...(attributed ? { rowsByFiring: attributed } : {}),
+          })
+        : [],
     [load, attributed],
   );
 
@@ -303,7 +367,10 @@ export function MonitorShellView(props: MonitorShellViewProps) {
         {crumbs}
         <div className="flex flex-col gap-2">
           <RuntimeErrorBanner title="Could not load the instance" error={load.error} />
-          <button type="button" onClick={onRefresh} className="mx-2 cursor-pointer self-start rounded border border-[var(--vscode-panel-border,#3c3c3c)] px-2 py-1 text-xs">
+          <button
+            type="button"
+            onClick={onRefresh}
+            className="mx-2 cursor-pointer self-start rounded border border-[var(--vscode-panel-border,#3c3c3c)] px-2 py-1 text-xs">
             Retry
           </button>
         </div>
@@ -314,7 +381,10 @@ export function MonitorShellView(props: MonitorShellViewProps) {
   const { data, refreshing, staleError } = load;
   const { instance, history, definition } = data;
   const currentState = instance.metadata.currentState || null;
-  const drift = definition.source === 'local' ? definitionDrift(definition.localVersion, instance.flowVersion) : null;
+  const drift =
+    definition.source === 'local'
+      ? definitionDrift(definition.localVersion, instance.flowVersion)
+      : null;
   const status = (instance.metadata.effectiveStatus ?? instance.metadata.status) as InstanceStatus;
 
   return (
@@ -323,17 +393,26 @@ export function MonitorShellView(props: MonitorShellViewProps) {
         {crumbs}
         <header className="flex items-center gap-2 border-b border-[var(--vscode-panel-border,#3c3c3c)] px-3 py-1.5 text-xs">
           <span className="truncate font-semibold">
-            {target.workflowKey} · <span className="font-mono">{instance.key || instance.id.slice(0, 8)}</span>
+            {target.workflowKey} ·{' '}
+            <span className="font-mono">{instance.key || instance.id.slice(0, 8)}</span>
           </span>
-          {STATUS_KEYS.has(status) ? <StatusBadge status={status} /> : <span className="text-[10px]">{status}</span>}
+          {STATUS_KEYS.has(status) ? (
+            <StatusBadge status={status} />
+          ) : (
+            <span className="text-[10px]">{status}</span>
+          )}
           <span className={`truncate ${muted}`}>{currentState}</span>
           <span className="ml-auto flex items-center gap-2">
             {staleError && (
-              <span className="rounded bg-[var(--vscode-inputValidation-warningBackground,#352a05)] px-1.5 text-[10px]" title={staleError.message}>
+              <span
+                className="rounded bg-[var(--vscode-inputValidation-warningBackground,#352a05)] px-1.5 text-[10px]"
+                title={staleError.message}>
                 Stale
               </span>
             )}
-            <span className={`text-[10px] ${muted}`}>Updated {new Date(data.loadedAt).toLocaleTimeString()}</span>
+            <span className={`text-[10px] ${muted}`}>
+              Updated {new Date(data.loadedAt).toLocaleTimeString()}
+            </span>
             {props.onPausedChange && (
               <button
                 type="button"
@@ -341,8 +420,7 @@ export function MonitorShellView(props: MonitorShellViewProps) {
                 aria-pressed={!!props.paused}
                 aria-label={props.paused ? 'Resume live updates' : 'Pause live updates'}
                 title={props.paused ? 'Resume live updates' : 'Pause live updates'}
-                className="cursor-pointer rounded p-1 hover:bg-[var(--vscode-list-hoverBackground,#2a2d2e)]"
-              >
+                className="cursor-pointer rounded p-1 hover:bg-[var(--vscode-list-hoverBackground,#2a2d2e)]">
                 {props.paused ? <Play size={13} aria-hidden /> : <Pause size={13} aria-hidden />}
               </button>
             )}
@@ -352,23 +430,38 @@ export function MonitorShellView(props: MonitorShellViewProps) {
               disabled={refreshing}
               aria-label="Refresh"
               title="Refresh"
-              className="cursor-pointer rounded p-1 hover:bg-[var(--vscode-list-hoverBackground,#2a2d2e)] disabled:cursor-wait disabled:opacity-50"
-            >
+              className="cursor-pointer rounded p-1 hover:bg-[var(--vscode-list-hoverBackground,#2a2d2e)] disabled:cursor-wait disabled:opacity-50">
               <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} aria-hidden />
             </button>
-            <PanelToggleButton side="right" open={rightOpen} onToggle={() => layout.toggle('right')} label="details panel" />
-            <PanelToggleButton side="bottom" open={bottomOpen} onToggle={() => layout.toggle('bottom')} label="path panel" />
+            <PanelToggleButton
+              side="right"
+              open={rightOpen}
+              onToggle={() => layout.toggle('right')}
+              label="details panel"
+            />
+            <PanelToggleButton
+              side="bottom"
+              open={bottomOpen}
+              onToggle={() => layout.toggle('bottom')}
+              label="path panel"
+            />
           </span>
         </header>
 
         {drift && (
-          <p role="status" className="border-b border-[var(--vscode-panel-border,#3c3c3c)] bg-[var(--vscode-inputValidation-warningBackground,#352a05)] px-3 py-1 text-[11px]">
-            Local definition {drift.localVersion} ≠ instance {drift.instanceVersion} — the canvas may differ from what ran.
+          <p
+            role="status"
+            className="border-b border-[var(--vscode-panel-border,#3c3c3c)] bg-[var(--vscode-inputValidation-warningBackground,#352a05)] px-3 py-1 text-[11px]">
+            Local definition {drift.localVersion} ≠ instance {drift.instanceVersion} — the canvas
+            may differ from what ran.
           </p>
         )}
         {definition.source === 'history' && (
-          <p role="status" className={`border-b border-[var(--vscode-panel-border,#3c3c3c)] px-3 py-1 text-[11px] ${muted}`}>
-            Local definition not found — showing only the states and transitions this instance went through.
+          <p
+            role="status"
+            className={`border-b border-[var(--vscode-panel-border,#3c3c3c)] px-3 py-1 text-[11px] ${muted}`}>
+            Local definition not found — showing only the states and transitions this instance went
+            through.
           </p>
         )}
 
@@ -386,8 +479,13 @@ export function MonitorShellView(props: MonitorShellViewProps) {
                 selection={selection}
                 onSelect={onSelect}
               />
-              <label className="absolute left-2 top-2 z-10 flex cursor-pointer items-center gap-1 rounded bg-[var(--vscode-editor-background,#1e1e1e)] px-2 py-1 text-[11px] shadow">
-                <input type="checkbox" checked={pathOnly} onChange={(e) => onPathOnly(e.target.checked)} className="cursor-pointer" />
+              <label className="absolute top-2 left-2 z-10 flex cursor-pointer items-center gap-1 rounded bg-[var(--vscode-editor-background,#1e1e1e)] px-2 py-1 text-[11px] shadow">
+                <input
+                  type="checkbox"
+                  checked={pathOnly}
+                  onChange={(e) => onPathOnly(e.target.checked)}
+                  className="cursor-pointer"
+                />
                 Path only
               </label>
             </div>
@@ -401,8 +499,7 @@ export function MonitorShellView(props: MonitorShellViewProps) {
                 />
                 <aside
                   style={{ width: layout.size('right') }}
-                  className="flex min-h-0 max-w-[60%] shrink-0 flex-col overflow-hidden border-l border-[var(--vscode-sideBar-border,var(--vscode-panel-border,#3c3c3c))] bg-[var(--vscode-sideBar-background,#252526)] text-[11px]"
-                >
+                  className="flex min-h-0 max-w-[60%] shrink-0 flex-col overflow-hidden border-l border-[var(--vscode-sideBar-border,var(--vscode-panel-border,#3c3c3c))] bg-[var(--vscode-sideBar-background,#252526)] text-[11px]">
                   <DetailsBody
                     variant="panel"
                     key={selection ? `${selection.kind}:${selection.key}` : 'none'}
@@ -421,70 +518,85 @@ export function MonitorShellView(props: MonitorShellViewProps) {
                             {...(attributed ? { dataRowsByFiring: attributed } : {})}
                             {...(dh ? { allDataRows: dh.rows, dataHasNext: dh.hasNext } : {})}
                             {...(selection?.kind === 'state' && props.onDrill
-                              ? { childInstances: childInstancesOf(data.correlation, instance.id, selection.key), onDrill: props.onDrill }
+                              ? {
+                                  childInstances: childInstancesOf(
+                                    data.correlation,
+                                    instance.id,
+                                    selection.key,
+                                  ),
+                                  onDrill: props.onDrill,
+                                }
                               : {})}
                             {...(props.loadMetrics ? { loadMetrics: props.loadMetrics } : {})}
                             onClose={() => onSelect(null)}
                           />
-                      ),
-                    },
-                    {
-                      id: 'instance',
-                      label: 'Instance',
-                      render: () => (
-                        <InstanceTab
-                          instance={instance}
-                          {...(definition.localVersion ? { localVersion: definition.localVersion } : {})}
-                          {...(target.environmentName ? { environmentName: target.environmentName } : {})}
-                          {...(rootQuickRun ? { onOpenQuickRun: rootQuickRun } : {})}
-                          {...(props.onOpenFlowDesigner ? { onOpenFlowDesigner: props.onOpenFlowDesigner } : {})}
-                        />
-                      ),
-                    },
-                    {
-                      id: 'incidents',
-                      label: data.activeIncident ? 'Incidents (1)' : 'Incidents',
-                      render: () => (
-                        <IncidentsTab
-                          active={data.activeIncident}
-                          {...(props.incidentLoaders ? { loaders: props.incidentLoaders } : {})}
-                          onShowOnCanvas={(e) => onSelect({ kind: 'state', key: e.state })}
-                          {...(rootQuickRun ? { onOpenQuickRun: rootQuickRun } : {})}
-                        />
-                      ),
-                    },
-                    {
-                      id: 'data',
-                      label: 'Data',
-                      render: () => (
-                        <DataTab
-                          history={history}
-                          rows={dh?.rows ?? []}
-                          state={dh?.state ?? 'idle'}
-                          hasNext={dh?.hasNext ?? false}
-                          error={dh?.error ?? null}
-                          onLoadMore={dh?.loadMore ?? (() => undefined)}
-                          labelFor={(key) => pickLabel(findTransition(definition.vm, key)?.labels, key)}
-                          {...(props.onDataTabOpen ? { onOpen: props.onDataTabOpen } : {})}
-                          {...('currentData' in props ? { current: props.currentData } : {})}
-                          currentFailed={!!props.currentDataFailed}
-                          {...(props.currentETag ? { currentETag: props.currentETag } : {})}
-                        />
-                      ),
-                    },
-                    {
-                      id: 'correlations',
-                      label: 'Correlations',
-                      render: () => (
-                        <CorrelationsPanel
-                          correlation={data.correlation}
-                          onRefresh={onRefresh}
-                          {...(props.onDrill ? { onDrill: props.onDrill } : {})}
-                        />
-                      ),
-                    },
-                  ]}
-                />
+                        ),
+                      },
+                      {
+                        id: 'instance',
+                        label: 'Instance',
+                        render: () => (
+                          <InstanceTab
+                            instance={instance}
+                            {...(definition.localVersion
+                              ? { localVersion: definition.localVersion }
+                              : {})}
+                            {...(target.environmentName
+                              ? { environmentName: target.environmentName }
+                              : {})}
+                            {...(rootQuickRun ? { onOpenQuickRun: rootQuickRun } : {})}
+                            {...(props.onOpenFlowDesigner
+                              ? { onOpenFlowDesigner: props.onOpenFlowDesigner }
+                              : {})}
+                          />
+                        ),
+                      },
+                      {
+                        id: 'incidents',
+                        label: data.activeIncident ? 'Incidents (1)' : 'Incidents',
+                        render: () => (
+                          <IncidentsTab
+                            active={data.activeIncident}
+                            {...(props.incidentLoaders ? { loaders: props.incidentLoaders } : {})}
+                            onShowOnCanvas={(e) => onSelect({ kind: 'state', key: e.state })}
+                            {...(rootQuickRun ? { onOpenQuickRun: rootQuickRun } : {})}
+                          />
+                        ),
+                      },
+                      {
+                        id: 'data',
+                        label: 'Data',
+                        render: () => (
+                          <DataTab
+                            history={history}
+                            rows={dh?.rows ?? []}
+                            state={dh?.state ?? 'idle'}
+                            hasNext={dh?.hasNext ?? false}
+                            error={dh?.error ?? null}
+                            onLoadMore={dh?.loadMore ?? (() => undefined)}
+                            labelFor={(key) =>
+                              pickLabel(findTransition(definition.vm, key)?.labels, key)
+                            }
+                            {...(props.onDataTabOpen ? { onOpen: props.onDataTabOpen } : {})}
+                            {...('currentData' in props ? { current: props.currentData } : {})}
+                            currentFailed={!!props.currentDataFailed}
+                            {...(props.currentETag ? { currentETag: props.currentETag } : {})}
+                          />
+                        ),
+                      },
+                      {
+                        id: 'correlations',
+                        label: 'Correlations',
+                        render: () => (
+                          <CorrelationsPanel
+                            correlation={data.correlation}
+                            onRefresh={onRefresh}
+                            {...(props.onDrill ? { onDrill: props.onDrill } : {})}
+                          />
+                        ),
+                      },
+                    ]}
+                  />
                 </aside>
               </>
             )}
@@ -501,8 +613,7 @@ export function MonitorShellView(props: MonitorShellViewProps) {
               <section
                 aria-label="Path"
                 style={{ height: layout.size('bottom') }}
-                className="flex max-h-[60%] shrink-0 flex-col overflow-hidden border-t border-[var(--vscode-panel-border,#3c3c3c)] bg-[var(--vscode-panel-background,#1e1e1e)]"
-              >
+                className="flex max-h-[60%] shrink-0 flex-col overflow-hidden border-t border-[var(--vscode-panel-border,#3c3c3c)] bg-[var(--vscode-panel-background,#1e1e1e)]">
                 <PathRail
                   steps={railSteps}
                   currentState={currentState}
