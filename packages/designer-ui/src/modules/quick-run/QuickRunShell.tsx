@@ -15,7 +15,7 @@ import { ResizableHandle } from './components/ResizableHandle';
 import { TransitionDialog } from './components/TransitionDialog';
 import { useQuickRunPolling } from './hooks/useQuickRunPolling';
 import { useQuickRunStore } from './store/quickRunStore';
-import type { OpenFunctionRunTarget, OpenSubFlowTarget } from './types/quickrun.types';
+import type { OpenFunctionRunTarget, OpenMonitorTarget, OpenSubFlowTarget } from './types/quickrun.types';
 import { extractExecutionTypes } from './utils/executionMode';
 import { extractLabelsMap } from './utils/extractLabelsMap';
 import { checkRuntimeHealth } from '../workflow-execution/WorkflowExecutionApi';
@@ -68,6 +68,12 @@ interface QuickRunShellProps {
    * the Correlations tab renders without action buttons.
    */
   onOpenSubFlowTarget?: (target: OpenSubFlowTarget) => void;
+  /**
+   * Open the Instance Monitor for the active instance. Host split as for
+   * `onOpenFunctionRun`: the extension opens a panel, the web shell a route.
+   * When omitted the Monitor button is hidden.
+   */
+  onOpenMonitor?: (target: OpenMonitorTarget) => void;
 }
 
 export function QuickRunShell({
@@ -82,6 +88,7 @@ export function QuickRunShell({
   pollingIntervalMs,
   onOpenFunctionRun,
   onOpenSubFlowTarget,
+  onOpenMonitor,
 }: QuickRunShellProps) {
   const setWorkflowContext = useQuickRunStore((s) => s.setWorkflowContext);
   const setGlobalHeaders = useQuickRunStore((s) => s.setGlobalHeaders);
@@ -289,6 +296,7 @@ export function QuickRunShell({
             configRef={configRef}
             persistConfig={persistConfig}
             onOpenFunctionRun={onOpenFunctionRun}
+            {...(onOpenMonitor ? { onOpenMonitor } : {})}
           />
         </div>
         <ResizableHandle onResize={handleRightResize} direction="left" />

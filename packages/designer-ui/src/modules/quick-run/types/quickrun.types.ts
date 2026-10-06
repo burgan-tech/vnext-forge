@@ -335,6 +335,15 @@ export interface OpenSubFlowTarget {
   route?: { group: string; name: string };
 }
 
+/** Open the Instance Monitor for a running instance (host decides panel vs route). */
+export interface OpenMonitorTarget {
+  domain: string;
+  workflowKey: string;
+  instanceId: string;
+  /** Business key, for the panel title. */
+  instanceKey?: string;
+}
+
 export interface HistoryTransition {
   id: string;
   transitionId: string;
