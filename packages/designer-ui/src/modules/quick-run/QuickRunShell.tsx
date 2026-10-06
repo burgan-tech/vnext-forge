@@ -245,7 +245,7 @@ export function QuickRunShell({
   }, [activeTabId, instances, globalHeaders, environmentUrl, fetchInstanceState]);
 
   return (
-    <div className="flex h-screen flex-col bg-[var(--vscode-editor-background)] text-[var(--vscode-foreground)]" role="application" aria-label="Quick Run — workflow manager">
+    <div className="flex h-screen flex-col bg-[var(--vscode-editor-background)] text-[var(--vscode-foreground)] [&_button:not(:disabled)]:cursor-pointer [&_summary]:cursor-pointer" role="application" aria-label="Quick Run — workflow manager">
       {/* Skip link */}
       <a href="#quickrun-main" className="sr-only focus:not-sr-only focus:absolute focus:z-50 focus:bg-[var(--vscode-button-background)] focus:px-3 focus:py-1 focus:text-[var(--vscode-button-foreground)]">
         Skip to main content
