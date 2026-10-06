@@ -76,6 +76,21 @@ describe('InstanceTab', () => {
   });
 });
 
+describe('empty business key', () => {
+  const NOKEY = { ...INSTANCE, id: 'abcdef12-3456-7890', key: '' } as MonitorLevelData['instance'];
+  it('InstanceTab shows a dash in the Key row', () => {
+    const html = renderToStaticMarkup(h(InstanceTab, { instance: NOKEY }));
+    expect(html).toMatch(/Key[\s\S]{0,200}—/);
+  });
+  it('the shell header falls back to the short id', () => {
+    const html = renderToStaticMarkup(h(MonitorShellView, {
+      target: TARGET, selection: null, pathOnly: false, onRefresh: noop, onSelect: noop, onPathOnly: noop, links: {},
+      load: { kind: 'ready', data: { ...DATA, instance: NOKEY }, refreshing: false, staleError: null },
+    }));
+    expect(html).toContain('<span class="font-mono">abcdef12</span>');
+  });
+});
+
 describe('MonitorShellView', () => {
   const base = { target: TARGET, selection: null, pathOnly: false, onRefresh: noop, onSelect: noop, onPathOnly: noop, links: {} };
   it('shows loading', () => {

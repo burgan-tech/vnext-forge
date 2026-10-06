@@ -188,7 +188,7 @@ export const StateNodeBase = memo(function StateNodeBase({ data, selected }: Nod
         maxWidth={480}
         minHeight={64}
         maxHeight={320}
-        isVisible={selected ?? false}
+        isVisible={isEditable && !!selected}
         lineClassName="!border-primary-border-hover/40"
         handleClassName="!w-2.5 !h-2.5 !rounded-sm !border !border-primary-border-hover !bg-surface"
       />

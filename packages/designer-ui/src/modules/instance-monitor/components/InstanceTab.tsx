@@ -33,7 +33,7 @@ export function InstanceTab({ instance, localVersion, environmentName, onOpenQui
       <Group title="Identity">
         <DetailsList
           rows={[
-            { label: 'Key', value: instance.key, copy: instance.key, mono: true },
+            { label: 'Key', value: instance.key || '—', ...(instance.key ? { copy: instance.key } : {}), mono: true },
             { label: 'Id', value: instance.id, copy: instance.id, mono: true },
             { label: 'Flow', value: `${instance.domain}/${instance.flow}` },
             { label: 'Flow version', value: drift ? `${version} (local ${drift.localVersion})` : version },

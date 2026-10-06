@@ -123,7 +123,7 @@ export function MonitorShellView(props: MonitorShellViewProps) {
       <div className="flex h-full min-h-0 flex-col text-[var(--vscode-foreground,#cccccc)]">
         <header className="flex items-center gap-2 border-b border-[var(--vscode-panel-border,#3c3c3c)] px-3 py-1.5 text-xs">
           <span className="truncate font-semibold">
-            {target.workflowKey} · <span className="font-mono">{instance.key}</span>
+            {target.workflowKey} · <span className="font-mono">{instance.key || instance.id.slice(0, 8)}</span>
           </span>
           {STATUS_KEYS.has(status) ? <StatusBadge status={status} /> : <span className="text-[10px]">{status}</span>}
           <span className={`truncate ${muted}`}>{currentState}</span>
@@ -159,7 +159,7 @@ export function MonitorShellView(props: MonitorShellViewProps) {
         )}
 
         <div className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_minmax(260px,340px)]">
-          <div className="relative min-h-0">
+          <div className="relative min-h-0 overflow-hidden [contain:layout]">
             <MonitorCanvas
               vm={definition.vm}
               diagram={definition.diagram}

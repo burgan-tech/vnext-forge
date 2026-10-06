@@ -31,7 +31,7 @@ export function MonitorCanvas({ vm, diagram, history, currentState, pathOnly, se
         diagramJson={diagram}
         mode="instance-view"
         executionOverlay={overlay}
-        onNodeSelect={(key) => onSelect(key && key !== '__start__' ? { kind: 'state', key } : null)}
+        onNodeSelect={(key) => onSelect(key && key !== '__start__' && !key.startsWith('__wf_') ? { kind: 'state', key } : null)}
         onEdgeSelect={(key) => onSelect(key ? { kind: 'transition', key } : null)}
       />
     </ReactFlowProvider>

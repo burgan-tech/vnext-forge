@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import type { MonitorLoaders } from './loadMonitorLevel';
-import { loadMonitorLevel } from './loadMonitorLevel';
+import { loadMonitorLevel, loadMonitorLevelSafe } from './loadMonitorLevel';
 
 const INSTANCE = {
   id: 'i1', key: 'order-1', flow: 'loan', domain: 'core', flowVersion: '1.0.0',
@@ -70,3 +70,19 @@ describe('loadMonitorLevel', () => {
     expect(r).toMatchObject({ ok: false, notFound: false, error: { message: 'down' } });
   });
 });
+
+describe('loadMonitorLevelSafe', () => {
+  it('turns a thrown loader into an error result instead of rejecting', async () => {
+    const r = await loadMonitorLevelSafe(TARGET, {}, loaders({
+      getInstance: vi.fn(async () => { throw new Error('boom'); }) as unknown as MonitorLoaders['getInstance'],
+    }));
+    expect(r).toMatchObject({ ok: false, notFound: false, error: { code: 'INTERNAL_UNEXPECTED', message: 'boom' } });
+  });
+  it('uses a generic message for a non-Error throw', async () => {
+    const r = await loadMonitorLevelSafe(TARGET, {}, loaders({
+      getInstance: vi.fn(async () => { throw 'x'; }) as unknown as MonitorLoaders['getInstance'],
+    }));
+    expect(r).toMatchObject({ ok: false, error: { message: 'Unexpected error while loading the instance.' } });
+  });
+});
+

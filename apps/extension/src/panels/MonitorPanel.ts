@@ -98,8 +98,13 @@ export class MonitorPanel {
   private async sendContext(entry: PanelEntry): Promise<void> {
     let globalHeaders: Record<string, string> = {};
     if (this.forgeToolsSettings) {
-      const qr = await this.forgeToolsSettings.loadQuickRunSettings();
-      globalHeaders = Object.fromEntries(qr.globalHeaders.map((h) => [h.name, h.value]));
+      try {
+        const qr = await this.forgeToolsSettings.loadQuickRunSettings();
+        globalHeaders = Object.fromEntries(qr.globalHeaders.map((h) => [h.name, h.value]));
+      } catch {
+        // Settings unreadable: the monitor still opens, just without global headers.
+        globalHeaders = {};
+      }
     }
     void entry.panel.webview.postMessage({ type: 'monitor:context', ...entry.ctx, globalHeaders });
   }

@@ -79,6 +79,26 @@ export async function loadMonitorLevel(
   };
 }
 
+/** Same as `loadMonitorLevel`, but a throwing loader becomes an error result so the UI never hangs on "loading". */
+export async function loadMonitorLevelSafe(
+  target: MonitorTarget,
+  headers: Record<string, string>,
+  loaders: MonitorLoaders = defaultMonitorLoaders,
+): Promise<MonitorLoadResult> {
+  try {
+    return await loadMonitorLevel(target, headers, loaders);
+  } catch (err) {
+    return {
+      ok: false,
+      notFound: false,
+      error: {
+        code: ERROR_CODES.INTERNAL_UNEXPECTED,
+        message: err instanceof Error && err.message ? err.message : 'Unexpected error while loading the instance.',
+      },
+    };
+  }
+}
+
 function toDefinition(
   workflowKey: string,
   history: HistoryTransition[],

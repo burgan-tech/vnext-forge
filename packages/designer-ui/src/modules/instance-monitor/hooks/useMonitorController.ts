@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useReducer, useRef } from 'react';
 
-import { defaultMonitorLoaders, loadMonitorLevel, type MonitorLoaders } from '../data/loadMonitorLevel';
+import { defaultMonitorLoaders, loadMonitorLevelSafe, type MonitorLoaders } from '../data/loadMonitorLevel';
 import { initialMonitorState, monitorReducer } from '../model/monitorReducer';
 import type { MonitorSelection, MonitorTarget } from '../types';
 
@@ -23,7 +23,7 @@ export function useMonitorController(
     async (mode: 'initial' | 'refresh') => {
       const id = ++seq.current;
       dispatch({ type: mode === 'initial' ? 'load-start' : 'refresh-start' });
-      const result = await loadMonitorLevel(targetRef.current, headersRef.current, loaders);
+      const result = await loadMonitorLevelSafe(targetRef.current, headersRef.current, loaders);
       if (id === seq.current) dispatch({ type: 'load-done', result });
     },
     [loaders],

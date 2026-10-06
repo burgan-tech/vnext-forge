@@ -47,23 +47,28 @@ export function MonitorPage() {
     setLoadError(false);
     if (!workflowFilePath) return;
     let cancelled = false;
-    void filesService.read(workflowFilePath).then((res) => {
-      if (cancelled) return;
-      if (!res.success) {
-        setLoadError(true);
-        return;
-      }
-      try {
-        const json = JSON.parse(res.data.content) as Record<string, unknown>;
-        if (typeof json.key === 'string' && json.key) {
-          setWorkflowKey(json.key);
-        } else {
+    void filesService
+      .read(workflowFilePath)
+      .then((res) => {
+        if (cancelled) return;
+        if (!res.success) {
+          setLoadError(true);
+          return;
+        }
+        try {
+          const json = JSON.parse(res.data.content) as Record<string, unknown>;
+          if (typeof json.key === 'string' && json.key) {
+            setWorkflowKey(json.key);
+          } else {
+            setLoadError(true);
+          }
+        } catch {
           setLoadError(true);
         }
-      } catch {
-        setLoadError(true);
-      }
-    });
+      })
+      .catch(() => {
+        if (!cancelled) setLoadError(true);
+      });
     return () => {
       cancelled = true;
     };
