@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 
 import type { MessageRouter } from '../MessageRouter';
+import { baseLogger } from '../shared/logger.js';
 import type { ForgeToolsSettingsService } from '../tools/forge-tools-settings.js';
 import { parseOpenQuickRunFromMonitorMessage, type InstanceChangedEvent } from './monitor-messages.js';
 import { buildWebviewHtml } from './webview-html.js';
@@ -66,7 +67,11 @@ export class MonitorPanel {
           return;
         }
         const openQuickRun = parseOpenQuickRunFromMonitorMessage(raw);
-        if (openQuickRun) void this.openQuickRun(entry, openQuickRun.instanceId);
+        if (openQuickRun) {
+          this.openQuickRun(entry, openQuickRun.instanceId).catch((err: unknown) => {
+            baseLogger.error({ error: String(err) }, 'Failed to open Quick Run from the monitor');
+          });
+        }
       }),
     );
     if (this.forgeToolsSettings) {

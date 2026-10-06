@@ -10,6 +10,7 @@ import type { EnvironmentHealthMonitor } from '../tools/environment-health-monit
 import type { ForgeSettings, ForgeToolsSettingsService } from '../tools/forge-tools-settings.js';
 import { parseInstanceChangedMessage, parseOpenMonitorMessage } from './monitor-messages.js';
 import { parseOpenSubFlowRunMessage } from './open-subflow-run-message.js';
+import { PendingFocusStore } from './pending-focus.js';
 
 export interface QuickRunContext {
   domain: string;
@@ -65,6 +66,8 @@ export class QuickRunPanel {
   // panel; `onDidDispose` removes the entry and drains the list.
   private readonly panels = new Map<string, PanelEntry>();
   private focusNonce = 0;
+  // Focus requests for a workflow whose panel is not open yet (see PendingFocusStore).
+  private readonly pendingFocus = new PendingFocusStore();
 
   constructor(
     private readonly context: vscode.ExtensionContext,
@@ -113,6 +116,7 @@ export class QuickRunPanel {
       panel,
       webviewReady: false,
       pendingContext: ctx,
+      pendingFocusInstanceId: this.pendingFocus.take(key),
       ctx,
       disposables: [],
     };
@@ -197,8 +201,13 @@ export class QuickRunPanel {
 
   /** Ask an open panel to bring an instance into focus; queued until its webview is ready. */
   focusInstance(domain: string, workflowKey: string, instanceId: string): void {
-    const entry = this.panels.get(`${domain}:${workflowKey}`);
-    if (!entry) return;
+    const key = `${domain}:${workflowKey}`;
+    const entry = this.panels.get(key);
+    if (!entry) {
+      // The panel is still being opened (openQuickRunFromFile returns first): park it for open().
+      this.pendingFocus.set(key, instanceId);
+      return;
+    }
     if (entry.webviewReady) this.postFocusInstance(entry, instanceId);
     else entry.pendingFocusInstanceId = instanceId;
   }
