@@ -1,0 +1,147 @@
+import { useEffect, useMemo, useState } from 'react';
+
+import type { DataHistoryItem } from '../../quick-run/QuickRunApi';
+import { CopyableJsonBlock } from '../../quick-run/components/CopyableJsonBlock';
+import { RuntimeErrorBanner, type RuntimeErrorLike } from '../../quick-run/components/RuntimeErrorBanner';
+import type { HistoryTransition } from '../../quick-run/types/quickrun.types';
+import { attributeRows, previousRow } from '../model/dataAttribution';
+import { diffJson } from '../model/jsonDiff';
+import { DataDiffView } from './DataDiffView';
+
+export interface DataTabProps {
+  /** Latest data from `getData`; undefined while loading. */
+  current?: unknown;
+  currentFailed?: boolean;
+  history: readonly HistoryTransition[];
+  rows: DataHistoryItem[];
+  state: 'idle' | 'loading' | 'ready' | 'unavailable' | 'error';
+  hasNext: boolean;
+  error: RuntimeErrorLike | null;
+  onLoadMore: () => void;
+  /** Display label of a transition key. */
+  labelFor?: (transitionKey: string) => string;
+  /** Called on mount so the shell starts loading history. */
+  onOpen?: () => void;
+}
+
+const BUTTON =
+  'cursor-pointer rounded border border-[var(--vscode-panel-border,#3c3c3c)] px-2 py-1 text-[11px] hover:bg-[var(--vscode-list-hoverBackground,#2a2d2e)] disabled:cursor-not-allowed disabled:opacity-50';
+const muted = 'text-[var(--vscode-descriptionForeground,#9d9d9d)]';
+
+const diffOf = (before: DataHistoryItem | null, after: DataHistoryItem) => diffJson(before?.data, after.data);
+const changeCount = (d: ReturnType<typeof diffJson>) => d.added.length + d.removed.length + d.changed.length;
+
+/** Current data plus the version history (read-only). */
+export function DataTab({ current, currentFailed, history, rows, state, hasNext, error, onLoadMore, labelFor, onOpen }: DataTabProps) {
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [picked, setPicked] = useState<string[]>([]);
+  const [compare, setCompare] = useState<[DataHistoryItem, DataHistoryItem] | null>(null);
+
+  useEffect(() => {
+    onOpen?.();
+  }, [onOpen]);
+
+  const owners = useMemo(() => {
+    const byRow = new Map<string, HistoryTransition>();
+    const hist = history as HistoryTransition[];
+    for (const [firingId, list] of attributeRows(rows, hist)) {
+      const firing = hist.find((h) => h.id === firingId);
+      if (firing) for (const r of list) byRow.set(r.id, firing);
+    }
+    return byRow;
+  }, [rows, history]);
+
+  const toggle = (id: string) =>
+    setPicked((p) => (p.includes(id) ? p.filter((x) => x !== id) : p.length >= 2 ? [p[1], id] : [...p, id]));
+
+  const runCompare = () => {
+    const pair = picked.map((id) => rows.find((r) => r.id === id)).filter((r): r is DataHistoryItem => !!r);
+    if (pair.length !== 2) return;
+    const [a, b] = pair.sort((x, y) => x.versionNo - y.versionNo) as [DataHistoryItem, DataHistoryItem];
+    setCompare([a, b]);
+  };
+
+  return (
+    <div className="flex flex-col gap-4 p-2">
+      <section className="flex flex-col gap-1">
+        <h3 className={`text-[10px] font-semibold uppercase ${muted}`}>Current</h3>
+        {currentFailed ? (
+          <p className={muted}>Current data could not be loaded.</p>
+        ) : current === undefined ? (
+          <p className={muted}>Loading…</p>
+        ) : (
+          <CopyableJsonBlock value={current} />
+        )}
+      </section>
+
+      <section className="flex flex-col gap-2">
+        <h3 className={`text-[10px] font-semibold uppercase ${muted}`}>Versions</h3>
+        {state === 'unavailable' && <p className={muted}>Data history needs a newer runtime.</p>}
+        {state === 'error' && error && <RuntimeErrorBanner title="Data history request failed" error={error} />}
+        {(state === 'loading' || state === 'idle') && <p className={muted}>Loading…</p>}
+        {state === 'ready' && rows.length === 0 && <p className={muted}>No data versions recorded.</p>}
+        {state === 'ready' && rows.length > 0 && (
+          <>
+            <ul className="flex flex-col gap-1">
+              {rows.map((row) => {
+                const owner = owners.get(row.id);
+                const diff = diffOf(previousRow(rows, row), row);
+                const open = expanded === row.id;
+                return (
+                  <li key={row.id} className="rounded border border-[var(--vscode-panel-border,#3c3c3c)]">
+                    <div className="flex items-center gap-2 px-2 py-1">
+                      <input
+                        type="checkbox"
+                        aria-label={`Select version ${row.versionNo} to compare`}
+                        checked={picked.includes(row.id)}
+                        onChange={() => toggle(row.id)}
+                        className="cursor-pointer"
+                      />
+                      <button
+                        type="button"
+                        aria-expanded={open}
+                        onClick={() => setExpanded(open ? null : row.id)}
+                        className="flex min-w-0 flex-1 cursor-pointer flex-col text-left"
+                      >
+                        <span className="truncate">
+                          <span className="font-semibold">#{row.versionNo}</span> · {new Date(row.enteredAt).toLocaleTimeString()} ·{' '}
+                          {owner
+                            ? `after ${labelFor ? labelFor(owner.transitionId) : owner.transitionId} (${owner.fromState} → ${owner.toState})`
+                            : 'Other write'}
+                        </span>
+                        <span className={muted}>{changeCount(diff)} fields changed</span>
+                      </button>
+                    </div>
+                    {open && (
+                      <div className="border-t border-[var(--vscode-panel-border,#3c3c3c)] p-2">
+                        <DataDiffView diff={diff} />
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+            <div className="flex flex-wrap gap-2">
+              <button type="button" className={BUTTON} disabled={picked.length !== 2} onClick={runCompare}>
+                Compare
+              </button>
+              {hasNext && (
+                <button type="button" className={BUTTON} onClick={onLoadMore}>
+                  Load more
+                </button>
+              )}
+            </div>
+            {compare && (
+              <div className="flex flex-col gap-1">
+                <p className={muted}>
+                  #{compare[0].versionNo} → #{compare[1].versionNo}
+                </p>
+                <DataDiffView diff={diffJson(compare[0].data, compare[1].data)} />
+              </div>
+            )}
+          </>
+        )}
+      </section>
+    </div>
+  );
+}

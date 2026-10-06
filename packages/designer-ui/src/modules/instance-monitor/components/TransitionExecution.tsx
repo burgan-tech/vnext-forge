@@ -1,15 +1,33 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 
+import type { DataHistoryItem } from '../../quick-run/QuickRunApi';
 import type { ElementMetricsLoader } from '../../quick-run/components/ElementMetrics';
 import { transitionDetailTabs } from '../../quick-run/components/HistoryTab';
 import { DetailsBody } from '../../quick-run/components/panel-kit';
 import type { HistoryTransition, TaskHistoryItem } from '../../quick-run/types/quickrun.types';
+import { previousRow } from '../model/dataAttribution';
+import { diffJson } from '../model/jsonDiff';
+import { DataDiffView } from './DataDiffView';
 
 const muted = 'text-[var(--vscode-descriptionForeground,#9d9d9d)]';
 
 /** Every firing of a transition, each expandable into Quick Run's history detail tabs (Overview / Executions / Tasks / Request). */
-export function TransitionExecution({ firings, tasks, loadMetrics }: { firings: readonly HistoryTransition[]; tasks: readonly TaskHistoryItem[]; loadMetrics?: ElementMetricsLoader }) {
+export function TransitionExecution({
+  firings,
+  tasks,
+  loadMetrics,
+  dataRowsByFiring,
+  allRows,
+}: {
+  firings: readonly HistoryTransition[];
+  tasks: readonly TaskHistoryItem[];
+  loadMetrics?: ElementMetricsLoader;
+  /** Data rows (newest first) attributed to each firing id. */
+  dataRowsByFiring?: Map<string, DataHistoryItem[]>;
+  /** Every loaded data row, newest first. */
+  allRows?: DataHistoryItem[];
+}) {
   const [open, setOpen] = useState<string | null>(firings.length === 1 ? (firings[0]?.id ?? null) : null);
   return (
     <section className="flex flex-col gap-1 border-t border-[var(--vscode-panel-border,#3c3c3c)] p-3 text-[11px]">
@@ -31,7 +49,7 @@ export function TransitionExecution({ firings, tasks, loadMetrics }: { firings: 
             </button>
             {expanded && (
               <div className="border-t border-[var(--vscode-panel-border,#3c3c3c)] p-2">
-                <DetailsBody tabs={transitionDetailTabs(f, { ...(loadMetrics ? { loadMetrics } : {}), tasks })} />
+                <DetailsBody tabs={[...transitionDetailTabs(f, { ...(loadMetrics ? { loadMetrics } : {}), tasks }), ...dataChangeTab(f.id, dataRowsByFiring, allRows)]} />
               </div>
             )}
           </div>
@@ -39,4 +57,13 @@ export function TransitionExecution({ firings, tasks, loadMetrics }: { firings: 
       })}
     </section>
   );
+}
+
+function dataChangeTab(firingId: string, byFiring?: Map<string, DataHistoryItem[]>, allRows?: DataHistoryItem[]) {
+  const rows = byFiring?.get(firingId);
+  if (!rows || rows.length === 0) return [];
+  const newest = rows[0];
+  const oldest = rows[rows.length - 1];
+  const before = allRows ? previousRow(allRows, oldest) : null;
+  return [{ id: 'data-change', label: 'Data change', render: () => <DataDiffView diff={diffJson(before?.data, newest.data)} /> }];
 }

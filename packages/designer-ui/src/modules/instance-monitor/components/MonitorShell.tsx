@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pause, Play, RefreshCw } from 'lucide-react';
 
 import { ComponentLinkProvider, type ComponentLinkHandlers } from '../../canvas-interaction/readonly/ComponentLinkContext';
@@ -14,14 +14,19 @@ import { runtimeSupports } from '../../quick-run/utils/runtimeFeatures';
 import { useComponentIndex } from '../hooks/useComponentIndex';
 import { useRuntimeVersion } from '../hooks/useRuntimeVersion';
 import { useMonitorController } from '../hooks/useMonitorController';
+import { findTransition } from '../../canvas-interaction/readonly/normalize';
 import { lookupComponent } from '../model/componentIndex';
+import { useDataHistory, type DataHistoryResult } from '../hooks/useDataHistory';
+import { attributeRows } from '../model/dataAttribution';
 import { childInstancesOf, childTarget, childWorkflowFile, drillAction } from '../model/correlation';
 import { definitionDrift } from '../model/definitionDrift';
+import { pickLabel } from '../model/monitorPath';
 import type { MonitorLoadState, MonitorSelection, MonitorTarget, OpenComponentTarget } from '../types';
 import { Breadcrumb } from './Breadcrumb';
 import { CorrelationsPanel } from './CorrelationsPanel';
 import { InstanceTab } from './InstanceTab';
 import { IncidentsTab } from './IncidentsTab';
+import { DataTab } from './DataTab';
 import { MonitorCanvas } from './MonitorCanvas';
 import { MonitorInspector } from './MonitorInspector';
 import { PathTimeline } from './PathTimeline';
@@ -74,6 +79,36 @@ export function MonitorShell({ target, headers = EMPTY_HEADERS, onOpenComponent,
     [level, headers],
   );
 
+  const [dataTabOpenFor, setDataTabOpenFor] = useState<string | null>(null);
+  const dataTabOpen = dataTabOpenFor === level.instanceId;
+  const openDataTab = useCallback(() => setDataTabOpenFor(level.instanceId), [level.instanceId]);
+  const loadedAt = controller.load.kind === 'ready' ? controller.load.data.loadedAt : 0;
+  const dataHistory = useDataHistory(level, headers, loadedAt, dataTabOpen || controller.selection?.kind === 'transition');
+
+  const [currentData, setCurrentData] = useState<{ key: string; value?: unknown; failed?: boolean } | null>(null);
+  const currentKey = `${level.instanceId}:${loadedAt}`;
+  useEffect(() => {
+    if (!dataTabOpen) return;
+    let stale = false;
+    void QuickRunApi.getData({
+      domain: level.domain,
+      workflowKey: level.workflowKey,
+      instanceId: level.instanceId,
+      headers,
+      ...(level.runtimeUrl ? { runtimeUrl: level.runtimeUrl } : {}),
+    })
+      .then((res) => {
+        if (stale) return;
+        setCurrentData(res.success && res.data.data !== undefined ? { key: currentKey, value: res.data.data } : { key: currentKey, failed: true });
+      })
+      .catch(() => {
+        if (!stale) setCurrentData({ key: currentKey, failed: true });
+      });
+    return () => {
+      stale = true;
+    };
+  }, [dataTabOpen, currentKey, level, headers]);
+
   const drillInto = useCallback(
     (node: CorrelationTreeNode) => {
       const action = drillAction(controller.levels, node.id);
@@ -123,6 +158,9 @@ export function MonitorShell({ target, headers = EMPTY_HEADERS, onOpenComponent,
       incidentLoaders={incidentLoaders}
       {...(loadMetrics ? { loadMetrics } : {})}
       {...(openQuickRunForLevel ? { onOpenQuickRun: openQuickRunForLevel } : {})}
+      dataHistory={dataHistory}
+      onDataTabOpen={openDataTab}
+      {...(currentData?.key === currentKey ? { currentData: currentData.value, currentDataFailed: !!currentData.failed } : {})}
       isRoot={level.instanceId === rootInstanceId}
       {...(onOpenFlowDesigner ? { onOpenFlowDesigner } : {})}
     />
@@ -153,6 +191,11 @@ export interface MonitorShellViewProps {
   /** False while a drilled-in child is on screen: Quick Run only knows the root workflow, so its actions hide. Defaults to true. */
   isRoot?: boolean;
   onOpenFlowDesigner?: () => void;
+  /** Shared data-history hook result (owned by MonitorShell so it survives tab switches). */
+  dataHistory?: DataHistoryResult;
+  onDataTabOpen?: () => void;
+  currentData?: unknown;
+  currentDataFailed?: boolean;
 }
 
 const muted = 'text-[var(--vscode-descriptionForeground,#9d9d9d)]';
@@ -161,6 +204,11 @@ const muted = 'text-[var(--vscode-descriptionForeground,#9d9d9d)]';
 export function MonitorShellView(props: MonitorShellViewProps) {
   const { target, load, selection, pathOnly, onRefresh, onSelect, onPathOnly, links } = props;
   const rootQuickRun = props.isRoot === false ? undefined : props.onOpenQuickRun;
+  const dh = props.dataHistory;
+  const attributed = useMemo(
+    () => (dh && load.kind === 'ready' ? attributeRows(dh.rows, load.data.history) : undefined),
+    [dh?.rows, load],
+  );
 
   const crumbs =
     props.levels && props.levels.length > 1 && props.onPopTo ? (
@@ -298,6 +346,8 @@ export function MonitorShellView(props: MonitorShellViewProps) {
                       currentState={currentState}
                       selection={selection}
                       tasks={data.tasks}
+                      {...(attributed ? { dataRowsByFiring: attributed } : {})}
+                      {...(dh ? { allDataRows: dh.rows } : {})}
                       {...(selection?.kind === 'state' && props.onDrill
                         ? { childInstances: childInstancesOf(data.correlation, instance.id, selection.key), onDrill: props.onDrill }
                         : {})}
@@ -328,6 +378,24 @@ export function MonitorShellView(props: MonitorShellViewProps) {
                       {...(props.incidentLoaders ? { loaders: props.incidentLoaders } : {})}
                       onShowOnCanvas={(e) => onSelect({ kind: 'state', key: e.state })}
                       {...(rootQuickRun ? { onOpenQuickRun: rootQuickRun } : {})}
+                    />
+                  ),
+                },
+                {
+                  id: 'data',
+                  label: 'Data',
+                  render: () => (
+                    <DataTab
+                      history={history}
+                      rows={dh?.rows ?? []}
+                      state={dh?.state ?? 'idle'}
+                      hasNext={dh?.hasNext ?? false}
+                      error={dh?.error ?? null}
+                      onLoadMore={dh?.loadMore ?? (() => undefined)}
+                      labelFor={(key) => pickLabel(findTransition(definition.vm, key)?.labels, key)}
+                      {...(props.onDataTabOpen ? { onOpen: props.onDataTabOpen } : {})}
+                      {...('currentData' in props ? { current: props.currentData } : {})}
+                      currentFailed={!!props.currentDataFailed}
                     />
                   ),
                 },

@@ -2,6 +2,7 @@ import { findState, findTransition } from '../../canvas-interaction/readonly/nor
 import { StateInspector } from '../../canvas-interaction/readonly/StateInspector';
 import { TransitionInspector } from '../../canvas-interaction/readonly/TransitionInspector';
 import type { WorkflowViewModel } from '../../canvas-interaction/readonly/view-types';
+import type { DataHistoryItem } from '../../quick-run/QuickRunApi';
 import type { ElementMetricsLoader } from '../../quick-run/components/ElementMetrics';
 import type { CorrelationTreeNode, HistoryTransition, TaskHistoryItem } from '../../quick-run/types/quickrun.types';
 import { describeFirings, describeStateVisits, summarizeState, transitionFirings } from '../model/monitorPath';
@@ -19,6 +20,9 @@ export interface MonitorInspectorProps {
   /** Children started from the selected state. */
   childInstances?: CorrelationTreeNode[];
   onDrill?: (node: CorrelationTreeNode) => void;
+  /** Data rows attributed to each firing, and all loaded rows (newest first). */
+  dataRowsByFiring?: Map<string, DataHistoryItem[]>;
+  allDataRows?: DataHistoryItem[];
   onClose: () => void;
 }
 
@@ -27,7 +31,7 @@ const hint = (text: string) => (
 );
 
 /** Definition layer of the selected element, with one line of execution context. */
-export function MonitorInspector({ vm, history, currentState, selection, tasks, loadMetrics, childInstances, onDrill, onClose }: MonitorInspectorProps) {
+export function MonitorInspector({ vm, history, currentState, selection, tasks, loadMetrics, childInstances, onDrill, dataRowsByFiring, allDataRows, onClose }: MonitorInspectorProps) {
   if (!selection) return hint('Select a state or transition on the canvas or in the path.');
 
   if (selection.kind === 'state') {
@@ -69,7 +73,11 @@ export function MonitorInspector({ vm, history, currentState, selection, tasks, 
       onClose={onClose}
       summary={describeFirings(transitionFirings(history, selection.key).length)}
     >
-      <TransitionExecution firings={transitionFirings(history, selection.key)} tasks={tasks} {...(loadMetrics ? { loadMetrics } : {})} />
+      <TransitionExecution firings={transitionFirings(history, selection.key)} tasks={tasks}
+        {...(loadMetrics ? { loadMetrics } : {})}
+        {...(dataRowsByFiring ? { dataRowsByFiring } : {})}
+        {...(allDataRows ? { allRows: allDataRows } : {})}
+      />
     </TransitionInspector>
   );
 }
