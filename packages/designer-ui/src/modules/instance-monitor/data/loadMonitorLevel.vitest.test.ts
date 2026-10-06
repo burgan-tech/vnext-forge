@@ -8,6 +8,9 @@ const INSTANCE = {
   metadata: { currentState: 'review', effectiveState: 'review', status: 'A', createdAt: '2026-10-06T10:00:00Z' },
 };
 const HISTORY = { transitions: [{ id: 'h1', transitionId: 'start', fromState: '$start', toState: 'review', startedAt: 'x', triggerType: 'manual', createdAt: 'x' }] };
+const TASKS = { items: [{ id: 't1', taskKey: 'notify', transitionKey: 'start', fromState: '$start', toState: 'review', triggerType: 'manual', status: 'Failed', businessStatus: 'Failed', startedAt: 'x' }] };
+const INCIDENT = { incident: { id: 'in1', createdAt: 'x', state: 'review', transition: 'submit', message: 'boom', isResolved: false, retryCount: 0 } };
+const TREE = { source: 'instance-correlation', root: { id: 'i1', flow: 'loan', domain: 'core', resolved: true, children: [] } };
 const WORKFLOW = { key: 'loan', version: '1.0.0', attributes: { states: [{ key: 'review', stateType: 2, transitions: [] }] } };
 
 function loaders(over: Partial<MonitorLoaders> = {}): MonitorLoaders {
@@ -15,6 +18,9 @@ function loaders(over: Partial<MonitorLoaders> = {}): MonitorLoaders {
     getInstance: vi.fn(async () => ({ success: true, data: INSTANCE })) as unknown as MonitorLoaders['getInstance'],
     getHistory: vi.fn(async () => ({ success: true, data: HISTORY })) as unknown as MonitorLoaders['getHistory'],
     loadDefinition: vi.fn(async () => ({ success: true, data: { workflow: WORKFLOW, diagram: { nodePos: { review: { x: 1, y: 2 } } } } })) as unknown as MonitorLoaders['loadDefinition'],
+    getTaskHistory: vi.fn(async () => ({ success: true, data: TASKS })) as unknown as MonitorLoaders['getTaskHistory'],
+    getActiveIncident: vi.fn(async () => ({ success: true, data: INCIDENT })) as unknown as MonitorLoaders['getActiveIncident'],
+    getCorrelationTree: vi.fn(async () => ({ success: true, data: TREE })) as unknown as MonitorLoaders['getCorrelationTree'],
     now: () => 42,
     ...over,
   };
@@ -23,6 +29,26 @@ function loaders(over: Partial<MonitorLoaders> = {}): MonitorLoaders {
 const TARGET = { domain: 'core', workflowKey: 'loan', instanceId: 'i1', workflowFilePath: '/ws/Workflows/loan.json', runtimeUrl: 'http://localhost:4201' };
 
 describe('loadMonitorLevel', () => {
+  it('loads the task journal, the active incident and the correlation tree', async () => {
+    const l = loaders();
+    const r = await loadMonitorLevel(TARGET, {}, l, { runtimeVersion: '0.0.99' });
+    expect(r.ok && r.data.tasks.map((t) => t.id)).toEqual(['t1']);
+    expect(r.ok && r.data.activeIncident?.id).toBe('in1');
+    expect(r.ok && r.data.correlation?.root.id).toBe('i1');
+    expect(l.getCorrelationTree).toHaveBeenCalledWith(expect.objectContaining({ instanceId: 'i1', runtimeVersion: '0.0.99' }));
+  });
+
+  it('treats a failed secondary read as empty, not as a load failure', async () => {
+    const fail = vi.fn(async () => ({ success: false, error: { code: 'RUNTIME_EXECUTION_FAILED', message: 'x', traceId: 't' } }));
+    const r = await loadMonitorLevel(TARGET, {}, loaders({
+      getTaskHistory: fail as unknown as MonitorLoaders['getTaskHistory'],
+      getActiveIncident: fail as unknown as MonitorLoaders['getActiveIncident'],
+      getCorrelationTree: fail as unknown as MonitorLoaders['getCorrelationTree'],
+    }));
+    expect(r.ok).toBe(true);
+    expect(r.ok && r.data).toMatchObject({ tasks: [], activeIncident: null, correlation: null });
+  });
+
   it('uses the local definition and its diagram', async () => {
     const l = loaders();
     const r = await loadMonitorLevel(TARGET, { 'x-a': '1' }, l);

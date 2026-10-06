@@ -32,7 +32,7 @@ const INSTANCE = {
   metadata: { currentState: 'review', effectiveState: 'kyc-sub', status: 'A', createdAt: '2026-10-06T10:00:00Z', createdBy: 'tester' },
 } as MonitorLevelData['instance'];
 const DATA: MonitorLevelData = {
-  instance: INSTANCE, history: HISTORY, loadedAt: 1,
+  instance: INSTANCE, history: HISTORY, loadedAt: 1, tasks: [], activeIncident: null, correlation: null,
   definition: { source: 'local', vm: VM, diagram: { nodePos: {} }, localVersion: '1.2.0' },
 };
 const TARGET = { domain: 'core', workflowKey: 'loan', instanceId: 'i1', environmentName: 'Local' };

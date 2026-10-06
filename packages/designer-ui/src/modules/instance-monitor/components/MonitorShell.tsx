@@ -8,6 +8,7 @@ import { RuntimeErrorBanner } from '../../quick-run/components/RuntimeErrorBanne
 import { StatusBadge } from '../../quick-run/components/StatusBadge';
 import type { InstanceStatus } from '../../quick-run/types/quickrun.types';
 import { useComponentIndex } from '../hooks/useComponentIndex';
+import { useRuntimeVersion } from '../hooks/useRuntimeVersion';
 import { useMonitorController } from '../hooks/useMonitorController';
 import { lookupComponent } from '../model/componentIndex';
 import { definitionDrift } from '../model/definitionDrift';
@@ -32,7 +33,8 @@ const EMPTY_HEADERS: Record<string, string> = {};
 
 /** Wires loading and component links, then renders `MonitorShellView`. */
 export function MonitorShell({ target, headers = EMPTY_HEADERS, onOpenComponent, onOpenScript, onOpenQuickRun, onOpenFlowDesigner }: MonitorShellProps) {
-  const controller = useMonitorController(target, headers);
+  const runtimeVersion = useRuntimeVersion(target.runtimeUrl);
+  const controller = useMonitorController(target, headers, runtimeVersion);
   const index = useComponentIndex(target.projectId);
 
   const links = useMemo<ComponentLinkHandlers>(() => {

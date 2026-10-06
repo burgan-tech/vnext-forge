@@ -8,6 +8,7 @@ import type { MonitorSelection, MonitorTarget } from '../types';
 export function useMonitorController(
   target: MonitorTarget,
   headers: Record<string, string>,
+  runtimeVersion?: string | null,
   loaders: MonitorLoaders = defaultMonitorLoaders,
 ) {
   const [state, dispatch] = useReducer(monitorReducer, initialMonitorState);
@@ -15,15 +16,19 @@ export function useMonitorController(
   headersRef.current = headers;
   const targetRef = useRef(target);
   targetRef.current = target;
+  const versionRef = useRef(runtimeVersion);
+  versionRef.current = runtimeVersion;
   const seq = useRef(0);
 
-  const targetKey = [target.domain, target.workflowKey, target.instanceId, target.workflowFilePath ?? '', target.runtimeUrl ?? ''].join('|');
+  const targetKey = [target.domain, target.workflowKey, target.instanceId, target.workflowFilePath ?? '', target.runtimeUrl ?? '', runtimeVersion ?? ''].join('|');
 
   const run = useCallback(
     async (mode: 'initial' | 'refresh') => {
       const id = ++seq.current;
       dispatch({ type: mode === 'initial' ? 'load-start' : 'refresh-start' });
-      const result = await loadMonitorLevelSafe(targetRef.current, headersRef.current, loaders);
+      const result = await loadMonitorLevelSafe(targetRef.current, headersRef.current, loaders, {
+        runtimeVersion: versionRef.current ?? undefined,
+      });
       if (id === seq.current) dispatch({ type: 'load-done', result });
     },
     [loaders],

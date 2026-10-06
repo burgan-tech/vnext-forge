@@ -538,6 +538,8 @@ const getInstanceMetadataSchema = z.object({
   stage: z.string().optional(),
   createdAt: z.string(),
   modifiedAt: z.string().optional(),
+  completedAt: z.string().optional(),
+  duration: z.number().optional(),
   createdBy: z.string().optional(),
   createdByBehalfOf: z.string().optional(),
   modifiedBy: z.string().optional(),
@@ -553,6 +555,8 @@ export const quickrunGetInstanceResult = z.object({
   eTag: z.string().optional(),
   entityEtag: z.string().optional(),
   tags: z.array(z.string()).optional(),
+  attributes: z.record(z.string(), z.unknown()).optional(),
+  extensions: z.record(z.string(), z.unknown()).optional(),
   metadata: getInstanceMetadataSchema,
 })
 

@@ -13,6 +13,9 @@ import type { MonitorDefinition, MonitorLevelData, MonitorTarget } from '../type
 export interface MonitorLoaders {
   getInstance: typeof QuickRunApi.getInstance;
   getHistory: typeof QuickRunApi.getHistory;
+  getTaskHistory: typeof QuickRunApi.getTaskHistory;
+  getActiveIncident: typeof QuickRunApi.getActiveIncident;
+  getCorrelationTree: typeof QuickRunApi.getCorrelationTree;
   loadDefinition: typeof loadFlowEditorDocument;
   now: () => number;
 }
@@ -20,6 +23,9 @@ export interface MonitorLoaders {
 export const defaultMonitorLoaders: MonitorLoaders = {
   getInstance: QuickRunApi.getInstance,
   getHistory: QuickRunApi.getHistory,
+  getTaskHistory: QuickRunApi.getTaskHistory,
+  getActiveIncident: QuickRunApi.getActiveIncident,
+  getCorrelationTree: QuickRunApi.getCorrelationTree,
   loadDefinition: loadFlowEditorDocument,
   now: () => Date.now(),
 };
@@ -36,6 +42,7 @@ export async function loadMonitorLevel(
   target: MonitorTarget,
   headers: Record<string, string>,
   loaders: MonitorLoaders = defaultMonitorLoaders,
+  options: { runtimeVersion?: string } = {},
 ): Promise<MonitorLoadResult> {
   const scope = {
     domain: target.domain,
@@ -45,9 +52,15 @@ export async function loadMonitorLevel(
     ...(target.runtimeUrl ? { runtimeUrl: target.runtimeUrl } : {}),
   };
 
-  const [instanceRes, historyRes, definitionRes] = await Promise.all([
+  const [instanceRes, historyRes, tasksRes, incidentRes, treeRes, definitionRes] = await Promise.all([
     loaders.getInstance(scope),
     loaders.getHistory(scope),
+    loaders.getTaskHistory(scope),
+    loaders.getActiveIncident(scope),
+    loaders.getCorrelationTree({
+      ...scope,
+      ...(options.runtimeVersion ? { runtimeVersion: options.runtimeVersion } : {}),
+    }),
     target.workflowFilePath
       ? loaders.loadDefinition({
           workflowFilePath: target.workflowFilePath,
@@ -68,6 +81,9 @@ export async function loadMonitorLevel(
   if (!historyRes.success) return { ok: false, notFound: false, error: historyRes.error };
 
   const history = historyRes.data.transitions ?? [];
+  const tasks = tasksRes.success ? tasksRes.data.items ?? [] : [];
+  const activeIncident = incidentRes.success ? incidentRes.data.incident ?? null : null;
+  const correlation = treeRes.success ? treeRes.data : null;
   return {
     ok: true,
     data: {
@@ -75,6 +91,9 @@ export async function loadMonitorLevel(
       history,
       definition: toDefinition(target.workflowKey, history, definitionRes),
       loadedAt: loaders.now(),
+      tasks,
+      activeIncident,
+      correlation,
     },
   };
 }
@@ -84,9 +103,10 @@ export async function loadMonitorLevelSafe(
   target: MonitorTarget,
   headers: Record<string, string>,
   loaders: MonitorLoaders = defaultMonitorLoaders,
+  options: { runtimeVersion?: string } = {},
 ): Promise<MonitorLoadResult> {
   try {
-    return await loadMonitorLevel(target, headers, loaders);
+    return await loadMonitorLevel(target, headers, loaders, options);
   } catch (err) {
     return {
       ok: false,

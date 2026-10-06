@@ -247,6 +247,8 @@ export interface InstanceDetailResponse {
   eTag?: string;
   entityEtag?: string;
   tags?: string[];
+  attributes?: Record<string, unknown>;
+  extensions?: Record<string, unknown>;
   metadata: {
     currentState: string;
     effectiveState: string;
@@ -260,6 +262,9 @@ export interface InstanceDetailResponse {
     stage?: string;
     createdAt: string;
     modifiedAt?: string;
+    completedAt?: string;
+    /** Seconds, as the runtime reports it. */
+    duration?: number;
     createdBy?: string;
     createdByBehalfOf?: string;
     modifiedBy?: string;

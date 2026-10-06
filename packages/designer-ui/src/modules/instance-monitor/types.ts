@@ -1,9 +1,9 @@
 import type { VnextExportCategory } from '@vnext-forge-studio/app-contracts';
 
 import type { WorkflowViewModel } from '../canvas-interaction/readonly/view-types';
-import type { InstanceDetailResponse } from '../quick-run/QuickRunApi';
+import type { IncidentEntry, InstanceDetailResponse } from '../quick-run/QuickRunApi';
 import type { RuntimeErrorLike } from '../quick-run/components/RuntimeErrorBanner';
-import type { HistoryTransition } from '../quick-run/types/quickrun.types';
+import type { CorrelationTreeResponse, HistoryTransition, TaskHistoryItem } from '../quick-run/types/quickrun.types';
 
 /** Which instance a monitor shows and where its definition lives. */
 export interface MonitorTarget {
@@ -34,6 +34,12 @@ export interface MonitorLevelData {
   history: HistoryTransition[];
   definition: MonitorDefinition;
   loadedAt: number;
+  /** Task journal (`functions/tasks`), oldest first; empty when unavailable. */
+  tasks: TaskHistoryItem[];
+  /** Newest unresolved incident; null when none or unavailable. */
+  activeIncident: IncidentEntry | null;
+  /** Correlation tree rooted at the root instance; null when unavailable. */
+  correlation: CorrelationTreeResponse | null;
 }
 
 export type MonitorSelection = { kind: 'state'; key: string } | { kind: 'transition'; key: string } | null;
