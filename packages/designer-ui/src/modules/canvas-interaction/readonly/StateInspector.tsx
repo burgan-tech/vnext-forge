@@ -41,7 +41,7 @@ function TaskRefRow({ task }: { task: TaskRefView }) {
         )}
         <span className="text-foreground font-mono text-[12px] font-semibold">{task.ref.key || '?'}</span>
       </div>
-      <ResourceRef resource={task.ref} />
+      <ResourceRef resource={task.ref} category="tasks" />
       {task.comment && <InfoRow label="Note" value={task.comment} />}
       {task.mapping && <CodePreview code={task.mapping.code ?? ''} location={task.mapping.location} />}
       {task.hasErrorBoundary && <Badge className="bg-muted text-muted-foreground">Error boundary</Badge>}
@@ -54,9 +54,11 @@ export interface StateInspectorProps {
   onClose?: () => void;
   /** Slot for execution-overlay content (instance view). */
   children?: ReactNode;
+  /** One line of execution context under the header (instance view). */
+  summary?: ReactNode;
 }
 
-export function StateInspector({ state, onClose, children }: StateInspectorProps) {
+export function StateInspector({ state, onClose, children, summary }: StateInspectorProps) {
   const [activeTab, setActiveTab] = useState<Tab>('general');
 
   useEffect(() => { setActiveTab('general'); }, [state?.key]);
@@ -111,6 +113,7 @@ export function StateInspector({ state, onClose, children }: StateInspectorProps
           )}
         </div>
         <HeaderLabels labels={state.labels} />
+        {summary && <div className="text-foreground mt-1 text-[11px] font-medium">{summary}</div>}
       </div>
 
       {/* Tabs */}
@@ -160,8 +163,8 @@ export function StateInspector({ state, onClose, children }: StateInspectorProps
             {(state.view || (state.views && state.views.length > 0)) && (
               <Section title="Views" count={state.views?.length ?? (state.view ? 1 : 0)} defaultOpen={false}>
                 <div className="space-y-2">
-                  {state.view && <ResourceRef resource={state.view.view} />}
-                  {state.views?.map((v, i) => <ResourceRef key={i} resource={v.view} />)}
+                  {state.view && <ResourceRef resource={state.view.view} category="views" />}
+                  {state.views?.map((v, i) => <ResourceRef key={i} resource={v.view} category="views" />)}
                 </div>
               </Section>
             )}
@@ -213,7 +216,7 @@ export function StateInspector({ state, onClose, children }: StateInspectorProps
         {activeTab === 'subflow' && (
           <div className="space-y-3">
             {state.subFlowProcess
-              ? <Section title="Process" defaultOpen><ResourceRef resource={state.subFlowProcess} /></Section>
+              ? <Section title="Process" defaultOpen><ResourceRef resource={state.subFlowProcess} category="workflows" /></Section>
               : <div className="text-muted-foreground py-4 text-center text-[12px]">No subflow process reference</div>}
             {state.subFlowMapping && (
               <Section title="Mapping" defaultOpen={false}>

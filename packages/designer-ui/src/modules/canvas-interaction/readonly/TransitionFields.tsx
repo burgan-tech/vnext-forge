@@ -7,7 +7,7 @@ import { getTriggerLabel, getTriggerKindLabel } from '../components/panels/tabs/
 function ViewBindingRows({ binding }: { binding: ViewBindingView }) {
   return (
     <div className="space-y-1">
-      <ResourceRef resource={binding.view} />
+      <ResourceRef resource={binding.view} category="views" />
       {binding.extensions && binding.extensions.length > 0 && (
         <InfoRow label="Extensions" value={binding.extensions.join(', ')} mono />
       )}
@@ -18,7 +18,7 @@ function ViewBindingRows({ binding }: { binding: ViewBindingView }) {
 function TaskRefRow({ task }: { task: TaskRefView }) {
   return (
     <div className="rounded-xl border border-border bg-surface p-2.5 space-y-1.5">
-      <ResourceRef resource={task.ref} />
+      <ResourceRef resource={task.ref} category="tasks" />
       {task.comment && <InfoRow label="Note" value={task.comment} />}
       {task.mapping && <CodePreview code={task.mapping.code ?? ''} location={task.mapping.location} />}
       {task.hasErrorBoundary && <Badge className="bg-muted text-muted-foreground">Error boundary</Badge>}
@@ -47,7 +47,7 @@ export function TransitionFields({ transition: t }: { transition: TransitionView
 
       {t.schema && (
         <Section title="Schema" defaultOpen={false}>
-          <ResourceRef resource={t.schema} />
+          <ResourceRef resource={t.schema} category="schemas" />
         </Section>
       )}
 
