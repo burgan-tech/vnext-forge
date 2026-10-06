@@ -219,14 +219,14 @@ export function ContextPanel({ onOpenSubFlowTarget }: ContextPanelProps) {
 
   if (!activeTabId) {
     return (
-      <aside className="flex h-full w-full items-center justify-center bg-[var(--vscode-editor-background)] text-xs text-[var(--vscode-descriptionForeground)]">
+      <aside className="flex h-full w-full items-center justify-center bg-[var(--vscode-sideBar-background,#252526)] text-xs text-[var(--vscode-descriptionForeground)]">
         No instance selected
       </aside>
     );
   }
 
   return (
-    <aside className="flex h-full w-full flex-col bg-[var(--vscode-editor-background)]">
+    <aside className="flex h-full w-full flex-col bg-[var(--vscode-sideBar-background,#252526)]">
       {/* Tab strip */}
       <div className="flex border-b border-[var(--vscode-panel-border)]" role="tablist" aria-label="Context details">
         {TABS.map((tab) => (

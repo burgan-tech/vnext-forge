@@ -111,6 +111,8 @@ interface QuickRunState {
   selectedFunctionName: string | null;
 
   contextPanelTab: ContextPanelTab;
+  /** Bumped by every `setContextPanelTab` call so the shell can reveal a hidden context panel. */
+  contextPanelReveal: number;
 
   transitionDialogOpen: boolean;
   transitionDialogTarget: TransitionInfo | null;
@@ -289,6 +291,7 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
   selectedFunctionName: null,
 
   contextPanelTab: 'data',
+  contextPanelReveal: 0,
 
   transitionDialogOpen: false,
   transitionDialogTarget: null,
@@ -394,7 +397,7 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
     // the previously-active instance must never be sent for this one.
     if (prevActiveTabId !== instanceId) get().resetInstanceScopedCaches();
   },
-  setContextPanelTab: (tab) => set({ contextPanelTab: tab }),
+  setContextPanelTab: (tab) => set((s) => ({ contextPanelTab: tab, contextPanelReveal: s.contextPanelReveal + 1 })),
 
   addInstance: (instance) =>
     set((state) => {
