@@ -650,7 +650,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
      */
     vscode.commands.registerCommand('vnextForge.openInstanceMonitor', safeAsync(async (arg) => {
       const ctx = arg as MonitorContext | undefined;
-      if (!ctx?.domain || !ctx.workflowKey || !ctx.instanceId || !ctx.workflowFilePath) return;
+      if (!ctx?.domain || !ctx.workflowKey || !ctx.instanceId) return;
       monitorPanel.open(ctx);
     })),
     /** Internal (not contributed): the monitor's Open in Quick Run -> focus the instance. */

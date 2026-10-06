@@ -20,6 +20,8 @@ export interface MonitorInspectorProps {
   /** Children started from the selected state. */
   childInstances?: CorrelationTreeNode[];
   onDrill?: (node: CorrelationTreeNode) => void;
+  /** Button label for a child instance; defaults to "Drill into". */
+  drillLabel?: string;
   /** Data rows attributed to each firing, and all loaded rows (newest first). */
   dataRowsByFiring?: Map<string, DataHistoryItem[]>;
   allDataRows?: DataHistoryItem[];
@@ -32,7 +34,7 @@ const hint = (text: string) => (
 );
 
 /** Definition layer of the selected element, with one line of execution context. */
-export function MonitorInspector({ vm, history, currentState, selection, tasks, loadMetrics, childInstances, onDrill, dataRowsByFiring, allDataRows, dataHasNext, onClose }: MonitorInspectorProps) {
+export function MonitorInspector({ vm, history, currentState, selection, tasks, loadMetrics, childInstances, onDrill, drillLabel, dataRowsByFiring, allDataRows, dataHasNext, onClose }: MonitorInspectorProps) {
   if (!selection) return hint('Select a state or transition on the canvas or in the path.');
 
   if (selection.kind === 'state') {
@@ -55,7 +57,7 @@ export function MonitorInspector({ vm, history, currentState, selection, tasks, 
                   onClick={() => onDrill(node)}
                   className="shrink-0 cursor-pointer rounded border border-[var(--vscode-panel-border,#3c3c3c)] px-2 py-0.5 hover:bg-[var(--vscode-list-hoverBackground,#2a2d2e)]"
                 >
-                  Drill into
+                  {drillLabel ?? 'Drill into'}
                 </button>
               </div>
             ))}

@@ -56,3 +56,13 @@ export interface OpenComponentTarget {
   key: string;
   filePath: string;
 }
+
+/** An instance the host should open in its own monitor. */
+export interface OpenInstanceMonitorTarget {
+  domain: string;
+  workflowKey: string;
+  instanceId: string;
+  /** Same-domain children only; absent → the monitor shows a history-only graph. */
+  workflowFilePath?: string;
+  instanceKey?: string;
+}

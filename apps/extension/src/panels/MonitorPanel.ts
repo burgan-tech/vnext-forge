@@ -3,7 +3,7 @@ import * as vscode from 'vscode';
 import type { MessageRouter } from '../MessageRouter';
 import { baseLogger } from '../shared/logger.js';
 import type { ForgeToolsSettingsService } from '../tools/forge-tools-settings.js';
-import { parseOpenQuickRunFromMonitorMessage, type InstanceChangedEvent } from './monitor-messages.js';
+import { parseOpenInstanceFromMonitorMessage, parseOpenQuickRunFromMonitorMessage, type InstanceChangedEvent } from './monitor-messages.js';
 import { buildWebviewHtml } from './webview-html.js';
 
 export interface MonitorContext {
@@ -12,8 +12,8 @@ export interface MonitorContext {
   instanceId: string;
   instanceKey?: string;
   projectId: string;
-  /** Absolute path of the local workflow JSON (Quick Run's `projectPath`). */
-  workflowFilePath: string;
+  /** Absolute path of the local workflow JSON (Quick Run's `projectPath`). Absent → history-only graph. */
+  workflowFilePath?: string;
   environmentName?: string;
   environmentUrl?: string;
 }
@@ -64,6 +64,25 @@ export class MonitorPanel {
         if (typeof raw === 'object' && raw !== null && (raw as { type?: unknown }).type === 'webview-ready') {
           entry.webviewReady = true;
           void this.sendContext(entry);
+          return;
+        }
+        const openInstance = parseOpenInstanceFromMonitorMessage(
+          raw,
+          (vscode.workspace.workspaceFolders ?? []).map((f) => f.uri.fsPath),
+        );
+        if (openInstance) {
+          // Same project and environment as this panel; the key `${domain}:${instanceId}` reveals an already open monitor.
+          const { ctx } = entry;
+          this.open({
+            domain: openInstance.domain,
+            workflowKey: openInstance.workflowKey,
+            instanceId: openInstance.instanceId,
+            ...(openInstance.instanceKey ? { instanceKey: openInstance.instanceKey } : {}),
+            projectId: ctx.projectId,
+            ...(openInstance.workflowFilePath ? { workflowFilePath: openInstance.workflowFilePath } : {}),
+            ...(ctx.environmentName ? { environmentName: ctx.environmentName } : {}),
+            ...(ctx.environmentUrl ? { environmentUrl: ctx.environmentUrl } : {}),
+          });
           return;
         }
         const openQuickRun = parseOpenQuickRunFromMonitorMessage(raw);
@@ -120,6 +139,7 @@ export class MonitorPanel {
    */
   private async openQuickRun(entry: PanelEntry, instanceId: string | undefined): Promise<void> {
     const { ctx } = entry;
+    if (!ctx.workflowFilePath) return; // history-only monitor: no workflow file to run
     await vscode.commands.executeCommand('vnextForge.openQuickRunFromFile', vscode.Uri.file(ctx.workflowFilePath));
     if (instanceId && instanceId === ctx.instanceId) {
       await vscode.commands.executeCommand('vnextForge.focusQuickRunInstance', {

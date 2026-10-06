@@ -48,6 +48,7 @@ import type {
   MonitorSelection,
   MonitorTarget,
   OpenComponentTarget,
+  OpenInstanceMonitorTarget,
 } from '../types';
 import { Breadcrumb } from './Breadcrumb';
 import { CorrelationsPanel } from './CorrelationsPanel';
@@ -67,6 +68,8 @@ export interface MonitorShellProps {
   /** `isRoot` is false while a drilled-in child instance is on screen. */
   onOpenQuickRun?: (instanceId: string, isRoot: boolean) => void;
   onOpenFlowDesigner?: () => void;
+  /** Opens another instance in its own monitor; when absent, children drill in place via the breadcrumb. */
+  onOpenInstanceMonitor?: (target: OpenInstanceMonitorTarget) => void;
 }
 
 const LAYOUT_KEY = 'vnext-forge.monitor.layout';
@@ -87,6 +90,7 @@ export function MonitorShell({
   onOpenScript,
   onOpenQuickRun,
   onOpenFlowDesigner,
+  onOpenInstanceMonitor,
 }: MonitorShellProps) {
   const layout = usePanelLayout(LAYOUT_KEY, LAYOUT_DEFAULTS);
   const runtimeVersion = useRuntimeVersion(target.runtimeUrl);
@@ -198,12 +202,23 @@ export function MonitorShell({
 
   const drillInto = useCallback(
     (node: CorrelationTreeNode) => {
+      if (onOpenInstanceMonitor) {
+        const workflowFilePath = childWorkflowFile(index, level, node);
+        onOpenInstanceMonitor({
+          domain: node.domain,
+          workflowKey: node.flow,
+          instanceId: node.id,
+          ...(workflowFilePath ? { workflowFilePath } : {}),
+          ...(node.key ? { instanceKey: node.key } : {}),
+        });
+        return;
+      }
       const action = drillAction(controller.levels, node.id);
       if (action.kind === 'pop') controller.popTo(action.index);
       else if (action.kind === 'drill')
         controller.drill(childTarget(level, node, childWorkflowFile(index, level, node)));
     },
-    [level, index, controller.levels, controller.drill, controller.popTo],
+    [level, index, onOpenInstanceMonitor, controller.levels, controller.drill, controller.popTo],
   );
 
   const rootInstanceId = controller.levels[0]?.instanceId;
@@ -261,6 +276,7 @@ export function MonitorShell({
           }
         : {})}
       isRoot={level.instanceId === rootInstanceId}
+      separateMonitor={!!onOpenInstanceMonitor}
       {...(onOpenFlowDesigner ? { onOpenFlowDesigner } : {})}
     />
   );
@@ -292,6 +308,8 @@ export interface MonitorShellViewProps {
   /** False while a drilled-in child is on screen: Quick Run only knows the root workflow, so its actions hide. Defaults to true. */
   isRoot?: boolean;
   onOpenFlowDesigner?: () => void;
+  /** Child instances open in their own monitor (labels read "Open monitor" instead of "Drill into"). */
+  separateMonitor?: boolean;
   /** Shared data-history hook result (owned by MonitorShell so it survives tab switches). */
   dataHistory?: DataHistoryResult;
   onDataTabOpen?: () => void;
@@ -553,6 +571,7 @@ export function MonitorShellView(props: MonitorShellViewProps) {
                                     selection.key,
                                   ),
                                   onDrill: props.onDrill,
+                                  ...(props.separateMonitor ? { drillLabel: 'Open monitor' } : {}),
                                 }
                               : {})}
                             {...(props.loadMetrics ? { loadMetrics: props.loadMetrics } : {})}

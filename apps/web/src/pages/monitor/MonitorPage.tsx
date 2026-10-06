@@ -3,11 +3,12 @@ import { useNavigate, useParams } from 'react-router-dom';
 
 import {
   monitorTabId,
+  showNotification,
   useEditorStore,
   useProjectStore,
   useToolHeadersStore,
 } from '@vnext-forge-studio/designer-ui';
-import { MonitorShell, type OpenComponentTarget } from '@vnext-forge-studio/designer-ui/monitor';
+import { MonitorShell, type OpenComponentTarget, type OpenInstanceMonitorTarget } from '@vnext-forge-studio/designer-ui/monitor';
 
 import { useEnvironmentStore } from '../../app/store/useEnvironmentStore';
 import { resolveFileRoute } from '../../modules/project-workspace/FileRouter';
@@ -111,6 +112,27 @@ export function MonitorPage() {
     [id, activeProject, vnextConfig, navigate],
   );
 
+  const openInstanceMonitor = useCallback(
+    (t: OpenInstanceMonitorTarget) => {
+      const route =
+        t.workflowFilePath && activeProject
+          ? resolveFileRoute(t.workflowFilePath, vnextConfig, id ?? '', activeProject.path)
+          : null;
+      if (route?.type === 'workflow' && route.group && route.name && id) {
+        navigate(
+          `/project/${id}/monitor/${encodeURIComponent(route.group)}/${encodeURIComponent(route.name)}/${encodeURIComponent(t.instanceId)}`,
+        );
+        return;
+      }
+      showNotification({
+        kind: 'warning',
+        message:
+          "The workflow of this instance is not in this workspace, so it can't open in its own monitor.",
+      });
+    },
+    [id, activeProject, vnextConfig, navigate],
+  );
+
   if (!domain || !workflowFilePath) {
     return (
       <div className="text-muted-foreground flex h-full items-center justify-center p-4 text-center text-sm">
@@ -152,6 +174,7 @@ export function MonitorPage() {
         )
       }
       onOpenFlowDesigner={() => openFile(workflowFilePath)}
+      onOpenInstanceMonitor={openInstanceMonitor}
     />
   );
 }

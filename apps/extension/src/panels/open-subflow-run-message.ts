@@ -47,7 +47,8 @@ export function parseOpenSubFlowRunMessage(
   return { workflowFilePath: resolved, domain, workflowKey };
 }
 
-function isInside(root: string, target: string): boolean {
+/** True when `target` is strictly inside `root` (case-insensitive on Windows). */
+export function isInside(root: string, target: string): boolean {
   if (!root) return false;
   const caseInsensitive = process.platform === 'win32';
   const a = caseInsensitive ? path.resolve(root).toLowerCase() : path.resolve(root);

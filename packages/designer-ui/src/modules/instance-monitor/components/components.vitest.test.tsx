@@ -154,6 +154,23 @@ describe('Breadcrumb and correlations', () => {
     expect(html).toContain('kyc · check');
     expect(html).toContain('Drill into');
   });
+  it('inspector labels the child action "Open monitor" when children open in their own monitor', () => {
+    const child = { id: 'c1', flow: 'kyc', domain: 'core', ownState: 'check', resolved: true, children: [] } as never;
+    const html = renderToStaticMarkup(h(MonitorInspector, { vm: VM, history: HISTORY, currentState: 'review', selection: { kind: 'state', key: 'review' }, tasks: [], childInstances: [child], onDrill: noop, drillLabel: 'Open monitor', onClose: noop }));
+    expect(html).toContain('Open monitor');
+    expect(html).not.toContain('Drill into');
+  });
+  it('shell view renders "Open monitor" for SubFlow children when a separate monitor is available', () => {
+    const child = { id: 'c1', flow: 'kyc', domain: 'core', parentState: 'review', ownState: 'check', resolved: true, children: [] };
+    const correlation = { source: 'instance-correlation', root: { id: DATA.instance.id, flow: 'login', domain: 'core', resolved: true, children: [child] } } as never;
+    const html = renderToStaticMarkup(h(MonitorShellView, {
+      target: TARGET, selection: { kind: 'state', key: 'review' }, pathOnly: false, onRefresh: noop, onSelect: noop, onPathOnly: noop, links: {}, layout: LAYOUT0,
+      onDrill: noop, separateMonitor: true,
+      load: { kind: 'ready', data: { ...DATA, correlation }, refreshing: false, staleError: null },
+    }));
+    expect(html).toContain('Open monitor');
+    expect(html).not.toContain('Drill into');
+  });
 });
 
 describe('MonitorShellView layout', () => {
