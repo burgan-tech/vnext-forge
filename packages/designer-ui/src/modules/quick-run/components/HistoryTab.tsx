@@ -14,15 +14,15 @@ import { DetailsDialog, DetailsList, FilterChip, PanelRow, PanelSummary, StatusI
 type Order = 'newest' | 'oldest';
 
 const TRIGGER_DOT: Record<string, string> = {
-  manual: 'var(--vscode-charts-blue)',
+  manual: 'var(--vscode-charts-blue,#3794ff)',
   automatic: 'var(--vscode-descriptionForeground)',
   auto: 'var(--vscode-descriptionForeground)',
-  scheduled: 'var(--vscode-charts-orange)',
-  timer: 'var(--vscode-charts-orange)',
-  event: 'var(--vscode-charts-purple)',
-  signal: 'var(--vscode-charts-purple)',
-  error: 'var(--vscode-errorForeground)',
-  subflow: 'var(--vscode-charts-green)',
+  scheduled: 'var(--vscode-charts-orange,#d18616)',
+  timer: 'var(--vscode-charts-orange,#d18616)',
+  event: 'var(--vscode-charts-purple,#b180d7)',
+  signal: 'var(--vscode-charts-purple,#b180d7)',
+  error: 'var(--vscode-errorForeground,#f48771)',
+  subflow: 'var(--vscode-charts-green,#89d185)',
 };
 
 function triggerDot(triggerType: string): string {

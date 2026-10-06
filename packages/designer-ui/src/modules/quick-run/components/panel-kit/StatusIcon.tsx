@@ -3,9 +3,9 @@ import { AlertTriangle, CheckCircle2, CircleHelp, Loader2, XCircle } from 'lucid
 import { TASK_OUTCOME_TEXT, type TaskOutcome } from './taskOutcome';
 
 const ICONS: Record<TaskOutcome, { Icon: typeof CheckCircle2; className: string }> = {
-  ok: { Icon: CheckCircle2, className: 'text-[var(--vscode-charts-green)]' },
-  failed: { Icon: XCircle, className: 'text-[var(--vscode-errorForeground)]' },
-  warning: { Icon: AlertTriangle, className: 'text-[var(--vscode-editorWarning-foreground)]' },
+  ok: { Icon: CheckCircle2, className: 'text-[var(--vscode-charts-green,#89d185)]' },
+  failed: { Icon: XCircle, className: 'text-[var(--vscode-errorForeground,#f48771)]' },
+  warning: { Icon: AlertTriangle, className: 'text-[var(--vscode-editorWarning-foreground,#cca700)]' },
   running: { Icon: Loader2, className: 'animate-spin text-[var(--vscode-progressBar-background)]' },
   unknown: { Icon: CircleHelp, className: 'text-[var(--vscode-descriptionForeground)]' },
 };

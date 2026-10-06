@@ -42,7 +42,7 @@ function MetricsTaskRow({ task }: { task: MetricsTask }) {
       <StatusIcon outcome={resolveTaskOutcome(task.status, task.businessStatus)} size={12} />
       <div className="min-w-0 flex-1">
         <span className="font-mono">{task.taskKey}</span>
-        {task.error && <div className="text-[10px] text-[var(--vscode-errorForeground)]">{task.error}</div>}
+        {task.error && <div className="text-[10px] text-[var(--vscode-errorForeground,#f48771)]">{task.error}</div>}
       </div>
       <span className="shrink-0 tabular-nums text-[var(--vscode-descriptionForeground)]">
         {formatDurationMs(task.durationMs) ?? ''}
@@ -183,6 +183,6 @@ export function MetricsTab({
 }) {
   const { data, error, loading } = useElementMetrics(load, kind, elementKey);
   if (loading) return <p className="text-[var(--vscode-descriptionForeground)]">Loading…</p>;
-  if (error) return <p className="text-[var(--vscode-errorForeground)]">{error}</p>;
+  if (error) return <p className="text-[var(--vscode-errorForeground,#f48771)]">{error}</p>;
   return data ? <>{children(data)}</> : null;
 }

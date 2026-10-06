@@ -94,7 +94,7 @@ export function TasksTabContent({
         onChange={setFilter}
       >
         {items.length} {items.length === 1 ? 'task' : 'tasks'}
-        {problems > 0 && <span className="text-[var(--vscode-errorForeground)]"> · {problems} failed</span>}
+        {problems > 0 && <span className="text-[var(--vscode-errorForeground,#f48771)]"> · {problems} failed</span>}
         {total && <span> · {total}</span>}
       </PanelSummary>
 
@@ -167,7 +167,7 @@ function TaskRow({ task, onOpen }: { task: TaskHistoryItem; onOpen: (task: TaskH
       ariaLabel={`${task.taskKey}: ${TASK_OUTCOME_TEXT[outcome]}. Show details`}
     >
       {task.error && (
-        <div className="truncate text-[10px] text-[var(--vscode-errorForeground)]" title={task.error}>
+        <div className="truncate text-[10px] text-[var(--vscode-errorForeground,#f48771)]" title={task.error}>
           {task.error.split('\n')[0]}
         </div>
       )}
@@ -239,7 +239,7 @@ function TaskDetailsDialog({
                 id: 'error',
                 label: 'Error',
                 render: () => (
-                  <pre className="whitespace-pre-wrap break-words font-mono text-[10px] text-[var(--vscode-errorForeground)]">
+                  <pre className="whitespace-pre-wrap break-words font-mono text-[10px] text-[var(--vscode-errorForeground,#f48771)]">
                     {task.error}
                   </pre>
                 ),
