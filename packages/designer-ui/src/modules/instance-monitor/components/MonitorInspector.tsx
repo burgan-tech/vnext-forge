@@ -3,7 +3,7 @@ import { StateInspector } from '../../canvas-interaction/readonly/StateInspector
 import { TransitionInspector } from '../../canvas-interaction/readonly/TransitionInspector';
 import type { WorkflowViewModel } from '../../canvas-interaction/readonly/view-types';
 import type { ElementMetricsLoader } from '../../quick-run/components/ElementMetrics';
-import type { HistoryTransition, TaskHistoryItem } from '../../quick-run/types/quickrun.types';
+import type { CorrelationTreeNode, HistoryTransition, TaskHistoryItem } from '../../quick-run/types/quickrun.types';
 import { describeFirings, describeStateVisits, summarizeState, transitionFirings } from '../model/monitorPath';
 import type { MonitorSelection } from '../types';
 import { StateExecution } from './StateExecution';
@@ -16,6 +16,9 @@ export interface MonitorInspectorProps {
   selection: MonitorSelection;
   tasks: TaskHistoryItem[];
   loadMetrics?: ElementMetricsLoader;
+  /** Children started from the selected state. */
+  childInstances?: CorrelationTreeNode[];
+  onDrill?: (node: CorrelationTreeNode) => void;
   onClose: () => void;
 }
 
@@ -24,7 +27,7 @@ const hint = (text: string) => (
 );
 
 /** Definition layer of the selected element, with one line of execution context. */
-export function MonitorInspector({ vm, history, currentState, selection, tasks, loadMetrics, onClose }: MonitorInspectorProps) {
+export function MonitorInspector({ vm, history, currentState, selection, tasks, loadMetrics, childInstances, onDrill, onClose }: MonitorInspectorProps) {
   if (!selection) return hint('Select a state or transition on the canvas or in the path.');
 
   if (selection.kind === 'state') {
@@ -36,6 +39,23 @@ export function MonitorInspector({ vm, history, currentState, selection, tasks, 
         onClose={onClose}
         summary={describeStateVisits(summarizeState(history, state.key, currentState))}
       >
+        {childInstances && childInstances.length > 0 && onDrill && (
+          <section aria-label="Child instances" className="flex flex-col gap-1 px-3 py-2">
+            <h4 className="text-[10px] font-semibold uppercase tracking-wide text-[var(--vscode-descriptionForeground,#9d9d9d)]">Child instances</h4>
+            {childInstances.map((node) => (
+              <div key={node.id} className="flex items-center gap-2">
+                <span className="min-w-0 flex-1 truncate">{`${node.flow} · ${node.ownState ?? node.currentState ?? ''}`}</span>
+                <button
+                  type="button"
+                  onClick={() => onDrill(node)}
+                  className="shrink-0 cursor-pointer rounded border border-[var(--vscode-panel-border,#3c3c3c)] px-2 py-0.5 hover:bg-[var(--vscode-list-hoverBackground,#2a2d2e)]"
+                >
+                  Drill into
+                </button>
+              </div>
+            ))}
+          </section>
+        )}
         <StateExecution stateKey={state.key} tasks={tasks} {...(loadMetrics ? { loadMetrics } : {})} />
       </StateInspector>
     );

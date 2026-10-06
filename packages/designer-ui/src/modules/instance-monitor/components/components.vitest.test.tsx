@@ -7,6 +7,7 @@ vi.mock('./MonitorCanvas', () => ({ MonitorCanvas: () => h('div', { 'data-testid
 import { normalizeDefinition } from '../../canvas-interaction/readonly/normalize';
 import type { HistoryTransition } from '../../quick-run/types/quickrun.types';
 import type { MonitorLevelData } from '../types';
+import { Breadcrumb } from './Breadcrumb';
 import { InstanceTab } from './InstanceTab';
 import { MonitorInspector } from './MonitorInspector';
 import { MonitorShellView } from './MonitorShell';
@@ -115,5 +116,31 @@ describe('MonitorShellView', () => {
       load: { kind: 'ready', data: { ...DATA, definition: { ...DATA.definition, source: 'history', localVersion: undefined } }, refreshing: false, staleError: null },
     }));
     expect(historyOnly).toContain('Local definition not found');
+  });
+});
+
+describe('Breadcrumb and correlations', () => {
+  const L = (key: string, id: string) => ({ domain: 'core', workflowKey: key, instanceId: id });
+  it('hides for a single level and links earlier levels', () => {
+    expect(renderToStaticMarkup(h(Breadcrumb, { levels: [L('a', '1')], onPopTo: noop }))).toBe('');
+    const html = renderToStaticMarkup(h(Breadcrumb, { levels: [L('a', '1'), L('b', '2')], onPopTo: noop }));
+    expect(html).toContain('aria-label="Instance levels"');
+    expect(html).toContain('<button');
+    expect(html).toContain('aria-current="page"');
+  });
+  it('shell shows the breadcrumb and the Correlations tab', () => {
+    const html = renderToStaticMarkup(h(MonitorShellView, {
+      target: TARGET, levels: [L('root', 'r'), TARGET], onPopTo: noop, selection: null, pathOnly: false, onRefresh: noop, onSelect: noop, onPathOnly: noop, links: {},
+      load: { kind: 'ready', data: DATA, refreshing: false, staleError: null },
+    }));
+    expect(html).toContain('Instance levels');
+    expect(html).toContain('Correlations');
+  });
+  it('inspector lists child instances with a Drill into action', () => {
+    const child = { id: 'c1', flow: 'kyc', domain: 'core', ownState: 'check', resolved: true, children: [] } as never;
+    const html = renderToStaticMarkup(h(MonitorInspector, { vm: VM, history: HISTORY, currentState: 'review', selection: { kind: 'state', key: 'review' }, tasks: [], childInstances: [child], onDrill: noop, onClose: noop }));
+    expect(html).toContain('Child instances');
+    expect(html).toContain('kyc · check');
+    expect(html).toContain('Drill into');
   });
 });

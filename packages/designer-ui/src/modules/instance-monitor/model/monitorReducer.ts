@@ -1,25 +1,49 @@
 import type { MonitorLoadResult } from '../data/loadMonitorLevel';
-import type { MonitorLoadState, MonitorSelection } from '../types';
+import type { MonitorLoadState, MonitorSelection, MonitorTarget } from '../types';
+
+export interface MonitorLevel {
+  target: MonitorTarget;
+  selection: MonitorSelection;
+}
 
 export interface MonitorState {
   load: MonitorLoadState;
-  selection: MonitorSelection;
+  /** Index 0 = root instance; the last entry is the level on screen. */
+  stack: MonitorLevel[];
+  paused: boolean;
   pathOnly: boolean;
 }
 
-export const initialMonitorState: MonitorState = { load: { kind: 'loading' }, selection: null, pathOnly: false };
+export function initialMonitorState(target: MonitorTarget): MonitorState {
+  return { load: { kind: 'loading' }, stack: [{ target, selection: null }], paused: false, pathOnly: false };
+}
 
 export type MonitorAction =
+  | { type: 'reset'; target: MonitorTarget }
+  | { type: 'drill'; target: MonitorTarget }
+  | { type: 'pop-to'; index: number }
   | { type: 'load-start' }
   | { type: 'refresh-start' }
   | { type: 'load-done'; result: MonitorLoadResult }
   | { type: 'select'; selection: MonitorSelection }
-  | { type: 'path-only'; value: boolean };
+  | { type: 'path-only'; value: boolean }
+  | { type: 'paused'; value: boolean };
+
+function withTop(state: MonitorState, selection: MonitorSelection): MonitorLevel[] {
+  return state.stack.map((e, i) => (i === state.stack.length - 1 ? { ...e, selection } : e));
+}
 
 export function monitorReducer(state: MonitorState, action: MonitorAction): MonitorState {
   switch (action.type) {
+    case 'reset':
+      return { ...state, load: { kind: 'loading' }, stack: [{ target: action.target, selection: null }] };
+    case 'drill':
+      return { ...state, load: { kind: 'loading' }, stack: [...state.stack, { target: action.target, selection: null }] };
+    case 'pop-to':
+      if (action.index < 0 || action.index >= state.stack.length - 1) return state;
+      return { ...state, load: { kind: 'loading' }, stack: state.stack.slice(0, action.index + 1) };
     case 'load-start':
-      return { ...state, load: { kind: 'loading' }, selection: null };
+      return { ...state, load: { kind: 'loading' }, stack: withTop(state, null) };
     case 'refresh-start':
       return state.load.kind === 'ready'
         ? { ...state, load: { ...state.load, refreshing: true } }
@@ -31,8 +55,10 @@ export function monitorReducer(state: MonitorState, action: MonitorAction): Moni
       return { ...state, load: r.notFound ? { kind: 'not-found' } : { kind: 'error', error: r.error } };
     }
     case 'select':
-      return { ...state, selection: action.selection };
+      return { ...state, stack: withTop(state, action.selection) };
     case 'path-only':
       return { ...state, pathOnly: action.value };
+    case 'paused':
+      return { ...state, paused: action.value };
   }
 }

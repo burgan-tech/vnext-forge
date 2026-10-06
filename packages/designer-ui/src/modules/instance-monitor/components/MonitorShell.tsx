@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { RefreshCw } from 'lucide-react';
 
 import { ComponentLinkProvider, type ComponentLinkHandlers } from '../../canvas-interaction/readonly/ComponentLinkContext';
@@ -9,14 +9,17 @@ import { DetailsBody } from '../../quick-run/components/panel-kit';
 import { RuntimeErrorBanner } from '../../quick-run/components/RuntimeErrorBanner';
 import { StatusBadge } from '../../quick-run/components/StatusBadge';
 import * as QuickRunApi from '../../quick-run/QuickRunApi';
-import type { InstanceStatus } from '../../quick-run/types/quickrun.types';
+import type { CorrelationTreeNode, InstanceStatus } from '../../quick-run/types/quickrun.types';
 import { runtimeSupports } from '../../quick-run/utils/runtimeFeatures';
 import { useComponentIndex } from '../hooks/useComponentIndex';
 import { useRuntimeVersion } from '../hooks/useRuntimeVersion';
 import { useMonitorController } from '../hooks/useMonitorController';
 import { lookupComponent } from '../model/componentIndex';
+import { childInstancesOf, childTarget } from '../model/correlation';
 import { definitionDrift } from '../model/definitionDrift';
 import type { MonitorLoadState, MonitorSelection, MonitorTarget, OpenComponentTarget } from '../types';
+import { Breadcrumb } from './Breadcrumb';
+import { CorrelationsPanel } from './CorrelationsPanel';
 import { InstanceTab } from './InstanceTab';
 import { IncidentsTab } from './IncidentsTab';
 import { MonitorCanvas } from './MonitorCanvas';
@@ -40,33 +43,42 @@ const EMPTY_HEADERS: Record<string, string> = {};
 export function MonitorShell({ target, headers = EMPTY_HEADERS, onOpenComponent, onOpenScript, onOpenQuickRun, onOpenFlowDesigner }: MonitorShellProps) {
   const runtimeVersion = useRuntimeVersion(target.runtimeUrl);
   const controller = useMonitorController(target, headers, runtimeVersion);
-  const index = useComponentIndex(target.projectId);
+  const level = controller.level;
+  const index = useComponentIndex(level.projectId);
 
   const loadMetrics = useMemo<ElementMetricsLoader | undefined>(() => {
     if (runtimeSupports(runtimeVersion, 'elementMetrics') !== true) return undefined;
     return (kind, key) => {
       const params = {
-        domain: target.domain,
-        workflowKey: target.workflowKey,
-        instanceId: target.instanceId,
+        domain: level.domain,
+        workflowKey: level.workflowKey,
+        instanceId: level.instanceId,
         key,
         headers,
-        ...(target.runtimeUrl ? { runtimeUrl: target.runtimeUrl } : {}),
+        ...(level.runtimeUrl ? { runtimeUrl: level.runtimeUrl } : {}),
       };
       return kind === 'transition' ? QuickRunApi.getTransitionMetrics(params) : QuickRunApi.getStateMetrics(params);
     };
-  }, [runtimeVersion, target, headers]);
+  }, [runtimeVersion, level, headers]);
 
   const incidentLoaders = useMemo<IncidentLoaders>(
     () =>
       createIncidentLoaders({
-        domain: target.domain,
-        workflowKey: target.workflowKey,
-        instanceId: target.instanceId,
+        domain: level.domain,
+        workflowKey: level.workflowKey,
+        instanceId: level.instanceId,
         headers,
-        ...(target.runtimeUrl ? { runtimeUrl: target.runtimeUrl } : {}),
+        ...(level.runtimeUrl ? { runtimeUrl: level.runtimeUrl } : {}),
       }),
-    [target, headers],
+    [level, headers],
+  );
+
+  const drillInto = useCallback(
+    (node: CorrelationTreeNode) => {
+      if (node.id === level.instanceId) return;
+      controller.drill(childTarget(level, node, lookupComponent(index, 'workflows', node.flow) ?? undefined));
+    },
+    [level, index, controller.drill],
   );
 
   const links = useMemo<ComponentLinkHandlers>(() => {
@@ -78,16 +90,19 @@ export function MonitorShell({ target, headers = EMPTY_HEADERS, onOpenComponent,
         if (filePath) onOpenComponent({ category, key: ref.key, filePath });
       };
     }
-    if (onOpenScript && target.workflowFilePath) {
-      const dir = target.workflowFilePath.replace(/\\/g, '/').replace(/\/[^/]*$/, '');
+    if (onOpenScript && level.workflowFilePath) {
+      const dir = level.workflowFilePath.replace(/\\/g, '/').replace(/\/[^/]*$/, '');
       handlers.openScript = (location) => onOpenScript(resolveWorkflowScriptAbsolutePath(dir, location));
     }
     return handlers;
-  }, [index, onOpenComponent, onOpenScript, target.workflowFilePath]);
+  }, [index, onOpenComponent, onOpenScript, level.workflowFilePath]);
 
   return (
     <MonitorShellView
-      target={target}
+      target={level}
+      levels={controller.levels}
+      onPopTo={controller.popTo}
+      onDrill={drillInto}
       load={controller.load}
       selection={controller.selection}
       pathOnly={controller.pathOnly}
@@ -104,7 +119,12 @@ export function MonitorShell({ target, headers = EMPTY_HEADERS, onOpenComponent,
 }
 
 export interface MonitorShellViewProps {
+  /** The level on screen (top of the drill-down stack). */
   target: MonitorTarget;
+  /** Drill-down stack, root first; the breadcrumb shows when it has more than one entry. */
+  levels?: readonly MonitorTarget[];
+  onPopTo?: (index: number) => void;
+  onDrill?: (node: CorrelationTreeNode) => void;
   load: MonitorLoadState;
   selection: MonitorSelection;
   pathOnly: boolean;
@@ -159,6 +179,11 @@ export function MonitorShellView(props: MonitorShellViewProps) {
   return (
     <ComponentLinkProvider value={links}>
       <div className="flex h-full min-h-0 flex-col text-[var(--vscode-foreground,#cccccc)]">
+        {props.levels && props.levels.length > 1 && props.onPopTo && (
+          <div className="border-b border-[var(--vscode-panel-border,#3c3c3c)] px-3 py-1">
+            <Breadcrumb levels={props.levels} onPopTo={props.onPopTo} />
+          </div>
+        )}
         <header className="flex items-center gap-2 border-b border-[var(--vscode-panel-border,#3c3c3c)] px-3 py-1.5 text-xs">
           <span className="truncate font-semibold">
             {target.workflowKey} · <span className="font-mono">{instance.key || instance.id.slice(0, 8)}</span>
@@ -229,6 +254,9 @@ export function MonitorShellView(props: MonitorShellViewProps) {
                       currentState={currentState}
                       selection={selection}
                       tasks={data.tasks}
+                      {...(selection?.kind === 'state' && props.onDrill
+                        ? { childInstances: childInstancesOf(data.correlation, instance.id, selection.key), onDrill: props.onDrill }
+                        : {})}
                       {...(props.loadMetrics ? { loadMetrics: props.loadMetrics } : {})}
                       onClose={() => onSelect(null)}
                     />
@@ -256,6 +284,17 @@ export function MonitorShellView(props: MonitorShellViewProps) {
                       {...(props.incidentLoaders ? { loaders: props.incidentLoaders } : {})}
                       onShowOnCanvas={(e) => onSelect({ kind: 'state', key: e.state })}
                       {...(props.onOpenQuickRun ? { onOpenQuickRun: props.onOpenQuickRun } : {})}
+                    />
+                  ),
+                },
+                {
+                  id: 'correlations',
+                  label: 'Correlations',
+                  render: () => (
+                    <CorrelationsPanel
+                      correlation={data.correlation}
+                      onRefresh={onRefresh}
+                      {...(props.onDrill ? { onDrill: props.onDrill } : {})}
                     />
                   ),
                 },
