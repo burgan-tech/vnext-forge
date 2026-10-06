@@ -3,7 +3,7 @@ import { memo, useCallback } from 'react';
 import {
   Repeat2, Activity, ArrowUpRight,
   ArrowUp, ArrowDown, ArrowLeft, ArrowRight,
-  Eye, AlertTriangle, Copy, Trash2,
+  Eye, AlertTriangle, Copy, Trash2, ShieldCheck,
 } from 'lucide-react';
 import { useSubFlowNavigation } from '../../context/SubFlowNavigationContext';
 import {
@@ -27,6 +27,9 @@ interface StateNodeData {
   hasView: boolean;
   hasErrorBoundary: boolean;
   hasSubFlow: boolean;
+  hasQueryRoles?: boolean;
+  visitCount?: number;
+  pathOnly?: boolean;
   subFlowProcessKey: string;
   subFlowProcessDomain: string;
   hasLongPoll?: boolean;
@@ -118,11 +121,13 @@ export const StateNodeBase = memo(function StateNodeBase({ data, selected }: Nod
   const { isEditable } = useCanvasMode();
   const executionStatus = (d as Record<string, unknown>).executionStatus as
     | 'current' | 'visited' | 'unreachable' | undefined;
+  const pathOnly = d.pathOnly === true;
   const executionCls =
     executionStatus === 'current' ? 'vf-node-current' :
     executionStatus === 'visited' ? 'vf-node-visited' :
-    executionStatus === 'unreachable' ? 'vf-node-unreachable' :
+    executionStatus === 'unreachable' ? (pathOnly ? 'vf-node-off-path' : 'vf-node-unreachable') :
     '';
+  const visitCount = typeof d.visitCount === 'number' ? d.visitCount : 0;
 
   const handleQuickDuplicate = useCallback(
     (e: React.MouseEvent) => {
@@ -243,6 +248,15 @@ export const StateNodeBase = memo(function StateNodeBase({ data, selected }: Nod
             <span className="text-[11px] text-muted-foreground font-mono truncate">{d.stateKey}</span>
           </div>
         </div>
+        {visitCount > 1 && (
+          <span
+            className="bg-action/10 text-action shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums"
+            title={`Entered ${visitCount} times`}
+            aria-label={`Entered ${visitCount} times`}
+          >
+            ×{visitCount}
+          </span>
+        )}
       </div>
 
       {/*
@@ -259,7 +273,7 @@ export const StateNodeBase = memo(function StateNodeBase({ data, selected }: Nod
        *   - Repeat2      → "SubFlow" embedded
        *   - RadioTower   → "Long poll" (tooltip: terminate · window · arm)
        */}
-      {statsAllowed && (totalActions > 0 || d.transitionCount > 0 || d.hasView || d.hasErrorBoundary || d.hasSubFlow || d.hasLongPoll) && (
+      {statsAllowed && (totalActions > 0 || d.transitionCount > 0 || d.hasView || d.hasErrorBoundary || d.hasSubFlow || d.hasLongPoll || (!isEditable && d.hasQueryRoles)) && (
         <div
           className={`px-3.5 pb-3 pt-0.5 vf-stats-row ${
             statsHoverOnly ? 'vf-stats-hover-only' : ''
@@ -304,6 +318,11 @@ export const StateNodeBase = memo(function StateNodeBase({ data, selected }: Nod
                 aria-label="SubFlow embedded"
               >
                 <Repeat2 size={11} strokeWidth={2.25} />
+              </span>
+            )}
+            {!isEditable && d.hasQueryRoles && (
+              <span className="text-initial inline-flex items-center" title="Has query roles" aria-label="Has query roles">
+                <ShieldCheck size={11} strokeWidth={2.25} />
               </span>
             )}
             <LongPollIndicator

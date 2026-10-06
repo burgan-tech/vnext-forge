@@ -51,6 +51,7 @@ import { layoutFlow } from './utils/Layout';
 import { CanvasToolbar } from './components/panels/CanvasToolbar';
 import { CanvasSearchSpotlight } from './components/panels/CanvasSearchSpotlight';
 import { buildCanvasSearchIndex } from './utils/canvas-search-index';
+import { edgeExecutionData, edgePathOrders, nodeExecutionData, stateVisitCounts } from './utils/executionOverlay';
 import {
   CanvasContextMenu,
   NodeContextMenu,
@@ -378,47 +379,31 @@ function FlowCanvasInner({
     });
   }, [nodes, pulseNodeClass, connectedNodeIds]);
 
-  const visitedStates = useMemo<Set<string>>(() => {
-    if (!executionOverlay) return new Set();
-    const s = new Set<string>();
-    for (const t of executionOverlay.traversedTransitions) {
-      s.add(t.fromState);
-      s.add(t.toState);
-    }
-    return s;
-  }, [executionOverlay]);
+  const visitCounts = useMemo(
+    () => (executionOverlay ? stateVisitCounts(executionOverlay) : new Map<string, number>()),
+    [executionOverlay],
+  );
 
-  const traversedTransitionKeys = useMemo<Set<string>>(() => {
-    if (!executionOverlay) return new Set();
-    return new Set(executionOverlay.traversedTransitions.map((t) => t.transitionId));
-  }, [executionOverlay]);
+  const pathOrders = useMemo(
+    () => (executionOverlay ? edgePathOrders(executionOverlay) : null),
+    [executionOverlay],
+  );
 
   const finalNodes = useMemo(() => {
     if (!executionOverlay) return decoratedNodes;
     return decoratedNodes.map((n) => {
-      let executionStatus: 'current' | 'visited' | 'unreachable' | undefined;
-      if (executionOverlay.currentState && n.id === executionOverlay.currentState) {
-        executionStatus = 'current';
-      } else if (visitedStates.has(n.id)) {
-        executionStatus = 'visited';
-      } else if (!n.id.startsWith('__start__') && !n.id.startsWith('__wf_')) {
-        executionStatus = 'unreachable';
-      }
-      if (!executionStatus) return n;
-      return { ...n, data: { ...n.data, executionStatus } };
+      const exec = nodeExecutionData(n.id, executionOverlay, visitCounts);
+      return exec ? { ...n, data: { ...n.data, ...exec } } : n;
     });
-  }, [decoratedNodes, executionOverlay, visitedStates]);
+  }, [decoratedNodes, executionOverlay, visitCounts]);
 
   const finalEdges = useMemo(() => {
-    if (!executionOverlay) return decoratedEdges;
+    if (!executionOverlay || !pathOrders) return decoratedEdges;
     return decoratedEdges.map((e) => {
       const transitionKey = (e.data as Record<string, unknown> | undefined)?.transitionKey as string | undefined;
-      const executionStatus: 'traversed' | 'untaken' = transitionKey && traversedTransitionKeys.has(transitionKey)
-        ? 'traversed'
-        : 'untaken';
-      return { ...e, data: { ...e.data, executionStatus } };
+      return { ...e, data: { ...e.data, ...edgeExecutionData(e.source, transitionKey, pathOrders, executionOverlay) } };
     });
-  }, [decoratedEdges, executionOverlay, traversedTransitionKeys]);
+  }, [decoratedEdges, executionOverlay, pathOrders]);
 
   // ─── Smart Guides — alignment lines while dragging
   //

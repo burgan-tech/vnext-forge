@@ -39,6 +39,9 @@ interface TransitionEdgeData {
    * transition is narrowed by role in that state.
    */
   roleScoped?: boolean;
+  hasRule?: boolean;
+  pathOrder?: number[];
+  pathOnly?: boolean;
   isSelfLoop?: boolean;
   isSelfKeyword?: boolean;
   waypoints?: Waypoint[];
@@ -496,9 +499,11 @@ export const TransitionEdge = memo(function TransitionEdge(props: EdgeProps) {
     ? 'non-scaling-stroke'
     : undefined;
 
+  const pathOrder = Array.isArray(d.pathOrder) ? (d.pathOrder as number[]) : [];
+  const pathOnly = d.pathOnly === true;
   // Execution overlay — adjust opacity/stroke width based on traversal status.
   const executionOpacity =
-    executionStatus === 'untaken' ? 0.3 :
+    executionStatus === 'untaken' ? (pathOnly ? 0.08 : 0.3) :
     1;
   const executionStrokeWidth =
     executionStatus === 'traversed' ? Math.max(strokeWidth, 2.5) :
@@ -615,6 +620,19 @@ export const TransitionEdge = memo(function TransitionEdge(props: EdgeProps) {
             {badge.label && (
               <span className={`ml-1 text-[8px] font-semibold uppercase ${badge.color} shrink-0`}>
                 {badge.label}
+              </span>
+            )}
+            {!isEditable && d.hasRule && (
+              <span className="ml-1 text-[8px] font-semibold uppercase text-muted-foreground shrink-0" title="Guarded by a rule">
+                rule
+              </span>
+            )}
+            {pathOrder.length > 0 && (
+              <span
+                className="bg-action text-action-foreground ml-1 shrink-0 rounded-full px-1.5 text-[9px] font-semibold tabular-nums"
+                title={`Step ${pathOrder.join(', ')} of the path`}
+              >
+                {pathOrder.join(' · ')}
               </span>
             )}
             {/* Full label tooltip on hover */}

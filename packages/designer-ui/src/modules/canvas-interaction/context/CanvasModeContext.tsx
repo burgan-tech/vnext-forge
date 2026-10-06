@@ -9,8 +9,13 @@ export interface CanvasTraversedTransition {
 }
 
 export interface ExecutionOverlay {
+  /** Oldest first — the order is the path order shown on edges. */
   traversedTransitions: CanvasTraversedTransition[];
   currentState: string | null;
+  /** Fade everything off the path further and show path order on edges. */
+  pathOnly?: boolean;
+  /** Element selected outside the canvas (e.g. a path timeline chip); pulses like a search hit. */
+  focus?: { kind: 'state' | 'transition'; key: string } | null;
 }
 
 export interface CanvasModeContextValue {

@@ -460,3 +460,8 @@ body[data-presentation='true'] [data-app-chrome='tab-bar'] {
   opacity: 0.3;
   filter: grayscale(0.7);
 }
+
+.vf-node-off-path {
+  opacity: 0.12;
+  filter: grayscale(1);
+}
