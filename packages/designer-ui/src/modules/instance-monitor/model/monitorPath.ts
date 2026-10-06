@@ -8,12 +8,15 @@ export function toExecutionOverlay(
   currentState: string | null,
   pathOnly: boolean,
   focus: ExecutionOverlay['focus'] = null,
+  faults?: { faulted: string[]; incident: string[] },
 ): ExecutionOverlay {
   return {
     traversedTransitions: history.map((t) => ({ transitionId: t.transitionId, fromState: t.fromState, toState: t.toState })),
     currentState,
     pathOnly,
     focus,
+    faultedStates: faults?.faulted ?? [],
+    incidentStates: faults?.incident ?? [],
   };
 }
 

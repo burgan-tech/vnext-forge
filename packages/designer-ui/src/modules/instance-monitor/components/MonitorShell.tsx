@@ -168,6 +168,8 @@ export function MonitorShellView(props: MonitorShellViewProps) {
               history={history}
               currentState={currentState}
               pathOnly={pathOnly}
+              tasks={data.tasks}
+              activeIncident={data.activeIncident}
               selection={selection}
               onSelect={onSelect}
             />

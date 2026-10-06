@@ -88,3 +88,12 @@ describe('focus', () => {
     expect(edgeExecutionData('review', 'reject', edgePathOrders(o), o)).not.toHaveProperty('spotlight');
   });
 });
+
+describe('faults', () => {
+  it('flags faulted and incident states only when listed', () => {
+    const o: ExecutionOverlay = { ...LOOP, faultedStates: ['init'], incidentStates: ['init'] };
+    const visits = stateVisitCounts(o);
+    expect(nodeExecutionData('init', o, visits)).toMatchObject({ faulted: true, hasActiveIncident: true });
+    expect(nodeExecutionData('review', o, visits)).not.toHaveProperty('faulted');
+  });
+});

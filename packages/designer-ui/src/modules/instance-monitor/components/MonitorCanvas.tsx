@@ -3,7 +3,9 @@ import { ReactFlowProvider } from '@xyflow/react';
 
 import { FlowCanvas } from '../../canvas-interaction/FlowCanvas';
 import type { WorkflowViewModel } from '../../canvas-interaction/readonly/view-types';
-import type { HistoryTransition } from '../../quick-run/types/quickrun.types';
+import type { IncidentEntry } from '../../quick-run/QuickRunApi';
+import type { HistoryTransition, TaskHistoryItem } from '../../quick-run/types/quickrun.types';
+import { faultedStatesOf } from '../model/faultedStates';
 import { toExecutionOverlay } from '../model/monitorPath';
 import type { MonitorSelection } from '../types';
 
@@ -13,16 +15,18 @@ export interface MonitorCanvasProps {
   history: readonly HistoryTransition[];
   currentState: string | null;
   pathOnly: boolean;
+  tasks: readonly TaskHistoryItem[];
+  activeIncident: IncidentEntry | null;
   /** Shared selection — spotlighted on the canvas when it came from elsewhere. */
   selection: MonitorSelection;
   onSelect: (selection: MonitorSelection) => void;
 }
 
 /** The flow in `instance-view`: the path on top of the local (or history-only) definition. */
-export function MonitorCanvas({ vm, diagram, history, currentState, pathOnly, selection, onSelect }: MonitorCanvasProps) {
+export function MonitorCanvas({ vm, diagram, history, currentState, pathOnly, tasks, activeIncident, selection, onSelect }: MonitorCanvasProps) {
   const overlay = useMemo(
-    () => toExecutionOverlay(history, currentState, pathOnly, selection),
-    [history, currentState, pathOnly, selection],
+    () => toExecutionOverlay(history, currentState, pathOnly, selection, faultedStatesOf(tasks, activeIncident)),
+    [history, currentState, pathOnly, selection, tasks, activeIncident],
   );
   return (
     <ReactFlowProvider>

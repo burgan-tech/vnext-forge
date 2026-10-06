@@ -16,6 +16,10 @@ export interface ExecutionOverlay {
   pathOnly?: boolean;
   /** Element selected outside the canvas (e.g. a path timeline chip); pulses like a search hit. */
   focus?: { kind: 'state' | 'transition'; key: string } | null;
+  /** States where a task failed or an incident was raised. */
+  faultedStates?: string[];
+  /** States with an unresolved incident (warning marker). */
+  incidentStates?: string[];
 }
 
 export interface CanvasModeContextValue {

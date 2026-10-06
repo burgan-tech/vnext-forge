@@ -128,6 +128,8 @@ export const StateNodeBase = memo(function StateNodeBase({ data, selected }: Nod
     executionStatus === 'unreachable' ? (pathOnly ? 'vf-node-off-path' : 'vf-node-unreachable') :
     '';
   const visitCount = typeof d.visitCount === 'number' ? d.visitCount : 0;
+  const faulted = d.faulted === true;
+  const hasActiveIncident = d.hasActiveIncident === true;
 
   const handleQuickDuplicate = useCallback(
     (e: React.MouseEvent) => {
@@ -181,7 +183,7 @@ export const StateNodeBase = memo(function StateNodeBase({ data, selected }: Nod
         selected
           ? `bg-surface border-[1.5px] border-primary-border-hover shadow-xl ring-4 ${config.ring}`
           : 'bg-surface border border-border shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] hover:border-muted-border-hover'
-      } ${isSpotlight ? 'animate-spotlight-pulse' : ''} ${executionCls}`}
+      } ${isSpotlight ? 'animate-spotlight-pulse' : ''} ${executionCls}${faulted ? ' vf-node-faulted' : ''}`}
     >
       <NodeResizer
         minWidth={160}
@@ -255,6 +257,11 @@ export const StateNodeBase = memo(function StateNodeBase({ data, selected }: Nod
             aria-label={`Entered ${visitCount} times`}
           >
             ×{visitCount}
+          </span>
+        )}
+        {hasActiveIncident && (
+          <span className="text-final-error shrink-0" title="Active incident" aria-label="Active incident">
+            <AlertTriangle size={13} strokeWidth={2.25} />
           </span>
         )}
       </div>

@@ -465,3 +465,9 @@ body[data-presentation='true'] [data-app-chrome='tab-bar'] {
   opacity: 0.12;
   filter: grayscale(1);
 }
+.vf-node-faulted {
+  box-shadow: 0 0 0 2px var(--color-final-error), 0 0 0 5px color-mix(in srgb, var(--color-final-error) 25%, transparent);
+}
+.vf-node-current.vf-node-faulted {
+  animation: none;
+}

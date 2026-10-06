@@ -13,6 +13,8 @@ export interface NodeExecutionData {
   pathOnly: boolean;
   /** Present (and true) only when focused — never overrides a search spotlight with `false`. */
   spotlight?: true;
+  faulted?: true;
+  hasActiveIncident?: true;
 }
 
 export interface EdgeExecutionData {
@@ -72,7 +74,14 @@ export function nodeExecutionData(
   const executionStatus: NodeExecutionStatus =
     overlay.currentState === nodeId ? 'current' : visitCount > 0 ? 'visited' : 'unreachable';
   const focused = overlay.focus?.kind === 'state' && overlay.focus.key === nodeId;
-  return { executionStatus, visitCount, pathOnly: overlay.pathOnly === true, ...(focused ? { spotlight: true as const } : {}) };
+  return {
+    executionStatus,
+    visitCount,
+    pathOnly: overlay.pathOnly === true,
+    ...(focused ? { spotlight: true as const } : {}),
+    ...(overlay.faultedStates?.includes(nodeId) ? { faulted: true as const } : {}),
+    ...(overlay.incidentStates?.includes(nodeId) ? { hasActiveIncident: true as const } : {}),
+  };
 }
 
 /**
