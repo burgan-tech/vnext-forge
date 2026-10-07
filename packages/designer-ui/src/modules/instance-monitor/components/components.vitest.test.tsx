@@ -1,0 +1,200 @@
+import { createElement as h } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import { describe, expect, it, vi } from 'vitest';
+
+vi.mock('./MonitorCanvas', () => ({ MonitorCanvas: () => h('div', { 'data-testid': 'canvas' }, 'canvas') }));
+
+import { normalizeDefinition } from '../../canvas-interaction/readonly/normalize';
+import type { HistoryTransition } from '../../quick-run/types/quickrun.types';
+import type { MonitorLevelData } from '../types';
+import { formatDurationMs } from '../../quick-run/utils/taskHistory';
+import { Breadcrumb } from './Breadcrumb';
+import { InstanceTab } from './InstanceTab';
+import { MonitorInspector } from './MonitorInspector';
+import { MonitorShellView } from './MonitorShell';
+
+const noop = vi.fn();
+const LAYOUT0 = { size: () => 200, isOpen: () => true, resize: noop, setOpen: noop, toggle: noop };
+const row = (i: number, fromState: string, transitionId: string, toState: string): HistoryTransition => ({
+  id: `h${i}`, transitionId, fromState, toState, startedAt: `2026-10-06T10:00:0${i}Z`, triggerType: 'manual', createdAt: 'x',
+});
+const HISTORY = [row(1, '$start', 'start', 'init'), row(2, 'init', 'submit', 'review'), row(3, 'review', 'reject', 'init'), row(4, 'init', 'submit', 'review')];
+const VM = normalizeDefinition({
+  key: 'loan',
+  version: '1.2.0',
+  attributes: {
+    states: [
+      { key: 'init', stateType: 1, transitions: [{ key: 'submit', target: 'review', labels: [{ language: 'en-US', label: 'Submit' }] }] },
+      { key: 'review', stateType: 2, transitions: [{ key: 'reject', target: 'init' }] },
+    ],
+  },
+});
+const INSTANCE = {
+  id: 'i1', key: 'order-4711', flow: 'loan', domain: 'core', flowVersion: '1.1.0-pkg.1.0.0+core', tags: ['vip'],
+  metadata: { currentState: 'review', effectiveState: 'kyc-sub', status: 'A', createdAt: '2026-10-06T10:00:00Z', createdBy: 'tester' },
+} as MonitorLevelData['instance'];
+const DATA: MonitorLevelData = {
+  instance: INSTANCE, history: HISTORY, loadedAt: 1, tasks: [], activeIncident: null, correlation: null,
+  definition: { source: 'local', vm: VM, diagram: { nodePos: {} }, localVersion: '1.2.0' },
+};
+const TARGET = { domain: 'core', workflowKey: 'loan', instanceId: 'i1', environmentName: 'Local' };
+
+describe('MonitorInspector', () => {
+  it('prompts for a selection', () => {
+    expect(renderToStaticMarkup(h(MonitorInspector, { vm: VM, history: HISTORY, currentState: 'review', selection: null, tasks: [], onClose: noop }))).toContain('Select a state or transition');
+  });
+  it('shows a state with its visit summary', () => {
+    const html = renderToStaticMarkup(h(MonitorInspector, { vm: VM, history: HISTORY, currentState: 'review', selection: { kind: 'state', key: 'review' }, tasks: [], onClose: noop }));
+    expect(html).toContain('Visited 2× · now here');
+  });
+  it('shows a transition with its firing count', () => {
+    const html = renderToStaticMarkup(h(MonitorInspector, { vm: VM, history: HISTORY, currentState: 'review', selection: { kind: 'transition', key: 'submit' }, tasks: [], onClose: noop }));
+    expect(html).toContain('Fired 2×');
+  });
+  it('explains a key missing from the definition', () => {
+    const html = renderToStaticMarkup(h(MonitorInspector, { vm: VM, history: HISTORY, currentState: null, selection: { kind: 'state', key: 'ghost' }, tasks: [], onClose: noop }));
+    expect(html).toContain('not in the local definition');
+  });
+});
+
+describe('InstanceTab', () => {
+  it('shows identity, drift and the subflow note', () => {
+    const html = renderToStaticMarkup(h(InstanceTab, { instance: INSTANCE, localVersion: '1.2.0', environmentName: 'Local' }));
+    for (const text of ['order-4711', 'i1', 'core/loan', '1.1.0', 'local 1.2.0', 'inside a subflow', 'vip', 'tester', 'Local']) {
+      expect(html).toContain(text);
+    }
+  });
+});
+
+describe('InstanceTab timing and payload', () => {
+  it('shows completion, a formatted duration and attributes', () => {
+    const done = {
+      ...INSTANCE,
+      attributes: { amount: 5 },
+      metadata: { ...INSTANCE.metadata, completedAt: '2026-10-06T10:02:05Z', duration: 125.4 },
+    } as MonitorLevelData['instance'];
+    const html = renderToStaticMarkup(h(InstanceTab, { instance: done }));
+    expect(html).toContain('Completed');
+    expect(html).toContain(formatDurationMs(125.4 * 1000)); // 2m 6s: the formatter rounds 125.4s up
+    expect(html).toContain('Attributes');
+  });
+});
+
+describe('empty business key', () => {
+  const NOKEY = { ...INSTANCE, id: 'abcdef12-3456-7890', key: '' } as MonitorLevelData['instance'];
+  it('InstanceTab shows a dash in the Key row', () => {
+    const html = renderToStaticMarkup(h(InstanceTab, { instance: NOKEY }));
+    expect(html).toMatch(/Key[\s\S]{0,200}—/);
+  });
+  it('the shell header falls back to the short id', () => {
+    const html = renderToStaticMarkup(h(MonitorShellView, {
+      target: TARGET, selection: null, pathOnly: false, onRefresh: noop, onSelect: noop, onPathOnly: noop, links: {}, layout: LAYOUT0,
+      load: { kind: 'ready', data: { ...DATA, instance: NOKEY }, refreshing: false, staleError: null },
+    }));
+    expect(html).toContain('<span class="font-mono">abcdef12</span>');
+  });
+});
+
+describe('MonitorShellView', () => {
+  const base = { target: TARGET, selection: null, pathOnly: false, onRefresh: noop, onSelect: noop, onPathOnly: noop, links: {}, layout: LAYOUT0 };
+  it('shows loading', () => {
+    expect(renderToStaticMarkup(h(MonitorShellView, { ...base, load: { kind: 'loading' } }))).toContain('Loading instance');
+  });
+  it('shows not found with the environment', () => {
+    expect(renderToStaticMarkup(h(MonitorShellView, { ...base, load: { kind: 'not-found' } }))).toContain('Instance not found in Local');
+  });
+  it('shows a load error', () => {
+    expect(renderToStaticMarkup(h(MonitorShellView, { ...base, load: { kind: 'error', error: { code: 'X', message: 'Runtime down' } } }))).toContain('Runtime down');
+  });
+  it('renders the ready layout with drift, stale and history-only notices', () => {
+    const html = renderToStaticMarkup(h(MonitorShellView, {
+      ...base,
+      load: { kind: 'ready', data: { ...DATA, definition: { ...DATA.definition } }, refreshing: false, staleError: { code: 'X', message: 'down' } },
+    }));
+    for (const text of ['order-4711', 'canvas', 'Local definition 1.2.0', 'instance 1.1.0', 'Stale', 'Inspector', 'Instance', 'Path only']) {
+      expect(html).toContain(text);
+    }
+    const historyOnly = renderToStaticMarkup(h(MonitorShellView, {
+      ...base,
+      load: { kind: 'ready', data: { ...DATA, definition: { ...DATA.definition, source: 'history', localVersion: undefined } }, refreshing: false, staleError: null },
+    }));
+    expect(historyOnly).toContain('Local definition not found');
+  });
+});
+
+describe('Breadcrumb and correlations', () => {
+  const L = (key: string, id: string) => ({ domain: 'core', workflowKey: key, instanceId: id });
+  it('hides for a single level and links earlier levels', () => {
+    expect(renderToStaticMarkup(h(Breadcrumb, { levels: [L('a', '1')], onPopTo: noop }))).toBe('');
+    const html = renderToStaticMarkup(h(Breadcrumb, { levels: [L('a', '1'), L('b', '2')], onPopTo: noop }));
+    expect(html).toContain('aria-label="Instance levels"');
+    expect(html).toContain('<button');
+    expect(html).toContain('aria-current="page"');
+  });
+  it('keeps the breadcrumb on a not-found child so the user can pop back', () => {
+    const html = renderToStaticMarkup(h(MonitorShellView, {
+      target: TARGET, levels: [L('root', 'r'), TARGET], onPopTo: noop, selection: null, pathOnly: false, onRefresh: noop, onSelect: noop, onPathOnly: noop, links: {}, layout: LAYOUT0,
+      load: { kind: 'not-found' },
+    }));
+    expect(html).toMatch(/<button[^>]*>root<\/button>/);
+    expect(html).toContain('Instance not found');
+  });
+  it('shell shows the breadcrumb and the Correlations tab', () => {
+    const html = renderToStaticMarkup(h(MonitorShellView, {
+      target: TARGET, levels: [L('root', 'r'), TARGET], onPopTo: noop, selection: null, pathOnly: false, onRefresh: noop, onSelect: noop, onPathOnly: noop, links: {}, layout: LAYOUT0,
+      load: { kind: 'ready', data: DATA, refreshing: false, staleError: null },
+    }));
+    expect(html).toContain('Instance levels');
+    expect(html).toContain('Correlations');
+  });
+  it('inspector lists child instances with a Drill into action', () => {
+    const child = { id: 'c1', flow: 'kyc', domain: 'core', ownState: 'check', resolved: true, children: [] } as never;
+    const html = renderToStaticMarkup(h(MonitorInspector, { vm: VM, history: HISTORY, currentState: 'review', selection: { kind: 'state', key: 'review' }, tasks: [], childInstances: [child], onDrill: noop, onClose: noop }));
+    expect(html).toContain('Child instances');
+    expect(html).toContain('kyc · check');
+    expect(html).toContain('Drill into');
+  });
+  it('inspector labels the child action "Open monitor" when children open in their own monitor', () => {
+    const child = { id: 'c1', flow: 'kyc', domain: 'core', ownState: 'check', resolved: true, children: [] } as never;
+    const html = renderToStaticMarkup(h(MonitorInspector, { vm: VM, history: HISTORY, currentState: 'review', selection: { kind: 'state', key: 'review' }, tasks: [], childInstances: [child], onDrill: noop, drillLabel: 'Open monitor', onClose: noop }));
+    expect(html).toContain('Open monitor');
+    expect(html).not.toContain('Drill into');
+  });
+  it('shell view renders "Open monitor" for SubFlow children when a separate monitor is available', () => {
+    const child = { id: 'c1', flow: 'kyc', domain: 'core', parentState: 'review', ownState: 'check', resolved: true, children: [] };
+    const correlation = { source: 'instance-correlation', root: { id: DATA.instance.id, flow: 'login', domain: 'core', resolved: true, children: [child] } } as never;
+    const html = renderToStaticMarkup(h(MonitorShellView, {
+      target: TARGET, selection: { kind: 'state', key: 'review' }, pathOnly: false, onRefresh: noop, onSelect: noop, onPathOnly: noop, links: {}, layout: LAYOUT0,
+      onDrill: noop, separateMonitor: true,
+      load: { kind: 'ready', data: { ...DATA, correlation }, refreshing: false, staleError: null },
+    }));
+    expect(html).toContain('Open monitor');
+    expect(html).not.toContain('Drill into');
+  });
+});
+
+describe('MonitorShellView layout', () => {
+  const ready = { kind: 'ready', data: DATA, refreshing: false, staleError: null } as const;
+  const base = { target: TARGET, selection: null, pathOnly: false, onRefresh: noop, onSelect: noop, onPathOnly: noop, links: {}, layout: LAYOUT0, load: ready };
+  const layout = (rightOpen: boolean, bottomOpen = true) => ({
+    size: (p: string) => (p === 'right' ? 340 : 132),
+    isOpen: (p: string) => (p === 'right' ? rightOpen : bottomOpen),
+    resize: noop,
+    setOpen: noop,
+    toggle: noop,
+  });
+  it('renders toggles, both separators and the sideBar surface', () => {
+    const html = renderToStaticMarkup(h(MonitorShellView, { ...base, layout: layout(true) }));
+    expect(html).toContain('Hide details panel');
+    expect(html).toContain('Hide path panel');
+    expect(html).toContain('aria-orientation="vertical"');
+    expect(html).toContain('aria-orientation="horizontal"');
+    expect(html).toContain('bg-[var(--vscode-sideBar-background');
+    expect(html).toContain('bg-[var(--vscode-panel-background');
+  });
+  it('unmounts the right panel content when closed', () => {
+    const html = renderToStaticMarkup(h(MonitorShellView, { ...base, layout: layout(false) }));
+    expect(html).toContain('Show details panel');
+    expect(html).not.toContain('role="tablist"');
+  });
+});

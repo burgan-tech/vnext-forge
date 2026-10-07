@@ -3,26 +3,49 @@ import { useCallback, useEffect, useRef } from 'react';
 interface ResizableHandleProps {
   onResize: (delta: number) => void;
   direction?: 'left' | 'right';
+  /** 'vertical' = column handle (default); 'horizontal' = row handle. */
+  orientation?: 'vertical' | 'horizontal';
+  valueNow?: number;
+  valueMin?: number;
+  valueMax?: number;
+  label?: string;
 }
 
-export function ResizableHandle({ onResize, direction = 'right' }: ResizableHandleProps) {
-  const dragging = useRef(false);
-  const startX = useRef(0);
+const KEY_STEP = 16;
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    dragging.current = true;
-    startX.current = e.clientX;
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
-  }, []);
+export function ResizableHandle({
+  onResize,
+  direction = 'right',
+  orientation = 'vertical',
+  valueNow,
+  valueMin,
+  valueMax,
+  label = 'Resize panel',
+}: ResizableHandleProps) {
+  const onResizeRef = useRef(onResize);
+  onResizeRef.current = onResize;
+  const dragging = useRef(false);
+  const start = useRef(0);
+  const horizontal = orientation === 'horizontal';
+
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault();
+      dragging.current = true;
+      start.current = horizontal ? e.clientY : e.clientX;
+      document.body.style.cursor = horizontal ? 'row-resize' : 'col-resize';
+      document.body.style.userSelect = 'none';
+    },
+    [horizontal],
+  );
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (!dragging.current) return;
-      const delta = e.clientX - startX.current;
-      startX.current = e.clientX;
-      onResize(direction === 'right' ? delta : -delta);
+      const pos = horizontal ? e.clientY : e.clientX;
+      const delta = pos - start.current;
+      start.current = pos;
+      onResizeRef.current(direction === 'right' ? delta : -delta);
     };
 
     const handleMouseUp = () => {
@@ -38,17 +61,39 @@ export function ResizableHandle({ onResize, direction = 'right' }: ResizableHand
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [onResize, direction]);
+  }, [direction, horizontal]);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      const plus = horizontal ? 'ArrowDown' : 'ArrowRight';
+      const minus = horizontal ? 'ArrowUp' : 'ArrowLeft';
+      if (e.key !== plus && e.key !== minus) return;
+      e.preventDefault();
+      const step = e.key === plus ? KEY_STEP : -KEY_STEP;
+      onResizeRef.current(direction === 'right' ? step : -step);
+    },
+    [direction, horizontal],
+  );
+
+  const sizing = horizontal ? 'h-[5px] w-full cursor-row-resize' : 'w-[5px] cursor-col-resize';
+  const grip = horizontal ? 'h-[2px] w-8' : 'h-8 w-[2px]';
 
   return (
     <div
-      className="group relative flex w-[5px] cursor-col-resize items-center justify-center hover:bg-[var(--vscode-focusBorder)] active:bg-[var(--vscode-focusBorder)]"
+      className={`group relative flex ${sizing} items-center justify-center hover:bg-[var(--vscode-focusBorder)] active:bg-[var(--vscode-focusBorder)] focus-visible:bg-[var(--vscode-focusBorder)] focus-visible:outline-none focus-visible:[&>div]:opacity-100`}
       onMouseDown={handleMouseDown}
+      onKeyDown={handleKeyDown}
       role="separator"
-      aria-orientation="vertical"
-      aria-label="Resize panel"
+      tabIndex={0}
+      aria-orientation={orientation}
+      aria-valuenow={valueNow}
+      aria-valuemin={valueNow !== undefined ? valueMin : undefined}
+      aria-valuemax={valueNow !== undefined ? valueMax : undefined}
+      aria-label={label}
     >
-      <div className="h-8 w-[2px] rounded-full bg-[var(--vscode-panel-border)] opacity-0 transition-opacity group-hover:opacity-100" />
+      <div
+        className={`${grip} rounded-full bg-[var(--vscode-panel-border)] opacity-0 transition-opacity motion-reduce:transition-none group-hover:opacity-100`}
+      />
     </div>
   );
 }

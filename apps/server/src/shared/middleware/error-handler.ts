@@ -14,6 +14,7 @@ function statusFromErrorCode(code: ErrorCode): ContentfulStatusCode {
     case ERROR_CODES.FILE_NOT_FOUND:
     case ERROR_CODES.PROJECT_NOT_FOUND:
     case ERROR_CODES.API_NOT_FOUND:
+    case ERROR_CODES.RUNTIME_NOT_FOUND:
       return 404
     case ERROR_CODES.FILE_INVALID_PATH:
     case ERROR_CODES.API_BAD_REQUEST:

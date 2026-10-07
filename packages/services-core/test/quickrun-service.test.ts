@@ -88,9 +88,12 @@ describe('quickRunService.getActiveIncident', () => {
     expect(await service.getActiveIncident(ids)).toEqual({ incident: null })
   })
 
-  it('still fails on any other 404', async () => {
+  it('still fails on any other 404, as RUNTIME_NOT_FOUND with the body kept in details', async () => {
     const { service } = serviceWith({ status: 404, data: JSON.stringify({ code: 'Instance:100001' }) })
-    await expect(service.getActiveIncident(ids)).rejects.toMatchObject({ code: ERROR_CODES.RUNTIME_EXECUTION_FAILED })
+    await expect(service.getActiveIncident(ids)).rejects.toMatchObject({
+      code: ERROR_CODES.RUNTIME_NOT_FOUND,
+      context: { details: { httpStatus: 404, code: 'Instance:100001' } },
+    })
   })
 })
 
@@ -116,7 +119,7 @@ describe('quickRunService.getTaskHistory', () => {
   it('throws a runtime error on a non-2xx instead of reporting an empty history', async () => {
     const { service } = serviceWith({ status: 404, data: JSON.stringify({ code: 'Function:100001' }) })
     await expect(service.getTaskHistory(ids)).rejects.toMatchObject({
-      code: ERROR_CODES.RUNTIME_EXECUTION_FAILED,
+      code: ERROR_CODES.RUNTIME_NOT_FOUND,
     })
   })
 })
@@ -279,9 +282,34 @@ describe('quickRunService.getCorrelationTree', () => {
     expect(result.source).toBe('hierarchy')
   })
 
-  it('does not fall back when the version says the tree exists', async () => {
-    const { service } = sequenced({ status: 404, data: '{"code":"Instance:404"}' })
-    await expect(service.getCorrelationTree({ ...ids, runtimeVersion: '0.0.99' })).rejects.toBeDefined()
+  it('falls back to instance-correlation when a 0.0.98.0 runtime lacks hierarchy', async () => {
+    const { service, proxy } = sequenced(
+      { status: 404, data: '{"code":"Function not found"}' },
+      { status: 200, data: JSON.stringify({ root: { ...HIERARCHY.root, resolved: true, ownState: 's1' } }) },
+    )
+    const result = await service.getCorrelationTree({ ...ids, runtimeVersion: '0.0.98.0' })
+    expect(proxy.mock.calls[0][0].runtimePath).toMatch(/\/functions\/hierarchy$/)
+    expect(proxy.mock.calls[1][0].runtimePath).toMatch(/\/functions\/instance-correlation$/)
+    expect(result.source).toBe('instance-correlation')
+  })
+
+  it('falls back to hierarchy when a 0.0.99 runtime lacks instance-correlation', async () => {
+    const { service } = sequenced(
+      { status: 404, data: '{"code":"Function not found"}' },
+      { status: 200, data: JSON.stringify(HIERARCHY) },
+    )
+    const result = await service.getCorrelationTree({ ...ids, runtimeVersion: '0.0.99' })
+    expect(result.source).toBe('hierarchy')
+  })
+
+  it('throws the second failure when both endpoints 404', async () => {
+    const { service } = sequenced(
+      { status: 404, data: '{"code":"Function not found"}' },
+      { status: 404, data: '{"code":"Function not found"}' },
+    )
+    await expect(service.getCorrelationTree({ ...ids, runtimeVersion: '0.0.99' })).rejects.toMatchObject({
+      code: 'RUNTIME_NOT_FOUND',
+    })
   })
 })
 
@@ -307,5 +335,69 @@ describe('quickRunService metrics', () => {
     })
     expect(proxy.mock.calls[1][0].runtimePath).toBe('/api/v1/core/workflows/wf/functions/score/metrics')
     expect(domainLevel.hasNext).toBe(true)
+  })
+})
+
+const ROW_ID = '7a1b9c2d-0e3f-4a5b-8c6d-9e0f1a2b3c4d'
+const HISTORY_ITEM = {
+  id: ROW_ID,
+  version: '1.0.0',
+  versionNo: 3,
+  enteredAt: '2026-09-20T10:00:00Z',
+  eTag: 'W/"abc"',
+  isLatest: true,
+  data: { amount: 5 },
+}
+
+describe('quickRunService.getDataHistory', () => {
+  it('pages the data history with includeData', async () => {
+    const { service, proxy } = serviceWith({
+      status: 200,
+      data: JSON.stringify({ items: [HISTORY_ITEM], page: 2, pageSize: 5, hasNext: true }),
+    })
+    const result = await service.getDataHistory({ ...ids, page: 2, pageSize: 5, includeData: false })
+    expect(proxy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'GET',
+        runtimePath: '/api/v1/core/workflows/error-boundary-lab/instances/i-1/data/history',
+        query: { page: '2', pageSize: '5', includeData: 'false' },
+      }),
+      undefined,
+    )
+    expect(result).toEqual({ items: [HISTORY_ITEM], page: 2, pageSize: 5, hasNext: true })
+  })
+
+  it('applies defaults when the runtime omits paging fields', async () => {
+    const { service } = serviceWith({ status: 200, data: '{}' })
+    expect(await service.getDataHistory({ ...ids, page: 1, pageSize: 20, includeData: true })).toEqual({
+      items: [],
+      page: 1,
+      pageSize: 20,
+      hasNext: false,
+    })
+  })
+
+  it('maps a 404 to RUNTIME_NOT_FOUND', async () => {
+    const { service } = serviceWith({ status: 404, data: '{}' })
+    await expect(
+      service.getDataHistory({ ...ids, page: 1, pageSize: 20, includeData: true }),
+    ).rejects.toMatchObject({ code: ERROR_CODES.RUNTIME_NOT_FOUND })
+  })
+})
+
+describe('quickRunService.getDataHistoryRow', () => {
+  it('fetches one row by encoded id', async () => {
+    const { service, proxy } = serviceWith({ status: 200, data: JSON.stringify(HISTORY_ITEM) })
+    expect(await service.getDataHistoryRow({ ...ids, rowId: ROW_ID })).toEqual(HISTORY_ITEM)
+    expect(proxy.mock.calls[0][0].runtimePath).toBe(
+      `/api/v1/core/workflows/error-boundary-lab/instances/i-1/data/history/${ROW_ID}`,
+    )
+  })
+
+  it('maps a 404 to RUNTIME_NOT_FOUND', async () => {
+    const { service } = serviceWith({ status: 404, data: '{}' })
+    await expect(service.getDataHistoryRow({ ...ids, rowId: ROW_ID })).rejects.toMatchObject({
+      code: ERROR_CODES.RUNTIME_NOT_FOUND,
+    })
   })
 })

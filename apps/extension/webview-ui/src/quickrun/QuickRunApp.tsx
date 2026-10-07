@@ -9,6 +9,8 @@ import {
   type SchemaReference,
 } from '@vnext-forge-studio/designer-ui/quickrun';
 
+import { registerInstanceChangeRelay } from '@vnext-forge-studio/designer-ui/monitor';
+
 import { resolveWebviewPostMessageAllowedOrigins } from '../host/webviewMessageOrigins';
 import type { VsCodeWebviewApi } from '../VsCodeTransport';
 
@@ -44,9 +46,16 @@ function readStringRecord(value: unknown): Record<string, string> | null {
 
 export function QuickRunApp({ api }: Props) {
   const [context, setContext] = useState<QuickRunContext | null>(null);
+  const [focusRequest, setFocusRequest] = useState<{ instanceId: string; nonce: number } | undefined>(undefined);
 
   useEffect(() => {
     QuickRunApi.setDataBucketPostMessage((msg) => api.postMessage(msg));
+  }, [api]);
+
+  // Quick Run changes reach monitor panels (other webviews) through the host.
+  useEffect(() => {
+    registerInstanceChangeRelay((e) => api.postMessage({ type: 'quickrun:instance-changed', ...e }));
+    return () => registerInstanceChangeRelay(null);
   }, [api]);
 
   useEffect(() => {
@@ -56,6 +65,12 @@ export function QuickRunApp({ api }: Props) {
       if (!isMessageOriginAllowed(event.origin, allowedOrigins)) return;
 
       const data = event.data;
+      if (data?.type === 'quickrun:focus-instance') {
+        if (typeof data.instanceId === 'string' && data.instanceId.length > 0 && typeof data.nonce === 'number') {
+          setFocusRequest({ instanceId: data.instanceId, nonce: data.nonce });
+        }
+        return;
+      }
       if (data?.type === 'quickrun:context') {
         setContext({
           domain: data.domain,
@@ -102,7 +117,17 @@ export function QuickRunApp({ api }: Props) {
       projectId={context.projectId}
       pollingRetryCount={context.pollingRetryCount}
       pollingIntervalMs={context.pollingIntervalMs}
+      {...(focusRequest ? { focusRequest } : {})}
       {...(context.startSchemaRef ? { startSchemaRef: context.startSchemaRef } : {})}
+      onOpenMonitor={(target) => {
+        // The host fills in the workflow, file and environment from this
+        // panel's own context; only the instance travels.
+        api.postMessage({
+          type: 'quickrun:open-monitor',
+          instanceId: target.instanceId,
+          ...(target.instanceKey ? { instanceKey: target.instanceKey } : {}),
+        });
+      }}
       onOpenFunctionRun={(target: OpenFunctionRunTarget) => {
         // The host owns panel creation — this webview cannot open another
         // one. `QuickRunPanel` validates the payload before acting on it.

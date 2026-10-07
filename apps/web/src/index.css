@@ -52,8 +52,15 @@
   --vscode-list-activeSelectionBackground: #2563eb;
   --vscode-list-activeSelectionForeground: #ffffff;
 
-  --vscode-sideBar-background: var(--color-background);
+  /* Side bar and bottom panel sit on the surface tone so they separate from the editor canvas
+     (--color-* already switch with the light / dark theme). */
+  --vscode-sideBar-background: var(--color-surface);
+  --vscode-sideBar-border: var(--color-border);
   --vscode-sideBarTitle-foreground: var(--color-foreground);
+  --vscode-sideBarSectionHeader-background: var(--color-muted);
+  --vscode-panel-background: var(--color-surface);
+  --vscode-panelTitle-activeBorder: var(--color-ring);
+  --vscode-toolbar-hoverBackground: var(--color-muted-hover);
 
   --vscode-errorForeground: var(--color-destructive);
   --vscode-inputValidation-errorBackground: color-mix(in srgb, var(--color-destructive) 12%, transparent);
@@ -67,6 +74,8 @@
   --vscode-badge-background: #2563eb;
   --vscode-badge-foreground: #ffffff;
 
+  --vscode-charts-blue: #3b82f6;
+  --vscode-charts-purple: #a855f7;
   --vscode-charts-green: #22c55e;
   --vscode-charts-orange: #f59e0b;
 }

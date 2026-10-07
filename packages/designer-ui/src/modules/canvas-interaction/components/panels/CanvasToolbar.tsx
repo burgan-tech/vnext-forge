@@ -127,9 +127,10 @@ export function CanvasToolbar({
 
       <button
         onClick={onAutoLayout}
+        {...(isEditable ? {} : { title: 'Re-arrange the layout (not saved)' })}
         className="text-muted-foreground hover:bg-muted flex cursor-pointer items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-medium transition-all duration-150 active:scale-[0.97]">
         <Wand2 size={14} className="text-muted-icon" />
-        <span>Auto-Fix</span>
+        <span>{isEditable ? 'Auto-Fix' : 'Re-layout'}</span>
       </button>
 
       <div className="h-5 w-px bg-border" />

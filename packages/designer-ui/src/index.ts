@@ -143,6 +143,8 @@ export {
   quickRunTabId,
   functionRunTabId,
   functionRunInstanceTabId,
+  monitorTabId,
+  monitorTabIdFromPath,
   vnextWorkspaceConfigTabId,
   useEditorStore,
   type ComponentEditorKind,

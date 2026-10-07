@@ -3,7 +3,7 @@ import { memo, useCallback } from 'react';
 import {
   Repeat2, Activity, ArrowUpRight,
   ArrowUp, ArrowDown, ArrowLeft, ArrowRight,
-  Eye, AlertTriangle, Copy, Trash2,
+  Eye, AlertTriangle, Copy, Trash2, ShieldCheck,
 } from 'lucide-react';
 import { useSubFlowNavigation } from '../../context/SubFlowNavigationContext';
 import {
@@ -27,6 +27,9 @@ interface StateNodeData {
   hasView: boolean;
   hasErrorBoundary: boolean;
   hasSubFlow: boolean;
+  hasQueryRoles?: boolean;
+  visitCount?: number;
+  pathOnly?: boolean;
   subFlowProcessKey: string;
   subFlowProcessDomain: string;
   hasLongPoll?: boolean;
@@ -118,11 +121,15 @@ export const StateNodeBase = memo(function StateNodeBase({ data, selected }: Nod
   const { isEditable } = useCanvasMode();
   const executionStatus = (d as Record<string, unknown>).executionStatus as
     | 'current' | 'visited' | 'unreachable' | undefined;
+  const pathOnly = d.pathOnly === true;
   const executionCls =
     executionStatus === 'current' ? 'vf-node-current' :
     executionStatus === 'visited' ? 'vf-node-visited' :
-    executionStatus === 'unreachable' ? 'vf-node-unreachable' :
+    executionStatus === 'unreachable' ? (pathOnly ? 'vf-node-off-path' : 'vf-node-unreachable') :
     '';
+  const visitCount = typeof d.visitCount === 'number' ? d.visitCount : 0;
+  const faulted = d.faulted === true;
+  const hasActiveIncident = d.hasActiveIncident === true;
 
   const handleQuickDuplicate = useCallback(
     (e: React.MouseEvent) => {
@@ -176,14 +183,14 @@ export const StateNodeBase = memo(function StateNodeBase({ data, selected }: Nod
         selected
           ? `bg-surface border-[1.5px] border-primary-border-hover shadow-xl ring-4 ${config.ring}`
           : 'bg-surface border border-border shadow-[0_2px_8px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_24px_rgba(0,0,0,0.06)] hover:border-muted-border-hover'
-      } ${isSpotlight ? 'animate-spotlight-pulse' : ''} ${executionCls}`}
+      } ${isSpotlight ? 'animate-spotlight-pulse' : ''} ${executionCls}${faulted ? ' vf-node-faulted' : ''}`}
     >
       <NodeResizer
         minWidth={160}
         maxWidth={480}
         minHeight={64}
         maxHeight={320}
-        isVisible={selected ?? false}
+        isVisible={isEditable && !!selected}
         lineClassName="!border-primary-border-hover/40"
         handleClassName="!w-2.5 !h-2.5 !rounded-sm !border !border-primary-border-hover !bg-surface"
       />
@@ -243,6 +250,20 @@ export const StateNodeBase = memo(function StateNodeBase({ data, selected }: Nod
             <span className="text-[11px] text-muted-foreground font-mono truncate">{d.stateKey}</span>
           </div>
         </div>
+        {visitCount > 1 && (
+          <span
+            className="bg-action/10 text-action shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums"
+            title={`Entered ${visitCount} times`}
+            aria-label={`Entered ${visitCount} times`}
+          >
+            ×{visitCount}
+          </span>
+        )}
+        {hasActiveIncident && (
+          <span className="text-final-error shrink-0" title="Active incident" aria-label="Active incident">
+            <AlertTriangle size={13} strokeWidth={2.25} />
+          </span>
+        )}
       </div>
 
       {/*
@@ -259,7 +280,7 @@ export const StateNodeBase = memo(function StateNodeBase({ data, selected }: Nod
        *   - Repeat2      → "SubFlow" embedded
        *   - RadioTower   → "Long poll" (tooltip: terminate · window · arm)
        */}
-      {statsAllowed && (totalActions > 0 || d.transitionCount > 0 || d.hasView || d.hasErrorBoundary || d.hasSubFlow || d.hasLongPoll) && (
+      {statsAllowed && (totalActions > 0 || d.transitionCount > 0 || d.hasView || d.hasErrorBoundary || d.hasSubFlow || d.hasLongPoll || (!isEditable && d.hasQueryRoles)) && (
         <div
           className={`px-3.5 pb-3 pt-0.5 vf-stats-row ${
             statsHoverOnly ? 'vf-stats-hover-only' : ''
@@ -304,6 +325,11 @@ export const StateNodeBase = memo(function StateNodeBase({ data, selected }: Nod
                 aria-label="SubFlow embedded"
               >
                 <Repeat2 size={11} strokeWidth={2.25} />
+              </span>
+            )}
+            {!isEditable && d.hasQueryRoles && (
+              <span className="text-initial inline-flex items-center" title="Has query roles" aria-label="Has query roles">
+                <ShieldCheck size={11} strokeWidth={2.25} />
               </span>
             )}
             <LongPollIndicator

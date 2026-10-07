@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import type { OpenSubFlowTarget } from '../types/quickrun.types';
+import type { OpenMonitorTarget, OpenSubFlowTarget } from '../types/quickrun.types';
 import { HumanTasksPanel } from './HumanTasksPanel';
 import { InstanceListPanel } from './InstanceListPanel';
 
@@ -12,7 +12,13 @@ const SIDEBAR_TABS: { id: SidebarTab; label: string }[] = [
 ];
 
 /** Left pane: flow instances, or the human tasks waiting for the current role. */
-export function QuickRunSidebar({ onOpenSubFlowTarget }: { onOpenSubFlowTarget?: (target: OpenSubFlowTarget) => void }) {
+export function QuickRunSidebar({
+  onOpenSubFlowTarget,
+  onOpenMonitor,
+}: {
+  onOpenSubFlowTarget?: (target: OpenSubFlowTarget) => void;
+  onOpenMonitor?: (target: OpenMonitorTarget) => void;
+}) {
   const [tab, setTab] = useState<SidebarTab>('instances');
   return (
     <div className="flex h-full flex-col bg-[var(--vscode-sideBar-background)]">
@@ -36,7 +42,7 @@ export function QuickRunSidebar({ onOpenSubFlowTarget }: { onOpenSubFlowTarget?:
       </div>
       <div className="min-h-0 flex-1">
         {tab === 'instances' ? (
-          <InstanceListPanel />
+          <InstanceListPanel {...(onOpenMonitor ? { onOpenMonitor } : {})} />
         ) : (
           <HumanTasksPanel {...(onOpenSubFlowTarget ? { onOpenSubFlowTarget } : {})} />
         )}

@@ -1,8 +1,10 @@
 import { useState, useMemo } from 'react';
 import {
   ChevronRight, CheckSquare, ArrowRight, Code2, FileText,
-  Copy, Plus, Trash2, ArrowUp, ArrowDown,
+  Copy, Plus, Trash2, ArrowUp, ArrowDown, ArrowUpRight,
 } from 'lucide-react';
+import type { VnextExportCategory } from '@vnext-forge-studio/app-contracts';
+import { useComponentLinks } from '../../../readonly/ComponentLinkContext';
 import { copyToClipboard, decodeBase64 } from './PropertyPanelHelpers';
 
 /* ────────────── Editable Fields ────────────── */
@@ -124,6 +126,7 @@ export function InfoRow({ label, value, mono = false, copyable = false }: { labe
 }
 
 export function CodePreview({ code, location }: { code: string; location?: string }) {
+  const { openScript } = useComponentLinks();
   const [expanded, setExpanded] = useState(false);
   const decoded = useMemo(() => decodeBase64(code), [code]);
   const lines = decoded.split('\n');
@@ -136,6 +139,17 @@ export function CodePreview({ code, location }: { code: string; location?: strin
         <div className="flex items-center gap-1.5 mb-1.5 text-[11px] text-muted-foreground">
           <IconFile />
           <span className="font-mono">{location}</span>
+          {openScript && (
+            <button
+              type="button"
+              onClick={() => openScript(location)}
+              className="text-secondary-icon hover:text-secondary-foreground ml-auto inline-flex cursor-pointer items-center gap-0.5 font-medium"
+              title={`Open ${location}`}
+            >
+              <ArrowUpRight size={12} aria-hidden />
+              Open script
+            </button>
+          )}
         </div>
       )}
       <div className="relative">
@@ -158,9 +172,36 @@ export function CodePreview({ code, location }: { code: string; location?: strin
   );
 }
 
-export function ResourceRef({ resource }: { resource: any }) {
+function OpenRefButton({ category, resource }: { category: VnextExportCategory; resource: { key?: string } }) {
+  const { resolveComponent, openComponent } = useComponentLinks();
+  if (!openComponent || !resource?.key) return null;
+  const path = resolveComponent ? resolveComponent(category, resource as { key: string }) : '';
+  const disabled = path === null || path === undefined;
+  const title =
+    path === null ? 'Not in this workspace' : path === undefined ? 'Resolving…' : `Open ${resource.key} in its designer`;
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      title={title}
+      aria-label={title}
+      onClick={() => openComponent(category, resource as { key: string })}
+      className="text-secondary-icon hover:text-secondary-foreground inline-flex cursor-pointer items-center gap-0.5 text-[11px] font-medium disabled:cursor-not-allowed disabled:opacity-40"
+    >
+      <ArrowUpRight size={12} aria-hidden />
+      Open
+    </button>
+  );
+}
+
+export function ResourceRef({ resource, category }: { resource: any; category?: VnextExportCategory }) {
   return (
     <div className="space-y-1">
+      {category && (
+        <div className="flex justify-end">
+          <OpenRefButton category={category} resource={resource} />
+        </div>
+      )}
       <InfoRow label="Key" value={resource.key || '\u2014'} mono copyable />
       <InfoRow label="Domain" value={resource.domain || '\u2014'} mono />
       <InfoRow label="Version" value={resource.version || '\u2014'} mono />

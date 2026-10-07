@@ -27,6 +27,10 @@ export function buildNavigatePathForTab(projectId: string, tab: EditorTab): stri
     const query = tab.search ? `?${tab.search}` : '';
     return `/project/${projectId}/function-run-instance/${d}/${k}${query}`;
   }
+  if (tab.kind === 'monitor' && tab.group && tab.name && tab.search) {
+    // `search` holds the instance id: `/monitor/:group/:name/:instanceId`.
+    return `/project/${projectId}/monitor/${encodeURIComponent(tab.group)}/${encodeURIComponent(tab.name)}/${encodeURIComponent(tab.search)}`;
+  }
   if (tab.kind === 'component' && tab.componentKind && tab.group && tab.name) {
     const g = encodeURIComponent(tab.group);
     const n = encodeURIComponent(tab.name);

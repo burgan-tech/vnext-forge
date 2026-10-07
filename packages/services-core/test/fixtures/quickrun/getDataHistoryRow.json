@@ -1,0 +1,18 @@
+{
+  "params": {
+    "domain": "core",
+    "workflowKey": "error-boundary-lab",
+    "instanceId": "0f3c2a4e-5b7d-4a51-9a0e-2d3c1b4a5e6f",
+    "rowId": "7a1b9c2d-0e3f-4a5b-8c6d-9e0f1a2b3c4d",
+    "runtimeUrl": "http://localhost:4201"
+  },
+  "result": {
+    "id": "7a1b9c2d-0e3f-4a5b-8c6d-9e0f1a2b3c4d",
+    "version": "1.0.0",
+    "versionNo": 2,
+    "enteredAt": "2026-09-20T10:00:00Z",
+    "eTag": "W/\"abc\"",
+    "isLatest": true,
+    "data": { "amount": 5 }
+  }
+}

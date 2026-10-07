@@ -8,19 +8,27 @@ import { ContextPanel } from './components/ContextPanel';
 import { HeadersConfigDialog } from './components/HeadersConfigDialog';
 import { InstanceDashboard } from './components/InstanceDashboard';
 import { NewRunDialog } from './components/NewRunDialog';
+import { PanelToggleButton } from './components/PanelToggleButton';
 import { QuickRunSidebar } from './components/QuickRunSidebar';
 import { QuickRunStatusBar } from './components/QuickRunStatusBar';
 import { QuickRunTabBar } from './components/QuickRunTabBar';
 import { ResizableHandle } from './components/ResizableHandle';
 import { TransitionDialog } from './components/TransitionDialog';
+import { useFocusInstance, type FocusRequest } from './hooks/useFocusInstance';
+import { QUICKRUN_LAYOUT_DEFAULTS, QUICKRUN_LAYOUT_KEY } from './hooks/quickRunLayout';
+import { cappedResizeDelta } from './hooks/panelLayout';
+import { usePanelLayout } from './hooks/usePanelLayout';
 import { useQuickRunPolling } from './hooks/useQuickRunPolling';
 import { useQuickRunStore } from './store/quickRunStore';
-import type { OpenFunctionRunTarget, OpenSubFlowTarget } from './types/quickrun.types';
+import type { OpenFunctionRunTarget, OpenMonitorTarget, OpenSubFlowTarget } from './types/quickrun.types';
 import { extractExecutionTypes } from './utils/executionMode';
 import { extractLabelsMap } from './utils/extractLabelsMap';
 import { checkRuntimeHealth } from '../workflow-execution/WorkflowExecutionApi';
 import { useProjectStore } from '../../store/useProjectStore';
 import { useToolHeadersStore } from '../../store/useToolHeadersStore';
+
+const DASHBOARD_MIN = 280;
+const HANDLE_WIDTH = 5;
 
 interface HealthMessage {
   type: 'quickrun:health';
@@ -68,6 +76,14 @@ interface QuickRunShellProps {
    * the Correlations tab renders without action buttons.
    */
   onOpenSubFlowTarget?: (target: OpenSubFlowTarget) => void;
+  /**
+   * Open the Instance Monitor for the active instance. Host split as for
+   * `onOpenFunctionRun`: the extension opens a panel, the web shell a route.
+   * When omitted the Monitor button is hidden.
+   */
+  onOpenMonitor?: (target: OpenMonitorTarget) => void;
+  /** Instance to bring into focus — e.g. from the monitor's Open in Quick Run. A new `nonce` re-applies it. */
+  focusRequest?: FocusRequest;
 }
 
 export function QuickRunShell({
@@ -82,6 +98,8 @@ export function QuickRunShell({
   pollingIntervalMs,
   onOpenFunctionRun,
   onOpenSubFlowTarget,
+  onOpenMonitor,
+  focusRequest,
 }: QuickRunShellProps) {
   const setWorkflowContext = useQuickRunStore((s) => s.setWorkflowContext);
   const setGlobalHeaders = useQuickRunStore((s) => s.setGlobalHeaders);
@@ -96,21 +114,43 @@ export function QuickRunShell({
   const [showHeaders, setShowHeaders] = useState(false);
   const [showBrandPalette, setShowBrandPalette] = useState(false);
   const [savedHeaders, setSavedHeaders] = useState<{ name: string; value: string; isSecret?: boolean }[]>([]);
-  const [leftWidth, setLeftWidth] = useState(220);
-  const [rightWidth, setRightWidth] = useState(320);
   const configRef = useRef<WorkflowBucketConfig>(QuickRunApi.createEmptyConfig(workflowKey));
-
-  const handleLeftResize = useCallback((delta: number) => {
-    setLeftWidth((w) => Math.max(160, Math.min(400, w + delta)));
+  const layout = usePanelLayout(QUICKRUN_LAYOUT_KEY, QUICKRUN_LAYOUT_DEFAULTS);
+  const leftOpen = layout.isOpen('left');
+  const rightOpen = layout.isOpen('right');
+  const contextPanelReveal = useQuickRunStore((s) => s.contextPanelReveal);
+  const revealSeen = useRef(contextPanelReveal);
+  const { setOpen } = layout;
+  const rowRef = useRef<HTMLDivElement>(null);
+  const layoutRef = useRef(layout);
+  layoutRef.current = layout;
+  // Keep the dashboard at least DASHBOARD_MIN wide: a side panel may grow only into the room the other panel leaves.
+  const resizeSide = useCallback((panel: 'left' | 'right', delta: number) => {
+    const current = layoutRef.current;
+    const other = panel === 'left' ? 'right' : 'left';
+    const width = rowRef.current?.clientWidth ?? 0;
+    const otherWidth = current.isOpen(other) ? current.size(other) + HANDLE_WIDTH : 0;
+    const cap = width > 0 ? Math.max(0, width - otherWidth - HANDLE_WIDTH - DASHBOARD_MIN) : Infinity;
+    current.resize(panel, cappedResizeDelta(delta, current.size(panel), cap));
   }, []);
+  const resizeLeft = useCallback((d: number) => resizeSide('left', d), [resizeSide]);
+  const resizeRight = useCallback((d: number) => resizeSide('right', d), [resizeSide]);
 
-  const handleRightResize = useCallback((delta: number) => {
-    setRightWidth((w) => Math.max(200, Math.min(500, w + delta)));
-  }, []);
+  // Any `setContextPanelTab` call brings the context panel forward; the
+  // mount value is skipped so a persisted "hidden" state survives load.
+  useEffect(() => {
+    if (revealSeen.current === contextPanelReveal) return;
+    revealSeen.current = contextPanelReveal;
+    setOpen('right', true);
+  }, [contextPanelReveal, setOpen]);
 
   useEffect(() => {
     setWorkflowContext(domain, workflowKey, environmentName, environmentUrl);
   }, [domain, workflowKey, environmentName, environmentUrl, setWorkflowContext]);
+
+  // Declared after the workflow-context effect: it keys on the store's domain /
+  // workflowKey, so it runs once the context reset above has landed.
+  useFocusInstance(focusRequest, environmentUrl);
 
   // Mirror the Forge-wide header store into `useQuickRunStore` so the
   // pseudo-ui delegate's live-getter pattern (`getBucketConfig` /
@@ -273,28 +313,64 @@ export function QuickRunShell({
             Brand JSON
           </button>
         </div>
-        <span className="text-[11px] text-[var(--vscode-descriptionForeground)]">
-          {domain}/{flowLabels?.workflowLabel ?? workflowKey}
-        </span>
+        <div className="flex items-center gap-2">
+          <PanelToggleButton side="left" open={leftOpen} onToggle={() => layout.toggle('left')} label="instances panel" />
+          <PanelToggleButton side="right" open={rightOpen} onToggle={() => layout.toggle('right')} label="context panel" />
+          <span className="text-[11px] text-[var(--vscode-descriptionForeground)]">
+            {domain}/{flowLabels?.workflowLabel ?? workflowKey}
+          </span>
+        </div>
       </div>
 
       <QuickRunTabBar />
-      <div id="quickrun-main" className="flex flex-1 min-h-0">
-        <div style={{ width: leftWidth, minWidth: 160, maxWidth: 400 }} className="flex-shrink-0">
-          <QuickRunSidebar {...(onOpenSubFlowTarget ? { onOpenSubFlowTarget } : {})} />
-        </div>
-        <ResizableHandle onResize={handleLeftResize} direction="right" />
-        <div className="flex-1 min-w-0">
+      <div id="quickrun-main" ref={rowRef} className="flex flex-1 min-h-0">
+        {leftOpen && (
+          <>
+            <div
+              style={{ width: layout.size('left') }}
+              className="flex-shrink-0 border-r border-[var(--vscode-sideBar-border,var(--vscode-panel-border,#3c3c3c))] bg-[var(--vscode-sideBar-background,#252526)]"
+            >
+              <QuickRunSidebar
+                {...(onOpenSubFlowTarget ? { onOpenSubFlowTarget } : {})}
+                {...(onOpenMonitor ? { onOpenMonitor } : {})}
+              />
+            </div>
+            <ResizableHandle
+              onResize={resizeLeft}
+              direction="right"
+              valueNow={layout.size('left')}
+              valueMin={QUICKRUN_LAYOUT_DEFAULTS.left.min}
+              valueMax={QUICKRUN_LAYOUT_DEFAULTS.left.max}
+              label="Resize instances panel"
+            />
+          </>
+        )}
+        <div className="min-w-[280px] flex-1">
           <InstanceDashboard
             configRef={configRef}
             persistConfig={persistConfig}
             onOpenFunctionRun={onOpenFunctionRun}
+            {...(onOpenMonitor ? { onOpenMonitor } : {})}
           />
         </div>
-        <ResizableHandle onResize={handleRightResize} direction="left" />
-        <div style={{ width: rightWidth, minWidth: 200, maxWidth: 500 }} className="flex-shrink-0">
-          <ContextPanel {...(onOpenSubFlowTarget ? { onOpenSubFlowTarget } : {})} />
-        </div>
+        {rightOpen && (
+          <>
+            <ResizableHandle
+              onResize={resizeRight}
+              direction="left"
+              valueNow={layout.size('right')}
+              valueMin={QUICKRUN_LAYOUT_DEFAULTS.right.min}
+              valueMax={QUICKRUN_LAYOUT_DEFAULTS.right.max}
+              label="Resize context panel"
+            />
+            <div
+              style={{ width: layout.size('right') }}
+              className="flex-shrink-0 border-l border-[var(--vscode-sideBar-border,var(--vscode-panel-border,#3c3c3c))] bg-[var(--vscode-sideBar-background,#252526)]"
+            >
+              <ContextPanel {...(onOpenSubFlowTarget ? { onOpenSubFlowTarget } : {})} />
+            </div>
+          </>
+        )}
       </div>
       <QuickRunStatusBar />
 

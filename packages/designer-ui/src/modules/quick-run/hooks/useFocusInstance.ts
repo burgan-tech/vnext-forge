@@ -1,0 +1,75 @@
+import { useEffect, useRef } from 'react';
+
+import * as QuickRunApi from '../QuickRunApi';
+import type { InstanceDetailResponse } from '../QuickRunApi';
+import { quickRunHeadersFromState } from '../pseudo-ui/mergeQuickRunHeaders';
+import { useQuickRunStore } from '../store/quickRunStore';
+import type { OpenInstanceTarget } from '../utils/instanceTarget';
+import { useOpenInstance } from './useOpenInstance';
+
+export function targetFromInstanceDetail(detail: InstanceDetailResponse, domain: string, workflowKey: string): OpenInstanceTarget {
+  return {
+    id: detail.id,
+    key: detail.key,
+    domain,
+    workflowKey,
+    status: detail.metadata.status as OpenInstanceTarget['status'],
+    ...(detail.metadata.effectiveStatus ? { effectiveStatus: detail.metadata.effectiveStatus } : {}),
+    currentState: detail.metadata.currentState,
+    startedAt: detail.metadata.createdAt,
+  };
+}
+
+/**
+ * Bring an instance into focus by id: switch to its tab, or fetch it and open one.
+ * Runs once `domain` / `workflowKey` are set in the store (after the shell's
+ * `setWorkflowContext`, which resets tabs), so a first-mount focus survives the reset.
+ */
+export interface FocusRequest {
+  instanceId: string;
+  /** Changes per request so focusing the same id again re-runs the focus. */
+  nonce: number;
+}
+
+/** True when this request's nonce was already focused to completion. */
+export function isFocusApplied(applied: number | undefined, nonce: number | undefined): boolean {
+  return nonce !== undefined && applied === nonce;
+}
+
+export function useFocusInstance(request: FocusRequest | undefined, runtimeUrl: string | undefined): void {
+  const instanceId = request?.instanceId;
+  const nonce = request?.nonce;
+  const openInstance = useOpenInstance();
+  const domain = useQuickRunStore((s) => s.domain);
+  const workflowKey = useQuickRunStore((s) => s.workflowKey);
+  // A request stays in the caller's state; without this an environment switch (runtimeUrl) re-applies it.
+  const appliedNonce = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (!instanceId || !domain || !workflowKey) return;
+    if (isFocusApplied(appliedNonce.current, nonce)) return;
+    const state = useQuickRunStore.getState();
+    if (state.instances.has(instanceId)) {
+      state.setActiveTab(instanceId);
+      appliedNonce.current = nonce;
+      return;
+    }
+    let cancelled = false;
+    void QuickRunApi.getInstance({
+      domain,
+      workflowKey,
+      instanceId,
+      // The shared Quick Run header rule, read live at focus time.
+      headers: quickRunHeadersFromState(state),
+      ...(runtimeUrl ? { runtimeUrl } : {}),
+    }).then((res) => {
+      if (cancelled || !res.success) return;
+      openInstance(targetFromInstanceDetail(res.data, domain, workflowKey));
+      // Only a completed focus counts: a cancelled run (StrictMode, env switch) must be retried.
+      appliedNonce.current = nonce;
+    });
+    return () => {
+      cancelled = true;
+    };
+    // `openInstance` changes identity with store state; re-running on it would refetch needlessly.
+  }, [instanceId, nonce, domain, workflowKey, runtimeUrl]);
+}

@@ -1,14 +1,15 @@
 import { X } from 'lucide-react';
+import type { VnextExportCategory } from '@vnext-forge-studio/app-contracts';
 import type { WorkflowMetaView, ComponentRef, TransitionView } from './view-types';
 import { Section, InfoRow, Badge, ResourceRef, LabelList } from '../components/panels/tabs/PropertyPanelShared';
 import { TransitionFields } from './TransitionFields';
 
-function RefList({ refs }: { refs: ComponentRef[] }) {
+function RefList({ refs, category }: { refs: ComponentRef[]; category: VnextExportCategory }) {
   return (
     <div className="space-y-2">
       {refs.map((r, i) => (
         <div key={i} className="rounded-xl border border-border bg-surface p-2.5">
-          <ResourceRef resource={r} />
+          <ResourceRef resource={r} category={category} />
         </div>
       ))}
     </div>
@@ -68,7 +69,7 @@ export function WorkflowMetadataInspector({ workflow: w, onClose }: WorkflowMeta
         )}
 
         {w.schema && (
-          <Section title="Schema" defaultOpen={false}><ResourceRef resource={w.schema} /></Section>
+          <Section title="Schema" defaultOpen={false}><ResourceRef resource={w.schema} category="schemas" /></Section>
         )}
 
         {w.queryRoles && w.queryRoles.length > 0 && (
@@ -99,10 +100,10 @@ export function WorkflowMetadataInspector({ workflow: w, onClose }: WorkflowMeta
         )}
 
         {w.functions && w.functions.length > 0 && (
-          <Section title="Functions" count={w.functions.length} defaultOpen={false}><RefList refs={w.functions} /></Section>
+          <Section title="Functions" count={w.functions.length} defaultOpen={false}><RefList refs={w.functions} category="functions" /></Section>
         )}
         {w.extensions && w.extensions.length > 0 && (
-          <Section title="Extensions" count={w.extensions.length} defaultOpen={false}><RefList refs={w.extensions} /></Section>
+          <Section title="Extensions" count={w.extensions.length} defaultOpen={false}><RefList refs={w.extensions} category="extensions" /></Section>
         )}
       </div>
     </div>

@@ -13,19 +13,35 @@ export interface DetailsTab {
 export interface DetailsBodyProps {
   tabs: DetailsTab[];
   initialTab?: string;
+  /** Controlled selected tab id; pair with `onTabChange` to keep the tab across unmounts. */
+  tab?: string;
+  onTabChange?: (id: string) => void;
+  /** 'panel' = docked-panel look (section-header strip, fills its parent); default is the dialog look. */
+  variant?: 'dialog' | 'panel';
 }
 
 /**
  * Tabs + content of a details dialog. Kept apart from the Radix dialog so the
  * SSR test harness (which cannot portal) can render it.
  */
-export function DetailsBody({ tabs, initialTab }: DetailsBodyProps) {
-  const [selected, setSelected] = useState(initialTab ?? tabs[0]?.id);
+export function DetailsBody({ tabs, initialTab, tab, onTabChange, variant = 'dialog' }: DetailsBodyProps) {
+  const panel = variant === 'panel';
+  const [inner, setInner] = useState(initialTab ?? tabs[0]?.id);
+  const selected = tab ?? inner;
+  const setSelected = (id: string) => {
+    setInner(id);
+    onTabChange?.(id);
+  };
   const current = tabs.find((t) => t.id === selected) ?? tabs[0];
   return (
-    <div className="flex min-h-0 flex-col gap-2">
+    <div className={`flex min-h-0 flex-col ${panel ? 'h-full' : 'gap-2'}`}>
       {tabs.length > 1 && (
-        <div className="flex flex-wrap gap-1 border-b border-[var(--vscode-panel-border)]" role="tablist">
+        <div
+          className={`flex border-b border-[var(--vscode-panel-border)] ${
+            panel ? 'shrink-0 bg-[var(--vscode-sideBarSectionHeader-background,transparent)]' : 'flex-wrap gap-1'
+          }`}
+          role="tablist"
+        >
           {tabs.map((tab) => (
             <button
               key={tab.id}
@@ -33,9 +49,11 @@ export function DetailsBody({ tabs, initialTab }: DetailsBodyProps) {
               role="tab"
               aria-selected={tab.id === current?.id}
               onClick={() => setSelected(tab.id)}
-              className={`-mb-px cursor-pointer border-b-2 px-2 py-1 text-[11px] ${
+              className={`cursor-pointer border-b-2 text-[11px] focus-visible:outline focus-visible:outline-[var(--vscode-focusBorder)] ${
+                panel ? 'flex-1 px-2 py-1.5 font-medium' : '-mb-px px-2 py-1'
+              } ${
                 tab.id === current?.id
-                  ? 'border-[var(--vscode-focusBorder)] text-[var(--vscode-foreground)]'
+                  ? `${panel ? 'border-[var(--vscode-panelTitle-activeBorder,var(--vscode-focusBorder))]' : 'border-[var(--vscode-focusBorder)]'} text-[var(--vscode-foreground)]`
                   : 'border-transparent text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]'
               }`}
             >
@@ -44,7 +62,7 @@ export function DetailsBody({ tabs, initialTab }: DetailsBodyProps) {
           ))}
         </div>
       )}
-      <div role="tabpanel" className="max-h-[60vh] min-h-0 overflow-y-auto text-[11px]">
+      <div role="tabpanel" className={`min-h-0 overflow-y-auto text-[11px] ${panel ? 'flex-1' : 'max-h-[60vh]'}`}>
         {current?.render()}
       </div>
     </div>

@@ -10,9 +10,11 @@ export interface TransitionInspectorProps {
   onClose?: () => void;
   /** Slot for execution-overlay content (instance view). */
   children?: ReactNode;
+  /** One line of execution context at the top of the body (instance view). */
+  summary?: ReactNode;
 }
 
-export function TransitionInspector({ transition, onClose, children }: TransitionInspectorProps) {
+export function TransitionInspector({ transition, onClose, children, summary }: TransitionInspectorProps) {
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-1.5 border-b border-border-subtle bg-surface px-3 py-2">
@@ -36,6 +38,7 @@ export function TransitionInspector({ transition, onClose, children }: Transitio
         )}
       </div>
       <div className="flex-1 space-y-3 overflow-y-auto p-3">
+        {summary && <div className="text-foreground text-[11px] font-medium">{summary}</div>}
         {transition.from && !transition.isStart && (
           <div className="text-muted-foreground text-[11px]">from <span className="font-mono">{transition.from}</span></div>
         )}

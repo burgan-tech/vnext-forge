@@ -8,7 +8,9 @@ import type { MessageRouter } from '../MessageRouter';
 import type { DataBucketService, WorkflowBucketConfig } from '../tools/data-bucket.service.js';
 import type { EnvironmentHealthMonitor } from '../tools/environment-health-monitor.js';
 import type { ForgeSettings, ForgeToolsSettingsService } from '../tools/forge-tools-settings.js';
+import { parseInstanceChangedMessage, parseOpenMonitorMessage } from './monitor-messages.js';
 import { parseOpenSubFlowRunMessage } from './open-subflow-run-message.js';
+import { PendingFocusStore } from './pending-focus.js';
 
 export interface QuickRunContext {
   domain: string;
@@ -47,6 +49,8 @@ interface PanelEntry {
   panel: vscode.WebviewPanel;
   webviewReady: boolean;
   pendingContext: QuickRunContext | undefined;
+  /** Focus request that arrived before the webview was ready. */
+  pendingFocusInstanceId?: string;
   /**
    * The context this panel is currently showing. Kept so a settings change can
    * re-send it — `sendContextWithPolling` needs the workflow identity, and the
@@ -61,6 +65,9 @@ export class QuickRunPanel {
   // disposables list owns the listeners attached to that single
   // panel; `onDidDispose` removes the entry and drains the list.
   private readonly panels = new Map<string, PanelEntry>();
+  private focusNonce = 0;
+  // Focus requests for a workflow whose panel is not open yet (see PendingFocusStore).
+  private readonly pendingFocus = new PendingFocusStore();
 
   constructor(
     private readonly context: vscode.ExtensionContext,
@@ -109,6 +116,7 @@ export class QuickRunPanel {
       panel,
       webviewReady: false,
       pendingContext: ctx,
+      pendingFocusInstanceId: this.pendingFocus.take(key),
       ctx,
       disposables: [],
     };
@@ -125,10 +133,20 @@ export class QuickRunPanel {
             entry.pendingContext = undefined;
           }
           this.sendCurrentHealthTo(entry);
+          if (entry.pendingFocusInstanceId) {
+            this.postFocusInstance(entry, entry.pendingFocusInstanceId);
+            entry.pendingFocusInstanceId = undefined;
+          }
+          return;
+        }
+        const changed = parseInstanceChangedMessage(raw);
+        if (changed) {
+          void vscode.commands.executeCommand('vnextForge.notifyInstanceChanged', changed);
           return;
         }
         if (this.handleOpenFunctionRunMessage(raw)) return;
         if (this.handleOpenSubFlowRunMessage(raw)) return;
+        if (this.handleOpenMonitorMessage(entry, raw)) return;
         void this.handleDataBucketMessage(entry, raw);
       }),
     );
@@ -179,6 +197,24 @@ export class QuickRunPanel {
     });
 
     panel.webview.html = this.buildHtml(panel.webview);
+  }
+
+  /** Ask an open panel to bring an instance into focus; queued until its webview is ready. */
+  focusInstance(domain: string, workflowKey: string, instanceId: string): void {
+    const key = `${domain}:${workflowKey}`;
+    const entry = this.panels.get(key);
+    if (!entry) {
+      // The panel is still being opened (openQuickRunFromFile returns first): park it for open().
+      this.pendingFocus.set(key, instanceId);
+      return;
+    }
+    if (entry.webviewReady) this.postFocusInstance(entry, instanceId);
+    else entry.pendingFocusInstanceId = instanceId;
+  }
+
+  private postFocusInstance(entry: PanelEntry, instanceId: string): void {
+    // The nonce lets the webview tell a repeat request for the same id from a stale one.
+    void entry.panel.webview.postMessage({ type: 'quickrun:focus-instance', instanceId, nonce: ++this.focusNonce });
   }
 
   dispose(): void {
@@ -255,6 +291,28 @@ export class QuickRunPanel {
       'vnextForge.openQuickRunFromFile',
       vscode.Uri.file(request.workflowFilePath),
     );
+    return true;
+  }
+
+  /**
+   * `quickrun:open-monitor` — the instance header's Monitor button. Only the
+   * instance id comes from the webview; the workflow identity, file and
+   * environment are this panel's own context.
+   */
+  private handleOpenMonitorMessage(entry: PanelEntry, raw: unknown): boolean {
+    const request = parseOpenMonitorMessage(raw);
+    if (!request) return false;
+    const ctx = entry.ctx;
+    void vscode.commands.executeCommand('vnextForge.openInstanceMonitor', {
+      domain: ctx.domain,
+      workflowKey: ctx.workflowKey,
+      instanceId: request.instanceId,
+      ...(request.instanceKey ? { instanceKey: request.instanceKey } : {}),
+      projectId: ctx.projectId,
+      workflowFilePath: ctx.projectPath,
+      ...(ctx.environmentName ? { environmentName: ctx.environmentName } : {}),
+      ...(ctx.environmentUrl ? { environmentUrl: ctx.environmentUrl } : {}),
+    });
     return true;
   }
 

@@ -4,6 +4,7 @@ import {
   componentEditorTabId,
   functionRunInstanceTabId,
   functionRunTabId,
+  monitorTabIdFromPath,
   quickRunTabId,
   vnextWorkspaceConfigTabId,
   type ComponentEditorKind,
@@ -67,6 +68,9 @@ export function activeTabIdFromPathname(projectId: string, pathname: string): st
       functionRunInstanceMatch.params.functionKey,
     );
   }
+
+  const monitorTab = monitorTabIdFromPath(projectId, pathname);
+  if (monitorTab) return monitorTab;
 
   const kinds: ComponentEditorKind[] = ['flow', 'task', 'schema', 'view', 'function', 'extension'];
   for (const kind of kinds) {

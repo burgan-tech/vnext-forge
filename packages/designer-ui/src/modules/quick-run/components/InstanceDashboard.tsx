@@ -34,6 +34,7 @@ import {
   safeViewContent,
   type AuthorizeTarget,
   type OpenFunctionRunTarget,
+  type OpenMonitorTarget,
   type TransitionInfo,
 } from '../types/quickrun.types';
 import { SchemaForm } from '../../schema-form';
@@ -55,15 +56,18 @@ import { ProgressStepper } from './ProgressStepper';
 import { RuntimeErrorBanner } from './RuntimeErrorBanner';
 import { StateTimeoutChip } from './StateTimeoutChip';
 import { StatusBadge } from './StatusBadge';
+import { OpenMonitorButton } from './OpenMonitorButton';
 
 interface InstanceDashboardProps {
   configRef: MutableRefObject<WorkflowBucketConfig>;
   persistConfig: (cfg: WorkflowBucketConfig) => void;
   /** See `QuickRunShellProps.onOpenFunctionRun`. */
   onOpenFunctionRun?: (target: OpenFunctionRunTarget) => void;
+  /** See `QuickRunShellProps.onOpenMonitor`. */
+  onOpenMonitor?: (target: OpenMonitorTarget) => void;
 }
 
-export function InstanceDashboard({ configRef, persistConfig, onOpenFunctionRun }: InstanceDashboardProps) {
+export function InstanceDashboard({ configRef, persistConfig, onOpenFunctionRun, onOpenMonitor }: InstanceDashboardProps) {
   const activeTabId = useQuickRunStore((s) => s.activeTabId);
   const instances = useQuickRunStore((s) => s.instances);
   const activeState = useQuickRunStore((s) => s.activeState);
@@ -502,6 +506,13 @@ export function InstanceDashboard({ configRef, persistConfig, onOpenFunctionRun 
                   <path d="M7.5 1a6.5 6.5 0 100 13 6.5 6.5 0 000-13zm0 12a5.5 5.5 0 110-11 5.5 5.5 0 010 11zm.5-9H7v1h1V4zm0 2H7v5h1V6z"/>
                 </svg>
               </button>
+              {onOpenMonitor && (
+                <OpenMonitorButton
+                  onClick={() =>
+                    onOpenMonitor({ domain, workflowKey, instanceId: activeInstance.id, instanceKey: activeInstance.key })
+                  }
+                />
+              )}
             </span>
             <span>STARTED {new Date(activeInstance.startedAt).toLocaleTimeString()}</span>
           </div>

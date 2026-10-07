@@ -15,6 +15,8 @@ import { baseLogger } from './shared/logger.js';
 import { DesignerPanel } from './panels/DesignerPanel.js';
 import { publishWorkflowFile } from './lib/publishWorkflowFile.js';
 import { QuickRunPanel } from './panels/QuickRunPanel.js';
+import { MonitorPanel, type MonitorContext } from './panels/MonitorPanel.js';
+import { parseInstanceChangedMessage } from './panels/monitor-messages.js';
 import { FunctionQuickRunPanel, type FunctionQuickRunContext } from './panels/FunctionQuickRunPanel.js';
 import { toFunctionMetadataFormValues } from '@vnext-forge-studio/designer-ui/function-editor-schema';
 import { VnextWorkspaceDetector, type VnextWorkspaceRoot } from './workspace-detector.js';
@@ -329,6 +331,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   const functionQuickRunPanel = new FunctionQuickRunPanel(context, router, forgeToolsSettings);
   context.subscriptions.push({ dispose: () => functionQuickRunPanel.dispose() });
 
+  const monitorPanel = new MonitorPanel(context, router, forgeToolsSettings);
+  context.subscriptions.push({ dispose: () => monitorPanel.dispose() });
+
   const envStatusBar = new EnvironmentStatusBar(forgeToolsSettings, healthMonitor);
   context.subscriptions.push(envStatusBar);
 
@@ -638,6 +643,32 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
         runtimeUrl: activeEnv?.baseUrl,
       });
     })),
+    /**
+     * Internal bridge for Quick Run's Monitor button. Registered but not
+     * contributed — it takes a structured context. `QuickRunPanel` validates
+     * the webview payload before getting here.
+     */
+    vscode.commands.registerCommand('vnextForge.openInstanceMonitor', safeAsync(async (arg) => {
+      const ctx = arg as MonitorContext | undefined;
+      if (!ctx?.domain || !ctx.workflowKey || !ctx.instanceId) return;
+      monitorPanel.open(ctx);
+    })),
+    /** Internal (not contributed): the monitor's Open in Quick Run -> focus the instance. */
+    vscode.commands.registerCommand('vnextForge.focusQuickRunInstance', (arg: unknown) => {
+      if (typeof arg !== 'object' || arg === null) return;
+      const { domain, workflowKey, instanceId } = arg as Record<string, unknown>;
+      if (typeof domain !== 'string' || domain.length === 0 || domain.length > 100) return;
+      if (typeof workflowKey !== 'string' || workflowKey.length === 0 || workflowKey.length > 200) return;
+      if (typeof instanceId !== 'string' || !/^[A-Za-z0-9-]{1,64}$/.test(instanceId)) return;
+      quickRunPanel.focusInstance(domain, workflowKey, instanceId);
+    }),
+    /** Internal (not contributed): Quick Run -> monitor live-refresh relay. */
+    vscode.commands.registerCommand('vnextForge.notifyInstanceChanged', (arg: unknown) => {
+      const event = parseInstanceChangedMessage(
+        typeof arg === 'object' && arg !== null ? { ...arg, type: 'quickrun:instance-changed' } : null,
+      );
+      if (event) monitorPanel.notifyInstanceChanged(event);
+    }),
     vscode.commands.registerCommand('vnextForge.openFunctionQuickRunFromFile', safeAsync(async (arg) => {
       const uri = asUri(arg);
       if (!uri) return;

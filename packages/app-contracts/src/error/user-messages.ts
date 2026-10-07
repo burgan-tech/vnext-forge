@@ -40,6 +40,7 @@ export const USER_MESSAGES: Partial<Record<ErrorCode, string>> = {
   RUNTIME_NOT_AVAILABLE: 'The workflow runtime is not available.',
   RUNTIME_CONNECTION_FAILED: 'Could not connect to the runtime. Please check your settings.',
   RUNTIME_EXECUTION_FAILED: 'Workflow execution failed.',
+  RUNTIME_NOT_FOUND: 'The runtime could not find the requested resource.',
   RUNTIME_TIMEOUT: 'The operation timed out.',
   RUNTIME_INVALID_RESPONSE: 'Received an unexpected response from the runtime.',
 

@@ -29,6 +29,10 @@ import {
   quickrunAcknowledgeLongPollResult,
   quickrunGetFunctionCatalogParams,
   quickrunGetFunctionCatalogResult,
+  quickrunGetDataHistoryParams,
+  quickrunGetDataHistoryResult,
+  quickrunGetDataHistoryRowParams,
+  quickrunGetDataHistoryRowResult,
   quickrunGetIncidentsParams,
   quickrunGetIncidentsResult,
   quickrunGetActiveIncidentParams,
@@ -69,7 +73,7 @@ function runtimeHttpError(data: string, status: number, source: string, traceId?
     details = { ...details, ...JSON.parse(data) }
   } catch { /* non-JSON error body */ }
   return new VnextForgeError(
-    ERROR_CODES.RUNTIME_EXECUTION_FAILED,
+    status === 404 ? ERROR_CODES.RUNTIME_NOT_FOUND : ERROR_CODES.RUNTIME_EXECUTION_FAILED,
     `Runtime returned HTTP ${status}`,
     { source, layer: 'infrastructure', details },
     traceId,
@@ -603,6 +607,53 @@ export function createQuickRunService(runtimeProxyService: RuntimeProxyService) 
     } as z.infer<typeof quickrunGetIncidentsResult>
   }
 
+  async function getDataHistory(
+    params: z.infer<typeof quickrunGetDataHistoryParams>,
+    traceId?: string,
+  ): Promise<z.infer<typeof quickrunGetDataHistoryResult>> {
+    const result = await proxyCall(
+      {
+        method: 'GET',
+        runtimePath: `${instancePath(params.domain, params.workflowKey, params.instanceId)}/data/history`,
+        query: {
+          page: String(params.page),
+          pageSize: String(params.pageSize),
+          includeData: String(params.includeData),
+        },
+        headers: params.headers,
+        runtimeUrl: params.runtimeUrl,
+      },
+      traceId,
+    )
+    const parsed = parseJsonResponse<Record<string, unknown>>(
+      result.data, result.status, 'QuickRunService.getDataHistory', traceId,
+    )
+    return {
+      items: Array.isArray(parsed.items) ? parsed.items : [],
+      page: typeof parsed.page === 'number' ? parsed.page : params.page,
+      pageSize: typeof parsed.pageSize === 'number' ? parsed.pageSize : params.pageSize,
+      hasNext: parsed.hasNext === true,
+    } as z.infer<typeof quickrunGetDataHistoryResult>
+  }
+
+  async function getDataHistoryRow(
+    params: z.infer<typeof quickrunGetDataHistoryRowParams>,
+    traceId?: string,
+  ): Promise<z.infer<typeof quickrunGetDataHistoryRowResult>> {
+    const result = await proxyCall(
+      {
+        method: 'GET',
+        runtimePath: `${instancePath(params.domain, params.workflowKey, params.instanceId)}/data/history/${encodeURIComponent(params.rowId)}`,
+        headers: params.headers,
+        runtimeUrl: params.runtimeUrl,
+      },
+      traceId,
+    )
+    return parseJsonResponse<z.infer<typeof quickrunGetDataHistoryRowResult>>(
+      result.data, result.status, 'QuickRunService.getDataHistoryRow', traceId,
+    )
+  }
+
   async function getActiveIncident(
     params: z.infer<typeof quickrunGetActiveIncidentParams>,
     traceId?: string,
@@ -744,8 +795,11 @@ export function createQuickRunService(runtimeProxyService: RuntimeProxyService) 
     const supportsTree = runtimeSupportsCorrelationTree(params.runtimeVersion)
     let source: 'instance-correlation' | 'hierarchy' = supportsTree === false ? 'hierarchy' : 'instance-correlation'
     let result = await fetchTree(source)
-    if (result.status === 404 && supportsTree === undefined) {
-      source = 'hierarchy'
+    // A runtime may report a version that disagrees with the functions it
+    // serves (e.g. 0.0.98.0 built after instance-correlation landed), so a
+    // 404 tries the other endpoint whatever the version says.
+    if (result.status === 404) {
+      source = source === 'hierarchy' ? 'instance-correlation' : 'hierarchy'
       result = await fetchTree(source)
     }
     const parsed = parseJsonResponse<Record<string, unknown>>(
@@ -848,6 +902,8 @@ export function createQuickRunService(runtimeProxyService: RuntimeProxyService) 
     acknowledgeLongPoll,
     getFunctionCatalog,
     getIncidents,
+    getDataHistory,
+    getDataHistoryRow,
     getActiveIncident,
     getTaskHistory,
     authorize,

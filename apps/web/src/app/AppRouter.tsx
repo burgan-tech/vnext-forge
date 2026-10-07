@@ -60,6 +60,9 @@ const VnextWorkspaceConfigPage = lazy(() =>
     default: m.VnextWorkspaceConfigPage,
   })),
 );
+const MonitorPage = lazy(() =>
+  import('../pages/monitor/MonitorPage').then((m) => ({ default: m.MonitorPage })),
+);
 const QuickRunPage = lazy(() =>
   import('../pages/quickrun/QuickRunPage').then((m) => ({ default: m.QuickRunPage })),
 );
@@ -154,6 +157,7 @@ export function AppRouter() {
                   <Route index element={<ProjectWorkspacePage />} />
                   <Route path="flow/:group/:name" element={<FlowEditorPage />} />
                   <Route path="quickrun/:group/:name" element={<QuickRunPage />} />
+                  <Route path="monitor/:group/:name/:instanceId" element={<MonitorPage />} />
                   <Route path="function-run/:group/:name" element={<FunctionRunPage />} />
                   {/* Opened from a running instance in Quick Run — identity in
                       the path, workflow/instance binding in the query. */}

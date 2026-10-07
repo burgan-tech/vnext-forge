@@ -22,6 +22,8 @@ export function registerQuickrunRoutes(
   app.post('/quickrun/executeFunction', (c) => helper(c, 'quickrun/executeFunction', { source: 'json' }));
   app.post('/quickrun/acknowledgeLongPoll', (c) => helper(c, 'quickrun/acknowledgeLongPoll', { source: 'json' }));
   app.post('/quickrun/getFunctionCatalog', (c) => helper(c, 'quickrun/getFunctionCatalog', { source: 'json' }));
+  app.post('/quickrun/getDataHistory', (c) => helper(c, 'quickrun/getDataHistory', { source: 'json' }));
+  app.post('/quickrun/getDataHistoryRow', (c) => helper(c, 'quickrun/getDataHistoryRow', { source: 'json' }));
   app.post('/quickrun/getIncidents', (c) => helper(c, 'quickrun/getIncidents', { source: 'json' }));
   app.post('/quickrun/getActiveIncident', (c) => helper(c, 'quickrun/getActiveIncident', { source: 'json' }));
   app.post('/quickrun/getTaskHistory', (c) => helper(c, 'quickrun/getTaskHistory', { source: 'json' }));

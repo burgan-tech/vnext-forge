@@ -8,7 +8,9 @@ export type EditorTabKind =
   /** Function Quick Runner opened from a component file (`:group/:name`). */
   | 'functionrun'
   /** Function Quick Runner opened from a live workflow instance (query-bound). */
-  | 'functionrun-instance';
+  | 'functionrun-instance'
+  /** Instance Monitor for one running instance (`:group/:name/:instanceId`). */
+  | 'monitor';
 
 /** vNext component editor türleri (URL segment ile uyumlu). */
 export type ComponentEditorKind =
@@ -57,6 +59,25 @@ export function functionRunInstanceTabId(
   functionKey: string,
 ): string {
   return `${projectId}:functionrun-instance:${domain}:${functionKey}`;
+}
+
+export function monitorTabId(projectId: string, instanceId: string): string {
+  return `${projectId}:monitor:${instanceId}`;
+}
+
+/**
+ * Monitor tab id for a `/project/:id/monitor/:group/:name/:instanceId` pathname,
+ * or null when the pathname is not that project's monitor route.
+ */
+export function monitorTabIdFromPath(projectId: string, pathname: string): string | null {
+  const parts = pathname.split('/').filter(Boolean);
+  if (parts.length !== 6 || parts[0] !== 'project' || parts[2] !== 'monitor') return null;
+  try {
+    if (decodeURIComponent(parts[1]) !== projectId) return null;
+    return monitorTabId(projectId, decodeURIComponent(parts[5]));
+  } catch {
+    return null;
+  }
 }
 
 export interface EditorTab {

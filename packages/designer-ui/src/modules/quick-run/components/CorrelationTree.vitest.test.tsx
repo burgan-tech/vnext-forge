@@ -88,6 +88,10 @@ describe('CorrelationTreeView', () => {
     expect(render({ onOpenNode: () => {} })).toContain('Actions for contract-flow');
   });
 
+  it('renders the row menu when the host can only drill', () => {
+    expect(render({ onDrillNode: () => {} })).toContain('Actions for contract-flow');
+  });
+
   it('has the toolbar, the legend and the hierarchy note', () => {
     const html = render({ tree: { ...TREE, source: 'hierarchy' } });
     for (const text of ['Expand all', 'Collapse all', 'Refresh', 'Basic tree', 'Faulted']) expect(html).toContain(text);
@@ -99,6 +103,14 @@ describe('CorrelationTreeView', () => {
 });
 
 describe('CorrelationNodeDetails', () => {
+  // Radix dropdown content is not rendered in SSR, so the drill action is asserted on the dialog body.
+  it('offers "Monitor this instance" only when the host can drill', () => {
+    const node = TREE.root.children[0];
+    const html = (props: object) => renderToStaticMarkup(createElement(CorrelationNodeDetails, { node, onOpenNode: () => {}, ...props }));
+    expect(html({})).not.toContain('Monitor this instance');
+    expect(html({ onDrillNode: () => {} })).toContain('Monitor this instance');
+  });
+
   it('lists ids with copy buttons and the open actions', () => {
     const html = renderToStaticMarkup(
       createElement(CorrelationNodeDetails, { node: TREE.root.children[0], onOpenNode: () => {} }),

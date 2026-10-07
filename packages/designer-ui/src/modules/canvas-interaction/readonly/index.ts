@@ -11,3 +11,4 @@ export { TransitionFields } from './TransitionFields';
 export { TransitionInspector, type TransitionInspectorProps } from './TransitionInspector';
 export { StateInspector, type StateInspectorProps } from './StateInspector';
 export { WorkflowMetadataInspector, type WorkflowMetadataInspectorProps } from './WorkflowMetadataInspector';
+export { ComponentLinkProvider, useComponentLinks, type ComponentLinkHandlers } from './ComponentLinkContext';

@@ -17,6 +17,7 @@
     "./project-workspace-schema": "./src/modules/project-workspace/ProjectWorkspaceSchema.ts",
     "./function-editor-schema": "./src/modules/function-editor/FunctionEditorSchema.ts",
     "./quickrun": "./src/modules/quick-run/index.ts",
+    "./monitor": "./src/modules/instance-monitor/index.ts",
     "./component-icons": "./src/assets/icons/component-badges/index.ts"
   },
   "main": "./src/index.ts",

@@ -227,6 +227,7 @@ export function workflowToReactFlow(
         transitionCount: state.transitions?.length || 0,
         hasView: !!state.view,
         hasErrorBoundary: !!state.errorBoundary,
+        hasQueryRoles: Array.isArray(state.queryRoles) && state.queryRoles.length > 0,
         hasSubFlow: !!state.subFlow,
         subFlowProcessKey: (state.subFlow as any)?.process?.key || '',
         subFlowProcessDomain: (state.subFlow as any)?.process?.domain || '',
@@ -268,6 +269,7 @@ export function workflowToReactFlow(
               transitionKey: t.key,
               triggerType: t.triggerType || 0,
               triggerKind: t.triggerKind || 0,
+              hasRule: Boolean((t as { rule?: unknown }).rule),
               isSelfLoop: true,
               ...(isSelfKeyword ? { isSelfKeyword: true } : {}),
             },
@@ -283,6 +285,7 @@ export function workflowToReactFlow(
               transitionKey: t.key,
               triggerType: t.triggerType || 0,
               triggerKind: t.triggerKind || 0,
+              hasRule: Boolean((t as { rule?: unknown }).rule),
             },
           });
         }

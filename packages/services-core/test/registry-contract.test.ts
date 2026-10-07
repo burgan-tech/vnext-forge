@@ -69,6 +69,8 @@ describe('method registry contract (R-b9 + R-a2)', () => {
         "quickrun/getActiveIncident",
         "quickrun/getCorrelationTree",
         "quickrun/getData",
+        "quickrun/getDataHistory",
+        "quickrun/getDataHistoryRow",
         "quickrun/getFunctionCatalog",
         "quickrun/getFunctionMetrics",
         "quickrun/getHistory",

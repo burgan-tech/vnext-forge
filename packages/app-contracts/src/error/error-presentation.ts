@@ -83,6 +83,7 @@ export const ERROR_PRESENTATION: Readonly<Record<ErrorCode, ErrorPresentation>> 
   [ERROR_CODES.RUNTIME_NOT_AVAILABLE]: { severity: 'warning', recovery: 'reconnect' },
   [ERROR_CODES.RUNTIME_CONNECTION_FAILED]: { severity: 'warning', recovery: 'reconnect' },
   [ERROR_CODES.RUNTIME_EXECUTION_FAILED]: { severity: 'error', recovery: 'retry' },
+  [ERROR_CODES.RUNTIME_NOT_FOUND]: { severity: 'error', recovery: 'contact-support' },
   [ERROR_CODES.RUNTIME_TIMEOUT]: { severity: 'warning', recovery: 'retry' },
   [ERROR_CODES.RUNTIME_INVALID_RESPONSE]: { severity: 'error', recovery: 'contact-support' },
 

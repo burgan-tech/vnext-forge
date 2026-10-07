@@ -31,6 +31,8 @@ export interface CorrelationTreeViewProps {
   onRefresh: () => void;
   /** Open a node's flow in its Quick Runner or the designer; omitted when the host cannot navigate. */
   onOpenNode?: (node: CorrelationTreeNode, intent: 'quickrun' | 'designer') => void;
+  /** Drill the monitor into a node's instance; omitted outside the Instance Monitor. */
+  onDrillNode?: (node: CorrelationTreeNode) => void;
 }
 
 /**
@@ -39,7 +41,7 @@ export interface CorrelationTreeViewProps {
  * Siblings in the same flow, state and status fold into "flow ×N" groups;
  * ids, timestamps and the open actions sit in a details dialog.
  */
-export function CorrelationTreeView({ tree, loading, error, onRefresh, onOpenNode }: CorrelationTreeViewProps) {
+export function CorrelationTreeView({ tree, loading, error, onRefresh, onOpenNode, onDrillNode }: CorrelationTreeViewProps) {
   const [overrides, setOverrides] = useState<Record<string, boolean>>({});
   const [focusedId, setFocusedId] = useState<string | null>(null);
   const [selected, setSelected] = useState<CorrelationTreeNode | null>(null);
@@ -152,6 +154,7 @@ export function CorrelationTreeView({ tree, loading, error, onRefresh, onOpenNod
               onToggle={(open) => setExpanded(row.id, open)}
               onActivate={() => activate(row)}
               onOpenNode={onOpenNode}
+              onDrillNode={onDrillNode}
             />
           ))}
         </ul>
@@ -168,7 +171,7 @@ export function CorrelationTreeView({ tree, loading, error, onRefresh, onOpenNod
       )}
 
       {selected && (
-        <CorrelationNodeDialog node={selected} onClose={() => setSelected(null)} onOpenNode={onOpenNode} />
+        <CorrelationNodeDialog node={selected} onClose={() => setSelected(null)} onOpenNode={onOpenNode} onDrillNode={onDrillNode} />
       )}
     </div>
   );
@@ -217,6 +220,7 @@ function TreeRowView({
   onToggle,
   onActivate,
   onOpenNode,
+  onDrillNode,
 }: {
   row: TreeRow;
   expanded: boolean;
@@ -225,6 +229,7 @@ function TreeRowView({
   onToggle: (open: boolean) => void;
   onActivate: () => void;
   onOpenNode?: CorrelationTreeViewProps['onOpenNode'];
+  onDrillNode?: CorrelationTreeViewProps['onDrillNode'];
 }) {
   const expandable = row.kind === 'group' || row.hasChildren;
   const node = row.kind === 'node' ? row.node : null;
@@ -310,7 +315,9 @@ function TreeRowView({
           {TYPE_LABEL[typeCode] ?? typeCode}
         </span>
       )}
-      {row.kind === 'node' && onOpenNode && !row.isRoot && <RowMenu node={row.node} onOpenNode={onOpenNode} />}
+      {row.kind === 'node' && (onOpenNode || onDrillNode) && !row.isRoot && (
+        <RowMenu node={row.node} {...(onOpenNode ? { onOpenNode } : {})} {...(onDrillNode ? { onDrillNode } : {})} />
+      )}
     </li>
   );
 }
@@ -318,9 +325,11 @@ function TreeRowView({
 function RowMenu({
   node,
   onOpenNode,
+  onDrillNode,
 }: {
   node: CorrelationTreeNode;
-  onOpenNode: NonNullable<CorrelationTreeViewProps['onOpenNode']>;
+  onOpenNode?: CorrelationTreeViewProps['onOpenNode'];
+  onDrillNode?: CorrelationTreeViewProps['onDrillNode'];
 }) {
   return (
     <DropdownMenu>
@@ -336,8 +345,9 @@ function RowMenu({
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" onClick={(e) => e.stopPropagation()}>
-        <DropdownMenuItem onSelect={() => onOpenNode(node, 'quickrun')}>Open Runner</DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => onOpenNode(node, 'designer')}>Open in Designer</DropdownMenuItem>
+        {onDrillNode && <DropdownMenuItem onSelect={() => onDrillNode(node)}>Monitor this instance</DropdownMenuItem>}
+        {onOpenNode && <DropdownMenuItem onSelect={() => onOpenNode(node, 'quickrun')}>Open Runner</DropdownMenuItem>}
+        {onOpenNode && <DropdownMenuItem onSelect={() => onOpenNode(node, 'designer')}>Open in Designer</DropdownMenuItem>}
         <DropdownMenuItem onSelect={() => void navigator.clipboard?.writeText(node.id)}>Copy instance ID</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
@@ -350,9 +360,11 @@ const when = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleSt
 export function CorrelationNodeDetails({
   node,
   onOpenNode,
+  onDrillNode,
 }: {
   node: CorrelationTreeNode;
   onOpenNode?: CorrelationTreeViewProps['onOpenNode'];
+  onDrillNode?: CorrelationTreeViewProps['onDrillNode'];
 }) {
   const status = node.status ? STATUS[node.status]?.label ?? node.status : null;
   return (
@@ -375,10 +387,11 @@ export function CorrelationNodeDetails({
           !node.resolved && { label: 'Not expanded', value: UNRESOLVED_REASON[node.unresolvedReason ?? ''] ?? 'Unknown reason' },
         ]}
       />
-      {onOpenNode && (
+      {(onOpenNode || onDrillNode) && (
         <div className="flex gap-2">
-          <DialogAction onClick={() => onOpenNode(node, 'quickrun')}>Open Runner</DialogAction>
-          <DialogAction onClick={() => onOpenNode(node, 'designer')}>Open in Designer</DialogAction>
+          {onDrillNode && <DialogAction onClick={() => onDrillNode(node)}>Monitor this instance</DialogAction>}
+          {onOpenNode && <DialogAction onClick={() => onOpenNode(node, 'quickrun')}>Open Runner</DialogAction>}
+          {onOpenNode && <DialogAction onClick={() => onOpenNode(node, 'designer')}>Open in Designer</DialogAction>}
         </div>
       )}
     </div>
@@ -401,10 +414,12 @@ function CorrelationNodeDialog({
   node,
   onClose,
   onOpenNode,
+  onDrillNode,
 }: {
   node: CorrelationTreeNode;
   onClose: () => void;
   onOpenNode?: CorrelationTreeViewProps['onOpenNode'];
+  onDrillNode?: CorrelationTreeViewProps['onDrillNode'];
 }) {
   return (
     <DetailsDialog
@@ -431,6 +446,14 @@ function CorrelationNodeDialog({
                     onOpenNode: (n: CorrelationTreeNode, intent: 'quickrun' | 'designer') => {
                       onClose();
                       onOpenNode(n, intent);
+                    },
+                  }
+                : {})}
+              {...(onDrillNode
+                ? {
+                    onDrillNode: (n: CorrelationTreeNode) => {
+                      onClose();
+                      onDrillNode(n);
                     },
                   }
                 : {})}
