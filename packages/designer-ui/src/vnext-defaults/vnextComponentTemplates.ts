@@ -1,3 +1,5 @@
+import { schemaRolesEnforced, type SchemaRole } from '@vnext-forge-studio/vnext-types';
+
 import type { VnextComponentType } from '../shared/projectTypes.js';
 
 export type VnextComponentJsonKind = VnextComponentType;
@@ -7,6 +9,14 @@ export interface VnextComponentJsonParams {
   domain: string;
   version?: string;
   flowVersion?: string;
+  /**
+   * Project's `vnext.config.json#schemaVersion`. Decides the schema
+   * `attributes.type`: from 0.0.56 it is an optional role, before that a
+   * required string.
+   */
+  schemaVersion?: string;
+  /** Schema role to write (0.0.56+); omitted → no role. */
+  schemaRole?: SchemaRole;
 }
 
 /**
@@ -17,7 +27,7 @@ export function buildVnextComponentJson(
   kind: VnextComponentJsonKind,
   params: VnextComponentJsonParams,
 ): Record<string, unknown> {
-  const { key, domain, version = '1.0.0', flowVersion = '1.0.0' } = params;
+  const { key, domain, version = '1.0.0', flowVersion = '1.0.0', schemaVersion, schemaRole } = params;
   const defaultTag = key;
 
   switch (kind) {
@@ -74,7 +84,7 @@ export function buildVnextComponentJson(
         flowVersion,
         tags: [defaultTag],
         attributes: {
-          type: 'schema',
+          ...schemaTypeAttribute(schemaVersion, schemaRole),
           schema: {
             $schema: 'https://json-schema.org/draft/2020-12/schema',
             $id: `https://${domain}/schemas/${key}`,
@@ -173,4 +183,17 @@ export function buildVnextComponentJson(
       throw new Error(`Unknown vNext component kind: ${k}`);
     }
   }
+}
+
+/**
+ * `attributes.type` for a new schema component. 0.0.56+ pins get the role (or
+ * no type); older pins need a non-empty string, and `master` is the only value
+ * with behaviour there.
+ */
+export function schemaTypeAttribute(
+  schemaVersion: string | undefined,
+  role: SchemaRole | undefined,
+): { type?: string } {
+  if (schemaRolesEnforced(schemaVersion)) return role ? { type: role } : {};
+  return { type: role === 'master' ? 'master' : 'schema' };
 }

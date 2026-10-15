@@ -1,5 +1,6 @@
 import { ERROR_CODES, VnextForgeError } from '@vnext-forge-studio/app-contracts'
 import type { VnextComponentsByCategory, VnextExportCategory } from '@vnext-forge-studio/app-contracts'
+import type { SchemaRole } from '@vnext-forge-studio/vnext-types'
 import type { z } from 'zod'
 
 import type {
@@ -18,6 +19,7 @@ import {
 
 import { CONFIG_FILE } from '../workspace/constants.js'
 import { applySchemaVersionToPackageJson } from '../workspace/schema-version-sync.js'
+import { collectSchemaRoleUsages, inferSchemaRole, readScannedComponents } from '../workspace/schema-roles.js'
 import { resolvePackageJsonPath, scanSolutionRoot } from '../workspace/solution-files.js'
 import type {
   VnextWorkspaceConfig,
@@ -1049,7 +1051,33 @@ export function createProjectService(deps: ProjectServiceDeps) {
     return scanVnextComponents(fs, projectPath, paths, { onlyCategory: input.category })
   }
 
+  /**
+   * Role a schema should carry, inferred from where the project's components
+   * reference it (see `schema-roles.ts`); `''` when it is referenced in
+   * several roles or nowhere. `referrers` are project-relative POSIX paths.
+   */
+  async function inferSchemaRoleForPath(
+    id: string,
+    schemaPath: string,
+    traceId?: string,
+  ): Promise<{ role: SchemaRole | ''; referrers: string[] }> {
+    const { projectPath, configFileName } = await resolveProjectPath(id, traceId)
+    const status = await workspaceService.readConfigStatus(projectPath, traceId, { configFileName })
+    if (status.status !== 'ok') return { role: '', referrers: [] }
+    const root = toPosix(projectPath).replace(/\/+$/, '')
+    const target = toPosix(isAbsolutePosix(toPosix(schemaPath)) ? schemaPath : joinPosix(root, schemaPath))
+    const { components } = await readScannedComponents(fs, projectPath, [
+      { paths: status.config.paths, schemaVersion: status.config.schemaVersion },
+    ])
+    const usages = collectSchemaRoleUsages(components).get(target)
+    return {
+      role: inferSchemaRole(usages),
+      referrers: [...new Set((usages ?? []).map((usage) => relativePosix(root, usage.referrer)))],
+    }
+  }
+
   return {
+    inferSchemaRoleForPath,
     listProjects,
     getProject,
     createProject,

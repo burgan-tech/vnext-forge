@@ -287,6 +287,7 @@ export function TransitionDialogsHost({
         open={schemaCreatorForIndex != null}
         onOpenChange={(open) => { if (!open) setSchemaCreatorForIndex(null); }}
         category="schemas"
+        schemaRole="transition"
         onCreated={handleSchemaCreated}
       />
       <ChooseExistingTaskDialog

@@ -7,7 +7,7 @@
   "flowVersion": "1.0.0",
   "tags": [],
   "attributes": {
-    "type": "schema",
+    "type": "master",
     "schema": {
       "$schema": "https://json-schema.org/draft/2020-12/schema",
       "$id": "https://openbanking/schemas/example-component",

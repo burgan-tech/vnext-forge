@@ -1,8 +1,14 @@
+import type { SchemaRole } from '@vnext-forge-studio/vnext-types';
+
+import { schemaTypeAttribute } from '../../../../../vnext-defaults/vnextComponentTemplates.js';
+
 export type SupportedCategory = 'schemas' | 'views' | 'extensions' | 'functions';
 
 export interface NewComponentTemplateOptions {
-  /** `attributes.type` of a new schema; defaults to `workflow` (previous behaviour). */
-  schemaType?: string;
+  /** Role of a new schema, from the slot it is created for; omitted → no role. */
+  schemaRole?: SchemaRole;
+  /** Project's pinned vnext-schema; decides role vs legacy `attributes.type`. */
+  schemaVersion?: string;
 }
 
 export interface NewComponentCategoryMeta {
@@ -24,7 +30,7 @@ export const CREATE_NEW_COMPONENT_META: Record<SupportedCategory, NewComponentCa
       flowVersion: '1.0.0',
       tags: [domain, 'sys-schemas'],
       attributes: {
-        type: options?.schemaType ?? 'workflow',
+        ...schemaTypeAttribute(options?.schemaVersion, options?.schemaRole),
         schema: {
           $schema: 'https://json-schema.org/draft/2020-12/schema',
           $id: `urn:vnext:${key}`,

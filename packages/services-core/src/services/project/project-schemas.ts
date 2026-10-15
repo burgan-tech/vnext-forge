@@ -227,3 +227,15 @@ export const vnextComponentsListResult = z.object({
 
 export const vnextCategoryListParams = projectIdParam
 export const vnextCategoryListResult = z.array(vnextComponentRowShape)
+
+export const vnextSchemasInferRoleParams = z.object({
+  id: z.string().min(1, 'Project id is required'),
+  /** Schema file path (absolute, or relative to the project root). */
+  path: z.string().min(1, 'Schema path is required'),
+})
+
+export const vnextSchemasInferRoleResult = z.object({
+  role: z.enum(['', 'master', 'transition', 'component', 'function']),
+  /** Project-relative paths of the components that reference the schema. */
+  referrers: z.array(z.string()),
+})

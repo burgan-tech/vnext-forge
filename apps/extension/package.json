@@ -160,6 +160,11 @@
         "category": "Forge"
       },
       {
+        "command": "vnextForge.fixLegacySchemaTypes",
+        "title": "Fix Legacy Schema Types",
+        "category": "Forge"
+      },
+      {
         "command": "vnextForge.forgeCreateWorkflow",
         "title": "Forge: Workflow Create",
         "category": "Forge"
@@ -670,6 +675,10 @@
         },
         {
           "command": "vnextForge.createComponent",
+          "when": "vnextForge.isVnextWorkspace"
+        },
+        {
+          "command": "vnextForge.fixLegacySchemaTypes",
           "when": "vnextForge.isVnextWorkspace"
         },
         {

@@ -215,7 +215,7 @@ export function useProjectWorkspace() {
       if (!key.trim()) {
         return fail('Invalid file name.', 'warning');
       }
-      const body = buildVnextComponentJson(kind, { key, domain });
+      const body = buildVnextComponentJson(kind, { key, domain, schemaVersion: vnextConfig.schemaVersion });
       const target = `${parentPath.replace(/\/+$/, '')}/${fileName}`;
       const w = await writeFile(target, JSON.stringify(body, null, 2));
       if (isFailure(w)) {

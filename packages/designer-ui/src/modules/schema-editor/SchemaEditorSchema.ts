@@ -33,9 +33,10 @@ export const schemaEditorDocumentSchema = z
     attributes: z
       .object({
         /**
-         * Free-text schema purpose (vnext-schema master). Only `master` permits
-         * `x-indexed`. Kept permissive here so a legacy file with a wrong type
-         * still opens for repair; the UI reads it via `readSchemaAttributesType`.
+         * Schema role (vnext-schema ≥ 0.0.56: master / transition / component /
+         * function, or absent). Kept permissive here so a legacy file with a
+         * wrong type still opens for repair; the UI reads it via
+         * `readSchemaAttributesType`.
          */
         type: z.unknown().optional(),
         schema: schemaNodeSchema,
@@ -99,7 +100,7 @@ export function assertSchemaEditorDocument(
 /** The only `attributes.type` value that permits `x-indexed` (runtime + vnext-schema master). */
 export const MASTER_SCHEMA_TYPE = 'master';
 
-/** Suggestions for the free-text `attributes.type` combobox (D1). */
+/** Suggestions for the free-text `attributes.type` combobox on pins below 0.0.56 (D1). */
 export const SCHEMA_TYPE_SUGGESTIONS = [MASTER_SCHEMA_TYPE, 'schema', 'view', 'headers'] as const;
 
 /** `attributes.type` when it is a string, otherwise `undefined`. */
@@ -114,13 +115,18 @@ export function readSchemaAttributesType(
   return typeof type === 'string' ? type : undefined;
 }
 
-/** Write `attributes.type` on an Immer draft, creating `attributes` when missing. */
+/**
+ * Write `attributes.type` on an Immer draft, creating `attributes` when
+ * missing. `''` removes the key: the docs say to omit the type for a schema
+ * with no role.
+ */
 export function setSchemaAttributesType(draft: Record<string, unknown>, value: string): void {
   const current = draft.attributes;
   const attributes =
     current && typeof current === 'object' && !Array.isArray(current)
       ? (current as Record<string, unknown>)
       : {};
-  attributes.type = value;
+  if (value === '') delete attributes.type;
+  else attributes.type = value;
   draft.attributes = attributes;
 }

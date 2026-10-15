@@ -6,12 +6,12 @@ import { useProjectStore } from '../../../../../store/useProjectStore';
 import { ChooseExistingVnextComponentDialog } from '../tabs/ChooseExistingTaskDialog';
 import { CreateNewComponentDialog } from '../tabs/CreateNewComponentDialog';
 import { OpenVnextComponentInModalButton } from '../../../../save-component/components/OpenVnextComponentInModalButton';
-import { MASTER_SCHEMA_TYPE } from '../../../../schema-editor/SchemaEditorSchema';
 import { indexTypeMismatch } from '../../../../schema-editor/model/indexEligibility';
 import { readSchemaReference } from '../../../../vnext-workspace/loadSchemaComponent';
 import { useSchemaComponentJson } from '../../../../vnext-workspace/useSchemaComponentJson';
 import { MetadataSection } from './MetadataSection';
 import { SchemaIndexTypeWarning } from './SchemaIndexTypeWarning';
+import { SchemaRoleWarning } from './SchemaRoleWarning';
 
 export function WorkflowSchemaSection() {
   const { workflowJson, updateWorkflow } = useWorkflowStore();
@@ -93,6 +93,7 @@ export function WorkflowSchemaSection() {
         {schema?.key && referencedSchema ? (
           <SchemaIndexTypeWarning schemaKey={schema.key} mismatch={indexTypeMismatch(referencedSchema)} />
         ) : null}
+        {schema?.key ? <SchemaRoleWarning schemaRef={schema} expectedRole="master" /> : null}
 
         <div className="flex flex-wrap items-center gap-3 pt-0.5">
           <button
@@ -121,7 +122,7 @@ export function WorkflowSchemaSection() {
         open={createOpen}
         onOpenChange={setCreateOpen}
         category="schemas"
-        schemaType={MASTER_SCHEMA_TYPE}
+        schemaRole="master"
         onCreated={setSchema}
       />
     </MetadataSection>

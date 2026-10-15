@@ -37,6 +37,8 @@ import {
   vnextCategoryListResult,
   vnextComponentsListParams,
   vnextComponentsListResult,
+  vnextSchemasInferRoleParams,
+  vnextSchemasInferRoleResult,
 } from '../services/project/project-schemas.js'
 import {
   cliCheckParams,
@@ -578,6 +580,14 @@ export function buildMethodRegistry(): MethodRegistry {
         )
         return components.mappings
       },
+    },
+    'vnext/schemas/inferRole': {
+      paramsSchema: vnextSchemasInferRoleParams,
+      resultSchema: vnextSchemasInferRoleResult,
+      // Schema editor role suggestion (vnext-schema 0.0.56): reads the
+      // project's components to see where the schema is referenced.
+      handler: async ({ id, path }, { projectService }, traceId) =>
+        projectService.inferSchemaRoleForPath(id, path, traceId),
     },
 
     // ── templates ────────────────────────────────────────────────────────────

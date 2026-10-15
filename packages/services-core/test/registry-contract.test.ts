@@ -110,6 +110,7 @@ describe('method registry contract (R-b9 + R-a2)', () => {
         "vnext/extensions/list",
         "vnext/functions/list",
         "vnext/mappings/list",
+        "vnext/schemas/inferRole",
         "vnext/schemas/list",
         "vnext/tasks/list",
         "vnext/views/list",

@@ -40,6 +40,7 @@ export type MethodId =
   | 'vnext/tasks/list'
   | 'vnext/workflows/list'
   | 'vnext/schemas/list'
+  | 'vnext/schemas/inferRole'
   | 'vnext/views/list'
   | 'vnext/functions/list'
   | 'vnext/extensions/list'
@@ -130,6 +131,7 @@ export const METHOD_HTTP_METADATA: Readonly<Record<MethodId, MethodHttpSpec>> = 
   'vnext/tasks/list': { verb: 'GET', paramSource: 'query' },
   'vnext/workflows/list': { verb: 'GET', paramSource: 'query' },
   'vnext/schemas/list': { verb: 'GET', paramSource: 'query' },
+  'vnext/schemas/inferRole': { verb: 'GET', paramSource: 'query' },
   'vnext/views/list': { verb: 'GET', paramSource: 'query' },
   'vnext/functions/list': { verb: 'GET', paramSource: 'query' },
   'vnext/extensions/list': { verb: 'GET', paramSource: 'query' },
