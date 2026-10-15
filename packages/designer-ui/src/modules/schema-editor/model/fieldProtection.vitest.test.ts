@@ -13,6 +13,13 @@ describe('fieldProtectionIssues (runtime 0.0.99 publish rules)', () => {
     expect(fieldProtectionIssues(json, at('iban'), 'x-masking')).toEqual([]);
   });
 
+  it('applies no at-rest rule to client encryption', () => {
+    const json = component({
+      pin: { type: 'integer', 'x-sortable': true, 'x-encryption': { source: 'client', key: 'k', algorithm: 'RSA-OAEP-256' } },
+    });
+    expect(fieldProtectionIssues(json, at('pin'), 'x-encryption')).toEqual([]);
+  });
+
   it('accepts a nullable string', () => {
     const json = component({ iban: { type: ['string', 'null'], 'x-encryption': { type: 'encrypt' } } });
     expect(fieldProtectionIssues(json, at('iban'), 'x-encryption')).toEqual([]);

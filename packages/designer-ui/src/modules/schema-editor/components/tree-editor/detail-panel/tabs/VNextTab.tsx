@@ -1,19 +1,14 @@
-import type { SchemaRole } from '@vnext-forge-studio/vnext-types';
-
-import { useProjectStore } from '../../../../../../store/useProjectStore';
 import { useFormReadOnly } from '../../../../../../ui/FormReadOnlyContext';
 import { ROOT_POINTER, type JsonPointer } from '../../../../model/jsonPointer';
 import { setKeyword } from '../../../../model/mutators';
-import {
-  classifySchemaType,
-  roleAllowsKeyword,
-  roleKeywordViolation,
-  schemaRolesEnforced,
-} from '../../../../model/schemaRoles';
+import { roleAllowsKeyword, roleKeywordViolation } from '../../../../model/schemaRoles';
 import { useSchemaNode } from '../../../../hooks/useSchemaNode';
-import { readSchemaAttributesType } from '../../../../SchemaEditorSchema';
+import { useSchemaRole } from '../../../../hooks/useSchemaRole';
 import { useSchemaEditorStore } from '../../../../useSchemaEditorStore';
 import { VNEXT_CARD_REGISTRY } from '../../vnext/vnextCardRegistry';
+
+/** Old annotations 0.0.56 refuses whatever the role (see `schemaRoles`). */
+const REMOVED_ANNOTATIONS = new Set(['x-persistance', 'x-encrypt']);
 
 interface VNextTabProps {
   pointer: JsonPointer;
@@ -56,12 +51,12 @@ export function VNextTab({ pointer }: VNextTabProps) {
     ? scopedCards.filter(({ xKey }) => roleAllowsKeyword(role, xKey) || node[xKey] !== undefined)
     : scopedCards;
   const hiddenKeys = scopedCards.filter((card) => !visibleCards.includes(card)).map(({ xKey }) => xKey);
-  const violations = role
-    ? Object.entries(node)
-        .filter(([key]) => key.startsWith('x-'))
-        .map(([key, value]) => ({ key, message: roleKeywordViolation(role, key, value) }))
-        .filter((v): v is { key: string; message: string } => v.message !== null)
-    : [];
+  // Role-gated annotations are judged only when the schema has a role;
+  // removed annotations (x-persistance, x-encrypt) are flagged regardless.
+  const violations = Object.entries(node)
+    .filter(([key]) => key.startsWith('x-') && (role !== undefined || REMOVED_ANNOTATIONS.has(key)))
+    .map(([key, value]) => ({ key, message: roleKeywordViolation(role, key, value) }))
+    .filter((v): v is { key: string; message: string } => v.message !== null);
 
   // Read-only hosts render EVERY scoped card — set ones expanded with their
   // content, unset ones collapsed with a "Not set" badge — so reviewers can
@@ -98,16 +93,4 @@ export function VNextTab({ pointer }: VNextTabProps) {
       ) : null}
     </div>
   );
-}
-
-/**
- * The open schema's role when the project's vnext-schema enforces roles;
- * `undefined` for untyped or legacy-typed schemas and for older pins.
- */
-function useSchemaRole(): SchemaRole | undefined {
-  const componentJson = useSchemaEditorStore((s) => s.componentJson);
-  const schemaVersion = useProjectStore((s) => s.vnextConfig?.schemaVersion);
-  if (!schemaRolesEnforced(schemaVersion)) return undefined;
-  const type = classifySchemaType(readSchemaAttributesType(componentJson));
-  return type.kind === 'role' ? type.role : undefined;
 }

@@ -98,3 +98,10 @@ describe('schemaRoleSlotMismatch', () => {
     expect(schemaRoleSlotMismatch('workflow', 'master')).toContain('"workflow" is a legacy value; set it to master');
   });
 });
+
+describe('removed annotations', () => {
+  it('are refused in every role and on untyped schemas', () => {
+    expect(roleKeywordViolation(undefined, 'x-persistance', {})).toContain('use x-storage');
+    expect(roleKeywordViolation('master', 'x-encrypt', {})).toContain('use x-encryption');
+  });
+});

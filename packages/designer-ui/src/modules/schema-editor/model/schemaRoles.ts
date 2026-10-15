@@ -70,6 +70,12 @@ const ROLE_KEYWORDS: Record<SchemaRole, ReadonlySet<string>> = {
   component: new Set([...BASE_KEYWORDS, 'x-binding']),
 };
 
+/** Removed annotations every 0.0.56 role refuses (old spellings of x-storage / x-encryption). */
+const REMOVED_KEYWORDS: Readonly<Record<string, string>> = {
+  'x-persistance': 'x-persistance was removed; use x-storage on a master schema for file fields.',
+  'x-encrypt': 'x-encrypt was removed; use x-encryption.',
+};
+
 /** Input roles accept only the client form of `x-encryption`. */
 function isClientEncryption(value: unknown): boolean {
   return (
@@ -86,6 +92,7 @@ function isClientEncryption(value: unknown): boolean {
  * `undefined` role = untyped schema.
  */
 export function roleAllowsKeyword(role: SchemaRole | undefined, xKey: string, value?: unknown): boolean {
+  if (REMOVED_KEYWORDS[xKey]) return false;
   if (!role) return xKey !== 'x-indexed';
   if (!ROLE_KEYWORDS[role].has(xKey)) return false;
   if (xKey === 'x-encryption' && (role === 'transition' || role === 'function') && value !== undefined) {
@@ -109,6 +116,7 @@ export function roleKeywordViolation(
   value: unknown,
 ): string | null {
   if (roleAllowsKeyword(role, xKey, value)) return null;
+  if (REMOVED_KEYWORDS[xKey]) return REMOVED_KEYWORDS[xKey];
   if (!role) return `${xKey} needs the master role.`;
   if (xKey === 'x-encryption' && ROLE_KEYWORDS[role].has(xKey)) {
     return `A ${role} schema accepts only client encryption (source: "client").`;

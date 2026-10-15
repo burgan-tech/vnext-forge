@@ -67,7 +67,9 @@ Her faz ayrı commit/PR olabilir; F0 diğer her şeyin ön koşulu.
    - `XOrderCard` + view-hints kartları (`x-helpText`, `x-placeholder` localized; `x-uiHint`, `x-uiNote`, `x-group` string) — tek generic "View hints" kartı olarak gruplanabilir.
 3. `RECOGNIZED_VNEXT_KEYWORDS` güncelle; `x-persistance` / `x-encrypt` görülürse "her rolde reddedilir" uyarısı.
 4. Property ağacında rozetler: 📎 storage, ƒ computed (IndexBadge benzeri).
-5. QuickRun form/pseudo-ui: `x-order` sıralaması, `x-helpText/x-placeholder` gösterimi; `evaluatedBy: client` x-computed'ın form önizlemesinde canlı hesaplanması (opsiyonel, karar 3).
+5. QuickRun schema-form: `x-order` sıralaması ve `description` yoksa `x-helpText` gösterimi. Computed alanlar QuickRun formlarında görünmez (formlar transition/start şemalarından üretilir; paket bu rollerde `x-computed`'ı reddeder), bu yüzden salt-okur render gerekmedi.
+
+**F2 durumu (2026-10-15):** tamamlandı. Ek bulgular: `x-errorMessages` kartı vocabulary'nin reddettiği `type` anahtarını öneriyordu (kaldırıldı, mevcutlar işaretleniyor); filter listesi array değerleri sessizce siliyordu (artık liste literal'i destekleniyor); `x-conditional` operatörleri zaten günceldi; `x-persistance` / `x-encrypt` rolden bağımsız işaretleniyor.
 
 ### F3 — `history: none`
 1. `vnext-types` workflow attributes'a `history?: 'none' | 'full'`; `WorkflowMetadataPanel`'de select (≥0.0.56 gate).

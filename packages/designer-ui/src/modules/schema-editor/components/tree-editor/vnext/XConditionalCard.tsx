@@ -80,7 +80,7 @@ function getGroupOp(value: unknown): GroupOp | null {
   return null;
 }
 
-function defaultLeaf(): Record<string, unknown> {
+export function defaultLeaf(): Record<string, unknown> {
   return { field: '', operator: 'equals', value: '' };
 }
 
@@ -208,7 +208,8 @@ interface ExpressionEditorProps {
   depth: number;
 }
 
-function ExpressionEditor({ value, onChange, depth }: ExpressionEditorProps) {
+/** Condition editor (leaf or allOf / anyOf / not group); also used by x-computed `when`. */
+export function ExpressionEditor({ value, onChange, depth }: ExpressionEditorProps) {
   const groupOp = getGroupOp(value);
 
   if (groupOp !== null) {

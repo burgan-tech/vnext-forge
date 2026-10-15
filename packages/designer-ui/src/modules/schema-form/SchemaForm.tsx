@@ -33,6 +33,7 @@ import type {
   SchemaFieldContext,
 } from './types';
 import { validateAgainstSchema } from './validateSchema';
+import { orderedPropertyEntries } from './presentationHints';
 
 interface SchemaFormCommonProps {
   /** JSON Schema root. When `null` / undefined the form falls back to JSON. */
@@ -228,7 +229,7 @@ function SchemaFormCore({
     () => new Set(schema?.required ?? []),
     [schema?.required],
   );
-  const propEntries = Object.entries(properties);
+  const propEntries = orderedPropertyEntries(properties);
 
   const errors = useMemo<FieldErrorMap>(
     () => validateAgainstSchema(schema ?? undefined, objectValue),

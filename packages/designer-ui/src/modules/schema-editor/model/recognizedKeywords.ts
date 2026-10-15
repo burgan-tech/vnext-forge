@@ -77,6 +77,14 @@ export const RECOGNIZED_VNEXT_KEYWORDS = new Set<string>([
   'x-validation',
   'x-context-source',
   'x-context-target',
+  'x-storage',
+  'x-computed',
+  'x-order',
+  'x-group',
+  'x-helpText',
+  'x-placeholder',
+  'x-uiHint',
+  'x-uiNote',
 ]);
 
 export function isRecognizedKeyword(key: string): boolean {

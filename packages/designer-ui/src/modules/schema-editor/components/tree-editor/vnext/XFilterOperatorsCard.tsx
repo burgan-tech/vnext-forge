@@ -25,9 +25,10 @@ interface XFilterOperatorsCardProps {
 /**
  * `x-filterOperators` lists the filter operators the runtime accepts for this
  * field, in runtime spelling (`eq neq gt gte lt lte between contains startsWith
- * endsWith in nin includes isNull`). Legacy spellings (`ge`, `like`, …) are shown
- * as their runtime equivalent and rewritten only on the next user change; values
- * Forge does not know are kept verbatim.
+ * endsWith in nin includes isNull`). vnext-schema 0.0.56 and runtime 0.0.100
+ * refuse anything else — legacy query tokens (`ge`, `like`, …), case variants and
+ * unknown values — so those are shown as an error with a one-click fix. Nothing
+ * is rewritten without a user action.
  */
 export function XFilterOperatorsCard({ pointer }: XFilterOperatorsCardProps) {
   const readOnly = useFormReadOnly();
@@ -36,6 +37,12 @@ export function XFilterOperatorsCard({ pointer }: XFilterOperatorsCardProps) {
   const { enabled, toggle } = useVNextEnabled(pointer, 'x-filterOperators', DEFAULT_VALUE);
   const { known, unknown: preserved, legacy } = splitOperators(node?.['x-filterOperators']);
   const selected = new Set<string>(known);
+
+  const invalid = legacy.length > 0 || preserved.length > 0;
+
+  function fixInvalid(): void {
+    updateComponent(setKeyword(pointer, 'x-filterOperators', mergeOperators(new Set(known), [])));
+  }
 
   function setOperator(op: FilterOperator, on: boolean): void {
     const next = new Set<string>(known);
@@ -50,7 +57,25 @@ export function XFilterOperatorsCard({ pointer }: XFilterOperatorsCardProps) {
       title="Filter operators"
       purpose="Operators the runtime accepts when instances are filtered by this field. Turn off the card to remove all operators (field becomes unfilterable)."
       enabled={enabled}
-      onToggle={toggle}>
+      onToggle={toggle}
+      error={
+        invalid ? (
+          <span className="flex flex-wrap items-center gap-2">
+            <span>
+              The runtime rejects these at publish:{' '}
+              <span className="font-mono">
+                {[...legacy.map((l) => `${l.raw} (use ${l.normalized})`), ...preserved].join(', ')}
+              </span>
+              .
+            </span>
+            {readOnly ? null : (
+              <button type="button" onClick={fixInvalid} className="cursor-pointer font-semibold underline">
+                {preserved.length > 0 ? 'Use runtime names and drop unknown values' : 'Use runtime names'}
+              </button>
+            )}
+          </span>
+        ) : undefined
+      }>
       <div className="space-y-2">
         {FILTER_OPERATOR_CATEGORIES.map((category) => {
           const ops = FILTER_OPERATORS.filter((o) => o.category === category);
@@ -95,18 +120,6 @@ export function XFilterOperatorsCard({ pointer }: XFilterOperatorsCardProps) {
           );
         })}
       </div>
-      {legacy.length > 0 && (
-        <p className="mt-2 text-[10px] text-muted-foreground">
-          Shown with runtime names:{' '}
-          <span className="font-mono">{legacy.map((l) => `${l.raw} → ${l.normalized}`).join(', ')}</span>.
-          They are saved with these names on your next change.
-        </p>
-      )}
-      {preserved.length > 0 && (
-        <p className="mt-2 text-[10px] text-muted-foreground">
-          Also kept: <span className="font-mono">{preserved.join(', ')}</span>
-        </p>
-      )}
     </VNextCardShell>
   );
 }

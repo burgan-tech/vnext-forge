@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { normalizeRoleEntries } from './RoleGrantListEditor';
-import { withEncryptionType } from './XEncryptionCard';
+import { withEncryptionSource, withEncryptionType } from './XEncryptionCard';
 import { withMaskingOperator } from './XMaskingCard';
 
 describe('normalizeRoleEntries', () => {
@@ -42,5 +42,22 @@ describe('withMaskingOperator', () => {
       params: { value: '***' },
     });
     expect(withMaskingOperator({ operator: 'replace', params: { value: 'x' } }, 'mask')).toEqual({ operator: 'mask' });
+  });
+});
+
+describe('withEncryptionSource', () => {
+  it('rebuilds a runtime rule as a client rule, keeping only purpose', () => {
+    expect(withEncryptionSource({ type: 'encrypt', roles: [{ role: 'a', grant: 'allow' }], purpose: 'PII' }, 'client')).toEqual({
+      source: 'client',
+      key: '',
+      algorithm: 'HPKE-P256-SHA256-AES128GCM',
+      purpose: 'PII',
+    });
+  });
+
+  it('writes runtime without an explicit source', () => {
+    expect(withEncryptionSource({ source: 'client', key: 'k', algorithm: 'RSA-OAEP-256' }, 'runtime')).toEqual({
+      type: 'encrypt',
+    });
   });
 });

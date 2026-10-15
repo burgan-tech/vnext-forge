@@ -5,12 +5,23 @@ import { Checkbox } from '../../../../../ui/Checkbox';
 import { Field } from '../../../../../ui/Field';
 import { useFormReadOnly } from '../../../../../ui/FormReadOnlyContext';
 import { Input } from '../../../../../ui/Input';
+import { CommaListInput, parseCommaList } from './CommaListInput';
 
 export interface FilterEntry {
+  /** Request parameter; may carry a list-query operator (`status:in`). */
   param: string;
-  value: string;
+  /** A literal or `$form.` / `$instance.` / `$param.` reference; a literal list reaches `in` / `nin`. */
+  value: string | unknown[];
   required: boolean;
 }
+
+/** Text shown for a list literal: comma-separated items. */
+function listToText(value: unknown[]): string {
+  return value.map((item) => (typeof item === 'string' ? item : JSON.stringify(item))).join(', ');
+}
+
+/** Comma-separated text → list literal (blank items dropped). */
+export const textToList = parseCommaList;
 
 interface FilterListEditorProps {
   filters: FilterEntry[];
@@ -19,10 +30,10 @@ interface FilterListEditorProps {
 
 /**
  * Lightweight list editor for the `filter` arrays inside `x-lov` and
- * `x-lookup`. Each entry binds a request parameter name to a JSONPath
- * (or literal) value sourced from the surrounding form context, with an
- * optional "required" flag that delays the request until the value is
- * available.
+ * `x-lookup`. Each entry binds a request parameter name (optionally with an
+ * operator, `status:in`) to a literal, a literal list, or a `$form.` /
+ * `$instance.` / `$param.` reference, with an optional "required" flag that
+ * delays the request until the value is available.
  */
 export function FilterListEditor({ filters, onChange }: FilterListEditorProps) {
   const readOnly = useFormReadOnly();
@@ -49,8 +60,8 @@ export function FilterListEditor({ filters, onChange }: FilterListEditorProps) {
         filters.map((entry, index) => (
           <div
             key={index}
-            className="grid gap-2 rounded-md border border-primary-border bg-primary-muted/40 px-3 py-2 sm:grid-cols-[1fr_2fr_auto_auto]">
-            <Field label="Param">
+            className="grid gap-2 rounded-md border border-primary-border bg-primary-muted/40 px-3 py-2 sm:grid-cols-[1fr_2fr_auto_auto_auto]">
+            <Field label="Param" hint="Add :in, :gte… for an operator.">
               <Input
                 type="text"
                 value={entry.param}
@@ -59,15 +70,49 @@ export function FilterListEditor({ filters, onChange }: FilterListEditorProps) {
                 inputClassName="font-mono text-xs"
               />
             </Field>
-            <Field label="Value">
-              <Input
-                type="text"
-                value={entry.value}
-                onChange={(event) => updateEntry(index, { value: event.target.value })}
-                placeholder="$form.city"
-                inputClassName="font-mono text-xs"
-              />
+            <Field label={Array.isArray(entry.value) ? 'Values (comma-separated)' : 'Value'}>
+              {Array.isArray(entry.value) ? (
+                <CommaListInput
+                  value={entry.value}
+                  onCommit={(value) => updateEntry(index, { value })}
+                  placeholder="active, pending"
+                />
+              ) : (
+                <Input
+                  type="text"
+                  value={entry.value}
+                  onChange={(event) => updateEntry(index, { value: event.target.value })}
+                  placeholder="$form.city"
+                  inputClassName="font-mono text-xs"
+                />
+              )}
             </Field>
+            <div className="flex items-end gap-1.5 pb-1">
+              <Checkbox
+                id={`filter-list-${index}`}
+                checked={Array.isArray(entry.value)}
+                aria-readonly={readOnly || undefined}
+                tabIndex={readOnly ? -1 : undefined}
+                className={readOnly ? 'pointer-events-none' : undefined}
+                onCheckedChange={(checked) => {
+                  if (readOnly) return;
+                  updateEntry(index, {
+                    value:
+                      checked === true
+                        ? textToList(Array.isArray(entry.value) ? listToText(entry.value) : entry.value)
+                        : Array.isArray(entry.value)
+                          ? listToText(entry.value)
+                          : entry.value,
+                  });
+                }}
+              />
+              <label
+                htmlFor={`filter-list-${index}`}
+                className={readOnly ? 'pointer-events-none text-[10px]' : 'text-[10px]'}
+                title="A literal list, for the in / nin operators">
+                list
+              </label>
+            </div>
             <div className="flex items-end gap-1.5 pb-1">
               {/* Read-only: keep the designer look (not disabled/gray) but
                   make the control fully non-interactive. */}
@@ -137,7 +182,8 @@ export function normalizeFilterEntries(value: unknown): FilterEntry[] {
     return [
       {
         param: typeof record.param === 'string' ? record.param : '',
-        value: typeof record.value === 'string' ? record.value : '',
+        value:
+          typeof record.value === 'string' ? record.value : Array.isArray(record.value) ? record.value : '',
         required: record.required === true,
       },
     ];

@@ -102,6 +102,24 @@ describe('VNextTab (schema roles)', () => {
     expect(html).toContain('Not available on a master schema: <span class="font-mono">x-binding, x-context-source</span>');
   });
 
+  it('renders the 0.0.56 cards where the role allows them', () => {
+    seed(withRole('master'));
+    const master = renderToStaticMarkup(h(VNextTab, { pointer: '/properties/name' }));
+    for (const title of ['File storage', 'Computed value', 'Form order', 'Help text', 'Form group']) {
+      expect(master).toContain(title);
+    }
+    seed(withRole('transition'));
+    const transition = renderToStaticMarkup(h(VNextTab, { pointer: '/properties/name' }));
+    expect(transition).toContain('Form order');
+    expect(transition).not.toContain('File storage');
+    expect(transition).not.toContain('Computed value');
+  });
+
+  it('flags removed annotations even without a role', () => {
+    seed(withRole('', { 'x-persistance': true }));
+    expect(renderToStaticMarkup(h(VNextTab, { pointer: '/properties/name' }))).toContain('x-persistance was removed');
+  });
+
   it('applies no gate to a legacy type', () => {
     seed(withRole('schema', { 'x-sortable': true }));
     const html = renderToStaticMarkup(h(VNextTab, { pointer: '/properties/name' }));
