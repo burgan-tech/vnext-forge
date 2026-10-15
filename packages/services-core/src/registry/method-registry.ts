@@ -171,6 +171,8 @@ import {
   validateComponentParams,
   validateGetAllSchemasParams,
   validateGetAllSchemasResult,
+  validateGetVocabulariesParams,
+  validateGetVocabulariesResult,
   validateGetAvailableTypesParams,
   validateGetAvailableTypesResult,
   validateGetSchemaParams,
@@ -615,6 +617,14 @@ export function buildMethodRegistry(): MethodRegistry {
       // match save-time validation; omitted → bundled package.
       handler: async ({ schemaVersion }, { validateService }) =>
         validateService.getAllSchemasVersioned(schemaVersion),
+    },
+    'validate/getVocabularies': {
+      paramsSchema: validateGetVocabulariesParams,
+      resultSchema: validateGetVocabulariesResult,
+      // Monaco registers these by `$id` so the definitions' cross-file `$ref`s
+      // (schema-definition → role vocabularies, ≥ 0.0.56) resolve offline.
+      handler: async ({ schemaVersion }, { validateService }) =>
+        validateService.getVocabulariesVersioned(schemaVersion),
     },
     'validate/getSchema': {
       paramsSchema: validateGetSchemaParams,

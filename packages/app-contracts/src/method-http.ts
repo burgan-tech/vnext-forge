@@ -49,6 +49,7 @@ export type MethodId =
   | 'validate/component'
   | 'validate/getAvailableTypes'
   | 'validate/getAllSchemas'
+  | 'validate/getVocabularies'
   | 'validate/getSchema'
   | 'quickrun/startInstance'
   | 'quickrun/fireTransition'
@@ -138,6 +139,7 @@ export const METHOD_HTTP_METADATA: Readonly<Record<MethodId, MethodHttpSpec>> = 
   'validate/component': { verb: 'POST', paramSource: 'json' },
   'validate/getAvailableTypes': { verb: 'GET', paramSource: 'query' },
   'validate/getAllSchemas': { verb: 'GET', paramSource: 'query' },
+  'validate/getVocabularies': { verb: 'GET', paramSource: 'query' },
   'validate/getSchema': { verb: 'GET', paramSource: 'query' },
   'quickrun/startInstance': { verb: 'POST', paramSource: 'json' },
   'quickrun/fireTransition': { verb: 'POST', paramSource: 'json' },

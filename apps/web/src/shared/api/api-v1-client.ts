@@ -47,6 +47,7 @@ export interface ApiV1Client {
     component: { $post: (args: JsonArg) => Promise<Response> };
     getAvailableTypes: { $get: (args?: QueryArg) => Promise<Response> };
     getAllSchemas: { $get: (args?: QueryArg) => Promise<Response> };
+    getVocabularies: { $get: (args?: QueryArg) => Promise<Response> };
     getSchema: { $get: (args?: QueryArg) => Promise<Response> };
   };
   runtime: {

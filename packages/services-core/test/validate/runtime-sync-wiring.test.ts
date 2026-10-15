@@ -34,11 +34,38 @@ describe('createValidateService — serves the bundled 0.0.54 runtime-sync const
     expect(workflow?.definitions?.longPoll?.properties?.rule).toBeDefined()
   })
 
-  it('serves the schema definition with a free-text attributes.type (no enum on attributes.type)', () => {
+  it('serves the schema definition with the 0.0.56 role enum on attributes.type', () => {
     const schemaDef = service.getSchema('schema') as {
       properties?: { attributes?: { properties?: { type?: { enum?: unknown } } } }
     }
-    expect(schemaDef?.properties?.attributes?.properties?.type?.enum).toBeUndefined()
+    expect(schemaDef?.properties?.attributes?.properties?.type?.enum).toEqual([
+      '',
+      'master',
+      'transition',
+      'component',
+      'function',
+    ])
+  })
+
+  it('compiles the schema definition against the role vocabularies', () => {
+    const doc = {
+      key: 'order-master',
+      version: '1.0.0',
+      domain: 'core',
+      flow: 'sys-schemas',
+      flowVersion: '1.0.0',
+      tags: ['t'],
+      attributes: {
+        type: 'transition',
+        schema: { type: 'object', properties: { amount: { type: 'number', 'x-sortable': true } } },
+      },
+    }
+    expect(service.validateComponent({ ...doc, attributes: { ...doc.attributes, type: 'master' } }, 'schema').valid).toBe(
+      true,
+    )
+    const result = service.validateComponent(doc, 'schema')
+    expect(result.errors.some((e) => e.message.startsWith('Unknown component type'))).toBe(false)
+    expect(result.valid).toBe(false)
   })
 
   it('rejects a long poll with both roles and rule', () => {

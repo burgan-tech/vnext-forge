@@ -15,6 +15,7 @@ import { describe, expect, it } from 'vitest'
 const require_ = createRequire(import.meta.url)
 const installed = require_('@burgan-tech/vnext-schema') as {
   getSchema(type: string): Record<string, unknown> | null
+  addVocabularies<T>(ajv: T): T
 }
 const installedVersion = (require_('@burgan-tech/vnext-schema/package.json') as { version: string }).version
 
@@ -22,6 +23,8 @@ function compile(schema: Record<string, unknown>) {
   const opts = { strict: false, allErrors: true }
   const ajv = String(schema.$schema ?? '').includes('2019-09') ? new Ajv2019(opts) : new Ajv(opts)
   addFormats(ajv as unknown as Ajv)
+  // The role vocabularies are draft-07 and only draft-07 definitions $ref them.
+  if (ajv instanceof Ajv) installed.addVocabularies(ajv)
   return ajv.compile(schema)
 }
 
@@ -33,9 +36,9 @@ const workflowSchema = () => installed.getSchema('workflow')!
 const schemaSchema = () => installed.getSchema('schema')!
 
 describe('bundled vnext-schema — workflow definition', () => {
-  it('is 0.0.55 or newer', () => {
+  it('is 0.0.56 or newer', () => {
     const [major, minor, patch] = installedVersion.split('-')[0].split('.').map(Number)
-    expect(major * 1e6 + minor * 1e3 + patch).toBeGreaterThanOrEqual(55)
+    expect(major * 1e6 + minor * 1e3 + patch).toBeGreaterThanOrEqual(56)
   })
 
   it('carries the long-poll rule arm and availableIn entries', () => {
@@ -84,9 +87,9 @@ describe('bundled vnext-schema — schema definition', () => {
     expect(validate(withSchema('master', { amount: { type: 'number', 'x-indexed': true } }))).toBe(true)
   })
 
-  it('rejects x-indexed on a non-master schema', () => {
+  it('rejects x-indexed on a transition schema', () => {
     const validate = compile(schemaSchema())
-    expect(validate(withSchema('schema', { amount: { type: 'number', 'x-indexed': true } }))).toBe(false)
+    expect(validate(withSchema('transition', { amount: { type: 'number', 'x-indexed': true } }))).toBe(false)
   })
 
   it('rejects x-indexed on an array field', () => {
@@ -96,9 +99,33 @@ describe('bundled vnext-schema — schema definition', () => {
     ).toBe(false)
   })
 
-  it('accepts a free-text attributes.type', () => {
+  it('rejects a legacy attributes.type outside the role enum', () => {
     const validate = compile(schemaSchema())
-    expect(validate(withSchema('headers-v2', { a: { type: 'string' } }))).toBe(true)
+    for (const legacy of ['schema', 'workflow', 'headers', 'MASTER']) {
+      expect(validate(withSchema(legacy, { a: { type: 'string' } }))).toBe(false)
+    }
+  })
+
+  it('accepts every role and an empty type', () => {
+    const validate = compile(schemaSchema())
+    for (const role of ['', 'master', 'transition', 'component', 'function']) {
+      expect(validate(withSchema(role, { a: { type: 'string' } }))).toBe(true)
+    }
+  })
+
+  it('gates record-only annotations to the master role', () => {
+    const validate = compile(schemaSchema())
+    const props = { doc: { type: 'object', 'x-storage': { binding: 'vnext-blob-local' } } }
+    expect(validate(withSchema('master', props))).toBe(true)
+    expect(validate(withSchema('transition', props))).toBe(false)
+    expect(validate(withSchema('component', props))).toBe(false)
+  })
+
+  it('accepts x-context-source on input roles only', () => {
+    const validate = compile(schemaSchema())
+    const props = { id: { type: 'string', 'x-context-source': { const: 'x' } } }
+    expect(validate(withSchema('function', props))).toBe(true)
+    expect(validate(withSchema('master', props))).toBe(false)
   })
 })
 

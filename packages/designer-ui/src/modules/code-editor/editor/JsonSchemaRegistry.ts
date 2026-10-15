@@ -50,6 +50,47 @@ export async function fetchVnextSchemas(schemaVersion?: string): Promise<VnextSc
   return request;
 }
 
+/** `validate/getVocabularies` result: vocabulary `$id` → vocabulary JSON. */
+export type VnextVocabularyMap = Record<string, object>;
+
+const vocabularyCache = new Map<string, VnextVocabularyMap>();
+const vocabularyInflight = new Map<string, Promise<VnextVocabularyMap>>();
+
+/**
+ * Vocabularies the component schemas `$ref` by `$id` (vnext-schema ≥ 0.0.56).
+ * Never fails: an older backend or package yields an empty map, and Monaco
+ * then only misses the cross-file refs.
+ */
+export async function fetchVnextVocabularies(schemaVersion?: string): Promise<VnextVocabularyMap> {
+  const key = cacheKey(schemaVersion);
+  const cached = vocabularyCache.get(key);
+  if (cached) return cached;
+  const pending = vocabularyInflight.get(key);
+  if (pending) return pending;
+
+  const request = (async () => {
+    try {
+      const response = await callApi<VnextVocabularyMap>({
+        method: 'validate/getVocabularies',
+        params: schemaVersion ? { schemaVersion } : {},
+      });
+      if (response.success) {
+        vocabularyCache.set(key, response.data);
+        return response.data;
+      }
+      logger.warn('Failed to load vnext schema vocabularies from server');
+      return {};
+    } catch {
+      logger.warn('Error fetching vnext schema vocabularies');
+      return {};
+    } finally {
+      vocabularyInflight.delete(key);
+    }
+  })();
+  vocabularyInflight.set(key, request);
+  return request;
+}
+
 export function getCachedSchemas(schemaVersion?: string): VnextSchemaMap | null {
   return cache.get(cacheKey(schemaVersion)) ?? null;
 }
@@ -57,4 +98,6 @@ export function getCachedSchemas(schemaVersion?: string): VnextSchemaMap | null 
 export function invalidateSchemaCache(): void {
   cache.clear();
   inflight.clear();
+  vocabularyCache.clear();
+  vocabularyInflight.clear();
 }

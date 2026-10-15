@@ -15,5 +15,8 @@ export function registerValidateRoutes(
     helper(c, 'validate/getAvailableTypes', { source: 'query' }),
   );
   app.get('/validate/getAllSchemas', (c) => helper(c, 'validate/getAllSchemas', { source: 'query' }));
+  app.get('/validate/getVocabularies', (c) =>
+    helper(c, 'validate/getVocabularies', { source: 'query' }),
+  );
   app.get('/validate/getSchema', (c) => helper(c, 'validate/getSchema', { source: 'query' }));
 }

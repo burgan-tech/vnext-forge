@@ -34,6 +34,16 @@ export async function getAllSchemas(
   );
 }
 
+export async function getVocabularies(
+  params?: Record<string, string>,
+): Promise<ApiResponse<unknown>> {
+  return callApi(
+    v1.validate.getVocabularies.$get(
+      params && Object.keys(params).length > 0 ? { query: params } : undefined,
+    ),
+  );
+}
+
 export async function getSchema(params: {
   id: string;
   version?: string;

@@ -65,6 +65,7 @@ const METHOD_CAPABILITIES: Readonly<Record<string, MethodCapability>> = Object.f
   'validate/component': 'public',
   'validate/getAvailableTypes': 'public',
   'validate/getAllSchemas': 'public',
+  'validate/getVocabularies': 'public',
   'validate/getSchema': 'public',
 
   // ── test-data — `generate` is pure (schema in → instance out), the

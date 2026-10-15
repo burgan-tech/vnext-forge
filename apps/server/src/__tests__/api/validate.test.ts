@@ -117,4 +117,20 @@ describe('API v1 validate routes', () => {
     expect(bundled.status).toBe(200);
     expect(getAllSchemasVersioned).toHaveBeenLastCalledWith(undefined);
   });
+
+  it('forwards schemaVersion from the query to getVocabulariesVersioned', async () => {
+    const vocabId = 'https://unpkg.com/@burgan-tech/vnext-schema@0.0.56/vocabularies/record-vocab.json';
+    const getVocabulariesVersioned = vi.fn(() => Promise.resolve({ [vocabId]: { $id: vocabId } }));
+    const services = {
+      ...emptyServices,
+      validateService: { getVocabulariesVersioned },
+    } as unknown as ServiceRegistry;
+
+    const app = buildTestApp(services);
+    const res = await app.request('/api/v1/validate/getVocabularies?schemaVersion=0.0.56');
+    expect(res.status).toBe(200);
+    expect(getVocabulariesVersioned).toHaveBeenCalledWith('0.0.56');
+    const body = (await res.json()) as { success: boolean; data: unknown };
+    expect(body.data).toEqual({ [vocabId]: { $id: vocabId } });
+  });
 });

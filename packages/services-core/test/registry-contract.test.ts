@@ -104,6 +104,7 @@ describe('method registry contract (R-b9 + R-a2)', () => {
         "validate/getAllSchemas",
         "validate/getAvailableTypes",
         "validate/getSchema",
+        "validate/getVocabularies",
         "validate/workflow",
         "vnext/components/list",
         "vnext/extensions/list",

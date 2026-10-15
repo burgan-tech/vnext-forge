@@ -7,6 +7,8 @@ export {
   validateGetAvailableTypesResult,
   validateGetAllSchemasParams,
   validateGetAllSchemasResult,
+  validateGetVocabulariesParams,
+  validateGetVocabulariesResult,
   validateGetSchemaParams,
   validateGetSchemaResult,
 } from './validate.service.js'

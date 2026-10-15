@@ -9,7 +9,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { setApiTransport } from '../../../api/transport';
 import { invalidateSchemaCache } from './JsonSchemaRegistry';
-import { buildMonacoJsonSchemas, configureJsonSchemaValidation } from './JsonSchemaSetup';
+import {
+  buildMonacoJsonSchemas,
+  buildMonacoVocabularyEntries,
+  configureJsonSchemaValidation,
+} from './JsonSchemaSetup';
 
 const PATHS: VnextWorkspacePaths = {
   componentsRoot: 'core',
@@ -28,8 +32,16 @@ function fakeMonaco() {
   return { monaco, setDiagnosticsOptions };
 }
 
-function useTransport(respond: (params: unknown) => Promise<ApiResponse<unknown>>) {
-  const send = vi.fn((_method: string, params: unknown) => respond(params));
+const VOCAB_ID = 'https://unpkg.com/@burgan-tech/vnext-schema@0.0.56/vocabularies/record-vocab.json';
+
+/** `respond` answers `validate/getAllSchemas`; vocabulary requests get `vocabularies`. */
+function useTransport(
+  respond: (params: unknown) => Promise<ApiResponse<unknown>>,
+  vocabularies: Record<string, object> = {},
+) {
+  const send = vi.fn((method: string, params: unknown) =>
+    method === 'validate/getVocabularies' ? Promise.resolve(success(vocabularies)) : respond(params),
+  );
   setApiTransport({ send: send as unknown as <T>(method: string, params: unknown) => Promise<ApiResponse<T>> });
   return send;
 }
@@ -54,7 +66,48 @@ describe('buildMonacoJsonSchemas', () => {
   });
 });
 
+describe('buildMonacoVocabularyEntries', () => {
+  it('registers each vocabulary under its $id without a file match', () => {
+    expect(buildMonacoVocabularyEntries({ [VOCAB_ID]: { $id: VOCAB_ID } })).toEqual([
+      { uri: VOCAB_ID, fileMatch: [], schema: { $id: VOCAB_ID } },
+    ]);
+  });
+});
+
 describe('configureJsonSchemaValidation', () => {
+  it('registers the vocabularies alongside the component schemas', async () => {
+    const send = useTransport(() => Promise.resolve(success({ schema: { title: 'pinned' } })), {
+      [VOCAB_ID]: { $id: VOCAB_ID },
+    });
+    const { monaco, setDiagnosticsOptions } = fakeMonaco();
+
+    await configureJsonSchemaValidation(monaco, { paths: PATHS, schemaVersion: '0.0.56' });
+
+    expect(send).toHaveBeenCalledWith('validate/getVocabularies', { schemaVersion: '0.0.56' });
+    expect(setDiagnosticsOptions.mock.calls[0]?.[0].schemas).toEqual([
+      {
+        uri: 'vnext://schemas/0.0.56/schema-definition',
+        fileMatch: ['**/Schemas/**/*.json', '**/Schemas/*.json'],
+        schema: { title: 'pinned' },
+      },
+      { uri: VOCAB_ID, fileMatch: [], schema: { $id: VOCAB_ID } },
+    ]);
+  });
+
+  it('still registers the component schemas when the vocabulary request fails', async () => {
+    const send = vi.fn((method: string) =>
+      method === 'validate/getVocabularies'
+        ? Promise.resolve({ success: false, data: null, error: { code: ERROR_CODES.INTERNAL_UNEXPECTED, message: 'x' } })
+        : Promise.resolve(success({ task: {} })),
+    );
+    setApiTransport({ send: send as unknown as <T>(method: string, params: unknown) => Promise<ApiResponse<T>> });
+    const { monaco, setDiagnosticsOptions } = fakeMonaco();
+
+    await configureJsonSchemaValidation(monaco);
+
+    expect(setDiagnosticsOptions.mock.calls[0]?.[0].schemas).toHaveLength(1);
+  });
+
   it('requests the project-pinned version and registers its schemas', async () => {
     const send = useTransport(() => Promise.resolve(success({ schema: { title: 'pinned' } })));
     const { monaco, setDiagnosticsOptions } = fakeMonaco();
@@ -86,9 +139,10 @@ describe('configureJsonSchemaValidation', () => {
     const { monaco } = fakeMonaco();
     await configureJsonSchemaValidation(monaco, { schemaVersion: '0.0.52' });
     await configureJsonSchemaValidation(monaco, { schemaVersion: '0.0.52' });
-    expect(send).toHaveBeenCalledTimes(1);
-    await configureJsonSchemaValidation(monaco, { schemaVersion: '0.0.53' });
+    // One schema + one vocabulary request per version.
     expect(send).toHaveBeenCalledTimes(2);
+    await configureJsonSchemaValidation(monaco, { schemaVersion: '0.0.53' });
+    expect(send).toHaveBeenCalledTimes(4);
   });
 
   it('leaves Monaco untouched when the request fails', async () => {
