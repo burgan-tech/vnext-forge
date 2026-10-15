@@ -89,11 +89,20 @@ describe('loadMonitorLevel', () => {
     expect(r).toMatchObject({ ok: false, notFound: true });
   });
 
-  it('reports other failures as errors', async () => {
+  it('reports other instance failures as errors', async () => {
+    const r = await loadMonitorLevel(TARGET, {}, loaders({
+      getInstance: vi.fn(async () => ({ success: false, error: { code: 'RUNTIME_UNREACHABLE', message: 'down', traceId: 't' } })) as unknown as MonitorLoaders['getInstance'],
+    }));
+    expect(r).toMatchObject({ ok: false, notFound: false, error: { message: 'down' } });
+  });
+
+  it('keeps the level when only the transition list fails (history: none records none)', async () => {
     const r = await loadMonitorLevel(TARGET, {}, loaders({
       getHistory: vi.fn(async () => ({ success: false, error: { code: 'RUNTIME_UNREACHABLE', message: 'down', traceId: 't' } })) as unknown as MonitorLoaders['getHistory'],
     }));
-    expect(r).toMatchObject({ ok: false, notFound: false, error: { message: 'down' } });
+    expect(r.ok).toBe(true);
+    expect(r.ok && r.data.history).toEqual([]);
+    expect(r.ok && r.data.historyError).toMatchObject({ message: 'down' });
   });
 });
 

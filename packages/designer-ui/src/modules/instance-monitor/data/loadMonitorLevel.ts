@@ -78,9 +78,9 @@ export async function loadMonitorLevel(
       error: instanceRes.error,
     };
   }
-  if (!historyRes.success) return { ok: false, notFound: false, error: historyRes.error };
-
-  const history = historyRes.data.transitions ?? [];
+  // A missing transition list no longer hides the instance: a history: none
+  // flow records none, and the rest of the level is still worth showing.
+  const history = historyRes.success ? historyRes.data.transitions ?? [] : [];
   const tasks = tasksRes.success ? tasksRes.data.items ?? [] : [];
   const activeIncident = incidentRes.success ? incidentRes.data.incident ?? null : null;
   const correlation = treeRes.success ? treeRes.data : null;
@@ -89,6 +89,7 @@ export async function loadMonitorLevel(
     data: {
       instance: instanceRes.data,
       history,
+      historyError: historyRes.success ? null : historyRes.error,
       definition: toDefinition(target.workflowKey, history, definitionRes),
       loadedAt: loaders.now(),
       tasks,

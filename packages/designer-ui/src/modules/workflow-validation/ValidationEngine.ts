@@ -2,7 +2,7 @@ import {
   ERROR_CODES,
   VnextForgeError,
 } from '@vnext-forge-studio/app-contracts';
-import { availableInStateKeys } from '@vnext-forge-studio/vnext-types';
+import { availableInStateKeys, historyNoneIssues } from '@vnext-forge-studio/vnext-types';
 import { ALL_ENABLED, hasFeature, type SchemaCapabilities } from '../schema-capabilities/SchemaCapabilities';
 import type { ValidationIssue } from './WorkflowValidationTypes';
 import { runtimeSyncFindings } from './runtimeSyncRules';
@@ -388,6 +388,20 @@ export function validateWorkflow(
       message: finding.message,
       rule: finding.rule,
       ...(finding.stateKey ? { nodeId: finding.stateKey } : {}),
+    });
+  }
+
+  // history: none (vnext-schema 0.0.56): shape rules + "every state reaches Finish".
+  for (const issue of historyNoneIssues(workflow)) {
+    const state = issue.stateKey ? workflow.attributes?.states?.find((s) => s.key === issue.stateKey) : undefined;
+    const transition = issue.transitionKey ? state?.transitions?.find((t) => t.key === issue.transitionKey) : undefined;
+    results.push({
+      id: makeId(),
+      severity: 'error',
+      message: issue.message,
+      rule: issue.code,
+      ...(issue.stateKey ? { nodeId: issue.stateKey } : {}),
+      ...(state && transition ? { edgeId: `${state.key}->${transition.target}::${transition.key}` } : {}),
     });
   }
 

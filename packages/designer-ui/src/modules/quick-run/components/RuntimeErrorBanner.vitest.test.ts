@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { extractRuntimeErrorLines, summarizeRuntimeError } from './RuntimeErrorBanner';
+import { extractRuntimeErrorLines, runtimeErrorHint, summarizeRuntimeError } from './RuntimeErrorBanner';
 
 describe('summarizeRuntimeError', () => {
   it('reads the Aether envelope the engine returns for a rejected filter', () => {
@@ -69,5 +69,20 @@ describe('summarizeRuntimeError', () => {
 describe('extractRuntimeErrorLines', () => {
   it('ignores malformed entries', () => {
     expect(extractRuntimeErrorLines({ validationErrors: [null, 42, { members: ['x'] }], errors: [{}] })).toEqual([]);
+  });
+});
+
+describe('runtimeErrorHint', () => {
+  it('explains the runtime 0.0.100 history and file codes', () => {
+    const s = summarizeRuntimeError({
+      code: 'RUNTIME_EXECUTION_FAILED',
+      message: 'Runtime returned HTTP 409',
+      details: { httpStatus: 409, error: { prefix: 'Instance', code: '100045', message: 'Retry is not supported.' } },
+    });
+    expect(s.code).toBe('Instance:100045');
+    expect(runtimeErrorHint(s.code)).toContain('cannot be retried');
+    expect(runtimeErrorHint('Instance:100048')).toContain('not both');
+    expect(runtimeErrorHint('Instance:100001')).toBeUndefined();
+    expect(runtimeErrorHint(undefined)).toBeUndefined();
   });
 });

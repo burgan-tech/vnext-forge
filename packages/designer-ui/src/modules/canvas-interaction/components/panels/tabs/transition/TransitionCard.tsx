@@ -28,6 +28,7 @@ import {
   getAllowedTriggerTypes,
   type TransitionEditorKind,
 } from './transitionFieldPolicy';
+import { useHistoryNone } from '../../../../hooks/useHistoryNone';
 
 export interface TransitionCardProps {
   transition: Transition;
@@ -198,7 +199,11 @@ export function TransitionCard({
 
   const policy = resolveFieldPolicy(editorKind, triggerType, transition.triggerKind);
   const availableInEntryCount = parseAvailableIn(availableIn).length;
-  const allowedTriggers = getAllowedTriggerTypes(editorKind);
+  const historyNone = useHistoryNone();
+  // A history: none flow accepts only Automatic; keep a current invalid value visible (lint flags it).
+  const allowedTriggers = historyNone
+    ? getAllowedTriggerTypes(editorKind).filter((t) => t === TriggerType.Automatic || t === triggerType)
+    : getAllowedTriggerTypes(editorKind);
   const isTriggerLocked = allowedTriggers.length === 1;
 
   return (

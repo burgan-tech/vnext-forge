@@ -18,6 +18,8 @@ export interface PathRailProps {
   onFollowChange: (follow: boolean) => void;
   /** Firing the user last clicked in the rail (initial value; the rail tracks clicks itself). */
   clickedOrder?: number | null;
+  /** The flow is `history: none`: the runtime records no path. */
+  historyNone?: boolean;
 }
 
 /** Same palette as Quick Run's history dots. */
@@ -50,7 +52,7 @@ function timeOf(startedAt: string): string {
 }
 
 /** The instance's path as a horizontal rail: one numbered node per transition, ending in the current state. */
-export function PathRail({ steps, currentState, selectedKey, onSelect, filter, onFilterChange, follow, onFollowChange, clickedOrder: initialClicked = null }: PathRailProps) {
+export function PathRail({ steps, currentState, selectedKey, onSelect, filter, onFilterChange, follow, onFollowChange, clickedOrder: initialClicked = null, historyNone = false }: PathRailProps) {
   const summary = useMemo(() => railSummary(steps), [steps]);
   const failedFilter = filter === 'failed' && summary.failedSteps > 0;
   const visible = failedFilter ? steps.filter((s) => s.failedTasks > 0) : steps;
@@ -134,7 +136,11 @@ export function PathRail({ steps, currentState, selectedKey, onSelect, filter, o
       </div>
 
       {steps.length === 0 ? (
-        <p className={`px-3 py-3 ${muted}`}>No transitions yet — the path appears here as the instance moves.</p>
+        <p className={`px-3 py-3 ${muted}`}>
+          {historyNone
+            ? 'This flow uses history: none — the runtime records no transitions, so there is no path to show.'
+            : 'No transitions yet — the path appears here as the instance moves.'}
+        </p>
       ) : visible.length === 0 ? (
         <p className={`px-3 py-3 ${muted}`}>No failed steps.</p>
       ) : (

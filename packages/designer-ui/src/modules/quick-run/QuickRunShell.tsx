@@ -26,6 +26,7 @@ import { extractLabelsMap } from './utils/extractLabelsMap';
 import { checkRuntimeHealth } from '../workflow-execution/WorkflowExecutionApi';
 import { useProjectStore } from '../../store/useProjectStore';
 import { useToolHeadersStore } from '../../store/useToolHeadersStore';
+import { readHistoryMode } from '@vnext-forge-studio/vnext-types';
 
 const DASHBOARD_MIN = 280;
 const HANDLE_WIDTH = 5;
@@ -108,6 +109,7 @@ export function QuickRunShell({
   const setRuntimeHealth = useQuickRunStore((s) => s.setRuntimeHealth);
   const setFlowLabels = useQuickRunStore((s) => s.setFlowLabels);
   const setFlowExecutionTypes = useQuickRunStore((s) => s.setFlowExecutionTypes);
+  const setFlowHistoryMode = useQuickRunStore((s) => s.setFlowHistoryMode);
   const setPollingConfig = useQuickRunStore((s) => s.setPollingConfig);
   const flowLabels = useQuickRunStore((s) => s.flowLabels);
   const [showNewRun, setShowNewRun] = useState(false);
@@ -212,9 +214,10 @@ export function QuickRunShell({
         const flowJson = JSON.parse(res.data.content);
         setFlowLabels(extractLabelsMap(flowJson));
         setFlowExecutionTypes(extractExecutionTypes(flowJson));
+        setFlowHistoryMode(readHistoryMode(flowJson));
       } catch { /* malformed JSON — ignore */ }
     });
-  }, [projectPath, setFlowLabels, setFlowExecutionTypes]);
+  }, [projectPath, setFlowLabels, setFlowExecutionTypes, setFlowHistoryMode]);
 
   const persistConfig = useCallback((cfg: WorkflowBucketConfig) => {
     configRef.current = cfg;

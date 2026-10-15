@@ -40,6 +40,7 @@ export function ContextPanel({ onOpenSubFlowTarget }: ContextPanelProps) {
   const activeTabId = useQuickRunStore((s) => s.activeTabId);
   const domain = useQuickRunStore((s) => s.domain);
   const workflowKey = useQuickRunStore((s) => s.workflowKey);
+  const historyNone = useQuickRunStore((s) => s.flowHistoryMode === 'none');
   const globalHeaders = useQuickRunStore((s) => s.globalHeaders);
   const sessionHeaders = useQuickRunStore((s) => s.sessionHeaders);
   const toolWideHeaders = useQuickRunStore((s) => s.toolWideHeaders);
@@ -257,7 +258,7 @@ export function ContextPanel({ onOpenSubFlowTarget }: ContextPanelProps) {
         aria-labelledby={`quickrun-tab-${contextPanelTab}`}
       >
         {contextPanelTab === 'data' && (
-          <DataTabContent data={activeData} loading={activeDataLoading} />
+          <DataTabContent data={activeData} loading={activeDataLoading} historyNone={historyNone} />
         )}
         {contextPanelTab === 'history' && (
           <HistoryTabContent
@@ -267,6 +268,7 @@ export function ContextPanel({ onOpenSubFlowTarget }: ContextPanelProps) {
             {...(loadElementMetrics ? { loadMetrics: loadElementMetrics } : {})}
             tasks={activeTaskHistory}
             transitionLabel={transitionLabel}
+            historyNone={historyNone}
           />
         )}
         {contextPanelTab === 'tasks' && (
@@ -275,6 +277,7 @@ export function ContextPanel({ onOpenSubFlowTarget }: ContextPanelProps) {
             loading={activeTaskHistoryLoading}
             error={activeTaskHistoryError}
             transitionLabel={transitionLabel}
+            historyNone={historyNone}
           />
         )}
         {contextPanelTab === 'correlations' && (
@@ -298,9 +301,27 @@ export function ContextPanel({ onOpenSubFlowTarget }: ContextPanelProps) {
   );
 }
 
-function DataTabContent({ data, loading }: { data: ReturnType<typeof useQuickRunStore.getState>['activeData']; loading: boolean }) {
+function DataTabContent({
+  data,
+  loading,
+  historyNone,
+}: {
+  data: ReturnType<typeof useQuickRunStore.getState>['activeData'];
+  loading: boolean;
+  historyNone: boolean;
+}) {
   if (loading) return <LoadingPlaceholder />;
-  if (!data) return <EmptyState message="No data available" />;
+  if (!data) {
+    return (
+      <EmptyState
+        message={
+          historyNone
+            ? 'No data yet — a history: none flow writes its data once, at Finish, a SubFlow handoff or a fault.'
+            : 'No data available'
+        }
+      />
+    );
+  }
   // The runtime returns the instance payload under `data.data` and any
   // requested extensions under `data.extensions`. Show both so users
   // don't have to flip through DevTools to inspect extension state.

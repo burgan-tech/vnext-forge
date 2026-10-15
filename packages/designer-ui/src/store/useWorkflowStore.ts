@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { readHistoryMode } from '@vnext-forge-studio/vnext-types';
 import { enableMapSet, produce } from 'immer';
 import { suggestTransitionName } from '../modules/canvas-interaction/utils/workflowLint';
 
@@ -327,7 +328,10 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     });
   },
 
-  addTransition: (sourceKey, targetKey, triggerType = 0) => {
+  addTransition: (sourceKey, targetKey, requestedTrigger = 0) => {
+    // A history: none flow accepts only Automatic transitions (vnext-schema 0.0.56).
+    const triggerType =
+      requestedTrigger === 0 && readHistoryMode(get().workflowJson) === 'none' ? 1 : requestedTrigger;
     // Smart Transition Naming — pick a verb-first key based on
     // source/target shape (e.g. "draft → review" yields "submit",
     // "review → approve" yields "approve"). Falls back to the

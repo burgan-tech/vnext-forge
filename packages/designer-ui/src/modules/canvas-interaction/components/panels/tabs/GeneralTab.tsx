@@ -13,6 +13,7 @@ import { CreateNewComponentDialog } from './CreateNewComponentDialog';
 import { useWorkflowStore } from '../../../../../store/useWorkflowStore';
 import { useProjectStore } from '../../../../../store/useProjectStore';
 import { Trash2, Plus } from 'lucide-react';
+import { useHistoryNone } from '../../../hooks/useHistoryNone';
 
 interface GeneralTabProps {
   state: any;
@@ -20,6 +21,8 @@ interface GeneralTabProps {
 }
 
 export function GeneralTab({ state, updateWorkflow }: GeneralTabProps) {
+  // history: none flows cannot wait: no Wizard states, no Suspended / Busy / Human sub-types.
+  const historyNone = useHistoryNone();
   const labels = getLabels(state);
   const stateKey = state.key;
   const queryRoles: RoleGrant[] = state.queryRoles ?? [];
@@ -260,7 +263,8 @@ export function GeneralTab({ state, updateWorkflow }: GeneralTabProps) {
           }}
           options={[
             { value: 1, label: 'Initial', disabled: hasOtherInitialState }, { value: 2, label: 'Intermediate' },
-            { value: 3, label: 'Final' }, { value: 4, label: 'SubFlow' }, { value: 5, label: 'Wizard' },
+            { value: 3, label: 'Final' }, { value: 4, label: 'SubFlow' },
+            { value: 5, label: 'Wizard', disabled: historyNone && state.stateType !== 5 },
           ]}
         />
       </div>
@@ -272,8 +276,10 @@ export function GeneralTab({ state, updateWorkflow }: GeneralTabProps) {
           onChange={(v) => updateField('subType', Number(v))}
           options={[
             { value: 0, label: 'None' }, { value: 1, label: 'Success' }, { value: 2, label: 'Error' },
-            { value: 3, label: 'Terminated' }, { value: 4, label: 'Suspended' },
-            { value: 5, label: 'Busy' }, { value: 6, label: 'Human' },
+            { value: 3, label: 'Terminated' },
+            { value: 4, label: 'Suspended', disabled: historyNone && state.subType !== 4 },
+            { value: 5, label: 'Busy', disabled: historyNone && state.subType !== 5 },
+            { value: 6, label: 'Human', disabled: historyNone && state.subType !== 6 },
             { value: 7, label: 'Cancelled' }, { value: 8, label: 'Timeout' },
           ]}
         />

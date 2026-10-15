@@ -58,6 +58,7 @@ import { DataTab } from './DataTab';
 import { MonitorCanvas } from './MonitorCanvas';
 import { MonitorInspector } from './MonitorInspector';
 import { PathRail, type PathRailFilter } from './PathRail';
+import { readHistoryMode } from '@vnext-forge-studio/vnext-types';
 
 export interface MonitorShellProps {
   target: MonitorTarget;
@@ -422,6 +423,8 @@ export function MonitorShellView(props: MonitorShellViewProps) {
 
   const { data, refreshing, staleError } = load;
   const { instance, history, definition } = data;
+  // Only a local definition tells the history mode; a history-only graph cannot.
+  const historyNone = definition.source === 'local' && readHistoryMode(definition.vm.workflowJson) === 'none';
   const currentState = instance.metadata.currentState || null;
   const drift =
     definition.source === 'local'
@@ -496,6 +499,21 @@ export function MonitorShellView(props: MonitorShellViewProps) {
             className="border-b border-[var(--vscode-panel-border,#3c3c3c)] bg-[var(--vscode-inputValidation-warningBackground,#352a05)] px-3 py-1 text-[11px]">
             Local definition {drift.localVersion} ≠ instance {drift.instanceVersion} — the canvas
             may differ from what ran.
+          </p>
+        )}
+        {historyNone && (
+          <p
+            role="status"
+            className={`border-b border-[var(--vscode-panel-border,#3c3c3c)] px-3 py-1 text-[11px] ${muted}`}>
+            This flow uses history: none — no transitions or tasks are recorded, and instance data is
+            written once, at Finish, a SubFlow handoff or a fault (reads return nothing while it runs).
+          </p>
+        )}
+        {!historyNone && data.historyError && (
+          <p
+            role="status"
+            className="border-b border-[var(--vscode-panel-border,#3c3c3c)] bg-[var(--vscode-inputValidation-warningBackground,#352a05)] px-3 py-1 text-[11px]">
+            Transition history could not be loaded — the path and visit counts are empty.
           </p>
         )}
         {definition.source === 'history' && (
@@ -672,6 +690,7 @@ export function MonitorShellView(props: MonitorShellViewProps) {
                   onFilterChange={setRailFilter}
                   follow={railFollow}
                   onFollowChange={setRailFollow}
+                  historyNone={historyNone}
                 />
               </section>
             </>

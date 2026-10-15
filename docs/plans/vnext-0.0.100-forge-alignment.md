@@ -77,6 +77,8 @@ Her faz ayrı commit/PR olabilir; F0 diğer her şeyin ön koşulu.
 3. UI kısıtları: `none` iken shared transition ekleme, timeout/cancel/exit editörleri, manual trigger seçimi devre dışı + açıklama.
 4. Monitor / QuickRun: boş `/transitions` ve `/functions/tasks` normal kabul; `getHistory` hatası level'ı düşürmesin; workflow tanımında `history: none` ise "History disabled for this workflow — transitions and task journal are not recorded; data is written at finish" banner'ı; çalışırken `data: null` için boş durum; retry 409 `Instance:100045` ve incident `Instance:100046` mesaj eşlemesi.
 
+**F3 durumu (2026-10-15):** tamamlandı. Kurallar `vnext-types/utils/history-mode.ts`'te (paket AJV'si ile çapraz test edildi); SubFlow child kontrolü metadata panelinde asenkron uyarı; Monitor'da transition listesi hatası artık level'ı düşürmüyor (`historyError`); QuickRun ve Monitor'a `history: none` boş durumları; `Instance:100044–100050` için açıklamalar `RuntimeErrorBanner`'da. Canvas bağlam menüsündeki tetikleyici/state tipi seçenekleri kısıtlanmadı — lint bulgusu olarak işaretleniyor.
+
 ### F4 — QuickRunner'da `x-storage` / `file` fonksiyonu
 Upload için multipart **gerekmiyor** (base64 JSON body), download için binary-safe proxy gerekiyor.
 1. **Dosya alanı tespiti**: transition/start schema'sında annotation yok; workflow'un master schema'sındaki `x-storage` yolları çözülüp transition payload yollarıyla eşlenir. Ek olarak `{name,mimeType,size,content}` şekline uyan nesneler heuristik olarak da dosya alanı sayılır.
