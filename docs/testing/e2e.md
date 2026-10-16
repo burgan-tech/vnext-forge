@@ -132,6 +132,7 @@ Deliberately invalid fixtures are listed in `DELIBERATELY_INVALID`.
 | Downloads | Save as on a stored file; `downloadFile` RPC | Bytes' SHA-256 = `eTag`; content type and name from the handle |
 | Monitor | `monitor/.../<history-none instance>` and a file instance | One-shot notice + path-rail text, no error banner; Data tab file list |
 | Function Run | `function-run-instance/core/file?…` with a stored file id | Name, size, type, ETag, Open / Save as |
+| Runtime error details (web) | `function-run-instance/core/file?scope=I&workflowKey=fo-flow&instanceId=<file instance>` → an unknown file id → Send; also `POST :3001/api/v1/quickrun/downloadFile` | Banner: *File request failed (HTTP 404) · Instance:100049*, the runtime's message and the hint; RPC `error.details` holds only the whitelisted runtime fields (no `instance` path, no forge URLs) — ADR 005 addendum |
 
 Extend the table when a feature is added.
 
@@ -154,5 +155,8 @@ baseline FileOffloadLab + HistoryNoneLab + HistoryNoneSubflowLab + SchemaRolesLa
 ForgeFileFormLab 4/4 (new, vnext-example `feature/forge-file-form-lab`); guard 0 findings over 91
 workflows and ~400 annotations; all §4.4 rows passed after two fixes (sample data filled file fields;
 legacy-type hint wording). Not covered: VS Code Problems / quick fix / Fix Legacy Schema Types, host
-save/open frames. Open finding: the web server strips error `details`, so runtime codes and hints
-(e.g. `Instance:100049`) reach the banner in VS Code but not in the web shell.
+save/open frames. Follow-up (same day): the web server stripped error `details`, so runtime codes and
+hints (e.g. `Instance:100049`) reached the banner in VS Code but not in the web shell. Fixed by the
+whitelisted runtime-answer projection (ADR 005 addendum) plus a banner fix for the 0.0.100
+problem-details body (`prefix: notfound`, `code: Instance:100049` was shown as
+`notfound:Instance:100049` without a hint, in both shells); the *Runtime error details* row passed.

@@ -32,7 +32,11 @@ export interface VnextForgeErrorContext {
   source: string;
   /** The architectural layer where the error originated */
   layer: ErrorLayer;
-  /** Optional additional data for debugging (server-side only) */
+  /**
+   * Optional additional data for debugging (server-side only). Exception: the
+   * extension host forwards it to its own webview, and the web server forwards
+   * a whitelisted projection of a runtime answer (ADR 005 addendum).
+   */
   details?: Record<string, unknown>;
 }
 

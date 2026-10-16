@@ -123,8 +123,12 @@ export function summarizeRuntimeError(error: RuntimeErrorLike): RuntimeErrorSumm
     : typeof body.status === 'number' ? body.status
     : undefined;
   const codeCore = firstString(body.code, body.errorCode, body.type);
+  // Aether bodies split the code (`prefix: 'Instance'`, `code: '100045'`); the
+  // problem-details body of runtime 0.0.100 already qualifies it
+  // (`code: 'Instance:100049'`) and uses `prefix` for the HTTP category
+  // (`notfound`), so a qualified code is kept as-is.
   const prefix = str(body.prefix);
-  const code = codeCore && prefix && !codeCore.startsWith(`${prefix}:`) ? `${prefix}:${codeCore}` : codeCore;
+  const code = codeCore && prefix && !codeCore.includes(':') ? `${prefix}:${codeCore}` : codeCore;
   const summary = firstString(body.message, body.detail, body.title) ?? error.message;
   return {
     httpStatus,

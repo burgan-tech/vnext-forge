@@ -86,4 +86,23 @@ describe('runtimeErrorHint', () => {
     expect(runtimeErrorHint('Instance:100001')).toBeUndefined();
     expect(runtimeErrorHint(undefined)).toBeUndefined();
   });
+
+  it('keeps a qualified code of a problem-details body (runtime 0.0.100 file function)', () => {
+    const s = summarizeRuntimeError({
+      code: 'RUNTIME_NOT_FOUND',
+      message: 'Requested runtime resource was not found.',
+      details: {
+        httpStatus: 404,
+        title: 'Not Found',
+        status: 404,
+        detail: 'File "00000000-0000-0000-0000-000000000000" is not referenced by this instance',
+        errorCode: 'notfound.Instance:100049',
+        prefix: 'notfound',
+        code: 'Instance:100049',
+      },
+    });
+    expect(s.code).toBe('Instance:100049');
+    expect(s.summary).toContain('is not referenced by this instance');
+    expect(runtimeErrorHint(s.code)).toContain('not in this instance');
+  });
 });

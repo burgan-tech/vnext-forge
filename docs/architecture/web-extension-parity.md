@@ -59,6 +59,17 @@ This document records **current status**, **rationale**, and **planned trajector
 
 ---
 
+## Runtime error details
+
+| | |
+| --- | --- |
+| **Status** | **Parity for runtime answers; other details extension-only** |
+| **Implementation** | The extension host forwards `VnextForgeError.context.details` to its webview as-is (`apps/extension/src/MessageRouter.ts`). The web server forwards only a whitelisted projection of a non-2xx runtime answer (`RUNTIME_NOT_FOUND` / `RUNTIME_EXECUTION_FAILED` with `httpStatus`) via `apps/server/src/shared/middleware/public-error-details.ts`. The QuickRun `RuntimeErrorBanner` reads the same fields in both shells. |
+| **Rationale** | The runtime's error code, message and validation lines are what the user needs to act (e.g. `Instance:100049` for a file that is not in the instance data). Forge-internal details (paths, URLs, raw bodies of other failures) stay server-side in the web shell. |
+| **Trajectory** | Decision and whitelist: [ADR 005 addendum](./adr/005-error-taxonomy.md#addendum-2026-10-16-runtime-error-details). Extend the whitelist, not the code list, when the banner needs a new runtime field. |
+
+---
+
 ## Cross-links
 
 | Area | Web | Shared (designer-ui) |
