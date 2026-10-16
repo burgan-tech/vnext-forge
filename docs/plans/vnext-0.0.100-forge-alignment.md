@@ -97,6 +97,8 @@ Upload için multipart **gerekmiyor** (base64 JSON body), download için binary-
 - `file` adlı custom function oluşturulursa "reserved system function" uyarısı.
 - Docs/usage-guide güncellemesi.
 
+**F5 durumu (2026-10-16):** tamamlandı — Kafka topic ipucu (`DaprPubSubTask.topic`), SubFlow proxy notu (TransitionDialog) ve `Instance:100031` açıklaması, rezerve sistem fonksiyon key uyarısı (`file` dahil tüm built-in'ler), `history: none` için canvas bağlam menüsü kısıtları, usage-guide güncellemesi. Açık kalan: Function Run'da `file` formu (F4.7), pseudo-ui dosya yükleme (karar 5).
+
 ## 3. Kararlar (2026-10-15)
 1. **Legacy `attributes.type` migrasyonu** → diagnostik + kullanıcı onaylı quick-fix (tekli ve toplu). Rol, referans kullanımından önerilir; onaysız dosya yazımı yok. (F1.3)
 2. **Paket vs runtime farkı** → Forge paketi takip eder: `x-computed` transition/function/component şemalarında hata. (F1.4, F2.2)

@@ -82,6 +82,7 @@ describe('runtimeErrorHint', () => {
     expect(s.code).toBe('Instance:100045');
     expect(runtimeErrorHint(s.code)).toContain('cannot be retried');
     expect(runtimeErrorHint('Instance:100048')).toContain('not both');
+    expect(runtimeErrorHint('Instance:100031')).toContain('forwards the transition to the SubFlow');
     expect(runtimeErrorHint('Instance:100001')).toBeUndefined();
     expect(runtimeErrorHint(undefined)).toBeUndefined();
   });

@@ -93,15 +93,31 @@ Each property has a **vNext (x-\*)** tab in the property editor that exposes pse
 
 Use the **+ Add language** button on each annotation card to add a new locale, and the **Enabled** toggle in the top-right corner of each card to opt the annotation in or out without losing its content.
 
+Annotations added for runtime 0.0.100 / vnext-schema 0.0.56:
+
+| Annotation | Purpose |
+|------------|---------|
+| **`x-storage`** | Turns a master-schema field into a **file field**: the runtime stores the uploaded bytes in a blob binding and keeps a file handle in the instance data. Pick the binding (e.g. `vnext-blob-local`). The card checks the runtime's placement rules (object type, nested `properties` or one array level, no `content`) and can apply the handle shape (`name`, `mimeType`, `size`). |
+| **`x-computed`** | A derived, never-stored field built from sibling properties with `join` or `arithmetic`. The first case whose `when` matches wins, otherwise `fallback`. With `evaluatedBy: runtime` the card checks the runtime's publish rules (not `required`, no `x-indexed` / `x-filterOperators` / `x-sortable` / `x-storage` / `x-roles` / `x-masking`, siblings only, no chaining). |
+| **`x-order`** | Position of the field in a generated form (lower first). Quick Run forms honour it. |
+| **`x-helpText`**, **`x-placeholder`**, **`x-uiHint`**, **`x-uiNote`**, **`x-group`** | Form presentation hints; Quick Run shows `x-helpText` when the field has no `description`. |
+| **`x-encryption`** | Now has a **Source**: `runtime` (hash / encrypt at rest) or `client` (the client seals the value to a public key before sending — `key`, `algorithm`, …). Transition and function schemas accept client encryption only. |
+| **`x-filterOperators`** | The runtime rejects legacy spellings (`ge`, `like`, …) and unknown values at publish; the card shows them as an error with a **Use runtime names** fix. |
+
+#### Schema roles
+
+From vnext-schema 0.0.56 a schema's **Schema role** (`attributes.type`) is one of `master`, `transition`, `component`, `function`, or none. The role decides which annotations the schema may carry: the vNext tab hides cards the role refuses and flags refused annotations already on a field with a **Remove** action (for example `x-storage` and `x-roles` belong to master schemas only, `x-context-source` to transition and function schemas). New schemas created from a workflow, transition or function input get the matching role.
+
+Old values such as `schema` or `workflow` fail validation from 0.0.56 on. Forge infers the right role from where each schema is referenced and reports these files in the **Problems** panel with a quick fix; **Forge: Fix Legacy Schema Types** lists every proposed change for review before anything is written. In the schema editor, a legacy type shows a **Use <role>** button.
+
 #### `x-lov` — List of Values
 
 `x-lov` binds an input field to a runtime function that returns a list of options. Configure it on the property with:
 
-- **`function`** — An Amorphie URN identifying the function to call. Two scopes are supported:
-  - `urn:amorphie:func:<domain>:<function>` (2 segments after `func:`) — calls the **domain-level** stateless function endpoint.
-  - `urn:amorphie:func:<domain>:<workflow>:<function>` (3 segments) — calls the **workflow-scoped** function endpoint, with the runtime instance substituted in.
-- **`valueField`** / **`displayField`** — JsonPath expressions selecting which fields in the response become the option value and label. Both support the array marker forms `[*]` and `[]` (e.g. `$.data[*].code`) as well as the legacy dotted form (`data.items.code`).
-- **`filterField`** / **`dependsOn`** — Optional bindings that re-fetch the LOV when another field changes (e.g. cities depending on the selected country).
+- **Options from** — either a **data source** (`source`: a function URN that is fetched; it may interpolate `{{$form.x}}`) or **items in scope** (`items`: a `$instance.<path>` or `$form.<path>` array, no request). Exactly one of the two.
+- **`valueField`** / **`displayField`** — With a source, JsonPath expressions into the response (e.g. `$.data[*].code`). With items, plain property names in one item, or empty to use the item itself (a list of strings).
+- **`imageField`** — Optional image per option, same path shape.
+- **Filter parameters** — Request parameters filled from the form; a parameter may carry an operator (`status:in`) and a literal list value (check **list**) to reach `in` / `nin`.
 
 `displayField` can resolve to a multi-language object like `{ "en": "Kadıköy Branch", "tr": "Kadıköy Şubesi" }`. The renderer picks the entry that matches the active **Render Language** ([see Quick Run](./06-quick-run.md#render-language)) and falls back to English if the active locale has no translation.
 

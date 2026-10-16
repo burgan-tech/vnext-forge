@@ -104,6 +104,14 @@ When you click a transition button, a dialog appears:
 
 Click **Fire Transition** to execute.
 
+### File fields
+
+Fields that the workflow's master schema stores with `x-storage` show a file picker in the transition and start forms (drag and drop works too). The file is sent as base64 in the request body, as the runtime expects; files above about 7.5 MiB are refused before sending. A field that already holds a stored file keeps it until you **Replace** or **Clear** it. Pseudo-UI views cannot upload files yet — use the form below the view.
+
+### SubFlows
+
+When the instance has an active SubFlow, the transition dialog says so: runtime 0.0.100 forwards the transition to the SubFlow, and its validation errors come back directly. A `busy` answer (`Instance:100031`) right after the SubFlow completes or before it starts means: retry in a moment.
+
 ## Pseudo-UI Rendered Views
 
 When the current state's view ships a `pseudo-ui` payload, Quick Run renders the actual end-user view instead of a generic schema-driven form. The same renderer that runs in production drives this view; what you see is what your users see.
@@ -218,6 +226,10 @@ Displays the rendered state view (if the current state has an associated view de
 ### Data Tab
 
 Shows the raw instance data as a collapsible JSON tree. Displays the full instance payload including attributes, session data, and computed fields.
+
+Stored files (`x-storage` fields) are listed above the data with **Open** and **Save as**. In VS Code, Open shows a temporary copy in the editor and Save as opens a save dialog; in the browser shell the file is opened in a tab or downloaded (HTML, SVG, XML and script files are always downloaded). The bytes come from the runtime's built-in `file` function of the instance that owns the file.
+
+For a **History: None** flow the History and Tasks tabs stay empty by design, and the data stays empty until the flow finishes.
 
 ### History Tab
 

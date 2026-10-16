@@ -22,6 +22,7 @@ import { useQuickRunStore } from '../store/quickRunStore';
 import { safeViewContent, type SchemaResponse, type ViewResponse } from '../types/quickrun.types';
 import { ValidationErrorBlock } from './ValidationErrorBlock';
 import { useFileFieldSchema } from '../file-fields/useFileFieldSchema';
+import { activeSubFlowTarget } from '../utils/subFlowProxy';
 
 interface TransitionDialogProps {
   configRef: MutableRefObject<WorkflowBucketConfig>;
@@ -40,6 +41,7 @@ export function TransitionDialog({ configRef, persistConfig, projectId }: Transi
   const transition = useQuickRunStore((s) => s.transitionDialogTarget);
   const closeDialog = useQuickRunStore((s) => s.closeTransitionDialog);
   const activeTabId = useQuickRunStore((s) => s.activeTabId);
+  const proxiedTo = useQuickRunStore((s) => activeSubFlowTarget(s.activeState?.activeCorrelations));
   const domain = useQuickRunStore((s) => s.domain);
   const workflowKey = useQuickRunStore((s) => s.workflowKey);
   const globalHeaders = useQuickRunStore((s) => s.globalHeaders);
@@ -527,6 +529,13 @@ export function TransitionDialog({ configRef, persistConfig, projectId }: Transi
             </div>
           )}
 
+          {proxiedTo ? (
+            <p className="rounded border border-[var(--vscode-panel-border)] px-2 py-1 text-[10px] text-[var(--vscode-descriptionForeground)]">
+              This instance has an active SubFlow (<span className="font-mono">{proxiedTo.subFlowName}</span>
+              {proxiedTo.currentState ? <>, state <span className="font-mono">{proxiedTo.currentState}</span></> : null}). The
+              runtime forwards the transition to it, and the SubFlow&apos;s validation errors come back here directly.
+            </p>
+          ) : null}
           <TransitionAnnotations annotations={transition?.annotations} />
 
           <TransitionViewInfo

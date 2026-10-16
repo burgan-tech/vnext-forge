@@ -136,10 +136,12 @@ export function summarizeRuntimeError(error: RuntimeErrorLike): RuntimeErrorSumm
 }
 
 /**
- * What to do about runtime 0.0.100 error codes the message alone does not
- * explain (history: none flows and x-storage file fields).
+ * What to do about runtime error codes the message alone does not explain
+ * (SubFlow transition proxy, history: none flows, x-storage file fields).
  */
 const RUNTIME_ERROR_HINTS: Readonly<Record<string, string>> = {
+  'Instance:100031':
+    'The instance is busy. On a parent with an active SubFlow, runtime 0.0.100 forwards the transition to the SubFlow, and answers busy while that child has just completed or is not created yet — retry in a moment.',
   'Instance:100044':
     'A history: none flow can start a SubFlow only when the child is history: none too; set the child to none or start it as a SubProcess (type P).',
   'Instance:100045': 'A history: none instance cannot be retried; start a new instance.',
