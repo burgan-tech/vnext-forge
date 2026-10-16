@@ -106,3 +106,7 @@ Upload için multipart **gerekmiyor** (base64 JSON body), download için binary-
 4. **Download UX (extension)** → ikisi birden: "Open" (geçici dosya, VS Code'da önizleme) + "Save as…" (kaydet diyaloğu). Web: Blob indirme. (F4.5)
 5. **pseudo-ui FileUpload** → pseudo-ui desteği beklenir. View ile render edilen transition/start formlarında dosya yükleme yapılmaz (açıklayıcı uyarı gösterilir); dosya widget'ı yalnızca view'ı olmayan, schema-form ile render edilen formlarda çalışır. pseudo-ui'a schema-form fallback'i yazılmaz. (F4.3)
 6. **Sıralama** → F0 → F1 → F2; F3 ve F4 bağımsız paralel yürüyebilir.
+
+## 4. E2E doğrulama (2026-10-16)
+
+Yöntem: `docs/testing/e2e.md` (skill `forge-e2e`). Lokal runtime vnext `master` @ `f06961ec`; baseline 59/59 (FileOffloadLab, HistoryNoneLab, HistoryNoneSubflowLab, SchemaRolesLab); yeni senaryo `forge-file-form-lab` 4/4 (vnext-example `feature/forge-file-form-lab`, push yok); rule-mirror guard 0 bulgu (91 workflow, ~400 annotation); UI kontrollerinin tamamı geçti. Bulunup düzeltilen: örnek veri üretimi dosya alanlarını sahte değerlerle dolduruyordu; legacy tipte "No role" ipucu. Açık bulgu: web server hata `details`'ini düşürüyor → runtime kodları/ipuçları web shell'de banner'a ulaşmıyor (extension'da ulaşıyor).
