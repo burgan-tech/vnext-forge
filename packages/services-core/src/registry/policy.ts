@@ -92,6 +92,7 @@ const METHOD_CAPABILITIES: Readonly<Record<string, MethodCapability>> = Object.f
   'quickrun/getState': 'privileged',
   'quickrun/getView': 'privileged',
   'quickrun/getData': 'privileged',
+  'quickrun/downloadFile': 'privileged',
   'quickrun/getSchema': 'privileged',
   'quickrun/getHistory': 'privileged',
   'quickrun/retryInstance': 'privileged',

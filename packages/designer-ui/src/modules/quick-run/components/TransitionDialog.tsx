@@ -21,6 +21,7 @@ import { useDefinedExecutionMode } from '../hooks/useDefinedExecutionMode';
 import { useQuickRunStore } from '../store/quickRunStore';
 import { safeViewContent, type SchemaResponse, type ViewResponse } from '../types/quickrun.types';
 import { ValidationErrorBlock } from './ValidationErrorBlock';
+import { useFileFieldSchema } from '../file-fields/useFileFieldSchema';
 
 interface TransitionDialogProps {
   configRef: MutableRefObject<WorkflowBucketConfig>;
@@ -779,6 +780,9 @@ function TransitionInputStep({
   headerRows: { name: string; value: string }[];
   setHeaderRows: (v: { name: string; value: string }[]) => void;
 }) {
+  const { schema: formSchema, hasFileFields } = useFileFieldSchema(
+    hasSchema && schema ? (schema.schema as JsonSchemaRoot) : null,
+  );
   // Faker-driven payload generation. Mirrors `NewRunDialog` but uses the
   // generic `test-data/generate` endpoint with the schema already in
   // hand (transition's schema is fetched from the runtime, not from a
@@ -1042,12 +1046,14 @@ function TransitionInputStep({
             </div>
           ) : null}
 
+          {hasFileFields ? (
+            <p className="text-[10px] text-[var(--vscode-descriptionForeground)]">
+              File fields upload from this form (base64 in the request body). Pseudo-ui views cannot upload files
+              yet.
+            </p>
+          ) : null}
           <SchemaForm
-            schema={
-              hasSchema && schema
-                ? (schema.schema as JsonSchemaRoot)
-                : null
-            }
+            schema={formSchema}
             value={attributes}
             onChange={setAttributes}
             jsonEditorLabel="Attributes (JSON)"

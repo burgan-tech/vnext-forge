@@ -64,6 +64,7 @@ describe('method registry contract (R-b9 + R-a2)', () => {
         "quickrun-presets/save",
         "quickrun/acknowledgeLongPoll",
         "quickrun/authorize",
+        "quickrun/downloadFile",
         "quickrun/executeFunction",
         "quickrun/fireTransition",
         "quickrun/getActiveIncident",

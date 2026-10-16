@@ -190,9 +190,15 @@ export function createRuntimeProxyService(deps: RuntimeProxyServiceDeps) {
   const normalize = (u: string) => u.trim().replace(/\/+$/, '')
   const normalizedDefault = normalize(defaultRuntimeUrl)
 
+  /**
+   * `binary: true` returns the body base64-encoded in `data` instead of as
+   * text, so non-text responses (files) survive the trip. Internal option —
+   * the `runtime/proxy` RPC stays text-only.
+   */
   async function proxy(
     req: z.infer<typeof runtimeProxyParams>,
     traceId?: string,
+    options: { binary?: boolean } = {},
   ): Promise<z.infer<typeof runtimeProxyResult>> {
     // Resolve allowlist fresh on each call so callback-based lists stay current.
     const rawAllowedUrls =
@@ -268,7 +274,10 @@ export function createRuntimeProxyService(deps: RuntimeProxyServiceDeps) {
         init.body = req.body
       }
       const response = await network.fetch(fullUrl, init)
-      const data = await response.text()
+      const data =
+        options.binary && response.arrayBuffer && response.status >= 200 && response.status < 300
+          ? Buffer.from(await response.arrayBuffer()).toString('base64')
+          : await response.text()
       return {
         status: response.status,
         contentType: response.contentType ?? 'application/json',

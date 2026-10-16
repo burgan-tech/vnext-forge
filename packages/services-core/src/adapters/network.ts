@@ -19,4 +19,6 @@ export interface NetworkResponse {
   contentType: string
   headers?: Record<string, string>
   text(): Promise<string>
+  /** Raw body, for binary responses (e.g. the runtime's built-in `file` function). */
+  arrayBuffer?(): Promise<ArrayBuffer>
 }

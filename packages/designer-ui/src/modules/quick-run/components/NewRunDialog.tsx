@@ -15,6 +15,7 @@ import { useQuickRunPolling } from '../hooks/useQuickRunPolling';
 import { useDefinedExecutionMode } from '../hooks/useDefinedExecutionMode';
 import { useQuickRunStore } from '../store/quickRunStore';
 import { ValidationErrorBlock } from './ValidationErrorBlock';
+import { useFileFieldSchema } from '../file-fields/useFileFieldSchema';
 
 interface NewRunDialogProps {
   open: boolean;
@@ -85,6 +86,8 @@ export function NewRunDialog({
   // capture it here so SchemaForm can render a live form view next to
   // the JSON editor toggle.
   const [resolvedSchema, setResolvedSchema] = useState<JsonSchemaRoot | null>(null);
+  // x-storage file fields get the QuickRun file widget.
+  const { schema: formSchema } = useFileFieldSchema(resolvedSchema);
   // Submit-time validation gate. Until the user presses Start Run we
   // only show errors for fields they have already touched (so a fresh
   // dialog never lights up red). After a submit attempt we flip this
@@ -638,7 +641,7 @@ export function NewRunDialog({
             ) : null}
 
             <SchemaForm
-              schema={resolvedSchema}
+              schema={formSchema}
               value={attributes}
               onChange={setAttributes}
               jsonEditorLabel=""

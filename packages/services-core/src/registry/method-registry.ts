@@ -113,6 +113,8 @@ import {
 import {
   quickrunFireTransitionParams,
   quickrunFireTransitionResult,
+  quickrunDownloadFileParams,
+  quickrunDownloadFileResult,
   quickrunGetDataParams,
   quickrunGetDataResult,
   quickrunGetHistoryParams,
@@ -686,6 +688,13 @@ export function buildMethodRegistry(): MethodRegistry {
       resultSchema: quickrunGetDataResult,
       handler: async (params, { quickRunService }, traceId) =>
         quickRunService.getData(params, traceId),
+    },
+    'quickrun/downloadFile': {
+      paramsSchema: quickrunDownloadFileParams,
+      resultSchema: quickrunDownloadFileResult,
+      // x-storage file field bytes via the runtime's built-in `file` function.
+      handler: async (params, { quickRunService }, traceId) =>
+        quickRunService.downloadFile(params, traceId),
     },
     'quickrun/getSchema': {
       paramsSchema: quickrunGetSchemaParams,

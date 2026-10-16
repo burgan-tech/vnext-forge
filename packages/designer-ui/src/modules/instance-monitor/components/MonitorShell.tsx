@@ -250,6 +250,7 @@ export function MonitorShell({
 
   return (
     <MonitorShellView
+      headers={headers}
       target={level}
       levels={controller.levels}
       onPopTo={controller.popTo}
@@ -317,6 +318,8 @@ export interface MonitorShellViewProps {
   currentData?: unknown;
   currentDataFailed?: boolean;
   currentETag?: string;
+  /** Request headers for the runtime (file downloads reuse them). */
+  headers?: Record<string, string>;
 }
 
 const muted = 'text-[var(--vscode-descriptionForeground,#9d9d9d)]';
@@ -646,6 +649,13 @@ export function MonitorShellView(props: MonitorShellViewProps) {
                             {...('currentData' in props ? { current: props.currentData } : {})}
                             currentFailed={!!props.currentDataFailed}
                             {...(props.currentETag ? { currentETag: props.currentETag } : {})}
+                            fileContext={{
+                              domain: target.domain,
+                              workflowKey: target.workflowKey,
+                              instanceId: target.instanceId,
+                              ...(props.headers ? { headers: props.headers } : {}),
+                              ...(target.runtimeUrl ? { runtimeUrl: target.runtimeUrl } : {}),
+                            }}
                           />
                         ),
                       },

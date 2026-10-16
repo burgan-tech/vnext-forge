@@ -184,6 +184,31 @@ export async function getData(params: GetDataParams): Promise<ApiResponse<DataRe
   return callApi({ method: 'quickrun/getData', params });
 }
 
+export interface DownloadFileParams {
+  domain: string;
+  /** The handle's `owner.flow`. */
+  workflowKey: string;
+  /** The handle's `owner.instance`. */
+  instanceId: string;
+  /** The handle's `file` id. */
+  file: string;
+  headers?: Record<string, string>;
+  runtimeUrl?: string;
+}
+
+export interface DownloadedFile {
+  contentBase64: string;
+  contentType: string;
+  size: number;
+  fileName?: string;
+  eTag?: string;
+}
+
+/** Bytes of an `x-storage` file through the runtime's built-in `file` function. */
+export async function downloadFile(params: DownloadFileParams): Promise<ApiResponse<DownloadedFile>> {
+  return callApi({ method: 'quickrun/downloadFile', params });
+}
+
 export async function getSchema(params: GetSchemaParams): Promise<ApiResponse<SchemaResponse>> {
   return callApi({ method: 'quickrun/getSchema', params });
 }

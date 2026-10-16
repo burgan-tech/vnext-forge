@@ -7,10 +7,13 @@ import type { HistoryTransition } from '../../quick-run/types/quickrun.types';
 import { attributeRows, compareOrder, previousRow, rowLabel } from '../model/dataAttribution';
 import { diffJson } from '../model/jsonDiff';
 import { DataDiffView } from './DataDiffView';
+import { FileHandleChips, type FileHandleChipsProps } from '../../quick-run/file-fields/FileHandleChips';
 
 export interface DataTabProps {
   /** Latest data from `getData`; undefined while loading. */
   current?: unknown;
+  /** Where stored file handles in `current` are downloaded from (Open / Save as). */
+  fileContext?: Omit<FileHandleChipsProps, 'data'>;
   currentFailed?: boolean;
   /** ETag of the current data. */
   currentETag?: string;
@@ -33,7 +36,7 @@ const muted = 'text-[var(--vscode-descriptionForeground,#9d9d9d)]';
 const changeCount = (d: ReturnType<typeof diffJson>) => d.added.length + d.removed.length + d.changed.length;
 
 /** Current data plus the version history (read-only). */
-export function DataTab({ current, currentFailed, currentETag, history, rows, state, hasNext, error, onLoadMore, labelFor, onOpen }: DataTabProps) {
+export function DataTab({ current, currentFailed, currentETag, fileContext, history, rows, state, hasNext, error, onLoadMore, labelFor, onOpen }: DataTabProps) {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [picked, setPicked] = useState<string[]>([]);
   const [compare, setCompare] = useState<[DataHistoryItem, DataHistoryItem] | null>(null);
@@ -83,6 +86,7 @@ export function DataTab({ current, currentFailed, currentETag, history, rows, st
         ) : (
           <>
             {currentETag && <p className={muted}>ETag: {currentETag}</p>}
+            {fileContext ? <FileHandleChips data={current} {...fileContext} /> : null}
             <CopyableJsonBlock value={current} />
           </>
         )}

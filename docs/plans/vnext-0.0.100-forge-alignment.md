@@ -89,6 +89,8 @@ Upload için multipart **gerekmiyor** (base64 JSON body), download için binary-
 6. Hata eşleme: `Instance:100047–100050`, 403 (queryRoles), 404 (x-roles gizli).
 7. Function Run ekranı: `file` sistem fonksiyonunu listede göster, `file` query param formu + binary yanıt panosu.
 
+**F4 durumu (2026-10-16):** 1–6 tamamlandı. Dosya alanları master şemanın `x-storage` yollarından (ve `name`+`content` şeklinden) bulunuyor; transition/start formlarında FileUploadField (base64, ~7.5 MiB sınırı, keep/replace/clear). İndirme: network adapter'larına `arrayBuffer`, proxy'ye dahili `binary` modu, `quickrun/downloadFile` (handle'daki `owner` instance'ı üzerinden `functions/file`). QuickRun ve Monitor Data sekmelerinde dosya listesi + Open / Save as; extension'da `host:open-bytes` (geçici kopya + `vscode.open`) ve `host:save-bytes` (kaydet diyaloğu), web'de Blob (aktif içerik türleri sekmede açılmaz, indirilir). QuickRun ve Monitor webview'larına `postMessageToHost` kaydı eklendi. **Yapılmadı:** madde 7 (Function Run'da `file` sistem fonksiyonu formu); pseudo-ui view'larında dosya yükleme (karar 5 gereği) — TransitionDialog'da açıklama notu var.
+
 ### F5 — Küçük iyileştirmeler
 - `DaprPubSubTask.topic` için Kafka prefix ipucu (`vnext.{domain}.{env}.`), #1095.
 - SubFlow transition proxy (#1085): QuickRun'da leaf'ten dönen 400/403/409 ve `InstanceBusy` mesajlarının düzgün gösterilmesi.
