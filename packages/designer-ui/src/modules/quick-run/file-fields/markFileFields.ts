@@ -36,3 +36,24 @@ export function markFileFields<T>(schema: T, masterPaths: readonly string[]): T 
   const result = walk(schema, '', 0);
   return (marked ? result : schema) as T;
 }
+
+/**
+ * `instance` without values at the file fields `markedSchema` marks. Sample
+ * data generators fill an upload node with fake `name` / `size` / `content`
+ * (not base64), which the runtime would reject; a file must be picked.
+ */
+export function stripFileFieldValues(instance: unknown, markedSchema: unknown): unknown {
+  const walk = (value: unknown, node: unknown): unknown => {
+    if (!isRecord(node) || !isRecord(value)) return value;
+    const props = isRecord(node.properties) ? node.properties : {};
+    const out: Record<string, unknown> = {};
+    for (const [key, child] of Object.entries(value)) {
+      const childNode = props[key];
+      if (isRecord(childNode) && childNode[FILE_FIELD_MARKER] === true) continue;
+      if (isRecord(childNode) && isRecord(childNode.items) && childNode.items[FILE_FIELD_MARKER] === true) continue;
+      out[key] = walk(child, childNode);
+    }
+    return out;
+  };
+  return walk(instance, markedSchema);
+}

@@ -43,7 +43,7 @@ function SchemaRoleSelect({ value, onCommit, errorMsg, suggestedRole }: SchemaTy
       hint={
         selected ? (
           selected.description
-        ) : (
+        ) : current.kind === 'legacy' ? undefined : (
           <>No role: every annotation except x-indexed is accepted. Pick a role to get its checks.</>
         )
       }>

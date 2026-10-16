@@ -26,6 +26,7 @@ describe('SchemaTypeField — vnext-schema ≥ 0.0.56 (roles)', () => {
     expect(html).toContain('schema (legacy)');
     expect(html).toContain('legacy type');
     expect(html).toContain('Use transition');
+    expect(html).not.toContain('No role: every annotation');
   });
 
   it('does not offer a suggestion without one', () => {

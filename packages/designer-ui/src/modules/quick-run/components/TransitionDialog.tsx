@@ -789,7 +789,7 @@ function TransitionInputStep({
   headerRows: { name: string; value: string }[];
   setHeaderRows: (v: { name: string; value: string }[]) => void;
 }) {
-  const { schema: formSchema, hasFileFields } = useFileFieldSchema(
+  const { schema: formSchema, hasFileFields, withoutFileValues } = useFileFieldSchema(
     hasSchema && schema ? (schema.schema as JsonSchemaRoot) : null,
   );
   // Faker-driven payload generation. Mirrors `NewRunDialog` but uses the
@@ -815,13 +815,14 @@ function TransitionInputStep({
         setGenError(result.error.message);
         return;
       }
-      setAttributes(JSON.stringify(result.data.instance, null, 2));
+      // Sample data never fills file fields: a file must be picked.
+      setAttributes(JSON.stringify(withoutFileValues(result.data.instance), null, 2));
     } catch (err) {
       setGenError(err instanceof Error ? err.message : 'Generate failed');
     } finally {
       setGenerating(false);
     }
-  }, [schema, setAttributes]);
+  }, [schema, setAttributes, withoutFileValues]);
 
   const handleClear = useCallback(() => setAttributes('{}'), [setAttributes]);
 

@@ -52,3 +52,16 @@ describe('isActiveContentType', () => {
     expect(isActiveContentType('application/pdf')).toBe(false);
   });
 });
+
+describe('stripFileFieldValues', () => {
+  it('drops generated values in file fields and file arrays, keeps the rest', async () => {
+    const { stripFileFieldValues } = await import('./markFileFields');
+    const marked = markFileFields(transitionSchema, ['identityDocument']);
+    const generated = {
+      identityDocument: { name: 'x', size: -3, content: 'zz' },
+      attachments: [{ name: 'y', content: 'q' }],
+      note: 'kept',
+    };
+    expect(stripFileFieldValues(generated, marked)).toEqual({ note: 'kept' });
+  });
+});
