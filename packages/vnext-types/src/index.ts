@@ -30,3 +30,4 @@ export * from './utils/role-grant';
 export * from './utils/editor-tab-presentation';
 export * from './utils/view-display';
 export * from './utils/solution-file-name';
+export * from './utils/history-mode';

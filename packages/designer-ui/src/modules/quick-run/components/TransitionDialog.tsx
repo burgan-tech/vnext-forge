@@ -21,6 +21,8 @@ import { useDefinedExecutionMode } from '../hooks/useDefinedExecutionMode';
 import { useQuickRunStore } from '../store/quickRunStore';
 import { safeViewContent, type SchemaResponse, type ViewResponse } from '../types/quickrun.types';
 import { ValidationErrorBlock } from './ValidationErrorBlock';
+import { useFileFieldSchema } from '../file-fields/useFileFieldSchema';
+import { activeSubFlowTarget } from '../utils/subFlowProxy';
 
 interface TransitionDialogProps {
   configRef: MutableRefObject<WorkflowBucketConfig>;
@@ -39,6 +41,7 @@ export function TransitionDialog({ configRef, persistConfig, projectId }: Transi
   const transition = useQuickRunStore((s) => s.transitionDialogTarget);
   const closeDialog = useQuickRunStore((s) => s.closeTransitionDialog);
   const activeTabId = useQuickRunStore((s) => s.activeTabId);
+  const proxiedTo = useQuickRunStore((s) => activeSubFlowTarget(s.activeState?.activeCorrelations));
   const domain = useQuickRunStore((s) => s.domain);
   const workflowKey = useQuickRunStore((s) => s.workflowKey);
   const globalHeaders = useQuickRunStore((s) => s.globalHeaders);
@@ -526,6 +529,13 @@ export function TransitionDialog({ configRef, persistConfig, projectId }: Transi
             </div>
           )}
 
+          {proxiedTo ? (
+            <p className="rounded border border-[var(--vscode-panel-border)] px-2 py-1 text-[10px] text-[var(--vscode-descriptionForeground)]">
+              This instance has an active SubFlow (<span className="font-mono">{proxiedTo.subFlowName}</span>
+              {proxiedTo.currentState ? <>, state <span className="font-mono">{proxiedTo.currentState}</span></> : null}). The
+              runtime forwards the transition to it, and the SubFlow&apos;s validation errors come back here directly.
+            </p>
+          ) : null}
           <TransitionAnnotations annotations={transition?.annotations} />
 
           <TransitionViewInfo
@@ -779,6 +789,9 @@ function TransitionInputStep({
   headerRows: { name: string; value: string }[];
   setHeaderRows: (v: { name: string; value: string }[]) => void;
 }) {
+  const { schema: formSchema, hasFileFields, withoutFileValues } = useFileFieldSchema(
+    hasSchema && schema ? (schema.schema as JsonSchemaRoot) : null,
+  );
   // Faker-driven payload generation. Mirrors `NewRunDialog` but uses the
   // generic `test-data/generate` endpoint with the schema already in
   // hand (transition's schema is fetched from the runtime, not from a
@@ -802,13 +815,14 @@ function TransitionInputStep({
         setGenError(result.error.message);
         return;
       }
-      setAttributes(JSON.stringify(result.data.instance, null, 2));
+      // Sample data never fills file fields: a file must be picked.
+      setAttributes(JSON.stringify(withoutFileValues(result.data.instance), null, 2));
     } catch (err) {
       setGenError(err instanceof Error ? err.message : 'Generate failed');
     } finally {
       setGenerating(false);
     }
-  }, [schema, setAttributes]);
+  }, [schema, setAttributes, withoutFileValues]);
 
   const handleClear = useCallback(() => setAttributes('{}'), [setAttributes]);
 
@@ -1042,12 +1056,14 @@ function TransitionInputStep({
             </div>
           ) : null}
 
+          {hasFileFields ? (
+            <p className="text-[10px] text-[var(--vscode-descriptionForeground)]">
+              File fields upload from this form (base64 in the request body). Pseudo-ui views cannot upload files
+              yet.
+            </p>
+          ) : null}
           <SchemaForm
-            schema={
-              hasSchema && schema
-                ? (schema.schema as JsonSchemaRoot)
-                : null
-            }
+            schema={formSchema}
             value={attributes}
             onChange={setAttributes}
             jsonEditorLabel="Attributes (JSON)"

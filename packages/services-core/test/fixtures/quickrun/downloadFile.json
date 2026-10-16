@@ -1,0 +1,4 @@
+{
+  "params": { "domain": "core", "workflowKey": "kyc", "instanceId": "i1", "file": "7c9e4c2a-5f7e-4a51-9c11-0b8b6c1d2e3f" },
+  "result": { "contentBase64": "JVBERi0=", "contentType": "application/pdf", "size": 5, "fileName": "passport.pdf", "eTag": "9f86d0" }
+}

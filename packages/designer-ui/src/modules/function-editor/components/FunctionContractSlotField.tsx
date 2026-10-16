@@ -2,7 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { ArrowDown, ArrowUp, FileJson, Plus, Trash2 } from 'lucide-react';
 
 import type { DiscoveredVnextComponent } from '@vnext-forge-studio/app-contracts';
-import type { FunctionComponentRef, ScriptsConfig } from '@vnext-forge-studio/vnext-types';
+import type { FunctionComponentRef, SchemaRole, ScriptsConfig } from '@vnext-forge-studio/vnext-types';
 
 import { Alert, AlertDescription, AlertTitle } from '../../../ui/Alert';
 import { Badge } from '../../../ui/Badge';
@@ -54,6 +54,8 @@ interface FunctionContractSlotFieldProps {
    * rule edits would never reach the document.
    */
   scriptListField: string;
+  /** Role written on a schema created from this slot (`inputSchema` → `function`). */
+  schemaRole?: SchemaRole;
   onBeforeOpenModal?: () => void;
 }
 
@@ -79,6 +81,7 @@ export function FunctionContractSlotField({
   onChange,
   functionKey,
   scriptListField,
+  schemaRole,
   onBeforeOpenModal,
 }: FunctionContractSlotFieldProps) {
   const config = SLOT_KINDS[kind];
@@ -345,6 +348,7 @@ export function FunctionContractSlotField({
           if (!open) setCreatorTarget(null);
         }}
         category={config.category}
+        schemaRole={schemaRole}
         onCreated={handleSelectComponent}
       />
     </div>

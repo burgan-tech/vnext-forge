@@ -3,6 +3,8 @@ export type { QuickRunService } from './quickrun.service.js'
 export {
   quickrunFireTransitionParams,
   quickrunFireTransitionResult,
+  quickrunDownloadFileParams,
+  quickrunDownloadFileResult,
   quickrunGetDataParams,
   quickrunGetDataResult,
   quickrunGetHistoryParams,

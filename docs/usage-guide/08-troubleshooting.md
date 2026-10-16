@@ -73,6 +73,18 @@
 - Review response headers for error details — the `X-Trace-Id` header can be used to look up server-side logs
 - Ensure the transition is valid for the current state (check Available Transitions)
 
+### Schema Validation Fails After Upgrading to vnext-schema 0.0.56
+
+**Symptoms:** schemas that used to save now fail on `attributes.type`, or annotations such as `x-roles` are refused on a transition schema.
+
+**Solutions:**
+- Run **Forge: Fix Legacy Schema Types** (or use the quick fix in the Problems panel) to replace legacy types (`schema`, `workflow`, …) with the inferred role.
+- Remove annotations the schema's role does not accept; the schema editor's vNext tab lists them with a **Remove** action.
+
+### Runtime Error Codes in Quick Run
+
+The error banner explains the runtime 0.0.100 codes it recognises, for example `Instance:100031` (busy / SubFlow handoff — retry), `Instance:100044`–`100046` (history: none rules) and `Instance:100047`–`100050` (file fields).
+
 ## Output Channels
 
 vNext Forge Studio writes diagnostic logs to VS Code Output channels (accessible via **View → Output** and selecting the channel from the dropdown):

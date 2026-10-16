@@ -32,6 +32,8 @@ export interface MonitorLevelData {
   instance: InstanceDetailResponse;
   /** Oldest first. */
   history: HistoryTransition[];
+  /** Why the transition list could not be loaded; `history` is then empty. */
+  historyError: RuntimeErrorLike | null;
   definition: MonitorDefinition;
   loadedAt: number;
   /** Task journal (`functions/tasks`), oldest first; empty when unavailable. */

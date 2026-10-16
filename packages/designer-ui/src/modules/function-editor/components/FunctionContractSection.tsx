@@ -132,6 +132,7 @@ export function FunctionContractSection({
               <FunctionContractSlotField
                 key={slot.field}
                 kind={slot.kind}
+                schemaRole={slot.field === 'inputSchema' ? 'function' : undefined}
                 label={slot.label}
                 hint={slot.hint}
                 value={attrs[slot.field]}

@@ -65,6 +65,7 @@ const METHOD_CAPABILITIES: Readonly<Record<string, MethodCapability>> = Object.f
   'validate/component': 'public',
   'validate/getAvailableTypes': 'public',
   'validate/getAllSchemas': 'public',
+  'validate/getVocabularies': 'public',
   'validate/getSchema': 'public',
 
   // ── test-data — `generate` is pure (schema in → instance out), the
@@ -91,6 +92,7 @@ const METHOD_CAPABILITIES: Readonly<Record<string, MethodCapability>> = Object.f
   'quickrun/getState': 'privileged',
   'quickrun/getView': 'privileged',
   'quickrun/getData': 'privileged',
+  'quickrun/downloadFile': 'privileged',
   'quickrun/getSchema': 'privileged',
   'quickrun/getHistory': 'privileged',
   'quickrun/retryInstance': 'privileged',

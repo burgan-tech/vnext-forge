@@ -25,6 +25,7 @@ import { publishInstanceChange } from '../../instance-monitor/bus/instanceChange
 import type { KeepPollingWindow } from '../hooks/keepPollingWindow';
 import type { FlowExecutionTypes } from '../utils/executionMode';
 import type { PermissionCheckResult } from '../utils/permissionChecks';
+import type { HistoryMode } from '@vnext-forge-studio/vnext-types';
 
 interface QuickRunState {
   domain: string;
@@ -154,6 +155,8 @@ interface QuickRunState {
   flowLabels: FlowLabelsMap | null;
   /** executionType values from the local workflow file (runtime 0.0.99). */
   flowExecutionTypes: FlowExecutionTypes | null;
+  /** `attributes.history` of the local workflow file (runtime 0.0.100); null until read. */
+  flowHistoryMode: HistoryMode | null;
 
   /**
    * Last-seen ETag per quickrun function kind, scoped to the *active*
@@ -230,6 +233,7 @@ interface QuickRunState {
   setRuntimeVersion: (version: string | null) => void;
   setFlowLabels: (labels: FlowLabelsMap | null) => void;
   setFlowExecutionTypes: (types: FlowExecutionTypes | null) => void;
+  setFlowHistoryMode: (mode: HistoryMode | null) => void;
 
   setEtag: (fn: 'state' | 'data' | 'schema', etag: string | undefined) => void;
   resetEtags: () => void;
@@ -311,6 +315,7 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
 
   flowLabels: null,
   flowExecutionTypes: null,
+  flowHistoryMode: null,
 
   etags: {},
 
@@ -503,6 +508,7 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
   setRuntimeVersion: (runtimeVersion) => set({ runtimeVersion }),
   setFlowLabels: (flowLabels) => set({ flowLabels }),
   setFlowExecutionTypes: (flowExecutionTypes) => set({ flowExecutionTypes }),
+  setFlowHistoryMode: (flowHistoryMode) => set({ flowHistoryMode }),
 
   setEtag: (fn, etag) => set((state) => ({ etags: { ...state.etags, [fn]: etag } })),
   resetEtags: () => set({ etags: {} }),

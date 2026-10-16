@@ -11,8 +11,10 @@ import {
 } from '../tabs/transition';
 import { MetadataSection } from './MetadataSection';
 import { useStateOptions } from './useStateOptions';
+import { HISTORY_NONE_REASON, useHistoryNone } from '../../../hooks/useHistoryNone';
 
 export function WorkflowSharedTransitionsSection() {
+  const historyNone = useHistoryNone();
   const { workflowJson, updateWorkflow } = useWorkflowStore();
   if (!workflowJson) return null;
 
@@ -129,7 +131,9 @@ export function WorkflowSharedTransitionsSection() {
         ))}
         <button
           onClick={addSharedTransition}
-          className="text-secondary-icon hover:text-secondary-foreground flex cursor-pointer items-center gap-1.5 text-[11px] font-semibold">
+          disabled={historyNone}
+          title={historyNone ? HISTORY_NONE_REASON : undefined}
+          className="text-secondary-icon hover:text-secondary-foreground flex cursor-pointer items-center gap-1.5 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-45">
           <Plus size={13} /> Add Shared Transition
         </button>
       </div>

@@ -123,6 +123,131 @@ describe('errorHandler ApiResponse contract', () => {
     expect(json.error.traceId).toBe(res.headers.get('X-Trace-Id'))
   })
 
+  describe('runtime error details (ADR 005 addendum)', () => {
+    function throwing(error: VnextForgeError) {
+      return buildApp((a) => {
+        a.get('/runtime', async () => {
+          throw error
+        })
+      })
+    }
+
+    async function detailsOf(error: VnextForgeError) {
+      const res = await throwing(error).request('/runtime')
+      const json = (await res.json()) as FailureEnvelope & {
+        error: { details?: Record<string, unknown> }
+      }
+      return { res, json }
+    }
+
+    it('forwards the runtime answer of a non-2xx runtime response', async () => {
+      const { res, json } = await detailsOf(
+        new VnextForgeError(ERROR_CODES.RUNTIME_NOT_FOUND, 'Runtime returned HTTP 404', {
+          source: 'QuickRunService.downloadFile',
+          layer: 'infrastructure',
+          details: {
+            httpStatus: 404,
+            error: {
+              prefix: 'Instance',
+              code: '100049',
+              message: 'File not found in instance data.',
+              target: 'file',
+              validationErrors: [{ message: 'Unknown file id.', members: ['file'], stackTrace: 'at X.Y()' }],
+              stackTrace: 'at Vnext.Runtime.Files.Get()',
+              innerError: { message: 'inner' },
+            },
+          },
+        }),
+      )
+      expect(res.status).toBe(404)
+      expect(json.error.code).toBe(ERROR_CODES.RUNTIME_NOT_FOUND)
+      expect(json.error.details).toEqual({
+        httpStatus: 404,
+        error: {
+          prefix: 'Instance',
+          code: '100049',
+          message: 'File not found in instance data.',
+          target: 'file',
+          validationErrors: [{ message: 'Unknown file id.', members: ['file'] }],
+        },
+      })
+    })
+
+    it('forwards flat and RFC 7807 runtime bodies without unknown keys', async () => {
+      const { json } = await detailsOf(
+        new VnextForgeError(ERROR_CODES.RUNTIME_EXECUTION_FAILED, 'Runtime returned HTTP 400', {
+          source: 'QuickRunService.listInstances',
+          layer: 'infrastructure',
+          details: {
+            httpStatus: 400,
+            title: 'One or more validation errors occurred.',
+            status: 400,
+            errors: { filter: ['filter.unknownOperator'], sort: 'sort.invalidJson' },
+            exception: 'System.InvalidOperationException: boom',
+          },
+        }),
+      )
+      expect(json.error.details).toEqual({
+        httpStatus: 400,
+        title: 'One or more validation errors occurred.',
+        status: 400,
+        errors: { filter: ['filter.unknownOperator'], sort: 'sort.invalidJson' },
+      })
+    })
+
+    it('caps long strings and long lists', async () => {
+      const { json } = await detailsOf(
+        new VnextForgeError(ERROR_CODES.RUNTIME_EXECUTION_FAILED, 'Runtime returned HTTP 400', {
+          source: 'test',
+          layer: 'infrastructure',
+          details: {
+            httpStatus: 400,
+            message: 'x'.repeat(5000),
+            errors: Array.from({ length: 200 }, (_, i) => ({ code: `c${i}`, message: 'm' })),
+          },
+        }),
+      )
+      const details = json.error.details as { message: string; errors: unknown[] }
+      expect(details.message).toHaveLength(1000)
+      expect(details.errors).toHaveLength(50)
+    })
+
+    it('never forwards forge-internal runtime details', async () => {
+      const { json } = await detailsOf(
+        new VnextForgeError(ERROR_CODES.RUNTIME_CONNECTION_FAILED, 'connect ECONNREFUSED', {
+          source: 'RuntimeProxyService.proxy',
+          layer: 'infrastructure',
+          details: { runtimeUrl: 'http://localhost:4201', fullUrl: 'http://localhost:4201/x?y=1', method: 'GET' },
+        }),
+      )
+      expect(json.error.details).toBeUndefined()
+      expect(JSON.stringify(json)).not.toContain('localhost:4201')
+    })
+
+    it('ignores RUNTIME_EXECUTION_FAILED details that are not a runtime answer', async () => {
+      const { json } = await detailsOf(
+        new VnextForgeError(ERROR_CODES.RUNTIME_EXECUTION_FAILED, 'boom', {
+          source: 'test',
+          layer: 'infrastructure',
+          details: { message: 'internal', path: '/Users/dev/project/file.json' },
+        }),
+      )
+      expect(json.error.details).toBeUndefined()
+    })
+
+    it('keeps details of non-runtime codes server-side', async () => {
+      const { json } = await detailsOf(
+        new VnextForgeError(ERROR_CODES.FILE_NOT_FOUND, 'missing', {
+          source: 'FileService.read',
+          layer: 'infrastructure',
+          details: { httpStatus: 404, path: '/Users/dev/secret.json' },
+        }),
+      )
+      expect(json.error.details).toBeUndefined()
+      expect(JSON.stringify(json)).not.toContain('/Users/dev')
+    })
+  })
+
   it('happy-path responses use the success envelope', async () => {
     const app = buildApp((a) => {
       a.get('/ok', (c) => ok(c, { hello: 'world' }))

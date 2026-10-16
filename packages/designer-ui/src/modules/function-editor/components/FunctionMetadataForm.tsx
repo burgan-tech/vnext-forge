@@ -14,6 +14,7 @@ import {
   toFunctionMetadataFormValues,
 } from '../FunctionEditorSchema';
 import { FunctionScopePicker } from './FunctionScopePicker';
+import { reservedFunctionKeyWarning } from '../reservedFunctionKeys';
 
 interface FunctionMetadataFormProps {
   json: Record<string, unknown>;
@@ -37,6 +38,7 @@ export function FunctionMetadataForm({ json, onChange }: FunctionMetadataFormPro
     defaultValues: toFunctionMetadataFormValues(json),
   });
   const values = useWatch({ control: form.control });
+  const reservedKeyWarning = reservedFunctionKeyWarning(typeof values.key === 'string' ? values.key : '');
 
   useEffect(() => {
     const nextValues = toFunctionMetadataFormValues(json);
@@ -110,6 +112,11 @@ export function FunctionMetadataForm({ json, onChange }: FunctionMetadataFormPro
           label="Key"
           required={requiredFields.has('key')}
           errorMsg={form.formState.errors.key?.message || keyServerError}
+          hint={
+            reservedKeyWarning ? (
+              <span className="text-amber-600 dark:text-amber-400">{reservedKeyWarning}</span>
+            ) : undefined
+          }
         >
           <MetadataEditableTextInput
             {...keyValidation}

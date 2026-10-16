@@ -37,6 +37,8 @@ import {
   vnextCategoryListResult,
   vnextComponentsListParams,
   vnextComponentsListResult,
+  vnextSchemasInferRoleParams,
+  vnextSchemasInferRoleResult,
 } from '../services/project/project-schemas.js'
 import {
   cliCheckParams,
@@ -111,6 +113,8 @@ import {
 import {
   quickrunFireTransitionParams,
   quickrunFireTransitionResult,
+  quickrunDownloadFileParams,
+  quickrunDownloadFileResult,
   quickrunGetDataParams,
   quickrunGetDataResult,
   quickrunGetHistoryParams,
@@ -171,6 +175,8 @@ import {
   validateComponentParams,
   validateGetAllSchemasParams,
   validateGetAllSchemasResult,
+  validateGetVocabulariesParams,
+  validateGetVocabulariesResult,
   validateGetAvailableTypesParams,
   validateGetAvailableTypesResult,
   validateGetSchemaParams,
@@ -577,6 +583,14 @@ export function buildMethodRegistry(): MethodRegistry {
         return components.mappings
       },
     },
+    'vnext/schemas/inferRole': {
+      paramsSchema: vnextSchemasInferRoleParams,
+      resultSchema: vnextSchemasInferRoleResult,
+      // Schema editor role suggestion (vnext-schema 0.0.56): reads the
+      // project's components to see where the schema is referenced.
+      handler: async ({ id, path }, { projectService }, traceId) =>
+        projectService.inferSchemaRoleForPath(id, path, traceId),
+    },
 
     // ── templates ────────────────────────────────────────────────────────────
     'templates/validateScriptStatus': {
@@ -615,6 +629,14 @@ export function buildMethodRegistry(): MethodRegistry {
       // match save-time validation; omitted → bundled package.
       handler: async ({ schemaVersion }, { validateService }) =>
         validateService.getAllSchemasVersioned(schemaVersion),
+    },
+    'validate/getVocabularies': {
+      paramsSchema: validateGetVocabulariesParams,
+      resultSchema: validateGetVocabulariesResult,
+      // Monaco registers these by `$id` so the definitions' cross-file `$ref`s
+      // (schema-definition → role vocabularies, ≥ 0.0.56) resolve offline.
+      handler: async ({ schemaVersion }, { validateService }) =>
+        validateService.getVocabulariesVersioned(schemaVersion),
     },
     'validate/getSchema': {
       paramsSchema: validateGetSchemaParams,
@@ -666,6 +688,13 @@ export function buildMethodRegistry(): MethodRegistry {
       resultSchema: quickrunGetDataResult,
       handler: async (params, { quickRunService }, traceId) =>
         quickRunService.getData(params, traceId),
+    },
+    'quickrun/downloadFile': {
+      paramsSchema: quickrunDownloadFileParams,
+      resultSchema: quickrunDownloadFileResult,
+      // x-storage file field bytes via the runtime's built-in `file` function.
+      handler: async (params, { quickRunService }, traceId) =>
+        quickRunService.downloadFile(params, traceId),
     },
     'quickrun/getSchema': {
       paramsSchema: quickrunGetSchemaParams,

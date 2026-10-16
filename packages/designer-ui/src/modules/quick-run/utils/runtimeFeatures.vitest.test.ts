@@ -22,4 +22,9 @@ describe('runtime version gating', () => {
     expect(runtimeSupports('0.0.99', 'executionType')).toBe(true);
     expect(runtimeSupports(undefined, 'elementMetrics')).toBeUndefined();
   });
+
+  it('gates the built-in file function on 0.0.100', () => {
+    expect(runtimeSupports('0.0.99', 'fileFunction')).toBe(false);
+    expect(runtimeSupports('0.0.100', 'fileFunction')).toBe(true);
+  });
 });

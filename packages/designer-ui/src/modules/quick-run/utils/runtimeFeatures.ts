@@ -1,10 +1,10 @@
-import { RUNTIME_0_0_99, runtimeAtLeast } from '@vnext-forge-studio/vnext-types';
+import { RUNTIME_0_0_99, RUNTIME_0_0_100, runtimeAtLeast } from '@vnext-forge-studio/vnext-types';
 
 import { useQuickRunStore } from '../store/quickRunStore';
 
 /**
- * Minimum runtime version per version-gated Quick Run surface. Every entry
- * first ships in runtime 0.0.99 — `vnext-meta` `since` values that say
+ * Minimum runtime version per version-gated Quick Run surface. The 0.0.99
+ * entries first ship in runtime 0.0.99 — `vnext-meta` `since` values that say
  * otherwise are wrong (the v0.0.98 tag only carries the interaction backport).
  */
 export const RUNTIME_FEATURE_MIN = {
@@ -12,6 +12,7 @@ export const RUNTIME_FEATURE_MIN = {
   executionType: RUNTIME_0_0_99,
   elementMetrics: RUNTIME_0_0_99,
   functionMetrics: RUNTIME_0_0_99,
+  fileFunction: RUNTIME_0_0_100,
 } as const;
 
 export type RuntimeFeature = keyof typeof RUNTIME_FEATURE_MIN;

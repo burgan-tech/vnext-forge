@@ -1,6 +1,11 @@
 import type { Monaco } from '@monaco-editor/react';
 import type { VnextWorkspacePaths } from '@vnext-forge-studio/app-contracts';
-import { fetchVnextSchemas, type VnextSchemaMap } from './JsonSchemaRegistry';
+import {
+  fetchVnextSchemas,
+  fetchVnextVocabularies,
+  type VnextSchemaMap,
+  type VnextVocabularyMap,
+} from './JsonSchemaRegistry';
 import { createLogger } from '../../../lib/logger/createLogger';
 
 const logger = createLogger('JsonSchemaSetup');
@@ -49,6 +54,14 @@ export function buildMonacoJsonSchemas(
   return entries;
 }
 
+/**
+ * Vocabulary entries registered under their `$id`, with no file match, so the
+ * component schemas' cross-file `$ref`s resolve without a network request.
+ */
+export function buildMonacoVocabularyEntries(vocabularies: VnextVocabularyMap): MonacoJsonSchemaEntry[] {
+  return Object.entries(vocabularies).map(([uri, schema]) => ({ uri, fileMatch: [], schema }));
+}
+
 export interface JsonSchemaValidationOptions {
   /** Workspace folder names (`vnext.config.json#paths`); defaults to the conventional ones. */
   paths?: VnextWorkspacePaths | null;
@@ -69,7 +82,10 @@ export async function configureJsonSchemaValidation(
 ): Promise<void> {
   latestRequest += 1;
   const request = latestRequest;
-  const schemas = await fetchVnextSchemas(options.schemaVersion);
+  const [schemas, vocabularies] = await Promise.all([
+    fetchVnextSchemas(options.schemaVersion),
+    fetchVnextVocabularies(options.schemaVersion),
+  ]);
   if (request !== latestRequest) return;
 
   if (!schemas) {
@@ -81,7 +97,7 @@ export async function configureJsonSchemaValidation(
   monaco.languages.json.jsonDefaults.setDiagnosticsOptions({
     validate: true,
     enableSchemaRequest: false,
-    schemas: entries,
+    schemas: [...entries, ...buildMonacoVocabularyEntries(vocabularies)],
   });
 
   logger.info(

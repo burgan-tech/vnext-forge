@@ -18,6 +18,7 @@ import type {
   JsonSchemaProperty,
   SchemaFieldContext,
 } from './types';
+import { fieldHelpText, orderedPropertyEntries } from './presentationHints';
 
 interface SchemaFieldProps {
   name: string;
@@ -124,7 +125,7 @@ export function SchemaField({
       decorateLabel(
         prop,
         prop.title ?? name,
-        prop.description,
+        fieldHelpText(prop as Record<string, unknown>),
       ),
     [prop, name],
   );
@@ -374,7 +375,7 @@ function ObjectField({
       {description ? <FieldDesc text={description} /> : null}
       {!collapsed ? (
         <div className="ml-2 flex flex-col gap-2 border-l-2 border-[var(--vscode-panel-border)] pl-3">
-          {Object.entries(prop.properties ?? {}).map(([key, childProp]) => {
+          {orderedPropertyEntries(prop.properties ?? {}).map(([key, childProp]) => {
             const childPath = context.path ? `${context.path}.${key}` : key;
             const childContext: SchemaFieldContext = {
               path: childPath,

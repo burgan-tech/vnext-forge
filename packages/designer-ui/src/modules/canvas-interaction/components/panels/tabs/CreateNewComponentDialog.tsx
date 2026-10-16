@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Loader2, Plus } from 'lucide-react';
 
 import { isFailure, type DiscoveredVnextComponent, type VnextExportCategory } from '@vnext-forge-studio/app-contracts';
+import type { SchemaRole } from '@vnext-forge-studio/vnext-types';
 import { saveComponentFile } from '../../../../save-component/SaveComponentApi.js';
 import {
   validateComponentBeforeWrite,
@@ -41,8 +42,8 @@ export interface CreateNewComponentDialogProps {
   onOpenChange: (open: boolean) => void;
   onCreated: (created: DiscoveredVnextComponent) => void;
   category: SupportedCategory;
-  /** `attributes.type` for a new schema (`category="schemas"` only). */
-  schemaType?: string;
+  /** Role of a new schema, from the slot it is created for (`category="schemas"` only). */
+  schemaRole?: SchemaRole;
 }
 
 export function CreateNewComponentDialog({
@@ -50,7 +51,7 @@ export function CreateNewComponentDialog({
   onOpenChange,
   onCreated,
   category,
-  schemaType,
+  schemaRole,
 }: CreateNewComponentDialogProps) {
   const activeProject = useProjectStore((s) => s.activeProject);
   const vnextConfig = useProjectStore((s) => s.vnextConfig);
@@ -131,7 +132,7 @@ export function CreateNewComponentDialog({
 
   const handleCreate = async () => {
     if (!canSubmit || !activeProject || !vnextConfig || !targetPath) return;
-    const json = meta.template(componentName, projectDomain, schemaType ? { schemaType } : undefined);
+    const json = meta.template(componentName, projectDomain, { schemaRole, schemaVersion });
     try {
       const gate = await validateComponentBeforeWrite(json, meta.singular, schemaVersion);
       if (!gate.valid && !gate.skipped) {

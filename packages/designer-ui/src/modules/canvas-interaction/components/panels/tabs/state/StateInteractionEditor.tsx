@@ -33,6 +33,7 @@ import {
   type LongPollArmIssue,
   type LongPollPatch,
 } from './longPollConfig';
+import { HISTORY_NONE_REASON, useHistoryNone } from '../../../../hooks/useHistoryNone';
 
 interface StateInteractionEditorProps {
   interaction: StateInteraction | null;
@@ -57,6 +58,7 @@ const ARM_ISSUE_MESSAGES: Record<LongPollArmIssue, string> = {
 };
 
 export function StateInteractionEditor({ interaction, stateKey, onChange }: StateInteractionEditorProps) {
+  const historyNone = useHistoryNone();
   const longPoll = interaction?.longPoll ?? null;
 
   const patchLongPoll = (patch: LongPollPatch): void => {
@@ -102,7 +104,9 @@ export function StateInteractionEditor({ interaction, stateKey, onChange }: Stat
         <button
           type="button"
           onClick={addLongPoll}
-          className="text-secondary-icon hover:text-secondary-foreground inline-flex min-h-0 cursor-pointer items-center gap-1 text-[11px] font-semibold transition-colors">
+          disabled={historyNone}
+          title={historyNone ? HISTORY_NONE_REASON : undefined}
+          className="text-secondary-icon hover:text-secondary-foreground inline-flex min-h-0 cursor-pointer items-center gap-1 text-[11px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-45">
           <IconPlus />
           Add long poll
         </button>

@@ -11,6 +11,14 @@ interface VnextSchemaModule {
   getSchema(type: string): Record<string, unknown> | null
   getAvailableTypes(): string[]
   schemas: Record<string, Record<string, unknown>>
+  /**
+   * vnext-schema ≥ 0.0.56: the role vocabularies `schema-definition` `$ref`s
+   * by `$id`. Older packages ship neither member.
+   */
+  vocabularies?: Record<string, Record<string, unknown>>
+  addVocabularies?<T extends { getSchema(id: string): unknown; addSchema(schema: object): unknown }>(
+    ajv: T,
+  ): T
 }
 
 export interface ComponentValidationError {
@@ -86,6 +94,16 @@ export const validateGetAllSchemasParams = z
   .transform((params) => params ?? {})
 export const validateGetAllSchemasResult = z.record(z.string(), z.record(z.string(), z.unknown()))
 
+export const validateGetVocabulariesParams = z
+  .object({
+    /** Project's `vnext.config.json#schemaVersion`; omitted → bundled package. */
+    schemaVersion: z.string().min(1).optional(),
+  })
+  .optional()
+  .transform((params) => params ?? {})
+/** Vocabulary `$id` → vocabulary JSON. Empty for vnext-schema < 0.0.56. */
+export const validateGetVocabulariesResult = z.record(z.string(), z.record(z.string(), z.unknown()))
+
 export const validateGetSchemaParams = z.object({
   type: z.string().min(1),
   /**
@@ -121,10 +139,34 @@ export interface ValidateServiceDeps {
  */
 const BUNDLED_KEY = '__bundled__'
 
+/**
+ * Registers the package's vocabularies so cross-file `$ref`s resolve. Without
+ * this, `schema-definition` from vnext-schema ≥ 0.0.56 fails to compile.
+ *
+ * The vocabularies are draft-07, and only draft-07 definitions `$ref` them;
+ * an Ajv2019 instance has no draft-07 meta-schema to add them with, so the
+ * 2019-09 workflow definition is compiled without them.
+ */
+function registerVocabularies(ajv: Ajv, schema: Record<string, unknown>, module: VnextSchemaModule): void {
+  if (isDraft2019(schema)) return
+  if (typeof module.addVocabularies === 'function') {
+    module.addVocabularies(ajv)
+    return
+  }
+  for (const vocabulary of Object.values(module.vocabularies ?? {})) {
+    const id = vocabulary.$id
+    if (typeof id === 'string' && ajv.getSchema(id)) continue
+    ajv.addSchema(vocabulary)
+  }
+}
+
+function isDraft2019(schema: Record<string, unknown>): boolean {
+  return ((schema.$schema as string) ?? '').includes('2019-09')
+}
+
 function getAjvInstance(schema: Record<string, unknown>): Ajv {
-  const draft = (schema.$schema as string) ?? ''
   const ajvOpts = { strict: false, allErrors: true, verbose: true }
-  if (draft.includes('2019-09')) {
+  if (isDraft2019(schema)) {
     const ajv = new Ajv2019(ajvOpts)
     addFormats(ajv as unknown as Ajv)
     return ajv as unknown as Ajv
@@ -162,7 +204,7 @@ function mapAjvErrors(ajvErrors: Ajv['errors']): ComponentValidationError[] {
 }
 
 export function createValidateService(deps: ValidateServiceDeps) {
-  const { schemaLoader, schemaCacheService } = deps
+  const { schemaLoader, schemaCacheService, logger } = deps
 
   // Per-version cache:
   //  - `__bundled__`  → AJV validators compiled from the desktop's bundled package
@@ -198,11 +240,20 @@ export function createValidateService(deps: ValidateServiceDeps) {
       if (!schema) continue
       try {
         const ajv = getAjvInstance(schema)
+        registerVocabularies(ajv, schema, module)
         const validate = ajv.compile(schema)
         map.set(type, { validate, type })
-      } catch {
+      } catch (err) {
         // Skip schemas that fail to compile (forward-compat with newer
         // package shapes that reference unknown formats / drafts).
+        logger.warn(
+          {
+            source: 'ValidateService.compileValidatorsForModule',
+            type,
+            error: err instanceof Error ? err.message : String(err),
+          },
+          'vnext-schema definition failed to compile; validation for this type is unavailable',
+        )
       }
     }
     return map
@@ -376,6 +427,38 @@ export function createValidateService(deps: ValidateServiceDeps) {
     }
   }
 
+  function collectVocabularies(mod: VnextSchemaModule): Record<string, Record<string, unknown>> {
+    const result: Record<string, Record<string, unknown>> = {}
+    for (const vocabulary of Object.values(mod.vocabularies ?? {})) {
+      const id = vocabulary.$id
+      if (typeof id === 'string') result[id] = vocabulary
+    }
+    return result
+  }
+
+  /**
+   * The vocabularies the package's definitions `$ref` by `$id`, so Monaco can
+   * resolve them offline. Same fallback rules as `getAllSchemasVersioned`.
+   */
+  async function getVocabulariesVersioned(
+    schemaVersion?: string,
+  ): Promise<Record<string, Record<string, unknown>>> {
+    if (!schemaVersion || !schemaCacheService) {
+      return collectVocabularies(ensureBundled().module)
+    }
+    try {
+      const resolved = await schemaCacheService.resolve(schemaVersion)
+      return collectVocabularies(resolved.module)
+    } catch (err) {
+      logger.warn(
+        `[validate.service] getVocabulariesVersioned fallback to bundled (${schemaVersion}): ${
+          err instanceof Error ? err.message : String(err)
+        }`,
+      )
+      return collectVocabularies(ensureBundled().module)
+    }
+  }
+
   function getSchema(type: string): Record<string, unknown> | null {
     const { module: mod } = ensureBundled()
     return readSchema(mod, type)
@@ -419,6 +502,7 @@ export function createValidateService(deps: ValidateServiceDeps) {
     getAvailableTypes,
     getAllSchemas,
     getAllSchemasVersioned,
+    getVocabulariesVersioned,
     getSchema,
     getSchemaVersioned,
   }

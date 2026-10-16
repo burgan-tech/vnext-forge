@@ -54,6 +54,16 @@ skills whose scope matches the workspace you are editing.
 
 Default deployment is single-developer workstation, server bound to loopback. See [`docs/architecture/adr/001-trust-model.md`](./docs/architecture/adr/001-trust-model.md) for the items required to lift that assumption.
 
+## End-to-end verification
+
+Changes that touch runtime behaviour (runtime/vnext-schema alignment, QuickRun, Instance Monitor,
+Function Run, runtime proxy, schema validation, Monaco schemas, rule mirrors) are verified end to end
+against a **locally built** vNext runtime before they are called done: runtime baseline with the
+vnext-example integration suites, the rule-mirror guard (`packages/designer-ui/src/e2e`, opt-in via
+`E2E_EXAMPLE_ROOT`) and browser-driven checks of the web shell. Contract:
+[`docs/testing/e2e.md`](./docs/testing/e2e.md); procedure: the `forge-e2e` skill
+(`.claude/skills/forge-e2e/SKILL.md`). Pure UI tweaks and refactors need unit tests only.
+
 ## Conditional rules and skills
 
 In addition to the always-on rules under `.cursor/rules/*.mdc` (subagent dispatch, plan-mode policy), the following **auto-trigger** based on file globs or task content. Read them when their scope matches.
@@ -66,6 +76,7 @@ In addition to the always-on rules under `.cursor/rules/*.mdc` (subagent dispatc
 | Skill | `.cursor/skills/shared/error-taxonomy/SKILL.md` | any error/handler/throw work | `ERROR_CODES`, `VnextForgeError`, `error-presentation` mapping |
 | Skill | `.cursor/skills/shared/trace-headers/SKILL.md` | any HTTP/transport/middleware work | `trace-v1` contract; never adopt `traceparent` |
 | Skill | `.cursor/skills/shared/dependency-policy/SKILL.md` | any cross-package import or barrel change | Allowed import directions, ESLint enforcements |
+| Skill | `.claude/skills/forge-e2e/SKILL.md` (+ `.cursor/skills/shared/forge-e2e`) | runtime-alignment work; changes to QuickRun, Monitor, Function Run, runtime proxy, schema validation, rule mirrors | End-to-end verification against a locally built runtime; contract `docs/testing/e2e.md` |
 | Rule | `.cursor/rules/designer-ui-resizable.mdc` | `packages/designer-ui/src/ui/Resizable.tsx`, `apps/web` shell split | Thin Resizable handle, `disableCursor`, no `withHandle`, `autoCollapseBelowMin` contract |
 | Rule | `.cursor/rules/pseudo-ui-shadow-theming.mdc` | `packages/designer-ui/src/modules/quick-run/pseudo-ui/**`, `packages/designer-ui/src/store/useSettingsStore.ts`, `packages/designer-ui/src/app/PseudoUiTenantStyleSync.tsx` | Shadow-DOM render of `<PseudoView>` with 3-layer cascade (MDC theme + Forge defaults + tenant token override). `primeReactConfig.styleContainer = shadow` is load-bearing — PrimeReact 10 structural CSS comes via `useStyle` at component mount, must route into the shadow root or layout silently breaks. Tenant override is token-only (`--p-*` / `--font-family`); class selectors rejected. |
 

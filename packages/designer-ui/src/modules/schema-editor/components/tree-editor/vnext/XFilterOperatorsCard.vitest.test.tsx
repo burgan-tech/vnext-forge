@@ -51,11 +51,18 @@ describe('XFilterOperatorsCard', () => {
     expect(checkboxTag(html, 'gte')).toContain('aria-checked="true"');
     expect(checkboxTag(html, 'contains')).toContain('aria-checked="true"');
     expect(checkboxTag(html, 'lt')).toContain('aria-checked="false"');
-    expect(html).toContain('ge → gte');
-    expect(html).toContain('like → contains');
+    expect(html).toContain('The runtime rejects these at publish');
+    expect(html).toContain('ge (use gte)');
+    expect(html).toContain('like (use contains)');
     expect(html).toContain('regex');
+    expect(html).toContain('Use runtime names and drop unknown values');
 
     expect(useSchemaEditorStore.getState().isDirty).toBe(false);
     expect(useSchemaEditorStore.getState().componentJson).toBe(json);
+  });
+
+  it('shows no error for runtime spellings', () => {
+    seed(doc(['eq', 'startsWith', 'isNull']));
+    expect(render()).not.toContain('rejects these');
   });
 });

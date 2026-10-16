@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react';
 
+import { useHistoryNone } from '../../hooks/useHistoryNone';
+
 interface MenuPosition {
   screenX: number;
   screenY: number;
@@ -28,6 +30,8 @@ export function CanvasContextMenu({
   hasInitialState,
 }: CanvasContextMenuProps) {
   const ref = useRef<HTMLDivElement>(null);
+  // history: none flows cannot wait (no Suspended sub-type).
+  const historyNone = useHistoryNone();
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -61,7 +65,7 @@ export function CanvasContextMenu({
       <MenuItem label="Success" color="bg-final-success" indent onClick={() => add(3, 1)} />
       <MenuItem label="Error" color="bg-final-error" indent onClick={() => add(3, 2)} />
       <MenuItem label="Terminated" color="bg-final-terminated" indent onClick={() => add(3, 3)} />
-      <MenuItem label="Suspended" color="bg-final-suspended" indent onClick={() => add(3, 4)} />
+      <MenuItem label="Suspended" color="bg-final-suspended" indent onClick={() => add(3, 4)} disabled={historyNone} />
       <div className="border-t border-border-subtle my-1 mx-2" />
       <MenuItem label="SubFlow State" color="bg-subflow" onClick={() => add(4)} />
       {onAddNote && (
@@ -127,6 +131,8 @@ interface EdgeContextMenuProps {
 
 export function EdgeContextMenu({ position, sourceStateKey, transitionKey, onClose, onDeleteTransition, onChangeTrigger }: EdgeContextMenuProps) {
   const ref = useRef<HTMLDivElement>(null);
+  // history: none flows accept only Automatic transitions.
+  const historyNone = useHistoryNone();
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -144,10 +150,10 @@ export function EdgeContextMenu({ position, sourceStateKey, transitionKey, onClo
     >
       <div className="px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground truncate">{transitionKey}</div>
       <div className="px-3 py-1 text-[10px] text-muted-foreground font-medium">Trigger Type</div>
-      <MenuItem label="Manual" color="bg-final-terminated" indent onClick={() => { onChangeTrigger(sourceStateKey, transitionKey, 0); onClose(); }} />
+      <MenuItem label="Manual" color="bg-final-terminated" indent onClick={() => { onChangeTrigger(sourceStateKey, transitionKey, 0); onClose(); }} disabled={historyNone} />
       <MenuItem label="Auto" color="bg-trigger-auto" indent onClick={() => { onChangeTrigger(sourceStateKey, transitionKey, 1); onClose(); }} />
-      <MenuItem label="Scheduled" color="bg-trigger-scheduled" indent onClick={() => { onChangeTrigger(sourceStateKey, transitionKey, 2); onClose(); }} />
-      <MenuItem label="Event" color="bg-trigger-event" indent onClick={() => { onChangeTrigger(sourceStateKey, transitionKey, 3); onClose(); }} />
+      <MenuItem label="Scheduled" color="bg-trigger-scheduled" indent onClick={() => { onChangeTrigger(sourceStateKey, transitionKey, 2); onClose(); }} disabled={historyNone} />
+      <MenuItem label="Event" color="bg-trigger-event" indent onClick={() => { onChangeTrigger(sourceStateKey, transitionKey, 3); onClose(); }} disabled={historyNone} />
       <div className="border-t border-border-subtle my-1 mx-2" />
       <MenuItem label="Delete Transition" danger onClick={() => { onDeleteTransition(sourceStateKey, transitionKey); onClose(); }} />
     </div>

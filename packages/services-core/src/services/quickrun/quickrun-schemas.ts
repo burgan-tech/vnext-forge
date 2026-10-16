@@ -478,6 +478,31 @@ export const quickrunGetDataResult = z.object({
   notModified: z.boolean().optional(),
 })
 
+// ── Download File (built-in `file` function, runtime 0.0.100) ───────────────
+
+/**
+ * Reads an `x-storage` file through the instance named in the handle's
+ * `owner` (`workflowKey` = `owner.flow`, `instanceId` = `owner.instance`).
+ */
+export const quickrunDownloadFileParams = z.object({
+  ...workflowIdentifier,
+  instanceId: z.string().min(1),
+  /** The handle's `file` id. */
+  file: z.string().min(1),
+  headers: headersSchema,
+  runtimeUrl: z.string().optional(),
+})
+
+export const quickrunDownloadFileResult = z.object({
+  /** File bytes, base64-encoded. */
+  contentBase64: z.string(),
+  contentType: z.string(),
+  size: z.number().int().nonnegative(),
+  /** From `Content-Disposition`, when the runtime sent one. */
+  fileName: z.string().optional(),
+  eTag: z.string().optional(),
+})
+
 // ── Get Schema ───────────────────────────────────────────────────────────────
 
 export const quickrunGetSchemaParams = z.object({

@@ -13,6 +13,8 @@
  * - neither combines with `x-filterOperators`, `x-sortable` or `x-indexed`.
  *
  * Exemption-list shape (allow-only plain roles) is enforced by the editor.
+ * A `source: "client"` encryption (vnext-schema 0.0.56) is sealed by the
+ * client in transit; the runtime ignores it, so none of these rules apply.
  */
 import { MASTER_SCHEMA_TYPE } from '../SchemaEditorSchema';
 import { analyzeIndexEligibility } from './indexEligibility';
@@ -38,6 +40,11 @@ function isStringType(type: unknown): boolean {
   );
 }
 
+/** True for `x-encryption` sealed by the client (`source: "client"`). */
+export function isClientEncryption(value: unknown): boolean {
+  return isRecord(value) && value.source === 'client';
+}
+
 /** `x-encryption` type when it transforms the value (`hash` / `encrypt`), else null. */
 export function activeEncryptionType(node: Record<string, unknown> | null | undefined): 'hash' | 'encrypt' | null {
   const enc = node?.['x-encryption'];
@@ -58,6 +65,7 @@ export function fieldProtectionIssues(
   if (!componentJson) return [];
   const node = getNodeAt(componentJson, pointer);
   if (!node || node[keyword] === undefined) return [];
+  if (keyword === 'x-encryption' && isClientEncryption(node[keyword])) return [];
   const issues: string[] = [];
 
   // Location: same traversal as x-indexed, minus the master / scalar rules.

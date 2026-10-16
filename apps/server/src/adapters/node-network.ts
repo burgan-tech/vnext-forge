@@ -26,6 +26,7 @@ export function createNodeNetworkAdapter(): NetworkAdapter {
         contentType,
         headers,
         text: () => response.text(),
+        arrayBuffer: () => response.arrayBuffer(),
       };
     },
   };

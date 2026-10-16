@@ -215,8 +215,13 @@ Click the settings icon in the bottom bar to open the workflow settings overlay.
 | **Error Boundary** | Global error handling strategy |
 | **Functions** | Function references used by the workflow |
 | **Extensions** | Extension references used by the workflow |
+| **History** | `Full` (default) or `None` — a one-shot flow (runtime 0.0.100) |
 
 Each shared transition shows its key and scope indicator (`$self` for workflow-level).
+
+### History: none (one-shot flows)
+
+A flow with **History: None** records no transition or task history, and its instance data is written once — at Finish, at a SubFlow handoff or on a fault. Such a flow must be all-automatic and always finish, so Forge checks the rules as you edit and lists violations in the Problems panel and canvas insights: no flow-level cancel / exit / timeout / update-data or shared transitions, at least one Finish state, no Wizard states or Suspended / Busy / Human sub-types, no long polling, Automatic transitions only, and every state must reach a Finish state. The matching controls are disabled, and new transitions default to Automatic. A SubFlow child of a `none` flow must be `none` too; the settings panel warns when a local child is not.
 
 ## Working with Transitions
 

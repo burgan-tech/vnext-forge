@@ -123,8 +123,12 @@ export function summarizeRuntimeError(error: RuntimeErrorLike): RuntimeErrorSumm
     : typeof body.status === 'number' ? body.status
     : undefined;
   const codeCore = firstString(body.code, body.errorCode, body.type);
+  // Aether bodies split the code (`prefix: 'Instance'`, `code: '100045'`); the
+  // problem-details body of runtime 0.0.100 already qualifies it
+  // (`code: 'Instance:100049'`) and uses `prefix` for the HTTP category
+  // (`notfound`), so a qualified code is kept as-is.
   const prefix = str(body.prefix);
-  const code = codeCore && prefix && !codeCore.startsWith(`${prefix}:`) ? `${prefix}:${codeCore}` : codeCore;
+  const code = codeCore && prefix && !codeCore.includes(':') ? `${prefix}:${codeCore}` : codeCore;
   const summary = firstString(body.message, body.detail, body.title) ?? error.message;
   return {
     httpStatus,
@@ -135,8 +139,32 @@ export function summarizeRuntimeError(error: RuntimeErrorLike): RuntimeErrorSumm
   };
 }
 
+/**
+ * What to do about runtime error codes the message alone does not explain
+ * (SubFlow transition proxy, history: none flows, x-storage file fields).
+ */
+const RUNTIME_ERROR_HINTS: Readonly<Record<string, string>> = {
+  'Instance:100031':
+    'The instance is busy. On a parent with an active SubFlow, runtime 0.0.100 forwards the transition to the SubFlow, and answers busy while that child has just completed or is not created yet — retry in a moment.',
+  'Instance:100044':
+    'A history: none flow can start a SubFlow only when the child is history: none too; set the child to none or start it as a SubProcess (type P).',
+  'Instance:100045': 'A history: none instance cannot be retried; start a new instance.',
+  'Instance:100046':
+    'A history: none flow stopped at a state that is not Finish. Every state of a one-shot flow must move on automatically to a Finish state.',
+  'Instance:100047': 'The file store (blob binding) is unavailable or the stored object is missing. Check the binding and retry.',
+  'Instance:100048':
+    'Invalid file reference: send content for a new file or the stored handle / { file } to keep one — not both, and no reference on start.',
+  'Instance:100049': 'The file is not in this instance’s data. Call the file function on the instance in the handle’s owner.',
+  'Instance:100050': 'The schema for the file field is unavailable. Check that the workflow’s master schema is published.',
+};
+
+export function runtimeErrorHint(code: string | undefined): string | undefined {
+  return code ? RUNTIME_ERROR_HINTS[code] : undefined;
+}
+
 export function RuntimeErrorBanner({ title, error, onDismiss }: RuntimeErrorBannerProps) {
   const { httpStatus, code: runtimeCode, summary, lines, traceId } = summarizeRuntimeError(error);
+  const hint = runtimeErrorHint(runtimeCode);
 
   return (
     <section
@@ -154,6 +182,7 @@ export function RuntimeErrorBanner({ title, error, onDismiss }: RuntimeErrorBann
             {runtimeCode ? ` · ${runtimeCode}` : ''}
           </p>
           <p className="mt-0.5 break-words text-[var(--vscode-foreground)]">{summary}</p>
+          {hint ? <p className="mt-0.5 break-words text-[var(--vscode-descriptionForeground)]">{hint}</p> : null}
           {lines.length > 0 && (
             <ul className="mt-1 space-y-0.5 text-[10px] text-[var(--vscode-foreground)]">
               {lines.map((line, i) => (

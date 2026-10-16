@@ -142,3 +142,30 @@ describe('optional Initial state (runtime 0.0.99)', () => {
     expect(rules(workflowWith({ startTransition: { key: 'start', target: '$self' } }))).toContain('error:start-target-valid');
   });
 });
+
+describe('history: none rules (vnext-schema 0.0.56)', () => {
+  const historyIssues = (attributes: Record<string, unknown>) =>
+    validateWorkflow(workflowWith(attributes)).filter((issue) => issue.rule.startsWith('history.'));
+
+  it('flags a manual transition on its edge', () => {
+    const [issue] = historyIssues({ history: 'none' });
+    expect(issue).toMatchObject({
+      severity: 'error',
+      rule: 'history.manualTrigger',
+      nodeId: 'review',
+      edgeId: 'review->done::go',
+    });
+  });
+
+  it('accepts an all-automatic one-shot flow and ignores full flows', () => {
+    const automatic = {
+      history: 'none',
+      states: [
+        { key: 'review', stateType: 1, transitions: [{ key: 'go', target: 'done', triggerType: 1 }] },
+        { key: 'done', stateType: 3, transitions: [] },
+      ],
+    };
+    expect(historyIssues(automatic)).toEqual([]);
+    expect(historyIssues({ history: 'full' })).toEqual([]);
+  });
+});

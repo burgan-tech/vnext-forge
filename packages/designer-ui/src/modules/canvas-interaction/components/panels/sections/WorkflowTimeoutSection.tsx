@@ -8,11 +8,13 @@ import { MetadataSection } from './MetadataSection';
 import { useStateOptions } from './useStateOptions';
 import { TransitionAnnotationsSection } from '../tabs/transition/TransitionAnnotationsSection';
 import { setTimeoutAnnotations } from '../tabs/shared/timeoutFields';
+import { HISTORY_NONE_REASON, useHistoryNone } from '../../../hooks/useHistoryNone';
 
 const inputClass =
   'w-full px-2.5 py-1.5 text-xs font-mono border border-border rounded-lg bg-muted-surface text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary-border focus:bg-surface transition-all placeholder:text-subtle';
 
 export function WorkflowTimeoutSection() {
+  const historyNone = useHistoryNone();
   const { workflowJson, updateWorkflow } = useWorkflowStore();
   if (!workflowJson) return null;
 
@@ -241,7 +243,9 @@ export function WorkflowTimeoutSection() {
           </p>
           <button
             onClick={createTimeout}
-            className="text-secondary-icon hover:text-secondary-foreground flex cursor-pointer items-center gap-1.5 text-[11px] font-semibold">
+            disabled={historyNone}
+            title={historyNone ? HISTORY_NONE_REASON : undefined}
+            className="text-secondary-icon hover:text-secondary-foreground flex cursor-pointer items-center gap-1.5 text-[11px] font-semibold disabled:cursor-not-allowed disabled:opacity-45">
             <Plus size={13} /> Create Timeout
           </button>
         </div>

@@ -18,6 +18,16 @@ import { XMaskingCard } from './XMaskingCard';
 import { XRolesCard } from './XRolesCard';
 import { XSortableCard } from './XSortableCard';
 import { XValidationCard } from './XValidationCard';
+import { XComputedCard } from './XComputedCard';
+import { XStorageCard } from './XStorageCard';
+import {
+  XGroupCard,
+  XHelpTextCard,
+  XOrderCard,
+  XPlaceholderCard,
+  XUiHintCard,
+  XUiNoteCard,
+} from './ViewHintCards';
 
 /**
  * Where a card is allowed to render, keyed off the selected node's pointer:
@@ -47,6 +57,9 @@ export interface VNextCardEntry {
  *  5. Tabular display / indexing (`x-filterOperators`, `x-sortable`, `x-displayFormat`, `x-indexed`)
  *  6. Field protection + metadata (`x-masking`, `x-encryption`, `x-validation`)
  *  7. Data-vocab context wiring (`x-context-source`, `x-context-target`)
+ *  8. Stored-data shape (`x-storage`, `x-computed`) — vnext-schema 0.0.56
+ *  9. Form presentation (`x-order`, view hints) — vnext-schema 0.0.56
+ * Which cards show for a schema role is decided by `VNextTab` (schemaRoles).
  */
 export const VNEXT_CARD_REGISTRY: readonly VNextCardEntry[] = [
   { xKey: 'x-labels', component: XLabelsCard, scope: 'any' },
@@ -67,4 +80,14 @@ export const VNEXT_CARD_REGISTRY: readonly VNextCardEntry[] = [
   { xKey: 'x-validation', component: XValidationCard, scope: 'any' },
   { xKey: 'x-context-source', component: XContextSourceCard, scope: 'property' },
   { xKey: 'x-context-target', component: XContextTargetCard, scope: 'root' },
+  // vnext-schema 0.0.56 / runtime 0.0.100: master-only data shape.
+  { xKey: 'x-storage', component: XStorageCard, scope: 'property' },
+  { xKey: 'x-computed', component: XComputedCard, scope: 'property' },
+  // vnext-schema 0.0.56: form presentation hints, every role.
+  { xKey: 'x-order', component: XOrderCard, scope: 'property' },
+  { xKey: 'x-group', component: XGroupCard, scope: 'property' },
+  { xKey: 'x-helpText', component: XHelpTextCard, scope: 'property' },
+  { xKey: 'x-placeholder', component: XPlaceholderCard, scope: 'property' },
+  { xKey: 'x-uiHint', component: XUiHintCard, scope: 'property' },
+  { xKey: 'x-uiNote', component: XUiNoteCard, scope: 'property' },
 ];

@@ -40,6 +40,7 @@ export type MethodId =
   | 'vnext/tasks/list'
   | 'vnext/workflows/list'
   | 'vnext/schemas/list'
+  | 'vnext/schemas/inferRole'
   | 'vnext/views/list'
   | 'vnext/functions/list'
   | 'vnext/extensions/list'
@@ -49,12 +50,14 @@ export type MethodId =
   | 'validate/component'
   | 'validate/getAvailableTypes'
   | 'validate/getAllSchemas'
+  | 'validate/getVocabularies'
   | 'validate/getSchema'
   | 'quickrun/startInstance'
   | 'quickrun/fireTransition'
   | 'quickrun/getState'
   | 'quickrun/getView'
   | 'quickrun/getData'
+  | 'quickrun/downloadFile'
   | 'quickrun/getSchema'
   | 'quickrun/getHistory'
   | 'quickrun/listInstances'
@@ -129,6 +132,7 @@ export const METHOD_HTTP_METADATA: Readonly<Record<MethodId, MethodHttpSpec>> = 
   'vnext/tasks/list': { verb: 'GET', paramSource: 'query' },
   'vnext/workflows/list': { verb: 'GET', paramSource: 'query' },
   'vnext/schemas/list': { verb: 'GET', paramSource: 'query' },
+  'vnext/schemas/inferRole': { verb: 'GET', paramSource: 'query' },
   'vnext/views/list': { verb: 'GET', paramSource: 'query' },
   'vnext/functions/list': { verb: 'GET', paramSource: 'query' },
   'vnext/extensions/list': { verb: 'GET', paramSource: 'query' },
@@ -138,12 +142,14 @@ export const METHOD_HTTP_METADATA: Readonly<Record<MethodId, MethodHttpSpec>> = 
   'validate/component': { verb: 'POST', paramSource: 'json' },
   'validate/getAvailableTypes': { verb: 'GET', paramSource: 'query' },
   'validate/getAllSchemas': { verb: 'GET', paramSource: 'query' },
+  'validate/getVocabularies': { verb: 'GET', paramSource: 'query' },
   'validate/getSchema': { verb: 'GET', paramSource: 'query' },
   'quickrun/startInstance': { verb: 'POST', paramSource: 'json' },
   'quickrun/fireTransition': { verb: 'POST', paramSource: 'json' },
   'quickrun/getState': { verb: 'POST', paramSource: 'json' },
   'quickrun/getView': { verb: 'POST', paramSource: 'json' },
   'quickrun/getData': { verb: 'POST', paramSource: 'json' },
+  'quickrun/downloadFile': { verb: 'POST', paramSource: 'json' },
   'quickrun/getSchema': { verb: 'POST', paramSource: 'json' },
   'quickrun/getHistory': { verb: 'POST', paramSource: 'json' },
   'quickrun/listInstances': { verb: 'POST', paramSource: 'json' },

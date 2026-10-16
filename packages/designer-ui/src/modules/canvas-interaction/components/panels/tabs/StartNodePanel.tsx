@@ -7,6 +7,7 @@ import {
   SchemaReferenceField,
   type SchemaReference,
 } from '../../../../../modules/save-component/components/SchemaReferenceField';
+import { SchemaRoleWarning } from '../sections/SchemaRoleWarning';
 import type { ScriptCode } from '../../../../../modules/save-component/components/CsxEditorField';
 import type { AtomicSavedInfo } from '../../../../../modules/save-component/componentEditorModalTypes';
 import { getLabels, getLabel, getTriggerLabel } from './PropertyPanelHelpers';
@@ -312,6 +313,11 @@ export function StartNodePanel({ startTransition }: { startTransition: any }) {
         {/* Editable schema */}
         <Section title="Schema" defaultOpen>
           <SchemaReferenceField value={schema} onChange={updateSchema} />
+          {schema?.key ? (
+            <div className="mt-2">
+              <SchemaRoleWarning schemaRef={schema} expectedRole="transition" />
+            </div>
+          ) : null}
           {schema?.key && schema?.flow ? (
             <div className="mt-3 flex flex-wrap items-center justify-end gap-2">
               <OpenVnextComponentInModalButton

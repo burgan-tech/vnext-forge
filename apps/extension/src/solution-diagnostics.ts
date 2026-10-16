@@ -3,8 +3,10 @@ import * as vscode from 'vscode';
 import {
   missingDomainIssue,
   resolveSolutionForComponent,
+  scanSchemaRoleIssues,
   scanVnextComponents,
   type FileSystemAdapter,
+  type SchemaRoleIssue,
   type SolutionIssue,
 } from '@vnext-forge-studio/services-core';
 
@@ -13,6 +15,10 @@ import { summarizeSolutionIssues } from './solution-issues-summary.js';
 import type { VnextWorkspaceRoot } from './workspace-detector.js';
 
 const OPEN_PROBLEMS_ACTION = 'Open Problems';
+const REVIEW_FIXES_ACTION = 'Review Fixes';
+
+/** Command that reviews and applies the legacy `attributes.type` fixes (see `schema-role-fixes.ts`). */
+export const FIX_LEGACY_SCHEMA_TYPES_COMMAND = 'vnextForge.fixLegacySchemaTypes';
 
 function toSeverity(severity: SolutionIssue['severity']): vscode.DiagnosticSeverity {
   switch (severity) {
@@ -39,7 +45,9 @@ export class SolutionDiagnosticsPublisher implements vscode.Disposable {
   );
   private solutionIssues: SolutionIssue[] = [];
   private componentIssues = new Map<string, SolutionIssue[]>();
+  private schemaRoleIssues: SchemaRoleIssue[] = [];
   private lastSummaryKey = '';
+  private lastLegacyKey = '';
   private scanGeneration = 0;
 
   /** Replace solution-level issues (called on every detector refresh). */
@@ -67,7 +75,21 @@ export class SolutionDiagnosticsPublisher implements vscode.Disposable {
   async scanComponents(roots: readonly VnextWorkspaceRoot[], fsAdapter: FileSystemAdapter): Promise<void> {
     const generation = ++this.scanGeneration;
     const next = new Map<string, SolutionIssue[]>();
+    const nextRoleIssues: SchemaRoleIssue[] = [];
     for (const root of roots) {
+      try {
+        const solutions = root.solutions.flatMap((solution) =>
+          solution.status.status === 'ok' && solution.config
+            ? [{ paths: solution.config.paths, schemaVersion: solution.config.schemaVersion }]
+            : [],
+        );
+        nextRoleIssues.push(...(await scanSchemaRoleIssues(fsAdapter, root.folderPath, solutions)));
+      } catch (error) {
+        baseLogger.warn(
+          { folder: root.folderPath, error: (error as Error).message },
+          'Schema role scan failed for workspace root',
+        );
+      }
       for (const solution of root.solutions) {
         if (solution.status.status !== 'ok' || !solution.config) continue;
         try {
@@ -93,7 +115,14 @@ export class SolutionDiagnosticsPublisher implements vscode.Disposable {
     }
     if (generation !== this.scanGeneration) return;
     this.componentIssues = next;
+    this.schemaRoleIssues = nextRoleIssues;
     this.render();
+    this.maybeNotifyLegacySchemaTypes();
+  }
+
+  /** Schema-role issues from the latest scan (legacy types and role mismatches). */
+  getSchemaRoleIssues(): readonly SchemaRoleIssue[] {
+    return this.schemaRoleIssues;
   }
 
   dispose(): void {
@@ -126,11 +155,57 @@ export class SolutionDiagnosticsPublisher implements vscode.Disposable {
     };
     for (const issue of this.solutionIssues) push(issue);
     for (const issues of this.componentIssues.values()) for (const issue of issues) push(issue);
+    for (const issue of this.schemaRoleIssues) {
+      const range = issue.range
+        ? new vscode.Range(
+            issue.range.start.line,
+            issue.range.start.character,
+            issue.range.end.line,
+            issue.range.end.character,
+          )
+        : new vscode.Range(0, 0, 0, 0);
+      const diagnostic = new vscode.Diagnostic(range, issue.message, toSeverity(issue.severity));
+      diagnostic.code = issue.code;
+      diagnostic.source = 'vnext-forge-studio';
+      if (issue.related.length > 0) {
+        diagnostic.relatedInformation = issue.related.map(
+          (related) =>
+            new vscode.DiagnosticRelatedInformation(
+              new vscode.Location(vscode.Uri.file(related), new vscode.Range(0, 0, 0, 0)),
+              'Referenced here',
+            ),
+        );
+      }
+      const key = normalizeKey(issue.filePath);
+      const list = byFile.get(key) ?? [];
+      list.push(diagnostic);
+      byFile.set(key, list);
+    }
 
     this.collection.clear();
     for (const [filePath, diagnostics] of byFile) {
       this.collection.set(vscode.Uri.file(filePath), diagnostics);
     }
+  }
+
+  /** One notification per distinct set of legacy `attributes.type` files. */
+  private maybeNotifyLegacySchemaTypes(): void {
+    const legacy = this.schemaRoleIssues.filter((issue) => issue.code === 'component.schemaLegacyType');
+    const key = legacy
+      .map((issue) => issue.filePath)
+      .sort()
+      .join('|');
+    if (key === this.lastLegacyKey) return;
+    this.lastLegacyKey = key;
+    if (legacy.length === 0) return;
+    const message =
+      legacy.length === 1
+        ? '1 schema uses a legacy attributes.type that vnext-schema 0.0.56 rejects.'
+        : `${legacy.length} schemas use a legacy attributes.type that vnext-schema 0.0.56 rejects.`;
+    void vscode.window.showWarningMessage(message, REVIEW_FIXES_ACTION, OPEN_PROBLEMS_ACTION).then((action) => {
+      if (action === REVIEW_FIXES_ACTION) void vscode.commands.executeCommand(FIX_LEGACY_SCHEMA_TYPES_COMMAND);
+      if (action === OPEN_PROBLEMS_ACTION) void vscode.commands.executeCommand('workbench.actions.view.problems');
+    });
   }
 
   private maybeNotify(): void {

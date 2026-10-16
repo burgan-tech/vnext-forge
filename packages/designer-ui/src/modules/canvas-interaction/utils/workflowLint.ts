@@ -1,3 +1,5 @@
+import { historyNoneIssues } from '@vnext-forge-studio/vnext-types';
+
 import type { VnextWorkflow } from './Conversion';
 import { runtimeSyncFindings } from '../../workflow-validation/runtimeSyncRules';
 import { findInvalidVariableKeys, findTaskKeyCollisions } from '../../save-component/taskSlots';
@@ -219,6 +221,17 @@ export function lintWorkflow(workflow: VnextWorkflow, options: LintOptions = {})
       rule: finding.rule,
       message: finding.message,
       ...(finding.stateKey ? { stateKey: finding.stateKey } : {}),
+    });
+  }
+
+  // history: none (vnext-schema 0.0.56): one-shot flow rules.
+  for (const issue of historyNoneIssues(workflow)) {
+    findings.push({
+      severity: 'error',
+      rule: issue.code,
+      message: issue.message,
+      ...(issue.stateKey ? { stateKey: issue.stateKey } : {}),
+      ...(issue.transitionKey ? { transitionKey: issue.transitionKey } : {}),
     });
   }
 

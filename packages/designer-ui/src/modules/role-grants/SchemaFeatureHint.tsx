@@ -2,6 +2,13 @@
 export const SCHEMA_0_0_55 = '0.0.55';
 
 /**
+ * Minimum vnext-schema release for the runtime 0.0.100 constructs: schema roles
+ * (`attributes.type` enum), role-gated annotations, `x-storage`, `x-computed`,
+ * `x-order`, view hints and workflow `attributes.history`.
+ */
+export const SCHEMA_0_0_56 = '0.0.56';
+
+/**
  * Explains why a control is disabled: the project's pinned vnext-schema
  * predates the construct.
  */

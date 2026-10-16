@@ -42,6 +42,23 @@ export type {
   VnextSolutionFile,
 } from './solution-files.js'
 export {
+  analyzeSchemaRoles,
+  collectSchemaRoleUsages,
+  inferSchemaRole,
+  readScannedComponents,
+  scanSchemaRoleIssues,
+  schemaTypeTextEdit,
+} from './schema-roles.js'
+export type {
+  ScannedComponent,
+  SchemaRoleIssue,
+  SchemaRoleIssueCode,
+  SchemaRoleScanSolution,
+  SchemaTypeTextEdit,
+  SchemaRoleUsage,
+  TextRange,
+} from './schema-roles.js'
+export {
   applySchemaVersionToPackageJson,
   computePackageJsonUpdate,
   schemaVersionRange,

@@ -53,7 +53,10 @@ export function TasksTabContent({
   loading,
   error,
   transitionLabel,
+  historyNone = false,
 }: {
+  /** The flow is `history: none`: the runtime keeps no task journal. */
+  historyNone?: boolean;
   items: readonly TaskHistoryItem[] | null;
   loading: boolean;
   error: RuntimeErrorLike | null;
@@ -75,7 +78,11 @@ export function TasksTabContent({
     return <p className="py-8 text-center text-xs text-[var(--vscode-descriptionForeground)]">Loading…</p>;
   }
   if (!items || items.length === 0) {
-    return <p className="py-8 text-center text-xs text-[var(--vscode-descriptionForeground)]">No tasks ran on this instance yet</p>;
+    return (
+      <p className="py-8 text-center text-xs text-[var(--vscode-descriptionForeground)]">
+        {historyNone ? 'This flow uses history: none — the runtime keeps no task journal.' : 'No tasks ran on this instance yet'}
+      </p>
+    );
   }
 
   const visibleGroups: TaskGroup[] =

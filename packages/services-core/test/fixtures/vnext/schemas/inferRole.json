@@ -1,0 +1,4 @@
+{
+  "params": { "id": "core", "path": "core/Schemas/order-start.json" },
+  "result": { "role": "transition", "referrers": ["core/Workflows/order.json"] }
+}

@@ -13,6 +13,7 @@ export function registerVnextRoutes(
   app.get('/vnext/tasks/list', (c) => helper(c, 'vnext/tasks/list', { source: 'query' }));
   app.get('/vnext/workflows/list', (c) => helper(c, 'vnext/workflows/list', { source: 'query' }));
   app.get('/vnext/schemas/list', (c) => helper(c, 'vnext/schemas/list', { source: 'query' }));
+  app.get('/vnext/schemas/inferRole', (c) => helper(c, 'vnext/schemas/inferRole', { source: 'query' }));
   app.get('/vnext/views/list', (c) => helper(c, 'vnext/views/list', { source: 'query' }));
   app.get('/vnext/functions/list', (c) => helper(c, 'vnext/functions/list', { source: 'query' }));
   app.get('/vnext/extensions/list', (c) => helper(c, 'vnext/extensions/list', { source: 'query' }));

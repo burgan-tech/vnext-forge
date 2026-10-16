@@ -96,6 +96,12 @@ describe('schema attributes.type', () => {
     expect(draft.attributes).toEqual({ type: 'master', schema: { type: 'object' } });
   });
 
+  it('removes attributes.type for an empty role', () => {
+    const draft: Record<string, unknown> = { ...base, attributes: { type: 'schema', schema: { type: 'object' } } };
+    setSchemaAttributesType(draft, '');
+    expect(draft.attributes).toEqual({ schema: { type: 'object' } });
+  });
+
   it('creates attributes when missing', () => {
     const draft: Record<string, unknown> = { ...base };
     setSchemaAttributesType(draft, 'view');

@@ -6,6 +6,7 @@ import { OpenVnextComponentInModalButton } from '../../../../../../modules/save-
 import { ChooseFromExistingVnextComponentButton } from '../ChooseExistingTaskDialog';
 import { CreateNewComponentButton } from '../CreateNewComponentDialog';
 import { IconTrash, Section } from '../PropertyPanelShared';
+import { SchemaRoleWarning } from '../../sections/SchemaRoleWarning';
 
 interface TransitionSchemaSectionProps {
   schema: SchemaReference | null;
@@ -51,6 +52,11 @@ export function TransitionSchemaSection({
       </div>
 
       {hasSchema && <SchemaReferenceField value={schema} onChange={onChange} />}
+      {schema?.key ? (
+        <div className="mt-2">
+          <SchemaRoleWarning schemaRef={schema} expectedRole="transition" />
+        </div>
+      ) : null}
 
       {hasSchema && (
         <div className="mt-2 flex flex-wrap items-center justify-between gap-2">

@@ -8,6 +8,7 @@ import {
   internalFailure,
 } from '@vnext-forge-studio/app-contracts'
 import { baseLogger } from '../lib/logger.js'
+import { publicErrorDetails } from './public-error-details.js'
 
 function statusFromErrorCode(code: ErrorCode): ContentfulStatusCode {
   switch (code) {
@@ -51,12 +52,20 @@ function statusFromErrorCode(code: ErrorCode): ContentfulStatusCode {
  * fold the request's `traceId` into the user-facing payload here. This
  * guarantees the contract HttpTransport relies on: every failure body
  * carries the same `traceId` the response advertises in `X-Trace-Id`.
+ *
+ * `context.details` stays server-side except for the whitelisted runtime
+ * answer of `publicErrorDetails` (ADR 005 addendum), which the QuickRun error
+ * banner reads in the web shell the same way it does in the extension.
  */
 export function jsonErrorResponse(c: Context, error: VnextForgeError): Response {
   const traceId = error.traceId ?? c.get('traceId')
   const failure = error.toFailure()
   if (traceId && !failure.error.traceId) {
     failure.error.traceId = traceId
+  }
+  const details = publicErrorDetails(error)
+  if (details) {
+    failure.error.details = details
   }
   return c.json(failure, statusFromErrorCode(error.code))
 }

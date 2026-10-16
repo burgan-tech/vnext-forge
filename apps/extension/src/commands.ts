@@ -319,7 +319,7 @@ async function createComponentCommand(deps: CommandDeps): Promise<void> {
 
   const stub = buildVnextComponentJson(
     kind as VnextComponentJsonKind,
-    { key: fileBase, domain: config.domain },
+    { key: fileBase, domain: config.domain, schemaVersion: config.schemaVersion },
   );
 
   try {
@@ -669,7 +669,11 @@ async function forgeComponentCreateByKind(
       } catch {
         // ok
       }
-      const body = buildVnextComponentJson(expectedKind, { key: fileBase, domain });
+      const body = buildVnextComponentJson(expectedKind, {
+        key: fileBase,
+        domain,
+        schemaVersion: config.schemaVersion,
+      });
       await fs.writeFile(target, JSON.stringify(body, null, 2), 'utf-8');
       createdFilePath = target;
     }

@@ -16,6 +16,7 @@ import { CorrelationsTabContent } from './CorrelationsTab';
 import { type ElementMetricsLoader } from './ElementMetrics';
 import { HistoryTabContent } from './HistoryTab';
 import { TasksTabContent } from './TasksTab';
+import { FileHandleChips, type FileHandleChipsProps } from '../file-fields/FileHandleChips';
 
 const TABS: { id: ContextPanelTab; label: string }[] = [
   { id: 'data', label: 'Data' },
@@ -40,6 +41,7 @@ export function ContextPanel({ onOpenSubFlowTarget }: ContextPanelProps) {
   const activeTabId = useQuickRunStore((s) => s.activeTabId);
   const domain = useQuickRunStore((s) => s.domain);
   const workflowKey = useQuickRunStore((s) => s.workflowKey);
+  const historyNone = useQuickRunStore((s) => s.flowHistoryMode === 'none');
   const globalHeaders = useQuickRunStore((s) => s.globalHeaders);
   const sessionHeaders = useQuickRunStore((s) => s.sessionHeaders);
   const toolWideHeaders = useQuickRunStore((s) => s.toolWideHeaders);
@@ -257,7 +259,22 @@ export function ContextPanel({ onOpenSubFlowTarget }: ContextPanelProps) {
         aria-labelledby={`quickrun-tab-${contextPanelTab}`}
       >
         {contextPanelTab === 'data' && (
-          <DataTabContent data={activeData} loading={activeDataLoading} />
+          <DataTabContent
+            data={activeData}
+            loading={activeDataLoading}
+            historyNone={historyNone}
+            fileContext={
+              activeTabId
+                ? {
+                    domain,
+                    workflowKey,
+                    instanceId: activeTabId,
+                    headers: globalHeaders,
+                    ...(environmentUrl ? { runtimeUrl: environmentUrl } : {}),
+                  }
+                : undefined
+            }
+          />
         )}
         {contextPanelTab === 'history' && (
           <HistoryTabContent
@@ -267,6 +284,7 @@ export function ContextPanel({ onOpenSubFlowTarget }: ContextPanelProps) {
             {...(loadElementMetrics ? { loadMetrics: loadElementMetrics } : {})}
             tasks={activeTaskHistory}
             transitionLabel={transitionLabel}
+            historyNone={historyNone}
           />
         )}
         {contextPanelTab === 'tasks' && (
@@ -275,6 +293,7 @@ export function ContextPanel({ onOpenSubFlowTarget }: ContextPanelProps) {
             loading={activeTaskHistoryLoading}
             error={activeTaskHistoryError}
             transitionLabel={transitionLabel}
+            historyNone={historyNone}
           />
         )}
         {contextPanelTab === 'correlations' && (
@@ -298,9 +317,29 @@ export function ContextPanel({ onOpenSubFlowTarget }: ContextPanelProps) {
   );
 }
 
-function DataTabContent({ data, loading }: { data: ReturnType<typeof useQuickRunStore.getState>['activeData']; loading: boolean }) {
+function DataTabContent({
+  data,
+  loading,
+  historyNone,
+  fileContext,
+}: {
+  data: ReturnType<typeof useQuickRunStore.getState>['activeData'];
+  loading: boolean;
+  historyNone: boolean;
+  fileContext: Omit<FileHandleChipsProps, 'data'> | undefined;
+}) {
   if (loading) return <LoadingPlaceholder />;
-  if (!data) return <EmptyState message="No data available" />;
+  if (!data) {
+    return (
+      <EmptyState
+        message={
+          historyNone
+            ? 'No data yet — a history: none flow writes its data once, at Finish, a SubFlow handoff or a fault.'
+            : 'No data available'
+        }
+      />
+    );
+  }
   // The runtime returns the instance payload under `data.data` and any
   // requested extensions under `data.extensions`. Show both so users
   // don't have to flip through DevTools to inspect extension state.
@@ -312,6 +351,7 @@ function DataTabContent({ data, loading }: { data: ReturnType<typeof useQuickRun
     <div className="flex flex-1 flex-col gap-3 min-h-0 overflow-y-auto">
       <section className={`flex min-h-0 flex-col gap-1 ${hasExtensions ? '' : 'flex-1'}`}>
         <SectionLabel>Data</SectionLabel>
+        {fileContext ? <FileHandleChips data={data.data} {...fileContext} /> : null}
         <CopyableJsonBlock value={data.data} fillHeight={!hasExtensions} />
       </section>
       {hasExtensions ? (

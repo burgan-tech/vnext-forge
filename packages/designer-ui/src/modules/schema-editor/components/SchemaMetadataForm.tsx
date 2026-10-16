@@ -16,6 +16,8 @@ import {
   type SchemaMetadataFormValues,
   toSchemaMetadataFormValues,
 } from '../SchemaEditorSchema';
+import { useInferredSchemaRole } from '../hooks/useInferredSchemaRole';
+import { classifySchemaType } from '../model/schemaRoles';
 import { SchemaTypeField } from './SchemaTypeField';
 
 interface SchemaMetadataFormProps {
@@ -39,6 +41,9 @@ export function SchemaMetadataForm({ json, onChange }: SchemaMetadataFormProps) 
   // Threaded into SchemaTypeField so it can warn when the current value
   // would fail this project's own pinned vnext-schema `npm run validate`.
   const schemaVersion = useProjectStore((s) => s.vnextConfig?.schemaVersion);
+  const schemaType = readSchemaAttributesType(json);
+  // Only a legacy type needs a suggestion; inference scans the whole project.
+  const suggestedRole = useInferredSchemaRole(classifySchemaType(schemaType).kind === 'legacy');
   const form = useForm<SchemaMetadataFormValues>({
     mode: 'onChange',
     defaultValues: toSchemaMetadataFormValues(json),
@@ -167,9 +172,10 @@ export function SchemaMetadataForm({ json, onChange }: SchemaMetadataFormProps) 
           />
         </Field>
         <SchemaTypeField
-          value={readSchemaAttributesType(json) ?? ''}
+          value={schemaType ?? ''}
           errorMsg={schemaTypeServerError}
           schemaVersion={schemaVersion}
+          suggestedRole={suggestedRole}
           onCommit={(next) => onChange((draft) => setSchemaAttributesType(draft, next))}
         />
       </div>

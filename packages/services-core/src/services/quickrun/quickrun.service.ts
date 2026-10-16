@@ -5,6 +5,8 @@ import type { RuntimeProxyService } from '../runtime-proxy/runtime-proxy.service
 import {
   quickrunFireTransitionParams,
   quickrunFireTransitionResult,
+  quickrunDownloadFileParams,
+  quickrunDownloadFileResult,
   quickrunGetDataParams,
   quickrunGetDataResult,
   quickrunGetHistoryParams,
@@ -123,6 +125,20 @@ function runtimeErrorCode(data: string): string | undefined {
   if (!code) return undefined
   const prefix = typeof body.prefix === 'string' ? body.prefix : undefined
   return prefix && !code.startsWith(`${prefix}:`) ? `${prefix}:${code}` : code
+}
+
+/** `filename*=UTF-8''…` (preferred) or `filename="…"` from a Content-Disposition header. */
+export function fileNameFromDisposition(disposition: string): string | undefined {
+  const extended = /filename\*\s*=\s*([^']*)'[^']*'([^;]+)/i.exec(disposition)
+  if (extended?.[2]) {
+    try {
+      return decodeURIComponent(extended[2].trim())
+    } catch {
+      return extended[2].trim()
+    }
+  }
+  const plain = /filename\s*=\s*"?([^";]+)"?/i.exec(disposition)
+  return plain?.[1]?.trim() || undefined
 }
 
 /** Case-insensitive response-header lookup. */
@@ -319,6 +335,39 @@ export function createQuickRunService(runtimeProxyService: RuntimeProxyService) 
       result.data, result.status, 'QuickRunService.getData', traceId,
     )
     return { ...parsed, responseHeaders: result.responseHeaders } as z.infer<typeof quickrunGetDataResult>
+  }
+
+  /** Bytes of an `x-storage` file through the runtime's built-in `file` function. */
+  async function downloadFile(
+    params: z.infer<typeof quickrunDownloadFileParams>,
+    traceId?: string,
+  ): Promise<z.infer<typeof quickrunDownloadFileResult>> {
+    const base = buildBasePath(params.domain, params.workflowKey)
+    const headers = { Accept: '*/*', ...params.headers }
+    const result = await runtimeProxyService.proxy(
+      {
+        method: 'GET',
+        runtimePath: `${base}/instances/${params.instanceId}/functions/file`,
+        query: { file: params.file },
+        headers,
+        runtimeUrl: params.runtimeUrl,
+      },
+      traceId,
+      { binary: true },
+    )
+    if (result.status < 200 || result.status >= 300) {
+      throw runtimeHttpError(result.data, result.status, 'QuickRunService.downloadFile', traceId)
+    }
+    const disposition = headerValue(result.responseHeaders, 'content-disposition')
+    const eTag = headerValue(result.responseHeaders, 'etag')?.replace(/^"|"$/g, '')
+    const fileName = disposition ? fileNameFromDisposition(disposition) : undefined
+    return {
+      contentBase64: result.data,
+      contentType: result.contentType || 'application/octet-stream',
+      size: Buffer.byteLength(result.data, 'base64'),
+      ...(fileName ? { fileName } : {}),
+      ...(eTag ? { eTag } : {}),
+    }
   }
 
   async function getSchema(
@@ -908,6 +957,7 @@ export function createQuickRunService(runtimeProxyService: RuntimeProxyService) 
     getTaskHistory,
     authorize,
     getHumanTasks,
+    downloadFile,
   }
 }
 

@@ -82,6 +82,18 @@ function isInvokeButtonDisabled(html: string): boolean {
 }
 
 describe('FunctionRunShell', () => {
+  it('routes the built-in file function to the file runner, bound to the instance', () => {
+    const html = render({ functionKey: 'file', scope: 'I', workflowKey: 'onboarding', instanceId: 'abc' });
+    expect(html).toContain('File id (file)');
+    expect(html).toContain('/api/v1/core/workflows/onboarding/instances/abc/functions/file?file={file}');
+    expect(html).toMatch(/file id from a stored file handle/);
+    expect(isInvokeButtonDisabled(html)).toBe(true);
+  });
+
+  it('keeps a domain-scoped function named file on the contract runner', () => {
+    expect(render({ functionKey: 'file', scope: 'D' })).not.toContain('File id (file)');
+  });
+
   it('asks for workflow and instance when the function is not domain-scoped', () => {
     const html = render({ scope: 'F' });
     expect(html).toContain('Workflow key');

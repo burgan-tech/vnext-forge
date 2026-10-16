@@ -1,3 +1,4 @@
+import type { HistoryMode } from '../utils/history-mode';
 import type { Annotations } from './annotations';
 import type { AvailableIn } from './available-in';
 import { ErrorBoundary } from './error-boundary';
@@ -116,6 +117,8 @@ export interface WorkflowAttributes {
   labels?: Label[];
   /** Flow-level default execution mode; transitions may override it. */
   executionType?: ExecutionType;
+  /** `none`: one-shot flow without transition/task history (vnext-schema 0.0.56); absent = `full`. */
+  history?: HistoryMode;
   startTransition: StartTransition;
   states: State[];
   sharedTransitions?: SharedTransition[];

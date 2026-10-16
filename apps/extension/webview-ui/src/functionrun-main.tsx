@@ -5,9 +5,11 @@ import {
   DesignerUiProvider,
   registerLogSink,
   registerNotificationSink,
+  setHostEditorCapabilities,
 } from '@vnext-forge-studio/designer-ui';
 
 import './index.css';
+import { extensionHostEditorCapabilities } from './host/extensionHostEditorCapabilities';
 import { createVsCodeLogSink } from './logging/vscode-log-sink';
 import { createVsCodeNotificationSink } from './notifications/vscode-notification-sink';
 import { createVsCodeTransport, type VsCodeWebviewApi } from './VsCodeTransport';
@@ -29,6 +31,8 @@ const transport = createVsCodeTransport(vsCodeApi);
 
 registerNotificationSink(createVsCodeNotificationSink(vsCodeApi));
 registerLogSink(createVsCodeLogSink(vsCodeApi));
+// postMessageToHost carries the `file` function's Open / Save as to the host.
+setHostEditorCapabilities(extensionHostEditorCapabilities(vsCodeApi));
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

@@ -17,21 +17,23 @@ interface XErrorMessagesCardProps {
 
 type ErrorMessageMap = Record<string, LocalizedTextMap>;
 
+/** Keys the vnext-schema 0.0.56 `x-errorMessages` vocabulary accepts (`additionalProperties: false`). */
 const KNOWN_CONSTRAINT_KEYS = [
   'required',
   'minLength',
   'maxLength',
+  'minItems',
+  'maxItems',
+  'uniqueItems',
   'minimum',
   'maximum',
+  'exclusiveMinimum',
+  'exclusiveMaximum',
+  'multipleOf',
   'pattern',
   'format',
   'enum',
   'const',
-  'type',
-  'minItems',
-  'maxItems',
-  'uniqueItems',
-  'multipleOf',
 ] as const;
 
 const DEFAULT_VALUE = (): ErrorMessageMap => ({ required: { en: '' } });
@@ -77,6 +79,7 @@ export function XErrorMessagesCard({ pointer }: XErrorMessagesCardProps) {
 
   const activeKeys = Object.keys(map);
   const availableKeys = KNOWN_CONSTRAINT_KEYS.filter((key) => !activeKeys.includes(key));
+  const unsupportedKeys = activeKeys.filter((key) => !(KNOWN_CONSTRAINT_KEYS as readonly string[]).includes(key));
 
   function setEntries(next: ErrorMessageMap) {
     if (Object.keys(next).length === 0) {
@@ -112,7 +115,15 @@ export function XErrorMessagesCard({ pointer }: XErrorMessagesCardProps) {
       title="Validation error messages"
       purpose="Override the default error message of one or more validation rules, per language."
       enabled={enabled}
-      onToggle={toggle}>
+      onToggle={toggle}
+      error={
+        unsupportedKeys.length > 0 ? (
+          <>
+            vnext-schema 0.0.56 does not accept messages for{' '}
+            <span className="font-mono">{unsupportedKeys.join(', ')}</span>; remove them.
+          </>
+        ) : undefined
+      }>
       <div className="space-y-3">
         {activeKeys.length === 0 ? (
           <p className="text-[10px] text-primary-text/55">

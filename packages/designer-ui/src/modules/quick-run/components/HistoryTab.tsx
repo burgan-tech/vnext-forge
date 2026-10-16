@@ -42,6 +42,8 @@ export interface HistoryTabContentProps {
   tasks?: readonly TaskHistoryItem[] | null;
   /** Display label of a transition; the key when omitted. */
   transitionLabel?: (transitionKey: string, fromState: string) => string;
+  /** The flow is `history: none`: the runtime records no transitions. */
+  historyNone?: boolean;
 }
 
 /**
@@ -49,7 +51,7 @@ export interface HistoryTabContentProps {
  * time, duration, a dot for the trigger), newest first by default. Executions,
  * time spent in the target state, tasks and the request open in a dialog.
  */
-export function HistoryTabContent({ history, loading, loadMetrics, tasks, transitionLabel }: HistoryTabContentProps) {
+export function HistoryTabContent({ history, loading, loadMetrics, tasks, transitionLabel, historyNone = false }: HistoryTabContentProps) {
   const [order, setOrder] = useState<Order>('newest');
   const [selected, setSelected] = useState<HistoryTransition | null>(null);
 
@@ -68,7 +70,11 @@ export function HistoryTabContent({ history, loading, loadMetrics, tasks, transi
     return <p className="py-8 text-center text-xs text-[var(--vscode-descriptionForeground)]">Loading…</p>;
   }
   if (rows.length === 0) {
-    return <p className="py-8 text-center text-xs text-[var(--vscode-descriptionForeground)]">No transition history yet</p>;
+    return (
+      <p className="py-8 text-center text-xs text-[var(--vscode-descriptionForeground)]">
+        {historyNone ? 'This flow uses history: none — the runtime records no transition history.' : 'No transition history yet'}
+      </p>
+    );
   }
 
   const ordered = order === 'newest' ? [...rows].reverse() : rows;

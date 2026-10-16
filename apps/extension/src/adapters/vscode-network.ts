@@ -25,6 +25,7 @@ export function createVsCodeNetworkAdapter(): NetworkAdapter {
         contentType,
         headers,
         text: () => response.text(),
+        arrayBuffer: () => response.arrayBuffer(),
       };
     },
   };

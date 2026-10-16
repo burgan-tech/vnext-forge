@@ -15,6 +15,7 @@ import { useQuickRunPolling } from '../hooks/useQuickRunPolling';
 import { useDefinedExecutionMode } from '../hooks/useDefinedExecutionMode';
 import { useQuickRunStore } from '../store/quickRunStore';
 import { ValidationErrorBlock } from './ValidationErrorBlock';
+import { useFileFieldSchema } from '../file-fields/useFileFieldSchema';
 
 interface NewRunDialogProps {
   open: boolean;
@@ -85,6 +86,8 @@ export function NewRunDialog({
   // capture it here so SchemaForm can render a live form view next to
   // the JSON editor toggle.
   const [resolvedSchema, setResolvedSchema] = useState<JsonSchemaRoot | null>(null);
+  // x-storage file fields get the QuickRun file widget.
+  const { schema: formSchema, withoutFileValues } = useFileFieldSchema(resolvedSchema);
   // Submit-time validation gate. Until the user presses Start Run we
   // only show errors for fields they have already touched (so a fresh
   // dialog never lights up red). After a submit attempt we flip this
@@ -122,7 +125,8 @@ export function NewRunDialog({
           return;
         }
         if (setInstance) {
-          setAttributes(JSON.stringify(result.data.instance, null, 2));
+          // Sample data never fills file fields: a file must be picked.
+          setAttributes(JSON.stringify(withoutFileValues(result.data.instance, result.data.schema), null, 2));
         }
         if (result.data.schema && typeof result.data.schema === 'object') {
           setResolvedSchema(result.data.schema as JsonSchemaRoot);
@@ -171,7 +175,7 @@ export function NewRunDialog({
       if (!result.success || !result.data.preset) return;
       setAttributes(JSON.stringify(result.data.preset.payload, null, 2));
     },
-    [projectId, workflowKey],
+    [projectId, workflowKey, withoutFileValues],
   );
 
   const handleSavePreset = useCallback(async () => {
@@ -638,7 +642,7 @@ export function NewRunDialog({
             ) : null}
 
             <SchemaForm
-              schema={resolvedSchema}
+              schema={formSchema}
               value={attributes}
               onChange={setAttributes}
               jsonEditorLabel=""

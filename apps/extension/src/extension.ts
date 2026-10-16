@@ -20,7 +20,8 @@ import { parseInstanceChangedMessage } from './panels/monitor-messages.js';
 import { FunctionQuickRunPanel, type FunctionQuickRunContext } from './panels/FunctionQuickRunPanel.js';
 import { toFunctionMetadataFormValues } from '@vnext-forge-studio/designer-ui/function-editor-schema';
 import { VnextWorkspaceDetector, type VnextWorkspaceRoot } from './workspace-detector.js';
-import { SolutionDiagnosticsPublisher } from './solution-diagnostics.js';
+import { FIX_LEGACY_SCHEMA_TYPES_COMMAND, SolutionDiagnosticsPublisher } from './solution-diagnostics.js';
+import { SchemaRoleCodeActionProvider, reviewLegacySchemaTypeFixes } from './schema-role-fixes.js';
 import { SchemaVersionSyncController } from './schema-version-sync-controller.js';
 import {
   applyMaterialIconAssociationsIfApplicable,
@@ -260,6 +261,29 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
       solutionDiagnostics.publish(roots);
       void solutionDiagnostics.scanComponents(roots, fsAdapter);
     }),
+  );
+
+  // Schema roles (vnext-schema 0.0.56): a saved component JSON can change which
+  // role a schema is inferred to have, so re-run the component scan (debounced).
+  let componentRescan: ReturnType<typeof setTimeout> | undefined;
+  context.subscriptions.push(
+    vscode.workspace.onDidSaveTextDocument((document) => {
+      if (!/\.json$/i.test(document.uri.fsPath) || !detector.findOwningRoot(document.uri.fsPath)) return;
+      if (componentRescan) clearTimeout(componentRescan);
+      componentRescan = setTimeout(() => {
+        componentRescan = undefined;
+        void solutionDiagnostics.scanComponents(detector.getRoots(), fsAdapter);
+      }, 500);
+    }),
+    { dispose: () => componentRescan && clearTimeout(componentRescan) },
+    vscode.languages.registerCodeActionsProvider(
+      { language: 'json', scheme: 'file' },
+      new SchemaRoleCodeActionProvider(solutionDiagnostics),
+      { providedCodeActionKinds: SchemaRoleCodeActionProvider.providedCodeActionKinds },
+    ),
+    vscode.commands.registerCommand(FIX_LEGACY_SCHEMA_TYPES_COMMAND, () =>
+      reviewLegacySchemaTypeFixes(solutionDiagnostics),
+    ),
   );
 
   // schemaVersion → package.json (`@burgan-tech/vnext-schema`) → `npm install`

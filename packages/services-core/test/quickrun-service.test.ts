@@ -401,3 +401,53 @@ describe('quickRunService.getDataHistoryRow', () => {
     })
   })
 })
+
+describe('quickRunService.downloadFile (built-in file function)', () => {
+  it('asks for the file in binary mode and reads name and eTag from the headers', async () => {
+    const { service, proxy } = serviceWith({
+      status: 200,
+      data: Buffer.from('%PDF-').toString('base64'),
+      responseHeaders: {
+        'content-disposition': "inline; filename*=UTF-8''pass%20port.pdf",
+        etag: '"9f86d0"',
+      },
+    })
+    const result = await service.downloadFile({ ...ids, file: 'f-1' })
+    expect(proxy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'GET',
+        runtimePath: '/api/v1/core/workflows/error-boundary-lab/instances/i-1/functions/file',
+        query: { file: 'f-1' },
+      }),
+      undefined,
+      { binary: true },
+    )
+    expect(result).toEqual({
+      contentBase64: Buffer.from('%PDF-').toString('base64'),
+      contentType: 'application/json',
+      size: 5,
+      fileName: 'pass port.pdf',
+      eTag: '9f86d0',
+    })
+  })
+
+  it('turns a runtime error into a RuntimeErrorLike with the body in details', async () => {
+    const { service } = serviceWith({
+      status: 404,
+      data: JSON.stringify({ error: { prefix: 'Instance', code: '100049', message: 'File not found.' } }),
+    })
+    await expect(service.downloadFile({ ...ids, file: 'missing' })).rejects.toMatchObject({
+      code: ERROR_CODES.RUNTIME_NOT_FOUND,
+      context: { details: { httpStatus: 404, error: { code: '100049' } } },
+    })
+  })
+})
+
+describe('fileNameFromDisposition', () => {
+  it('prefers filename* and falls back to filename', async () => {
+    const { fileNameFromDisposition } = await import('../src/services/quickrun/quickrun.service.js')
+    expect(fileNameFromDisposition("attachment; filename*=UTF-8''r%C3%A9sum%C3%A9.svg")).toBe('résumé.svg')
+    expect(fileNameFromDisposition('inline; filename="a b.txt"')).toBe('a b.txt')
+    expect(fileNameFromDisposition('inline')).toBeUndefined()
+  })
+})

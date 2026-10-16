@@ -33,6 +33,11 @@ export interface VnextSchemaModule {
   getSchema(type: string): Record<string, unknown> | null;
   getAvailableTypes(): string[];
   schemas: Record<string, Record<string, unknown>>;
+  /** vnext-schema ≥ 0.0.56 — see `registerVocabularies` in the validate service. */
+  vocabularies?: Record<string, Record<string, unknown>>;
+  addVocabularies?<T extends { getSchema(id: string): unknown; addSchema(schema: object): unknown }>(
+    ajv: T,
+  ): T;
 }
 
 export interface SchemaCacheServiceDeps {
