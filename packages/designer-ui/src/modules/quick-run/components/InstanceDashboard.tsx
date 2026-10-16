@@ -49,6 +49,7 @@ import {
   type IncidentLoaders,
 } from './IncidentSection';
 import { InstanceFunctions } from './InstanceFunctions';
+import { withBuiltInFileFunction } from '../../function-run/functionRunFile';
 import { InteractionBanner } from './InteractionBanner';
 import { KeepPollingBanner } from './KeepPollingBanner';
 import type { FunctionMetricsLoader } from './FunctionMetrics';
@@ -215,6 +216,11 @@ export function InstanceDashboard({ configRef, persistConfig, onOpenFunctionRun,
   // Runtime 0.0.99 function execution journal. Domain-scoped functions read
   // the domain endpoint, the rest the flow-scoped sibling.
   const functionMetricsSupported = useRuntimeSupports('functionMetrics');
+  // Runtime 0.0.100's built-in `file` function is on every instance but not
+  // in the engine's catalog; list it alongside the instance's own functions.
+  const fileFunctionSupported = useRuntimeSupports('fileFunction');
+  const functionEntries = withBuiltInFileFunction(functionCatalog, fileFunctionSupported);
+  const showFunctions = hasFunctions || fileFunctionSupported !== false;
   const loadFunctionMetrics = useMemo<FunctionMetricsLoader | undefined>(() => {
     if (functionMetricsSupported !== true || !domain || !workflowKey) return undefined;
     return (functionKey) => {
@@ -699,11 +705,11 @@ export function InstanceDashboard({ configRef, persistConfig, onOpenFunctionRun,
       />
 
       {/* Functions reachable on this instance — only when the engine says so. */}
-      {hasFunctions && (
+      {showFunctions && (
         <InstanceFunctions
-          entries={functionCatalog}
-          loading={functionCatalogLoading}
-          error={functionCatalogError}
+          entries={functionEntries}
+          loading={hasFunctions && functionCatalogLoading}
+          error={hasFunctions ? functionCatalogError : null}
           selected={selectedFunctionName}
           onSelect={setSelectedFunctionName}
           {...(loadFunctionMetrics ? { loadMetrics: loadFunctionMetrics } : {})}

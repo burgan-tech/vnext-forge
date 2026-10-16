@@ -20,6 +20,9 @@ export function compareVersions(a: string, b: string): number {
 /** First runtime release carrying the 0.0.99 read surfaces (labels, targets, correlation tree, metrics, executionType). */
 export const RUNTIME_0_0_99 = '0.0.99';
 
+/** First runtime release carrying `x-storage` files and the built-in `file` function. */
+export const RUNTIME_0_0_100 = '0.0.100';
+
 /**
  * True when a reported runtime version is at least `minimum`. Returns
  * `undefined` when the version is unknown or unparseable, so callers can

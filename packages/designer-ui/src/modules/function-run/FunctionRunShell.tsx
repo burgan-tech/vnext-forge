@@ -27,6 +27,8 @@ import { FunctionRunRequestTabs } from './components/FunctionRunRequestTabs';
 import { FunctionRunResponsePane, type ResponseTabId } from './components/FunctionRunResponsePane';
 import { createFunctionRunPseudoDelegate } from './createFunctionRunPseudoDelegate';
 import { buildEndpointPreview } from './functionRunEndpoint';
+import { isFileFunction } from './functionRunFile';
+import { FunctionRunFileRunner } from './FunctionRunFileRunner';
 import { sanitizeHeaderRecord } from './functionRunHeaders';
 import {
   computeInputViewAvailability,
@@ -123,6 +125,29 @@ export function resolveOpenHeadersAction(
 }
 
 /**
+ * The Function Run surface. The runtime's built-in `file` function has no
+ * `/info` contract and a binary body, so it gets its own runner (keyed on
+ * the binding, so a new instance starts clean); every other function goes
+ * through the contract-driven runner below.
+ */
+export function FunctionRunShell(props: FunctionRunShellProps) {
+  if (props.scope !== 'D' && isFileFunction(props.functionKey)) {
+    return (
+      <FunctionRunFileRunner
+        key={`${props.domain}::${props.workflowKey ?? ''}::${props.instanceId ?? ''}`}
+        domain={props.domain}
+        workflowKey={props.workflowKey}
+        instanceId={props.instanceId}
+        runtimeUrl={props.runtimeUrl}
+        toolWideHeaders={props.toolWideHeaders}
+        surface={props.surface}
+      />
+    );
+  }
+  return <ContractFunctionRunShell {...props} />;
+}
+
+/**
  * Wires the pure function-run modules and the presentational components
  * built in earlier tasks into a working surface.
  *
@@ -133,7 +158,7 @@ export function resolveOpenHeadersAction(
  * test can only ever see the very first render (`renderToStaticMarkup` never
  * runs effects); everything past that is covered by the orchestration suite.
  */
-export function FunctionRunShell({
+function ContractFunctionRunShell({
   domain,
   functionKey,
   scope,
