@@ -23,6 +23,7 @@ import {
 } from '../hooks/interactionMachine';
 import { publishInstanceChange } from '../../instance-monitor/bus/instanceChangeBus';
 import type { KeepPollingWindow } from '../hooks/keepPollingWindow';
+import { dataTargetKey, type DataTarget } from '../utils/dataTarget';
 import type { FlowExecutionTypes } from '../utils/executionMode';
 import type { PermissionCheckResult } from '../utils/permissionChecks';
 import type { HistoryMode } from '@vnext-forge-studio/vnext-types';
@@ -87,6 +88,8 @@ interface QuickRunState {
   activeViewLoading: boolean;
 
   activeData: DataResponse | null;
+  /** Instance whose data `activeData` belongs to (a leaf sub-flow while one is open). */
+  dataTarget: DataTarget | null;
   activeDataLoading: boolean;
 
   activeSchema: SchemaResponse | null;
@@ -238,6 +241,11 @@ interface QuickRunState {
   setEtag: (fn: 'state' | 'data' | 'schema', etag: string | undefined) => void;
   resetEtags: () => void;
   /**
+   * Moves the data target. A different target key drops `activeData` and the
+   * data ETag; the same key only refreshes `via`.
+   */
+  setDataTarget: (target: DataTarget | null) => void;
+  /**
    * Everything cached *for one specific instance*: the ETag echoes plus the
    * last raw state response and the function catalog. Called wherever the
    * active instance changes, so a previous instance's payload can never show
@@ -277,6 +285,7 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
   activeViewLoading: false,
 
   activeData: null,
+  dataTarget: null,
   activeDataLoading: false,
 
   activeSchema: null,
@@ -512,9 +521,22 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
 
   setEtag: (fn, etag) => set((state) => ({ etags: { ...state.etags, [fn]: etag } })),
   resetEtags: () => set({ etags: {} }),
+  setDataTarget: (target) =>
+    set((state) => {
+      const prev = state.dataTarget;
+      const sameKey =
+        prev && target ? dataTargetKey(prev) === dataTargetKey(target) : prev === target;
+      if (sameKey) return prev && target ? { dataTarget: { ...prev, via: target.via } } : {};
+      return {
+        dataTarget: target,
+        activeData: null,
+        etags: { ...state.etags, data: undefined },
+      };
+    }),
   resetInstanceScopedCaches: () =>
     set({
       etags: {},
+      dataTarget: null,
       lastStateResponse: null,
       lastStateReceivedAt: null,
       lastStateNotModified: false,
