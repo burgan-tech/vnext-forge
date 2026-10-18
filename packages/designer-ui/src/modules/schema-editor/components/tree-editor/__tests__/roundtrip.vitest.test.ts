@@ -839,6 +839,30 @@ describe('x-validation rule-typed value', () => {
     },
   );
 
+  it('a field rule keeps its other parameters after an errorMessages edit', () => {
+    const value = toXValidationValue({ rule: 'equalsField', parameters: { field: 'a', ignoreCase: true } });
+    expect(serializeXValidation({ ...value, errorMessages: { en: 'Must match.' } })).toEqual({
+      rule: 'equalsField',
+      parameters: { field: 'a', ignoreCase: true },
+      errorMessages: { en: 'Must match.' },
+    });
+  });
+
+  it('a field rule keeps the vocabulary top-level keys it carries', () => {
+    const raw = {
+      rule: 'minField',
+      parameters: { field: 'start' },
+      trigger: 'blur',
+      debounce: 250,
+      source: 'urn:x',
+      resultField: '$.ok',
+      messageField: '$.msg',
+    };
+    expect(roundtrip(raw)).toEqual(raw);
+    const value = toXValidationValue(raw);
+    expect(serializeXValidation({ ...value, field: 'end' })).toEqual({ ...raw, parameters: { field: 'end' } });
+  });
+
   it('round-trips a fully set remote rule', () => {
     const raw = {
       rule: 'remote',

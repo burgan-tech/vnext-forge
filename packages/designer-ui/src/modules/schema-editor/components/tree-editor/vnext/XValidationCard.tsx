@@ -49,7 +49,10 @@ export interface XValidationValue {
   customRule: string;
   /** `parameters.field` of a field rule. */
   field: string;
-  /** `parameters` of a remote / custom rule. */
+  /**
+   * `parameters` of a remote / custom rule; for a field rule, every
+   * `parameters` key other than `field` (kept so a save never drops them).
+   */
   parameters: unknown;
   source: string;
   resultField: string;
@@ -104,7 +107,7 @@ export function toXValidationValue(value: unknown): XValidationValue {
     kind,
     customRule: kind === 'custom' ? rule : '',
     field: isFieldKind(kind) ? asString(paramRecord.field) : '',
-    parameters: isFieldKind(kind) ? {} : parameters,
+    parameters: isFieldKind(kind) ? withoutField(paramRecord) : parameters,
     source: asString(record.source),
     resultField: asString(record.resultField),
     messageField: asString(record.messageField),
@@ -112,6 +115,12 @@ export function toXValidationValue(value: unknown): XValidationValue {
     debounce: typeof record.debounce === 'number' ? String(record.debounce) : '',
     errorMessages: errors,
   };
+}
+
+function withoutField(record: Record<string, unknown>): Record<string, unknown> {
+  const rest = { ...record };
+  delete rest.field;
+  return rest;
 }
 
 const isEmptyParameters = (value: unknown): boolean =>
@@ -124,21 +133,27 @@ export function serialize(value: XValidationValue): Record<string, unknown> {
 
   if (isFieldKind(value.kind)) {
     out.rule = value.kind;
-    out.parameters = { field: value.field };
+    const rest =
+      value.parameters && typeof value.parameters === 'object' && !Array.isArray(value.parameters)
+        ? (value.parameters as Record<string, unknown>)
+        : {};
+    out.parameters = { ...rest, field: value.field };
   } else {
     out.rule = value.kind === 'remote' ? 'remote' : value.customRule;
     // Custom keeps today's always-present `parameters`; remote omits it when empty.
     if (value.kind === 'custom' || !isEmptyParameters(value.parameters)) {
       out.parameters = value.parameters;
     }
-    if (value.source !== '') out.source = value.source;
-    if (value.resultField !== '') out.resultField = value.resultField;
-    if (value.messageField !== '') out.messageField = value.messageField;
-    if (value.trigger === 'blur') out.trigger = 'blur';
-    const debounce = Number(value.debounce);
-    if (value.debounce.trim() !== '' && Number.isInteger(debounce) && debounce >= 0) {
-      out.debounce = debounce;
-    }
+  }
+
+  // The vocabulary allows these on every rule; keep whatever the value carries.
+  if (value.source !== '') out.source = value.source;
+  if (value.resultField !== '') out.resultField = value.resultField;
+  if (value.messageField !== '') out.messageField = value.messageField;
+  if (value.trigger === 'blur') out.trigger = 'blur';
+  const debounce = Number(value.debounce);
+  if (value.debounce.trim() !== '' && Number.isInteger(debounce) && debounce >= 0) {
+    out.debounce = debounce;
   }
 
   if (Object.keys(value.errorMessages).length > 0) {
