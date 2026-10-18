@@ -9,6 +9,7 @@
 import {
   type BuilderDefinition,
   type BuilderNode,
+  type ComponentMeta,
   type NodePath,
 } from '../types';
 import { findComponentMeta } from '../palette/componentCatalog';
@@ -150,6 +151,20 @@ export function insertChild(
 
   if (meta.childContainerKey === 'template') {
     (target as Record<string, unknown>).template = child;
+    return next;
+  }
+  if (meta.childContainerKey === 'body') {
+    // Singular slot (Scaffold.body): a container already in the slot receives
+    // the child; otherwise the slot takes the node itself (never an array).
+    const body = (target as { body?: BuilderNode }).body;
+    const bodyMeta = body ? findComponentMeta(body.type) : undefined;
+    if (body && bodyMeta?.acceptsChildren && bodyMeta.childContainerKey !== 'body') {
+      const bodyChildren = body.children ?? [];
+      bodyChildren.splice(Math.min(Math.max(index, 0), bodyChildren.length), 0, child);
+      body.children = bodyChildren;
+      return next;
+    }
+    (target as Record<string, unknown>).body = child;
     return next;
   }
   if (meta.childContainerKey === 'tabs') {
@@ -338,10 +353,13 @@ export function pickSmartInsertTarget(
 
 function countChildrenForContainer(
   node: BuilderNode,
-  childContainerKey: 'children' | 'template' | 'tabs' | undefined,
+  childContainerKey: ComponentMeta['childContainerKey'],
 ): number {
   if (childContainerKey === 'template') {
     return (node as { template?: BuilderNode }).template ? 1 : 0;
+  }
+  if (childContainerKey === 'body') {
+    return (node as { body?: BuilderNode }).body?.children?.length ?? 0;
   }
   if (childContainerKey === 'tabs') {
     // Insert into the first tab's content.

@@ -54,7 +54,7 @@ export interface ComponentMeta {
    * TabView.tabs[i].content). The string is the key on the node where the
    * collection lives, or `'template'` for the single-child slot.
    */
-  childContainerKey?: 'children' | 'template' | 'tabs';
+  childContainerKey?: 'children' | 'template' | 'tabs' | 'body';
   /** Short one-liner shown in the palette / inspector header. */
   description?: string;
   /** Property editor descriptors — drives the inspector form. */

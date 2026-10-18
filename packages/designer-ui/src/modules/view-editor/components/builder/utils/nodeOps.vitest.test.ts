@@ -128,3 +128,21 @@ describe('nodeOps — componentNode slot navigation (R16.2-B)', () => {
     expect(getNode(root, [0, 'leading'])).toBeNull();
   });
 });
+
+describe('nodeOps — Scaffold body slot', () => {
+  const text: BuilderNode = { type: 'Text', content: { en: 'hi' } };
+
+  it('sets body (a single node, not children) when body is empty', () => {
+    const root: BuilderNode = { type: 'Scaffold' };
+    const next = insertChild(root, [], 0, text);
+    expect((next as Record<string, unknown>).body).toEqual(text);
+    expect(next.children).toBeUndefined();
+  });
+
+  it('inserts into the body container children when body is a Column', () => {
+    const root: BuilderNode = { type: 'Scaffold', body: { type: 'Column', children: [] } };
+    const next = insertChild(root, [], 0, text);
+    expect((next as { body: BuilderNode }).body.children).toEqual([text]);
+    expect(next.children).toBeUndefined();
+  });
+});

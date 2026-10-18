@@ -204,7 +204,7 @@ const LOCAL_UI_CATALOG: ComponentMeta[] = [
     description: 'Page frame (app bar + body); valid only as the view root of a full-page view',
     defaultProps: { type: 'Scaffold', body: { type: 'Column', children: [] } },
     acceptsChildren: true,
-    childContainerKey: 'body' as ComponentMeta['childContainerKey'],
+    childContainerKey: 'body',
     propertySchema: [
       { key: 'appBar', kind: 'node-slot', label: 'App bar' },
       { key: 'body', kind: 'node-slot', label: 'Body' },
