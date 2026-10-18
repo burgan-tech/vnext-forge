@@ -134,6 +134,19 @@ Deliberately invalid fixtures are listed in `DELIBERATELY_INVALID`.
 | Function Run | `function-run-instance/core/file?…` with a stored file id | Name, size, type, ETag, Open / Save as |
 | Runtime error details (web) | `function-run-instance/core/file?scope=I&workflowKey=fo-flow&instanceId=<file instance>` → an unknown file id → Send; also `POST :3001/api/v1/quickrun/downloadFile` | Banner: *File request failed (HTTP 404) · Instance:100049*, the runtime's message and the hint; RPC `error.details` holds only the whitelisted runtime fields (no `instance` path, no forge URLs) — ADR 005 addendum |
 
+#### Scenario checklist (pseudo-ui 0.8.5 · forge-subflow-view-lab)
+
+| Area | Steps | Expected |
+|---|---|---|
+| Sub-flow data target | `quickrun/forge-subflow-view-lab/sfv-parent` → New Run → open the chain (A→B→C) | `quickrun/getData` goes to the grandchild; the view shows `$instance` GRANDCHILD-C and caller CHILD-B; Data tab *Active sub-flow: sfv-grandchild · &lt;id8&gt;* |
+| Data tab source switch | Data tab → Main instance | PARENT-A data; the view stays on GRANDCHILD-C (`activeData` untouched) |
+| FilePicker | Leaf view: pick a disallowed type, then a ≤ 1 MiB text file → Attach | English refusal text (no raw `filePicker.*` keys); `{name, mimeType, size, content}` stored base64 on the grandchild, equal to the page-side `btoa`; the view refreshes (no stuck 304) |
+| Chain unwinds | Leaf Finish | Target moves back to the parent; no *Active sub-flow* line; data `{chainDone: true, sfvMarker: PARENT-A}`; state `sfv-p-summary` |
+| `$subFlow` read-through | Parent summary view | *Chain child marker: CHILD-B*, state `sfv-c-done` |
+| `$subProcess` read-through | Parent review/summary view | Started 2, rows newest first (NOTIFY-2, NOTIFY-1); `$item.state` empty because the runtime sends `currentState: null` on P correlations (not a Forge bug) |
+| Remote x-validation (schema side) | `sfv-remote-check.json` with `schemaVersion` 0.0.57-local.1 | Validates; the same rule without `source` is rejected. UI check pending pseudo-ui 0.8.6 |
+| Not yet run | Scaffold view rendered bare in Quick Run against the runtime; VS Code webview (FilePicker native dialog, Quick Run panel) | — |
+
 Extend the table when a feature is added.
 
 ## 5. Cleanup
@@ -149,6 +162,16 @@ finding (fixed or not) with its cause, what was not covered (§2.5), and the bra
 sibling repos. Put the same in the PR body under `## E2E evidence`.
 
 ## 7. Last run
+
+2026-10-18 — vnext `master` @ `8189337a` (`/health` 0.0.99.0); vnext-schema 0.0.57-local.1 (vendor tgz
+from vnext-schema `feature/x-validation-remote` @ `0a3cace`, local); pseudo-ui 0.8.5. Baseline 30/30:
+ForgeSubflowViewLab 4/4 (new, vnext-example `feature/forge-subflow-view-lab` @ `dc7f4f9`, local),
+SubflowOrchestration 22/22, ForgeFileFormLab 4/4. Guard 0 findings over 95 workflows. All pseudo-ui
+0.8.5 §4.4 rows passed in the web shell. Not covered: remote validation UI and runtime call (pseudo-ui
+0.8.6 not on npm), Scaffold bare render against the runtime, VS Code extension webview. Runtime notes:
+P correlations carry `currentState: null`; `functions/state` correlations is flattened (the grandchild
+is listed on the parent while the chain is open). `preview_start` could not read the worktree
+(`getcwd`) — servers ran as background `pnpm dev` jobs.
 
 2026-10-16 — vnext `master` @ `f06961ec` (v0.0.100, `/health` 0.0.99.0), vnext-schema 0.0.56:
 baseline FileOffloadLab + HistoryNoneLab + HistoryNoneSubflowLab + SchemaRolesLab 59/59,
