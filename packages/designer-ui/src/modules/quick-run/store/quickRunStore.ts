@@ -42,6 +42,12 @@ interface QuickRunState {
   instanceListLoading: boolean;
 
   activeState: StateResponse | null;
+  /**
+   * Instance `activeState` was read for. A tab switch clears it before the
+   * new tab's first state round lands, so `currentDataTarget` never resolves
+   * one instance's open SubFlow chain for another instance.
+   */
+  activeStateInstanceId: string | null;
   activeStateLoading: boolean;
   /**
    * The last *whole* State Function (LongPoll) response body, as received.
@@ -183,7 +189,7 @@ interface QuickRunState {
   updateInstanceStatus: (instanceId: string, status: InstanceStatus, state?: string) => void;
   updateInstanceState: (instanceId: string, stateResponse: StateResponse) => void;
 
-  setActiveState: (state: StateResponse | null) => void;
+  setActiveState: (state: StateResponse | null, instanceId: string | null) => void;
   /**
    * Record a State Function round. `notModified` rounds carry no body, so
    * `response` is ignored for those and only the timestamp/flag move.
@@ -268,6 +274,7 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
   instanceListLoading: false,
 
   activeState: null,
+  activeStateInstanceId: null,
   activeStateLoading: false,
   activeStateError: null,
   permissionChecksEnabled: false,
@@ -457,7 +464,7 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
     }
   },
 
-  setActiveState: (activeState) => set({ activeState }),
+  setActiveState: (activeState, activeStateInstanceId) => set({ activeState, activeStateInstanceId }),
   setLastStateResponse: (response, notModified) =>
     set(
       notModified
@@ -537,6 +544,7 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
     set({
       etags: {},
       dataTarget: null,
+      activeStateInstanceId: null,
       lastStateResponse: null,
       lastStateReceivedAt: null,
       lastStateNotModified: false,

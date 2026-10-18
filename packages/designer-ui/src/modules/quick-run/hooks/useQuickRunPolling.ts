@@ -121,7 +121,7 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
         // Same interaction bookkeeping as the poll loop: a paused instance
         // opens the acknowledge window even on this single-shot fetch.
         const { paused: terminate } = recordStateRound(params.instanceId, stateData);
-        setActiveState(stateData);
+        setActiveState(stateData, params.instanceId);
         // A moved target drops the previous target's data before the view
         // renders against it (a 304 above keeps the existing target).
         setDataTarget(resolveDataTarget(params, stateData));
@@ -460,7 +460,7 @@ async function runPollLoopBody(
       } else {
         // Full state set on stop so transitions/view are available
         // even when terminate fired while status was still 'B'.
-        setActiveState(stateData);
+        setActiveState(stateData, params.instanceId);
         setDataTarget(resolveDataTarget(params, stateData));
         updateInstanceState(params.instanceId, stateData);
       }

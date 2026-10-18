@@ -100,7 +100,7 @@ describe('runPollLoop', () => {
       // single-shot fetch, which never touches pollingInstanceId (still 'i1').
       const store = useQuickRunStore.getState();
       store.setActiveTab('i2');
-      store.setActiveState(otherState);
+      store.setActiveState(otherState, 'i2');
       store.setEtag('state', 'etag-i2');
       expect(store.pollingInstanceId).toBe('i1');
       return ok(busy('s1', { eTag: 'etag-i1' } as Partial<StateResponse>));
@@ -296,7 +296,7 @@ describe('runPollLoop', () => {
         // Tab switch while i1's state request is in flight.
         const store = useQuickRunStore.getState();
         store.setActiveTab('i2');
-        store.setActiveState({ state: 'i2-state', status: 'A' });
+        store.setActiveState({ state: 'i2-state', status: 'A' }, 'i2');
         store.setDataTarget(i2Target);
         store.setActiveData(i2Data);
         store.setEtag('data', 'etag-i2-data');

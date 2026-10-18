@@ -57,7 +57,7 @@ export async function scheduleQuickRunRefresh(params: RefreshParams): Promise<vo
     }
 
     const stateData = stateRes.data;
-    setActiveState(stateData);
+    setActiveState(stateData, params.instanceId);
     setDataTarget(resolveDataTarget(params, stateData));
     updateInstanceState(params.instanceId, stateData);
 
