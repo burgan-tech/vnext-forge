@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ActionEditor,
   SELECT_DEPRECATED_NOTE,
+  isActiveReservedChip,
   offeredReservedVerbs,
   patchDescriptor,
 } from './ActionEditor.js';
@@ -67,5 +68,12 @@ describe('ActionEditor verbs', () => {
     expect(html).toContain('$ui.tab');
     // Rendering must not mutate the persisted descriptor.
     expect(existing).toEqual({ action: 'select', bind: '$ui.tab', value: 2 });
+  });
+
+  it('marks the chip of the current reserved verb active (a click on it is a no-op)', () => {
+    expect(isActiveReservedChip('set', { verb: 'set', command: undefined, customMode: false })).toBe(true);
+    expect(isActiveReservedChip('lookup', { verb: 'set', command: undefined, customMode: false })).toBe(false);
+    expect(isActiveReservedChip('set', { verb: 'set', command: 'urn:x', customMode: false })).toBe(false);
+    expect(isActiveReservedChip('set', { verb: 'set', command: undefined, customMode: true })).toBe(false);
   });
 });

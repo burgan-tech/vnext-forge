@@ -254,6 +254,15 @@ describe('useQuickRunStore — data target', () => {
     expect(s.etags.data).toBe('etag-data');
   });
 
+  it('is a no-op for the same target with an equal via (no re-render per poll tick)', () => {
+    seed(child);
+    const before = useQuickRunStore.getState();
+    useQuickRunStore.getState().setDataTarget({ ...child, via: { ...via } as CorrelationInfo });
+    const after = useQuickRunStore.getState();
+    expect(after).toBe(before);
+    expect(after.dataTarget).toBe(before.dataTarget);
+  });
+
   it('falls back to the parent when the sub-flow closes', () => {
     seed(child);
     useQuickRunStore.getState().setDataTarget(parent);

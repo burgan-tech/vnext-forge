@@ -222,14 +222,16 @@ export function PseudoUiViewSurface({
   const wrappedDelegate = useMemo((): PseudoViewDelegate => {
     return {
       ...forwardDelegateMethods(baseDelegate),
-      onAction: async (action, formData, command) => {
+      // `context` (pre / main / post phase) must reach the host: hook
+      // handling such as the Function Run delegate's branches on it.
+      onAction: async (action, formData, command, context) => {
         setActionError(null);
         setActionFieldErrors(null);
         if (action === 'submit') {
           setActionPending(true);
         }
         try {
-          await baseDelegate.onAction(action, formData, command);
+          await baseDelegate.onAction(action, formData, command, context);
           if (action === 'submit') {
             if (successFlashTimerRef.current) clearTimeout(successFlashTimerRef.current);
             setSuccessFlash(true);

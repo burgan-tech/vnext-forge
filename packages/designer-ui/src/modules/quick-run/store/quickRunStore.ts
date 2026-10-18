@@ -533,7 +533,13 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
       const prev = state.dataTarget;
       const sameKey =
         prev && target ? dataTargetKey(prev) === dataTargetKey(target) : prev === target;
-      if (sameKey) return prev && target ? { dataTarget: { ...prev, via: target.via } } : {};
+      if (sameKey) {
+        if (!prev || !target) return state;
+        // Every poll round re-resolves the target; an unchanged one must not
+        // notify subscribers (returning `state` itself skips the update).
+        if (JSON.stringify(prev.via) === JSON.stringify(target.via)) return state;
+        return { dataTarget: { ...prev, via: target.via } };
+      }
       return {
         dataTarget: target,
         activeData: null,

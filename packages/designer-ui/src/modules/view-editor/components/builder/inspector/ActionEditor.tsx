@@ -162,6 +162,17 @@ function isDescriptor(value: unknown): value is ActionDescriptor {
   return typeof value === 'object' && value !== null && 'action' in (value as object);
 }
 
+/**
+ * The chip of the reserved verb the action already uses. Clicking it again
+ * must not re-apply the verb (that would reset a set / lookup descriptor).
+ */
+export function isActiveReservedChip(
+  rv: ReservedAction,
+  state: { verb: string; command: string | undefined; customMode: boolean },
+): boolean {
+  return !state.customMode && !state.command && state.verb === rv;
+}
+
 function isReservedVerb(verb: string | undefined): verb is ReservedAction {
   return !!verb && RESERVED_VERBS.includes(verb as ReservedAction);
 }
@@ -333,12 +344,14 @@ function SingleActionEditor({
       {offered.length > 0 ? (
         <div className="flex flex-wrap items-center gap-1">
           {offered.map((rv) => {
-            const active = !customMode && !command && verb === rv;
+            const active = isActiveReservedChip(rv, { verb, command, customMode });
             return (
               <button
                 key={rv}
                 type="button"
-                onClick={() => pickReservedVerb(rv)}
+                onClick={() => {
+                  if (!active) pickReservedVerb(rv);
+                }}
                 className={`rounded border px-2 py-0.5 text-[10px] transition ${
                   active
                     ? 'border-primary-border bg-primary text-foreground'
