@@ -69,7 +69,33 @@ export function getNode(root: BuilderNode, path: NodePath): BuilderNode | null {
 }
 
 /** R16.2-B: componentNode slot keys the builder navigates into. */
-const NAMED_NODE_SLOTS = new Set(['leading', 'trailing', 'header', 'footer', 'anchor', 'actions']);
+const NAMED_NODE_SLOTS = new Set([
+  'leading',
+  'trailing',
+  'header',
+  'footer',
+  'anchor',
+  'actions',
+  // Scaffold single-node slots.
+  'appBar',
+  'body',
+  'bottomNavigationBar',
+  'floatingActionButton',
+]);
+
+/** Named slots holding exactly one node (not an array). */
+const SINGLE_NODE_SLOTS = new Set([
+  'leading',
+  'trailing',
+  'header',
+  'footer',
+  'anchor',
+  'template',
+  'appBar',
+  'body',
+  'bottomNavigationBar',
+  'floatingActionButton',
+]);
 
 interface ParentRef {
   parent: BuilderNode | BuilderNode[];
@@ -187,6 +213,14 @@ export function insertChild(
 export function deleteNode(root: BuilderNode, path: NodePath): BuilderNode {
   if (path.length === 0) return root;
   const next = clone(root);
+  const last = path[path.length - 1];
+  if (typeof last === 'string' && SINGLE_NODE_SLOTS.has(last)) {
+    // Single-node slot (Scaffold.body, …): drop the slot value itself.
+    const owner = getNode(next, path.slice(0, -1));
+    if (!owner || !(last in owner)) return root;
+    delete (owner as Record<string, unknown>)[last];
+    return next;
+  }
   const ref = resolveParent(next, path);
   if (ref?.index == null) return root;
 

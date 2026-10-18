@@ -118,4 +118,10 @@ describe('jsonPointerPath', () => {
       });
     }
   });
+
+  it('maps Scaffold slot paths both ways', () => {
+    expect(nodePathToJsonPointer(['body', 0])).toBe('/view/body/children/0');
+    expect(jsonPointerToNodePath('/view/body/children/0')).toEqual(['body', 0]);
+    expect(jsonPointerToNodePath('/view/appBar')).toEqual(['appBar']);
+  });
 });
