@@ -463,8 +463,8 @@ importers:
   packages/designer-ui:
     dependencies:
       '@burgan-tech/pseudo-ui':
-        specifier: ^0.4.0
-        version: 0.4.0(primereact@10.9.8(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)
+        specifier: ^0.8.5
+        version: 0.8.5(primereact@10.9.8(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)
       '@dagrejs/dagre':
         specifier: ^3.0.0
         version: 3.0.0
@@ -890,8 +890,8 @@ packages:
   '@braintree/sanitize-url@7.1.2':
     resolution: {integrity: sha512-jigsZK+sMF/cuiB7sERuo9V7N9jx+dhmHHnQyDSVdpZwVutaBu7WvNYqMDLSgFgfB30n452TP3vjDAvFC973mA==}
 
-  '@burgan-tech/pseudo-ui@0.4.0':
-    resolution: {integrity: sha512-RvmIdZmijJDIivjDJYJ5RbUmoDjtG9JdQ1M9pLo+FBt8IarBEpq4jvhCWoO4iuU9YSeX1lCWmvML3jx46XbeVA==}
+  '@burgan-tech/pseudo-ui@0.8.5':
+    resolution: {integrity: sha512-OcjjN5QV1trUCcY55iHUro2CiGQd706hiqEIqPZqwVZ9203uD32+ZGzBcLARsfKG8+EI4mAknuFsrjVaifFj7g==}
     peerDependencies:
       '@angular/animations': '>=19.0.0 <21.0.0'
       '@angular/cdk': '>=19.0.0 <21.0.0'
@@ -6849,7 +6849,7 @@ snapshots:
 
   '@braintree/sanitize-url@7.1.2': {}
 
-  '@burgan-tech/pseudo-ui@0.4.0(primereact@10.9.8(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)':
+  '@burgan-tech/pseudo-ui@0.8.5(primereact@10.9.8(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)':
     dependencies:
       '@primeuix/themes': 2.0.3
       primeicons: 7.0.0
