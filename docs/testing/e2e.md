@@ -144,7 +144,10 @@ Deliberately invalid fixtures are listed in `DELIBERATELY_INVALID`.
 | Chain unwinds | Leaf Finish | Target moves back to the parent; no *Active sub-flow* line; data `{chainDone: true, sfvMarker: PARENT-A}`; state `sfv-p-summary` |
 | `$subFlow` read-through | Parent summary view | *Chain child marker: CHILD-B*, state `sfv-c-done` |
 | `$subProcess` read-through | Parent review/summary view | Started 2, rows newest first (NOTIFY-2, NOTIFY-1); `$item.state` empty because the runtime sends `currentState: null` on P correlations (not a Forge bug) |
-| Remote x-validation (schema side) | `sfv-remote-check.json` with `schemaVersion` 0.0.57-local.1 | Validates; the same rule without `source` is rejected. UI check pending pseudo-ui 0.8.6 |
+| Remote x-validation (schema side) | `sfv-remote-check.json` with `schemaVersion` 0.0.57-local.1 | Validates; the same rule without `source` is rejected |
+| Remote x-validation (UI) | `quickrun/forge-subflow-view-lab/sfv-remote` → New Run; type `BAD` + blur, Submit; type `OK-1` + blur, Submit | `BAD`: `quickrun/executeFunction` → `sfv-check-code`, the field shows the server's *Code must start with OK (server)*, Submit fires no `fireTransition`; `OK-1`: error clears, Submit completes (`sfv-r-done`) |
+| Remote x-validation (unreachable) | New Run; stop the Forge server; type a new value + blur | No field error; console *Remote validation "code" failed — treated as valid* |
+| Remote x-validation (schema editor) | `schema/forge-subflow-view-lab/sfv-remote-input` → `code` → vNext tab | Rule *Remote (function)* with source / result / message fields filled; Remote is offered because the pin is ≥ 0.0.57 |
 | Not yet run | Scaffold view rendered bare in Quick Run against the runtime; VS Code webview (FilePicker native dialog, Quick Run panel) | — |
 
 Extend the table when a feature is added.
@@ -162,6 +165,13 @@ finding (fixed or not) with its cause, what was not covered (§2.5), and the bra
 sibling repos. Put the same in the PR body under `## E2E evidence`.
 
 ## 7. Last run
+
+2026-10-18 (second run) — same runtime; pseudo-ui 0.8.6-local.1 (vendor tgz built from
+vnext-client-view-renderer `develop` @ `919b5ef`, 0.8.6 not yet on npm). ForgeRemoteValidation 5/5 (new,
+vnext-example `feature/forge-subflow-view-lab` @ `fc36e6f`, local). All four remote x-validation §4.4 rows
+passed in the web shell. Runtime note: the runtime does not evaluate `x-validation` rule `remote` at
+intake (no rule registered under that name; it logs a warning and accepts `BAD`) — only the client gates
+the submit.
 
 2026-10-18 — vnext `master` @ `8189337a` (`/health` 0.0.99.0); vnext-schema 0.0.57-local.1 (vendor tgz
 from vnext-schema `feature/x-validation-remote` @ `0a3cace`, local); pseudo-ui 0.8.5. Baseline 30/30:
