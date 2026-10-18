@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
 
+import { compareVersions } from '@vnext-forge-studio/vnext-types';
+
 import { Field } from '../../../../../ui/Field';
 import { Input } from '../../../../../ui/Input';
 import { Select } from '../../../../../ui/Select';
@@ -7,6 +9,7 @@ import { JsonCodeField } from '../../../../../ui/JsonCodeField';
 import { LocalizedTextMapEditor, type LocalizedTextMap } from '../../../../../ui/LocalizedTextMapEditor';
 import { type JsonPointer } from '../../../model/jsonPointer';
 import { setKeyword } from '../../../model/mutators';
+import { useProjectStore } from '../../../../../store/useProjectStore';
 import { useSchemaEditorStore } from '../../../useSchemaEditorStore';
 import { useSchemaNode } from '../../../hooks/useSchemaNode';
 import { useVNextEnabled } from '../../../hooks/useVNextEnabled';
@@ -34,6 +37,28 @@ const KIND_OPTIONS: { kind: XValidationRuleKind; label: string }[] = [
   { kind: 'remote', label: 'Remote (function)' },
   { kind: 'custom', label: 'Custom (host)' },
 ];
+
+/** First vnext-schema release whose vocabulary accepts `x-validation` rule `remote`. */
+export const REMOTE_X_VALIDATION_MIN_SCHEMA_VERSION = '0.0.57';
+
+/**
+ * True when the project's pinned vnext-schema accepts a remote rule. Same
+ * convention as `schemaRolesEnforced`: an unknown or unparseable pin
+ * validates against the bundled package, so it counts as supported.
+ */
+export function remoteXValidationSupported(schemaVersion: string | null | undefined): boolean {
+  if (!schemaVersion || !/\d+\.\d+/.test(schemaVersion)) return true;
+  return compareVersions(schemaVersion, REMOTE_X_VALIDATION_MIN_SCHEMA_VERSION) >= 0;
+}
+
+/** Rule kinds to offer; a stored remote rule stays selectable on any pin. */
+export function xValidationKindOptions(
+  current: XValidationRuleKind,
+  schemaVersion: string | null | undefined,
+): { kind: XValidationRuleKind; label: string }[] {
+  if (current === 'remote' || remoteXValidationSupported(schemaVersion)) return KIND_OPTIONS;
+  return KIND_OPTIONS.filter((o) => o.kind !== 'remote');
+}
 
 const BUILT_IN_KINDS = new Set<string>(
   KIND_OPTIONS.filter((o) => o.kind !== 'custom').map((o) => o.kind),
@@ -189,6 +214,7 @@ export function XValidationCard({ pointer }: XValidationCardProps) {
   const updateComponent = useSchemaEditorStore((s) => s.updateComponent);
   const { enabled, toggle } = useVNextEnabled(pointer, 'x-validation', DEFAULT_VALUE);
   const current = toXValidationValue(node?.['x-validation']);
+  const schemaVersion = useProjectStore((s) => s.vnextConfig?.schemaVersion);
 
   return (
     <VNextCardShell
@@ -199,6 +225,7 @@ export function XValidationCard({ pointer }: XValidationCardProps) {
       onToggle={toggle}>
       <XValidationFields
         value={current}
+        {...(schemaVersion ? { schemaVersion } : {})}
         onChange={(next) => updateComponent(setKeyword(pointer, 'x-validation', serialize(next)))}
       />
     </VNextCardShell>
@@ -208,9 +235,12 @@ export function XValidationCard({ pointer }: XValidationCardProps) {
 export function XValidationFields({
   value,
   onChange,
+  schemaVersion,
 }: {
   value: XValidationValue;
   onChange: (next: XValidationValue) => void;
+  /** The project's pinned `vnext.config.json#schemaVersion`, when known. */
+  schemaVersion?: string;
 }) {
   const update = (patch: Partial<XValidationValue>) => onChange({ ...value, ...patch });
   const issues = xValidationIssues(value);
@@ -221,7 +251,7 @@ export function XValidationFields({
         <Select
           value={value.kind}
           onChange={(event) => onChange(switchRuleKind(value, event.target.value as XValidationRuleKind))}>
-          {KIND_OPTIONS.map((option) => (
+          {xValidationKindOptions(value.kind, schemaVersion).map((option) => (
             <option key={option.kind} value={option.kind}>
               {option.label}
             </option>

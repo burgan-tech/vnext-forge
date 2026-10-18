@@ -2,12 +2,50 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 
-import { toXValidationValue, XValidationFields } from './XValidationCard';
+import {
+  remoteXValidationSupported,
+  toXValidationValue,
+  xValidationKindOptions,
+  XValidationFields,
+} from './XValidationCard';
 
-const render = (raw: Record<string, unknown>): string =>
+const render = (raw: Record<string, unknown>, schemaVersion?: string): string =>
   renderToStaticMarkup(
-    createElement(XValidationFields, { value: toXValidationValue(raw), onChange: () => undefined }),
+    createElement(XValidationFields, {
+      value: toXValidationValue(raw),
+      onChange: () => undefined,
+      ...(schemaVersion ? { schemaVersion } : {}),
+    }),
   );
+
+describe('remoteXValidationSupported', () => {
+  it('needs vnext-schema 0.0.57 or later (pre-release suffixes count)', () => {
+    expect(remoteXValidationSupported('0.0.55')).toBe(false);
+    expect(remoteXValidationSupported('0.0.56')).toBe(false);
+    expect(remoteXValidationSupported('0.0.57')).toBe(true);
+    expect(remoteXValidationSupported('0.0.57-local.1')).toBe(true);
+    expect(remoteXValidationSupported('0.1.0')).toBe(true);
+  });
+
+  it('treats an unknown pin as the bundled package (supported)', () => {
+    expect(remoteXValidationSupported(undefined)).toBe(true);
+    expect(remoteXValidationSupported('latest')).toBe(true);
+  });
+});
+
+describe('xValidationKindOptions', () => {
+  const kinds = (current: Parameters<typeof xValidationKindOptions>[0], v?: string) =>
+    xValidationKindOptions(current, v).map((o) => o.kind);
+
+  it('hides Remote on an older pin', () => {
+    expect(kinds('equalsField', '0.0.56')).not.toContain('remote');
+    expect(kinds('equalsField', '0.0.57')).toContain('remote');
+  });
+
+  it('keeps Remote for a stored remote rule on any pin', () => {
+    expect(kinds('remote', '0.0.55')).toContain('remote');
+  });
+});
 
 describe('XValidationFields', () => {
   it('lists the rule kinds', () => {
@@ -22,6 +60,11 @@ describe('XValidationFields', () => {
     ]) {
       expect(html).toContain(label);
     }
+  });
+
+  it('does not offer Remote on a project pinned below 0.0.57', () => {
+    expect(render({ rule: 'equalsField', parameters: { field: 'a' } }, '0.0.56')).not.toContain('Remote (function)');
+    expect(render({ rule: 'remote', source: 'x' }, '0.0.56')).toContain('Remote (function)');
   });
 
   it('shows only the field input for a field rule', () => {
