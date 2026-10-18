@@ -15,10 +15,11 @@ import { createQuickRunPseudoDelegate } from '../pseudo-ui/createQuickRunPseudoD
 import { createDataSchemaResolver, type SchemaResolver } from '../pseudo-ui/createDataSchemaResolver';
 import { PseudoUiLangPicker } from '../pseudo-ui/PseudoUiLangPicker';
 import { PseudoUiOrJsonBlock } from '../pseudo-ui/PseudoUiOrJsonBlock';
-import type { DataSchema, PseudoViewDelegate } from '@burgan-tech/pseudo-ui';
+import type { DataSchema, PseudoViewDelegate, SubInstanceHost } from '@burgan-tech/pseudo-ui';
 import { useQuickRunPolling } from '../hooks/useQuickRunPolling';
 import { useDefinedExecutionMode } from '../hooks/useDefinedExecutionMode';
 import { useQuickRunStore } from '../store/quickRunStore';
+import { subInstanceHostOf } from '../pseudo-ui/createSubInstanceLoader';
 import { safeViewContent, type SchemaResponse, type ViewResponse } from '../types/quickrun.types';
 import { ValidationErrorBlock } from './ValidationErrorBlock';
 import { useFileFieldSchema } from '../file-fields/useFileFieldSchema';
@@ -44,6 +45,20 @@ export function TransitionDialog({ configRef, persistConfig, projectId }: Transi
   const proxiedTo = useQuickRunStore((s) => activeSubFlowTarget(s.activeState?.activeCorrelations));
   const domain = useQuickRunStore((s) => s.domain);
   const workflowKey = useQuickRunStore((s) => s.workflowKey);
+  // The dialog's view belongs to the same record as the state view: the data
+  // target (open leaf SubFlow, or the instance). Existing instance only, so
+  // there is always a host here.
+  const dataTarget = useQuickRunStore((s) => s.dataTarget);
+  const hostDomain = dataTarget?.domain ?? domain;
+  const hostWorkflow = dataTarget?.workflowKey ?? workflowKey;
+  const hostInstanceId = dataTarget?.instanceId ?? activeTabId;
+  const instanceRef = useMemo(
+    () =>
+      hostDomain && hostWorkflow && hostInstanceId
+        ? subInstanceHostOf({ domain: hostDomain, workflowKey: hostWorkflow, instanceId: hostInstanceId })
+        : null,
+    [hostDomain, hostWorkflow, hostInstanceId],
+  );
   const globalHeaders = useQuickRunStore((s) => s.globalHeaders);
   const sessionHeaders = useQuickRunStore((s) => s.sessionHeaders);
   const environmentUrl = useQuickRunStore((s) => s.environmentUrl);
@@ -542,6 +557,7 @@ export function TransitionDialog({ configRef, persistConfig, projectId }: Transi
             view={transitionView}
             loading={viewLoading}
             pseudoDelegate={transitionPseudoDelegate}
+            instanceRef={instanceRef}
             pseudoUiSchema={schema?.schema}
             resolveSchema={schemaResolver}
           />
@@ -645,12 +661,14 @@ function TransitionViewInfo({
   view,
   loading,
   pseudoDelegate,
+  instanceRef,
   pseudoUiSchema,
   resolveSchema,
 }: {
   view: ViewResponse | null;
   loading: boolean;
   pseudoDelegate?: PseudoViewDelegate;
+  instanceRef?: SubInstanceHost | null;
   pseudoUiSchema?: Record<string, unknown>;
   resolveSchema?: SchemaResolver;
 }) {
@@ -716,6 +734,7 @@ function TransitionViewInfo({
             panelStorageScope="transition-dialog"
             surfaceClassName="min-h-0"
             delegate={pseudoDelegate}
+            instanceRef={instanceRef}
             pseudoUiSchema={pseudoUiSchema as DataSchema | undefined}
             resolveSchema={resolveSchema}
           />

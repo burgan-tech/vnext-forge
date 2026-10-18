@@ -4,7 +4,7 @@ import { CopyableJsonBlock } from '../components/CopyableJsonBlock';
 import type { ViewResponse } from '../types/quickrun.types';
 import { PseudoUiViewSurface } from './PseudoUiViewSurface';
 import type { SchemaResolver } from './createDataSchemaResolver';
-import type { DataSchema, PseudoViewDelegate } from '@burgan-tech/pseudo-ui';
+import type { DataSchema, PseudoViewDelegate, SubInstanceHost } from '@burgan-tech/pseudo-ui';
 import { usePseudoUiPanelMode, ViewModeToggle } from './ViewModeToggle';
 
 export interface PseudoUiOrJsonBlockProps {
@@ -19,6 +19,8 @@ export interface PseudoUiOrJsonBlockProps {
   fullPage?: boolean;
   panelStorageScope?: string;
   delegate?: PseudoViewDelegate;
+  /** Forwarded to `PseudoUiViewSurface`. */
+  instanceRef?: SubInstanceHost | null;
   pseudoUiSchema?: DataSchema;
   resolveSchema?: SchemaResolver;
   instanceData?: Record<string, unknown>;
@@ -54,6 +56,7 @@ export function PseudoUiOrJsonBlock({
   fullPage,
   panelStorageScope = 'default',
   delegate,
+  instanceRef,
   pseudoUiSchema,
   resolveSchema,
   instanceData,
@@ -90,6 +93,7 @@ export function PseudoUiOrJsonBlock({
           className={surfaceClassName}
           fullPage={fullPage}
           delegate={delegate}
+          instanceRef={instanceRef}
           onError={onPseudoError}
           onFormChange={onFormChange}
         />

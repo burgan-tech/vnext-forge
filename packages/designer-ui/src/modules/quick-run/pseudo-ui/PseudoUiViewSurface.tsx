@@ -19,6 +19,7 @@ import {
   viewDeclaresOwnFrame,
   type DataSchema,
   type PseudoViewDelegate,
+  type SubInstanceHost,
   type ViewDefinition,
 } from '@burgan-tech/pseudo-ui';
 import type { DesignerClassNames, DesignerMode } from '@burgan-tech/pseudo-ui/react';
@@ -28,6 +29,7 @@ import type { SchemaResolver } from './createDataSchemaResolver';
 import { normalizePseudoUiPayload } from './normalizePseudoUiPayload';
 import { PseudoUiErrorBoundary, type PseudoUiErrorAction } from './PseudoUiErrorBoundary';
 import { PseudoUiPseudoViewFrame } from './PseudoUiPseudoViewFrame';
+import { forwardDelegateMethods } from './forwardDelegateMethods';
 import { CopyableJsonBlock } from '../components/CopyableJsonBlock';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { FireTransitionError } from './FireTransitionError';
@@ -98,6 +100,11 @@ export interface PseudoUiViewSurfaceProps {
    * leave this unset and keep their frame.
    */
   fullPage?: boolean;
+  /**
+   * The record whose `$subFlow` / `$subProcess` children the view reads
+   * through (needs `delegate.loadSubInstances`). Null on a start surface.
+   */
+  instanceRef?: SubInstanceHost | null;
   /** Extra escape-hatch buttons rendered in the error boundary (e.g.
    *  "Edit as JSON" from View Editor). Quick Runner can omit. */
   errorActions?: PseudoUiErrorAction[];
@@ -160,6 +167,7 @@ export function PseudoUiViewSurface({
   fillHeight = false,
   className,
   fullPage = false,
+  instanceRef,
   errorActions,
   designer,
   selectedNodePath,
@@ -213,34 +221,7 @@ export function PseudoUiViewSurface({
 
   const wrappedDelegate = useMemo((): PseudoViewDelegate => {
     return {
-      requestData: (...args) => baseDelegate.requestData(...args),
-      loadComponent: (...args) => baseDelegate.loadComponent(...args),
-      readFile: baseDelegate.readFile ? (...args) => baseDelegate.readFile!(...args) : undefined,
-      onLog: baseDelegate.onLog ? (...args) => baseDelegate.onLog!(...args) : undefined,
-      onValidationRequest: baseDelegate.onValidationRequest
-        ? (...args) => baseDelegate.onValidationRequest!(...args)
-        : undefined,
-      // R11: forward SDK designer-mode callbacks. Without these the
-      // SDK's `delegate.onNodeSelect / onNodeDelete / onNodeMove /
-      // onNodeDropFromPalette / onNodeHover` invocations would land on
-      // the noop default and the canvas would feel "frozen" — clicks
-      // and × buttons paint outlines but never reach the builder
-      // store.
-      onNodeSelect: baseDelegate.onNodeSelect
-        ? (...args) => baseDelegate.onNodeSelect!(...args)
-        : undefined,
-      onNodeHover: baseDelegate.onNodeHover
-        ? (...args) => baseDelegate.onNodeHover!(...args)
-        : undefined,
-      onNodeDelete: baseDelegate.onNodeDelete
-        ? (...args) => baseDelegate.onNodeDelete!(...args)
-        : undefined,
-      onNodeMove: baseDelegate.onNodeMove
-        ? (...args) => baseDelegate.onNodeMove!(...args)
-        : undefined,
-      onNodeDropFromPalette: baseDelegate.onNodeDropFromPalette
-        ? (...args) => baseDelegate.onNodeDropFromPalette!(...args)
-        : undefined,
+      ...forwardDelegateMethods(baseDelegate),
       onAction: async (action, formData, command) => {
         setActionError(null);
         setActionFieldErrors(null);
@@ -527,6 +508,7 @@ export function PseudoUiViewSurface({
         instanceData={instanceData}
         lang={lang}
         delegate={wrappedDelegate}
+        instanceRef={instanceRef}
         onFormChange={(next) => {
           setFormData(next);
           onFormChange?.(next);
