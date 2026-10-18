@@ -15,6 +15,8 @@ export interface PseudoUiOrJsonBlockProps {
   integrationMode: 'simulation' | 'preview';
   fillHeight?: boolean;
   surfaceClassName?: string;
+  /** Forwarded to `PseudoUiViewSurface`: the block is the whole page, not a dialog. */
+  fullPage?: boolean;
   panelStorageScope?: string;
   delegate?: PseudoViewDelegate;
   pseudoUiSchema?: DataSchema;
@@ -49,6 +51,7 @@ export function PseudoUiOrJsonBlock({
   integrationMode,
   fillHeight,
   surfaceClassName,
+  fullPage,
   panelStorageScope = 'default',
   delegate,
   pseudoUiSchema,
@@ -85,6 +88,7 @@ export function PseudoUiOrJsonBlock({
           ariaLabel={ariaLabel}
           fillHeight={fillHeight}
           className={surfaceClassName}
+          fullPage={fullPage}
           delegate={delegate}
           onError={onPseudoError}
           onFormChange={onFormChange}

@@ -1372,6 +1372,7 @@ function StateViewContent({
         integrationMode="simulation"
         panelStorageScope="state-view"
         surfaceClassName="min-h-[200px]"
+        fullPage
         delegate={pseudoDelegate}
         resolveSchema={schemaResolver}
         // R24.3: formData and instanceData are independent buckets in

@@ -15,7 +15,12 @@
  * Code shell and renders no pseudo-ui-shaped controls.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { DataSchema, PseudoViewDelegate, ViewDefinition } from '@burgan-tech/pseudo-ui';
+import {
+  viewDeclaresOwnFrame,
+  type DataSchema,
+  type PseudoViewDelegate,
+  type ViewDefinition,
+} from '@burgan-tech/pseudo-ui';
 import type { DesignerClassNames, DesignerMode } from '@burgan-tech/pseudo-ui/react';
 
 import type { ViewResponse } from '../types/quickrun.types';
@@ -85,6 +90,14 @@ export interface PseudoUiViewSurfaceProps {
   loading?: boolean;
   fillHeight?: boolean;
   className?: string;
+  /**
+   * The surface is the whole page (the state view), not a dialog or sheet.
+   * Only a full-page host may honour a `Scaffold` root's own frame
+   * (`viewDeclaresOwnFrame`): the view then renders bare, without the
+   * caller's surface class, so the page does not get two app bars. Dialogs
+   * leave this unset and keep their frame.
+   */
+  fullPage?: boolean;
   /** Extra escape-hatch buttons rendered in the error boundary (e.g.
    *  "Edit as JSON" from View Editor). Quick Runner can omit. */
   errorActions?: PseudoUiErrorAction[];
@@ -146,6 +159,7 @@ export function PseudoUiViewSurface({
   loading = false,
   fillHeight = false,
   className,
+  fullPage = false,
   errorActions,
   designer,
   selectedNodePath,
@@ -390,11 +404,13 @@ export function PseudoUiViewSurface({
     if (initialFormData) setFormData(initialFormData);
   }, [initialFormData]);
 
+  const ownFrame = fullPage && viewDeclaresOwnFrame(viewDefinition);
+
   const hostClassName = [
     'pseudo-ui-host',
     `pseudo-ui-host--${mode}`,
     fillHeight ? 'pseudo-ui-host--fill' : '',
-    className ?? '',
+    ownFrame ? '' : (className ?? ''),
   ]
     .filter(Boolean)
     .join(' ');
@@ -530,7 +546,13 @@ export function PseudoUiViewSurface({
     schemaResolutionAttempted && expectingAsyncSchema && resolvedSchema === null;
 
   return (
-    <div role="region" aria-label={ariaLabel} className={hostClassName} data-pseudo-ui-root="">
+    <div
+      role="region"
+      aria-label={ariaLabel}
+      className={hostClassName}
+      data-pseudo-ui-root=""
+      data-own-frame={ownFrame ? 'true' : undefined}
+    >
       {schemaMissingWarning ? (
         <div
           role="status"
