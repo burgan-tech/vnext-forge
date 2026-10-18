@@ -2,9 +2,33 @@ import { describe, expect, it } from 'vitest';
 
 import { getComponentMeta, listComponentTypes } from '@burgan-tech/pseudo-ui';
 
-import { COMPONENT_CATALOG, createNodeFromCatalog, findComponentMeta } from './componentCatalog';
+import {
+  COMPONENT_CATALOG,
+  createNodeFromCatalog,
+  findComponentMeta,
+  isCuratedComponentType,
+} from './componentCatalog';
 
 describe('componentCatalog', () => {
+  it('every SDK component type is curated', () => {
+    expect(listComponentTypes().filter((t) => !isCuratedComponentType(t))).toEqual([]);
+  });
+
+  it('curates FilePicker, Scaffold and Skeleton with the 0.8.5 defaults', () => {
+    expect(createNodeFromCatalog('FilePicker')).toEqual({
+      type: 'FilePicker',
+      bind: '',
+      multiple: false,
+      maxSizeBytes: 1048576,
+    });
+    expect(createNodeFromCatalog('Scaffold')).toEqual({
+      type: 'Scaffold',
+      appBar: { type: 'AppBar', title: 'Title' },
+      body: { type: 'Column', children: [] },
+    });
+    expect(createNodeFromCatalog('Skeleton')).toEqual({ type: 'Skeleton', rows: 3, variant: 'text' });
+  });
+
   it('every SDK-listed component type has a catalog entry', () => {
     const sdkTypes = listComponentTypes();
     const catalogTypes = new Set(COMPONENT_CATALOG.map((c) => c.type));

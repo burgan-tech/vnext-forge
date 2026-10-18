@@ -196,6 +196,23 @@ const LOCAL_UI_CATALOG: ComponentMeta[] = [
     propertySchema: [],
   },
 
+  {
+    type: 'Scaffold',
+    category: 'Layout',
+    label: 'Page scaffold',
+    iconName: 'LayoutTemplate',
+    description: 'Page frame (app bar + body); valid only as the view root of a full-page view',
+    defaultProps: { type: 'Scaffold', body: { type: 'Column', children: [] } },
+    acceptsChildren: true,
+    childContainerKey: 'body' as ComponentMeta['childContainerKey'],
+    propertySchema: [
+      { key: 'appBar', kind: 'node-slot', label: 'App bar' },
+      { key: 'body', kind: 'node-slot', label: 'Body' },
+      { key: 'bottomNavigationBar', kind: 'node-slot', label: 'Bottom navigation bar' },
+      { key: 'floatingActionButton', kind: 'node-slot', label: 'Floating action button' },
+    ],
+  },
+
   // ─── Container ────────────────────────────────────────────────────────
   {
     type: 'Card',
@@ -462,6 +479,24 @@ const LOCAL_UI_CATALOG: ComponentMeta[] = [
     propertySchema: bindableInputFields,
   },
 
+  {
+    type: 'FilePicker',
+    category: 'Input',
+    label: 'File picker',
+    iconName: 'Paperclip',
+    description: 'Ask for a document; the file is stored base64 in the bound form value',
+    defaultProps: { type: 'FilePicker', bind: '', multiple: false, maxSizeBytes: 1048576 },
+    acceptsChildren: false,
+    propertySchema: [
+      { key: 'bind', kind: 'bind', label: 'Bind', placeholder: 'e.g. attachment', required: true },
+      { key: 'multiple', kind: 'boolean', label: 'Multiple files' },
+      { key: 'accept', kind: 'text', label: 'Accept', placeholder: 'e.g. .pdf,image/*' },
+      { key: 'maxSizeBytes', kind: 'number', label: 'Max file size (bytes)', min: 0 },
+      { key: 'maxFiles', kind: 'number', label: 'Max files', min: 1 },
+      { key: 'maxTotalBytes', kind: 'number', label: 'Max total size (bytes)', min: 0 },
+    ],
+  },
+
   // ─── Display ──────────────────────────────────────────────────────────
   {
     type: 'Text',
@@ -610,6 +645,29 @@ const LOCAL_UI_CATALOG: ComponentMeta[] = [
     acceptsChildren: false,
     propertySchema: [
       { key: 'spans', kind: 'spans', label: 'Spans', required: true },
+    ],
+  },
+
+  {
+    type: 'Skeleton',
+    category: 'Display',
+    label: 'Skeleton',
+    iconName: 'Loader',
+    description: 'Shimmering placeholder for content that is still loading',
+    defaultProps: { type: 'Skeleton', rows: 3, variant: 'text' },
+    acceptsChildren: false,
+    propertySchema: [
+      { key: 'rows', kind: 'number', label: 'Rows', min: 1 },
+      {
+        key: 'variant',
+        kind: 'select',
+        label: 'Variant',
+        options: [
+          { value: 'text', label: 'text' },
+          { value: 'card', label: 'card' },
+        ],
+        allowEmpty: true,
+      },
     ],
   },
 
@@ -947,6 +1005,11 @@ function buildCatalog(): ComponentMeta[] {
     });
   }
   return out;
+}
+
+/** True when `type` has hand-curated UI metadata (not the SDK-only fallback entry). */
+export function isCuratedComponentType(type: string): boolean {
+  return type in LOCAL_UI_MAP;
 }
 
 /** Public catalog — UI metadata + SDK-blessed structural metadata. */
