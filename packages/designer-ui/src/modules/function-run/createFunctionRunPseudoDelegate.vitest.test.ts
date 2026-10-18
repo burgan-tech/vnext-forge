@@ -166,19 +166,19 @@ describe('createFunctionRunPseudoDelegate — requestData', () => {
     );
   });
 
-  it('returns undefined on a transport failure', async () => {
+  it('throws on a transport failure so the SDK treats the field as valid', async () => {
     vi.mocked(FunctionRunApi.invoke).mockResolvedValue({
       success: false,
       error: { code: 'API_UNKNOWN', message: 'network down', traceId: 't1' },
     });
 
     const delegate = createFunctionRunPseudoDelegate(baseParams);
-    const result = await delegate.requestData('urn:vnext:fn:core:get-branches');
-
-    expect(result).toBeUndefined();
+    await expect(delegate.requestData('urn:vnext:fn:core:get-branches')).rejects.toThrow(
+      /urn:vnext:fn:core:get-branches/,
+    );
   });
 
-  it('returns undefined for a 403 even though the call resolved with success: true', async () => {
+  it('throws for a 403 even though the call resolved with success: true', async () => {
     // The documented hazard: `success: true` does not mean "it worked" —
     // `data.status` carries the real HTTP outcome.
     vi.mocked(FunctionRunApi.invoke).mockResolvedValue({
@@ -187,28 +187,38 @@ describe('createFunctionRunPseudoDelegate — requestData', () => {
     });
 
     const delegate = createFunctionRunPseudoDelegate(baseParams);
-    const result = await delegate.requestData('urn:vnext:fn:core:get-branches');
-
-    expect(result).toBeUndefined();
+    await expect(delegate.requestData('urn:vnext:fn:core:get-branches')).rejects.toThrow(
+      /urn:vnext:fn:core:get-branches/,
+    );
   });
 
-  it('returns undefined when the response is not JSON', async () => {
+  it('throws when the response is not JSON', async () => {
     vi.mocked(FunctionRunApi.invoke).mockResolvedValue({
       success: true,
       data: exchange({ contentType: 'text/plain', body: 'plain text', json: undefined }),
     });
 
     const delegate = createFunctionRunPseudoDelegate(baseParams);
-    const result = await delegate.requestData('urn:vnext:fn:core:get-branches');
-
-    expect(result).toBeUndefined();
+    await expect(delegate.requestData('urn:vnext:fn:core:get-branches')).rejects.toThrow(
+      /urn:vnext:fn:core:get-branches/,
+    );
   });
 
-  it('returns undefined instead of throwing when invoke itself rejects', async () => {
+  it('throws (naming the URN, not the payload) when invoke itself rejects', async () => {
     vi.mocked(FunctionRunApi.invoke).mockRejectedValue(new Error('boom'));
 
+    const delegate = createFunctionRunPseudoDelegate({ ...baseParams, getHeaders: () => ({ Authorization: 'secret-token' }) });
+    const err = await delegate
+      .requestData('urn:vnext:fn:core:get-branches', { term: 'secret-term' })
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect((err as Error).message).toContain('urn:vnext:fn:core:get-branches');
+    expect((err as Error).message).not.toContain('secret');
+  });
+
+  it('still returns undefined for an unparseable URN', async () => {
     const delegate = createFunctionRunPseudoDelegate(baseParams);
-    await expect(delegate.requestData('urn:vnext:fn:core:get-branches')).resolves.toBeUndefined();
+    await expect(delegate.requestData('not-a-urn')).resolves.toBeUndefined();
   });
 
   it('uses the live getHeaders/getRuntimeUrl getters at call time, not at factory time', async () => {

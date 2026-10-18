@@ -112,9 +112,11 @@ const FN_COMMAND_TO_VERB: Record<FnCommand, FunctionVerb> = {
  * own segments (which may name a *different* function than the one the
  * runner is currently loaded for).
  *
- * Every failure path returns `undefined` rather than throwing, so the SDK's
- * existing "no data" fallback (an empty Dropdown/options list) kicks in —
- * the same contract `createQuickRunPseudoDelegate.requestData` documents.
+ * Unresolvable / non-function / cross-domain URNs return `undefined` after a
+ * warn. Every runtime failure (transport throw, `success: false`, non-2xx,
+ * non-JSON) THROWS an Error naming the URN — the SDK's LOV / lookup loaders
+ * catch it (empty list) and remote validation treats it as "valid".
+ * Same contract as `createQuickRunPseudoDelegate.requestData`.
  *
  * `FunctionRunApi.invoke` always resolves — a transport failure is
  * `success: false`, but a 403/500 from the runtime itself still arrives as
@@ -193,10 +195,10 @@ export function createFunctionRunPseudoDelegate(params: FunctionRunDelegateParam
         params: fnParams,
       });
 
-      // Wrapped so a transport / serialization throw can't escape into the
-      // SDK's LOV/lookup loader (invoked from React render) — the SDK
-      // already treats `undefined` as "no data" and renders an empty
-      // Dropdown, the correct fallback for any business/runtime error.
+      // Failures THROW (never `undefined`): the SDK's LOV / lookup loaders
+      // catch and render an empty list, and `x-validation` `remote` treats a
+      // throw as "transport failure → field valid" while `undefined` means
+      // "verdict not true → field invalid". Messages name the URN only.
       let result: Awaited<ReturnType<typeof FunctionRunApi.invoke>>;
       try {
         result = await FunctionRunApi.invoke({
@@ -220,7 +222,7 @@ export function createFunctionRunPseudoDelegate(params: FunctionRunDelegateParam
           error: err instanceof Error ? err.message : String(err),
         });
         params.verboseLog?.('error', 'requestData threw', err, { urn: resolved });
-        return undefined;
+        throw new Error(`requestData transport failure for ${resolved}`, { cause: err });
       }
 
       if (!result.success) {
@@ -231,7 +233,7 @@ export function createFunctionRunPseudoDelegate(params: FunctionRunDelegateParam
           error: result.error.message,
         });
         params.verboseLog?.('error', 'requestData transport failure', result.error, { urn: resolved });
-        return undefined;
+        throw new Error(`requestData transport failure for ${resolved}`);
       }
 
       const exchange = result.data;
@@ -247,12 +249,12 @@ export function createFunctionRunPseudoDelegate(params: FunctionRunDelegateParam
           urn: resolved,
           status: exchange.status,
         });
-        return undefined;
+        throw new Error(`requestData non-2xx response (${exchange.status}) for ${resolved}`);
       }
-      if (!('json' in exchange) || exchange.jsonParseError) {
+      if (!('json' in exchange) || exchange.json === undefined || exchange.jsonParseError) {
         logger.warn('[function-run] requestData response was not usable JSON.', { urn: resolved });
         params.verboseLog?.('warn', 'requestData non-JSON response', undefined, { urn: resolved });
-        return undefined;
+        throw new Error(`requestData non-JSON response for ${resolved}`);
       }
       return exchange.json;
     },
