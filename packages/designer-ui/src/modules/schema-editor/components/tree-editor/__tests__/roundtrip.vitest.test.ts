@@ -19,6 +19,7 @@ import { useSchemaEditorStore } from '../../../useSchemaEditorStore';
 import {
   serialize as serializeXValidation,
   switchRuleKind,
+  xValidationIssues,
   toXValidationValue,
 } from '../vnext/XValidationCard';
 
@@ -888,5 +889,21 @@ describe('x-validation rule-typed value', () => {
       parameters: { field: '' },
       errorMessages: { en: 'Bad.' },
     });
+  });
+
+  it('pins the output for an empty remote source and an empty custom rule', () => {
+    expect(serializeXValidation(switchRuleKind(toXValidationValue({}), 'remote'))).toEqual({
+      rule: 'remote',
+    });
+    expect(serializeXValidation(toXValidationValue({}))).toEqual({ rule: '', parameters: {} });
+  });
+
+  it('xValidationIssues flags the required fields', () => {
+    expect(xValidationIssues(switchRuleKind(toXValidationValue({}), 'remote')).source).toBe(
+      'Function URN is required for a remote rule.',
+    );
+    expect(xValidationIssues(toXValidationValue({})).rule).toBe('Rule name is required.');
+    expect(xValidationIssues(toXValidationValue({ rule: 'remote', source: 'urn:x' }))).toEqual({});
+    expect(xValidationIssues(toXValidationValue({ rule: 'equalsField' }))).toEqual({});
   });
 });

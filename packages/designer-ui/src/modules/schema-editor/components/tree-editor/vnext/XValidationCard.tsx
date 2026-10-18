@@ -148,6 +148,17 @@ export function serialize(value: XValidationValue): Record<string, unknown> {
   return out;
 }
 
+export const SOURCE_REQUIRED_MESSAGE = 'Function URN is required for a remote rule.';
+export const RULE_REQUIRED_MESSAGE = 'Rule name is required.';
+
+/** Required-field problems the vocabulary would reject; drives the inline errors. */
+export function xValidationIssues(value: XValidationValue): { source?: string; rule?: string } {
+  const issues: { source?: string; rule?: string } = {};
+  if (value.kind === 'remote' && value.source.trim() === '') issues.source = SOURCE_REQUIRED_MESSAGE;
+  if (value.kind === 'custom' && value.customRule.trim() === '') issues.rule = RULE_REQUIRED_MESSAGE;
+  return issues;
+}
+
 /** Change the rule kind: keeps `errorMessages`, drops everything the new kind does not use. */
 export function switchRuleKind(value: XValidationValue, kind: XValidationRuleKind): XValidationValue {
   return { ...DEFAULT_VALUE(), kind, errorMessages: value.errorMessages };
@@ -187,6 +198,7 @@ export function XValidationFields({
   onChange: (next: XValidationValue) => void;
 }) {
   const update = (patch: Partial<XValidationValue>) => onChange({ ...value, ...patch });
+  const issues = xValidationIssues(value);
 
   return (
     <>
@@ -215,7 +227,10 @@ export function XValidationFields({
       )}
 
       {value.kind === 'custom' && (
-        <Field label="Rule name" hint="Identifier of the validation rule registered on the host.">
+        <Field
+          label="Rule name"
+          hint="Identifier of the validation rule registered on the host."
+          errorMsg={issues.rule}>
           <Input
             type="text"
             value={value.customRule}
@@ -227,7 +242,10 @@ export function XValidationFields({
       )}
 
       {value.kind === 'remote' && (
-        <Field label="Function" hint="URN of the function that validates the value.">
+        <Field
+          label="Function"
+          hint="URN of the function that validates the value."
+          errorMsg={issues.source}>
           <Input
             type="text"
             value={value.source}

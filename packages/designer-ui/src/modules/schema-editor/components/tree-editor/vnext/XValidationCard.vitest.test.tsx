@@ -47,4 +47,14 @@ describe('XValidationFields', () => {
     expect(html).not.toContain('Result field');
     expect(html).not.toContain('Sibling path');
   });
+
+  it('shows the required error for a remote rule without a function', () => {
+    expect(render({ rule: 'remote' })).toContain('Function URN is required for a remote rule.');
+    expect(render({ rule: 'remote', source: 'urn:x' })).not.toContain('Function URN is required');
+  });
+
+  it('shows the required error for a custom rule without a name', () => {
+    expect(render({})).toContain('Rule name is required.');
+    expect(render({ rule: 'abc' })).not.toContain('Rule name is required.');
+  });
 });
