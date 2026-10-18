@@ -937,6 +937,16 @@ const LOCAL_UI_CATALOG: ComponentMeta[] = [
     ],
   },
   {
+    type: 'ForEachGroupRows',
+    category: 'Other',
+    label: 'ForEach group rows',
+    iconName: 'Repeat',
+    description: 'Marker inside a ForEach groupBy template: where the inner level (next group, then rows) renders',
+    defaultProps: { type: 'ForEachGroupRows' },
+    acceptsChildren: false,
+    propertySchema: [],
+  },
+  {
     type: 'Component',
     category: 'Other',
     label: 'Component (nested)',
