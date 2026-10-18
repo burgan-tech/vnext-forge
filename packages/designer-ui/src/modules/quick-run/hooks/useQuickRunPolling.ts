@@ -4,6 +4,8 @@ import { extractEtag } from '../etagFromResponse';
 import * as QuickRunApi from '../QuickRunApi';
 import { useQuickRunStore } from '../store/quickRunStore';
 import { currentRoleFromHeaders } from '../utils/currentRole';
+import { dataTargetKey, resolveDataTarget } from '../utils/dataTarget';
+import { currentDataTarget } from './currentDataTarget';
 import { decideDataOutcome } from './decideDataOutcome';
 import { shouldStopPolling } from './interactionMachine';
 import { keepsPolling, nextKeepPollingWindow, type KeepPollingWindow } from './keepPollingWindow';
@@ -66,6 +68,7 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
         setStateViewLoading,
         setStateViewError,
         setEtag,
+        setDataTarget,
       } = store.getState();
 
       setActiveStateLoading(true);
@@ -119,6 +122,9 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
         // opens the acknowledge window even on this single-shot fetch.
         const { paused: terminate } = recordStateRound(params.instanceId, stateData);
         setActiveState(stateData);
+        // A moved target drops the previous target's data before the view
+        // renders against it (a 304 above keeps the existing target).
+        setDataTarget(resolveDataTarget(params, stateData));
         updateInstanceState(params.instanceId, stateData);
         setActiveStateLoading(false);
 
@@ -308,6 +314,7 @@ async function runPollLoopBody(
     dispatchInteraction,
     setEtag,
     setKeepPolling,
+    setDataTarget,
   } = useQuickRunStore.getState();
 
   setPollingInstanceId(params.instanceId);
@@ -454,6 +461,7 @@ async function runPollLoopBody(
         // Full state set on stop so transitions/view are available
         // even when terminate fired while status was still 'B'.
         setActiveState(stateData);
+        setDataTarget(resolveDataTarget(params, stateData));
         updateInstanceState(params.instanceId, stateData);
       }
 
@@ -618,17 +626,33 @@ async function refreshViewAndData(
 
   const dataRefresh = includeData
     ? (async () => {
+        // Data belongs to the leaf open SubFlow, not to `params`: the
+        // runtime keeps `data.href` on the parent while the child's view is
+        // on screen. Track the target first — a moved target drops the
+        // stale data and its ETag, so `ifNoneMatch` below is the target's.
+        const target = currentDataTarget(params);
+        const targetKey = dataTargetKey(target);
+        useQuickRunStore.getState().setDataTarget(target);
         const { etags, setActiveData, setEtag } = useQuickRunStore.getState();
+        // An answer for a target the instance has since left is dropped.
+        const isStaleData = () =>
+          signal.aborted || isStale() || dataTargetKey(currentDataTarget(params)) !== targetKey;
         let dataRes;
         try {
-          dataRes = await QuickRunApi.getData({ ...base, ifNoneMatch: etags.data });
+          dataRes = await QuickRunApi.getData({
+            ...base,
+            domain: target.domain,
+            workflowKey: target.workflowKey,
+            instanceId: target.instanceId,
+            ifNoneMatch: etags.data,
+          });
         } catch {
-          if (signal.aborted || isStale()) return;
+          if (isStaleData()) return;
           setActiveData(null);
           setEtag('data', undefined);
           return;
         }
-        if (signal.aborted || isStale()) return;
+        if (isStaleData()) return;
 
         const outcome = decideDataOutcome(dataRes);
         if (outcome.kind === 'update') {

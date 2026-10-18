@@ -1,7 +1,9 @@
 import { extractEtag } from '../etagFromResponse';
+import { currentDataTarget } from '../hooks/currentDataTarget';
 import { resolveStateViewSource } from '../hooks/resolveStateViewSource';
 import * as QuickRunApi from '../QuickRunApi';
 import { useQuickRunStore } from '../store/quickRunStore';
+import { dataTargetKey, resolveDataTarget } from '../utils/dataTarget';
 
 export interface RefreshParams {
   domain: string;
@@ -25,7 +27,7 @@ export async function scheduleQuickRunRefresh(params: RefreshParams): Promise<vo
     setActiveData,
     setActiveDataLoading,
     setEtag,
-    etags,
+    setDataTarget,
   } = store;
 
   const base = {
@@ -56,6 +58,7 @@ export async function scheduleQuickRunRefresh(params: RefreshParams): Promise<vo
 
     const stateData = stateRes.data;
     setActiveState(stateData);
+    setDataTarget(resolveDataTarget(params, stateData));
     updateInstanceState(params.instanceId, stateData);
 
     const viewSource = resolveStateViewSource(stateData);
@@ -63,8 +66,21 @@ export async function scheduleQuickRunRefresh(params: RefreshParams): Promise<vo
 
     const parallel: Promise<void>[] = [];
 
+    // Data belongs to the leaf open SubFlow (the runtime keeps `data.href`
+    // on the parent). Read the ETag after `setDataTarget`: a moved target
+    // has just dropped the previous target's one.
+    const target = currentDataTarget(params);
+    const targetKey = dataTargetKey(target);
     parallel.push(
-      QuickRunApi.getData({ ...base, ifNoneMatch: etags.data }).then((dataRes) => {
+      QuickRunApi.getData({
+        ...base,
+        domain: target.domain,
+        workflowKey: target.workflowKey,
+        instanceId: target.instanceId,
+        ifNoneMatch: useQuickRunStore.getState().etags.data,
+      }).then((dataRes) => {
+        // The target moved while this answer was in flight — drop it.
+        if (dataTargetKey(currentDataTarget(params)) !== targetKey) return;
         if (!dataRes.success) {
           // Clear the cached ETag along with the data so the next fetch is
           // unconditional (a stale-but-valid ETag would otherwise get a

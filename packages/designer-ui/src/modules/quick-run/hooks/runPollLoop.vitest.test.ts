@@ -10,7 +10,7 @@ vi.mock('../QuickRunApi', () => ({
 import * as QuickRunApi from '../QuickRunApi';
 import { INITIAL_INTERACTION } from './interactionMachine';
 import { useQuickRunStore } from '../store/quickRunStore';
-import type { StateResponse } from '../types/quickrun.types';
+import type { CorrelationInfo, StateResponse } from '../types/quickrun.types';
 import { runPollLoop } from './useQuickRunPolling';
 
 const getState = QuickRunApi.getState as unknown as ReturnType<typeof vi.fn>;
@@ -39,6 +39,8 @@ function resetStore() {
     keepPolling: null,
     stateView: null,
     lastStateResponse: null,
+    activeData: null,
+    dataTarget: null,
   });
 }
 
@@ -204,6 +206,66 @@ describe('runPollLoop', () => {
       getState.mockResolvedValueOnce(ok(keep('s1', 'C')));
       await runPollLoop(PARAMS, CONFIG);
       expect(getState).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('data target', () => {
+    const openSub: CorrelationInfo = {
+      correlationId: 'corr-1',
+      parentState: 's1',
+      subFlowInstanceId: 'child-1',
+      subFlowType: 'S',
+      subFlowDomain: 'cd',
+      subFlowName: 'child-flow',
+      subFlowVersion: '1.0.0',
+      isCompleted: false,
+    };
+    // A keep-polling window keeps the loop going on an Active round, so the
+    // loop itself fetches Data on that round (`includeData: true`).
+    const withSubFlow: StateResponse = {
+      state: 's1',
+      status: 'A',
+      activeCorrelations: [openSub],
+      interaction: { terminateLongPoll: false, fallbackTimeoutSeconds: 120 },
+    };
+
+    it('fetches data from the leaf while a sub-flow is open', async () => {
+      getState.mockResolvedValueOnce(ok(withSubFlow)).mockResolvedValueOnce(ok({ state: 's2', status: 'A' }));
+
+      await runPollLoop(PARAMS, CONFIG);
+
+      expect(getData).toHaveBeenCalledTimes(1);
+      expect(getData.mock.calls[0]?.[0]).toMatchObject({ domain: 'cd', workflowKey: 'child-flow', instanceId: 'child-1' });
+      // The stop round has no open SubFlow: the target is back on the instance.
+      expect(useQuickRunStore.getState().dataTarget).toEqual({ ...PARAMS, via: null });
+    });
+
+    it('records the leaf as the data target on a round with an open sub-flow', async () => {
+      // Stops at once (awaiting ack) with the full state written.
+      getState.mockResolvedValueOnce(ok({ ...paused('s1'), activeCorrelations: [openSub] }));
+      await runPollLoop(PARAMS, CONFIG);
+      expect(useQuickRunStore.getState().dataTarget).toMatchObject({
+        domain: 'cd',
+        workflowKey: 'child-flow',
+        instanceId: 'child-1',
+        via: { correlationId: 'corr-1' },
+      });
+    });
+
+    it('drops a data answer whose target moved during the round', async () => {
+      getState.mockResolvedValueOnce(ok(withSubFlow)).mockResolvedValueOnce(ok({ state: 's2', status: 'A' }));
+      getData.mockImplementationOnce(async () => {
+        // The sub-flow closes while the child's data is in flight.
+        useQuickRunStore.setState({ activeState: { state: 's1', status: 'A', activeCorrelations: [] } });
+        return { success: true, data: { data: { child: true }, eTag: 'etag-child' } };
+      });
+
+      await runPollLoop(PARAMS, CONFIG);
+
+      expect(getData).toHaveBeenCalledTimes(1);
+      const s = useQuickRunStore.getState();
+      expect(s.activeData).toBeNull();
+      expect(s.etags.data).toBeUndefined();
     });
   });
 });
