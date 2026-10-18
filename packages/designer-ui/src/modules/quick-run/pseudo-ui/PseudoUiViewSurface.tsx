@@ -215,6 +215,7 @@ export function PseudoUiViewSurface({
     return {
       requestData: (...args) => baseDelegate.requestData(...args),
       loadComponent: (...args) => baseDelegate.loadComponent(...args),
+      readFile: baseDelegate.readFile ? (...args) => baseDelegate.readFile!(...args) : undefined,
       onLog: baseDelegate.onLog ? (...args) => baseDelegate.onLog!(...args) : undefined,
       onValidationRequest: baseDelegate.onValidationRequest
         ? (...args) => baseDelegate.onValidationRequest!(...args)

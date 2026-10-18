@@ -31,6 +31,7 @@ import { PseudoView } from '@burgan-tech/pseudo-ui/react';
 import type { DesignerClassNames, DesignerMode } from '@burgan-tech/pseudo-ui/react';
 
 import { useSettingsStore } from '../../../store/useSettingsStore';
+import { FORGE_PSEUDO_UI_STRINGS } from './forgeUiStrings';
 import { syncThemeLayers } from './theme/buildSheets';
 import { derivePrimeReactReplacements } from './theme/derivePrimeReactReplacements';
 import type { AppTheme } from './theme/forgeDefaults';
@@ -349,6 +350,7 @@ export function PseudoUiPseudoViewFrame(props: PseudoUiPseudoViewFrameProps) {
         designerClassNames={props.designerClassNames}
         renderRoot={shadowRef.current}
         primeReactConfig={primeReactConfig}
+        uiStrings={FORGE_PSEUDO_UI_STRINGS}
       />,
     );
   }, [
@@ -363,6 +365,7 @@ export function PseudoUiPseudoViewFrame(props: PseudoUiPseudoViewFrameProps) {
     props.designer,
     props.selectedNodePath,
     props.designerClassNames,
+    FORGE_PSEUDO_UI_STRINGS,
   ]);
 
   return (

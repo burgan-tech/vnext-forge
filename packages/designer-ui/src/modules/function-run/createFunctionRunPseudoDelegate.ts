@@ -5,6 +5,7 @@ import { createLogger } from '../../lib/logger/createLogger';
 import { parseVnextUrn, type FnCommand } from '../quick-run/pseudo-ui/parseVnextUrn';
 import { resolveComponentFile, type ResolvedComponentFile } from '../quick-run/pseudo-ui/resolveComponentFile';
 import { resolveUrnBindings, type UrnBindingContext } from '../quick-run/pseudo-ui/resolveUrnBindings';
+import { readBrowserFile } from '../quick-run/pseudo-ui/readBrowserFile';
 
 import * as FunctionRunApi from './FunctionRunApi';
 import { CONTENT_TYPES } from './functionRunPayload';
@@ -124,6 +125,7 @@ const FN_COMMAND_TO_VERB: Record<FnCommand, FunctionVerb> = {
  */
 export function createFunctionRunPseudoDelegate(params: FunctionRunDelegateParams): PseudoViewDelegate {
   return {
+    readFile: readBrowserFile,
     requestData: async (ref, reqParams) => {
       const refString = typeof ref === 'string' ? ref : '';
       if (!refString.trim()) {

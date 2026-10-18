@@ -11,6 +11,7 @@ import { resolveUrnBindings, type UrnBindingContext } from './resolveUrnBindings
 import { parseValidationFailure } from './parseValidationFailure';
 import { FireTransitionError } from './FireTransitionError';
 import type { ResolvedComponentFile } from './resolveComponentFile';
+import { readBrowserFile } from './readBrowserFile';
 
 const logger = createLogger('pseudo-ui');
 
@@ -195,6 +196,7 @@ export function createQuickRunPseudoDelegate(params: QuickRunDelegateParams): Ps
     );
 
   return {
+    readFile: readBrowserFile,
     requestData: async (ref, reqParams) => {
       // `ref` is the SDK-side `LovDefinition.source` /
       // `LookupDefinition.source` — a vNext function URN in normal
