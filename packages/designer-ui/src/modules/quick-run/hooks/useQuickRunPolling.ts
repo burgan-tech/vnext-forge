@@ -630,6 +630,10 @@ async function refreshViewAndData(
         // runtime keeps `data.href` on the parent while the child's view is
         // on screen. Track the target first — a moved target drops the
         // stale data and its ETag, so `ifNoneMatch` below is the target's.
+        // Guarded like every other write here: a superseded or stale round
+        // (e.g. a tab switch during a 304 `fetchInstanceState`) would
+        // resolve its own params against another instance's state.
+        if (signal.aborted || isStale()) return;
         const target = currentDataTarget(params);
         const targetKey = dataTargetKey(target);
         useQuickRunStore.getState().setDataTarget(target);

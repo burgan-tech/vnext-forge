@@ -95,6 +95,12 @@ export async function scheduleQuickRunRefresh(params: RefreshParams): Promise<vo
         }
         setEtag('data', extractEtag(dataRes.data));
         setActiveData(dataRes.data);
+      }, () => {
+        // A thrown request self-heals like a failed one, unless the
+        // target moved meanwhile (then the new target owns the cache).
+        if (dataTargetKey(currentDataTarget(params)) !== targetKey) return;
+        setEtag('data', undefined);
+        setActiveData(null);
       }),
     );
 

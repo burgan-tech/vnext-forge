@@ -1,3 +1,5 @@
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../QuickRunApi', () => ({
@@ -11,7 +13,7 @@ import * as QuickRunApi from '../QuickRunApi';
 import { INITIAL_INTERACTION } from './interactionMachine';
 import { useQuickRunStore } from '../store/quickRunStore';
 import type { CorrelationInfo, StateResponse } from '../types/quickrun.types';
-import { runPollLoop } from './useQuickRunPolling';
+import { runPollLoop, useQuickRunPolling } from './useQuickRunPolling';
 
 const getState = QuickRunApi.getState as unknown as ReturnType<typeof vi.fn>;
 const getData = QuickRunApi.getData as unknown as ReturnType<typeof vi.fn>;
@@ -260,12 +262,54 @@ describe('runPollLoop', () => {
         return { success: true, data: { data: { child: true }, eTag: 'etag-child' } };
       });
 
-      await runPollLoop(PARAMS, CONFIG);
+      // Every value `activeData` takes: the round-2 stop branch moves the
+      // target and nulls `activeData` anyway, so only the history shows
+      // whether the dropped answer was ever written.
+      const seen: unknown[] = [];
+      const unsubscribe = useQuickRunStore.subscribe((st) => seen.push(st.activeData));
+      try {
+        await runPollLoop(PARAMS, CONFIG);
+      } finally {
+        unsubscribe();
+      }
 
       expect(getData).toHaveBeenCalledTimes(1);
+      expect(seen.some((v) => (v as { data?: { child?: boolean } } | null)?.data?.child === true)).toBe(false);
       const s = useQuickRunStore.getState();
       expect(s.activeData).toBeNull();
       expect(s.etags.data).toBeUndefined();
+    });
+
+    it('a 304 single-shot fetch that went stale writes no data target', async () => {
+      // Capture the hook's callbacks (SSR render runs hooks once).
+      let api: ReturnType<typeof useQuickRunPolling> | null = null;
+      renderToStaticMarkup(
+        createElement(() => {
+          api = useQuickRunPolling();
+          return null;
+        }),
+      );
+      const i2Target = { domain: 'd', workflowKey: 'wf', instanceId: 'i2', via: null };
+      const i2Data = { data: { owner: 'i2' } };
+      useQuickRunStore.setState({ etags: { state: 'etag-i1' } });
+      getState.mockImplementationOnce(async () => {
+        // Tab switch while i1's state request is in flight.
+        const store = useQuickRunStore.getState();
+        store.setActiveTab('i2');
+        store.setActiveState({ state: 'i2-state', status: 'A' });
+        store.setDataTarget(i2Target);
+        store.setActiveData(i2Data);
+        store.setEtag('data', 'etag-i2-data');
+        return ok({ notModified: true } as StateResponse);
+      });
+
+      await api!.fetchInstanceState(PARAMS);
+
+      const s = useQuickRunStore.getState();
+      expect(getData).not.toHaveBeenCalled();
+      expect(s.dataTarget).toEqual(i2Target);
+      expect(s.activeData).toBe(i2Data);
+      expect(s.etags.data).toBe('etag-i2-data');
     });
   });
 });
