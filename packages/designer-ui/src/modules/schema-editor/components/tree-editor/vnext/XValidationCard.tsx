@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { Field } from '../../../../../ui/Field';
 import { Input } from '../../../../../ui/Input';
+import { Select } from '../../../../../ui/Select';
 import { JsonCodeField } from '../../../../../ui/JsonCodeField';
 import { LocalizedTextMapEditor, type LocalizedTextMap } from '../../../../../ui/LocalizedTextMapEditor';
 import { type JsonPointer } from '../../../model/jsonPointer';
@@ -15,19 +16,66 @@ interface XValidationCardProps {
   pointer: JsonPointer;
 }
 
-interface XValidationValue {
-  rule: string;
+export type XValidationRuleKind =
+  | 'equalsField'
+  | 'notEqualsField'
+  | 'maxField'
+  | 'minField'
+  | 'remote'
+  | 'custom';
+
+type FieldRuleKind = 'equalsField' | 'notEqualsField' | 'maxField' | 'minField';
+
+const KIND_OPTIONS: { kind: XValidationRuleKind; label: string }[] = [
+  { kind: 'equalsField', label: 'Equals field' },
+  { kind: 'notEqualsField', label: 'Not equal to field' },
+  { kind: 'maxField', label: 'At most field' },
+  { kind: 'minField', label: 'At least field' },
+  { kind: 'remote', label: 'Remote (function)' },
+  { kind: 'custom', label: 'Custom (host)' },
+];
+
+const BUILT_IN_KINDS = new Set<string>(
+  KIND_OPTIONS.filter((o) => o.kind !== 'custom').map((o) => o.kind),
+);
+
+function isFieldKind(kind: XValidationRuleKind): kind is FieldRuleKind {
+  return kind !== 'remote' && kind !== 'custom';
+}
+
+export interface XValidationValue {
+  kind: XValidationRuleKind;
+  /** Custom rule name (kind `custom` only). */
+  customRule: string;
+  /** `parameters.field` of a field rule. */
+  field: string;
+  /** `parameters` of a remote / custom rule. */
   parameters: unknown;
+  source: string;
+  resultField: string;
+  messageField: string;
+  trigger: 'change' | 'blur';
+  /** Kept as text while editing; serialised as an integer when valid. */
+  debounce: string;
   errorMessages: LocalizedTextMap;
 }
 
 const DEFAULT_VALUE = (): XValidationValue => ({
-  rule: '',
+  kind: 'custom',
+  customRule: '',
+  field: '',
   parameters: {},
+  source: '',
+  resultField: '',
+  messageField: '',
+  trigger: 'change',
+  debounce: '',
   errorMessages: {},
 });
 
-function toXValidationValue(value: unknown): XValidationValue {
+const asString = (value: unknown): string => (typeof value === 'string' ? value : '');
+
+export function toXValidationValue(value: unknown): XValidationValue {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     return DEFAULT_VALUE();
   }
@@ -44,18 +92,54 @@ function toXValidationValue(value: unknown): XValidationValue {
     }
   }
 
+  const rule = asString(record.rule);
+  const kind: XValidationRuleKind = BUILT_IN_KINDS.has(rule) ? (rule as XValidationRuleKind) : 'custom';
+  const parameters = 'parameters' in record ? record.parameters : {};
+  const paramRecord =
+    parameters && typeof parameters === 'object' && !Array.isArray(parameters)
+      ? (parameters as Record<string, unknown>)
+      : {};
+
   return {
-    rule: typeof record.rule === 'string' ? record.rule : '',
-    parameters: 'parameters' in record ? record.parameters : {},
+    kind,
+    customRule: kind === 'custom' ? rule : '',
+    field: isFieldKind(kind) ? asString(paramRecord.field) : '',
+    parameters: isFieldKind(kind) ? {} : parameters,
+    source: asString(record.source),
+    resultField: asString(record.resultField),
+    messageField: asString(record.messageField),
+    trigger: record.trigger === 'blur' ? 'blur' : 'change',
+    debounce: typeof record.debounce === 'number' ? String(record.debounce) : '',
     errorMessages: errors,
   };
 }
 
-function serialize(value: XValidationValue): Record<string, unknown> {
-  const out: Record<string, unknown> = {
-    rule: value.rule,
-    parameters: value.parameters,
-  };
+const isEmptyParameters = (value: unknown): boolean =>
+  value === undefined ||
+  value === null ||
+  (typeof value === 'object' && !Array.isArray(value) && Object.keys(value).length === 0);
+
+export function serialize(value: XValidationValue): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+
+  if (isFieldKind(value.kind)) {
+    out.rule = value.kind;
+    out.parameters = { field: value.field };
+  } else {
+    out.rule = value.kind === 'remote' ? 'remote' : value.customRule;
+    // Custom keeps today's always-present `parameters`; remote omits it when empty.
+    if (value.kind === 'custom' || !isEmptyParameters(value.parameters)) {
+      out.parameters = value.parameters;
+    }
+    if (value.source !== '') out.source = value.source;
+    if (value.resultField !== '') out.resultField = value.resultField;
+    if (value.messageField !== '') out.messageField = value.messageField;
+    if (value.trigger === 'blur') out.trigger = 'blur';
+    const debounce = Number(value.debounce);
+    if (value.debounce.trim() !== '' && Number.isInteger(debounce) && debounce >= 0) {
+      out.debounce = debounce;
+    }
+  }
 
   if (Object.keys(value.errorMessages).length > 0) {
     out.errorMessages = value.errorMessages;
@@ -64,11 +148,15 @@ function serialize(value: XValidationValue): Record<string, unknown> {
   return out;
 }
 
+/** Change the rule kind: keeps `errorMessages`, drops everything the new kind does not use. */
+export function switchRuleKind(value: XValidationValue, kind: XValidationRuleKind): XValidationValue {
+  return { ...DEFAULT_VALUE(), kind, errorMessages: value.errorMessages };
+}
+
 /**
- * `x-validation` declares a custom backend validation rule attached to
- * the field. Persisted shape: `{ rule, parameters, errorMessages? }`.
- * Parameters can be any JSON value; the field accepts arbitrary JSON and
- * keeps the previous parsed value while the input is being typed.
+ * `x-validation` declares a validation rule attached to the field: a built-in
+ * sibling comparison (`equalsField`, `notEqualsField`, `maxField`, `minField`),
+ * a `remote` function call, or a custom host-defined rule.
  */
 export function XValidationCard({ pointer }: XValidationCardProps) {
   const { node } = useSchemaNode(pointer);
@@ -76,40 +164,132 @@ export function XValidationCard({ pointer }: XValidationCardProps) {
   const { enabled, toggle } = useVNextEnabled(pointer, 'x-validation', DEFAULT_VALUE);
   const current = toXValidationValue(node?.['x-validation']);
 
-  function update(patch: Partial<XValidationValue>) {
-    updateComponent(setKeyword(pointer, 'x-validation', serialize({ ...current, ...patch })));
-  }
-
   return (
     <VNextCardShell
       xKey="x-validation"
-      title="Custom validation"
-      purpose="Run a named backend validation rule with parameters; supply per-language failure text."
+      title="Validation"
+      purpose="Compare against a sibling field, call a function to validate remotely, or run a custom host rule; supply per-language failure text."
       enabled={enabled}
       onToggle={toggle}>
-      <Field label="Rule" hint="Identifier of the validation rule registered on the server.">
-        <Input
-          type="text"
-          value={current.rule}
-          onChange={(event) => update({ rule: event.target.value })}
-          placeholder="validateStatus"
-          inputClassName="font-mono text-sm"
-        />
+      <XValidationFields
+        value={current}
+        onChange={(next) => updateComponent(setKeyword(pointer, 'x-validation', serialize(next)))}
+      />
+    </VNextCardShell>
+  );
+}
+
+export function XValidationFields({
+  value,
+  onChange,
+}: {
+  value: XValidationValue;
+  onChange: (next: XValidationValue) => void;
+}) {
+  const update = (patch: Partial<XValidationValue>) => onChange({ ...value, ...patch });
+
+  return (
+    <>
+      <Field label="Rule">
+        <Select
+          value={value.kind}
+          onChange={(event) => onChange(switchRuleKind(value, event.target.value as XValidationRuleKind))}>
+          {KIND_OPTIONS.map((option) => (
+            <option key={option.kind} value={option.kind}>
+              {option.label}
+            </option>
+          ))}
+        </Select>
       </Field>
 
-      <ParametersField
-        value={current.parameters}
-        onChange={(next) => update({ parameters: next })}
-      />
+      {isFieldKind(value.kind) && (
+        <Field label="Field" hint="Sibling path or $instance.… expression">
+          <Input
+            type="text"
+            value={value.field}
+            onChange={(event) => update({ field: event.target.value })}
+            placeholder="confirmPassword"
+            inputClassName="font-mono text-sm"
+          />
+        </Field>
+      )}
+
+      {value.kind === 'custom' && (
+        <Field label="Rule name" hint="Identifier of the validation rule registered on the host.">
+          <Input
+            type="text"
+            value={value.customRule}
+            onChange={(event) => update({ customRule: event.target.value })}
+            placeholder="validateStatus"
+            inputClassName="font-mono text-sm"
+          />
+        </Field>
+      )}
+
+      {value.kind === 'remote' && (
+        <Field label="Function" hint="URN of the function that validates the value.">
+          <Input
+            type="text"
+            value={value.source}
+            onChange={(event) => update({ source: event.target.value })}
+            placeholder="urn:vnext:fn:<domain>:<function>"
+            inputClassName="font-mono text-sm"
+          />
+        </Field>
+      )}
+
+      {(value.kind === 'remote' || value.kind === 'custom') && (
+        <ParametersField value={value.parameters} onChange={(next) => update({ parameters: next })} />
+      )}
+
+      {value.kind === 'remote' && (
+        <>
+          <Field label="Result field" hint="Path of the boolean verdict in the response.">
+            <Input
+              type="text"
+              value={value.resultField}
+              onChange={(event) => update({ resultField: event.target.value })}
+              placeholder="$.valid"
+              inputClassName="font-mono text-sm"
+            />
+          </Field>
+          <Field label="Message field" hint="Optional path of a failure message in the response.">
+            <Input
+              type="text"
+              value={value.messageField}
+              onChange={(event) => update({ messageField: event.target.value })}
+              placeholder="$.message"
+              inputClassName="font-mono text-sm"
+            />
+          </Field>
+          <Field label="Trigger">
+            <Select
+              value={value.trigger}
+              onChange={(event) => update({ trigger: event.target.value === 'blur' ? 'blur' : 'change' })}>
+              <option value="change">change</option>
+              <option value="blur">blur</option>
+            </Select>
+          </Field>
+          <Field label="Debounce (ms)">
+            <Input
+              type="number"
+              value={value.debounce}
+              onChange={(event) => update({ debounce: event.target.value })}
+              placeholder="400"
+              inputClassName="font-mono text-sm"
+            />
+          </Field>
+        </>
+      )}
 
       <Field label="Error messages" hint="Per-language text shown when the rule fails.">
         <LocalizedTextMapEditor
           label="Messages"
-          value={current.errorMessages}
+          value={value.errorMessages}
           onChange={(next) => update({ errorMessages: next })}
         />
       </Field>
-    </VNextCardShell>
+    </>
   );
 }
 
@@ -132,7 +312,7 @@ function ParametersField({
   return (
     <Field
       label="Parameters"
-      hint="JSON object forwarded to the rule. Invalid JSON is kept locally until it parses."
+      hint="JSON object forwarded to the rule. For remote rules, values may be literals or $value / $instance.* / $form.* expressions. Invalid JSON is kept locally until it parses."
       errorMsg={error}>
       <JsonCodeField
         value={draft}
