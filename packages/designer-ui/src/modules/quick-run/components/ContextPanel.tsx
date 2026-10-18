@@ -376,6 +376,19 @@ export async function loadMainInstanceData(params: {
   }
 }
 
+/**
+ * File chips read the instance whose data is on screen: the open sub-flow's
+ * ids for `Active flow`, the main instance's (`fileContext`) otherwise.
+ */
+export function dataTabFileContext(
+  fileContext: Omit<FileHandleChipsProps, 'data'> | undefined,
+  target: DataTarget | null,
+  source: DataTabSource,
+): Omit<FileHandleChipsProps, 'data'> | undefined {
+  if (!fileContext || !target?.via || source !== 'active') return fileContext;
+  return { ...fileContext, domain: target.domain, workflowKey: target.workflowKey, instanceId: target.instanceId };
+}
+
 function DataTabContent({
   target,
   loadMainData,
@@ -452,7 +465,7 @@ export function DataTabView({
       data={showMain ? mainData : data}
       loading={showMain ? mainLoading : loading}
       historyNone={historyNone}
-      fileContext={fileContext}
+      fileContext={dataTabFileContext(fileContext, target, source)}
     />
   );
   if (!via) return body;

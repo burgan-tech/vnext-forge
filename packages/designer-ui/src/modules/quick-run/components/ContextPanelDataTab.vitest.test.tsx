@@ -14,7 +14,7 @@ vi.mock('../QuickRunApi', () => ({ getData: vi.fn() }));
 
 const QuickRunApi = await import('../QuickRunApi');
 const { useQuickRunStore } = await import('../store/quickRunStore');
-const { DataTabView, loadMainInstanceData } = await import('./ContextPanel.js');
+const { DataTabView, dataTabFileContext, loadMainInstanceData } = await import('./ContextPanel.js');
 
 const getData = QuickRunApi.getData as unknown as ReturnType<typeof vi.fn>;
 
@@ -87,5 +87,25 @@ describe('ContextPanel — Data tab', () => {
     expect(await loadMainInstanceData({ domain: 'core', workflowKey: 'parent', instanceId: 'parent-1' })).toBeNull();
     getData.mockRejectedValueOnce(new Error('offline'));
     expect(await loadMainInstanceData({ domain: 'core', workflowKey: 'parent', instanceId: 'parent-1' })).toBeNull();
+  });
+
+  describe('dataTabFileContext', () => {
+    const parentCtx = { domain: 'core', workflowKey: 'parent', instanceId: 'parent-1', headers: { h: '1' }, runtimeUrl: 'http://rt' };
+
+    it('points the file chips at the sub-flow while Active flow shows its data', () => {
+      expect(dataTabFileContext(parentCtx, childTarget, 'active')).toEqual({
+        ...parentCtx,
+        domain: 'kyc',
+        workflowKey: 'kyc-child',
+        instanceId: 'abcdef1234567890',
+      });
+    });
+
+    it('keeps the main instance ids for Main instance and without a sub-flow', () => {
+      expect(dataTabFileContext(parentCtx, childTarget, 'main')).toEqual(parentCtx);
+      expect(dataTabFileContext(parentCtx, ownTarget, 'active')).toEqual(parentCtx);
+      expect(dataTabFileContext(parentCtx, null, 'active')).toEqual(parentCtx);
+      expect(dataTabFileContext(undefined, childTarget, 'active')).toBeUndefined();
+    });
   });
 });
