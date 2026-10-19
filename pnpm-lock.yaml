@@ -11,7 +11,6 @@ overrides:
   '@hono/node-server@<1.19.13': ^1.19.13
   dompurify@<3.4.0: ^3.4.0
   '@burgan-tech/vnext-schema': file:./vendor/vnext-schema/burgan-tech-vnext-schema-0.0.57-local.1.tgz
-  '@burgan-tech/pseudo-ui': file:./vendor/pseudo-ui/burgan-tech-pseudo-ui-0.8.6-local.1.tgz
 
 importers:
 
@@ -465,8 +464,8 @@ importers:
   packages/designer-ui:
     dependencies:
       '@burgan-tech/pseudo-ui':
-        specifier: file:../../vendor/pseudo-ui/burgan-tech-pseudo-ui-0.8.6-local.1.tgz
-        version: file:vendor/pseudo-ui/burgan-tech-pseudo-ui-0.8.6-local.1.tgz(primereact@10.9.8(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)
+        specifier: ^0.8.6
+        version: 0.8.6(primereact@10.9.8(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)
       '@dagrejs/dagre':
         specifier: ^3.0.0
         version: 3.0.0
@@ -892,9 +891,8 @@ packages:
   '@braintree/sanitize-url@7.1.2':
     resolution: {integrity: sha512-jigsZK+sMF/cuiB7sERuo9V7N9jx+dhmHHnQyDSVdpZwVutaBu7WvNYqMDLSgFgfB30n452TP3vjDAvFC973mA==}
 
-  '@burgan-tech/pseudo-ui@file:vendor/pseudo-ui/burgan-tech-pseudo-ui-0.8.6-local.1.tgz':
-    resolution: {integrity: sha512-jaNrz8DWciDATz69z8g2MPkQJjRIuFIDFz0pV3b7lxTfRrE4iv1GR4+6Op57tRSSCgoK5pmHBobqFokE2J6PxQ==, tarball: file:vendor/pseudo-ui/burgan-tech-pseudo-ui-0.8.6-local.1.tgz}
-    version: 0.8.6-local.1
+  '@burgan-tech/pseudo-ui@0.8.6':
+    resolution: {integrity: sha512-1GgtL+LddPMKxKChiFH+b6nZozAEL7AR/yNJ4nqZWuKS8GJ5fo6ZSeyWFF+6MgNPR6Xp8QOx4Q/B7eo7wbgeCQ==}
     peerDependencies:
       '@angular/animations': '>=19.0.0 <21.0.0'
       '@angular/cdk': '>=19.0.0 <21.0.0'
@@ -6845,7 +6843,7 @@ snapshots:
 
   '@braintree/sanitize-url@7.1.2': {}
 
-  '@burgan-tech/pseudo-ui@file:vendor/pseudo-ui/burgan-tech-pseudo-ui-0.8.6-local.1.tgz(primereact@10.9.8(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)':
+  '@burgan-tech/pseudo-ui@0.8.6(primereact@10.9.8(@types/react@19.2.14)(react-dom@19.2.4(react@19.2.4))(react@19.2.4))(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(typescript@5.9.3)':
     dependencies:
       '@primeuix/themes': 2.0.3
       primeicons: 7.0.0

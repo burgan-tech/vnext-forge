@@ -29,8 +29,7 @@
       "hono@<4.12.14": "^4.12.14",
       "@hono/node-server@<1.19.13": "^1.19.13",
       "dompurify@<3.4.0": "^3.4.0",
-      "@burgan-tech/vnext-schema": "file:./vendor/vnext-schema/burgan-tech-vnext-schema-0.0.57-local.1.tgz",
-      "@burgan-tech/pseudo-ui": "file:./vendor/pseudo-ui/burgan-tech-pseudo-ui-0.8.6-local.1.tgz"
+      "@burgan-tech/vnext-schema": "file:./vendor/vnext-schema/burgan-tech-vnext-schema-0.0.57-local.1.tgz"
     }
   }
 }
