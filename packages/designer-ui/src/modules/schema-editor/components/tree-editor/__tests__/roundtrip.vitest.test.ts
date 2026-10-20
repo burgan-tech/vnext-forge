@@ -16,6 +16,12 @@ import {
 } from '../../../model/mutators';
 import { ROOT_POINTER } from '../../../model/jsonPointer';
 import { useSchemaEditorStore } from '../../../useSchemaEditorStore';
+import {
+  serialize as serializeXValidation,
+  switchRuleKind,
+  xValidationIssues,
+  toXValidationValue,
+} from '../vnext/XValidationCard';
 
 function loadFixture(doc: Record<string, unknown>): void {
   useSchemaEditorStore.setState({
@@ -813,5 +819,115 @@ describe('SchemaTreeEditor roundtrip', () => {
         .properties as Record<string, Record<string, unknown>>).foo;
       expect(xKey in after).toBe(false);
     }
+  });
+});
+
+describe('x-validation rule-typed value', () => {
+  const roundtrip = (raw: Record<string, unknown>) =>
+    serializeXValidation(toXValidationValue(raw));
+
+  it.each(['equalsField', 'notEqualsField', 'maxField', 'minField'])(
+    'round-trips the %s field rule',
+    (rule) => {
+      const raw = {
+        rule,
+        parameters: { field: '$instance.data.other' },
+        errorMessages: { en: 'Nope.' },
+      };
+      expect(toXValidationValue(raw).kind).toBe(rule);
+      expect(roundtrip(raw)).toEqual(raw);
+    },
+  );
+
+  it('a field rule keeps its other parameters after an errorMessages edit', () => {
+    const value = toXValidationValue({ rule: 'equalsField', parameters: { field: 'a', ignoreCase: true } });
+    expect(serializeXValidation({ ...value, errorMessages: { en: 'Must match.' } })).toEqual({
+      rule: 'equalsField',
+      parameters: { field: 'a', ignoreCase: true },
+      errorMessages: { en: 'Must match.' },
+    });
+  });
+
+  it('a field rule keeps the vocabulary top-level keys it carries', () => {
+    const raw = {
+      rule: 'minField',
+      parameters: { field: 'start' },
+      trigger: 'blur',
+      debounce: 250,
+      source: 'urn:x',
+      resultField: '$.ok',
+      messageField: '$.msg',
+    };
+    expect(roundtrip(raw)).toEqual(raw);
+    const value = toXValidationValue(raw);
+    expect(serializeXValidation({ ...value, field: 'end' })).toEqual({ ...raw, parameters: { field: 'end' } });
+  });
+
+  it('round-trips a fully set remote rule', () => {
+    const raw = {
+      rule: 'remote',
+      source: 'urn:vnext:fn:core:check-iban',
+      parameters: { iban: '$value', branch: '$form.branch' },
+      resultField: '$.valid',
+      messageField: '$.message',
+      trigger: 'blur',
+      debounce: 400,
+      errorMessages: { en: 'Invalid IBAN.' },
+    };
+    expect(toXValidationValue(raw).kind).toBe('remote');
+    expect(roundtrip(raw)).toEqual(raw);
+  });
+
+  it('remote serialises only set fields', () => {
+    const value = toXValidationValue({ rule: 'remote', source: 'urn:vnext:fn:core:f' });
+    expect(serializeXValidation({ ...value, trigger: 'change', debounce: '', parameters: {} })).toEqual({
+      rule: 'remote',
+      source: 'urn:vnext:fn:core:f',
+    });
+  });
+
+  it('custom keeps an arbitrary rule name', () => {
+    const raw = { rule: 'validateStatus', parameters: { allowed: ['a'] } };
+    const value = toXValidationValue(raw);
+    expect(value.kind).toBe('custom');
+    expect(roundtrip(raw)).toEqual(raw);
+  });
+
+  it('treats an empty or missing rule as custom', () => {
+    expect(toXValidationValue({}).kind).toBe('custom');
+    expect(toXValidationValue({ rule: '' }).kind).toBe('custom');
+  });
+
+  it('switching rule keeps errorMessages and drops unused fields', () => {
+    const remote = toXValidationValue({
+      rule: 'remote',
+      source: 'urn:vnext:fn:core:f',
+      resultField: '$.ok',
+      trigger: 'blur',
+      debounce: 200,
+      errorMessages: { en: 'Bad.' },
+    });
+    const toField = switchRuleKind(remote, 'maxField');
+    expect(serializeXValidation(toField)).toEqual({
+      rule: 'maxField',
+      parameters: { field: '' },
+      errorMessages: { en: 'Bad.' },
+    });
+  });
+
+  it('pins the output for an empty remote source and an empty custom rule', () => {
+    expect(serializeXValidation(switchRuleKind(toXValidationValue({}), 'remote'))).toEqual({
+      rule: 'remote',
+    });
+    expect(serializeXValidation(toXValidationValue({}))).toEqual({ rule: '', parameters: {} });
+  });
+
+  it('xValidationIssues flags the required fields', () => {
+    expect(xValidationIssues(switchRuleKind(toXValidationValue({}), 'remote')).source).toBe(
+      'Function URN is required for a remote rule.',
+    );
+    expect(xValidationIssues(toXValidationValue({})).rule).toBe('Rule name is required.');
+    expect(xValidationIssues(toXValidationValue({ rule: 'remote', source: 'urn:x' }))).toEqual({});
+    expect(xValidationIssues(toXValidationValue({ rule: 'equalsField' }))).toEqual({});
   });
 });

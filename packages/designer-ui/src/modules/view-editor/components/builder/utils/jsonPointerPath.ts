@@ -53,6 +53,10 @@ const SUPPORTED_STRING_SEGMENTS = new Set([
   'footer',
   'anchor',
   'actions',
+  'appBar',
+  'body',
+  'bottomNavigationBar',
+  'floatingActionButton',
 ]);
 
 /**

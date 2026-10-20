@@ -1,3 +1,5 @@
+import { createElement } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('../QuickRunApi', () => ({
@@ -10,8 +12,8 @@ vi.mock('../QuickRunApi', () => ({
 import * as QuickRunApi from '../QuickRunApi';
 import { INITIAL_INTERACTION } from './interactionMachine';
 import { useQuickRunStore } from '../store/quickRunStore';
-import type { StateResponse } from '../types/quickrun.types';
-import { runPollLoop } from './useQuickRunPolling';
+import type { CorrelationInfo, StateResponse } from '../types/quickrun.types';
+import { runPollLoop, useQuickRunPolling } from './useQuickRunPolling';
 
 const getState = QuickRunApi.getState as unknown as ReturnType<typeof vi.fn>;
 const getData = QuickRunApi.getData as unknown as ReturnType<typeof vi.fn>;
@@ -39,6 +41,8 @@ function resetStore() {
     keepPolling: null,
     stateView: null,
     lastStateResponse: null,
+    activeData: null,
+    dataTarget: null,
   });
 }
 
@@ -96,7 +100,7 @@ describe('runPollLoop', () => {
       // single-shot fetch, which never touches pollingInstanceId (still 'i1').
       const store = useQuickRunStore.getState();
       store.setActiveTab('i2');
-      store.setActiveState(otherState);
+      store.setActiveState(otherState, 'i2');
       store.setEtag('state', 'etag-i2');
       expect(store.pollingInstanceId).toBe('i1');
       return ok(busy('s1', { eTag: 'etag-i1' } as Partial<StateResponse>));
@@ -204,6 +208,108 @@ describe('runPollLoop', () => {
       getState.mockResolvedValueOnce(ok(keep('s1', 'C')));
       await runPollLoop(PARAMS, CONFIG);
       expect(getState).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('data target', () => {
+    const openSub: CorrelationInfo = {
+      correlationId: 'corr-1',
+      parentState: 's1',
+      subFlowInstanceId: 'child-1',
+      subFlowType: 'S',
+      subFlowDomain: 'cd',
+      subFlowName: 'child-flow',
+      subFlowVersion: '1.0.0',
+      isCompleted: false,
+    };
+    // A keep-polling window keeps the loop going on an Active round, so the
+    // loop itself fetches Data on that round (`includeData: true`).
+    const withSubFlow: StateResponse = {
+      state: 's1',
+      status: 'A',
+      activeCorrelations: [openSub],
+      interaction: { terminateLongPoll: false, fallbackTimeoutSeconds: 120 },
+    };
+
+    it('fetches data from the leaf while a sub-flow is open', async () => {
+      getState.mockResolvedValueOnce(ok(withSubFlow)).mockResolvedValueOnce(ok({ state: 's2', status: 'A' }));
+
+      await runPollLoop(PARAMS, CONFIG);
+
+      expect(getData).toHaveBeenCalledTimes(1);
+      expect(getData.mock.calls[0]?.[0]).toMatchObject({ domain: 'cd', workflowKey: 'child-flow', instanceId: 'child-1' });
+      // The stop round has no open SubFlow: the target is back on the instance.
+      expect(useQuickRunStore.getState().dataTarget).toEqual({ ...PARAMS, via: null });
+    });
+
+    it('records the leaf as the data target on a round with an open sub-flow', async () => {
+      // Stops at once (awaiting ack) with the full state written.
+      getState.mockResolvedValueOnce(ok({ ...paused('s1'), activeCorrelations: [openSub] }));
+      await runPollLoop(PARAMS, CONFIG);
+      expect(useQuickRunStore.getState().dataTarget).toMatchObject({
+        domain: 'cd',
+        workflowKey: 'child-flow',
+        instanceId: 'child-1',
+        via: { correlationId: 'corr-1' },
+      });
+    });
+
+    it('drops a data answer whose target moved during the round', async () => {
+      getState.mockResolvedValueOnce(ok(withSubFlow)).mockResolvedValueOnce(ok({ state: 's2', status: 'A' }));
+      getData.mockImplementationOnce(async () => {
+        // The sub-flow closes while the child's data is in flight.
+        useQuickRunStore.setState({ activeState: { state: 's1', status: 'A', activeCorrelations: [] } });
+        return { success: true, data: { data: { child: true }, eTag: 'etag-child' } };
+      });
+
+      // Every value `activeData` takes: the round-2 stop branch moves the
+      // target and nulls `activeData` anyway, so only the history shows
+      // whether the dropped answer was ever written.
+      const seen: unknown[] = [];
+      const unsubscribe = useQuickRunStore.subscribe((st) => seen.push(st.activeData));
+      try {
+        await runPollLoop(PARAMS, CONFIG);
+      } finally {
+        unsubscribe();
+      }
+
+      expect(getData).toHaveBeenCalledTimes(1);
+      expect(seen.some((v) => (v as { data?: { child?: boolean } } | null)?.data?.child === true)).toBe(false);
+      const s = useQuickRunStore.getState();
+      expect(s.activeData).toBeNull();
+      expect(s.etags.data).toBeUndefined();
+    });
+
+    it('a 304 single-shot fetch that went stale writes no data target', async () => {
+      // Capture the hook's callbacks (SSR render runs hooks once).
+      let api: ReturnType<typeof useQuickRunPolling> | null = null;
+      renderToStaticMarkup(
+        createElement(() => {
+          api = useQuickRunPolling();
+          return null;
+        }),
+      );
+      const i2Target = { domain: 'd', workflowKey: 'wf', instanceId: 'i2', via: null };
+      const i2Data = { data: { owner: 'i2' } };
+      useQuickRunStore.setState({ etags: { state: 'etag-i1' } });
+      getState.mockImplementationOnce(async () => {
+        // Tab switch while i1's state request is in flight.
+        const store = useQuickRunStore.getState();
+        store.setActiveTab('i2');
+        store.setActiveState({ state: 'i2-state', status: 'A' }, 'i2');
+        store.setDataTarget(i2Target);
+        store.setActiveData(i2Data);
+        store.setEtag('data', 'etag-i2-data');
+        return ok({ notModified: true } as StateResponse);
+      });
+
+      await api!.fetchInstanceState(PARAMS);
+
+      const s = useQuickRunStore.getState();
+      expect(getData).not.toHaveBeenCalled();
+      expect(s.dataTarget).toEqual(i2Target);
+      expect(s.activeData).toBe(i2Data);
+      expect(s.etags.data).toBe('etag-i2-data');
     });
   });
 });

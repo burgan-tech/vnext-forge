@@ -99,6 +99,15 @@ describe('bundled vnext-schema — schema definition', () => {
     ).toBe(false)
   })
 
+  it('accepts the remote x-validation rule on a transition field and requires its source', () => {
+    const validate = compile(schemaSchema())
+    const remote = { rule: 'remote', source: 'urn:vnext:fn:core:check-iban', trigger: 'blur', debounce: 400 }
+    expect(validate(withSchema('transition', { iban: { type: 'string', 'x-validation': remote } }))).toBe(true)
+    expect(
+      validate(withSchema('transition', { iban: { type: 'string', 'x-validation': { rule: 'remote' } } })),
+    ).toBe(false)
+  })
+
   it('rejects a legacy attributes.type outside the role enum', () => {
     const validate = compile(schemaSchema())
     for (const legacy of ['schema', 'workflow', 'headers', 'MASTER']) {

@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import { extractEtag } from '../etagFromResponse';
+import { currentDataTarget } from '../hooks/currentDataTarget';
 import { quickRunHeadersFromState } from '../pseudo-ui/mergeQuickRunHeaders';
 import * as QuickRunApi from '../QuickRunApi';
 import { useQuickRunStore } from '../store/quickRunStore';
+import { dataTargetKey, type DataTarget } from '../utils/dataTarget';
 import { transitionDisplayLabel } from '../utils/displayLabels';
 import { useRuntimeSupports } from '../utils/runtimeFeatures';
 import {
   type ContextPanelTab,
+  type DataResponse,
   type OpenSubFlowTarget,
   type StateResponse,
 } from '../types/quickrun.types';
@@ -52,6 +55,7 @@ export function ContextPanel({ onOpenSubFlowTarget }: ContextPanelProps) {
 
   const activeData = useQuickRunStore((s) => s.activeData);
   const activeDataLoading = useQuickRunStore((s) => s.activeDataLoading);
+  const dataTarget = useQuickRunStore((s) => s.dataTarget);
   const setActiveData = useQuickRunStore((s) => s.setActiveData);
   const setActiveDataLoading = useQuickRunStore((s) => s.setActiveDataLoading);
 
@@ -111,10 +115,27 @@ export function ContextPanel({ onOpenSubFlowTarget }: ContextPanelProps) {
   const loadData = useCallback(async () => {
     if (!activeTabId || !domain || !workflowKey) return;
     setActiveDataLoading(true);
+    // The leaf open SubFlow's data (the runtime keeps `data.href` on the
+    // parent). The ETag is read after tracking the target, which drops a
+    // moved target's one; an answer whose target moved meanwhile is dropped.
+    const own = { domain, workflowKey, instanceId: activeTabId };
+    const target = currentDataTarget(own);
+    const targetKey = dataTargetKey(target);
+    useQuickRunStore.getState().setDataTarget(target);
+    const isStale = () => dataTargetKey(currentDataTarget(own)) !== targetKey;
     try {
       const ifNoneMatch = useQuickRunStore.getState().etags.data;
-      const response = await QuickRunApi.getData({ domain, workflowKey, instanceId: activeTabId, ifNoneMatch, headers: globalHeaders, runtimeUrl: environmentUrl });
-      if (response.success) {
+      const response = await QuickRunApi.getData({
+        domain: target.domain,
+        workflowKey: target.workflowKey,
+        instanceId: target.instanceId,
+        ifNoneMatch,
+        headers: globalHeaders,
+        runtimeUrl: environmentUrl,
+      });
+      if (isStale()) {
+        // Dropped: the target moved during the round.
+      } else if (response.success) {
         if (response.data.notModified) {
           // 304: the cached activeData is still current — keep it.
         } else {
@@ -132,8 +153,10 @@ export function ContextPanel({ onOpenSubFlowTarget }: ContextPanelProps) {
         setActiveData(null);
       }
     } catch {
-      useQuickRunStore.getState().setEtag('data', undefined);
-      setActiveData(null);
+      if (!isStale()) {
+        useQuickRunStore.getState().setEtag('data', undefined);
+        setActiveData(null);
+      }
     }
     setActiveDataLoading(false);
   }, [activeTabId, domain, workflowKey, globalHeaders, environmentUrl, setActiveData, setActiveDataLoading]);
@@ -260,6 +283,18 @@ export function ContextPanel({ onOpenSubFlowTarget }: ContextPanelProps) {
       >
         {contextPanelTab === 'data' && (
           <DataTabContent
+            // Remount on a new target: the switch goes back to `Active flow`.
+            key={dataTarget ? dataTargetKey(dataTarget) : 'none'}
+            target={dataTarget}
+            loadMainData={() =>
+              loadMainInstanceData({
+                domain,
+                workflowKey,
+                instanceId: activeTabId,
+                headers: globalHeaders,
+                ...(environmentUrl ? { runtimeUrl: environmentUrl } : {}),
+              })
+            }
             data={activeData}
             loading={activeDataLoading}
             historyNone={historyNone}
@@ -317,13 +352,182 @@ export function ContextPanel({ onOpenSubFlowTarget }: ContextPanelProps) {
   );
 }
 
+/** Which instance the Data tab shows while a sub-flow is open. */
+export type DataTabSource = 'active' | 'main';
+
+/**
+ * The main instance's data for the Data tab's `Main instance` switch —
+ * fetched unconditionally (no If-None-Match) and returned to the caller,
+ * never written to `activeData`, which keeps feeding the view and its
+ * binding context. `null` on failure.
+ */
+export async function loadMainInstanceData(params: {
+  domain: string;
+  workflowKey: string;
+  instanceId: string;
+  headers?: Record<string, string>;
+  runtimeUrl?: string;
+}): Promise<DataResponse | null> {
+  try {
+    const response = await QuickRunApi.getData(params);
+    return response.success && !response.data.notModified ? response.data : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * File chips read the instance whose data is on screen: the open sub-flow's
+ * ids for `Active flow`, the main instance's (`fileContext`) otherwise.
+ */
+export function dataTabFileContext(
+  fileContext: Omit<FileHandleChipsProps, 'data'> | undefined,
+  target: DataTarget | null,
+  source: DataTabSource,
+): Omit<FileHandleChipsProps, 'data'> | undefined {
+  if (!fileContext || !target?.via || source !== 'active') return fileContext;
+  return { ...fileContext, domain: target.domain, workflowKey: target.workflowKey, instanceId: target.instanceId };
+}
+
 function DataTabContent({
+  target,
+  loadMainData,
+  ...rest
+}: Omit<DataTabViewProps, 'source' | 'onSourceChange' | 'mainData' | 'mainLoading'> & {
+  loadMainData: () => Promise<DataResponse | null>;
+}) {
+  const [source, setSource] = useState<DataTabSource>('active');
+  const [mainData, setMainData] = useState<DataResponse | null>(null);
+  const [mainLoading, setMainLoading] = useState(false);
+  const loadSeqRef = useRef(0);
+
+  const onSourceChange = useCallback(
+    (next: DataTabSource) => {
+      setSource(next);
+      if (next !== 'main') return;
+      const seq = ++loadSeqRef.current;
+      setMainLoading(true);
+      void loadMainData().then((data) => {
+        if (loadSeqRef.current !== seq) return;
+        setMainData(data);
+        setMainLoading(false);
+      });
+    },
+    [loadMainData],
+  );
+
+  return (
+    <DataTabView
+      {...rest}
+      target={target}
+      source={source}
+      onSourceChange={onSourceChange}
+      mainData={mainData}
+      mainLoading={mainLoading}
+    />
+  );
+}
+
+export interface DataTabViewProps {
+  data: DataResponse | null;
+  loading: boolean;
+  historyNone: boolean;
+  fileContext: Omit<FileHandleChipsProps, 'data'> | undefined;
+  /** The instance `data` belongs to; `via` set = a sub-flow is open. */
+  target: DataTarget | null;
+  source: DataTabSource;
+  onSourceChange: (source: DataTabSource) => void;
+  /** The main instance's data, loaded on demand for `source: 'main'`. */
+  mainData: DataResponse | null;
+  mainLoading: boolean;
+}
+
+/**
+ * The Data tab, hook-free (this package's SSR-only test harness cannot
+ * drive interaction). While a sub-flow is open it names it and offers a
+ * switch between its data and the main instance's.
+ */
+export function DataTabView({
+  data,
+  loading,
+  historyNone,
+  fileContext,
+  target,
+  source,
+  onSourceChange,
+  mainData,
+  mainLoading,
+}: DataTabViewProps) {
+  const via = target?.via ?? null;
+  const showMain = via !== null && source === 'main';
+  const body = (
+    <DataTabBody
+      data={showMain ? mainData : data}
+      loading={showMain ? mainLoading : loading}
+      historyNone={historyNone}
+      fileContext={dataTabFileContext(fileContext, target, source)}
+    />
+  );
+  if (!via) return body;
+  return (
+    <div className="flex min-h-0 flex-1 flex-col gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-[10px] text-[var(--vscode-descriptionForeground)]">
+          Active sub-flow: {via.subFlowName} · {via.subFlowInstanceId.slice(0, 8)}
+        </span>
+        <DataSourceSwitch source={source} onSourceChange={onSourceChange} />
+      </div>
+      {body}
+    </div>
+  );
+}
+
+const DATA_SOURCES: { id: DataTabSource; label: string }[] = [
+  { id: 'active', label: 'Active flow' },
+  { id: 'main', label: 'Main instance' },
+];
+
+function DataSourceSwitch({
+  source,
+  onSourceChange,
+}: {
+  source: DataTabSource;
+  onSourceChange: (source: DataTabSource) => void;
+}) {
+  return (
+    <div
+      role="tablist"
+      aria-label="Data source"
+      className="inline-flex rounded border border-[var(--vscode-panel-border)] bg-[var(--vscode-textCodeBlock-background)] p-0.5"
+    >
+      {DATA_SOURCES.map((option) => (
+        <button
+          key={option.id}
+          type="button"
+          role="tab"
+          aria-selected={source === option.id}
+          tabIndex={source === option.id ? 0 : -1}
+          className={`rounded px-2 py-1 text-[10px] font-medium focus-visible:outline focus-visible:outline-[var(--vscode-focusBorder)] ${
+            source === option.id
+              ? 'bg-[var(--vscode-badge-background)] text-[var(--vscode-badge-foreground)]'
+              : 'text-[var(--vscode-descriptionForeground)] hover:text-[var(--vscode-foreground)]'
+          }`}
+          onClick={() => onSourceChange(option.id)}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function DataTabBody({
   data,
   loading,
   historyNone,
   fileContext,
 }: {
-  data: ReturnType<typeof useQuickRunStore.getState>['activeData'];
+  data: DataResponse | null;
   loading: boolean;
   historyNone: boolean;
   fileContext: Omit<FileHandleChipsProps, 'data'> | undefined;

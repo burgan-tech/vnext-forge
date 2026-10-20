@@ -11,6 +11,8 @@ import { resolveUrnBindings, type UrnBindingContext } from './resolveUrnBindings
 import { parseValidationFailure } from './parseValidationFailure';
 import { FireTransitionError } from './FireTransitionError';
 import type { ResolvedComponentFile } from './resolveComponentFile';
+import { readBrowserFile } from './readBrowserFile';
+import { createSubInstanceLoader } from './createSubInstanceLoader';
 
 const logger = createLogger('pseudo-ui');
 
@@ -195,6 +197,8 @@ export function createQuickRunPseudoDelegate(params: QuickRunDelegateParams): Ps
     );
 
   return {
+    readFile: readBrowserFile,
+    loadSubInstances: createSubInstanceLoader({ getHeaders: resolveHeaders, runtimeUrl }),
     requestData: async (ref, reqParams) => {
       // `ref` is the SDK-side `LovDefinition.source` /
       // `LookupDefinition.source` — a vNext function URN in normal
@@ -253,9 +257,12 @@ export function createQuickRunPseudoDelegate(params: QuickRunDelegateParams): Ps
 
       // Wrap in try/catch so a transport / serialization throw
       // can't escape into the SDK's LOV loader (which is invoked
-      // from React render). The SDK already treats `undefined` as
-      // "no data" and renders an empty Dropdown — that's the desired
-      // fallback for any business / runtime error.
+      // from React render). Failures THROW (never `undefined`): the SDK's
+      // LOV / lookup loaders catch and fall back to an empty list, and
+      // `x-validation` `remote` treats a throw as "transport failure →
+      // field valid", whereas `undefined` would mean "verdict not true →
+      // field invalid". The message names the URN only, never payload or
+      // headers.
       let result: Awaited<ReturnType<typeof QuickRunApi.executeFunction>>;
       try {
         result = await QuickRunApi.executeFunction({
@@ -275,7 +282,7 @@ export function createQuickRunPseudoDelegate(params: QuickRunDelegateParams): Ps
           error: err instanceof Error ? err.message : String(err),
         });
         params.verboseLog?.('error', 'requestData threw', err, { urn: lookup.resolved });
-        return undefined;
+        throw new Error(`requestData transport failure for ${lookup.resolved}`, { cause: err });
       }
       if (!result.success) {
         logger.error('[pseudo-ui] requestData engine error', {
@@ -286,7 +293,7 @@ export function createQuickRunPseudoDelegate(params: QuickRunDelegateParams): Ps
         params.verboseLog?.('error', 'requestData engine error', result.error, {
           urn: lookup.resolved,
         });
-        return undefined;
+        throw new Error(`requestData engine failure for ${lookup.resolved}`);
       }
       return result.data;
     },

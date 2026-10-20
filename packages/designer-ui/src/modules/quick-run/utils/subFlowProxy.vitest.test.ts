@@ -20,4 +20,10 @@ describe('activeSubFlowTarget', () => {
     expect(activeSubFlowTarget([{ ...base, subFlowType: 'P' }])).toBeNull();
     expect(activeSubFlowTarget(undefined)).toBeNull();
   });
+
+  it('returns the leaf of a nested chain', () => {
+    const childB = { ...base, subFlowInstanceId: 'child-b' };
+    const grandchildC = { ...base, subFlowInstanceId: 'grand-c', subFlowName: 'leaf-flow' };
+    expect(activeSubFlowTarget([childB, { ...base, subFlowType: 'P' }, grandchildC])).toBe(grandchildC);
+  });
 });

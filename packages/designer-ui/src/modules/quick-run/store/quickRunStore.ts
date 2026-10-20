@@ -23,6 +23,7 @@ import {
 } from '../hooks/interactionMachine';
 import { publishInstanceChange } from '../../instance-monitor/bus/instanceChangeBus';
 import type { KeepPollingWindow } from '../hooks/keepPollingWindow';
+import { dataTargetKey, type DataTarget } from '../utils/dataTarget';
 import type { FlowExecutionTypes } from '../utils/executionMode';
 import type { PermissionCheckResult } from '../utils/permissionChecks';
 import type { HistoryMode } from '@vnext-forge-studio/vnext-types';
@@ -41,6 +42,12 @@ interface QuickRunState {
   instanceListLoading: boolean;
 
   activeState: StateResponse | null;
+  /**
+   * Instance `activeState` was read for. A tab switch clears it before the
+   * new tab's first state round lands, so `currentDataTarget` never resolves
+   * one instance's open SubFlow chain for another instance.
+   */
+  activeStateInstanceId: string | null;
   activeStateLoading: boolean;
   /**
    * The last *whole* State Function (LongPoll) response body, as received.
@@ -87,6 +94,8 @@ interface QuickRunState {
   activeViewLoading: boolean;
 
   activeData: DataResponse | null;
+  /** Instance whose data `activeData` belongs to (a leaf sub-flow while one is open). */
+  dataTarget: DataTarget | null;
   activeDataLoading: boolean;
 
   activeSchema: SchemaResponse | null;
@@ -180,7 +189,7 @@ interface QuickRunState {
   updateInstanceStatus: (instanceId: string, status: InstanceStatus, state?: string) => void;
   updateInstanceState: (instanceId: string, stateResponse: StateResponse) => void;
 
-  setActiveState: (state: StateResponse | null) => void;
+  setActiveState: (state: StateResponse | null, instanceId: string | null) => void;
   /**
    * Record a State Function round. `notModified` rounds carry no body, so
    * `response` is ignored for those and only the timestamp/flag move.
@@ -238,6 +247,11 @@ interface QuickRunState {
   setEtag: (fn: 'state' | 'data' | 'schema', etag: string | undefined) => void;
   resetEtags: () => void;
   /**
+   * Moves the data target. A different target key drops `activeData` and the
+   * data ETag; the same key only refreshes `via`.
+   */
+  setDataTarget: (target: DataTarget | null) => void;
+  /**
    * Everything cached *for one specific instance*: the ETag echoes plus the
    * last raw state response and the function catalog. Called wherever the
    * active instance changes, so a previous instance's payload can never show
@@ -260,6 +274,7 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
   instanceListLoading: false,
 
   activeState: null,
+  activeStateInstanceId: null,
   activeStateLoading: false,
   activeStateError: null,
   permissionChecksEnabled: false,
@@ -277,6 +292,7 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
   activeViewLoading: false,
 
   activeData: null,
+  dataTarget: null,
   activeDataLoading: false,
 
   activeSchema: null,
@@ -448,7 +464,7 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
     }
   },
 
-  setActiveState: (activeState) => set({ activeState }),
+  setActiveState: (activeState, activeStateInstanceId) => set({ activeState, activeStateInstanceId }),
   setLastStateResponse: (response, notModified) =>
     set(
       notModified
@@ -512,9 +528,29 @@ export const useQuickRunStore = create<QuickRunState>((set, get) => ({
 
   setEtag: (fn, etag) => set((state) => ({ etags: { ...state.etags, [fn]: etag } })),
   resetEtags: () => set({ etags: {} }),
+  setDataTarget: (target) =>
+    set((state) => {
+      const prev = state.dataTarget;
+      const sameKey =
+        prev && target ? dataTargetKey(prev) === dataTargetKey(target) : prev === target;
+      if (sameKey) {
+        if (!prev || !target) return state;
+        // Every poll round re-resolves the target; an unchanged one must not
+        // notify subscribers (returning `state` itself skips the update).
+        if (JSON.stringify(prev.via) === JSON.stringify(target.via)) return state;
+        return { dataTarget: { ...prev, via: target.via } };
+      }
+      return {
+        dataTarget: target,
+        activeData: null,
+        etags: { ...state.etags, data: undefined },
+      };
+    }),
   resetInstanceScopedCaches: () =>
     set({
       etags: {},
+      dataTarget: null,
+      activeStateInstanceId: null,
       lastStateResponse: null,
       lastStateReceivedAt: null,
       lastStateNotModified: false,

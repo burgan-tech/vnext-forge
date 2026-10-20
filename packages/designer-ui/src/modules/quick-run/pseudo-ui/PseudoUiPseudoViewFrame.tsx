@@ -26,11 +26,17 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { useStore } from 'zustand';
 import { JsonPalette } from '@burgan-tech/pseudo-ui';
-import type { DataSchema, PseudoViewDelegate, ViewDefinition } from '@burgan-tech/pseudo-ui';
+import type {
+  DataSchema,
+  PseudoViewDelegate,
+  SubInstanceHost,
+  ViewDefinition,
+} from '@burgan-tech/pseudo-ui';
 import { PseudoView } from '@burgan-tech/pseudo-ui/react';
 import type { DesignerClassNames, DesignerMode } from '@burgan-tech/pseudo-ui/react';
 
 import { useSettingsStore } from '../../../store/useSettingsStore';
+import { FORGE_PSEUDO_UI_STRINGS } from './forgeUiStrings';
 import { syncThemeLayers } from './theme/buildSheets';
 import { derivePrimeReactReplacements } from './theme/derivePrimeReactReplacements';
 import type { AppTheme } from './theme/forgeDefaults';
@@ -74,6 +80,8 @@ export interface PseudoUiPseudoViewFrameProps {
   instanceData?: Record<string, unknown>;
   lang: string;
   delegate: PseudoViewDelegate;
+  /** Host record for `$subFlow` / `$subProcess` read-through; null = none. */
+  instanceRef?: SubInstanceHost | null;
   onFormChange: (next: Record<string, unknown>) => void;
   /**
    * SDK designer mode. Boolean form is the legacy R5 toggle; the
@@ -343,12 +351,14 @@ export function PseudoUiPseudoViewFrame(props: PseudoUiPseudoViewFrameProps) {
         instanceData={props.instanceData}
         lang={props.lang}
         delegate={props.delegate}
+        instanceRef={props.instanceRef}
         onFormChange={props.onFormChange}
         designer={props.designer}
         selectedNodePath={props.selectedNodePath}
         designerClassNames={props.designerClassNames}
         renderRoot={shadowRef.current}
         primeReactConfig={primeReactConfig}
+        uiStrings={FORGE_PSEUDO_UI_STRINGS}
       />,
     );
   }, [
@@ -359,10 +369,14 @@ export function PseudoUiPseudoViewFrame(props: PseudoUiPseudoViewFrameProps) {
     props.instanceData,
     props.lang,
     props.delegate,
+    props.instanceRef?.domain,
+    props.instanceRef?.workflow,
+    props.instanceRef?.instanceId,
     props.onFormChange,
     props.designer,
     props.selectedNodePath,
     props.designerClassNames,
+    FORGE_PSEUDO_UI_STRINGS,
   ]);
 
   return (

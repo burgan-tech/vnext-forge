@@ -102,7 +102,7 @@ export function OutlinePanel({ store, onOpenContextMenu }: OutlinePanelProps) {
   );
 }
 
-function walkAll(
+export function walkAll(
   node: BuilderNode,
   path: NodePath,
   visit: (node: BuilderNode, path: NodePath) => void,
@@ -330,7 +330,7 @@ interface ChildRenderable {
   label: string;
 }
 
-function collectChildren(node: BuilderNode, parentPath: NodePath): ChildRenderable[] {
+export function collectChildren(node: BuilderNode, parentPath: NodePath): ChildRenderable[] {
   if (node.type === 'ForEach') {
     const tpl = (node as unknown as { template?: BuilderNode }).template;
     if (!tpl) return [];

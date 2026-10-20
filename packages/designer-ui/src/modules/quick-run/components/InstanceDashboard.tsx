@@ -21,6 +21,9 @@ import { ResizableDialogShell } from '../../../ui/ResizableDialogShell';
 import { useInteractionDriver } from '../hooks/useInteractionDriver';
 import { useNow } from '../hooks/useNow';
 import { useQuickRunPolling } from '../hooks/useQuickRunPolling';
+import { currentDataTarget } from '../hooks/currentDataTarget';
+import { dataTargetKey } from '../utils/dataTarget';
+import { subInstanceHostOf } from '../pseudo-ui/createSubInstanceLoader';
 import { useQuickRunStore } from '../store/quickRunStore';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { createQuickRunPseudoDelegate } from '../pseudo-ui/createQuickRunPseudoDelegate';
@@ -1201,6 +1204,19 @@ function StateViewContent({
   const globalHeaders = useQuickRunStore((s) => s.globalHeaders);
   const sessionHeaders = useQuickRunStore((s) => s.sessionHeaders);
   const activeData = useQuickRunStore((s) => s.activeData);
+  // The view on screen belongs to the data target (the open leaf SubFlow, or
+  // the instance itself); `$subFlow` / `$subProcess` read through that record.
+  const dataTarget = useQuickRunStore((s) => s.dataTarget);
+  const instanceRefDomain = dataTarget?.domain ?? domain;
+  const instanceRefWorkflow = dataTarget?.workflowKey ?? workflowKey;
+  const instanceRefId = dataTarget?.instanceId ?? activeTabId;
+  const instanceRef = useMemo(
+    () =>
+      instanceRefDomain && instanceRefWorkflow && instanceRefId
+        ? subInstanceHostOf({ domain: instanceRefDomain, workflowKey: instanceRefWorkflow, instanceId: instanceRefId })
+        : null,
+    [instanceRefDomain, instanceRefWorkflow, instanceRefId],
+  );
   const setActiveData = useQuickRunStore((s) => s.setActiveData);
   const setActiveDataLoading = useQuickRunStore((s) => s.setActiveDataLoading);
   const pollingConfig = useQuickRunStore((s) => s.pollingConfig);
@@ -1226,16 +1242,25 @@ function StateViewContent({
     if (activeData || !activeTabId || !domain || !workflowKey) return;
     let cancelled = false;
     setActiveDataLoading(true);
+    // Read the leaf open SubFlow's data (the runtime keeps `data.href` on
+    // the parent); the ETag is read after tracking the target, which drops
+    // a moved target's one.
+    const own = { domain, workflowKey, instanceId: activeTabId };
+    const target = currentDataTarget(own);
+    const targetKey = dataTargetKey(target);
+    useQuickRunStore.getState().setDataTarget(target);
     const ifNoneMatch = useQuickRunStore.getState().etags.data;
+    // An answer for a target the instance has since left is dropped.
+    const isStale = () => cancelled || dataTargetKey(currentDataTarget(own)) !== targetKey;
     void QuickRunApi.getData({
-      domain,
-      workflowKey,
-      instanceId: activeTabId,
+      domain: target.domain,
+      workflowKey: target.workflowKey,
+      instanceId: target.instanceId,
       ifNoneMatch,
       headers: globalHeaders,
       runtimeUrl: environmentUrl,
     }).then((res) => {
-      if (cancelled) return;
+      if (isStale()) return;
       if (res.success) {
         if (res.data.notModified) {
           // 304: keep the cached activeData (it's already null here, but
@@ -1252,7 +1277,7 @@ function StateViewContent({
         setActiveData(null);
       }
     }).catch(() => {
-      if (!cancelled) {
+      if (!isStale()) {
         useQuickRunStore.getState().setEtag('data', undefined);
         setActiveData(null);
       }
@@ -1372,7 +1397,9 @@ function StateViewContent({
         integrationMode="simulation"
         panelStorageScope="state-view"
         surfaceClassName="min-h-[200px]"
+        fullPage
         delegate={pseudoDelegate}
+        instanceRef={instanceRef}
         resolveSchema={schemaResolver}
         // R24.3: formData and instanceData are independent buckets in
         // PseudoView's FormContext (engine/types.ts:157-184). Submit

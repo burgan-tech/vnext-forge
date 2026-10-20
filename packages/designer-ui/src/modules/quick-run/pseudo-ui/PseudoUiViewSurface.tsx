@@ -15,7 +15,13 @@
  * Code shell and renders no pseudo-ui-shaped controls.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { DataSchema, PseudoViewDelegate, ViewDefinition } from '@burgan-tech/pseudo-ui';
+import {
+  viewDeclaresOwnFrame,
+  type DataSchema,
+  type PseudoViewDelegate,
+  type SubInstanceHost,
+  type ViewDefinition,
+} from '@burgan-tech/pseudo-ui';
 import type { DesignerClassNames, DesignerMode } from '@burgan-tech/pseudo-ui/react';
 
 import type { ViewResponse } from '../types/quickrun.types';
@@ -23,6 +29,7 @@ import type { SchemaResolver } from './createDataSchemaResolver';
 import { normalizePseudoUiPayload } from './normalizePseudoUiPayload';
 import { PseudoUiErrorBoundary, type PseudoUiErrorAction } from './PseudoUiErrorBoundary';
 import { PseudoUiPseudoViewFrame } from './PseudoUiPseudoViewFrame';
+import { forwardDelegateMethods } from './forwardDelegateMethods';
 import { CopyableJsonBlock } from '../components/CopyableJsonBlock';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { FireTransitionError } from './FireTransitionError';
@@ -85,6 +92,19 @@ export interface PseudoUiViewSurfaceProps {
   loading?: boolean;
   fillHeight?: boolean;
   className?: string;
+  /**
+   * The surface is the whole page (the state view), not a dialog or sheet.
+   * Only a full-page host may honour a `Scaffold` root's own frame
+   * (`viewDeclaresOwnFrame`): the view then renders bare, without the
+   * caller's surface class, so the page does not get two app bars. Dialogs
+   * leave this unset and keep their frame.
+   */
+  fullPage?: boolean;
+  /**
+   * The record whose `$subFlow` / `$subProcess` children the view reads
+   * through (needs `delegate.loadSubInstances`). Null on a start surface.
+   */
+  instanceRef?: SubInstanceHost | null;
   /** Extra escape-hatch buttons rendered in the error boundary (e.g.
    *  "Edit as JSON" from View Editor). Quick Runner can omit. */
   errorActions?: PseudoUiErrorAction[];
@@ -146,6 +166,8 @@ export function PseudoUiViewSurface({
   loading = false,
   fillHeight = false,
   className,
+  fullPage = false,
+  instanceRef,
   errorActions,
   designer,
   selectedNodePath,
@@ -199,41 +221,17 @@ export function PseudoUiViewSurface({
 
   const wrappedDelegate = useMemo((): PseudoViewDelegate => {
     return {
-      requestData: (...args) => baseDelegate.requestData(...args),
-      loadComponent: (...args) => baseDelegate.loadComponent(...args),
-      onLog: baseDelegate.onLog ? (...args) => baseDelegate.onLog!(...args) : undefined,
-      onValidationRequest: baseDelegate.onValidationRequest
-        ? (...args) => baseDelegate.onValidationRequest!(...args)
-        : undefined,
-      // R11: forward SDK designer-mode callbacks. Without these the
-      // SDK's `delegate.onNodeSelect / onNodeDelete / onNodeMove /
-      // onNodeDropFromPalette / onNodeHover` invocations would land on
-      // the noop default and the canvas would feel "frozen" — clicks
-      // and × buttons paint outlines but never reach the builder
-      // store.
-      onNodeSelect: baseDelegate.onNodeSelect
-        ? (...args) => baseDelegate.onNodeSelect!(...args)
-        : undefined,
-      onNodeHover: baseDelegate.onNodeHover
-        ? (...args) => baseDelegate.onNodeHover!(...args)
-        : undefined,
-      onNodeDelete: baseDelegate.onNodeDelete
-        ? (...args) => baseDelegate.onNodeDelete!(...args)
-        : undefined,
-      onNodeMove: baseDelegate.onNodeMove
-        ? (...args) => baseDelegate.onNodeMove!(...args)
-        : undefined,
-      onNodeDropFromPalette: baseDelegate.onNodeDropFromPalette
-        ? (...args) => baseDelegate.onNodeDropFromPalette!(...args)
-        : undefined,
-      onAction: async (action, formData, command) => {
+      ...forwardDelegateMethods(baseDelegate),
+      // `context` (pre / main / post phase) must reach the host: hook
+      // handling such as the Function Run delegate's branches on it.
+      onAction: async (action, formData, command, context) => {
         setActionError(null);
         setActionFieldErrors(null);
         if (action === 'submit') {
           setActionPending(true);
         }
         try {
-          await baseDelegate.onAction(action, formData, command);
+          await baseDelegate.onAction(action, formData, command, context);
           if (action === 'submit') {
             if (successFlashTimerRef.current) clearTimeout(successFlashTimerRef.current);
             setSuccessFlash(true);
@@ -390,11 +388,13 @@ export function PseudoUiViewSurface({
     if (initialFormData) setFormData(initialFormData);
   }, [initialFormData]);
 
+  const ownFrame = fullPage && viewDeclaresOwnFrame(viewDefinition);
+
   const hostClassName = [
     'pseudo-ui-host',
     `pseudo-ui-host--${mode}`,
     fillHeight ? 'pseudo-ui-host--fill' : '',
-    className ?? '',
+    ownFrame ? '' : (className ?? ''),
   ]
     .filter(Boolean)
     .join(' ');
@@ -510,6 +510,7 @@ export function PseudoUiViewSurface({
         instanceData={instanceData}
         lang={lang}
         delegate={wrappedDelegate}
+        instanceRef={instanceRef}
         onFormChange={(next) => {
           setFormData(next);
           onFormChange?.(next);
@@ -530,7 +531,13 @@ export function PseudoUiViewSurface({
     schemaResolutionAttempted && expectingAsyncSchema && resolvedSchema === null;
 
   return (
-    <div role="region" aria-label={ariaLabel} className={hostClassName} data-pseudo-ui-root="">
+    <div
+      role="region"
+      aria-label={ariaLabel}
+      className={hostClassName}
+      data-pseudo-ui-root=""
+      data-own-frame={ownFrame ? 'true' : undefined}
+    >
       {schemaMissingWarning ? (
         <div
           role="status"

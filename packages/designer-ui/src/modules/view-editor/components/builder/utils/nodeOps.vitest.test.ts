@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { deleteNode, getNode, insertChild } from './nodeOps';
+import { deleteNode, getNode, insertChild, moveNode } from './nodeOps';
 import type { BuilderNode } from '../types';
 
 function makeStepperFixture(): BuilderNode {
@@ -126,5 +126,56 @@ describe('nodeOps — componentNode slot navigation (R16.2-B)', () => {
       children: [{ type: 'ListTile', title: { en: 'no-leading' } }],
     };
     expect(getNode(root, [0, 'leading'])).toBeNull();
+  });
+});
+
+describe('nodeOps — Scaffold body slot', () => {
+  const text: BuilderNode = { type: 'Text', content: { en: 'hi' } };
+
+  it('sets body (a single node, not children) when body is empty', () => {
+    const root: BuilderNode = { type: 'Scaffold' };
+    const next = insertChild(root, [], 0, text);
+    expect((next as Record<string, unknown>).body).toEqual(text);
+    expect(next.children).toBeUndefined();
+  });
+
+  it('inserts into the body container children when body is a Column', () => {
+    const root: BuilderNode = { type: 'Scaffold', body: { type: 'Column', children: [] } };
+    const next = insertChild(root, [], 0, text);
+    expect((next as { body: BuilderNode }).body.children).toEqual([text]);
+    expect(next.children).toBeUndefined();
+  });
+});
+
+describe('nodeOps — Scaffold slot navigation', () => {
+  const a: BuilderNode = { type: 'Text', content: { en: 'a' } };
+  const b: BuilderNode = { type: 'Text', content: { en: 'b' } };
+  const scaffold = (): BuilderNode => ({
+    type: 'Scaffold',
+    body: { type: 'Column', children: [a, b] },
+  });
+
+  it('replaces a leaf body', () => {
+    const root: BuilderNode = { type: 'Scaffold', body: a };
+    const next = insertChild(root, [], 0, b);
+    expect((next as { body: BuilderNode }).body).toEqual(b);
+  });
+
+  it('getNode resolves body and body children', () => {
+    const root = scaffold();
+    expect(getNode(root, ['body'])?.type).toBe('Column');
+    expect(getNode(root, ['body', 1])).toEqual(b);
+  });
+
+  it('deleteNode removes a node inside body.children and the body slot itself', () => {
+    const next = deleteNode(scaffold(), ['body', 0]);
+    expect((next as { body: BuilderNode }).body.children).toEqual([b]);
+    const noBody = deleteNode(scaffold(), ['body']);
+    expect('body' in noBody).toBe(false);
+  });
+
+  it('moveNode reorders inside body.children', () => {
+    const next = moveNode(scaffold(), ['body', 0], ['body'], 2);
+    expect((next as { body: BuilderNode }).body.children).toEqual([b, a]);
   });
 });

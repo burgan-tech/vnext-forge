@@ -2,8 +2,10 @@
  * Editor for Button.action / Card.onTap / ListTile.onTap fields.
  *
  * SDK v0.2.0+ (`forgeactionmodelintegration.md`, `view-vocabulary.md`):
- *   - Three reserved verbs: `submit`, `select`, `reset` — special SDK
- *     behaviour (validate / inline-set / clear).
+ *   - Reserved verbs: `submit`, `set`, `lookup`, `reset` — special SDK
+ *     behaviour (validate / inline-write / on-demand lookup / clear).
+ *     `select` is deprecated in favour of `set`; existing `select`
+ *     descriptors stay editable but are no longer offered for new actions.
  *   - Anything else is opaque to the SDK and dispatched to
  *     `delegate.onAction` with the optional `command` field.
  *   - Domain dispatch convention uses `action: "dispatch"` + a URN
@@ -37,7 +39,9 @@ import { MoveDown, MoveUp, Plus, Trash2, Workflow, Zap, X } from 'lucide-react';
 import {
   STANDARD_ACTIONS,
   getComponentMeta,
+  parseSetMode,
   type ReservedAction,
+  type SetMode,
 } from '@burgan-tech/pseudo-ui';
 
 import { Input } from '../../../../../ui/Input';
@@ -72,8 +76,15 @@ export interface ActionEditorProps {
 interface ActionDescriptor {
   action: string;
   command?: string;
+  /** Legacy `select` target. Superseded by `data` on `set`. */
   bind?: string;
+  /** `set` target path (`$form.*` / `$ui.*` / schema field). */
+  data?: string;
+  /** `lookup` name (the `x-lookup` to load on demand). */
+  name?: string;
   value?: unknown;
+  /** `set` write policy; omitted means `overwrite`. */
+  mode?: SetMode;
   validate?: boolean;
   // R26 — SDK-side pre/post action hooks. Each hook is itself a
   // descriptor that the SDK fires through `delegate.onAction` with
@@ -92,7 +103,52 @@ interface ActionDescriptor {
 
 type ActionLike = string | ActionDescriptor;
 
-const RESERVED_VERBS: ReservedAction[] = ['submit', 'select', 'reset'];
+const RESERVED_VERBS: ReservedAction[] = ['submit', 'set', 'lookup', 'select', 'reset'];
+
+/** Verbs whose action is an inline descriptor (SDK-handled, host not called). */
+const DESCRIPTOR_VERBS: readonly string[] = ['set', 'lookup', 'select'];
+
+const SET_MODES: readonly SetMode[] = ['overwrite', 'fill-empty', 'once'];
+
+export const SELECT_DEPRECATED_NOTE = 'Deprecated — use set.';
+
+/**
+ * Patch a descriptor, dropping keys whose value is `undefined` and the
+ * `mode` key when it is the default (`overwrite`), so persisted JSON stays
+ * minimal.
+ */
+export function patchDescriptor(
+  descriptor: ActionDescriptor,
+  patch: Partial<ActionDescriptor>,
+): ActionDescriptor {
+  const next: Record<string, unknown> = { ...descriptor, ...patch };
+  for (const key of Object.keys(next)) {
+    if (next[key] === undefined) delete next[key];
+  }
+  if (next.mode === 'overwrite') delete next.mode;
+  return next as unknown as ActionDescriptor;
+}
+
+/**
+ * Reserved verbs to offer. The SDK component meta still advertises
+ * `select`; the builder offers `set` + `lookup` instead and only keeps
+ * `select` visible while the current value already uses it.
+ */
+export function offeredReservedVerbs(
+  declared: ReservedAction[],
+  currentVerb: string | undefined,
+): ReservedAction[] {
+  const out: ReservedAction[] = [];
+  for (const v of declared) {
+    if (v === 'select') {
+      out.push('set', 'lookup');
+      if (currentVerb === 'select') out.push('select');
+    } else {
+      out.push(v);
+    }
+  }
+  return out;
+}
 
 // ── Helpers ────────────────────────────────────────────────────────────
 
@@ -104,6 +160,17 @@ function toArray(value: unknown): ActionLike[] {
 
 function isDescriptor(value: unknown): value is ActionDescriptor {
   return typeof value === 'object' && value !== null && 'action' in (value as object);
+}
+
+/**
+ * The chip of the reserved verb the action already uses. Clicking it again
+ * must not re-apply the verb (that would reset a set / lookup descriptor).
+ */
+export function isActiveReservedChip(
+  rv: ReservedAction,
+  state: { verb: string; command: string | undefined; customMode: boolean },
+): boolean {
+  return !state.customMode && !state.command && state.verb === rv;
 }
 
 function isReservedVerb(verb: string | undefined): verb is ReservedAction {
@@ -126,6 +193,7 @@ interface PickerEntry {
 }
 
 interface ActionCapability {
+  /** As declared by the SDK component meta (may contain deprecated `select`). */
   reservedActions: ReservedAction[];
   acceptsDispatch: boolean;
   acceptsValidateFlag: boolean;
@@ -228,8 +296,10 @@ function SingleActionEditor({
   const validateEffective = validate ?? shouldValidateDefault(verb);
 
   // ── Action callbacks ─────────────────────────────────────────────
+  const offered = offeredReservedVerbs(capability.reservedActions, verb);
+  const firstOffered = offered[0];
   const pickReservedVerb = (rv: ReservedAction) => {
-    setDescriptorMode(false);
+    setDescriptorMode(DESCRIPTOR_VERBS.includes(rv));
     setCustomMode(false);
     applySelection(`reserved:${rv}`, { onChange, onSiblingChange, urnCatalog });
   };
@@ -241,8 +311,8 @@ function SingleActionEditor({
   const clearUrn = () => {
     setCustomMode(false);
     onSiblingChange?.('command', undefined);
-    if (capability.reservedActions[0]) {
-      applySelection(`reserved:${capability.reservedActions[0]}`, { onChange, onSiblingChange, urnCatalog });
+    if (firstOffered) {
+      applySelection(`reserved:${firstOffered}`, { onChange, onSiblingChange, urnCatalog });
     } else {
       onChange('');
     }
@@ -252,9 +322,9 @@ function SingleActionEditor({
     if (next) {
       setCustomMode(false);
       applySelection('__descriptor__', { onChange, onSiblingChange, urnCatalog });
-    } else if (capability.reservedActions[0]) {
+    } else if (firstOffered) {
       // Snap back to the first reserved verb when leaving descriptor mode.
-      applySelection(`reserved:${capability.reservedActions[0]}`, { onChange, onSiblingChange, urnCatalog });
+      applySelection(`reserved:${firstOffered}`, { onChange, onSiblingChange, urnCatalog });
     }
   };
   const toggleCustom = (next: boolean) => {
@@ -262,24 +332,26 @@ function SingleActionEditor({
     if (next) {
       setDescriptorMode(false);
       applySelection('__custom__', { onChange, onSiblingChange, urnCatalog });
-    } else if (capability.reservedActions[0]) {
+    } else if (firstOffered) {
       onSiblingChange?.('command', undefined);
-      applySelection(`reserved:${capability.reservedActions[0]}`, { onChange, onSiblingChange, urnCatalog });
+      applySelection(`reserved:${firstOffered}`, { onChange, onSiblingChange, urnCatalog });
     }
   };
 
   return (
     <div className="flex flex-col gap-1.5">
       {/* Reserved verb chips — quick toggles for the SDK's three special verbs. */}
-      {capability.reservedActions.length > 0 ? (
+      {offered.length > 0 ? (
         <div className="flex flex-wrap items-center gap-1">
-          {capability.reservedActions.map((rv) => {
-            const active = !descriptorMode && !customMode && !command && verb === rv;
+          {offered.map((rv) => {
+            const active = isActiveReservedChip(rv, { verb, command, customMode });
             return (
               <button
                 key={rv}
                 type="button"
-                onClick={() => pickReservedVerb(rv)}
+                onClick={() => {
+                  if (!active) pickReservedVerb(rv);
+                }}
                 className={`rounded border px-2 py-0.5 text-[10px] transition ${
                   active
                     ? 'border-primary-border bg-primary text-foreground'
@@ -287,7 +359,7 @@ function SingleActionEditor({
                 }`}
                 title={STANDARD_ACTIONS[rv]?.label ?? rv}
               >
-                {rv}
+                {rv}{rv === 'select' ? ' (deprecated)' : ''}
               </button>
             );
           })}
@@ -359,7 +431,7 @@ function SingleActionEditor({
       {/* Descriptor mode — bind/value editor for `select` pattern. */}
       {descriptorMode || isDescriptor(value) ? (
         <DescriptorFields
-          descriptor={isDescriptor(value) ? value : { action: verb || 'select' }}
+          descriptor={isDescriptor(value) ? value : { action: verb || 'set' }}
           onChange={(d) => onChange(d)}
         />
       ) : null}
@@ -384,7 +456,7 @@ function SingleActionEditor({
                 onChange={(e) => toggleDescriptor(e.target.checked)}
                 disabled={customMode}
               />
-              With bind / value (select pattern)
+              With inline descriptor (set / lookup)
             </label>
           ) : null}
         </div>
@@ -668,14 +740,17 @@ function HookRow({ hook, onChange, onRemove, showSync }: HookRowProps) {
 function buildPickerEntries(
   capability: ActionCapability,
   urnCatalog: ReturnType<typeof useUrnCatalog>,
+  currentVerb?: string,
 ): PickerEntry[] {
   const entries: PickerEntry[] = [];
 
-  for (const verb of capability.reservedActions) {
+  for (const verb of offeredReservedVerbs(capability.reservedActions, currentVerb)) {
     const spec = STANDARD_ACTIONS[verb];
     entries.push({
       id: `reserved:${verb}`,
-      label: spec?.label ? `${verb} — ${spec.label}` : verb,
+      label:
+        (spec?.label ? `${verb} — ${spec.label}` : verb) +
+        (verb === 'select' ? ' (deprecated)' : ''),
       group: 'Reserved',
     });
   }
@@ -688,9 +763,9 @@ function buildPickerEntries(
       entries.push({ id: fn.urn, label: fn.label, group: 'Function' });
     }
     entries.push({ id: '__custom__', label: 'Custom URN…', group: 'Custom URN' });
-    // Descriptor mode for select patterns (only when reserved 'select' is offered).
+    // Inline descriptor mode (only when the component declares descriptor verbs).
     if (capability.reservedActions.includes('select')) {
-      entries.push({ id: '__descriptor__', label: 'Descriptor (bind / value)…', group: 'Descriptor' });
+      entries.push({ id: '__descriptor__', label: 'Descriptor (set / lookup)…', group: 'Descriptor' });
     }
   }
 
@@ -774,7 +849,9 @@ function applySelection(
 ) {
   if (selectionId.startsWith('reserved:')) {
     const verb = selectionId.slice('reserved:'.length);
-    ctx.onChange(verb);
+    // Descriptor verbs carry fields (data/value, name, …) so they are
+    // always written as a descriptor object, never a bare string.
+    ctx.onChange(DESCRIPTOR_VERBS.includes(verb) ? { action: verb } : verb);
     // Reserved verbs typically clear command; submit may keep host-context command.
     if (verb !== 'submit') ctx.onSiblingChange?.('command', undefined);
     // Validate flag: reset to default (undefined → SDK uses verb default).
@@ -787,7 +864,7 @@ function applySelection(
     return;
   }
   if (selectionId === '__descriptor__') {
-    ctx.onChange({ action: 'select' });
+    ctx.onChange({ action: 'set' });
     ctx.onSiblingChange?.('command', undefined);
     return;
   }
@@ -814,14 +891,16 @@ function hintFor(
     const v = selectionId.slice('reserved:'.length);
     if (v === 'submit') return 'Runs form validation, then dispatches. Pair with a `command` URN for workflow transitions.';
     if (v === 'reset') return 'SDK clears formData + errors, then notifies the host.';
-    if (v === 'select') return 'Use the descriptor mode below to set `bind` / `value` (host is NOT called).';
+    if (v === 'set') return 'Writes `value` into the `data` path (host is NOT called). `mode` controls overwrite vs. fill-empty.';
+    if (v === 'lookup') return 'Loads the named `x-lookup` on demand (host is NOT called).';
+    if (v === 'select') return `${SELECT_DEPRECATED_NOTE} Legacy bind / value write (host is NOT called).`;
     return '';
   }
   if (selectionId === '__custom__') {
     return 'Custom URN — SDK forwards the command as-is to the host delegate. Validation is opt-in via the checkbox.';
   }
   if (selectionId === '__descriptor__') {
-    return 'Inline descriptor — for `select` set bind + value; host delegate is NOT called for select.';
+    return 'Inline descriptor — `set` writes data + value, `lookup` loads a named lookup; host delegate is NOT called.';
   }
   // Catalog entry
   const isFunction = selectionId.startsWith('urn:amorphie:func:');
@@ -829,7 +908,20 @@ function hintFor(
   return `Workflow transition${capability.acceptsValidateFlag ? ' — toggle validate below to gate the form' : ''}.`;
 }
 
-// ── Descriptor fields (select / bind / value) ─────────────────────────
+// ── Descriptor fields (set / lookup / legacy select) ──────────────────
+
+function parseLiteralOrString(raw: string): unknown {
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return raw;
+  }
+}
+
+function valueToText(value: unknown): string {
+  if (typeof value === 'string') return value;
+  return value !== undefined ? JSON.stringify(value) : '';
+}
 
 function DescriptorFields({
   descriptor,
@@ -838,39 +930,73 @@ function DescriptorFields({
   descriptor: ActionDescriptor;
   onChange: (next: ActionDescriptor) => void;
 }) {
+  const patch = (p: Partial<ActionDescriptor>) => onChange(patchDescriptor(descriptor, p));
+
+  const valueInput = (
+    <Input
+      size="sm"
+      value={valueToText(descriptor.value)}
+      onChange={(e) => {
+        const raw = e.target.value;
+        patch({ value: raw === '' ? undefined : parseLiteralOrString(raw) });
+      }}
+      placeholder='value (literal or expression, e.g. "$item.value")'
+      aria-label="value"
+    />
+  );
+
+  if (descriptor.action === 'lookup') {
+    return (
+      <Input
+        size="sm"
+        value={descriptor.name ?? ''}
+        onChange={(e) => patch({ name: e.target.value || undefined })}
+        placeholder="lookup name (x-lookup)"
+        aria-label="name"
+      />
+    );
+  }
+
+  if (descriptor.action === 'set') {
+    return (
+      <>
+        <Input
+          size="sm"
+          value={descriptor.data ?? ''}
+          onChange={(e) => patch({ data: e.target.value || undefined })}
+          placeholder="data (e.g. $form.city)"
+          aria-label="data"
+        />
+        {valueInput}
+        <Select
+          className="h-8 text-xs"
+          value={parseSetMode(descriptor.mode)}
+          onChange={(e) => patch({ mode: e.target.value as SetMode })}
+          aria-label="mode"
+        >
+          {SET_MODES.map((m) => (
+            <option key={m} value={m}>
+              {m}
+            </option>
+          ))}
+        </Select>
+      </>
+    );
+  }
+
   return (
     <>
+      {descriptor.action === 'select' ? (
+        <p className="text-[10px] italic text-warning-icon">{SELECT_DEPRECATED_NOTE}</p>
+      ) : null}
       <Input
         size="sm"
         value={descriptor.bind ?? ''}
-        onChange={(e) => onChange({ ...descriptor, bind: e.target.value || undefined })}
+        onChange={(e) => patch({ bind: e.target.value || undefined })}
         placeholder="bind (e.g. $ui.dialogOpen)"
         aria-label="bind"
       />
-      <Input
-        size="sm"
-        value={
-          typeof descriptor.value === 'string'
-            ? descriptor.value
-            : descriptor.value !== undefined
-            ? JSON.stringify(descriptor.value)
-            : ''
-        }
-        onChange={(e) => {
-          const raw = e.target.value;
-          if (raw === '') {
-            onChange({ ...descriptor, value: undefined });
-            return;
-          }
-          try {
-            onChange({ ...descriptor, value: JSON.parse(raw) });
-          } catch {
-            onChange({ ...descriptor, value: raw });
-          }
-        }}
-        placeholder='value (literal or expression, e.g. "$item.value")'
-        aria-label="value"
-      />
+      {valueInput}
     </>
   );
 }
@@ -966,7 +1092,7 @@ function MultiActionEditor({
       <button
         type="button"
         className="flex items-center gap-1 self-start rounded border border-[var(--vscode-panel-border)] bg-[var(--vscode-button-secondaryBackground)] px-2 py-1 text-[11px] text-[var(--vscode-button-secondaryForeground)] hover:bg-[var(--vscode-list-hoverBackground)]"
-        onClick={() => update([...list, { action: 'select' } as ActionDescriptor])}
+        onClick={() => update([...list, { action: 'set' } as ActionDescriptor])}
       >
         <Plus size={11} /> Add action
       </button>
@@ -977,7 +1103,7 @@ function MultiActionEditor({
 function toDescriptor(item: ActionLike): ActionDescriptor {
   if (isDescriptor(item)) return item;
   if (typeof item === 'string') return { action: item };
-  return { action: 'select' };
+  return { action: 'set' };
 }
 
 function DescriptorRow({
@@ -998,14 +1124,14 @@ function DescriptorRow({
     [descriptor.action, descriptor.command, urnCatalog],
   );
   const entries = useMemo(
-    () => buildPickerEntries(capability, urnCatalog),
-    [capability, urnCatalog],
+    () => buildPickerEntries(capability, urnCatalog, descriptor.action),
+    [capability, urnCatalog, descriptor.action],
   );
 
   const showValidate = capability.acceptsValidateFlag && descriptor.action !== 'submit';
   const validateEffective = descriptor.validate ?? shouldValidateDefault(descriptor.action);
   const showDescriptorFields =
-    selectionId === '__descriptor__' || descriptor.action === 'select';
+    selectionId === '__descriptor__' || DESCRIPTOR_VERBS.includes(descriptor.action);
   const showCustomUrn =
     selectionId === '__custom__' ||
     (descriptor.command !== undefined &&

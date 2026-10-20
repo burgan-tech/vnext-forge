@@ -320,3 +320,46 @@ describe('createQuickRunPseudoDelegate — tool-wide header propagation', () => 
     expect(vi.mocked(QuickRunApi.executeFunction).mock.calls[0][0].headers).toEqual(SESSION_HEADERS);
   });
 });
+
+describe('createQuickRunPseudoDelegate — requestData failure contract', () => {
+  function make() {
+    return createQuickRunPseudoDelegate({
+      domain: 'core',
+      workflowKey: 'wf',
+      instanceId: 'inst-1',
+      runtimeUrl: 'http://localhost:4201',
+      getBucketConfig: () => null,
+      getSessionHeaders: () => ({ Authorization: 'secret-token' }),
+      getBindingContext: () => ({ data: null, extensions: null }),
+    });
+  }
+
+  beforeEach(() => {
+    vi.mocked(QuickRunApi.executeFunction).mockReset();
+  });
+
+  it('throws on engine failure so the SDK treats the field as valid', async () => {
+    vi.mocked(QuickRunApi.executeFunction).mockResolvedValueOnce({
+      success: false,
+      error: { code: 'API_UNKNOWN', message: 'engine down', traceId: 't1' },
+    });
+    await expect(make().requestData?.('urn:vnext:fn:core:lookup-cities', { q: 'secret-term' })).rejects.toThrow(
+      /urn:vnext:fn:core:lookup-cities/,
+    );
+  });
+
+  it('throws on transport failure, message omits payload and headers', async () => {
+    vi.mocked(QuickRunApi.executeFunction).mockRejectedValueOnce(new Error('boom'));
+    const err = await make()
+      .requestData?.('urn:vnext:fn:core:lookup-cities', { q: 'secret-term' })
+      .catch((e: unknown) => e);
+    expect(err).toBeInstanceOf(Error);
+    expect((err as Error).message).toContain('urn:vnext:fn:core:lookup-cities');
+    expect((err as Error).message).not.toContain('secret');
+  });
+
+  it('still returns undefined for an unparseable URN', async () => {
+    await expect(make().requestData?.('not-a-urn', {})).resolves.toBeUndefined();
+    expect(QuickRunApi.executeFunction).not.toHaveBeenCalled();
+  });
+});

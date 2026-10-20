@@ -9,6 +9,7 @@
 import {
   type BuilderDefinition,
   type BuilderNode,
+  type ComponentMeta,
   type NodePath,
 } from '../types';
 import { findComponentMeta } from '../palette/componentCatalog';
@@ -68,7 +69,33 @@ export function getNode(root: BuilderNode, path: NodePath): BuilderNode | null {
 }
 
 /** R16.2-B: componentNode slot keys the builder navigates into. */
-const NAMED_NODE_SLOTS = new Set(['leading', 'trailing', 'header', 'footer', 'anchor', 'actions']);
+const NAMED_NODE_SLOTS = new Set([
+  'leading',
+  'trailing',
+  'header',
+  'footer',
+  'anchor',
+  'actions',
+  // Scaffold single-node slots.
+  'appBar',
+  'body',
+  'bottomNavigationBar',
+  'floatingActionButton',
+]);
+
+/** Named slots holding exactly one node (not an array). */
+const SINGLE_NODE_SLOTS = new Set([
+  'leading',
+  'trailing',
+  'header',
+  'footer',
+  'anchor',
+  'template',
+  'appBar',
+  'body',
+  'bottomNavigationBar',
+  'floatingActionButton',
+]);
 
 interface ParentRef {
   parent: BuilderNode | BuilderNode[];
@@ -152,6 +179,20 @@ export function insertChild(
     (target as Record<string, unknown>).template = child;
     return next;
   }
+  if (meta.childContainerKey === 'body') {
+    // Singular slot (Scaffold.body): a container already in the slot receives
+    // the child; otherwise the slot takes the node itself (never an array).
+    const body = (target as { body?: BuilderNode }).body;
+    const bodyMeta = body ? findComponentMeta(body.type) : undefined;
+    if (body && bodyMeta?.acceptsChildren && bodyMeta.childContainerKey !== 'body') {
+      const bodyChildren = body.children ?? [];
+      bodyChildren.splice(Math.min(Math.max(index, 0), bodyChildren.length), 0, child);
+      body.children = bodyChildren;
+      return next;
+    }
+    (target as Record<string, unknown>).body = child;
+    return next;
+  }
   if (meta.childContainerKey === 'tabs') {
     const tabs = ((target as { tabs?: unknown[] }).tabs ?? []) as { content?: BuilderNode[] }[];
     if (tabs.length === 0) return root;
@@ -172,6 +213,14 @@ export function insertChild(
 export function deleteNode(root: BuilderNode, path: NodePath): BuilderNode {
   if (path.length === 0) return root;
   const next = clone(root);
+  const last = path[path.length - 1];
+  if (typeof last === 'string' && SINGLE_NODE_SLOTS.has(last)) {
+    // Single-node slot (Scaffold.body, …): drop the slot value itself.
+    const owner = getNode(next, path.slice(0, -1));
+    if (!owner || !(last in owner)) return root;
+    delete (owner as Record<string, unknown>)[last];
+    return next;
+  }
   const ref = resolveParent(next, path);
   if (ref?.index == null) return root;
 
@@ -338,10 +387,13 @@ export function pickSmartInsertTarget(
 
 function countChildrenForContainer(
   node: BuilderNode,
-  childContainerKey: 'children' | 'template' | 'tabs' | undefined,
+  childContainerKey: ComponentMeta['childContainerKey'],
 ): number {
   if (childContainerKey === 'template') {
     return (node as { template?: BuilderNode }).template ? 1 : 0;
+  }
+  if (childContainerKey === 'body') {
+    return (node as { body?: BuilderNode }).body?.children?.length ?? 0;
   }
   if (childContainerKey === 'tabs') {
     // Insert into the first tab's content.

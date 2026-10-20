@@ -22,10 +22,10 @@ export type {
 
 // ── Version constants ─────────────────────────────────────────────────────────
 
-/** Runtime release the bundled vnext-schema targets (v0.0.100 ↔ schema 0.0.56). */
+/** Runtime release the bundled vnext-schema targets (v0.0.100 ↔ schema 0.0.57). */
 export const VNEXT_WORKSPACE_RUNTIME_VERSION = '0.0.100' as const
 /** Keep in step with the `@burgan-tech/vnext-schema` pin in the package.json files. */
-export const VNEXT_WORKSPACE_SCHEMA_VERSION = '0.0.56' as const
+export const VNEXT_WORKSPACE_SCHEMA_VERSION = '0.0.57' as const
 
 export const VNEXT_WORKSPACE_CONFIG_VERSION = '1.0.0' as const
 

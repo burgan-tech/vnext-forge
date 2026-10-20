@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 
-import type { HistoryResponse, StateResponse } from '../types/quickrun.types';
+import type { CorrelationInfo, DataResponse, HistoryResponse, StateResponse } from '../types/quickrun.types';
+import type { DataTarget } from '../utils/dataTarget';
 import { useQuickRunStore } from './quickRunStore';
 
 describe('useQuickRunStore — etag cache', () => {
@@ -215,5 +216,66 @@ describe('useQuickRunStore — effective status', () => {
     });
     useQuickRunStore.getState().updateInstanceStatus('i1', 'B', 'child');
     expect(useQuickRunStore.getState().instances.get('i1')).toMatchObject({ status: 'B', effectiveStatus: undefined });
+  });
+});
+
+describe('useQuickRunStore — data target', () => {
+  const parent: DataTarget = { domain: 'd', workflowKey: 'parent', instanceId: 'p1', via: null };
+  const via = { subFlowInstanceId: 'c1' } as unknown as CorrelationInfo;
+  const child: DataTarget = { domain: 'd', workflowKey: 'child', instanceId: 'c1', via };
+  const data = { data: { a: 1 } } as unknown as DataResponse;
+
+  beforeEach(() => {
+    useQuickRunStore.setState({ tabs: [], activeTabId: null, etags: {}, activeData: null, dataTarget: null });
+  });
+
+  function seed(target: DataTarget) {
+    useQuickRunStore.getState().setDataTarget(target);
+    useQuickRunStore.getState().setActiveData(data);
+    useQuickRunStore.getState().setEtag('data', 'etag-data');
+  }
+
+  it('resets data when the target key changes', () => {
+    seed(parent);
+    useQuickRunStore.getState().setDataTarget(child);
+    const s = useQuickRunStore.getState();
+    expect(s.dataTarget).toEqual(child);
+    expect(s.activeData).toBeNull();
+    expect(s.etags.data).toBeUndefined();
+  });
+
+  it('keeps data and etag for the same target', () => {
+    seed(child);
+    const refreshedVia = { subFlowInstanceId: 'c1', extra: true } as unknown as CorrelationInfo;
+    useQuickRunStore.getState().setDataTarget({ ...child, via: refreshedVia });
+    const s = useQuickRunStore.getState();
+    expect(s.dataTarget?.via).toBe(refreshedVia);
+    expect(s.activeData).toBe(data);
+    expect(s.etags.data).toBe('etag-data');
+  });
+
+  it('is a no-op for the same target with an equal via (no re-render per poll tick)', () => {
+    seed(child);
+    const before = useQuickRunStore.getState();
+    useQuickRunStore.getState().setDataTarget({ ...child, via: { ...via } as CorrelationInfo });
+    const after = useQuickRunStore.getState();
+    expect(after).toBe(before);
+    expect(after.dataTarget).toBe(before.dataTarget);
+  });
+
+  it('falls back to the parent when the sub-flow closes', () => {
+    seed(child);
+    useQuickRunStore.getState().setDataTarget(parent);
+    const s = useQuickRunStore.getState();
+    expect(s.dataTarget).toEqual(parent);
+    expect(s.activeData).toBeNull();
+    expect(s.etags.data).toBeUndefined();
+  });
+
+  it('tab reset clears the target', () => {
+    useQuickRunStore.getState().setActiveTab('i-a');
+    seed(parent);
+    useQuickRunStore.getState().setActiveTab('i-b');
+    expect(useQuickRunStore.getState().dataTarget).toBeNull();
   });
 });
