@@ -49,6 +49,8 @@ export interface TransitionView {
   target: string; // resolved target / to
   triggerType?: number;
   triggerKind?: number;
+  /** Automatic transition priority (runtime 0.0.102); absent = 100. */
+  priority?: number;
   comment?: string;
   labels?: LabelView[];
   roles?: RoleGrantView[];

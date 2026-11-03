@@ -46,6 +46,11 @@ function serializeQueryParams(params: unknown): string {
  * to typed `ApiFailure` envelopes with stable `ErrorCode`s so downstream
  * consumers (notification mapper, useAsync, etc.) never need to string-match.
  */
+/** Methods that carry a whole file and get more than the default timeout. */
+const FILE_TRANSFER_TIMEOUT_MS: Partial<Record<string, number>> = {
+  'quickrun/uploadFile': 600_000,
+};
+
 export function createHttpTransport(options: HttpTransportOptions = {}): ApiTransport {
   const baseUrl = options.baseUrl ?? '';
   const baseFetch = options.fetchImpl ?? fetch.bind(globalThis);
@@ -75,7 +80,8 @@ export function createHttpTransport(options: HttpTransportOptions = {}): ApiTran
       }
 
       const controller = new AbortController();
-      const timeoutHandle = setTimeout(() => controller.abort(), timeoutMs);
+      const effectiveTimeoutMs = Math.max(timeoutMs, FILE_TRANSFER_TIMEOUT_MS[method] ?? 0);
+      const timeoutHandle = setTimeout(() => controller.abort(), effectiveTimeoutMs);
 
       try {
         let response: Response;
@@ -90,7 +96,7 @@ export function createHttpTransport(options: HttpTransportOptions = {}): ApiTran
           if (cause instanceof DOMException && cause.name === 'AbortError') {
             return buildEnvelopeFailure(
               ERROR_CODES.RUNTIME_TIMEOUT,
-              `Request timed out after ${timeoutMs}ms (${method}).`,
+              `Request timed out after ${effectiveTimeoutMs}ms (${method}).`,
             ) as ApiResponse<T>;
           }
           return buildEnvelopeFailure(

@@ -76,3 +76,19 @@ describe('executionType visibility (runtime 0.0.99)', () => {
     expect(resolveFieldPolicy('updateData', TriggerType.Manual).executionType.visible).toBe(false);
   });
 });
+
+describe('transitionFieldPolicy — priority (runtime 0.0.102)', () => {
+  it('is offered only on a non-default automatic state transition', () => {
+    expect(resolveFieldPolicy('state', TriggerType.Automatic).priority).toEqual({ visible: true, required: false });
+    expect(resolveFieldPolicy('state', TriggerType.Automatic, TriggerKind.DefaultAuto).priority.visible).toBe(false);
+    for (const trigger of [TriggerType.Manual, TriggerType.Scheduled, TriggerType.Event]) {
+      expect(resolveFieldPolicy('state', trigger).priority.visible).toBe(false);
+    }
+  });
+
+  it('is hidden on shared, start, cancel, exit and updateData transitions', () => {
+    for (const kind of ['shared', 'start', 'cancel', 'exit', 'updateData'] as const) {
+      expect(resolveFieldPolicy(kind, TriggerType.Automatic).priority.visible).toBe(false);
+    }
+  });
+});

@@ -1,4 +1,4 @@
-import { historyNoneIssues } from '@vnext-forge-studio/vnext-types';
+import { historyNoneIssues, rowSecurityIssues, transitionPriorityIssues } from '@vnext-forge-studio/vnext-types';
 
 import type { VnextWorkflow } from './Conversion';
 import { runtimeSyncFindings } from '../../workflow-validation/runtimeSyncRules';
@@ -232,6 +232,25 @@ export function lintWorkflow(workflow: VnextWorkflow, options: LintOptions = {})
       message: issue.message,
       ...(issue.stateKey ? { stateKey: issue.stateKey } : {}),
       ...(issue.transitionKey ? { transitionKey: issue.transitionKey } : {}),
+    });
+  }
+
+  // Runtime 0.0.102 publish checks.
+  for (const issue of transitionPriorityIssues(workflow)) {
+    findings.push({
+      severity: issue.severity,
+      rule: issue.code,
+      message: issue.message,
+      ...(issue.stateKey ? { stateKey: issue.stateKey } : {}),
+      ...(issue.transitionKey ? { transitionKey: issue.transitionKey } : {}),
+    });
+  }
+  for (const issue of rowSecurityIssues(workflow)) {
+    findings.push({
+      severity: issue.severity,
+      rule: issue.code,
+      message: `${issue.code}: ${issue.message}`,
+      ...(issue.stateKey ? { stateKey: issue.stateKey } : {}),
     });
   }
 

@@ -64,6 +64,21 @@ const SCRIPT_BASE_METHODS: CompletionDef[] = [
   { label: 'GetSecret', kind: 'Method', insertText: 'GetSecret("${1:storeName}", "${2:secretStore}", "${3:secretKey}")', isSnippet: true, detail: 'ScriptBase → string', documentation: 'Gets a secret value synchronously.' },
   { label: 'ConfigExists', kind: 'Method', insertText: 'ConfigExists("${1:key}")', isSnippet: true, detail: 'ScriptBase → bool', documentation: 'Checks if a configuration key exists.' },
   { label: 'GetConnectionString', kind: 'Method', insertText: 'GetConnectionString("${1:name}")', isSnippet: true, detail: 'ScriptBase → string?', documentation: 'Gets a database connection string by name.' },
+  { label: 'GetFileAsync', kind: 'Method', insertText: 'await GetFileAsync(context.Runtime.Domain, context.Instance.Flow, context.Instance.Id.ToString(), ${1:handle.file})', isSnippet: true, detail: 'ScriptBase → Task<ScriptFile>', documentation: 'Reads a stored x-storage file of an instance (bytes verified against its eTag). Use `OpenRead()` on the result for a stream.' },
+  { label: 'PutFileAsync', kind: 'Method', insertText: 'await PutFileAsync(context.Runtime.Domain, context.Instance.Flow, context.Instance.Id.ToString(), "${1:vnext-blob-s3}", ${2:stream}, "${3:name.pdf}", "${4:application/pdf}")', isSnippet: true, detail: 'ScriptBase → Task<ScriptStoredFile>', documentation: 'Runtime 0.0.102: stores `byte[]` or a `Stream` in an x-storage binding and returns the persisted handle (`component`, `file`, `name`, `mimeType`, `size`, `eTag`, `owner`). Put it at an x-storage path of the output to keep it.\n\n```csharp\nvar converted = await PutFileAsync(context.Runtime.Domain, context.Instance.Flow,\n    context.Instance.Id.ToString(), "vnext-blob-s3", output, "converted.pdf", "application/pdf");\n```' },
+  { label: 'FileObjectKey', kind: 'Method', insertText: 'FileObjectKey(${1:handle.file})', isSnippet: true, detail: 'ScriptBase → string', documentation: 'Runtime 0.0.102: the store object key of a stored file (`FileStorage:KeyPrefix` + file id) for a DaprBinding task that reads, lists or deletes it.\n\n```csharp\nbindingTask.SetMetadata(new() { ["key"] = FileObjectKey(handle.file) });\n```' },
+];
+
+// ScriptFile members (result of GetFileAsync)
+const SCRIPT_FILE_MEMBERS: CompletionDef[] = [
+  { label: 'OpenRead', kind: 'Method', insertText: 'OpenRead()', detail: 'Stream', documentation: 'Runtime 0.0.102: a new read-only, seekable MemoryStream over the verified bytes on every call.\n\n```csharp\nusing var input = source.OpenRead();\n```' },
+];
+
+// DaprBindingTask methods (public since runtime 0.0.102)
+const BINDING_TASK_MEMBERS: CompletionDef[] = [
+  { label: 'SetOperation', kind: 'Method', insertText: 'SetOperation("${1|create,get,list,delete|}")', isSnippet: true, detail: 'void', documentation: 'Sets the binding operation when the task definition does not fix it.' },
+  { label: 'SetData', kind: 'Method', insertText: 'SetData(${1:data})', isSnippet: true, detail: 'void', documentation: 'Sets the binding request data.' },
+  { label: 'SetMetadata', kind: 'Method', insertText: 'SetMetadata(new() { ["${1:key}"] = ${2:FileObjectKey(handle.file)} })', isSnippet: true, detail: 'void', documentation: 'Sets the per-call binding metadata, e.g. the object key (`key` for bindings.aws.s3, `fileName` for bindings.localstorage).' },
 ];
 
 // ScriptContext members (for dot-trigger after "context.")
@@ -286,9 +301,19 @@ export function registerContextAwareCompletions(monaco: Monaco) {
         case 'TimerSchedule':
           members = TIMER_SCHEDULE_MEMBERS;
           break;
+        case 'bindingTask':
+        case 'binding':
+          members = BINDING_TASK_MEMBERS;
+          break;
+        case 'source':
+        case 'file':
+        case 'scriptFile':
+          members = SCRIPT_FILE_MEMBERS;
+          break;
         default:
           // Try partial matches for common variable names
-          if (wordBefore.toLowerCase().includes('http')) members = HTTP_TASK_MEMBERS;
+          if (wordBefore.toLowerCase().includes('binding')) members = BINDING_TASK_MEMBERS;
+          else if (wordBefore.toLowerCase().includes('http')) members = HTTP_TASK_MEMBERS;
           else if (wordBefore.toLowerCase().includes('pubsub')) members = PUBSUB_TASK_MEMBERS;
           else if (wordBefore.toLowerCase().includes('service') && wordBefore.toLowerCase().includes('task')) members = SERVICE_TASK_MEMBERS;
           break;

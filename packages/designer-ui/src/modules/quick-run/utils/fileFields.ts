@@ -16,6 +16,16 @@
 /** Kestrel's 10 MiB request limit leaves about 7.5 MiB of file after base64. */
 export const MAX_UPLOAD_BYTES = Math.floor(7.5 * 1024 * 1024);
 
+/** Runtime default `FileStorage:Upload:MaxBytes` for streamed uploads (runtime 0.0.102). */
+export const MAX_STREAM_UPLOAD_BYTES = 64 * 1024 * 1024;
+
+/**
+ * `x-storage.transport` (runtime 0.0.102): `inline` (default) sends base64
+ * `content` in the body; `stream` uploads to `POST …/files?path=` first and
+ * sends `{ file }` (inline content is refused); `any` accepts both.
+ */
+export type StorageTransport = 'inline' | 'stream' | 'any';
+
 export interface FileUploadValue {
   name: string;
   mimeType: string;
@@ -56,6 +66,43 @@ export function storageFieldPaths(masterSchemaRoot: unknown): string[] {
   };
   walk(masterSchemaRoot, '', 0);
   return out;
+}
+
+/**
+ * Schema paths of the master schema's file fields whose `transport` is not
+ * the default `inline`, mapped to that transport.
+ */
+export function storageFieldTransports(masterSchemaRoot: unknown): Record<string, StorageTransport> {
+  const out: Record<string, StorageTransport> = {};
+  const walk = (node: unknown, path: string, arrays: number): void => {
+    if (!isRecord(node)) return;
+    if (path !== '' && node['x-storage'] !== undefined) {
+      const storage = node['x-storage'];
+      const transport = isRecord(storage) ? storage.transport : undefined;
+      if (transport === 'stream' || transport === 'any') out[path] = transport;
+      return;
+    }
+    if (isRecord(node.properties)) {
+      for (const [key, child] of Object.entries(node.properties)) walk(child, path ? `${path}.${key}` : key, arrays);
+    }
+    if (arrays === 0 && isRecord(node.items) && path !== '') walk(node.items, `${path}[]`, arrays + 1);
+  };
+  walk(masterSchemaRoot, '', 0);
+  return out;
+}
+
+/**
+ * How a picked file is sent: `inline` (base64 in the body), `stream` (upload
+ * first, `{ file }` in the body) or `too-large` with the limit that refused it.
+ * An `any` field streams only what inline cannot carry.
+ */
+export function chooseUploadRoute(
+  transport: StorageTransport,
+  size: number,
+): { route: 'inline' | 'stream' } | { route: 'too-large'; limit: number } {
+  if (transport === 'inline') return size > MAX_UPLOAD_BYTES ? { route: 'too-large', limit: MAX_UPLOAD_BYTES } : { route: 'inline' };
+  if (size > MAX_STREAM_UPLOAD_BYTES) return { route: 'too-large', limit: MAX_STREAM_UPLOAD_BYTES };
+  return transport === 'stream' || size > MAX_UPLOAD_BYTES ? { route: 'stream' } : { route: 'inline' };
 }
 
 /** Form path (`a.b`, `list.0.doc`) → schema path (`a.b`, `list[].doc`). */

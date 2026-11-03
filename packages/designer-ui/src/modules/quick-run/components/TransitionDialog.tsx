@@ -23,6 +23,7 @@ import { subInstanceHostOf } from '../pseudo-ui/createSubInstanceLoader';
 import { safeViewContent, type SchemaResponse, type ViewResponse } from '../types/quickrun.types';
 import { ValidationErrorBlock } from './ValidationErrorBlock';
 import { useFileFieldSchema } from '../file-fields/useFileFieldSchema';
+import { createStreamFileUploader, FileUploadProvider } from '../file-fields/fileUploadContext';
 import { activeSubFlowTarget } from '../utils/subFlowProxy';
 
 interface TransitionDialogProps {
@@ -808,6 +809,20 @@ function TransitionInputStep({
   headerRows: { name: string; value: string }[];
   setHeaderRows: (v: { name: string; value: string }[]) => void;
 }) {
+  const uploadDomain = useQuickRunStore((st) => st.domain);
+  const uploadWorkflowKey = useQuickRunStore((st) => st.workflowKey);
+  const uploadRuntimeUrl = useQuickRunStore((st) => st.environmentUrl);
+  // Streamed x-storage uploads (runtime 0.0.102) carry the same headers as the transition request.
+  const streamUploader = useMemo(() => {
+    const headers: Record<string, string> = {};
+    for (const h of headerRows) if (h.name.trim()) headers[h.name.trim()] = h.value;
+    return createStreamFileUploader({
+      domain: uploadDomain,
+      workflowKey: uploadWorkflowKey,
+      headers,
+      runtimeUrl: uploadRuntimeUrl ?? undefined,
+    });
+  }, [uploadDomain, uploadWorkflowKey, headerRows, uploadRuntimeUrl]);
   const { schema: formSchema, hasFileFields, withoutFileValues } = useFileFieldSchema(
     hasSchema && schema ? (schema.schema as JsonSchemaRoot) : null,
   );
@@ -1077,18 +1092,20 @@ function TransitionInputStep({
 
           {hasFileFields ? (
             <p className="text-[10px] text-[var(--vscode-descriptionForeground)]">
-              File fields upload from this form (base64 in the request body). Pseudo-ui views cannot upload files
-              yet.
+              File fields upload from this form: base64 in the request body, or a streamed upload first for
+              transport: stream / any fields. Pseudo-ui views cannot upload files yet.
             </p>
           ) : null}
-          <SchemaForm
-            schema={formSchema}
-            value={attributes}
-            onChange={setAttributes}
-            jsonEditorLabel="Attributes (JSON)"
-            jsonEditorRows={12}
-            showAllErrors={submitAttempted}
-          />
+          <FileUploadProvider value={streamUploader}>
+            <SchemaForm
+              schema={formSchema}
+              value={attributes}
+              onChange={setAttributes}
+              jsonEditorLabel="Attributes (JSON)"
+              jsonEditorRows={12}
+              showAllErrors={submitAttempted}
+            />
+          </FileUploadProvider>
         </div>
       )}
     </div>

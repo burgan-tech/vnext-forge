@@ -6,6 +6,8 @@ import {
   quickrunFireTransitionParams,
   quickrunFireTransitionResult,
   quickrunDownloadFileParams,
+  quickrunUploadFileParams,
+  quickrunUploadFileResult,
   quickrunDownloadFileResult,
   quickrunGetDataParams,
   quickrunGetDataResult,
@@ -368,6 +370,36 @@ export function createQuickRunService(runtimeProxyService: RuntimeProxyService) 
       ...(fileName ? { fileName } : {}),
       ...(eTag ? { eTag } : {}),
     }
+  }
+
+  /**
+   * Streams one file to the runtime's upload endpoint for a `transport:
+   * stream | any` field (runtime 0.0.102) and returns the ticket. The bytes
+   * cross the RPC as base64 and leave here as a raw body with the file's own
+   * media type; `fetch` sets the required Content-Length.
+   */
+  async function uploadFile(
+    params: z.infer<typeof quickrunUploadFileParams>,
+    traceId?: string,
+  ): Promise<z.infer<typeof quickrunUploadFileResult>> {
+    const base = buildBasePath(params.domain, params.workflowKey)
+    const query: Record<string, string> = { path: params.path, name: params.name }
+    if (params.version) query.version = params.version
+    const bytes = Buffer.from(params.contentBase64, 'base64')
+    const result = await runtimeProxyService.proxy(
+      {
+        method: 'POST',
+        runtimePath: `${base}/files`,
+        query,
+        headers: { Accept: 'application/json', ...params.headers },
+        runtimeUrl: params.runtimeUrl,
+      },
+      traceId,
+      { rawBody: { bytes, contentType: params.mimeType } },
+    )
+    return parseJsonResponse<z.infer<typeof quickrunUploadFileResult>>(
+      result.data, result.status, 'QuickRunService.uploadFile', traceId,
+    )
   }
 
   async function getSchema(
@@ -958,6 +990,7 @@ export function createQuickRunService(runtimeProxyService: RuntimeProxyService) 
     authorize,
     getHumanTasks,
     downloadFile,
+    uploadFile,
   }
 }
 

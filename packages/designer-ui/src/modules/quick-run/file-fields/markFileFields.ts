@@ -1,7 +1,10 @@
-import { isFileUploadNode } from '../utils/fileFields';
+import { isFileUploadNode, toSchemaPath, type StorageTransport } from '../utils/fileFields';
 
 /** Marker the QuickRun file widget matches on (schema-form extensions only see the property). */
 export const FILE_FIELD_MARKER = 'x-forge-file';
+
+/** The field's non-inline `x-storage` transport, next to {@link FILE_FIELD_MARKER} (runtime 0.0.102). */
+export const FILE_TRANSPORT_MARKER = 'x-forge-file-transport';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -10,17 +13,23 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 /**
  * Copy of a transition / start schema with {@link FILE_FIELD_MARKER} on its
  * file upload nodes: nodes at a master-schema `x-storage` path, or with the
- * upload shape (`name` + `content`). The input is not modified. Returns the
+ * upload shape (`name` + `content`). A node whose master field streams also
+ * gets {@link FILE_TRANSPORT_MARKER}. The input is not modified. Returns the
  * input itself when nothing is marked.
  */
-export function markFileFields<T>(schema: T, masterPaths: readonly string[]): T {
+export function markFileFields<T>(
+  schema: T,
+  masterPaths: readonly string[],
+  transports: Readonly<Record<string, StorageTransport>> = {},
+): T {
   if (!isRecord(schema)) return schema;
   let marked = false;
   const walk = (node: unknown, path: string, arrays: number): unknown => {
     if (!isRecord(node)) return node;
     if (path !== '' && isFileUploadNode(node, path, masterPaths)) {
       marked = true;
-      return { ...node, [FILE_FIELD_MARKER]: true };
+      const transport = transports[toSchemaPath(path)];
+      return { ...node, [FILE_FIELD_MARKER]: true, ...(transport ? { [FILE_TRANSPORT_MARKER]: transport } : {}) };
     }
     let next: Record<string, unknown> = node;
     if (isRecord(node.properties)) {

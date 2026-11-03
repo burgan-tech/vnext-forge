@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import type { Label, TaskExecution, ViewBinding, ErrorBoundary, ScriptsConfig } from '@vnext-forge-studio/vnext-types';
+import { TriggerKind, TriggerType } from '@vnext-forge-studio/vnext-types';
 import type { RoleGrant } from '@vnext-forge-studio/vnext-types';
 import type { DiscoveredVnextComponent } from '@vnext-forge-studio/app-contracts';
 import type { ScriptCode } from '../../../../../../modules/save-component/components/CsxEditorField';
@@ -82,7 +83,17 @@ export function useTransitionMutations(findTransition: FindTransition): Transiti
     updateWorkflow((draft: any) => {
       const ctx = findTransition(draft);
       if (!ctx?.transitions?.[index]) return;
-      ctx.transitions[index][field] = value;
+      const transition = ctx.transitions[index];
+      if (value === undefined) delete transition[field];
+      else transition[field] = value;
+      // Runtime 0.0.102: `priority` only exists on a non-default automatic
+      // transition; drop it when the transition stops being one.
+      if (
+        (field === 'triggerType' && value !== TriggerType.Automatic) ||
+        (field === 'triggerKind' && value === TriggerKind.DefaultAuto)
+      ) {
+        delete transition.priority;
+      }
     });
   }, [updateWorkflow, findTransition]);
 

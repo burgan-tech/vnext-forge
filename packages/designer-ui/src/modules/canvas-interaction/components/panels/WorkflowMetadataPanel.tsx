@@ -11,6 +11,7 @@ import { WorkflowBasicFieldsSection } from './sections/WorkflowBasicFieldsSectio
 import { WorkflowSchemaSection } from './sections/WorkflowSchemaSection';
 import { WorkflowUpdateDataSection } from './sections/WorkflowUpdateDataSection';
 import { WorkflowQueryRolesSection } from './sections/WorkflowQueryRolesSection';
+import { WorkflowRowSecuritySection } from './sections/WorkflowRowSecuritySection';
 import { WorkflowSharedTransitionsSection } from './sections/WorkflowSharedTransitionsSection';
 import { WorkflowCancelSection } from './sections/WorkflowCancelSection';
 import { WorkflowExitSection } from './sections/WorkflowExitSection';
@@ -81,6 +82,7 @@ export function WorkflowMetadataPanel({ onClose, scrollToSection, onScrollComple
           <WorkflowSchemaSection />
           <div id="wf-section-updateData"><WorkflowUpdateDataSection /></div>
           <WorkflowQueryRolesSection />
+          <div id="wf-section-rowSecurity"><WorkflowRowSecuritySection /></div>
           <div id="wf-section-sharedTransitions"><WorkflowSharedTransitionsSection /></div>
           <div id="wf-section-cancel"><WorkflowCancelSection /></div>
           <div id="wf-section-exit"><WorkflowExitSection /></div>

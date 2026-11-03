@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import { isActiveContentType } from './fileHostActions';
 import { FileUploadField } from './FileUploadField';
-import { FILE_FIELD_MARKER, markFileFields } from './markFileFields';
+import { FILE_FIELD_MARKER, FILE_TRANSPORT_MARKER, markFileFields } from './markFileFields';
 
 const transitionSchema = {
   type: 'object',
@@ -24,6 +24,14 @@ describe('markFileFields', () => {
     expect((marked.properties.attachments!.items as Record<string, unknown>)[FILE_FIELD_MARKER]).toBe(true);
     expect(marked.properties.note![FILE_FIELD_MARKER]).toBeUndefined();
     expect((transitionSchema.properties.identityDocument as Record<string, unknown>)[FILE_FIELD_MARKER]).toBeUndefined();
+  });
+
+  it('carries a streamed transport next to the marker', () => {
+    const marked = markFileFields(transitionSchema, ['identityDocument', 'attachments[]'], {
+      identityDocument: 'stream',
+    }) as typeof transitionSchema & { properties: Record<string, Record<string, unknown>> };
+    expect(marked.properties.identityDocument![FILE_TRANSPORT_MARKER]).toBe('stream');
+    expect((marked.properties.attachments!.items as Record<string, unknown>)[FILE_TRANSPORT_MARKER]).toBeUndefined();
   });
 
   it('returns the same schema when there is nothing to mark', () => {

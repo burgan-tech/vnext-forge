@@ -15,6 +15,7 @@ export function registerQuickrunRoutes(
   app.post('/quickrun/getView', (c) => helper(c, 'quickrun/getView', { source: 'json' }));
   app.post('/quickrun/getData', (c) => helper(c, 'quickrun/getData', { source: 'json' }));
   app.post('/quickrun/downloadFile', (c) => helper(c, 'quickrun/downloadFile', { source: 'json' }));
+  app.post('/quickrun/uploadFile', (c) => helper(c, 'quickrun/uploadFile', { source: 'json' }));
   app.post('/quickrun/getSchema', (c) => helper(c, 'quickrun/getSchema', { source: 'json' }));
   app.post('/quickrun/getHistory', (c) => helper(c, 'quickrun/getHistory', { source: 'json' }));
   app.post('/quickrun/retryInstance', (c) => helper(c, 'quickrun/retryInstance', { source: 'json' }));

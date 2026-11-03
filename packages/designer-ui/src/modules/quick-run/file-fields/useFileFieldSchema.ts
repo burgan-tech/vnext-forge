@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { useMasterStorageFieldPaths } from '../hooks/useMasterStorageFieldPaths';
+import { useMasterStorageFields } from '../hooks/useMasterStorageFields';
 import { useQuickRunStore } from '../store/quickRunStore';
 import { registerFileUploadField } from './FileUploadField';
 import { markFileFields, stripFileFieldValues } from './markFileFields';
@@ -19,14 +19,14 @@ export function useFileFieldSchema<T>(schema: T): {
   registerFileUploadField();
   const domain = useQuickRunStore((s) => s.domain);
   const workflowKey = useQuickRunStore((s) => s.workflowKey);
-  const masterPaths = useMasterStorageFieldPaths(workflowKey, domain || undefined);
+  const { paths: masterPaths, transports } = useMasterStorageFields(workflowKey, domain || undefined);
   return useMemo(() => {
-    const marked = markFileFields(schema, masterPaths);
+    const marked = markFileFields(schema, masterPaths, transports);
     return {
       schema: marked,
       hasFileFields: marked !== schema,
       withoutFileValues: (instance: unknown, forSchema?: unknown) =>
-        stripFileFieldValues(instance, forSchema === undefined ? marked : markFileFields(forSchema, masterPaths)),
+        stripFileFieldValues(instance, forSchema === undefined ? marked : markFileFields(forSchema, masterPaths, transports)),
     };
-  }, [schema, masterPaths]);
+  }, [schema, masterPaths, transports]);
 }

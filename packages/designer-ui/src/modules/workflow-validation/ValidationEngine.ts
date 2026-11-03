@@ -2,7 +2,12 @@ import {
   ERROR_CODES,
   VnextForgeError,
 } from '@vnext-forge-studio/app-contracts';
-import { availableInStateKeys, historyNoneIssues } from '@vnext-forge-studio/vnext-types';
+import {
+  availableInStateKeys,
+  historyNoneIssues,
+  rowSecurityIssues,
+  transitionPriorityIssues,
+} from '@vnext-forge-studio/vnext-types';
 import { ALL_ENABLED, hasFeature, type SchemaCapabilities } from '../schema-capabilities/SchemaCapabilities';
 import type { ValidationIssue } from './WorkflowValidationTypes';
 import { runtimeSyncFindings } from './runtimeSyncRules';
@@ -402,6 +407,30 @@ export function validateWorkflow(
       rule: issue.code,
       ...(issue.stateKey ? { nodeId: issue.stateKey } : {}),
       ...(state && transition ? { edgeId: `${state.key}->${transition.target}::${transition.key}` } : {}),
+    });
+  }
+
+  // Runtime 0.0.102 publish checks: automatic transition priority and row security.
+  for (const issue of transitionPriorityIssues(workflow)) {
+    const state = issue.stateKey ? workflow.attributes?.states?.find((s) => s.key === issue.stateKey) : undefined;
+    const transition = issue.transitionKey ? state?.transitions?.find((t) => t.key === issue.transitionKey) : undefined;
+    results.push({
+      id: makeId(),
+      severity: issue.severity,
+      message: issue.message,
+      rule: issue.code,
+      ...(issue.stateKey ? { nodeId: issue.stateKey } : {}),
+      ...(state && transition ? { edgeId: `${state.key}->${transition.target}::${transition.key}` } : {}),
+    });
+  }
+  for (const issue of rowSecurityIssues(workflow)) {
+    results.push({
+      id: makeId(),
+      severity: issue.severity,
+      message: `${issue.code}: ${issue.message}`,
+      rule: issue.code,
+      path: issue.ruleIndex !== undefined ? `attributes.rowSecurity.rules[${issue.ruleIndex}]` : 'attributes.rowSecurity',
+      ...(issue.stateKey ? { nodeId: issue.stateKey } : {}),
     });
   }
 

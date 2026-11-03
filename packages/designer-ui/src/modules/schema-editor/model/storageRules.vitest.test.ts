@@ -49,3 +49,23 @@ describe('storageIssues', () => {
     expect(storageIssues(json, '/properties/up').some((i) => i.includes('never carries content'))).toBe(true);
   });
 });
+
+describe('storageIssues — transport (runtime 0.0.102)', () => {
+  const withStorage = (storage: Record<string, unknown>) =>
+    doc({ type: 'object', properties: { doc: { ...fileHandleShape(), 'x-storage': storage } } });
+
+  it('accepts inline, stream and any', () => {
+    for (const transport of ['inline', 'stream', 'any']) {
+      expect(storageIssues(withStorage({ binding: 'b', transport }), '/properties/doc')).toEqual([]);
+    }
+  });
+
+  it('refuses another transport and unknown members', () => {
+    expect(storageIssues(withStorage({ binding: 'b', transport: 'chunked' }), '/properties/doc')).toEqual([
+      'x-storage transport must be inline, stream or any.',
+    ]);
+    expect(storageIssues(withStorage({ binding: 'b', maxBytes: 1 }), '/properties/doc')).toEqual([
+      'x-storage only has binding and transport; remove maxBytes.',
+    ]);
+  });
+});

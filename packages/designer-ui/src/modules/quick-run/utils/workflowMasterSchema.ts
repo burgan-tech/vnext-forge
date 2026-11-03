@@ -3,7 +3,7 @@ import {
   readSchemaReference,
   type SchemaComponentLoaderDeps,
 } from '../../vnext-workspace/loadSchemaComponent';
-import { storageFieldPaths } from './fileFields';
+import { storageFieldPaths, storageFieldTransports, type StorageTransport } from './fileFields';
 import { collectMasterSchemaFields, isRecord, type MasterSchemaField } from './masterSchemaFields';
 
 export type MasterSchemaLoad =
@@ -63,11 +63,20 @@ export async function loadWorkflowMasterSchema(
   return { status: 'ready', schemaKey: master.schemaKey, fields };
 }
 
-/** Dotted paths of the master schema's `x-storage` file fields (`[]` when none or unreadable). */
-export async function loadWorkflowStorageFieldPaths(
+export interface WorkflowStorageFields {
+  /** Dotted paths of the master schema's `x-storage` file fields. */
+  paths: string[];
+  /** The non-`inline` transports among them (runtime 0.0.102). */
+  transports: Record<string, StorageTransport>;
+}
+
+/** The master schema's `x-storage` file fields (empty when none or unreadable). */
+export async function loadWorkflowStorageFields(
   workflowKey: string,
   deps: MasterSchemaLoaderDeps,
-): Promise<string[]> {
+): Promise<WorkflowStorageFields> {
   const master = await loadMasterSchemaRoot(workflowKey, deps);
-  return master.status === 'ready' ? storageFieldPaths(master.root) : [];
+  return master.status === 'ready'
+    ? { paths: storageFieldPaths(master.root), transports: storageFieldTransports(master.root) }
+    : { paths: [], transports: {} };
 }

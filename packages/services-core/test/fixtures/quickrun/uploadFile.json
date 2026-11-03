@@ -1,0 +1,20 @@
+{
+  "params": {
+    "domain": "core",
+    "workflowKey": "kyc",
+    "path": "documents[]",
+    "name": "scan.tiff",
+    "mimeType": "image/tiff",
+    "contentBase64": "SUkqAA=="
+  },
+  "result": {
+    "file": "6f1c2d3e-4b5a-6978-8a9b-0c1d2e3f4a5b",
+    "component": "vnext-blob-s3",
+    "path": "documents[]",
+    "name": "scan.tiff",
+    "mimeType": "image/tiff",
+    "size": 4,
+    "eTag": "c0ffee",
+    "expiresAt": "2026-11-03T13:00:00Z"
+  }
+}

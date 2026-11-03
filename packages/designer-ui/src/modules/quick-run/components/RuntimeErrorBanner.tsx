@@ -153,7 +153,7 @@ const RUNTIME_ERROR_HINTS: Readonly<Record<string, string>> = {
     'A history: none flow stopped at a state that is not Finish. Every state of a one-shot flow must move on automatically to a Finish state.',
   'Instance:100047': 'The file store (blob binding) is unavailable or the stored object is missing. Check the binding and retry.',
   'Instance:100048':
-    'Invalid file reference: send content for a new file or the stored handle / { file } to keep one — not both, and no reference on start.',
+    'Invalid file reference: send content for a new file or the stored handle / { file } to keep one — not both, and no reference on start. A transport: stream field refuses inline content; upload the file first and send { file } with the upload ticket (single-use, bound to its flow and path, valid until expiresAt).',
   'Instance:100049': 'The file is not in this instance’s data. Call the file function on the instance in the handle’s owner.',
   'Instance:100050': 'The schema for the file field is unavailable. Check that the workflow’s master schema is published.',
 };

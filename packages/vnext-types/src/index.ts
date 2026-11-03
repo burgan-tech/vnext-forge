@@ -31,3 +31,5 @@ export * from './utils/editor-tab-presentation';
 export * from './utils/view-display';
 export * from './utils/solution-file-name';
 export * from './utils/history-mode';
+export * from './utils/transition-priority';
+export * from './utils/row-security';

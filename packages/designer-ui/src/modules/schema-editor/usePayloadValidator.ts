@@ -14,6 +14,24 @@ export type PayloadValidationState =
   | { status: 'schema-error'; message: string }
   | { status: 'invalid'; errors: AjvValidationError[] };
 
+/** Every `x-*` keyword used anywhere in a schema (vnext vocabulary and annotations). */
+export function vocabularyKeywords(schema: unknown): string[] {
+  const found = new Set<string>();
+  const walk = (node: unknown): void => {
+    if (Array.isArray(node)) {
+      node.forEach(walk);
+      return;
+    }
+    if (!node || typeof node !== 'object') return;
+    for (const [key, value] of Object.entries(node)) {
+      if (key.startsWith('x-')) found.add(key);
+      walk(value);
+    }
+  };
+  walk(schema);
+  return [...found];
+}
+
 export function usePayloadValidator(schema: Record<string, unknown>) {
   const [state, setState] = useState<PayloadValidationState>({ status: 'idle' });
 
@@ -22,6 +40,9 @@ export function usePayloadValidator(schema: Record<string, unknown>) {
   const compiledValidator = useMemo(() => {
     const ajv = new Ajv({ allErrors: true });
     try {
+      // The runtime evaluates vnext vocabulary keywords (`x-storage`, `x-roles`, …)
+      // as annotations; strict Ajv would refuse to compile the schema over them.
+      for (const keyword of vocabularyKeywords(schema)) ajv.addKeyword(keyword);
       return { validator: ajv.compile(schema), error: null };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);

@@ -9,13 +9,19 @@
  * - the node is `type: "object"`;
  * - the node describes the stored handle, so it must not declare `content`
  *   under `properties` or `required`;
- * - `binding` is a non-empty string (the only member).
+ * - `binding` is a non-empty string;
+ * - `transport`, when present, is `inline`, `stream` or `any` (runtime 0.0.102);
+ *   no other member.
  *
  * The package validates only the shape (master role); placement is a publish
  * error at the runtime, which is why Forge checks it here.
  */
 import { parsePointer, type JsonPointer } from './jsonPointer';
 import { getNodeAt, getSchemaRoot, type SchemaNode } from './schemaNode';
+
+export type StorageTransport = 'inline' | 'stream' | 'any';
+
+export const STORAGE_TRANSPORTS: readonly StorageTransport[] = ['inline', 'stream', 'any'];
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -74,6 +80,13 @@ export function storageIssues(componentJson: Record<string, unknown> | null | un
   }
   if (!isRecord(storage) || typeof storage.binding !== 'string' || storage.binding.trim() === '') {
     issues.push('x-storage needs a binding: the blob storage component the runtime writes to.');
+  }
+  if (isRecord(storage)) {
+    if (storage.transport !== undefined && !STORAGE_TRANSPORTS.includes(storage.transport as StorageTransport)) {
+      issues.push('x-storage transport must be inline, stream or any.');
+    }
+    const unknown = Object.keys(storage).filter((key) => key !== 'binding' && key !== 'transport');
+    if (unknown.length > 0) issues.push(`x-storage only has binding and transport; remove ${unknown.join(', ')}.`);
   }
   return issues;
 }

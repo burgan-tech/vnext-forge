@@ -8,7 +8,117 @@ interface DiagnosticMarker {
   startColumn: number;
   endColumn: number;
   message: string;
-  severity: 'warning' | 'info';
+  severity: 'error' | 'warning' | 'info';
+}
+
+/**
+ * Members and types the runtime's script sandbox refuses at compile time
+ * (`BannedApiAnalyzer`, runtime 0.0.102, docs `custom-script-helpers.md`).
+ * The runtime compile error reads `banned member '<member>'`; matching here is
+ * textual, so the reflection names (which could belong to a user type) are
+ * warnings and the unambiguous ones errors.
+ */
+const SANDBOX_RULES: { pattern: RegExp; member: (m: RegExpExecArray) => string; severity: 'error' | 'warning'; why: string }[] = [
+  {
+    pattern: /(?:(?<![\w.])|(?<=\bSystem\.IO\.))(File|FileInfo|Directory|DirectoryInfo|DriveInfo|Path|FileStream|UnmanagedMemoryStream)\s*[.(]/g,
+    member: (m) => `System.IO.${m[1]}`,
+    severity: 'error',
+    why: 'scripts have no file system; process bytes with MemoryStream, GetFileAsync and PutFileAsync',
+  },
+  {
+    pattern: /new\s+(StreamReader|StreamWriter)\s*\(\s*\$?@?"/g,
+    member: (m) => `${m[1]}(string path)`,
+    severity: 'error',
+    why: 'opens a file by path; wrap a Stream instead',
+  },
+  {
+    pattern: /(?:(?<![\w.])|(?<=\bSystem\.))Activator\s*\.\s*(?!CreateInstance\s*<)(\w+)/g,
+    member: (m) => `Activator.${m[1]}`,
+    severity: 'error',
+    why: 'only Activator.CreateInstance<T>() is allowed',
+  },
+  {
+    pattern: /(?:(?<![\w.])|(?<=\bSystem\.))Type\s*\.\s*(GetType|GetTypeFromProgID|GetTypeFromCLSID)\s*\(/g,
+    member: (m) => `Type.${m[1]}`,
+    severity: 'error',
+    why: 'resolves a type by name',
+  },
+  {
+    pattern: /(?:(?<![\w.])|(?<=\bSystem\.))Environment\s*\.\s*(Exit|FailFast|SetEnvironmentVariable)\s*\(/g,
+    member: (m) => `Environment.${m[1]}`,
+    severity: 'error',
+    why: 'terminates the host or changes its environment',
+  },
+  {
+    pattern: /\.\s*(GetMethods?|GetConstructors?|GetMembers?|GetFields?|GetEvents?|FindMembers|GetDefaultMembers|InvokeMember)\s*\(|\.\s*(TypeInitializer)\b/g,
+    member: (m) => `Type.${m[1] ?? m[2]}`,
+    severity: 'warning',
+    why: 'reflection objects are banned on System.Type',
+  },
+];
+
+/**
+ * Blanks out comments and the contents of string/char literals (quote
+ * delimiters stay) with spaces, keeping newlines, so offsets still map to the
+ * original lines. Handles `//`, block comments, regular, verbatim (`@"`, `""`
+ * escape) and interpolated strings; interpolation holes are blanked too.
+ */
+export function maskNonCode(code: string): string {
+  const out = code.split('');
+  const blank = (from: number, to: number) => {
+    for (let k = from; k < to; k++) if (out[k] !== '\n') out[k] = ' ';
+  };
+  let i = 0;
+  while (i < code.length) {
+    const c = code[i];
+    if (c === '/' && code[i + 1] === '/') {
+      const end = code.indexOf('\n', i);
+      const stop = end < 0 ? code.length : end;
+      blank(i, stop);
+      i = stop;
+    } else if (c === '/' && code[i + 1] === '*') {
+      const end = code.indexOf('*/', i + 2);
+      const stop = end < 0 ? code.length : end + 2;
+      blank(i, stop);
+      i = stop;
+    } else if (c === '"' || c === "'") {
+      const verbatim = c === '"' && /@\$?$|\$@$/.test(code.slice(Math.max(0, i - 2), i));
+      let j = i + 1;
+      while (j < code.length) {
+        if (verbatim && code[j] === '"' && code[j + 1] === '"') j += 2;
+        else if (!verbatim && code[j] === '\\') j += 2;
+        else if (code[j] === c || (!verbatim && code[j] === '\n')) break;
+        else j++;
+      }
+      blank(i + 1, Math.min(j, code.length));
+      i = j + 1;
+    } else {
+      i++;
+    }
+  }
+  return out.join('');
+}
+
+/** Sandbox (banned API) markers for one script; comments and string contents are skipped. */
+export function sandboxDiagnostics(code: string): DiagnosticMarker[] {
+  const markers: DiagnosticMarker[] = [];
+  maskNonCode(code).split('\n').forEach((source, index) => {
+    for (const rule of SANDBOX_RULES) {
+      rule.pattern.lastIndex = 0;
+      let match: RegExpExecArray | null;
+      while ((match = rule.pattern.exec(source)) !== null) {
+        markers.push({
+          startLineNumber: index + 1,
+          endLineNumber: index + 1,
+          startColumn: match.index + 1,
+          endColumn: match.index + match[0].length + 1,
+          message: `banned member '${rule.member(match)}': ${rule.why} (the runtime refuses to compile this script).`,
+          severity: rule.severity,
+        });
+      }
+    }
+  });
+  return markers;
 }
 
 /**
@@ -22,7 +132,7 @@ export function validateCsxScript(
   if (!code || code.trim().length === 0) return [];
 
   const lines = code.split('\n');
-  const markers: DiagnosticMarker[] = [];
+  const markers: DiagnosticMarker[] = sandboxDiagnostics(code);
 
   // ── Rule 1: Condition/Rule missing return true/false ──
   if (templateType === 'condition') {
@@ -157,9 +267,11 @@ export function applyDiagnostics(monaco: any, model: any, code: string, template
     startColumn: m.startColumn,
     endColumn: m.endColumn,
     message: m.message,
-    severity: m.severity === 'warning'
-      ? monaco.MarkerSeverity.Warning
-      : monaco.MarkerSeverity.Info,
+    severity: m.severity === 'error'
+      ? monaco.MarkerSeverity.Error
+      : m.severity === 'warning'
+        ? monaco.MarkerSeverity.Warning
+        : monaco.MarkerSeverity.Info,
   }));
 
   monaco.editor.setModelMarkers(model, 'csx-lint', monacoMarkers);

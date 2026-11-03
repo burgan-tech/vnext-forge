@@ -209,6 +209,36 @@ export async function downloadFile(params: DownloadFileParams): Promise<ApiRespo
   return callApi({ method: 'quickrun/downloadFile', params });
 }
 
+export interface UploadFileParams {
+  domain: string;
+  workflowKey: string;
+  /** Field path as the schema folds it: `passport`, `files[]`, `documents[].doc`. */
+  path: string;
+  name: string;
+  version?: string;
+  mimeType?: string;
+  contentBase64: string;
+  headers?: Record<string, string>;
+  runtimeUrl?: string;
+}
+
+/** Single-use upload ticket; the body then carries `{ file }` at the same path before `expiresAt`. */
+export interface UploadTicket {
+  file: string;
+  component?: string;
+  path?: string;
+  name?: string;
+  mimeType?: string;
+  size?: number;
+  eTag?: string;
+  expiresAt?: string;
+}
+
+/** Streamed upload for an `x-storage` field with `transport: stream | any` (runtime 0.0.102). */
+export async function uploadFile(params: UploadFileParams): Promise<ApiResponse<UploadTicket>> {
+  return callApi({ method: 'quickrun/uploadFile', params });
+}
+
 export async function getSchema(params: GetSchemaParams): Promise<ApiResponse<SchemaResponse>> {
   return callApi({ method: 'quickrun/getSchema', params });
 }

@@ -503,6 +503,44 @@ export const quickrunDownloadFileResult = z.object({
   eTag: z.string().optional(),
 })
 
+// ── Upload File (streamed x-storage transport) ───────────────────────────────
+
+/** Runtime default `FileStorage:Upload:MaxBytes` (64 MiB); the runtime answers 413 above its own limit. */
+export const QUICKRUN_UPLOAD_MAX_BYTES = 64 * 1024 * 1024
+
+/**
+ * Uploads one file for an `x-storage` field whose `transport` is `stream` or
+ * `any` (runtime 0.0.102: `POST /{domain}/workflows/{flow}/files?path=&name=`).
+ * The answer is a single-use ticket; the start / transition body then carries
+ * `{ "file": ticket.file }` at the same path before `expiresAt`.
+ */
+export const quickrunUploadFileParams = z.object({
+  ...workflowIdentifier,
+  /** Field path as the schema folds it: `passport`, `customer.tax`, `files[]`, `documents[].doc`. */
+  path: z.string().min(1),
+  name: z.string().min(1),
+  /** Flow version the ticket is bound to; absent = the runtime's default version. */
+  version: z.string().optional(),
+  mimeType: z.string().optional(),
+  /** File bytes, base64-encoded (the RPC transports are JSON). */
+  contentBase64: z.string().max(Math.ceil((QUICKRUN_UPLOAD_MAX_BYTES * 4) / 3) + 4),
+  headers: headersSchema,
+  runtimeUrl: z.string().optional(),
+})
+
+export const quickrunUploadFileResult = z
+  .object({
+    file: z.string().min(1),
+    component: z.string().optional(),
+    path: z.string().optional(),
+    name: z.string().optional(),
+    mimeType: z.string().optional(),
+    size: z.number().int().nonnegative().optional(),
+    eTag: z.string().optional(),
+    expiresAt: z.string().optional(),
+  })
+  .passthrough()
+
 // ── Get Schema ───────────────────────────────────────────────────────────────
 
 export const quickrunGetSchemaParams = z.object({

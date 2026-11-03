@@ -86,6 +86,8 @@ interface WorkflowTransition {
   to?: string;
   triggerType?: number;
   triggerKind?: number;
+  /** Automatic transition evaluation priority (runtime 0.0.102); absent = 100. */
+  priority?: number;
   // vnext uses "labels" (plural)
   labels?: Array<{ language: string; label: string }>;
   label?: Array<{ language: string; label: string }>;
@@ -269,6 +271,7 @@ export function workflowToReactFlow(
               transitionKey: t.key,
               triggerType: t.triggerType || 0,
               triggerKind: t.triggerKind || 0,
+              ...(typeof t.priority === 'number' ? { priority: t.priority } : {}),
               hasRule: Boolean((t as { rule?: unknown }).rule),
               isSelfLoop: true,
               ...(isSelfKeyword ? { isSelfKeyword: true } : {}),
@@ -285,6 +288,7 @@ export function workflowToReactFlow(
               transitionKey: t.key,
               triggerType: t.triggerType || 0,
               triggerKind: t.triggerKind || 0,
+              ...(typeof t.priority === 'number' ? { priority: t.priority } : {}),
               hasRule: Boolean((t as { rule?: unknown }).rule),
             },
           });

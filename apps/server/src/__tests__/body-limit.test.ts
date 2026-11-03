@@ -19,11 +19,29 @@ function buildApp() {
     .use('*', traceIdMiddleware)
     .use('*', bodyLimitMiddleware)
     .post('/echo', async (c) => ok(c, { received: true }))
+    .post('/api/v1/quickrun/uploadFile', async (c) => ok(c, { received: true }))
   app.onError(errorHandler)
   return app
 }
 
 describe('bodyLimitMiddleware', () => {
+  it('gives the file-upload route its own, larger limit', async () => {
+    const app = buildApp()
+    const tenMiB = String(10 * 1024 * 1024)
+    const upload = await app.request('/api/v1/quickrun/uploadFile', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': tenMiB },
+      body: '{}',
+    })
+    expect(upload.status).toBe(200)
+    const other = await app.request('/echo', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Content-Length': tenMiB },
+      body: '{}',
+    })
+    expect(other.status).toBe(413)
+  })
+
   it('accepts a small payload', async () => {
     const app = buildApp()
     const res = await app.request('/echo', {

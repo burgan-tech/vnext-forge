@@ -13,7 +13,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-import { historyNoneIssues } from '@vnext-forge-studio/vnext-types';
+import { historyNoneIssues, rowSecurityIssues, transitionPriorityIssues } from '@vnext-forge-studio/vnext-types';
 
 import { computedIssues } from '../modules/schema-editor/model/computedRules';
 import { fieldProtectionIssues } from '../modules/schema-editor/model/fieldProtection';
@@ -87,6 +87,10 @@ describe.skipIf(!ROOT)('runtime-accepted components (E2E_EXAMPLE_ROOT)', () => {
       const mode = ((json.attributes as Node | undefined)?.history as string | undefined) ?? 'full';
       seen[`workflow:${mode}`] = (seen[`workflow:${mode}`] ?? 0) + 1;
       for (const issue of historyNoneIssues(json)) findings.push(`${String(json.key)}: ${issue.code} ${issue.message}`);
+      // Runtime 0.0.102: only errors are publish rejections; warnings are log-only there too.
+      for (const issue of [...transitionPriorityIssues(json), ...rowSecurityIssues(json)]) {
+        if (issue.severity === 'error') findings.push(`${String(json.key)}: ${issue.code} ${issue.message}`);
+      }
     }
 
     console.log(`[e2e] checked ${JSON.stringify(seen)}`);

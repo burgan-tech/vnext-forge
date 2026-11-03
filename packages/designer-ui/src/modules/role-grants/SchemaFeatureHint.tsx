@@ -9,6 +9,13 @@ export const SCHEMA_0_0_55 = '0.0.55';
 export const SCHEMA_0_0_56 = '0.0.56';
 
 /**
+ * Minimum vnext-schema release for the runtime 0.0.102 constructs: workflow
+ * `attributes.rowSecurity`, automatic transition `priority` and the
+ * `x-storage` `transport` member.
+ */
+export const SCHEMA_0_0_58 = '0.0.58';
+
+/**
  * Explains why a control is disabled: the project's pinned vnext-schema
  * predates the construct.
  */

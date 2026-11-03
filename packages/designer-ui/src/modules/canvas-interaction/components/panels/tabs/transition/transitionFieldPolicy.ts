@@ -28,7 +28,8 @@ export type TransitionFieldKey =
   | 'from'
   | '_comment'
   | 'annotations'
-  | 'executionType';
+  | 'executionType'
+  | 'priority';
 
 export interface FieldPolicy {
   visible: boolean;
@@ -80,6 +81,7 @@ function stateTransitionPolicy(
     // Runtime 0.0.99: per-transition S/A. Automatic transitions always run
     // inline and ignore it, so it is not offered there.
     executionType: triggerType === TriggerType.Automatic ? HIDDEN : VISIBLE_OPTIONAL,
+    priority: HIDDEN,
   };
 
   switch (triggerType) {
@@ -95,6 +97,8 @@ function stateTransitionPolicy(
         ...base,
         triggerKind: isAutoDefault ? LOCKED_REQUIRED : VISIBLE_OPTIONAL,
         rule: isAutoDefault ? VISIBLE_OPTIONAL : VISIBLE_REQUIRED,
+        // Runtime 0.0.102: the DefaultAutoTransition is always evaluated last.
+        priority: isAutoDefault ? HIDDEN : VISIBLE_OPTIONAL,
       };
     case TriggerType.Scheduled:
       return {
@@ -118,7 +122,8 @@ function sharedTransitionPolicy(
   const statePolicy = stateTransitionPolicy(triggerType, triggerKind);
   // Absent, null or empty `availableIn` means every state, for every trigger
   // type (vnext-schema master) — optional on Manual, Scheduled and Event alike.
-  return { ...statePolicy, availableIn: VISIBLE_OPTIONAL };
+  // `priority` is state-level only; the runtime rejects it on a shared one.
+  return { ...statePolicy, availableIn: VISIBLE_OPTIONAL, priority: HIDDEN };
 }
 
 function manualOnlyPolicy(
@@ -154,6 +159,7 @@ function manualOnlyPolicy(
     annotations: VISIBLE_OPTIONAL,
     // The schema has no executionType on cancel / exit / updateData.
     executionType: HIDDEN,
+    priority: HIDDEN,
   };
 }
 
@@ -181,6 +187,7 @@ function startTransitionPolicy(): TransitionFieldPolicyMap {
     // `annotations`; existing values are left in the JSON untouched.
     annotations: HIDDEN,
     executionType: VISIBLE_OPTIONAL,
+    priority: HIDDEN,
   };
 }
 

@@ -13,8 +13,11 @@ import { config } from '../config/config.js'
  * those with its own per-read budget but a future iteration could stream
  * with a hard byte counter.
  */
+/** Routes that carry a file inside the JSON body and get `maxUploadBodyBytes` instead. */
+const UPLOAD_ROUTES = new Set(['/api/v1/quickrun/uploadFile'])
+
 export const bodyLimitMiddleware: MiddlewareHandler = async (c, next) => {
-  const limit = config.maxRequestBodyBytes
+  const limit = UPLOAD_ROUTES.has(c.req.path) ? config.maxUploadBodyBytes : config.maxRequestBodyBytes
   const header = c.req.header('content-length')
   if (header) {
     const declared = Number.parseInt(header, 10)

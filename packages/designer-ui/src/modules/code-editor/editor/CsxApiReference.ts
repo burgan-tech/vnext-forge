@@ -112,6 +112,23 @@ export const CSX_API_REFERENCE: ApiSection[] = [
     ],
   },
   {
+    title: 'Files (x-storage)',
+    entries: [
+      { name: 'GetFileAsync', signature: '(string domain, string flow, string instance, string file)', returnType: 'Task<ScriptFile>', description: 'Reads a stored x-storage file of an instance; the bytes are verified against its eTag.', insertText: 'await GetFileAsync(context.Runtime.Domain, context.Instance.Flow, context.Instance.Id.ToString(), $1)' },
+      { name: 'ScriptFile.OpenRead', signature: '()', returnType: 'Stream', description: 'A new read-only, seekable MemoryStream over the verified bytes on every call (runtime 0.0.102).', insertText: 'source.OpenRead()' },
+      { name: 'PutFileAsync', signature: '(string domain, string flow, string instance, string component, byte[] | Stream content, string? name, string? mimeType)', returnType: 'Task<ScriptStoredFile>', description: 'Stores bytes in an x-storage binding and returns the persisted handle; put it at an x-storage path of the output to keep it (runtime 0.0.102).', insertText: 'await PutFileAsync(context.Runtime.Domain, context.Instance.Flow, context.Instance.Id.ToString(), "$1", $2, "$3", "$4")' },
+      { name: 'FileObjectKey', signature: '(string file)', returnType: 'string', description: 'Store object key of a stored file, for a DaprBinding task that reads, lists or deletes it (runtime 0.0.102).', insertText: 'FileObjectKey($1)' },
+    ],
+  },
+  {
+    title: 'DaprBindingTask',
+    entries: [
+      { name: 'SetOperation', signature: '(string operation)', returnType: 'void', description: 'Sets the binding operation (create, get, list, delete) when the definition does not fix it.', insertText: 'bindingTask.SetOperation("$1");' },
+      { name: 'SetData', signature: '(dynamic data)', returnType: 'void', description: 'Sets the binding request data.', insertText: 'bindingTask.SetData($1);' },
+      { name: 'SetMetadata', signature: '(Dictionary<string, string> metadata)', returnType: 'void', description: 'Sets per-call binding metadata, e.g. the object key.', insertText: 'bindingTask.SetMetadata(new() { ["key"] = $1 });' },
+    ],
+  },
+  {
     title: 'TimerSchedule',
     entries: [
       { name: 'FromDuration', signature: '(TimeSpan duration)', returnType: 'TimerSchedule', description: 'Creates a relative delay timer.', insertText: 'TimerSchedule.FromDuration(TimeSpan.FromMinutes($1))' },
