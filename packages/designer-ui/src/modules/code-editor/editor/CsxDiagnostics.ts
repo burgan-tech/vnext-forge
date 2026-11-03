@@ -20,7 +20,7 @@ interface DiagnosticMarker {
  */
 const SANDBOX_RULES: { pattern: RegExp; member: (m: RegExpExecArray) => string; severity: 'error' | 'warning'; why: string }[] = [
   {
-    pattern: /(?<![\w.])(File|FileInfo|Directory|DirectoryInfo|DriveInfo|Path|FileStream|UnmanagedMemoryStream)\s*[.(]/g,
+    pattern: /(?:(?<![\w.])|(?<=\bSystem\.IO\.))(File|FileInfo|Directory|DirectoryInfo|DriveInfo|Path|FileStream|UnmanagedMemoryStream)\s*[.(]/g,
     member: (m) => `System.IO.${m[1]}`,
     severity: 'error',
     why: 'scripts have no file system; process bytes with MemoryStream, GetFileAsync and PutFileAsync',
@@ -32,19 +32,19 @@ const SANDBOX_RULES: { pattern: RegExp; member: (m: RegExpExecArray) => string; 
     why: 'opens a file by path; wrap a Stream instead',
   },
   {
-    pattern: /(?<![\w.])Activator\s*\.\s*(?!CreateInstance\s*<)(\w+)/g,
+    pattern: /(?:(?<![\w.])|(?<=\bSystem\.))Activator\s*\.\s*(?!CreateInstance\s*<)(\w+)/g,
     member: (m) => `Activator.${m[1]}`,
     severity: 'error',
     why: 'only Activator.CreateInstance<T>() is allowed',
   },
   {
-    pattern: /(?<![\w.])Type\s*\.\s*(GetType|GetTypeFromProgID|GetTypeFromCLSID)\s*\(/g,
+    pattern: /(?:(?<![\w.])|(?<=\bSystem\.))Type\s*\.\s*(GetType|GetTypeFromProgID|GetTypeFromCLSID)\s*\(/g,
     member: (m) => `Type.${m[1]}`,
     severity: 'error',
     why: 'resolves a type by name',
   },
   {
-    pattern: /(?<![\w.])Environment\s*\.\s*(Exit|FailFast|SetEnvironmentVariable)\s*\(/g,
+    pattern: /(?:(?<![\w.])|(?<=\bSystem\.))Environment\s*\.\s*(Exit|FailFast|SetEnvironmentVariable)\s*\(/g,
     member: (m) => `Environment.${m[1]}`,
     severity: 'error',
     why: 'terminates the host or changes its environment',
@@ -57,12 +57,52 @@ const SANDBOX_RULES: { pattern: RegExp; member: (m: RegExpExecArray) => string; 
   },
 ];
 
-/** Sandbox (banned API) markers for one script; comment lines are skipped. */
+/**
+ * Blanks out comments and the contents of string/char literals (quote
+ * delimiters stay) with spaces, keeping newlines, so offsets still map to the
+ * original lines. Handles `//`, block comments, regular, verbatim (`@"`, `""`
+ * escape) and interpolated strings; interpolation holes are blanked too.
+ */
+export function maskNonCode(code: string): string {
+  const out = code.split('');
+  const blank = (from: number, to: number) => {
+    for (let k = from; k < to; k++) if (out[k] !== '\n') out[k] = ' ';
+  };
+  let i = 0;
+  while (i < code.length) {
+    const c = code[i];
+    if (c === '/' && code[i + 1] === '/') {
+      const end = code.indexOf('\n', i);
+      const stop = end < 0 ? code.length : end;
+      blank(i, stop);
+      i = stop;
+    } else if (c === '/' && code[i + 1] === '*') {
+      const end = code.indexOf('*/', i + 2);
+      const stop = end < 0 ? code.length : end + 2;
+      blank(i, stop);
+      i = stop;
+    } else if (c === '"' || c === "'") {
+      const verbatim = c === '"' && /@\$?$|\$@$/.test(code.slice(Math.max(0, i - 2), i));
+      let j = i + 1;
+      while (j < code.length) {
+        if (verbatim && code[j] === '"' && code[j + 1] === '"') j += 2;
+        else if (!verbatim && code[j] === '\\') j += 2;
+        else if (code[j] === c || (!verbatim && code[j] === '\n')) break;
+        else j++;
+      }
+      blank(i + 1, Math.min(j, code.length));
+      i = j + 1;
+    } else {
+      i++;
+    }
+  }
+  return out.join('');
+}
+
+/** Sandbox (banned API) markers for one script; comments and string contents are skipped. */
 export function sandboxDiagnostics(code: string): DiagnosticMarker[] {
   const markers: DiagnosticMarker[] = [];
-  code.split('\n').forEach((line, index) => {
-    const commentAt = line.indexOf('//');
-    const source = commentAt >= 0 ? line.slice(0, commentAt) : line;
+  maskNonCode(code).split('\n').forEach((source, index) => {
     for (const rule of SANDBOX_RULES) {
       rule.pattern.lastIndex = 0;
       let match: RegExpExecArray | null;

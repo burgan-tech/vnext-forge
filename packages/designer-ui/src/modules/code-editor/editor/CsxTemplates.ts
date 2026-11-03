@@ -105,7 +105,7 @@ const INPUT_HANDLER_BODIES: Record<CsxTaskType, string> = {
         }
 
         // Configure the binding call when the task definition does not fix it
-        bindingTask.SetOperation("get");
+        // bindingTask.SetOperation("get");
         // bindingTask.SetMetadata(new() { ["key"] = FileObjectKey(handle.file) });
         // bindingTask.SetData(new { ... });
 

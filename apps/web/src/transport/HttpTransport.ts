@@ -80,10 +80,8 @@ export function createHttpTransport(options: HttpTransportOptions = {}): ApiTran
       }
 
       const controller = new AbortController();
-      const timeoutHandle = setTimeout(
-        () => controller.abort(),
-        Math.max(timeoutMs, FILE_TRANSFER_TIMEOUT_MS[method] ?? 0),
-      );
+      const effectiveTimeoutMs = Math.max(timeoutMs, FILE_TRANSFER_TIMEOUT_MS[method] ?? 0);
+      const timeoutHandle = setTimeout(() => controller.abort(), effectiveTimeoutMs);
 
       try {
         let response: Response;
@@ -98,7 +96,7 @@ export function createHttpTransport(options: HttpTransportOptions = {}): ApiTran
           if (cause instanceof DOMException && cause.name === 'AbortError') {
             return buildEnvelopeFailure(
               ERROR_CODES.RUNTIME_TIMEOUT,
-              `Request timed out after ${timeoutMs}ms (${method}).`,
+              `Request timed out after ${effectiveTimeoutMs}ms (${method}).`,
             ) as ApiResponse<T>;
           }
           return buildEnvelopeFailure(

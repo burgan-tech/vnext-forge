@@ -30,6 +30,15 @@ describe('sandboxDiagnostics (runtime 0.0.102 banned APIs)', () => {
   it('ignores comments and look-alike identifiers', () => {
     expect(sandboxDiagnostics('// File.ReadAllBytes("x")')).toEqual([]);
     expect(sandboxDiagnostics('var f = ScriptFile.Empty; var p = data.Path;')).toEqual([]);
+    expect(sandboxDiagnostics('/* File.ReadAllBytes("x");\n   Environment.Exit(1); */')).toEqual([]);
+    expect(sandboxDiagnostics('var s = "File.Delete(x)"; var v = @"Path.Combine(""a"")";')).toEqual([]);
+  });
+
+  it('checks code after a // inside a string and fully qualified names', () => {
+    expect(members('var u = "https://x"; File.Delete(u);')).toEqual([['error', "banned member 'System.IO.File'"]]);
+    expect(members('var b = System.IO.File.ReadAllBytes(p);')).toEqual([['error', "banned member 'System.IO.File'"]]);
+    expect(members('var c = System.IO.Path.Combine(a, b);')).toEqual([['error', "banned member 'System.IO.Path'"]]);
+    expect(members('System.Environment.Exit(1);')).toEqual([['error', "banned member 'Environment.Exit'"]]);
   });
 
   it('feeds validateCsxScript for every template type', () => {
