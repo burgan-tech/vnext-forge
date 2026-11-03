@@ -162,6 +162,25 @@ export function buildRuntimeProxyOutboundHeaders(params: {
   return headers
 }
 
+/**
+ * A media type for a raw upload body: `type/subtype`, RFC 7230 token
+ * characters only, no parameters and no whitespace or control characters, so
+ * nothing a caller sends can smuggle a header line. Anything else is sent as
+ * `application/octet-stream`.
+ */
+const SAFE_RAW_MEDIA_TYPE = /^[A-Za-z0-9!#$&^_.+-]{1,64}\/[A-Za-z0-9!#$&^_.+-]{1,64}$/
+
+export function resolveRawBodyContentType(mimeType: string | undefined): string {
+  return mimeType && SAFE_RAW_MEDIA_TYPE.test(mimeType) ? mimeType : 'application/octet-stream'
+}
+
+/** Raw request body for an internal call (a streamed `x-storage` upload). */
+export interface RuntimeProxyRawBody {
+  bytes: Uint8Array<ArrayBuffer>
+  /** The file's media type; validated by {@link resolveRawBodyContentType}. */
+  contentType: string | undefined
+}
+
 export const runtimeProxyParams = z.object({
   method: z.string().min(1),
   runtimePath: z.string().min(1),
@@ -192,13 +211,14 @@ export function createRuntimeProxyService(deps: RuntimeProxyServiceDeps) {
 
   /**
    * `binary: true` returns the body base64-encoded in `data` instead of as
-   * text, so non-text responses (files) survive the trip. Internal option —
-   * the `runtime/proxy` RPC stays text-only.
+   * text, so non-text responses (files) survive the trip. `rawBody` sends
+   * bytes with their own media type instead of `req.body` (streamed uploads).
+   * Both are internal options — the `runtime/proxy` RPC stays text-only.
    */
   async function proxy(
     req: z.infer<typeof runtimeProxyParams>,
     traceId?: string,
-    options: { binary?: boolean } = {},
+    options: { binary?: boolean; rawBody?: RuntimeProxyRawBody } = {},
   ): Promise<z.infer<typeof runtimeProxyResult>> {
     // Resolve allowlist fresh on each call so callback-based lists stay current.
     const rawAllowedUrls =
@@ -266,11 +286,14 @@ export function createRuntimeProxyService(deps: RuntimeProxyServiceDeps) {
         callerHeaders: req.headers,
         traceId,
       })
-      const init: { method: string; headers: Record<string, string>; body?: string } = {
+      const init: { method: string; headers: Record<string, string>; body?: string | Uint8Array<ArrayBuffer> } = {
         method,
         headers,
       }
-      if (method !== 'GET' && method !== 'HEAD' && req.body) {
+      if (options.rawBody && method !== 'GET' && method !== 'HEAD') {
+        headers['Content-Type'] = resolveRawBodyContentType(options.rawBody.contentType)
+        init.body = options.rawBody.bytes
+      } else if (method !== 'GET' && method !== 'HEAD' && req.body) {
         init.body = req.body
       }
       const response = await network.fetch(fullUrl, init)

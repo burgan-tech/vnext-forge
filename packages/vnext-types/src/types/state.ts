@@ -70,6 +70,13 @@ export interface Transition {
    */
   resourceLock?: ResourceLock;
   executionType?: ExecutionType;
+  /**
+   * Evaluation order among a state's automatic transitions: lower first,
+   * absent means {@link DEFAULT_AUTO_TRANSITION_PRIORITY}, ties keep
+   * declaration order. Only valid on a state-level automatic transition that
+   * is not the DefaultAutoTransition. Runtime 0.0.102.
+   */
+  priority?: number;
 }
 
 export interface SharedTransition extends Transition {

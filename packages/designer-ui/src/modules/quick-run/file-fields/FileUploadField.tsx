@@ -1,14 +1,19 @@
 import { useRef, useState, type DragEvent } from 'react';
 
 import { registerFieldExtension } from '../../schema-form';
+import { summarizeRuntimeError } from '../components/RuntimeErrorBanner';
+import type { UploadTicket } from '../QuickRunApi';
 import {
-  MAX_UPLOAD_BYTES,
+  chooseUploadRoute,
   fileToUploadValue,
   formatBytes,
   isFileHandle,
+  toSchemaPath,
   type FileUploadValue,
+  type StorageTransport,
 } from '../utils/fileFields';
-import { FILE_FIELD_MARKER } from './markFileFields';
+import { useStreamFileUploader } from './fileUploadContext';
+import { FILE_FIELD_MARKER, FILE_TRANSPORT_MARKER } from './markFileFields';
 
 function isUploadValue(value: unknown): value is FileUploadValue {
   return (
@@ -33,30 +38,65 @@ const buttonClass =
 
 /**
  * Picks a file for an `x-storage` field and sends it the way the runtime
- * expects: `{ name, mimeType, size, content }` with base64 content in the
- * request body. A stored handle (or `{ file }`) is kept as is until replaced;
- * clearing removes the field (the runtime then clears it).
+ * expects. `inline` (default): `{ name, mimeType, size, content }` with base64
+ * content in the request body. `stream` (runtime 0.0.102): the file is
+ * uploaded right away and the body carries `{ file }` with the ticket; `any`
+ * streams only what inline cannot carry. A stored handle (or `{ file }`) is
+ * kept as is until replaced; clearing removes the field (the runtime then
+ * clears it).
  */
-export function FileUploadField({ value, onChange }: { value: unknown; onChange: (next: unknown) => void }) {
+export function FileUploadField({
+  value,
+  onChange,
+  path,
+  transport = 'inline',
+}: {
+  value: unknown;
+  onChange: (next: unknown) => void;
+  /** Form path of the field (`list.0.doc`); the upload `path=` is its schema form. */
+  path?: string;
+  transport?: StorageTransport;
+}) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const uploader = useStreamFileUploader();
   const [error, setError] = useState<string | null>(null);
   const [reading, setReading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [ticket, setTicket] = useState<UploadTicket | null>(null);
 
   const pick = async (file: File | undefined) => {
     if (!file) return;
-    if (file.size > MAX_UPLOAD_BYTES) {
+    const route = chooseUploadRoute(transport, file.size);
+    if (route.route === 'too-large') {
       setError(
-        `${file.name} is ${formatBytes(file.size)}; the runtime accepts about ${formatBytes(MAX_UPLOAD_BYTES)} per request (base64 in a 10 MiB body).`,
+        transport === 'inline'
+          ? `${file.name} is ${formatBytes(file.size)}; the runtime accepts about ${formatBytes(route.limit)} per request (base64 in a 10 MiB body).`
+          : `${file.name} is ${formatBytes(file.size)}; streamed uploads stop at ${formatBytes(route.limit)} by default.`,
       );
+      return;
+    }
+    if (route.route === 'stream' && (!uploader || !path)) {
+      setError('Streamed upload is not available here; start or transition the instance from a QuickRun dialog.');
       return;
     }
     setError(null);
     setReading(true);
     try {
-      onChange(await fileToUploadValue(file));
+      if (route.route === 'inline') {
+        setTicket(null);
+        onChange(await fileToUploadValue(file));
+        return;
+      }
+      const result = await uploader!(toSchemaPath(path!), file);
+      if (!result.success) {
+        const summary = summarizeRuntimeError(result.error);
+        setError(`${summary.code ? `${summary.code}: ` : ''}${summary.summary}`);
+        return;
+      }
+      setTicket({ ...result.data, name: result.data.name ?? file.name, size: result.data.size ?? file.size });
+      onChange({ file: result.data.file });
     } catch {
-      setError(`Could not read ${file.name}.`);
+      setError(`Could not ${route.route === 'stream' ? 'upload' : 'read'} ${file.name}.`);
     } finally {
       setReading(false);
     }
@@ -92,7 +132,15 @@ export function FileUploadField({ value, onChange }: { value: unknown; onChange:
           event.target.value = '';
         }}
       />
-      {upload ? (
+      {ticket && kept === ticket.file ? (
+        <span>
+          <span className="font-mono">{ticket.name}</span>{' '}
+          <span className="text-[var(--vscode-descriptionForeground)]">
+            {formatBytes(ticket.size)} · uploaded
+            {ticket.expiresAt ? ` · send before ${new Date(ticket.expiresAt).toLocaleTimeString()}` : ''}
+          </span>
+        </span>
+      ) : upload ? (
         <span>
           <span className="font-mono">{upload.name}</span>{' '}
           <span className="text-[var(--vscode-descriptionForeground)]">
@@ -105,7 +153,8 @@ export function FileUploadField({ value, onChange }: { value: unknown; onChange:
         </span>
       ) : (
         <span className="text-[var(--vscode-descriptionForeground)]">
-          {reading ? 'Reading…' : 'Drop a file here or choose one.'}
+          {reading ? (transport === 'inline' ? 'Reading…' : 'Uploading…') : 'Drop a file here or choose one.'}
+          {transport !== 'inline' && !reading ? ` Streamed upload (${transport}).` : ''}
         </span>
       )}
       <span className="flex flex-wrap gap-1.5">
@@ -113,7 +162,13 @@ export function FileUploadField({ value, onChange }: { value: unknown; onChange:
           {upload || kept ? 'Replace…' : 'Choose file…'}
         </button>
         {upload || kept ? (
-          <button type="button" className={buttonClass} onClick={() => onChange(undefined)}>
+          <button
+            type="button"
+            className={buttonClass}
+            onClick={() => {
+              setTicket(null);
+              onChange(undefined);
+            }}>
             Clear
           </button>
         ) : null}
@@ -128,6 +183,16 @@ export function registerFileUploadField(): void {
   registerFieldExtension({
     id: 'quick-run/file-upload',
     match: (prop) => (prop as Record<string, unknown>)[FILE_FIELD_MARKER] === true,
-    render: ({ value, onChange }) => <FileUploadField value={value} onChange={onChange} />,
+    render: ({ prop, value, onChange, context }) => {
+      const transport = (prop as Record<string, unknown>)[FILE_TRANSPORT_MARKER];
+      return (
+        <FileUploadField
+          value={value}
+          onChange={onChange}
+          path={context.path}
+          transport={transport === 'stream' || transport === 'any' ? transport : 'inline'}
+        />
+      );
+    },
   });
 }

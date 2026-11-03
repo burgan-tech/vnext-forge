@@ -35,6 +35,7 @@ export function TransitionFields({ transition: t }: { transition: TransitionView
       {t.triggerKind != null && t.triggerKind !== 0 && (
         <InfoRow label="Trigger kind" value={getTriggerKindLabel(t.triggerKind)} />
       )}
+      {t.priority != null && <InfoRow label="Priority" value={String(t.priority)} />}
       {t.comment && <InfoRow label="Description" value={t.comment} />}
 
       {t.tasks && t.tasks.length > 0 && (

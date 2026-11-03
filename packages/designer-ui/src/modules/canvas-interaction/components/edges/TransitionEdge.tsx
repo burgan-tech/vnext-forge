@@ -32,6 +32,8 @@ interface TransitionEdgeData {
   transitionKey?: string;
   triggerType?: number;
   triggerKind?: number;
+  /** Declared automatic transition priority (runtime 0.0.102). */
+  priority?: number;
   isShared?: boolean;
   /**
    * Set on `availableIn` edges whose entry carries role grants. Those edges
@@ -620,6 +622,14 @@ export const TransitionEdge = memo(function TransitionEdge(props: EdgeProps) {
             {badge.label && (
               <span className={`ml-1 text-[8px] font-semibold uppercase ${badge.color} shrink-0`}>
                 {badge.label}
+              </span>
+            )}
+            {typeof d.priority === 'number' && (
+              <span
+                className="ml-1 shrink-0 rounded-full border border-border px-1 text-[8px] font-semibold tabular-nums text-trigger-auto"
+                title={`Priority ${d.priority}: lower values are evaluated first`}
+              >
+                P{d.priority}
               </span>
             )}
             {!isEditable && d.hasRule && (

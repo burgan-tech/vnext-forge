@@ -56,6 +56,13 @@ const ConfigSchema = z.object({
   /** Maximum HTTP request body size accepted by the RPC endpoint, in bytes. */
   maxRequestBodyBytes: z.coerce.number().int().positive().default(1_048_576), // 1 MiB
   /**
+   * Request body limit for the file-upload RPC (`quickrun/uploadFile`) only.
+   * The file travels base64 inside JSON, so the default leaves room for the
+   * runtime's 64 MiB `FileStorage:Upload:MaxBytes` (x 4/3) plus the envelope.
+   * Every other route keeps `maxRequestBodyBytes`.
+   */
+  maxUploadBodyBytes: z.coerce.number().int().positive().default(90_000_000),
+  /**
    * Allow-listed workspace roots for the filesystem jail. Every file /
    * project operation must canonicalize to a descendant of one of these
    * roots. Provide as a comma-separated env var.
@@ -130,6 +137,7 @@ function loadConfig(): AppConfig {
     runtimeAllowedBaseUrls: process.env.RUNTIME_ALLOWED_BASE_URLS,
     allowRuntimeUrlOverride: process.env.ALLOW_RUNTIME_URL_OVERRIDE,
     maxRequestBodyBytes: process.env.MAX_REQUEST_BODY_BYTES,
+    maxUploadBodyBytes: process.env.MAX_UPLOAD_BODY_BYTES,
     workspaceAllowedRoots: process.env.WORKSPACE_ALLOWED_ROOTS,
     corsAllowedOrigins: process.env.CORS_ALLOWED_ORIGINS,
     logLevel: process.env.LOG_LEVEL,

@@ -87,6 +87,7 @@ describe('method registry contract (R-b9 + R-a2)', () => {
         "quickrun/listInstances",
         "quickrun/retryInstance",
         "quickrun/startInstance",
+        "quickrun/uploadFile",
         "quickswitcher/buildIndex",
         "runtime/proxy",
         "sessions/clear",

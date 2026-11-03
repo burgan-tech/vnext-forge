@@ -443,6 +443,42 @@ describe('quickRunService.downloadFile (built-in file function)', () => {
   })
 })
 
+describe('quickRunService.uploadFile (streamed x-storage upload)', () => {
+  it('posts the raw bytes with the file media type and returns the ticket', async () => {
+    const ticket = { file: 't-1', path: 'files[]', name: 'scan.tiff', size: 4, eTag: 'e', expiresAt: '2026-11-03T13:00:00Z' }
+    const { service, proxy } = serviceWith({ status: 201, data: JSON.stringify(ticket) })
+    const result = await service.uploadFile({
+      domain: 'core',
+      workflowKey: 'kyc',
+      path: 'files[]',
+      name: 'scan.tiff',
+      version: '1.0.0',
+      mimeType: 'image/tiff',
+      contentBase64: Buffer.from('II*\0').toString('base64'),
+    })
+    expect(proxy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        method: 'POST',
+        runtimePath: '/api/v1/core/workflows/kyc/files',
+        query: { path: 'files[]', name: 'scan.tiff', version: '1.0.0' },
+      }),
+      undefined,
+      { rawBody: { bytes: Buffer.from('II*\0'), contentType: 'image/tiff' } },
+    )
+    expect(result).toEqual(ticket)
+  })
+
+  it('surfaces a refused upload (Instance:100048) with the body in details', async () => {
+    const { service } = serviceWith({
+      status: 400,
+      data: JSON.stringify({ error: { prefix: 'Instance', code: '100048', message: 'Inline transport.' } }),
+    })
+    await expect(
+      service.uploadFile({ domain: 'core', workflowKey: 'kyc', path: 'doc', name: 'a.pdf', contentBase64: '' }),
+    ).rejects.toMatchObject({ context: { details: { httpStatus: 400, error: { code: '100048' } } } })
+  })
+})
+
 describe('fileNameFromDisposition', () => {
   it('prefers filename* and falls back to filename', async () => {
     const { fileNameFromDisposition } = await import('../src/services/quickrun/quickrun.service.js')

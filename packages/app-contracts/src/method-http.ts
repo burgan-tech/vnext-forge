@@ -58,6 +58,7 @@ export type MethodId =
   | 'quickrun/getView'
   | 'quickrun/getData'
   | 'quickrun/downloadFile'
+  | 'quickrun/uploadFile'
   | 'quickrun/getSchema'
   | 'quickrun/getHistory'
   | 'quickrun/listInstances'
@@ -150,6 +151,7 @@ export const METHOD_HTTP_METADATA: Readonly<Record<MethodId, MethodHttpSpec>> = 
   'quickrun/getView': { verb: 'POST', paramSource: 'json' },
   'quickrun/getData': { verb: 'POST', paramSource: 'json' },
   'quickrun/downloadFile': { verb: 'POST', paramSource: 'json' },
+  'quickrun/uploadFile': { verb: 'POST', paramSource: 'json' },
   'quickrun/getSchema': { verb: 'POST', paramSource: 'json' },
   'quickrun/getHistory': { verb: 'POST', paramSource: 'json' },
   'quickrun/listInstances': { verb: 'POST', paramSource: 'json' },

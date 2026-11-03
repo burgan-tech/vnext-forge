@@ -1,4 +1,4 @@
-import { type MutableRefObject, useCallback, useEffect, useRef, useState } from 'react';
+import { type MutableRefObject, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { ResizableDialogShell } from '../../../ui/ResizableDialogShell';
 import {
@@ -16,6 +16,7 @@ import { useDefinedExecutionMode } from '../hooks/useDefinedExecutionMode';
 import { useQuickRunStore } from '../store/quickRunStore';
 import { ValidationErrorBlock } from './ValidationErrorBlock';
 import { useFileFieldSchema } from '../file-fields/useFileFieldSchema';
+import { createStreamFileUploader, FileUploadProvider } from '../file-fields/fileUploadContext';
 
 interface NewRunDialogProps {
   open: boolean;
@@ -87,6 +88,18 @@ export function NewRunDialog({
   // the JSON editor toggle.
   const [resolvedSchema, setResolvedSchema] = useState<JsonSchemaRoot | null>(null);
   // x-storage file fields get the QuickRun file widget.
+  // Streamed x-storage uploads (runtime 0.0.102) carry the same headers as the start request.
+  const streamUploader = useMemo(() => {
+    const headers: Record<string, string> = {};
+    for (const h of headerRows) if (h.name.trim()) headers[h.name.trim()] = h.value;
+    return createStreamFileUploader({
+      domain,
+      workflowKey,
+      version: version.trim() || undefined,
+      headers,
+      runtimeUrl: environmentUrl ?? undefined,
+    });
+  }, [domain, workflowKey, version, headerRows, environmentUrl]);
   const { schema: formSchema, withoutFileValues } = useFileFieldSchema(resolvedSchema);
   // Submit-time validation gate. Until the user presses Start Run we
   // only show errors for fields they have already touched (so a fresh
@@ -641,6 +654,7 @@ export function NewRunDialog({
               </div>
             ) : null}
 
+<FileUploadProvider value={streamUploader}>
             <SchemaForm
               schema={formSchema}
               value={attributes}
@@ -649,6 +663,7 @@ export function NewRunDialog({
               jsonEditorRows={8}
               showAllErrors={submitAttempted}
             />
+            </FileUploadProvider>
           </div>
 
           {savePresetMode ? (

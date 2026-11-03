@@ -36,9 +36,31 @@ const workflowSchema = () => installed.getSchema('workflow')!
 const schemaSchema = () => installed.getSchema('schema')!
 
 describe('bundled vnext-schema — workflow definition', () => {
-  it('is 0.0.56 or newer', () => {
+  it('is 0.0.58 or newer', () => {
     const [major, minor, patch] = installedVersion.split('-')[0].split('.').map(Number)
-    expect(major * 1e6 + minor * 1e3 + patch).toBeGreaterThanOrEqual(56)
+    expect(major * 1e6 + minor * 1e3 + patch).toBeGreaterThanOrEqual(58)
+  })
+
+  it('carries the runtime 0.0.102 rowSecurity and transition priority contracts', () => {
+    const doc = fixture('timeout-lab-root') as {
+      attributes: Record<string, unknown> & { states: { transitions?: Record<string, unknown>[] }[] }
+    }
+    doc.attributes.rowSecurity = {
+      rules: [
+        { roles: ['branch-staff'], filter: { attributes: { branchCode: { eq: '$.context.Headers.x-branch-code' } } } },
+        { roles: ['hq-auditor'] },
+      ],
+    }
+    const validate = compile(workflowSchema())
+    expect(validate(doc)).toBe(true)
+    doc.attributes.rowSecurity = { rules: [{ roles: [] }] }
+    expect(validate(doc)).toBe(false)
+    doc.attributes.rowSecurity = { rules: [{ roles: ['a'] }], extra: true }
+    expect(validate(doc)).toBe(false)
+    delete doc.attributes.rowSecurity
+
+    const definitions = workflowSchema().definitions as Record<string, { properties?: Record<string, unknown> }>
+    expect(JSON.stringify(definitions)).toContain('"priority":{"type":"integer","minimum":1')
   })
 
   it('carries the long-poll rule arm and availableIn entries', () => {
@@ -128,6 +150,16 @@ describe('bundled vnext-schema — schema definition', () => {
     expect(validate(withSchema('master', props))).toBe(true)
     expect(validate(withSchema('transition', props))).toBe(false)
     expect(validate(withSchema('component', props))).toBe(false)
+  })
+
+  it('accepts x-storage transport inline | stream | any and nothing else', () => {
+    const validate = compile(schemaSchema())
+    for (const transport of ['inline', 'stream', 'any']) {
+      const props = { doc: { type: 'object', 'x-storage': { binding: 'vnext-blob-local', transport } } }
+      expect(validate(withSchema('master', props))).toBe(true)
+    }
+    const bad = { doc: { type: 'object', 'x-storage': { binding: 'vnext-blob-local', transport: 'chunked' } } }
+    expect(validate(withSchema('master', bad))).toBe(false)
   })
 
   it('accepts x-context-source on input roles only', () => {

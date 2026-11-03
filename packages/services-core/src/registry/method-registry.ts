@@ -115,6 +115,8 @@ import {
   quickrunFireTransitionResult,
   quickrunDownloadFileParams,
   quickrunDownloadFileResult,
+  quickrunUploadFileParams,
+  quickrunUploadFileResult,
   quickrunGetDataParams,
   quickrunGetDataResult,
   quickrunGetHistoryParams,
@@ -695,6 +697,13 @@ export function buildMethodRegistry(): MethodRegistry {
       // x-storage file field bytes via the runtime's built-in `file` function.
       handler: async (params, { quickRunService }, traceId) =>
         quickRunService.downloadFile(params, traceId),
+    },
+    'quickrun/uploadFile': {
+      paramsSchema: quickrunUploadFileParams,
+      resultSchema: quickrunUploadFileResult,
+      // Streamed x-storage upload (transport stream | any, runtime 0.0.102).
+      handler: async (params, { quickRunService }, traceId) =>
+        quickRunService.uploadFile(params, traceId),
     },
     'quickrun/getSchema': {
       paramsSchema: quickrunGetSchemaParams,

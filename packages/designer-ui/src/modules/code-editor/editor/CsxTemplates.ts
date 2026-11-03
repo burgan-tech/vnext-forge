@@ -104,8 +104,9 @@ const INPUT_HANDLER_BODIES: Record<CsxTaskType, string> = {
             return new ScriptResponse();
         }
 
-        // Configure binding operation
-        // bindingTask.SetOperation("create");
+        // Configure the binding call when the task definition does not fix it
+        bindingTask.SetOperation("get");
+        // bindingTask.SetMetadata(new() { ["key"] = FileObjectKey(handle.file) });
         // bindingTask.SetData(new { ... });
 
         return new ScriptResponse();`,

@@ -6,7 +6,11 @@ import {
   collectFileHandles,
   isFileHandle,
   isFileUploadNode,
+  MAX_STREAM_UPLOAD_BYTES,
+  MAX_UPLOAD_BYTES,
+  chooseUploadRoute,
   storageFieldPaths,
+  storageFieldTransports,
   toSchemaPath,
 } from './fileFields';
 
@@ -60,5 +64,33 @@ describe('file fields', () => {
   it('round-trips base64', () => {
     const bytes = new Uint8Array(70000).map((_, i) => i % 256);
     expect(Array.from(base64ToBytes(bytesToBase64(bytes)))).toEqual(Array.from(bytes));
+  });
+});
+
+describe('streamed transports (runtime 0.0.102)', () => {
+  const streaming = {
+    type: 'object',
+    properties: {
+      passport: { type: 'object', 'x-storage': { binding: 'b', transport: 'stream' } },
+      files: { type: 'array', items: { type: 'object', 'x-storage': { binding: 'b', transport: 'any' } } },
+      inline: { type: 'object', 'x-storage': { binding: 'b', transport: 'inline' } },
+      plain: { type: 'object', 'x-storage': { binding: 'b' } },
+    },
+  };
+
+  it('lists only the non-inline transports by schema path', () => {
+    expect(storageFieldTransports(streaming)).toEqual({ passport: 'stream', 'files[]': 'any' });
+  });
+
+  it('routes a file by transport and size', () => {
+    expect(chooseUploadRoute('inline', 10)).toEqual({ route: 'inline' });
+    expect(chooseUploadRoute('inline', MAX_UPLOAD_BYTES + 1)).toEqual({ route: 'too-large', limit: MAX_UPLOAD_BYTES });
+    expect(chooseUploadRoute('stream', 10)).toEqual({ route: 'stream' });
+    expect(chooseUploadRoute('any', 10)).toEqual({ route: 'inline' });
+    expect(chooseUploadRoute('any', MAX_UPLOAD_BYTES + 1)).toEqual({ route: 'stream' });
+    expect(chooseUploadRoute('stream', MAX_STREAM_UPLOAD_BYTES + 1)).toEqual({
+      route: 'too-large',
+      limit: MAX_STREAM_UPLOAD_BYTES,
+    });
   });
 });

@@ -8,7 +8,77 @@ interface DiagnosticMarker {
   startColumn: number;
   endColumn: number;
   message: string;
-  severity: 'warning' | 'info';
+  severity: 'error' | 'warning' | 'info';
+}
+
+/**
+ * Members and types the runtime's script sandbox refuses at compile time
+ * (`BannedApiAnalyzer`, runtime 0.0.102, docs `custom-script-helpers.md`).
+ * The runtime compile error reads `banned member '<member>'`; matching here is
+ * textual, so the reflection names (which could belong to a user type) are
+ * warnings and the unambiguous ones errors.
+ */
+const SANDBOX_RULES: { pattern: RegExp; member: (m: RegExpExecArray) => string; severity: 'error' | 'warning'; why: string }[] = [
+  {
+    pattern: /(?<![\w.])(File|FileInfo|Directory|DirectoryInfo|DriveInfo|Path|FileStream|UnmanagedMemoryStream)\s*[.(]/g,
+    member: (m) => `System.IO.${m[1]}`,
+    severity: 'error',
+    why: 'scripts have no file system; process bytes with MemoryStream, GetFileAsync and PutFileAsync',
+  },
+  {
+    pattern: /new\s+(StreamReader|StreamWriter)\s*\(\s*\$?@?"/g,
+    member: (m) => `${m[1]}(string path)`,
+    severity: 'error',
+    why: 'opens a file by path; wrap a Stream instead',
+  },
+  {
+    pattern: /(?<![\w.])Activator\s*\.\s*(?!CreateInstance\s*<)(\w+)/g,
+    member: (m) => `Activator.${m[1]}`,
+    severity: 'error',
+    why: 'only Activator.CreateInstance<T>() is allowed',
+  },
+  {
+    pattern: /(?<![\w.])Type\s*\.\s*(GetType|GetTypeFromProgID|GetTypeFromCLSID)\s*\(/g,
+    member: (m) => `Type.${m[1]}`,
+    severity: 'error',
+    why: 'resolves a type by name',
+  },
+  {
+    pattern: /(?<![\w.])Environment\s*\.\s*(Exit|FailFast|SetEnvironmentVariable)\s*\(/g,
+    member: (m) => `Environment.${m[1]}`,
+    severity: 'error',
+    why: 'terminates the host or changes its environment',
+  },
+  {
+    pattern: /\.\s*(GetMethods?|GetConstructors?|GetMembers?|GetFields?|GetEvents?|FindMembers|GetDefaultMembers|InvokeMember)\s*\(|\.\s*(TypeInitializer)\b/g,
+    member: (m) => `Type.${m[1] ?? m[2]}`,
+    severity: 'warning',
+    why: 'reflection objects are banned on System.Type',
+  },
+];
+
+/** Sandbox (banned API) markers for one script; comment lines are skipped. */
+export function sandboxDiagnostics(code: string): DiagnosticMarker[] {
+  const markers: DiagnosticMarker[] = [];
+  code.split('\n').forEach((line, index) => {
+    const commentAt = line.indexOf('//');
+    const source = commentAt >= 0 ? line.slice(0, commentAt) : line;
+    for (const rule of SANDBOX_RULES) {
+      rule.pattern.lastIndex = 0;
+      let match: RegExpExecArray | null;
+      while ((match = rule.pattern.exec(source)) !== null) {
+        markers.push({
+          startLineNumber: index + 1,
+          endLineNumber: index + 1,
+          startColumn: match.index + 1,
+          endColumn: match.index + match[0].length + 1,
+          message: `banned member '${rule.member(match)}': ${rule.why} (the runtime refuses to compile this script).`,
+          severity: rule.severity,
+        });
+      }
+    }
+  });
+  return markers;
 }
 
 /**
@@ -22,7 +92,7 @@ export function validateCsxScript(
   if (!code || code.trim().length === 0) return [];
 
   const lines = code.split('\n');
-  const markers: DiagnosticMarker[] = [];
+  const markers: DiagnosticMarker[] = sandboxDiagnostics(code);
 
   // ── Rule 1: Condition/Rule missing return true/false ──
   if (templateType === 'condition') {
@@ -157,9 +227,11 @@ export function applyDiagnostics(monaco: any, model: any, code: string, template
     startColumn: m.startColumn,
     endColumn: m.endColumn,
     message: m.message,
-    severity: m.severity === 'warning'
-      ? monaco.MarkerSeverity.Warning
-      : monaco.MarkerSeverity.Info,
+    severity: m.severity === 'error'
+      ? monaco.MarkerSeverity.Error
+      : m.severity === 'warning'
+        ? monaco.MarkerSeverity.Warning
+        : monaco.MarkerSeverity.Info,
   }));
 
   monaco.editor.setModelMarkers(model, 'csx-lint', monacoMarkers);

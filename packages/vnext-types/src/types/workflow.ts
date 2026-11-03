@@ -1,4 +1,5 @@
 import type { HistoryMode } from '../utils/history-mode';
+import type { RowSecurity } from '../utils/row-security';
 import type { Annotations } from './annotations';
 import type { AvailableIn } from './available-in';
 import { ErrorBoundary } from './error-boundary';
@@ -130,6 +131,8 @@ export interface WorkflowAttributes {
   extensions?: ResourceReference[];
   schema?: ResourceReference;
   queryRoles?: RoleGrant[];
+  /** Role-keyed row filters for instance reads; deny by default when present (runtime 0.0.102). */
+  rowSecurity?: RowSecurity;
   errorBoundary?: ErrorBoundary;
   /**
    * Workflow-level CSX helper + assembly imports. Mirrors the

@@ -22,6 +22,7 @@ import { TransitionLabelsSection } from './TransitionLabelsSection';
 import { TransitionAnnotationsSection } from './TransitionAnnotationsSection';
 import { AvailableInEditor } from '../shared/AvailableInEditor';
 import { ExecutionTypeSelect } from '../shared/ExecutionTypeSelect';
+import { TransitionPriorityInput } from '../shared/TransitionPriorityInput';
 import { type StateOption } from '../shared/AvailableInMultiSelect';
 import {
   resolveFieldPolicy,
@@ -351,6 +352,15 @@ export function TransitionCard({
                 <option value={10}>Default / Fallback</option>
               </select>
             </div>
+          )}
+
+          {/* Automatic transition priority (runtime 0.0.102) */}
+          {policy.priority.visible && (
+            <TransitionPriorityInput
+              value={transition.priority}
+              onChange={(v) => onUpdate(index, 'priority', v)}
+              className={selectClass}
+            />
           )}
         </div>
       </div>

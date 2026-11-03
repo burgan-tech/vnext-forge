@@ -169,6 +169,7 @@ function toTransitionView(t: any, from: string, isStart = false): TransitionView
     target: t.target ?? t.to ?? '',
     triggerType: t.triggerType != null ? normalizeTriggerType(t.triggerType) : undefined,
     triggerKind: t.triggerKind != null ? normalizeTriggerType(t.triggerKind) : undefined,
+    priority: typeof t.priority === 'number' ? t.priority : undefined,
     comment: t._comment,
     labels: asLabels(t),
     roles: asRoles(t.roles),

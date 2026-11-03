@@ -11,7 +11,8 @@ export interface NetworkAdapter {
 export interface NetworkRequestInit {
   method: string
   headers: Record<string, string>
-  body?: string
+  /** Text, or raw bytes for a streamed file upload (`fetch` sets Content-Length from them). */
+  body?: string | Uint8Array<ArrayBuffer>
 }
 
 export interface NetworkResponse {
