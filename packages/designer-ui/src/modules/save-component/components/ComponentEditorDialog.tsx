@@ -37,6 +37,7 @@ const KIND_LABEL: Record<ComponentEditorTarget['kind'], string> = {
   function: 'Function',
   extension: 'Extension',
   mapping: 'Mapping',
+  agent: 'Agent',
 };
 
 /** Atomic editor in a Radix dialog; toolbar is hoisted to the header via `registerToolbar`. */

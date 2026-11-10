@@ -22,4 +22,6 @@ export enum TaskType {
   FanOut = 21,
   /** Type-6 config contract, executed in-process by the orchestrator (no Dapr sidecar). */
   ExternalHttp = 22,
+  /** Calls one operation of a remote MCP server over streamable HTTP, in-process on the orchestrator. Runtime 0.0.105 (experimental). */
+  Mcp = 24,
 }

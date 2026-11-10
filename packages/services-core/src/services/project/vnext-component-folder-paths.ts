@@ -16,6 +16,7 @@ const LAYOUT_DEFAULTS: Record<VnextExportCategory, string> = {
   functions: 'Functions',
   extensions: 'Extensions',
   mappings: 'Mappings',
+  agents: 'Agents',
 };
 
 function normPosixRel(s: string): string {

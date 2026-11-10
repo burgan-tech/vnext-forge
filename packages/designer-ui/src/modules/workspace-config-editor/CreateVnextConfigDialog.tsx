@@ -344,6 +344,7 @@ const EXPORT_CATEGORY_ICON: Record<VnextExportCategory, VnextComponentType> = {
   functions: 'function',
   extensions: 'extension',
   mappings: 'mapping',
+  agents: 'agent',
 };
 
 /** Workspace’tan keşfedilen anahtarlarla exports `string[]` alanını doldurur. */

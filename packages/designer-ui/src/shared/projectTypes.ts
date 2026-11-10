@@ -60,4 +60,5 @@ export type VnextComponentType =
   | 'view'
   | 'function'
   | 'extension'
-  | 'mapping';
+  | 'mapping'
+  | 'agent';

@@ -37,6 +37,7 @@ export const workspaceRootConfigSchema = z
       workflows: requiredField('paths.workflows'),
       schemas: requiredField('paths.schemas'),
       mappings: requiredField('paths.mappings'),
+      agents: z.string().optional(),
     }),
     exports: z.record(z.string(), z.unknown()).optional(),
     dependencies: z.record(z.string(), z.unknown()).optional(),
@@ -73,6 +74,7 @@ function coerceExports(raw: unknown, domain: string): VnextWorkspaceExports {
     schemas: asStringArray(record.schemas),
     extensions: asStringArray(record.extensions),
     mappings: asStringArray(record.mappings),
+    ...(Array.isArray(record.agents) ? { agents: asStringArray(record.agents) } : {}),
     visibility: record.visibility === 'private' ? 'private' : 'public',
     metadata:
       record.metadata && typeof record.metadata === 'object'
@@ -104,6 +106,7 @@ export function normalizeWorkspaceRootToConfig(parsed: WorkspaceRootConfigParsed
     workflows: p.workflows,
     schemas: p.schemas,
     mappings: p.mappings,
+    ...(p.agents ? { agents: p.agents } : {}),
   }
 
   return {

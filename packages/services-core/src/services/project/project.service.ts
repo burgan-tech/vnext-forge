@@ -834,7 +834,7 @@ export function createProjectService(deps: ProjectServiceDeps) {
     resolved.push(baseResolved)
 
     for (const key of COMPONENT_LAYOUT_PATH_KEYS) {
-      const segment = paths[key].trim()
+      const segment = (paths[key] ?? '').trim()
       if (!segment) continue
       if (isAbsolutePosix(segment)) {
         throw new VnextForgeError(

@@ -9,6 +9,8 @@ export interface VnextWorkspacePaths {
   workflows: string
   schemas: string
   mappings: string
+  /** `sys-agents` folder (runtime 0.0.105). Optional: older solutions have none; Forge then uses `Agents`. */
+  agents?: string
 }
 
 export interface VnextWorkspaceExportsMeta {
@@ -26,6 +28,7 @@ export interface VnextWorkspaceExports {
   schemas: string[]
   extensions: string[]
   mappings: string[]
+  agents?: string[]
   visibility: 'public' | 'private'
   metadata: VnextWorkspaceExportsMeta
 }

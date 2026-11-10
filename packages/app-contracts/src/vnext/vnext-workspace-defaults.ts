@@ -59,6 +59,7 @@ const DEFAULT_PATH_SEGMENTS = {
   workflows: 'Workflows',
   schemas: 'Schemas',
   mappings: 'Mappings',
+  agents: 'Agents',
 } as const
 
 const DEFAULT_REFERENCE_RESOLUTION: Required<VnextWorkspaceReferenceResolution> = {
@@ -113,6 +114,7 @@ export function buildVnextWorkspaceConfig(
       workflows: DEFAULT_PATH_SEGMENTS.workflows,
       schemas: DEFAULT_PATH_SEGMENTS.schemas,
       mappings: DEFAULT_PATH_SEGMENTS.mappings,
+      agents: DEFAULT_PATH_SEGMENTS.agents,
     },
     exports: {
       functions: [],

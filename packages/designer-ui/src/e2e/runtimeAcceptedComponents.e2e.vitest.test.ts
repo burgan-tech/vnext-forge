@@ -13,7 +13,12 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-import { historyNoneIssues, rowSecurityIssues, transitionPriorityIssues } from '@vnext-forge-studio/vnext-types';
+import {
+  historyNoneIssues,
+  rowSecurityIssues,
+  transitionPriorityIssues,
+  validateAiAgentStates,
+} from '@vnext-forge-studio/vnext-types';
 
 import { computedIssues } from '../modules/schema-editor/model/computedRules';
 import { fieldProtectionIssues } from '../modules/schema-editor/model/fieldProtection';
@@ -90,6 +95,10 @@ describe.skipIf(!ROOT)('runtime-accepted components (E2E_EXAMPLE_ROOT)', () => {
       // Runtime 0.0.102: only errors are publish rejections; warnings are log-only there too.
       for (const issue of [...transitionPriorityIssues(json), ...rowSecurityIssues(json)]) {
         if (issue.severity === 'error') findings.push(`${String(json.key)}: ${issue.code} ${issue.message}`);
+      }
+      // Runtime 0.0.105: AiAgent state publish checks (vnext#1105).
+      for (const issue of validateAiAgentStates((json.attributes as Node | undefined)?.states)) {
+        if (issue.severity === 'error') findings.push(`${String(json.key)}: ai-agent ${issue.message}`);
       }
     }
 

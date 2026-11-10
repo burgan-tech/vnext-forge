@@ -10,6 +10,7 @@ import { MappingCode } from './mapping';
 import type { RoleGrant } from './role';
 import type { ResourceLock } from './resource-lock';
 import type { ViewBinding } from './view-binding';
+import type { AgentStateBinding } from './agent';
 import type { TimeoutTransition, WorkflowTimerConfig } from './workflow';
 
 export interface ResourceReference {
@@ -77,6 +78,12 @@ export interface Transition {
    * is not the DefaultAutoTransition. Runtime 0.0.102.
    */
   priority?: number;
+  /**
+   * Optional "when" text for an AI Agent decision candidate. Shown to the
+   * model; never evaluated as a rule. Allowed on every transition shape.
+   * Runtime 0.0.105.
+   */
+  description?: string;
 }
 
 export interface SharedTransition extends Transition {
@@ -214,4 +221,6 @@ export interface State {
   subFlow?: SubFlowConfig;
   interaction?: StateInteraction | null;
   notifications?: StateNotification[];
+  /** AI Agent block — required when `stateType` is {@link StateType.AiAgent}, absent otherwise. */
+  agent?: AgentStateBinding;
 }
