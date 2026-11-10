@@ -30,6 +30,7 @@ const COMPONENT_TITLE: Record<VnextComponentType, string> = {
   schema: 'Schema',
   view: 'View',
   mapping: 'Mapping',
+  agent: 'Agent',
 };
 
 const SUCCESS_COPY: Record<VnextComponentType, string> = {
@@ -40,6 +41,7 @@ const SUCCESS_COPY: Record<VnextComponentType, string> = {
   schema: 'Schema created.',
   view: 'View created.',
   mapping: 'Mapping created.',
+  agent: 'Agent created.',
 };
 
 function folderPathForDisplay(absolute: string, projectRoot: string): string {

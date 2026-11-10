@@ -33,6 +33,7 @@ const NEW_COMPONENT_ITEM_LABEL: Record<VnextComponentType, string> = {
   function: 'New Function',
   extension: 'New Extension',
   mapping: 'New Mapping',
+  agent: 'New Agent',
 };
 
 interface FileTreeProps {

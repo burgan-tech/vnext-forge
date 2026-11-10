@@ -14,6 +14,7 @@ import { SchemaEditorView } from '../../schema-editor/SchemaEditorView.js';
 import { ViewEditorView } from '../../view-editor/ViewEditorView.js';
 import { FunctionEditorView } from '../../function-editor/FunctionEditorView.js';
 import { ExtensionEditorView } from '../../extension-editor/ExtensionEditorView.js';
+import { AgentEditorView } from '../../agent-editor/AgentEditorView.js';
 import type { ComponentEditorTarget } from '../componentEditorModalTypes.js';
 
 function isAtomicEditorDirty(kind: ComponentEditorTarget['kind']): boolean {
@@ -114,6 +115,14 @@ export function ComponentEditorDialog({
       case 'extension':
         return (
           <ExtensionEditorView
+            key={editorKey}
+            {...common}
+            onOpenScriptFileInHost={onOpenScriptFileInHost}
+          />
+        );
+      case 'agent':
+        return (
+          <AgentEditorView
             key={editorKey}
             {...common}
             onOpenScriptFileInHost={onOpenScriptFileInHost}

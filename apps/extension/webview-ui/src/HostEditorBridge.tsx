@@ -10,6 +10,7 @@ import {
   FunctionEditorView,
   isMessageOriginAllowed,
   MappingEditorView,
+  AgentEditorView,
   PublishProvider,
   SchemaEditorView,
   TaskEditorView,
@@ -35,6 +36,7 @@ type EditorKind =
   | 'function'
   | 'extension'
   | 'mapping'
+  | 'agent'
   | 'config';
 
 /**
@@ -213,6 +215,15 @@ function ActiveEditor({ api, payload }: { api: VsCodeWebviewApi; payload: HostOp
     case 'mapping':
       return (
         <MappingEditorView
+          projectId={projectId}
+          group={group}
+          name={name}
+          onOpenScriptFileInHost={onOpenScriptFileInHost}
+        />
+      );
+    case 'agent':
+      return (
+        <AgentEditorView
           projectId={projectId}
           group={group}
           name={name}
