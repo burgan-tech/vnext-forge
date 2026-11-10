@@ -20,6 +20,7 @@ const TASK_TYPES = [
   { value: '20', label: 'Dapr Conversation', desc: 'Invoke an LLM via Dapr' },
   { value: '21', label: 'Fan-Out', desc: 'Run a task once per item, in parallel' },
   { value: '22', label: 'External HTTP', desc: 'Outbound HTTP call run in-process (no Dapr sidecar)' },
+  { value: '24', label: 'MCP', desc: 'Call an MCP server operation (secretRef credentials)' },
 ] as const;
 
 interface TaskTypePickerProps {

@@ -29,6 +29,7 @@ export const TASK_TYPE_LABELS: Record<string, string> = {
   '20': 'Dapr Conversation',
   '21': 'Fan-Out',
   '22': 'External HTTP',
+  '24': 'MCP',
 };
 
 export const EXTENSION_TYPE_LABELS: Record<number, string> = {

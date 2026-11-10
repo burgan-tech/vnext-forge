@@ -16,6 +16,7 @@ import { StateStoreTaskForm } from './StateStoreTaskForm';
 import { CacheAsideTaskForm } from './CacheAsideTaskForm';
 import { DaprConversationTaskForm } from './DaprConversationTaskForm';
 import { FanOutTaskForm } from './FanOutTaskForm';
+import { McpTaskForm } from './McpTaskForm';
 
 interface TaskFormProps {
   config: Record<string, unknown>;
@@ -44,4 +45,6 @@ export const taskFormMap: Record<string, ComponentType<TaskFormProps>> = {
   '21': FanOutTaskForm,
   // External HTTP shares the type-6 config contract (in-process, no Dapr sidecar).
   '22': HttpTaskForm,
+  // Runtime 0.0.105: MCP over streamable HTTP; credentials only as secretRef.
+  '24': McpTaskForm,
 };
