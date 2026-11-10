@@ -13,9 +13,9 @@ export function useAgentEditor({ filePath }: UseAgentEditorParams) {
 
   const { execute, loading, error, data, reset } = useAsync(loadAgentEditor, {
     showNotificationOnError: false,
-    onSuccess: async (result) => {
-      if (!result.success) return;
-      setComponent(result.data.json, 'agent', result.data.filePath);
+    onSuccess: (result) => {
+      if (result.success) setComponent(result.data.json, 'agent', result.data.filePath);
+      return Promise.resolve();
     },
   });
 

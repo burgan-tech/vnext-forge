@@ -265,9 +265,10 @@ function extractScripts(workflow: Record<string, unknown>): FlowEditorScriptEntr
 
     // AI Agent state (stateType 6): C# prompt, decision and hint mappings.
     if (isRecord(state.agent)) {
-      const agent = state.agent;
-      if (isRecord(agent.prompt) && typeof agent.prompt.code === 'string' && agent.prompt.code) {
-        collect({ location: agent.prompt.location, code: agent.prompt.code, encoding: agent.prompt.encoding });
+      const agent = state.agent as Record<string, unknown>;
+      const prompt = isRecord(agent.prompt) ? (agent.prompt as Record<string, unknown>) : undefined;
+      if (prompt && typeof prompt.code === 'string' && prompt.code) {
+        collect({ location: prompt.location, code: prompt.code, encoding: prompt.encoding });
       }
       if (isRecord(agent.decision)) {
         collect(agent.decision.mapping);

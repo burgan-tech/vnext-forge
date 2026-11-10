@@ -9,9 +9,17 @@ import { Select } from '../../../ui/Select';
 import { BodyJsonField } from './shared/BodyJsonField.js';
 import { MCP_OPERATIONS, mcpConfigIssues, MCP_OPERATION_FIELD, setMcpOperation } from './mcpTaskConfig';
 
+type Draft = Record<string, unknown>;
+
 interface Props {
   config: Record<string, unknown>;
-  onChange: (updater: (draft: any) => void) => void;
+  onChange: (updater: (draft: Draft) => void) => void;
+}
+
+/** The draft's object member `key`, created when missing. */
+function objectMember(draft: Draft, key: string): Draft {
+  if (!isRecord(draft[key])) draft[key] = {};
+  return draft[key] as Draft;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -51,7 +59,7 @@ export function McpTaskForm({ config, onChange }: Props) {
             type="text"
             value={typeof config.endpoint === 'string' ? config.endpoint : ''}
             onChange={(e) =>
-              onChange((d: any) => {
+              onChange((d) => {
                 d.transport = 'http';
                 d.endpoint = e.target.value;
               })
@@ -67,7 +75,7 @@ export function McpTaskForm({ config, onChange }: Props) {
         <Field label="Operation" required>
           <Select
             value={operation}
-            onChange={(e) => onChange((d: any) => setMcpOperation(d, e.target.value))}
+            onChange={(e) => onChange((d) => setMcpOperation(d, e.target.value))}
             className="text-xs">
             {MCP_OPERATIONS.map((op) => (
               <option key={op.value} value={op.value}>
@@ -84,7 +92,7 @@ export function McpTaskForm({ config, onChange }: Props) {
             value={typeof config.timeoutSeconds === 'number' ? config.timeoutSeconds : ''}
             onChange={(e) => {
               const n = Number(e.target.value);
-              onChange((d: any) => {
+              onChange((d) => {
                 d.timeoutSeconds = e.target.value !== '' && Number.isFinite(n) ? n : undefined;
               });
             }}
@@ -101,7 +109,7 @@ export function McpTaskForm({ config, onChange }: Props) {
             type="text"
             value={typeof config[opField.key] === 'string' ? (config[opField.key] as string) : ''}
             onChange={(e) =>
-              onChange((d: any) => {
+              onChange((d) => {
                 d[opField.key] = e.target.value || undefined;
               })
             }
@@ -128,7 +136,7 @@ export function McpTaskForm({ config, onChange }: Props) {
             type="checkbox"
             checked={Boolean(auth)}
             onChange={(e) =>
-              onChange((d: any) => {
+              onChange((d) => {
                 if (e.target.checked) d.auth = { header: 'Authorization', scheme: 'Bearer', secretRef: '' };
                 else delete d.auth;
               })
@@ -142,7 +150,7 @@ export function McpTaskForm({ config, onChange }: Props) {
               <Input
                 type="text"
                 value={typeof auth.header === 'string' ? auth.header : ''}
-                onChange={(e) => onChange((d: any) => { d.auth.header = e.target.value || undefined; })}
+                onChange={(e) => onChange((d) => { objectMember(d, 'auth').header = e.target.value || undefined; })}
                 placeholder="Authorization"
                 size="sm"
                 inputClassName="font-mono text-xs"
@@ -152,7 +160,7 @@ export function McpTaskForm({ config, onChange }: Props) {
               <Input
                 type="text"
                 value={typeof auth.scheme === 'string' ? auth.scheme : ''}
-                onChange={(e) => onChange((d: any) => { d.auth.scheme = e.target.value || undefined; })}
+                onChange={(e) => onChange((d) => { objectMember(d, 'auth').scheme = e.target.value || undefined; })}
                 placeholder="Bearer"
                 size="sm"
                 inputClassName="font-mono text-xs"
@@ -162,7 +170,7 @@ export function McpTaskForm({ config, onChange }: Props) {
               <Input
                 type="text"
                 value={typeof auth.secretRef === 'string' ? auth.secretRef : ''}
-                onChange={(e) => onChange((d: any) => { d.auth.secretRef = e.target.value; })}
+                onChange={(e) => onChange((d) => { objectMember(d, 'auth').secretRef = e.target.value; })}
                 placeholder="vault/workflow-secret/CRM_MCP_TOKEN"
                 size="sm"
                 inputClassName="font-mono text-xs"
@@ -185,7 +193,7 @@ export function McpTaskForm({ config, onChange }: Props) {
                     Plain-text value (not shown).
                     <button
                       type="button"
-                      onClick={() => onChange((d: any) => { d.headers[name] = { secretRef: '' }; })}
+                      onClick={() => onChange((d) => { objectMember(d, 'headers')[name] = { secretRef: '' }; })}
                       className="border-border hover:bg-muted cursor-pointer rounded-md border px-2 py-0.5 text-foreground">
                       Replace with a secretRef
                     </button>
@@ -195,7 +203,12 @@ export function McpTaskForm({ config, onChange }: Props) {
                     type="text"
                     aria-label={`${name} secretRef`}
                     value={typeof value.secretRef === 'string' ? value.secretRef : ''}
-                    onChange={(e) => onChange((d: any) => { d.headers[name] = { ...d.headers[name], secretRef: e.target.value }; })}
+                    onChange={(e) =>
+                      onChange((d) => {
+                        const hs = objectMember(d, 'headers');
+                        hs[name] = { ...(isRecord(hs[name]) ? hs[name] : {}), secretRef: e.target.value };
+                      })
+                    }
                     placeholder="secretRef"
                     size="sm"
                     inputClassName="font-mono text-xs"
@@ -205,9 +218,10 @@ export function McpTaskForm({ config, onChange }: Props) {
                   type="button"
                   aria-label={`Remove header ${name}`}
                   onClick={() =>
-                    onChange((d: any) => {
-                      delete d.headers[name];
-                      if (Object.keys(d.headers).length === 0) delete d.headers;
+                    onChange((d) => {
+                      const hs = objectMember(d, 'headers');
+                      delete hs[name];
+                      if (Object.keys(hs).length === 0) delete d.headers;
                     })
                   }
                   className="text-muted-foreground hover:text-destructive-text cursor-pointer rounded p-1">
@@ -231,7 +245,7 @@ export function McpTaskForm({ config, onChange }: Props) {
               disabled={!newHeader.trim() || newHeader.trim() in headers}
               onClick={() => {
                 const name = newHeader.trim();
-                onChange((d: any) => {
+                onChange((d) => {
                   d.headers = { ...(isRecord(d.headers) ? d.headers : {}), [name]: { secretRef: '' } };
                 });
                 setNewHeader('');

@@ -1007,6 +1007,12 @@ export function CreateVnextConfigDialog({
                       name="paths.mappings"
                       errorText={pickWizardFieldError(fieldIssues, 'paths.mappings')}
                     />
+                    <JsonTextField
+                      label="agents (optional)"
+                      register={register}
+                      name="paths.agents"
+                      errorText={pickWizardFieldError(fieldIssues, 'paths.agents')}
+                    />
                   </div>
                 </CardContent>
               </Card>

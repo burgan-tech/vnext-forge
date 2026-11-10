@@ -129,6 +129,7 @@ const STATE_TYPE_LABELS: Record<number, string> = {
   3: 'Final',
   4: 'SubFlow',
   5: 'Wizard',
+  6: 'AI Agent',
 };
 
 const STATE_SUBTYPE_LABELS: Record<number, string> = {

@@ -843,7 +843,7 @@ export function createQuickRunService(runtimeProxyService: RuntimeProxyService) 
     )
     return {
       ...parsed,
-      status: typeof parsed.status === 'string' ? parsed.status : String(parsed.status ?? ''),
+      status: typeof parsed.status === 'string' ? parsed.status : typeof parsed.status === 'number' ? String(parsed.status) : '',
       toolCalls: Array.isArray(parsed.toolCalls) ? (parsed.toolCalls as Record<string, unknown>[]) : [],
     }
   }

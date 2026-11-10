@@ -8,7 +8,8 @@ import { AgentEditorPanel } from './components/AgentEditorPanel';
 import { AgentStateTab } from '../canvas-interaction/components/panels/tabs/agent/AgentStateTab';
 
 const FIXTURES = join(__dirname, '__fixtures__', 'ai-agent-lab');
-const read = (dir: string, name: string) => JSON.parse(readFileSync(join(FIXTURES, dir, name), 'utf8')) as Record<string, any>;
+type Workflow = { attributes: { states: { stateType: number }[] } } & Record<string, unknown>;
+const read = (dir: string, name: string) => JSON.parse(readFileSync(join(FIXTURES, dir, name), 'utf8')) as Workflow;
 
 describe('AgentEditorPanel', () => {
   it('renders an example agent with its provider, tools and approval flag without editing it', () => {
@@ -27,7 +28,7 @@ describe('AgentEditorPanel', () => {
 describe('AgentStateTab', () => {
   it('renders the agent block of an example state with its candidate set and reserved exits', () => {
     const workflow = read('workflows', 'ai-agent-lab.json');
-    const state = workflow.attributes.states.find((s: { stateType: number }) => s.stateType === 6);
+    const state = workflow.attributes.states.find((s) => s.stateType === 6) as unknown as Record<string, unknown> & { key: string };
     const html = renderToStaticMarkup(createElement(AgentStateTab, { state }));
     expect(html).toContain('ai-triage-agent@1.0.0');
     expect(html).toContain('Candidate set (2)');
@@ -39,7 +40,7 @@ describe('AgentStateTab', () => {
 
   it('renders a team state with its participants', () => {
     const workflow = read('workflows', 'ai-agent-lab-handoff.json');
-    const state = workflow.attributes.states.find((s: { stateType: number }) => s.stateType === 6);
+    const state = workflow.attributes.states.find((s) => s.stateType === 6) as unknown as Record<string, unknown> & { key: string };
     const html = renderToStaticMarkup(createElement(AgentStateTab, { state }));
     expect(html).toContain('ai-cards-agent@1.0.0');
     expect(html).toContain('ai-loans-agent@1.0.0');

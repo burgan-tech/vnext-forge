@@ -165,6 +165,12 @@ export const STATE_TYPE_STYLES: Record<string, StateTypeStyle> = {
     className: 'border border-secondary-border bg-secondary text-secondary-text',
     description: 'Multi-page wizard step',
   },
+  // Runtime 0.0.105 (vnext#1105).
+  aiAgent: {
+    label: 'AI Agent',
+    className: 'border border-success-border bg-success-surface text-success-text',
+    description: 'An AI agent runs on entry and picks the next transition',
+  },
 };
 
 export function stateTypeStyle(stateType: string | undefined): StateTypeStyle | null {

@@ -17,7 +17,7 @@ export async function loadAgentEditor({
 }: LoadAgentEditorParams): Promise<ApiResponse<LoadAgentEditorResult>> {
   try {
     const data = await readFile(filePath);
-    const parsedContent =
+    const parsedContent: unknown =
       typeof data.content === 'string' ? JSON.parse(data.content) : data.content;
     const json = agentEditorDocumentSchema.parse(parsedContent);
     return success({ filePath, json });

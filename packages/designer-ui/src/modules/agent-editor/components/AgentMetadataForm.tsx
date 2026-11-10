@@ -87,25 +87,25 @@ export function AgentMetadataForm({ json, onChange }: AgentMetadataFormProps) {
   const keyValidation = form.register('key', {
     validate: (value) => {
       const result = agentMetadataFormSchema.shape.key.safeParse(value);
-      return result.success || result.error.issues[0]?.message || 'Key is required.';
+      return result.success || (result.error.issues[0]?.message ?? 'Key is required.');
     },
   });
   const versionValidation = form.register('version', {
     validate: (value) => {
       const result = agentMetadataFormSchema.shape.version.safeParse(value);
-      return result.success || result.error.issues[0]?.message || 'Version is required.';
+      return result.success || (result.error.issues[0]?.message ?? 'Version is required.');
     },
   });
   const domainValidation = form.register('domain', {
     validate: (value) => {
       const result = agentMetadataFormSchema.shape.domain.safeParse(value);
-      return result.success || result.error.issues[0]?.message || 'Domain is required.';
+      return result.success || (result.error.issues[0]?.message ?? 'Domain is required.');
     },
   });
   const flowVersionValidation = form.register('flowVersion', {
     validate: (value) => {
       const result = agentMetadataFormSchema.shape.flowVersion.safeParse(value);
-      return result.success || result.error.issues[0]?.message || 'Flow version is required.';
+      return result.success || (result.error.issues[0]?.message ?? 'Flow version is required.');
     },
   });
 
@@ -123,7 +123,7 @@ export function AgentMetadataForm({ json, onChange }: AgentMetadataFormProps) {
             <Field
               label="Key"
               required={requiredFields.has('key')}
-              errorMsg={form.formState.errors.key?.message || keyServerError}>
+              errorMsg={form.formState.errors.key?.message ?? keyServerError}>
               <MetadataEditableTextInput
                 {...keyValidation}
                 aria-invalid={Boolean(form.formState.errors.key) || Boolean(keyServerError)}
@@ -132,7 +132,7 @@ export function AgentMetadataForm({ json, onChange }: AgentMetadataFormProps) {
             <Field
               label="Version"
               required={requiredFields.has('version')}
-              errorMsg={form.formState.errors.version?.message || versionServerError}>
+              errorMsg={form.formState.errors.version?.message ?? versionServerError}>
               <MetadataEditableTextInput
                 {...versionValidation}
                 aria-invalid={Boolean(form.formState.errors.version) || Boolean(versionServerError)}
@@ -141,7 +141,7 @@ export function AgentMetadataForm({ json, onChange }: AgentMetadataFormProps) {
             <Field
               label="Domain"
               required={requiredFields.has('domain')}
-              errorMsg={form.formState.errors.domain?.message || domainServerError}>
+              errorMsg={form.formState.errors.domain?.message ?? domainServerError}>
               <MetadataLockedTextInput
                 {...domainValidation}
                 aria-invalid={Boolean(form.formState.errors.domain) || Boolean(domainServerError)}
@@ -160,7 +160,7 @@ export function AgentMetadataForm({ json, onChange }: AgentMetadataFormProps) {
             <Field
               label="Flow version"
               required={requiredFields.has('flowVersion')}
-              errorMsg={form.formState.errors.flowVersion?.message || flowVersionServerError}>
+              errorMsg={form.formState.errors.flowVersion?.message ?? flowVersionServerError}>
               <MetadataEditableTextInput
                 {...flowVersionValidation}
                 aria-invalid={

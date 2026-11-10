@@ -235,7 +235,7 @@ export function validateAiAgentStates(states: unknown): AiAgentStateIssue[] {
     const transitions = transitionsOf(state);
     for (const { role, key } of agentReservedExitKeys(decision)) {
       const t = transitions.find((x) => x.key === key);
-      if (!t || t.triggerType !== TriggerType.Automatic) {
+      if (t?.triggerType !== TriggerType.Automatic) {
         add(`agent.decision.${role}`, `AI Agent state "${stateKey}": decision.${role} "${key}" must be an automatic transition of the state.`);
       } else if (t.rule != null) {
         add(`agent.decision.${role}`, `AI Agent state "${stateKey}": decision.${role} "${key}" cannot carry a rule; the agent decides it.`);

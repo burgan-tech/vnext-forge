@@ -85,10 +85,10 @@ export function AgentEditorView({
           const j = useComponentStore.getState().componentJson;
           if (!j) return;
           onAtomicSaved({
-            key: String(j.key ?? ''),
-            version: String(j.version ?? ''),
-            domain: String(j.domain ?? ''),
-            flow: String(j.flow ?? ''),
+            key: typeof j.key === 'string' ? j.key : '',
+            version: typeof j.version === 'string' ? j.version : '',
+            domain: typeof j.domain === 'string' ? j.domain : '',
+            flow: typeof j.flow === 'string' ? j.flow : '',
           });
         }
       : undefined,
@@ -149,7 +149,7 @@ export function AgentEditorView({
   const content =
     loading || !isEditorReady || !componentJson ? (
       <div className="text-muted-foreground flex h-full items-center justify-center text-sm">
-        {error?.toUserMessage().message || 'Loading agent...'}
+        {error?.toUserMessage().message ?? 'Loading agent...'}
       </div>
     ) : (
       <FlowEditorCanvasAndScriptResizableColumn
@@ -161,7 +161,7 @@ export function AgentEditorView({
             hasSaved={!isDirty && undoStack.length > 0}
             saving={saving}
             saveErrorMessage={saveError?.toUserMessage().message ?? null}
-            onSave={save}
+            onSave={() => void save()}
             onUndo={undo}
             onRedo={redo}
             canUndo={undoStack.length > 0}

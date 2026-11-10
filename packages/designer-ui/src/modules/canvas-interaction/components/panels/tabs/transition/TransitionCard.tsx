@@ -275,7 +275,7 @@ export function TransitionCard({
             Description <span className="text-subtle font-normal">(AI Agent "when" text)</span>
           </label>
           <textarea
-            value={String((transition as unknown as Record<string, unknown>).description ?? '')}
+            value={typeof (transition as unknown as Record<string, unknown>).description === 'string' ? String((transition as unknown as Record<string, unknown>).description) : ''}
             onChange={(e) => onUpdate(index, 'description', e.target.value || undefined)}
             placeholder="When should an AI Agent choose this transition? Never evaluated as a rule."
             rows={2}

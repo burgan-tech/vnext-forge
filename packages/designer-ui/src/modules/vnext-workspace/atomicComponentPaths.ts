@@ -22,7 +22,8 @@ export function buildAtomicComponentJsonPath(
 ): string {
   const root = norm(projectRoot).replace(/\/$/, '');
   const cr = norm(String(paths.componentsRoot || ''));
-  const sub = norm(String(paths[category] || OPTIONAL_CATEGORY_DEFAULTS[category] || ''));
+  const configured = paths[category]?.trim() ? paths[category] : undefined;
+  const sub = norm(String(configured ?? OPTIONAL_CATEGORY_DEFAULTS[category] ?? ''));
   const base = norm(`${root}/${cr}/${sub}`);
   if (!group || group === VNEXT_ATOMIC_FLAT_GROUP) {
     return `${base}/${name}.json`;
