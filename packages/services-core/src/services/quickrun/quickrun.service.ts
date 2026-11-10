@@ -43,6 +43,10 @@ import {
   quickrunGetActiveIncidentResult,
   quickrunGetTaskHistoryParams,
   quickrunGetTaskHistoryResult,
+  quickrunGetAgentRunsParams,
+  quickrunGetAgentRunsResult,
+  quickrunAgentDryRunParams,
+  quickrunAgentDryRunResult,
   quickrunAuthorizeParams,
   quickrunAuthorizeResult,
   quickrunGetHumanTasksParams,
@@ -778,6 +782,72 @@ export function createQuickRunService(runtimeProxyService: RuntimeProxyService) 
     return { items: Array.isArray(parsed.items) ? parsed.items : [] } as z.infer<typeof quickrunGetTaskHistoryResult>
   }
 
+  /** Runtime 0.0.105: `functions/agent-runs` (list, or one run with tool calls / transcript). */
+  async function getAgentRuns(
+    params: z.infer<typeof quickrunGetAgentRunsParams>,
+    traceId?: string,
+  ): Promise<z.infer<typeof quickrunGetAgentRunsResult>> {
+    const query: Record<string, string> = {}
+    if (params.state) query.state = params.state
+    if (params.skip !== undefined) query.skip = String(params.skip)
+    if (params.take !== undefined) query.take = String(params.take)
+    if (params.runId) query.runId = params.runId
+    if (params.runId && params.includeTranscript) query.include = 'transcript'
+    const result = await proxyCall(
+      {
+        method: 'GET',
+        runtimePath: `${instancePath(params.domain, params.workflowKey, params.instanceId)}/functions/agent-runs`,
+        query: Object.keys(query).length > 0 ? query : undefined,
+        headers: params.headers,
+        runtimeUrl: params.runtimeUrl,
+      },
+      traceId,
+    )
+    const parsed = parseJsonResponse<Record<string, unknown>>(
+      result.data, result.status, 'QuickRunService.getAgentRuns', traceId,
+    )
+    const detail = parsed.detail && typeof parsed.detail === 'object' ? (parsed.detail as Record<string, unknown>) : null
+    return {
+      items: Array.isArray(parsed.items) ? (parsed.items as Record<string, unknown>[]) : null,
+      detail: detail
+        ? {
+            run: (detail.run && typeof detail.run === 'object' ? detail.run : {}) as Record<string, unknown>,
+            toolCalls: Array.isArray(detail.toolCalls) ? (detail.toolCalls as Record<string, unknown>[]) : [],
+            ...(detail.transcript !== undefined && detail.transcript !== null ? { transcript: detail.transcript } : {}),
+          }
+        : null,
+    }
+  }
+
+  /** Runtime 0.0.105: `POST {domain}/definitions/agents/{key}/dry-run`. */
+  async function agentDryRun(
+    params: z.infer<typeof quickrunAgentDryRunParams>,
+    traceId?: string,
+  ): Promise<z.infer<typeof quickrunAgentDryRunResult>> {
+    const body: Record<string, unknown> = { prompt: params.prompt }
+    if (params.data !== undefined) body.data = params.data
+    if (params.candidates && params.candidates.length > 0) body.candidates = params.candidates
+    const result = await proxyCall(
+      {
+        method: 'POST',
+        runtimePath: `/api/v1/${encodeURIComponent(params.domain)}/definitions/agents/${encodeURIComponent(params.agentKey)}/dry-run`,
+        query: params.version ? { version: params.version } : undefined,
+        body: JSON.stringify(body),
+        headers: { 'Content-Type': 'application/json', ...(params.headers ?? {}) },
+        runtimeUrl: params.runtimeUrl,
+      },
+      traceId,
+    )
+    const parsed = parseJsonResponse<Record<string, unknown>>(
+      result.data, result.status, 'QuickRunService.agentDryRun', traceId,
+    )
+    return {
+      ...parsed,
+      status: typeof parsed.status === 'string' ? parsed.status : String(parsed.status ?? ''),
+      toolCalls: Array.isArray(parsed.toolCalls) ? (parsed.toolCalls as Record<string, unknown>[]) : [],
+    }
+  }
+
   async function authorize(
     params: z.infer<typeof quickrunAuthorizeParams>,
     traceId?: string,
@@ -987,6 +1057,8 @@ export function createQuickRunService(runtimeProxyService: RuntimeProxyService) 
     getDataHistoryRow,
     getActiveIncident,
     getTaskHistory,
+    getAgentRuns,
+    agentDryRun,
     authorize,
     getHumanTasks,
     downloadFile,

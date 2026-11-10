@@ -487,3 +487,42 @@ describe('fileNameFromDisposition', () => {
     expect(fileNameFromDisposition('inline')).toBeUndefined()
   })
 })
+
+describe('quickRunService.getAgentRuns (runtime 0.0.105)', () => {
+  it('lists the runs of the instance', async () => {
+    const run = { id: 'r1', state: 'classifying', status: 'Completed', participant: null }
+    const { service, proxy } = serviceWith({ status: 200, data: JSON.stringify({ items: [run], detail: null }) })
+    expect(await service.getAgentRuns({ ...ids, take: 20 })).toEqual({ items: [run], detail: null })
+    expect(proxy.mock.calls[0][0].runtimePath).toBe(
+      '/api/v1/core/workflows/error-boundary-lab/instances/i-1/functions/agent-runs',
+    )
+    expect(proxy.mock.calls[0][0].query).toEqual({ take: '20' })
+  })
+
+  it('reads one run with tool calls and the transcript', async () => {
+    const detail = { run: { id: 'r1' }, toolCalls: [{ name: 'pay', status: 'ApprovalPending' }], transcript: [{ role: 'assistant' }] }
+    const { service, proxy } = serviceWith({ status: 200, data: JSON.stringify({ items: null, detail }) })
+    expect(await service.getAgentRuns({ ...ids, runId: 'r1', includeTranscript: true })).toEqual({ items: null, detail })
+    expect(proxy.mock.calls[0][0].query).toEqual({ runId: 'r1', include: 'transcript' })
+  })
+})
+
+describe('quickRunService.agentDryRun (runtime 0.0.105)', () => {
+  it('posts prompt, data and candidates to the dry-run endpoint', async () => {
+    const answer = { status: 'Completed', output: { category: 'question' }, decision: 'is-question', toolCalls: [] }
+    const { service, proxy } = serviceWith({ status: 200, data: JSON.stringify(answer) })
+    const candidates = [{ key: 'is-question', when: 'asks', whenSource: 'hint' }]
+    expect(
+      await service.agentDryRun({ domain: 'core', agentKey: 'ai-triage-agent', prompt: 'hi', data: { a: 1 }, candidates }),
+    ).toMatchObject(answer)
+    const call = proxy.mock.calls[0][0]
+    expect(call.method).toBe('POST')
+    expect(call.runtimePath).toBe('/api/v1/core/definitions/agents/ai-triage-agent/dry-run')
+    expect(JSON.parse(call.body)).toEqual({ prompt: 'hi', data: { a: 1 }, candidates })
+  })
+
+  it('surfaces a 403 (dry-run roles not configured) as a runtime error', async () => {
+    const { service } = serviceWith({ status: 403, data: JSON.stringify({ code: 'forbidden.Agent:100004' }) })
+    await expect(service.agentDryRun({ domain: 'core', agentKey: 'a', prompt: '' })).rejects.toBeTruthy()
+  })
+})

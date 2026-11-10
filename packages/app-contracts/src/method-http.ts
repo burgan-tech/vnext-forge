@@ -73,6 +73,8 @@ export type MethodId =
   | 'quickrun/getDataHistoryRow'
   | 'quickrun/getActiveIncident'
   | 'quickrun/getTaskHistory'
+  | 'quickrun/getAgentRuns'
+  | 'quickrun/agentDryRun'
   | 'quickrun/authorize'
   | 'quickrun/getHumanTasks'
   | 'quickrun/getCorrelationTree'
@@ -167,6 +169,8 @@ export const METHOD_HTTP_METADATA: Readonly<Record<MethodId, MethodHttpSpec>> = 
   'quickrun/getDataHistoryRow': { verb: 'POST', paramSource: 'json' },
   'quickrun/getActiveIncident': { verb: 'POST', paramSource: 'json' },
   'quickrun/getTaskHistory': { verb: 'POST', paramSource: 'json' },
+  'quickrun/getAgentRuns': { verb: 'POST', paramSource: 'json' },
+  'quickrun/agentDryRun': { verb: 'POST', paramSource: 'json' },
   'quickrun/authorize': { verb: 'POST', paramSource: 'json' },
   'quickrun/getHumanTasks': { verb: 'POST', paramSource: 'json' },
   'quickrun/getCorrelationTree': { verb: 'POST', paramSource: 'json' },
