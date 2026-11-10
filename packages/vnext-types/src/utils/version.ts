@@ -22,8 +22,12 @@ export const RUNTIME_0_0_99 = '0.0.99';
 
 /** First runtime release carrying `x-storage` files and the built-in `file` function. */
 export const RUNTIME_0_0_100 = '0.0.100';
-/** AI Agent state, sys-agents, Mcp task, `functions/agent-runs`, agent dry-run (vnext#1105). */
-export const RUNTIME_0_0_105 = '0.0.105';
+/**
+ * AI Agent state, sys-agents, Mcp task, `functions/agent-runs`, agent dry-run
+ * (vnext#1105, milestone v0.0.105). Local runtime builds carrying it report
+ * 0.0.103, so surfaces gate on that and treat a 404 as "not available".
+ */
+export const RUNTIME_AI_AGENT = '0.0.103';
 
 /**
  * True when a reported runtime version is at least `minimum`. Returns

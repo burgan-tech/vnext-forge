@@ -23,6 +23,14 @@ export interface AgentRunsPanelProps {
 
 const PAGE = 20;
 
+/** A runtime without the AI Agent read surface answers 404 for `functions/agent-runs`. */
+function friendlyAgentRunsError(error: { code?: string; message?: string }): string {
+  if (error.code === 'RUNTIME_NOT_FOUND' || /\b404\b/.test(error.message ?? '')) {
+    return 'No agent runs here: the runtime does not offer functions/agent-runs (AI Agent support, vnext#1105) or the instance was not found.';
+  }
+  return error.message ?? 'Agent runs could not be loaded.';
+}
+
 function text(value: unknown): string {
   if (value === null || value === undefined) return '';
   return typeof value === 'object' ? JSON.stringify(value) : String(value as string | number | boolean);
@@ -55,7 +63,7 @@ export function AgentRunsPanel({ domain, workflowKey, instanceId, headers, runti
     );
     if (mine !== seq.current) return;
     if (response.success) setRuns(response.data.items ?? []);
-    else setError(response.error.message || 'Agent runs could not be loaded.');
+    else setError(friendlyAgentRunsError(response.error));
     setLoading(false);
   }, [domain, workflowKey, instanceId, take, headers, runtimeUrl]);
 

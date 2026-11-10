@@ -66,9 +66,14 @@ const RUN_STATUS = ['', 'Running', 'Completed', 'ApprovalRequested', 'Failed', '
 const TOOL_CALL_STATUS = ['', 'Completed', 'Failed', 'Timeout', 'Rejected', 'ApprovalPending', 'Approved', 'Denied', 'Skipped'];
 const DECISION_SOURCE = ['', 'Model', 'Rules', 'Script', 'Fallback', 'Exhausted', 'ApprovalRequest'];
 
+/**
+ * Runtime enums arrive as camelCase names (`approvalPending`, `denied`) or,
+ * from other serializer settings, as numbers; both become the PascalCase name.
+ */
 function enumName(value: unknown, names: string[]): string {
   if (typeof value === 'number') return names[value] || String(value);
-  return typeof value === 'string' ? value : '';
+  if (typeof value !== 'string' || value === '') return '';
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }
 
 export const agentRunStatusName = (value: unknown) => enumName(value, RUN_STATUS);

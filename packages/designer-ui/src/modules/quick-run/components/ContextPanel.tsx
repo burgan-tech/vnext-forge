@@ -84,7 +84,7 @@ export function ContextPanel({ onOpenSubFlowTarget }: ContextPanelProps) {
 
   // Transition / state attempts (runtime 0.0.99 only — older runtimes 404).
   const metricsSupported = useRuntimeSupports('elementMetrics');
-  // Runtime 0.0.105 `functions/agent-runs`; shown while the version is unknown.
+  // AI Agent `functions/agent-runs` (vnext#1105); shown while the version is unknown.
   const agentRunsSupported = useRuntimeSupports('agentRuns');
   const loadElementMetrics = useMemo<ElementMetricsLoader | undefined>(() => {
     if (metricsSupported !== true || !activeTabId || !domain || !workflowKey) return undefined;

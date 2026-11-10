@@ -8,6 +8,7 @@ import { isRecord, type Json } from '../agent-editor/agentDocument';
 import { JsonObjectField, TextAreaField, TextField, ToggleField } from '../agent-editor/components/agentFormPrimitives';
 import {
   agentDryRun,
+  agentRunStatusName,
   statusTone,
   toolCallStatusName,
   type AgentDryRunResult,
@@ -160,8 +161,8 @@ function DryRunResult({ result, schema }: { result: AgentDryRunResult; schema?: 
   return (
     <div className="border-border-subtle space-y-2 rounded-lg border p-2.5 text-[11px]">
       <div className="flex flex-wrap items-center gap-2">
-        <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase ${statusTone(result.status)}`}>
-          {result.status}
+        <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase ${statusTone(agentRunStatusName(result.status))}`}>
+          {agentRunStatusName(result.status)}
         </span>
         {result.decision && <span className="font-mono">→ {result.decision}</span>}
         <span className="text-subtle ml-auto">

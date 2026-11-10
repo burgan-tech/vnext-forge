@@ -10,7 +10,7 @@
     ]
   },
   "result": {
-    "status": "Completed",
+    "status": "completed",
     "output": { "category": "question", "decision": "is-question", "reason": "local provider" },
     "decision": "is-question",
     "reason": "local provider",

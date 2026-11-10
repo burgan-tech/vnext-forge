@@ -1,4 +1,4 @@
-import { RUNTIME_0_0_99, RUNTIME_0_0_100, RUNTIME_0_0_105, runtimeAtLeast } from '@vnext-forge-studio/vnext-types';
+import { RUNTIME_0_0_99, RUNTIME_0_0_100, RUNTIME_AI_AGENT, runtimeAtLeast } from '@vnext-forge-studio/vnext-types';
 
 import { useQuickRunStore } from '../store/quickRunStore';
 
@@ -13,7 +13,7 @@ export const RUNTIME_FEATURE_MIN = {
   elementMetrics: RUNTIME_0_0_99,
   functionMetrics: RUNTIME_0_0_99,
   fileFunction: RUNTIME_0_0_100,
-  agentRuns: RUNTIME_0_0_105,
+  agentRuns: RUNTIME_AI_AGENT,
 } as const;
 
 export type RuntimeFeature = keyof typeof RUNTIME_FEATURE_MIN;

@@ -16,7 +16,7 @@
         "agentKey": "ai-approval-agent",
         "agentVersion": "1.0.0",
         "providerKey": "local",
-        "status": "ApprovalRequested",
+        "status": "approvalRequested",
         "attempts": 1,
         "startedAt": "2026-11-10T10:00:00Z",
         "durationMs": 42,
@@ -24,7 +24,7 @@
         "toolCallCount": 1,
         "totalTokens": 120,
         "selectedTransition": "needs-approval",
-        "decisionSource": "ApprovalRequest",
+        "decisionSource": "approvalRequest",
         "participant": null
       },
       "toolCalls": [
@@ -35,7 +35,7 @@
           "callId": "call_1",
           "name": "pay",
           "kind": 2,
-          "status": "ApprovalPending",
+          "status": "approvalPending",
           "startedAt": "2026-11-10T10:00:00Z",
           "durationMs": 0
         }
