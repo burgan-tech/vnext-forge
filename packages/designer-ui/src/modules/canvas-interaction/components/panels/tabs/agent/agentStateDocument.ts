@@ -27,7 +27,7 @@ export function setOrDelete(target: Json, key: string, value: unknown): void {
 
 export function findDraftState(draft: Json, stateKey: string): Json | undefined {
   const attrs = isRecord(draft.attributes) ? draft.attributes : undefined;
-  const states = Array.isArray(attrs?.states) ? (attrs!.states as unknown[]) : [];
+  const states = Array.isArray(attrs?.states) ? (attrs.states as unknown[]) : [];
   return states.find((s): s is Json => isRecord(s) && s.key === stateKey);
 }
 
@@ -60,7 +60,7 @@ export function updateAgentSection(
   fn: (section: Json) => void,
 ): void {
   updateAgentBinding(draft, stateKey, (agent) => {
-    const current = isRecord(agent[section]) ? (agent[section] as Json) : {};
+    const current = isRecord(agent[section]) ? (agent[section]) : {};
     fn(current);
     // prompt / output / decision are required by the schema: keep them even when empty.
     if (section === 'prompt' || section === 'output' || section === 'decision') agent[section] = current;
@@ -77,12 +77,13 @@ export function updateAgentSection(
 export function applyStateTypeChange(state: Json, nextType: number, domain = ''): void {
   const previous = state.stateType;
   state.stateType = nextType;
-  if (nextType === StateType.AiAgent) {
+  const aiAgent: number = StateType.AiAgent;
+  if (nextType === aiAgent) {
     if (!isRecord(state.agent)) state.agent = defaultAgentBinding(domain);
     const subType = typeof state.subType === 'number' ? state.subType : 0;
     if (subType !== 0 && subType !== 5) state.subType = 5;
     delete state.subFlow;
-  } else if (previous === StateType.AiAgent) {
+  } else if (previous === aiAgent) {
     delete state.agent;
   }
 }
@@ -95,7 +96,7 @@ export function renameAgentTransitionRefs(agent: Json, oldKey: string, newKey: s
     if (decision[role] === oldKey) decision[role] = newKey;
   }
   if (Array.isArray(decision.exclude)) {
-    decision.exclude = decision.exclude.map((k) => (k === oldKey ? newKey : k));
+    decision.exclude = (decision.exclude as unknown[]).map((k): unknown => (k === oldKey ? newKey : k));
   }
   if (isRecord(decision.hints) && oldKey in decision.hints) {
     const hints: Json = {};

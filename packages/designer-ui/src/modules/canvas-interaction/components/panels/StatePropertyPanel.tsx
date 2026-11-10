@@ -23,6 +23,7 @@ import { ErrorBoundaryTab } from './tabs/ErrorBoundaryTab';
 import { StartNodePanel } from './tabs/StartNodePanel';
 import type { RoleGrant } from '@vnext-forge-studio/vnext-types';
 import { HumanTaskTab } from './tabs/HumanTaskTab';
+import { AgentStateTab } from './tabs/agent/AgentStateTab';
 import { offeredTransitionsForState } from '../../utils/humanTask';
 import { MousePointer2, PanelRightOpen, X } from 'lucide-react';
 import {
@@ -32,7 +33,7 @@ import {
   TooltipTrigger,
 } from '../../../../ui/Tooltip';
 
-type Tab = 'general' | 'human-task' | 'tasks' | 'transitions' | 'subflow' | 'error-boundary';
+type Tab = 'general' | 'agent' | 'human-task' | 'tasks' | 'transitions' | 'subflow' | 'error-boundary';
 
 const FLOW_EDITOR_CANVAS_PANEL_ID = 'flow-editor-canvas';
 const FLOW_EDITOR_PROPERTIES_PANEL_ID = 'flow-editor-properties';
@@ -197,6 +198,7 @@ export function StatePropertyPanel({ defaultTaskFolder }: { defaultTaskFolder?: 
 
   const tabs: { key: Tab; label: string; count?: number; show: boolean }[] = [
     { key: 'general', label: 'General', show: true },
+    { key: 'agent', label: 'AI Agent', show: stateType === 6 },
     { key: 'human-task', label: 'Human Task', show: subType === 6 },
     { key: 'tasks', label: 'Tasks', count: entries.length + exits.length, show: true },
     { key: 'transitions', label: 'Transitions', count: transitions.length, show: true },
@@ -304,6 +306,7 @@ export function StatePropertyPanel({ defaultTaskFolder }: { defaultTaskFolder?: 
             }
           />
         )}
+        {shownTab === 'agent' && <AgentStateTab key={state.key} state={state} />}
         {shownTab === 'tasks' && <TasksTab state={state} defaultTaskFolder={defaultTaskFolder} />}
         {shownTab === 'transitions' && <TransitionsTab state={state} />}
         {shownTab === 'subflow' && <SubFlowTab state={state} />}

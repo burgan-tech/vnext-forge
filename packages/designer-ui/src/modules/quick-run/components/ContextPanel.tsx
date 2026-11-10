@@ -19,12 +19,14 @@ import { CorrelationsTabContent } from './CorrelationsTab';
 import { type ElementMetricsLoader } from './ElementMetrics';
 import { HistoryTabContent } from './HistoryTab';
 import { TasksTabContent } from './TasksTab';
+import { AgentRunsPanel } from '../../agent-runs/AgentRunsPanel';
 import { FileHandleChips, type FileHandleChipsProps } from '../file-fields/FileHandleChips';
 
 const TABS: { id: ContextPanelTab; label: string }[] = [
   { id: 'data', label: 'Data' },
   { id: 'history', label: 'History' },
   { id: 'tasks', label: 'Tasks' },
+  { id: 'agents', label: 'Agent runs' },
   { id: 'correlations', label: 'Correlations' },
   { id: 'raw', label: 'Raw' },
 ];
@@ -82,6 +84,8 @@ export function ContextPanel({ onOpenSubFlowTarget }: ContextPanelProps) {
 
   // Transition / state attempts (runtime 0.0.99 only — older runtimes 404).
   const metricsSupported = useRuntimeSupports('elementMetrics');
+  // Runtime 0.0.105 `functions/agent-runs`; shown while the version is unknown.
+  const agentRunsSupported = useRuntimeSupports('agentRuns');
   const loadElementMetrics = useMemo<ElementMetricsLoader | undefined>(() => {
     if (metricsSupported !== true || !activeTabId || !domain || !workflowKey) return undefined;
     return (kind, key) => {
@@ -254,7 +258,7 @@ export function ContextPanel({ onOpenSubFlowTarget }: ContextPanelProps) {
     <aside className="flex h-full w-full flex-col bg-[var(--vscode-sideBar-background,#252526)]">
       {/* Tab strip */}
       <div className="flex border-b border-[var(--vscode-panel-border)] bg-[var(--vscode-sideBarSectionHeader-background,transparent)]" role="tablist" aria-label="Context details">
-        {TABS.map((tab) => (
+        {TABS.filter((tab) => tab.id !== 'agents' || agentRunsSupported !== false).map((tab) => (
           <button
             key={tab.id}
             role="tab"
@@ -329,6 +333,17 @@ export function ContextPanel({ onOpenSubFlowTarget }: ContextPanelProps) {
             error={activeTaskHistoryError}
             transitionLabel={transitionLabel}
             historyNone={historyNone}
+          />
+        )}
+        {contextPanelTab === 'agents' && activeTabId && (
+          <AgentRunsPanel
+            key={activeTabId}
+            domain={domain}
+            workflowKey={workflowKey}
+            instanceId={activeTabId}
+            headers={taskHeaders}
+            {...(environmentUrl ? { runtimeUrl: environmentUrl } : {})}
+            {...(stateEtag ? { refreshToken: stateEtag } : {})}
           />
         )}
         {contextPanelTab === 'correlations' && (

@@ -1,7 +1,7 @@
 import {
   Play, Square, CheckCircle2, XCircle, StopCircle,
   PauseCircle, Circle, Repeat2, LayoutGrid,
-  Loader2, UserCircle, Ban, TimerOff,
+  Loader2, UserCircle, Ban, TimerOff, Bot,
 } from 'lucide-react';
 
 export interface StateNodeConfig {
@@ -43,6 +43,10 @@ export function getStateNodeConfig(stateType: number, subType: number): StateNod
   if (stateType === 3) return finalConfig(subType);
   if (stateType === 4) {
     return { bg: 'bg-subflow/10', text: 'text-subflow', accent: 'bg-subflow', ring: 'ring-subflow/20', icon: <Repeat2 size={16} />, typeLabel: 'SubFlow', borderStyle: 'border-dashed' };
+  }
+  // AI Agent (runtime 0.0.105) keeps its identity over the Busy sub type it usually carries.
+  if (stateType === 6) {
+    return { bg: 'bg-emerald-500/10', text: 'text-emerald-600', accent: 'bg-emerald-500', ring: 'ring-emerald-500/20', icon: <Bot size={16} />, typeLabel: 'AI Agent' };
   }
   if (subType === 6) return HUMAN;
   if (subType === 5) return BUSY;

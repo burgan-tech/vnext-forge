@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import {
-  Plus, Wand2, Play, Square, CheckCircle2, XCircle,
+  Plus, Wand2, Play, Square, CheckCircle2, XCircle, Bot,
   StopCircle, PauseCircle, Repeat2, ChevronDown, Settings2,
   SlidersHorizontal, Search, RotateCcw, Download, Image as ImageIcon,
   Maximize,
@@ -117,6 +117,7 @@ export function CanvasToolbar({
                 <DropdownItem label="Suspended" icon={<PauseCircle size={14} />} color="text-final-suspended" bg="bg-final-suspended/10" onClick={() => add(3, 4)} indent />
                 <div className="h-px bg-border-subtle my-1.5 mx-3" />
                 <DropdownItem label="SubFlow" icon={<Repeat2 size={14} />} color="text-subflow" bg="bg-subflow/10" onClick={() => add(4)} />
+                <DropdownItem label="AI Agent" icon={<Bot size={14} />} color="text-emerald-600" bg="bg-emerald-500/10" onClick={() => add(6, 5)} />
               </div>
             )}
           </div>

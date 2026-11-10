@@ -22,6 +22,8 @@ export const RUNTIME_0_0_99 = '0.0.99';
 
 /** First runtime release carrying `x-storage` files and the built-in `file` function. */
 export const RUNTIME_0_0_100 = '0.0.100';
+/** AI Agent state, sys-agents, Mcp task, `functions/agent-runs`, agent dry-run (vnext#1105). */
+export const RUNTIME_0_0_105 = '0.0.105';
 
 /**
  * True when a reported runtime version is at least `minimum`. Returns

@@ -14,6 +14,7 @@ import { useWorkflowStore } from '../../../../../store/useWorkflowStore';
 import { useProjectStore } from '../../../../../store/useProjectStore';
 import { Trash2, Plus } from 'lucide-react';
 import { useHistoryNone } from '../../../hooks/useHistoryNone';
+import { applyStateTypeChange } from './agent/agentStateDocument';
 
 interface GeneralTabProps {
   state: any;
@@ -229,6 +230,7 @@ export function GeneralTab({ state, updateWorkflow }: GeneralTabProps) {
   };
 
   const canPickExisting = Boolean(activeProject);
+  const isAiAgent = state.stateType === 6;
 
   return (
     <div className="space-y-3">
@@ -259,12 +261,16 @@ export function GeneralTab({ state, updateWorkflow }: GeneralTabProps) {
         <SelectField
           value={state.stateType || 2}
           onChange={(v) => {
-            updateField('stateType', Number(v));
+            updateWorkflow((draft: any) => {
+              const s = draft.attributes?.states?.find((x: any) => x.key === stateKey);
+              if (s) applyStateTypeChange(s, Number(v), projectDomain);
+            });
           }}
           options={[
             { value: 1, label: 'Initial', disabled: hasOtherInitialState }, { value: 2, label: 'Intermediate' },
             { value: 3, label: 'Final' }, { value: 4, label: 'SubFlow' },
             { value: 5, label: 'Wizard', disabled: historyNone && state.stateType !== 5 },
+            { value: 6, label: 'AI Agent' },
           ]}
         />
       </div>
@@ -275,12 +281,15 @@ export function GeneralTab({ state, updateWorkflow }: GeneralTabProps) {
           value={state.subType || 0}
           onChange={(v) => updateField('subType', Number(v))}
           options={[
-            { value: 0, label: 'None' }, { value: 1, label: 'Success' }, { value: 2, label: 'Error' },
-            { value: 3, label: 'Terminated' },
-            { value: 4, label: 'Suspended', disabled: historyNone && state.subType !== 4 },
+            // An AI Agent state accepts only None or Busy (runtime 0.0.105).
+            { value: 0, label: 'None' },
+            { value: 1, label: 'Success', disabled: isAiAgent },
+            { value: 2, label: 'Error', disabled: isAiAgent },
+            { value: 3, label: 'Terminated', disabled: isAiAgent },
+            { value: 4, label: 'Suspended', disabled: isAiAgent || (historyNone && state.subType !== 4) },
             { value: 5, label: 'Busy', disabled: historyNone && state.subType !== 5 },
-            { value: 6, label: 'Human', disabled: historyNone && state.subType !== 6 },
-            { value: 7, label: 'Cancelled' }, { value: 8, label: 'Timeout' },
+            { value: 6, label: 'Human', disabled: isAiAgent || (historyNone && state.subType !== 6) },
+            { value: 7, label: 'Cancelled', disabled: isAiAgent }, { value: 8, label: 'Timeout', disabled: isAiAgent },
           ]}
         />
       </div>

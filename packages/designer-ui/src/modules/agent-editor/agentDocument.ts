@@ -45,14 +45,14 @@ export function mutateAgentAttribute(draft: Json, key: string, value: unknown): 
 /** Draft mutator: one member of an `attributes` object such as `model`, `memory`, `policy`, `audit`. */
 export function mutateAgentSection(draft: Json, section: string, key: string, value: unknown): void {
   const attrs = ensureAttributes(draft);
-  const current = isRecord(attrs[section]) ? (attrs[section] as Json) : {};
+  const current = isRecord(attrs[section]) ? (attrs[section]) : {};
   setOrDelete(current, key, value);
   setOrDelete(attrs, section, current);
 }
 
 export function toolsOf(json: Json): Json[] {
   const tools = attributesOf(json).tools;
-  return Array.isArray(tools) ? (tools.filter(isRecord) as Json[]) : [];
+  return Array.isArray(tools) ? (tools.filter(isRecord)) : [];
 }
 
 export function mutateAgentTool(draft: Json, index: number, tool: Json): void {

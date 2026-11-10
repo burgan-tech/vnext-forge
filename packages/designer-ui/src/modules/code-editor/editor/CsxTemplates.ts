@@ -2,7 +2,16 @@ import type { CsxTaskType } from './CsxContext';
 
 /* ────────────── Types ────────────── */
 
-export type TemplateType = 'mapping' | 'condition' | 'timer' | 'cacheKey';
+export type TemplateType =
+  | 'mapping'
+  | 'condition'
+  | 'timer'
+  | 'cacheKey'
+  /** AI Agent (runtime 0.0.105): C# prompt, decision, hint and tool handlers. */
+  | 'agentPrompt'
+  | 'agentDecision'
+  | 'agentHints'
+  | 'toolHandler';
 
 interface GeneratedTemplate {
   code: string;
@@ -23,6 +32,10 @@ const TEMPLATE_SUFFIX: Record<TemplateType, string> = {
   condition: 'Rule',
   timer: 'Timer',
   cacheKey: 'CacheKey',
+  agentPrompt: 'Prompt',
+  agentDecision: 'Decision',
+  agentHints: 'Hints',
+  toolHandler: 'Tool',
 };
 
 /* ────────────── Using Blocks ────────────── */
@@ -378,6 +391,65 @@ function generateCacheKeyTemplate(className: string): GeneratedTemplate {
   };
 }
 
+/* ────────────── AI Agent Templates (runtime 0.0.105) ────────────── */
+
+const AGENT_USINGS = [...BASE_USINGS, 'System.Collections.Generic', 'System.Text.Json'];
+
+function generateAgentTemplate(templateType: TemplateType, className: string): GeneratedTemplate {
+  switch (templateType) {
+    case 'agentPrompt':
+      return {
+        usings: AGENT_USINGS,
+        code: `public class ${className} : ScriptBase, IAgentPromptMapping
+{
+    public Task<string> Handler(ScriptContext context)
+    {
+        // Build the user prompt from instance data. The model reads it as instructions,
+        // so pass untrusted values through prompt.context instead.
+        return Task.FromResult("<message></message>");
+    }
+}`,
+      };
+    case 'agentDecision':
+      return {
+        usings: AGENT_USINGS,
+        code: `public class ${className} : ScriptBase, IAgentDecisionMapping
+{
+    public Task<string?> Handler(AgentRunOutcome outcome, IReadOnlyList<AgentCandidate> candidates, ScriptContext context)
+    {
+        // Return a candidate key; anything else sends the state to decision.fallback.
+        return Task.FromResult(outcome.ModelDecision);
+    }
+}`,
+      };
+    case 'agentHints':
+      return {
+        usings: AGENT_USINGS,
+        code: `public class ${className} : ScriptBase, IAgentDecisionHintMapping
+{
+    public Task<IDictionary<string, string>> Handler(IReadOnlyList<AgentCandidate> candidates, ScriptContext context)
+    {
+        // "When" text per candidate key; it wins over decision.hints and transition descriptions.
+        IDictionary<string, string> hints = new Dictionary<string, string>();
+        return Task.FromResult(hints);
+    }
+}`,
+      };
+    default:
+      return {
+        usings: AGENT_USINGS,
+        code: `public class ${className} : ScriptBase, IToolHandler
+{
+    public Task<object?> Handler(JsonElement args, ScriptContext context)
+    {
+        // The return value is serialized for the model.
+        return Task.FromResult<object?>(null);
+    }
+}`,
+      };
+  }
+}
+
 /* ────────────── Mapping Template ────────────── */
 
 function generateMappingTemplate(className: string, taskType?: CsxTaskType): GeneratedTemplate {
@@ -435,6 +507,12 @@ export function generateTemplate(
       break;
     case 'cacheKey':
       template = generateCacheKeyTemplate(className);
+      break;
+    case 'agentPrompt':
+    case 'agentDecision':
+    case 'agentHints':
+    case 'toolHandler':
+      template = generateAgentTemplate(templateType, className);
       break;
   }
 

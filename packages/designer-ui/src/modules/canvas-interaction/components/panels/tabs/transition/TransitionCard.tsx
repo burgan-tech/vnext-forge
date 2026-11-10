@@ -257,17 +257,32 @@ export function TransitionCard({
         {/* Description */}
         {policy._comment.visible && (
           <div className="mb-2">
-            <label className="text-[10px] font-medium text-muted-foreground mb-0.5 block">Description</label>
+            <label className="text-[10px] font-medium text-muted-foreground mb-0.5 block">Comment</label>
             <textarea
               value={String((transition as unknown as Record<string, unknown>)._comment ?? '')}
               onChange={(e) => onUpdate(index, '_comment', e.target.value || undefined)}
-              placeholder="Transition description..."
+              placeholder="Internal comment..."
               rows={2}
-              aria-label="Transition description"
+              aria-label="Transition comment"
               className="w-full px-3 py-2 text-xs border border-border rounded-xl bg-muted-surface text-foreground font-mono focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary-border focus:bg-surface transition-all resize-y"
             />
           </div>
         )}
+
+        {/* Runtime 0.0.105: `description` is the "when" text an AI Agent decision shows the model. */}
+        <div className="mb-2">
+          <label className="text-[10px] font-medium text-muted-foreground mb-0.5 block">
+            Description <span className="text-subtle font-normal">(AI Agent "when" text)</span>
+          </label>
+          <textarea
+            value={String((transition as unknown as Record<string, unknown>).description ?? '')}
+            onChange={(e) => onUpdate(index, 'description', e.target.value || undefined)}
+            placeholder="When should an AI Agent choose this transition? Never evaluated as a rule."
+            rows={2}
+            aria-label="Transition description"
+            className="w-full px-3 py-2 text-xs border border-border rounded-xl bg-muted-surface text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary-border focus:bg-surface transition-all resize-y"
+          />
+        </div>
 
         {/* Identity fields: stacked layout */}
         <div className="space-y-2">

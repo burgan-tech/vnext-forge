@@ -2,6 +2,10 @@ import { create } from 'zustand';
 import { readHistoryMode } from '@vnext-forge-studio/vnext-types';
 import { enableMapSet, produce } from 'immer';
 import { suggestTransitionName } from '../modules/canvas-interaction/utils/workflowLint';
+import {
+  applyStateTypeChange,
+  defaultAgentBinding,
+} from '../modules/canvas-interaction/components/panels/tabs/agent/agentStateDocument';
 
 enableMapSet();
 
@@ -181,9 +185,12 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
 
   addState: (stateType, subType, position) => {
     const key = nextStateKey();
-    const typeLabels: Record<number, string> = { 1: 'Initial', 2: 'State', 3: 'Final', 4: 'SubFlow', 5: 'Wizard' };
+    const typeLabels: Record<number, string> = { 1: 'Initial', 2: 'State', 3: 'Final', 4: 'SubFlow', 5: 'Wizard', 6: 'AI Agent' };
     const subTypeLabels: Record<number, string> = { 1: 'Success', 2: 'Error', 3: 'Terminated', 4: 'Suspended', 5: 'Busy', 6: 'Human' };
-    const label = subType > 0 ? `New ${subTypeLabels[subType] || 'Final'}` : `New ${typeLabels[stateType] || 'State'}`;
+    const label =
+      subType > 0 && stateType !== 6
+        ? `New ${subTypeLabels[subType] || 'Final'}`
+        : `New ${typeLabels[stateType] || 'State'}`;
 
     get().updateWorkflow((draft: any) => {
       if (!draft.attributes) draft.attributes = {};
@@ -196,7 +203,11 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         onEntries: [],
         transitions: [],
       };
+      // history: none flows cannot wait, so an AI Agent state there starts without the Busy sub type.
+      if (stateType === 6 && subType === 5 && readHistoryMode(draft) === 'none') subType = 0;
       if (subType > 0) newState.subType = subType;
+      // AI Agent state (runtime 0.0.105): the agent block is required; it starts empty.
+      if (stateType === 6) newState.agent = defaultAgentBinding(typeof draft.domain === 'string' ? draft.domain : '');
       draft.attributes.states.push(newState);
     });
 
@@ -319,7 +330,7 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     get().updateWorkflow((draft: any) => {
       const state = draft.attributes?.states?.find((s: any) => s.key === key);
       if (!state) return;
-      state.stateType = stateType;
+      applyStateTypeChange(state, stateType, typeof draft.domain === 'string' ? draft.domain : '');
       if (subType !== undefined) state.subType = subType;
       else if (stateType !== 3) delete state.subType;
       if (stateType === 3 && state.transitions?.length) {
