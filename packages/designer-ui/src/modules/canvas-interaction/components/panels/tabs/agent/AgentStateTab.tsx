@@ -1,9 +1,12 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useId, useMemo, useState } from 'react';
 import { Bot, FlaskConical } from 'lucide-react';
 import type { DiscoveredVnextComponent } from '@vnext-forge-studio/app-contracts';
 import { SYS_AGENTS_FLOW, validateAiAgentStates } from '@vnext-forge-studio/vnext-types';
 
 import { useWorkflowStore } from '../../../../../../store/useWorkflowStore';
+import { TemplateHelp } from './TemplateHelp';
+import { TemplateTextArea } from './TemplateTextArea';
+import { useTemplatePaths } from './agentTemplatePaths';
 import { useProjectStore } from '../../../../../../store/useProjectStore';
 import { CsxEditorField, type ScriptCode } from '../../../../../save-component/components/CsxEditorField';
 import { ChooseExistingVnextComponentDialog } from '../ChooseExistingTaskDialog';
@@ -14,8 +17,8 @@ import {
   Hint,
   IssueList,
   RemoveButton,
+  RowAligned,
   SelectBox,
-  TextAreaField,
   TextField,
 } from '../../../../../agent-editor/components/agentFormPrimitives';
 import { AgentMemoryFields, AgentPolicyFields } from '../../../../../agent-editor/components/AgentSettingsFields';
@@ -117,6 +120,9 @@ export function AgentStateTab({ state }: AgentStateTabProps) {
     ? ((agent.tools as Json).exclude as string[])
     : [];
   const toolSuggestions = selected ? exposedToolNames(selected.json) : [];
+  const workflowJson = useWorkflowStore((s) => s.workflowJson);
+  const templatePaths = useTemplatePaths(activeProject?.id, workflowJson);
+  const contextListId = useId();
 
   const promptScript: ScriptCode | null = usesPromptMapping
     ? {
@@ -272,18 +278,13 @@ export function AgentStateTab({ state }: AgentStateTabProps) {
           ))}
         </div>
         {promptKind === 'template' ? (
-          <TextAreaField
+          <TemplateTextArea
             label="Template"
-            hint={
-              <>
-                Placeholders: <code>{'{{ data.* }}'}</code>, <code>{'{{ body.* }}'}</code>, <code>{'{{ instance.id }}'}</code>,{' '}
-                <code>{'{{ instance.key }}'}</code>, <code>{'{{ state }}'}</code>.
-              </>
-            }
+            hint={<TemplateHelp />}
             value={typeof prompt.template === 'string' ? prompt.template : undefined}
             onChange={(v) => editSection('prompt', (p) => void (p.template = v ?? ''))}
+            paths={templatePaths}
             rows={4}
-            mono
             placeholder="<message>{{ data.message }}</message>"
           />
         ) : (
@@ -317,7 +318,10 @@ export function AgentStateTab({ state }: AgentStateTabProps) {
 
         <div className="mt-3 space-y-1.5">
           <div className="text-muted-foreground text-[10px] font-semibold tracking-wide">Seed messages</div>
-          <Hint>Sent before the user prompt on every run (few-shot examples, extra instructions). Content is a template.</Hint>
+          <Hint>
+            Sent before the user prompt on every run (few-shot examples, extra instructions). Content takes the same{' '}
+            <code>{'{{ … }}'}</code> placeholders as the template; type <code>{'{{'}</code> for paths.
+          </Hint>
           {messages.map((m, index) => (
             <div key={index} className="border-border-subtle flex items-start gap-1.5 rounded-lg border p-1.5">
               <div className="w-24 shrink-0">
@@ -329,14 +333,15 @@ export function AgentStateTab({ state }: AgentStateTabProps) {
                 />
               </div>
               <div className="flex-1">
-                <TextAreaField
+                <TemplateTextArea
                   label="Content"
                   value={typeof m.content === 'string' ? m.content : undefined}
                   onChange={(v) => editSection('prompt', (p) => void ((p.messages as Json[])[index].content = v ?? ''))}
+                  paths={templatePaths}
                   rows={2}
                 />
               </div>
-              <div className="pt-5">
+              <RowAligned>
                 <RemoveButton
                   label={`Remove message ${index + 1}`}
                   onClick={() =>
@@ -346,7 +351,7 @@ export function AgentStateTab({ state }: AgentStateTabProps) {
                     })
                   }
                 />
-              </div>
+              </RowAligned>
             </div>
           ))}
           <AddButton
@@ -364,14 +369,22 @@ export function AgentStateTab({ state }: AgentStateTabProps) {
         <div className="mt-3 space-y-1.5">
           <div className="text-muted-foreground text-[10px] font-semibold tracking-wide">Context</div>
           <Hint>
-            Named values appended as <code>{'<data name="…">'}</code> blocks, so the model reads them as data, not instructions. Paths
-            start with <code>data.</code>, <code>body.</code> or <code>instance.</code>.
+            Named values appended after the prompt, in name order, each as a <code>{'<data name="…">'}</code> block, so the model reads
+            them as data, not instructions. A value is a plain path without braces: <code>data.customer</code>,{' '}
+            <code>body.amount</code>, <code>instance.id</code>, <code>instance.key</code> or <code>state</code>. Objects render as
+            JSON; a missing path gives an empty block.
           </Hint>
+          <datalist id={contextListId}>
+            {templatePaths.map((p) => (
+              <option key={p} value={p} />
+            ))}
+          </datalist>
           {Object.entries(context).map(([name, path]) => (
             <ContextRow
               key={name}
               name={name}
               path={path}
+              listId={contextListId}
               onRename={(nextName) =>
                 editSection('prompt', (p) => {
                   const entries = Object.entries(isRecord(p.context) ? p.context : {});
@@ -473,12 +486,14 @@ export function AgentStateTab({ state }: AgentStateTabProps) {
 function ContextRow({
   name,
   path,
+  listId,
   onRename,
   onPath,
   onRemove,
 }: {
   name: string;
   path: string;
+  listId: string;
   onRename: (next: string) => void;
   onPath: (next: string) => void;
   onRemove: () => void;
@@ -498,6 +513,7 @@ function ContextRow({
       />
       <input
         value={path}
+        list={listId}
         aria-label={`Context ${name} path`}
         onChange={(e) => onPath(e.target.value)}
         className="border-border bg-muted-surface min-w-0 flex-1 rounded-lg border px-2 py-1 font-mono text-[11px]"

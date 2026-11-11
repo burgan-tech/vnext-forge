@@ -10,11 +10,42 @@ import { Plus, Trash2, X } from 'lucide-react';
 const INPUT =
   'w-full rounded-lg border border-border bg-muted-surface px-2.5 py-1.5 text-xs text-foreground focus:border-primary-border focus:bg-surface focus:outline-none focus:ring-2 focus:ring-ring/20 transition-all';
 
-export function FieldLabel({ children, hint }: { children: ReactNode; hint?: ReactNode }) {
+/**
+ * Layout contract (keeps fields side by side in a grid row aligned): the
+ * label is one line (`h-4`, truncated with a tooltip) and every hint or
+ * error sits *below* the control, so the controls of a row always start on
+ * the same line whether or not a field has a hint.
+ */
+export function FieldLabel({ children }: { children: ReactNode }) {
   return (
-    <div className="mb-1">
-      <label className="text-muted-foreground block text-[10px] font-semibold tracking-wide">{children}</label>
+    <label
+      title={typeof children === 'string' ? children : undefined}
+      className="text-muted-foreground mb-1 block h-4 truncate text-[10px] leading-4 font-semibold tracking-wide">
+      {children}
+    </label>
+  );
+}
+
+/** Hint and error under a control. */
+export function FieldFoot({ hint, error }: { hint?: ReactNode; error?: string | null }) {
+  if (!hint && !error) return null;
+  return (
+    <>
+      {error && <p className="text-destructive-text mt-0.5 text-[10px] leading-snug">{error}</p>}
       {hint && <p className="text-subtle mt-0.5 text-[10px] leading-snug">{hint}</p>}
+    </>
+  );
+}
+
+/**
+ * Spacer of a label's height: puts a control without a label (a toggle, a
+ * button) on the same line as the labelled inputs of its grid row.
+ */
+export function RowAligned({ children }: { children: ReactNode }) {
+  return (
+    <div>
+      <div className="mb-1 h-4" aria-hidden />
+      <div className="flex min-h-[30px] items-center">{children}</div>
     </div>
   );
 }
@@ -38,7 +69,7 @@ export function TextField({
 }) {
   return (
     <div>
-      <FieldLabel hint={hint}>{label}</FieldLabel>
+      <FieldLabel>{label}</FieldLabel>
       <input
         type="text"
         value={value ?? ''}
@@ -47,7 +78,7 @@ export function TextField({
         onChange={(e) => onChange(e.target.value === '' ? undefined : e.target.value)}
         className={`${INPUT} ${mono ? 'font-mono' : ''} ${error ? 'border-destructive-border' : ''}`}
       />
-      {error && <p className="text-destructive-text mt-0.5 text-[10px]">{error}</p>}
+      <FieldFoot hint={hint} error={error} />
     </div>
   );
 }
@@ -71,7 +102,7 @@ export function TextAreaField({
 }) {
   return (
     <div>
-      <FieldLabel hint={hint}>{label}</FieldLabel>
+      <FieldLabel>{label}</FieldLabel>
       <textarea
         value={value ?? ''}
         rows={rows}
@@ -80,6 +111,7 @@ export function TextAreaField({
         onChange={(e) => onChange(e.target.value === '' ? undefined : e.target.value)}
         className={`${INPUT} resize-y ${mono ? 'font-mono' : ''}`}
       />
+      <FieldFoot hint={hint} />
     </div>
   );
 }
@@ -110,7 +142,7 @@ export function NumberField({
   }, [value]);
   return (
     <div>
-      <FieldLabel hint={hint}>{label}</FieldLabel>
+      <FieldLabel>{label}</FieldLabel>
       <input
         type="number"
         value={text}
@@ -130,6 +162,7 @@ export function NumberField({
         }}
         className={`${INPUT} font-mono tabular-nums`}
       />
+      <FieldFoot hint={hint} />
     </div>
   );
 }
@@ -160,7 +193,7 @@ export function SelectBox({
   const known = value === undefined || value === '' || options.some((o) => o.value === value);
   return (
     <div>
-      <FieldLabel hint={hint}>{label}</FieldLabel>
+      <FieldLabel>{label}</FieldLabel>
       <select
         value={value ?? ''}
         aria-label={typeof label === 'string' ? label : undefined}
@@ -174,6 +207,7 @@ export function SelectBox({
           </option>
         ))}
       </select>
+      <FieldFoot hint={hint} />
     </div>
   );
 }
@@ -234,7 +268,7 @@ export function ChipsField({
   const open = suggestions.filter((s) => !values.includes(s));
   return (
     <div>
-      <FieldLabel hint={hint}>{label}</FieldLabel>
+      <FieldLabel>{label}</FieldLabel>
       <div className="flex flex-wrap gap-1">
         {values.map((v) => (
           <span
@@ -283,6 +317,7 @@ export function ChipsField({
           ))}
         </div>
       )}
+      <FieldFoot hint={hint} />
     </div>
   );
 }
@@ -366,7 +401,7 @@ export function JsonObjectField({
   }, [serialized]);
   return (
     <div>
-      <FieldLabel hint={hint}>{label}</FieldLabel>
+      <FieldLabel>{label}</FieldLabel>
       <textarea
         value={text}
         rows={rows}
@@ -398,7 +433,7 @@ export function JsonObjectField({
         }}
         className={`${INPUT} resize-y font-mono text-[11px] ${error ? 'border-destructive-border' : ''}`}
       />
-      {error && <p className="text-destructive-text mt-0.5 text-[10px]">{error}</p>}
+      <FieldFoot hint={hint} error={error} />
     </div>
   );
 }

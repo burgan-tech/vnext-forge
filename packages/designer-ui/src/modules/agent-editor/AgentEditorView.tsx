@@ -17,6 +17,9 @@ import {
 } from '../../modules/code-editor/layout/ScriptEditorPanel';
 import { ScriptTaskChromeProvider } from '../../modules/task-editor/ScriptTaskChromeContext';
 import { useAgentEditor } from './UseAgentEditor';
+import { instructionsFileRef } from './agentInstructionsFile';
+import { writeFile } from '../project-workspace/WorkspaceApi';
+import { showNotification } from '../../notification/notification-port';
 import { AgentEditorPanel } from './components/AgentEditorPanel';
 import { buildAtomicComponentJsonPath } from '../vnext-workspace/atomicComponentPaths.js';
 import type { AtomicSavedInfo } from '../save-component/componentEditorModalTypes.js';
@@ -80,18 +83,18 @@ export function AgentEditorView({
   } = useComponentStore();
   const { save, saving, saveError, autoSavePending, autoSaved } = useSaveComponent({
     componentType: 'agent',
-    afterSaveSuccess: onAtomicSaved
-      ? () => {
-          const j = useComponentStore.getState().componentJson;
-          if (!j) return;
-          onAtomicSaved({
-            key: typeof j.key === 'string' ? j.key : '',
-            version: typeof j.version === 'string' ? j.version : '',
-            domain: typeof j.domain === 'string' ? j.domain : '',
-            flow: typeof j.flow === 'string' ? j.flow : '',
-          });
-        }
-      : undefined,
+    afterSaveSuccess: () => {
+      const { componentJson: j, filePath: savedPath } = useComponentStore.getState();
+      if (!j) return;
+      // File-backed instructions: write the inlined text back to its file.
+      if (savedPath) void writeInstructionsFile(j, savedPath);
+      onAtomicSaved?.({
+        key: typeof j.key === 'string' ? j.key : '',
+        version: typeof j.version === 'string' ? j.version : '',
+        domain: typeof j.domain === 'string' ? j.domain : '',
+        flow: typeof j.flow === 'string' ? j.flow : '',
+      });
+    },
   });
 
   const filePath =
@@ -102,6 +105,8 @@ export function AgentEditorView({
   const isEditorReady = Boolean(
     agentDocument && componentJson && componentFilePath === filePath,
   );
+  const instructionsReloadedFrom =
+    isDirty ? agentDocument?.instructionsFromFile?.location : undefined;
 
   const scriptPanelOpen = useEditorPanelsStore((s) => s.scriptPanelOpen);
   const activeScript = useScriptPanelStore((s) => s.activeScript);
@@ -170,6 +175,12 @@ export function AgentEditorView({
             publishing={publishing}
             autoSavePending={autoSavePending}
             autoSaved={autoSaved}>
+            {instructionsReloadedFrom && (
+              <p className="border-warning-border bg-warning-surface text-warning-text mx-4 mt-3 rounded-lg border px-2.5 py-1.5 text-[11px]">
+                Instructions were re-read from <code>{instructionsReloadedFrom}</code>: the file changed outside Forge. Save to
+                inline it into the agent JSON.
+              </p>
+            )}
             <AgentEditorPanel json={componentJson} onChange={updateComponent} />
           </ComponentEditorLayout>
         }
@@ -194,4 +205,17 @@ export function AgentEditorView({
       </ComponentEditorModalProvider>
     </ScriptTaskChromeProvider>
   );
+}
+
+/** Writes file-backed `instructions` (`location` + inlined `code`) to their file. */
+async function writeInstructionsFile(json: Record<string, unknown>, agentFilePath: string): Promise<void> {
+  const ref = instructionsFileRef(json, agentFilePath);
+  if (!ref) return;
+  const response = await writeFile(ref.absolutePath, ref.text).catch(() => null);
+  if (!response?.success) {
+    showNotification({
+      kind: 'error',
+      message: `Instructions file ${ref.location} could not be written; the agent JSON keeps the inlined copy.`,
+    });
+  }
 }

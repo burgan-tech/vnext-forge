@@ -119,7 +119,7 @@ export async function runCsxSync(
   } catch (err) {
     result.errors.push({
       path: csxFile,
-      message: `Failed to read CSX file: ${err instanceof Error ? err.message : String(err)}`,
+      message: `Failed to read source file: ${err instanceof Error ? err.message : String(err)}`,
     });
     return result;
   }

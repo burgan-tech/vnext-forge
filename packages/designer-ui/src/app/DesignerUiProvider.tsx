@@ -5,6 +5,7 @@ import { DocumentThemeSync } from './DocumentThemeSync.js';
 import { PseudoUiBrandPaletteFromWorkspaceSync } from './PseudoUiBrandPaletteFromWorkspaceSync.js';
 import { PseudoUiBrandPaletteSync } from './PseudoUiBrandPaletteSync.js';
 import { PseudoUiTenantStyleSync } from './PseudoUiTenantStyleSync.js';
+import { RuntimeUrlSync } from './RuntimeUrlSync.js';
 import { ToolHeadersSync } from './ToolHeadersSync.js';
 
 export interface DesignerUiProviderProps {
@@ -64,6 +65,7 @@ export function DesignerUiProvider({ transport, children }: DesignerUiProviderPr
     <>
       <DocumentThemeSync />
       <ToolHeadersSync />
+      <RuntimeUrlSync />
       <PseudoUiTenantStyleSync />
       {/* Disk → store: reads .vnext-forge/brand.json on mount and on fs changes. */}
       <PseudoUiBrandPaletteFromWorkspaceSync />

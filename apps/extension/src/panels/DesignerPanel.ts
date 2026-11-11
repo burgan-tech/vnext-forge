@@ -84,6 +84,7 @@ export class DesignerPanel {
   private readonly router: MessageRouter;
   private forgeToolsSettings: ForgeToolsSettingsService | undefined;
   private settingsChangeDisposable: vscode.Disposable | undefined;
+  private environmentsChangeDisposable: vscode.Disposable | undefined;
 
   constructor(context: vscode.ExtensionContext, router: MessageRouter) {
     this.context = context;
@@ -116,6 +117,24 @@ export class DesignerPanel {
       }
     });
     this.context.subscriptions.push(this.settingsChangeDisposable);
+
+    // Active runtime environment -> designer webviews. In-designer runtime
+    // calls (Function Run, AI Agent dry run) read `useRuntimeStore.runtimeUrl`;
+    // without this they would hit the proxy's default runtime instead of the
+    // environment Quick Run and the Monitor use.
+    this.environmentsChangeDisposable?.dispose();
+    this.environmentsChangeDisposable = service.onDidChangeEnvironments(() => {
+      const env = service.getCachedActiveEnvironment();
+      const message = {
+        type: 'host:runtime-environment-changed',
+        runtimeUrl: env?.baseUrl ?? null,
+        environmentName: env?.name ?? null,
+      };
+      for (const managed of this.panels.values()) {
+        if (managed.webviewReady) void managed.panel.webview.postMessage(message);
+      }
+    });
+    this.context.subscriptions.push(this.environmentsChangeDisposable);
   }
 
   /**
@@ -529,6 +548,14 @@ export class DesignerPanel {
       config.themeMode = cached.themeMode;
       config.autoSaveEnabled = cached.autoSaveEnabled;
       config.pseudoUiTenantStyle = this.resolvePseudoUiTenantStyleForWebview(webview, cached);
+    }
+
+    // Active runtime environment: `RuntimeUrlSync` seeds `useRuntimeStore`
+    // from it so in-designer runtime calls target the same runtime as Quick Run.
+    const activeEnv = this.forgeToolsSettings?.getCachedActiveEnvironment();
+    if (activeEnv?.baseUrl) {
+      config.runtimeUrl = activeEnv.baseUrl;
+      config.runtimeEnvironmentName = activeEnv.name;
     }
 
     // Forge-wide headers (Task 19) — persisted in `quickrun-settings.json`,

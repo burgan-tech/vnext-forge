@@ -3,14 +3,21 @@ import { FlaskConical, Loader2 } from 'lucide-react';
 import { resolveAgentCandidates } from '@vnext-forge-studio/vnext-types';
 
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../../ui/Dialog';
+import { useRuntimeStore } from '../../store/useRuntimeStore';
 import { useToolHeadersStore } from '../../store/useToolHeadersStore';
 import { isRecord, type Json } from '../agent-editor/agentDocument';
-import { JsonObjectField, TextAreaField, TextField, ToggleField } from '../agent-editor/components/agentFormPrimitives';
+import { FieldLabel, JsonObjectField, TextAreaField, TextField, ToggleField } from '../agent-editor/components/agentFormPrimitives';
+import { AgentCallErrorBox } from './AgentCallErrorBox';
 import {
   agentDryRun,
   agentRunStatusName,
+  describeAgentCallFailure,
+  describeAgentRuntimeError,
+  dryRunOutcome,
+  type DryRunOutcome,
   statusTone,
   toolCallStatusName,
+  type AgentCallError,
   type AgentDryRunResult,
 } from './AgentRunsApi';
 
@@ -23,6 +30,11 @@ export interface AgentDryRunDialogProps {
   state?: Json;
   /** Parsed agent component, when known (shows its output schema). */
   agentJson?: Json;
+  /**
+   * Runtime to call; defaults to the active environment (`useRuntimeStore`),
+   * the same runtime Quick Run and the Agent runs tab use.
+   */
+  runtimeUrl?: string;
 }
 
 /**
@@ -31,8 +43,10 @@ export interface AgentDryRunDialogProps {
  * session. The runtime allows it only for the caller roles in
  * `AiAgent:DryRun:Roles`; the role travels in the Forge-wide tool headers.
  */
-export function AgentDryRunDialog({ open, onOpenChange, agentRef, state, agentJson }: AgentDryRunDialogProps) {
+export function AgentDryRunDialog({ open, onOpenChange, agentRef, state, agentJson, runtimeUrl: runtimeUrlProp }: AgentDryRunDialogProps) {
   const toolHeaders = useToolHeadersStore((s) => s.headers);
+  const activeRuntimeUrl = useRuntimeStore((s) => s.runtimeUrl);
+  const runtimeUrl = [runtimeUrlProp, activeRuntimeUrl].find((u): u is string => typeof u === 'string' && u.trim() !== '');
   const agentKey = typeof agentRef.key === 'string' ? agentRef.key : '';
   const domain = typeof agentRef.domain === 'string' ? agentRef.domain : '';
 
@@ -50,7 +64,7 @@ export function AgentDryRunDialog({ open, onOpenChange, agentRef, state, agentJs
   const [sendCandidates, setSendCandidates] = useState(candidates.length > 0);
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<AgentDryRunResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<AgentCallError | null>(null);
 
   const run = async () => {
     setRunning(true);
@@ -67,11 +81,13 @@ export function AgentDryRunDialog({ open, onOpenChange, agentRef, state, agentJs
           ? { candidates: candidates.map(({ key, when, whenSource }) => ({ key, when, whenSource })) }
           : {}),
         ...(Object.keys(toolHeaders).length > 0 ? { headers: toolHeaders } : {}),
+        ...(runtimeUrl ? { runtimeUrl } : {}),
       });
-      if (response.success) setResult(response.data);
-      else setError(response.error.message || 'The dry run failed.');
+      if (!response.success) setError(describeAgentCallFailure(response.error));
+      else if (response.data.runtimeError) setError(describeAgentRuntimeError(response.data.runtimeError, 'dryRun', runtimeUrl));
+      else setResult(response.data);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(describeAgentCallFailure({ message: err instanceof Error ? err.message : String(err) }));
     } finally {
       setRunning(false);
     }
@@ -97,15 +113,15 @@ export function AgentDryRunDialog({ open, onOpenChange, agentRef, state, agentJs
 
         <div className="max-h-[70vh] space-y-3 overflow-y-auto px-4 py-3">
           <div className="grid grid-cols-2 gap-2">
-            <div>
-              <div className="text-muted-foreground mb-1 text-[10px] font-semibold tracking-wide">Domain</div>
-              <div className="border-border bg-muted-surface rounded-lg border px-2.5 py-1.5 font-mono text-xs">{domain || '—'}</div>
-            </div>
+            <ReadonlyFact label="Runtime" value={runtimeUrl ?? 'Default runtime'} />
+            <ReadonlyFact label="Domain" value={domain || '—'} />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
             <TextField label="Agent version" hint="Latest when empty." value={version} onChange={setVersion} mono />
           </div>
           <TextAreaField
             label="Prompt"
-            hint="Sent as is; template placeholders are not rendered by a dry run."
+            hint="{{ data.* }} placeholders render against the sample data; body and instance are empty and {{ state }} is dry-run. Context entries and seed messages are not sent."
             value={prompt}
             onChange={(v) => setPrompt(v ?? '')}
             rows={4}
@@ -141,15 +157,22 @@ export function AgentDryRunDialog({ open, onOpenChange, agentRef, state, agentJs
             {running ? <Loader2 size={13} className="animate-spin" /> : <FlaskConical size={13} />} Run
           </button>
 
-          {error && (
-            <p className="border-destructive-border bg-destructive-surface text-destructive-text rounded-lg border px-2.5 py-1.5 text-[11px]">
-              {error}
-            </p>
-          )}
+          {error && <AgentCallErrorBox error={error} />}
           {result && <DryRunResult result={result} schema={agentJson} />}
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+function ReadonlyFact({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <FieldLabel>{label}</FieldLabel>
+      <div className="border-border bg-muted-surface truncate rounded-lg border px-2.5 py-1.5 font-mono text-xs" title={value}>
+        {value}
+      </div>
+    </div>
   );
 }
 
@@ -158,6 +181,7 @@ function DryRunResult({ result, schema }: { result: AgentDryRunResult; schema?: 
     schema && isRecord(schema.attributes) && isRecord((schema.attributes).output)
       ? ((schema.attributes).output).schema
       : undefined;
+  const outcome = dryRunOutcome(result);
   return (
     <div className="border-border-subtle space-y-2 rounded-lg border p-2.5 text-[11px]">
       <div className="flex flex-wrap items-center gap-2">
@@ -176,7 +200,8 @@ function DryRunResult({ result, schema }: { result: AgentDryRunResult; schema?: 
         </span>
       </div>
       {result.reason && <p>Reason: {result.reason}</p>}
-      {result.failureReason && <p className="text-destructive-text">Failure: {result.failureReason}</p>}
+      {outcome.kind === 'approval' && <ApprovalRequired outcome={outcome} />}
+      {outcome.kind === 'failure' && outcome.reason && <p className="text-destructive-text">Failure: {outcome.reason}</p>}
       <div>
         <div className="text-muted-foreground mb-1 text-[10px] font-semibold tracking-wide">Output</div>
         <pre className="bg-muted-surface border-border max-h-60 overflow-auto rounded-lg border p-2 font-mono text-[10px] whitespace-pre-wrap">
@@ -201,6 +226,39 @@ function DryRunResult({ result, schema }: { result: AgentDryRunResult; schema?: 
           ))}
         </ol>
       </div>
+    </div>
+  );
+}
+
+/** `ApprovalRequested`: an expected stop before a tool that needs approval, not a failure. */
+export function ApprovalRequired({ outcome }: { outcome: Extract<DryRunOutcome, { kind: 'approval' }> }) {
+  return (
+    <div role="status" className="space-y-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 px-2.5 py-2">
+      <div className="font-semibold text-amber-700">Approval required</div>
+      <p>
+        The agent stopped before running any tool. In a flow, the state’s <code>onApprovalRequest</code> transition runs; a
+        dry run cannot resume.
+      </p>
+      {outcome.note && <p className="text-muted-foreground">{outcome.note}</p>}
+      {outcome.pending && outcome.pending.length > 0 && (
+        <ul className="space-y-1.5">
+          {outcome.pending.map((p, i) => (
+            <li key={p.requestId ?? p.callId ?? String(i)} className="border-border-subtle bg-surface rounded-md border p-1.5">
+              <div className="flex items-center gap-1.5">
+                <span className="font-mono font-semibold">{p.tool ?? '(unknown tool)'}</span>
+                {p.requiresConfirmation === true && (
+                  <span className="rounded bg-amber-500/15 px-1 text-[9px] font-semibold text-amber-700 uppercase">
+                    Requires confirmation
+                  </span>
+                )}
+              </div>
+              <pre className="bg-muted-surface border-border mt-1 max-h-40 overflow-auto rounded border p-1.5 font-mono text-[10px] whitespace-pre-wrap">
+                {JSON.stringify(p.arguments ?? {}, null, 2)}
+              </pre>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

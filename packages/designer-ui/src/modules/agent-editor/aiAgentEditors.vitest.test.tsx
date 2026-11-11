@@ -5,6 +5,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 
 import { AgentEditorPanel } from './components/AgentEditorPanel';
+import { checkJsonObjectText } from './components/JsonObjectCodeField';
+import { instructionsFileRef, sameInstructionsText, setInstructionsCode } from './agentInstructionsFile';
 import { AgentStateTab } from '../canvas-interaction/components/panels/tabs/agent/AgentStateTab';
 
 const FIXTURES = join(__dirname, '__fixtures__', 'ai-agent-lab');
@@ -45,5 +47,43 @@ describe('AgentStateTab', () => {
     expect(html).toContain('ai-cards-agent@1.0.0');
     expect(html).toContain('ai-loans-agent@1.0.0');
     expect(html).toContain('Card issues.');
+  });
+});
+
+describe('checkJsonObjectText', () => {
+  it('accepts an object schema and reports where JSON breaks', () => {
+    expect(checkJsonObjectText('{"type":"object","properties":{}}', true)).toEqual({
+      value: { type: 'object', properties: {} },
+      error: null,
+    });
+    expect(checkJsonObjectText('{\n  "type": "object",\n  oops\n}', true).error).toMatch(/^Invalid JSON/);
+    expect(checkJsonObjectText('[]').error).toBe('Must be a JSON object.');
+    expect(checkJsonObjectText('{"type":"string"}', true).error).toContain('"type": "object"');
+    expect(checkJsonObjectText('{"type":"object","required":[1]}', true).error).toContain('"required"');
+    expect(checkJsonObjectText('   ')).toEqual({ error: null });
+  });
+});
+
+describe('file-backed instructions', () => {
+  const agent = {
+    attributes: { instructions: { location: './instructions.md', code: btoa('Be brief.'), encoding: 'B64' } },
+  };
+
+  it('resolves the file next to the agent JSON and decodes the inlined copy', () => {
+    expect(instructionsFileRef(agent, '/ws/core/Agents/triage.json')).toEqual({
+      location: './instructions.md',
+      encoding: 'B64',
+      text: 'Be brief.',
+      absolutePath: '/ws/core/Agents/instructions.md',
+    });
+    expect(instructionsFileRef({ attributes: { instructions: { text: 'x' } } }, '/a.json')).toBeNull();
+  });
+
+  it('re-encodes file text into code and ignores newline-only differences', () => {
+    const draft = structuredClone(agent) as Record<string, unknown>;
+    setInstructionsCode(draft, 'Be very brief.');
+    expect(atob((draft.attributes as { instructions: { code: string } }).instructions.code)).toBe('Be very brief.');
+    expect(sameInstructionsText('a\r\nb\n', 'a\nb')).toBe(true);
+    expect(sameInstructionsText('a', 'b')).toBe(false);
   });
 });

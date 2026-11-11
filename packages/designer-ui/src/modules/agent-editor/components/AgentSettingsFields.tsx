@@ -76,7 +76,7 @@ export function AgentMemoryFields({
       {mode === 'key' && (
         <TextField
           label="Key template"
-          hint="Required with mode Key, e.g. {{ data.customerId }}."
+          hint="Required with mode Key. Same {{ … }} placeholders as the prompt template (data., body., instance.id, instance.key, state), e.g. {{ data.customerId }}."
           value={str(memory.key)}
           onChange={(v) => set('key', v)}
           mono

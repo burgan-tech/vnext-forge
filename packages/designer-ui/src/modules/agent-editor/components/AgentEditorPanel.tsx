@@ -4,6 +4,7 @@ import { decodeBase64, encodeBase64 } from '@vnext-forge-studio/vnext-types';
 
 import { useProjectStore } from '../../../store/useProjectStore';
 import { AgentDryRunDialog } from '../../agent-runs/AgentDryRunDialog';
+import { JsonObjectCodeField } from './JsonObjectCodeField';
 import {
   attributesOf,
   isRecord,
@@ -20,11 +21,11 @@ import { AgentToolsSection } from './AgentToolsSection';
 import {
   ChipsField,
   Hint,
-  JsonObjectField,
   NumberField,
   SelectBox,
   TextAreaField,
   TextField,
+  RowAligned,
   ToggleField,
 } from './agentFormPrimitives';
 
@@ -144,12 +145,13 @@ export function AgentEditorPanel({ json, onChange }: AgentEditorPanelProps) {
             }
             options={[
               { value: 'text', label: 'Inline text' },
-              { value: 'file', label: 'File (inlined by the CLI at package time)' },
+              { value: 'file', label: 'File (Markdown next to the agent, kept in sync by Forge)' },
             ]}
           />
           {fromFile && (
             <TextField
               label="Location"
+              hint="Relative to this agent JSON. Forge writes the file on save and re-reads it on open; the runtime only reads the inlined copy."
               value={typeof instructions.location === 'string' ? instructions.location : undefined}
               onChange={(v) => setInstructions('location', v)}
               mono
@@ -204,12 +206,12 @@ export function AgentEditorPanel({ json, onChange }: AgentEditorPanelProps) {
       </Panel>
 
       <Panel title="Output">
-        <JsonObjectField
+        <JsonObjectCodeField
           label="Output schema"
           hint='JSON schema of the structured output; root must be "type": "object". In model decision mode the runtime adds the decision and reason.'
           value={output.schema}
           requireObjectType
-          rows={10}
+          height={260}
           onChange={(v) => setSection('output', 'schema', v ?? { type: 'object', properties: {} })}
         />
       </Panel>
@@ -244,13 +246,13 @@ export function AgentEditorPanel({ json, onChange }: AgentEditorPanelProps) {
               { value: 'full', label: 'Full — every message' },
             ]}
           />
-          <div className="pt-4">
+          <RowAligned>
             <ToggleField
               label="Keep tool results"
               checked={audit.persistToolResults === true}
               onChange={(on) => setSection('audit', 'persistToolResults', on ? true : audit.persistToolResults === undefined ? undefined : false)}
             />
-          </div>
+          </RowAligned>
         </div>
         <ChipsField
           label="Redact"

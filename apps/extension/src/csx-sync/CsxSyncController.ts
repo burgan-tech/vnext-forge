@@ -6,6 +6,7 @@ import type { VnextWorkspaceConfig } from '@vnext-forge-studio/services-core';
 import { baseLogger } from '../shared/logger.js';
 import type { VnextWorkspaceDetector, VnextWorkspaceRoot } from '../workspace-detector.js';
 import { runCsxSync, type CsxSyncRunResult } from './CsxSyncRunner.js';
+import { isSyncedSourceFile } from './jsonMappingWalker.js';
 
 const SETTING_NAMESPACE = 'vnextForge.csxSync';
 const SETTING_ENABLED = 'enabled';
@@ -63,8 +64,9 @@ interface ControllerDeps {
  * Owns the CSX → component JSON auto-sync feature absorbed from the
  * archived `csx-json-sync` extension. Activation lifecycle:
  *
- *   - Listens to `onDidSaveTextDocument` for `.csx` files inside a
- *     known vNext workspace root, debounced per-file.
+ *   - Listens to `onDidSaveTextDocument` for `.csx` files (and `.md`
+ *     files used as AI Agent instructions) inside a known vNext
+ *     workspace root, debounced per-file.
  *   - Registers manual sync commands + auto-sync enable/disable
  *     toggles wired to the `vnextForge.csxSync.enabled` setting.
  *
@@ -125,7 +127,7 @@ export class CsxSyncController implements vscode.Disposable {
   private onDocumentSaved(doc: vscode.TextDocument): void {
     if (!this.settings.enabled) return;
     if (doc.uri.scheme !== 'file') return;
-    if (!doc.uri.fsPath.toLowerCase().endsWith('.csx')) return;
+    if (!isSyncedSourceFile(doc.uri.fsPath)) return;
 
     const owningRoot = this.deps.detector.findOwningRoot(doc.uri.fsPath);
     if (!owningRoot) return;
@@ -144,9 +146,9 @@ export class CsxSyncController implements vscode.Disposable {
 
   private async syncCurrent(): Promise<void> {
     const editor = vscode.window.activeTextEditor;
-    if (!editor || !editor.document.uri.fsPath.toLowerCase().endsWith('.csx')) {
+    if (!editor || !isSyncedSourceFile(editor.document.uri.fsPath)) {
       void vscode.window.showInformationMessage(
-        'Forge: Open a .csx file to sync.',
+        'Forge: Open a .csx file (or an agent instructions .md file) to sync.',
       );
       return;
     }
@@ -180,7 +182,7 @@ export class CsxSyncController implements vscode.Disposable {
         if (!componentsRoot) continue;
         const csxBase = vscode.Uri.file(path.join(root.folderPath, componentsRoot));
         const csxFiles = await vscode.workspace.findFiles(
-          new vscode.RelativePattern(csxBase, '**/*.csx'),
+          new vscode.RelativePattern(csxBase, '**/*.{csx,md}'),
           undefined,
         );
         for (const csxUri of csxFiles) {
@@ -195,7 +197,7 @@ export class CsxSyncController implements vscode.Disposable {
     }
     const errSuffix = errors.length > 0 ? ` (${errors.length} errors — see Output)` : '';
     void vscode.window.showInformationMessage(
-      `Forge: Synced ${totalFiles} CSX file(s); updated ${totalUpdated} component JSON(s)${errSuffix}.`,
+      `Forge: Synced ${totalFiles} CSX / instructions file(s); updated ${totalUpdated} component JSON(s)${errSuffix}.`,
     );
   }
 
@@ -250,7 +252,7 @@ export class CsxSyncController implements vscode.Disposable {
         );
       } else if (result.updated === 0) {
         void vscode.window.showInformationMessage(
-          'Forge: No component JSON references this CSX (or content was already up to date).',
+          'Forge: No component JSON references this file (or content was already up to date).',
         );
       } else {
         void vscode.window.showInformationMessage(

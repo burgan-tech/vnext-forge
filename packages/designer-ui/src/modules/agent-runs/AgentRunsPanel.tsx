@@ -1,12 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Bot, ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
 
+import { AgentCallErrorBox } from './AgentCallErrorBox';
 import {
   agentRunStatusName,
   decisionSourceName,
+  describeAgentCallFailure,
+  describeAgentRuntimeError,
   getAgentRuns,
   statusTone,
   toolCallStatusName,
+  type AgentCallError,
   type AgentRunRow,
   type AgentRunsResponse,
 } from './AgentRunsApi';
@@ -23,12 +27,17 @@ export interface AgentRunsPanelProps {
 
 const PAGE = 20;
 
-/** A runtime without the AI Agent read surface answers 404 for `functions/agent-runs`. */
-function friendlyAgentRunsError(error: { code?: string; message?: string }): string {
-  if (error.code === 'RUNTIME_NOT_FOUND' || /\b404\b/.test(error.message ?? '')) {
-    return 'No agent runs here: the runtime does not offer functions/agent-runs (AI Agent support, vnext#1105) or the instance was not found.';
-  }
-  return error.message ?? 'Agent runs could not be loaded.';
+type AgentRunsAnswer = Awaited<ReturnType<typeof getAgentRuns>>;
+
+/** The error of an agent-runs answer: the runtime's own (kept as data) or the Forge envelope's. */
+function agentRunsError(response: AgentRunsAnswer, runtimeUrl?: string): AgentCallError | null {
+  if (!response.success) return describeAgentCallFailure(response.error);
+  const runtimeError = response.data.runtimeError;
+  return runtimeError ? describeAgentRuntimeError(runtimeError, 'agentRuns', runtimeUrl) : null;
+}
+
+function thrownError(err: unknown): AgentCallError {
+  return describeAgentCallFailure({ message: err instanceof Error ? err.message : String(err) });
 }
 
 function text(value: unknown): string {
@@ -49,7 +58,7 @@ function Chip({ label }: { label: string }) {
 export function AgentRunsPanel({ domain, workflowKey, instanceId, headers, runtimeUrl, refreshToken }: AgentRunsPanelProps) {
   const [runs, setRuns] = useState<AgentRunRow[]>([]);
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<AgentCallError | null>(null);
   const [take, setTake] = useState(PAGE);
   const [openRunId, setOpenRunId] = useState<string | null>(null);
   const seq = useRef(0);
@@ -58,12 +67,18 @@ export function AgentRunsPanel({ domain, workflowKey, instanceId, headers, runti
     const mine = ++seq.current;
     setLoading(true);
     setError(null);
-    const response = await getAgentRuns({ domain, workflowKey, instanceId, take, headers, runtimeUrl }).catch(
-      (err: unknown) => ({ success: false as const, error: { message: err instanceof Error ? err.message : String(err) } }),
-    );
+    let failure: AgentCallError | null;
+    let items: AgentRunRow[] = [];
+    try {
+      const response = await getAgentRuns({ domain, workflowKey, instanceId, take, headers, runtimeUrl });
+      failure = agentRunsError(response, runtimeUrl);
+      if (response.success) items = response.data.items ?? [];
+    } catch (err) {
+      failure = thrownError(err);
+    }
     if (mine !== seq.current) return;
-    if (response.success) setRuns(response.data.items ?? []);
-    else setError(friendlyAgentRunsError(response.error));
+    setRuns(failure ? [] : items);
+    setError(failure);
     setLoading(false);
   }, [domain, workflowKey, instanceId, take, headers, runtimeUrl]);
 
@@ -85,11 +100,7 @@ export function AgentRunsPanel({ domain, workflowKey, instanceId, headers, runti
           <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
         </button>
       </div>
-      {error && (
-        <p className="border-destructive-border bg-destructive-surface text-destructive-text rounded-lg border px-2 py-1.5 text-[11px]">
-          {error}
-        </p>
-      )}
+      {error && <AgentCallErrorBox error={error} />}
       {!error && !loading && runs.length === 0 && (
         <p className="text-muted-foreground text-[11px]">No agent runs for this instance yet.</p>
       )}
@@ -160,7 +171,7 @@ function AgentRunDetail({
   runtimeUrl?: string;
 }) {
   const [detail, setDetail] = useState<AgentRunsResponse['detail']>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<AgentCallError | null>(null);
   const [showTranscript, setShowTranscript] = useState(false);
 
   useEffect(() => {
@@ -168,11 +179,12 @@ function AgentRunDetail({
     getAgentRuns({ domain, workflowKey, instanceId, runId: text(run.id), includeTranscript: true, headers, runtimeUrl })
       .then((response) => {
         if (cancelled) return;
-        if (response.success) setDetail(response.data.detail ?? null);
-        else setError(response.error.message || 'Run could not be loaded.');
+        const failure = agentRunsError(response, runtimeUrl);
+        if (failure) setError(failure);
+        else if (response.success) setDetail(response.data.detail ?? null);
       })
       .catch((err: unknown) => {
-        if (!cancelled) setError(err instanceof Error ? err.message : String(err));
+        if (!cancelled) setError(thrownError(err));
       });
     return () => {
       cancelled = true;
@@ -208,7 +220,7 @@ function AgentRunDetail({
             </div>
           ))}
       </dl>
-      {error && <p className="text-destructive-text">{error}</p>}
+      {error && <AgentCallErrorBox error={error} />}
       {detail && (
         <>
           <div>
