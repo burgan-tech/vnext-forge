@@ -109,6 +109,43 @@ function parseJsonResponse<T>(
   }
 }
 
+const RUNTIME_ERROR_MESSAGE_MAX = 500
+
+/**
+ * The runtime's own error of a non-2xx answer: ProblemDetails
+ * (`detail`/`title`, `errorCode` or `prefix`+`code`, `traceId`) or the Aether
+ * envelope (`{ error: { message, code } }`). A short non-HTML text body is
+ * kept as the message; anything else leaves only the HTTP status.
+ */
+export function runtimeProblem(data: string, httpStatus: number): {
+  httpStatus: number
+  code?: string
+  message?: string
+  traceId?: string
+} {
+  const out: { httpStatus: number; code?: string; message?: string; traceId?: string } = { httpStatus }
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(data)
+  } catch {
+    const text = data.trim()
+    if (text && !text.startsWith('<')) out.message = text.slice(0, RUNTIME_ERROR_MESSAGE_MAX)
+    return out
+  }
+  if (!parsed || typeof parsed !== 'object') return out
+  const outer = parsed as Record<string, unknown>
+  const body = (outer.error && typeof outer.error === 'object' ? outer.error : outer) as Record<string, unknown>
+  const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : undefined)
+  const prefixed = str(body.prefix) && str(body.code) ? `${str(body.prefix)}.${str(body.code)}` : undefined
+  const code = str(body.errorCode) ?? prefixed ?? str(body.code)
+  const message = str(body.detail) ?? str(body.message) ?? str(body.title)
+  const traceId = str(body.traceId) ?? str(outer.traceId)
+  if (code) out.code = code
+  if (message) out.message = message.slice(0, RUNTIME_ERROR_MESSAGE_MAX)
+  if (traceId) out.traceId = traceId
+  return out
+}
+
 /** `Instance:100037` — `incidents/active` has nothing open. A normal answer. */
 const ACTIVE_INCIDENT_NOT_FOUND = 'Instance:100037'
 
@@ -803,6 +840,9 @@ export function createQuickRunService(runtimeProxyService: RuntimeProxyService) 
       },
       traceId,
     )
+    if (result.status < 200 || result.status >= 300) {
+      return { items: null, detail: null, runtimeError: runtimeProblem(result.data, result.status) }
+    }
     const parsed = parseJsonResponse<Record<string, unknown>>(
       result.data, result.status, 'QuickRunService.getAgentRuns', traceId,
     )
@@ -838,6 +878,9 @@ export function createQuickRunService(runtimeProxyService: RuntimeProxyService) 
       },
       traceId,
     )
+    if (result.status < 200 || result.status >= 300) {
+      return { status: '', toolCalls: [], runtimeError: runtimeProblem(result.data, result.status) }
+    }
     const parsed = parseJsonResponse<Record<string, unknown>>(
       result.data, result.status, 'QuickRunService.agentDryRun', traceId,
     )

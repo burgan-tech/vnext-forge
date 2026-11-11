@@ -447,7 +447,22 @@ export const quickrunGetAgentRunsParams = z.object({
   runtimeUrl: z.string().optional(),
 })
 
+/**
+ * A runtime error answer (non-2xx) of the AI Agent surfaces, returned as data
+ * so the UI can show the runtime's own message: these calls are diagnostic
+ * tools, and the generic `RUNTIME_EXECUTION_FAILED` text hides exactly what
+ * the user needs (wrong domain, missing dry-run role, ...). `message` is the
+ * ProblemDetails `detail` (or `title`), capped; never a stack trace.
+ */
+export const agentRuntimeErrorSchema = z.object({
+  httpStatus: z.number().int(),
+  code: z.string().optional(),
+  message: z.string().optional(),
+  traceId: z.string().optional(),
+})
+
 export const quickrunGetAgentRunsResult = z.object({
+  runtimeError: agentRuntimeErrorSchema.optional(),
   items: z.array(z.record(z.string(), z.unknown())).nullable().optional(),
   detail: z
     .object({
@@ -488,6 +503,9 @@ export const quickrunAgentDryRunResult = z
     promptTokens: z.number().optional(),
     completionTokens: z.number().optional(),
     durationMs: z.number().optional(),
+    /** `ApprovalRequested`: the tool calls the run stopped before (`$agent.pendingApprovals` shape). */
+    pendingApprovals: z.array(z.record(z.string(), z.unknown())).nullable().optional(),
+    runtimeError: agentRuntimeErrorSchema.optional(),
   })
   .passthrough()
 

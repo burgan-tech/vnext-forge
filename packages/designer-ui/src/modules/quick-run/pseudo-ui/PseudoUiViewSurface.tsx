@@ -262,9 +262,14 @@ export function PseudoUiViewSurface({
     };
   }, [baseDelegate, onError]);
 
+  // Keyed on the content's value, not its object identity: a re-fetched
+  // but identical view must not count as a new definition — that resets
+  // the error boundary and remounts the SDK view, dropping form input.
+  const contentKey = useMemo(() => stableContentKey(viewResponse.content), [viewResponse.content]);
   const normalized = useMemo(
     () => normalizePseudoUiPayload(viewResponse.content),
-    [viewResponse.content, definitionRetry],
+    // `contentKey` stands for `viewResponse.content` (value, not identity).
+    [contentKey, definitionRetry],
   );
 
   // Clear any stale render errors whenever the view definition changes so
@@ -606,4 +611,14 @@ export function PseudoUiViewSurface({
       </div>
     </div>
   );
+}
+
+/** Value identity of a view payload (strings as is, objects as JSON). */
+function stableContentKey(content: unknown): string {
+  if (typeof content === 'string') return `s:${content}`;
+  try {
+    return `j:${JSON.stringify(content)}`;
+  } catch {
+    return `x:${String(content)}`;
+  }
 }
