@@ -92,8 +92,8 @@ importers:
   apps/extension:
     dependencies:
       '@burgan-tech/vnext-schema':
-        specifier: ^0.0.59
-        version: 0.0.59
+        specifier: ^0.0.60
+        version: 0.0.60
       '@burgan-tech/vnext-template':
         specifier: ^0.0.7
         version: 0.0.7
@@ -268,8 +268,8 @@ importers:
   apps/server:
     dependencies:
       '@burgan-tech/vnext-schema':
-        specifier: ^0.0.59
-        version: 0.0.59
+        specifier: ^0.0.60
+        version: 0.0.60
       '@burgan-tech/vnext-template':
         specifier: ^0.0.7
         version: 0.0.7
@@ -617,8 +617,8 @@ importers:
         version: 5.0.12(@types/react@19.2.14)(immer@10.2.0)(react@19.2.4)(use-sync-external-store@1.6.0(react@19.2.4))
     devDependencies:
       '@burgan-tech/vnext-schema':
-        specifier: ^0.0.59
-        version: 0.0.59
+        specifier: ^0.0.60
+        version: 0.0.60
       '@types/react':
         specifier: ^19.0.0
         version: 19.2.14
@@ -707,8 +707,8 @@ importers:
         version: 4.3.6
     devDependencies:
       '@burgan-tech/vnext-schema':
-        specifier: ^0.0.59
-        version: 0.0.59
+        specifier: ^0.0.60
+        version: 0.0.60
       '@types/node':
         specifier: ^22.0.0
         version: 22.19.17
@@ -936,8 +936,8 @@ packages:
     resolution: {integrity: sha512-f3UVwwsScd8wIwRnyzCLl+Mlah6CNFlz2Qa7uP+EqgfkYorcJH6Pc34ScVl62wBiN71Gtk+s7GFr/rKCeQ5myQ==}
     engines: {node: '>=14.0.0'}
 
-  '@burgan-tech/vnext-schema@0.0.59':
-    resolution: {integrity: sha512-SwDbpIJRBmbpe/f4Iv/MnimeWr4J0VVa/rWapLRRfCPv0y/dFhoYOn8q0KDE5RLrYzZ5ccD487M+WCpFF0UZiA==}
+  '@burgan-tech/vnext-schema@0.0.60':
+    resolution: {integrity: sha512-o0g6WVriLb8Tr/glbFUN+wRWSZ1PrNyCtZYlKRou8tMpUWxu7SD46fNUkBG0uD8Vdymu2kPyE9OZnbaEk2TMmg==}
     engines: {node: '>=14.0.0'}
 
   '@burgan-tech/vnext-template@0.0.7':
@@ -6867,7 +6867,7 @@ snapshots:
 
   '@burgan-tech/vnext-schema@0.0.57': {}
 
-  '@burgan-tech/vnext-schema@0.0.59': {}
+  '@burgan-tech/vnext-schema@0.0.60': {}
 
   '@burgan-tech/vnext-template@0.0.7':
     dependencies:
