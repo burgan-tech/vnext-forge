@@ -54,11 +54,10 @@ export function applyScriptValueToWorkflow(
     // holder (e.g. `transition.event`) is expected to already exist —
     // it is created by the corresponding mutation (`updateTransitionEvent`)
     // when the script is first authored, before the panel ever opens.
+    // Bracketed segments (e.g. `schemas[1].rule`, `views[0].rule`) index into
+    // an entry array; a wrapped `{ schemas: [...] }` holder is unwrapped.
     if (activeScript.scriptField.includes('.')) {
-      const [holderKey, fieldKey] = activeScript.scriptField.split('.');
-      const holder = transition[holderKey] as Record<string, unknown> | undefined;
-      if (!holder || typeof holder !== 'object') return;
-      holder[fieldKey] = value;
+      setAtDottedPath(transition, activeScript.scriptField, value);
       return;
     }
 
@@ -86,13 +85,35 @@ export function applyScriptValueToWorkflow(
   }
 }
 
+const INDEXED_SEGMENT = /^([^[\]]+)\[(\d+)\]$/;
+
+/**
+ * Writes `value` at a dotted path. A segment may index an array
+ * (`schemas[1]`); when the holder is a `{ <name>: [...] }` wrapper instead
+ * of an array (rule-based `views` / `schemas` wire form) the inner array is
+ * used. Every intermediate object must already exist.
+ */
 function setAtDottedPath(root: Record<string, unknown>, path: string, value: unknown): void {
   const segments = path.split('.');
   let cursor: Record<string, unknown> = root;
   for (const segment of segments.slice(0, -1)) {
-    const next = cursor[segment];
-    if (!next || typeof next !== 'object' || Array.isArray(next)) return;
+    const indexed = INDEXED_SEGMENT.exec(segment);
+    let next: unknown;
+    if (indexed) {
+      const [, name, rawIndex] = indexed;
+      let list = cursor[name];
+      if (list && typeof list === 'object' && !Array.isArray(list)) {
+        list = (list as Record<string, unknown>)[name];
+      }
+      next = Array.isArray(list) ? list[Number(rawIndex)] : undefined;
+    } else {
+      next = cursor[segment];
+    }
+    // Arrays are valid intermediates: a numeric segment indexes them
+    // (`onExecutionTasks.0.mapping`).
+    if (!next || typeof next !== 'object') return;
     cursor = next as Record<string, unknown>;
   }
+  if (Array.isArray(cursor)) return;
   cursor[segments[segments.length - 1]] = value;
 }

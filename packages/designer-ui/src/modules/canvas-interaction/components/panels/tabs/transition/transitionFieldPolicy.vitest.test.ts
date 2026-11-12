@@ -92,3 +92,21 @@ describe('transitionFieldPolicy — priority (runtime 0.0.102)', () => {
     }
   });
 });
+
+describe('resolveFieldPolicy — rule-based schemas (runtime 0.0.105)', () => {
+  it('follows schema: offered on manual / event and on every flow-level kind', () => {
+    expect(resolveFieldPolicy('state', TriggerType.Manual).schemas.visible).toBe(true);
+    expect(resolveFieldPolicy('state', TriggerType.Event).schemas.visible).toBe(true);
+    expect(resolveFieldPolicy('shared', TriggerType.Manual).schemas.visible).toBe(true);
+    for (const kind of ['start', 'cancel', 'exit', 'updateData'] as const) {
+      expect(resolveFieldPolicy(kind, TriggerType.Manual).schemas.visible).toBe(true);
+    }
+  });
+
+  it('is hidden on automatic and scheduled transitions', () => {
+    expect(resolveFieldPolicy('state', TriggerType.Automatic).schemas.visible).toBe(false);
+    expect(resolveFieldPolicy('state', TriggerType.Automatic, TriggerKind.DefaultAuto).schemas.visible).toBe(false);
+    expect(resolveFieldPolicy('state', TriggerType.Scheduled).schemas.visible).toBe(false);
+    expect(resolveFieldPolicy('shared', TriggerType.Scheduled).schemas.visible).toBe(false);
+  });
+});

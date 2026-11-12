@@ -1,5 +1,5 @@
 import { Plus, Trash2 } from 'lucide-react';
-import type { RoleGrant } from '@vnext-forge-studio/vnext-types';
+import { exemptionRoleIssue, type RoleGrant } from '@vnext-forge-studio/vnext-types';
 
 import { Button } from '../../../../../ui/Button';
 import { Field } from '../../../../../ui/Field';
@@ -34,7 +34,7 @@ export function ExemptRoleListEditor({ roles, onChange }: ExemptRoleListEditorPr
           <div
             key={index}
             className="grid gap-2 rounded-md border border-primary-border bg-primary-muted/40 px-3 py-2 sm:grid-cols-[1fr_auto]">
-            <Field label="Role (allow)">
+            <Field label="Role (allow)" errorMsg={exemptionRoleIssue(entry.role)}>
               <Input
                 type="text"
                 value={entry.role ?? ''}

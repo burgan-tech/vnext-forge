@@ -141,7 +141,8 @@ export function summarizeRuntimeError(error: RuntimeErrorLike): RuntimeErrorSumm
 
 /**
  * What to do about runtime error codes the message alone does not explain
- * (SubFlow transition proxy, history: none flows, x-storage file fields).
+ * (SubFlow transition proxy, history: none flows, x-storage file fields,
+ * rule-based schema selection).
  */
 const RUNTIME_ERROR_HINTS: Readonly<Record<string, string>> = {
   'Instance:100031':
@@ -156,6 +157,10 @@ const RUNTIME_ERROR_HINTS: Readonly<Record<string, string>> = {
     'Invalid file reference: send content for a new file or the stored handle / { file } to keep one — not both, and no reference on start. A transport: stream field refuses inline content; upload the file first and send { file } with the upload ticket (single-use, bound to its flow and path, valid until expiresAt).',
   'Instance:100049': 'The file is not in this instance’s data. Call the file function on the instance in the handle’s owner.',
   'Instance:100050': 'The schema for the file field is unavailable. Check that the workflow’s master schema is published.',
+  'Transition:100025':
+    'The transition declares rule-based schemas and none of its entries matched the instance. Add a rule-less fallback entry last, or fix the entry rules.',
+  'Function:800006':
+    'The function declares a rule-based input schema and the request matched none of its entries. Add a rule-less fallback entry last to keep accepting unmatched callers.',
 };
 
 export function runtimeErrorHint(code: string | undefined): string | undefined {

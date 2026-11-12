@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { formatAvailableIn } from '@vnext-forge-studio/vnext-types';
-import type { TransitionView, ViewBindingView, TaskRefView } from './view-types';
+import type { TransitionView, ViewBindingView, TaskRefView, SchemaRuleEntryView } from './view-types';
 import { Section, InfoRow, Badge, ResourceRef, CodePreview, LabelList } from '../components/panels/tabs/PropertyPanelShared';
 import { getTriggerLabel, getTriggerKindLabel } from '../components/panels/tabs/PropertyPanelHelpers';
 
@@ -11,6 +11,19 @@ function ViewBindingRows({ binding }: { binding: ViewBindingView }) {
       {binding.extensions && binding.extensions.length > 0 && (
         <InfoRow label="Extensions" value={binding.extensions.join(', ')} mono />
       )}
+    </div>
+  );
+}
+
+function SchemaRuleEntryRow({ entry, index }: { entry: SchemaRuleEntryView; index: number }) {
+  return (
+    <div className="rounded-xl border border-border bg-surface p-2.5 space-y-1.5">
+      <div className="flex items-center gap-2">
+        <span className="text-muted-foreground font-mono text-[10px] font-semibold">#{index + 1}</span>
+        {!entry.rule && <Badge className="bg-muted text-muted-foreground">Fallback</Badge>}
+      </div>
+      {entry.schema && <ResourceRef resource={entry.schema} category="schemas" />}
+      {entry.rule && <CodePreview code={entry.rule.code ?? ''} location={entry.rule.location} />}
     </div>
   );
 }
@@ -49,6 +62,14 @@ export function TransitionFields({ transition: t }: { transition: TransitionView
       {t.schema && (
         <Section title="Schema" defaultOpen={false}>
           <ResourceRef resource={t.schema} category="schemas" />
+        </Section>
+      )}
+
+      {t.schemas && t.schemas.length > 0 && (
+        <Section title="Rule-based schemas" count={t.schemas.length} defaultOpen={false}>
+          <div className="space-y-2">
+            {t.schemas.map((entry, i) => <SchemaRuleEntryRow key={i} entry={entry} index={i} />)}
+          </div>
         </Section>
       )}
 

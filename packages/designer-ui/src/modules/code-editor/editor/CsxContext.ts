@@ -14,7 +14,8 @@ export type CsxTaskType =
   | 'DirectTriggerTask'
   | 'GetInstanceDataTask'
   | 'SubProcessTask'
-  | 'GetInstancesTask';
+  | 'GetInstancesTask'
+  | 'PythonTask';
 
 /**
  * Maps numeric task type IDs (from workflow JSON attributes.type) to CsxTaskType.
@@ -33,6 +34,8 @@ export const TASK_TYPE_MAP: Record<string, CsxTaskType> = {
   '15': 'GetInstancesTask',
   // External HTTP (runtime type 22) is an HttpTask in scripts.
   '22': 'HttpTask',
+  // Python Task (runtime 0.0.103): calls a handler in the domain's Python runtime.
+  '23': 'PythonTask',
 };
 
 /** Reverse map: name → type number */
@@ -55,4 +58,5 @@ export const TASK_TYPE_LABELS: Record<CsxTaskType, string> = {
   GetInstanceDataTask: 'Get Instance Data',
   SubProcessTask: 'Sub Process',
   GetInstancesTask: 'Get Instances',
+  PythonTask: 'Python Task',
 };

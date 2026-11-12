@@ -16,6 +16,7 @@ export type TransitionFieldKey =
   | 'versionStrategy'
   | 'labels'
   | 'schema'
+  | 'schemas'
   | 'view'
   | 'rule'
   | 'timer'
@@ -53,14 +54,16 @@ const ALWAYS_FIELDS: Pick<
   labels: VISIBLE_REQUIRED,
 };
 
+type BasePolicyMap = Omit<TransitionFieldPolicyMap, 'schemas'>;
+
 function stateTransitionPolicy(
   triggerType: TriggerType,
   triggerKind?: TriggerKind,
-): TransitionFieldPolicyMap {
+): BasePolicyMap {
   const isAutoDefault =
     triggerType === TriggerType.Automatic && triggerKind === TriggerKind.DefaultAuto;
 
-  const base: TransitionFieldPolicyMap = {
+  const base: BasePolicyMap = {
     ...ALWAYS_FIELDS,
     target: VISIBLE_REQUIRED,
     triggerType: VISIBLE_REQUIRED,
@@ -118,7 +121,7 @@ function stateTransitionPolicy(
 function sharedTransitionPolicy(
   triggerType: TriggerType,
   triggerKind?: TriggerKind,
-): TransitionFieldPolicyMap {
+): BasePolicyMap {
   const statePolicy = stateTransitionPolicy(triggerType, triggerKind);
   // Absent, null or empty `availableIn` means every state, for every trigger
   // type (vnext-schema master) — optional on Manual, Scheduled and Event alike.
@@ -128,7 +131,7 @@ function sharedTransitionPolicy(
 
 function manualOnlyPolicy(
   kind: 'cancel' | 'exit' | 'updateData',
-): TransitionFieldPolicyMap {
+): BasePolicyMap {
   return {
     ...ALWAYS_FIELDS,
     target: kind === 'updateData'
@@ -163,7 +166,7 @@ function manualOnlyPolicy(
   };
 }
 
-function startTransitionPolicy(): TransitionFieldPolicyMap {
+function startTransitionPolicy(): BasePolicyMap {
   return {
     key: VISIBLE_REQUIRED,
     target: VISIBLE_REQUIRED,
@@ -196,6 +199,17 @@ export function resolveFieldPolicy(
   triggerType: TriggerType,
   triggerKind?: TriggerKind,
 ): TransitionFieldPolicyMap {
+  const policy = basePolicy(kind, triggerType, triggerKind);
+  // Runtime 0.0.105: rule-based `schemas` is accepted exactly where the
+  // single `schema` is — every kind except automatic and scheduled.
+  return { ...policy, schemas: { visible: policy.schema.visible, required: false } };
+}
+
+function basePolicy(
+  kind: TransitionEditorKind,
+  triggerType: TriggerType,
+  triggerKind?: TriggerKind,
+): Omit<TransitionFieldPolicyMap, 'schemas'> {
   switch (kind) {
     case 'state':
       return stateTransitionPolicy(triggerType, triggerKind);

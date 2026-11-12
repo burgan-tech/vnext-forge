@@ -42,6 +42,16 @@ export interface TaskExecution {
  */
 export type ExecutionType = 'S' | 'A';
 
+/** One entry of a transition's rule-based `schemas` list. */
+export interface TransitionSchemaRuleEntry {
+  /** `IConditionMapping` script; omit on the final fallback entry. */
+  rule?: MappingCode;
+  schema: ResourceReference;
+}
+
+/** A plain entry array, or the wrapped `{ schemas: [...] }` form the runtime writes back. */
+export type TransitionSchemasSlot = TransitionSchemaRuleEntry[] | { schemas: TransitionSchemaRuleEntry[] };
+
 export interface Transition {
   key: string;
   target: string;
@@ -52,6 +62,14 @@ export interface Transition {
   rule?: MappingCode;
   timer?: MappingCode;
   schema?: ResourceReference;
+  /**
+   * Rule-based schema selection (vnext-schema 0.0.60 / runtime 0.0.105):
+   * entries are evaluated in order, the first matching `rule` wins, and a
+   * rule-less entry is the fallback that must be last. Wins over `schema`.
+   * Not allowed on automatic or scheduled transitions. A declared list with
+   * no matching entry rejects the transition (400 `Transition:100025`).
+   */
+  schemas?: TransitionSchemasSlot | null;
   mapping?: MappingCode;
   onExecutionTasks?: TaskExecution[];
   roles?: RoleGrant[];

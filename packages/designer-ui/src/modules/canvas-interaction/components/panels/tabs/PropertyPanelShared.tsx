@@ -9,8 +9,11 @@ import { copyToClipboard, decodeBase64 } from './PropertyPanelHelpers';
 
 /* ────────────── Editable Fields ────────────── */
 
-export function EditableInput({ value, onChange, mono = false, placeholder = '' }: {
+export function EditableInput({ value, onChange, mono = false, placeholder = '', list, invalid = false }: {
   value: string; onChange: (v: string) => void; mono?: boolean; placeholder?: string;
+  /** Id of a `<datalist>` offering suggestions. */
+  list?: string;
+  invalid?: boolean;
 }) {
   return (
     <input
@@ -18,6 +21,8 @@ export function EditableInput({ value, onChange, mono = false, placeholder = '' 
       value={value}
       onChange={(e) => onChange(e.target.value)}
       placeholder={placeholder}
+      list={list}
+      aria-invalid={invalid || undefined}
       className={`w-full px-3 py-2 text-xs border border-border rounded-xl bg-muted-surface text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary-border focus:bg-surface transition-all placeholder:text-subtle ${mono ? 'font-mono' : ''}`}
     />
   );

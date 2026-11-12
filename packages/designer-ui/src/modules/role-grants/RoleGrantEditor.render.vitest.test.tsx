@@ -35,3 +35,20 @@ describe('RoleGrantEditor (shared by every role surface)', () => {
     expect(html).toContain('value="b"');
   });
 });
+
+describe('RoleGrantEditor — predefined roles (runtime 0.0.105)', () => {
+  it('suggests the predefined roles, $Everyone included', () => {
+    feature.supported = true;
+    const html = render([{ role: '', grant: 'allow' }]);
+    expect(html).toMatch(/<datalist id="[^"]+"><option value="\$InstanceStarter"/);
+    expect(html).toContain('value="$Everyone"');
+    expect(html).toMatch(/<input[^>]*list="[^"]+"/);
+  });
+
+  it('flags a mis-cased $Everyone, on a single role and inside a group', () => {
+    feature.supported = true;
+    expect(render([{ role: '$everyone', grant: 'deny' }])).toContain('write &#x27;$Everyone&#x27;');
+    expect(render([{ anyOf: [{ role: '$EVERYONE' }], grant: 'allow' }])).toContain('aria-invalid="true"');
+    expect(render([{ role: '$Everyone', grant: 'deny' }])).not.toContain('aria-invalid');
+  });
+});

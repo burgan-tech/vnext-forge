@@ -198,7 +198,7 @@ export function registerContextAwareCompletions(monaco: Monaco) {
       // Scope-specific suggestions
       if (scope === 'InputHandler') {
         // Task casting suggestions
-        const taskTypes = ['HttpTask', 'DaprPubSubTask', 'DaprServiceTask', 'DaprBindingTask', 'GetInstanceDataTask', 'GetInstancesTask', 'DirectTriggerTask', 'SubProcessTask'];
+        const taskTypes = ['HttpTask', 'DaprPubSubTask', 'DaprServiceTask', 'DaprBindingTask', 'GetInstanceDataTask', 'GetInstancesTask', 'DirectTriggerTask', 'SubProcessTask', 'PythonTask'];
         suggestions.push(...taskTypes.map((t) => ({
           label: `task as ${t}`,
           kind: monaco.languages.CompletionItemKind.Snippet,

@@ -109,6 +109,7 @@ export const CSX_API_REFERENCE: ApiSection[] = [
       { name: 'GetInstancesTask.SetFilter', signature: '(object[] filter)', returnType: 'void', description: 'Sets query filter criteria.', insertText: 'instancesTask.SetFilter(new[] { $1 });' },
       { name: 'DirectTriggerTask.SetInstance', signature: '(string instanceId)', returnType: 'void', description: 'Sets the target instance to trigger.', insertText: 'triggerTask.SetInstance($1);' },
       { name: 'DirectTriggerTask.SetBody', signature: '(dynamic body)', returnType: 'void', description: 'Sets the trigger request body.', insertText: 'triggerTask.SetBody(new { $1 });' },
+      { name: 'PythonTask.SetInput', signature: '(dynamic? input)', returnType: 'void', description: 'Sets the input passed to the Python handler (runtime 0.0.103).', insertText: 'pythonTask.SetInput(new { $1 });' },
     ],
   },
   {
