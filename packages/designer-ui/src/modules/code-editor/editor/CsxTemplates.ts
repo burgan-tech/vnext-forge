@@ -139,6 +139,21 @@ const INPUT_HANDLER_BODIES: Record<CsxTaskType, string> = {
 
         return new ScriptResponse();`,
 
+  PythonTask: `        var pythonTask = task as PythonTask;
+        if (pythonTask == null)
+        {
+            LogError("{ClassName}: Task must be a PythonTask");
+            return new ScriptResponse();
+        }
+
+        // Input passed to the handler in the domain's Python runtime container
+        pythonTask.SetInput(new
+        {
+            // income = context.Instance?.Data?.income
+        });
+
+        return new ScriptResponse();`,
+
   GetInstancesTask: `        var instancesTask = task as GetInstancesTask;
         if (instancesTask == null)
         {

@@ -1,4 +1,12 @@
-import { roleGrantMode, type RoleGrant, type RoleGrantMode } from '@vnext-forge-studio/vnext-types';
+import { useId } from 'react';
+
+import {
+  PREDEFINED_ROLES,
+  predefinedRoleCasingIssue,
+  roleGrantMode,
+  type RoleGrant,
+  type RoleGrantMode,
+} from '@vnext-forge-studio/vnext-types';
 
 import { useFormReadOnly } from '../../ui/FormReadOnlyContext';
 import { EditableInput, SelectField, IconPlus, IconTrash } from '../canvas-interaction/components/panels/tabs/PropertyPanelShared';
@@ -65,6 +73,8 @@ export function RoleGrantEditor({
     'definitions.roleGrant.allOf',
   );
 
+  const predefinedListId = useId();
+
   const addRole = () => {
     onChange([...roles, { role: '', grant: 'allow' }]);
   };
@@ -106,6 +116,8 @@ export function RoleGrantEditor({
                     }}
                     mono
                     placeholder={rolePlaceholder}
+                    list={predefinedListId}
+                    invalid={Boolean(predefinedRoleCasingIssue(r.role))}
                   />
                 ) : (
                   <span className="text-muted-foreground text-[11px]">
@@ -133,9 +145,11 @@ export function RoleGrantEditor({
                 </button>
               )}
             </div>
+            {mode === 'role' && <RoleIssue role={r.role} />}
             {mode !== 'role' && (
               <ConditionList
                 roles={(r[mode] ?? []).map((c) => c.role)}
+                listId={predefinedListId}
                 readOnly={readOnly}
                 onChange={(names) => replace(i, { ...r, [mode]: names.map((role) => ({ role })) })}
               />
@@ -152,6 +166,7 @@ export function RoleGrantEditor({
           Add role
         </button>
       )}
+      <PredefinedRolesDatalist id={predefinedListId} />
       {!combinatorsSupported && !readOnly && (
         <SchemaFeatureHint feature="All of / Any of role groups" schemaVersion={schemaVersion} />
       )}
@@ -159,12 +174,39 @@ export function RoleGrantEditor({
   );
 }
 
+/**
+ * Suggestions for the role inputs: the predefined roles the runtime resolves
+ * on the grant side, including `$Everyone` (runtime 0.0.105).
+ */
+function PredefinedRolesDatalist({ id }: { id: string }) {
+  return (
+    <datalist id={id}>
+      {PREDEFINED_ROLES.map((p) => (
+        <option key={p.role} value={p.role} label={p.description} />
+      ))}
+    </datalist>
+  );
+}
+
+/** Inline mirror of the runtime's `$Everyone` spelling check. */
+function RoleIssue({ role }: { role: string | undefined }) {
+  const issue = predefinedRoleCasingIssue(role);
+  if (!issue) return null;
+  return (
+    <p role="alert" className="text-destructive-text text-[10px] leading-tight">
+      {issue}
+    </p>
+  );
+}
+
 function ConditionList({
   roles,
+  listId,
   readOnly,
   onChange,
 }: {
   roles: string[];
+  listId: string;
   readOnly: boolean;
   onChange: (roles: string[]) => void;
 }) {
@@ -180,7 +222,10 @@ function ConditionList({
               }}
               mono
               placeholder="role"
+              list={listId}
+              invalid={Boolean(predefinedRoleCasingIssue(role))}
             />
+            <RoleIssue role={role} />
           </div>
           {!readOnly && (
             <button

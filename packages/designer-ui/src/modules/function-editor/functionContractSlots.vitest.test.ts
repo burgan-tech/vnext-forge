@@ -251,3 +251,23 @@ describe('reference helpers', () => {
     );
   });
 });
+
+describe('transition rule-based schemas round-trip (runtime 0.0.105 handoff)', () => {
+  it('two rule entries and a fallback serialize to the handoff JSON', () => {
+    const rule = { location: './src/IsCorporate.csx', code: '<base64>', encoding: 'B64' as const };
+    const corporate = { key: 'corporate-payload', domain: 'core', flow: 'sys-schemas', version: '1.0.0' };
+    const sme = { key: 'sme-payload', domain: 'core', flow: 'sys-schemas', version: '1.0.0' };
+    const retail = { key: 'retail-payload', domain: 'core', flow: 'sys-schemas', version: '1.0.0' };
+    const json = [
+      { rule, schema: corporate },
+      { rule: { ...rule, location: './src/IsSme.csx' }, schema: sme },
+      { schema: retail },
+    ];
+    const state = readSlot('schema', json);
+    expect(state.mode).toBe('rule-based');
+    expect(findShadowingFallbackIndex(state.entries)).toBe(-1);
+    expect(writeSlotEntries('schema', state.entries)).toEqual(json);
+    // The wrapped form the runtime writes back normalizes to the flat array.
+    expect(writeSlotEntries('schema', readSlot('schema', { schemas: json }).entries)).toEqual(json);
+  });
+});

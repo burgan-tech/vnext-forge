@@ -57,6 +57,26 @@ interface FunctionContractSlotFieldProps {
   /** Role written on a schema created from this slot (`inputSchema` → `function`). */
   schemaRole?: SchemaRole;
   onBeforeOpenModal?: () => void;
+  /**
+   * Edit the rule-entry list only: no single/rule-based toggle, and a lone
+   * reference counts as unrecognized. Used for transition `schemas`, where
+   * the single reference lives in a separate `schema` field.
+   */
+  ruleOnly?: boolean;
+  /**
+   * Script-panel address of entry `index`'s rule. Defaults to the function
+   * editor's `{ stateKey: functionKey, listField: scriptListField, index,
+   * scriptField: 'rule' }`; transition `schemas` address
+   * `transitions[i].schemas[index].rule` instead.
+   */
+  ruleScriptAddress?: (index: number) => RuleScriptAddress;
+}
+
+export interface RuleScriptAddress {
+  stateKey: string;
+  listField: string;
+  index: number;
+  scriptField: string;
 }
 
 /**
@@ -83,9 +103,16 @@ export function FunctionContractSlotField({
   scriptListField,
   schemaRole,
   onBeforeOpenModal,
+  ruleOnly = false,
+  ruleScriptAddress,
 }: FunctionContractSlotFieldProps) {
   const config = SLOT_KINDS[kind];
-  const state = readSlot(kind, value);
+  const read = readSlot(kind, value);
+  // A rule-only slot never holds a bare reference; treat one as unrecognized
+  // so it is shown, not rewritten.
+  const state = ruleOnly && read.mode === 'single' && read.ref != null ? { ...read, unrecognized: true } : read;
+  const addressOf = (index: number): RuleScriptAddress =>
+    ruleScriptAddress?.(index) ?? { stateKey: functionKey, listField: scriptListField, index, scriptField: 'rule' };
 
   const [pickerTarget, setPickerTarget] = useState<number | 'single' | null>(null);
   const [creatorTarget, setCreatorTarget] = useState<number | 'single' | null>(null);
@@ -100,7 +127,7 @@ export function FunctionContractSlotField({
   // document reloads can never leave the toggle out of sync. The local
   // preference only decides which mode an *empty* slot starts in.
   const [preferredMode, setPreferredMode] = useState<SlotMode>(state.mode);
-  const mode = hasContent ? state.mode : preferredMode;
+  const mode: SlotMode = ruleOnly ? 'rule-based' : hasContent ? state.mode : preferredMode;
 
   function switchMode(next: SlotMode) {
     if (next === mode) return;
@@ -165,21 +192,23 @@ export function FunctionContractSlotField({
     <div className="space-y-2">
       <SlotHeader label={label} hint={hint} />
 
-      <div
-        className="bg-muted flex gap-0.5 rounded-lg p-0.5"
-        role="radiogroup"
-        aria-label={`${label} mode`}>
-        <ModeButton
-          active={mode === 'single'}
-          onClick={() => switchMode('single')}
-          label={`Single ${config.noun}`}
-        />
-        <ModeButton
-          active={mode === 'rule-based'}
-          onClick={() => switchMode('rule-based')}
-          label={`Rule-based ${config.wrapperKey}`}
-        />
-      </div>
+      {ruleOnly ? null : (
+        <div
+          className="bg-muted flex gap-0.5 rounded-lg p-0.5"
+          role="radiogroup"
+          aria-label={`${label} mode`}>
+          <ModeButton
+            active={mode === 'single'}
+            onClick={() => switchMode('single')}
+            label={`Single ${config.noun}`}
+          />
+          <ModeButton
+            active={mode === 'rule-based'}
+            onClick={() => switchMode('rule-based')}
+            label={`Rule-based ${config.wrapperKey}`}
+          />
+        </div>
+      )}
 
       {mode === 'single' ? (
         isEmptyComponentRef(state.ref) ? (
@@ -276,10 +305,7 @@ export function FunctionContractSlotField({
                   templateType="condition"
                   contextName={`${functionKey}-${scriptListField}-${index + 1}`}
                   label="Rule"
-                  stateKey={functionKey}
-                  listField={scriptListField}
-                  index={index}
-                  scriptField="rule"
+                  {...addressOf(index)}
                 />
                 {entry.rule ? (
                   <MappingScriptsSection

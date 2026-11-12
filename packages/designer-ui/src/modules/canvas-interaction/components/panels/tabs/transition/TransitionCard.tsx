@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from 'react';
-import type { AvailableIn, Transition, RoleGrant, ViewBinding, ErrorBoundary, ScriptsConfig } from '@vnext-forge-studio/vnext-types';
 import type { ScriptCode } from '../../../../../../modules/save-component/components/CsxEditorField';
 import type { SchemaReference } from '../../../../../../modules/save-component/components/SchemaReferenceField';
 import type { DiscoveredVnextComponent } from '@vnext-forge-studio/app-contracts';
@@ -7,10 +6,21 @@ import type { AtomicSavedInfo } from '../../../../../../modules/save-component/c
 import { getTriggerLabel, getTriggerKindLabel } from '../PropertyPanelHelpers';
 import { Badge, IconTrash, Section, InfoRow } from '../PropertyPanelShared';
 import { ArrowRight, ChevronRight } from 'lucide-react';
-import { parseAvailableIn, TriggerType } from '@vnext-forge-studio/vnext-types';
+import {
+  hasTransitionSchemas,
+  parseAvailableIn,
+  TriggerType,
+  type AvailableIn,
+  type ErrorBoundary,
+  type RoleGrant,
+  type ScriptsConfig,
+  type Transition,
+  type ViewBinding,
+} from '@vnext-forge-studio/vnext-types';
 
 import { TransitionExecutionTasksSection } from './TransitionExecutionTasksSection';
 import { TransitionSchemaSection } from './TransitionSchemaSection';
+import { TransitionSchemasNotAllowed, TransitionSchemasSection } from './TransitionSchemasSection';
 import { TransitionMappingSection } from './TransitionMappingSection';
 import { TransitionEventSection } from './TransitionEventSection';
 import { TransitionResourceLockSection } from './TransitionResourceLockSection';
@@ -405,6 +415,20 @@ export function TransitionCard({
             canPickExisting={canPickExisting}
           />
         )}
+
+        {/* Rule-based schemas (runtime 0.0.105) */}
+        {policy.schemas.visible ? (
+          <TransitionSchemasSection
+            schemas={transition.schemas}
+            hasSingleSchema={Boolean(transition.schema?.key)}
+            onChange={(next) => onUpdate(index, 'schemas', next)}
+            stateKey={currentStateKey}
+            transitionKey={transition.key}
+            transitionIndex={index}
+          />
+        ) : hasTransitionSchemas(transition) ? (
+          <TransitionSchemasNotAllowed onClear={() => onUpdate(index, 'schemas', undefined)} />
+        ) : null}
 
         {/* Mapping */}
         {policy.mapping.visible && (

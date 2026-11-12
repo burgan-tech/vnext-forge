@@ -7,6 +7,7 @@ import {
   historyNoneIssues,
   rowSecurityIssues,
   transitionPriorityIssues,
+  transitionSchemasIssues,
 } from '@vnext-forge-studio/vnext-types';
 import { ALL_ENABLED, hasFeature, type SchemaCapabilities } from '../schema-capabilities/SchemaCapabilities';
 import type { ValidationIssue } from './WorkflowValidationTypes';
@@ -412,6 +413,19 @@ export function validateWorkflow(
 
   // Runtime 0.0.102 publish checks: automatic transition priority and row security.
   for (const issue of transitionPriorityIssues(workflow)) {
+    const state = issue.stateKey ? workflow.attributes?.states?.find((s) => s.key === issue.stateKey) : undefined;
+    const transition = issue.transitionKey ? state?.transitions?.find((t) => t.key === issue.transitionKey) : undefined;
+    results.push({
+      id: makeId(),
+      severity: issue.severity,
+      message: issue.message,
+      rule: issue.code,
+      ...(issue.stateKey ? { nodeId: issue.stateKey } : {}),
+      ...(state && transition ? { edgeId: `${state.key}->${transition.target}::${transition.key}` } : {}),
+    });
+  }
+  // Runtime 0.0.105 publish checks: rule-based transition schemas.
+  for (const issue of transitionSchemasIssues(workflow)) {
     const state = issue.stateKey ? workflow.attributes?.states?.find((s) => s.key === issue.stateKey) : undefined;
     const transition = issue.transitionKey ? state?.transitions?.find((t) => t.key === issue.transitionKey) : undefined;
     results.push({

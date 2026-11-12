@@ -56,6 +56,8 @@ export interface TransitionView {
   roles?: RoleGrantView[];
   tasks?: TaskRefView[]; // onExecutionTasks
   schema?: ComponentRef | null;
+  /** Rule-based `schemas` entries (runtime 0.0.105), in evaluation order. */
+  schemas?: SchemaRuleEntryView[];
   mapping?: CodeView | null;
   rule?: CodeView | null;
   timer?: CodeView | null;
@@ -114,4 +116,10 @@ export interface WorkflowViewModel {
   workflowJson: Record<string, unknown>;
   workflow: WorkflowMetaView;
   states: StateView[];
+}
+
+/** One rule-based transition schema entry; no `rule` means the fallback. */
+export interface SchemaRuleEntryView {
+  rule?: CodeView | null;
+  schema: ComponentRef | null;
 }

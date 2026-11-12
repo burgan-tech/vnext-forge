@@ -213,3 +213,59 @@ describe('applyScriptValueToWorkflow — object holders on a state', () => {
     expect(draft.attributes.states[0]!.subFlow).toEqual({});
   });
 });
+
+describe('applyScriptValueToWorkflow — indexed transition paths', () => {
+  const transitionScript = (scriptField: string) =>
+    makeActiveScript({ listField: 'transitions', index: 0, scriptField });
+
+  it('writes a rule-based schemas entry rule (schemas[1].rule)', () => {
+    const draft = {
+      attributes: {
+        states: [
+          {
+            key: 'state-a',
+            transitions: [
+              { key: 't1', schemas: [{ rule: { code: 'a' }, schema: { key: 's1' } }, { rule: { code: 'b' }, schema: { key: 's2' } }] },
+            ],
+          },
+        ],
+      },
+    };
+    applyScriptValueToWorkflow(draft, transitionScript('schemas[1].rule'), nextValue);
+    const schemas = draft.attributes.states[0]!.transitions[0]!.schemas;
+    expect(schemas[1]!.rule).toEqual(nextValue);
+    expect(schemas[0]!.rule).toEqual({ code: 'a' });
+  });
+
+  it('unwraps the { schemas: [...] } wire form', () => {
+    const draft = {
+      attributes: {
+        states: [{ key: 'state-a', transitions: [{ key: 't1', schemas: { schemas: [{ schema: { key: 's1' } }] } }] }],
+      },
+    };
+    applyScriptValueToWorkflow(draft, transitionScript('schemas[0].rule'), nextValue);
+    expect(draft.attributes.states[0]!.transitions[0]!.schemas.schemas[0]).toEqual({ schema: { key: 's1' }, rule: nextValue });
+  });
+
+  it('writes a view binding rule (views[0].rule)', () => {
+    const draft = {
+      attributes: { states: [{ key: 'state-a', transitions: [{ key: 't1', views: [{ view: { key: 'v' } }] }] }] },
+    };
+    applyScriptValueToWorkflow(draft, transitionScript('views[0].rule'), nextValue);
+    expect(draft.attributes.states[0]!.transitions[0]!.views[0]).toEqual({ view: { key: 'v' }, rule: nextValue });
+  });
+
+  it('writes an execution task mapping without replacing the task (onExecutionTasks.0.mapping)', () => {
+    const draft = {
+      attributes: { states: [{ key: 'state-a', transitions: [{ key: 't1', onExecutionTasks: [{ order: 1, task: { key: 'x' } }] }] }] },
+    };
+    applyScriptValueToWorkflow(draft, transitionScript('onExecutionTasks.0.mapping'), nextValue);
+    expect(draft.attributes.states[0]!.transitions[0]!.onExecutionTasks[0]).toEqual({ order: 1, task: { key: 'x' }, mapping: nextValue });
+  });
+
+  it('is a no-op when the indexed entry does not exist', () => {
+    const draft = { attributes: { states: [{ key: 'state-a', transitions: [{ key: 't1', schemas: [] as unknown[] }] }] } };
+    applyScriptValueToWorkflow(draft, transitionScript('schemas[2].rule'), nextValue);
+    expect(draft.attributes.states[0]!.transitions[0]!.schemas).toEqual([]);
+  });
+});
