@@ -1,0 +1,112 @@
+name: Publish VS Code Extension
+
+# Publishes burgan-tech.vnext-forge-studio to the Visual Studio Marketplace on
+# every merge to main, using Marketplace Trusted Publishing (GitHub OIDC) — no
+# PAT / secret is stored in this repository.
+#
+# The Marketplace trusted publishing policy must match this file exactly:
+#   Repository owner: burgan-tech
+#   Repository:       vnext-forge
+#   Workflow:         publish-extension.yml
+#   Environment:      (empty)
+# Renaming this file or adding a job `environment:` breaks the token exchange
+# until the policy is updated.
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'docs/**'
+      - 'apps/desktop/**'
+      - '.claude/**'
+      - '.cursor/**'
+  workflow_dispatch:
+
+# Never cancel a publish mid-flight; queue the next merge behind it.
+concurrency:
+  group: publish-extension
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  # --oidc needs @vscode/vsce >= 4.1 (Node >= 22).
+  VSCE_VERSION: 4.1.1
+
+jobs:
+  publish:
+    name: Build and publish
+    runs-on: ubuntu-latest
+    if: github.repository == 'burgan-tech/vnext-forge' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write # create the extension-v* tag and GitHub Release
+      id-token: write # GitHub OIDC token for Marketplace trusted publishing
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Resolve version
+        id: version
+        run: echo "version=$(node scripts/resolve-extension-version.mjs)" >> "$GITHUB_OUTPUT"
+
+      - name: Build extension
+        run: pnpm turbo build --filter=vnext-forge-studio
+
+      # Gate: a failing test blocks the publish. Runs on Node 22 — the
+      # designer-ui store tests rely on its localStorage behaviour.
+      - name: Test
+        run: pnpm turbo test
+
+      - name: Package VSIX
+        working-directory: apps/extension
+        run: >
+          pnpm dlx "@vscode/vsce@${VSCE_VERSION}" package
+          --no-dependencies --skip-license --allow-unused-files-pattern
+          --out "vnext-forge-studio-${{ steps.version.outputs.version }}.vsix"
+
+      - name: Upload VSIX
+        uses: actions/upload-artifact@v4
+        with:
+          name: vnext-forge-studio-${{ steps.version.outputs.version }}
+          path: apps/extension/*.vsix
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish to Visual Studio Marketplace
+        working-directory: apps/extension
+        run: >
+          pnpm dlx "@vscode/vsce@${VSCE_VERSION}" publish --oidc
+          --packagePath "vnext-forge-studio-${{ steps.version.outputs.version }}.vsix"
+
+      # Tag prefix is `extension-v`, not `v`: `v*.*.*` tags belong to the
+      # desktop release workflow.
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: >
+          gh release create "extension-v${VERSION}"
+          "apps/extension/vnext-forge-studio-${VERSION}.vsix"
+          --target "$GITHUB_SHA"
+          --title "VS Code Extension v${VERSION}"
+          --generate-notes
+
+      - name: Summary
+        run: echo "Published \`burgan-tech.vnext-forge-studio\` v${{ steps.version.outputs.version }}" >> "$GITHUB_STEP_SUMMARY"
