@@ -114,6 +114,18 @@ function getWsUrl(sessionId: string): string {
 
 // ── LSP Client ────────────────────────────────────────────────────────────────
 
+/**
+ * Clients whose Roslyn providers are registered and whose transport is open.
+ * Their completion/hover providers serve every C# model, so the static CSX
+ * providers can step aside for members Roslyn already answers.
+ */
+const readyClients = new Set<object>();
+
+/** True while at least one Roslyn LSP client is connected and serving completions. */
+export function isCsharpLspReady(): boolean {
+  return readyClients.size > 0;
+}
+
 export interface CsharpLspClient {
   start(): Promise<void>;
   dispose(): void;
@@ -128,6 +140,7 @@ export interface CsharpLspClient {
 export function createCsharpLspClient(monaco: Monaco, sessionId: string): CsharpLspClient {
   let nextId = 1;
   let disposed = false;
+  const readyHandle = {};
   // Abstracted transport: set by startWithWebSocket or startWithPostMessage
   let connected = false;
   let doSend: (rawJson: string) => void = () => { /* not yet connected */ };
@@ -510,6 +523,7 @@ export function createCsharpLspClient(monaco: Monaco, sessionId: string): Csharp
 
       if (msg.event === 'close') {
         connected = false;
+        readyClients.delete(readyHandle);
         window.removeEventListener('message', windowListener);
         logger.info('LSP postMessage transport closed', { sessionId, reason: msg.reason });
         pendingRequests.forEach(({ reject: r }) => r(new Error('LSP connection closed')));
@@ -533,6 +547,7 @@ export function createCsharpLspClient(monaco: Monaco, sessionId: string): Csharp
 
     doDisconnect = () => {
       connected = false;
+      readyClients.delete(readyHandle);
       window.removeEventListener('message', windowListener);
       sendToHost({ type: 'lsp', event: 'disconnect', sessionId });
     };
@@ -544,6 +559,7 @@ export function createCsharpLspClient(monaco: Monaco, sessionId: string): Csharp
     await initialize();
     registerProviders();
     trackModels();
+    if (!disposed && connected) readyClients.add(readyHandle);
 
     logger.info('LSP postMessage transport connected', { sessionId });
   }
@@ -565,6 +581,7 @@ export function createCsharpLspClient(monaco: Monaco, sessionId: string): Csharp
         doSend = (rawJson: string) => ws.send(rawJson);
         doDisconnect = () => {
           connected = false;
+          readyClients.delete(readyHandle);
           if (ws.readyState !== WebSocket.CLOSED) {
             try { ws.close(); } catch { /* ignore */ }
           }
@@ -580,6 +597,7 @@ export function createCsharpLspClient(monaco: Monaco, sessionId: string): Csharp
 
         ws.addEventListener('close', () => {
           connected = false;
+          readyClients.delete(readyHandle);
           logger.info('LSP WebSocket closed', { sessionId });
           pendingRequests.forEach(({ reject: r }) => r(new Error('Connection closed')));
           pendingRequests.clear();
@@ -589,6 +607,7 @@ export function createCsharpLspClient(monaco: Monaco, sessionId: string): Csharp
           await initialize();
           registerProviders();
           trackModels();
+          if (!disposed && connected) readyClients.add(readyHandle);
           resolve();
         } catch (err) {
           reject(err);
@@ -609,6 +628,7 @@ export function createCsharpLspClient(monaco: Monaco, sessionId: string): Csharp
     dispose(): void {
       if (disposed) return;
       disposed = true;
+      readyClients.delete(readyHandle);
 
       for (const d of disposables) {
         try { d.dispose(); } catch { /* ignore */ }

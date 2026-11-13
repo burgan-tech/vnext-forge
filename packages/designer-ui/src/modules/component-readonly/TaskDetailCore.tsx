@@ -8,6 +8,7 @@ import { DaprPubSubTaskForm } from '../task-editor/forms/DaprPubSubTaskForm.js';
 import { DaprServiceTaskForm } from '../task-editor/forms/DaprServiceTaskForm.js';
 import { HttpTaskForm } from '../task-editor/forms/HttpTaskForm.js';
 import { NotificationTaskForm } from '../task-editor/forms/NotificationTaskForm.js';
+import { PythonTaskForm } from '../task-editor/forms/PythonTaskForm.js';
 import { ScriptTaskForm } from '../task-editor/forms/ScriptTaskForm.js';
 import { SoapTaskForm } from '../task-editor/forms/SoapTaskForm.js';
 import { StateStoreTaskForm } from '../task-editor/forms/StateStoreTaskForm.js';
@@ -37,6 +38,7 @@ const READONLY_TASK_FORM_MAP: Record<string, ComponentType<TaskFormProps>> = {
   '4': DaprPubSubTaskForm,
   '6': HttpTaskForm,
   '22': HttpTaskForm,
+  '23': PythonTaskForm,
   '7': ScriptTaskForm,
   '10': NotificationTaskForm,
   '16': SoapTaskForm,

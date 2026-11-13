@@ -209,6 +209,15 @@ serviceTask.SetData(new
 };`,
   },
   {
+    id: 'caller-role',
+    label: 'Caller Role Check',
+    shortLabel: 'Role',
+    description: "Select by the caller's resolved roles (runtime 0.0.105); IsAvailable keeps it safe on hops with no caller",
+    applicableTo: ['condition', 'timer'],
+    category: 'data',
+    code: `var \${1:isApprover} = context.Caller.IsAvailable && await context.Caller.HasRoleAsync("\${2:morph-idm.approver}");\${0}`,
+  },
+  {
     id: 'get-instance',
     label: 'Get Instance Data',
     shortLabel: 'GetInst',

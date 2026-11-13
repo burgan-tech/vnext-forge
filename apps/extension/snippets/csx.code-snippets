@@ -345,5 +345,13 @@
     "body": [
       "return Task.FromResult(TimerSchedule.FromDuration(TimeSpan.From${1|Minutes,Hours,Seconds,Days|}(${2:5})));$0"
     ]
+  },
+  "vnext-caller-role": {
+    "scope": "csharp",
+    "prefix": "vnext-caller-role",
+    "description": "Caller role check (runtime 0.0.105): selection rules, automatic rules, timer scripts and SubFlow output mappings only",
+    "body": [
+      "var ${1:isApprover} = context.Caller.IsAvailable && await context.Caller.HasRoleAsync(\"${2:morph-idm.approver}\");$0"
+    ]
   }
 }

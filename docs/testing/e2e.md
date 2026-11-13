@@ -150,6 +150,18 @@ Deliberately invalid fixtures are listed in `DELIBERATELY_INVALID`.
 | Remote x-validation (schema editor) | `schema/forge-subflow-view-lab/sfv-remote-input` → `code` → vNext tab | Rule *Remote (function)* with source / result / message fields filled; Remote is offered because the pin is ≥ 0.0.57 |
 | Not yet run | Scaffold view rendered bare in Quick Run against the runtime; VS Code webview (FilePicker native dialog, Quick Run panel) | — |
 
+#### Scenario checklist (runtime 0.0.106 / vnext-schema 0.0.61 · resource-lock-lab)
+
+| Area | Steps | Expected |
+|---|---|---|
+| Lock editor | `flow/resource-lock-lab/resource-lock-lab` → Idle → Transitions → Resource Lock | On Conflict offers Abort and Reject (enum read from the pinned schema) with a per-value hint; Release hides TTL and On Conflict; Extend hides On Conflict and notes the 200010 answer |
+| Rule mirror | Guard over vnext-example `core/Workflows` | `resourceLockIssues` raises nothing (errors or warnings) on runtime-accepted workflows |
+| Reject (sync) | A variant with `rl-acquire` `onConflict: Reject` published with `wf update --file`; instance 1 takes `rl-lab:<k>`, instance 2 (same key) fires `rl-acquire` with *Sync* | Dialog: runtime message + `Execution:200014 · …retry the same transition…`; instance stays Active in `rl-idle` |
+| Abort (sync) | Same variant without the state boundary; instance fires `rl-acquire-short` with *Sync* | Dialog: `Execution:200010 · …this instance faulted…`; the panel switches to Failed + active incident without a manual refresh |
+| Boundary routing | `quickrun/resource-lock-lab/resource-lock-lab`, same key, fire `rl-acquire` | Instance lands in `rl-waiting`, Active; incident history: `Execution:200010`, layer Pipeline, Rollback · State, resolved |
+| Monitor path | `monitor/resource-lock-lab/resource-lock-lab/<that instance>` | Path step `rl-acquire` reads `rl-idle · not completed` (the runtime omits `toState`), no `undefined` |
+| Not covered | Async QuickRun fire (default) of a rejected/aborted transition returns `200 {status}`; the outcome shows only after the state poll. Extend on the Postgres provider; VS Code webview | — |
+
 Extend the table when a feature is added.
 
 ## 5. Cleanup
@@ -165,6 +177,27 @@ finding (fixed or not) with its cause, what was not covered (§2.5), and the bra
 sibling repos. Put the same in the PR body under `## E2E evidence`.
 
 ## 7. Last run
+
+2026-11-13 — runtime 0.0.105 `context.Caller` (script-caller-roles handoff): designer-only (completions,
+hover, caller-role lint), so per §1 the guard plus a UI check; no runtime baseline run. Guard over
+vnext-example `origin/master` @ `a1b101c` (caller-roles-lab, rule-schema-lab): 0 findings, Caller seen on
+automaticRule 1, timer 1, subFlowMapping 1, transitionSchemaRule 2, viewRule 1 (one `caller.unguarded`
+warning on the start-driven auto rule, allowed); a planted onEntry read was flagged. Web shell (scratch copy
+linked as domain `crl`): a state view rule was authored from `context.` → `Caller.` → `HasRoleAsync`
+completions, hover named the surface, no caller lint, saved as `views[0].rule`, and reopening it after a
+reload changed nothing (file hash equal). Found: state-level view rules edited in the script panel were
+written to a stray `"views[0].rule"` key (fixed); a state whose `view` holds a rule-entry array (runtime-
+accepted, rule-schema-lab `review`) crashes the property panel (`SingleViewMode`, open follow-up).
+`preview_start` failed on `getcwd` again — servers ran as background `pnpm dev` jobs.
+
+2026-11-13 — vnext `master` @ `10d0e387` (v0.0.106, `/health` 0.0.106.0, Dapr lock provider);
+vnext-schema 0.0.61. Baseline ResourceLockLab 3/3 + Extend skipped (needs `ResourceLock:Provider=postgres`).
+Guard 0 findings over 144 workflows. All resource-lock §4.4 rows passed after three fixes: QuickRun
+Start/Transition dialogs showed no runtime hints (`ValidationErrorBlock` now resolves the code like
+`RuntimeErrorBanner`); a failed transition did not refresh the instance (an Abort-faulted instance kept
+showing Active); the Monitor path rail printed `→ undefined` for a transition without `toState`. The
+Reject variant (`resource-lock-reject-lab`) lived only in the scratchpad copy and on the local runtime —
+vnext-example has no Reject scenario yet (its README lists it as a gap). `preview_start` worked this time.
 
 2026-10-18 (second run) — same runtime; pseudo-ui 0.8.6-local.1 (vendor tgz built from
 vnext-client-view-renderer `develop` @ `919b5ef`, 0.8.6 not yet on npm). ForgeRemoteValidation 5/5 (new,

@@ -1,12 +1,27 @@
 import { useState } from 'react';
 import { ChevronRight, X } from 'lucide-react';
-import type { ErrorHandler, ErrorAction, RetryPolicy } from '@vnext-forge-studio/vnext-types';
+import {
+  ErrorAction,
+  namesResourceLockConflict,
+  RETRY_ON_LOCK_CONFLICT_MESSAGE,
+  type ErrorHandler,
+  type RetryPolicy,
+} from '@vnext-forge-studio/vnext-types';
 import { getErrorActionLabel, getErrorActionColor } from '../PropertyPanelHelpers';
 import { SelectField, EditableInput, IconTrash, Badge } from '../PropertyPanelShared';
 import { RetryPolicyEditor } from './RetryPolicyEditor';
 
+/** A well-known error code the editor offers as a one-click chip. */
+export interface ErrorCodeSuggestion {
+  code: string;
+  /** Short description shown as the chip's tooltip. */
+  description: string;
+}
+
 interface ErrorHandlerCardProps {
   handler: ErrorHandler;
+  /** Codes offered as quick-add chips under the error-code input (state / workflow boundaries). */
+  suggestedErrorCodes?: readonly ErrorCodeSuggestion[];
   index: number;
   total: number;
   onChange: (handler: ErrorHandler) => void;
@@ -41,6 +56,7 @@ export function ErrorHandlerCard({
   onRemove,
   onMoveUp,
   onMoveDown,
+  suggestedErrorCodes,
 }: ErrorHandlerCardProps) {
   const [expanded, setExpanded] = useState(true);
 
@@ -49,8 +65,13 @@ export function ErrorHandlerCard({
   };
 
   const actionLabel = getErrorActionLabel(handler.action);
-  const showTransition = handler.action === 0 || handler.action === 4;
+  // Abort, Rollback and Notify request the configured transition (runtime ErrorActionExecutor).
+  const showTransition = (
+    [ErrorAction.Abort, ErrorAction.Rollback, ErrorAction.Notify] as readonly ErrorAction[]
+  ).includes(handler.action);
   const showRetry = handler.action === 1;
+  const retryOnLockConflict = showRetry && namesResourceLockConflict(handler.errorCodes);
+  const missingSuggestions = (suggestedErrorCodes ?? []).filter((s) => !(handler.errorCodes ?? []).includes(s.code));
 
   return (
     <div className="bg-muted-surface border-border rounded-lg border overflow-hidden">
@@ -138,6 +159,27 @@ export function ErrorHandlerCard({
               onChange={(v) => update('errorCodes', v.length > 0 ? v : undefined)}
               placeholder='e.g. Task:400007'
             />
+            {missingSuggestions.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1 mt-1">
+                <span className="text-[9px] text-muted-foreground">Add:</span>
+                {missingSuggestions.map((s) => (
+                  <button
+                    key={s.code}
+                    type="button"
+                    title={s.description}
+                    aria-label={`Add error code ${s.code}: ${s.description}`}
+                    onClick={() => update('errorCodes', [...(handler.errorCodes ?? []), s.code])}
+                    className="border-border text-muted-foreground hover:text-foreground hover:bg-muted rounded border px-1.5 py-0.5 font-mono text-[9px] cursor-pointer">
+                    + {s.code}
+                  </button>
+                ))}
+              </div>
+            )}
+            {retryOnLockConflict && (
+              <p role="alert" className="text-destructive-text text-[10px] mt-1 leading-relaxed">
+                {RETRY_ON_LOCK_CONFLICT_MESSAGE}
+              </p>
+            )}
           </div>
 
           {/* Transition */}

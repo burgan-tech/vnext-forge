@@ -34,4 +34,7 @@ export * from './utils/solution-file-name';
 export * from './utils/history-mode';
 export * from './utils/transition-priority';
 export * from './utils/row-security';
+export * from './utils/transition-schemas';
+export * from './utils/resource-lock-rules';
+export * from './utils/script-caller';
 export * from './utils/agent-candidates';

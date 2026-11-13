@@ -28,7 +28,7 @@ export function WorkflowErrorBoundarySection() {
 
   return (
     <MetadataSection title="Error Boundary" icon={<ShieldAlert size={13} />}>
-      <ErrorBoundaryEditor errorBoundary={errorBoundary} onChange={handleChange} />
+      <ErrorBoundaryEditor errorBoundary={errorBoundary} onChange={handleChange} routesPipelineErrors />
     </MetadataSection>
   );
 }

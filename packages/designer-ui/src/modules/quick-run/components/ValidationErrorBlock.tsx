@@ -1,6 +1,7 @@
 import { useState } from 'react';
 
 import { CopyableJsonBlock } from './CopyableJsonBlock';
+import { runtimeErrorHint, summarizeRuntimeError } from './RuntimeErrorBanner';
 
 interface ValidationErrorBlockProps {
   message: string;
@@ -15,12 +16,23 @@ export function ValidationErrorBlock({ message, details }: ValidationErrorBlockP
   const errorCode = typeof details?.errorCode === 'string' ? details.errorCode : null;
   const traceId = typeof details?.traceId === 'string' ? details.traceId : null;
   const hasFieldErrors = errors && Object.keys(errors).length > 0;
+  // Same code resolution as RuntimeErrorBanner (split Aether code or a qualified
+  // problem-details code), so the Start / Transition dialogs get the same hints.
+  const runtimeCode = details ? summarizeRuntimeError({ code: '', message, details }).code : undefined;
+  const hint = runtimeErrorHint(runtimeCode);
 
   return (
     <div className="mt-3 flex flex-col gap-2 rounded border border-[var(--vscode-inputValidation-errorBorder)] bg-[var(--vscode-inputValidation-errorBackground)] px-3 py-2 text-xs">
       <p className="font-medium text-[var(--vscode-errorForeground)]">
         {detail ?? message}
       </p>
+
+      {hint && (
+        <p className="text-[var(--vscode-descriptionForeground)]">
+          {runtimeCode ? <span className="font-mono">{runtimeCode} · </span> : null}
+          {hint}
+        </p>
+      )}
 
       {hasFieldErrors && (
         <div className="flex flex-col gap-1">

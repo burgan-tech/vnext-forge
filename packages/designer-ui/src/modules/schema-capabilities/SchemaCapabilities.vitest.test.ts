@@ -1,7 +1,7 @@
 import { createRequire } from 'node:module';
 import { describe, expect, it } from 'vitest';
 
-import { deriveSchemaCapabilities, hasFeature } from './SchemaCapabilities';
+import { ALL_ENABLED, deriveSchemaCapabilities, hasFeature, schemaEnumValues } from './SchemaCapabilities';
 
 const require_ = createRequire(import.meta.url);
 const vnextSchema = require_('@burgan-tech/vnext-schema') as { getSchema(type: string): Record<string, unknown> };
@@ -25,5 +25,21 @@ describe('SchemaCapabilities — runtime 0.0.99 constructs in the bundled schema
       properties: { attributes: { properties: { states: { contains: {}, minContains: 1 } } } },
     });
     expect(legacy.initialStateOptional).toBe(false);
+  });
+});
+
+describe('SchemaCapabilities — property enums (vnext-schema 0.0.61 resource lock)', () => {
+  it('reads resourceLockDefinition.onConflict from the bundled schema', () => {
+    const workflow = deriveSchemaCapabilities(vnextSchema.getSchema('workflow'));
+    expect(schemaEnumValues(workflow, 'resourceLockDefinition', 'onConflict')).toEqual(['Abort', 'Reject']);
+    expect(schemaEnumValues(workflow, 'resourceLockDefinition', 'keyExpression')).toBeUndefined();
+  });
+
+  it('reports the narrower enum of an older schema and nothing when the schema is unknown', () => {
+    const legacy = deriveSchemaCapabilities({
+      definitions: { resourceLockDefinition: { properties: { onConflict: { type: 'string', enum: ['Abort'] } } } },
+    });
+    expect(schemaEnumValues(legacy, 'resourceLockDefinition', 'onConflict')).toEqual(['Abort']);
+    expect(schemaEnumValues(ALL_ENABLED, 'resourceLockDefinition', 'onConflict')).toBeUndefined();
   });
 });

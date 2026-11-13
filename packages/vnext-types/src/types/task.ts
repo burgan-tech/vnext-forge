@@ -356,3 +356,23 @@ export interface GetInstanceDataTaskConfig {
   /** Status codes treated as successful, e.g. "403", "4xx" */
   acceptedStatusCodes?: string[];
 }
+
+/** `handler` pattern of a Python Task (type 23), vnext-schema 0.0.59. */
+export const PYTHON_TASK_HANDLER_PATTERN = /^[A-Za-z_][A-Za-z0-9_.-]{0,127}$/;
+export const PYTHON_TASK_TIMEOUT_MIN_SECONDS = 1;
+export const PYTHON_TASK_TIMEOUT_MAX_SECONDS = 50;
+/** Applied by the runtime when `timeoutSeconds` is absent. */
+export const PYTHON_TASK_DEFAULT_TIMEOUT_SECONDS = 30;
+
+/**
+ * Python Task (type 23) config. Closed: the runtime calls `handler` in the
+ * domain's Python runtime container; the former `script` / `executionMode`
+ * fields are rejected at publish.
+ */
+export interface PythonTaskConfig {
+  handler: string;
+  /** Any JSON value, passed to the handler. */
+  input?: unknown;
+  /** 1–50; absent means {@link PYTHON_TASK_DEFAULT_TIMEOUT_SECONDS}. */
+  timeoutSeconds?: number;
+}

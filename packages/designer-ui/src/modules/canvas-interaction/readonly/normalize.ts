@@ -1,9 +1,10 @@
-import { describeRoleGrant, type RoleGrant } from '@vnext-forge-studio/vnext-types';
+import { describeRoleGrant, transitionSchemaEntries, type RoleGrant } from '@vnext-forge-studio/vnext-types';
 import type {
   ComponentRef,
   CodeView,
   LabelView,
   RoleGrantView,
+  SchemaRuleEntryView,
   TaskRefView,
   TransitionView,
   ViewBindingView,
@@ -118,6 +119,12 @@ function asRef(v: any): ComponentRef | null {
   return { key: v.key, domain: v.domain, version: v.version, flow: v.flow };
 }
 
+function asSchemaRuleEntries(v: unknown): SchemaRuleEntryView[] | undefined {
+  const entries = transitionSchemaEntries(v);
+  if (entries.length === 0) return undefined;
+  return entries.map((e) => ({ rule: asCode(e.rule), schema: asRef(e.schema) }));
+}
+
 function asCode(v: any): CodeView | null {
   if (!v || typeof v !== 'object') return null;
   if (v.code == null && v.location == null) return null;
@@ -175,6 +182,7 @@ function toTransitionView(t: any, from: string, isStart = false): TransitionView
     roles: asRoles(t.roles),
     tasks: asTasks(t.onExecutionTasks),
     schema: asRef(t.schema),
+    schemas: asSchemaRuleEntries((t as { schemas?: unknown }).schemas),
     mapping: asCode(t.mapping),
     rule: asCode(t.rule),
     timer: asCode(t.timer),

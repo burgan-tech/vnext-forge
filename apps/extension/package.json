@@ -1079,7 +1079,7 @@
     "clean": "rm -rf dist *.vsix"
   },
   "dependencies": {
-    "@burgan-tech/vnext-schema": "^0.0.58",
+    "@burgan-tech/vnext-schema": "^0.0.61",
     "@burgan-tech/vnext-template": "^0.0.7",
     "@vnext-forge-studio/app-contracts": "workspace:*",
     "@vnext-forge-studio/designer-ui": "workspace:*",

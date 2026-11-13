@@ -10,6 +10,7 @@ import {
   type RefObject,
 } from 'react';
 import MonacoEditor, { type OnMount } from '@monaco-editor/react';
+import { scriptCallerSurfaceOf } from '@vnext-forge-studio/vnext-types';
 import type { PanelImperativeHandle, PanelSize } from 'react-resizable-panels';
 import { X, Code2, BookOpen, Maximize2, Minimize2, ExternalLink, Save } from 'lucide-react';
 import {
@@ -44,6 +45,7 @@ import {
 import { CsxSnippetToolbar } from '../../../modules/code-editor/editor/CsxSnippetToolbar';
 import { CsxReferencePanel } from '../../../modules/code-editor/editor/CsxReferencePanel';
 import { applyDiagnostics } from '../../../modules/code-editor/editor/CsxDiagnostics';
+import { setCsxModelCallerSurface } from '../../../modules/code-editor/editor/CsxCompletions';
 import { setupMonacoWithLsp } from '../../../modules/code-editor/editor/MonacoSetup';
 import { applyScriptValueToWorkflow } from '../../../modules/code-editor/ScriptWorkflowSync';
 import { getScriptLocationError } from '../../../modules/code-editor/ScriptLocationValidation';
@@ -224,6 +226,12 @@ export function ScriptEditorPanel({
     return decodeScriptCode(activeScript.value.code, activeScript.value.encoding);
   }, [activeScript?.value?.code, activeScript?.value?.encoding]);
 
+  // Where `context.Caller` can answer (runtime 0.0.105) — drives completions and lint.
+  const callerSurface = useMemo(
+    () => (activeScript ? scriptCallerSurfaceOf(activeScript) : undefined),
+    [activeScript?.listField, activeScript?.scriptField],
+  );
+
   const scriptValidationKey = activeScript
     ? `csx:${activeScript.stateKey}:${activeScript.templateType}`
     : '';
@@ -270,11 +278,11 @@ export function ScriptEditorPanel({
         const editor = editorRef.current;
         const monaco = monacoRef.current;
         if (editor && monaco) {
-          applyDiagnostics(monaco, editor.getModel(), next, activeScript.templateType);
+          applyDiagnostics(monaco, editor.getModel(), next, activeScript.templateType, callerSurface);
         }
       }, 300);
     },
-    [activeScript, decoded, syncToWorkflow],
+    [activeScript, callerSurface, decoded, syncToWorkflow],
   );
 
   const handleEditorMount: OnMount = useCallback(
@@ -282,9 +290,10 @@ export function ScriptEditorPanel({
       editorRef.current = editor;
       monacoRef.current = monaco;
 
+      setCsxModelCallerSurface(editor.getModel(), callerSurface);
       const code = editor.getValue();
       if (code && activeScript) {
-        applyDiagnostics(monaco, editor.getModel(), code, activeScript.templateType);
+        applyDiagnostics(monaco, editor.getModel(), code, activeScript.templateType, callerSurface);
       }
 
       if (!taskInline) {
@@ -326,8 +335,17 @@ export function ScriptEditorPanel({
         runLayout();
       }
     },
-    [activeScript, taskInline],
+    [activeScript, callerSurface, taskInline],
   );
+
+  // The editor (and its model) can outlive a switch to another script slot.
+  useEffect(() => {
+    const editor = editorRef.current;
+    const monaco = monacoRef.current;
+    if (!editor || !monaco || !activeScript) return;
+    setCsxModelCallerSurface(editor.getModel(), callerSurface);
+    applyDiagnostics(monaco, editor.getModel(), editor.getValue(), activeScript.templateType, callerSurface);
+  }, [callerSurface]);
 
   useEffect(() => {
     if (!scriptValidationKey) {

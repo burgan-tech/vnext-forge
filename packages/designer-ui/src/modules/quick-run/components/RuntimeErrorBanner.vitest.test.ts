@@ -87,6 +87,24 @@ describe('runtimeErrorHint', () => {
     expect(runtimeErrorHint(undefined)).toBeUndefined();
   });
 
+  it('tells the two resource-lock conflicts apart (runtime 0.0.106)', () => {
+    const aborted = summarizeRuntimeError({
+      code: 'RUNTIME_EXECUTION_FAILED',
+      message: 'Runtime returned HTTP 409',
+      details: { httpStatus: 409, error: { prefix: 'Execution', code: '200010', message: 'Resource lock conflict.' } },
+    });
+    expect(aborted.code).toBe('Execution:200010');
+    expect(runtimeErrorHint(aborted.code)).toContain('start a new instance');
+
+    const rejected = summarizeRuntimeError({
+      code: 'RUNTIME_EXECUTION_FAILED',
+      message: 'Runtime returned HTTP 409',
+      details: { httpStatus: 409, error: { code: 'Execution:200014', message: 'Resource is locked by another instance.' } },
+    });
+    expect(rejected.code).toBe('Execution:200014');
+    expect(runtimeErrorHint(rejected.code)).toContain('retry the same transition');
+  });
+
   it('keeps a qualified code of a problem-details body (runtime 0.0.100 file function)', () => {
     const s = summarizeRuntimeError({
       code: 'RUNTIME_NOT_FOUND',

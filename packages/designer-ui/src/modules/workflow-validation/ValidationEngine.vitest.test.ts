@@ -169,3 +169,33 @@ describe('history: none rules (vnext-schema 0.0.56)', () => {
     expect(historyIssues({ history: 'full' })).toEqual([]);
   });
 });
+
+describe('validateWorkflow — resource-lock rules (runtime 0.0.106)', () => {
+  it('points boundary findings at the onError rule and lock findings at the edge', () => {
+    const issues = validateWorkflow({
+      attributes: {
+        startTransition: { key: 'start', target: 'review' },
+        states: [
+          {
+            key: 'review',
+            stateType: 1,
+            transitions: [{ key: 'go', target: 'done', resourceLock: { keyExpression: {}, action: 'Acquire', ttlSeconds: 0 } }],
+            errorBoundary: { onError: [{ action: 1, errorCodes: ['Execution:200010'] }] },
+          },
+          { key: 'done', stateType: 3, transitions: [] },
+        ],
+      },
+    }).filter((issue) => issue.rule.startsWith('resourceLock.') || issue.rule.startsWith('errorBoundary.'));
+
+    expect(issues.map(({ rule, severity, path, nodeId, edgeId }) => ({ rule, severity, path, nodeId, edgeId }))).toEqual([
+      { rule: 'resourceLock.ttlInvalid', severity: 'error', path: undefined, nodeId: 'review', edgeId: 'review->done::go' },
+      {
+        rule: 'errorBoundary.retryOnLockConflict',
+        severity: 'error',
+        path: 'attributes.states[0].errorBoundary.onError[0]',
+        nodeId: 'review',
+        edgeId: undefined,
+      },
+    ]);
+  });
+});
