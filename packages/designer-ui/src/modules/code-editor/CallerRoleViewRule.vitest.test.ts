@@ -3,7 +3,7 @@
  * role-based view rule can be authored with completions and round-trips
  * unchanged.
  */
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { scriptCallerSurfaceOf, type ScriptCallerSurface } from '@vnext-forge-studio/vnext-types';
 
 import type { ActiveScript } from './ScriptPanelStore.js';
@@ -11,6 +11,10 @@ import { applyScriptValueToWorkflow } from './ScriptWorkflowSync.js';
 import { registerContextAwareCompletions, setCsxModelCallerSurface } from './editor/CsxCompletions.js';
 import { validateCsxScript } from './editor/CsxDiagnostics.js';
 import { decodeScriptCode, encodeScriptCode } from './editor/ScriptCodec.js';
+
+// Roslyn readiness is module state in lspClient; the tests flip it.
+const lsp = vi.hoisted(() => ({ ready: false }));
+vi.mock('./editor/lspClient', () => ({ isCsharpLspReady: () => lsp.ready }));
 
 /* ── Minimal Monaco double: captures the providers CsxCompletions registers ── */
 
@@ -155,6 +159,34 @@ describe('role-based view rule (runtime 0.0.105 context.Caller)', () => {
     // Not offered where the runtime never has a caller; unknown surfaces keep it.
     expect(labelsAfterDot(dot, 'var x = context.', 'taskMapping')).not.toContain('Caller');
     expect(labelsAfterDot(dot, 'var x = context.', undefined)).toContain('Caller');
+  });
+
+  describe('while Roslyn is connected', () => {
+    afterEach(() => {
+      lsp.ready = false;
+    });
+
+    it('leaves Caller completions to Roslyn and keeps only the surface note on hover', () => {
+      const { dot, hover } = fakeMonaco();
+      lsp.ready = true;
+      const ctx = labelsAfterDot(dot, `${HEAD}\n        return await context.`, 'viewRule');
+      expect(ctx).not.toContain('Caller');
+      expect(ctx).toContain('Instance');
+      expect(labelsAfterDot(dot, `${HEAD}\n        return await context.Caller.`, 'viewRule')).toEqual([]);
+
+      const line = AUTHORED.split('\n')[4];
+      const at = { lineNumber: 5, column: line.indexOf('HasRoleAsync') + 2 };
+      expect(hover.provideHover!(model(AUTHORED, 'viewRule'), at).contents[0].value).toBe(
+        "**In a view rule:** the request's caller.",
+      );
+      // No surface known: nothing to add to Roslyn's hover.
+      expect(hover.provideHover!(model(AUTHORED, undefined), at)).toBeNull();
+    });
+
+    it('still lints: Roslyn cannot tell where the script runs', () => {
+      lsp.ready = true;
+      expect(validateCsxScript(AUTHORED, 'condition', 'taskMapping').filter((m) => m.message.includes('Caller'))).toHaveLength(1);
+    });
   });
 
   it('lints the authored rule clean on a view rule and flags it in a task mapping', () => {

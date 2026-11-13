@@ -5,6 +5,8 @@ import {
   type ScriptCallerSurface,
 } from '@vnext-forge-studio/vnext-types';
 
+import { isCsharpLspReady } from './lspClient';
+
 /* ────────────── Caller-role surface per model ────────────── */
 
 /**
@@ -136,10 +138,19 @@ const CALLER_MEMBERS: CompletionDef[] = [
   { label: 'RolesFromHeader', kind: 'Property', insertText: 'RolesFromHeader', detail: 'bool?', documentation: "After a read: whether the set came from the request's `role` header rather than the identity provider. Null until roles were read. Diagnostic only; do not branch on it." },
 ];
 
-/** Monaco markdown for hovering `Caller` or one of its members on `surface`. */
-export function callerHoverMarkdown(word: string, surface: ScriptCallerSurface | undefined): string | null {
+/**
+ * Monaco markdown for hovering `Caller` or one of its members on `surface`.
+ * With `typeDocs: false` (Roslyn already shows the member docs) only the
+ * surface note is returned, or null when there is none.
+ */
+export function callerHoverMarkdown(
+  word: string,
+  surface: ScriptCallerSurface | undefined,
+  typeDocs = true,
+): string | null {
   const def = word === 'Caller' ? CALLER_PROPERTY : CALLER_MEMBERS.find((m) => m.label === word);
   if (!def) return null;
+  if (!typeDocs) return callerAvailabilityNote(surface) || null;
   const head = word === 'Caller' ? '`ScriptContext.Caller` : `ICallerAccessor`' : `\`ICallerAccessor.${word}\` : \`${def.detail}\``;
   return [head, def.documentation ?? '', callerAvailabilityNote(surface)].filter(Boolean).join('\n\n');
 }
@@ -345,12 +356,17 @@ export function registerContextAwareCompletions(monaco: Monaco) {
       let members: CompletionDef[] = [];
 
       switch (wordBefore) {
+        // `Caller` items are a fallback for when Roslyn is not connected; Roslyn
+        // answers them from BBT.Workflow.Domain (ICallerAccessor) otherwise.
         case 'context':
-          members = scriptCallerAvailable(callerSurfaceOf(model)) ? [...CONTEXT_MEMBERS, CALLER_PROPERTY] : CONTEXT_MEMBERS;
+          members =
+            !isCsharpLspReady() && scriptCallerAvailable(callerSurfaceOf(model))
+              ? [...CONTEXT_MEMBERS, CALLER_PROPERTY]
+              : CONTEXT_MEMBERS;
           break;
         case 'context.Caller':
         case 'caller':
-          members = CALLER_MEMBERS;
+          members = isCsharpLspReady() ? [] : CALLER_MEMBERS;
           break;
         case 'context.Instance':
           members = INSTANCE_MEMBERS;
@@ -392,7 +408,8 @@ export function registerContextAwareCompletions(monaco: Monaco) {
     },
   });
 
-  // Hover for `context.Caller` members (static; the LSP adds its own when connected).
+  // Hover for `context.Caller` members. While Roslyn is connected it shows the
+  // member docs, so this adds only where the script runs (the surface note).
   monaco.languages.registerHoverProvider('csharp', {
     provideHover: (model: any, position: any) => {
       const word = model.getWordAtPosition(position);
@@ -401,7 +418,7 @@ export function registerContextAwareCompletions(monaco: Monaco) {
       const isCaller = word.word === 'Caller' && /\.\s*$/.test(before);
       const isMember = /\bCaller\s*\.\s*$/.test(before) || /\bcaller\s*\.\s*$/.test(before);
       if (!isCaller && !isMember) return null;
-      const value = callerHoverMarkdown(word.word, callerSurfaceOf(model));
+      const value = callerHoverMarkdown(word.word, callerSurfaceOf(model), !isCsharpLspReady());
       if (!value) return null;
       return {
         range: new monaco.Range(position.lineNumber, word.startColumn, position.lineNumber, word.endColumn),
