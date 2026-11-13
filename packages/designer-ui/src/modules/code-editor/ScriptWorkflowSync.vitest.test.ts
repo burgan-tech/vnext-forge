@@ -255,6 +255,14 @@ describe('applyScriptValueToWorkflow — indexed transition paths', () => {
     expect(draft.attributes.states[0]!.transitions[0]!.views[0]).toEqual({ view: { key: 'v' }, rule: nextValue });
   });
 
+  it('writes a state-level view binding rule at its path, not as a "views[1].rule" key', () => {
+    const draft = {
+      attributes: { states: [{ key: 'state-a', views: [{ view: { key: 'v0' } }, { view: { key: 'v1' } }] as Record<string, unknown>[] }] },
+    };
+    applyScriptValueToWorkflow(draft, makeActiveScript({ listField: 'views', index: 1, scriptField: 'views[1].rule' }), nextValue);
+    expect(draft.attributes.states[0]!.views).toEqual([{ view: { key: 'v0' } }, { view: { key: 'v1' }, rule: nextValue }]);
+  });
+
   it('writes an execution task mapping without replacing the task (onExecutionTasks.0.mapping)', () => {
     const draft = {
       attributes: { states: [{ key: 'state-a', transitions: [{ key: 't1', onExecutionTasks: [{ order: 1, task: { key: 'x' } }] }] }] },

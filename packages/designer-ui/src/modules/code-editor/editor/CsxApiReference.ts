@@ -64,6 +64,16 @@ export const CSX_API_REFERENCE: ApiSection[] = [
     ],
   },
   {
+    title: 'ScriptContext — Caller roles',
+    entries: [
+      { name: 'Caller.HasRoleAsync', signature: '(string role)', returnType: 'Task<bool>', description: "Runtime 0.0.105: true when the caller holds the role. Selection rules (schemas, views, function contracts), automatic rules, timer scripts and SubFlow output mappings only; elsewhere a read throws.", insertText: 'await context.Caller.HasRoleAsync("$1")' },
+      { name: 'Caller.RolesAsync', signature: '()', returnType: 'Task<IReadOnlyList<string>>', description: "The caller's roles as the runtime resolved them (empty when they hold none).", insertText: 'await context.Caller.RolesAsync()' },
+      { name: 'Caller.IsAvailable', signature: '', returnType: 'bool', description: 'False where there is no caller (System hops, task/transition/event mappings, extensions, resource lock). Guard reads with it in automatic rules, timers and SubFlow mappings.', insertText: 'context.Caller.IsAvailable' },
+      { name: 'Caller.ResolutionFailed', signature: '', returnType: 'bool', description: 'True once a read failed because the role provider could not answer; the selection then fails with 503 Authorization:110006.', insertText: 'context.Caller.ResolutionFailed' },
+      { name: 'Caller.RolesFromHeader', signature: '', returnType: 'bool?', description: 'After a read: whether the set came from the role header (diagnostic only).', insertText: 'context.Caller.RolesFromHeader' },
+    ],
+  },
+  {
     title: 'ScriptResponse',
     entries: [
       { name: 'Data', signature: '', returnType: 'dynamic?', description: 'Primary data payload — merged into instance data.', insertText: 'Data = new { $1 }' },

@@ -1,3 +1,5 @@
+import { maskCsxNonCode, scriptCallerIssues, type ScriptCallerSurface } from '@vnext-forge-studio/vnext-types';
+
 import type { TemplateType } from './CsxTemplates';
 
 /* ────────────── CSX Script Diagnostics ────────────── */
@@ -58,46 +60,10 @@ const SANDBOX_RULES: { pattern: RegExp; member: (m: RegExpExecArray) => string; 
 ];
 
 /**
- * Blanks out comments and the contents of string/char literals (quote
- * delimiters stay) with spaces, keeping newlines, so offsets still map to the
- * original lines. Handles `//`, block comments, regular, verbatim (`@"`, `""`
- * escape) and interpolated strings; interpolation holes are blanked too.
+ * Blanks out comments and string/char literal contents, keeping offsets.
+ * Shared with the caller-roles rule mirror in `@vnext-forge-studio/vnext-types`.
  */
-export function maskNonCode(code: string): string {
-  const out = code.split('');
-  const blank = (from: number, to: number) => {
-    for (let k = from; k < to; k++) if (out[k] !== '\n') out[k] = ' ';
-  };
-  let i = 0;
-  while (i < code.length) {
-    const c = code[i];
-    if (c === '/' && code[i + 1] === '/') {
-      const end = code.indexOf('\n', i);
-      const stop = end < 0 ? code.length : end;
-      blank(i, stop);
-      i = stop;
-    } else if (c === '/' && code[i + 1] === '*') {
-      const end = code.indexOf('*/', i + 2);
-      const stop = end < 0 ? code.length : end + 2;
-      blank(i, stop);
-      i = stop;
-    } else if (c === '"' || c === "'") {
-      const verbatim = c === '"' && /@\$?$|\$@$/.test(code.slice(Math.max(0, i - 2), i));
-      let j = i + 1;
-      while (j < code.length) {
-        if (verbatim && code[j] === '"' && code[j + 1] === '"') j += 2;
-        else if (!verbatim && code[j] === '\\') j += 2;
-        else if (code[j] === c || (!verbatim && code[j] === '\n')) break;
-        else j++;
-      }
-      blank(i + 1, Math.min(j, code.length));
-      i = j + 1;
-    } else {
-      i++;
-    }
-  }
-  return out.join('');
-}
+export const maskNonCode = maskCsxNonCode;
 
 /** Sandbox (banned API) markers for one script; comments and string contents are skipped. */
 export function sandboxDiagnostics(code: string): DiagnosticMarker[] {
@@ -121,6 +87,18 @@ export function sandboxDiagnostics(code: string): DiagnosticMarker[] {
   return markers;
 }
 
+/** `context.Caller` (runtime 0.0.105) markers for one script on `surface`. */
+export function callerRoleDiagnostics(code: string, surface: ScriptCallerSurface | undefined): DiagnosticMarker[] {
+  return scriptCallerIssues(code, surface).map((issue) => ({
+    startLineNumber: issue.line,
+    endLineNumber: issue.line,
+    startColumn: issue.column,
+    endColumn: issue.endColumn,
+    message: issue.message,
+    severity: issue.severity,
+  }));
+}
+
 /**
  * Runs regex-based validation on a C# script and returns Monaco markers.
  * Called with 300ms debounce on editor content change.
@@ -128,11 +106,12 @@ export function sandboxDiagnostics(code: string): DiagnosticMarker[] {
 export function validateCsxScript(
   code: string,
   templateType: TemplateType,
+  callerSurface?: ScriptCallerSurface,
 ): DiagnosticMarker[] {
   if (!code || code.trim().length === 0) return [];
 
   const lines = code.split('\n');
-  const markers: DiagnosticMarker[] = sandboxDiagnostics(code);
+  const markers: DiagnosticMarker[] = [...sandboxDiagnostics(code), ...callerRoleDiagnostics(code, callerSurface)];
 
   // ── Rule 1: Condition/Rule missing return true/false ──
   if (templateType === 'condition') {
@@ -258,8 +237,14 @@ export function validateCsxScript(
 /**
  * Apply diagnostic markers to a Monaco editor model.
  */
-export function applyDiagnostics(monaco: any, model: any, code: string, templateType: TemplateType) {
-  const markers = validateCsxScript(code, templateType);
+export function applyDiagnostics(
+  monaco: any,
+  model: any,
+  code: string,
+  templateType: TemplateType,
+  callerSurface?: ScriptCallerSurface,
+) {
+  const markers = validateCsxScript(code, templateType, callerSurface);
 
   const monacoMarkers = markers.map((m) => ({
     startLineNumber: m.startLineNumber,
