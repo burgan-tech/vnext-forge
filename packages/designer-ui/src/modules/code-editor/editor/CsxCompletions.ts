@@ -1,4 +1,28 @@
 import type { Monaco } from '@monaco-editor/react';
+import {
+  SCRIPT_CALLER_SURFACES,
+  scriptCallerAvailable,
+  type ScriptCallerSurface,
+} from '@vnext-forge-studio/vnext-types';
+
+import { isCsharpLspReady } from './lspClient';
+
+/* ────────────── Caller-role surface per model ────────────── */
+
+/**
+ * The completion and hover providers are registered once per Monaco
+ * instance; the script panel tells them which surface the model belongs to
+ * (runtime 0.0.105 `context.Caller` availability). Absent = unknown surface.
+ */
+const modelCallerSurfaces = new WeakMap<object, ScriptCallerSurface | undefined>();
+
+export function setCsxModelCallerSurface(model: object | null | undefined, surface: ScriptCallerSurface | undefined): void {
+  if (model) modelCallerSurfaces.set(model, surface);
+}
+
+function callerSurfaceOf(model: object): ScriptCallerSurface | undefined {
+  return modelCallerSurfaces.get(model);
+}
 
 /* ────────────── Scope Detection ────────────── */
 
@@ -95,6 +119,49 @@ const CONTEXT_MEMBERS: CompletionDef[] = [
   { label: 'QueryParameters', kind: 'Property', insertText: 'QueryParameters', detail: 'dynamic', documentation: 'Query string parameters (Function tasks only).' },
   { label: 'RouteValues', kind: 'Property', insertText: 'RouteValues', detail: 'dynamic', documentation: 'URL path and query parameters.' },
 ];
+
+// `context.Caller` (runtime 0.0.105, ICallerAccessor)
+const CALLER_PROPERTY: CompletionDef = {
+  label: 'Caller',
+  kind: 'Property',
+  insertText: 'Caller',
+  detail: 'ICallerAccessor',
+  documentation:
+    "Runtime 0.0.105: the caller's role set as the runtime resolved it (the configured caller-role provider). Readable in selection rules (transition `schemas`, function contract slots, state/transition `views`), automatic-transition rules and timer scripts on caller-driven hops, and SubFlow output mappings. Selection by role is not authorization.\n\n```csharp\nawait context.Caller.HasRoleAsync(\"morph-idm.approver\")\n```",
+};
+
+const CALLER_MEMBERS: CompletionDef[] = [
+  { label: 'HasRoleAsync', kind: 'Method', insertText: 'HasRoleAsync("${1:role}")', isSnippet: true, detail: 'Task<bool>', documentation: 'True when the caller holds `role` (ordinal comparison). Throws `CallerRolesUnavailableException` when there is no caller or the provider could not answer.\n\n```csharp\nreturn await context.Caller.HasRoleAsync("morph-idm.approver");\n```' },
+  { label: 'RolesAsync', kind: 'Method', insertText: 'RolesAsync()', detail: 'Task<IReadOnlyList<string>>', documentation: "The caller's roles (empty when they hold none). Throws `CallerRolesUnavailableException` when there is no caller or the provider could not answer." },
+  { label: 'IsAvailable', kind: 'Property', insertText: 'IsAvailable', detail: 'bool', documentation: 'False on a surface or hop with no caller (System hops: a fired timer, a SubFlow resume, a continuation). Guard role reads with it in automatic rules, timer scripts and SubFlow output mappings.\n\n```csharp\nvar vip = context.Caller.IsAvailable && await context.Caller.HasRoleAsync("vip");\n```' },
+  { label: 'ResolutionFailed', kind: 'Property', insertText: 'ResolutionFailed', detail: 'bool', documentation: 'True once a role read failed because the provider could not answer. The runtime then fails the selection (`503` `Authorization:110006`) whatever the rule returns.' },
+  { label: 'RolesFromHeader', kind: 'Property', insertText: 'RolesFromHeader', detail: 'bool?', documentation: "After a read: whether the set came from the request's `role` header rather than the identity provider. Null until roles were read. Diagnostic only; do not branch on it." },
+];
+
+/**
+ * Monaco markdown for hovering `Caller` or one of its members on `surface`.
+ * With `typeDocs: false` (Roslyn already shows the member docs) only the
+ * surface note is returned, or null when there is none.
+ */
+export function callerHoverMarkdown(
+  word: string,
+  surface: ScriptCallerSurface | undefined,
+  typeDocs = true,
+): string | null {
+  const def = word === 'Caller' ? CALLER_PROPERTY : CALLER_MEMBERS.find((m) => m.label === word);
+  if (!def) return null;
+  if (!typeDocs) return callerAvailabilityNote(surface) || null;
+  const head = word === 'Caller' ? '`ScriptContext.Caller` : `ICallerAccessor`' : `\`ICallerAccessor.${word}\` : \`${def.detail}\``;
+  return [head, def.documentation ?? '', callerAvailabilityNote(surface)].filter(Boolean).join('\n\n');
+}
+
+function callerAvailabilityNote(surface: ScriptCallerSurface | undefined): string {
+  if (!surface) return '';
+  const info = SCRIPT_CALLER_SURFACES[surface];
+  if (info.availability === 'unavailable') return `**Not available in ${info.label}:** \`IsAvailable\` is false and reads throw.`;
+  if (info.availability === 'callerDriven') return `**In ${info.label}:** ${info.whose}. Guard reads with \`IsAvailable\`.`;
+  return `**In ${info.label}:** ${info.whose}.`;
+}
 
 // Instance members (for dot-trigger after "context.Instance.")
 const INSTANCE_MEMBERS: CompletionDef[] = [
@@ -235,6 +302,15 @@ export function registerContextAwareCompletions(monaco: Monaco) {
             range,
           },
           {
+            label: 'Caller has role',
+            kind: monaco.languages.CompletionItemKind.Snippet,
+            insertText: 'context.Caller.IsAvailable && await context.Caller.HasRoleAsync("${1:role}")',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            detail: 'Caller role check (runtime 0.0.105)',
+            documentation: { value: "Selects by the caller's resolved roles. `IsAvailable` keeps the rule safe on hops with no caller.", isTrusted: true },
+            range,
+          },
+          {
             label: 'return true',
             kind: monaco.languages.CompletionItemKind.Value,
             insertText: 'return true;',
@@ -280,8 +356,17 @@ export function registerContextAwareCompletions(monaco: Monaco) {
       let members: CompletionDef[] = [];
 
       switch (wordBefore) {
+        // `Caller` items are a fallback for when Roslyn is not connected; Roslyn
+        // answers them from BBT.Workflow.Domain (ICallerAccessor) otherwise.
         case 'context':
-          members = CONTEXT_MEMBERS;
+          members =
+            !isCsharpLspReady() && scriptCallerAvailable(callerSurfaceOf(model))
+              ? [...CONTEXT_MEMBERS, CALLER_PROPERTY]
+              : CONTEXT_MEMBERS;
+          break;
+        case 'context.Caller':
+        case 'caller':
+          members = isCsharpLspReady() ? [] : CALLER_MEMBERS;
           break;
         case 'context.Instance':
           members = INSTANCE_MEMBERS;
@@ -320,6 +405,25 @@ export function registerContextAwareCompletions(monaco: Monaco) {
       }
 
       return { suggestions: buildSuggestions(members, range, monaco) };
+    },
+  });
+
+  // Hover for `context.Caller` members. While Roslyn is connected it shows the
+  // member docs, so this adds only where the script runs (the surface note).
+  monaco.languages.registerHoverProvider('csharp', {
+    provideHover: (model: any, position: any) => {
+      const word = model.getWordAtPosition(position);
+      if (!word) return null;
+      const before = model.getLineContent(position.lineNumber).substring(0, word.startColumn - 1);
+      const isCaller = word.word === 'Caller' && /\.\s*$/.test(before);
+      const isMember = /\bCaller\s*\.\s*$/.test(before) || /\bcaller\s*\.\s*$/.test(before);
+      if (!isCaller && !isMember) return null;
+      const value = callerHoverMarkdown(word.word, callerSurfaceOf(model), !isCsharpLspReady());
+      if (!value) return null;
+      return {
+        range: new monaco.Range(position.lineNumber, word.startColumn, position.lineNumber, word.endColumn),
+        contents: [{ value }],
+      };
     },
   });
 }

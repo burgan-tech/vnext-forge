@@ -67,6 +67,13 @@ export function applyScriptValueToWorkflow(
     return;
   }
 
+  // A `scriptField` that indexes the holder itself (state `views`:
+  // `views[0].rule`) is a path from the state, not a key on the entry.
+  if (activeScript.scriptField.startsWith(`${activeScript.listField}[`)) {
+    setAtDottedPath(state, activeScript.scriptField, value);
+    return;
+  }
+
   const holder = state[activeScript.listField];
 
   if (Array.isArray(holder)) {

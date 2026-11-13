@@ -17,8 +17,10 @@ import {
   historyNoneIssues,
   resourceLockIssues,
   rowSecurityIssues,
+  scriptCallerIssues,
   transitionPriorityIssues,
   transitionSchemasIssues,
+  type ScriptCallerSurface,
 } from '@vnext-forge-studio/vnext-types';
 
 import { computedIssues } from '../modules/schema-editor/model/computedRules';
@@ -52,6 +54,59 @@ function read(path: string): Record<string, unknown> | null {
 }
 
 type Node = Record<string, unknown>;
+
+const isNode = (v: unknown): v is Node => v !== null && typeof v === 'object' && !Array.isArray(v);
+/** Rule-entry lists come as a plain array or wrapped (`{ views: [...] }`, `{ schemas: [...] }`). */
+const entries = (v: unknown, wrapper: string): Node[] =>
+  (Array.isArray(v) ? v : isNode(v) && Array.isArray(v[wrapper]) ? v[wrapper] : []).filter(isNode);
+
+function decodeScript(script: unknown): string | null {
+  if (!isNode(script) || typeof script.code !== 'string') return null;
+  return script.encoding === 'NAT' ? script.code : Buffer.from(script.code, 'base64').toString('utf8');
+}
+
+/** Every inline script of a component with its runtime 0.0.105 caller surface (by JSON shape). */
+function scriptsBySurface(json: Node): [ScriptCallerSurface, string, unknown][] {
+  const out: [ScriptCallerSurface, string, unknown][] = [];
+  const a = isNode(json.attributes) ? json.attributes : {};
+  const tasks = (list: unknown, at: string, surface: ScriptCallerSurface) =>
+    (Array.isArray(list) ? list : []).filter(isNode).forEach((t, i) => out.push([surface, `${at}[${i}].mapping`, t.mapping]));
+  // `view` and `views` both take a rule-entry array or `{ views: [...] }` (runtime ViewDefinitionJsonConverter).
+  const views = (owner: Node, at: string) =>
+    (['view', 'views'] as const).forEach((field) =>
+      entries(owner[field], 'views').forEach((e, i) => out.push(['viewRule', `${at}.${field}[${i}].rule`, e.rule])),
+    );
+  const transition = (t: unknown, at: string) => {
+    if (!isNode(t)) return;
+    out.push(['automaticRule', `${at}.rule`, t.rule ?? t.condition], ['timer', `${at}.timer`, t.timer], ['transitionMapping', `${at}.mapping`, t.mapping]);
+    entries(t.schemas, 'schemas').forEach((e, i) => out.push(['transitionSchemaRule', `${at}.schemas[${i}].rule`, e.rule]));
+    views(t, at);
+    tasks(t.onExecutionTasks, `${at}.onExecutionTasks`, 'taskMapping');
+    if (isNode(t.event)) out.push(['eventMapping', `${at}.event.mapping`, t.event.mapping]);
+    if (isNode(t.resourceLock)) out.push(['resourceLock', `${at}.resourceLock.keyExpression`, t.resourceLock.keyExpression]);
+  };
+  if (json.flow === 'sys-flows') {
+    for (const k of ['startTransition', 'cancel', 'exit', 'updateData', 'timeout']) transition(a[k], k);
+    (Array.isArray(a.sharedTransitions) ? a.sharedTransitions : []).forEach((t, i) => transition(t, `sharedTransitions[${i}]`));
+    (Array.isArray(a.states) ? a.states : []).filter(isNode).forEach((st) => {
+      const at = `states.${String(st.key)}`;
+      views(st, at);
+      tasks(st.onEntries, `${at}.onEntries`, 'taskMapping');
+      tasks(st.onExits, `${at}.onExits`, 'taskMapping');
+      if (isNode(st.subFlow)) out.push(['subFlowMapping', `${at}.subFlow.mapping`, st.subFlow.mapping]);
+      (Array.isArray(st.transitions) ? st.transitions : []).forEach((t, i) => transition(t, `${at}.transitions[${i}]`));
+    });
+  } else if (json.flow === 'sys-functions') {
+    for (const k of ['inputSchema', 'outputSchema', 'inputView', 'outputView']) {
+      if (Array.isArray(a[k])) (a[k] as unknown[]).filter(isNode).forEach((e, i) => out.push(['functionContractRule', `${k}[${i}].rule`, e.rule]));
+    }
+    if (isNode(a.task)) out.push(['taskMapping', 'task.mapping', a.task.mapping]);
+    tasks(a.onExecutionTasks, 'onExecutionTasks', 'taskMapping');
+  } else if (json.flow === 'sys-extensions' && isNode(a.task)) {
+    out.push(['extension', 'task.mapping', a.task.mapping]);
+  }
+  return out;
+}
 
 describe.skipIf(!ROOT)('runtime-accepted components (E2E_EXAMPLE_ROOT)', () => {
   it('raise no Forge rule-mirror findings', () => {
@@ -101,6 +156,24 @@ describe.skipIf(!ROOT)('runtime-accepted components (E2E_EXAMPLE_ROOT)', () => {
         ...resourceLockIssues(json),
       ]) {
         if (issue.severity === 'error') findings.push(`${String(json.key)}: ${issue.code} ${issue.message}`);
+      }
+    }
+
+    // Runtime 0.0.105 `context.Caller`: a component whose suites pass never reads the caller where the
+    // runtime has none. Unguarded reads and role-header parsing are style warnings, counted but allowed.
+    for (const dir of ['core/Workflows', 'core/Functions', 'core/Extensions']) {
+      for (const path of jsonFiles(join(ROOT!, dir))) {
+        const json = read(path);
+        if (!json || DELIBERATELY_INVALID.has(String(json.key))) continue;
+        for (const [surface, at, script] of scriptsBySurface(json)) {
+          const code = decodeScript(script);
+          if (!code) continue;
+          if (/\.\s*Caller\b/.test(code)) seen[`caller:${surface}`] = (seen[`caller:${surface}`] ?? 0) + 1;
+          for (const issue of scriptCallerIssues(code, surface)) {
+            seen[issue.code] = (seen[issue.code] ?? 0) + 1;
+            if (issue.code === 'caller.unavailable') findings.push(`${String(json.key)} ${at}: ${issue.message}`);
+          }
+        }
       }
     }
 

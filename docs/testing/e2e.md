@@ -178,6 +178,18 @@ sibling repos. Put the same in the PR body under `## E2E evidence`.
 
 ## 7. Last run
 
+2026-11-13 — runtime 0.0.105 `context.Caller` (script-caller-roles handoff): designer-only (completions,
+hover, caller-role lint), so per §1 the guard plus a UI check; no runtime baseline run. Guard over
+vnext-example `origin/master` @ `a1b101c` (caller-roles-lab, rule-schema-lab): 0 findings, Caller seen on
+automaticRule 1, timer 1, subFlowMapping 1, transitionSchemaRule 2, viewRule 1 (one `caller.unguarded`
+warning on the start-driven auto rule, allowed); a planted onEntry read was flagged. Web shell (scratch copy
+linked as domain `crl`): a state view rule was authored from `context.` → `Caller.` → `HasRoleAsync`
+completions, hover named the surface, no caller lint, saved as `views[0].rule`, and reopening it after a
+reload changed nothing (file hash equal). Found: state-level view rules edited in the script panel were
+written to a stray `"views[0].rule"` key (fixed); a state whose `view` holds a rule-entry array (runtime-
+accepted, rule-schema-lab `review`) crashes the property panel (`SingleViewMode`, open follow-up).
+`preview_start` failed on `getcwd` again — servers ran as background `pnpm dev` jobs.
+
 2026-11-13 — vnext `master` @ `10d0e387` (v0.0.106, `/health` 0.0.106.0, Dapr lock provider);
 vnext-schema 0.0.61. Baseline ResourceLockLab 3/3 + Extend skipped (needs `ResourceLock:Provider=postgres`).
 Guard 0 findings over 144 workflows. All resource-lock §4.4 rows passed after three fixes: QuickRun
