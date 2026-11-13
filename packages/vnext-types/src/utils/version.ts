@@ -24,10 +24,11 @@ export const RUNTIME_0_0_99 = '0.0.99';
 export const RUNTIME_0_0_100 = '0.0.100';
 /**
  * AI Agent state, sys-agents, Mcp task, `functions/agent-runs`, agent dry-run
- * (vnext#1105, milestone v0.0.105). Local runtime builds carrying it report
- * 0.0.103, so surfaces gate on that and treat a 404 as "not available".
+ * (vnext#1105, milestone v0.0.107). A local runtime build reports its
+ * `common.props` version, so it passes this gate only once that reads 0.0.107;
+ * an unknown version still tries the surface and treats a 404 as "not available".
  */
-export const RUNTIME_AI_AGENT = '0.0.103';
+export const RUNTIME_AI_AGENT = '0.0.107';
 
 /**
  * True when a reported runtime version is at least `minimum`. Returns
