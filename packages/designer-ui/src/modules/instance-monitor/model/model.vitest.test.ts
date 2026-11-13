@@ -73,6 +73,24 @@ describe('buildHistoryOnlyDefinition', () => {
   });
 });
 
+describe('history rows without toState (runtime 0.0.106 rerouted lock conflict)', () => {
+  const rerouted: HistoryTransition[] = [
+    row(1, 'rl-idle', 'rl-acquire', 'x'),
+    row(2, 'rl-idle', 'rl-lock-busy', 'rl-waiting'),
+  ].map((r, i) => (i === 0 ? { ...r, toState: undefined } : r));
+
+  it('draws no edge and no state for the transition that did not complete', () => {
+    const vm = normalizeDefinition(buildHistoryOnlyDefinition('lab', rerouted));
+    expect(vm.states.map((s) => s.key)).toEqual(['rl-idle', 'rl-waiting']);
+    expect(vm.states[0].transitions.map((t) => `${t.key}->${t.target}`)).toEqual(['rl-lock-busy->rl-waiting']);
+  });
+
+  it('leaves it out of the traversed transitions', () => {
+    const overlay = toExecutionOverlay(rerouted, 'rl-waiting', false);
+    expect(overlay.traversedTransitions.map((t) => t.transitionId)).toEqual(['rl-lock-busy']);
+  });
+});
+
 describe('definitionDrift', () => {
   it('compares artifact versions only', () => {
     expect(artifactVersion('1.2.0-pkg.1.17.0+core')).toBe('1.2.0');

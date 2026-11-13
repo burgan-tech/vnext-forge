@@ -479,6 +479,16 @@ export function TransitionDialog({ configRef, persistConfig, projectId }: Transi
       } else {
         setError(result.error.message);
         setErrorDetails(result.error.details ?? null);
+        // A failed call can still change the instance (e.g. a lost resource-lock
+        // race under onConflict: Abort faults it, 409 Execution:200010), so the
+        // panel re-reads the state instead of showing the pre-call snapshot.
+        void pollState({
+          domain,
+          workflowKey,
+          instanceId: activeTabId,
+          headers: mergedHeaders,
+          runtimeUrl: environmentUrl,
+        });
       }
     } catch {
       setError('Failed to fire transition. Please try again.');

@@ -79,3 +79,11 @@ describe('railFocus', () => {
     expect(railFocus(steps, 'zzz', null)).toEqual({ ringOrder: null, scrollOrder: null });
   });
 });
+
+describe('pathRailSteps — a transition that did not complete', () => {
+  it('keeps the step without a target state', () => {
+    const [step] = pathRailSteps([{ ...h('a', 'submit', 'init', 'review', '2026-10-06T10:00:00Z'), toState: undefined }], { tasks: [], vm: VM });
+    expect(step.fromState).toBe('init');
+    expect(step.toState).toBeUndefined();
+  });
+});

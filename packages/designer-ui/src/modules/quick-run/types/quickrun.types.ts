@@ -348,7 +348,12 @@ export interface HistoryTransition {
   id: string;
   transitionId: string;
   fromState: string;
-  toState: string;
+  /**
+   * Absent when the transition never reached ChangeState — e.g. it lost a
+   * resource-lock race and an error boundary rerouted the instance
+   * (runtime 0.0.106); the instance stayed in `fromState`.
+   */
+  toState?: string;
   startedAt: string;
   finishedAt?: string;
   durationSeconds?: number;

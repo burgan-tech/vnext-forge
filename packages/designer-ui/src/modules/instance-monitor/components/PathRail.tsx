@@ -4,6 +4,7 @@ import { Database, TriangleAlert } from 'lucide-react';
 import { formatDurationMs } from '../../quick-run/utils/taskHistory';
 import { railFocus, railSummary, type PathRailStep, type PathRailTrigger } from '../model/pathRail';
 import type { MonitorSelection } from '../types';
+import { transitionRoute, transitionRouteSpoken } from '../../quick-run/utils/transitionRoute';
 
 export type PathRailFilter = 'all' | 'failed';
 
@@ -151,7 +152,7 @@ export function PathRail({ steps, currentState, selectedKey, onSelect, filter, o
               const time = timeOf(s.startedAt);
               const dur = formatDurationMs(s.durationMs);
               const meta = [time, dur].filter(Boolean).join(' · ');
-              const route = `${s.fromState} → ${s.toState}`;
+              const route = transitionRoute(s.fromState, s.toState);
               return (
                 <li key={s.order} style={{ width: COLUMN }} className="relative shrink-0">
                   <span
@@ -166,7 +167,7 @@ export function PathRail({ steps, currentState, selectedKey, onSelect, filter, o
                       else itemRefs.current.delete(s.order);
                     }}
                     aria-pressed={selected}
-                    aria-label={`Step ${s.order}: ${s.label}, ${s.fromState} to ${s.toState}${s.failedTasks > 0 ? `, ${s.failedTasks} failed ${s.failedTasks === 1 ? 'task' : 'tasks'}` : ''}${s.wroteData ? ', wrote data' : ''}`}
+                    aria-label={`Step ${s.order}: ${s.label}, ${transitionRouteSpoken(s.fromState, s.toState)}${s.failedTasks > 0 ? `, ${s.failedTasks} failed ${s.failedTasks === 1 ? 'task' : 'tasks'}` : ''}${s.wroteData ? ', wrote data' : ''}`}
                     title={`${s.label}\n${route}${meta ? `\n${meta}` : ''}${s.failedTasks > 0 ? `\n${s.failedTasks} failed ${s.failedTasks === 1 ? 'task' : 'tasks'}` : ''}${s.wroteData ? '\nWrote instance data' : ''}`}
                     onClick={() => {
                       if (s.transitionKey !== selectedKey) fromRail.current = true;

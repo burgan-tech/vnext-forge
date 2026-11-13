@@ -11,7 +11,10 @@ export function toExecutionOverlay(
   faults?: { faulted: string[]; incident: string[] },
 ): ExecutionOverlay {
   return {
-    traversedTransitions: history.map((t) => ({ transitionId: t.transitionId, fromState: t.fromState, toState: t.toState })),
+    // A transition without `toState` did not complete, so it did not traverse an edge.
+    traversedTransitions: history.flatMap((t) =>
+      t.toState ? [{ transitionId: t.transitionId, fromState: t.fromState, toState: t.toState }] : [],
+    ),
     currentState,
     pathOnly,
     focus,

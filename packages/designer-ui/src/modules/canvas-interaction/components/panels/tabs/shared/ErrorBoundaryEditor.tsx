@@ -1,13 +1,25 @@
 import { useCallback } from 'react';
-import type { ErrorBoundary, ErrorHandler } from '@vnext-forge-studio/vnext-types';
-import { ErrorHandlerCard } from './ErrorHandlerCard';
+import { RESOURCE_LOCK_CONFLICT_CODE, type ErrorBoundary, type ErrorHandler } from '@vnext-forge-studio/vnext-types';
+import { ErrorHandlerCard, type ErrorCodeSuggestion } from './ErrorHandlerCard';
 import { IconPlus, IconTrash } from '../PropertyPanelShared';
 import { ShieldAlert, Plus } from 'lucide-react';
 
 interface ErrorBoundaryEditorProps {
   errorBoundary: ErrorBoundary | undefined;
   onChange: (eb: ErrorBoundary | undefined) => void;
+  /**
+   * The boundary also handles transition-pipeline failures (state and workflow
+   * boundaries, runtime 0.0.106): offer the resource-lock conflict code.
+   */
+  routesPipelineErrors?: boolean;
 }
+
+const PIPELINE_ERROR_CODE_SUGGESTIONS: readonly ErrorCodeSuggestion[] = [
+  {
+    code: RESOURCE_LOCK_CONFLICT_CODE,
+    description: 'Resource lock conflict (onConflict: Abort). Route it to a transition to keep the instance alive.',
+  },
+];
 
 const DEFAULT_HANDLER: ErrorHandler = {
   action: 0,
@@ -15,7 +27,7 @@ const DEFAULT_HANDLER: ErrorHandler = {
   priority: 100,
 };
 
-export function ErrorBoundaryEditor({ errorBoundary, onChange }: ErrorBoundaryEditorProps) {
+export function ErrorBoundaryEditor({ errorBoundary, onChange, routesPipelineErrors = false }: ErrorBoundaryEditorProps) {
   const handlers = errorBoundary?.onError ?? [];
 
   const createBoundary = useCallback(() => {
@@ -91,6 +103,7 @@ export function ErrorBoundaryEditor({ errorBoundary, onChange }: ErrorBoundaryEd
             onRemove={() => removeHandler(i)}
             onMoveUp={() => moveHandler(i, i - 1)}
             onMoveDown={() => moveHandler(i, i + 1)}
+            {...(routesPipelineErrors ? { suggestedErrorCodes: PIPELINE_ERROR_CODE_SUGGESTIONS } : {})}
           />
         ))}
       </div>

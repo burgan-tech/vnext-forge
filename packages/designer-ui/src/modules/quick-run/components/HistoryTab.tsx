@@ -10,6 +10,7 @@ import {
   type ElementMetricsLoader,
 } from './ElementMetrics';
 import { DetailsDialog, DetailsList, FilterChip, PanelRow, PanelSummary, StatusIcon, describeTaskPhase, resolveTaskOutcome, type DetailsTab } from './panel-kit';
+import { transitionRoute, transitionRouteSpoken } from '../utils/transitionRoute';
 
 type Order = 'newest' | 'oldest';
 
@@ -120,7 +121,7 @@ export function HistoryTabContent({ history, loading, loadMetrics, tasks, transi
                     )}
                   </span>
                 }
-                subtitle={`${t.fromState} → ${t.toState}`}
+                subtitle={transitionRoute(t.fromState, t.toState)}
                 trailing={
                   <>
                     <div>{new Date(t.startedAt).toLocaleTimeString()}</div>
@@ -128,7 +129,7 @@ export function HistoryTabContent({ history, loading, loadMetrics, tasks, transi
                   </>
                 }
                 onActivate={() => setSelected(t)}
-                ariaLabel={`${label}, ${t.fromState} to ${t.toState}. Show details`}
+                ariaLabel={`${label}, ${transitionRouteSpoken(t.fromState, t.toState)}. Show details`}
               />
             </li>
           );
@@ -142,7 +143,7 @@ export function HistoryTabContent({ history, loading, loadMetrics, tasks, transi
             if (!open) setSelected(null);
           }}
           title={transitionLabel?.(selected.transitionId, selected.fromState) ?? selected.transitionId}
-          description={`${selected.fromState} → ${selected.toState}`}
+          description={transitionRoute(selected.fromState, selected.toState)}
           tabs={transitionDetailTabs(selected, { loadMetrics, tasks })}
         />
       )}
@@ -163,7 +164,7 @@ export function transitionDetailTabs(
         <DetailsList
           rows={[
             { label: 'Transition', value: t.transitionId, mono: true },
-            { label: 'From → to', value: `${t.fromState} → ${t.toState}` },
+            { label: 'From → to', value: transitionRoute(t.fromState, t.toState) },
             { label: 'Trigger', value: t.triggerType },
             { label: 'Started', value: new Date(t.startedAt).toLocaleString() },
             !!t.finishedAt && { label: 'Finished', value: new Date(t.finishedAt).toLocaleString() },
@@ -183,19 +184,23 @@ export function transitionDetailTabs(
       label: 'Executions',
       render: () => (
         <MetricsTab load={loadMetrics} kind="transition" elementKey={t.transitionId}>
-          {(m) => <TransitionExecutionsView metrics={m} fromState={t.fromState} toState={t.toState} />}
+          {(m) => <TransitionExecutionsView metrics={m} fromState={t.fromState} toState={t.toState ?? t.fromState} />}
         </MetricsTab>
       ),
     });
-    tabs.push({
-      id: 'state',
-      label: `Time in ${t.toState}`,
-      render: () => (
-        <MetricsTab load={loadMetrics} kind="state" elementKey={t.toState}>
-          {(m) => <StateVisitsView metrics={m} stateKey={t.toState} />}
-        </MetricsTab>
-      ),
-    });
+    const toState = t.toState;
+    // No target state (the transition did not complete): there is no stay to measure.
+    if (toState) {
+      tabs.push({
+        id: 'state',
+        label: `Time in ${toState}`,
+        render: () => (
+          <MetricsTab load={loadMetrics} kind="state" elementKey={toState}>
+            {(m) => <StateVisitsView metrics={m} stateKey={toState} />}
+          </MetricsTab>
+        ),
+      });
+    }
   } else {
     const own = (tasks ?? []).filter(
       (task) => task.transitionKey === t.transitionId && task.fromState === t.fromState && (task.toState ?? t.toState) === t.toState,
