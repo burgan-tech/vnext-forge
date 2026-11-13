@@ -26,6 +26,7 @@ export function ErrorBoundaryTab({ state, updateWorkflow }: ErrorBoundaryTabProp
     <ErrorBoundaryEditor
       errorBoundary={state.errorBoundary}
       onChange={handleChange}
+      routesPipelineErrors
     />
   );
 }

@@ -1,5 +1,6 @@
 import {
   historyNoneIssues,
+  resourceLockIssues,
   rowSecurityIssues,
   transitionPriorityIssues,
   transitionSchemasIssues,
@@ -240,8 +241,12 @@ export function lintWorkflow(workflow: VnextWorkflow, options: LintOptions = {})
     });
   }
 
-  // Runtime 0.0.102 publish checks.
-  for (const issue of [...transitionPriorityIssues(workflow), ...transitionSchemasIssues(workflow)]) {
+  // Runtime 0.0.102+ publish checks (0.0.106: resource locks and error-boundary routing).
+  for (const issue of [
+    ...transitionPriorityIssues(workflow),
+    ...transitionSchemasIssues(workflow),
+    ...resourceLockIssues(workflow),
+  ]) {
     findings.push({
       severity: issue.severity,
       rule: issue.code,

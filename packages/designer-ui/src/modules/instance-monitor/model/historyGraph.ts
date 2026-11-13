@@ -19,6 +19,9 @@ export function buildHistoryOnlyDefinition(
 
   for (const t of history) {
     touch(t.fromState);
+    // A transition without `toState` never moved the instance (e.g. rerouted by an
+    // error boundary after a lost resource lock): no state reached, no edge taken.
+    if (!t.toState) continue;
     touch(t.toState);
     if (t.fromState === RUNTIME_START_STATE) continue;
     const out = transitions.get(t.fromState) ?? new Map<string, string>();

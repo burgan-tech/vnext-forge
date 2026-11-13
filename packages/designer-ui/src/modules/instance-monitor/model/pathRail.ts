@@ -13,7 +13,8 @@ export interface PathRailStep {
   transitionKey: string;
   label: string;
   fromState: string;
-  toState: string;
+  /** Absent when the transition did not complete (see `HistoryTransition.toState`). */
+  toState?: string;
   startedAt: string;
   durationMs: number | null;
   trigger: PathRailTrigger;
@@ -64,7 +65,7 @@ export function pathRailSteps(
       transitionKey: t.transitionId,
       label: pickLabel(findTransition(ctx.vm, t.transitionId)?.labels, t.transitionId),
       fromState: t.fromState,
-      toState: t.toState,
+      ...(t.toState ? { toState: t.toState } : {}),
       startedAt: t.startedAt,
       durationMs: t.durationSeconds != null ? t.durationSeconds * 1000 : null,
       trigger: normalizeTrigger(t.triggerType),

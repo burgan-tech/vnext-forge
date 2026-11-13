@@ -5,6 +5,7 @@ import {
 import {
   availableInStateKeys,
   historyNoneIssues,
+  resourceLockIssues,
   rowSecurityIssues,
   transitionPriorityIssues,
   transitionSchemasIssues,
@@ -445,6 +446,30 @@ export function validateWorkflow(
       rule: issue.code,
       path: issue.ruleIndex !== undefined ? `attributes.rowSecurity.rules[${issue.ruleIndex}]` : 'attributes.rowSecurity',
       ...(issue.stateKey ? { nodeId: issue.stateKey } : {}),
+    });
+  }
+
+  // Runtime 0.0.106 publish checks: resource-lock TTL and error-boundary / lock interactions.
+  for (const issue of resourceLockIssues(workflow)) {
+    const states = workflow.attributes?.states ?? [];
+    const stateIndex = issue.stateKey ? states.findIndex((s) => s.key === issue.stateKey) : -1;
+    const state = stateIndex >= 0 ? states[stateIndex] : undefined;
+    const boundaryPath = issue.ruleIndex === undefined
+      ? undefined
+      : state
+        ? `attributes.states[${stateIndex}].errorBoundary.onError[${issue.ruleIndex}]`
+        : `attributes.errorBoundary.onError[${issue.ruleIndex}]`;
+    const transition = issue.ruleIndex === undefined && issue.transitionKey
+      ? state?.transitions?.find((t) => t.key === issue.transitionKey)
+      : undefined;
+    results.push({
+      id: makeId(),
+      severity: issue.severity,
+      message: issue.message,
+      rule: issue.code,
+      ...(boundaryPath ? { path: boundaryPath } : {}),
+      ...(issue.stateKey ? { nodeId: issue.stateKey } : {}),
+      ...(state && transition ? { edgeId: `${state.key}->${transition.target}::${transition.key}` } : {}),
     });
   }
 

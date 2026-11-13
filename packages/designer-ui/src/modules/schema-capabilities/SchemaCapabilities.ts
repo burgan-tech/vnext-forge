@@ -13,6 +13,12 @@ export interface DefinitionCapabilities {
   properties: Record<string, boolean>;
   required: Set<string>;
   items?: DefinitionCapabilities;
+  /**
+   * String `enum` values declared directly on a property (e.g.
+   * `resourceLockDefinition.onConflict` → `['Abort', 'Reject']` from
+   * vnext-schema 0.0.61). Absent for properties without an enum.
+   */
+  enums?: Record<string, readonly string[]>;
 }
 
 export interface SchemaCapabilities {
@@ -120,6 +126,19 @@ function collectAllOfRequired(obj: Record<string, unknown>, target: Set<string>)
   }
 }
 
+function extractEnums(obj: Record<string, unknown>): Record<string, readonly string[]> | undefined {
+  const props = obj.properties;
+  if (!isRecord(props)) return undefined;
+  let result: Record<string, readonly string[]> | undefined;
+  for (const [key, value] of Object.entries(props)) {
+    if (!isRecord(value) || !Array.isArray(value.enum)) continue;
+    const values = value.enum.filter((v): v is string => typeof v === 'string');
+    if (values.length === 0) continue;
+    (result ??= {})[key] = values;
+  }
+  return result;
+}
+
 function deriveDefinition(def: Record<string, unknown>): DefinitionCapabilities {
   const properties = extractProperties(def);
   collectAllOfProperties(def, properties);
@@ -132,7 +151,8 @@ function deriveDefinition(def: Record<string, unknown>): DefinitionCapabilities 
     items = deriveDefinition(itemsSchema);
   }
 
-  return { properties, required, items };
+  const enums = extractEnums(def);
+  return { properties, required, items, ...(enums ? { enums } : {}) };
 }
 
 /**
@@ -200,4 +220,17 @@ export function hasFeature(caps: SchemaCapabilities, path: string): boolean {
   }
 
   return true;
+}
+
+/**
+ * String enum values the active schema allows for `definitions.<definition>.<property>`,
+ * or `undefined` when unknown (no schema / `ALL_ENABLED`, missing definition, or no
+ * enum on the property) — callers then offer every value they know and let AJV decide.
+ */
+export function schemaEnumValues(
+  caps: SchemaCapabilities,
+  definition: string,
+  property: string,
+): readonly string[] | undefined {
+  return caps.definitions[definition]?.enums?.[property];
 }
