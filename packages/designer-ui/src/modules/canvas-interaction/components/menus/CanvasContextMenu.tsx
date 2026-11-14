@@ -68,6 +68,7 @@ export function CanvasContextMenu({
       <MenuItem label="Suspended" color="bg-final-suspended" indent onClick={() => add(3, 4)} disabled={historyNone} />
       <div className="border-t border-border-subtle my-1 mx-2" />
       <MenuItem label="SubFlow State" color="bg-subflow" onClick={() => add(4)} />
+      <MenuItem label="AI Agent State" color="bg-emerald-500" onClick={() => add(6, 5)} />
       {onAddNote && (
         <>
           <div className="border-t border-border-subtle my-1 mx-2" />
@@ -114,6 +115,7 @@ export function NodeContextMenu({ position, nodeId, onClose, onDeleteState, onDu
       <MenuItem label="Final - Success" color="bg-final-success" indent onClick={() => { onChangeType(nodeId, 3, 1); onClose(); }} />
       <MenuItem label="Final - Error" color="bg-final-error" indent onClick={() => { onChangeType(nodeId, 3, 2); onClose(); }} />
       <MenuItem label="SubFlow" color="bg-subflow" indent onClick={() => { onChangeType(nodeId, 4); onClose(); }} />
+      <MenuItem label="AI Agent" color="bg-emerald-500" indent onClick={() => { onChangeType(nodeId, 6, 5); onClose(); }} />
       <div className="border-t border-border-subtle my-1 mx-2" />
       <MenuItem label="Delete State" danger onClick={() => { onDeleteState(nodeId); onClose(); }} />
     </div>

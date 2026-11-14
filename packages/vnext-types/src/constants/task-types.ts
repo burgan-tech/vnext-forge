@@ -28,4 +28,6 @@ export enum TaskType {
    * `timeoutSeconds`; no inline script.
    */
   Python = 23,
+  /** Calls one operation of a remote MCP server over streamable HTTP, in-process on the orchestrator. Runtime 0.0.105 (experimental). */
+  Mcp = 24,
 }

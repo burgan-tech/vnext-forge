@@ -20,6 +20,7 @@ import {
   scriptCallerIssues,
   transitionPriorityIssues,
   transitionSchemasIssues,
+  validateAiAgentStates,
   type ScriptCallerSurface,
 } from '@vnext-forge-studio/vnext-types';
 
@@ -156,6 +157,10 @@ describe.skipIf(!ROOT)('runtime-accepted components (E2E_EXAMPLE_ROOT)', () => {
         ...resourceLockIssues(json),
       ]) {
         if (issue.severity === 'error') findings.push(`${String(json.key)}: ${issue.code} ${issue.message}`);
+      }
+      // Runtime 0.0.105: AiAgent state publish checks (vnext#1105).
+      for (const issue of validateAiAgentStates((json.attributes as Node | undefined)?.states)) {
+        if (issue.severity === 'error') findings.push(`${String(json.key)}: ai-agent ${issue.message}`);
       }
     }
 

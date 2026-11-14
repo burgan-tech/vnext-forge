@@ -262,6 +262,19 @@ function extractScripts(workflow: Record<string, unknown>): FlowEditorScriptEntr
 
       collect(transition.timer);
     }
+
+    // AI Agent state (stateType 6): C# prompt, decision and hint mappings.
+    if (isRecord(state.agent)) {
+      const agent = state.agent as Record<string, unknown>;
+      const prompt = isRecord(agent.prompt) ? (agent.prompt as Record<string, unknown>) : undefined;
+      if (prompt && typeof prompt.code === 'string' && prompt.code) {
+        collect({ location: prompt.location, code: prompt.code, encoding: prompt.encoding });
+      }
+      if (isRecord(agent.decision)) {
+        collect(agent.decision.mapping);
+        collect(agent.decision.hintsMapping);
+      }
+    }
   }
 
   for (const sharedTransition of asArray(attrs.sharedTransitions)) {

@@ -11,6 +11,7 @@ const LAYOUT_DEFAULTS: Record<Exclude<ComponentFolderType, 'components_root'>, s
   functions: 'Functions',
   extensions: 'Extensions',
   mappings: 'Mappings',
+  agents: 'Agents',
 };
 
 const MATCH_ORDER: ComponentFolderType[] = [
@@ -21,6 +22,7 @@ const MATCH_ORDER: ComponentFolderType[] = [
   'functions',
   'extensions',
   'mappings',
+  'agents',
   'components_root',
 ];
 
@@ -32,6 +34,7 @@ const FOLDER_TYPE_TO_VNEXT: Record<Exclude<ComponentFolderType, 'components_root
   functions: 'function',
   extensions: 'extension',
   mappings: 'mapping',
+  agents: 'agent',
 };
 
 export type ComponentTreeClassification = {

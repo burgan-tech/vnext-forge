@@ -43,6 +43,10 @@ import {
   quickrunGetActiveIncidentResult,
   quickrunGetTaskHistoryParams,
   quickrunGetTaskHistoryResult,
+  quickrunGetAgentRunsParams,
+  quickrunGetAgentRunsResult,
+  quickrunAgentDryRunParams,
+  quickrunAgentDryRunResult,
   quickrunAuthorizeParams,
   quickrunAuthorizeResult,
   quickrunGetHumanTasksParams,
@@ -103,6 +107,43 @@ function parseJsonResponse<T>(
       traceId,
     )
   }
+}
+
+const RUNTIME_ERROR_MESSAGE_MAX = 500
+
+/**
+ * The runtime's own error of a non-2xx answer: ProblemDetails
+ * (`detail`/`title`, `errorCode` or `prefix`+`code`, `traceId`) or the Aether
+ * envelope (`{ error: { message, code } }`). A short non-HTML text body is
+ * kept as the message; anything else leaves only the HTTP status.
+ */
+export function runtimeProblem(data: string, httpStatus: number): {
+  httpStatus: number
+  code?: string
+  message?: string
+  traceId?: string
+} {
+  const out: { httpStatus: number; code?: string; message?: string; traceId?: string } = { httpStatus }
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(data)
+  } catch {
+    const text = data.trim()
+    if (text && !text.startsWith('<')) out.message = text.slice(0, RUNTIME_ERROR_MESSAGE_MAX)
+    return out
+  }
+  if (!parsed || typeof parsed !== 'object') return out
+  const outer = parsed as Record<string, unknown>
+  const body = (outer.error && typeof outer.error === 'object' ? outer.error : outer) as Record<string, unknown>
+  const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : undefined)
+  const prefixed = str(body.prefix) && str(body.code) ? `${str(body.prefix)}.${str(body.code)}` : undefined
+  const code = str(body.errorCode) ?? prefixed ?? str(body.code)
+  const message = str(body.detail) ?? str(body.message) ?? str(body.title)
+  const traceId = str(body.traceId) ?? str(outer.traceId)
+  if (code) out.code = code
+  if (message) out.message = message.slice(0, RUNTIME_ERROR_MESSAGE_MAX)
+  if (traceId) out.traceId = traceId
+  return out
 }
 
 /** `Instance:100037` — `incidents/active` has nothing open. A normal answer. */
@@ -778,6 +819,78 @@ export function createQuickRunService(runtimeProxyService: RuntimeProxyService) 
     return { items: Array.isArray(parsed.items) ? parsed.items : [] } as z.infer<typeof quickrunGetTaskHistoryResult>
   }
 
+  /** Runtime 0.0.105: `functions/agent-runs` (list, or one run with tool calls / transcript). */
+  async function getAgentRuns(
+    params: z.infer<typeof quickrunGetAgentRunsParams>,
+    traceId?: string,
+  ): Promise<z.infer<typeof quickrunGetAgentRunsResult>> {
+    const query: Record<string, string> = {}
+    if (params.state) query.state = params.state
+    if (params.skip !== undefined) query.skip = String(params.skip)
+    if (params.take !== undefined) query.take = String(params.take)
+    if (params.runId) query.runId = params.runId
+    if (params.runId && params.includeTranscript) query.include = 'transcript'
+    const result = await proxyCall(
+      {
+        method: 'GET',
+        runtimePath: `${instancePath(params.domain, params.workflowKey, params.instanceId)}/functions/agent-runs`,
+        query: Object.keys(query).length > 0 ? query : undefined,
+        headers: params.headers,
+        runtimeUrl: params.runtimeUrl,
+      },
+      traceId,
+    )
+    if (result.status < 200 || result.status >= 300) {
+      return { items: null, detail: null, runtimeError: runtimeProblem(result.data, result.status) }
+    }
+    const parsed = parseJsonResponse<Record<string, unknown>>(
+      result.data, result.status, 'QuickRunService.getAgentRuns', traceId,
+    )
+    const detail = parsed.detail && typeof parsed.detail === 'object' ? (parsed.detail as Record<string, unknown>) : null
+    return {
+      items: Array.isArray(parsed.items) ? (parsed.items as Record<string, unknown>[]) : null,
+      detail: detail
+        ? {
+            run: (detail.run && typeof detail.run === 'object' ? detail.run : {}) as Record<string, unknown>,
+            toolCalls: Array.isArray(detail.toolCalls) ? (detail.toolCalls as Record<string, unknown>[]) : [],
+            ...(detail.transcript !== undefined && detail.transcript !== null ? { transcript: detail.transcript } : {}),
+          }
+        : null,
+    }
+  }
+
+  /** Runtime 0.0.105: `POST {domain}/definitions/agents/{key}/dry-run`. */
+  async function agentDryRun(
+    params: z.infer<typeof quickrunAgentDryRunParams>,
+    traceId?: string,
+  ): Promise<z.infer<typeof quickrunAgentDryRunResult>> {
+    const body: Record<string, unknown> = { prompt: params.prompt }
+    if (params.data !== undefined) body.data = params.data
+    if (params.candidates && params.candidates.length > 0) body.candidates = params.candidates
+    const result = await proxyCall(
+      {
+        method: 'POST',
+        runtimePath: `/api/v1/${encodeURIComponent(params.domain)}/definitions/agents/${encodeURIComponent(params.agentKey)}/dry-run`,
+        query: params.version ? { version: params.version } : undefined,
+        body: JSON.stringify(body),
+        headers: { 'Content-Type': 'application/json', ...(params.headers ?? {}) },
+        runtimeUrl: params.runtimeUrl,
+      },
+      traceId,
+    )
+    if (result.status < 200 || result.status >= 300) {
+      return { status: '', toolCalls: [], runtimeError: runtimeProblem(result.data, result.status) }
+    }
+    const parsed = parseJsonResponse<Record<string, unknown>>(
+      result.data, result.status, 'QuickRunService.agentDryRun', traceId,
+    )
+    return {
+      ...parsed,
+      status: typeof parsed.status === 'string' ? parsed.status : typeof parsed.status === 'number' ? String(parsed.status) : '',
+      toolCalls: Array.isArray(parsed.toolCalls) ? (parsed.toolCalls as Record<string, unknown>[]) : [],
+    }
+  }
+
   async function authorize(
     params: z.infer<typeof quickrunAuthorizeParams>,
     traceId?: string,
@@ -987,6 +1100,8 @@ export function createQuickRunService(runtimeProxyService: RuntimeProxyService) 
     getDataHistoryRow,
     getActiveIncident,
     getTaskHistory,
+    getAgentRuns,
+    agentDryRun,
     authorize,
     getHumanTasks,
     downloadFile,

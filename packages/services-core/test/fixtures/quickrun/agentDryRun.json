@@ -1,0 +1,23 @@
+{
+  "params": {
+    "domain": "core",
+    "agentKey": "ai-triage-agent",
+    "prompt": "<message>my card is lost</message>",
+    "data": { "message": "my card is lost" },
+    "candidates": [
+      { "key": "is-question", "when": "The customer asks for information.", "whenSource": "hint" },
+      { "key": "is-fraud", "when": "The customer reports fraud.", "whenSource": "description" }
+    ]
+  },
+  "result": {
+    "status": "completed",
+    "output": { "category": "question", "decision": "is-question", "reason": "local provider" },
+    "decision": "is-question",
+    "reason": "local provider",
+    "failureReason": null,
+    "toolCalls": [],
+    "promptTokens": 12,
+    "completionTokens": 8,
+    "durationMs": 5
+  }
+}

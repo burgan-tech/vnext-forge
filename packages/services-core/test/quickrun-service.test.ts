@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import { createQuickRunService } from '../src/index.js'
 import { quickrunAuthorizeParams } from '../src/services/quickrun/quickrun-schemas.js'
+import { runtimeProblem } from '../src/services/quickrun/quickrun.service.js'
 
 function serviceWith(response: { status: number; data: string; responseHeaders?: Record<string, string> }) {
   const proxy = vi.fn().mockResolvedValue({
@@ -485,5 +486,129 @@ describe('fileNameFromDisposition', () => {
     expect(fileNameFromDisposition("attachment; filename*=UTF-8''r%C3%A9sum%C3%A9.svg")).toBe('résumé.svg')
     expect(fileNameFromDisposition('inline; filename="a b.txt"')).toBe('a b.txt')
     expect(fileNameFromDisposition('inline')).toBeUndefined()
+  })
+})
+
+// Bodies as the runtime answers them (ProblemDetails + errorCode).
+const PROBLEM_400 = {
+  type: 'https://httpstatuses.com/400/failure/Instance/100001',
+  title: 'Bad Request',
+  status: 400,
+  detail: 'Invalid domain: "ai-demo". Expected domain is "core".',
+  errorCode: 'failure.Instance:100001',
+  prefix: 'failure',
+  code: 'Instance:100001',
+  traceId: 't-400',
+}
+const PROBLEM_403 = {
+  type: 'https://httpstatuses.com/403/forbidden/Agent/100004',
+  title: 'Forbidden',
+  status: 403,
+  detail: 'Agent dry-run is not allowed for this caller.',
+  errorCode: 'forbidden.Agent:100004',
+  prefix: 'forbidden',
+  code: 'Agent:100004',
+  traceId: 't-403',
+}
+
+describe('quickRunService.getAgentRuns (runtime 0.0.105)', () => {
+  it('lists the runs of the instance', async () => {
+    const run = { id: 'r1', state: 'classifying', status: 'Completed', participant: null }
+    const { service, proxy } = serviceWith({ status: 200, data: JSON.stringify({ items: [run], detail: null }) })
+    expect(await service.getAgentRuns({ ...ids, take: 20 })).toEqual({ items: [run], detail: null })
+    expect(proxy.mock.calls[0][0].runtimePath).toBe(
+      '/api/v1/core/workflows/error-boundary-lab/instances/i-1/functions/agent-runs',
+    )
+    expect(proxy.mock.calls[0][0].query).toEqual({ take: '20' })
+  })
+
+  it('reads one run with tool calls and the transcript', async () => {
+    const detail = { run: { id: 'r1' }, toolCalls: [{ name: 'pay', status: 'ApprovalPending' }], transcript: [{ role: 'assistant' }] }
+    const { service, proxy } = serviceWith({ status: 200, data: JSON.stringify({ items: null, detail }) })
+    expect(await service.getAgentRuns({ ...ids, runId: 'r1', includeTranscript: true })).toEqual({ items: null, detail })
+    expect(proxy.mock.calls[0][0].query).toEqual({ runId: 'r1', include: 'transcript' })
+  })
+
+  it('returns a runtime error answer as data', async () => {
+    const { service } = serviceWith({ status: 400, data: JSON.stringify(PROBLEM_400) })
+    expect(await service.getAgentRuns(ids)).toEqual({
+      items: null,
+      detail: null,
+      runtimeError: {
+        httpStatus: 400,
+        code: 'failure.Instance:100001',
+        message: 'Invalid domain: "ai-demo". Expected domain is "core".',
+        traceId: 't-400',
+      },
+    })
+  })
+})
+
+describe('quickRunService.agentDryRun (runtime 0.0.105)', () => {
+  it('posts prompt, data and candidates to the dry-run endpoint', async () => {
+    const answer = { status: 'Completed', output: { category: 'question' }, decision: 'is-question', toolCalls: [] }
+    const { service, proxy } = serviceWith({ status: 200, data: JSON.stringify(answer) })
+    const candidates = [{ key: 'is-question', when: 'asks', whenSource: 'hint' }]
+    expect(
+      await service.agentDryRun({ domain: 'core', agentKey: 'ai-triage-agent', prompt: 'hi', data: { a: 1 }, candidates }),
+    ).toMatchObject(answer)
+    const call = proxy.mock.calls[0][0]
+    expect(call.method).toBe('POST')
+    expect(call.runtimePath).toBe('/api/v1/core/definitions/agents/ai-triage-agent/dry-run')
+    expect(JSON.parse(call.body)).toEqual({ prompt: 'hi', data: { a: 1 }, candidates })
+  })
+
+  it('returns a 403 (dry-run roles not configured) with the runtime problem details', async () => {
+    const { service } = serviceWith({ status: 403, data: JSON.stringify(PROBLEM_403) })
+    expect(await service.agentDryRun({ domain: 'core', agentKey: 'a', prompt: '', runtimeUrl: 'http://localhost:4211' })).toEqual({
+      status: '',
+      toolCalls: [],
+      runtimeError: {
+        httpStatus: 403,
+        code: 'forbidden.Agent:100004',
+        message: 'Agent dry-run is not allowed for this caller.',
+        traceId: 't-403',
+      },
+    })
+  })
+
+  it('passes the runtime URL to the proxy', async () => {
+    const { service, proxy } = serviceWith({ status: 200, data: JSON.stringify({ status: 'completed', toolCalls: [] }) })
+    await service.agentDryRun({ domain: 'ai-demo', agentKey: 'refund-agent', prompt: 'hi', runtimeUrl: 'http://localhost:4211' })
+    expect(proxy.mock.calls[0][0].runtimeUrl).toBe('http://localhost:4211')
+  })
+
+  it('keeps the runtime message of a wrong-domain 400', async () => {
+    const { service } = serviceWith({ status: 400, data: JSON.stringify(PROBLEM_400) })
+    const result = await service.agentDryRun({ domain: 'ai-demo', agentKey: 'refund-agent', prompt: 'hi' })
+    expect(result.runtimeError).toEqual({
+      httpStatus: 400,
+      code: 'failure.Instance:100001',
+      message: 'Invalid domain: "ai-demo". Expected domain is "core".',
+      traceId: 't-400',
+    })
+  })
+})
+
+describe('runtimeProblem', () => {
+  it('reads prefix + code when errorCode is absent', () => {
+    expect(runtimeProblem(JSON.stringify({ prefix: 'forbidden', code: 'Agent:100004', title: 'Forbidden' }), 403)).toEqual({
+      httpStatus: 403,
+      code: 'forbidden.Agent:100004',
+      message: 'Forbidden',
+    })
+  })
+
+  it('reads the Aether envelope', () => {
+    expect(runtimeProblem(JSON.stringify({ error: { code: 'X:1', message: 'Nope' } }), 500)).toEqual({
+      httpStatus: 500,
+      code: 'X:1',
+      message: 'Nope',
+    })
+  })
+
+  it('keeps a short text body and drops HTML', () => {
+    expect(runtimeProblem('Bad gateway', 502)).toEqual({ httpStatus: 502, message: 'Bad gateway' })
+    expect(runtimeProblem('<html><body>502</body></html>', 502)).toEqual({ httpStatus: 502 })
   })
 })

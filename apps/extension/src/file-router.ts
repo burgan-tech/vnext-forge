@@ -20,6 +20,7 @@ export type FileRouteKind =
   | 'function'
   | 'extension'
   | 'mapping'
+  | 'agent'
   | 'config'
   | 'unknown'
 
@@ -149,6 +150,7 @@ export function resolveFileRoute(
     { kind: 'function', segment: normalizeConfigPath(config.paths.functions) },
     { kind: 'extension', segment: normalizeConfigPath(config.paths.extensions) },
     { kind: 'mapping', segment: normalizeConfigPath(config.paths.mappings) },
+    { kind: 'agent', segment: normalizeConfigPath(config.paths.agents ?? 'Agents') },
   ]
 
   for (const { kind, segment } of checks) {

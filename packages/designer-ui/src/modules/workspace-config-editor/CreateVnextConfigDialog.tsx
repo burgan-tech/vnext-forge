@@ -344,6 +344,7 @@ const EXPORT_CATEGORY_ICON: Record<VnextExportCategory, VnextComponentType> = {
   functions: 'function',
   extensions: 'extension',
   mappings: 'mapping',
+  agents: 'agent',
 };
 
 /** Workspace’tan keşfedilen anahtarlarla exports `string[]` alanını doldurur. */
@@ -1005,6 +1006,12 @@ export function CreateVnextConfigDialog({
                       register={register}
                       name="paths.mappings"
                       errorText={pickWizardFieldError(fieldIssues, 'paths.mappings')}
+                    />
+                    <JsonTextField
+                      label="agents (optional)"
+                      register={register}
+                      name="paths.agents"
+                      errorText={pickWizardFieldError(fieldIssues, 'paths.agents')}
                     />
                   </div>
                 </CardContent>

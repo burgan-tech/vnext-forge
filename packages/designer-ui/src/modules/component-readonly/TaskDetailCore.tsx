@@ -12,6 +12,7 @@ import { PythonTaskForm } from '../task-editor/forms/PythonTaskForm.js';
 import { ScriptTaskForm } from '../task-editor/forms/ScriptTaskForm.js';
 import { SoapTaskForm } from '../task-editor/forms/SoapTaskForm.js';
 import { StateStoreTaskForm } from '../task-editor/forms/StateStoreTaskForm.js';
+import { McpTaskForm } from '../task-editor/forms/McpTaskForm.js';
 import { normalizeDefinitionDoc } from './normalizeDefinitionDoc.js';
 import { TASK_TYPE_LABELS } from './readonlyLabels.js';
 import { ReadOnlyConfigFields } from './shared/ReadOnlyConfigFields.js';
@@ -43,6 +44,7 @@ const READONLY_TASK_FORM_MAP: Record<string, ComponentType<TaskFormProps>> = {
   '16': SoapTaskForm,
   '17': StateStoreTaskForm,
   '20': DaprConversationTaskForm,
+  '24': McpTaskForm,
 };
 
 export interface TaskDetailCoreProps {

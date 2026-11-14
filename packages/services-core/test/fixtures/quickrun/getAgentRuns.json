@@ -1,0 +1,46 @@
+{
+  "params": {
+    "domain": "core",
+    "workflowKey": "ai-agent-lab-approval",
+    "instanceId": "b9846b60-0b07-447b-8377-9e2b9ac3d470",
+    "runId": "4a1d6c2e-9b3f-4e7a-8c5d-1f2e3a4b5c6d",
+    "includeTranscript": true
+  },
+  "result": {
+    "items": null,
+    "detail": {
+      "run": {
+        "id": "4a1d6c2e-9b3f-4e7a-8c5d-1f2e3a4b5c6d",
+        "state": "assessing",
+        "entryNo": 1,
+        "agentKey": "ai-approval-agent",
+        "agentVersion": "1.0.0",
+        "providerKey": "local",
+        "status": "approvalRequested",
+        "attempts": 1,
+        "startedAt": "2026-11-10T10:00:00Z",
+        "durationMs": 42,
+        "iterations": 1,
+        "toolCallCount": 1,
+        "totalTokens": 120,
+        "selectedTransition": "needs-approval",
+        "decisionSource": "approvalRequest",
+        "participant": null
+      },
+      "toolCalls": [
+        {
+          "id": "8e7d6c5b-4a39-4281-9f0e-1d2c3b4a5968",
+          "sequence": 1,
+          "iteration": 1,
+          "callId": "call_1",
+          "name": "pay",
+          "kind": 2,
+          "status": "approvalPending",
+          "startedAt": "2026-11-10T10:00:00Z",
+          "durationMs": 0
+        }
+      ],
+      "transcript": [{ "role": "assistant", "content": "{\"category\":\"question\"}" }]
+    }
+  }
+}

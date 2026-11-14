@@ -428,6 +428,87 @@ export const quickrunGetTaskHistoryResult = z.object({
   items: z.array(taskHistoryItemSchema),
 })
 
+// ── AI Agent runs + dry run (runtime 0.0.105, vnext#1105) ───────────────────
+
+/**
+ * `GET …/instances/{id}/functions/agent-runs`: the run list (newest first)
+ * or, with `runId`, one run with its tool calls (and its transcript with
+ * `includeTranscript`). Rows are passed through as the runtime returns them.
+ */
+export const quickrunGetAgentRunsParams = z.object({
+  ...workflowIdentifier,
+  instanceId: z.string().min(1),
+  state: z.string().optional(),
+  skip: z.number().int().min(0).optional(),
+  take: z.number().int().min(1).max(100).optional(),
+  runId: z.string().optional(),
+  includeTranscript: z.boolean().optional(),
+  headers: headersSchema,
+  runtimeUrl: z.string().optional(),
+})
+
+/**
+ * A runtime error answer (non-2xx) of the AI Agent surfaces, returned as data
+ * so the UI can show the runtime's own message: these calls are diagnostic
+ * tools, and the generic `RUNTIME_EXECUTION_FAILED` text hides exactly what
+ * the user needs (wrong domain, missing dry-run role, ...). `message` is the
+ * ProblemDetails `detail` (or `title`), capped; never a stack trace.
+ */
+export const agentRuntimeErrorSchema = z.object({
+  httpStatus: z.number().int(),
+  code: z.string().optional(),
+  message: z.string().optional(),
+  traceId: z.string().optional(),
+})
+
+export const quickrunGetAgentRunsResult = z.object({
+  runtimeError: agentRuntimeErrorSchema.optional(),
+  items: z.array(z.record(z.string(), z.unknown())).nullable().optional(),
+  detail: z
+    .object({
+      run: z.record(z.string(), z.unknown()),
+      toolCalls: z.array(z.record(z.string(), z.unknown())),
+      transcript: z.unknown().optional(),
+    })
+    .nullable()
+    .optional(),
+})
+
+const agentDryRunCandidateSchema = z.object({
+  key: z.string().min(1),
+  when: z.string(),
+  whenSource: z.string(),
+})
+
+/** `POST {domain}/definitions/agents/{key}/dry-run`: one run on sample data, stub tools, no instance. */
+export const quickrunAgentDryRunParams = z.object({
+  domain: z.string().min(1),
+  agentKey: z.string().min(1),
+  version: z.string().optional(),
+  prompt: z.string(),
+  data: z.unknown().optional(),
+  candidates: z.array(agentDryRunCandidateSchema).optional(),
+  headers: headersSchema,
+  runtimeUrl: z.string().optional(),
+})
+
+export const quickrunAgentDryRunResult = z
+  .object({
+    status: z.string(),
+    output: z.unknown().optional(),
+    decision: z.string().nullable().optional(),
+    reason: z.string().nullable().optional(),
+    failureReason: z.string().nullable().optional(),
+    toolCalls: z.array(z.record(z.string(), z.unknown())),
+    promptTokens: z.number().optional(),
+    completionTokens: z.number().optional(),
+    durationMs: z.number().optional(),
+    /** `ApprovalRequested`: the tool calls the run stopped before (`$agent.pendingApprovals` shape). */
+    pendingApprovals: z.array(z.record(z.string(), z.unknown())).nullable().optional(),
+    runtimeError: agentRuntimeErrorSchema.optional(),
+  })
+  .passthrough()
+
 // ── Get View ─────────────────────────────────────────────────────────────────
 
 export const quickrunGetViewParams = z.object({

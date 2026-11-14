@@ -81,6 +81,8 @@ export {
   MappingEditorView,
   type MappingEditorViewProps,
 } from './modules/mapping-editor/MappingEditorView.js';
+export { AgentEditorView, type AgentEditorViewProps } from './modules/agent-editor/AgentEditorView.js';
+export { AgentRunsPanel, type AgentRunsPanelProps } from './modules/agent-runs/AgentRunsPanel.js';
 
 export { CreateVnextConfigDialog } from './modules/workspace-config-editor/CreateVnextConfigDialog.js';
 export {

@@ -12,4 +12,5 @@ export type ComponentFolderType =
   | 'functions'
   | 'extensions'
   | 'mappings'
+  | 'agents'
   | 'components_root';

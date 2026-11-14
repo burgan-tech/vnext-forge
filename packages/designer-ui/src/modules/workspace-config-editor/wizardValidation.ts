@@ -14,8 +14,16 @@ export function normalizeVnextWizardPayload(
   values: VnextWorkspaceConfig,
 ): VnextWorkspaceConfig {
   const ref = values.referenceResolution;
+  // `paths.agents` / `exports.agents` (sys-agents, runtime 0.0.105) are optional:
+  // keep them when set, drop them when blank so older solutions stay untouched.
+  const agentsPath = values.paths.agents?.trim();
+  const pathsWithoutAgents = { ...values.paths };
+  delete pathsWithoutAgents.agents;
+  const { agents: agentsExports, ...exportsWithoutAgents } = values.exports;
+  const agentsExportList = agentsExports ? compactNonEmptyLines(agentsExports) : undefined;
   return {
     ...values,
+    paths: { ...pathsWithoutAgents, ...(agentsPath ? { agents: agentsPath } : {}) },
     ...(ref && {
       referenceResolution: {
         ...ref,
@@ -23,7 +31,8 @@ export function normalizeVnextWizardPayload(
       },
     }),
     exports: {
-      ...values.exports,
+      ...exportsWithoutAgents,
+      ...(agentsExportList && agentsExportList.length > 0 ? { agents: agentsExportList } : {}),
       functions: compactNonEmptyLines(values.exports.functions),
       workflows: compactNonEmptyLines(values.exports.workflows),
       tasks: compactNonEmptyLines(values.exports.tasks),
@@ -56,6 +65,7 @@ const pathsSchema = z.object({
   workflows: nonEmpty('paths.workflows'),
   schemas: nonEmpty('paths.schemas'),
   mappings: nonEmpty('paths.mappings'),
+  agents: z.string().trim().optional(),
 });
 
 const metadataSchema = z.object({
@@ -120,6 +130,7 @@ export const vnextWorkspaceConfigWizardSchema = z.object({
     schemas: z.array(z.string()),
     extensions: z.array(z.string()),
     mappings: z.array(z.string()),
+    agents: z.array(z.string()).optional(),
     visibility: z.enum(['public', 'private']),
     metadata: metadataSchema,
   }),
@@ -203,6 +214,7 @@ export function rawConfigToEditableValues(raw: Record<string, unknown>): VnextWo
       workflows: str(p.workflows),
       schemas: str(p.schemas),
       mappings: str(p.mappings),
+      ...(typeof p.agents === 'string' ? { agents: p.agents } : {}),
     },
     exports: {
       functions: strArr(exp.functions),
@@ -212,6 +224,7 @@ export function rawConfigToEditableValues(raw: Record<string, unknown>): VnextWo
       schemas: strArr(exp.schemas),
       extensions: strArr(exp.extensions),
       mappings: strArr(exp.mappings),
+      ...(Array.isArray(exp.agents) ? { agents: strArr(exp.agents) } : {}),
       visibility: exp.visibility === 'private' ? 'private' : 'public',
       metadata: {
         description: str(meta.description),

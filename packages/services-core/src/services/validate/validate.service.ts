@@ -363,7 +363,10 @@ export function createValidateService(deps: ValidateServiceDeps) {
     schemaVersion?: string,
   ): Promise<ComponentValidationResult> {
     const { validators } = await ensureForVersion(schemaVersion)
-    const entry = validators.get(componentType)
+    // A component type the project's pinned schema predates (e.g. `agent`
+    // before 0.0.60) is validated against the bundled schema instead of
+    // being reported as unknown, so a newer component type stays saveable.
+    const entry = validators.get(componentType) ?? ensureBundled().validators.get(componentType)
     if (!entry) {
       return {
         valid: false,

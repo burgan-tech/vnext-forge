@@ -107,6 +107,8 @@ const METHOD_CAPABILITIES: Readonly<Record<string, MethodCapability>> = Object.f
   'quickrun/getDataHistoryRow': 'privileged',
   'quickrun/getActiveIncident': 'privileged',
   'quickrun/getTaskHistory': 'privileged',
+  'quickrun/getAgentRuns': 'privileged',
+  'quickrun/agentDryRun': 'privileged',
   'quickrun/authorize': 'privileged',
   'quickrun/getHumanTasks': 'privileged',
   'quickrun/getCorrelationTree': 'privileged',

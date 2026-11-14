@@ -9,14 +9,24 @@
  * `MappingTripleHit` records and apply edits in-place.
  */
 
-const CSX_LOCATION_PATTERN = /^\.\/.*\.csx$/i;
+/**
+ * Synced file locations: `.csx` scripts, and `.md` for file-backed AI Agent
+ * instructions (`sys-agents` `attributes.instructions`), which the runtime
+ * also reads only from the inlined `code`.
+ */
+const SYNCED_LOCATION_PATTERN = /^\.\/.*\.(csx|md)$/i;
+
+/** True for a file whose saves re-inline it into component JSON. */
+export function isSyncedSourceFile(fsPath: string): boolean {
+  return /\.(csx|md)$/i.test(fsPath);
+}
 
 export interface MappingTripleHit {
   /** Path of keys/indices from the JSON root to the matched object. */
   path: (string | number)[];
   /** Reference to the actual JSON object (mutable — callers may edit `code` / `encoding` in place). */
   node: Record<string, unknown>;
-  /** Trimmed `location` string from the node (already validated against `^\./.*\.csx$`). */
+  /** Trimmed `location` string from the node (already validated against `^\./.*\.(csx|md)$`). */
   location: string;
   /** Raw `encoding` value as stored on the node (may be undefined). */
   encoding: string | undefined;
@@ -26,7 +36,7 @@ export interface MappingTripleHit {
 
 /**
  * Recursively walk `json` and yield every object that has both a
- * string `location` matching `^\./.*\.csx$` and a `code` key. Arrays
+ * string `location` matching `^\./.*\.(csx|md)$` and a `code` key. Arrays
  * are walked element-wise.
  */
 export function walkMappingTriples(json: unknown): MappingTripleHit[] {
@@ -45,7 +55,7 @@ function walk(value: unknown, path: (string | number)[], out: MappingTripleHit[]
   if (value === null || typeof value !== 'object') return;
   const obj = value as Record<string, unknown>;
   const loc = obj.location;
-  if (typeof loc === 'string' && CSX_LOCATION_PATTERN.test(loc.trim()) && 'code' in obj) {
+  if (typeof loc === 'string' && SYNCED_LOCATION_PATTERN.test(loc.trim()) && 'code' in obj) {
     out.push({
       path,
       node: obj,

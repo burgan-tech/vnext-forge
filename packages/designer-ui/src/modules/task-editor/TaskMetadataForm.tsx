@@ -66,7 +66,8 @@ export function TaskMetadataForm({ json, onChange }: TaskMetadataFormProps) {
             const attrs = d.attributes as Record<string, unknown>;
             if (String(attrs.type) === next) return;
             attrs.type = next;
-            attrs.config = {};
+            // Mcp (24): the transport and an operation are required; seed them.
+            attrs.config = next === '24' ? { transport: 'http', endpoint: '', operation: 'callTool' } : {};
           });
         }}
       />

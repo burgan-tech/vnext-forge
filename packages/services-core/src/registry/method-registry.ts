@@ -151,6 +151,10 @@ import {
   quickrunGetActiveIncidentResult,
   quickrunGetTaskHistoryParams,
   quickrunGetTaskHistoryResult,
+  quickrunGetAgentRunsParams,
+  quickrunGetAgentRunsResult,
+  quickrunAgentDryRunParams,
+  quickrunAgentDryRunResult,
   quickrunAuthorizeParams,
   quickrunAuthorizeResult,
   quickrunGetHumanTasksParams,
@@ -573,6 +577,18 @@ export function buildMethodRegistry(): MethodRegistry {
         return components.extensions
       },
     },
+    'vnext/agents/list': {
+      paramsSchema: vnextCategoryListParams,
+      resultSchema: vnextCategoryListResult,
+      handler: async ({ id }, { projectService }, traceId) => {
+        const { components } = await projectService.listVnextComponents(
+          id,
+          { category: 'agents' },
+          traceId,
+        )
+        return components.agents
+      },
+    },
     'vnext/mappings/list': {
       paramsSchema: vnextCategoryListParams,
       resultSchema: vnextCategoryListResult,
@@ -782,6 +798,19 @@ export function buildMethodRegistry(): MethodRegistry {
       resultSchema: quickrunGetTaskHistoryResult,
       handler: async (params, { quickRunService }, traceId) =>
         quickRunService.getTaskHistory(params, traceId),
+    },
+    // Runtime 0.0.105 AI Agent surfaces (vnext#1105).
+    'quickrun/getAgentRuns': {
+      paramsSchema: quickrunGetAgentRunsParams,
+      resultSchema: quickrunGetAgentRunsResult,
+      handler: async (params, { quickRunService }, traceId) =>
+        quickRunService.getAgentRuns(params, traceId),
+    },
+    'quickrun/agentDryRun': {
+      paramsSchema: quickrunAgentDryRunParams,
+      resultSchema: quickrunAgentDryRunResult,
+      handler: async (params, { quickRunService }, traceId) =>
+        quickRunService.agentDryRun(params, traceId),
     },
     'quickrun/authorize': {
       paramsSchema: quickrunAuthorizeParams,

@@ -7,6 +7,7 @@ export function getStateTypeLabel(t: number): string {
     case 3: return 'Final';
     case 4: return 'SubFlow';
     case 5: return 'Wizard';
+    case 6: return 'AI Agent';
     default: return 'Unknown';
   }
 }
@@ -18,6 +19,7 @@ export function getStateTypeColor(t: number): string {
     case 3: return 'bg-slate-100 text-slate-700';
     case 4: return 'bg-violet-100 text-violet-700';
     case 5: return 'bg-amber-100 text-amber-700';
+    case 6: return 'bg-emerald-100 text-emerald-700';
     default: return 'bg-slate-100 text-slate-600';
   }
 }

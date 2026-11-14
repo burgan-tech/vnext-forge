@@ -69,6 +69,9 @@ export function registerCommands(context: vscode.ExtensionContext, deps: Command
     vscode.commands.registerCommand('vnextForge.forgeCreateMapping', (uri?: vscode.Uri) =>
       forgeComponentCreateByKind(uri, deps, 'mapping'),
     ),
+    vscode.commands.registerCommand('vnextForge.forgeCreateAgent', (uri?: vscode.Uri) =>
+      forgeComponentCreateByKind(uri, deps, 'agent'),
+    ),
   );
 }
 
@@ -224,6 +227,7 @@ const COMPONENT_KINDS: { kind: ComponentKind; label: string; description: string
   { kind: 'function', label: 'Function', description: 'Scripted function' },
   { kind: 'extension', label: 'Extension', description: 'Extension definition' },
   { kind: 'mapping', label: 'Mapping', description: 'Reusable CSX helper (sys-mappings)' },
+  { kind: 'agent', label: 'Agent', description: 'AI agent (sys-agents)' },
 ];
 
 function pathSegmentForKind(config: VnextWorkspaceConfig, kind: ComponentKind): string {
@@ -242,6 +246,8 @@ function pathSegmentForKind(config: VnextWorkspaceConfig, kind: ComponentKind): 
       return config.paths.extensions;
     case 'mapping':
       return config.paths.mappings;
+    case 'agent':
+      return config.paths.agents ?? 'Agents';
     case 'config':
       throw new Error('vnext config is not a component kind');
     default: {
@@ -480,6 +486,7 @@ const FORGE_CREATE_TITLE: Record<VnextComponentJsonKind, string> = {
   function: 'Forge: Function Create',
   extension: 'Forge: Extension Create',
   mapping: 'Forge: Mapping Create',
+  agent: 'Forge: Agent Create',
 };
 
 /**

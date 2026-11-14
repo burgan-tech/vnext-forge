@@ -8,6 +8,7 @@ import type { SchemaReference } from '../../../../../../modules/save-component/c
 import type { AtomicSavedInfo } from '../../../../../../modules/save-component/componentEditorModalTypes.js';
 import { useWorkflowStore } from '../../../../../../store/useWorkflowStore';
 import { useProjectStore } from '../../../../../../store/useProjectStore';
+import { renameAgentTransitionRefs } from '../agent/agentStateDocument';
 
 export type FindTransition = (draft: any) => { container: any; transitions: any[] } | null;
 
@@ -84,6 +85,11 @@ export function useTransitionMutations(findTransition: FindTransition): Transiti
       const ctx = findTransition(draft);
       if (!ctx?.transitions?.[index]) return;
       const transition = ctx.transitions[index];
+      // An AI Agent state names its transitions in decision.fallback / hints / exclude;
+      // a key rename carries those references along.
+      if (field === 'key' && typeof value === 'string' && ctx.container?.agent && transition.key !== value) {
+        renameAgentTransitionRefs(ctx.container.agent, transition.key, value);
+      }
       if (value === undefined) delete transition[field];
       else transition[field] = value;
       // Runtime 0.0.102: `priority` only exists on a non-default automatic

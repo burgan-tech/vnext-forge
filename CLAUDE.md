@@ -144,6 +144,20 @@ first and falls back to `<root>/package.json` (legacy template layout).
   Remote `RuntimeEnvironment` entries carry an optional `domain` (profile name) and the tree shows a
   `/health` domain mismatch inline.
 
+### AI Agent state, sys-agents and Mcp task (runtime 0.0.105, vnext#1105)
+
+- `stateType: 6` (AI Agent) carries an `agent` block; candidates are the state's rule-less
+  automatic transitions minus reserved exits (`fallback`, `onApprovalRequest`, `onExhausted`) and
+  `decision.exclude`. `resolveAgentCandidates` / `validateAiAgentStates` in
+  `@vnext-forge-studio/vnext-types` mirror the runtime's `AgentCandidateSet` and publish checks.
+- `sys-agents` is an export category (`agents`); `paths.agents` / `exports.agents` are **optional**
+  (older solutions have none; Forge falls back to `Agents`). Never make them required.
+- Editors: state tab `canvas-interaction/.../tabs/agent/`, component editor `modules/agent-editor/`,
+  Mcp task form `task-editor/forms/McpTaskForm.tsx` (credentials only as `secretRef`), dry run and
+  agent runs `modules/agent-runs/` over `quickrun/agentDryRun` / `quickrun/getAgentRuns`.
+- Round-trip fixtures: `designer-ui/src/modules/agent-editor/__fixtures__/ai-agent-lab` (copies of
+  vnext-example-ai-agent); every example must open and save byte-for-byte.
+
 ### Cross-platform setup (macOS, Linux, Windows)
 
 The repo is intended to run the same way on macOS, Linux, and Windows.

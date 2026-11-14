@@ -7,7 +7,10 @@ function norm(p: string): string {
   return p.replace(/\\/g, '/').replace(/\/{2,}/g, '/');
 }
 
-type AtomicCategoryFolder = 'tasks' | 'schemas' | 'views' | 'functions' | 'extensions' | 'mappings';
+type AtomicCategoryFolder = 'tasks' | 'schemas' | 'views' | 'functions' | 'extensions' | 'mappings' | 'agents';
+
+/** Folders a solution may leave out of `paths` (older solutions have no `agents`). */
+const OPTIONAL_CATEGORY_DEFAULTS: Partial<Record<AtomicCategoryFolder, string>> = { agents: 'Agents' };
 
 /** Build absolute `.json` path for an atomic component (`group` may be empty or VNEXT_ATOMIC_FLAT_GROUP for flat layout). */
 export function buildAtomicComponentJsonPath(
@@ -19,7 +22,8 @@ export function buildAtomicComponentJsonPath(
 ): string {
   const root = norm(projectRoot).replace(/\/$/, '');
   const cr = norm(String(paths.componentsRoot || ''));
-  const sub = norm(String(paths[category] || ''));
+  const configured = paths[category]?.trim() ? paths[category] : undefined;
+  const sub = norm(String(configured ?? OPTIONAL_CATEGORY_DEFAULTS[category] ?? ''));
   const base = norm(`${root}/${cr}/${sub}`);
   if (!group || group === VNEXT_ATOMIC_FLAT_GROUP) {
     return `${base}/${name}.json`;

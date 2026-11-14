@@ -313,3 +313,91 @@ describe('runPollLoop', () => {
     });
   });
 });
+
+describe('runPollLoop on a stable rest state (typed form input must survive)', () => {
+  const REST: StateResponse = { state: 'compose', status: 'A', view: { hasView: true, loadData: true, href: '/view' } } as StateResponse;
+  const VIEW = { key: 'lp-start', content: { view: { type: 'TextArea' } } };
+  const notModified = { success: true as const, data: { notModified: true } as unknown as StateResponse };
+
+  function seedRendered() {
+    resetStore();
+    useQuickRunStore.setState({
+      activeState: REST,
+      activeStateInstanceId: 'i1',
+      stateView: VIEW as never,
+      etags: { state: '"e1"' },
+    });
+  }
+
+  beforeEach(() => {
+    getState.mockReset();
+    getData.mockReset();
+    getView.mockReset();
+    getData.mockResolvedValue({ success: true, data: { notModified: true } });
+    getView.mockResolvedValue({ success: true, data: { ...VIEW, content: { view: { type: 'TextArea' } } } });
+    seedRendered();
+  });
+
+  it('stops on the first 304 of an A state instead of running the retry budget', async () => {
+    getState.mockResolvedValue(notModified);
+
+    const result = await runPollLoop(PARAMS, CONFIG);
+
+    expect(getState).toHaveBeenCalledTimes(1);
+    expect(getView).not.toHaveBeenCalled();
+    expect(result).toBe(REST);
+    const s = useQuickRunStore.getState();
+    expect(s.stateView).toBe(VIEW);
+    expect(s.stateViewLoading).toBe(false);
+    expect(s.pollingInstanceId).toBeNull();
+    expect(s.interaction).toEqual({ kind: 'idle' });
+  });
+
+  it('keeps polling on 304 while the cached status is B, re-reading data but not the view', async () => {
+    useQuickRunStore.setState({ activeState: { ...REST, status: 'B' } });
+    getState.mockResolvedValueOnce(notModified).mockResolvedValueOnce(notModified).mockResolvedValueOnce(ok(REST));
+
+    await runPollLoop(PARAMS, CONFIG);
+
+    expect(getState).toHaveBeenCalledTimes(3);
+    expect(getData).toHaveBeenCalledTimes(2);
+    expect(useQuickRunStore.getState().stateView).toBe(VIEW);
+  });
+
+  it('a 200 for the same state keeps the rendered view and never flags it loading', async () => {
+    const seen: boolean[] = [];
+    const unsub = useQuickRunStore.subscribe((st) => seen.push(st.stateViewLoading || st.stateView === null));
+    getState.mockResolvedValue(ok({ ...REST, eTag: '"e2"' } as StateResponse));
+
+    await runPollLoop(PARAMS, CONFIG);
+    await Promise.resolve();
+    unsub();
+
+    expect(getView).toHaveBeenCalledTimes(1);
+    expect(seen.every((hidden) => !hidden)).toBe(true);
+    // Deep-equal content → the rendered object is kept as is.
+    expect(useQuickRunStore.getState().stateView).toBe(VIEW);
+  });
+
+  it('a 200 for a new state still clears and reloads the view', async () => {
+    getState.mockResolvedValue(ok({ ...REST, state: 'asking' }));
+
+    await runPollLoop(PARAMS, CONFIG);
+    await new Promise((r) => setTimeout(r, 0));
+
+    expect(getView).toHaveBeenCalledTimes(1);
+    expect(useQuickRunStore.getState().stateView).not.toBe(VIEW);
+  });
+
+  it('a failed background view refresh keeps the rendered view', async () => {
+    getView.mockResolvedValue({ success: false, error: { code: 'X', message: 'down' } });
+    getState.mockResolvedValue(ok({ ...REST, eTag: '"e2"' } as StateResponse));
+
+    await runPollLoop(PARAMS, CONFIG);
+    await new Promise((r) => setTimeout(r, 0));
+
+    const s = useQuickRunStore.getState();
+    expect(s.stateView).toBe(VIEW);
+    expect(s.stateViewError).toBe(false);
+  });
+});

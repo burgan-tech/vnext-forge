@@ -10,6 +10,7 @@ export const VNEXT_EXPORT_CATEGORIES = [
   'functions',
   'extensions',
   'mappings',
+  'agents',
 ] as const
 
 export type VnextExportCategory = (typeof VNEXT_EXPORT_CATEGORIES)[number]
@@ -23,6 +24,7 @@ export const VNEXT_FLOW_TO_EXPORT_CATEGORY: Record<string, VnextExportCategory> 
   'sys-functions': 'functions',
   'sys-extensions': 'extensions',
   'sys-mappings': 'mappings',
+  'sys-agents': 'agents',
 }
 
 export interface DiscoveredVnextComponent {

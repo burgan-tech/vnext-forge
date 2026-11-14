@@ -107,10 +107,12 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
           setActiveStateLoading(false);
           const effectiveState = store.getState().activeState;
           if (effectiveState && !controller.signal.aborted) {
+            // Unchanged state → unchanged view: only Data is re-read, the
+            // rendered view (and any form input in it) is left alone.
             void refreshViewAndData(
               params,
               effectiveState,
-              { terminate: false, includeData: true },
+              { terminate: false, includeData: true, includeView: !hasRenderedView(params.instanceId) },
               controller.signal,
             );
           }
@@ -118,6 +120,8 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
         }
 
         setEtag('state', extractEtag(stateData));
+        // Decided before `setActiveState` replaces the cached state it compares against.
+        const keepView = keepsRenderedView(params.instanceId, stateData);
         // Same interaction bookkeeping as the poll loop: a paused instance
         // opens the acknowledge window even on this single-shot fetch.
         const { paused: terminate } = recordStateRound(params.instanceId, stateData);
@@ -128,12 +132,14 @@ export function useQuickRunPolling(config: PollingConfig = DEFAULT_POLLING_CONFI
         updateInstanceState(params.instanceId, stateData);
         setActiveStateLoading(false);
 
-        setStateView(null);
-        setStateViewError(false);
-        setStateViewLoading(true);
+        if (!keepView) {
+          setStateView(null);
+          setStateViewError(false);
+          setStateViewLoading(true);
+        }
 
         const canRenderView = shouldFetchView(stateData, { applyStatusGate: true, terminate });
-        if (!canRenderView) {
+        if (!canRenderView && !keepView) {
           // No view payload to fetch — drop the loading flag now so
           // the panel collapses without flashing a skeleton forever.
           // (When a view IS eligible, refreshViewAndData below owns the
@@ -339,7 +345,7 @@ async function runPollLoopBody(
   // long) initial `getState` round-trip. The flag is cleared on
   // every terminal path below: poll failure, poll success with no
   // view, abort, and inside `refreshViewAndData`'s view branch.
-  if (!useQuickRunStore.getState().etags.state) {
+  if (!useQuickRunStore.getState().etags.state && !hasRenderedView(params.instanceId)) {
     setStateView(null);
     setStateViewError(false);
     setStateViewLoading(true);
@@ -412,15 +418,45 @@ async function runPollLoopBody(
         // ETag, so it's always fetched unconditionally and diffed
         // client-side). `effectiveState` is the currently-cached
         // activeState from a prior round, never the (absent) 304 body.
-        const effectiveState = useQuickRunStore.getState().activeState;
+        const { activeState: effectiveState, activeStateInstanceId } = useQuickRunStore.getState();
+
+        // A 304 says the cached state IS the current state, so the stop rule
+        // applies to it exactly as it did to the 200 that cached it. Without
+        // this a poll started on an unchanged rest state (Retry State, a
+        // re-poll after an action that did not move the instance) never sees
+        // a status and runs its whole retry budget, re-reading View/Data on
+        // every tick.
+        if (effectiveState && activeStateInstanceId === params.instanceId) {
+          const { stop: phaseStop, paused: cachedPaused } = recordStateRound(params.instanceId, effectiveState);
+          keepWindow = nextKeepPollingWindow(keepWindow, params.instanceId, effectiveState, Date.now());
+          setKeepPolling(keepWindow);
+          const keepGoing = !cachedPaused && keepsPolling(keepWindow, effectiveState.status, Date.now());
+          if (phaseStop && !keepGoing) {
+            setActiveStateLoading(false);
+            setPollingInstanceId(null);
+            // Same state → same view; fetch it only if none is on screen.
+            // Data at/after stop is ContextPanel's (see the 200 stop path).
+            if (!hasRenderedView(params.instanceId)) {
+              void refreshViewAndData(
+                params,
+                effectiveState,
+                { terminate: cachedPaused, includeData: false },
+                controller.signal,
+              );
+            }
+            return effectiveState;
+          }
+        }
+
         if (effectiveState && !controller.signal.aborted) {
           // `pollingInstanceId` is set for the whole busy loop, so
           // ContextPanel's own Data lazy-load is suppressed here —
-          // the loop is the sole Data source on this tick.
+          // the loop is the sole Data source on this tick. The view
+          // belongs to the unchanged state: re-read only if none is shown.
           await refreshViewAndData(
             params,
             effectiveState,
-            { terminate: false, includeData: true },
+            { terminate: false, includeData: true, includeView: !hasRenderedView(params.instanceId) },
             controller.signal,
           );
         }
@@ -440,9 +476,16 @@ async function runPollLoopBody(
       // this is the first point stale view content gets cleared —
       // right as we confirm new data actually warrants it. When the
       // priming above already ran, these are harmless no-ops.
-      setStateView(null);
-      setStateViewError(false);
-      setStateViewLoading(true);
+      // A 200 for the same state and view source (e.g. a new ETag from a
+      // data change) keeps the rendered view: clearing it would remount
+      // the pseudo-ui view and drop what the user typed. The view fetch
+      // below still replaces it if its content differs.
+      const keepView = keepsRenderedView(params.instanceId, stateData);
+      if (!keepView) {
+        setStateView(null);
+        setStateViewError(false);
+        setStateViewLoading(true);
+      }
 
       // Every full response feeds the interaction machine; whether the
       // loop stops comes from the resulting phase (controller ruling
@@ -470,7 +513,7 @@ async function runPollLoopBody(
         setPollingInstanceId(null);
 
         const canRenderView = shouldFetchView(stateData, { applyStatusGate: true, terminate });
-        if (!canRenderView) {
+        if (!canRenderView && !keepView) {
           // Stop with no view to fetch — drop the loading flag now
           // so the panel collapses cleanly. (When a view IS eligible,
           // refreshViewAndData below owns the loading flag until its
@@ -609,10 +652,10 @@ function recordStateRound(instanceId: string, stateData: StateResponse): { stop:
 async function refreshViewAndData(
   params: { domain: string; workflowKey: string; instanceId: string; headers?: Record<string, string>; runtimeUrl?: string },
   effectiveState: StateResponse,
-  options: { terminate: boolean; includeData: boolean },
+  options: { terminate: boolean; includeData: boolean; includeView?: boolean },
   signal: AbortSignal,
 ): Promise<void> {
-  const { terminate, includeData } = options;
+  const { terminate, includeData, includeView = true } = options;
   // Besides `signal`, a tab switch makes this refresh stale — its View/Data
   // must never land on the instance that is active by then.
   const isStale = () => isStaleRound(params.instanceId);
@@ -670,7 +713,9 @@ async function refreshViewAndData(
       })()
     : Promise.resolve();
 
-  const viewRefresh = fetchViewOnce({ base, effectiveState, signal, applyStatusGate: true, terminate, isStale });
+  const viewRefresh = includeView
+    ? fetchViewOnce({ base, effectiveState, signal, applyStatusGate: true, terminate, isStale })
+    : Promise.resolve();
 
   await Promise.all([dataRefresh, viewRefresh]);
 }
@@ -722,7 +767,11 @@ async function fetchViewOnce({
 
   const viewSource = resolveStateViewSource(effectiveState);
   const { setStateView, setStateViewLoading, setStateViewError } = useQuickRunStore.getState();
-  setStateViewLoading(true);
+  // A view already on screen is refreshed in the background: the loading
+  // flag would unmount it (and the form input in it) for the length of the
+  // request, and a failed refresh keeps it instead of blanking the panel.
+  const background = hasRenderedView(base.instanceId);
+  if (!background) setStateViewLoading(true);
   setStateViewError(false);
 
   try {
@@ -736,17 +785,39 @@ async function fetchViewOnce({
         setStateView(viewResponse.data);
       }
       setStateViewError(false);
-    } else {
+    } else if (!background) {
       setStateViewError(true);
       setStateView(null);
     }
   } catch {
     if (signal?.aborted || isStale?.()) return;
-    setStateViewError(true);
-    setStateView(null);
+    if (!background) {
+      setStateViewError(true);
+      setStateView(null);
+    }
   } finally {
     setStateViewLoading(false);
   }
+}
+
+/** A view is on screen for `instanceId` (its cached state is the active one). */
+function hasRenderedView(instanceId: string): boolean {
+  const { stateView, activeStateInstanceId } = useQuickRunStore.getState();
+  return stateView !== null && activeStateInstanceId === instanceId;
+}
+
+/**
+ * True when `next` renders through the view already on screen: same instance,
+ * same state name, same view source. Such a response must not clear the
+ * view — that remounts the pseudo-ui view and loses form input.
+ */
+export function keepsRenderedView(instanceId: string, next: StateResponse): boolean {
+  if (!hasRenderedView(instanceId)) return false;
+  const current = useQuickRunStore.getState().activeState;
+  if (current?.state !== next.state) return false;
+  const a = resolveStateViewSource(current);
+  const b = resolveStateViewSource(next);
+  return a !== null && b !== null && a.transitionKey === b.transitionKey;
 }
 
 function sleep(ms: number): Promise<void> {

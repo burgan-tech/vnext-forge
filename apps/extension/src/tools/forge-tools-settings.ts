@@ -204,6 +204,17 @@ export class ForgeToolsSettingsService implements vscode.Disposable {
     this._onDidChangeEnvironments.fire(validated);
   }
 
+  /**
+   * The active environment from the cache, synchronously (`null` before
+   * `loadEnvironments()` ran or when none is active). Used where an async
+   * read is not possible, e.g. `DesignerPanel.buildWebviewConfig`.
+   */
+  getCachedActiveEnvironment(): RuntimeEnvironment | null {
+    const config = this.environmentsCache;
+    if (!config?.activeEnvironmentId) return null;
+    return config.environments.find((e) => e.id === config.activeEnvironmentId) ?? null;
+  }
+
   async getActiveEnvironment(): Promise<RuntimeEnvironment | null> {
     const config = await this.loadEnvironments();
     if (!config.activeEnvironmentId) return null;

@@ -84,6 +84,7 @@ function getTaskTypeName(type: string): string {
     '21': 'Fan-Out',
     '22': 'External HTTP',
     '23': 'Python',
+    '24': 'MCP',
   };
   return names[type] || `Unknown (${type})`;
 }

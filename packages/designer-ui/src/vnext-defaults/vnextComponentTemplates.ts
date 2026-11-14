@@ -178,6 +178,22 @@ export function buildVnextComponentJson(
           encoding: 'B64',
         },
       };
+    case 'agent':
+      // sys-agents (runtime 0.0.105): provider is a profile name configured per environment.
+      return {
+        key,
+        domain,
+        version,
+        flow: 'sys-agents',
+        flowVersion,
+        tags: [defaultTag],
+        attributes: {
+          provider: 'local',
+          instructions: { text: 'You are a helpful assistant.' },
+          output: { schema: { type: 'object', properties: { summary: { type: 'string' } }, required: ['summary'] } },
+          policy: { maxIterations: 4, maxToolCalls: 4, timeoutSeconds: 30 },
+        },
+      };
     default: {
       const k: string = String(kind);
       throw new Error(`Unknown vNext component kind: ${k}`);

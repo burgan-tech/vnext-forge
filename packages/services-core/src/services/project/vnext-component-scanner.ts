@@ -21,6 +21,7 @@ const FOLDER_MATCH_ORDER: VnextExportCategory[] = [
   'functions',
   'extensions',
   'mappings',
+  'agents',
 ];
 
 const READ_CONCURRENCY = 8;
@@ -34,6 +35,7 @@ export function emptyVnextComponentBuckets(): VnextComponentsByCategory {
     functions: [],
     extensions: [],
     mappings: [],
+    agents: [],
   }
 }
 

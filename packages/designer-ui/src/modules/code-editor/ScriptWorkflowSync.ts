@@ -67,6 +67,16 @@ export function applyScriptValueToWorkflow(
     return;
   }
 
+  // AI Agent prompt (runtime 0.0.105): the C# prompt mapping shares its object
+  // with `template`, `messages` and `context`, so merge instead of replacing it.
+  if (activeScript.listField === 'agent' && activeScript.scriptField === 'prompt') {
+    const agent = state.agent as Record<string, unknown> | undefined;
+    if (!agent || typeof agent !== 'object') return;
+    const prompt = (agent.prompt && typeof agent.prompt === 'object' ? agent.prompt : {}) as Record<string, unknown>;
+    agent.prompt = { ...prompt, location: value.location, code: value.code, encoding: value.encoding };
+    return;
+  }
+
   // A `scriptField` that indexes the holder itself (state `views`:
   // `views[0].rule`) is a path from the state, not a key on the entry.
   if (activeScript.scriptField.startsWith(`${activeScript.listField}[`)) {

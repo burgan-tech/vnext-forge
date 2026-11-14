@@ -30,6 +30,7 @@ export const TASK_TYPE_LABELS: Record<string, string> = {
   '21': 'Fan-Out',
   '22': 'External HTTP',
   '23': 'Python',
+  '24': 'MCP',
 };
 
 export const EXTENSION_TYPE_LABELS: Record<number, string> = {

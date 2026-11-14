@@ -45,6 +45,7 @@ export type MethodId =
   | 'vnext/functions/list'
   | 'vnext/extensions/list'
   | 'vnext/mappings/list'
+  | 'vnext/agents/list'
   | 'templates/validateScriptStatus'
   | 'validate/workflow'
   | 'validate/component'
@@ -72,6 +73,8 @@ export type MethodId =
   | 'quickrun/getDataHistoryRow'
   | 'quickrun/getActiveIncident'
   | 'quickrun/getTaskHistory'
+  | 'quickrun/getAgentRuns'
+  | 'quickrun/agentDryRun'
   | 'quickrun/authorize'
   | 'quickrun/getHumanTasks'
   | 'quickrun/getCorrelationTree'
@@ -138,6 +141,7 @@ export const METHOD_HTTP_METADATA: Readonly<Record<MethodId, MethodHttpSpec>> = 
   'vnext/functions/list': { verb: 'GET', paramSource: 'query' },
   'vnext/extensions/list': { verb: 'GET', paramSource: 'query' },
   'vnext/mappings/list': { verb: 'GET', paramSource: 'query' },
+  'vnext/agents/list': { verb: 'GET', paramSource: 'query' },
   'templates/validateScriptStatus': { verb: 'POST', paramSource: 'json' },
   'validate/workflow': { verb: 'POST', paramSource: 'json' },
   'validate/component': { verb: 'POST', paramSource: 'json' },
@@ -165,6 +169,8 @@ export const METHOD_HTTP_METADATA: Readonly<Record<MethodId, MethodHttpSpec>> = 
   'quickrun/getDataHistoryRow': { verb: 'POST', paramSource: 'json' },
   'quickrun/getActiveIncident': { verb: 'POST', paramSource: 'json' },
   'quickrun/getTaskHistory': { verb: 'POST', paramSource: 'json' },
+  'quickrun/getAgentRuns': { verb: 'POST', paramSource: 'json' },
+  'quickrun/agentDryRun': { verb: 'POST', paramSource: 'json' },
   'quickrun/authorize': { verb: 'POST', paramSource: 'json' },
   'quickrun/getHumanTasks': { verb: 'POST', paramSource: 'json' },
   'quickrun/getCorrelationTree': { verb: 'POST', paramSource: 'json' },

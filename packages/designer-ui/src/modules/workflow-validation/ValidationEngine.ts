@@ -9,6 +9,7 @@ import {
   rowSecurityIssues,
   transitionPriorityIssues,
   transitionSchemasIssues,
+  validateAiAgentStates,
 } from '@vnext-forge-studio/vnext-types';
 import { ALL_ENABLED, hasFeature, type SchemaCapabilities } from '../schema-capabilities/SchemaCapabilities';
 import type { ValidationIssue } from './WorkflowValidationTypes';
@@ -268,7 +269,7 @@ export function validateWorkflow(
   }
 
   for (const state of states) {
-    if (state.stateType === 2 && (state.transitions?.length ?? 0) === 0) {
+    if ((state.stateType === 2 || state.stateType === AI_AGENT_STATE) && (state.transitions?.length ?? 0) === 0) {
       results.push({
         id: makeId(),
         severity: 'warning',
@@ -280,6 +281,8 @@ export function validateWorkflow(
   }
 
   for (const state of states) {
+    // On an AI Agent state a rule-less automatic transition is agent-decided, not a missing rule.
+    if (state.stateType === AI_AGENT_STATE) continue;
     for (const transition of state.transitions ?? []) {
       if (transition.triggerType === 1 && !transition.rule && !transition.mapping) {
         results.push({
@@ -348,6 +351,7 @@ export function validateWorkflow(
     );
 
     if (
+      state.stateType !== AI_AGENT_STATE &&
       autoTransitions.length > 1 &&
       !autoTransitions.some((transition) => transition.triggerKind === 10)
     ) {
@@ -377,7 +381,7 @@ export function validateWorkflow(
 
   for (const state of states) {
     const hasTasks = (state.onEntries?.length ?? 0) > 0 || (state.onExits?.length ?? 0) > 0;
-    if (!hasTasks && state.stateType !== 1 && state.stateType !== 3) {
+    if (!hasTasks && state.stateType !== 1 && state.stateType !== 3 && state.stateType !== AI_AGENT_STATE) {
       results.push({
         id: makeId(),
         severity: 'info',
@@ -473,8 +477,23 @@ export function validateWorkflow(
     });
   }
 
+  // Runtime 0.0.105 publish checks of AI Agent states (vnext#1105).
+  for (const issue of validateAiAgentStates(states)) {
+    results.push({
+      id: makeId(),
+      severity: issue.severity,
+      message: issue.message,
+      rule: 'ai-agent-state',
+      path: issue.stateKey ? `attributes.states[${issue.stateKey}].${issue.path}` : issue.path,
+      ...(issue.stateKey ? { nodeId: issue.stateKey } : {}),
+    });
+  }
+
   return results;
 }
+
+/** `StateType.AiAgent` (runtime 0.0.105). */
+const AI_AGENT_STATE = 6;
 
 function isWorkflowData(value: unknown): value is WorkflowData {
   return typeof value === 'object' && value !== null && !Array.isArray(value);

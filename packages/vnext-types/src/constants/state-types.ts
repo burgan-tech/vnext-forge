@@ -4,6 +4,8 @@ export enum StateType {
   Final = 3,
   SubFlow = 4,
   Wizard = 5,
+  /** Runs a `sys-agents` component on entry; its decision picks a rule-less automatic transition. Runtime 0.0.105 (experimental). */
+  AiAgent = 6,
 }
 
 export enum StateSubType {

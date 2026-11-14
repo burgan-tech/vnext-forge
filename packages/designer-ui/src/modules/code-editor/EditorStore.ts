@@ -20,7 +20,8 @@ export type ComponentEditorKind =
   | 'view'
   | 'function'
   | 'extension'
-  | 'mapping';
+  | 'mapping'
+  | 'agent';
 
 export function componentEditorTabId(
   projectId: string,

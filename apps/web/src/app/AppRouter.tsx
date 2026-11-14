@@ -47,6 +47,11 @@ const ExtensionEditorPage = lazy(() =>
     default: m.ExtensionEditorPage,
   })),
 );
+const AgentEditorPage = lazy(() =>
+  import('../pages/agent-editor/AgentEditorPage').then((m) => ({
+    default: m.AgentEditorPage,
+  })),
+);
 const MappingEditorPage = lazy(() =>
   import('../pages/mapping-editor/MappingEditorPage').then((m) => ({
     default: m.MappingEditorPage,
@@ -171,6 +176,7 @@ export function AppRouter() {
                   <Route path="function/:group/:name" element={<FunctionEditorPage />} />
                   <Route path="extension/:group/:name" element={<ExtensionEditorPage />} />
                   <Route path="mapping/:group/:name" element={<MappingEditorPage />} />
+                  <Route path="agent/:group/:name" element={<AgentEditorPage />} />
                   <Route path="workspace-config" element={<VnextWorkspaceConfigPage />} />
                   <Route path="code/*" element={<CodeEditorPage />} />
                   {/* Project-scoped catch-all: keeps shell chrome, shows
