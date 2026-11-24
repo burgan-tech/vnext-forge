@@ -20,10 +20,26 @@ export interface ResourceReference {
   flow: string;
 }
 
+/**
+ * Declarative task mapping block (runtime vnext#1229): `select` reads a JSON
+ * path, `into` writes it, `set` maps write paths to Dynamic Expresso
+ * expressions in declaration order (key order is semantic).
+ */
+export interface TaskMappingBlock {
+  select?: string;
+  into?: string;
+  set?: Record<string, string>;
+}
+
 export interface TaskExecution {
   order: number;
   task: ResourceReference;
+  /** C# mapping script. Mutually exclusive with `input` / `output`. */
   mapping?: MappingCode;
+  /** Declarative request shaping (`$.body`, `$.headers`, `$.query` targets). */
+  input?: TaskMappingBlock;
+  /** Declarative result write into instance data. */
+  output?: TaskMappingBlock;
   errorBoundary?: ErrorBoundary;
   /**
    * Response slot the task's output is written to. Defaults to the task key

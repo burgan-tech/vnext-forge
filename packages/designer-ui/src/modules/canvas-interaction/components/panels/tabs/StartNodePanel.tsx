@@ -9,6 +9,7 @@ import {
 } from '../../../../../modules/save-component/components/SchemaReferenceField';
 import { SchemaRoleWarning } from '../sections/SchemaRoleWarning';
 import type { ScriptCode } from '../../../../../modules/save-component/components/CsxEditorField';
+import type { MappingBindingLike } from '../../../../../modules/save-component/declarative-mapping/declarativeMapping';
 import type { AtomicSavedInfo } from '../../../../../modules/save-component/componentEditorModalTypes';
 import { getLabels, getLabel, getTriggerLabel } from './PropertyPanelHelpers';
 import { Badge, Section, InfoRow, SelectField } from './PropertyPanelShared';
@@ -175,6 +176,17 @@ export function StartNodePanel({ startTransition }: { startTransition: any }) {
         const st = resolveStart(draft);
         const task = st?.onExecutionTasks?.[taskIndex];
         if (task) delete task.mapping;
+      });
+    },
+    [updateWorkflow],
+  );
+
+  const updateTaskBinding = useCallback(
+    (taskIndex: number, updater: (binding: MappingBindingLike) => void) => {
+      updateWorkflow((draft: any) => {
+        const st = resolveStart(draft);
+        const task = st?.onExecutionTasks?.[taskIndex];
+        if (task) updater(task);
       });
     },
     [updateWorkflow],
@@ -354,6 +366,7 @@ export function StartNodePanel({ startTransition }: { startTransition: any }) {
           onUpdateTaskVariableKey={updateTaskVariableKey}
           onUpdateMapping={updateTaskMapping}
           onRemoveMapping={removeTaskMapping}
+          onUpdateBinding={updateTaskBinding}
           onUpdateMappingScripts={updateTaskMappingScripts}
           onUpdateErrorBoundary={updateTaskErrorBoundary}
           onSyncTaskRef={syncTaskRef}

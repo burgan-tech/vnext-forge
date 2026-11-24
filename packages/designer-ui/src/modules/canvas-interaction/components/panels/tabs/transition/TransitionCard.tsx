@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import type { ScriptCode } from '../../../../../../modules/save-component/components/CsxEditorField';
+import type { MappingBindingLike } from '../../../../../../modules/save-component/declarative-mapping/declarativeMapping';
 import type { SchemaReference } from '../../../../../../modules/save-component/components/SchemaReferenceField';
 import type { DiscoveredVnextComponent } from '@vnext-forge-studio/app-contracts';
 import type { AtomicSavedInfo } from '../../../../../../modules/save-component/componentEditorModalTypes.js';
@@ -85,6 +86,12 @@ export interface TransitionCardProps {
   onUpdateTaskVariableKey?: (transitionIndex: number, taskIndex: number, variableKey: string | undefined) => void;
   onUpdateTaskMapping: (transitionIndex: number, taskIndex: number, mapping: ScriptCode) => void;
   onRemoveTaskMapping: (transitionIndex: number, taskIndex: number) => void;
+  /** Omitted → the binding offers the C# mapping only (no declarative blocks). */
+  onUpdateTaskBinding?: (
+    transitionIndex: number,
+    taskIndex: number,
+    updater: (binding: MappingBindingLike) => void,
+  ) => void;
   onUpdateTaskMappingScripts?: (
     transitionIndex: number,
     taskIndex: number,
@@ -185,6 +192,7 @@ export function TransitionCard({
   onUpdateTaskVariableKey,
   onUpdateTaskMapping,
   onRemoveTaskMapping,
+  onUpdateTaskBinding,
   onUpdateTaskMappingScripts,
   onUpdateTaskErrorBoundary,
   onSyncTaskRef,
@@ -407,6 +415,9 @@ export function TransitionCard({
             }
             onUpdateMapping={(taskIndex, mapping) => onUpdateTaskMapping(index, taskIndex, mapping)}
             onRemoveMapping={(taskIndex) => onRemoveTaskMapping(index, taskIndex)}
+            onUpdateBinding={
+              onUpdateTaskBinding ? (taskIndex, updater) => onUpdateTaskBinding(index, taskIndex, updater) : undefined
+            }
             onUpdateMappingScripts={
               onUpdateTaskMappingScripts
                 ? (taskIndex, scripts) => onUpdateTaskMappingScripts(index, taskIndex, scripts)

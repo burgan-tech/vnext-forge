@@ -4,6 +4,7 @@ import { TriggerKind, TriggerType } from '@vnext-forge-studio/vnext-types';
 import type { RoleGrant } from '@vnext-forge-studio/vnext-types';
 import type { DiscoveredVnextComponent } from '@vnext-forge-studio/app-contracts';
 import type { ScriptCode } from '../../../../../../modules/save-component/components/CsxEditorField';
+import type { MappingBindingLike } from '../../../../../../modules/save-component/declarative-mapping/declarativeMapping';
 import type { SchemaReference } from '../../../../../../modules/save-component/components/SchemaReferenceField';
 import type { AtomicSavedInfo } from '../../../../../../modules/save-component/componentEditorModalTypes.js';
 import { useWorkflowStore } from '../../../../../../store/useWorkflowStore';
@@ -47,6 +48,12 @@ export interface TransitionMutations {
   updateTaskVariableKey: (transitionIndex: number, taskIndex: number, variableKey: string | undefined) => void;
   updateTaskMapping: (transitionIndex: number, taskIndex: number, mapping: ScriptCode) => void;
   removeTaskMapping: (transitionIndex: number, taskIndex: number) => void;
+  /** Applies `updater` to one onExecutionTasks binding (declarative input/output blocks). */
+  updateTaskBinding: (
+    transitionIndex: number,
+    taskIndex: number,
+    updater: (binding: MappingBindingLike) => void,
+  ) => void;
   updateTaskMappingScripts: (
     transitionIndex: number,
     taskIndex: number,
@@ -414,6 +421,19 @@ export function useTransitionMutations(findTransition: FindTransition): Transiti
     });
   }, [updateWorkflow, findTransition]);
 
+  const updateTaskBinding = useCallback((
+    transitionIndex: number,
+    taskIndex: number,
+    updater: (binding: MappingBindingLike) => void,
+  ) => {
+    updateWorkflow((draft: any) => {
+      const ctx = findTransition(draft);
+      const entry = ctx?.transitions?.[transitionIndex]?.onExecutionTasks?.[taskIndex];
+      if (!entry) return;
+      updater(entry);
+    });
+  }, [updateWorkflow, findTransition]);
+
   const updateTaskMappingScripts = useCallback((
     transitionIndex: number,
     taskIndex: number,
@@ -492,6 +512,7 @@ export function useTransitionMutations(findTransition: FindTransition): Transiti
     updateTaskVariableKey,
     updateTaskMapping,
     removeTaskMapping,
+    updateTaskBinding,
     updateTaskMappingScripts,
     updateTaskErrorBoundary,
     syncTaskRef,

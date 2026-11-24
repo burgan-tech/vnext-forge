@@ -3,6 +3,11 @@ import type { DiscoveredVnextComponent } from '@vnext-forge-studio/app-contracts
 import type { ScriptCode } from '../../../../../../modules/save-component/components/CsxEditorField';
 import { CsxEditorField } from '../../../../../../modules/save-component/components/CsxEditorField';
 import { MappingScriptsSection } from '../../../../../../modules/save-component/components/MappingScriptsSection';
+import type { MappingBindingLike } from '../../../../../../modules/save-component/declarative-mapping/declarativeMapping';
+import {
+  TaskBindingMappingField,
+  useOpenWorkflowMasterSchemaRoot,
+} from '../../../../../../modules/save-component/declarative-mapping/TaskBindingMappingField';
 import { OpenVnextComponentInModalButton } from '../../../../../../modules/save-component/components/OpenVnextComponentInModalButton.js';
 import type { AtomicSavedInfo } from '../../../../../../modules/save-component/componentEditorModalTypes.js';
 import { ChooseFromExistingTasksButton } from '../ChooseExistingTaskDialog';
@@ -24,6 +29,8 @@ interface TransitionExecutionTasksSectionProps {
   onUpdateTaskVariableKey?: (taskIndex: number, variableKey: string | undefined) => void;
   onUpdateMapping: (taskIndex: number, mapping: ScriptCode) => void;
   onRemoveMapping: (taskIndex: number) => void;
+  /** Omitted → the binding offers the C# mapping only (no declarative blocks). */
+  onUpdateBinding?: (taskIndex: number, updater: (binding: MappingBindingLike) => void) => void;
   onUpdateMappingScripts?: (taskIndex: number, scripts: ScriptsConfig | undefined) => void;
   onUpdateErrorBoundary: (taskIndex: number, eb: ErrorBoundary | undefined) => void;
   onSyncTaskRef: (taskIndex: number, next: AtomicSavedInfo) => void;
@@ -42,6 +49,7 @@ export function TransitionExecutionTasksSection({
   onUpdateTaskVariableKey,
   onUpdateMapping,
   onRemoveMapping,
+  onUpdateBinding,
   onUpdateMappingScripts,
   onUpdateErrorBoundary,
   onSyncTaskRef,
@@ -49,6 +57,7 @@ export function TransitionExecutionTasksSection({
   onOpenCreator,
   canPickExisting,
 }: TransitionExecutionTasksSectionProps) {
+  const schemaRoot = useOpenWorkflowMasterSchemaRoot();
   return (
     <Section
       title="On execution tasks"
@@ -78,6 +87,8 @@ export function TransitionExecutionTasksSection({
               onUpdateVariableKey={onUpdateTaskVariableKey ? (v) => onUpdateTaskVariableKey(i, v) : undefined}
               onUpdateMapping={(m) => onUpdateMapping(i, m)}
               onRemoveMapping={() => onRemoveMapping(i)}
+              onUpdateBinding={onUpdateBinding ? (updater) => onUpdateBinding(i, updater) : undefined}
+              schemaRoot={schemaRoot}
               onUpdateMappingScripts={
                 onUpdateMappingScripts
                   ? (next) => onUpdateMappingScripts(i, next)
@@ -130,6 +141,8 @@ function ExecutionTaskCard({
   onUpdateVariableKey,
   onUpdateMapping,
   onRemoveMapping,
+  onUpdateBinding,
+  schemaRoot,
   onUpdateMappingScripts,
   onUpdateErrorBoundary,
   onAtomicSaved,
@@ -146,6 +159,8 @@ function ExecutionTaskCard({
   onUpdateVariableKey?: (variableKey: string | undefined) => void;
   onUpdateMapping: (mapping: ScriptCode) => void;
   onRemoveMapping: () => void;
+  onUpdateBinding?: (updater: (binding: MappingBindingLike) => void) => void;
+  schemaRoot?: unknown;
   onUpdateMappingScripts?: (scripts: ScriptsConfig | undefined) => void;
   onUpdateErrorBoundary: (eb: ErrorBoundary | undefined) => void;
   onAtomicSaved: (next: AtomicSavedInfo) => void;
@@ -153,6 +168,31 @@ function ExecutionTaskCard({
   const ref = entry.task;
   const mapping = entry.mapping;
   const order = entry.order ?? index + 1;
+
+  const renderScript = () => (
+    <>
+      <CsxEditorField
+        value={mapping as ScriptCode | null | undefined}
+        onChange={onUpdateMapping}
+        onRemove={onRemoveMapping}
+        templateType="mapping"
+        contextName={`${stateKey}-transition-${ref.key || 'task'}`}
+        label="Mapping"
+        stateKey={stateKey}
+        listField="transitions"
+        index={transitionIndex}
+        scriptField={`onExecutionTasks.${index}.mapping`}
+      />
+      {mapping && onUpdateMappingScripts && (
+        <div className="px-2.5 pb-2">
+          <MappingScriptsSection
+            value={(mapping as { scripts?: ScriptsConfig }).scripts}
+            onChange={onUpdateMappingScripts}
+          />
+        </div>
+      )}
+    </>
+  );
 
   return (
     <div className="bg-surface border-border hover:border-muted-border-hover overflow-hidden rounded-lg border shadow-[0_1px_2px_rgba(0,0,0,0.03)] transition-all">
@@ -244,25 +284,16 @@ function ExecutionTaskCard({
         />
       )}
 
-      <CsxEditorField
-        value={mapping as ScriptCode | null | undefined}
-        onChange={onUpdateMapping}
-        onRemove={onRemoveMapping}
-        templateType="mapping"
-        contextName={`${stateKey}-transition-${ref.key || 'task'}`}
-        label="Mapping"
-        stateKey={stateKey}
-        listField="transitions"
-        index={transitionIndex}
-        scriptField={`onExecutionTasks.${index}.mapping`}
-      />
-      {mapping && onUpdateMappingScripts && (
-        <div className="px-2.5 pb-2">
-          <MappingScriptsSection
-            value={(mapping as { scripts?: ScriptsConfig }).scripts}
-            onChange={onUpdateMappingScripts}
-          />
-        </div>
+      {onUpdateBinding ? (
+        <TaskBindingMappingField
+          className="px-2.5 pb-2"
+          binding={entry as unknown as MappingBindingLike}
+          onUpdate={onUpdateBinding}
+          schemaRoot={schemaRoot}
+          renderScript={renderScript}
+        />
+      ) : (
+        renderScript()
       )}
 
       <TaskErrorBoundaryCollapsible
