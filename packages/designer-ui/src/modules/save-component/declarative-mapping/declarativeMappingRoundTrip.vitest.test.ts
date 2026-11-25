@@ -98,6 +98,7 @@ describe('declarative-mapping-lab round-trip', () => {
       '$.dml.callerKnown',
       '$.dml.inputAmount',
       '$.dml.missing',
+      '$.dml.calledUrl',
     ]);
   });
 

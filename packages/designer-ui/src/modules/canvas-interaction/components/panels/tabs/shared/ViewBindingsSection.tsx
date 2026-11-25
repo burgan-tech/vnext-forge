@@ -579,7 +579,7 @@ function ViewBindingCard({
               index={listIndex ?? index}
               scriptField={`${scriptFieldPrefix}[${index}].rule`}
             />
-            {binding.rule && (
+            {binding.rule && binding.rule.location !== 'dynamicExpresso' && (
               <MappingScriptsSection
                 value={(binding.rule as { scripts?: ScriptsConfig }).scripts}
                 onChange={onUpdateRuleScripts}

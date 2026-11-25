@@ -152,6 +152,7 @@ export function TimeoutOverrideEditor({
                 })
               }
               templateType="mapping"
+              expressionKind="timer"
               contextName={`${stateKey}-subflow-timeout`}
               label="Timeout mapping"
               stateKey={stateKey}
@@ -159,7 +160,7 @@ export function TimeoutOverrideEditor({
               index={0}
               scriptField="overrides.timeout.mapping"
             />
-            {mapping && (
+            {mapping && mapping.location !== 'dynamicExpresso' && (
               <MappingScriptsSection
                 value={mapping.scripts}
                 onChange={(scripts) =>

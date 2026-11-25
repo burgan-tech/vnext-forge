@@ -1,5 +1,6 @@
 import { produce } from 'immer';
 import { AgentToolKind, SYS_AGENTS_FLOW } from '@vnext-forge-studio/vnext-types';
+import type { MappingBindingLike } from '../save-component/declarative-mapping/declarativeMapping';
 
 /**
  * Pure helpers over a raw `sys-agents` component JSON (runtime 0.0.105).
@@ -231,4 +232,15 @@ export function newAgentComponent(key: string, domain: string): Json {
       policy: { maxIterations: 4, maxToolCalls: 4, timeoutSeconds: 30 },
     },
   };
+}
+
+/**
+ * Applies a mapping-mode updater (`TaskBindingMappingField`) to a copy of the tool's binding: the
+ * updater mutates, the tool is replaced immutably. Members the updater does not touch keep their
+ * value and position.
+ */
+export function withBindingUpdate(tool: Json, updater: (binding: MappingBindingLike) => void): Json {
+  const binding = structuredClone(isRecord(tool.binding) ? tool.binding : {}) as MappingBindingLike;
+  updater(binding);
+  return { ...tool, binding };
 }

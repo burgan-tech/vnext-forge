@@ -108,10 +108,6 @@ const INDEX_SEGMENT = String.raw`\[(?:[0-9]+|\*)\]`;
 
 const READ_PATH = new RegExp(`^\\$(?:${DOT_SEGMENT}|${QUOTED_SEGMENT}|${INDEX_SEGMENT})*$`);
 const WRITE_PATH = new RegExp(`^\\$(?:${DOT_SEGMENT}|${QUOTED_SEGMENT})+$`);
-const INPUT_WRITE_PATH = new RegExp(
-  `^\\$(?:\\.(?:body|headers|query)|\\['(?:body|headers|query)'\\])(?:${DOT_SEGMENT}|${QUOTED_SEGMENT})*$`,
-);
-const ROUTE_PATH = /^\$(?:\.route|\['route'\])(?:[.[]|$)/;
 
 export const PATH_MAX_LENGTH = 1000;
 export const EXPRESSION_MAX_LENGTH = 8000;
@@ -125,10 +121,18 @@ export function isWritePath(path: string): boolean {
   return path.length <= PATH_MAX_LENGTH && WRITE_PATH.test(path);
 }
 
-/** Request-surface write target (input `into` / `set` key): `$.body`, `$.headers`, `$.query`. */
+/**
+ * Task-config write target (input `into` / `set` key): a field of the task's own
+ * `config` as authored in the task definition (`$.url`, `$.body.customer`,
+ * `$.headers.x-channel`, `$.queryString`). Same shape as an output target
+ * (`mappingInputWritePath`): the field set belongs to the task type, so a field
+ * name is not checked here or at publish.
+ */
 export function isInputWritePath(path: string): boolean {
-  return path.length <= PATH_MAX_LENGTH && INPUT_WRITE_PATH.test(path);
+  return isWritePath(path);
 }
+
+const CONFIG_SELECT = /^\$(?:\.config|\['config'\])(?:[.[]|$)/;
 
 const PLAIN_NAME = /^[^.[\]'"\s]+$/;
 
@@ -178,13 +182,11 @@ export function validateMappingBlock(
   const writeOk = phase === 'input' ? isInputWritePath : isWritePath;
   const writeHint =
     phase === 'input'
-      ? "a request surface: $.body, $.headers or $.query, then .name / ['name'] segments"
+      ? "a field of the task's config ($.url, $.body.x, $.headers.x-channel, $.timeoutSeconds), then .name / ['name'] segments"
       : "an instance-data path: $ then .name / ['name'] segments (no index, no wildcard, not the root)";
 
   const checkTarget = (field: string, path: string, part?: MappingIssue['part']) => {
-    if (phase === 'input' && ROUTE_PATH.test(path)) {
-      error(field, '$.route is not supported: no task type has a route surface yet.', part);
-    } else if (!writeOk(path)) {
+    if (!writeOk(path)) {
       error(field, `Not a writable target. Use ${writeHint}.`, part);
     }
   };
@@ -197,6 +199,8 @@ export function validateMappingBlock(
       );
     } else if (phase === 'input' && block.select === '$') {
       error('select', 'An input select starts with a variable name, for example $.data.customer.');
+    } else if (phase === 'input' && CONFIG_SELECT.test(block.select)) {
+      error('select', 'config is not selectable; read a key with config.get("Key") in a set expression.');
     }
   }
   if (block.into !== undefined) checkTarget('into', block.into);

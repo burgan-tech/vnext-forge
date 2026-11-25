@@ -40,8 +40,29 @@ function toPath(root: string, segments: readonly string[]): string {
   return root + segments.map(pathSegment).join('');
 }
 
-/** Request surfaces an input block writes. `$.route` is not offered: the runtime rejects it. */
-export const INPUT_SURFACES = ['$.body', '$.headers', '$.query'] as const;
+/**
+ * Common task `config` fields an input block writes. Any field of the task's own
+ * `config` is a valid target; these are the usual ones across task types (Http:
+ * url, method, body, headers, timeoutSeconds; DaprService: queryString; DaprBinding: data).
+ */
+export const INPUT_TARGETS = [
+  '$.url',
+  '$.method',
+  '$.body',
+  '$.headers',
+  '$.timeoutSeconds',
+  '$.queryString',
+  '$.data',
+] as const;
+
+/** Members offered after `task.`: the same common `config` fields. */
+export const TASK_MEMBERS = ['url', 'method', 'body', 'headers', 'timeoutSeconds', 'queryString', 'data'] as const;
+
+/** Members of `config` (host configuration). */
+export const CONFIG_MEMBERS = ['get("")'] as const;
+
+/** `urlEncode(value)`: percent-encodes one URL component. */
+export const URL_ENCODE = 'urlEncode()';
 
 /** Members of the `instance` view (camelCase, read-only). */
 export const INSTANCE_MEMBERS = [
@@ -72,26 +93,27 @@ export const JSON_CONVERSIONS = [
   'AsArrayLength()',
 ] as const;
 
-/** Variables of a mapping expression; `result` only in the output phase. */
+/** Variables (and the `urlEncode` function) of a mapping expression; `result` only in the output phase. */
 export function expressionVariables(phase: MappingPhase): string[] {
-  const base = ['data', 'input', 'instance', 'now', 'user', 'context'];
+  const base = ['data', 'input', 'instance', 'now', 'user', 'context', 'task', 'config', URL_ENCODE];
   return phase === 'output' ? [...base, 'result'] : base;
 }
 
 /**
  * Write targets (`into`, `set` keys):
  * - output: instance-data paths from the master schema (`$.customer.name`);
- * - input: the request surfaces `$.body`, `$.headers`, `$.query`.
+ * - input: common fields of the task's `config` (`$.url`, `$.body`, `$.headers`, …).
  */
 export function writeTargetPaths(phase: MappingPhase, schemaRoot: unknown): string[] {
-  if (phase === 'input') return [...INPUT_SURFACES];
+  if (phase === 'input') return [...INPUT_TARGETS];
   return schemaProperties(schemaRoot).map((p) => toPath('$', p.segments));
 }
 
 /**
  * Read paths (`select`):
  * - output: `result` members (the root `$` is `result`);
- * - input: a variable first — `$.data.<schema>`, `$.input`, `$.instance.<member>`, `$.user.available`.
+ * - input: a variable first — `$.data.<schema>`, `$.input`, `$.instance.<member>`, `$.task.<field>`,
+ *   `$.user.available` (`config` is not selectable).
  */
 export function selectPaths(phase: MappingPhase, schemaRoot: unknown): string[] {
   if (phase === 'output') return ['$', ...RESULT_MEMBERS.map((m) => `$.${m}`)];
@@ -100,6 +122,7 @@ export function selectPaths(phase: MappingPhase, schemaRoot: unknown): string[] 
     ...schemaProperties(schemaRoot).map((p) => toPath('$.data', p.segments)),
     '$.input',
     ...INSTANCE_MEMBERS.map((m) => `$.instance.${m}`),
+    ...TASK_MEMBERS.map((m) => `$.task.${m}`),
     '$.user.available',
   ];
 }
@@ -194,12 +217,20 @@ export function expressionSuggestions(
       return prefixFilter(JSON_CONVERSIONS, query);
     case 'input':
       return prefixFilter(JSON_CONVERSIONS, query);
+    case 'task':
+      if (rest.length === 0) return prefixFilter([...TASK_MEMBERS, ...JSON_CONVERSIONS], query);
+      return prefixFilter(JSON_CONVERSIONS, query);
+    case 'config':
+      return rest.length === 0 ? prefixFilter(CONFIG_MEMBERS, query) : [];
     default:
       return [];
   }
 }
 
-/** Replaces the typed member with `item`; a `hasRole("")` caret lands inside the quotes. */
+/**
+ * Replaces the typed member with `item`; a `hasRole("")` / `get("")` caret lands inside the quotes, a
+ * `urlEncode()` caret inside the parentheses.
+ */
 export function insertExpressionItem(
   text: string,
   token: ExpressionToken,
@@ -207,7 +238,11 @@ export function insertExpressionItem(
   item: string,
 ): { text: string; caret: number } {
   const next = text.slice(0, token.start) + item + text.slice(caret);
-  const inside = item.endsWith('("")') ? item.length - 2 : item.length;
+  const inside = item.endsWith('("")')
+    ? item.length - 2
+    : item === URL_ENCODE
+      ? item.length - 1
+      : item.length;
   return { text: next, caret: token.start + inside };
 }
 

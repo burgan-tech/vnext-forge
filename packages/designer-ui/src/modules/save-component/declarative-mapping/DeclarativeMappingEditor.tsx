@@ -174,11 +174,13 @@ function PhaseSection({
   binding,
   schemaRoot,
   onUpdate,
+  hint,
 }: {
   phase: MappingPhase;
   binding: MappingBindingLike;
   schemaRoot: unknown;
   onUpdate: BindingUpdater;
+  hint?: string;
 }) {
   const block = readMappingBlock(binding, phase);
   const entries = setEntries(block);
@@ -197,7 +199,7 @@ function PhaseSection({
       data-testid={`declarative-${phase}`}>
       <div>
         <div className="text-foreground text-[11px] font-semibold">{copy.title}</div>
-        <div className="text-muted-foreground text-[10px]">{copy.hint}</div>
+        <div className="text-muted-foreground text-[10px]">{hint ?? copy.hint}</div>
       </div>
       <div className="flex items-center gap-1">
         <span className="text-muted-foreground w-10 shrink-0 text-[10px] font-semibold">
@@ -269,16 +271,31 @@ export function DeclarativeMappingEditor({
   binding,
   schemaRoot,
   onUpdate,
+  phaseHints,
 }: {
   binding: MappingBindingLike;
   /** Workflow master schema root (`attributes.schema` of the schema component), when known. */
   schemaRoot?: unknown;
   onUpdate: BindingUpdater;
+  /** Replaces a phase's hint where the blocks shape something other than a workflow task binding. */
+  phaseHints?: Partial<Record<MappingPhase, string>>;
 }) {
   return (
     <div className="space-y-1.5">
-      <PhaseSection phase="input" binding={binding} schemaRoot={schemaRoot} onUpdate={onUpdate} />
-      <PhaseSection phase="output" binding={binding} schemaRoot={schemaRoot} onUpdate={onUpdate} />
+      <PhaseSection
+        phase="input"
+        binding={binding}
+        schemaRoot={schemaRoot}
+        onUpdate={onUpdate}
+        hint={phaseHints?.input}
+      />
+      <PhaseSection
+        phase="output"
+        binding={binding}
+        schemaRoot={schemaRoot}
+        onUpdate={onUpdate}
+        hint={phaseHints?.output}
+      />
       <div className="text-muted-foreground text-[10px] leading-snug">
         Expressions: <span className="font-mono">data</span>,{' '}
         <span className="font-mono">input</span>, <span className="font-mono">instance</span>,{' '}

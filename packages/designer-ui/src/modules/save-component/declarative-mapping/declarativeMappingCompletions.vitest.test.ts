@@ -41,8 +41,16 @@ describe('write targets', () => {
     expect(writeTargetPaths('output', undefined)).toEqual([]);
   });
 
-  it('input: the request surfaces, never $.route', () => {
-    expect(writeTargetPaths('input', MASTER_SCHEMA)).toEqual(['$.body', '$.headers', '$.query']);
+  it('input: common task config fields', () => {
+    expect(writeTargetPaths('input', MASTER_SCHEMA)).toEqual([
+      '$.url',
+      '$.method',
+      '$.body',
+      '$.headers',
+      '$.timeoutSeconds',
+      '$.queryString',
+      '$.data',
+    ]);
   });
 });
 
@@ -61,8 +69,9 @@ describe('select paths', () => {
     expect(paths).toContain('$.data.customer.id');
     expect(paths).toContain('$.input');
     expect(paths).toContain('$.instance.currentState');
+    expect(paths).toContain('$.task.url');
     expect(paths).toContain('$.user.available');
-    expect(paths.every((p) => /^\$\.(data|input|instance|user)/.test(p))).toBe(true);
+    expect(paths.every((p) => /^\$\.(data|input|instance|task|user)/.test(p))).toBe(true);
   });
 });
 
@@ -86,10 +95,24 @@ describe('expression completion', () => {
       'now',
       'user',
       'context',
+      'task',
+      'config',
+      'urlEncode()',
     ]);
     expect(expressionVariables('output')).toContain('result');
     expect(expressionSuggestions('input', at('re')!, MASTER_SCHEMA)).toEqual([]);
     expect(expressionSuggestions('output', at('re')!, MASTER_SCHEMA)).toEqual(['result']);
+  });
+
+  it('task, config and urlEncode', () => {
+    expect(expressionSuggestions('input', at('task.ur')!, undefined)).toEqual(['url']);
+    expect(expressionSuggestions('output', at('config.')!, undefined)).toEqual(['get("")']);
+    expect(expressionSuggestions('input', at('urlE')!, undefined)).toEqual(['urlEncode()']);
+    const token = at('a + urlE')!;
+    expect(insertExpressionItem('a + urlE', token, 8, 'urlEncode()')).toEqual({
+      text: 'a + urlEncode()',
+      caret: 14,
+    });
   });
 
   it('instance members are camelCase', () => {

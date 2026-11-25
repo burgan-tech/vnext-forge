@@ -9,6 +9,7 @@ import { TemplateTextArea } from './TemplateTextArea';
 import { useTemplatePaths } from './agentTemplatePaths';
 import { useProjectStore } from '../../../../../../store/useProjectStore';
 import { CsxEditorField, type ScriptCode } from '../../../../../save-component/components/CsxEditorField';
+import { DYNAMIC_EXPRESSO_LOCATION } from '../../../../../save-component/components/dynamicExpression';
 import { ChooseExistingVnextComponentDialog } from '../ChooseExistingTaskDialog';
 import { Section } from '../PropertyPanelShared';
 import {
@@ -112,7 +113,9 @@ export function AgentStateTab({ state }: AgentStateTabProps) {
 
   const mode = typeof agent.mode === 'string' ? agent.mode : 'single';
   const participants = Array.isArray(agent.agents) ? (agent.agents as Json[]) : [];
-  const usesPromptMapping = typeof prompt.code === 'string' && prompt.code !== '';
+  // A Dynamic Expresso prompt counts as a mapping even while its expression is still empty.
+  const usesPromptMapping =
+    (typeof prompt.code === 'string' && prompt.code !== '') || prompt.location === DYNAMIC_EXPRESSO_LOCATION;
   const [promptKind, setPromptKind] = useState<'template' | 'mapping'>(usesPromptMapping ? 'mapping' : 'template');
   const messages = Array.isArray(prompt.messages) ? (prompt.messages as Json[]) : [];
   const context = isRecord(prompt.context) ? (prompt.context as Record<string, string>) : {};
@@ -127,7 +130,7 @@ export function AgentStateTab({ state }: AgentStateTabProps) {
   const promptScript: ScriptCode | null = usesPromptMapping
     ? {
         location: typeof prompt.location === 'string' ? prompt.location : '',
-        code: String(prompt.code),
+        code: typeof prompt.code === 'string' ? prompt.code : '',
         encoding: prompt.encoding === 'NAT' ? 'NAT' : 'B64',
       }
     : null;
@@ -273,7 +276,7 @@ export function AgentStateTab({ state }: AgentStateTabProps) {
               className={`cursor-pointer rounded-md px-2 py-1 text-[11px] font-medium ${
                 promptKind === kind ? 'bg-secondary-muted text-secondary-icon' : 'text-muted-foreground hover:bg-muted'
               }`}>
-              {kind === 'template' ? 'Template' : 'C# prompt mapping'}
+              {kind === 'template' ? 'Template' : 'Expression or C# mapping'}
             </button>
           ))}
         </div>
@@ -306,6 +309,7 @@ export function AgentStateTab({ state }: AgentStateTabProps) {
               })
             }
             templateType="agentPrompt"
+            expressionKind="string"
             contextName={`${stateKey}-prompt`}
             label="IAgentPromptMapping"
             stateKey={stateKey}

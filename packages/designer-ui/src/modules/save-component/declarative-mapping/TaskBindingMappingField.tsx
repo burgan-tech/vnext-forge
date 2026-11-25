@@ -10,6 +10,7 @@ import {
   switchToScript,
   type BindingMappingMode,
   type MappingBindingLike,
+  type MappingPhase,
 } from './declarativeMapping';
 import { DeclarativeMappingEditor } from './DeclarativeMappingEditor';
 
@@ -52,6 +53,7 @@ export function TaskBindingMappingField({
   renderScript,
   schemaRoot,
   className,
+  phaseHints,
 }: {
   binding: MappingBindingLike;
   onUpdate: (updater: (binding: MappingBindingLike) => void) => void;
@@ -61,6 +63,8 @@ export function TaskBindingMappingField({
   schemaRoot?: unknown;
   /** Padding for the mode switch and the declarative editor; the script editor keeps its own layout. */
   className?: string;
+  /** Phase hints for owners whose blocks are not a workflow task binding (CacheAside source, agent tool). */
+  phaseHints?: Partial<Record<MappingPhase, string>>;
 }) {
   const [preferred, setPreferred] = useState<BindingMappingMode>('declarative');
   const [pending, setPending] = useState<BindingMappingMode | null>(null);
@@ -173,7 +177,12 @@ export function TaskBindingMappingField({
         )}
 
         {mode === 'declarative' && (
-          <DeclarativeMappingEditor binding={binding} schemaRoot={schemaRoot} onUpdate={onUpdate} />
+          <DeclarativeMappingEditor
+            binding={binding}
+            schemaRoot={schemaRoot}
+            onUpdate={onUpdate}
+            phaseHints={phaseHints}
+          />
         )}
       </div>
       {mode === 'script' && renderScript()}

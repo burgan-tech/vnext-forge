@@ -42,13 +42,14 @@ describe('paths (runtime JsonPath subset)', () => {
     expect(isWritePath('$.items[*]')).toBe(false);
   });
 
-  it('input targets start with a request surface', () => {
+  it('input targets are any field of the task config', () => {
+    expect(isInputWritePath('$.url')).toBe(true);
     expect(isInputWritePath('$.body.customerId')).toBe(true);
     expect(isInputWritePath('$.headers.x-channel')).toBe(true);
-    expect(isInputWritePath('$.query')).toBe(true);
+    expect(isInputWritePath('$.timeoutSeconds')).toBe(true);
     expect(isInputWritePath("$['headers']['x-trace']")).toBe(true);
-    expect(isInputWritePath('$.route.id')).toBe(false);
-    expect(isInputWritePath('$.data.x')).toBe(false);
+    expect(isInputWritePath('$')).toBe(false);
+    expect(isInputWritePath('$.headers[0]')).toBe(false);
   });
 
   it('quotes names that cannot be a dot segment', () => {
@@ -116,13 +117,26 @@ describe('validation', () => {
     expect(validateMappingBlock('output', { select: '$.body' })).toEqual([]);
   });
 
-  it('rejects $.route and non-surface input targets', () => {
-    const issues = validateMappingBlock('input', { set: { '$.route.id': '1', '$.data.x': '2' } });
-    expect(issues.map((i) => [i.field, i.part])).toEqual([
-      ["set['$.route.id']", 'target'],
-      ["set['$.data.x']", 'target'],
-    ]);
-    expect(issues[0].message).toContain('$.route');
+  it('accepts any task config field as an input target', () => {
+    expect(
+      validateMappingBlock('input', {
+        set: {
+          '$.url': 'task.url.ToString().Replace("API_BASEURL", config.get("Example:ApiBaseUrl", "http://localhost:3001")) + "?c=" + urlEncode(data.customer.id)',
+          '$.timeoutSeconds': '30',
+          '$.headers.x-channel': '"web"',
+        },
+      }),
+    ).toEqual([]);
+    const issues = validateMappingBlock('input', { set: { '$.headers[0]': '1' } });
+    expect(issues.map((i) => [i.field, i.part])).toEqual([["set['$.headers[0]']", 'target']]);
+    expect(issues[0].message).toContain("task's config");
+  });
+
+  it('config is not selectable in an input block', () => {
+    const issues = validateMappingBlock('input', { select: '$.config.Example', into: '$.url' });
+    expect(issues.map((i) => i.field)).toEqual(['select']);
+    expect(issues[0].message).toContain('config.get');
+    expect(validateMappingBlock('input', { select: '$.task.body', into: '$.body' })).toEqual([]);
   });
 
   it('rejects index and wildcard write targets', () => {

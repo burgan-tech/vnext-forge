@@ -213,7 +213,7 @@ export function StateInteractionEditor({ interaction, stateKey, onChange }: Stat
                 scriptField="longPoll.rule"
                 allowRefEncoding
               />
-              {ruleArm.rule.code ? (
+              {ruleArm.rule.code && ruleArm.rule.location !== 'dynamicExpresso' ? (
                 <MappingScriptsSection
                   value={ruleArm.rule.scripts}
                   onChange={(scripts) => writeRule({ ...ruleArm.rule, scripts })}

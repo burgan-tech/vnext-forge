@@ -14,7 +14,9 @@ import { resolveWorkflowScriptAbsolutePath } from '../../../modules/code-editor/
 import type { CsxTaskType } from '../../../modules/code-editor/editor/CsxContext';
 import type { ScriptCode } from '../../../modules/code-editor/CodeEditorTypes';
 import { ChooseExistingVnextComponentDialog } from '../../canvas-interaction/components/panels/tabs/ChooseExistingTaskDialog';
-import { Code2, Link as LinkIcon, Plus, Trash2, ExternalLink } from 'lucide-react';
+import { Code2, Link as LinkIcon, Plus, Trash2, ExternalLink, Sigma } from 'lucide-react';
+import { Textarea } from '../../../ui/Textarea';
+import { DYNAMIC_EXPRESSO_LOCATION, expressionHelp, type ExpressionKind } from './dynamicExpression';
 
 /* ────────────── Types ────────────── */
 
@@ -42,6 +44,13 @@ interface CsxEditorFieldProps {
    * sys-mappings cannot self-reference.
    */
   allowRefEncoding?: boolean;
+  /**
+   * Offer an inline Dynamic Expresso expression (`location: "dynamicExpresso"`, `encoding: "NAT"`) as the
+   * default, with the C# script as the alternative. `condition` → a boolean rule, `value` → a string result.
+   * Defaults to `condition` for `templateType="condition"` (every rule slot the runtime evaluates through
+   * its condition router); a value slot opts in only where the runtime evaluates the expression.
+   */
+  expressionKind?: ExpressionKind;
 }
 
 /* ────────────── Component ────────────── */
@@ -59,7 +68,11 @@ export function CsxEditorField({
   index,
   scriptField,
   allowRefEncoding = true,
+  expressionKind,
 }: CsxEditorFieldProps) {
+  const exprKind: ExpressionKind | undefined =
+    expressionKind ?? (templateType === 'condition' ? 'condition' : undefined);
+  const isExpression = value?.location === DYNAMIC_EXPRESSO_LOCATION;
   const { openScript, activeScript } = useScriptPanelStore();
   const { setScriptPanelOpen } = useEditorPanelsStore();
   const chrome = useScriptTaskChrome();
@@ -141,6 +154,10 @@ export function CsxEditorField({
     openScript,
     setScriptPanelOpen,
   ]);
+
+  const handleCreateExpression = useCallback(() => {
+    onChange({ location: DYNAMIC_EXPRESSO_LOCATION, code: '', encoding: 'NAT' });
+  }, [onChange]);
 
   const handleCreateNat = useCallback(() => {
     const { code } = generateTemplate(templateType, contextName, taskType);
@@ -234,16 +251,75 @@ export function CsxEditorField({
     activeScript?.index === index &&
     activeScript?.scriptField === scriptField;
 
+  /* ── Dynamic Expresso expression → inline editor ── */
+  if (exprKind && isExpression && value) {
+    const help = expressionHelp(exprKind);
+    const code = typeof value.code === 'string' ? value.code : '';
+    return (
+      <div className="border-border-subtle bg-surface/40 mt-0.5 rounded-lg border" data-testid="dynamic-expression">
+        <div className="flex items-center gap-2 px-3 pt-2">
+          <div className="bg-primary-muted text-primary-icon flex size-5 shrink-0 items-center justify-center rounded-md">
+            <Sigma size={11} className="text-current" />
+          </div>
+          <span className="flex-1 truncate text-[11px] font-medium text-foreground">
+            {label ? `${label} — Dynamic Expression` : 'Dynamic Expression'}
+          </span>
+          <span className="shrink-0 rounded bg-muted px-1 py-0.5 font-mono text-[9px] font-medium uppercase tracking-wide text-muted-foreground">
+            EXPR
+          </span>
+          {onRemove && (
+            <button
+              type="button"
+              onClick={onRemove}
+              className="text-muted-icon hover:bg-destructive-surface hover:text-destructive-text shrink-0 rounded-md p-1 transition-all"
+              title="Remove expression">
+              <Trash2 size={12} />
+            </button>
+          )}
+        </div>
+        <div className="px-3 pb-2 pt-1.5">
+          <Textarea
+            value={code}
+            onChange={(e) =>
+              onChange({ location: DYNAMIC_EXPRESSO_LOCATION, code: e.target.value, encoding: 'NAT' })
+            }
+            placeholder={help.placeholder}
+            aria-label={label ? `${label} expression` : 'Dynamic Expresso expression'}
+            className="min-h-16 font-mono text-xs"
+          />
+          <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">{help.hint}</p>
+          {code.trim() === '' && (
+            <p className="mt-0.5 text-[10px] text-destructive-text">The expression is empty; publish rejects it.</p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   /* ── No script → Create buttons ── */
   if (!value || !value.code) {
     return (
       <div className="mt-2 flex flex-col gap-1.5">
+        {exprKind && (
+          <button
+            type="button"
+            onClick={handleCreateExpression}
+            title="Inline Dynamic Expresso expression (no .csx file, no Roslyn compile)"
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-primary-border px-3 py-2.5 text-[12px] font-semibold text-primary-text transition-all hover:border-primary-border-hover hover:bg-primary-hover">
+            <Sigma size={14} />
+            <span>Create Dynamic Expression</span>
+          </button>
+        )}
         <button
           type="button"
           onClick={handleCreate}
-          className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-primary-border px-3 py-2.5 text-[12px] font-semibold text-primary-text transition-all hover:border-primary-border-hover hover:bg-primary-hover">
-          <Plus size={14} />
-          <span>Create {label || templateType}</span>
+          className={
+            exprKind
+              ? 'flex w-full items-center justify-center gap-2 rounded-lg border border-dashed border-border-subtle px-3 py-1.5 text-[11px] font-medium text-muted-foreground transition-all hover:border-primary-border hover:text-primary-text'
+              : 'flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-primary-border px-3 py-2.5 text-[12px] font-semibold text-primary-text transition-all hover:border-primary-border-hover hover:bg-primary-hover'
+          }>
+          <Plus size={exprKind ? 12 : 14} />
+          <span>{exprKind ? `Create C# ${label || templateType} (.csx)` : `Create ${label || templateType}`}</span>
         </button>
         <button
           type="button"

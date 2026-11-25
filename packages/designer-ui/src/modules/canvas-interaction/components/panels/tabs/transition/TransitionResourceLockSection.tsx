@@ -88,8 +88,9 @@ export function TransitionResourceLockSection({
         listField="transitions"
         index={index}
         scriptField="resourceLock.keyExpression"
+        expressionKind="value"
       />
-      {keyExpression && onScriptsChange && (
+      {keyExpression && keyExpression.location !== 'dynamicExpresso' && onScriptsChange && (
         <MappingScriptsSection value={keyExpression.scripts} onChange={onScriptsChange} />
       )}
 

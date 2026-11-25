@@ -219,6 +219,7 @@ export function WorkflowTimeoutSection() {
                   onChange={updateMapping}
                   onRemove={removeMapping}
                   templateType="mapping"
+                  expressionKind="timer"
                   contextName={`timeout-${timeout.key || 'mapping'}`}
                   label="Timeout Mapping"
                   stateKey="__workflow__"
@@ -226,7 +227,7 @@ export function WorkflowTimeoutSection() {
                   index={0}
                   scriptField="mapping"
                 />
-                {timeout.mapping && (
+                {timeout.mapping && timeout.mapping.location !== 'dynamicExpresso' && (
                   <MappingScriptsSection
                     value={(timeout.mapping as { scripts?: ScriptsConfig }).scripts}
                     onChange={updateMappingScripts}
