@@ -1,6 +1,7 @@
 import { Label } from './label';
 import type { MappingCodeRef } from './mapping';
 import type { ErrorBoundary } from './error-boundary';
+import type { TaskMappingBlock } from './state';
 
 export interface TaskDefinition {
   key: string;
@@ -239,9 +240,14 @@ export interface CacheAsideTaskConfig {
   sourceTask: TaskReference;
   /**
    * The source task's own `IMapping` (InputHandler before the call,
-   * OutputHandler after). Its output is what gets cached.
+   * OutputHandler after). Its output is what gets cached. Mutually exclusive
+   * with `sourceInput` / `sourceOutput`.
    */
   sourceMapping?: TaskScriptCode;
+  /** Declarative source-task request shaping (same shape as a binding's `input`). Not with `sourceMapping`. */
+  sourceInput?: TaskMappingBlock;
+  /** Declarative source-task result shaping (same shape as a binding's `output`). Not with `sourceMapping`. */
+  sourceOutput?: TaskMappingBlock;
   /**
    * @deprecated Removed in runtime 0.0.99 / vnext-schema 0.0.55 (rejected by
    * the schema, ignored by the runtime). Kept only so editors can detect and

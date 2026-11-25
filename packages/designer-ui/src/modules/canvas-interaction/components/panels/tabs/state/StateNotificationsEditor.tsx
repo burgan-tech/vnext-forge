@@ -139,7 +139,7 @@ export function StateNotificationsEditor({
                 scriptField="rule"
                 allowRefEncoding
               />
-              {n.rule && (
+              {n.rule && n.rule.location !== 'dynamicExpresso' && (
                 <MappingScriptsSection
                   value={n.rule.scripts}
                   onChange={(scripts) =>

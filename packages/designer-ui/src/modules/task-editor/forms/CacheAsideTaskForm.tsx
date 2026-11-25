@@ -7,6 +7,18 @@ import { DynamicExpressoField, type DynamicExpressoValue } from '../../../ui/Dyn
 import { CsxEditorField, type ScriptCode } from '../../save-component/components/CsxEditorField';
 import { Button } from '../../../ui/Button';
 import { cacheKeyMode, keyForMode, migrateKeyExpression, type CacheKeyMode } from './cacheAsideKey';
+import { TaskBindingMappingField } from '../../save-component/declarative-mapping/TaskBindingMappingField';
+import {
+  applyRenamedBinding,
+  CACHE_ASIDE_SOURCE_MEMBERS,
+  readRenamedBinding,
+} from '../../save-component/declarative-mapping/renamedBinding';
+
+/** The source blocks shape the source task call, not a workflow binding's instance data. */
+const SOURCE_PHASE_HINTS = {
+  input: "sourceInput: edits the source task's config (url, body, headers, ...) before the call on a cache miss.",
+  output: 'sourceOutput: shapes the source task result (select / into / set); what it produces is cached and returned.',
+};
 
 interface Props {
   config: Record<string, unknown>;
@@ -186,22 +198,37 @@ export function CacheAsideTaskForm({ config, onChange, taskKey }: Props) {
         </div>
       </div>
 
-      <Field
-        label="Source Mapping"
-        hint="The source task's own IMapping: InputHandler before the call, OutputHandler after. Its output is what gets cached. Post-cache shaping belongs in the task-level mapping, which runs on hits and misses.">
-        <CsxEditorField
-          value={config.sourceMapping as ScriptCode | null | undefined}
-          onChange={(value) => onChange((d: any) => { d.sourceMapping = value; })}
-          onRemove={() => onChange((d: any) => { d.sourceMapping = undefined; })}
-          templateType="mapping"
-          contextName={`${stateKey}-cache-aside-source-mapping`}
-          label="Source Mapping"
-          stateKey={stateKey}
-          listField="attributes"
-          index={0}
-          scriptField="config.sourceMapping"
+      <div className="space-y-1">
+        <span className="text-xs font-semibold text-primary-text/75">Source Mapping</span>
+        <p className="text-[10px] text-muted-foreground">
+          Shapes the source task call on a cache miss: declarative sourceInput / sourceOutput blocks, or the C#
+          sourceMapping (IMapping) — one or the other, never both. Its output is what gets cached. Post-cache shaping
+          belongs in the task-level mapping, which runs on hits and misses.
+        </p>
+        <TaskBindingMappingField
+          binding={readRenamedBinding(config, CACHE_ASIDE_SOURCE_MEMBERS)}
+          onUpdate={(updater) =>
+            onChange((d: Record<string, unknown>) => {
+              applyRenamedBinding(d, CACHE_ASIDE_SOURCE_MEMBERS, updater);
+            })
+          }
+          phaseHints={SOURCE_PHASE_HINTS}
+          renderScript={() => (
+            <CsxEditorField
+              value={config.sourceMapping as ScriptCode | null | undefined}
+              onChange={(value) => onChange((d: any) => { d.sourceMapping = value; })}
+              onRemove={() => onChange((d: any) => { d.sourceMapping = undefined; })}
+              templateType="mapping"
+              contextName={`${stateKey}-cache-aside-source-mapping`}
+              label="Source Mapping"
+              stateKey={stateKey}
+              listField="attributes"
+              index={0}
+              scriptField="config.sourceMapping"
+            />
+          )}
         />
-      </Field>
+      </div>
 
       <label className="flex items-center gap-2 text-xs">
         <Checkbox

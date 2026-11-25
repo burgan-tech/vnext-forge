@@ -4,6 +4,9 @@ import type { DiscoveredVnextComponent } from '@vnext-forge-studio/app-contracts
 import { AgentToolKind } from '@vnext-forge-studio/vnext-types';
 
 import { CsxEditorField, type ScriptCode } from '../../save-component/components/CsxEditorField';
+import { TaskBindingMappingField } from '../../save-component/declarative-mapping/TaskBindingMappingField';
+import type { MappingBindingLike } from '../../save-component/declarative-mapping/declarativeMapping';
+import { withBindingUpdate } from '../agentDocument';
 import { ChooseExistingVnextComponentDialog } from '../../canvas-interaction/components/panels/tabs/ChooseExistingTaskDialog';
 import {
   agentToolIssues,
@@ -66,9 +69,15 @@ function withBinding(tool: Json, key: string, value: unknown): Json {
   return { ...tool, binding };
 }
 
+/** A kind-1 tool's blocks shape the task call and the result the model receives. */
+const TOOL_PHASE_HINTS = {
+  input: "Edits the task's config (url, body, headers, ...) before the call.",
+  output: 'Shapes the task result (select / into / set) the model receives; a tool never writes instance data.',
+};
+
 /**
  * Inline tools of a `sys-agents` component (runtime 0.0.105): one form per
- * kind — 1 task (sys-tasks reference + optional IMapping), 2 script
+ * kind — 1 task (sys-tasks reference + declarative input / output blocks or an optional IMapping), 2 script
  * (dynamicExpresso expression or C# IToolHandler), 3 MCP (an Mcp task +
  * allow list + prefix) — plus the `requiresApproval` toggle.
  */
@@ -159,18 +168,25 @@ export function AgentToolsSection({ json, projectDomain, onReplaceTool, onAddToo
                 {kind === AgentToolKind.Task && (
                   <>
                     <TaskRefRow label="Task" value={binding.task} onChoose={() => setPickerFor(index)} />
-                    <CsxEditorField
-                      value={scriptOf(binding.mapping)}
-                      onChange={(next) => onReplaceTool(index, withBinding(tool, 'mapping', next))}
-                      onRemove={() => onReplaceTool(index, withBinding(tool, 'mapping', undefined))}
-                      templateType="mapping"
-                      contextName={`${typeof tool.name === 'string' ? tool.name : 'tool'}-tool`}
-                      label="IMapping (optional — without it the arguments become the body)"
-                      stateKey="__agent__"
-                      listField="tools"
-                      index={index}
-                      scriptField="binding.mapping"
-                      allowRefEncoding={false}
+                    <TaskBindingMappingField
+                      binding={binding as MappingBindingLike}
+                      onUpdate={(updater) => onReplaceTool(index, withBindingUpdate(tool, updater))}
+                      phaseHints={TOOL_PHASE_HINTS}
+                      renderScript={() => (
+                        <CsxEditorField
+                          value={scriptOf(binding.mapping)}
+                          onChange={(next) => onReplaceTool(index, withBinding(tool, 'mapping', next))}
+                          onRemove={() => onReplaceTool(index, withBinding(tool, 'mapping', undefined))}
+                          templateType="mapping"
+                          contextName={`${typeof tool.name === 'string' ? tool.name : 'tool'}-tool`}
+                          label="IMapping (optional — without it the arguments become the body)"
+                          stateKey="__agent__"
+                          listField="tools"
+                          index={index}
+                          scriptField="binding.mapping"
+                          allowRefEncoding={false}
+                        />
+                      )}
                     />
                   </>
                 )}

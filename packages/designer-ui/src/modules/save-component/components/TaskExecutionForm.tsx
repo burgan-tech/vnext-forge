@@ -7,6 +7,8 @@ import type { ScriptsConfig } from '@vnext-forge-studio/vnext-types';
 import { CsxEditorField, type ScriptCode } from './CsxEditorField';
 import { MappingScriptsSection } from './MappingScriptsSection';
 import { VariableKeyField } from './VariableKeyField';
+import { TaskBindingMappingField } from '../declarative-mapping/TaskBindingMappingField';
+import type { MappingBindingLike } from '../declarative-mapping/declarativeMapping';
 import { OpenVnextComponentInModalButton } from './OpenVnextComponentInModalButton.js';
 import type { AtomicSavedInfo } from '../componentEditorModalTypes.js';
 
@@ -165,26 +167,35 @@ export function TaskExecutionForm({
         onChange={handleUpdateVariableKey}
       />
 
-      <CsxEditorField
-        value={mapping as ScriptCode | null | undefined}
-        onChange={handleUpdateMapping}
-        onRemove={handleRemoveMapping}
-        templateType="mapping"
-        contextName={`${stateKey}-task-${ref.key || 'task'}`}
-        label="Mapping"
-        stateKey={stateKey}
-        listField={listField}
-        index={index}
-        scriptField="mapping"
+      <TaskBindingMappingField
+        className="px-2.5 pb-2"
+        binding={execution as MappingBindingLike}
+        onUpdate={(updater) => onChange((d) => updater(d))}
+        renderScript={() => (
+          <>
+            <CsxEditorField
+              value={mapping as ScriptCode | null | undefined}
+              onChange={handleUpdateMapping}
+              onRemove={handleRemoveMapping}
+              templateType="mapping"
+              contextName={`${stateKey}-task-${ref.key || 'task'}`}
+              label="Mapping"
+              stateKey={stateKey}
+              listField={listField}
+              index={index}
+              scriptField="mapping"
+            />
+            {mapping && (
+              <div className="px-2.5">
+                <MappingScriptsSection
+                  value={mappingScripts}
+                  onChange={handleUpdateMappingScripts}
+                />
+              </div>
+            )}
+          </>
+        )}
       />
-      {mapping && (
-        <div className="px-2.5">
-          <MappingScriptsSection
-            value={mappingScripts}
-            onChange={handleUpdateMappingScripts}
-          />
-        </div>
-      )}
 
       {!hideErrorBoundary && (
         <div className="px-2.5 pb-2">

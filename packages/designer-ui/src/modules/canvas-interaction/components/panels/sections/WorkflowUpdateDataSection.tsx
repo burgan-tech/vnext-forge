@@ -121,6 +121,7 @@ export function WorkflowUpdateDataSection() {
             onUpdateTaskVariableKey={mutations.updateTaskVariableKey}
             onUpdateTaskMapping={mutations.updateTaskMapping}
             onRemoveTaskMapping={mutations.removeTaskMapping}
+            onUpdateTaskBinding={mutations.updateTaskBinding}
             onUpdateTaskMappingScripts={mutations.updateTaskMappingScripts}
             onUpdateTaskErrorBoundary={mutations.updateTaskErrorBoundary}
             onSyncTaskRef={mutations.syncTaskRef}

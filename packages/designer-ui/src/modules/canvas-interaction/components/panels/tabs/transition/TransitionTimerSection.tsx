@@ -39,6 +39,7 @@ export function TransitionTimerSection({
         onChange={onUpdateScript}
         onRemove={onRemoveScript}
         templateType="timer"
+        expressionKind="timer"
         contextName={`${stateKey}-${transitionKey || 'timer'}`}
         label="Timer"
         stateKey={stateKey}
@@ -46,7 +47,7 @@ export function TransitionTimerSection({
         index={index}
         scriptField="timer"
       />
-      {timer && onScriptsChange && (
+      {timer && timer.location !== 'dynamicExpresso' && onScriptsChange && (
         <MappingScriptsSection value={scripts} onChange={onScriptsChange} />
       )}
     </Section>

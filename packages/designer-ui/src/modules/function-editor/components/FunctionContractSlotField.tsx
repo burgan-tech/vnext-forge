@@ -307,7 +307,7 @@ export function FunctionContractSlotField({
                   label="Rule"
                   {...addressOf(index)}
                 />
-                {entry.rule ? (
+                {entry.rule && entry.rule.location !== 'dynamicExpresso' ? (
                   <MappingScriptsSection
                     value={(entry.rule as { scripts?: ScriptsConfig }).scripts}
                     onChange={(scripts) =>

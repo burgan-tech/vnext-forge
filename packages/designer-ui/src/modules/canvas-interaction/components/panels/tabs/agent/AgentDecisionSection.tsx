@@ -79,7 +79,7 @@ export function AgentDecisionSection({
           options={[
             { value: 'model', label: 'Model — the model chooses' },
             { value: 'rules', label: 'Rules — transition rules choose' },
-            { value: 'script', label: 'Script — a C# mapping chooses' },
+            { value: 'script', label: 'Script — an expression or a C# mapping chooses' },
           ]}
         />
         <SelectBox
@@ -211,8 +211,9 @@ export function AgentDecisionSection({
             }
             onRemove={() => onEditDecision((d) => setOrDelete(d, 'mapping', undefined))}
             templateType="agentDecision"
+            expressionKind="decision"
             contextName={`${state.key}-decision`}
-            label="IAgentDecisionMapping (required)"
+            label="Decision mapping (required)"
             stateKey={state.key}
             listField="agent"
             index={0}

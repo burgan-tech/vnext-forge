@@ -1,5 +1,5 @@
 import type { MappingCode } from './mapping';
-import type { ResourceReference } from './state';
+import type { ResourceReference, TaskMappingBlock } from './state';
 
 /**
  * AI Agent state (`stateType: 6`), `sys-agents` component and Mcp task
@@ -108,8 +108,12 @@ export enum AgentToolKind {
 export interface AgentToolBinding {
   /** Kind 1: the sys-tasks component. Kind 3: the MCP task (type 24). */
   task?: ResourceReference;
-  /** Kind 1: optional IMapping. */
+  /** Kind 1: optional IMapping. Mutually exclusive with `input` / `output`. */
   mapping?: MappingCode;
+  /** Kind 1: declarative request shaping (same shape as a task binding's `input`). Not with `mapping`. */
+  input?: TaskMappingBlock;
+  /** Kind 1: declarative result shaping (same shape as a task binding's `output`). Not with `mapping`. */
+  output?: TaskMappingBlock;
   /** Kind 2: dynamicExpresso expression (NAT) or C# IToolHandler. */
   code?: MappingCode;
   /** Kind 3: server tool names exposed to the model. */

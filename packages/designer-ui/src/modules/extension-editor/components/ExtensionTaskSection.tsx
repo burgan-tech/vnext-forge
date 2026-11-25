@@ -14,6 +14,8 @@ import {
 } from '../../canvas-interaction/components/panels/tabs/CreateNewTaskDialog';
 import type { ScriptsConfig } from '@vnext-forge-studio/vnext-types';
 import { CsxEditorField, type ScriptCode } from '../../save-component/components/CsxEditorField';
+import { TaskBindingMappingField } from '../../save-component/declarative-mapping/TaskBindingMappingField';
+import type { MappingBindingLike } from '../../save-component/declarative-mapping/declarativeMapping';
 import { MappingScriptsSection } from '../../save-component/components/MappingScriptsSection';
 import { OpenVnextComponentInModalButton } from '../../save-component/components/OpenVnextComponentInModalButton.js';
 import type { AtomicSavedInfo } from '../../save-component/componentEditorModalTypes.js';
@@ -80,6 +82,14 @@ export function ExtensionTaskSection({ task, onChange, extensionKey, onBeforeOpe
       t.mapping = value;
       attrs.task = t;
       draft.attributes = attrs;
+    });
+  }
+
+  function handleUpdateBinding(updater: (binding: MappingBindingLike) => void) {
+    onChange((draft) => {
+      const attrs = draft.attributes as Record<string, unknown> | undefined;
+      const t = attrs?.task as MappingBindingLike | undefined;
+      if (t) updater(t);
     });
   }
 
@@ -220,24 +230,33 @@ export function ExtensionTaskSection({ task, onChange, extensionKey, onBeforeOpe
           </div>
         </div>
 
-        <CsxEditorField
-          value={mapping as ScriptCode | null | undefined}
-          onChange={handleUpdateMapping}
-          onRemove={handleRemoveMapping}
-          templateType="mapping"
-          contextName={`${extensionKey}-ext-task-${ref.key || 'task'}`}
-          label="Mapping"
-          stateKey={extensionKey}
-          listField="attributes"
-          index={0}
-          scriptField="task.mapping"
+        <TaskBindingMappingField
+          className="px-2.5 pb-2"
+          binding={task as unknown as MappingBindingLike}
+          onUpdate={handleUpdateBinding}
+          renderScript={() => (
+            <>
+            <CsxEditorField
+              value={mapping as ScriptCode | null | undefined}
+              onChange={handleUpdateMapping}
+              onRemove={handleRemoveMapping}
+              templateType="mapping"
+              contextName={`${extensionKey}-ext-task-${ref.key || 'task'}`}
+              label="Mapping"
+              stateKey={extensionKey}
+              listField="attributes"
+              index={0}
+              scriptField="task.mapping"
+            />
+            {mapping && (
+              <MappingScriptsSection
+                value={mappingScripts}
+                onChange={handleUpdateMappingScripts}
+              />
+            )}
+            </>
+          )}
         />
-        {mapping && (
-          <MappingScriptsSection
-            value={mappingScripts}
-            onChange={handleUpdateMappingScripts}
-          />
-        )}
       </div>
 
       <div

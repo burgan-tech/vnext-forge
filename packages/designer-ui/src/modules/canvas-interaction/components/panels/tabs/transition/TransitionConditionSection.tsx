@@ -74,7 +74,7 @@ export function TransitionConditionSection({
         index={index}
         scriptField="rule"
       />
-      {rule && onScriptsChange && (
+      {rule && rule.location !== 'dynamicExpresso' && onScriptsChange && (
         <MappingScriptsSection value={scripts} onChange={onScriptsChange} />
       )}
     </Section>
