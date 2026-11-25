@@ -53,7 +53,7 @@ describe('CsxEditorField — Dynamic Expression mode', () => {
 });
 
 describe('CsxEditorField — value expression kinds (timer, string, decision)', () => {
-  const VARIABLES = ['data', 'input', 'instance', 'now', 'user', 'context'];
+  const VARIABLES = ['data', 'input', 'instance', 'now', 'user', 'headers', 'context'];
   const expr = { location: 'dynamicExpresso', encoding: 'NAT' as const, code: '' };
 
   it.each(['timer', 'string', 'decision'] as const)('a %s slot offers the expression and names the new variables', (kind) => {
@@ -67,6 +67,7 @@ describe('CsxEditorField — value expression kinds (timer, string, decision)', 
     expect(html).toContain('data-testid="dynamic-expression"');
     for (const variable of VARIABLES) expect(html).toContain(variable);
     expect(html).toContain('hasRole');
+    expect(html).toContain('headers.has(');
   });
 
   it('timer explains the schedule results and rejects numbers', () => {

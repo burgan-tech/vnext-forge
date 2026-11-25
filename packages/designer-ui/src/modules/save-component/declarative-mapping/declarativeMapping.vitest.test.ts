@@ -139,6 +139,15 @@ describe('validation', () => {
     expect(validateMappingBlock('input', { select: '$.task.body', into: '$.body' })).toEqual([]);
   });
 
+  it('headers is not selectable in an input block', () => {
+    const issues = validateMappingBlock('input', { select: '$.headers.x-channel', into: '$.body.channel' });
+    expect(issues.map((i) => i.field)).toEqual(['select']);
+    expect(issues[0].message).toContain('headers["x-channel"]');
+    expect(
+      validateMappingBlock('input', { set: { '$.body.channel': 'headers["x-channel"]' } }),
+    ).toEqual([]);
+  });
+
   it('rejects index and wildcard write targets', () => {
     expect(validateMappingBlock('output', { into: '$.items[0]' })[0].field).toBe('into');
     expect(validateMappingBlock('output', { set: { '$.items[*]': 'now' } })[0].part).toBe('target');

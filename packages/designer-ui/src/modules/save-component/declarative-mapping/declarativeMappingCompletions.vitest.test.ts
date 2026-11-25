@@ -97,11 +97,23 @@ describe('expression completion', () => {
       'context',
       'task',
       'config',
+      'headers',
       'urlEncode()',
     ]);
     expect(expressionVariables('output')).toContain('result');
     expect(expressionSuggestions('input', at('re')!, MASTER_SCHEMA)).toEqual([]);
     expect(expressionSuggestions('output', at('re')!, MASTER_SCHEMA)).toEqual(['result']);
+  });
+
+  it('headers: has("") after headers., caret inside the quotes', () => {
+    expect(expressionSuggestions('input', at('head')!, undefined)).toEqual(['headers']);
+    expect(expressionSuggestions('output', at('headers.')!, undefined)).toEqual(['has("")']);
+    expect(expressionSuggestions('input', at('headers.h')!, undefined)).toEqual(['has("")']);
+    const token = at('headers.h')!;
+    expect(insertExpressionItem('headers.h', token, 9, 'has("")')).toEqual({
+      text: 'headers.has("")',
+      caret: 'headers.has("'.length,
+    });
   });
 
   it('task, config and urlEncode', () => {

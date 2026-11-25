@@ -61,6 +61,13 @@ export const TASK_MEMBERS = ['url', 'method', 'body', 'headers', 'timeoutSeconds
 /** Members of `config` (host configuration). */
 export const CONFIG_MEMBERS = ['get("")'] as const;
 
+/**
+ * Members of `headers` (the incoming request's headers, read-only). A header is read with the indexer —
+ * `headers["x-channel"]` (null when absent, case-insensitive) — so a hyphenated name works; `has` tests presence.
+ * Not `task.headers`, which is the task's configured outgoing headers.
+ */
+export const HEADERS_MEMBERS = ['has("")'] as const;
+
 /** `urlEncode(value)`: percent-encodes one URL component. */
 export const URL_ENCODE = 'urlEncode()';
 
@@ -95,7 +102,7 @@ export const JSON_CONVERSIONS = [
 
 /** Variables (and the `urlEncode` function) of a mapping expression; `result` only in the output phase. */
 export function expressionVariables(phase: MappingPhase): string[] {
-  const base = ['data', 'input', 'instance', 'now', 'user', 'context', 'task', 'config', URL_ENCODE];
+  const base = ['data', 'input', 'instance', 'now', 'user', 'context', 'task', 'config', 'headers', URL_ENCODE];
   return phase === 'output' ? [...base, 'result'] : base;
 }
 
@@ -113,7 +120,7 @@ export function writeTargetPaths(phase: MappingPhase, schemaRoot: unknown): stri
  * Read paths (`select`):
  * - output: `result` members (the root `$` is `result`);
  * - input: a variable first — `$.data.<schema>`, `$.input`, `$.instance.<member>`, `$.task.<field>`,
- *   `$.user.available` (`config` is not selectable).
+ *   `$.user.available` (`config` and `headers` are not selectable: read a header with a set expression).
  */
 export function selectPaths(phase: MappingPhase, schemaRoot: unknown): string[] {
   if (phase === 'output') return ['$', ...RESULT_MEMBERS.map((m) => `$.${m}`)];
@@ -222,13 +229,15 @@ export function expressionSuggestions(
       return prefixFilter(JSON_CONVERSIONS, query);
     case 'config':
       return rest.length === 0 ? prefixFilter(CONFIG_MEMBERS, query) : [];
+    case 'headers':
+      return rest.length === 0 ? prefixFilter(HEADERS_MEMBERS, query) : [];
     default:
       return [];
   }
 }
 
 /**
- * Replaces the typed member with `item`; a `hasRole("")` / `get("")` caret lands inside the quotes, a
+ * Replaces the typed member with `item`; a `hasRole("")` / `get("")` / `has("")` caret lands inside the quotes, a
  * `urlEncode()` caret inside the parentheses.
  */
 export function insertExpressionItem(

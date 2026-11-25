@@ -2,7 +2,8 @@
  * Inline Dynamic Expresso expressions in script slots: `{ location: "dynamicExpresso", encoding: "NAT", code }`.
  *
  * Every slot sees the same expression variables: `data`, `input`, `instance` (camelCase members:
- * currentState, key, id, ...), `now`, `user` (available, roles, hasRole("x")) and the legacy `context`
+ * currentState, key, id, ...), `now`, `user` (available, roles, hasRole("x")), `headers` (the incoming request's
+ * headers: `headers["x-channel"]`, `headers.has("x-channel")`) and the legacy `context`
  * (PascalCase members: `context.Body`, `context.Headers`, `context.Instance`, ...). The agent decision slot adds
  * `outcome` and `candidates`.
  *
@@ -21,7 +22,7 @@ export type ExpressionKind = 'condition' | 'value' | 'timer' | 'string' | 'decis
 
 const VALUE_VARIABLES =
   'data, input, instance (camelCase: currentState, key, id, ...), now, user (available, roles, hasRole("x")), ' +
-  'context (legacy PascalCase)';
+  'headers (request headers: headers["x-channel"], headers.has("x-channel")), context (legacy PascalCase)';
 const JSON_CONVERSION = 'JSON values need AsDouble() / AsInt32() / AsBoolean() to compare.';
 
 const HELP: Record<ExpressionKind, { placeholder: string; hint: string }> = {

@@ -133,6 +133,7 @@ export function isInputWritePath(path: string): boolean {
 }
 
 const CONFIG_SELECT = /^\$(?:\.config|\['config'\])(?:[.[]|$)/;
+const HEADERS_SELECT = /^\$(?:\.headers|\['headers'\])(?:[.[]|$)/;
 
 const PLAIN_NAME = /^[^.[\]'"\s]+$/;
 
@@ -201,6 +202,8 @@ export function validateMappingBlock(
       error('select', 'An input select starts with a variable name, for example $.data.customer.');
     } else if (phase === 'input' && CONFIG_SELECT.test(block.select)) {
       error('select', 'config is not selectable; read a key with config.get("Key") in a set expression.');
+    } else if (phase === 'input' && HEADERS_SELECT.test(block.select)) {
+      error('select', 'headers is not selectable; read a header with headers["x-channel"] in a set expression.');
     }
   }
   if (block.into !== undefined) checkTarget('into', block.into);
