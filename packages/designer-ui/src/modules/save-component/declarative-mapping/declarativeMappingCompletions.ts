@@ -4,7 +4,14 @@
  * feeds them the workflow master schema (`attributes.schema` component's
  * `attributes.schema`) when it is in the project.
  */
-import { pathSegment, type MappingPhase } from './declarativeMapping';
+import {
+  isTaskSite,
+  pathSegment,
+  SUBFLOW_INPUT_ROOTS,
+  toSiteKind,
+  type MappingPhase,
+  type MappingSiteKind,
+} from './declarativeMapping';
 
 const MAX_PATHS = 400;
 const MAX_DEPTH = 6;
@@ -92,6 +99,12 @@ export const USER_MEMBERS = ['available', 'roles', 'hasRole("")'] as const;
 /** `result` members (output phase only): the task's standard response. */
 export const RESULT_MEMBERS = ['body', 'headers', 'statusCode'] as const;
 
+/** `result` members of a SubFlow output: the child's data and `"completed"` / `"faulted"`. */
+export const SUBFLOW_RESULT_MEMBERS = ['data', 'status'] as const;
+
+/** SubFlow input write targets: the child's start request (`{ attributes, headers, key, tags }`). */
+export const SUBFLOW_INPUT_TARGETS = SUBFLOW_INPUT_ROOTS.map((r) => `$.${r}`);
+
 /** Conversions a JSON value needs for comparison and arithmetic. */
 export const JSON_CONVERSIONS = [
   'AsDouble()',
@@ -100,38 +113,68 @@ export const JSON_CONVERSIONS = [
   'AsArrayLength()',
 ] as const;
 
-/** Variables (and the `urlEncode` function) of a mapping expression; `result` only in the output phase. */
-export function expressionVariables(phase: MappingPhase): string[] {
-  const base = ['data', 'input', 'instance', 'now', 'user', 'context', 'task', 'config', 'headers', URL_ENCODE];
-  return phase === 'output' ? [...base, 'result'] : base;
+/**
+ * Variables of a mapping expression per site (runtime `ExpressionSignatures.Mapping`):
+ * task sites add `task`, `config` and `urlEncode`; `result` belongs to the task output and the SubFlow output.
+ * A bare phase is a task binding's block.
+ */
+export function expressionVariables(phaseOrSite: MappingPhase | MappingSiteKind): string[] {
+  const site = toSiteKind(phaseOrSite);
+  if (isTaskSite(site)) {
+    const base = ['data', 'input', 'instance', 'now', 'user', 'context', 'task', 'config', 'headers', URL_ENCODE];
+    return site === 'taskOutput' ? [...base, 'result'] : base;
+  }
+  const base = ['data', 'input', 'instance', 'now', 'user', 'context', 'headers'];
+  return site === 'subFlowOutput' ? [...base, 'result'] : base;
 }
 
 /**
  * Write targets (`into`, `set` keys):
- * - output: instance-data paths from the master schema (`$.customer.name`);
- * - input: common fields of the task's `config` (`$.url`, `$.body`, `$.headers`, …).
+ * - task output, transition output, SubFlow output: instance-data paths from the master schema (`$.customer.name`);
+ * - task input: common fields of the task's `config` (`$.url`, `$.body`, `$.headers`, …);
+ * - SubFlow input: the child's start request (`$.attributes`, `$.headers`, `$.key`, `$.tags`).
  */
-export function writeTargetPaths(phase: MappingPhase, schemaRoot: unknown): string[] {
-  if (phase === 'input') return [...INPUT_TARGETS];
+export function writeTargetPaths(phaseOrSite: MappingPhase | MappingSiteKind, schemaRoot: unknown): string[] {
+  const site = toSiteKind(phaseOrSite);
+  if (site === 'taskInput') return [...INPUT_TARGETS];
+  if (site === 'subFlowInput') return [...SUBFLOW_INPUT_TARGETS];
   return schemaProperties(schemaRoot).map((p) => toPath('$', p.segments));
 }
 
-/**
- * Read paths (`select`):
- * - output: `result` members (the root `$` is `result`);
- * - input: a variable first — `$.data.<schema>`, `$.input`, `$.instance.<member>`, `$.task.<field>`,
- *   `$.user.available` (`config` and `headers` are not selectable: read a header with a set expression).
- */
-export function selectPaths(phase: MappingPhase, schemaRoot: unknown): string[] {
-  if (phase === 'output') return ['$', ...RESULT_MEMBERS.map((m) => `$.${m}`)];
+/** Variable-prefixed read paths of a non-task site: `$.data.<schema>`, `$.input`, `$.instance.<member>`, `$.user.available`. */
+function variableSelectPaths(schemaRoot: unknown): string[] {
   return [
     '$.data',
     ...schemaProperties(schemaRoot).map((p) => toPath('$.data', p.segments)),
     '$.input',
     ...INSTANCE_MEMBERS.map((m) => `$.instance.${m}`),
-    ...TASK_MEMBERS.map((m) => `$.task.${m}`),
     '$.user.available',
   ];
+}
+
+/**
+ * Read paths (`select`):
+ * - task output: `result` members (the root `$` is `result`);
+ * - SubFlow output: `result` = `{ data, status }` (default `$.data`);
+ * - task input: a variable first — `$.data.<schema>`, `$.input`, `$.instance.<member>`, `$.task.<field>`,
+ *   `$.user.available` (`config` and `headers` are not selectable: read a header with a set expression);
+ * - transition output, SubFlow input: the same without `task`.
+ */
+export function selectPaths(phaseOrSite: MappingPhase | MappingSiteKind, schemaRoot: unknown): string[] {
+  const site = toSiteKind(phaseOrSite);
+  if (site === 'taskOutput') return ['$', ...RESULT_MEMBERS.map((m) => `$.${m}`)];
+  if (site === 'subFlowOutput') return ['$.data', '$.status', '$'];
+  if (site === 'taskInput') {
+    return [
+      '$.data',
+      ...schemaProperties(schemaRoot).map((p) => toPath('$.data', p.segments)),
+      '$.input',
+      ...INSTANCE_MEMBERS.map((m) => `$.instance.${m}`),
+      ...TASK_MEMBERS.map((m) => `$.task.${m}`),
+      '$.user.available',
+    ];
+  }
+  return variableSelectPaths(schemaRoot);
 }
 
 /* ────────────── Expressions ────────────── */
@@ -195,12 +238,13 @@ function schemaChildren(
  * conversions (`AsDouble()`, …) after any JSON value.
  */
 export function expressionSuggestions(
-  phase: MappingPhase,
+  phaseOrSite: MappingPhase | MappingSiteKind,
   token: ExpressionToken,
   schemaRoot: unknown,
 ): string[] {
+  const site = toSiteKind(phaseOrSite);
   const { chain, query } = token;
-  if (chain.length === 0) return prefixFilter(expressionVariables(phase), query);
+  if (chain.length === 0) return prefixFilter(expressionVariables(site), query);
   const [root, ...rest] = chain;
   const properties = schemaProperties(schemaRoot);
   const dataChildren = (segments: string[]) => {
@@ -219,15 +263,21 @@ export function expressionSuggestions(
     case 'user':
       return rest.length === 0 ? prefixFilter(USER_MEMBERS, query) : [];
     case 'result':
-      if (phase !== 'output') return [];
+      if (site === 'subFlowOutput') {
+        if (rest.length === 0) return prefixFilter(SUBFLOW_RESULT_MEMBERS, query);
+        return prefixFilter(JSON_CONVERSIONS, query);
+      }
+      if (site !== 'taskOutput') return [];
       if (rest.length === 0) return prefixFilter(RESULT_MEMBERS, query);
       return prefixFilter(JSON_CONVERSIONS, query);
     case 'input':
       return prefixFilter(JSON_CONVERSIONS, query);
     case 'task':
+      if (!isTaskSite(site)) return [];
       if (rest.length === 0) return prefixFilter([...TASK_MEMBERS, ...JSON_CONVERSIONS], query);
       return prefixFilter(JSON_CONVERSIONS, query);
     case 'config':
+      if (!isTaskSite(site)) return [];
       return rest.length === 0 ? prefixFilter(CONFIG_MEMBERS, query) : [];
     case 'headers':
       return rest.length === 0 ? prefixFilter(HEADERS_MEMBERS, query) : [];

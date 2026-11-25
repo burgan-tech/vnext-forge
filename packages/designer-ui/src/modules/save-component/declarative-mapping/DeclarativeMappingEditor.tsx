@@ -10,10 +10,14 @@ import {
   setBlockMember,
   setEntries,
   setSetExpression,
+  ownerPhases,
+  siteKindOf,
   validateMappingBlock,
   type MappingBindingLike,
   type MappingIssue,
+  type MappingOwnerKind,
   type MappingPhase,
+  type MappingSiteKind,
 } from './declarativeMapping';
 import { protectedCopyIssues } from './protectedFieldCopy';
 import {
@@ -28,17 +32,62 @@ import { SuggestInput, type SuggestFn } from './SuggestInput';
 
 type BindingUpdater = (updater: (binding: MappingBindingLike) => void) => void;
 
-const PHASE_COPY: Record<MappingPhase, { title: string; hint: string; newKey: string }> = {
-  input: {
+interface SiteCopy {
+  title: string;
+  hint: string;
+  newKey: string;
+  selectPlaceholder: string;
+  intoPlaceholder: string;
+  expressionPlaceholder: string;
+}
+
+const SITE_COPY: Record<MappingSiteKind, SiteCopy> = {
+  taskInput: {
     title: 'Input',
     hint: 'Shapes the task request. Targets: $.body, $.headers, $.query (the surfaces the task type supports).',
     newKey: '$.body.field',
+    selectPlaceholder: '$.data.customer',
+    intoPlaceholder: '$.body.customer',
+    expressionPlaceholder: 'data.customer.id',
   },
-  output: {
+  taskOutput: {
     title: 'Output',
     hint: 'Writes the task result into instance data in one append: into first, then set in order.',
     newKey: '$.field',
+    selectPlaceholder: '$.body (default)',
+    intoPlaceholder: 'merge at the data root',
+    expressionPlaceholder: 'result.body.score',
   },
+  transitionOutput: {
+    title: 'Output',
+    hint: 'Writes the transition into instance data in one append: into first, then set in order. The delta starts empty; select $.input keeps the whole request.',
+    newKey: '$.field',
+    selectPlaceholder: '$.input.customer',
+    intoPlaceholder: '$.customer',
+    expressionPlaceholder: 'input.amount',
+  },
+  subFlowInput: {
+    title: 'Input',
+    hint: "Builds the child's start request: $.attributes.x, $.headers.x, $.key (a string), $.tags (an array of strings).",
+    newKey: '$.attributes.field',
+    selectPlaceholder: '$.data.customer',
+    intoPlaceholder: '$.attributes.customer',
+    expressionPlaceholder: 'data.customer.id',
+  },
+  subFlowOutput: {
+    title: 'Output',
+    hint: 'Runs when the child completes or faults: result = { data, status } ("completed" / "faulted"). Writes into instance data in one append.',
+    newKey: '$.field',
+    selectPlaceholder: '$.data (default)',
+    intoPlaceholder: 'merge at the data root',
+    expressionPlaceholder: 'result.status',
+  },
+};
+
+const EXPRESSION_HELP: Record<MappingOwnerKind, string> = {
+  task: 'and result in output',
+  transition: 'and headers (no result: read the request with input)',
+  subFlow: 'headers, and result ({ data, status }) in output',
 };
 
 function pathSuggest(paths: readonly string[]): SuggestFn {
@@ -50,11 +99,11 @@ function pathSuggest(paths: readonly string[]): SuggestFn {
   };
 }
 
-function expressionSuggest(phase: MappingPhase, schemaRoot: unknown): SuggestFn {
+function expressionSuggest(site: MappingSiteKind, schemaRoot: unknown): SuggestFn {
   return (text, caret) => {
     const token = expressionTokenAt(text, caret);
     if (!token) return null;
-    const items = expressionSuggestions(phase, token, schemaRoot).filter((i) => i !== token.query);
+    const items = expressionSuggestions(site, token, schemaRoot).filter((i) => i !== token.query);
     return items.length > 0
       ? { items, apply: (item) => insertExpressionItem(text, token, caret, item) }
       : null;
@@ -74,6 +123,7 @@ function IssueLine({ issue }: { issue: MappingIssue }) {
 
 function SetEntryRow({
   phase,
+  site,
   entryKey,
   expression,
   index,
@@ -85,6 +135,7 @@ function SetEntryRow({
   onUpdate,
 }: {
   phase: MappingPhase;
+  site: MappingSiteKind;
   entryKey: string;
   expression: string;
   index: number;
@@ -125,7 +176,7 @@ function SetEntryRow({
             onCommit={commitKey}
             suggest={pathSuggest(targets)}
             ariaLabel={`${phase} set target ${index + 1}`}
-            placeholder={PHASE_COPY[phase].newKey}
+            placeholder={SITE_COPY[site].newKey}
             invalid={targetInvalid}
           />
         </div>
@@ -135,7 +186,7 @@ function SetEntryRow({
           onChange={(next) => onUpdate((b) => setSetExpression(b, phase, entryKey, next))}
           suggest={expressionSuggestFn}
           ariaLabel={`${phase} set expression for ${entryKey}`}
-          placeholder={phase === 'output' ? 'result.body.score' : 'data.customer.id'}
+          placeholder={SITE_COPY[site].expressionPlaceholder}
           invalid={expressionInvalid}
         />
         <button
@@ -172,12 +223,14 @@ function SetEntryRow({
 
 function PhaseSection({
   phase,
+  site,
   binding,
   schemaRoot,
   onUpdate,
   hint,
 }: {
   phase: MappingPhase;
+  site: MappingSiteKind;
   binding: MappingBindingLike;
   schemaRoot: unknown;
   onUpdate: BindingUpdater;
@@ -186,13 +239,13 @@ function PhaseSection({
   const block = readMappingBlock(binding, phase);
   const entries = setEntries(block);
   const issues = useMemo(
-    () => [...validateMappingBlock(phase, block), ...protectedCopyIssues(phase, block, schemaRoot)],
-    [phase, block, schemaRoot],
+    () => [...validateMappingBlock(site, block), ...protectedCopyIssues(site, block, schemaRoot)],
+    [site, block, schemaRoot],
   );
-  const targets = useMemo(() => writeTargetPaths(phase, schemaRoot), [phase, schemaRoot]);
-  const reads = useMemo(() => selectPaths(phase, schemaRoot), [phase, schemaRoot]);
-  const exprSuggest = useMemo(() => expressionSuggest(phase, schemaRoot), [phase, schemaRoot]);
-  const copy = PHASE_COPY[phase];
+  const targets = useMemo(() => writeTargetPaths(site, schemaRoot), [site, schemaRoot]);
+  const reads = useMemo(() => selectPaths(site, schemaRoot), [site, schemaRoot]);
+  const exprSuggest = useMemo(() => expressionSuggest(site, schemaRoot), [site, schemaRoot]);
+  const copy = SITE_COPY[site];
 
   const blockIssues = issues.filter((i) => !i.field.startsWith('set['));
   const entryIssues = (key: string) => issues.filter((i) => i.field === `set['${key}']`);
@@ -216,7 +269,7 @@ function PhaseSection({
           }
           suggest={pathSuggest(reads)}
           ariaLabel={`${phase} select`}
-          placeholder={phase === 'output' ? '$.body (default)' : '$.data.customer'}
+          placeholder={copy.selectPlaceholder}
           invalid={issues.some((i) => i.field === 'select' && i.severity === 'error')}
         />
       </div>
@@ -229,7 +282,7 @@ function PhaseSection({
           }
           suggest={pathSuggest(targets)}
           ariaLabel={`${phase} into`}
-          placeholder={phase === 'output' ? 'merge at the data root' : '$.body.customer'}
+          placeholder={copy.intoPlaceholder}
           invalid={issues.some((i) => i.field === 'into' && i.severity === 'error')}
         />
       </div>
@@ -241,6 +294,7 @@ function PhaseSection({
           <SetEntryRow
             key={`${index}:${key}`}
             phase={phase}
+            site={site}
             entryKey={key}
             expression={expression}
             index={index}
@@ -267,8 +321,9 @@ function PhaseSection({
 }
 
 /**
- * Editor for a task binding's declarative `input` / `output` blocks. Writes go
- * through `onUpdate`, which applies the updater to the binding inside the
+ * Editor for the declarative blocks of a task binding (`input` / `output`), a
+ * transition (`output`) or a SubFlow state (`input` / `output`). Writes go
+ * through `onUpdate`, which applies the updater to the owner inside the
  * owner's draft; untouched members (and their order) are never rewritten.
  */
 export function DeclarativeMappingEditor({
@@ -276,6 +331,7 @@ export function DeclarativeMappingEditor({
   schemaRoot,
   onUpdate,
   phaseHints,
+  owner = 'task',
 }: {
   binding: MappingBindingLike;
   /** Workflow master schema root (`attributes.schema` of the schema component), when known. */
@@ -283,30 +339,28 @@ export function DeclarativeMappingEditor({
   onUpdate: BindingUpdater;
   /** Replaces a phase's hint where the blocks shape something other than a workflow task binding. */
   phaseHints?: Partial<Record<MappingPhase, string>>;
+  /** What holds the blocks; decides the phases, targets, select roots and variables. */
+  owner?: MappingOwnerKind;
 }) {
   return (
     <div className="space-y-1.5">
-      <PhaseSection
-        phase="input"
-        binding={binding}
-        schemaRoot={schemaRoot}
-        onUpdate={onUpdate}
-        hint={phaseHints?.input}
-      />
-      <PhaseSection
-        phase="output"
-        binding={binding}
-        schemaRoot={schemaRoot}
-        onUpdate={onUpdate}
-        hint={phaseHints?.output}
-      />
+      {ownerPhases(owner).map((phase) => (
+        <PhaseSection
+          key={phase}
+          phase={phase}
+          site={siteKindOf(owner, phase)}
+          binding={binding}
+          schemaRoot={schemaRoot}
+          onUpdate={onUpdate}
+          hint={phaseHints?.[phase]}
+        />
+      ))}
       <div className="text-muted-foreground text-[10px] leading-snug">
         Expressions: <span className="font-mono">data</span>,{' '}
         <span className="font-mono">input</span>, <span className="font-mono">instance</span>,{' '}
         <span className="font-mono">now</span>, <span className="font-mono">user</span>,{' '}
-        <span className="font-mono">context</span>, and <span className="font-mono">result</span> in
-        output. Members are camelCase; JSON values need{' '}
-        <span className="font-mono">.AsDouble()</span> /{' '}
+        <span className="font-mono">context</span>, {EXPRESSION_HELP[owner]}. Members are camelCase;
+        JSON values need <span className="font-mono">.AsDouble()</span> /{' '}
         <span className="font-mono">.AsInt32()</span> /{' '}
         <span className="font-mono">.AsBoolean()</span> /{' '}
         <span className="font-mono">.AsArrayLength()</span> to compare or calculate. Assignment is

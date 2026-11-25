@@ -15,7 +15,14 @@
  * in the project — and only then. It is a hint, not a guarantee: it sees plain
  * `input.a.b` / `input["a"]` reads, not values passed around inside an expression.
  */
-import { pathSegment, type MappingBlock, type MappingIssue, type MappingPhase } from './declarativeMapping';
+import {
+  pathSegment,
+  toSiteKind,
+  type MappingBlock,
+  type MappingIssue,
+  type MappingPhase,
+  type MappingSiteKind,
+} from './declarativeMapping';
 
 const MAX_DEPTH = 8;
 
@@ -113,17 +120,20 @@ function dataPath(segments: readonly string[]): string {
 }
 
 /**
- * Warnings for output `set` entries that read an `x-encryption` field from
+ * Warnings for task-output and transition-output `set` entries (both read the
+ * hop's `input` and write instance data) that read an `x-encryption` field from
  * `input` (or an object containing one) into a path the write funnel does not
  * protect. Writing it back to the same path, or to another protected path, is fine.
  * No master schema, no warning.
  */
 export function protectedCopyIssues(
-  phase: MappingPhase,
+  phaseOrSite: MappingPhase | MappingSiteKind,
   block: MappingBlock | undefined,
   schemaRoot: unknown,
 ): MappingIssue[] {
-  if (phase !== 'output' || !block || !isRecord(block.set)) return [];
+  const site = toSiteKind(phaseOrSite);
+  if (site !== 'taskOutput' && site !== 'transitionOutput') return [];
+  if (!block || !isRecord(block.set)) return [];
   const protectedList = protectedPaths(schemaRoot);
   if (protectedList.length === 0) return [];
 

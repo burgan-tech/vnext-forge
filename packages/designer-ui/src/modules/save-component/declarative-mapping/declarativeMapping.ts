@@ -19,6 +19,55 @@
 
 export type MappingPhase = 'input' | 'output';
 
+/**
+ * Where a block sits (runtime `DeclarativeSiteKind`). Task bindings carry
+ * `taskInput` / `taskOutput`; a transition carries `transitionOutput` only; a
+ * SubFlow (`type: S`) state carries `subFlowInput` / `subFlowOutput`
+ * (runtime `docs/runtime/declarative-task-mappings.md` § Blocks outside task bindings).
+ */
+export type MappingSiteKind =
+  | 'taskInput'
+  | 'taskOutput'
+  | 'transitionOutput'
+  | 'subFlowInput'
+  | 'subFlowOutput';
+
+/** The object that holds the blocks: a task binding, a transition or a state's `subFlow`. */
+export type MappingOwnerKind = 'task' | 'transition' | 'subFlow';
+
+/** A bare phase means a task binding's block (the editor's original API). */
+export function toSiteKind(phaseOrSite: MappingPhase | MappingSiteKind): MappingSiteKind {
+  if (phaseOrSite === 'input') return 'taskInput';
+  if (phaseOrSite === 'output') return 'taskOutput';
+  return phaseOrSite;
+}
+
+export function siteKindOf(owner: MappingOwnerKind, phase: MappingPhase): MappingSiteKind {
+  if (owner === 'transition') return 'transitionOutput';
+  if (owner === 'subFlow') return phase === 'input' ? 'subFlowInput' : 'subFlowOutput';
+  return phase === 'input' ? 'taskInput' : 'taskOutput';
+}
+
+/** The blocks an owner takes: a transition is a single-block (`output`) site. */
+export function ownerPhases(owner: MappingOwnerKind): MappingPhase[] {
+  return owner === 'transition' ? ['output'] : ['input', 'output'];
+}
+
+/** The block member a site lives in. */
+export function sitePhase(site: MappingSiteKind): MappingPhase {
+  return site === 'taskInput' || site === 'subFlowInput' ? 'input' : 'output';
+}
+
+/** Sites whose `select` reads `result` (task output: the task response; SubFlow output: `{ data, status }`). */
+export function siteReadsResult(site: MappingSiteKind): boolean {
+  return site === 'taskOutput' || site === 'subFlowOutput';
+}
+
+/** Task sites have `task`, `config` and `urlEncode`; the others do not. */
+export function isTaskSite(site: MappingSiteKind): boolean {
+  return site === 'taskInput' || site === 'taskOutput';
+}
+
 export interface MappingBlock {
   select?: string;
   into?: string;
@@ -135,6 +184,41 @@ export function isInputWritePath(path: string): boolean {
 const CONFIG_SELECT = /^\$(?:\.config|\['config'\])(?:[.[]|$)/;
 const HEADERS_SELECT = /^\$(?:\.headers|\['headers'\])(?:[.[]|$)/;
 
+/** The first segment of a path (`data` for `$.data.x`, `''` for `$`); `undefined` when it does not parse. */
+export function firstPathSegment(path: string): string | undefined {
+  if (!isReadPath(path)) return undefined;
+  if (path === '$') return '';
+  const m = /^\$(?:\.([^.[\]'"\s]+)|\['((?:[^'\\]|\\['\\])*)'\]|\[(?:[0-9]+|\*)\])/.exec(path);
+  if (!m) return undefined;
+  if (m[1] !== undefined) return m[1];
+  if (m[2] !== undefined) return m[2].replace(/\\(['\\])/g, '$1');
+  return '';
+}
+
+/** Whether `path` is its first member as a whole (`$.key`, not `$.key.x`). */
+function isWholeMember(path: string): boolean {
+  const first = firstPathSegment(path);
+  return first !== undefined && (path === `$.${first}` || path === `$['${first}']`);
+}
+
+/**
+ * The variables a variable-prefixed `select` starts at outside task bindings
+ * (transition output, SubFlow input): every JSON-shaped variable of the site —
+ * not `headers` (runtime `DeclarativeMappingPlan.IsSelectable`).
+ */
+export const VARIABLE_SELECT_ROOTS = ['data', 'input', 'instance', 'now', 'user', 'context'] as const;
+
+/** The members a SubFlow input writes: the child's start request (`DeclarativeMappingPlan.SubFlowInputRoots`). */
+export const SUBFLOW_INPUT_ROOTS = ['attributes', 'headers', 'key', 'tags'] as const;
+
+/** SubFlow input target: a member of the start request; `$.key` / `$.tags` only as a whole. */
+export function isSubFlowInputWritePath(path: string): boolean {
+  if (!isWritePath(path)) return false;
+  const first = firstPathSegment(path) ?? '';
+  if (!(SUBFLOW_INPUT_ROOTS as readonly string[]).includes(first)) return false;
+  return (first !== 'key' && first !== 'tags') || isWholeMember(path);
+}
+
 const PLAIN_NAME = /^[^.[\]'"\s]+$/;
 
 /** One path segment for `name`: `.name` when it can be written that way, else `['name']`. */
@@ -165,29 +249,56 @@ function containsAssignment(expression: string): boolean {
 const PASCAL_INSTANCE_MEMBER = /\binstance\.([A-Z][A-Za-z]*)/;
 const PASCAL_USER_MEMBER = /\buser\.(Available|Roles|HasRole)\b/;
 
+/** Root identifiers an expression uses (`result` in `result.data`, not in `data.result` or `"result"`). */
+function usesRootIdentifier(expression: string, name: string): boolean {
+  const code = expression.replace(/"(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'/g, '""');
+  return new RegExp(`(?<![.\\w])${name}\\b`).test(code);
+}
+
+const WRITE_HINTS: Record<MappingSiteKind, string> = {
+  taskInput:
+    "a field of the task's config ($.url, $.body.x, $.headers.x-channel, $.timeoutSeconds), then .name / ['name'] segments",
+  taskOutput:
+    "an instance-data path: $ then .name / ['name'] segments (no index, no wildcard, not the root)",
+  transitionOutput:
+    "an instance-data path: $ then .name / ['name'] segments (no index, no wildcard, not the root)",
+  subFlowInput:
+    "a member of the child's start request: $.attributes.x, $.headers.x, $.key or $.tags (no index, no wildcard)",
+  subFlowOutput:
+    "an instance-data path: $ then .name / ['name'] segments (no index, no wildcard, not the root)",
+};
+
 /**
  * Static checks Forge can make before publish. The runtime's
- * `MappingBlockValidator` stays the authority: it also compiles every
- * expression (types, member names of `data`, conversions).
+ * `MappingBlockValidator` / `DeclarativeMappingPlan` stay the authority: they
+ * also compile every expression (types, member names of `data`, conversions).
+ * A bare phase (`'input'` / `'output'`) is a task binding's block.
  */
 export function validateMappingBlock(
-  phase: MappingPhase,
+  phaseOrSite: MappingPhase | MappingSiteKind,
   block: MappingBlock | undefined,
 ): MappingIssue[] {
   if (!block) return [];
+  const site = toSiteKind(phaseOrSite);
   const issues: MappingIssue[] = [];
   const error = (field: string, message: string, part?: MappingIssue['part']) =>
     issues.push({ field, message, severity: 'error', ...(part ? { part } : {}) });
   const warning = (field: string, message: string) =>
     issues.push({ field, message, severity: 'warning' });
-  const writeOk = phase === 'input' ? isInputWritePath : isWritePath;
-  const writeHint =
-    phase === 'input'
-      ? "a field of the task's config ($.url, $.body.x, $.headers.x-channel, $.timeoutSeconds), then .name / ['name'] segments"
-      : "an instance-data path: $ then .name / ['name'] segments (no index, no wildcard, not the root)";
+  const writeHint = WRITE_HINTS[site];
 
   const checkTarget = (field: string, path: string, part?: MappingIssue['part']) => {
-    if (!writeOk(path)) {
+    if (site === 'subFlowInput' && isWritePath(path)) {
+      const first = firstPathSegment(path) ?? '';
+      if (!(SUBFLOW_INPUT_ROOTS as readonly string[]).includes(first)) {
+        error(field, `Must start at a member of the start request: ${SUBFLOW_INPUT_ROOTS.map((r) => `$.${r}`).join(', ')}.`, part);
+      } else if (!isSubFlowInputWritePath(path)) {
+        error(field, `Write $.${first} as a whole.`, part);
+      }
+      return;
+    }
+    const ok = site === 'taskInput' ? isInputWritePath(path) : isWritePath(path);
+    if (!ok) {
       error(field, `Not a writable target. Use ${writeHint}.`, part);
     }
   };
@@ -198,20 +309,38 @@ export function validateMappingBlock(
         'select',
         "Not a supported path. Use $, .name, ['name'], [n] or [*] (no filters, no recursive descent).",
       );
-    } else if (phase === 'input' && block.select === '$') {
+    } else if (site === 'taskInput' && block.select === '$') {
       error('select', 'An input select starts with a variable name, for example $.data.customer.');
-    } else if (phase === 'input' && CONFIG_SELECT.test(block.select)) {
+    } else if (site === 'taskInput' && CONFIG_SELECT.test(block.select)) {
       error('select', 'config is not selectable; read a key with config.get("Key") in a set expression.');
-    } else if (phase === 'input' && HEADERS_SELECT.test(block.select)) {
+    } else if (site === 'taskInput' && HEADERS_SELECT.test(block.select)) {
       error('select', 'headers is not selectable; read a header with headers["x-channel"] in a set expression.');
+    } else if (site === 'transitionOutput' || site === 'subFlowInput') {
+      const first = firstPathSegment(block.select) ?? '';
+      if (first === 'headers') {
+        error('select', 'headers is not selectable; read a header with headers["x-channel"] in a set expression.');
+      } else if (!(VARIABLE_SELECT_ROOTS as readonly string[]).includes(first)) {
+        error(
+          'select',
+          `select starts at a variable: ${VARIABLE_SELECT_ROOTS.map((v) => `$.${v}`).join(', ')}.`,
+        );
+      }
     }
   }
   if (block.into !== undefined) checkTarget('into', block.into);
-  if (phase === 'input') {
+  if (site === 'taskInput') {
     if (block.select !== undefined && block.into === undefined)
       error('into', 'An input select needs an into target.');
     if (block.into !== undefined && block.select === undefined)
       error('select', 'An input into needs a select path.');
+  } else if (site === 'subFlowInput') {
+    if (block.select !== undefined && block.into === undefined)
+      error('into', 'A SubFlow input select needs an into naming the start-request path it copies to.');
+    if (block.into !== undefined && block.select === undefined)
+      error('select', 'A SubFlow input into needs a select: it has no default source.');
+  } else if (site === 'transitionOutput') {
+    if (block.into !== undefined && block.select === undefined)
+      error('select', 'A transition output into needs a select: it has no default source.');
   }
 
   if (block.set !== undefined) {
@@ -247,8 +376,23 @@ export function validateMappingBlock(
           'expression',
         );
       }
-      if (phase === 'input' && /\bresult\b/.test(expression.replace(/"(?:[^"\\]|\\.)*"/g, '""'))) {
+      if (site === 'taskInput' && /\bresult\b/.test(expression.replace(/"(?:[^"\\]|\\.)*"/g, '""'))) {
         error(field, 'result is only available in the output block.', 'expression');
+      }
+      if (!isTaskSite(site)) {
+        if (!siteReadsResult(site) && usesRootIdentifier(expression, 'result')) {
+          error(
+            field,
+            site === 'transitionOutput'
+              ? 'A transition output has no result; read the request with input.'
+              : 'result is only available in the SubFlow output block.',
+            'expression',
+          );
+        }
+        const taskOnly = ['task', 'config', 'urlEncode'].find((n) => usesRootIdentifier(expression, n));
+        if (taskOnly) {
+          error(field, `${taskOnly} exists in task mappings only.`, 'expression');
+        }
       }
     }
   }
@@ -257,6 +401,58 @@ export function validateMappingBlock(
     warning('', 'The block is empty; it is removed when saved.');
   }
   return issues;
+}
+
+/** The transition members this module reads (a transition owns `output` only). */
+export interface TransitionBlocksLike extends MappingBindingLike {
+  triggerType?: unknown;
+}
+
+/**
+ * Owner-level checks of a transition's blocks (runtime `MappingBlockValidator.CheckInput`,
+ * `WorkflowValidator` automatic / scheduled rules). `mapping` + `output` is the
+ * `both` content the mode field shows.
+ */
+export function transitionBlockIssues(transition: TransitionBlocksLike | null | undefined): MappingIssue[] {
+  if (!transition) return [];
+  const issues: MappingIssue[] = [];
+  if (transition.input !== undefined && transition.input !== null) {
+    issues.push({
+      field: 'input',
+      severity: 'error',
+      message: "'input' is not supported on a transition; use 'output'.",
+    });
+  }
+  if (transition.output !== undefined && transition.output !== null) {
+    if (transition.triggerType === 1 || transition.triggerType === 2) {
+      issues.push({
+        field: 'output',
+        severity: 'error',
+        message: `An ${transition.triggerType === 1 ? 'automatic' : 'scheduled'} transition takes no output block: it has no request to map.`,
+      });
+    }
+  }
+  return issues;
+}
+
+/** Whether a transition of this trigger type may carry an `output` block (not automatic, not scheduled). */
+export function transitionTakesOutput(triggerType: unknown): boolean {
+  return triggerType !== 1 && triggerType !== 2;
+}
+
+/** Owner-level check of a SubFlow's blocks: they apply to `type: S` only (`MappingBlockValidator.ValidateSubFlowBlocks`). */
+export function subFlowBlockIssues(
+  subFlow: (MappingBindingLike & { type?: unknown }) | null | undefined,
+): MappingIssue[] {
+  if (!subFlow || !hasDeclarativeBlocks(subFlow) || subFlow.type === 'S') return [];
+  return [
+    {
+      field: '',
+      severity: 'error',
+      message:
+        "Declarative input / output blocks apply to a SubFlow ('S') only; a SubProcess ('P') is started by its own task.",
+    },
+  ];
 }
 
 /* ────────────── Edits (immer drafts or plain objects) ────────────── */

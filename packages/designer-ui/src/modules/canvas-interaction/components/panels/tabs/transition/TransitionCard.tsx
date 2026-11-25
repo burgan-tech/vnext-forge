@@ -22,7 +22,7 @@ import {
 import { TransitionExecutionTasksSection } from './TransitionExecutionTasksSection';
 import { TransitionSchemaSection } from './TransitionSchemaSection';
 import { TransitionSchemasNotAllowed, TransitionSchemasSection } from './TransitionSchemasSection';
-import { TransitionMappingSection } from './TransitionMappingSection';
+import { TransitionMappingSection, TransitionOutputNotAllowed } from './TransitionMappingSection';
 import { TransitionEventSection } from './TransitionEventSection';
 import { TransitionResourceLockSection } from './TransitionResourceLockSection';
 import { TransitionConditionSection } from './TransitionConditionSection';
@@ -59,6 +59,8 @@ export interface TransitionCardProps {
   onUpdateMapping: (index: number, mapping: ScriptCode) => void;
   onRemoveMapping: (index: number) => void;
   onUpdateMappingScripts?: (index: number, scripts: ScriptsConfig | undefined) => void;
+  /** Applies `updater` to the transition (declarative `output` block). Omitted → C# mapping only. */
+  onUpdateTransitionBinding?: (index: number, updater: (transition: MappingBindingLike) => void) => void;
   onUpdateEvent: (index: number, mapping: ScriptCode) => void;
   onRemoveEvent: (index: number) => void;
   onUpdateEventScripts?: (index: number, scripts: ScriptsConfig | undefined) => void;
@@ -193,6 +195,7 @@ export function TransitionCard({
   onUpdateTaskMapping,
   onRemoveTaskMapping,
   onUpdateTaskBinding,
+  onUpdateTransitionBinding,
   onUpdateTaskMappingScripts,
   onUpdateTaskErrorBoundary,
   onSyncTaskRef,
@@ -471,7 +474,16 @@ export function TransitionCard({
                 ? (next) => onUpdateMappingScripts(index, next)
                 : undefined
             }
+            transition={onUpdateTransitionBinding ? (transition as unknown as MappingBindingLike) : undefined}
+            onUpdateTransition={
+              onUpdateTransitionBinding
+                ? (updater) => onUpdateTransitionBinding(index, updater)
+                : undefined
+            }
           />
+        )}
+        {!policy.mapping.visible && transition.output != null && (
+          <TransitionOutputNotAllowed onClear={() => onUpdate(index, 'output', undefined)} />
         )}
 
         {/* Event Mapping */}
