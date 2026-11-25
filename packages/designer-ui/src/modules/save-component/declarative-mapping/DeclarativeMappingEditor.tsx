@@ -15,6 +15,7 @@ import {
   type MappingIssue,
   type MappingPhase,
 } from './declarativeMapping';
+import { protectedCopyIssues } from './protectedFieldCopy';
 import {
   expressionSuggestions,
   expressionTokenAt,
@@ -64,7 +65,7 @@ function IssueLine({ issue }: { issue: MappingIssue }) {
   return (
     <div
       role={issue.severity === 'error' ? 'alert' : undefined}
-      className={`text-[10px] ${issue.severity === 'error' ? 'text-destructive-text' : 'text-muted-foreground'}`}>
+      className={`text-[10px] ${issue.severity === 'error' ? 'text-destructive-text' : 'text-warning-text'}`}>
       {issue.field ? <span className="font-mono">{issue.field}: </span> : null}
       {issue.message}
     </div>
@@ -184,7 +185,10 @@ function PhaseSection({
 }) {
   const block = readMappingBlock(binding, phase);
   const entries = setEntries(block);
-  const issues = useMemo(() => validateMappingBlock(phase, block), [phase, block]);
+  const issues = useMemo(
+    () => [...validateMappingBlock(phase, block), ...protectedCopyIssues(phase, block, schemaRoot)],
+    [phase, block, schemaRoot],
+  );
   const targets = useMemo(() => writeTargetPaths(phase, schemaRoot), [phase, schemaRoot]);
   const reads = useMemo(() => selectPaths(phase, schemaRoot), [phase, schemaRoot]);
   const exprSuggest = useMemo(() => expressionSuggest(phase, schemaRoot), [phase, schemaRoot]);
