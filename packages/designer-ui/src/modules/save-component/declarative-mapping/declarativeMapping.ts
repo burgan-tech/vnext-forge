@@ -290,6 +290,14 @@ const DOCUMENT_NOUN: Partial<Record<MappingSiteKind, string>> = {
   functionOutput: 'the response',
 };
 
+/** The target document as it qualifies a path in the select / into pairing message ("naming the {noun} path"). */
+const PATH_NOUN: Partial<Record<MappingSiteKind, string>> = {
+  subFlowInput: 'start-request',
+  eventInput: 'event mapping',
+  workflowOutput: 'response',
+  functionOutput: 'response',
+};
+
 /** SubFlow input target: a member of the start request; `$.key` / `$.tags` only as a whole. */
 export function isSubFlowInputWritePath(path: string): boolean {
   if (!isWritePath(path)) return false;
@@ -434,7 +442,7 @@ export function validateMappingBlock(
     const noun =
       site === 'subFlowInput' ? 'A SubFlow input' : site === 'eventInput' ? 'An event input' : 'An output response';
     if (block.select !== undefined && block.into === undefined)
-      error('into', `${noun} select needs an into naming the ${DOCUMENT_NOUN[site]} path it copies to.`);
+      error('into', `${noun} select needs an into naming the ${PATH_NOUN[site]} path it copies to.`);
     if (block.into !== undefined && block.select === undefined)
       error('select', `${noun} into needs a select: it has no default source.`);
   } else if (site === 'transitionOutput') {

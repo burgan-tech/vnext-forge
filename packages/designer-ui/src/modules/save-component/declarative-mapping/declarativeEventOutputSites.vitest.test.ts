@@ -288,3 +288,20 @@ describe('event owner', () => {
     expect(t).toEqual({ key: 'go' });
   });
 });
+
+describe('select / into pairing message', () => {
+  const intoMessage = (site: MappingSiteKind, select: string) =>
+    errors(site, { select }).find((i) => i.field === 'into')?.message;
+
+  it('names the document path once for a new site', () => {
+    expect(intoMessage('workflowOutput', '$.data.score')).toBe(
+      'An output response select needs an into naming the response path it copies to.',
+    );
+  });
+
+  it('keeps the SubFlow input text', () => {
+    expect(intoMessage('subFlowInput', '$.data.customer')).toBe(
+      'A SubFlow input select needs an into naming the start-request path it copies to.',
+    );
+  });
+});
