@@ -243,7 +243,7 @@ function prefixFilter(items: readonly string[], query: string, limit = 12): stri
 }
 
 /** Child property names of the schema node at `segments` (identifier-safe names only). */
-function schemaChildren(
+export function schemaChildren(
   properties: readonly SchemaProperty[],
   segments: readonly string[],
 ): SchemaProperty[] {
@@ -318,9 +318,14 @@ export function expressionSuggestions(
   }
 }
 
+/** Function calls whose caret lands inside the parentheses: `urlEncode()`, `sha256()`, `varyKey()`. */
+const FUNCTION_CALLS = new Set(
+  [...functionsOf('taskInput'), ...functionsOf('key')].map((e) => e.insertText ?? `${e.name}()`),
+);
+
 /**
  * Replaces the typed member with `item`; a `hasRole("")` / `get("")` / `has("")` caret lands inside the quotes, a
- * `urlEncode()` caret inside the parentheses.
+ * function call (`urlEncode()`, `sha256()`, `varyKey()`) caret inside the parentheses.
  */
 export function insertExpressionItem(
   text: string,
@@ -331,7 +336,7 @@ export function insertExpressionItem(
   const next = text.slice(0, token.start) + item + text.slice(caret);
   const inside = item.endsWith('("")')
     ? item.length - 2
-    : item === URL_ENCODE
+    : FUNCTION_CALLS.has(item)
       ? item.length - 1
       : item.length;
   return { text: next, caret: token.start + inside };

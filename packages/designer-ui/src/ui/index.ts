@@ -12,6 +12,8 @@ export * from './ColorThemeSwitchSidebar.js';
 export * from './Dialog.js';
 export * from './DropdownMenu.js';
 export * from './DropdownSelect.js';
+export { ExpressionInput, ExpressionTextarea } from './ExpressionInput.js';
+export type { ExpressionFieldProps } from './ExpressionInput.js';
 export { DynamicExpressoField } from './DynamicExpressoField.js';
 export type { DynamicExpressoValue } from './DynamicExpressoField.js';
 export * from './Field.js';
