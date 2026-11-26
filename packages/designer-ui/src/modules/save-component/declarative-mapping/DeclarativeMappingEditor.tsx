@@ -22,11 +22,8 @@ import {
 } from './declarativeMapping';
 import { protectedCopyIssues } from './protectedFieldCopy';
 import {
-  expressionSuggestions,
-  expressionTokenAt,
   expressionVariables,
   filterPaths,
-  insertExpressionItem,
   selectPaths,
   writeTargetPaths,
   type CompletionContext,
@@ -126,17 +123,6 @@ function pathSuggest(paths: readonly string[]): SuggestFn {
   };
 }
 
-function expressionSuggest(site: MappingSiteKind, schemaRoot: unknown, context?: CompletionContext): SuggestFn {
-  return (text, caret) => {
-    const token = expressionTokenAt(text, caret);
-    if (!token) return null;
-    const items = expressionSuggestions(site, token, schemaRoot, context).filter((i) => i !== token.query);
-    return items.length > 0
-      ? { items, apply: (item) => insertExpressionItem(text, token, caret, item) }
-      : null;
-  };
-}
-
 function IssueLine({ issue }: { issue: MappingIssue }) {
   return (
     <div
@@ -157,7 +143,8 @@ function SetEntryRow({
   total,
   otherKeys,
   targets,
-  expressionSuggestFn,
+  schemaRoot,
+  completionContext,
   issues,
   onUpdate,
 }: {
@@ -169,7 +156,8 @@ function SetEntryRow({
   total: number;
   otherKeys: readonly string[];
   targets: readonly string[];
-  expressionSuggestFn: SuggestFn;
+  schemaRoot: unknown;
+  completionContext?: CompletionContext;
   issues: MappingIssue[];
   onUpdate: BindingUpdater;
 }) {
@@ -211,7 +199,10 @@ function SetEntryRow({
         <SuggestInput
           value={expression}
           onChange={(next) => onUpdate((b) => setSetExpression(b, phase, entryKey, next))}
-          suggest={expressionSuggestFn}
+          mode="expression"
+          surface={site}
+          schemaRoot={schemaRoot}
+          completionContext={completionContext}
           ariaLabel={`${phase} set expression for ${entryKey}`}
           placeholder={SITE_COPY[site].expressionPlaceholder}
           invalid={expressionInvalid}
@@ -278,10 +269,6 @@ function PhaseSection({
     () => selectPaths(site, schemaRoot, completionContext),
     [site, schemaRoot, completionContext],
   );
-  const exprSuggest = useMemo(
-    () => expressionSuggest(site, schemaRoot, completionContext),
-    [site, schemaRoot, completionContext],
-  );
   const copy = SITE_COPY[site];
 
   const blockIssues = issues.filter((i) => !i.field.startsWith('set['));
@@ -338,7 +325,8 @@ function PhaseSection({
             total={entries.length}
             otherKeys={entries.filter((_, i) => i !== index).map(([k]) => k)}
             targets={targets}
-            expressionSuggestFn={exprSuggest}
+            schemaRoot={schemaRoot}
+            completionContext={completionContext}
             issues={entryIssues(key)}
             onUpdate={onUpdate}
           />
