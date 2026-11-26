@@ -13,6 +13,7 @@ import { Select } from '../../../../../../ui/Select';
 import { Section } from '../PropertyPanelShared';
 import { schemaEnumValues } from '../../../../../schema-capabilities/SchemaCapabilities';
 import { useSchemaCapabilities } from '../../../../../schema-capabilities/useSchemaCapabilities';
+import { useOpenWorkflowMasterSchemaRoot } from '../../../../../save-component/declarative-mapping/TaskBindingMappingField';
 
 const ON_CONFLICT_HINTS: Record<ResourceLockOnConflict, string> = {
   Abort:
@@ -59,6 +60,7 @@ export function TransitionResourceLockSection({
   onUpdateResourceLockField,
   onScriptsChange,
 }: TransitionResourceLockSectionProps) {
+  const schemaRoot = useOpenWorkflowMasterSchemaRoot();
   const keyExpression = (resourceLock?.keyExpression as ScriptCode | undefined) ?? null;
   const workflowCaps = useSchemaCapabilities('workflow');
   const action: ResourceLockAction = resourceLock?.action ?? 'Acquire';
@@ -78,6 +80,7 @@ export function TransitionResourceLockSection({
         transition fires.
       </p>
       <CsxEditorField
+        schemaRoot={schemaRoot}
         value={keyExpression}
         onChange={onUpdateResourceLock}
         onRemove={onRemoveResourceLock}

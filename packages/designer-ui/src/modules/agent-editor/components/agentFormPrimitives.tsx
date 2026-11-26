@@ -94,6 +94,7 @@ export function TextAreaField({
   rows = 3,
   mono = false,
   expressionSurface,
+  ariaLabel,
 }: {
   label: ReactNode;
   hint?: ReactNode;
@@ -104,6 +105,8 @@ export function TextAreaField({
   mono?: boolean;
   /** Set when the text is a Dynamic Expresso expression: highlights it and offers that surface's suggestions. */
   expressionSurface?: ExpressionSurface;
+  /** Accessible name when `label` is not a plain string. */
+  ariaLabel?: string;
 }) {
   return (
     <div>
@@ -115,7 +118,7 @@ export function TextAreaField({
           value={value ?? ''}
           onChange={(next) => onChange(next === '' ? undefined : next)}
           placeholder={placeholder}
-          ariaLabel={typeof label === 'string' ? label : 'Expression'}
+          ariaLabel={ariaLabel ?? (typeof label === 'string' ? label : 'Expression')}
           minRows={rows}
           className={mono ? 'font-mono' : undefined}
         />

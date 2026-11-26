@@ -356,6 +356,7 @@ function ScriptToolBinding({ tool, index, onChange }: { tool: Json; index: numbe
           rows={2}
           mono
           expressionSurface="agentTool"
+          ariaLabel="Tool binding expression"
           placeholder="args.count + 1"
         />
       ) : (

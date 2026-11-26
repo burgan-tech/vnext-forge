@@ -120,4 +120,16 @@ describe('CsxEditorField — expression suggestions per slot', () => {
     expect(html).toContain('data-testid="expression-mirror"');
     expect(html).toContain('sha256');
   });
+
+  it('data. in a condition slot suggests the master schema properties; CsxEditorField accepts schemaRoot', () => {
+    const schemaRoot = { type: 'object', properties: { amount: { type: 'number' }, customer: { type: 'object' } } };
+    const token = expressionTokenAt('data.', 5);
+    const items = token ? suggestionsFor(slotSurfaceOf('condition'), token, schemaRoot) : [];
+    expect(items).toEqual(expect.arrayContaining(['amount', 'customer']));
+    const value = { location: 'dynamicExpresso', encoding: 'NAT' as const, code: 'data.amount > 1' };
+    const html = renderToStaticMarkup(
+      createElement(CsxEditorField, { ...base, value, templateType: 'condition', schemaRoot }),
+    );
+    expect(html).toContain('data-testid="expression-mirror"');
+  });
 });

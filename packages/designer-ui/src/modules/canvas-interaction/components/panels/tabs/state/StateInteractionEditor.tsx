@@ -34,6 +34,7 @@ import {
   type LongPollPatch,
 } from './longPollConfig';
 import { HISTORY_NONE_REASON, useHistoryNone } from '../../../../hooks/useHistoryNone';
+import { useOpenWorkflowMasterSchemaRoot } from '../../../../../save-component/declarative-mapping/TaskBindingMappingField';
 
 interface StateInteractionEditorProps {
   interaction: StateInteraction | null;
@@ -58,6 +59,7 @@ const ARM_ISSUE_MESSAGES: Record<LongPollArmIssue, string> = {
 };
 
 export function StateInteractionEditor({ interaction, stateKey, onChange }: StateInteractionEditorProps) {
+  const schemaRoot = useOpenWorkflowMasterSchemaRoot();
   const historyNone = useHistoryNone();
   const longPoll = interaction?.longPoll ?? null;
 
@@ -201,6 +203,7 @@ export function StateInteractionEditor({ interaction, stateKey, onChange }: Stat
                 throwing or non-compiling rule denies.
               </p>
               <CsxEditorField
+                schemaRoot={schemaRoot}
                 value={ruleArm.rule as ScriptCode}
                 onChange={(sc) => writeRule(sc as MappingCode)}
                 onRemove={() => writeRule({ ...EMPTY_RULE })}
