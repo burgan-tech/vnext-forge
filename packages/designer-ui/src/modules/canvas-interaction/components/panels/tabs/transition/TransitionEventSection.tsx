@@ -1,6 +1,11 @@
 import type { ScriptsConfig } from '@vnext-forge-studio/vnext-types';
 import { CsxEditorField, type ScriptCode } from '../../../../../../modules/save-component/components/CsxEditorField';
 import { MappingScriptsSection } from '../../../../../../modules/save-component/components/MappingScriptsSection';
+import {
+  hasDeclarativeBlocks,
+  type MappingBindingLike,
+} from '../../../../../../modules/save-component/declarative-mapping/declarativeMapping';
+import { TaskBindingMappingField } from '../../../../../../modules/save-component/declarative-mapping/TaskBindingMappingField';
 import { Section } from '../PropertyPanelShared';
 
 interface TransitionEventSectionProps {
@@ -17,6 +22,13 @@ interface TransitionEventSectionProps {
    */
   scripts?: ScriptsConfig;
   onScriptsChange?: (next: ScriptsConfig | undefined) => void;
+  /**
+   * The transition's `event`, with `onUpdateEvent`: offers the declarative
+   * `input` block beside the C# event mapping (runtime vnext#1227). Omitted →
+   * the C# mapping only.
+   */
+  event?: MappingBindingLike;
+  onUpdateEvent?: (updater: (event: MappingBindingLike) => void) => void;
 }
 
 export function TransitionEventSection({
@@ -28,12 +40,11 @@ export function TransitionEventSection({
   onRemove,
   scripts,
   onScriptsChange,
+  event,
+  onUpdateEvent,
 }: TransitionEventSectionProps) {
-  return (
-    <Section title="Event Mapping" defaultOpen={!!mapping?.code}>
-      <p className="text-[10px] text-muted-foreground mb-2 leading-relaxed">
-        Maps the inbound external event payload to an instance key and body before it triggers this transition.
-      </p>
+  const renderScript = () => (
+    <>
       <CsxEditorField
         value={mapping}
         onChange={onChange}
@@ -48,6 +59,26 @@ export function TransitionEventSection({
       />
       {mapping && onScriptsChange && (
         <MappingScriptsSection value={scripts} onChange={onScriptsChange} />
+      )}
+    </>
+  );
+
+  return (
+    <Section
+      title="Event Mapping"
+      defaultOpen={!!mapping?.code || (!!onUpdateEvent && hasDeclarativeBlocks(event))}>
+      <p className="text-[10px] text-muted-foreground mb-2 leading-relaxed">
+        Maps the inbound external event payload to an instance key and body before it triggers this transition.
+      </p>
+      {onUpdateEvent ? (
+        <TaskBindingMappingField
+          binding={event ?? {}}
+          onUpdate={onUpdateEvent}
+          renderScript={renderScript}
+          owner="event"
+        />
+      ) : (
+        renderScript()
       )}
     </Section>
   );

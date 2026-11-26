@@ -4,14 +4,37 @@
  * feeds them the workflow master schema (`attributes.schema` component's
  * `attributes.schema`) when it is in the project.
  */
+import { effectiveTaskSlot } from '../taskSlots';
 import {
+  EVENT_INPUT_ROOTS,
   isTaskSite,
   pathSegment,
+  RESPONSE_ROOTS,
+  siteVariableNames,
   SUBFLOW_INPUT_ROOTS,
   toSiteKind,
   type MappingPhase,
   type MappingSiteKind,
 } from './declarativeMapping';
+
+/** Owner facts completions need beyond the master schema. */
+export interface CompletionContext {
+  /** Function output: the response slots of the function's task entries (`result.<slot>`). */
+  resultSlots?: readonly string[];
+}
+
+/**
+ * The `result` slots of a function's task entries: `variableKey`, else the task key as a variable name
+ * (runtime `OnExecuteTask.ResponseVariableKey`); entries without a task key are skipped, duplicates once.
+ */
+export function resultSlotsOf(tasks: readonly unknown[]): string[] {
+  const slots: string[] = [];
+  for (const entry of tasks) {
+    const slot = effectiveTaskSlot(entry);
+    if (slot && !slots.includes(slot)) slots.push(slot);
+  }
+  return slots;
+}
 
 const MAX_PATHS = 400;
 const MAX_DEPTH = 6;
@@ -120,6 +143,9 @@ export const JSON_CONVERSIONS = [
  */
 export function expressionVariables(phaseOrSite: MappingPhase | MappingSiteKind): string[] {
   const site = toSiteKind(phaseOrSite);
+  if (site === 'eventInput' || site === 'workflowOutput' || site === 'functionOutput') {
+    return [...siteVariableNames(site)];
+  }
   if (isTaskSite(site)) {
     const base = ['data', 'input', 'instance', 'now', 'user', 'context', 'task', 'config', 'headers', URL_ENCODE];
     return site === 'taskOutput' ? [...base, 'result'] : base;
@@ -138,6 +164,8 @@ export function writeTargetPaths(phaseOrSite: MappingPhase | MappingSiteKind, sc
   const site = toSiteKind(phaseOrSite);
   if (site === 'taskInput') return [...INPUT_TARGETS];
   if (site === 'subFlowInput') return [...SUBFLOW_INPUT_TARGETS];
+  if (site === 'eventInput') return EVENT_INPUT_ROOTS.map((r) => `$.${r}`);
+  if (site === 'workflowOutput' || site === 'functionOutput') return RESPONSE_ROOTS.map((r) => `$.${r}`);
   return schemaProperties(schemaRoot).map((p) => toPath('$', p.segments));
 }
 
@@ -160,8 +188,19 @@ function variableSelectPaths(schemaRoot: unknown): string[] {
  *   `$.user.available` (`config` and `headers` are not selectable: read a header with a set expression);
  * - transition output, SubFlow input: the same without `task`.
  */
-export function selectPaths(phaseOrSite: MappingPhase | MappingSiteKind, schemaRoot: unknown): string[] {
+export function selectPaths(
+  phaseOrSite: MappingPhase | MappingSiteKind,
+  schemaRoot: unknown,
+  context: CompletionContext = {},
+): string[] {
   const site = toSiteKind(phaseOrSite);
+  if (site === 'eventInput') return ['$.input', '$.context'];
+  if (site === 'functionOutput') {
+    return (context.resultSlots ?? []).flatMap((slot) => {
+      const base = `$${pathSegment(slot)}`;
+      return [base, ...RESULT_MEMBERS.map((m) => `${base}.${m}`)];
+    });
+  }
   if (site === 'taskOutput') return ['$', ...RESULT_MEMBERS.map((m) => `$.${m}`)];
   if (site === 'subFlowOutput') return ['$.data', '$.status', '$'];
   if (site === 'taskInput') {
@@ -241,11 +280,14 @@ export function expressionSuggestions(
   phaseOrSite: MappingPhase | MappingSiteKind,
   token: ExpressionToken,
   schemaRoot: unknown,
+  context: CompletionContext = {},
 ): string[] {
   const site = toSiteKind(phaseOrSite);
   const { chain, query } = token;
   if (chain.length === 0) return prefixFilter(expressionVariables(site), query);
   const [root, ...rest] = chain;
+  // A variable the site does not have offers nothing (an event has no data / instance / user).
+  if (!expressionVariables(site).includes(root)) return [];
   const properties = schemaProperties(schemaRoot);
   const dataChildren = (segments: string[]) => {
     const children = schemaChildren(properties, segments).map(
@@ -263,6 +305,11 @@ export function expressionSuggestions(
     case 'user':
       return rest.length === 0 ? prefixFilter(USER_MEMBERS, query) : [];
     case 'result':
+      if (site === 'functionOutput') {
+        if (rest.length === 0) return prefixFilter(context.resultSlots ?? [], query);
+        if (rest.length === 1) return prefixFilter(RESULT_MEMBERS, query);
+        return prefixFilter(JSON_CONVERSIONS, query);
+      }
       if (site === 'subFlowOutput') {
         if (rest.length === 0) return prefixFilter(SUBFLOW_RESULT_MEMBERS, query);
         return prefixFilter(JSON_CONVERSIONS, query);

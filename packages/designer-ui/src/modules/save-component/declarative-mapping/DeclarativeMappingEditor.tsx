@@ -14,6 +14,7 @@ import {
   siteKindOf,
   validateMappingBlock,
   type MappingBindingLike,
+  type MappingBlockOptions,
   type MappingIssue,
   type MappingOwnerKind,
   type MappingPhase,
@@ -23,10 +24,12 @@ import { protectedCopyIssues } from './protectedFieldCopy';
 import {
   expressionSuggestions,
   expressionTokenAt,
+  expressionVariables,
   filterPaths,
   insertExpressionItem,
   selectPaths,
   writeTargetPaths,
+  type CompletionContext,
 } from './declarativeMappingCompletions';
 import { SuggestInput, type SuggestFn } from './SuggestInput';
 
@@ -82,9 +85,33 @@ const SITE_COPY: Record<MappingSiteKind, SiteCopy> = {
     intoPlaceholder: 'merge at the data root',
     expressionPlaceholder: 'result.status',
   },
+  eventInput: {
+    title: 'Input',
+    hint: 'Maps the event payload (input) to the instance key and the request attributes: $.key (a string) and $.attributes.x. There is no instance yet: no data, instance or user.',
+    newKey: '$.attributes.field',
+    selectPlaceholder: '$.input.customer',
+    intoPlaceholder: '$.attributes.customer',
+    expressionPlaceholder: 'input.applicationId',
+  },
+  workflowOutput: {
+    title: 'Output',
+    hint: 'Shapes the sync response: $.data (the body), $.statusCode (an integer) and $.headers.x (strings). No data written means an empty response; a failure falls back to the standard envelope.',
+    newKey: '$.data.field',
+    selectPlaceholder: '$.data.customer',
+    intoPlaceholder: '$.data.customer',
+    expressionPlaceholder: 'instance.id',
+  },
+  functionOutput: {
+    title: 'Output',
+    hint: "Shapes the function response from the task results: result.<variableKey> = { body, headers, statusCode }; select reads under result. $.statusCode and $.headers apply only with rawResponse.",
+    newKey: '$.data.field',
+    selectPlaceholder: '$.taskKey.body',
+    intoPlaceholder: '$.data',
+    expressionPlaceholder: 'result.taskKey.body',
+  },
 };
 
-const EXPRESSION_HELP: Record<MappingOwnerKind, string> = {
+const EXPRESSION_HELP: Partial<Record<MappingOwnerKind, string>> = {
   task: 'and result in output',
   transition: 'and headers (no result: read the request with input)',
   subFlow: 'headers, and result ({ data, status }) in output',
@@ -99,11 +126,11 @@ function pathSuggest(paths: readonly string[]): SuggestFn {
   };
 }
 
-function expressionSuggest(site: MappingSiteKind, schemaRoot: unknown): SuggestFn {
+function expressionSuggest(site: MappingSiteKind, schemaRoot: unknown, context?: CompletionContext): SuggestFn {
   return (text, caret) => {
     const token = expressionTokenAt(text, caret);
     if (!token) return null;
-    const items = expressionSuggestions(site, token, schemaRoot).filter((i) => i !== token.query);
+    const items = expressionSuggestions(site, token, schemaRoot, context).filter((i) => i !== token.query);
     return items.length > 0
       ? { items, apply: (item) => insertExpressionItem(text, token, caret, item) }
       : null;
@@ -228,6 +255,8 @@ function PhaseSection({
   schemaRoot,
   onUpdate,
   hint,
+  blockOptions,
+  completionContext,
 }: {
   phase: MappingPhase;
   site: MappingSiteKind;
@@ -235,16 +264,24 @@ function PhaseSection({
   schemaRoot: unknown;
   onUpdate: BindingUpdater;
   hint?: string;
+  blockOptions?: MappingBlockOptions;
+  completionContext?: CompletionContext;
 }) {
   const block = readMappingBlock(binding, phase);
   const entries = setEntries(block);
   const issues = useMemo(
-    () => [...validateMappingBlock(site, block), ...protectedCopyIssues(site, block, schemaRoot)],
-    [site, block, schemaRoot],
+    () => [...validateMappingBlock(site, block, blockOptions), ...protectedCopyIssues(site, block, schemaRoot)],
+    [site, block, schemaRoot, blockOptions],
   );
   const targets = useMemo(() => writeTargetPaths(site, schemaRoot), [site, schemaRoot]);
-  const reads = useMemo(() => selectPaths(site, schemaRoot), [site, schemaRoot]);
-  const exprSuggest = useMemo(() => expressionSuggest(site, schemaRoot), [site, schemaRoot]);
+  const reads = useMemo(
+    () => selectPaths(site, schemaRoot, completionContext),
+    [site, schemaRoot, completionContext],
+  );
+  const exprSuggest = useMemo(
+    () => expressionSuggest(site, schemaRoot, completionContext),
+    [site, schemaRoot, completionContext],
+  );
   const copy = SITE_COPY[site];
 
   const blockIssues = issues.filter((i) => !i.field.startsWith('set['));
@@ -332,6 +369,8 @@ export function DeclarativeMappingEditor({
   onUpdate,
   phaseHints,
   owner = 'task',
+  blockOptions,
+  completionContext,
 }: {
   binding: MappingBindingLike;
   /** Workflow master schema root (`attributes.schema` of the schema component), when known. */
@@ -341,7 +380,12 @@ export function DeclarativeMappingEditor({
   phaseHints?: Partial<Record<MappingPhase, string>>;
   /** What holds the blocks; decides the phases, targets, select roots and variables. */
   owner?: MappingOwnerKind;
+  /** Owner facts for the block checks (function output: `rawResponse`). */
+  blockOptions?: MappingBlockOptions;
+  /** Owner facts for completions (function output: the task entries' `result` slots). */
+  completionContext?: CompletionContext;
 }) {
+  const help = EXPRESSION_HELP[owner];
   return (
     <div className="space-y-1.5">
       {ownerPhases(owner).map((phase) => (
@@ -353,13 +397,27 @@ export function DeclarativeMappingEditor({
           schemaRoot={schemaRoot}
           onUpdate={onUpdate}
           hint={phaseHints?.[phase]}
+          blockOptions={blockOptions}
+          completionContext={completionContext}
         />
       ))}
       <div className="text-muted-foreground text-[10px] leading-snug">
-        Expressions: <span className="font-mono">data</span>,{' '}
-        <span className="font-mono">input</span>, <span className="font-mono">instance</span>,{' '}
-        <span className="font-mono">now</span>, <span className="font-mono">user</span>,{' '}
-        <span className="font-mono">context</span>, {EXPRESSION_HELP[owner]}. Members are camelCase;
+        Expressions:{' '}
+        {help ? (
+          <>
+            <span className="font-mono">data</span>, <span className="font-mono">input</span>,{' '}
+            <span className="font-mono">instance</span>, <span className="font-mono">now</span>,{' '}
+            <span className="font-mono">user</span>, <span className="font-mono">context</span>, {help}
+          </>
+        ) : (
+          expressionVariables(siteKindOf(owner, ownerPhases(owner)[0])).map((v, i) => (
+            <span key={v}>
+              {i > 0 ? ', ' : ''}
+              <span className="font-mono">{v}</span>
+            </span>
+          ))
+        )}
+        . Members are camelCase;
         JSON values need <span className="font-mono">.AsDouble()</span> /{' '}
         <span className="font-mono">.AsInt32()</span> /{' '}
         <span className="font-mono">.AsBoolean()</span> /{' '}

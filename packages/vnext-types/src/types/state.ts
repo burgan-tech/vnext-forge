@@ -38,6 +38,13 @@ export interface TaskMappingBlock {
  */
 export type MappingBlock = TaskMappingBlock;
 
+/**
+ * A workflow / function `output` (runtime vnext#1227): a C# script (`location` / `code`) or a declarative
+ * block (`select` / `into` / `set`) writing the response document `{ data, statusCode, headers }` — one or
+ * the other; an object with both kinds of members fails to deserialize (publish 400).
+ */
+export type OutputMapping = MappingCode | MappingBlock;
+
 export interface TaskExecution {
   order: number;
   task: ResourceReference;

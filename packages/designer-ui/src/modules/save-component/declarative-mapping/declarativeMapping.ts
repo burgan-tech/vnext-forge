@@ -30,10 +30,22 @@ export type MappingSiteKind =
   | 'taskOutput'
   | 'transitionOutput'
   | 'subFlowInput'
-  | 'subFlowOutput';
+  | 'subFlowOutput'
+  | 'eventInput'
+  | 'workflowOutput'
+  | 'functionOutput';
 
-/** The object that holds the blocks: a task binding, a transition or a state's `subFlow`. */
-export type MappingOwnerKind = 'task' | 'transition' | 'subFlow';
+/**
+ * The object that holds the blocks: a task binding, a transition, a state's `subFlow`, an `event`
+ * (workflow or transition; `mapping` script or `input` block), or the `attributes` of a workflow /
+ * function whose `output` member holds a script OR a block.
+ */
+export type MappingOwnerKind = 'task' | 'transition' | 'subFlow' | 'event' | 'workflowOutput' | 'functionOutput';
+
+/** Owners whose `output` member is either a script (`location` / `code`) or a block — never both. */
+export function isOutputMemberOwner(owner: MappingOwnerKind): owner is 'workflowOutput' | 'functionOutput' {
+  return owner === 'workflowOutput' || owner === 'functionOutput';
+}
 
 /** A bare phase means a task binding's block (the editor's original API). */
 export function toSiteKind(phaseOrSite: MappingPhase | MappingSiteKind): MappingSiteKind {
@@ -44,24 +56,62 @@ export function toSiteKind(phaseOrSite: MappingPhase | MappingSiteKind): Mapping
 
 export function siteKindOf(owner: MappingOwnerKind, phase: MappingPhase): MappingSiteKind {
   if (owner === 'transition') return 'transitionOutput';
+  if (owner === 'event') return 'eventInput';
+  if (owner === 'workflowOutput' || owner === 'functionOutput') return owner;
   if (owner === 'subFlow') return phase === 'input' ? 'subFlowInput' : 'subFlowOutput';
   return phase === 'input' ? 'taskInput' : 'taskOutput';
 }
 
 /** The blocks an owner takes: a transition is a single-block (`output`) site. */
 export function ownerPhases(owner: MappingOwnerKind): MappingPhase[] {
-  return owner === 'transition' ? ['output'] : ['input', 'output'];
+  if (owner === 'event') return ['input'];
+  if (owner === 'transition' || isOutputMemberOwner(owner)) return ['output'];
+  return ['input', 'output'];
 }
 
 /** The block member a site lives in. */
 export function sitePhase(site: MappingSiteKind): MappingPhase {
-  return site === 'taskInput' || site === 'subFlowInput' ? 'input' : 'output';
+  return site === 'taskInput' || site === 'subFlowInput' || site === 'eventInput' ? 'input' : 'output';
 }
 
-/** Sites whose `select` reads `result` (task output: the task response; SubFlow output: `{ data, status }`). */
+/**
+ * Sites whose `select` reads `result` (task output: the task response; SubFlow output: `{ data, status }`;
+ * function output: `{ <variableKey>: { body, headers, statusCode } }`).
+ */
 export function siteReadsResult(site: MappingSiteKind): boolean {
-  return site === 'taskOutput' || site === 'subFlowOutput';
+  return site === 'taskOutput' || site === 'subFlowOutput' || site === 'functionOutput';
 }
+
+/**
+ * Sites with no default source: `select` and `into` come together (runtime `DeclarativeMappingPlan.Build`).
+ * A task input and a transition output have their own one-sided rules.
+ */
+export function sitePairsSelectInto(site: MappingSiteKind): boolean {
+  return site === 'subFlowInput' || site === 'eventInput' || site === 'workflowOutput' || site === 'functionOutput';
+}
+
+/** The variables a site's expressions see (runtime `ExpressionSignatures.Mapping`), `headers` included. */
+export function siteVariableNames(site: MappingSiteKind): readonly string[] {
+  switch (site) {
+    case 'eventInput':
+      return EVENT_VARIABLES;
+    case 'functionOutput':
+      return ['data', 'input', 'instance', 'now', 'context', 'headers', 'result'];
+    case 'workflowOutput':
+    case 'transitionOutput':
+    case 'subFlowInput':
+      return [...VARIABLE_SELECT_ROOTS, 'headers'];
+    case 'subFlowOutput':
+      return [...VARIABLE_SELECT_ROOTS, 'headers', 'result'];
+    case 'taskInput':
+      return [...VARIABLE_SELECT_ROOTS, 'task', 'config', 'headers', 'urlEncode'];
+    case 'taskOutput':
+      return [...VARIABLE_SELECT_ROOTS, 'task', 'config', 'headers', 'urlEncode', 'result'];
+  }
+}
+
+/** An event mapping's variables: the payload, the clock, the rule context and the event headers. */
+export const EVENT_VARIABLES = ['input', 'now', 'context', 'headers'] as const;
 
 /** Task sites have `task`, `config` and `urlEncode`; the others do not. */
 export function isTaskSite(site: MappingSiteKind): boolean {
@@ -211,6 +261,35 @@ export const VARIABLE_SELECT_ROOTS = ['data', 'input', 'instance', 'now', 'user'
 /** The members a SubFlow input writes: the child's start request (`DeclarativeMappingPlan.SubFlowInputRoots`). */
 export const SUBFLOW_INPUT_ROOTS = ['attributes', 'headers', 'key', 'tags'] as const;
 
+/** The members an event input writes (`DeclarativeMappingPlan.EventInputRoots`); `$.key` only as a whole. */
+export const EVENT_INPUT_ROOTS = ['key', 'attributes'] as const;
+
+/** The members a workflow / function output writes (`DeclarativeMappingPlan.ResponseRoots`); `$.statusCode` only as a whole. */
+export const RESPONSE_ROOTS = ['data', 'statusCode', 'headers'] as const;
+
+/** The members whose target must be written whole, per document site. */
+const WHOLE_MEMBERS: Partial<Record<MappingSiteKind, readonly string[]>> = {
+  subFlowInput: ['key', 'tags'],
+  eventInput: ['key'],
+  workflowOutput: ['statusCode'],
+  functionOutput: ['statusCode'],
+};
+
+/** The document members a site writes; `undefined` for an instance-data / task-config site. */
+function documentRoots(site: MappingSiteKind): readonly string[] | undefined {
+  if (site === 'subFlowInput') return SUBFLOW_INPUT_ROOTS;
+  if (site === 'eventInput') return EVENT_INPUT_ROOTS;
+  if (site === 'workflowOutput' || site === 'functionOutput') return RESPONSE_ROOTS;
+  return undefined;
+}
+
+const DOCUMENT_NOUN: Partial<Record<MappingSiteKind, string>> = {
+  subFlowInput: 'the start request',
+  eventInput: 'the event mapping',
+  workflowOutput: 'the response',
+  functionOutput: 'the response',
+};
+
 /** SubFlow input target: a member of the start request; `$.key` / `$.tags` only as a whole. */
 export function isSubFlowInputWritePath(path: string): boolean {
   if (!isWritePath(path)) return false;
@@ -266,7 +345,20 @@ const WRITE_HINTS: Record<MappingSiteKind, string> = {
     "a member of the child's start request: $.attributes.x, $.headers.x, $.key or $.tags (no index, no wildcard)",
   subFlowOutput:
     "an instance-data path: $ then .name / ['name'] segments (no index, no wildcard, not the root)",
+  eventInput: 'a member of the event mapping: $.key or $.attributes.x (no index, no wildcard)',
+  workflowOutput: 'a member of the response: $.data.x, $.statusCode or $.headers.x (no index, no wildcard)',
+  functionOutput: 'a member of the response: $.data.x, $.statusCode or $.headers.x (no index, no wildcard)',
 };
+
+/** Publish error for a function output that reads `user` (runtime `MappingBlockValidator.FunctionOutputNoCallerError`). */
+export const FUNCTION_OUTPUT_NO_CALLER =
+  'function output has no caller: the function response cache does not vary by role';
+
+/** Owner facts a block's checks need. */
+export interface MappingBlockOptions {
+  /** Function output: `attributes.rawResponse` (false → `statusCode` / `headers` targets are ignored, a warning). */
+  rawResponse?: boolean;
+}
 
 /**
  * Static checks Forge can make before publish. The runtime's
@@ -277,6 +369,7 @@ const WRITE_HINTS: Record<MappingSiteKind, string> = {
 export function validateMappingBlock(
   phaseOrSite: MappingPhase | MappingSiteKind,
   block: MappingBlock | undefined,
+  options: MappingBlockOptions = {},
 ): MappingIssue[] {
   if (!block) return [];
   const site = toSiteKind(phaseOrSite);
@@ -287,13 +380,19 @@ export function validateMappingBlock(
     issues.push({ field, message, severity: 'warning' });
   const writeHint = WRITE_HINTS[site];
 
+  const roots = documentRoots(site);
   const checkTarget = (field: string, path: string, part?: MappingIssue['part']) => {
-    if (site === 'subFlowInput' && isWritePath(path)) {
+    if (roots && isWritePath(path)) {
       const first = firstPathSegment(path) ?? '';
-      if (!(SUBFLOW_INPUT_ROOTS as readonly string[]).includes(first)) {
-        error(field, `Must start at a member of the start request: ${SUBFLOW_INPUT_ROOTS.map((r) => `$.${r}`).join(', ')}.`, part);
-      } else if (!isSubFlowInputWritePath(path)) {
+      if (!roots.includes(first)) {
+        error(field, `Must start at a member of ${DOCUMENT_NOUN[site]}: ${roots.map((r) => `$.${r}`).join(', ')}.`, part);
+      } else if ((WHOLE_MEMBERS[site] ?? []).includes(first) && !isWholeMember(path)) {
         error(field, `Write $.${first} as a whole.`, part);
+      } else if (site === 'functionOutput' && options.rawResponse !== true && (first === 'statusCode' || first === 'headers')) {
+        warning(
+          field,
+          `'rawResponse' is false: the function answers { "<functionKey>": data } and ignores $.${first}. Set 'rawResponse': true to send the status code and headers, or remove the target.`,
+        );
       }
       return;
     }
@@ -315,15 +414,13 @@ export function validateMappingBlock(
       error('select', 'config is not selectable; read a key with config.get("Key") in a set expression.');
     } else if (site === 'taskInput' && HEADERS_SELECT.test(block.select)) {
       error('select', 'headers is not selectable; read a header with headers["x-channel"] in a set expression.');
-    } else if (site === 'transitionOutput' || site === 'subFlowInput') {
+    } else if (!isTaskSite(site) && !siteReadsResult(site)) {
       const first = firstPathSegment(block.select) ?? '';
+      const selectable = siteVariableNames(site).filter((v) => v !== 'headers');
       if (first === 'headers') {
         error('select', 'headers is not selectable; read a header with headers["x-channel"] in a set expression.');
-      } else if (!(VARIABLE_SELECT_ROOTS as readonly string[]).includes(first)) {
-        error(
-          'select',
-          `select starts at a variable: ${VARIABLE_SELECT_ROOTS.map((v) => `$.${v}`).join(', ')}.`,
-        );
+      } else if (!selectable.includes(first)) {
+        error('select', `select starts at a variable: ${selectable.map((v) => `$.${v}`).join(', ')}.`);
       }
     }
   }
@@ -333,11 +430,13 @@ export function validateMappingBlock(
       error('into', 'An input select needs an into target.');
     if (block.into !== undefined && block.select === undefined)
       error('select', 'An input into needs a select path.');
-  } else if (site === 'subFlowInput') {
+  } else if (sitePairsSelectInto(site)) {
+    const noun =
+      site === 'subFlowInput' ? 'A SubFlow input' : site === 'eventInput' ? 'An event input' : 'An output response';
     if (block.select !== undefined && block.into === undefined)
-      error('into', 'A SubFlow input select needs an into naming the start-request path it copies to.');
+      error('into', `${noun} select needs an into naming the ${DOCUMENT_NOUN[site]} path it copies to.`);
     if (block.into !== undefined && block.select === undefined)
-      error('select', 'A SubFlow input into needs a select: it has no default source.');
+      error('select', `${noun} into needs a select: it has no default source.`);
   } else if (site === 'transitionOutput') {
     if (block.into !== undefined && block.select === undefined)
       error('select', 'A transition output into needs a select: it has no default source.');
@@ -385,13 +484,30 @@ export function validateMappingBlock(
             field,
             site === 'transitionOutput'
               ? 'A transition output has no result; read the request with input.'
-              : 'result is only available in the SubFlow output block.',
+              : site === 'eventInput'
+                ? 'result does not exist in an event mapping; read the payload with input.'
+                : site === 'workflowOutput'
+                  ? 'A workflow output has no result; read the instance with data.'
+                  : 'result is only available in the SubFlow output block.',
             'expression',
           );
         }
         const taskOnly = ['task', 'config', 'urlEncode'].find((n) => usesRootIdentifier(expression, n));
         if (taskOnly) {
           error(field, `${taskOnly} exists in task mappings only.`, 'expression');
+        }
+        if (site === 'eventInput') {
+          const missing = ['data', 'instance', 'user'].find((n) => usesRootIdentifier(expression, n));
+          if (missing) {
+            error(
+              field,
+              `${missing} does not exist in an event mapping: the event has no instance yet. Use input, now, context or headers.`,
+              'expression',
+            );
+          }
+        }
+        if (site === 'functionOutput' && usesRootIdentifier(expression, 'user')) {
+          error(field, `${FUNCTION_OUTPUT_NO_CALLER}.`, 'expression');
         }
       }
     }
@@ -612,4 +728,79 @@ export function switchToDeclarative(binding: MappingBindingLike): void {
 export function switchToScript(binding: MappingBindingLike): void {
   delete binding.input;
   delete binding.output;
+}
+
+/* ────────────── Output member: script or block (workflow / function `output`) ────────────── */
+
+/** Members that make an `output` object a script (runtime: `location` or `code`; `encoding` / `scripts` travel with it). */
+const SCRIPT_MEMBERS = ['location', 'code', 'encoding', 'scripts'] as const;
+const BLOCK_MEMBERS = ['select', 'into', 'set'] as const;
+
+/**
+ * What a workflow / function `output` holds: a script (`location` / `code`), a block (`select` / `into` / `set`),
+ * both kinds of members (the runtime fails to deserialize it: publish 400 naming `output`), or nothing.
+ */
+export function outputMappingContent(value: unknown): BindingMappingContent {
+  if (!isRecord(value)) return 'empty';
+  const script = value.location !== undefined || value.code !== undefined;
+  const block = BLOCK_MEMBERS.some((m) => value[m] !== undefined);
+  if (script && block) return 'both';
+  if (script) return 'script';
+  if (block) return 'declarative';
+  return 'empty';
+}
+
+/** {@link bindingMappingContent} by owner: an output-member owner reads its `output` object's shape. */
+export function ownerMappingContent(
+  owner: MappingOwnerKind,
+  binding: MappingBindingLike | null | undefined,
+): BindingMappingContent {
+  return isOutputMemberOwner(owner) ? outputMappingContent(binding?.output) : bindingMappingContent(binding);
+}
+
+type OwnerUpdater = (binding: MappingBindingLike) => void;
+
+/** Switches to declarative: drops the script. On an output-member owner that replaces the whole `output` object. */
+export function ownerSwitchToDeclarative(owner: MappingOwnerKind): OwnerUpdater {
+  return isOutputMemberOwner(owner) ? (b) => void delete b.output : switchToDeclarative;
+}
+
+/** Switches to script: drops the blocks. On an output-member owner that replaces the whole `output` object. */
+export function ownerSwitchToScript(owner: MappingOwnerKind): OwnerUpdater {
+  return isOutputMemberOwner(owner) ? (b) => void delete b.output : switchToScript;
+}
+
+/** Resolves a `both` owner by keeping the script. */
+export function ownerKeepScript(owner: MappingOwnerKind): OwnerUpdater {
+  if (!isOutputMemberOwner(owner)) return switchToScript;
+  return (b) => {
+    if (!isRecord(b.output)) return;
+    for (const m of BLOCK_MEMBERS) delete b.output[m];
+  };
+}
+
+/** Resolves a `both` owner by keeping the blocks. */
+export function ownerKeepBlocks(owner: MappingOwnerKind): OwnerUpdater {
+  if (!isOutputMemberOwner(owner)) return switchToDeclarative;
+  return (b) => {
+    if (!isRecord(b.output)) return;
+    for (const m of SCRIPT_MEMBERS) delete b.output[m];
+  };
+}
+
+/* ────────────── Event owner ────────────── */
+
+/**
+ * Applies `updater` to `owner.event` (workflow attributes or a transition), creating the event when
+ * needed and dropping it when it ends up empty (an event with neither `mapping` nor `input` is the
+ * runtime's `EventDefinitionMissing`).
+ */
+export function updateEventOwner(
+  owner: Record<string, unknown>,
+  updater: (event: MappingBindingLike) => void,
+): void {
+  if (!isRecord(owner.event)) owner.event = {};
+  const event = owner.event as MappingBindingLike;
+  updater(event);
+  if (Object.keys(event).length === 0) Reflect.deleteProperty(owner, 'event');
 }

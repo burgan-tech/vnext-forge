@@ -1,7 +1,7 @@
 import { Label } from './label';
 import { MappingCode } from './mapping';
 import type { RoleGrant } from './role';
-import { ResourceReference, TaskExecution } from './state';
+import type { ResourceReference, TaskExecution, OutputMapping } from './state';
 
 export type FunctionScope = 'I' | 'F' | 'D';
 
@@ -80,5 +80,13 @@ export interface FunctionDefinition {
   executionLog?: FunctionExecutionLog;
   tasks?: TaskExecution[];
   mapping?: MappingCode;
+  /**
+   * Response shaping after the tasks: a C# script or a declarative block over
+   * `result.<variableKey>` = `{ body, headers, statusCode }` (runtime vnext#1227). No caller: a block may not
+   * read `user`.
+   */
+  output?: OutputMapping;
+  /** False (default): the response is `{ "<functionKey>": data }`; `statusCode` / `headers` are ignored. */
+  rawResponse?: boolean;
   extensions?: ResourceReference[];
 }

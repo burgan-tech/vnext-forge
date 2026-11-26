@@ -1,6 +1,9 @@
 import { useState, useEffect, useRef } from 'react';
 import type { ScriptCode } from '../../../../../../modules/save-component/components/CsxEditorField';
-import type { MappingBindingLike } from '../../../../../../modules/save-component/declarative-mapping/declarativeMapping';
+import {
+  updateEventOwner,
+  type MappingBindingLike,
+} from '../../../../../../modules/save-component/declarative-mapping/declarativeMapping';
 import type { SchemaReference } from '../../../../../../modules/save-component/components/SchemaReferenceField';
 import type { DiscoveredVnextComponent } from '@vnext-forge-studio/app-contracts';
 import type { AtomicSavedInfo } from '../../../../../../modules/save-component/componentEditorModalTypes.js';
@@ -499,6 +502,17 @@ export function TransitionCard({
             onScriptsChange={
               onUpdateEventScripts
                 ? (next) => onUpdateEventScripts(index, next)
+                : undefined
+            }
+            event={
+              onUpdateTransitionBinding
+                ? ((transition.event ?? {}) as unknown as MappingBindingLike)
+                : undefined
+            }
+            onUpdateEvent={
+              onUpdateTransitionBinding
+                ? (updater) =>
+                    onUpdateTransitionBinding(index, (t) => updateEventOwner(t, updater))
                 : undefined
             }
           />
