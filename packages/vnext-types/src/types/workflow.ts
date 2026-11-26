@@ -8,7 +8,7 @@ import { Label } from './label';
 import { MappingCode } from './mapping';
 import { RoleGrant } from './role';
 import { ScriptsConfig } from './scripts';
-import { State, SharedTransition, ResourceReference, TaskExecution, type ExecutionType } from './state';
+import type { State, SharedTransition, ResourceReference, TaskExecution, ExecutionType, OutputMapping } from './state';
 import { TriggerType } from '../constants/trigger-types';
 import type { ViewBinding } from './view-binding';
 
@@ -141,11 +141,11 @@ export interface WorkflowAttributes {
    */
   scripts?: ScriptsConfig;
   /**
-   * Optional output mapping for the workflow. Shapes the data returned
-   * when the workflow completes. Based on the schema's ScriptCode
-   * definition (same shape as mapping slots).
+   * Optional output for the workflow: shapes the sync response. A C# script
+   * (ScriptCode, same shape as mapping slots) or a declarative block writing
+   * `{ data, statusCode, headers }` (runtime vnext#1227).
    */
-  output?: MappingCode;
+  output?: OutputMapping;
   /**
    * Declares how an inbound external event is mapped before it starts the
    * workflow. Present when the workflow is startable via an external event.

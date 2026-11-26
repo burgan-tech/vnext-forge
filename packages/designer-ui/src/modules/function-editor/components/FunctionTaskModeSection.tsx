@@ -138,7 +138,8 @@ export function FunctionTaskModeSection({
       {mode === 'multiple' && (
         <FunctionMultipleTasksSection
           tasks={Array.isArray(attrs.onExecutionTasks) ? (attrs.onExecutionTasks as any[]) : []}
-          output={(attrs.output as ScriptCode | null | undefined) ?? null}
+          output={(attrs.output as ScriptCode | Record<string, unknown> | null | undefined) ?? null}
+          rawResponse={rawResponseEnabled}
           onChange={onChange}
           functionKey={functionKey}
           onBeforeOpenModal={onBeforeOpenModal}
