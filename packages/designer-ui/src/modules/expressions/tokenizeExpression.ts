@@ -34,7 +34,10 @@ interface ScanToken extends Token {
   closed?: boolean;
 }
 
-const KEYWORDS = new Set(['true', 'false', 'null', 'new', 'typeof', 'is', 'as']);
+const KEYWORDS = new Set([
+  'true', 'false', 'null', 'new', 'typeof', 'is', 'as',
+  'int', 'long', 'double', 'decimal', 'float', 'bool', 'string', 'object', 'char', 'byte', 'short',
+]);
 const TWO_CHAR_OPERATORS = new Set(['=>', '==', '!=', '<=', '>=', '&&', '||', '??']);
 const OPERATOR_CHARS = '+-*/%<>=!&|?:^~';
 const PUNCTUATION_CHARS = '.,()[]{};';
@@ -49,6 +52,9 @@ function scan(text: string, surface: ExpressionSurface): ScanToken[] {
   const functions = new Set(functionsOf(surface).map((e) => e.name));
   const lambdaParams = new Set<string>();
   for (const m of text.matchAll(/([A-Za-z_]\w*)\s*=>/g)) lambdaParams.add(m[1]);
+  for (const m of text.matchAll(/\(\s*([A-Za-z_]\w*(?:\s*,\s*[A-Za-z_]\w*)*)\s*\)\s*=>/g)) {
+    for (const p of m[1].split(',')) lambdaParams.add(p.trim());
+  }
 
   const tokens: ScanToken[] = [];
   const n = text.length;
@@ -119,7 +125,11 @@ const cache = new Map<string, Token[]>();
 export function tokenizeExpression(text: string, surface: ExpressionSurface): Token[] {
   const key = `${surface}\u0000${text}`;
   const hit = cache.get(key);
-  if (hit) return hit;
+  if (hit) {
+    cache.delete(key);
+    cache.set(key, hit);
+    return hit;
+  }
   const tokens: Token[] = scan(text, surface).map(({ start, end, kind }) => ({ start, end, kind }));
   cache.set(key, tokens);
   if (cache.size > CACHE_LIMIT) cache.delete(cache.keys().next().value as string);

@@ -62,6 +62,18 @@ describe('tokenizeExpression', () => {
   });
 });
 
+describe('memo LRU', () => {
+  it('keeps a recently hit entry and evicts the next-oldest', () => {
+    const first = tokenizeExpression('lru-0', 'string');
+    const second = tokenizeExpression('lru-1', 'string');
+    for (let i = 2; i < 200; i++) tokenizeExpression(`lru-${i}`, 'string');
+    expect(tokenizeExpression('lru-0', 'string')).toBe(first);
+    tokenizeExpression('lru-new', 'string');
+    expect(tokenizeExpression('lru-0', 'string')).toBe(first);
+    expect(tokenizeExpression('lru-1', 'string')).not.toBe(second);
+  });
+});
+
 describe('diagnoseExpression', () => {
   it('flags data in an event input mapping', () => {
     const d = diagnoseExpression('data.x', 'eventInput');
@@ -76,6 +88,18 @@ describe('diagnoseExpression', () => {
   it('does not flag lambdas or statics', () => {
     expect(diagnoseExpression('candidates.keys.Any(k => k == "a")', 'decision')).toEqual([]);
     expect(diagnoseExpression('TimeSpan.FromMinutes(5.0)', 'condition')).toEqual([]);
+  });
+
+  it('does not flag C# type keywords', () => {
+    expect(diagnoseExpression('(double)data.x', 'condition')).toEqual([]);
+    expect(diagnoseExpression('data.x is string', 'condition')).toEqual([]);
+    expect(diagnoseExpression('typeof(int)', 'condition')).toEqual([]);
+    expect(kinds('int', 'condition')).toEqual(['keyword']);
+  });
+
+  it('does not flag parenthesised lambda parameters', () => {
+    expect(diagnoseExpression('candidates.keys.Select((k, i) => k + i)', 'decision')).toEqual([]);
+    expect(diagnoseExpression('data.xs.Any((a) => a == 1)', 'condition')).toEqual([]);
   });
 
   it('does not flag a surface function', () => {
