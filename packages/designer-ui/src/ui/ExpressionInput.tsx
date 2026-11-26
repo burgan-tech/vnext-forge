@@ -8,6 +8,7 @@
 import { useId, useMemo, useRef, useState, type KeyboardEvent, type RefObject } from 'react';
 
 import { cn } from '../lib/utils/cn.js';
+import { useFormReadOnly } from './FormReadOnlyContext.js';
 import { describe, type CatalogEntry, type EntryKind, type ExpressionSurface } from '../modules/expressions/expressionCatalog.js';
 import { suggestionsFor } from '../modules/expressions/suggestionsFor.js';
 import {
@@ -23,24 +24,29 @@ import {
 } from '../modules/save-component/declarative-mapping/declarativeMappingCompletions.js';
 import type { SuggestFn, SuggestState } from '../modules/save-component/declarative-mapping/SuggestInput.js';
 
-export interface ExpressionFieldProps {
+interface ExpressionFieldBase {
   value: string;
   onChange: (next: string) => void;
   /** Single line: fires on Enter (list closed) and blur. Textarea: fires on blur. */
   onCommit?: () => void;
-  /** `expression` highlights and completes Dynamic Expresso; `path` highlights a `$.a.b` path. */
-  mode: 'expression' | 'path';
-  /** The expression surface: variables, completions and diagnostics. */
+  /** The expression surface: variables, completions and diagnostics. Without it nothing is flagged. */
   surface?: ExpressionSurface;
-  /** Overrides the surface's completions; required in `path` mode. */
-  suggest?: SuggestFn;
   schemaRoot?: unknown;
   completionContext?: CompletionContext;
   placeholder?: string;
   ariaLabel: string;
   invalid?: boolean;
+  /** No editing and no suggestion list; defaults to `FormReadOnlyContext`, like `Textarea`. */
+  readOnly?: boolean;
   className?: string;
 }
+
+/**
+ * `expression` highlights and completes Dynamic Expresso (`suggest` overrides the surface's completions);
+ * `path` highlights a `$.a.b` path and needs its own `suggest`.
+ */
+export type ExpressionFieldProps = ExpressionFieldBase &
+  ({ mode: 'expression'; suggest?: SuggestFn } | { mode: 'path'; suggest: SuggestFn });
 
 /* ────────────── Pure seams (unit-tested) ────────────── */
 
@@ -103,6 +109,17 @@ export function keyAction(key: string, listOpen: boolean, multiline: boolean): K
   return key === 'Enter' && !multiline ? 'commit' : null;
 }
 
+/**
+ * Whether the list may open at the caret. A textarea keeps it closed on an empty token (an empty box, after
+ * whitespace, an operator or a line break) so Enter stays a newline; the single-line input opens there as
+ * `SuggestInput` does today.
+ */
+export function opensAt(text: string, caret: number, multiline: boolean): boolean {
+  if (!multiline) return true;
+  const token = expressionTokenAt(text, caret);
+  return token !== null && (token.query !== '' || token.chain.length > 0);
+}
+
 interface Scrollable {
   scrollLeft: number;
   scrollTop: number;
@@ -126,6 +143,7 @@ interface Suggestions extends SuggestState {
 function useSuggestions(
   props: ExpressionFieldProps,
   multiline: boolean,
+  readOnly: boolean,
   fieldRef: RefObject<FieldElement | null>,
   mirrorRef: RefObject<HTMLPreElement | null>,
 ) {
@@ -136,8 +154,11 @@ function useSuggestions(
 
   const suggestFn = useMemo<SuggestFn | null>(
     () =>
-      suggest ?? (mode === 'expression' && surface ? expressionSuggest(surface, schemaRoot, completionContext) : null),
-    [suggest, mode, surface, schemaRoot, completionContext],
+      readOnly
+        ? null
+        : (suggest ??
+          (mode === 'expression' && surface ? expressionSuggest(surface, schemaRoot, completionContext) : null)),
+    [readOnly, suggest, mode, surface, schemaRoot, completionContext],
   );
 
   const sync = () => {
@@ -145,7 +166,7 @@ function useSuggestions(
   };
 
   const refresh = (text: string, caret: number) => {
-    const next = suggestFn?.(text, caret) ?? null;
+    const next = opensAt(text, caret, multiline) ? (suggestFn?.(text, caret) ?? null) : null;
     setState(next ? { ...next, rows: rowsOf(next.items, text, caret, surface, mode) } : null);
     setActive(0);
     requestAnimationFrame(sync);
@@ -205,7 +226,7 @@ const TOKEN_CLASS: Record<string, string> = {
   member: 'text-foreground',
   call: 'text-warning-text',
   string: 'text-success-text',
-  number: 'text-filetype-sql',
+  number: 'text-trigger-auto',
   keyword: 'text-trigger-event',
   operator: 'text-muted-foreground',
   punctuation: 'text-muted-foreground',
@@ -243,6 +264,12 @@ function borderClass(invalid: boolean | undefined, multiline: boolean): string {
     : 'border-border focus:border-primary-border';
 }
 
+/** Expression tokens; without a surface no root is flagged (an unknown root reads as a variable). */
+function expressionTokens(value: string, surface: ExpressionSurface | undefined): { start: number; end: number; kind: string }[] {
+  if (surface) return tokenizeExpression(value, surface);
+  return tokenizeExpression(value, 'condition').map((t) => (t.kind === 'unknownRoot' ? { ...t, kind: 'variable' } : t));
+}
+
 function Mirror({
   value,
   mode,
@@ -253,12 +280,12 @@ function Mirror({
 }: {
   value: string;
   mode: ExpressionFieldProps['mode'];
-  surface: ExpressionSurface;
+  surface: ExpressionSurface | undefined;
   multiline: boolean;
   diagnostics: readonly ExpressionDiagnostic[];
   mirrorRef: RefObject<HTMLPreElement | null>;
 }) {
-  const tokens = mode === 'path' ? tokenizePath(value) : tokenizeExpression(value, surface);
+  const tokens = mode === 'path' ? tokenizePath(value) : expressionTokens(value, surface);
   return (
     <pre
       ref={mirrorRef}
@@ -346,10 +373,12 @@ function ExpressionField({
   minRows?: number;
 }) {
   const { value, mode, surface, placeholder, ariaLabel, invalid, className } = props;
+  const contextReadOnly = useFormReadOnly();
+  const readOnly = props.readOnly ?? contextReadOnly;
   const fieldRef = useRef<FieldElement>(null);
   const mirrorRef = useRef<HTMLPreElement>(null);
   const listId = useId();
-  const { rows, active, insert, handlers } = useSuggestions(props, multiline, fieldRef, mirrorRef);
+  const { rows, active, insert, handlers } = useSuggestions(props, multiline, readOnly, fieldRef, mirrorRef);
 
   const diagnostics = useMemo(
     () => (mode === 'expression' && surface ? diagnoseExpression(value, surface) : []),
@@ -359,6 +388,7 @@ function ExpressionField({
   const common = {
     value,
     placeholder,
+    readOnly,
     spellCheck: false,
     'aria-label': ariaLabel,
     'aria-invalid': invalid ? true : undefined,
@@ -371,6 +401,7 @@ function ExpressionField({
     multiline ? MULTI_BOX : SINGLE_BOX,
     multiline ? MULTI_FIELD : SINGLE_FIELD,
     borderClass(invalid, multiline),
+    readOnly && 'cursor-default focus:ring-0 focus-visible:ring-0',
   );
 
   return (
@@ -389,7 +420,7 @@ function ExpressionField({
         <Mirror
           value={value}
           mode={mode}
-          surface={surface ?? 'condition'}
+          surface={surface}
           multiline={multiline}
           diagnostics={diagnostics}
           mirrorRef={mirrorRef}
@@ -411,6 +442,6 @@ export function ExpressionInput(props: ExpressionFieldProps) {
 }
 
 /** Multi-line highlighted expression input; grows with its content from `minRows` (default 3). */
-export function ExpressionTextarea({ minRows, ...props }: ExpressionFieldProps & { minRows?: number }) {
-  return <ExpressionField props={props} multiline minRows={minRows} />;
+export function ExpressionTextarea(props: ExpressionFieldProps & { minRows?: number }) {
+  return <ExpressionField props={props} multiline minRows={props.minRows} />;
 }

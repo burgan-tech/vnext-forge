@@ -4,6 +4,7 @@
  * suggestion rows, the key handling and the scroll sync the components use.
  */
 import { createElement, type ReactElement } from 'react';
+import { FormReadOnlyProvider } from './FormReadOnlyContext.js';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import {
@@ -12,6 +13,7 @@ import {
   SuggestionList,
   expressionSuggest,
   keyAction,
+  opensAt,
   rowsOf,
   syncScroll,
   type ExpressionFieldProps,
@@ -20,11 +22,18 @@ import {
 const noop = () => undefined;
 const schema = { type: 'object', properties: { amount: { type: 'number' } } };
 
-const base: ExpressionFieldProps = { value: '', onChange: noop, mode: 'expression', ariaLabel: 'e' };
+type Over = Omit<Partial<ExpressionFieldProps>, 'mode' | 'suggest'>;
+const base = { value: '', onChange: noop, mode: 'expression' as const, ariaLabel: 'e' };
 const html = (el: ReactElement) => renderToStaticMarkup(el);
-const input = (over: Partial<ExpressionFieldProps>) => html(createElement(ExpressionInput, { ...base, ...over }));
-const textarea = (over: Partial<ExpressionFieldProps> & { minRows?: number }) =>
-  html(createElement(ExpressionTextarea, { ...base, ...over }));
+const input = (over: Over) => html(createElement(ExpressionInput, { ...base, ...over }));
+const pathInput = (over: Over) =>
+  html(createElement(ExpressionInput, { ...base, ...over, mode: 'path', suggest: () => null }));
+const textarea = (over: Over & { minRows?: number }) => html(createElement(ExpressionTextarea, { ...base, ...over }));
+
+// Type-level: path mode needs its own suggest (tsc fails if the union loses the requirement).
+// @ts-expect-error suggest is required in path mode
+const pathWithoutSuggest: ExpressionFieldProps = { value: '', onChange: noop, mode: 'path', ariaLabel: 'p' };
+void pathWithoutSuggest;
 
 const decode = (s: string) =>
   s.replace(/&quot;/g, '"').replace(/&#x27;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
@@ -149,12 +158,54 @@ describe('ExpressionInput', () => {
   });
 
   it('path mode highlights a path', () => {
-    const markup = input({ mode: 'path', value: '$.customer.name', suggest: () => null });
+    const markup = pathInput({ value: '$.customer.name' });
     expect(mirrorKinds(markup)).toEqual(['root', 'punctuation', 'segment', 'punctuation', 'segment']);
     expect(markup).not.toContain('expression-diagnostic');
   });
 
   it('marks the field invalid only through the invalid prop', () => {
     expect(input({ surface: 'condition', value: 'x', invalid: true })).toContain('aria-invalid="true"');
+  });
+
+  it('textarea: the list stays closed on an empty token, so Enter is a newline', () => {
+    for (const text of ['a &&\n', '', 'a > 1 && ', 'a &&']) {
+      expect(opensAt(text, text.length, true)).toBe(false);
+      expect(keyAction('Enter', opensAt(text, text.length, true), true)).toBeNull();
+    }
+    expect(opensAt('a &&\nda', 8, true)).toBe(true);
+    expect(opensAt('data.', 5, true)).toBe(true);
+    expect(opensAt('"open ', 6, true)).toBe(false);
+  });
+
+  it('single line keeps opening on an empty token, as SuggestInput does', () => {
+    expect(opensAt('', 0, false)).toBe(true);
+    expect(opensAt('a && ', 5, false)).toBe(true);
+  });
+
+  it('honours readOnly and FormReadOnlyContext', () => {
+    expect(input({ surface: 'condition', value: 'data', readOnly: true })).toMatch(/<input[^>]*readOnly=""/);
+    const underContext = (el: ReactElement) => html(createElement(FormReadOnlyProvider, null, el));
+    expect(underContext(createElement(ExpressionTextarea, { ...base, surface: 'condition' }))).toMatch(
+      /<textarea[^>]*readOnly=""/,
+    );
+    expect(underContext(createElement(ExpressionInput, { ...base, surface: 'condition' }))).toMatch(
+      /<input[^>]*readOnly=""/,
+    );
+    expect(input({ surface: 'condition', value: 'data' })).not.toMatch(/readOnly/i);
+  });
+
+  it('does not flag unknown roots without a surface', () => {
+    const markup = input({ value: 'foo.bar > 1' });
+    expect(mirrorKinds(markup)).not.toContain('unknownRoot');
+    expect(mirrorKinds(markup)[0]).toBe('variable');
+    expect(markup).not.toContain('data-diagnostic');
+    expect(markup).not.toContain('expression-diagnostic');
+    expect(textarea({ value: 'foo' })).not.toContain('unknownRoot');
+  });
+
+  it('colours every token kind with a class that has a dark-theme value', () => {
+    const markup = input({ surface: 'condition', value: 'x == 1 && "s" != null' });
+    expect(markup).toMatch(/data-token="number" class="text-trigger-auto"/);
+    expect(markup).not.toContain('filetype-');
   });
 });
