@@ -1,3 +1,5 @@
+import { functionsOf } from '../../expressions/expressionCatalog';
+
 /**
  * Inline Dynamic Expresso expressions in script slots: `{ location: "dynamicExpresso", encoding: "NAT", code }`.
  *
@@ -23,6 +25,9 @@ export type ExpressionKind = 'condition' | 'value' | 'timer' | 'string' | 'decis
 const VALUE_VARIABLES =
   'data, input, instance (camelCase: currentState, key, id, ...), now, user (available, roles, hasRole("x")), ' +
   'headers (request headers: headers["x-channel"], headers.has("x-channel")), context (legacy PascalCase)';
+const VALUE_FUNCTIONS = functionsOf('value')
+  .map((f) => f.signature)
+  .join(', ');
 const JSON_CONVERSION = 'JSON values need AsDouble() / AsInt32() / AsBoolean() to compare.';
 
 const HELP: Record<ExpressionKind, { placeholder: string; hint: string }> = {
@@ -32,7 +37,7 @@ const HELP: Record<ExpressionKind, { placeholder: string; hint: string }> = {
   },
   value: {
     placeholder: '"seat:" + data.concertId + ":" + input.seat',
-    hint: `String result. Variables: ${VALUE_VARIABLES}.`,
+    hint: `String result. Variables: ${VALUE_VARIABLES}. Functions: ${VALUE_FUNCTIONS}.`,
   },
   timer: {
     placeholder: 'data.priority.AsInt32() > 1 ? TimeSpan.FromMinutes(15.0) : TimeSpan.FromHours(2.0)',
