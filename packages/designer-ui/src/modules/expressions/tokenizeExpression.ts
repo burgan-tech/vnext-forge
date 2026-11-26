@@ -2,7 +2,7 @@
  * Single-pass scanner for Dynamic Expresso expressions: feeds syntax highlighting and advisory
  * diagnostics. It never throws and its tokens always cover the whole text.
  */
-import { functionsOf, variablesOf, type ExpressionSurface } from './expressionCatalog';
+import { ALL_SURFACES, functionsOf, variablesOf, type ExpressionSurface } from './expressionCatalog';
 
 export type TokenKind =
   | 'variable'
@@ -76,12 +76,12 @@ function scan(text: string, surface: ExpressionSurface): ScanToken[] {
       let j = i + 1;
       while (j < n && isSpace(text[j])) j++;
       push(i, j, 'whitespace');
-    } else if (c === '"') {
+    } else if (c === '"' || c === "'") {
       let j = i + 1;
       let closed = false;
       while (j < n) {
         if (text[j] === '\\') j += 2;
-        else if (text[j] === '"') {
+        else if (text[j] === c) {
           j++;
           closed = true;
           break;
@@ -141,12 +141,16 @@ export function tokenizeExpression(text: string, surface: ExpressionSurface): To
 export function diagnoseExpression(text: string, surface: ExpressionSurface): ExpressionDiagnostic[] {
   const diagnostics: ExpressionDiagnostic[] = [];
   const names = variablesOf(surface).map((e) => e.name);
+  const elsewhere = new Set(ALL_SURFACES.flatMap((s) => variablesOf(s).map((e) => e.name)));
   for (const t of scan(text, surface)) {
     if (t.kind === 'unknownRoot') {
+      const root = text.slice(t.start, t.end);
       diagnostics.push({
         start: t.start,
         end: t.end,
-        message: `\`${text.slice(t.start, t.end)}\` is not available here. Variables: ${names.join(', ')}.`,
+        message: elsewhere.has(root)
+          ? `\`${root}\` is not available in this expression; it exists in other expressions (e.g. task or transition mappings). Variables here: ${names.join(', ')}.`
+          : `\`${root}\` is not available here. Variables: ${names.join(', ')}.`,
       });
     } else if (t.kind === 'string' && t.closed === false) {
       diagnostics.push({ start: t.start, end: t.end, message: 'The string is not closed.' });

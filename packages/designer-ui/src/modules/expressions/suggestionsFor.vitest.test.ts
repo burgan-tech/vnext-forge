@@ -59,6 +59,23 @@ describe('suggestionsFor', () => {
   });
 });
 
+describe('suggestionsFor extras', () => {
+  it('offers JSON conversions after outcome.output', () => {
+    expect(suggestionsFor('decision', at('outcome.output.'), schema)).toEqual([
+      'AsDouble()', 'AsInt32()', 'AsBoolean()', 'AsArrayLength()',
+    ]);
+    expect(suggestionsFor('decision', at('outcome.output.x.'), schema)).toEqual([]);
+  });
+
+  it('offers TimeSpan and DateTime members on the timer surface only', () => {
+    expect(suggestionsFor('timer', at('TimeSpan.'), schema)).toEqual([
+      'FromSeconds()', 'FromMinutes()', 'FromHours()', 'FromDays()',
+    ]);
+    expect(suggestionsFor('timer', at('DateTime.'), schema)).toEqual(['UtcNow', 'Now']);
+    expect(suggestionsFor('condition', at('TimeSpan.'), schema)).toEqual([]);
+  });
+});
+
 describe('insertExpressionItem with slot functions', () => {
   it('lands the caret inside the parentheses of sha256() and varyKey()', () => {
     expect(insertExpressionItem('sh', at('sh'), 2, 'sha256()')).toEqual({ text: 'sha256()', caret: 7 });

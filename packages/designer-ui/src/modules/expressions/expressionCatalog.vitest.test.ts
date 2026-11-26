@@ -100,6 +100,7 @@ describe('expression catalog', () => {
 
   it('result members follow the block site', () => {
     expect(names(membersOf('result', 'taskOutput'))).toEqual(['body', 'headers', 'statusCode']);
+    expect(membersOf('result', 'functionOutput')).toEqual([]);
     expect(names(membersOf('result', 'subFlowOutput'))).toEqual(['data', 'status']);
   });
 

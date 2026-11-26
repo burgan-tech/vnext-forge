@@ -89,7 +89,10 @@ export function rowsOf(
   mode: ExpressionFieldProps['mode'],
 ): SuggestionRow[] {
   const token = mode === 'expression' && surface ? expressionTokenAt(text, caret) : null;
-  const root = token && token.chain.length > 0 ? token.chain[token.chain.length - 1] : null;
+  const chain = token ? token.chain : [];
+  // Members are described only directly after a root (`user.`); deeper chains (`data.user.`) are data paths,
+  // so '' (never a variable) leaves just conversions, functions and statics.
+  const root = chain.length === 0 ? null : chain.length === 1 ? chain[0] : '';
   return items.map((item) => {
     const entry = token && surface ? lookup(root, item, surface) : undefined;
     return entry ? { item, kind: entry.kind, description: entry.description } : { item, kind: 'field' };

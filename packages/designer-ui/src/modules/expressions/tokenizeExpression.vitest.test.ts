@@ -78,7 +78,7 @@ describe('diagnoseExpression', () => {
   it('flags data in an event input mapping', () => {
     const d = diagnoseExpression('data.x', 'eventInput');
     expect(d[0]).toMatchObject({ start: 0, end: 4 });
-    expect(d[0].message).toContain('Variables: input, now, context, headers');
+    expect(d[0].message).toContain('Variables here: input, now, context, headers');
   });
 
   it('accepts data in an agent tool binding', () => {
@@ -100,6 +100,30 @@ describe('diagnoseExpression', () => {
   it('does not flag parenthesised lambda parameters', () => {
     expect(diagnoseExpression('candidates.keys.Select((k, i) => k + i)', 'decision')).toEqual([]);
     expect(diagnoseExpression('data.xs.Any((a) => a == 1)', 'condition')).toEqual([]);
+  });
+
+  it('says so when an unknown root is a variable of another surface', () => {
+    const [d] = diagnoseExpression('data.x', 'eventInput');
+    expect(d.message).toBe(
+      '`data` is not available in this expression; it exists in other expressions (e.g. task or transition mappings). Variables here: input, now, context, headers.',
+    );
+    const [e] = diagnoseExpression('task.url', 'agentTool');
+    expect(e.message).toContain('exists in other expressions');
+    expect(e.message).toContain('Variables here: args, data, now.');
+  });
+
+  it('keeps the plain message for names unknown everywhere', () => {
+    const [d] = diagnoseExpression('zzz', 'agentTool');
+    expect(d.message).toBe('`zzz` is not available here. Variables: args, data, now.');
+  });
+
+  it('reads a single-quoted char literal as one string token', () => {
+    expect(slice("data.a == 'a'", 'condition', 'string')).toEqual(["'a'"]);
+    expect(slice("x == '\\''", 'condition', 'string')).toEqual(["'\\''"]);
+    expect(diagnoseExpression("data.a == 'a'", 'condition')).toEqual([]);
+    expect(diagnoseExpression("data.a == 'a", 'condition').map((d) => d.message)).toEqual([
+      'The string is not closed.',
+    ]);
   });
 
   it('does not flag a surface function', () => {

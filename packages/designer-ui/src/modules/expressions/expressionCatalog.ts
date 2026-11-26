@@ -56,6 +56,12 @@ const VARIABLES: Record<string, CatalogEntry> = {
 const pick = (...keys: string[]) => keys.map((k) => VARIABLES[k]);
 const SLOT_BASE = ['data', 'input', 'instance', 'now', 'user', 'context', 'headers'];
 
+export const ALL_SURFACES: readonly ExpressionSurface[] = [
+  'taskInput', 'taskOutput', 'transitionOutput', 'subFlowInput', 'subFlowOutput', 'eventInput',
+  'workflowOutput', 'functionOutput',
+  'condition', 'value', 'key', 'timer', 'string', 'decision', 'agentTool',
+];
+
 export function variablesOf(surface: ExpressionSurface): CatalogEntry[] {
   switch (surface) {
     case 'condition':
@@ -187,8 +193,22 @@ const CONTEXT: CatalogEntry[] = [
   member('Runtime', 'Runtime information.', 'field'),
 ];
 
+const STATIC_MEMBERS: Record<string, CatalogEntry[]> = {
+  TimeSpan: [
+    member('FromSeconds()', 'Duration of the given seconds.', 'static'),
+    member('FromMinutes()', 'Duration of the given minutes.', 'static'),
+    member('FromHours()', 'Duration of the given hours.', 'static'),
+    member('FromDays()', 'Duration of the given days.', 'static'),
+  ],
+  DateTime: [
+    member('UtcNow', 'The current UTC time.', 'static'),
+    member('Now', 'The current local time.', 'static'),
+  ],
+};
+
 /** Members offered after `root.` on the surface; empty when the surface lacks the variable. */
 export function membersOf(root: string, surface: ExpressionSurface): CatalogEntry[] {
+  if (staticsOf(surface).some((s) => s.name === root)) return STATIC_MEMBERS[root] ?? [];
   if (!variablesOf(surface).some((v) => v.name === root)) return [];
   switch (root) {
     case 'instance':
@@ -202,6 +222,7 @@ export function membersOf(root: string, surface: ExpressionSurface): CatalogEntr
     case 'task':
       return isTaskSurface(surface) ? TASK : [];
     case 'result':
+      if (surface === 'functionOutput') return [];
       return surface === 'subFlowOutput' ? SUBFLOW_RESULT : TASK_RESULT;
     case 'outcome':
       return OUTCOME;

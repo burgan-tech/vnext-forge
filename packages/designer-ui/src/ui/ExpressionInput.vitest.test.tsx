@@ -115,6 +115,12 @@ describe('ExpressionInput', () => {
     expect(rowsOf(['$.url'], '$.u', 3, 'taskInput', 'path')).toEqual([{ item: '$.url', kind: 'field' }]);
   });
 
+  it('describes members only directly after a root', () => {
+    expect(rowsOf(['id'], 'instance.', 9, 'condition', 'expression')[0]).toMatchObject({ kind: 'member' });
+    expect(rowsOf(['id'], 'data.instance.', 14, 'condition', 'expression')[0]).toEqual({ item: 'id', kind: 'field' });
+    expect(rowsOf(['AsDouble()'], 'data.user.', 10, 'condition', 'expression')[0].kind).toBe('conversion');
+  });
+
   it('inserts a slot function with the caret inside the parentheses', () => {
     const state = expressionSuggest('value', schema)('sh', 2);
     expect(state?.apply('sha256()')).toEqual({ text: 'sha256()', caret: 7 });
@@ -128,7 +134,7 @@ describe('ExpressionInput', () => {
   it('shows the diagnostic line', () => {
     const markup = input({ surface: 'eventInput', value: 'data.x' });
     const line = /<p[^>]*data-testid="expression-diagnostic"[^>]*>([^<]*)<\/p>/.exec(markup);
-    expect(decode(line?.[1] ?? '')).toContain('`data` is not available here');
+    expect(decode(line?.[1] ?? '')).toContain('`data` is not available in this expression');
     expect(markup).toMatch(/<span data-diagnostic=""[^>]*><span data-token="unknownRoot"/);
     expect(markup).not.toContain('aria-invalid');
     expect(input({ surface: 'condition', value: 'data.x' })).not.toContain('expression-diagnostic');

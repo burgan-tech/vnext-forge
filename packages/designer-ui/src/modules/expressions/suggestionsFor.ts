@@ -58,12 +58,19 @@ function slotSuggestions(surface: ExpressionSurface, token: ExpressionToken, sch
     );
   }
   const [root, ...rest] = chain;
+  if (staticsOf(surface).some((e) => e.name === root)) {
+    return rest.length === 0 ? filterPaths(membersOf(root, surface).map((e) => e.name), query) : [];
+  }
   if (!variablesOf(surface).some((v) => v.name === root)) return [];
   switch (root) {
     case 'data':
       return filterPaths(dataChildren(schemaRoot, rest, surface), query);
     case 'input':
       return filterPaths(jsonConversions(surface), query);
+    case 'outcome':
+      if (rest.length === 1 && rest[0] === 'output') return filterPaths(jsonConversions(surface), query);
+      if (rest.length > 0) return [];
+      break;
     case 'instance':
       if (rest.length === 0) break;
       return rest[0] === 'data' ? filterPaths(dataChildren(schemaRoot, rest.slice(1), surface), query) : [];

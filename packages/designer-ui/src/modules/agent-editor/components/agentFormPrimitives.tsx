@@ -120,7 +120,7 @@ export function TextAreaField({
           placeholder={placeholder}
           ariaLabel={ariaLabel ?? (typeof label === 'string' ? label : 'Expression')}
           minRows={rows}
-          className={mono ? 'font-mono' : undefined}
+          className={`[&_textarea]:resize-y [&_textarea]:overflow-auto [&_textarea]:bg-muted-surface [&_textarea]:hover:bg-muted-surface [&_textarea]:focus:bg-surface ${mono ? 'font-mono' : ''}`}
         />
       ) : (
       <textarea
