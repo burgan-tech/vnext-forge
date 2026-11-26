@@ -15,7 +15,8 @@ import type { CsxTaskType } from '../../../modules/code-editor/editor/CsxContext
 import type { ScriptCode } from '../../../modules/code-editor/CodeEditorTypes';
 import { ChooseExistingVnextComponentDialog } from '../../canvas-interaction/components/panels/tabs/ChooseExistingTaskDialog';
 import { Code2, Link as LinkIcon, Plus, Trash2, ExternalLink, Sigma } from 'lucide-react';
-import { Textarea } from '../../../ui/Textarea';
+import { ExpressionTextarea } from '../../../ui/ExpressionInput';
+import { slotSurfaceOf } from '../../expressions/expressionCatalog';
 import { DYNAMIC_EXPRESSO_LOCATION, expressionHelp, type ExpressionKind } from './dynamicExpression';
 
 /* ────────────── Types ────────────── */
@@ -51,6 +52,8 @@ interface CsxEditorFieldProps {
    * its condition router); a value slot opts in only where the runtime evaluates the expression.
    */
   expressionKind?: ExpressionKind;
+  /** Workflow master schema, when the caller already holds it, for `data.` member suggestions. */
+  schemaRoot?: unknown;
 }
 
 /* ────────────── Component ────────────── */
@@ -69,6 +72,7 @@ export function CsxEditorField({
   scriptField,
   allowRefEncoding = true,
   expressionKind,
+  schemaRoot,
 }: CsxEditorFieldProps) {
   const exprKind: ExpressionKind | undefined =
     expressionKind ?? (templateType === 'condition' ? 'condition' : undefined);
@@ -278,13 +282,15 @@ export function CsxEditorField({
           )}
         </div>
         <div className="px-3 pb-2 pt-1.5">
-          <Textarea
+          <ExpressionTextarea
+            mode="expression"
+            surface={slotSurfaceOf(exprKind)}
+            schemaRoot={schemaRoot}
             value={code}
-            onChange={(e) =>
-              onChange({ location: DYNAMIC_EXPRESSO_LOCATION, code: e.target.value, encoding: 'NAT' })
-            }
+            onChange={(next) => onChange({ location: DYNAMIC_EXPRESSO_LOCATION, code: next, encoding: 'NAT' })}
             placeholder={help.placeholder}
-            aria-label={label ? `${label} expression` : 'Dynamic Expresso expression'}
+            ariaLabel={label ? `${label} expression` : 'Dynamic Expresso expression'}
+            minRows={3}
             className="min-h-16 font-mono text-xs"
           />
           <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">{help.hint}</p>

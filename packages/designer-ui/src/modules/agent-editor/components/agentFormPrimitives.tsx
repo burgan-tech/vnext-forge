@@ -1,5 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Plus, Trash2, X } from 'lucide-react';
+import { ExpressionTextarea } from '../../../ui/ExpressionInput';
+import type { ExpressionSurface } from '../../expressions/expressionCatalog';
 
 /**
  * Small controlled inputs shared by the AI Agent state tab and the
@@ -91,6 +93,7 @@ export function TextAreaField({
   placeholder,
   rows = 3,
   mono = false,
+  expressionSurface,
 }: {
   label: ReactNode;
   hint?: ReactNode;
@@ -99,10 +102,24 @@ export function TextAreaField({
   placeholder?: string;
   rows?: number;
   mono?: boolean;
+  /** Set when the text is a Dynamic Expresso expression: highlights it and offers that surface's suggestions. */
+  expressionSurface?: ExpressionSurface;
 }) {
   return (
     <div>
       <FieldLabel>{label}</FieldLabel>
+      {expressionSurface ? (
+        <ExpressionTextarea
+          mode="expression"
+          surface={expressionSurface}
+          value={value ?? ''}
+          onChange={(next) => onChange(next === '' ? undefined : next)}
+          placeholder={placeholder}
+          ariaLabel={typeof label === 'string' ? label : 'Expression'}
+          minRows={rows}
+          className={mono ? 'font-mono' : undefined}
+        />
+      ) : (
       <textarea
         value={value ?? ''}
         rows={rows}
@@ -111,6 +128,7 @@ export function TextAreaField({
         onChange={(e) => onChange(e.target.value === '' ? undefined : e.target.value)}
         className={`${INPUT} resize-y ${mono ? 'font-mono' : ''}`}
       />
+      )}
       <FieldFoot hint={hint} />
     </div>
   );

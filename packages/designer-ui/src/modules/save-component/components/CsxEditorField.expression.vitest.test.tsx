@@ -9,6 +9,9 @@ import { describe, expect, it } from 'vitest';
 
 import { CsxEditorField } from './CsxEditorField';
 import { expressionHelp } from './dynamicExpression';
+import { slotSurfaceOf } from '../../expressions/expressionCatalog';
+import { suggestionsFor } from '../../expressions/suggestionsFor';
+import { expressionTokenAt } from '../declarative-mapping/declarativeMappingCompletions';
 
 const base = { stateKey: 's', listField: 'transitions', index: 0, scriptField: 'rule', onChange: () => {} };
 
@@ -92,5 +95,29 @@ describe('CsxEditorField — value expression kinds (timer, string, decision)', 
       for (const variable of ['data', 'input', 'instance', 'now', 'user', 'context']) expect(hint).toContain(variable);
     }
     expect(expressionHelp('condition').hint).toContain('Boolean result');
+  });
+});
+
+describe('CsxEditorField — expression suggestions per slot', () => {
+  const suggest = (kind: 'value' | 'decision', text: string) => {
+    const token = expressionTokenAt(text, text.length);
+    return token ? suggestionsFor(slotSurfaceOf(kind), token, undefined) : [];
+  };
+
+  it('typing sh in a value slot suggests sha256', () => {
+    expect(suggest('value', 'sh')).toContain('sha256()');
+  });
+
+  it('outcome. in a decision slot suggests decision', () => {
+    expect(suggest('decision', 'outcome.')).toContain('decision');
+  });
+
+  it('renders the highlighted textarea on the slot surface', () => {
+    const value = { location: 'dynamicExpresso', encoding: 'NAT' as const, code: 'sha256("a")' };
+    const html = renderToStaticMarkup(
+      createElement(CsxEditorField, { ...base, value, templateType: 'mapping', expressionKind: 'value' }),
+    );
+    expect(html).toContain('data-testid="expression-mirror"');
+    expect(html).toContain('sha256');
   });
 });
