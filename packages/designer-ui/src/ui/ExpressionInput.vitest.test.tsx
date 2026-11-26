@@ -15,6 +15,7 @@ import {
   keyAction,
   opensAt,
   rowsOf,
+  syncAfter,
   syncScroll,
   type ExpressionFieldProps,
 } from './ExpressionInput.js';
@@ -213,5 +214,25 @@ describe('ExpressionInput', () => {
     const markup = input({ surface: 'condition', value: 'x == 1 && "s" != null' });
     expect(markup).toMatch(/data-token="number" class="text-trigger-auto"/);
     expect(markup).not.toContain('filetype-');
+  });
+
+  it('copies the field scroll to the mirror after a caret-driven change, not only on scroll', () => {
+    // Chrome scrolls an <input> to the caret without a scroll event; handlers sync after running.
+    const field = { scrollLeft: 0, scrollTop: 0 };
+    const mirror = { scrollLeft: 0, scrollTop: 0 };
+    const seen: string[] = [];
+    const onChange = syncAfter(
+      (value: string) => {
+        seen.push(value);
+        field.scrollLeft = 512.5; // the browser scrolled to the caret while handling the change
+        field.scrollTop = 40;
+      },
+      () => syncScroll(field, mirror),
+    );
+    onChange('a long expression');
+    expect(seen).toEqual(['a long expression']);
+    expect(mirror).toEqual({ scrollLeft: 512.5, scrollTop: 40 });
+    syncAfter(undefined, () => syncScroll({ scrollLeft: 7, scrollTop: 0 }, mirror))('select');
+    expect(mirror.scrollLeft).toBe(7);
   });
 });

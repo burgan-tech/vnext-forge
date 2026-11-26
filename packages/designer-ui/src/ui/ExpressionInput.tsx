@@ -5,7 +5,7 @@
  * line-height and wrapping so they stay aligned, and the mirror follows the field's scroll. Diagnostics are
  * advisory: a wavy underline and one line below the field, never `aria-invalid`.
  */
-import { useId, useMemo, useRef, useState, type KeyboardEvent, type RefObject } from 'react';
+import { useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type RefObject } from 'react';
 
 import { cn } from '../lib/utils/cn.js';
 import { useFormReadOnly } from './FormReadOnlyContext.js';
@@ -134,6 +134,17 @@ export function syncScroll(field: Scrollable, mirror: Scrollable | null): void {
   mirror.scrollTop = field.scrollTop;
 }
 
+/**
+ * Runs `handler`, then `sync`. Chrome scrolls an `<input>` to the caret without firing `scroll`, so every
+ * value / caret change copies the field's scroll to the mirror, not only `onScroll`.
+ */
+export function syncAfter<E>(handler: ((e: E) => void) | undefined, sync: () => void): (e: E) => void {
+  return (e) => {
+    handler?.(e);
+    sync();
+  };
+}
+
 /* ────────────── Suggestions hook ────────────── */
 
 type FieldElement = HTMLInputElement | HTMLTextAreaElement;
@@ -189,19 +200,29 @@ function useSuggestions(
 
   const caretOf = (el: FieldElement) => el.selectionStart ?? el.value.length;
 
+  // After React commits a new value the field may have scrolled to the caret.
+  useLayoutEffect(sync, [props.value]);
+
   const handlers = {
-    onChange: (e: { target: FieldElement }) => {
+    onChange: syncAfter((e: { target: FieldElement }) => {
       onChange(e.target.value);
       refresh(e.target.value, caretOf(e.target));
-    },
-    onFocus: (e: { currentTarget: FieldElement }) => refresh(e.currentTarget.value, e.currentTarget.selectionStart ?? 0),
-    onClick: (e: { currentTarget: FieldElement }) => refresh(e.currentTarget.value, e.currentTarget.selectionStart ?? 0),
+    }, sync),
+    onFocus: syncAfter(
+      (e: { currentTarget: FieldElement }) => refresh(e.currentTarget.value, e.currentTarget.selectionStart ?? 0),
+      sync,
+    ),
+    onClick: syncAfter(
+      (e: { currentTarget: FieldElement }) => refresh(e.currentTarget.value, e.currentTarget.selectionStart ?? 0),
+      sync,
+    ),
+    onSelect: sync,
     onScroll: sync,
-    onKeyUp: (e: KeyboardEvent<FieldElement>) => {
+    onKeyUp: syncAfter((e: KeyboardEvent<FieldElement>) => {
       if (['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) {
         refresh(e.currentTarget.value, e.currentTarget.selectionStart ?? 0);
       }
-    },
+    }, sync),
     onBlur: () => {
       setTimeout(() => setState(null), 120);
       onCommit?.();
