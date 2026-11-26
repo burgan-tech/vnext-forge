@@ -181,6 +181,19 @@ export function StartNodePanel({ startTransition }: { startTransition: any }) {
     [updateWorkflow],
   );
 
+  const updateStartBinding = useCallback(
+    (updater: (transition: MappingBindingLike) => void) => {
+      updateWorkflow((draft) => {
+        const attributes = draft.attributes as
+          | { startTransition?: MappingBindingLike; start?: MappingBindingLike }
+          | undefined;
+        const st = attributes?.startTransition ?? attributes?.start;
+        if (st) updater(st);
+      });
+    },
+    [updateWorkflow],
+  );
+
   const updateTaskBinding = useCallback(
     (taskIndex: number, updater: (binding: MappingBindingLike) => void) => {
       updateWorkflow((draft: any) => {
@@ -353,6 +366,8 @@ export function StartNodePanel({ startTransition }: { startTransition: any }) {
             (startTransition.mapping as { scripts?: ScriptsConfig } | undefined)?.scripts
           }
           onScriptsChange={updateMappingScripts}
+          transition={startTransition as unknown as MappingBindingLike}
+          onUpdateTransition={updateStartBinding}
         />
 
         {/* On execution tasks */}

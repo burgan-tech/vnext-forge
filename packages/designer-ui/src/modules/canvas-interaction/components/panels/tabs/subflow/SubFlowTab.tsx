@@ -4,6 +4,7 @@ import type { ScriptsConfig, SubFlowConfig } from '@vnext-forge-studio/vnext-typ
 import { useWorkflowStore } from '../../../../../../store/useWorkflowStore';
 import { useProjectStore } from '../../../../../../store/useProjectStore';
 import type { ScriptCode } from '../../../../../../modules/save-component/components/CsxEditorField';
+import type { MappingBindingLike } from '../../../../../../modules/save-component/declarative-mapping/declarativeMapping';
 import { SubFlowProcessRefSection } from './SubFlowProcessRefSection';
 import { SubFlowMappingSection } from './SubFlowMappingSection';
 import { SubFlowOverridesSection } from './SubFlowOverridesSection';
@@ -134,6 +135,18 @@ export function SubFlowTab({ state }: SubFlowTabProps) {
     [updateWorkflow, findState],
   );
 
+  const updateSubFlowBlocks = useCallback(
+    (updater: (subFlow: MappingBindingLike) => void) => {
+      updateWorkflow((draft) => {
+        const states = (draft.attributes as { states?: { key?: string; subFlow?: MappingBindingLike }[] } | undefined)
+          ?.states;
+        const subFlow = states?.find((s) => s.key === stateKey)?.subFlow;
+        if (subFlow) updater(subFlow);
+      });
+    },
+    [updateWorkflow, stateKey],
+  );
+
   if (!sf) {
     return (
       <div className="flex flex-col items-center justify-center py-8 px-3">
@@ -174,6 +187,8 @@ export function SubFlowTab({ state }: SubFlowTabProps) {
         onRemove={removeMapping}
         scripts={(sf.mapping as { scripts?: ScriptsConfig } | undefined)?.scripts}
         onScriptsChange={updateMappingScripts}
+        subFlow={sf as MappingBindingLike & { type?: unknown }}
+        onUpdateSubFlow={updateSubFlowBlocks}
       />
 
       <SubFlowOverridesSection

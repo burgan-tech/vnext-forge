@@ -21,6 +21,8 @@ export interface TransitionMutations {
   updateTransitionMapping: (index: number, mapping: ScriptCode) => void;
   removeTransitionMapping: (index: number) => void;
   updateTransitionMappingScripts: (index: number, scripts: ScriptsConfig | undefined) => void;
+  /** Applies `updater` to one transition (its declarative `output` block). */
+  updateTransitionBinding: (index: number, updater: (transition: MappingBindingLike) => void) => void;
   updateTransitionEvent: (index: number, mapping: ScriptCode) => void;
   removeTransitionEvent: (index: number) => void;
   updateTransitionEventScripts: (index: number, scripts: ScriptsConfig | undefined) => void;
@@ -73,6 +75,10 @@ export interface TransitionMutations {
  * - For the state panel: returns `{ container: stateObj, transitions: stateObj.transitions }`
  * - For the edge panel: same logic but resolved via `parseEdgeId`
  */
+function isBindingLike(value: unknown): value is MappingBindingLike {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
 export function useTransitionMutations(findTransition: FindTransition): TransitionMutations {
   const { workflowJson, updateWorkflow } = useWorkflowStore();
   const vnextConfig = useProjectStore((s) => s.vnextConfig);
@@ -174,6 +180,18 @@ export function useTransitionMutations(findTransition: FindTransition): Transiti
       } else {
         m.scripts = scripts;
       }
+    });
+  }, [updateWorkflow, findTransition]);
+
+  const updateTransitionBinding = useCallback((
+    index: number,
+    updater: (transition: MappingBindingLike) => void,
+  ) => {
+    updateWorkflow((draft) => {
+      const transitions: unknown[] | undefined = findTransition(draft)?.transitions;
+      const transition = transitions?.[index];
+      if (!isBindingLike(transition)) return;
+      updater(transition);
     });
   }, [updateWorkflow, findTransition]);
 
@@ -493,6 +511,7 @@ export function useTransitionMutations(findTransition: FindTransition): Transiti
     updateTransitionMapping,
     removeTransitionMapping,
     updateTransitionMappingScripts,
+    updateTransitionBinding,
     updateTransitionEvent,
     removeTransitionEvent,
     updateTransitionEventScripts,

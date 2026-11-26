@@ -31,6 +31,13 @@ export interface TaskMappingBlock {
   set?: Record<string, string>;
 }
 
+/**
+ * A declarative block outside a task binding (runtime vnext#1227): a
+ * transition's `output`, a SubFlow state's `input` / `output`. Same grammar as
+ * {@link TaskMappingBlock}; the site decides the variables and targets.
+ */
+export type MappingBlock = TaskMappingBlock;
+
 export interface TaskExecution {
   order: number;
   task: ResourceReference;
@@ -87,7 +94,15 @@ export interface Transition {
    * no matching entry rejects the transition (400 `Transition:100025`).
    */
   schemas?: TransitionSchemasSlot | null;
+  /** C# mapping script. Mutually exclusive with `output`. */
   mapping?: MappingCode;
+  /**
+   * Declarative write of the transition's result into instance data
+   * (variables `data`, `input`, `instance`, `now`, `user`, `context`,
+   * `headers`). Mutually exclusive with `mapping`; rejected on automatic and
+   * scheduled transitions. A transition takes no `input` block.
+   */
+  output?: MappingBlock;
   onExecutionTasks?: TaskExecution[];
   roles?: RoleGrant[];
   view?: ViewBinding;
@@ -170,7 +185,18 @@ export type SubFlowType = 'S' | 'P';
 export interface SubFlowConfig {
   type?: SubFlowType;
   process: ResourceReference;
+  /** C# mapping script. Mutually exclusive with `input` / `output`. */
   mapping?: MappingCode;
+  /**
+   * Declarative child start request: targets `$.attributes…`, `$.headers…`,
+   * `$.key`, `$.tags`. `type: S` only.
+   */
+  input?: MappingBlock;
+  /**
+   * Declarative write of the child's result (`result = { data, status }`,
+   * `select` default `$.data`) into the parent's data. `type: S` only.
+   */
+  output?: MappingBlock;
   overrides?: SubFlowOverrides;
   /** @deprecated Use `overrides.states.<s>.views` / `overrides.transitions.<t>.views`. */
   viewOverrides?: Record<string, ResourceReference>;

@@ -10,6 +10,8 @@ import {
   switchToScript,
   type BindingMappingMode,
   type MappingBindingLike,
+  type MappingIssue,
+  type MappingOwnerKind,
   type MappingPhase,
 } from './declarativeMapping';
 import { DeclarativeMappingEditor } from './DeclarativeMappingEditor';
@@ -41,11 +43,20 @@ const MODE_LABEL: Record<BindingMappingMode, string> = {
   script: 'C# script',
 };
 
+const OWNER_COPY: Record<MappingOwnerKind, { noun: string; blocks: string }> = {
+  task: { noun: 'binding', blocks: 'the input and output blocks' },
+  transition: { noun: 'transition', blocks: 'the output block' },
+  subFlow: { noun: 'SubFlow', blocks: 'the input and output blocks' },
+};
+
 /**
- * A task binding's mapping: declarative `input` / `output` blocks or a C#
- * `mapping` script — one or the other (the runtime rejects both at publish).
- * A new binding starts declarative; the script stays as the escape hatch.
+ * A task binding's, transition's or SubFlow's mapping: declarative blocks or a
+ * C# `mapping` script — one or the other (the runtime rejects both at publish).
+ * A new owner starts declarative; the script stays as the escape hatch.
  * Switching away from content that exists asks first, because it drops it.
+ * `declarativeAllowed: false` (an automatic / scheduled transition, a `P`
+ * SubProcess) offers the script only; blocks already stored still show, so
+ * they can be removed.
  */
 export function TaskBindingMappingField({
   binding,
@@ -54,6 +65,9 @@ export function TaskBindingMappingField({
   schemaRoot,
   className,
   phaseHints,
+  owner = 'task',
+  declarativeAllowed = true,
+  ownerIssues = [],
 }: {
   binding: MappingBindingLike;
   onUpdate: (updater: (binding: MappingBindingLike) => void) => void;
@@ -65,11 +79,24 @@ export function TaskBindingMappingField({
   className?: string;
   /** Phase hints for owners whose blocks are not a workflow task binding (CacheAside source, agent tool). */
   phaseHints?: Partial<Record<MappingPhase, string>>;
+  /** What holds the blocks (default: a task binding). */
+  owner?: MappingOwnerKind;
+  /** False where the runtime rejects the blocks: only the script is offered. */
+  declarativeAllowed?: boolean;
+  /** Owner-level findings (a transition `input`, blocks on a `P`, output on an automatic transition). */
+  ownerIssues?: MappingIssue[];
 }) {
-  const [preferred, setPreferred] = useState<BindingMappingMode>('declarative');
+  const [preferred, setPreferred] = useState<BindingMappingMode>(
+    declarativeAllowed ? 'declarative' : 'script',
+  );
   const [pending, setPending] = useState<BindingMappingMode | null>(null);
   const content = bindingMappingContent(binding);
-  const mode = resolveMappingMode(binding, preferred);
+  const mode = resolveMappingMode(binding, declarativeAllowed ? preferred : 'script');
+  const copy = OWNER_COPY[owner];
+  const modes: BindingMappingMode[] =
+    declarativeAllowed || content === 'declarative' || content === 'both'
+      ? ['declarative', 'script']
+      : ['script'];
 
   const choose = (next: BindingMappingMode) => {
     if (next === mode) {
@@ -96,7 +123,7 @@ export function TaskBindingMappingField({
   };
 
   return (
-    <div data-testid="task-binding-mapping">
+    <div data-testid={owner === 'task' ? 'task-binding-mapping' : `${owner}-mapping`}>
       <div className={className}>
         <div className="flex items-center gap-2 pb-1.5">
           <span className="text-muted-foreground text-[10px] font-semibold">Mapping</span>
@@ -104,7 +131,7 @@ export function TaskBindingMappingField({
             role="radiogroup"
             aria-label="Mapping mode"
             className="border-border inline-flex rounded-md border p-0.5">
-            {(['declarative', 'script'] as const).map((m) => (
+            {modes.map((m) => (
               <button
                 key={m}
                 type="button"
@@ -128,8 +155,8 @@ export function TaskBindingMappingField({
             className="border-warning-border bg-warning-surface mb-1.5 rounded-md border px-2 py-1.5 text-[10px]">
             <div className="text-foreground">
               {pending === 'declarative'
-                ? 'Switching to declarative removes the C# mapping from this binding.'
-                : 'Switching to C# script removes the input and output blocks from this binding.'}
+                ? `Switching to declarative removes the C# mapping from this ${copy.noun}.`
+                : `Switching to C# script removes ${copy.blocks} from this ${copy.noun}.`}
             </div>
             <div className="mt-1 flex gap-2">
               <button
@@ -153,7 +180,7 @@ export function TaskBindingMappingField({
             role="alert"
             className="border-destructive-border bg-destructive-surface mb-1.5 rounded-md border px-2 py-1.5 text-[10px]">
             <div className="text-destructive-text">
-              This binding has both a C# mapping and declarative blocks. Publish rejects it; the
+              This {copy.noun} has both a C# mapping and declarative blocks. Publish rejects it; the
               runtime runs the script and ignores the blocks. Keep one.
             </div>
             <div className="mt-1 flex gap-2">
@@ -176,12 +203,23 @@ export function TaskBindingMappingField({
           </div>
         )}
 
+        {ownerIssues.map((issue, i) => (
+          <div
+            key={i}
+            role={issue.severity === 'error' ? 'alert' : undefined}
+            className={`mb-1.5 text-[10px] ${issue.severity === 'error' ? 'text-destructive-text' : 'text-warning-text'}`}>
+            {issue.field ? <span className="font-mono">{issue.field}: </span> : null}
+            {issue.message}
+          </div>
+        ))}
+
         {mode === 'declarative' && (
           <DeclarativeMappingEditor
             binding={binding}
             schemaRoot={schemaRoot}
             onUpdate={onUpdate}
             phaseHints={phaseHints}
+            owner={owner}
           />
         )}
       </div>

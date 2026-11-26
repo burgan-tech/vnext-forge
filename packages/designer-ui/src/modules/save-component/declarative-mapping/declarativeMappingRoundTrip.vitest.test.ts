@@ -196,3 +196,131 @@ describe('editor rendering', () => {
     expect(html).toContain('data-script="yes"');
   });
 });
+
+/*
+ * Blocks outside task bindings (runtime vnext#1227): transition `output`,
+ * SubFlow `input` / `output`. Fixtures: vnext-example
+ * `declarative-mapping-lab/dml-transition-subflow.json`, `dml-sf-child.json`
+ * (branch feature/declarative-phase-c1).
+ */
+describe.each(['dml-transition-subflow', 'dml-sf-child'])('%s round-trip', (name) => {
+  const text = readFileSync(join(__dirname, '__fixtures__', `${name}.json`), 'utf8');
+  const file = `${DIR}/${name}.json`;
+
+  beforeEach(() => {
+    written.clear();
+    useWorkflowStore.getState().clearWorkflow();
+    useWorkflowStore
+      .getState()
+      .setWorkflow(flowEditorDocumentSchema.parse(JSON.parse(text)), { nodePos: {} });
+  });
+
+  it('saves back unchanged when nothing is edited', async () => {
+    const result = await saveWorkflowDocument({
+      workflowDir: DIR,
+      workflowFilePath: file,
+      workflowJson: useWorkflowStore.getState().workflowJson!,
+    });
+    expect(result.success).toBe(true);
+    expect(written.get(file)).toBe(text.trimEnd());
+  });
+});
+
+describe('dml-transition-subflow edits', () => {
+  const text = readFileSync(join(__dirname, '__fixtures__', 'dml-transition-subflow.json'), 'utf8');
+  const file = `${DIR}/dml-transition-subflow.json`;
+  type SfDoc = {
+    attributes: {
+      startTransition: MappingBindingLike;
+      states: { key: string; transitions?: MappingBindingLike[]; subFlow?: MappingBindingLike }[];
+    };
+  };
+  const state = (doc: SfDoc, key: string) => doc.attributes.states.find((s) => s.key === key)!;
+
+  beforeEach(() => {
+    written.clear();
+    useWorkflowStore.getState().clearWorkflow();
+    useWorkflowStore
+      .getState()
+      .setWorkflow(flowEditorDocumentSchema.parse(JSON.parse(text)), { nodePos: {} });
+  });
+
+  async function saveSf(): Promise<string> {
+    const result = await saveWorkflowDocument({
+      workflowDir: DIR,
+      workflowFilePath: file,
+      workflowJson: useWorkflowStore.getState().workflowJson!,
+    });
+    expect(result.success).toBe(true);
+    return written.get(file)!;
+  }
+
+  it('a SubFlow input expression edit keeps the set order', async () => {
+    useWorkflowStore.getState().updateWorkflow((draft) =>
+      setSetExpression(
+        state(draft as SfDoc, 'child-run').subFlow!,
+        'input',
+        '$.attributes.mode',
+        'input.mode ?? "auto"',
+      ),
+    );
+    const saved = await saveSf();
+    expect(saved).toBe(
+      text.trimEnd().replace('"$.attributes.mode": "input.mode"', '"$.attributes.mode": "input.mode ?? \\"auto\\""'),
+    );
+    const sf = state(JSON.parse(saved) as SfDoc, 'child-run').subFlow!;
+    expect(Object.keys((sf.input as { set: object }).set)).toEqual([
+      '$.attributes.customerId',
+      '$.attributes.mode',
+      '$.attributes.amount',
+      '$.headers.x-channel',
+      '$.key',
+      '$.tags',
+    ]);
+  });
+
+  it('a transition output rename keeps the entry at its position', async () => {
+    useWorkflowStore.getState().updateWorkflow(
+      (draft) =>
+        void renameSetKey(
+          state(draft as SfDoc, 'ready').transitions![0],
+          'output',
+          '$.order.previousState',
+          '$.order.fromState',
+        ),
+    );
+    expect(await saveSf()).toBe(
+      text.trimEnd().replace('"$.order.previousState": "instance.currentState"', '"$.order.fromState": "instance.currentState"'),
+    );
+  });
+
+  it('a start transition output edit changes only that value', async () => {
+    useWorkflowStore.getState().updateWorkflow((draft) =>
+      setBlockMember((draft as SfDoc).attributes.startTransition, 'output', 'into', '$.client'),
+    );
+    expect(await saveSf()).toBe(text.trimEnd().replace('"into": "$.customer"', '"into": "$.client"'));
+  });
+
+  it('renders the transition and SubFlow editors from the stored blocks', () => {
+    const doc = JSON.parse(text) as SfDoc;
+    const transitionHtml = renderToStaticMarkup(
+      createElement(DeclarativeMappingEditor, {
+        binding: state(doc, 'ready').transitions![0],
+        onUpdate: () => undefined,
+        owner: 'transition',
+      }),
+    );
+    expect(transitionHtml).toContain('value="$.input.order"');
+    expect(transitionHtml).not.toContain('role="alert"');
+    const subFlowHtml = renderToStaticMarkup(
+      createElement(DeclarativeMappingEditor, {
+        binding: state(doc, 'child-run').subFlow!,
+        onUpdate: () => undefined,
+        owner: 'subFlow',
+      }),
+    );
+    expect(subFlowHtml).toContain('value="$.tags"');
+    expect(subFlowHtml).toContain('value="result.data.amount"');
+    expect(subFlowHtml).not.toContain('role="alert"');
+  });
+});
