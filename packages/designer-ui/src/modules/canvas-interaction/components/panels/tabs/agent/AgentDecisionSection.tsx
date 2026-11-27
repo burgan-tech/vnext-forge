@@ -7,6 +7,7 @@ import { Section } from '../PropertyPanelShared';
 import { Hint, SelectBox, TextAreaField, ToggleField } from '../../../../../agent-editor/components/agentFormPrimitives';
 import { isRecord, type Json } from '../../../../../agent-editor/agentDocument';
 import { setOrDelete } from './agentStateDocument';
+import { useOpenWorkflowMasterSchemaRoot } from '../../../../../save-component/declarative-mapping/TaskBindingMappingField';
 
 const WHEN_SOURCE_LABEL: Record<string, string> = {
   hint: 'hint',
@@ -39,6 +40,7 @@ export function AgentDecisionSection({
   state: Json & { key: string };
   onEditDecision: (fn: (decision: Json) => void) => void;
 }) {
+  const schemaRoot = useOpenWorkflowMasterSchemaRoot();
   const agent = isRecord(state.agent) ? state.agent : {};
   const decision = isRecord(agent.decision) ? agent.decision : {};
   const transitions = Array.isArray(state.transitions) ? (state.transitions as Json[]) : [];
@@ -203,6 +205,7 @@ export function AgentDecisionSection({
       {mode === 'script' && (
         <div className="mt-3">
           <CsxEditorField
+            schemaRoot={schemaRoot}
             value={scriptOf(decision.mapping)}
             onChange={(next) =>
               onEditDecision((d) => {

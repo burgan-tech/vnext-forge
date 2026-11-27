@@ -8,6 +8,7 @@ import { OpenVnextComponentInModalButton } from '../../../../../../modules/save-
 import { ChooseFromExistingVnextComponentButton } from '../ChooseExistingTaskDialog';
 import { CreateNewComponentButton } from '../CreateNewComponentDialog';
 import { EditableInput, IconPlus, IconTrash, Section } from '../PropertyPanelShared';
+import { useOpenWorkflowMasterSchemaRoot } from '../../../../../save-component/declarative-mapping/TaskBindingMappingField';
 
 type ViewMode = 'single' | 'rule-based';
 
@@ -506,6 +507,7 @@ function ViewBindingCard({
   onBrowseExtension: () => void;
   canPickExisting: boolean;
 }) {
+  const schemaRoot = useOpenWorkflowMasterSchemaRoot();
   const [expanded, setExpanded] = useState(true);
   const [extInput, setExtInput] = useState('');
 
@@ -568,6 +570,7 @@ function ViewBindingCard({
         <div className="px-2.5 pb-2.5 space-y-2 border-t border-border pt-2">
           <div>
             <CsxEditorField
+              schemaRoot={schemaRoot}
               value={(binding.rule as ScriptCode | undefined) ?? null}
               onChange={onUpdateRule}
               onRemove={onRemoveRule}

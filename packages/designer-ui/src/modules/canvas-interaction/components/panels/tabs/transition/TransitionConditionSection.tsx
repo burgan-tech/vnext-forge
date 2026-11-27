@@ -3,6 +3,7 @@ import { CsxEditorField, type ScriptCode } from '../../../../../../modules/save-
 import { MappingScriptsSection } from '../../../../../../modules/save-component/components/MappingScriptsSection';
 import { Section, SelectField } from '../PropertyPanelShared';
 import { TriggerKind } from '@vnext-forge-studio/vnext-types';
+import { useOpenWorkflowMasterSchemaRoot } from '../../../../../save-component/declarative-mapping/TaskBindingMappingField';
 
 interface TransitionConditionSectionProps {
   rule: ScriptCode | null;
@@ -39,6 +40,7 @@ export function TransitionConditionSection({
   scripts,
   onScriptsChange,
 }: TransitionConditionSectionProps) {
+  const schemaRoot = useOpenWorkflowMasterSchemaRoot();
   return (
     <Section title="Condition" defaultOpen={!!rule?.code}>
       <p className="text-[10px] text-muted-foreground mb-2 leading-relaxed">
@@ -63,6 +65,7 @@ export function TransitionConditionSection({
       </div>
 
       <CsxEditorField
+        schemaRoot={schemaRoot}
         value={rule}
         onChange={onUpdateScript}
         onRemove={onRemoveScript}

@@ -1,5 +1,6 @@
 import { Field } from './Field.js';
-import { Textarea } from './Textarea.js';
+import { ExpressionTextarea } from './ExpressionInput.js';
+import type { SlotSurface } from '../modules/expressions/expressionCatalog.js';
 
 /** A ScriptCode carrying an inline Dynamic Expresso expression. */
 export interface DynamicExpressoValue {
@@ -15,6 +16,10 @@ interface DynamicExpressoFieldProps {
   placeholder?: string;
   value: DynamicExpressoValue | undefined;
   onChange: (next: DynamicExpressoValue | undefined) => void;
+  /** Expression surface for highlighting and suggestions; defaults to `'key'` (cache and lock keys). */
+  surface?: SlotSurface;
+  /** Workflow master schema, when the caller already holds it, for `data.` member suggestions. */
+  schemaRoot?: unknown;
 }
 
 /**
@@ -29,16 +34,20 @@ export function DynamicExpressoField({
   placeholder,
   value,
   onChange,
+  surface = 'key',
+  schemaRoot,
 }: DynamicExpressoFieldProps) {
   return (
     <Field label={label} hint={hint} required={required}>
-      <Textarea
+      <ExpressionTextarea
+        mode="expression"
+        surface={surface}
+        schemaRoot={schemaRoot}
         value={value?.code ?? ''}
-        onChange={(e) => {
-          const code = e.target.value;
-          onChange(code ? { location: 'dynamicExpresso', code, encoding: 'NAT' } : undefined);
-        }}
+        onChange={(code) => onChange(code ? { location: 'dynamicExpresso', code, encoding: 'NAT' } : undefined)}
         placeholder={placeholder ?? 'e.g. "customer:" + context.Headers.customerId'}
+        ariaLabel={label}
+        minRows={3}
         className="min-h-16 font-mono text-xs"
       />
     </Field>

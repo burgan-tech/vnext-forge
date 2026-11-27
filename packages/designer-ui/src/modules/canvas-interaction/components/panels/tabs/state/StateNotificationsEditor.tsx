@@ -4,6 +4,7 @@ import type { ScriptCode } from '../../../../../../modules/save-component/compon
 import { CsxEditorField } from '../../../../../../modules/save-component/components/CsxEditorField';
 import { MappingScriptsSection } from '../../../../../../modules/save-component/components/MappingScriptsSection';
 import { IconPlus, IconTrash, Section, SelectField } from '../PropertyPanelShared';
+import { useOpenWorkflowMasterSchemaRoot } from '../../../../../save-component/declarative-mapping/TaskBindingMappingField';
 
 /* ────────────── Helpers ────────────── */
 
@@ -39,6 +40,7 @@ export function StateNotificationsEditor({
   stateKey,
   onChange,
 }: StateNotificationsEditorProps) {
+  const schemaRoot = useOpenWorkflowMasterSchemaRoot();
   const safe = Array.isArray(notifications) ? notifications : [];
 
   function patchEntry(index: number, patch: Partial<StateNotification>): void {
@@ -127,6 +129,7 @@ export function StateNotificationsEditor({
                 <span className="text-subtle font-normal">(optional)</span>
               </label>
               <CsxEditorField
+                schemaRoot={schemaRoot}
                 value={toScriptCode(n.rule)}
                 onChange={(sc) => patchEntry(index, { rule: fromScriptCode(sc) })}
                 onRemove={() => patchEntry(index, { rule: undefined })}

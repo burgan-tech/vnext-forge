@@ -4,6 +4,7 @@
  * feeds them the workflow master schema (`attributes.schema` component's
  * `attributes.schema`) when it is in the project.
  */
+import { conversionsOf, functionsOf, membersOf, variablesOf, type CatalogEntry } from '../../expressions/expressionCatalog';
 import { effectiveTaskSlot } from '../taskSlots';
 import {
   EVENT_INPUT_ROOTS,
@@ -85,56 +86,44 @@ export const INPUT_TARGETS = [
   '$.data',
 ] as const;
 
+const memberNames = (root: string, site: MappingSiteKind): readonly string[] =>
+  membersOf(root, site).map((e: CatalogEntry) => e.name);
+
 /** Members offered after `task.`: the same common `config` fields. */
-export const TASK_MEMBERS = ['url', 'method', 'body', 'headers', 'timeoutSeconds', 'queryString', 'data'] as const;
+export const TASK_MEMBERS = memberNames('task', 'taskInput');
 
 /** Members of `config` (host configuration). */
-export const CONFIG_MEMBERS = ['get("")'] as const;
+export const CONFIG_MEMBERS = memberNames('config', 'taskInput');
 
 /**
  * Members of `headers` (the incoming request's headers, read-only). A header is read with the indexer —
  * `headers["x-channel"]` (null when absent, case-insensitive) — so a hyphenated name works; `has` tests presence.
  * Not `task.headers`, which is the task's configured outgoing headers.
  */
-export const HEADERS_MEMBERS = ['has("")'] as const;
+export const HEADERS_MEMBERS = memberNames('headers', 'taskInput');
 
 /** `urlEncode(value)`: percent-encodes one URL component. */
-export const URL_ENCODE = 'urlEncode()';
+export const URL_ENCODE = `${functionsOf('taskInput')[0].name}()`;
 
 /** Members of the `instance` view (camelCase, read-only). */
-export const INSTANCE_MEMBERS = [
-  'id',
-  'key',
-  'flow',
-  'version',
-  'currentState',
-  'effectiveState',
-  'effectiveStateType',
-  'effectiveStateSubType',
-  'effectiveStatus',
-  'type',
-  'data',
-] as const;
+export const INSTANCE_MEMBERS = memberNames('instance', 'taskInput');
 
 /** Members of `user`. `hasRole` takes a role name. */
-export const USER_MEMBERS = ['available', 'roles', 'hasRole("")'] as const;
+export const USER_MEMBERS = memberNames('user', 'taskInput');
 
 /** `result` members (output phase only): the task's standard response. */
-export const RESULT_MEMBERS = ['body', 'headers', 'statusCode'] as const;
+export const RESULT_MEMBERS = memberNames('result', 'taskOutput');
 
 /** `result` members of a SubFlow output: the child's data and `"completed"` / `"faulted"`. */
-export const SUBFLOW_RESULT_MEMBERS = ['data', 'status'] as const;
+export const SUBFLOW_RESULT_MEMBERS = memberNames('result', 'subFlowOutput');
 
 /** SubFlow input write targets: the child's start request (`{ attributes, headers, key, tags }`). */
 export const SUBFLOW_INPUT_TARGETS = SUBFLOW_INPUT_ROOTS.map((r) => `$.${r}`);
 
 /** Conversions a JSON value needs for comparison and arithmetic. */
-export const JSON_CONVERSIONS = [
-  'AsDouble()',
-  'AsInt32()',
-  'AsBoolean()',
-  'AsArrayLength()',
-] as const;
+export const JSON_CONVERSIONS = conversionsOf('condition')
+  .map((e) => e.name)
+  .filter((n) => n !== 'AsJsonElement()');
 
 /**
  * Variables of a mapping expression per site (runtime `ExpressionSignatures.Mapping`):
@@ -143,15 +132,11 @@ export const JSON_CONVERSIONS = [
  */
 export function expressionVariables(phaseOrSite: MappingPhase | MappingSiteKind): string[] {
   const site = toSiteKind(phaseOrSite);
-  if (site === 'eventInput' || site === 'workflowOutput' || site === 'functionOutput') {
-    return [...siteVariableNames(site)];
-  }
-  if (isTaskSite(site)) {
-    const base = ['data', 'input', 'instance', 'now', 'user', 'context', 'task', 'config', 'headers', URL_ENCODE];
-    return site === 'taskOutput' ? [...base, 'result'] : base;
-  }
-  const base = ['data', 'input', 'instance', 'now', 'user', 'context', 'headers'];
-  return site === 'subFlowOutput' ? [...base, 'result'] : base;
+  const names = variablesOf(site).map((e) => e.name);
+  if (!isTaskSite(site)) return names;
+  // `urlEncode` is a catalog function; it sits before `result` in the variable list.
+  const at = names.indexOf('result');
+  return at < 0 ? [...names, URL_ENCODE] : [...names.slice(0, at), URL_ENCODE, ...names.slice(at)];
 }
 
 /**
@@ -258,7 +243,7 @@ function prefixFilter(items: readonly string[], query: string, limit = 12): stri
 }
 
 /** Child property names of the schema node at `segments` (identifier-safe names only). */
-function schemaChildren(
+export function schemaChildren(
   properties: readonly SchemaProperty[],
   segments: readonly string[],
 ): SchemaProperty[] {
@@ -333,9 +318,14 @@ export function expressionSuggestions(
   }
 }
 
+/** Function calls whose caret lands inside the parentheses: `urlEncode()`, `sha256()`, `varyKey()`. */
+const FUNCTION_CALLS = new Set(
+  [...functionsOf('taskInput'), ...functionsOf('key')].map((e) => e.insertText ?? `${e.name}()`),
+);
+
 /**
  * Replaces the typed member with `item`; a `hasRole("")` / `get("")` / `has("")` caret lands inside the quotes, a
- * `urlEncode()` caret inside the parentheses.
+ * function call (`urlEncode()`, `sha256()`, `varyKey()`) caret inside the parentheses.
  */
 export function insertExpressionItem(
   text: string,
@@ -346,7 +336,7 @@ export function insertExpressionItem(
   const next = text.slice(0, token.start) + item + text.slice(caret);
   const inside = item.endsWith('("")')
     ? item.length - 2
-    : item === URL_ENCODE
+    : FUNCTION_CALLS.has(item)
       ? item.length - 1
       : item.length;
   return { text: next, caret: token.start + inside };

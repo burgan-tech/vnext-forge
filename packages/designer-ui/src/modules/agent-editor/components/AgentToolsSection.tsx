@@ -355,6 +355,8 @@ function ScriptToolBinding({ tool, index, onChange }: { tool: Json; index: numbe
           onChange={(v) => onChange(withBinding(tool, 'code', { location: 'dynamicExpresso', encoding: 'NAT', code: v ?? '' }))}
           rows={2}
           mono
+          expressionSurface="agentTool"
+          ariaLabel="Tool binding expression"
           placeholder="args.count + 1"
         />
       ) : (

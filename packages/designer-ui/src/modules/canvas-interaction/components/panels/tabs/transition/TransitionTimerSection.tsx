@@ -2,6 +2,7 @@ import type { ScriptsConfig } from '@vnext-forge-studio/vnext-types';
 import { CsxEditorField, type ScriptCode } from '../../../../../../modules/save-component/components/CsxEditorField';
 import { MappingScriptsSection } from '../../../../../../modules/save-component/components/MappingScriptsSection';
 import { Section } from '../PropertyPanelShared';
+import { useOpenWorkflowMasterSchemaRoot } from '../../../../../save-component/declarative-mapping/TaskBindingMappingField';
 
 interface TransitionTimerSectionProps {
   timer: ScriptCode | null;
@@ -29,12 +30,14 @@ export function TransitionTimerSection({
   scripts,
   onScriptsChange,
 }: TransitionTimerSectionProps) {
+  const schemaRoot = useOpenWorkflowMasterSchemaRoot();
   return (
     <Section title="Timer" defaultOpen={!!timer?.code}>
       <p className="text-[10px] text-muted-foreground mb-2 leading-relaxed">
         Schedule expression or script for when this transition fires.
       </p>
       <CsxEditorField
+        schemaRoot={schemaRoot}
         value={timer}
         onChange={onUpdateScript}
         onRemove={onRemoveScript}

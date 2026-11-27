@@ -9,11 +9,13 @@ import { useStateOptions } from './useStateOptions';
 import { TransitionAnnotationsSection } from '../tabs/transition/TransitionAnnotationsSection';
 import { setTimeoutAnnotations } from '../tabs/shared/timeoutFields';
 import { HISTORY_NONE_REASON, useHistoryNone } from '../../../hooks/useHistoryNone';
+import { useOpenWorkflowMasterSchemaRoot } from '../../../../save-component/declarative-mapping/TaskBindingMappingField';
 
 const inputClass =
   'w-full px-2.5 py-1.5 text-xs font-mono border border-border rounded-lg bg-muted-surface text-foreground focus:outline-none focus:ring-2 focus:ring-ring/20 focus:border-primary-border focus:bg-surface transition-all placeholder:text-subtle';
 
 export function WorkflowTimeoutSection() {
+  const schemaRoot = useOpenWorkflowMasterSchemaRoot();
   const historyNone = useHistoryNone();
   const { workflowJson, updateWorkflow } = useWorkflowStore();
   if (!workflowJson) return null;
@@ -215,6 +217,7 @@ export function WorkflowTimeoutSection() {
                   Optional dynamic timeout mapping. Computes timeout duration at runtime.
                 </p>
                 <CsxEditorField
+                  schemaRoot={schemaRoot}
                   value={(timeout.mapping as ScriptCode | undefined) ?? null}
                   onChange={updateMapping}
                   onRemove={removeMapping}

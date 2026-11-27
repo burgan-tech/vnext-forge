@@ -13,6 +13,7 @@ import { describe, expect, it } from 'vitest';
 import { AgentToolsSection } from './components/AgentToolsSection';
 import { withBindingUpdate, type Json } from './agentDocument';
 import { setSetExpression, switchToDeclarative, switchToScript } from '../save-component/declarative-mapping/declarativeMapping';
+import { diagnoseExpression } from '../expressions/tokenizeExpression';
 import { AgentStateTab } from '../canvas-interaction/components/panels/tabs/agent/AgentStateTab';
 
 const task = { key: 'get-customer', domain: 'core', flow: 'sys-tasks', version: '1.0.0' };
@@ -104,5 +105,26 @@ describe('agent prompt as a Dynamic Expresso expression', () => {
     );
     expect(html).toContain('data-testid="dynamic-expression"');
     expect(html).toContain('publish rejects it');
+  });
+});
+
+describe('agent tool expression binding — highlighting and diagnostics', () => {
+  const scriptTool = (code: string): Json => ({
+    kind: 2,
+    name: 'calc',
+    description: 'Calc.',
+    parameters: { type: 'object', properties: {} },
+    binding: { code: { location: 'dynamicExpresso', encoding: 'NAT', code } },
+  });
+
+  it('renders the expression through the highlighted textarea', () => {
+    expect(render(scriptTool('args.count + 1'))).toContain('data-testid="expression-mirror"');
+  });
+
+  it('data.x has no diagnostic, foo.x has one', () => {
+    expect(diagnoseExpression('data.x', 'agentTool')).toHaveLength(0);
+    expect(diagnoseExpression('foo.x', 'agentTool').length).toBeGreaterThan(0);
+    expect(render(scriptTool('data.x'))).not.toContain('data-testid="expression-diagnostic"');
+    expect(render(scriptTool('foo.x'))).toContain('data-testid="expression-diagnostic"');
   });
 });

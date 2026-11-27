@@ -28,6 +28,7 @@ import { useAgentCatalog } from '../../../../../agent-editor/useAgentCatalog';
 import { AgentDryRunDialog } from '../../../../../agent-runs/AgentDryRunDialog';
 import { setOrDelete, updateAgentBinding, updateAgentSection } from './agentStateDocument';
 import { AgentDecisionSection } from './AgentDecisionSection';
+import { useOpenWorkflowMasterSchemaRoot } from '../../../../../save-component/declarative-mapping/TaskBindingMappingField';
 
 interface AgentStateTabProps {
   state: Json & { key: string };
@@ -60,6 +61,7 @@ function refLabel(ref: unknown): string {
  * its candidate set.
  */
 export function AgentStateTab({ state }: AgentStateTabProps) {
+  const schemaRoot = useOpenWorkflowMasterSchemaRoot();
   const updateWorkflow = useWorkflowStore((s) => s.updateWorkflow);
   const activeProject = useProjectStore((s) => s.activeProject);
   const vnextConfig = useProjectStore((s) => s.vnextConfig);
@@ -292,6 +294,7 @@ export function AgentStateTab({ state }: AgentStateTabProps) {
           />
         ) : (
           <CsxEditorField
+            schemaRoot={schemaRoot}
             value={promptScript}
             onChange={(next) =>
               editSection('prompt', (p) => {

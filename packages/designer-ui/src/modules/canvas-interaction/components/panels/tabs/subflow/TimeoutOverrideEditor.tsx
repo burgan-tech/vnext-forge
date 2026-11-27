@@ -6,6 +6,7 @@ import { EditableInput, IconTrash } from '../PropertyPanelShared';
 import { setTimeoutAnnotations, setTimeoutComment } from '../shared/timeoutFields';
 import { TransitionAnnotationsSection } from '../transition/TransitionAnnotationsSection';
 import { KeyCombobox } from './KeyCombobox';
+import { useOpenWorkflowMasterSchemaRoot } from '../../../../../save-component/declarative-mapping/TaskBindingMappingField';
 
 export interface TimeoutOverrideEditorProps {
   timeout: TimeoutTransition | undefined;
@@ -26,6 +27,7 @@ export function TimeoutOverrideEditor({
   onUpdate,
   onClear,
 }: TimeoutOverrideEditorProps) {
+  const schemaRoot = useOpenWorkflowMasterSchemaRoot();
   const configured = timeout !== undefined && timeout !== null;
   const incomplete = configured && !timeout?.key;
   const [open, setOpen] = useState(configured);
@@ -140,6 +142,7 @@ export function TimeoutOverrideEditor({
           <div>
             <label className={LABEL}>Mapping (optional)</label>
             <CsxEditorField
+              schemaRoot={schemaRoot}
               value={(mapping as ScriptCode | undefined) ?? null}
               onChange={(sc) =>
                 onUpdate((t) => {
